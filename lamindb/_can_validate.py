@@ -102,8 +102,8 @@ def _inspect(
         _check_source_db(source, using_key)
         queryset = queryset.filter(source=source).all()
     _check_organism_db(organism, using_key)
-    orm = queryset.model
-    model_name = orm._meta.model.__name__
+    registry = queryset.model
+    model_name = registry._meta.model.__name__
 
     # inspect in the DB
     result_db = inspect(
@@ -116,9 +116,9 @@ def _inspect(
     )
     nonval = set(result_db.non_validated).difference(result_db.synonyms_mapper.keys())
 
-    if len(nonval) > 0 and orm.__get_schema_name__() == "bionty":
+    if len(nonval) > 0 and registry.__get_schema_name__() == "bionty":
         try:
-            bionty_result = orm.public(organism=organism, source=source).inspect(
+            bionty_result = registry.public(organism=organism, source=source).inspect(
                 values=nonval, field=field, mute=True
             )
             bionty_validated = bionty_result.validated
@@ -162,7 +162,7 @@ def _inspect(
         logger.print(f"   couldn't validate {labels}: {colors.red(print_values)}")
         logger.print(
             f"→  if you are sure, create new record{s} via"
-            f" {colors.italic(f'{orm.__name__}()')} and save to your registry"
+            f" {colors.italic(f'{registry.__name__}()')} and save to your registry"
         )
 
     return result_db
@@ -326,19 +326,21 @@ def _standardize(
         _check_source_db(source, using_key)
         queryset = queryset.filter(source=source).all()
     _check_organism_db(organism, using_key)
-    orm = queryset.model
+    registry = queryset.model
 
-    if _has_organism_field(orm):
+    if _has_organism_field(registry):
         # here, we can safely import bionty
         from bionty._bionty import create_or_get_organism_record
 
-        organism_record = create_or_get_organism_record(organism=organism, orm=orm)
+        organism_record = create_or_get_organism_record(
+            organism=organism, registry=registry
+        )
         organism = (
             organism_record.name if organism_record is not None else organism_record
         )
 
     try:
-        orm._meta.get_field(synonyms_field)
+        registry._meta.get_field(synonyms_field)
         df = _filter_query_based_on_organism(
             queryset=queryset, field=field, organism=organism
         )
@@ -370,7 +372,7 @@ def _standardize(
             return result
 
     # map synonyms in Bionty
-    if orm.__get_schema_name__() == "bionty" and public_aware:
+    if registry.__get_schema_name__() == "bionty" and public_aware:
         mapper = {}
         if return_mapper:
             mapper = std_names_db
@@ -378,12 +380,14 @@ def _standardize(
                 df=df, identifiers=values, return_mapper=False, mute=True, **_kwargs
             )
 
-        val_res = orm.validate(std_names_db, field=field, mute=True, organism=organism)
+        val_res = registry.validate(
+            std_names_db, field=field, mute=True, organism=organism
+        )
         if all(val_res):
             return _return(result=std_names_db, mapper=mapper)
 
         nonval = np.array(std_names_db)[~val_res]
-        std_names_bt_mapper = orm.public(organism=organism).standardize(
+        std_names_bt_mapper = registry.public(organism=organism).standardize(
             nonval, return_mapper=True, mute=True, **_kwargs
         )
 
@@ -395,7 +399,7 @@ def _standardize(
                 f" {list(std_names_bt_mapper.keys())}"
             )
             warn_msg += (
-                f"\n   please add corresponding {orm._meta.model.__name__} records via"
+                f"\n   please add corresponding {registry._meta.model.__name__} records via"
                 f" `.from_values({list(set(std_names_bt_mapper.values()))})`"
             )
             logger.warning(warn_msg)
@@ -506,13 +510,15 @@ def _filter_query_based_on_organism(
     """Filter a queryset based on organism."""
     import pandas as pd
 
-    orm = queryset.model
+    registry = queryset.model
 
-    if _has_organism_field(orm) and not _field_is_id(field, orm):
+    if _has_organism_field(registry) and not _field_is_id(field, registry):
         # here, we can safely import bionty
         from bionty._bionty import create_or_get_organism_record
 
-        organism_record = create_or_get_organism_record(organism=organism, orm=orm)
+        organism_record = create_or_get_organism_record(
+            organism=organism, registry=registry
+        )
         if organism_record is not None:
             queryset = queryset.filter(organism__name=organism_record.name)
 
@@ -522,10 +528,10 @@ def _filter_query_based_on_organism(
         return queryset.values_list(values_list_field, flat=True)
 
 
-def _field_is_id(field: str, orm: type[Record]) -> bool:
+def _field_is_id(field: str, registry: type[Record]) -> bool:
     """Check if the field is an ontology ID."""
-    if hasattr(orm, "_ontology_id_field"):
-        if field == orm._ontology_id_field:
+    if hasattr(registry, "_ontology_id_field"):
+        if field == registry._ontology_id_field:
             return True
     if field.endswith("id"):
         return True

@@ -108,21 +108,21 @@ def bulk_create(records: Iterable[Record], ignore_conflicts: bool | None = False
     records_by_orm = defaultdict(list)
     for record in records:
         records_by_orm[record.__class__].append(record)
-    for orm, records in records_by_orm.items():
-        orm.objects.bulk_create(records, ignore_conflicts=ignore_conflicts)
+    for registry, records in records_by_orm.items():
+        registry.objects.bulk_create(records, ignore_conflicts=ignore_conflicts)
 
 
 def bulk_update(records: Iterable[Record], ignore_conflicts: bool | None = False):
     records_by_orm = defaultdict(list)
     for record in records:
         records_by_orm[record.__class__].append(record)
-    for orm, records in records_by_orm.items():
+    for registry, records in records_by_orm.items():
         field_names = [
             field.name
-            for field in orm._meta.fields
+            for field in registry._meta.fields
             if (field.name != "created_at" and field.name != "id")
         ]
-        orm.objects.bulk_update(records, field_names)
+        registry.objects.bulk_update(records, field_names)
 
 
 # This is also used within Artifact.save()

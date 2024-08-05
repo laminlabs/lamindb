@@ -335,9 +335,9 @@ def _bulk_create_dicts_from_df(
     return df.reset_index().to_dict(orient="records"), multi_msg
 
 
-def _has_organism_field(orm: type[Record]) -> bool:
+def _has_organism_field(registry: type[Record]) -> bool:
     try:
-        orm._meta.get_field("organism")
+        registry._meta.get_field("organism")
         return True
     except FieldDoesNotExist:
         return False

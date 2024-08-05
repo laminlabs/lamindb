@@ -41,15 +41,17 @@ def view(
         schema_module = importlib.import_module(get_schema_module_name(schema_name))
 
         all_registries = {
-            orm
-            for orm in schema_module.__dict__.values()
-            if inspect.isclass(orm)
-            and issubclass(orm, Record)
-            and orm.__name__ != "Record"
+            registry
+            for registry in schema_module.__dict__.values()
+            if inspect.isclass(registry)
+            and issubclass(registry, Record)
+            and registry is not Record
         }
         if registries is not None:
             filtered_registries = {
-                orm for orm in all_registries if orm.__name__ in registries
+                registry
+                for registry in all_registries
+                if registry.__name__ in registries
             }
         else:
             filtered_registries = all_registries
@@ -59,12 +61,12 @@ def view(
             logger.print("*" * len(section_no_color))
             logger.print(section)
             logger.print("*" * len(section_no_color))
-        for orm in sorted(filtered_registries, key=lambda x: x.__name__):
-            if hasattr(orm, "updated_at"):
-                df = orm.filter().order_by("-updated_at")[:n].df()
+        for registry in sorted(filtered_registries, key=lambda x: x.__name__):
+            if hasattr(registry, "updated_at"):
+                df = registry.filter().order_by("-updated_at")[:n].df()
             else:
                 # need to adjust in the future
-                df = orm.df().iloc[-n:]
+                df = registry.df().iloc[-n:]
             if df.shape[0] > 0:
-                logger.print(colors.blue(colors.bold(orm.__name__)))
+                logger.print(colors.blue(colors.bold(registry.__name__)))
                 show(df)

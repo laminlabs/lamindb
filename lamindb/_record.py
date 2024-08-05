@@ -36,9 +36,9 @@ def init_self_from_db(self: Record, existing_record: Record):
     self._state.db = "default"
 
 
-def validate_required_fields(orm: Record, kwargs):
+def validate_required_fields(record: Record, kwargs):
     required_fields = {
-        k.name for k in orm._meta.fields if not k.null and k.default is None
+        k.name for k in record._meta.fields if not k.null and k.default is None
     }
     required_fields_not_passed = {k: None for k in required_fields if k not in kwargs}
     kwargs.update(required_fields_not_passed)
@@ -77,9 +77,9 @@ def suggest_records_with_similar_names(record: Record, kwargs) -> bool:
     return False
 
 
-def __init__(orm: Record, *args, **kwargs):
+def __init__(record: Record, *args, **kwargs):
     if not args:
-        validate_required_fields(orm, kwargs)
+        validate_required_fields(record, kwargs)
 
         # do not search for names if an id is passed; this is important
         # e.g. when synching ids from the notebook store to lamindb
@@ -87,29 +87,29 @@ def __init__(orm: Record, *args, **kwargs):
         if "_has_consciously_provided_uid" in kwargs:
             has_consciously_provided_uid = kwargs.pop("_has_consciously_provided_uid")
         if settings.creation.search_names and not has_consciously_provided_uid:
-            match = suggest_records_with_similar_names(orm, kwargs)
+            match = suggest_records_with_similar_names(record, kwargs)
             if match:
                 if "version" in kwargs:
                     version_comment = " and version"
-                    existing_record = orm.__class__.filter(
+                    existing_record = record.__class__.filter(
                         name=kwargs["name"], version=kwargs["version"]
                     ).one_or_none()
                 else:
                     version_comment = ""
-                    existing_record = orm.__class__.filter(name=kwargs["name"]).one()
+                    existing_record = record.__class__.filter(name=kwargs["name"]).one()
                 if existing_record is not None:
                     logger.important(
-                        f"returning existing {orm.__class__.__name__} record with same"
+                        f"returning existing {record.__class__.__name__} record with same"
                         f" name{version_comment}: '{kwargs['name']}'"
                     )
-                    init_self_from_db(orm, existing_record)
+                    init_self_from_db(record, existing_record)
                     return None
-        super(Record, orm).__init__(**kwargs)
-    elif len(args) != len(orm._meta.concrete_fields):
+        super(Record, record).__init__(**kwargs)
+    elif len(args) != len(record._meta.concrete_fields):
         raise ValueError("please provide keyword arguments, not plain arguments")
     else:
         # object is loaded from DB (**kwargs could be omitted below, I believe)
-        super(Record, orm).__init__(*args, **kwargs)
+        super(Record, record).__init__(*args, **kwargs)
 
 
 @classmethod  # type:ignore
@@ -191,11 +191,11 @@ def _search(
     truncate_words: bool = False,
 ) -> QuerySet:
     input_queryset = _queryset(cls, using_key=using_key)
-    orm = input_queryset.model
+    registry = input_queryset.model
     if field is None:
         fields = [
             field.name
-            for field in orm._meta.fields
+            for field in registry._meta.fields
             if field.get_internal_type() in {"CharField", "TextField"}
         ]
     else:
@@ -287,7 +287,7 @@ def _lookup(
 ) -> NamedTuple:
     """{}"""  # noqa: D415
     queryset = _queryset(cls, using_key=using_key)
-    field = get_name_field(orm=queryset.model, field=field)
+    field = get_name_field(registry=queryset.model, field=field)
 
     return Lookup(
         records=queryset,
@@ -296,7 +296,7 @@ def _lookup(
         prefix="ln",
     ).lookup(
         return_field=(
-            get_name_field(orm=queryset.model, field=return_field)
+            get_name_field(registry=queryset.model, field=return_field)
             if return_field is not None
             else None
         )
@@ -315,24 +315,24 @@ def lookup(
 
 
 def get_name_field(
-    orm: Record | QuerySet | Manager,
+    registry: type[Record] | QuerySet | Manager,
     *,
     field: str | StrField | None = None,
 ) -> str:
-    """Get the 1st char or text field from the orm."""
-    if isinstance(orm, (QuerySet, Manager)):
-        orm = orm.model
-    model_field_names = [i.name for i in orm._meta.fields]
+    """Get the 1st char or text field from the registry."""
+    if isinstance(registry, (QuerySet, Manager)):
+        registry = registry.model
+    model_field_names = [i.name for i in registry._meta.fields]
 
     # set to default name field
     if field is None:
-        if hasattr(orm, "_name_field"):
-            field = orm._meta.get_field(orm._name_field)
+        if hasattr(registry, "_name_field"):
+            field = registry._meta.get_field(registry._name_field)
         elif "name" in model_field_names:
-            field = orm._meta.get_field("name")
+            field = registry._meta.get_field("name")
         else:
             # first char or text field that doesn't contain "id"
-            for i in orm._meta.fields:
+            for i in registry._meta.fields:
                 if "id" in i.name:
                     continue
                 if i.get_internal_type() in {"CharField", "TextField"}:
