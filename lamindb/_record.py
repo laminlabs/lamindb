@@ -360,7 +360,7 @@ def get_name_field(
 def _queryset(cls: Record | QuerySet | Manager, using_key: str) -> QuerySet:
     if isinstance(cls, (QuerySet, Manager)):
         return cls.all()
-    elif using_key is None:
+    elif using_key is None or using_key == "default":
         return cls.objects.all()
     else:
         # using must be called on cls, otherwise the connection isn't found
