@@ -310,7 +310,7 @@ class AnnDataCurator(DataFrameCurator):
 
     See also :class:`~lamindb.Curate`.
 
-    Note that if genes are removed from the AnnData object, the :class:`~lamindb.AnnDataCurator` object should be recreated.
+    Note that if genes are removed from the AnnData object, the object should be recreated using :meth:`~lamindb.Curate.from_anndata`.
 
     Args:
         data: The AnnData object or an AnnData-like path.
@@ -484,7 +484,7 @@ class MuDataCurator:
     See also :class:`~lamindb.Curate`.
 
     Note that if genes or other measurements are removed from the MuData object,
-    the :class:`~lamindb.MuDataCurator` object should be recreated.
+    the object should be recreated using :meth:`~lamindb.Curate.from_mudata`.
 
     Args:
         mdata: The MuData object to curate.
