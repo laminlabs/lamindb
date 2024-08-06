@@ -756,7 +756,7 @@ class Curate:
     The curation flow has several steps:
     1. Create an :class:`Curate` using :meth:`~lamindb.Curate.from_df`, :meth:`~lamindb.Curate.from_anndata`, or :meth:`~lamindb.Curate.from_mudata`
        for the corresponding object type that you want to curate.
-       During the creation of the object, the passed categoricals will be validated to ensure that they are valid for curation.
+       During the creation of the object, the passed categoricals will be saved if they are found in the object.
     2. Run :meth:`~lamindb.Curate.validate` which checks the data against the defined criteria.
        It identifies which values are already validated (exist in our registries) and which are new or potentially problematic.
     3. Determine how to handle validated and unvalidated values.
