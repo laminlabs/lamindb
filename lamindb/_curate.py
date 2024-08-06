@@ -894,7 +894,7 @@ def validate_categories(
     if n_validated > 0:
         _log_mapping_info()
         logger.warning(
-            f"found {colors.yellow(f'{n_validated} terms')} validated terms: "
+            f"found {colors.yellow(f'{n_validated}')} validated terms: "
             f"{colors.yellow(values_validated)}\n      → save terms via "
             f"{colors.yellow(validated_hint_print)}"
         )
