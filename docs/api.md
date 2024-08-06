@@ -20,7 +20,7 @@ lamindb
 
 ```{toctree}
 :maxdepth: 1
-:caption: Plug-ins
+:caption: Plugins
 :hidden:
 
 bionty
