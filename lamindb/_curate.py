@@ -754,15 +754,25 @@ class Curate:
     to facilitate data integration, interpretation and analysis.
 
     The curation flow has several steps:
-    1. Create an :class:`Curate` using :meth:`~lamindb.Curate.from_df`, :meth:`~lamindb.Curate.from_anndata`, or :meth:`~lamindb.Curate.from_mudata`
-       for the corresponding object type that you want to curate.
-       During the creation of the object, the passed categoricals will be saved if they are found in the object.
-    2. Run :meth:`~lamindb.Curate.validate` which checks the data against the defined criteria.
-       It identifies which values are already validated (exist in our registries) and which are new or potentially problematic.
-    3. Determine how to handle validated and unvalidated values.
-       Validated values that are not yet in the registry can automatically be registered using :meth:`~lamindb.Curate.add_validated_from`.
-       Valid and new values can be registered using :meth:`~lamindb.Curate.add_new_from`.
-       All unvalidated values can be accessed using :meth:`~lamindb.Curate.non_validated` and subsequently removed from the object at hand.
+
+    1. Create a :class:`Curate` object using one of the following methods:
+
+    - :meth:`~lamindb.Curate.from_df`
+    - :meth:`~lamindb.Curate.from_anndata`
+    - :meth:`~lamindb.Curate.from_mudata`
+
+    Choose the method corresponding to the object type you want to curate.
+    During object creation, any passed categoricals found in the object will be saved.
+
+    2. Run :meth:`~lamindb.Curate.validate` to check the data against the defined criteria.
+    This method identifies which values are already validated (exist in our registries)
+    and which are new or potentially problematic.
+
+    3. Determine how to handle validated and unvalidated values:
+
+    - Validated values not yet in the registry can be automatically registered using :meth:`~lamindb.Curate.add_validated_from`.
+    - Valid and new values can be registered using :meth:`~lamindb.Curate.add_new_from`.
+    - All unvalidated values can be accessed using :meth:`~lamindb.Curate.non_validated and subsequently removed from the object at hand.
     """
 
     @classmethod
