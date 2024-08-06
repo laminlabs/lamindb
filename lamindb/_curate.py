@@ -403,7 +403,7 @@ class AnnDataCurator(DataFrameCurator):
     ):
         """Save variable records."""
         update_registry(
-            values=self._adata.var.index,
+            values=list(self._adata.var.index),
             field=self.var_index,
             key="var_index",
             save_function="add_new_from_var_index",
@@ -859,7 +859,7 @@ def get_registry_instance(registry: Record, using_key: str | None = None) -> Rec
     return registry
 
 
-def filter_kwargs_source_organism(registry: type[Record], kwargs: dict) -> dict:
+def get_current_filter_kwargs(registry: type[Record], kwargs: dict) -> dict:
     """Make sure the source and organism are saved in the same database as the registry."""
     from lamindb.core._settings import settings
 
@@ -895,7 +895,7 @@ def standardize_and_inspect(
     **kwargs,
 ):
     """Standardize and inspect values using a registry."""
-    filter_kwargs = filter_kwargs_source_organism(registry, kwargs)
+    filter_kwargs = get_current_filter_kwargs(registry, kwargs)
 
     if standardize:
         if hasattr(registry, "standardize") and hasattr(
@@ -981,7 +981,7 @@ def validate_categories(
             public_records = registry.from_values(
                 non_validated,
                 field=field,
-                **filter_kwargs_source_organism(registry, kwargs),
+                **get_current_filter_kwargs(registry, kwargs),
             )
             values_validated += [getattr(r, field.field.name) for r in public_records]
         finally:
@@ -1125,7 +1125,7 @@ def save_artifact(
             labels = registry.from_values(
                 df[key],
                 field=field,
-                **filter_kwargs_source_organism(registry, filter_kwargs),
+                **get_current_filter_kwargs(registry, filter_kwargs),
             )
             artifact.labels.add(labels, feature)
 
@@ -1158,7 +1158,7 @@ def update_registry(
     standardize: bool = True,
     warning: bool = True,
     **kwargs,
-) -> list[Record]:
+) -> None:
     """Save features or labels records in the default instance from the using_key instance.
 
     Args:
@@ -1184,8 +1184,35 @@ def update_registry(
     verbosity = settings.verbosity
     try:
         settings.verbosity = "error"
+
+        # save from public
+        filter_kwargs_current = get_current_filter_kwargs(registry, filter_kwargs)
+        existing_and_public_records = (
+            registry.from_values(
+                values,
+                field=field,
+                **filter_kwargs_current,
+            )
+            if values
+            else []
+        )
+
+        labels_saved: dict = {"from public": [], "without reference": []}
+
+        public_records = [r for r in existing_and_public_records if r._state.adding]
+        # here we check to only save the public records if they are from the specified source
+        # we check the uid because r.source and soruce can be from different instances
+        if source:
+            public_records = [r for r in public_records if r.source.uid == source.uid]
+        ln_save(public_records)
+        labels_saved["from public"] = [
+            getattr(r, field.field.name) for r in public_records
+        ]
+        non_public_labels = [i for i in values if i not in labels_saved["from public"]]
+
+        # inspect the default instance
         inspect_result_current = standardize_and_inspect(
-            values=values,
+            values=non_public_labels,
             field=field,
             registry=registry,
             standardize=standardize,
@@ -1195,42 +1222,17 @@ def update_registry(
             all_labels = registry.from_values(
                 inspect_result_current.validated,
                 field=field,
-                **filter_kwargs_source_organism(registry, filter_kwargs),
+                **filter_kwargs_current,
             )
             settings.verbosity = verbosity
             return all_labels
 
-        labels_saved: dict = {"from public": [], "without reference": []}
-
-        public_records = (
-            registry.from_values(
-                inspect_result_current.non_validated,
-                field=field,
-                **filter_kwargs_source_organism(registry, filter_kwargs),
-            )
-            if inspect_result_current.non_validated
-            else []
-        )
-        # here we check to only save the public records if they are from the specified source
-        # TODO: this if shouldn't be needed
-        if source:
-            public_records = [r for r in public_records if r.source.uid == source.uid]
-        ln_save(public_records)
-        labels_saved["from public"] = [
-            getattr(r, field.field.name) for r in public_records
-        ]
-
-        non_validated_labels = [
-            i
-            for i in inspect_result_current.non_validated
-            if i not in labels_saved["from public"]
-        ]
-
+        # inspect the using_key instance
         (
             labels_saved[f"from {using_key}"],
             non_validated_labels,
         ) = update_registry_from_using_instance(
-            non_validated_labels,
+            inspect_result_current.non_validated,
             field=field,
             using_key=using_key,
             **filter_kwargs,
@@ -1242,6 +1244,7 @@ def update_registry(
             if i not in labels_saved[f"from {using_key}"]
         ]
 
+        # save non-validated records
         if not validated_only:
             non_validated_records = []
             if df is not None and registry == Feature:
@@ -1264,15 +1267,16 @@ def update_registry(
                     )
             ln_save(non_validated_records)
 
+        # save parent labels for ulabels
         if registry == ULabel and field.field.name == "name":
             save_ulabels_with_parent(values, field=field, key=key)
 
-        # get all records
-        all_labels = registry.from_values(
-            inspect_result_current.validated + inspect_result_current.non_validated,
-            field=field,
-            **filter_kwargs_source_organism(registry, filter_kwargs),
-        )
+        # # get all records that are now validated in the current instance
+        # all_labels = registry.from_values(
+        #     inspect_result_current.validated + inspect_result_current.non_validated,
+        #     field=field,
+        #     **get_current_filter_kwargs(registry, filter_kwargs),
+        # )
     finally:
         settings.verbosity = verbosity
 
@@ -1285,7 +1289,7 @@ def update_registry(
         warning=warning,
     )
 
-    return all_labels
+    # return all_labels
 
 
 def log_saved_labels(
