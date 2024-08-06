@@ -85,7 +85,9 @@ class CurateLookup:
 
 
 class DataFrameCurator:
-    """Annotation flow for a DataFrame object.
+    """Curation flow for a DataFrame object.
+
+    See also :class:`~lamindb.Curate`.
 
     Args:
         df: The DataFrame object to curate.
@@ -314,7 +316,11 @@ class DataFrameCurator:
 
 
 class AnnDataCurator(DataFrameCurator):
-    """Annotation flow for ``AnnData``.
+    """Curation flow for ``AnnData``.
+
+    See also :class:`~lamindb.Curate`.
+
+    Note that if genes are removed from the AnnData object, the object should be recreated using :meth:`~lamindb.Curate.from_anndata`.
 
     Args:
         data: The AnnData object or an AnnData-like path.
@@ -508,7 +514,12 @@ class AnnDataCurator(DataFrameCurator):
 
 
 class MuDataCurator:
-    """Annotation flow for a ``MuData`` object.
+    """Curation flow for a ``MuData`` object.
+
+    See also :class:`~lamindb.Curate`.
+
+    Note that if genes or other measurements are removed from the MuData object,
+    the object should be recreated using :meth:`~lamindb.Curate.from_mudata`.
 
     Args:
         mdata: The MuData object to curate.
@@ -798,7 +809,32 @@ class MuDataCurator:
 
 
 class Curate:
-    """Annotation flow."""
+    """Curation flow.
+
+    Data curation entails accurately labeling datasets with standardized metadata
+    to facilitate data integration, interpretation and analysis.
+
+    The curation flow has several steps:
+
+    1. Create a :class:`Curate` object corresponding to the object type that you want to curate:
+
+    - :meth:`~lamindb.Curate.from_df`
+    - :meth:`~lamindb.Curate.from_anndata`
+    - :meth:`~lamindb.Curate.from_mudata`
+
+    During object creation, any passed categoricals found in the object will be saved.
+
+    2. Run :meth:`~lamindb.core.DataFrameCurator.validate` to check the data against the defined criteria. This method identifies:
+
+    - Values that can successfully validated and already exist in the registry.
+    - Values which are new and not yet validated or potentially problematic values.
+
+    3. Determine how to handle validated and unvalidated values:
+
+    - Validated values not yet in the registry can be automatically registered using :meth:`~lamindb.core.DataFrameCurator.add_validated_from`.
+    - Valid and new values can be registered using :meth:`~lamindb.core.DataFrameCurator.add_new_from`.
+    - All unvalidated values can be accessed using :meth:`~lamindb.core.DataFrameCurator.non_validated` and subsequently removed from the object at hand.
+    """
 
     @classmethod
     @doc_args(DataFrameCurator.__doc__)
