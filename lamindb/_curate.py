@@ -772,7 +772,7 @@ class Curate:
 
     - Validated values not yet in the registry can be automatically registered using :meth:`~lamindb.Curate.add_validated_from`.
     - Valid and new values can be registered using :meth:`~lamindb.Curate.add_new_from`.
-    - All unvalidated values can be accessed using :meth:`~lamindb.Curate.non_validated and subsequently removed from the object at hand.
+    - All unvalidated values can be accessed using :meth:`~lamindb.Curate.non_validated` and subsequently removed from the object at hand.
     """
 
     @classmethod
