@@ -4,16 +4,16 @@ from django.db.models import ManyToManyField
 from lnschema_core.models import Feature, FeatureSet, LinkORM, Record
 
 
-def dict_schema_name_to_model_name(orm: type[Record]) -> dict[str, Record]:
+def dict_schema_name_to_model_name(registry: type[Record]) -> dict[str, Record]:
     d: dict = {
         i.related_model.__get_name_with_schema__(): i.related_model
-        for i in orm._meta.related_objects
+        for i in registry._meta.related_objects
         if i.related_name is not None
     }
     d.update(
         {
             i.related_model.__get_name_with_schema__(): i.related_model
-            for i in orm._meta.many_to_many
+            for i in registry._meta.many_to_many
             if i.name is not None
         }
     )
@@ -21,12 +21,12 @@ def dict_schema_name_to_model_name(orm: type[Record]) -> dict[str, Record]:
 
 
 def dict_related_model_to_related_name(
-    orm: type[Record], links: bool = False
+    registry: type[Record], links: bool = False
 ) -> dict[str, str]:
     def include(model: Record):
         return not links != issubclass(model, LinkORM)
 
-    related_objects = orm._meta.related_objects + orm._meta.many_to_many
+    related_objects = registry._meta.related_objects + registry._meta.many_to_many
     d: dict = {
         record.related_model.__get_name_with_schema__(): (
             record.related_name

@@ -335,9 +335,9 @@ def _bulk_create_dicts_from_df(
     return df.reset_index().to_dict(orient="records"), multi_msg
 
 
-def _has_organism_field(orm: type[Record]) -> bool:
+def _has_organism_field(registry: type[Record]) -> bool:
     try:
-        orm._meta.get_field("organism")
+        registry._meta.get_field("organism")
         return True
     except FieldDoesNotExist:
         return False
@@ -346,17 +346,17 @@ def _has_organism_field(orm: type[Record]) -> bool:
 def _get_organism_record(
     field: StrField, organism: str | Record, force: bool = False
 ) -> Record:
-    model = field.field.model
+    registry = field.field.model
     check = True
-    if not force and hasattr(model, "_ontology_id_field"):
-        check = field.field.name != model._ontology_id_field
+    if not force and hasattr(registry, "_ontology_id_field"):
+        check = field.field.name != registry._ontology_id_field
         # e.g. bionty.CellMarker has "name" as _ontology_id_field
-        if not model._ontology_id_field.endswith("id"):
+        if not registry._ontology_id_field.endswith("id"):
             check = True
 
-    if _has_organism_field(model) and check:
+    if _has_organism_field(registry) and check:
         from bionty._bionty import create_or_get_organism_record
 
-        organism_record = create_or_get_organism_record(organism=organism, orm=model)
+        organism_record = create_or_get_organism_record(organism=organism, orm=registry)
         if organism_record is not None:
             return organism_record

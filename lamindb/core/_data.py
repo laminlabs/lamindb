@@ -251,8 +251,8 @@ def add_labels(
         if feature.dtype.startswith("cat["):
             orm_dict = dict_schema_name_to_model_name(Artifact)
             for reg in feature.dtype.replace("cat[", "").rstrip("]").split("|"):
-                orm = orm_dict.get(reg)
-                records_validated += orm.from_values(records, field=field)
+                registry = orm_dict.get(reg)
+                records_validated += registry.from_values(records, field=field)
 
         # feature doesn't have registries and therefore can't create records from values
         # ask users to pass records
