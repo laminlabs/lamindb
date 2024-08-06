@@ -754,14 +754,14 @@ class Curate:
     to facilitate data integration, interpretation and analysis.
 
     The curation flow has several steps:
-    1. Create an :class:`DataFrameCurator` (:meth:`~lamindb.Curate.from_df`), :class:`AnnDataCurator` (:meth:`~lamindb.Curate.from_anndata`),
-       :class:`MuDataCurator` (:meth:`~lamindb.Curate.from_mudata`) for the object type that you want to curate.
+    1. Create an :class:`Curate` using :meth:`~lamindb.Curate.from_df`, :meth:`~lamindb.Curate.from_anndata`, or :meth:`~lamindb.Curate.from_mudata`
+       for the corresponding object type that you want to curate.
        During the creation of the object, the passed categoricals will be validated to ensure that they are valid for curation.
     2. Run :meth:`~lamindb.Curate.validate` which checks the data against the defined criteria.
        It identifies which values are already validated (exist in our registries) and which are new or potentially problematic.
     3. Determine how to handle validated and unvalidated values.
-       Against a public ontology validated values can automatically be registered using :meth:`~lamindb.Curate.add_validated_from`.
-       Valid and new values may be registered using :meth:`~lamindb.Curate.add_new_from`.
+       Validated values that are not yet in the registry can automatically be registered using :meth:`~lamindb.Curate.add_validated_from`.
+       Valid and new values can be registered using :meth:`~lamindb.Curate.add_new_from`.
        All unvalidated values can be accessed using :meth:`~lamindb.Curate.non_validated` and subsequently removed from the object at hand.
     """
 
