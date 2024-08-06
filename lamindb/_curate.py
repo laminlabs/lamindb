@@ -750,7 +750,7 @@ class MuDataCurator:
 class Curate:
     """Curation flow.
 
-    Data annotation entails accurately labeling biological datasets with relevant metadata and functional information
+    Data curation entails accurately labeling datasets with standardized metadata
     to facilitate data integration, interpretation and analysis.
 
     The curation flow has several steps:
