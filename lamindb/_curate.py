@@ -650,8 +650,9 @@ class MuDataCurator:
             **kwargs: Additional keyword arguments to pass to the registry model.
         """
         self._kwargs.update({"organism": organism} if organism else {})
+        values = column_names or self._mdata[modality].obs.columns
         update_registry(
-            values=column_names or self._mdata[modality].obs.columns,
+            values=list(values),
             field=Feature.name,
             key=f"{modality} obs columns",
             using_key=self._using_key,
