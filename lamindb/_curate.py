@@ -1206,7 +1206,7 @@ def update_registry(
         filter_kwargs_current = get_current_filter_kwargs(registry, filter_kwargs)
         existing_and_public_records = (
             registry.from_values(
-                values,
+                list(values),
                 field=field,
                 **filter_kwargs_current,
             )
@@ -1358,7 +1358,7 @@ def save_ulabels_with_parent(values: list[str], field: FieldAttr, key: str) -> N
     """Save a parent label for the given labels."""
     registry = field.field.model
     assert registry == ULabel  # noqa: S101
-    all_records = registry.from_values(values, field=field)
+    all_records = registry.from_values(list(values), field=field)
     is_feature = registry.filter(name=f"is_{key}").one_or_none()
     if is_feature is None:
         is_feature = registry(name=f"is_{key}")
