@@ -587,7 +587,7 @@ class MuDataCurator:
     ):
         """Save variable records."""
         update_registry(
-            values=self._mdata[modality].var.index,
+            values=list(self._mdata[modality].var.index),
             field=self._var_fields[modality],
             key="var_index",
             save_function="add_new_from_var_index",
