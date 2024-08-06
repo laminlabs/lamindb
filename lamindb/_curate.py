@@ -763,9 +763,8 @@ class Curate:
 
     During object creation, any passed categoricals found in the object will be saved.
 
-    2. Run :meth:`~lamindb.core.DataFrameCurator.validate` to check the data against the defined criteria.
+    2. Run :meth:`~lamindb.core.DataFrameCurator.validate` to check the data against the defined criteria. This method identifies:
 
-    This method identifies:
     - Values that can successfully validated and already exist in the registry.
     - Values which are new and not yet validated or potentially problematic values.
 
