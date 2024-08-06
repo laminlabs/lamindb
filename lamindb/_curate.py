@@ -764,7 +764,7 @@ class Curate:
     Choose the method corresponding to the object type you want to curate.
     During object creation, any passed categoricals found in the object will be saved.
 
-    2. Run :meth:`~lamindb.Curate.validate` to check the data against the defined criteria.
+    2. Run `validate` to check the data against the defined criteria.
     This method identifies which values are already validated (exist in our registries)
     and which are new or potentially problematic.
 
