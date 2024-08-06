@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable
+import copy
+from typing import TYPE_CHECKING, Iterable, Type
 
 import anndata as ad
 import lamindb_setup as ln_setup
@@ -127,7 +128,15 @@ class DataFrameCurator:
         if sources is None:
             sources = {}
         self._sources = sources
+        self._non_validated = None
         self._save_columns()
+
+    @property
+    def non_validated(self) -> list:
+        """Return the non-validated features and labels."""
+        if self._non_validated is None:
+            raise ValueError("Please run validate() first!")
+        return self._non_validated
 
     @property
     def fields(self) -> dict:
@@ -180,6 +189,7 @@ class DataFrameCurator:
                 validated_only=validated_only,
                 df=self._df,  # Get the Feature type from df
                 source=self._sources.get("columns"),
+                warning=False,  # Do not warn about missing columns, just an info message
                 **kwargs,
             )
 
@@ -247,7 +257,7 @@ class DataFrameCurator:
             Whether the DataFrame is validated.
         """
         self._kwargs.update({"organism": organism} if organism else {})
-        self._validated = validate_categories_in_df(
+        self._validated, self._non_validated = validate_categories_in_df(  # type: ignore
             self._df,
             fields=self.fields,
             using_key=self._using_key,
@@ -330,6 +340,7 @@ class AnnDataCurator(DataFrameCurator):
         data: ad.AnnData | UPathStr,
         var_index: FieldAttr,
         categoricals: dict[str, FieldAttr] | None = None,
+        obs_columns: FieldAttr = Feature.name,
         using_key: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
@@ -357,13 +368,13 @@ class AnnDataCurator(DataFrameCurator):
         super().__init__(
             df=self._adata.obs,
             categoricals=categoricals,
+            columns=obs_columns,
             using_key=using_key,
             verbosity=verbosity,
             organism=organism,
             sources=sources,
         )
         self._obs_fields = categoricals
-        self._save_from_var_index(validated_only=True, **self._kwargs)
 
     @property
     def var_index(self) -> FieldAttr:
@@ -394,7 +405,7 @@ class AnnDataCurator(DataFrameCurator):
     ):
         """Save variable records."""
         update_registry(
-            values=self._adata.var.index,
+            values=list(self._adata.var.index),
             field=self.var_index,
             key="var_index",
             save_function="add_new_from_var_index",
@@ -403,6 +414,15 @@ class AnnDataCurator(DataFrameCurator):
             organism=organism,
             source=self._sources.get("var_index"),
         )
+
+    def _update_registry_all(self, validated_only: bool = True, **kwargs):
+        """Save labels for all features."""
+        for name in self.fields.keys():
+            logger.info(f"saving labels for '{name}'")
+            if name == "var_index":
+                self._save_from_var_index(validated_only=validated_only, **kwargs)
+            else:
+                self._update_registry(name, validated_only=validated_only, **kwargs)
 
     def add_new_from_var_index(self, organism: str | None = None, **kwargs):
         """Update variable records.
@@ -413,6 +433,15 @@ class AnnDataCurator(DataFrameCurator):
         """
         self._kwargs.update({"organism": organism} if organism else {})
         self._save_from_var_index(validated_only=False, **self._kwargs, **kwargs)
+
+    def add_validated_from_var_index(self, organism: str | None = None):
+        """Add validated variable records.
+
+        Args:
+            organism: The organism name.
+        """
+        self._kwargs.update({"organism": organism} if organism else {})
+        self._save_from_var_index(validated_only=True, **self._kwargs)
 
     def validate(self, organism: str | None = None) -> bool:
         """Validate categories.
@@ -428,20 +457,26 @@ class AnnDataCurator(DataFrameCurator):
             logger.important(
                 f"validating metadata using registries of instance {colors.italic(self._using_key)}"
             )
-        validated_var = validate_categories(
+
+        validated_var, non_validated_var = validate_categories(
             self._adata.var.index,
             field=self._var_field,
             key="var_index",
             using_key=self._using_key,
-            **self._kwargs,
+            source=self._sources.get("var_index"),
+            validated_hint_print=".add_validated_from_var_index()",
+            **self._kwargs,  # type: ignore
         )
-        validated_obs = validate_categories_in_df(
+        validated_obs, non_validated_obs = validate_categories_in_df(
             self._adata.obs,
             fields=self.categoricals,
             using_key=self._using_key,
             sources=self._sources,
             **self._kwargs,
         )
+        self._non_validated = non_validated_obs  # type: ignore
+        if len(non_validated_var) > 0:
+            self._non_validated["var_index"] = non_validated_var  # type: ignore
         self._validated = validated_var and validated_obs
         return self._validated
 
@@ -554,7 +589,7 @@ class MuDataCurator:
     ):
         """Save variable records."""
         update_registry(
-            values=self._mdata[modality].var.index,
+            values=list(self._mdata[modality].var.index),
             field=self._var_fields[modality],
             key="var_index",
             save_function="add_new_from_var_index",
@@ -622,7 +657,7 @@ class MuDataCurator:
             using_key=self._using_key,
             validated_only=False,
             df=self._mdata[modality].obs,
-            **self._kwargs,
+            **self._kwargs,  # type: ignore
             **kwargs,
         )
 
@@ -639,6 +674,18 @@ class MuDataCurator:
         self._kwargs.update({"organism": organism} if organism else {})
         self._save_from_var_index_modality(
             modality=modality, validated_only=False, **self._kwargs, **kwargs
+        )
+
+    def add_validated_from_var_index(self, modality: str, organism: str | None = None):
+        """Add validated variable records.
+
+        Args:
+            modality: The modality name.
+            organism: The organism name.
+        """
+        self._kwargs.update({"organism": organism} if organism else {})
+        self._save_from_var_index_modality(
+            modality=modality, validated_only=True, **self._kwargs
         )
 
     def add_validated_from(
@@ -688,27 +735,41 @@ class MuDataCurator:
                 f"validating metadata using registries of instance {colors.italic(self._using_key)}"
             )
         validated_var = True
+        non_validated_var_modality = {}
         for modality, var_field in self._var_fields.items():
-            validated_var &= validate_categories(
+            is_validated_var, non_validated_var = validate_categories(
                 self._mdata[modality].var.index,
                 field=var_field,
                 key=f"{modality}_var_index",
                 using_key=self._using_key,
-                **self._kwargs,
+                **self._kwargs,  # type: ignore
             )
+            validated_var &= is_validated_var
+            if len(non_validated_var) > 0:
+                non_validated_var_modality[modality] = non_validated_var
+
         validated_obs = True
+        non_validated_obs_modality = {}
         for modality, fields in self._obs_fields.items():
             if modality == "obs":
                 obs = self._mdata.obs
             else:
                 obs = self._mdata[modality].obs
-            validated_obs &= validate_categories_in_df(
+            is_validated_obs, non_validated_obs = validate_categories_in_df(
                 obs,
                 fields=fields,
                 using_key=self._using_key,
                 sources=self._sources.get(modality),
                 **self._kwargs,
             )
+            validated_obs &= is_validated_obs
+            non_validated_obs_modality[modality] = non_validated_obs
+            if modality in non_validated_var_modality:
+                non_validated_obs_modality[modality]["var_index"] = (
+                    non_validated_var_modality[modality]
+                )
+            if len(non_validated_obs_modality[modality]) > 0:
+                self._non_validated = non_validated_obs_modality[modality]
         self._validated = validated_var and validated_obs
         return self._validated
 
@@ -767,6 +828,7 @@ class Curate:
         data: ad.AnnData | UPathStr,
         var_index: FieldAttr,
         categoricals: dict[str, FieldAttr] | None = None,
+        obs_columns: FieldAttr = Feature.name,
         using_key: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
@@ -777,6 +839,7 @@ class Curate:
             data=data,
             var_index=var_index,
             categoricals=categoricals,
+            obs_columns=obs_columns,
             using_key=using_key,
             verbosity=verbosity,
             organism=organism,
@@ -812,16 +875,55 @@ def get_registry_instance(registry: Record, using_key: str | None = None) -> Rec
     return registry
 
 
+def get_current_filter_kwargs(registry: type[Record], kwargs: dict) -> dict:
+    """Make sure the source and organism are saved in the same database as the registry."""
+    from lamindb.core._settings import settings
+
+    db = registry.filter().db
+    source = kwargs.get("source")
+    organism = kwargs.get("organism")
+    filter_kwargs = kwargs.copy()
+    try:
+        verbosity = settings.verbosity
+        settings.verbosity = "error"
+        if isinstance(organism, Record) and organism._state.db != "default":
+            if db is None or db == "default":
+                organism_default = copy.copy(organism)
+                # save the organism record in the default database
+                organism_default.save()
+                filter_kwargs["organism"] = organism_default
+        if isinstance(source, Record) and source._state.db != "default":
+            if db is None or db == "default":
+                source_default = copy.copy(source)
+                # save the source record in the default database
+                source_default.save()
+                filter_kwargs["source"] = source_default
+    finally:
+        settings.verbosity = verbosity
+    return filter_kwargs
+
+
 def standardize_and_inspect(
-    values: Iterable[str], field: FieldAttr, registry: Record, **kwargs
+    values: Iterable[str],
+    field: FieldAttr,
+    registry: type[Record],
+    standardize: bool = False,
+    **kwargs,
 ):
     """Standardize and inspect values using a registry."""
-    if hasattr(registry, "standardize") and hasattr(
-        registry,
-        "synonyms",  # https://github.com/laminlabs/lamindb/issues/1685
-    ):
-        values = registry.standardize(values, field=field, mute=True, **kwargs)
-    return registry.inspect(values, field=field, mute=True, **kwargs)
+    filter_kwargs = get_current_filter_kwargs(registry, kwargs)
+
+    if standardize:
+        if hasattr(registry, "standardize") and hasattr(
+            registry,
+            "synonyms",  # https://github.com/laminlabs/lamindb/issues/1685
+        ):
+            standardized_values = registry.standardize(
+                values, field=field, mute=True, **filter_kwargs
+            )
+            values = standardized_values
+
+    return registry.inspect(values, field=field, mute=True, **filter_kwargs)
 
 
 def check_registry_organism(registry: Record, organism: str | None = None) -> dict:
@@ -845,7 +947,9 @@ def validate_categories(
     using_key: str | None = None,
     organism: str | None = None,
     source: Record | None = None,
-) -> bool:
+    standardize: bool = True,
+    validated_hint_print: str | None = None,
+) -> tuple[bool, list]:
     """Validate ontology terms in a pandas series using LaminDB registries."""
     from lamindb._from_values import _print_values
     from lamindb.core._settings import settings
@@ -858,43 +962,53 @@ def validate_categories(
         logger.indent = "   "
 
     registry = field.field.model
-    filter_kwargs = check_registry_organism(registry, organism)
-    filter_kwargs.update({"source": source} if source else {})
+    kwargs = check_registry_organism(registry, organism)
+    kwargs.update({"source": source} if source else {})
 
-    # Inspect the default instance
+    # inspect the default instance
     inspect_result = standardize_and_inspect(
-        values=values, field=field, registry=registry, **filter_kwargs
+        values=values,
+        field=field,
+        registry=registry,
+        standardize=standardize,
+        **kwargs,
     )
     non_validated = inspect_result.non_validated
 
     values_validated = []
     if using_key is not None and using_key != "default" and non_validated:
-        registry = get_registry_instance(registry, using_key)
-        # Inspect the using instance
+        registry_using = get_registry_instance(registry, using_key)
+        # inspect the using instance
         inspect_result = standardize_and_inspect(
-            values=non_validated, field=field, registry=registry, **filter_kwargs
+            values=non_validated,
+            field=field,
+            registry=registry_using,
+            standardize=standardize,
+            **kwargs,
         )
         non_validated = inspect_result.non_validated
         values_validated += inspect_result.validated
 
-    # Inspect from public (bionty only)
+    # inspect from public (bionty only)
     if hasattr(registry, "public"):
         verbosity = settings.verbosity
         try:
             settings.verbosity = "error"
             public_records = registry.from_values(
-                non_validated, field=field, **filter_kwargs
+                non_validated,
+                field=field,
+                **get_current_filter_kwargs(registry, kwargs),
             )
             values_validated += [getattr(r, field.field.name) for r in public_records]
         finally:
             settings.verbosity = verbosity
 
-    validated_hint_print = f".add_validated_from('{key}')"
+    validated_hint_print = validated_hint_print or f".add_validated_from('{key}')"
     n_validated = len(values_validated)
     if n_validated > 0:
         _log_mapping_info()
         logger.warning(
-            f"found {colors.yellow(f'{n_validated}')} validated terms: "
+            f"found {colors.yellow(n_validated)} validated terms: "
             f"{colors.yellow(values_validated)}\n      → save terms via "
             f"{colors.yellow(validated_hint_print)}"
         )
@@ -905,20 +1019,20 @@ def validate_categories(
     if n_non_validated == 0:
         logger.indent = ""
         logger.success(f"{key} is validated against {colors.italic(model_field)}")
-        return True
+        return True, []
     else:
         are = "are" if n_non_validated > 1 else "is"
         print_values = _print_values(non_validated)
         warning_message = (
-            f"{colors.yellow(f'{n_non_validated} terms')} {are} not validated: "
-            f"{colors.yellow(print_values)}\n      → save terms via "
-            f"{colors.yellow(non_validated_hint_print)}"
+            f"{colors.red(f'{n_non_validated} terms')} {are} not validated: "
+            f"{colors.red(print_values)}\n      → save terms via "
+            f"{colors.red(non_validated_hint_print)}"
         )
         if logger.indent == "":
             _log_mapping_info()
         logger.warning(warning_message)
         logger.indent = ""
-        return False
+        return False, non_validated
 
 
 def validate_categories_in_df(
@@ -927,13 +1041,14 @@ def validate_categories_in_df(
     using_key: str | None = None,
     sources: dict[str, Record] = None,
     **kwargs,
-) -> bool:
+) -> tuple[bool, dict]:
     """Validate categories in DataFrame columns using LaminDB registries."""
     if sources is None:
         sources = {}
     validated = True
+    non_validated = {}
     for key, field in fields.items():
-        validated &= validate_categories(
+        is_val, non_val = validate_categories(
             df[key],
             field=field,
             key=key,
@@ -941,7 +1056,10 @@ def validate_categories_in_df(
             source=sources.get(key),
             **kwargs,
         )
-    return validated
+        validated &= is_val
+        if len(non_val) > 0:
+            non_validated[key] = non_val
+    return validated, non_validated
 
 
 def save_artifact(
@@ -1019,8 +1137,13 @@ def save_artifact(
             feature = features.get(key)
             registry = field.field.model
             filter_kwargs = check_registry_organism(registry, organism)
+            filter_kwargs_current = get_current_filter_kwargs(registry, filter_kwargs)
             df = data if isinstance(data, pd.DataFrame) else data.obs
-            labels = registry.from_values(df[key], field=field, **filter_kwargs)
+            labels = registry.from_values(
+                df[key],
+                field=field,
+                **filter_kwargs_current,
+            )
             artifact.labels.add(labels, feature)
 
     if artifact._accessor == "MuData":
@@ -1049,8 +1172,10 @@ def update_registry(
     organism: str | None = None,
     dtype: str | None = None,
     source: Record | None = None,
+    standardize: bool = True,
+    warning: bool = True,
     **kwargs,
-) -> list[Record]:
+) -> None:
     """Save features or labels records in the default instance from the using_key instance.
 
     Args:
@@ -1076,18 +1201,50 @@ def update_registry(
     verbosity = settings.verbosity
     try:
         settings.verbosity = "error"
+
+        # save from public
+        filter_kwargs_current = get_current_filter_kwargs(registry, filter_kwargs)
+        existing_and_public_records = (
+            registry.from_values(
+                values,
+                field=field,
+                **filter_kwargs_current,
+            )
+            if values
+            else []
+        )
+
+        labels_saved: dict = {"from public": [], "without reference": []}
+
+        public_records = [r for r in existing_and_public_records if r._state.adding]
+        # here we check to only save the public records if they are from the specified source
+        # we check the uid because r.source and soruce can be from different instances
+        if source:
+            public_records = [r for r in public_records if r.source.uid == source.uid]
+        ln_save(public_records)
+        labels_saved["from public"] = [
+            getattr(r, field.field.name) for r in public_records
+        ]
+        non_public_labels = [i for i in values if i not in labels_saved["from public"]]
+
+        # inspect the default instance
         inspect_result_current = standardize_and_inspect(
-            values=values, field=field, registry=registry, **filter_kwargs
+            values=non_public_labels,
+            field=field,
+            registry=registry,
+            standardize=standardize,
+            **filter_kwargs,
         )
         if not inspect_result_current.non_validated:
             all_labels = registry.from_values(
-                inspect_result_current.validated, field=field, **filter_kwargs
+                inspect_result_current.validated,
+                field=field,
+                **filter_kwargs_current,
             )
             settings.verbosity = verbosity
             return all_labels
 
-        labels_saved: dict = {"from public": [], "without reference": []}
-
+        # inspect the using_key instance
         (
             labels_saved[f"from {using_key}"],
             non_validated_labels,
@@ -1098,29 +1255,20 @@ def update_registry(
             **filter_kwargs,
         )
 
-        public_records = (
-            registry.from_values(non_validated_labels, field=field, **filter_kwargs)
-            if non_validated_labels
-            else []
-        )
-        # here we check to only save the public records if they are from the specified source
-        # TODO: this if shouldn't be needed
-        if source:
-            public_records = [r for r in public_records if r.source == source]
-        ln_save(public_records)
-        labels_saved["from public"] = [
-            getattr(r, field.field.name) for r in public_records
-        ]
         labels_saved["without reference"] = [
-            i for i in non_validated_labels if i not in labels_saved["from public"]
+            i
+            for i in non_validated_labels
+            if i not in labels_saved[f"from {using_key}"]
         ]
 
+        # save non-validated records
         if not validated_only:
             non_validated_records = []
             if df is not None and registry == Feature:
                 non_validated_records = Feature.from_df(df)
             else:
                 if "organism" in filter_kwargs:
+                    # make sure organism record is saved to the current instance
                     filter_kwargs["organism"] = _save_organism(name=organism)
                 init_kwargs = {}
                 for value in labels_saved["without reference"]:
@@ -1136,15 +1284,16 @@ def update_registry(
                     )
             ln_save(non_validated_records)
 
+        # save parent labels for ulabels
         if registry == ULabel and field.field.name == "name":
             save_ulabels_with_parent(values, field=field, key=key)
 
-        # get all records
-        all_labels = registry.from_values(
-            inspect_result_current.validated + inspect_result_current.non_validated,
-            field=field,
-            **filter_kwargs,
-        )
+        # # get all records that are now validated in the current instance
+        # all_labels = registry.from_values(
+        #     inspect_result_current.validated + inspect_result_current.non_validated,
+        #     field=field,
+        #     **get_current_filter_kwargs(registry, filter_kwargs),
+        # )
     finally:
         settings.verbosity = verbosity
 
@@ -1154,9 +1303,10 @@ def update_registry(
         save_function=save_function,
         model_field=f"{registry.__name__}.{field.field.name}",
         validated_only=validated_only,
+        warning=warning,
     )
 
-    return all_labels
+    # return all_labels
 
 
 def log_saved_labels(
@@ -1165,6 +1315,7 @@ def log_saved_labels(
     save_function: str,
     model_field: str,
     validated_only: bool = True,
+    warning: bool = True,
 ) -> None:
     """Log the saved labels."""
     from ._from_values import _print_values
@@ -1189,7 +1340,10 @@ def log_saved_labels(
                 if save_function == "add_new_from"
                 else f"\n      → to save, run {colors.yellow(save_function)}"
             )
-            logger.warning(msg)
+            if warning:
+                logger.warning(msg)
+            else:
+                logger.info(msg)
         else:
             k = "" if k == "without reference" else f"{colors.green(k)} "
             # the term "transferred" stresses that this is always in the context of transferring
@@ -1216,6 +1370,7 @@ def update_registry_from_using_instance(
     values: list[str],
     field: FieldAttr,
     using_key: str | None = None,
+    standardize: bool = False,
     **kwargs,
 ) -> tuple[list[str], list[str]]:
     """Save features or labels records from the using_key instance.
@@ -1233,10 +1388,14 @@ def update_registry_from_using_instance(
     not_saved = values
 
     if using_key is not None and using_key != "default":
-        registry = field.field.model
-        registry_using = get_registry_instance(registry, using_key)
+        registry_using = get_registry_instance(field.field.model, using_key)
+
         inspect_result_using = standardize_and_inspect(
-            values=values, field=field, registry=registry_using, **kwargs
+            values=values,
+            field=field,
+            registry=registry_using,
+            standardize=standardize,
+            **kwargs,
         )
         labels_using = registry_using.filter(
             **{f"{field.field.name}__in": inspect_result_using.validated}
