@@ -764,15 +764,15 @@ class Curate:
     Choose the method corresponding to the object type you want to curate.
     During object creation, any passed categoricals found in the object will be saved.
 
-    2. Run :meth:`~lamindb.DataFrameCurator.validate` to check the data against the defined criteria.
+    2. Run :meth:`~lamindb.core.DataFrameCurator.validate` to check the data against the defined criteria.
     This method identifies which values are already validated (exist in our registries)
     and which are new or potentially problematic.
 
     3. Determine how to handle validated and unvalidated values:
 
-    - Validated values not yet in the registry can be automatically registered using :meth:`~lamindb.DataFrameCurator.add_validated_from`.
-    - Valid and new values can be registered using :meth:`~lamindb.DataFrameCurator.add_new_from`.
-    - All unvalidated values can be accessed using :meth:`~lamindb.DataFrameCurator.non_validated` and subsequently removed from the object at hand.
+    - Validated values not yet in the registry can be automatically registered using :meth:`~lamindb.core.DataFrameCurator.add_validated_from`.
+    - Valid and new values can be registered using :meth:`~lamindb.core.DataFrameCurator.add_new_from`.
+    - All unvalidated values can be accessed using :meth:`~lamindb.core.DataFrameCurator.non_validated` and subsequently removed from the object at hand.
     """
 
     @classmethod
