@@ -674,6 +674,18 @@ class MuDataCurator:
             modality=modality, validated_only=False, **self._kwargs, **kwargs
         )
 
+    def add_validated_from_var_index(self, modality: str, organism: str | None = None):
+        """Add validated variable records.
+
+        Args:
+            modality: The modality name.
+            organism: The organism name.
+        """
+        self._kwargs.update({"organism": organism} if organism else {})
+        self._save_from_var_index_modality(
+            modality=modality, validated_only=True, **self._kwargs
+        )
+
     def add_validated_from(
         self, key: str, modality: str | None = None, organism: str | None = None
     ):
@@ -1121,11 +1133,12 @@ def save_artifact(
             feature = features.get(key)
             registry = field.field.model
             filter_kwargs = check_registry_organism(registry, organism)
+            filter_kwargs_current = get_current_filter_kwargs(registry, filter_kwargs)
             df = data if isinstance(data, pd.DataFrame) else data.obs
             labels = registry.from_values(
                 df[key],
                 field=field,
-                **get_current_filter_kwargs(registry, filter_kwargs),
+                **filter_kwargs_current,
             )
             artifact.labels.add(labels, feature)
 

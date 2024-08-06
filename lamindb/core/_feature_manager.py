@@ -744,9 +744,9 @@ def _add_set_from_mudata(
     # parse and register features
     mdata = self._host.load()
     feature_sets = {}
-    obs_features = features = Feature.from_values(mdata.obs.columns)
+    obs_features = Feature.from_values(mdata.obs.columns)
     if len(obs_features) > 0:
-        feature_sets["obs"] = FeatureSet(features=features)
+        feature_sets["obs"] = FeatureSet(features=obs_features)
     for modality, field in var_fields.items():
         modality_fs = parse_feature_sets_from_anndata(
             mdata[modality],
@@ -758,8 +758,20 @@ def _add_set_from_mudata(
         for k, v in modality_fs.items():
             feature_sets[f"['{modality}'].{k}"] = v
 
+    def unify_feature_sets_by_hash(feature_sets):
+        unique_values = {}
+
+        for key, value in feature_sets.items():
+            value_hash = value.hash  # Assuming each value has a .hash attribute
+            if value_hash in unique_values:
+                feature_sets[key] = unique_values[value_hash]
+            else:
+                unique_values[value_hash] = value
+
+        return feature_sets
+
     # link feature sets
-    self._host._feature_sets = feature_sets
+    self._host._feature_sets = unify_feature_sets_by_hash(feature_sets)
     self._host.save()
 
 
