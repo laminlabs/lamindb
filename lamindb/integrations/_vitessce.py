@@ -16,19 +16,28 @@ if TYPE_CHECKING:
 
 
 # tested & context in https://github.com/laminlabs/lamin-spatial
-def save_vitessce_config(vitessce_config: VitessceConfig, description: str) -> Artifact:
+def save_vitessce_config(
+    vitessce_config: VitessceConfig, description: str | None = None
+) -> Artifact:
     """Validates and saves a ``VitessceConfig`` object.
 
-    Example: :doc:`docs:vitessce`.
+    Guide: :doc:`docs:vitessce`.
 
     Args:
-        vitessce_config (``VitessceConfig``): A VitessceConfig object.
-        description: A description for the artifact.
+        vitessce_config (``VitessceConfig``): A `VitessceConfig` object.
+        description: A description for the `VitessceConfig` artifact.
 
+    .. versionchanged:: 0.75.1
+        Now displays the "Vitessce button" on the hub next to the dataset. It keeps displaying it next to the configuration file.
     .. versionchanged:: 0.70.2
-        This function no longer saves the dataset. It only saves the VitessceConfig object.
+        No longer saves the dataset. It only saves the `VitessceConfig` object.
     """
+    from lamindb.core.storage import VALID_SUFFIXES
+
     vc_dict = vitessce_config.to_dict()
+    valid_composite_zarr_suffixes = [
+        suffix for suffix in VALID_SUFFIXES.COMPOSITE if suffix.endswith(".zarr")
+    ]
     # validate
     dataset_artifacts = []
     for vitessce_dataset in vc_dict["datasets"]:
@@ -37,23 +46,32 @@ def save_vitessce_config(vitessce_config: VitessceConfig, description: str) -> A
         for file in vitessce_dataset["files"]:
             if "url" not in file:
                 raise ValueError("Each file must have a 'url' key.")
-            s3_path_last_element = file["url"].split("/")[-1]
-            if not s3_path_last_element.endswith(
-                (".anndata.zarr", ".zarr", ".ome.zarr")
-            ):
-                logger.warning(
-                    "filename should end with '.anndata.zarr', '.zarr', or '.ome.zarr'."
+            s3_path = file["url"]
+            s3_path_last_element = s3_path.split("/")[-1]
+            # note 1: the following parses the stem uid of the artifact from the S3 path
+            # there might be a better way of doing this in case the vitessce config
+            # gets updated in the future; but given these paths are set in stone
+            # this should be more robust than it looks
+            #
+            # note 2: what's not great is the fact that people might use composite suffixes we don't recognize
+            # I don't know what to do about it other than documenting it clearly
+            # https://github.com/laminlabs/lamindb/blob/main/lamindb/core/storage/_valid_suffixes.py
+            # https://docs.lamin.ai/lamindb.core.storage.valid_suffixes
+            #
+            # now start with attempting to strip the composite suffix candidates
+            for suffix in valid_composite_zarr_suffixes:
+                s3_path_last_element = s3_path_last_element.replace(suffix, "")
+            # in case there was no hit, strip plain ".zarr"
+            artifact_stem_uid = s3_path_last_element.replace(".zarr", "")
+            # if there is still a "." in string, we
+            if "." in artifact_stem_uid:
+                raise ValueError(
+                    f"Suffix should be '.zarr' or one of {valid_composite_zarr_suffixes}. Inspect your path {s3_path}."
                 )
-            stem_uid = (
-                s3_path_last_element.replace(".anndata.zarr", "")
-                .replace(".ome.zarr", "")
-                .replace(".zarr", "")  # needs to come last
-            )
-            assert "." not in stem_uid  # noqa: S101 successfully stripped suffix
-            artifact = Artifact.filter(uid__startswith=stem_uid).one_or_none()
+            artifact = Artifact.filter(uid__startswith=artifact_stem_uid).one_or_none()
             if artifact is None:
-                logger.warning(
-                    f"could not find dataset '{stem_uid}' in lamindb: {vitessce_dataset}"
+                raise ValueError(
+                    f"Could not find dataset with stem uid '{artifact_stem_uid}' in lamindb: {vitessce_dataset}. Did you follow https://docs.lamin.ai/vitessce? It appears the AWS S3 path doesn't encode a lamindb uid."
                 )
             else:
                 dataset_artifacts.append(artifact)
@@ -67,7 +85,7 @@ def save_vitessce_config(vitessce_config: VitessceConfig, description: str) -> A
         # if we have more datasets, we should create a collection
         # and attach an action to the collection
         raise NotImplementedError
-    run.dataset_artifacts.set(dataset_artifacts)
+    run.input_artifacts.set(dataset_artifacts)
     # create a JSON export
     config_file_local_path = (
         ln_setup.settings.storage.cache_dir / "config.vitessce.json"
