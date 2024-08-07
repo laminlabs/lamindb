@@ -45,6 +45,7 @@ def save_vitessce_config(
     ]
     # validate
     dataset_artifacts = []
+    assert vc_dict["datasets"]  # noqa: S101
     for vitessce_dataset in vc_dict["datasets"]:
         # didn't find good ways to violate the below, hence using plain asserts
         # without user feedback
