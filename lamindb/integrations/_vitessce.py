@@ -84,7 +84,7 @@ def save_vitessce_config(
                 dataset_artifacts.append(artifact)
     # link inputs
     with logger.mute():
-        transform = Transform(name="save_vitessce_config", type="function", version="1")
+        transform = Transform(name="save_vitessce_config", type="function", version="2")
         transform.save()
     run = Run(transform=transform)
     run.save()
