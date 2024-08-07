@@ -15,7 +15,8 @@ if TYPE_CHECKING:
     from vitessce import VitessceConfig
 
 
-# tested & context in https://github.com/laminlabs/lamin-spatial
+# "unit test": https://github.com/laminlabs/lamindb/blob/main/docs/storage/vitessce.ipynb
+# integration test & context: https://github.com/laminlabs/lamin-spatial/blob/main/docs/vitessce.ipynb
 def save_vitessce_config(
     vitessce_config: VitessceConfig, description: str | None = None
 ) -> Artifact:
@@ -43,6 +44,10 @@ def save_vitessce_config(
     for vitessce_dataset in vc_dict["datasets"]:
         if "files" not in vitessce_dataset:
             raise ValueError("Each vitessce_dataset must have a 'files' key.")
+        if not vitessce_dataset["files"]:
+            raise ValueError(
+                "vitessce_dataset does not contain values for the 'files' key."
+            )
         for file in vitessce_dataset["files"]:
             if "url" not in file:
                 raise ValueError("Each file must have a 'url' key.")
