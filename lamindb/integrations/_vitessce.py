@@ -29,12 +29,16 @@ def save_vitessce_config(
         description: A description for the `VitessceConfig` artifact.
 
     .. versionchanged:: 0.75.1
-        Now displays the "Vitessce button" on the hub next to the dataset. It keeps displaying it next to the configuration file.
+        Now displays the "Vitessce button" on the hub next to the dataset. It additionally keeps displaying it next to the configuration file.
     .. versionchanged:: 0.70.2
         No longer saves the dataset. It only saves the `VitessceConfig` object.
     """
+    # can only import here because vitessce is not a dependency
+    from vitessce import VitessceConfig
+
     from lamindb.core.storage import VALID_SUFFIXES
 
+    assert isinstance(vitessce_config, VitessceConfig)  # noqa: S101
     vc_dict = vitessce_config.to_dict()
     valid_composite_zarr_suffixes = [
         suffix for suffix in VALID_SUFFIXES.COMPOSITE if suffix.endswith(".zarr")
@@ -42,12 +46,10 @@ def save_vitessce_config(
     # validate
     dataset_artifacts = []
     for vitessce_dataset in vc_dict["datasets"]:
-        if "files" not in vitessce_dataset:
-            raise ValueError("Each vitessce_dataset must have a 'files' key.")
-        if not vitessce_dataset["files"]:
-            raise ValueError(
-                "vitessce_dataset does not contain values for the 'files' key."
-            )
+        # didn't find good ways to violate the below, hence using plain asserts
+        # without user feedback
+        assert "files" in vitessce_dataset  # noqa: S101
+        assert vitessce_dataset["files"]  # noqa: S101
         for file in vitessce_dataset["files"]:
             if "url" not in file:
                 raise ValueError("Each file must have a 'url' key.")
@@ -71,7 +73,7 @@ def save_vitessce_config(
             # if there is still a "." in string, we
             if "." in artifact_stem_uid:
                 raise ValueError(
-                    f"Suffix should be '.zarr' or one of {valid_composite_zarr_suffixes}. Inspect your path {s3_path}."
+                    f"Suffix should be '.zarr' or one of {valid_composite_zarr_suffixes}. Inspect your path {s3_path}"
                 )
             artifact = Artifact.filter(uid__startswith=artifact_stem_uid).one_or_none()
             if artifact is None:
