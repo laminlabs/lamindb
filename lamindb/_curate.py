@@ -97,6 +97,7 @@ class DataFrameCurator:
         verbosity: The verbosity level.
         organism: The organism name.
         sources: A dictionary mapping column names to Source records.
+        exclude: A dictionary mapping column names to values to exclude.
 
     Examples:
         >>> import bionty as bt
@@ -115,6 +116,7 @@ class DataFrameCurator:
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
+        exclude: dict | None = None,
     ) -> None:
         from lamindb.core._settings import settings
 
@@ -130,6 +132,9 @@ class DataFrameCurator:
         if sources is None:
             sources = {}
         self._sources = sources
+        if exclude is None:
+            exclude = {}
+        self._exclude = exclude
         self._non_validated = None
         self._save_columns()
 
@@ -264,6 +269,7 @@ class DataFrameCurator:
             fields=self.fields,
             using_key=self._using_key,
             sources=self._sources,
+            exclude=self._exclude,
             **self._kwargs,
         )
         return self._validated
@@ -330,6 +336,7 @@ class AnnDataCurator(DataFrameCurator):
         verbosity: The verbosity level.
         organism: The organism name.
         sources: A dictionary mapping ``.obs.columns`` to Source records.
+        exclude: A dictionary mapping column names to values to exclude.
 
     Examples:
         >>> import bionty as bt
@@ -351,6 +358,7 @@ class AnnDataCurator(DataFrameCurator):
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
+        exclude: dict | None = None,
     ) -> None:
         from lamindb_setup.core import upath
 
@@ -379,6 +387,7 @@ class AnnDataCurator(DataFrameCurator):
             verbosity=verbosity,
             organism=organism,
             sources=sources,
+            exclude=exclude,
         )
         self._obs_fields = categoricals
 
@@ -471,6 +480,7 @@ class AnnDataCurator(DataFrameCurator):
             using_key=self._using_key,
             source=self._sources.get("var_index"),
             validated_hint_print=".add_validated_from_var_index()",
+            exclude=self._exclude.get("var_index"),
             **self._kwargs,  # type: ignore
         )
         validated_obs, non_validated_obs = validate_categories_in_df(
@@ -478,6 +488,7 @@ class AnnDataCurator(DataFrameCurator):
             fields=self.categoricals,
             using_key=self._using_key,
             sources=self._sources,
+            exclude=self._exclude,
             **self._kwargs,
         )
         self._non_validated = non_validated_obs  # type: ignore
@@ -531,6 +542,8 @@ class MuDataCurator:
         using_key: A reference LaminDB instance.
         verbosity: The verbosity level.
         organism: The organism name.
+        sources: A dictionary mapping ``.obs.columns`` to Source records.
+        exclude: A dictionary mapping column names to values to exclude.
 
     Examples:
         >>> import bionty as bt
@@ -551,10 +564,14 @@ class MuDataCurator:
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
+        exclude: dict | None = None,
     ) -> None:
         if sources is None:
             sources = {}
         self._sources = sources
+        if exclude is None:
+            exclude = {}
+        self._exclude = exclude
         self._mdata = mdata
         self._kwargs = {"organism": organism} if organism else {}
         self._var_fields = var_index
@@ -570,6 +587,7 @@ class MuDataCurator:
                 using_key=using_key,
                 verbosity=verbosity,
                 sources=self._sources.get(modality),
+                exclude=self._exclude.get(modality),
                 **self._kwargs,
             )
             for modality in self._modalities
@@ -754,6 +772,7 @@ class MuDataCurator:
                 field=var_field,
                 key=f"{modality}_var_index",
                 using_key=self._using_key,
+                exclude=self._exclude.get(f"{modality}_var_index"),
                 **self._kwargs,  # type: ignore
             )
             validated_var &= is_validated_var
@@ -772,6 +791,7 @@ class MuDataCurator:
                 fields=fields,
                 using_key=self._using_key,
                 sources=self._sources.get(modality),
+                exclude=self._exclude.get(modality),
                 **self._kwargs,
             )
             validated_obs &= is_validated_obs
@@ -984,10 +1004,23 @@ def validate_categories(
     using_key: str | None = None,
     organism: str | None = None,
     source: Record | None = None,
+    exclude: str | list | None = None,
     standardize: bool = True,
     validated_hint_print: str | None = None,
 ) -> tuple[bool, list]:
-    """Validate ontology terms in a pandas series using LaminDB registries."""
+    """Validate ontology terms in a pandas series using LaminDB registries.
+
+    Args:
+        values: The values to validate.
+        field: The field attribute.
+        key: The key referencing the slot in the DataFrame.
+        using_key: A reference LaminDB instance.
+        organism: The organism name.
+        source: The source record.
+        exclude: Exclude specific values.
+        standardize: Standardize the values.
+        validated_hint_print: The hint to print for validated values.
+    """
     from lamindb._from_values import _print_values
     from lamindb.core._settings import settings
 
@@ -1003,6 +1036,13 @@ def validate_categories(
     kwargs.update({"source": source} if source else {})
 
     # inspect the default instance
+    if exclude is not None:
+        exclude = [exclude] if isinstance(exclude, str) else exclude
+        # exclude values are validated without source and organism
+        inspect_result = registry.inspect(exclude, field=field, mute=True)
+        # if exclude values are validated, remove them from the values
+        values = [i for i in values if i not in inspect_result.validated]
+
     inspect_result = standardize_and_inspect(
         values=values,
         field=field,
@@ -1077,6 +1117,7 @@ def validate_categories_in_df(
     fields: dict[str, FieldAttr],
     using_key: str | None = None,
     sources: dict[str, Record] = None,
+    exclude: dict | None = None,
     **kwargs,
 ) -> tuple[bool, dict]:
     """Validate categories in DataFrame columns using LaminDB registries."""
@@ -1091,6 +1132,7 @@ def validate_categories_in_df(
             key=key,
             using_key=using_key,
             source=sources.get(key),
+            exclude=exclude.get(key) if exclude else None,
             **kwargs,
         )
         validated &= is_val
