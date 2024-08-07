@@ -336,6 +336,7 @@ class AnnDataCurator(DataFrameCurator):
         verbosity: The verbosity level.
         organism: The organism name.
         sources: A dictionary mapping ``.obs.columns`` to Source records.
+        exclude: A dictionary mapping column names to values to exclude.
 
     Examples:
         >>> import bionty as bt
@@ -357,6 +358,7 @@ class AnnDataCurator(DataFrameCurator):
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
+        exclude: dict | None = None,
     ) -> None:
         from lamindb_setup.core import upath
 
@@ -385,6 +387,7 @@ class AnnDataCurator(DataFrameCurator):
             verbosity=verbosity,
             organism=organism,
             sources=sources,
+            exclude=exclude,
         )
         self._obs_fields = categoricals
 
@@ -539,6 +542,8 @@ class MuDataCurator:
         using_key: A reference LaminDB instance.
         verbosity: The verbosity level.
         organism: The organism name.
+        sources: A dictionary mapping ``.obs.columns`` to Source records.
+        exclude: A dictionary mapping column names to values to exclude.
 
     Examples:
         >>> import bionty as bt
