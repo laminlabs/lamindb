@@ -42,7 +42,7 @@ def delete_run_artifacts(run: Run) -> None:
         run.save()
     if environment is not None:
         # only delete if there are no other runs attached to this environment
-        if environment.environment_of.count() == 0:
+        if environment._environment_of.count() == 0:
             environment.delete(permanent=True)
     if report is not None:
         report.delete(permanent=True)
