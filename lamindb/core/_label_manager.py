@@ -32,14 +32,15 @@ def get_labels_as_dict(self: HasFeatures, links: bool = False):
         "input_of_runs",
         "collections",
         "_source_code_artifact_of",
-        "report_of",
-        "environment_of",
+        "_report_of",
+        "_environment_of",
         "links_collection",
         "links_artifact",
         "links_feature_set",
         "previous_runs",
         "_feature_values",
-        "_lnschema_core_collection__actions_+",
+        "_action_targets",
+        "_lnschema_core_collection__actions_+",  # something seems off with this one
         "_actions",
     }
     labels = {}  # type: ignore
