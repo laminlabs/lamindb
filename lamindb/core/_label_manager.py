@@ -40,6 +40,7 @@ def get_labels_as_dict(self: HasFeatures, links: bool = False):
         "previous_runs",
         "_feature_values",
         "_action_targets",
+        "_lnschema_core_collection__actions_+",  # something seems off with this one
         "_actions",
     }
     labels = {}  # type: ignore
