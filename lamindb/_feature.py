@@ -42,7 +42,7 @@ def __init__(self, *args, **kwargs):
         return None
     # now we proceed with the user-facing constructor
     if len(args) != 0:
-        raise ValueError("Only non-keyword args allowed")
+        raise ValueError("Only keyword args allowed")
     dtype: type | str = kwargs.pop("dtype") if "dtype" in kwargs else None
     # cast type
     if dtype is None:
