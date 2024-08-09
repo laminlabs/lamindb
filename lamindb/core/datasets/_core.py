@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.request import urlretrieve
 
 import anndata as ad
@@ -10,6 +11,9 @@ from lnschema_core import ids
 from upath import UPath
 
 from lamindb.core._settings import settings
+
+if TYPE_CHECKING:
+    from mudata import MuData
 
 
 def file_fcs() -> Path:
@@ -116,7 +120,7 @@ def file_mini_csv(in_storage_root=False) -> Path:
     return filepath
 
 
-def file_tiff_suo22():  # pragma: no cover
+def file_tiff_suo22() -> Path:  # pragma: no cover
     """Image file from Suo22.
 
     Pair with anndata_suo22_Visium10X
@@ -126,7 +130,7 @@ def file_tiff_suo22():  # pragma: no cover
         "F121_LP1_4LIV.tiff",
     )
     Path("suo22/").mkdir(exist_ok=True)
-    filepath = Path(filepath).rename("suo22/F121_LP1_4LIV.tiff")
+    filepath = Path(filepath).rename("suo22/F121_LP1_4LIV.tiff")  # type: ignore
     return Path(filepath)
 
 
@@ -282,17 +286,16 @@ def anndata_human_immune_cells(
 ) -> ad.AnnData:  # pragma: no cover
     """Cross-tissue immune cell analysis reveals tissue-specific features in humans.
 
-    From: https://cellxgene.cziscience.com/collections/62ef75e4-cbea-454e-a0ce-998ec40223d3  # noqa
+    From: https://cellxgene.cziscience.com/collections/62ef75e4-cbea-454e-a0ce-998ec40223d3
     Collection: Global
 
     To reproduce the subsample::
-
-        adata = sc.read('Global.h5ad')
-        adata.obs = adata.obs[['donor_id', 'tissue', 'cell_type', 'assay', 'tissue_ontology_term_id', 'cell_type_ontology_term_id', 'assay_ontology_term_id']].copy()
-        sc.pp.subsample(adata, fraction=0.005)
-        del adata.uns["development_cache_ontology_term_id_colors"]
-        del adata.uns["sex_ontology_term_id_colors"]
-        adata.write('human_immune.h5ad')
+        >>> adata = sc.read('Global.h5ad')
+        >>> adata.obs = adata.obs[['donor_id', 'tissue', 'cell_type', 'assay', 'tissue_ontology_term_id', 'cell_type_ontology_term_id', 'assay_ontology_term_id']].copy()
+        >>> sc.pp.subsample(adata, fraction=0.005)
+        >>> del adata.uns["development_cache_ontology_term_id_colors"]
+        >>> del adata.uns["sex_ontology_term_id_colors"]
+        >>> adata.write('human_immune.h5ad')
     """
     filepath, _ = urlretrieve("https://lamindb-test.s3.amazonaws.com/human_immune.h5ad")
     adata = ad.read_h5ad(filepath)
@@ -369,18 +372,20 @@ def anndata_suo22_Visium10X():  # pragma: no cover
     return ad.read_h5ad(filepath)
 
 
-def mudata_papalexi21_subset():  # pragma: no cover
+def mudata_papalexi21_subset() -> MuData:  # pragma: no cover
     """A subsetted mudata from papalexi21.
 
     To reproduce the subsetting:
-    >>> !wget https://figshare.com/ndownloader/files/36509460
-    >>> import mudata as md
-    >>> import scanpy as sc
-    >>> mdata = md.read_h5mu("36509460")
-    >>> mdata = sc.pp.subsample(mdata, n_obs=200, copy=True)[0]
-    >>> mdata[:, -300:].copy().write("papalexi21_subset_200x300_lamindb_demo_2023-07-25.h5mu")  # noqa
+        >>> !wget https://figshare.com/ndownloader/files/36509460
+        >>> import mudata as md
+        >>> import scanpy as sc
+        >>> mdata = md.read_h5mu("36509460")
+        >>> mdata = sc.pp.subsample(mdata, n_obs=200, copy=True)[0]
+        >>> mdata[:, -300:].copy().write("papalexi21_subset_200x300_lamindb_demo_2023-07-25.h5mu")
     """
     import mudata as md
+
+    md.set_options(pull_on_update=False)
 
     filepath, _ = urlretrieve(
         "https://lamindb-test.s3.amazonaws.com/papalexi21_subset_200x300_lamindb_demo_2023-07-25.h5mu",
@@ -388,10 +393,13 @@ def mudata_papalexi21_subset():  # pragma: no cover
     )
 
     mdata = md.read_h5mu(filepath)
+
+    mdata.pull_obs()
+
+    # The MuData object is malformed with duplicated information
+    # Drop all columns for the modalities and add them again correspondingly
     for mod in ["rna", "adt", "hto", "gdo"]:
-        mdata[mod].obs.drop(
-            mdata[mod].obs.columns, axis=1, inplace=True
-        )  # Drop all columns
+        mdata[mod].obs.drop(mdata[mod].obs.columns, axis=1, inplace=True)
     for col in mdata.obs.columns:
         for mod in ["rna", "adt", "hto", "gdo"]:
             if col.endswith(f"_{mod.upper()}"):
@@ -420,12 +428,10 @@ def mudata_papalexi21_subset():  # pragma: no cover
         "HTO_classification",
     ]:
         del mdata.obs[col]
-        mdata.update()
 
-    mdata["rna"].obs["percent.mito"] = mdata.obs.pop("percent.mito")
+    mdata.push_obs(["percent.mito"], mods=["rna"], drop=True)
     mdata["hto"].obs["technique"] = "cell hashing"
     mdata["hto"].obs["technique"] = mdata["hto"].obs["technique"].astype("category")
-    mdata.update()
 
     return mdata
 
