@@ -30,3 +30,24 @@ def test_add_ontology_from_df():
     bt.Ethnicity.import_from_source()
     record = bt.Ethnicity.get("7RNCY3yC")
     assert record.parents.all().one().name == "South East Asian"
+    # the source.in_db should be set to True since we imported all the records
+    assert record.source.in_db is True
+
+
+def test_add_ontology_from_values():
+    import bionty as bt
+
+    bt.Ethnicity.filter().delete()
+    ln.save(
+        bt.Ethnicity.from_values(
+            [
+                "HANCESTRO:0597",
+                "HANCESTRO:0006",
+            ],
+            field=bt.Ethnicity.ontology_id,
+        )
+    )
+    record = bt.Ethnicity.get("7RNCY3yC")
+    assert record.parents.all().one().name == "South East Asian"
+    # the source.in_db should be set back to False since we deleted all records
+    assert record.source.in_db is False

@@ -47,15 +47,35 @@ def get_or_create_records(
 
         # new records to be created based on new values
         if len(nonexist_values) > 0:
-            if source:
-                from_source = not source.in_db
-            elif (
-                records
-                and hasattr(records[0], "source_id")
-                and records[0].source_id
-                and records[0].source.in_db
-            ):
+            source_record = None
+            if from_source:
+                if isinstance(source, Record):
+                    source_record = source
+                elif (
+                    len(records) > 0
+                    and hasattr(records[0], "source_id")
+                    and records[0].source_id
+                ):
+                    source_record = records[0].source
+            if not source_record and hasattr(Record, "public"):
+                from bionty._bionty import get_source_record
+
+                source_record = get_source_record(Record.public(organism=organism))
+            if source_record:
+                from bionty.core._add_ontology import check_source_in_db
+
+                check_source_in_db(
+                    registry=Record,
+                    source=source_record,
+                    update=True,
+                )
+
+                from_source = not source_record.in_db
+            elif hasattr(Record, "source_id"):
+                from_source = True
+            else:
                 from_source = False
+
             if from_source:
                 records_bionty, unmapped_values = create_records_from_source(
                     iterable_idx=nonexist_values,
@@ -211,10 +231,6 @@ def create_records_from_source(
         return records, iterable_idx
     # add source record to the kwargs
     source_record = get_source_record(public_ontology)
-    if source_record is not None and source_record.in_db:
-        # skips the creation of records from public if the source is already in the db
-        return records, iterable_idx
-
     kwargs.update({"source": source_record})
 
     # filter the columns in bionty df based on fields
