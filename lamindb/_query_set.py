@@ -243,10 +243,10 @@ class QuerySet(models.QuerySet, CanValidate):
         else:
             raise MultipleResultsFound(self.all())
 
-    def latest_version(self) -> RecordsList:
+    def latest_version(self) -> QuerySet:
         """Filter every version family by latest version."""
         if issubclass(self.model, IsVersioned):
-            return filter_query_set_by_latest_version(self)
+            return self.filter(is_latest=True)
         else:
             raise ValueError("Record isn't subclass of `lamindb.core.IsVersioned`")
 
@@ -286,29 +286,6 @@ class QuerySet(models.QuerySet, CanValidate):
         from ._can_validate import _standardize
 
         return _standardize(cls=self, values=values, field=field, **kwargs)
-
-
-def filter_query_set_by_latest_version(ordered_query_set: QuerySet) -> RecordsList:
-    # evaluating length can be very costly, hence, the try-except block
-    try:
-        first_record = ordered_query_set[0]
-    except IndexError:
-        return ordered_query_set
-    records_in_view = {}
-    records_in_view[first_record.stem_uid] = first_record
-    for record in ordered_query_set:
-        # this overwrites user-provided ordering (relevant records ordered by a
-        # certain field will not show if they are not the latest version)
-        if record.stem_uid not in records_in_view:
-            records_in_view[record.stem_uid] = record
-        else:
-            if record.created_at > records_in_view[record.stem_uid].created_at:
-                # deleting the entry is needed to preserve the integrity of
-                # user-provided ordering
-                del records_in_view[record.stem_uid]
-                records_in_view[record.stem_uid] = record
-    list_records_in_view = RecordsList(records_in_view.values())
-    return list_records_in_view
 
 
 models.QuerySet.df = QuerySet.df

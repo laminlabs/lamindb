@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, List, NamedTuple
 
 import dj_database_url
 import lamindb_setup as ln_setup
-from django.db import connections
+from django.db import connections, transaction
 from django.db.models import IntegerField, Manager, Q, QuerySet, Value
 from lamin_utils import logger
 from lamin_utils._lookup import Lookup
@@ -132,7 +132,10 @@ def get(cls, idlike: int | str) -> Record:
     else:
         qs = filter(cls, uid__startswith=idlike)
         if issubclass(cls, IsVersioned):
-            return qs.latest_version().one()
+            if len(idlike) <= cls._len_stem_uid:
+                return qs.latest_version().one()
+            else:
+                return qs.one()
         else:
             return qs.one()
 
@@ -526,7 +529,28 @@ def save(self, *args, **kwargs) -> Record:
     if result is not None:
         init_self_from_db(self, result)
     else:
-        super(Record, self).save(*args, **kwargs)
+        # save versioned record
+        if isinstance(self, IsVersioned) and self._is_new_version_of is not None:
+            if self._is_new_version_of.is_latest:
+                is_new_version_of = self._is_new_version_of
+            else:
+                # need one additional request
+                is_new_version_of = self.__class__.objects.get(
+                    is_latest=True, uid__startswith=self.stem_uid
+                )
+                logger.warning(
+                    f"didn't pass the latest version in `is_new_version_of`, retrieved it: {is_new_version_of}"
+                )
+            is_new_version_of.is_latest = False
+            with transaction.atomic():
+                is_new_version_of._is_new_version_of = (
+                    None  # ensure we don't start a recursion
+                )
+                is_new_version_of.save()
+                super(Record, self).save(*args, **kwargs)
+        # save unversioned record
+        else:
+            super(Record, self).save(*args, **kwargs)
     # perform transfer of many-to-many fields
     # only supported for Artifact and Collection records
     if db is not None and db != "default" and using_key is None:
@@ -551,6 +575,30 @@ def save(self, *args, **kwargs) -> Record:
     return self
 
 
+def delete(self) -> None:
+    """Delete the record."""
+    # note that the logic below does not fire if a record is moved to the trash
+    # the idea is that moving a record to the trash should move its entire version family
+    # to the trash, whereas permanently deleting should default to only deleting a single record
+    # of a version family
+    # we can consider making it easy to permanently delete entire version families as well,
+    # but that's for another time
+    if isinstance(self, IsVersioned) and self.is_latest:
+        new_latest = (
+            self.__class__.filter(is_latest=False, uid__startswith=self.stem_uid)
+            .order_by("-created_at")
+            .first()
+        )
+        if new_latest is not None:
+            new_latest.is_latest = True
+            with transaction.atomic():
+                new_latest.save()
+                super(Record, self).delete()
+            logger.warning(f"new latest version is {new_latest}")
+            return None
+    super(Record, self).delete()
+
+
 METHOD_NAMES = [
     "__init__",
     "filter",
@@ -559,6 +607,7 @@ METHOD_NAMES = [
     "search",
     "lookup",
     "save",
+    "delete",
     "from_values",
     "using",
 ]
