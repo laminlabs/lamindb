@@ -574,6 +574,12 @@ def save(self, *args, **kwargs) -> Record:
 
 def delete(self) -> None:
     """Delete the record."""
+    # note that the logic below does not fire if a record is moved to the trash
+    # the idea is that moving a record to the trash should move its entire version family
+    # to the trash, whereas permanently deleting should default to only deleting a single record
+    # of a version family
+    # we can consider making it easy to permanently delete entire version families as well,
+    # but that's for another time
     if isinstance(self, IsVersioned) and self.is_latest:
         new_latest = (
             self.__class__.filter(is_latest=False, uid__startswith=self.stem_uid)
