@@ -113,9 +113,15 @@ def test_latest_version_and_get():
     assert (
         ln.Transform.filter(name="Introduction").latest_version().one() == transform_v3
     )
+
+    # test get
     assert ln.Transform.get(transform_v3.uid) == transform_v3
     assert ln.Transform.get(transform_v3.id) == transform_v3
     assert ln.Transform.get(transform_v3.uid[:4]) == transform_v3
+
+    # test delete
+    transform_v3.delete()
+    assert transform_v2.is_latest
 
     # test empty QuerySet
     assert (

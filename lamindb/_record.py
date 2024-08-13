@@ -572,6 +572,24 @@ def save(self, *args, **kwargs) -> Record:
     return self
 
 
+def delete(self) -> None:
+    """Delete the record."""
+    if isinstance(self, IsVersioned) and self.is_latest:
+        new_latest = (
+            self.__class__.filter(is_latest=False, uid__startswith=self.stem_uid)
+            .order_by("-created_at")
+            .first()
+        )
+        if new_latest is not None:
+            new_latest.is_latest = True
+            with transaction.atomic():
+                new_latest.save()
+                super(Record, self).delete()
+            logger.warning(f"new latest version is {new_latest}")
+            return None
+    super(Record, self).delete()
+
+
 METHOD_NAMES = [
     "__init__",
     "filter",
@@ -580,6 +598,7 @@ METHOD_NAMES = [
     "search",
     "lookup",
     "save",
+    "delete",
     "from_values",
     "using",
 ]
