@@ -132,7 +132,10 @@ def get(cls, idlike: int | str) -> Record:
     else:
         qs = filter(cls, uid__startswith=idlike)
         if issubclass(cls, IsVersioned):
-            return qs.latest_version().one()
+            if len(idlike) <= cls._len_stem_uid:
+                return qs.latest_version().one()
+            else:
+                return qs.one()
         else:
             return qs.one()
 
