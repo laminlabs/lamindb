@@ -72,7 +72,6 @@ def set_version(version: str | None = None, previous_version: str | None = None)
     return version
 
 
-# uses `initial_version_id` to extract a stem_id that's part of id
 def init_uid(
     *,
     version: str | None = None,

@@ -22,7 +22,6 @@ def __init__(transform: Transform, *args, **kwargs):
     is_new_version_of: Transform | None = (
         kwargs.pop("is_new_version_of") if "is_new_version_of" in kwargs else None
     )
-    (kwargs.pop("initial_version_id") if "initial_version_id" in kwargs else None)
     version: str | None = kwargs.pop("version") if "version" in kwargs else None
     type: TransformType | None = kwargs.pop("type") if "type" in kwargs else "pipeline"
     reference: str | None = kwargs.pop("reference") if "reference" in kwargs else None
@@ -55,6 +54,7 @@ def __init__(transform: Transform, *args, **kwargs):
         reference=reference,
         reference_type=reference_type,
         _has_consciously_provided_uid=has_consciously_provided_uid,
+        is_new_version_of=is_new_version_of,
     )
 
 

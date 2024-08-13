@@ -87,15 +87,25 @@ def test_latest_version_and_get():
     # build one version family
     transform_v1 = ln.Transform(name="Introduction")
     transform_v1.save()
-    transform_v2 = ln.Transform(name="Introduction", is_new_version_of=transform_v1)
+    assert transform_v1.is_latest
+    assert transform_v1.version is None
+    # pass the latest version, also vary the name for the fun of it
+    transform_v2 = ln.Transform(name="Introduction v2", is_new_version_of=transform_v1)
     transform_v2.save()
-    transform_v3 = ln.Transform(name="Introduction", is_new_version_of=transform_v2)
+    assert not transform_v1.is_latest
+    assert transform_v2.is_latest
+    assert transform_v2.version == "2"
+    # do not pass the latest version to is_new_version_of
+    transform_v3 = ln.Transform(name="Introduction", is_new_version_of=transform_v1)
     transform_v3.save()
+    assert not ln.Transform.objects.get(name="Introduction v2", version="2").is_latest
+    assert transform_v3.is_latest
     transform_v4 = ln.Transform(name="Introduction")
     transform_v4.save()
+    assert transform_v4.is_latest
     # add another transform with the same name that's not part of this family
     # but will also be a hit for the query
-    assert len(ln.Transform.filter(name="Introduction").all()) == 4
+    assert len(ln.Transform.filter(name="Introduction").all()) == 3
     assert len(ln.Transform.filter(name="Introduction").latest_version()) == 2
     transform_v4.delete()
     with pytest.raises(MultipleResultsFound):
