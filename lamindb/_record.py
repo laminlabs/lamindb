@@ -527,8 +527,7 @@ def save(self, *args, **kwargs) -> Record:
         init_self_from_db(self, result)
     else:
         # save versioned record
-        if self._is_new_version_of is not None:
-            print(self._is_new_version_of)
+        if isinstance(self, IsVersioned) and self._is_new_version_of is not None:
             if self._is_new_version_of.is_latest:
                 is_new_version_of = self._is_new_version_of
             else:
