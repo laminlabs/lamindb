@@ -243,8 +243,10 @@ def test_collection_mapped(adata, adata2):
     assert len(ls_ds[0]["X"]) == 3
     assert np.array_equal(ls_ds[2]["X"], np.array([1, 2, 5]))
     weights = ls_ds.get_label_weights("feat1")
+    assert len(weights) == 4
     assert all(weights[1:] == weights[0])
     weights = ls_ds.get_label_weights(["feat1", "feat2"])
+    assert len(weights) == 4
     assert all(weights[1:] == weights[0])
     ls_ds.close()
     assert ls_ds.closed

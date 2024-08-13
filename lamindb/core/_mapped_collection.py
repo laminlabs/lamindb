@@ -383,10 +383,9 @@ class MappedCollection:
             labels_to_str = self.get_merged_labels(label_key).astype(str).astype("O")
             labels_list.append(labels_to_str)
         if len(labels_list) > 1:
-            labels = reduce(lambda a, b: a + b, labels_list)
+            labels = map("__".join, zip(*labels_list))
         else:
             labels = labels_list[0]
-        labels = self.get_merged_labels(label_key)
         counter = Counter(labels)  # type: ignore
         weights = 1.0 / np.array([counter[label] for label in labels])
         return weights
