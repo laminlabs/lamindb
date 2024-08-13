@@ -10,7 +10,7 @@ import pandas as pd
 from lamin_utils import logger
 from lamindb_setup.core.upath import UPath
 
-from .storage._anndata_accessor import (
+from .core.storage._anndata_accessor import (
     ArrayType,
     ArrayTypes,
     GroupType,
@@ -46,7 +46,6 @@ class _Connect:
             self.store.close()
         if hasattr(self.conn, "close"):
             self.conn.close()
-
 
 class MappedCollection:
     """Map-style collection for use in data loaders.
@@ -100,14 +99,14 @@ class MappedCollection:
         layers_keys: str | list[str] | None = None,
         obs_keys: str | list[str] | None = None,
         obsm_keys: str | list[str] | None = None,
-        join: Literal["inner", "outer"] | None = "inner",
+        join: Literal["inner", "outer", "auto"] | None = "inner",
         encode_labels: bool | list[str] = True,
         unknown_label: str | dict[str, str] | None = None,
         cache_categories: bool = True,
         parallel: bool = False,
         dtype: str | None = None,
     ):
-        if join not in {None, "inner", "outer"}:  # pragma: nocover
+        if join not in {None, "inner", "outer", "auto"}:  # pragma: nocover
             raise ValueError(
                 f"join must be one of None, 'inner, or 'outer' but was {type(join)}"
             )
@@ -156,6 +155,22 @@ class MappedCollection:
         for storage in self.storages:
             with _Connect(storage) as store:
                 X = store["X"]
+                index = (
+                    store["var"]["ensembl_gene_id"]
+                    if "ensembl_gene_id" in store["var"]
+                    else store["var"]["_index"]
+                )
+                if join is None:
+                    if not all(
+                        [
+                            i <= j
+                            for i, j in zip(
+                                index[:99],
+                                index[1:100],
+                            )
+                        ]
+                    ):
+                        raise ValueError("The variables are not sorted.")
                 if isinstance(X, ArrayTypes):  # type: ignore
                     self.n_obs_list.append(X.shape[0])
                 else:
@@ -222,6 +237,8 @@ class MappedCollection:
             if unknown_label is not None and unknown_label in cats:
                 cats.remove(unknown_label)
                 encoder[unknown_label] = -1
+            cats = list(cats)
+            cats.sort()
             encoder.update({cat: i for i, cat in enumerate(cats)})
             self.encoders[label] = encoder
 
@@ -234,6 +251,7 @@ class MappedCollection:
                 var_list.append(vars)
                 self.n_vars_list.append(len(vars))
 
+        self.var_joint = None
         vars_eq = all(var_list[0].equals(vrs) for vrs in var_list[1:])
         if vars_eq:
             self.join_vars = None
@@ -251,6 +269,14 @@ class MappedCollection:
         elif self.join_vars == "outer":
             self.var_joint = reduce(pd.Index.union, var_list)
             self.var_indices = [self.var_joint.get_indexer(vrs) for vrs in var_list]
+
+    def _check_aligned_vars(self, vars: list):
+        i = 0
+        for storage in self.storages:
+            with _Connect(storage) as store:
+                if len(set(_safer_read_index(store["var"]).tolist()) - set(vars)) == 0:
+                    i += 1
+        print("{}% are aligned".format(i * 100 / len(self.storages)))
 
     def __len__(self):
         return self.n_obs
@@ -309,7 +335,7 @@ class MappedCollection:
         self,
         lazy_data: ArrayType | GroupType,  # type: ignore
         idx: int,
-        join_vars: Literal["inner", "outer"] | None = None,
+        join_vars: Literal["inner", "outer", "auto"] | None = None,
         var_idxs_join: list | None = None,
         n_vars_out: int | None = None,
     ):
@@ -374,7 +400,7 @@ class MappedCollection:
             label = label.decode("utf-8")
         return label
 
-    def get_label_weights(self, obs_keys: str | list[str]):
+    def get_label_weights(self, obs_keys: str | list[str], scaler: int = 10):
         """Get all weights for the given label keys."""
         if isinstance(obs_keys, str):
             obs_keys = [obs_keys]
@@ -386,10 +412,13 @@ class MappedCollection:
             labels = reduce(lambda a, b: a + b, labels_list)
         else:
             labels = labels_list[0]
-        labels = self.get_merged_labels(label_key)
+
         counter = Counter(labels)  # type: ignore
-        weights = 1.0 / np.array([counter[label] for label in labels])
-        return weights
+        rn = {n: i for i, n in enumerate(counter.keys())}
+        labels = np.array([rn[label] for label in labels])
+        counter = np.array(list(counter.values()))
+        weights = scaler / (counter + scaler)
+        return weights, labels
 
     def get_merged_labels(self, label_key: str):
         """Get merged labels for `label_key` from all `.obs`."""
@@ -509,3 +538,4 @@ class MappedCollection:
         mapped.storages = []
         mapped.conns = []
         mapped._make_connections(mapped._path_list, parallel=False)
+
