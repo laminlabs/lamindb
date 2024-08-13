@@ -383,7 +383,7 @@ class MappedCollection:
             labels_to_str = self.get_merged_labels(label_key).astype(str).astype("O")
             labels_list.append(labels_to_str)
         if len(labels_list) > 1:
-            labels = map("__".join, zip(*labels_list))
+            labels = ["__".join(labels_obs) for labels_obs in zip(*labels_list)]
         else:
             labels = labels_list[0]
         counter = Counter(labels)  # type: ignore
