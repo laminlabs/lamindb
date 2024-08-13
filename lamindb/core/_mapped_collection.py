@@ -7,10 +7,9 @@ from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Union
 
 import numpy as np
 import pandas as pd
-from lamin_utils import logger
 from lamindb_setup.core.upath import UPath
 
-from .core.storage._anndata_accessor import (
+from .storage._anndata_accessor import (
     ArrayType,
     ArrayTypes,
     GroupType,
@@ -46,6 +45,7 @@ class _Connect:
             self.store.close()
         if hasattr(self.conn, "close"):
             self.conn.close()
+
 
 class MappedCollection:
     """Map-style collection for use in data loaders.
@@ -99,14 +99,14 @@ class MappedCollection:
         layers_keys: str | list[str] | None = None,
         obs_keys: str | list[str] | None = None,
         obsm_keys: str | list[str] | None = None,
-        join: Literal["inner", "outer", "auto"] | None = "inner",
+        join: Literal["inner", "outer"] | None = "inner",
         encode_labels: bool | list[str] = True,
         unknown_label: str | dict[str, str] | None = None,
         cache_categories: bool = True,
         parallel: bool = False,
         dtype: str | None = None,
     ):
-        if join not in {None, "inner", "outer", "auto"}:  # pragma: nocover
+        if join not in {None, "inner", "outer"}:  # pragma: nocover
             raise ValueError(
                 f"join must be one of None, 'inner, or 'outer' but was {type(join)}"
             )
@@ -335,7 +335,7 @@ class MappedCollection:
         self,
         lazy_data: ArrayType | GroupType,  # type: ignore
         idx: int,
-        join_vars: Literal["inner", "outer", "auto"] | None = None,
+        join_vars: Literal["inner", "outer"] | None = None,
         var_idxs_join: list | None = None,
         n_vars_out: int | None = None,
     ):
@@ -538,4 +538,3 @@ class MappedCollection:
         mapped.storages = []
         mapped.conns = []
         mapped._make_connections(mapped._path_list, parallel=False)
-
