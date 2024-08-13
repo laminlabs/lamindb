@@ -594,6 +594,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
     kwargs["description"] = description
     kwargs["visibility"] = visibility
     kwargs["_accessor"] = accessor
+    kwargs["is_new_version_of"] = is_new_version_of
     # this check needs to come down here because key might be populated from an
     # existing file path during get_artifact_kwargs_from_data()
     if (

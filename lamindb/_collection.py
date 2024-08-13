@@ -158,7 +158,7 @@ def __init__(
             run=run,
             version=version,
             visibility=visibility,
-            **kwargs,
+            is_new_version_of=is_new_version_of**kwargs,
         )
     collection._artifacts = artifacts
     collection._feature_sets = feature_sets
