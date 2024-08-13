@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from lamindb_setup.core.upath import VALID_COMPOSITE_SUFFIXES, VALID_SIMPLE_SUFFIXES
 
 # add new composite suffixes like so

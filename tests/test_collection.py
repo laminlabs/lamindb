@@ -215,12 +215,11 @@ def test_collection_mapped(adata, adata2):
     ) as ls_ds:
         assert ls_ds.encoders["feat1"]["A"] == -1
         assert ls_ds.encoders["feat1"]["B"] == 0
-        # can't predict order of elements in set
+        # categories in the encoder are sorted
         A_enc = ls_ds.encoders["feat2"]["A"]
+        assert A_enc == 0
         B_enc = ls_ds.encoders["feat2"]["B"]
-        assert A_enc in (0, 1)
-        assert B_enc in (0, 1)
-        assert A_enc != B_enc
+        assert B_enc == 1
         assert ls_ds[0]["feat1"] == -1
         assert ls_ds[1]["feat1"] == 0
         assert ls_ds[0]["feat2"] == A_enc

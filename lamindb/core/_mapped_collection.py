@@ -426,7 +426,7 @@ class MappedCollection:
                     codes = self._get_codes(store, label_key)
                     codes = decode(codes) if isinstance(codes[0], bytes) else codes
                     cats_merge.update(codes)
-        return cats_merge
+        return sorted(cats_merge)
 
     def _get_categories(self, storage: StorageType, label_key: str):  # type: ignore
         """Get categories."""
