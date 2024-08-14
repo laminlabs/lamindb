@@ -432,6 +432,7 @@ def mudata_papalexi21_subset() -> MuData:  # pragma: no cover
     mdata.push_obs(["percent.mito"], mods=["rna"], drop=True)
     mdata["hto"].obs["technique"] = "cell hashing"
     mdata["hto"].obs["technique"] = mdata["hto"].obs["technique"].astype("category")
+    mdata.pull_obs(["technique"], mods="hto")
 
     return mdata
 
