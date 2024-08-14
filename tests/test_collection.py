@@ -250,7 +250,9 @@ def test_collection_mapped(adata, adata2):
     assert all(weights == 0.5)
     weights = ls_ds.get_label_weights(["feat1", "feat2"], scaler=1.0)
     assert all(weights == 1.0 / 3.0)
-    weights = ls_ds.get_label_weights(["feat1", "feat2"], scaler=1.0, return_cats=True)
+    weights = ls_ds.get_label_weights(
+        ["feat1", "feat2"], scaler=1.0, return_categories=True
+    )
     assert weights["A__A"] == 1.0 / 3.0
     assert weights["B__B"] == 1.0 / 3.0
     ls_ds.close()

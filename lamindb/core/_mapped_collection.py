@@ -378,7 +378,7 @@ class MappedCollection:
         self,
         obs_keys: str | list[str],
         scaler: float | None = None,
-        return_cats: bool = False,
+        return_categories: bool = False,
     ):
         """Get all weights for the given label keys."""
         if isinstance(obs_keys, str):
@@ -392,7 +392,7 @@ class MappedCollection:
         else:
             labels = labels_list[0]
         counter = Counter(labels)
-        if return_cats:
+        if return_categories:
             return {
                 k: 1.0 / v if scaler is None else scaler / (v + scaler)
                 for k, v in counter.items()
