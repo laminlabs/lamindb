@@ -259,9 +259,9 @@ def test_collection_mapped(adata, adata2):
     assert not ls_ds.check_vars_sorted(ascending=True)
     assert not ls_ds.check_vars_sorted(ascending=False)
     assert ls_ds.check_vars_non_aligned(["MYC", "TCF7", "GATA1"]) == []
-    ls_ds.vars_list = None
+    ls_ds.var_list = None
     assert not ls_ds.check_vars_sorted()
-    ls_ds.vars_list = None
+    ls_ds.var_list = None
     assert ls_ds.check_vars_non_aligned(["MYC", "TCF7", "GATA1"]) == []
 
     ls_ds.close()
