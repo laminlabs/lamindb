@@ -61,7 +61,6 @@ Here is how to create a param:
 
     # unset to remove side effects
     ln.context.run = None
-    ln.context.run.transform = None
 
 
 def test_track_notebook_colab():
@@ -87,7 +86,6 @@ def test_invalid_transform_type():
 
     # unset to remove side effects
     ln.context.run = None
-    ln.context.run.transform = None
 
 
 def test_create_or_load_transform(monkeypatch):
