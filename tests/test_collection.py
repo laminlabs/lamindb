@@ -215,12 +215,11 @@ def test_collection_mapped(adata, adata2):
     ) as ls_ds:
         assert ls_ds.encoders["feat1"]["A"] == -1
         assert ls_ds.encoders["feat1"]["B"] == 0
-        # can't predict order of elements in set
+        # categories in the encoder are sorted
         A_enc = ls_ds.encoders["feat2"]["A"]
+        assert A_enc == 0
         B_enc = ls_ds.encoders["feat2"]["B"]
-        assert A_enc in (0, 1)
-        assert B_enc in (0, 1)
-        assert A_enc != B_enc
+        assert B_enc == 1
         assert ls_ds[0]["feat1"] == -1
         assert ls_ds[1]["feat1"] == 0
         assert ls_ds[0]["feat2"] == A_enc
@@ -244,9 +243,27 @@ def test_collection_mapped(adata, adata2):
     assert len(ls_ds[0]["X"]) == 3
     assert np.array_equal(ls_ds[2]["X"], np.array([1, 2, 5]))
     weights = ls_ds.get_label_weights("feat1")
-    assert all(weights[1:] == weights[0])
+    assert len(weights) == 4
+    assert all(weights == 0.5)
     weights = ls_ds.get_label_weights(["feat1", "feat2"])
-    assert all(weights[1:] == weights[0])
+    assert len(weights) == 4
+    assert all(weights == 0.5)
+    weights = ls_ds.get_label_weights(["feat1", "feat2"], scaler=1.0)
+    assert all(weights == 1.0 / 3.0)
+    weights = ls_ds.get_label_weights(
+        ["feat1", "feat2"], scaler=1.0, return_categories=True
+    )
+    assert weights["A__A"] == 1.0 / 3.0
+    assert weights["B__B"] == 1.0 / 3.0
+
+    assert not ls_ds.check_vars_sorted(ascending=True)
+    assert not ls_ds.check_vars_sorted(ascending=False)
+    assert ls_ds.check_vars_non_aligned(["MYC", "TCF7", "GATA1"]) == []
+    ls_ds.var_list = None
+    assert not ls_ds.check_vars_sorted()
+    ls_ds.var_list = None
+    assert ls_ds.check_vars_non_aligned(["MYC", "TCF7", "GATA1"]) == []
+
     ls_ds.close()
     assert ls_ds.closed
     del ls_ds
@@ -299,6 +316,8 @@ def test_collection_mapped(adata, adata2):
         assert np.issubdtype(ls_ds[2]["X"].dtype, np.integer)
         assert np.issubdtype(ls_ds[4]["X"].dtype, np.integer)
         assert np.array_equal(ls_ds[3]["obsm_X_pca"], np.array([3, 4]))
+        assert ls_ds.check_vars_non_aligned(["MYC", "TCF7", "GATA1"]) == [2]
+        assert not ls_ds.check_vars_sorted()
 
     with collection_outer.mapped(layers_keys="layer1", join="outer") as ls_ds:
         assert np.array_equal(ls_ds[0]["layer1"], np.array([0, 0, 0, 3, 0, 2]))

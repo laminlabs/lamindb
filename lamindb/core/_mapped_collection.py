@@ -149,7 +149,7 @@ class MappedCollection:
         self.storages = []  # type: ignore
         self.conns = []  # type: ignore
         self.parallel = parallel
-        self._path_list = path_list
+        self.path_list = path_list
         self._make_connections(path_list, parallel)
 
         self.n_obs_list = []
@@ -165,11 +165,12 @@ class MappedCollection:
         self.indices = np.hstack([np.arange(n_obs) for n_obs in self.n_obs_list])
         self.storage_idx = np.repeat(np.arange(len(self.storages)), self.n_obs_list)
 
-        self.join_vars = join
-        self.var_indices = None
-        self.var_joint = None
-        self.n_vars_list = None
-        self.n_vars = None
+        self.join_vars: Literal["inner", "outer"] | None = join
+        self.var_indices: list | None = None
+        self.var_joint: pd.Index | None = None
+        self.n_vars_list: list | None = None
+        self.var_list: list | None = None
+        self.n_vars: int | None = None
         if self.join_vars is not None:
             self._make_join_vars()
             self.n_vars = len(self.var_joint)
@@ -225,43 +226,71 @@ class MappedCollection:
             encoder.update({cat: i for i, cat in enumerate(cats)})
             self.encoders[label] = encoder
 
-    def _make_join_vars(self):
-        var_list = []
+    def _read_vars(self):
+        self.var_list = []
         self.n_vars_list = []
         for storage in self.storages:
             with _Connect(storage) as store:
                 vars = _safer_read_index(store["var"])
-                var_list.append(vars)
+                self.var_list.append(vars)
                 self.n_vars_list.append(len(vars))
 
-        vars_eq = all(var_list[0].equals(vrs) for vrs in var_list[1:])
+    def _make_join_vars(self):
+        if self.var_list is None:
+            self._read_vars()
+        vars_eq = all(self.var_list[0].equals(vrs) for vrs in self.var_list[1:])
         if vars_eq:
             self.join_vars = None
-            self.var_joint = var_list[0]
+            self.var_joint = self.var_list[0]
             return
 
         if self.join_vars == "inner":
-            self.var_joint = reduce(pd.Index.intersection, var_list)
+            self.var_joint = reduce(pd.Index.intersection, self.var_list)
             if len(self.var_joint) == 0:
                 raise ValueError(
                     "The provided AnnData objects don't have shared varibales.\n"
                     "Use join='outer'."
                 )
-            self.var_indices = [vrs.get_indexer(self.var_joint) for vrs in var_list]
+            self.var_indices = [
+                vrs.get_indexer(self.var_joint) for vrs in self.var_list
+            ]
         elif self.join_vars == "outer":
-            self.var_joint = reduce(pd.Index.union, var_list)
-            self.var_indices = [self.var_joint.get_indexer(vrs) for vrs in var_list]
+            self.var_joint = reduce(pd.Index.union, self.var_list)
+            self.var_indices = [
+                self.var_joint.get_indexer(vrs) for vrs in self.var_list
+            ]
+
+    def check_vars_sorted(self, ascending: bool = True) -> bool:
+        """Returns `True` if all variables are sorted in all objects."""
+        if self.var_list is None:
+            self._read_vars()
+        if ascending:
+            vrs_sort_status = (vrs.is_monotonic_increasing for vrs in self.var_list)
+        else:
+            vrs_sort_status = (vrs.is_monotonic_decreasing for vrs in self.var_list)
+        return all(vrs_sort_status)
+
+    def check_vars_non_aligned(self, vars: pd.Index | list) -> list[int]:
+        """Returns indices of objects with non-aligned variables.
+
+        Args:
+            vars: Check alignment against these variables.
+        """
+        if self.var_list is None:
+            self._read_vars()
+        vars = pd.Index(vars)
+        return [i for i, vrs in enumerate(self.var_list) if not vrs.equals(vars)]
 
     def __len__(self):
         return self.n_obs
 
     @property
-    def shape(self):
+    def shape(self) -> tuple[int, int]:
         """Shape of the (virtually aligned) dataset."""
         return (self.n_obs, self.n_vars)
 
     @property
-    def original_shapes(self):
+    def original_shapes(self) -> list[tuple[int, int]]:
         """Shapes of the underlying AnnData objects."""
         if self.n_vars_list is None:
             n_vars_list = [None] * len(self.n_obs_list)
@@ -374,8 +403,27 @@ class MappedCollection:
             label = label.decode("utf-8")
         return label
 
-    def get_label_weights(self, obs_keys: str | list[str]):
-        """Get all weights for the given label keys."""
+    def get_label_weights(
+        self,
+        obs_keys: str | list[str],
+        scaler: float | None = None,
+        return_categories: bool = False,
+    ):
+        """Get all weights for the given label keys.
+
+        This counts the number of labels for each label and returns
+        weights for each obs label accoding to the formula `1 / num of this label in the data`.
+        If `scaler` is provided, then `scaler / (scaler + num of this label in the data)`.
+
+        Args:
+            obs_keys: A key in the ``.obs`` slots or a list of keys. If a list is provided,
+                the labels from the obs keys will be concatenated with ``"__"`` delimeter
+            scaler: Use this number to scale the provided weights.
+            return_categories: If `False`, returns weights for each observation,
+                can be directly passed to a sampler. If `True`, returns a dictionary with
+                unique categories for labels (concatenated if `obs_keys` is a list)
+                and their weights.
+        """
         if isinstance(obs_keys, str):
             obs_keys = [obs_keys]
         labels_list = []
@@ -383,12 +431,20 @@ class MappedCollection:
             labels_to_str = self.get_merged_labels(label_key).astype(str).astype("O")
             labels_list.append(labels_to_str)
         if len(labels_list) > 1:
-            labels = reduce(lambda a, b: a + b, labels_list)
+            labels = ["__".join(labels_obs) for labels_obs in zip(*labels_list)]
         else:
             labels = labels_list[0]
-        labels = self.get_merged_labels(label_key)
-        counter = Counter(labels)  # type: ignore
-        weights = 1.0 / np.array([counter[label] for label in labels])
+        counter = Counter(labels)
+        if return_categories:
+            return {
+                k: 1.0 / v if scaler is None else scaler / (v + scaler)
+                for k, v in counter.items()
+            }
+        counts = np.array([counter[label] for label in labels])
+        if scaler is None:
+            weights = 1.0 / counts
+        else:
+            weights = scaler / (counts + scaler)
         return weights
 
     def get_merged_labels(self, label_key: str):
@@ -426,7 +482,7 @@ class MappedCollection:
                     codes = self._get_codes(store, label_key)
                     codes = decode(codes) if isinstance(codes[0], bytes) else codes
                     cats_merge.update(codes)
-        return cats_merge
+        return sorted(cats_merge)
 
     def _get_categories(self, storage: StorageType, label_key: str):  # type: ignore
         """Get categories."""
@@ -483,7 +539,7 @@ class MappedCollection:
         self._closed = True
 
     @property
-    def closed(self):
+    def closed(self) -> bool:
         """Check if connections to array streaming backend are closed.
 
         Does not matter if `parallel=True`.
@@ -508,4 +564,4 @@ class MappedCollection:
         mapped.parallel = False
         mapped.storages = []
         mapped.conns = []
-        mapped._make_connections(mapped._path_list, parallel=False)
+        mapped._make_connections(mapped.path_list, parallel=False)
