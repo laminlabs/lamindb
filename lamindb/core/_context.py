@@ -33,8 +33,8 @@ is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 msg_path_failed = (
     "failed to infer notebook path.\nfix: either track manually via"
-    " `ln.track(transform=ln.Transform(name='My notebook'))` or pass"
-    " `path` to ln.track()"
+    " `ln.context.track(transform=ln.Transform(name='My notebook'))` or pass"
+    " `path` to ln.context.track()"
 )
 
 
@@ -240,14 +240,14 @@ class Context:
             To track a notebook or script, call:
 
             >>> import lamindb as ln
-            >>> ln.track()
+            >>> ln.context.track()
 
             If you'd like to track an abstract pipeline run, pass a
             :class:`~lamindb.Transform` object of ``type`` ``"pipeline"``:
 
             >>> ln.Transform(name="Cell Ranger", version="2", type="pipeline").save()
             >>> transform = ln.Transform.filter(name="Cell Ranger", version="2").one()
-            >>> ln.track(transform=transform)
+            >>> ln.context.track(transform=transform)
         """
         self._path = None
         if transform is None:
@@ -294,7 +294,7 @@ class Context:
         else:
             if transform.type in {"notebook", "script"}:
                 raise ValueError(
-                    "Use ln.track() without passing transform in a notebook or script"
+                    "Use ln.context.track() without passing transform in a notebook or script"
                     " - metadata is automatically parsed"
                 )
             transform_exists = None
@@ -387,7 +387,7 @@ class Context:
             except IndexError:
                 raise NotebookNotSavedError(
                     "The notebook is not saved, please save the notebook and"
-                    " rerun `ln.track()`"
+                    " rerun `ln.context.track()`"
                 ) from None
             if nbproject_title is None:
                 raise NoTitleError(

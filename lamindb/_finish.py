@@ -39,7 +39,7 @@ def finish() -> None:
     Saves source code and, for notebooks, a run report to your default storage location.
     """
     if context.run is None:
-        raise TrackNotCalled("Please run `ln.track()` before `ln.finish()`")
+        raise TrackNotCalled("Please run `ln.context.track()` before `ln.finish()`")
     if context._path is None:
         if context.run.transform.type in {"script", "notebook"}:
             raise ValueError(
@@ -182,7 +182,9 @@ def save_context_core(
                     f"replaced transform._source_code_artifact: {transform._source_code_artifact}"
                 )
             else:
-                logger.warning("Please re-run `ln.track()` to make a new version")
+                logger.warning(
+                    "Please re-run `ln.context.track()` to make a new version"
+                )
                 return "rerun-the-notebook"
         else:
             logger.important("source code is already saved")

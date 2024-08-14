@@ -19,7 +19,7 @@ def test_track_with_multi_parents():
     # first invocation
     params = {"param1": 1, "param2": "my-string", "param3": 3.14}
     with pytest.raises(ValidationError) as error:
-        ln.track(transform=child, params=params)
+        ln.context.track(transform=child, params=params)
     assert (
         error.exconly()
         == """lamindb.core.exceptions.ValidationError: These keys could not be validated: ['param1', 'param2', 'param3']
@@ -32,14 +32,14 @@ Here is how to create a param:
     ln.Param(name="param1", dtype="int").save()
     ln.Param(name="param2", dtype="str").save()
     ln.Param(name="param3", dtype="float").save()
-    ln.track(transform=child, params=params)
+    ln.context.track(transform=child, params=params)
     print("outside", id(ln.context))
     assert ln.context.run.params.get_values() == params
     # second invocation
     params = {"param1": 1, "param2": "my-string", "param3": 3.14, "param4": [1, 2]}
     param4 = ln.Param(name="param4", dtype="int").save()
     with pytest.raises(ValidationError) as error:
-        ln.track(transform=child, params=params)
+        ln.context.track(transform=child, params=params)
     assert (
         error.exconly()
         == """lamindb.core.exceptions.ValidationError: Expected dtype for 'param4' is 'int', got 'list[int]'"""
@@ -48,7 +48,7 @@ Here is how to create a param:
     param4.dtype = "list[int]"
     param4.save()
     # re-run
-    ln.track(transform=child, params=params)
+    ln.context.track(transform=child, params=params)
     assert ln.context.run.params.get_values() == params
 
     # test that run populates things like ULabels etc.
@@ -73,12 +73,12 @@ def test_finish_before_track():
     ln.context._run = None
     with pytest.raises(TrackNotCalled) as error:
         ln.finish()
-    assert "Please run `ln.track()` before `ln.finish()" in error.exconly()
+    assert "Please run `ln.context.track()` before `ln.finish()" in error.exconly()
 
 
 def test_invalid_transform_type():
     transform = ln.Transform(name="test transform")
-    ln.track(transform=transform)
+    ln.context.track(transform=transform)
     ln.context._path = None
     ln.context.run.transform.type = "script"
     with pytest.raises(ValueError) as error:
@@ -180,8 +180,8 @@ def test_run_script():
 def test_track_notebook_or_script_manually(type):
     transform = ln.Transform(name="My notebook", type=type)
     with pytest.raises(ValueError) as error:
-        ln.track(transform=transform)
+        ln.context.track(transform=transform)
     assert (
         error.exconly()
-        == "ValueError: Use ln.track() without passing transform in a notebook or script - metadata is automatically parsed"
+        == "ValueError: Use ln.context.track() without passing transform in a notebook or script - metadata is automatically parsed"
     )

@@ -40,7 +40,9 @@ from .schema import (
 if TYPE_CHECKING:
     from lnschema_core.types import StrField
 
-WARNING_RUN_TRANSFORM = "no run & transform get linked, consider calling ln.track()"
+WARNING_RUN_TRANSFORM = (
+    "no run & transform get linked, consider calling ln.context.track()"
+)
 
 
 def get_run(run: Run | None) -> Run | None:
@@ -364,7 +366,7 @@ def _track_run_input(
             if settings.track_run_inputs:
                 logger.hint(
                     "you can auto-track these data as a run input by calling"
-                    " `ln.track()`"
+                    " `ln.context.track()`"
                 )
         # assume we have a run record
         else:
@@ -392,7 +394,7 @@ def _track_run_input(
     if track_run_input:
         if run is None:
             raise ValueError(
-                "No run context set. Call ln.track() or link input to a"
+                "No run context set. Call ln.context.track() or link input to a"
                 " run object via `run.input_artifacts.add(artifact)`"
             )
         # avoid adding the same run twice
