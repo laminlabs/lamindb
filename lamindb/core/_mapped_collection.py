@@ -380,7 +380,21 @@ class MappedCollection:
         scaler: float | None = None,
         return_categories: bool = False,
     ):
-        """Get all weights for the given label keys."""
+        """Get all weights for the given label keys.
+
+        This counts the number of labels for each label and returns
+        weights for each obs label accoding to the formula `1 / num of this label in the data`.
+        If `scaler` is provided, then `scaler / (scaler + num of this label in the data)`.
+
+        Args:
+            obs_keys: A key in the ``.obs`` slots or a list of keys. If a list is provided,
+                the labels from the obs keys will be concatenated with ``"__"`` delimeter
+            scaler: Use this number to scale the provided weights.
+            return_categories: If `False`, returns weights for each observation,
+                can be directly passed to a sampler. If `True`, returns a dictionary with
+                unique categories for labels (concatenated if `obs_keys` is a list)
+                and their weights.
+        """
         if isinstance(obs_keys, str):
             obs_keys = [obs_keys]
         labels_list = []
