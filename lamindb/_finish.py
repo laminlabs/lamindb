@@ -41,9 +41,9 @@ def finish() -> None:
     if run_context.run is None:
         raise TrackNotCalled("Please run `ln.track()` before `ln.finish()`")
     if run_context.path is None:
-        if run_context.transform.type in {"script", "notebook"}:
+        if run_context.run.transform.type in {"script", "notebook"}:
             raise ValueError(
-                f"Transform type is not allowed to be 'script' or 'notebook' but is {run_context.transform.type}."
+                f"Transform type is not allowed to be 'script' or 'notebook' but is {run_context.run.transform.type}."
             )
         run_context.run.finished_at = datetime.now(timezone.utc)
         run_context.run.save()
@@ -59,7 +59,7 @@ def finish() -> None:
             )
     save_run_context_core(
         run=run_context.run,
-        transform=run_context.transform,
+        transform=run_context.run.transform,
         filepath=run_context.path,
         finished_at=True,
     )
@@ -284,5 +284,5 @@ def save_run_context_core(
             )
     # because run & transform changed, update the global run_context
     run_context.run = run
-    run_context.transform = transform
+    run_context.run.transform = transform
     return None

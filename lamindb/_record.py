@@ -501,8 +501,8 @@ def transfer_to_default_db(
                 record.run_id = None
         if hasattr(record, "transform_id") and record._meta.model_name != "run":
             record.transform = None
-            if run_context.transform is not None:
-                record.transform_id = run_context.transform.id
+            if run_context.run is not None:
+                record.transform_id = run_context.run.transform_id
             else:
                 record.transform_id = None
         # transfer other foreign key fields

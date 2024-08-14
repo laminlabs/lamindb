@@ -61,7 +61,7 @@ Here is how to create a param:
 
     # unset to remove side effects
     ln.core.run_context.run = None
-    ln.core.run_context.transform = None
+    ln.core.run_context.run.transform = None
 
 
 def test_track_notebook_colab():
@@ -80,14 +80,14 @@ def test_invalid_transform_type():
     transform = ln.Transform(name="test transform")
     ln.track(transform=transform)
     ln.core.run_context.path = None
-    ln.core.run_context.transform.type = "script"
+    ln.core.run_context.run.transform.type = "script"
     with pytest.raises(ValueError) as error:
         ln.finish()
     assert "Transform type is not allowed to be" in error.exconly()
 
     # unset to remove side effects
     ln.core.run_context.run = None
-    ln.core.run_context.transform = None
+    ln.core.run_context.run.transform = None
 
 
 def test_create_or_load_transform(monkeypatch):
@@ -102,18 +102,18 @@ def test_create_or_load_transform(monkeypatch):
         name=title,
         transform_type="notebook",
     )
-    assert run_context.transform.uid == uid
-    assert run_context.transform.version == version
-    assert run_context.transform.name == title
+    assert run_context.run.transform.uid == uid
+    assert run_context.run.transform.version == version
+    assert run_context.run.transform.name == title
     run_context._create_or_load_transform(
-        transform=run_context.transform,
+        transform=run_context.run.transform,
         stem_uid=stem_uid,
         version=version,
         name=title,
     )
-    assert run_context.transform.uid == uid
-    assert run_context.transform.version == version
-    assert run_context.transform.name == title
+    assert run_context.run.transform.uid == uid
+    assert run_context.run.transform.version == version
+    assert run_context.run.transform.name == title
 
     # now, test an updated transform name (updated notebook title)
 
@@ -121,20 +121,20 @@ def test_create_or_load_transform(monkeypatch):
     # this simulates the user entering "n" in the terminal
     monkeypatch.setattr("builtins.input", lambda _: "n")
     run_context._create_or_load_transform(
-        transform=run_context.transform,
+        transform=run_context.run.transform,
         stem_uid=stem_uid,
         version=version,
         name="updated title",
     )
-    assert run_context.transform.uid == uid
-    assert run_context.transform.version == version
-    assert run_context.transform.name == "updated title"
+    assert run_context.run.transform.uid == uid
+    assert run_context.run.transform.version == version
+    assert run_context.run.transform.name == "updated title"
 
     # test the user responding with "y"
     monkeypatch.setattr("builtins.input", lambda _: "y")
     with pytest.raises(SystemExit) as error:
         run_context._create_or_load_transform(
-            transform=run_context.transform,
+            transform=run_context.run.transform,
             stem_uid=stem_uid,
             version=version,
             name="updated title again",

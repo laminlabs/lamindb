@@ -195,8 +195,8 @@ def pretty_pypackages(dependencies: dict) -> str:
 class run_context:
     """Global run context."""
 
-    transform: Transform | None = None
-    """Current transform."""
+    _transform: Transform | None = None
+    """Internal shortcut for incremental initialization."""
     run: Run | None = None
     """Current run."""
     path: Path | None = None
@@ -302,17 +302,17 @@ class run_context:
                 transform_exists = transform
             else:
                 logger.important(f"loaded: {transform}")
-            cls.transform = transform_exists
+            cls._transform = transform_exists
 
         if new_run is None:  # for notebooks, default to loading latest runs
-            new_run = False if cls.transform.type == "notebook" else True  # type: ignore
+            new_run = False if cls._transform.type == "notebook" else True  # type: ignore
 
         run = None
         from lamindb._run import Run
 
         if not new_run:  # try loading latest run by same user
             run = (
-                Run.filter(transform=cls.transform, created_by_id=current_user_id())
+                Run.filter(transform=cls._transform, created_by_id=current_user_id())
                 .order_by("-created_at")
                 .first()
             )
@@ -322,7 +322,7 @@ class run_context:
 
         if run is None:  # create new run
             run = Run(
-                transform=cls.transform,
+                transform=cls._transform,
                 params=params,
             )
             logger.important(f"saved: {run}")
@@ -493,4 +493,4 @@ class run_context:
                         )
             else:
                 logger.important(f"loaded: {transform}")
-        cls.transform = transform
+        cls._transform = transform

@@ -153,10 +153,10 @@ def test_clean_up_failed_runs():
     # Set the default currently used transform and mock run -> these should not be cleaned up
     from lamindb.core._run_context import run_context
 
-    previous_transform = run_context.transform
+    previous_transform = run_context.run.transform
     previous_run = run_context.run
 
-    run_context.transform = mock_transform
+    run_context.run.transform = mock_transform
     run_context.run = mock_run
 
     assert len(ln.Run.filter(transform=mock_transform).all()) == 2
@@ -167,7 +167,7 @@ def test_clean_up_failed_runs():
     assert len(ln.Run.filter(transform=mock_transform).all()) == 1
 
     # Revert to old run context to not infer with tests that need the run context
-    run_context.transform = previous_transform
+    run_context.run.transform = previous_transform
     run_context.run = previous_run
 
 

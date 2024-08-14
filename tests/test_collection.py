@@ -140,7 +140,7 @@ def test_from_inconsistent_artifacts(df, adata):
     artifact1.delete(permanent=True)
     artifact2.delete(permanent=True)
     ln.core.run_context.run = None
-    ln.core.run_context.transform = None
+    ln.core.run_context.run.transform = None
 
 
 def test_from_consistent_artifacts(adata, adata2):
