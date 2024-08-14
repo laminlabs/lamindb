@@ -271,7 +271,11 @@ class MappedCollection:
         return all(vrs_sort_status)
 
     def check_vars_non_aligned(self, vars: pd.Index | list) -> list[int]:
-        """Returns indices of objects with non-aligned variables."""
+        """Returns indices of objects with non-aligned variables.
+
+        Args:
+            vars: Check alignment against these variables.
+        """
         if self.var_list is None:
             self._read_vars()
         vars = pd.Index(vars)
