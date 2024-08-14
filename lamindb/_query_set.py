@@ -17,12 +17,10 @@ from lnschema_core.models import (
     Transform,
 )
 
+from lamindb.core.exceptions import DoesNotExist
+
 if TYPE_CHECKING:
     from lnschema_core.types import ListLike, StrField
-
-
-class NoResultFound(Exception):
-    pass
 
 
 class MultipleResultsFound(Exception):
@@ -59,7 +57,7 @@ def get_keys_from_df(data: list, registry: Record) -> list[str]:
 
 def one_helper(self):
     if len(self) == 0:
-        raise NoResultFound
+        raise DoesNotExist
     elif len(self) > 1:
         raise MultipleResultsFound(self)
     else:

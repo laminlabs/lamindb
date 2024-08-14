@@ -54,7 +54,7 @@ def get_search_test_filepaths():
     shutil.rmtree("unregistered_storage/")
 
 
-def test_search_artifact(get_search_test_filepaths):
+def test_search_and_get(get_search_test_filepaths):
     artifact1 = ln.Artifact(
         "./unregistered_storage/test-search1", description="nonsense"
     )
@@ -102,6 +102,18 @@ def test_search_artifact(get_search_test_filepaths):
     # multi-field search
     res = ln.Artifact.search("txt", field=["key", "description", "suffix"]).df()
     assert res.iloc[0].suffix == ".txt"
+
+    # get
+
+    artifact = ln.Artifact.get(description="test-search4")
+    assert artifact == artifact4
+
+    # because we're rendering Artifact.DoesNotExist private
+    # in some use cases, we're not testing for it
+    with pytest.raises(ln.Artifact._DoesNotExist):
+        ln.Artifact.get(description="test-search1000000")
+
+    #
     artifact0.delete(permanent=True, storage=True)
     artifact1.delete(permanent=True, storage=True)
     artifact2.delete(permanent=True, storage=True)

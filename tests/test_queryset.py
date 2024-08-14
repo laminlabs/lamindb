@@ -3,7 +3,7 @@
 import bionty as bt
 import lamindb as ln
 import pytest
-from lamindb._query_set import MultipleResultsFound, NoResultFound
+from lamindb._query_set import DoesNotExist, MultipleResultsFound
 from lnschema_core.users import current_user_id
 
 
@@ -88,7 +88,7 @@ def test_one_first():
     assert qs.one_or_none().handle == "testuser1"
 
     qs = ln.User.filter(handle="test")
-    with pytest.raises(NoResultFound):
+    with pytest.raises(DoesNotExist):
         qs.one()
     qs = bt.Source.filter().all()
     with pytest.raises(MultipleResultsFound):

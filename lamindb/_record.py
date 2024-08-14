@@ -123,13 +123,17 @@ def filter(cls, **expressions) -> QuerySet:
 
 @classmethod  # type:ignore
 @doc_args(Record.get.__doc__)
-def get(cls, idlike: int | str) -> Record:
+def get(
+    cls,
+    idlike: int | str | None = None,
+    **expressions,
+) -> Record:
     """{}"""  # noqa: D415
     from lamindb._filter import filter
 
     if isinstance(idlike, int):
         return filter(cls, id=idlike).one()
-    else:
+    elif isinstance(idlike, str):
         qs = filter(cls, uid__startswith=idlike)
         if issubclass(cls, IsVersioned):
             if len(idlike) <= cls._len_stem_uid:
@@ -138,12 +142,19 @@ def get(cls, idlike: int | str) -> Record:
                 return qs.one()
         else:
             return qs.one()
+    else:
+        assert idlike is None  # noqa: S101
+        # below behaves exactly like `.one()`
+        return cls.objects.get(**expressions)
 
 
 @classmethod  # type:ignore
 @doc_args(Record.df.__doc__)
 def df(
-    cls, include: str | list[str] | None = None, join: str = "inner"
+    cls,
+    include: str | list[str] | None = None,
+    join: str = "inner",
+    limit: int = 100,
 ) -> pd.DataFrame:
     """{}"""  # noqa: D415
     from lamindb._filter import filter
@@ -151,7 +162,7 @@ def df(
     query_set = filter(cls)
     if hasattr(cls, "updated_at"):
         query_set = query_set.order_by("-updated_at")
-    return query_set.df(include=include, join=join)
+    return query_set[:limit].df(include=include, join=join)
 
 
 # from_values doesn't apply for QuerySet or Manager
