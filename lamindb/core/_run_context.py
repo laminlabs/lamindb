@@ -174,24 +174,6 @@ def raise_transform_settings_error() -> None:
     stem_uid = base62_12()
     version = "1"
 
-    # backward compat: use the nbproject_id
-    if is_run_from_ipython:
-        from nbproject.dev import (
-            MetaContainer,
-            MetaStore,
-            read_notebook,
-        )
-        from nbproject.dev._jupyter_communicate import (
-            notebook_path as get_notebook_path,
-        )
-
-        filepath = get_notebook_path()
-        nb = read_notebook(filepath)  # type: ignore
-        nb_meta = nb.metadata
-        if "nbproject" in nb_meta:
-            meta_container = MetaContainer(**nb_meta["nbproject"])
-            meta_store = MetaStore(meta_container, filepath)
-            stem_uid, version = meta_store.id, meta_store.version
     raise MissingTransformSettings(
         MESSAGE.format(
             transform_type=transform_type, stem_uid=stem_uid, version=version
