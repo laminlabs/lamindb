@@ -42,7 +42,7 @@ Other:
 
    Settings
    MappedCollection
-   run_context
+   context
 
 Modules:
 
@@ -85,5 +85,5 @@ from lamindb.core._label_manager import LabelManager
 
 from . import _data, datasets, exceptions, fields, subsettings, types
 from ._mapped_collection import MappedCollection
-from ._run_context import run_context
+from ._run_context import context
 from ._settings import Settings

@@ -3,7 +3,7 @@ import subprocess
 import lamindb as ln
 import pytest
 from lamindb._finish import TrackNotCalled
-from lamindb.core._run_context import get_uid_ext, run_context
+from lamindb.core._run_context import context, get_uid_ext
 from lamindb.core.exceptions import ValidationError
 
 
@@ -33,7 +33,7 @@ Here is how to create a param:
     ln.Param(name="param2", dtype="str").save()
     ln.Param(name="param3", dtype="float").save()
     ln.track(transform=child, params=params)
-    assert ln.core.run_context.run.params.get_values() == params
+    assert ln.context.run.params.get_values() == params
     # second invocation
     params = {"param1": 1, "param2": "my-string", "param3": 3.14, "param4": [1, 2]}
     param4 = ln.Param(name="param4", dtype="int").save()
@@ -48,29 +48,29 @@ Here is how to create a param:
     param4.save()
     # re-run
     ln.track(transform=child, params=params)
-    assert ln.core.run_context.run.params.get_values() == params
+    assert ln.context.run.params.get_values() == params
 
     # test that run populates things like ULabels etc.
     ulabel = ln.ULabel(name="my-label-in-track")
-    assert ulabel.run == ln.core.run_context.run
+    assert ulabel.run == ln.context.run
 
     # test that we can call ln.finish() also for pipeline-like transforms
-    assert ln.core.run_context.run.finished_at is None
+    assert ln.context.run.finished_at is None
     ln.finish()
-    assert ln.core.run_context.run.finished_at is not None
+    assert ln.context.run.finished_at is not None
 
     # unset to remove side effects
-    ln.core.run_context.run = None
-    ln.core.run_context.run.transform = None
+    ln.context.run = None
+    ln.context.run.transform = None
 
 
 def test_track_notebook_colab():
     notebook_path = "/fileId=1KskciVXleoTeS_OGoJasXZJreDU9La_l"
-    ln.core.run_context._track_notebook(path=notebook_path)
+    ln.context._track_notebook(path=notebook_path)
 
 
 def test_finish_before_track():
-    ln.core.run_context.run = None
+    ln.context.run = None
     with pytest.raises(TrackNotCalled) as error:
         ln.finish()
     assert "Please run `ln.track()` before `ln.finish()" in error.exconly()
@@ -79,15 +79,15 @@ def test_finish_before_track():
 def test_invalid_transform_type():
     transform = ln.Transform(name="test transform")
     ln.track(transform=transform)
-    ln.core.run_context._path = None
-    ln.core.run_context.run.transform.type = "script"
+    ln.context._path = None
+    ln.context.run.transform.type = "script"
     with pytest.raises(ValueError) as error:
         ln.finish()
     assert "Transform type is not allowed to be" in error.exconly()
 
     # unset to remove side effects
-    ln.core.run_context.run = None
-    ln.core.run_context.run.transform = None
+    ln.context.run = None
+    ln.context.run.transform = None
 
 
 def test_create_or_load_transform(monkeypatch):
@@ -96,45 +96,45 @@ def test_create_or_load_transform(monkeypatch):
     version = "0"
     uid = "NJvdsWWbJlZS6K79"
     assert uid == f"{stem_uid}{get_uid_ext(version)}"
-    run_context._create_or_load_transform(
+    context._create_or_load_transform(
         stem_uid=stem_uid,
         version=version,
         name=title,
         transform_type="notebook",
     )
-    assert run_context.run.transform.uid == uid
-    assert run_context.run.transform.version == version
-    assert run_context.run.transform.name == title
-    run_context._create_or_load_transform(
-        transform=run_context.run.transform,
+    assert context.run.transform.uid == uid
+    assert context.run.transform.version == version
+    assert context.run.transform.name == title
+    context._create_or_load_transform(
+        transform=context.run.transform,
         stem_uid=stem_uid,
         version=version,
         name=title,
     )
-    assert run_context.run.transform.uid == uid
-    assert run_context.run.transform.version == version
-    assert run_context.run.transform.name == title
+    assert context.run.transform.uid == uid
+    assert context.run.transform.version == version
+    assert context.run.transform.name == title
 
     # now, test an updated transform name (updated notebook title)
 
     # monkeypatch the "input" function, so that it returns "n"
     # this simulates the user entering "n" in the terminal
     monkeypatch.setattr("builtins.input", lambda _: "n")
-    run_context._create_or_load_transform(
-        transform=run_context.run.transform,
+    context._create_or_load_transform(
+        transform=context.run.transform,
         stem_uid=stem_uid,
         version=version,
         name="updated title",
     )
-    assert run_context.run.transform.uid == uid
-    assert run_context.run.transform.version == version
-    assert run_context.run.transform.name == "updated title"
+    assert context.run.transform.uid == uid
+    assert context.run.transform.version == version
+    assert context.run.transform.name == "updated title"
 
     # test the user responding with "y"
     monkeypatch.setattr("builtins.input", lambda _: "y")
     with pytest.raises(SystemExit) as error:
-        run_context._create_or_load_transform(
-            transform=run_context.run.transform,
+        context._create_or_load_transform(
+            transform=context.run.transform,
             stem_uid=stem_uid,
             version=version,
             name="updated title again",

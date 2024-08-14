@@ -192,8 +192,8 @@ def pretty_pypackages(dependencies: dict) -> str:
     return " ".join(deps_list)
 
 
-class run_context:
-    """Global run context."""
+class Context:
+    """Run context."""
 
     _transform: Transform | None = None
     """Internal shortcut for incremental initialization."""
@@ -214,7 +214,7 @@ class run_context:
         """Track notebook or script run.
 
         Creates or loads a global :class:`~lamindb.Run` that enables data
-        lineage tracking. You can find it in :class:`~lamindb.core.run_context`.
+        lineage tracking. You can find it in :class:`~lamindb.core.context`.
 
         Saves source code and compute environment.
 
@@ -494,3 +494,6 @@ class run_context:
             else:
                 logger.important(f"loaded: {transform}")
         cls._transform = transform
+
+
+context = Context()

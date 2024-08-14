@@ -11,7 +11,7 @@ from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_file
 from lnschema_core.types import TransformType
 
-from .core._run_context import is_run_from_ipython, run_context
+from .core._run_context import context, is_run_from_ipython
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -38,29 +38,29 @@ def finish() -> None:
 
     Saves source code and, for notebooks, a run report to your default storage location.
     """
-    if run_context.run is None:
+    if context.run is None:
         raise TrackNotCalled("Please run `ln.track()` before `ln.finish()`")
-    if run_context._path is None:
-        if run_context.run.transform.type in {"script", "notebook"}:
+    if context._path is None:
+        if context.run.transform.type in {"script", "notebook"}:
             raise ValueError(
-                f"Transform type is not allowed to be 'script' or 'notebook' but is {run_context.run.transform.type}."
+                f"Transform type is not allowed to be 'script' or 'notebook' but is {context.run.transform.type}."
             )
-        run_context.run.finished_at = datetime.now(timezone.utc)
-        run_context.run.save()
+        context.run.finished_at = datetime.now(timezone.utc)
+        context.run.save()
         # nothing else to do
         return None
     if is_run_from_ipython:  # notebooks
         if (
-            get_seconds_since_modified(run_context._path) > 3
+            get_seconds_since_modified(context._path) > 3
             and os.getenv("LAMIN_TESTING") is None
         ):
             raise NotebookNotSaved(
                 "Please save the notebook in your editor right before running `ln.finish()`"
             )
     save_run_context_core(
-        run=run_context.run,
-        transform=run_context.run.transform,
-        filepath=run_context._path,
+        run=context.run,
+        transform=context.run.transform,
+        filepath=context._path,
         finished_at=True,
     )
 
@@ -282,7 +282,7 @@ def save_run_context_core(
             logger.important(
                 f"if you want to update your {thing} without re-running it, use `lamin save {name}`"
             )
-    # because run & transform changed, update the global run_context
-    run_context.run = run
-    run_context.run.transform = transform
+    # because run & transform changed, update the global context
+    context.run = run
+    context.run.transform = transform
     return None

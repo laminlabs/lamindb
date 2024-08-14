@@ -485,7 +485,7 @@ def transfer_to_default_db(
         if not mute:
             logger.hint(f"saving from instance {db} to default instance: {record}")
         from lamindb.core._data import WARNING_RUN_TRANSFORM
-        from lamindb.core._run_context import run_context
+        from lamindb.core._run_context import context
 
         if hasattr(record, "created_by_id"):
             # this line is needed to point created_by to default db
@@ -493,16 +493,16 @@ def transfer_to_default_db(
             record.created_by_id = ln_setup.settings.user.id
         if hasattr(record, "run_id"):
             record.run = None
-            if run_context.run is not None:
-                record.run_id = run_context.run.id
+            if context.run is not None:
+                record.run_id = context.run.id
             else:
                 if not settings.creation.artifact_silence_missing_run_warning:
                     logger.warning(WARNING_RUN_TRANSFORM)
                 record.run_id = None
         if hasattr(record, "transform_id") and record._meta.model_name != "run":
             record.transform = None
-            if run_context.run is not None:
-                record.transform_id = run_context.run.transform_id
+            if context.run is not None:
+                record.transform_id = context.run.transform_id
             else:
                 record.transform_id = None
         # transfer other foreign key fields

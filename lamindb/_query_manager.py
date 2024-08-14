@@ -41,10 +41,10 @@ class QueryManager(models.Manager):
                 and self.target_field_name == "artifact"
             ):
                 from lamindb.core._data import WARNING_RUN_TRANSFORM, _track_run_input
-                from lamindb.core._run_context import run_context
+                from lamindb.core._run_context import context
 
                 if (
-                    run_context.run is None
+                    context.run is None
                     and not settings.creation.artifact_silence_missing_run_warning
                 ):
                     logger.warning(WARNING_RUN_TRANSFORM)

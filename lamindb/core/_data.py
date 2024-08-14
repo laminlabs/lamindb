@@ -30,7 +30,7 @@ from ._feature_manager import (
     print_features,
 )
 from ._label_manager import print_labels
-from ._run_context import run_context
+from ._run_context import context
 from .exceptions import ValidationError
 from .schema import (
     dict_related_model_to_related_name,
@@ -45,7 +45,7 @@ WARNING_RUN_TRANSFORM = "no run & transform get linked, consider calling ln.trac
 
 def get_run(run: Run | None) -> Run | None:
     if run is None:
-        run = run_context.run
+        run = context.run
         if run is None and not settings.creation.artifact_silence_missing_run_warning:
             logger.warning(WARNING_RUN_TRANSFORM)
     # suppress run by passing False
@@ -336,7 +336,7 @@ def _track_run_input(
         run = is_run_input
         is_run_input = True
     elif run is None:
-        run = run_context.run
+        run = context.run
     # consider that data is an iterable of Data
     data_iter: Iterable[HasFeatures] = [data] if isinstance(data, HasFeatures) else data
     track_run_input = False

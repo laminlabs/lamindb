@@ -96,7 +96,8 @@ if _check_instance_setup(from_lamindb=True):
     from ._finish import finish
     from ._save import save
     from ._view import view
-    from .core._run_context import run_context as _run_context
+    from .core._context import context
+    from .core._run_context import context as _run_context
     from .core._settings import settings
 
     # schema modules
@@ -110,5 +111,3 @@ if _check_instance_setup(from_lamindb=True):
     track = _run_context._track
     settings.__doc__ = """Global :class:`~lamindb.core.Settings`."""
     from django.db.models import Q
-
-    Annotate = Curate  # backward compat
