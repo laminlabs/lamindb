@@ -5,6 +5,7 @@ The registry base class:
 .. autosummary::
    :toctree: .
 
+   DoesNotExist
    ValidationError
    NotebookNotSavedError
    NoTitleError
@@ -17,6 +18,14 @@ The registry base class:
 
 class ValidationError(SystemExit):
     """Validation error: not mapped in registry."""
+
+    pass
+
+
+# inspired by Django's DoesNotExist
+# equivalent to SQLAlchemy's NoResultFound
+class DoesNotExist(Exception):
+    """No record found."""
 
     pass
 
