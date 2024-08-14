@@ -244,10 +244,12 @@ def test_collection_mapped(adata, adata2):
     assert np.array_equal(ls_ds[2]["X"], np.array([1, 2, 5]))
     weights = ls_ds.get_label_weights("feat1")
     assert len(weights) == 4
-    assert all(weights[1:] == weights[0])
+    assert all(weights == 0.5)
     weights = ls_ds.get_label_weights(["feat1", "feat2"])
     assert len(weights) == 4
-    assert all(weights[1:] == weights[0])
+    assert all(weights == 0.5)
+    weights = ls_ds.get_label_weights(["feat1", "feat2"], scaler=1.0)
+    assert all(weights == 1.0 / 3.0)
     ls_ds.close()
     assert ls_ds.closed
     del ls_ds
