@@ -204,11 +204,21 @@ class Context:
         """A local path to the script that's running."""
 
     @property
-    def run(self) -> Run:
+    def transform(self) -> Transform | None:
+        """Current run."""
+        if self._transform is not None:
+            return self._transform
+        elif self._run is not None:
+            return self._run.transform
+        else:
+            return None
+
+    @property
+    def run(self) -> Run | None:
         """Current run."""
         return self._run
 
-    def _track(
+    def track(
         self,
         *,
         params: dict | None = None,

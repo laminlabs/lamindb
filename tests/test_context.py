@@ -66,7 +66,7 @@ Here is how to create a param:
 
 def test_track_notebook_colab():
     notebook_path = "/fileId=1KskciVXleoTeS_OGoJasXZJreDU9La_l"
-    ln.context._track_notebook(path=notebook_path)
+    ln.context.track_notebook(path=notebook_path)
 
 
 def test_finish_before_track():

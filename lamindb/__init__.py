@@ -106,7 +106,7 @@ if _check_instance_setup(from_lamindb=True):
 
         _reload_schema_modules(_lamindb_setup.settings.instance)
 
-    track = context._track  # backward compat
+    track = context.track  # backward compat
     settings.__doc__ = """Global :class:`~lamindb.core.Settings`."""
     context.__doc__ = """Global :class:`~lamindb.core.Context`."""
     from django.db.models import Q
