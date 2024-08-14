@@ -11,7 +11,7 @@ from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_file
 from lnschema_core.types import TransformType
 
-from .core._run_context import context, is_run_from_ipython
+from .core._context import context, is_run_from_ipython
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -57,7 +57,7 @@ def finish() -> None:
             raise NotebookNotSaved(
                 "Please save the notebook in your editor right before running `ln.finish()`"
             )
-    save_run_context_core(
+    save_context_core(
         run=context.run,
         transform=context.run.transform,
         filepath=context._path,
@@ -65,7 +65,7 @@ def finish() -> None:
     )
 
 
-def save_run_context_core(
+def save_context_core(
     *,
     run: Run,
     transform: Transform,

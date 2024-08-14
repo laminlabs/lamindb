@@ -3,7 +3,7 @@ import subprocess
 import lamindb as ln
 import pytest
 from lamindb._finish import TrackNotCalled
-from lamindb.core._run_context import context, get_uid_ext
+from lamindb.core._context import context, get_uid_ext
 from lamindb.core.exceptions import ValidationError
 
 

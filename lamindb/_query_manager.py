@@ -40,8 +40,8 @@ class QueryManager(models.Manager):
                 self.source_field_name == "collection"
                 and self.target_field_name == "artifact"
             ):
+                from lamindb.core._context import context
                 from lamindb.core._data import WARNING_RUN_TRANSFORM, _track_run_input
-                from lamindb.core._run_context import context
 
                 if (
                     context.run is None

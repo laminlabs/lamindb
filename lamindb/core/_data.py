@@ -23,6 +23,7 @@ from lamindb._query_set import QuerySet
 from lamindb._record import get_name_field
 from lamindb.core._settings import settings
 
+from ._context import context
 from ._feature_manager import (
     get_feature_set_links,
     get_host_id_field,
@@ -30,7 +31,6 @@ from ._feature_manager import (
     print_features,
 )
 from ._label_manager import print_labels
-from ._run_context import context
 from .exceptions import ValidationError
 from .schema import (
     dict_related_model_to_related_name,

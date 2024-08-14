@@ -484,8 +484,8 @@ def transfer_to_default_db(
             return record_on_default
         if not mute:
             logger.hint(f"saving from instance {db} to default instance: {record}")
+        from lamindb.core._context import context
         from lamindb.core._data import WARNING_RUN_TRANSFORM
-        from lamindb.core._run_context import context
 
         if hasattr(record, "created_by_id"):
             # this line is needed to point created_by to default db

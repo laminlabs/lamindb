@@ -151,7 +151,7 @@ def test_clean_up_failed_runs():
     mock_run_2.save()
 
     # Set the default currently used transform and mock run -> these should not be cleaned up
-    from lamindb.core._run_context import context
+    from lamindb.core._context import context
 
     previous_transform = context.run.transform
     previous_run = context.run
