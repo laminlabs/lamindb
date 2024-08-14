@@ -33,6 +33,7 @@ Here is how to create a param:
     ln.Param(name="param2", dtype="str").save()
     ln.Param(name="param3", dtype="float").save()
     ln.track(transform=child, params=params)
+    print("outside", id(ln.context))
     assert ln.context.run.params.get_values() == params
     # second invocation
     params = {"param1": 1, "param2": "my-string", "param3": 3.14, "param4": [1, 2]}
@@ -60,7 +61,7 @@ Here is how to create a param:
     assert ln.context.run.finished_at is not None
 
     # unset to remove side effects
-    ln.context.run = None
+    ln.context._run = None
 
 
 def test_track_notebook_colab():
@@ -69,7 +70,7 @@ def test_track_notebook_colab():
 
 
 def test_finish_before_track():
-    ln.context.run = None
+    ln.context._run = None
     with pytest.raises(TrackNotCalled) as error:
         ln.finish()
     assert "Please run `ln.track()` before `ln.finish()" in error.exconly()
@@ -85,7 +86,7 @@ def test_invalid_transform_type():
     assert "Transform type is not allowed to be" in error.exconly()
 
     # unset to remove side effects
-    ln.context.run = None
+    ln.context._run = None
 
 
 def test_create_or_load_transform(monkeypatch):
@@ -100,18 +101,18 @@ def test_create_or_load_transform(monkeypatch):
         name=title,
         transform_type="notebook",
     )
-    assert context.run.transform.uid == uid
-    assert context.run.transform.version == version
-    assert context.run.transform.name == title
+    assert context._transform.uid == uid
+    assert context._transform.version == version
+    assert context._transform.name == title
     context._create_or_load_transform(
-        transform=context.run.transform,
+        transform=context._transform,
         stem_uid=stem_uid,
         version=version,
         name=title,
     )
-    assert context.run.transform.uid == uid
-    assert context.run.transform.version == version
-    assert context.run.transform.name == title
+    assert context._transform.uid == uid
+    assert context._transform.version == version
+    assert context._transform.name == title
 
     # now, test an updated transform name (updated notebook title)
 
@@ -119,20 +120,20 @@ def test_create_or_load_transform(monkeypatch):
     # this simulates the user entering "n" in the terminal
     monkeypatch.setattr("builtins.input", lambda _: "n")
     context._create_or_load_transform(
-        transform=context.run.transform,
+        transform=context._transform,
         stem_uid=stem_uid,
         version=version,
         name="updated title",
     )
-    assert context.run.transform.uid == uid
-    assert context.run.transform.version == version
-    assert context.run.transform.name == "updated title"
+    assert context._transform.uid == uid
+    assert context._transform.version == version
+    assert context._transform.name == "updated title"
 
     # test the user responding with "y"
     monkeypatch.setattr("builtins.input", lambda _: "y")
     with pytest.raises(SystemExit) as error:
         context._create_or_load_transform(
-            transform=context.run.transform,
+            transform=context._transform,
             stem_uid=stem_uid,
             version=version,
             name="updated title again",

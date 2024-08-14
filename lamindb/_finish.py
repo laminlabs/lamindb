@@ -283,6 +283,6 @@ def save_context_core(
                 f"if you want to update your {thing} without re-running it, use `lamin save {name}`"
             )
     # because run & transform changed, update the global context
-    context.run = run
+    context._run = run
     context.run.transform = transform
     return None

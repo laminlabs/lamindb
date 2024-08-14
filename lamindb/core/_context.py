@@ -15,6 +15,7 @@ from lnschema_core.users import current_user_id
 
 from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo
+from ._track_environment import track_environment
 from .exceptions import (
     MissingTransformSettings,
     NotebookNotSavedError,
@@ -195,16 +196,20 @@ def pretty_pypackages(dependencies: dict) -> str:
 class Context:
     """Run context."""
 
-    _transform: Transform | None = None
-    """Internal shortcut for incremental initialization."""
-    run: Run | None = None
-    """Current run."""
-    _path: Path | None = None
-    """A local path to the script that's running."""
+    def __init__(self):
+        self._transform: Transform | None = None
+        """Internal shortcut for incremental initialization."""
+        self._run: Run | None = None
+        self._path: Path | None = None
+        """A local path to the script that's running."""
 
-    @classmethod
+    @property
+    def run(self) -> Run:
+        """Current run."""
+        return self._run
+
     def _track(
-        cls,
+        self,
         *,
         params: dict | None = None,
         transform: Transform | None = None,
@@ -244,7 +249,7 @@ class Context:
             >>> transform = ln.Transform.filter(name="Cell Ranger", version="2").one()
             >>> ln.track(transform=transform)
         """
-        cls._path = None
+        self._path = None
         if transform is None:
             is_tracked = False
             transform_settings_are_set = (
@@ -260,19 +265,19 @@ class Context:
                     uid__startswith=stem_uid, version=version
                 ).one_or_none()
                 if is_run_from_ipython:
-                    key, name = cls._track_notebook(path=path)
+                    key, name = self._track_notebook(path=path)
                     transform_type = "notebook"
                     transform_ref = None
                     transform_ref_type = None
                 else:
-                    (name, key, transform_ref, transform_ref_type) = cls._track_script(
+                    (name, key, transform_ref, transform_ref_type) = self._track_script(
                         path=path
                     )
                     transform_type = "script"
                 # overwrite whatever is auto-detected in the notebook or script
                 if transform_settings.name is not None:
                     name = transform_settings.name
-                cls._create_or_load_transform(
+                self._create_or_load_transform(
                     stem_uid=stem_uid,
                     version=version,
                     name=name,
@@ -302,17 +307,15 @@ class Context:
                 transform_exists = transform
             else:
                 logger.important(f"loaded: {transform}")
-            cls._transform = transform_exists
+            self._transform = transform_exists
 
         if new_run is None:  # for notebooks, default to loading latest runs
-            new_run = False if cls._transform.type == "notebook" else True  # type: ignore
+            new_run = False if self._transform.type == "notebook" else True  # type: ignore
 
         run = None
-        from lamindb._run import Run
-
         if not new_run:  # try loading latest run by same user
             run = (
-                Run.filter(transform=cls._transform, created_by_id=current_user_id())
+                Run.filter(transform=self._transform, created_by_id=current_user_id())
                 .order_by("-created_at")
                 .first()
             )
@@ -322,7 +325,7 @@ class Context:
 
         if run is None:  # create new run
             run = Run(
-                transform=cls._transform,
+                transform=self._transform,
                 params=params,
             )
             logger.important(f"saved: {run}")
@@ -333,16 +336,12 @@ class Context:
         run.save()
         if params is not None:
             run.params.add_values(params)
-        cls.run = run
-
-        from ._track_environment import track_environment
-
+        self._run = run
         track_environment(run)
         return run
 
-    @classmethod
     def _track_script(
-        cls,
+        self,
         *,
         path: UPathStr | None,
     ) -> tuple[str, str, str, str]:
@@ -351,21 +350,20 @@ class Context:
 
             frame = inspect.stack()[2]
             module = inspect.getmodule(frame[0])
-            cls._path = Path(module.__file__)
+            self._path = Path(module.__file__)
         else:
-            cls._path = Path(path)
-        name = cls._path.name
+            self._path = Path(path)
+        name = self._path.name
         key = name
         reference = None
         reference_type = None
         if settings.sync_git_repo is not None:
-            reference = get_transform_reference_from_git_repo(cls._path)
+            reference = get_transform_reference_from_git_repo(self._path)
             reference_type = "url"
         return name, key, reference, reference_type
 
-    @classmethod
     def _track_notebook(
-        cls,
+        self,
         *,
         path: str | None,
     ):
@@ -409,12 +407,11 @@ class Context:
             except Exception:
                 logger.debug("inferring imported packages failed")
                 pass
-        cls._path = Path(path_str)
+        self._path = Path(path_str)
         return key, name
 
-    @classmethod
     def _create_or_load_transform(
-        cls,
+        self,
         *,
         stem_uid: str,
         version: str | None,
@@ -470,7 +467,7 @@ class Context:
                     else:
                         response = "y"
                 else:
-                    hash, _ = hash_file(cls._path)  # ignore hash_type for now
+                    hash, _ = hash_file(self._path)  # ignore hash_type for now
                     if hash != transform._source_code_artifact.hash:
                         # only if hashes don't match, we need user input
                         if os.getenv("LAMIN_TESTING") is None:
@@ -493,7 +490,7 @@ class Context:
                         )
             else:
                 logger.important(f"loaded: {transform}")
-        cls._transform = transform
+        self._transform = transform
 
 
 context = Context()

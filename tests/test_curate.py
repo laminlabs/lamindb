@@ -157,7 +157,7 @@ def test_clean_up_failed_runs():
     previous_run = context.run
 
     context.run.transform = mock_transform
-    context.run = mock_run
+    context._run = mock_run
 
     assert len(ln.Run.filter(transform=mock_transform).all()) == 2
 
@@ -168,7 +168,7 @@ def test_clean_up_failed_runs():
 
     # Revert to old run context to not infer with tests that need the run context
     context.run.transform = previous_transform
-    context.run = previous_run
+    context._run = previous_run
 
 
 def test_anndata_annotator(adata, categoricals):
