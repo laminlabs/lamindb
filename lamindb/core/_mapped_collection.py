@@ -374,7 +374,12 @@ class MappedCollection:
             label = label.decode("utf-8")
         return label
 
-    def get_label_weights(self, obs_keys: str | list[str], scaler: float | None = None):
+    def get_label_weights(
+        self,
+        obs_keys: str | list[str],
+        scaler: float | None = None,
+        return_cats: bool = False,
+    ):
         """Get all weights for the given label keys."""
         if isinstance(obs_keys, str):
             obs_keys = [obs_keys]
@@ -387,6 +392,11 @@ class MappedCollection:
         else:
             labels = labels_list[0]
         counter = Counter(labels)
+        if return_cats:
+            return {
+                k: 1.0 / v if scaler is None else scaler / (v + scaler)
+                for k, v in counter.items()
+            }
         counts = np.array([counter[label] for label in labels])
         if scaler is None:
             weights = 1.0 / counts
