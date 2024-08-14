@@ -29,6 +29,14 @@ wetlab
 
 ```{toctree}
 :maxdepth: 1
+:caption: SDK
+:hidden:
+
+rest
+```
+
+```{toctree}
+:maxdepth: 1
 :caption: Utilities
 :hidden:
 
