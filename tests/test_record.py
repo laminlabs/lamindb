@@ -4,7 +4,7 @@ from pathlib import Path
 
 import lamindb as ln
 import pytest
-from lamindb import _record as registry
+from lamindb import _record
 
 
 def test_signatures():
@@ -18,11 +18,11 @@ def test_signatures():
     # class methods
     class_methods = ["filter", "get", "df", "search", "lookup", "from_values", "using"]
     for name in class_methods:
-        setattr(Mock, name, getattr(registry, name))
-        assert signature(getattr(Mock, name)) == registry.SIGS.pop(name)
+        setattr(Mock, name, getattr(_record, name))
+        assert signature(getattr(Mock, name)) == _record.SIGS.pop(name)
     # methods
-    for name, sig in registry.SIGS.items():
-        assert signature(getattr(registry, name)) == sig
+    for name, sig in _record.SIGS.items():
+        assert signature(getattr(_record, name)) == sig
 
 
 def test_init_with_args():
@@ -119,7 +119,7 @@ def test_pass_version():
 def test_get_name_field():
     transform = ln.Transform(name="test")
     transform.save()
-    assert registry.get_name_field(ln.Run(transform)) == "started_at"
+    assert _record.get_name_field(ln.Run(transform)) == "started_at"
     with pytest.raises(ValueError):
-        registry.get_name_field(ln.Artifact.ulabels.through())
+        _record.get_name_field(ln.Artifact.ulabels.through())
     transform.delete()
