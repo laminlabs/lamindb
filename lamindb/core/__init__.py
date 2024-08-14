@@ -35,14 +35,20 @@ Curators:
    MuDataCurator
    CurateLookup
 
-Other:
+Settings & context:
 
 .. autosummary::
    :toctree: .
 
    Settings
+   Context
+
+Data loaders:
+
+.. autosummary::
+   :toctree: .
+
    MappedCollection
-   context
 
 Modules:
 
