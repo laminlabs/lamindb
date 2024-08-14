@@ -79,7 +79,7 @@ def test_finish_before_track():
 def test_invalid_transform_type():
     transform = ln.Transform(name="test transform")
     ln.track(transform=transform)
-    ln.core.run_context.path = None
+    ln.core.run_context._path = None
     ln.core.run_context.run.transform.type = "script"
     with pytest.raises(ValueError) as error:
         ln.finish()

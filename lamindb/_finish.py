@@ -40,7 +40,7 @@ def finish() -> None:
     """
     if run_context.run is None:
         raise TrackNotCalled("Please run `ln.track()` before `ln.finish()`")
-    if run_context.path is None:
+    if run_context._path is None:
         if run_context.run.transform.type in {"script", "notebook"}:
             raise ValueError(
                 f"Transform type is not allowed to be 'script' or 'notebook' but is {run_context.run.transform.type}."
@@ -51,7 +51,7 @@ def finish() -> None:
         return None
     if is_run_from_ipython:  # notebooks
         if (
-            get_seconds_since_modified(run_context.path) > 3
+            get_seconds_since_modified(run_context._path) > 3
             and os.getenv("LAMIN_TESTING") is None
         ):
             raise NotebookNotSaved(
@@ -60,7 +60,7 @@ def finish() -> None:
     save_run_context_core(
         run=run_context.run,
         transform=run_context.run.transform,
-        filepath=run_context.path,
+        filepath=run_context._path,
         finished_at=True,
     )
 

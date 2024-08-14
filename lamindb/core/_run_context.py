@@ -199,7 +199,7 @@ class run_context:
     """Internal shortcut for incremental initialization."""
     run: Run | None = None
     """Current run."""
-    path: Path | None = None
+    _path: Path | None = None
     """A local path to the script that's running."""
 
     @classmethod
@@ -244,7 +244,7 @@ class run_context:
             >>> transform = ln.Transform.filter(name="Cell Ranger", version="2").one()
             >>> ln.track(transform=transform)
         """
-        cls.path = None
+        cls._path = None
         if transform is None:
             is_tracked = False
             transform_settings_are_set = (
@@ -351,15 +351,15 @@ class run_context:
 
             frame = inspect.stack()[2]
             module = inspect.getmodule(frame[0])
-            cls.path = Path(module.__file__)
+            cls._path = Path(module.__file__)
         else:
-            cls.path = Path(path)
-        name = cls.path.name
+            cls._path = Path(path)
+        name = cls._path.name
         key = name
         reference = None
         reference_type = None
         if settings.sync_git_repo is not None:
-            reference = get_transform_reference_from_git_repo(cls.path)
+            reference = get_transform_reference_from_git_repo(cls._path)
             reference_type = "url"
         return name, key, reference, reference_type
 
@@ -409,7 +409,7 @@ class run_context:
             except Exception:
                 logger.debug("inferring imported packages failed")
                 pass
-        cls.path = Path(path_str)
+        cls._path = Path(path_str)
         return key, name
 
     @classmethod
@@ -470,7 +470,7 @@ class run_context:
                     else:
                         response = "y"
                 else:
-                    hash, _ = hash_file(cls.path)  # ignore hash_type for now
+                    hash, _ = hash_file(cls._path)  # ignore hash_type for now
                     if hash != transform._source_code_artifact.hash:
                         # only if hashes don't match, we need user input
                         if os.getenv("LAMIN_TESTING") is None:
