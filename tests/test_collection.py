@@ -255,6 +255,15 @@ def test_collection_mapped(adata, adata2):
     )
     assert weights["A__A"] == 1.0 / 3.0
     assert weights["B__B"] == 1.0 / 3.0
+
+    assert not ls_ds.check_vars_sorted(ascending=True)
+    assert not ls_ds.check_vars_sorted(ascending=False)
+    assert ls_ds.check_vars_non_aligned(["MYC", "TCF7", "GATA1"]) == []
+    ls_ds.vars_list = None
+    assert not ls_ds.check_vars_sorted()
+    ls_ds.vars_list = None
+    assert ls_ds.check_vars_non_aligned(["MYC", "TCF7", "GATA1"]) == []
+
     ls_ds.close()
     assert ls_ds.closed
     del ls_ds
@@ -307,6 +316,8 @@ def test_collection_mapped(adata, adata2):
         assert np.issubdtype(ls_ds[2]["X"].dtype, np.integer)
         assert np.issubdtype(ls_ds[4]["X"].dtype, np.integer)
         assert np.array_equal(ls_ds[3]["obsm_X_pca"], np.array([3, 4]))
+        assert ls_ds.check_vars_non_aligned(["MYC", "TCF7", "GATA1"]) == [2]
+        assert not ls_ds.check_vars_sorted()
 
     with collection_outer.mapped(layers_keys="layer1", join="outer") as ls_ds:
         assert np.array_equal(ls_ds[0]["layer1"], np.array([0, 0, 0, 3, 0, 2]))
