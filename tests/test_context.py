@@ -171,7 +171,7 @@ def test_run_script():
     # ensure that the source code is not saved as an output artifact
     assert transform.latest_run.output_artifacts.count() == 0
     assert transform.runs.count() == 1
-    assert transform._source_code_artifact.hash == "T1zmmTJyeEpBxjaHcHcZdg"
+    assert transform._source_code_artifact.hash == "krXP_1qK4lMEahJj8qWXBQ"
     assert transform._source_code_artifact.transform is None
     assert transform._source_code_artifact.run is None
 
