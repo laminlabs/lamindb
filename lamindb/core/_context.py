@@ -480,7 +480,7 @@ class Context:
                     )
                     new_vuid = increment_base62(vuid)
                     raise UpdateContext(
-                        f"{change_type}, bump version by setting:\n"
+                        f"{change_type}, bump version by setting:\n\n"
                         f'ln.context.uid = "{suid}{new_vuid}"'
                     )
             else:
