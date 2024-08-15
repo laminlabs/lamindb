@@ -96,6 +96,7 @@ def test_create_or_load_transform(monkeypatch):
     uid = "NJvdsWWbJlZS6K79"
     assert uid == f"{stem_uid}{get_uid_ext(version)}"
     context._create_or_load_transform(
+        uid=None,
         stem_uid=stem_uid,
         version=version,
         name=title,
@@ -105,6 +106,7 @@ def test_create_or_load_transform(monkeypatch):
     assert context._transform.version == version
     assert context._transform.name == title
     context._create_or_load_transform(
+        uid=None,
         transform=context._transform,
         stem_uid=stem_uid,
         version=version,
@@ -114,12 +116,9 @@ def test_create_or_load_transform(monkeypatch):
     assert context._transform.version == version
     assert context._transform.name == title
 
-    # now, test an updated transform name (updated notebook title)
-
-    # monkeypatch the "input" function, so that it returns "n"
-    # this simulates the user entering "n" in the terminal
-    monkeypatch.setattr("builtins.input", lambda _: "n")
+    # now, test an updated transform name
     context._create_or_load_transform(
+        uid=None,
         transform=context._transform,
         stem_uid=stem_uid,
         version=version,
@@ -128,20 +127,6 @@ def test_create_or_load_transform(monkeypatch):
     assert context._transform.uid == uid
     assert context._transform.version == version
     assert context._transform.name == "updated title"
-
-    # test the user responding with "y"
-    monkeypatch.setattr("builtins.input", lambda _: "y")
-    with pytest.raises(SystemExit) as error:
-        context._create_or_load_transform(
-            transform=context._transform,
-            stem_uid=stem_uid,
-            version=version,
-            name="updated title again",
-        )
-    assert (
-        "UpdateContext: Please update your transform settings as follows"
-        in error.exconly()
-    )
 
 
 def test_run_script():
@@ -154,12 +139,12 @@ def test_run_script():
     print(result.stdout.decode())
     print(result.stderr.decode())
     assert result.returncode == 0
-    assert "saved: Transform" in result.stdout.decode()
-    assert "saved: Run" in result.stdout.decode()
+    assert "created Transform" in result.stdout.decode()
+    assert "created Run" in result.stdout.decode()
     transform = ln.Transform.filter(key="run-track-and-finish-sync-git.py").one()
     # the algorithm currently picks different commits depending on the state of the repo
     # any of these commits are valid
-    assert transform.uid == "m5uCHTTpJnjQ5zKv"
+    assert transform.uid == "m5uCHTTpJnjQ0000"
     assert transform.reference.endswith(
         "/tests/scripts/run-track-and-finish-sync-git.py"
     )
@@ -171,7 +156,7 @@ def test_run_script():
     # ensure that the source code is not saved as an output artifact
     assert transform.latest_run.output_artifacts.count() == 0
     assert transform.runs.count() == 1
-    assert transform._source_code_artifact.hash == "krXP_1qK4lMEahJj8qWXBQ"
+    assert transform._source_code_artifact.hash == "Cwk0OPOyUH5nzTiU2ISlDQ"
     assert transform._source_code_artifact.transform is None
     assert transform._source_code_artifact.run is None
 
