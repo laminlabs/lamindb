@@ -128,7 +128,43 @@ def test_create_or_load_transform(monkeypatch):
     assert context._transform.name == "updated title"
 
 
-def test_run_script():
+def test_run_scripts_for_versioning():
+    result = subprocess.run(  # noqa: S602
+        "python ./tests/scripts/script-to-test-versioning1.py",
+        shell=True,
+        capture_output=True,
+    )
+    print(result.stdout.decode())
+    assert result.returncode == 0
+    assert (
+        "created Transform('Ro1gl7n8YrdH0000') & created Run('"
+        in result.stdout.decode()
+    )
+    result = subprocess.run(  # noqa: S602
+        "python ./tests/scripts/duplicate1/script-to-test-versioning1.py",
+        shell=True,
+        capture_output=True,
+    )
+    print(result.stderr.decode())
+    assert result.returncode == 1
+    assert (
+        "Version '1' is already taken by Transform('Ro1gl7n8YrdH0000'); please set another version, e.g., ln.context.version = '1.1'"
+        in result.stderr.decode()
+    )
+    result = subprocess.run(  # noqa: S602
+        "python ./tests/scripts/duplicate2/script-to-test-versioning1.py",
+        shell=True,
+        capture_output=True,
+    )
+    print(result.stdout.decode())
+    assert result.returncode == 0
+    assert (
+        "created Transform('Ro1gl7n8YrdH0001') & created Run('"
+        in result.stdout.decode()
+    )
+
+
+def test_run_external_script():
     script_path = "sub/lamin-cli/tests/scripts/run-track-and-finish-sync-git.py"
     result = subprocess.run(  # noqa: S602
         f"python {script_path}",

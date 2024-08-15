@@ -125,12 +125,7 @@ class Context:
     @property
     def transform(self) -> Transform | None:
         """Transform of context."""
-        if self._transform is not None:
-            return self._transform
-        elif self._run is not None:
-            return self._run.transform
-        else:
-            return None
+        return self._transform
 
     @property
     def uid(self) -> str | None:
@@ -215,15 +210,32 @@ class Context:
             transform = None
             stem_uid = None
             if self.uid is not None:
-                transform = Transform.filter(uid=self.uid).one_or_none()
+                if self.version is None:
+                    transform = Transform.filter(uid=self.uid).one_or_none()
+                else:
+                    suid, vuid = (
+                        self.uid[: Transform._len_stem_uid],
+                        self.uid[Transform._len_stem_uid :],
+                    )
+                    transform = Transform.filter(
+                        uid__startswith=suid, version=self.version
+                    ).one_or_none()
+                    if (
+                        transform is not None
+                        and vuid != transform.uid[Transform._len_stem_uid :]
+                    ):
+                        better_version = bump_version_function(self.version)
+                        raise SystemExit(
+                            f"Version '{self.version}' is already taken by Transform('{transform.uid}'); please set another version, e.g., ln.context.version = '{better_version}'"
+                        )
                 if (
                     transform is not None
                     and transform.version is not None
                     and self.version is not None
                     and self.version != transform.version
                 ):
-                    logger.warning(
-                        "loaded transform version doesn't match passed version"
+                    raise ValueError(
+                        f"Please pass consistent version: ln.context.version = {transform.version}"
                     )
             elif transform_settings_are_set:
                 stem_uid, self.version = (
@@ -299,6 +311,7 @@ class Context:
                 transform=self._transform,
                 params=params,
             )
+            run.started_at = datetime.now(timezone.utc)
             self._logging_message += f" & created Run('{run.started_at}')"
         # can only determine at ln.finish() if run was consecutive in
         # interactive session, otherwise, is consecutive
