@@ -90,6 +90,6 @@ from lamindb.core._feature_manager import FeatureManager, ParamManager
 from lamindb.core._label_manager import LabelManager
 
 from . import _data, datasets, exceptions, fields, subsettings, types
-from ._context import context
+from ._context import Context
 from ._mapped_collection import MappedCollection
 from ._settings import Settings
