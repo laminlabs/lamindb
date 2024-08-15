@@ -379,7 +379,7 @@ class Context:
     ):
         if path is None:
             path = get_notebook_path()
-        key = Path(path).stem
+        key = Path(path).name
         if isinstance(path, (Path, PurePath)):
             path_str = path.as_posix()  # type: ignore
         else:
@@ -387,8 +387,8 @@ class Context:
         if path_str.endswith("Untitled.ipynb"):
             raise RuntimeError("Please rename your notebook before tracking it")
         if path_str.startswith("/fileId="):
-            key = get_notebook_name_colab()
-            name = key
+            name = get_notebook_name_colab()
+            key = f"{name}.ipynb"
         else:
             import nbproject
 
@@ -452,11 +452,13 @@ class Context:
             uid = transform.uid
             # check whether the transform file has been renamed
             if transform.key != key:
+                suid = transform.stem_uid
                 new_suid = ids.base62_12()
                 transform_type = "Notebook" if is_run_from_ipython else "Script"
+                note = f'Or update the key in your existing family:\n\nln.Transform.filter(key="{transform.key}", uid__startswith="{suid}").update(key="{key}")'
                 raise UpdateContext(
-                    f"{transform_type} filename changed, create new transform by setting:\n"
-                    f'ln.context.uid = "{new_suid}0000"'
+                    f"{transform_type} filename changed.\n\nEither init a new transform family by setting:\n\n"
+                    f'ln.context.uid = "{new_suid}0000"\n\n{note}'
                 )
             elif transform.name != name:
                 transform.name = name
