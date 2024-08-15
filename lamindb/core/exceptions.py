@@ -16,6 +16,14 @@ The registry base class:
 """
 
 
+class TrackNotCalled(SystemExit):
+    pass
+
+
+class NotebookNotSaved(SystemExit):
+    pass
+
+
 class ValidationError(SystemExit):
     """Validation error: not mapped in registry."""
 

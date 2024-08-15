@@ -9,9 +9,6 @@ from typing import TYPE_CHECKING
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_file
-from lnschema_core.types import TransformType
-
-from .core._context import context, is_run_from_ipython
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -19,50 +16,6 @@ if TYPE_CHECKING:
     from lnschema_core import Run, Transform
 
     from ._query_set import QuerySet
-
-
-class TrackNotCalled(SystemExit):
-    pass
-
-
-class NotebookNotSaved(SystemExit):
-    pass
-
-
-def get_seconds_since_modified(filepath) -> float:
-    return datetime.now().timestamp() - filepath.stat().st_mtime
-
-
-def finish() -> None:
-    """Mark a tracked run as finished.
-
-    Saves source code and, for notebooks, a run report to your default storage location.
-    """
-    if context.run is None:
-        raise TrackNotCalled("Please run `ln.context.track()` before `ln.finish()`")
-    if context._path is None:
-        if context.run.transform.type in {"script", "notebook"}:
-            raise ValueError(
-                f"Transform type is not allowed to be 'script' or 'notebook' but is {context.run.transform.type}."
-            )
-        context.run.finished_at = datetime.now(timezone.utc)
-        context.run.save()
-        # nothing else to do
-        return None
-    if is_run_from_ipython:  # notebooks
-        if (
-            get_seconds_since_modified(context._path) > 3
-            and os.getenv("LAMIN_TESTING") is None
-        ):
-            raise NotebookNotSaved(
-                "Please save the notebook in your editor right before running `ln.finish()`"
-            )
-    save_context_core(
-        run=context.run,
-        transform=context.run.transform,
-        filepath=context._path,
-        finished_at=True,
-    )
 
 
 def save_context_core(
@@ -75,6 +28,8 @@ def save_context_core(
     from_cli: bool = False,
 ) -> str | None:
     import lamindb as ln
+
+    from .core._context import context, is_run_from_ipython
 
     ln.settings.verbosity = "success"
 
@@ -286,5 +241,5 @@ def save_context_core(
             )
     # because run & transform changed, update the global context
     context._run = run
-    context.run.transform = transform
+    context._transform = transform
     return None

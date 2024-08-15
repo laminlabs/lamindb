@@ -18,8 +18,10 @@ from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_environment
 from .exceptions import (
     MissingContext,
+    NotebookNotSaved,
     NotebookNotSavedError,
     NoTitleError,
+    TrackNotCalled,
     UpdateContext,
 )
 from .subsettings._transform_settings import transform_settings
@@ -143,7 +145,10 @@ def pretty_pypackages(dependencies: dict) -> str:
 
 
 class Context:
-    """Run context."""
+    """Run context.
+
+    Bundles all metadata to track run contexts.
+    """
 
     def __init__(self):
         self._uid: str | None = None
@@ -208,7 +213,7 @@ class Context:
         """Track notebook or script run.
 
         Creates or loads a global :class:`~lamindb.Run` that enables data
-        lineage tracking. You can find it in :class:`~lamindb.core.context`.
+        lineage tracking.
 
         Saves source code and compute environment.
 
@@ -486,6 +491,42 @@ class Context:
             else:
                 self._logging_message += f"loaded Transform('{transform.uid}')"
         self._transform = transform
+
+    def finish(self) -> None:
+        """Mark a tracked run as finished.
+
+        Saves source code and, for notebooks, a run report to your default storage location.
+        """
+        from lamindb._finish import save_context_core
+
+        def get_seconds_since_modified(filepath) -> float:
+            return datetime.now().timestamp() - filepath.stat().st_mtime
+
+        if context.run is None:
+            raise TrackNotCalled("Please run `ln.context.track()` before `ln.finish()`")
+        if context._path is None:
+            if context.run.transform.type in {"script", "notebook"}:
+                raise ValueError(
+                    f"Transform type is not allowed to be 'script' or 'notebook' but is {context.run.transform.type}."
+                )
+            context.run.finished_at = datetime.now(timezone.utc)
+            context.run.save()
+            # nothing else to do
+            return None
+        if is_run_from_ipython:  # notebooks
+            if (
+                get_seconds_since_modified(context._path) > 3
+                and os.getenv("LAMIN_TESTING") is None
+            ):
+                raise NotebookNotSaved(
+                    "Please save the notebook in your editor right before running `ln.finish()`"
+                )
+        save_context_core(
+            run=context.run,
+            transform=context.run.transform,
+            filepath=context._path,
+            finished_at=True,
+        )
 
 
 context = Context()
