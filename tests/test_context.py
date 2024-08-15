@@ -2,9 +2,8 @@ import subprocess
 
 import lamindb as ln
 import pytest
-from lamindb._finish import TrackNotCalled
 from lamindb.core._context import context, get_uid_ext
-from lamindb.core.exceptions import ValidationError
+from lamindb.core.exceptions import TrackNotCalled, ValidationError
 
 
 def test_track_with_multi_parents():
