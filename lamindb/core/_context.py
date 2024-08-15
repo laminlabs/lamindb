@@ -463,7 +463,9 @@ class Context:
             elif transform.name != name:
                 transform.name = name
                 transform.save()
-                self._logging_message += f"updated Transform('{transform.uid}')"
+                self._logging_message += (
+                    "updated transform name, "  # white space on purpose
+                )
             # check whether transform source code was already saved
             if transform._source_code_artifact_id is not None:
                 response = None
