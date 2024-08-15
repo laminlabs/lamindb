@@ -48,43 +48,6 @@ def get_uid_ext(version: str) -> str:
     return encodebytes(hashlib.md5(version.encode()).digest())[:4]  # noqa: S324
 
 
-def update_stem_uid_or_version(
-    stem_uid: str | None,
-    version: str | None,
-    bump_version: bool | None = None,
-) -> (bool, str, str):  # type:ignore
-    updated = False
-    if bump_version:
-        response = "bump"
-    elif bump_version is None:
-        # ask for generating a new transform
-        # it simply looks better here to not use the logger because we won't have an
-        # emoji also for the subsequent input question
-        if os.getenv("LAMIN_TESTING") is None:
-            response = input(
-                "To create a new transform, type 'new'. To bump the version, type 'bump'"
-                " or a custom version: "
-            )
-        else:
-            response = "new"
-    else:
-        response = "new"
-    if response == "new":
-        new_stem_uid = ids.base62_12()
-        updated = True
-    else:
-        bump_version = True
-    new_version = version
-    if bump_version:
-        new_stem_uid = stem_uid
-        if response == "bump":
-            new_version = bump_version_function(version, behavior="prompt")
-        else:
-            new_version = response
-        updated = new_version != version
-    return updated, new_stem_uid, new_version
-
-
 def get_notebook_path():
     from nbproject.dev._jupyter_communicate import (
         notebook_path as get_notebook_path,
