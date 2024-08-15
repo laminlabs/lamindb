@@ -3,7 +3,12 @@ import pandas as pd
 import pytest
 from lamindb import UPath
 from lamindb._query_set import MultipleResultsFound
-from lamindb.core.versioning import bump_version, get_new_path_from_uid, set_version
+from lamindb.core.versioning import (
+    bump_version,
+    get_new_path_from_uid,
+    increment_base62,
+    set_version,
+)
 
 
 @pytest.fixture(scope="module")
@@ -14,6 +19,17 @@ def df1():
 @pytest.fixture(scope="module")
 def df2():
     return pd.DataFrame({"feat1": [2, 3]})
+
+
+def test_increment_base62():
+    assert increment_base62("0000") == "0001"
+    assert increment_base62("0009") == "000A"
+    assert increment_base62("000Z") == "000a"
+    assert increment_base62("000z") == "0010"
+    assert increment_base62("0019") == "001A"
+    assert increment_base62("0zzz") == "1000"
+    # do not throw an error here, see comment in implementation
+    assert increment_base62("zzzz") == "10000"
 
 
 def test_set_version():

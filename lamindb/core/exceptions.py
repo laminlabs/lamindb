@@ -9,8 +9,8 @@ The registry base class:
    ValidationError
    NotebookNotSavedError
    NoTitleError
-   MissingTransformSettings
-   UpdateTransformSettings
+   MissingContext
+   UpdateContext
    IntegrityError
 
 """
@@ -57,13 +57,13 @@ class NoTitleError(Exception):
     pass
 
 
-class MissingTransformSettings(SystemExit):
+class MissingContext(SystemExit):
     """User didn't define transform settings."""
 
     pass
 
 
-class UpdateTransformSettings(SystemExit):
+class UpdateContext(SystemExit):
     """Transform settings require update."""
 
     pass

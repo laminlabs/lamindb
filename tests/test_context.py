@@ -139,7 +139,7 @@ def test_create_or_load_transform(monkeypatch):
             name="updated title again",
         )
     assert (
-        "UpdateTransformSettings: Please update your transform settings as follows"
+        "UpdateContext: Please update your transform settings as follows"
         in error.exconly()
     )
 

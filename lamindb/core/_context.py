@@ -10,20 +10,21 @@ from typing import TYPE_CHECKING
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_file
 from lnschema_core import Run, Transform, ids
-from lnschema_core.models import Param, ParamValue, RunParamValue
+from lnschema_core.ids import base62_12
 from lnschema_core.users import current_user_id
 
 from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_environment
 from .exceptions import (
-    MissingTransformSettings,
+    MissingContext,
     NotebookNotSavedError,
     NoTitleError,
-    UpdateTransformSettings,
+    UpdateContext,
 )
 from .subsettings._transform_settings import transform_settings
 from .versioning import bump_version as bump_version_function
+from .versioning import increment_base62
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
@@ -32,9 +33,7 @@ if TYPE_CHECKING:
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 msg_path_failed = (
-    "failed to infer notebook path.\nfix: either track manually via"
-    " `ln.context.track(transform=ln.Transform(name='My notebook'))` or pass"
-    " `path` to ln.context.track()"
+    "failed to infer notebook path.\nfix: pass `path` to ln.context.track()"
 )
 
 
@@ -48,30 +47,31 @@ def get_uid_ext(version: str) -> str:
 
 
 def update_stem_uid_or_version(
-    stem_uid: str,
-    version: str,
-    bump_version: bool = False,
+    stem_uid: str | None,
+    version: str | None,
+    bump_version: bool | None = None,
 ) -> (bool, str, str):  # type:ignore
-    get_uid_ext(version)
     updated = False
     if bump_version:
         response = "bump"
-    else:
-        # ask for generating a new stem uid
+    elif bump_version is None:
+        # ask for generating a new transform
         # it simply looks better here to not use the logger because we won't have an
         # emoji also for the subsequent input question
         if os.getenv("LAMIN_TESTING") is None:
             response = input(
-                "To create a new stem uid, type 'new'. To bump the version, type 'bump'"
+                "To create a new transform, type 'new'. To bump the version, type 'bump'"
                 " or a custom version: "
             )
         else:
             response = "new"
-        if response == "new":
-            new_stem_uid = ids.base62_12()
-            updated = True
-        else:
-            bump_version = True
+    else:
+        response = "new"
+    if response == "new":
+        new_stem_uid = ids.base62_12()
+        updated = True
+    else:
+        bump_version = True
     new_version = version
     if bump_version:
         new_stem_uid = stem_uid
@@ -80,14 +80,6 @@ def update_stem_uid_or_version(
         else:
             new_version = response
         updated = new_version != version
-    if updated:
-        new_metadata = (
-            f'ln.settings.transform.stem_uid = "{new_stem_uid}"\nln.settings.transform.version ='
-            f' "{new_version}"\n'
-        )
-        raise UpdateTransformSettings(
-            f"Please update your transform settings as follows:\n{new_metadata}"
-        )
     return updated, new_stem_uid, new_version
 
 
@@ -123,63 +115,20 @@ def get_notebook_name_colab() -> str:
     return name.rstrip(".ipynb")
 
 
-MESSAGE = """To track this {transform_type}, set
-
-ln.settings.transform.stem_uid = "{stem_uid}"
-ln.settings.transform.version = "{version}"
-"""
-
-MESSAGE_UPDATE = """You updated your {transform_type}.
-
-If this is a minor update, bump your version from {old_version} to:
-
-ln.settings.transform.version = "{new_version_minor_bump}"
-
-If this is a major update, bump it to:
-
-ln.settings.transform.version = "{new_version_major_bump}"
-
-If this is a new {transform_type}, set:
-
-ln.settings.transform.stem_uid = "{new_stem_uid}"
-ln.settings.transform.version = "1"
-
-"""
-
-
-def raise_transform_settings_error_needs_update(old_version: str) -> None:
-    from lnschema_core.ids import base62_12
-
-    transform_type = "notebook" if is_run_from_ipython else "script"
-    new_stem_uid = base62_12()
-
-    raise UpdateTransformSettings(
-        MESSAGE_UPDATE.format(
-            transform_type=transform_type,
-            new_stem_uid=new_stem_uid,
-            old_version=old_version,
-            new_version_major_bump=bump_version_function(
-                old_version, bump_type="major", behavior="ignore"
-            ),
-            new_version_minor_bump=bump_version_function(
-                old_version, bump_type="minor", behavior="ignore"
-            ),
-        )
-    )
-
-
-def raise_transform_settings_error() -> None:
-    from lnschema_core.ids import base62_12
-
-    transform_type = "notebook" if is_run_from_ipython else "script"
-    stem_uid = base62_12()
-    version = "1"
-
-    raise MissingTransformSettings(
-        MESSAGE.format(
-            transform_type=transform_type, stem_uid=stem_uid, version=version
-        )
-    )
+def raise_missing_context(transform_type: str, key: str) -> None:
+    transform = Transform.filter(key=key).latest_version().first()
+    if transform is None:
+        new_uid = f"{base62_12()}0000"
+        message = f"To track this {transform_type}, set"
+    else:
+        uid = transform.uid
+        suid, vuid = uid[: Transform._len_stem_uid], uid[Transform._len_stem_uid :]
+        new_vuid = increment_base62(vuid)
+        new_uid = f"{suid}{new_vuid}"
+        suffix = ".ipynb" if transform_type == "notebook" else ".py"
+        message = f"You already have a {transform_type} with filename '{key}{suffix}'. To create a new {transform_type}, rename your file. To bump the version, set"
+    message += f'\n\nln.context.uid = "{new_uid}"'
+    raise MissingContext(message)
 
 
 def pretty_pypackages(dependencies: dict) -> str:
@@ -197,15 +146,18 @@ class Context:
     """Run context."""
 
     def __init__(self):
+        self._uid: str | None = None
+        self._name: str | None = None
+        self._version: str | None = None
         self._transform: Transform | None = None
-        """Internal shortcut for incremental initialization."""
         self._run: Run | None = None
         self._path: Path | None = None
         """A local path to the script that's running."""
+        self._logging_message: str = ""
 
     @property
     def transform(self) -> Transform | None:
-        """Current run."""
+        """Transform of context."""
         if self._transform is not None:
             return self._transform
         elif self._run is not None:
@@ -214,8 +166,35 @@ class Context:
             return None
 
     @property
+    def uid(self) -> str | None:
+        """`uid` to create transform."""
+        return self._uid
+
+    @uid.setter
+    def uid(self, value: str | None):
+        self._uid = value
+
+    @property
+    def name(self) -> str | None:
+        """`name` to create transform."""
+        return self._name
+
+    @name.setter
+    def name(self, value: str | None):
+        self._name = value
+
+    @property
+    def version(self) -> str | None:
+        """`version` to create transform."""
+        return self._version
+
+    @version.setter
+    def version(self, value: str | None):
+        self._version = value
+
+    @property
     def run(self) -> Run | None:
-        """Current run."""
+        """Run of context."""
         return self._run
 
     def track(
@@ -225,7 +204,7 @@ class Context:
         transform: Transform | None = None,
         new_run: bool | None = None,
         path: str | None = None,
-    ) -> Run:
+    ) -> None:
         """Track notebook or script run.
 
         Creates or loads a global :class:`~lamindb.Run` that enables data
@@ -266,30 +245,45 @@ class Context:
                 transform_settings.stem_uid is not None
                 and transform_settings.version is not None
             )
-            if transform_settings_are_set:
-                stem_uid, version = (
+            transform = None
+            stem_uid = None
+            if self.uid is not None:
+                transform = Transform.filter(uid=self.uid).one_or_none()
+                if (
+                    transform is not None
+                    and transform.version is not None
+                    and self.version is not None
+                    and self.version != transform.version
+                ):
+                    logger.warning(
+                        "loaded transform version doesn't match passed version"
+                    )
+            elif transform_settings_are_set:
+                stem_uid, self.version = (
                     transform_settings.stem_uid,
                     transform_settings.version,
                 )
                 transform = Transform.filter(
-                    uid__startswith=stem_uid, version=version
+                    uid__startswith=stem_uid, version=self.version
                 ).one_or_none()
-                if is_run_from_ipython:
-                    key, name = self._track_notebook(path=path)
-                    transform_type = "notebook"
-                    transform_ref = None
-                    transform_ref_type = None
-                else:
-                    (name, key, transform_ref, transform_ref_type) = self._track_script(
-                        path=path
-                    )
-                    transform_type = "script"
+            if is_run_from_ipython:
+                key, name = self._track_notebook(path=path)
+                transform_type = "notebook"
+                transform_ref = None
+                transform_ref_type = None
+            else:
+                (name, key, transform_ref, transform_ref_type) = self._track_script(
+                    path=path
+                )
+                transform_type = "script"
+            if self.uid is not None or transform_settings_are_set:
                 # overwrite whatever is auto-detected in the notebook or script
-                if transform_settings.name is not None:
-                    name = transform_settings.name
+                if self.name is not None:
+                    name = self.name
                 self._create_or_load_transform(
+                    uid=self.uid,
                     stem_uid=stem_uid,
-                    version=version,
+                    version=self.version,
                     name=name,
                     transform_ref=transform_ref,
                     transform_ref_type=transform_ref_type,
@@ -300,7 +294,7 @@ class Context:
                 # if no error is raised, the transform is tracked
                 is_tracked = True
             if not is_tracked:
-                raise_transform_settings_error()
+                raise_missing_context(transform_type, key)
         else:
             if transform.type in {"notebook", "script"}:
                 raise ValueError(
@@ -313,10 +307,10 @@ class Context:
                 transform_exists = Transform.filter(id=transform.id).first()
             if transform_exists is None:
                 transform.save()
-                logger.important(f"saved: {transform}")
+                self._logging_message += f"created Transform('{transform.uid}')"
                 transform_exists = transform
             else:
-                logger.important(f"loaded: {transform}")
+                self._logging_message += f"loaded Transform('{transform.uid}')"
             self._transform = transform_exists
 
         if new_run is None:  # for notebooks, default to loading latest runs
@@ -331,14 +325,14 @@ class Context:
             )
             if run is not None:  # loaded latest run
                 run.started_at = datetime.now(timezone.utc)  # update run time
-                logger.important(f"loaded: {run}")
+                self._logging_message += f" & loaded Run('{run.started_at}')"
 
         if run is None:  # create new run
             run = Run(
                 transform=self._transform,
                 params=params,
             )
-            logger.important(f"saved: {run}")
+            self._logging_message += f" & created Run('{run.started_at}')"
         # can only determine at ln.finish() if run was consecutive in
         # interactive session, otherwise, is consecutive
         run.is_consecutive = True if is_run_from_ipython else None
@@ -348,7 +342,8 @@ class Context:
             run.params.add_values(params)
         self._run = run
         track_environment(run)
-        return run
+        logger.important(self._logging_message)
+        self._logging_message = ""
 
     def _track_script(
         self,
@@ -423,7 +418,8 @@ class Context:
     def _create_or_load_transform(
         self,
         *,
-        stem_uid: str,
+        uid: str | None,
+        stem_uid: str | None,
         version: str | None,
         name: str,
         transform_ref: str | None = None,
@@ -434,7 +430,8 @@ class Context:
     ):
         # make a new transform record
         if transform is None:
-            uid = f"{stem_uid}{get_uid_ext(version)}"
+            if uid is None:
+                uid = f"{stem_uid}{get_uid_ext(version)}"
             transform = Transform(
                 uid=uid,
                 version=version,
@@ -445,61 +442,49 @@ class Context:
                 type=transform_type,
             )
             transform.save()
-            logger.important(f"saved: {transform}")
+            self._logging_message += f"created Transform('{transform.uid}')"
         else:
-            # check whether there was an update to the transform, like
-            # renaming the file or updating the title
-            if transform.name != name or transform.key != key:
-                if os.getenv("LAMIN_TESTING") is None:
-                    response = input(
-                        "Updated transform filename and/or title: Do you want to assign a"
-                        " new stem_uid or version? (y/n)"
-                    )
-                else:
-                    response = "y"
-                if response == "y":
-                    # will raise SystemExit
-                    update_stem_uid_or_version(stem_uid, version)
-                else:
-                    transform.name = name
-                    transform.key = key
-                    transform.save()
-                    logger.important(f"updated: {transform}")
+            uid = transform.uid
+            # check whether the transform file has been renamed
+            if transform.key != key:
+                new_suid = ids.base62_12()
+                transform_type = "Notebook" if is_run_from_ipython else "Script"
+                raise UpdateContext(
+                    f"{transform_type} filename changed, create new transform by setting:\n"
+                    f'ln.context.uid = "{new_suid}0000"'
+                )
+            elif transform.name != name:
+                transform.name = name
+                transform.save()
+                self._logging_message += f"updated Transform('{transform.uid}')"
             # check whether transform source code was already saved
             if transform._source_code_artifact_id is not None:
                 response = None
                 if is_run_from_ipython:
-                    if os.getenv("LAMIN_TESTING") is None:
-                        response = input(
-                            "You already saved source code for this notebook."
-                            " Auto-bump the version before a new run? (y/n)"
-                        )
-                    else:
-                        response = "y"
+                    response = "y"  # auto-bump version
                 else:
                     hash, _ = hash_file(self._path)  # ignore hash_type for now
                     if hash != transform._source_code_artifact.hash:
-                        # only if hashes don't match, we need user input
-                        if os.getenv("LAMIN_TESTING") is None:
-                            response = input(
-                                "You already saved source code for this script and meanwhile modified it without bumping a version."
-                                " Auto-bump the version before a new run? (y/n)"
-                            )
-                        else:
-                            response = "y"
+                        response = "y"  # auto-bump version
                     else:
-                        logger.important(f"loaded: {transform}")
+                        self._logging_message += f"loaded Transform('{transform.uid}')"
                 if response is not None:
-                    # if a script is re-run and hashes match, we don't need user input
-                    if response == "y":
-                        update_stem_uid_or_version(stem_uid, version, bump_version=True)
-                    else:
-                        # the user didn't agree to auto-bump, hence treat manually
-                        raise_transform_settings_error_needs_update(
-                            old_version=transform.version
-                        )
+                    change_type = (
+                        "Re-running saved notebook"
+                        if is_run_from_ipython
+                        else "Source code changed"
+                    )
+                    suid, vuid = (
+                        uid[: Transform._len_stem_uid],
+                        uid[Transform._len_stem_uid :],
+                    )
+                    new_vuid = increment_base62(vuid)
+                    raise UpdateContext(
+                        f"{change_type}, bump version by setting:\n"
+                        f'ln.context.uid = "{suid}{new_vuid}"'
+                    )
             else:
-                logger.important(f"loaded: {transform}")
+                self._logging_message += f"loaded Transform('{transform.uid}')"
         self._transform = transform
 
 
