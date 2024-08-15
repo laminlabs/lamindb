@@ -84,15 +84,14 @@ def raise_missing_context(transform_type: str, key: str) -> None:
     transform = Transform.filter(key=key).latest_version().first()
     if transform is None:
         new_uid = f"{base62_12()}0000"
-        message = f"To track this {transform_type}, set"
+        message = f"To track this {transform_type}, set\n\n"
     else:
         uid = transform.uid
         suid, vuid = uid[: Transform._len_stem_uid], uid[Transform._len_stem_uid :]
         new_vuid = increment_base62(vuid)
         new_uid = f"{suid}{new_vuid}"
-        suffix = ".ipynb" if transform_type == "notebook" else ".py"
-        message = f"You already have a {transform_type} with filename '{key}{suffix}'. To create a new {transform_type}, rename your file. To bump the version, set"
-    message += f'\n\nln.context.uid = "{new_uid}"'
+        message = f"You already have a {transform_type} version family with key '{key}', suid '{transform.stem_uid}' & name '{transform.name}'.\n\n- to create a new {transform_type} version family, rename your file and rerun: ln.context.track()\n- to bump the version, set: "
+    message += f'ln.context.uid = "{new_uid}"'
     raise MissingContext(message)
 
 
