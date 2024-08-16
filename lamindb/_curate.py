@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import copy
-from typing import TYPE_CHECKING, Iterable, Type
+from typing import TYPE_CHECKING, Iterable, Mapping
 
 import anndata as ad
 import lamindb_setup as ln_setup
@@ -29,8 +29,8 @@ class CurateLookup:
 
     def __init__(
         self,
-        categoricals: dict[str, FieldAttr],
-        slots: dict[str, FieldAttr] = None,
+        categoricals: Mapping[str, FieldAttr],
+        slots: Mapping[str, FieldAttr] = None,
         using_key: str | None = None,
     ) -> None:
         if slots is None:
@@ -114,12 +114,12 @@ class DataFrameCurator:
         self,
         df: pd.DataFrame,
         columns: FieldAttr = Feature.name,
-        categoricals: dict[str, FieldAttr] | None = None,
+        categoricals: Mapping[str, FieldAttr] | None = None,
         using_key: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
-        sources: dict[str, Record] | None = None,
-        exclude: dict | None = None,
+        sources: Mapping[str, Record] | None = None,
+        exclude: Mapping | None = None,
     ) -> None:
         from lamindb.core._settings import settings
 
@@ -149,7 +149,7 @@ class DataFrameCurator:
         return self._non_validated
 
     @property
-    def fields(self) -> dict:
+    def fields(self) -> Mapping:
         """Return the columns fields to validate against."""
         return self._fields
 
@@ -264,7 +264,7 @@ class DataFrameCurator:
         """Validate variables and categorical observations.
 
         Args:
-            organism:
+            organism: The organism name.
 
         Returns:
             Whether the DataFrame is validated.
@@ -361,13 +361,13 @@ class AnnDataCurator(DataFrameCurator):
         self,
         data: ad.AnnData | UPathStr,
         var_index: FieldAttr,
-        categoricals: dict[str, FieldAttr] | None = None,
+        categoricals: Mapping[str, FieldAttr] | None = None,
         obs_columns: FieldAttr = Feature.name,
         using_key: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
-        sources: dict[str, Record] | None = None,
-        exclude: dict | None = None,
+        sources: Mapping[str, Record] | None = None,
+        exclude: Mapping | None = None,
     ) -> None:
         from lamindb_setup.core import upath
 
@@ -406,7 +406,7 @@ class AnnDataCurator(DataFrameCurator):
         return self._var_field
 
     @property
-    def categoricals(self) -> dict:
+    def categoricals(self) -> Mapping:
         """Return the obs fields to validate against."""
         return self._obs_fields
 
@@ -573,13 +573,13 @@ class MuDataCurator:
     def __init__(
         self,
         mdata: MuData,
-        var_index: dict[str, dict[str, FieldAttr]],
-        categoricals: dict[str, FieldAttr] | None = None,
+        var_index: Mapping[str, Mapping[str, FieldAttr]],
+        categoricals: Mapping[str, FieldAttr] | None = None,
         using_key: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
-        sources: dict[str, Record] | None = None,
-        exclude: dict | None = None,
+        sources: Mapping[str, Record] | None = None,
+        exclude: Mapping | None = None,
     ) -> None:
         if sources is None:
             sources = {}
@@ -643,7 +643,7 @@ class MuDataCurator:
             **kwargs,
         )
 
-    def _parse_categoricals(self, categoricals: dict[str, FieldAttr]) -> dict:
+    def _parse_categoricals(self, categoricals: Mapping[str, FieldAttr]) -> dict:
         """Parse the categorical fields."""
         prefixes = {f"{k}:" for k in self._mdata.mod.keys()}
         obs_fields: dict[str, dict[str, FieldAttr]] = {}
@@ -899,12 +899,12 @@ class Curate:
         cls,
         data: ad.AnnData | UPathStr,
         var_index: FieldAttr,
-        categoricals: dict[str, FieldAttr] | None = None,
+        categoricals: Mapping[str, FieldAttr] | None = None,
         obs_columns: FieldAttr = Feature.name,
         using_key: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
-        sources: dict[str, Record] | None = None,
+        sources: Mapping[str, Record] | None = None,
     ) -> AnnDataCurator:
         """{}"""  # noqa: D415
         return AnnDataCurator(
@@ -923,8 +923,8 @@ class Curate:
     def from_mudata(
         cls,
         mdata: MuData,
-        var_index: dict[str, dict[str, FieldAttr]],
-        categoricals: dict[str, FieldAttr] | None = None,
+        var_index: Mapping[str, Mapping[str, FieldAttr]],
+        categoricals: Mapping[str, FieldAttr] | None = None,
         using_key: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
@@ -1129,10 +1129,10 @@ def validate_categories(
 
 def validate_categories_in_df(
     df: pd.DataFrame,
-    fields: dict[str, FieldAttr],
+    fields: Mapping[str, FieldAttr],
     using_key: str | None = None,
-    sources: dict[str, Record] = None,
-    exclude: dict | None = None,
+    sources: Mapping[str, Record] = None,
+    exclude: Mapping | None = None,
     **kwargs,
 ) -> tuple[bool, dict]:
     """Validate categories in DataFrame columns using LaminDB registries."""
@@ -1158,7 +1158,7 @@ def validate_categories_in_df(
 
 def save_artifact(
     data: pd.DataFrame | ad.AnnData | MuData,
-    fields: dict[str, FieldAttr] | dict[str, dict[str, FieldAttr]],
+    fields: Mapping[str, FieldAttr] | Mapping[str, Mapping[str, FieldAttr]],
     columns_field: FieldAttr | dict[str, FieldAttr],
     description: str | None = None,
     organism: str | None = None,
@@ -1225,7 +1225,7 @@ def save_artifact(
     else:
         raise NotImplementedError
 
-    def _add_labels(data, artifact: Artifact, fields: dict[str, FieldAttr]):
+    def _add_labels(data, artifact: Artifact, fields: Mapping[str, FieldAttr]):
         features = Feature.lookup().dict()
         for key, field in fields.items():
             feature = features.get(key)
@@ -1404,7 +1404,7 @@ def update_registry(
 
 
 def log_saved_labels(
-    labels_saved: dict,
+    labels_saved: Mapping,
     key: str,
     save_function: str,
     model_field: str,
@@ -1473,6 +1473,7 @@ def update_registry_from_using_instance(
         values: A list of values to be saved as labels.
         field: The FieldAttr object representing the field for which labels are being saved.
         using_key: The name of the instance from which to transfer labels (if applicable).
+        standardize: Whether to also standardize the values.
         kwargs: Additional keyword arguments to pass to the registry model.
 
     Returns:
