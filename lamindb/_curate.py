@@ -102,9 +102,12 @@ class DataFrameCurator:
     Examples:
         >>> import bionty as bt
         >>> curate = ln.Curate.from_df(
-                df,
-                categoricals={"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name}
-            )
+        ...     df,
+        ...     categoricals={
+        ...         "cell_type_ontology_id": bt.CellType.ontology_id,
+        ...         "donor_id": ln.ULabel.name
+        ...     }
+        ... )
     """
 
     def __init__(
@@ -260,6 +263,9 @@ class DataFrameCurator:
     def validate(self, organism: str | None = None) -> bool:
         """Validate variables and categorical observations.
 
+        Args:
+            organism:
+
         Returns:
             Whether the DataFrame is validated.
         """
@@ -341,11 +347,14 @@ class AnnDataCurator(DataFrameCurator):
     Examples:
         >>> import bionty as bt
         >>> curate = ln.Curate.from_anndata(
-                adata,
-                var_index=bt.Gene.ensembl_gene_id,
-                categoricals={"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name},
-                organism="human",
-            )
+        ...     adata,
+        ...     var_index=bt.Gene.ensembl_gene_id,
+        ...     categoricals={
+        ...         "cell_type_ontology_id": bt.CellType.ontology_id,
+        ...         "donor_id": ln.ULabel.name
+        ...     },
+        ...     organism="human",
+        ... )
     """
 
     def __init__(
@@ -548,11 +557,17 @@ class MuDataCurator:
     Examples:
         >>> import bionty as bt
         >>> curate = ln.Curate.from_mudata(
-                mdata,
-                var_index={"rna": bt.Gene.ensembl_gene_id, "adt": ln.CellMarker.name},
-                categoricals={"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name},
-                organism="human",
-            )
+        ...     mdata,
+        ...     var_index={
+        ...         "rna": bt.Gene.ensembl_gene_id,
+        ...         "adt": ln.CellMarker.name
+        ...     },
+        ...     categoricals={
+        ...         "cell_type_ontology_id": bt.CellType.ontology_id,
+        ...         "donor_id": ln.ULabel.name
+        ...     },
+        ...     organism="human",
+        ... )
     """
 
     def __init__(

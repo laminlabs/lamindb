@@ -62,6 +62,7 @@ test-search4
 test-search5
 default_storage
 test.ipynb
+run-tests
 
 # General
 .DS_Store
