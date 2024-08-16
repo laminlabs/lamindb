@@ -4,7 +4,7 @@ from pathlib import Path
 import nbproject_test
 
 notebook_dir = Path(__file__).parent / "notebooks/"
-notebook_dir_duplicate = Path(__file__).parent / "notebooks-duplicate/"
+notebook_dir_duplicate = Path(__file__).parent / "notebooks/duplicate/"
 
 
 def test_all_notebooks():

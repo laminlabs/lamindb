@@ -129,38 +129,67 @@ def test_create_or_load_transform(monkeypatch):
 
 
 def test_run_scripts_for_versioning():
+    # regular execution
     result = subprocess.run(  # noqa: S602
         "python ./tests/scripts/script-to-test-versioning1.py",
         shell=True,
         capture_output=True,
     )
-    print(result.stdout.decode())
+    # print(result.stdout.decode())
     assert result.returncode == 0
     assert (
         "created Transform('Ro1gl7n8YrdH0000') & created Run('"
         in result.stdout.decode()
     )
+
+    # updated key (filename change)
+    result = subprocess.run(  # noqa: S602
+        "python ./tests/scripts/script-to-test-filename-change.py",
+        shell=True,
+        capture_output=True,
+    )
+    # print(result.stderr.decode())
+    assert result.returncode == 1
+    assert "Script filename changed." in result.stderr.decode()
+
+    # version already taken
     result = subprocess.run(  # noqa: S602
         "python ./tests/scripts/duplicate1/script-to-test-versioning1.py",
         shell=True,
         capture_output=True,
     )
-    print(result.stderr.decode())
+    # print(result.stderr.decode())
     assert result.returncode == 1
     assert (
         "Version '1' is already taken by Transform('Ro1gl7n8YrdH0000'); please set another version, e.g., ln.context.version = '1.1'"
         in result.stderr.decode()
     )
+
+    # regular version bump
     result = subprocess.run(  # noqa: S602
         "python ./tests/scripts/duplicate2/script-to-test-versioning1.py",
         shell=True,
         capture_output=True,
     )
-    print(result.stdout.decode())
+    # print(result.stdout.decode())
     assert result.returncode == 0
     assert (
         "created Transform('Ro1gl7n8YrdH0001') & created Run('"
         in result.stdout.decode()
+    )
+
+    # inconsistent version
+    result = subprocess.run(  # noqa: S602
+        "python ./tests/scripts/duplicate3/script-to-test-versioning1.py",
+        shell=True,
+        capture_output=True,
+    )
+    print(result.stdout.decode())
+    print(result.stderr.decode())
+    assert result.returncode == 1
+    assert (
+        "Please pass consistent version: ln.context.version = '2'"
+        in result.stderr.decode()
     )
 
 

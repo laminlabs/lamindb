@@ -210,9 +210,18 @@ class Context:
             transform = None
             stem_uid = None
             if self.uid is not None:
-                if self.version is None:
-                    transform = Transform.filter(uid=self.uid).one_or_none()
-                else:
+                transform = Transform.filter(uid=self.uid).one_or_none()
+                if self.version is not None:
+                    # test inconsistent version passed
+                    if (
+                        transform is not None
+                        and transform.version is not None
+                        and self.version != transform.version
+                    ):
+                        raise SystemExit(
+                            f"Please pass consistent version: ln.context.version = '{transform.version}'"
+                        )
+                    # test whether version was already used for another member of the family
                     suid, vuid = (
                         self.uid[: Transform._len_stem_uid],
                         self.uid[Transform._len_stem_uid :],
@@ -228,15 +237,6 @@ class Context:
                         raise SystemExit(
                             f"Version '{self.version}' is already taken by Transform('{transform.uid}'); please set another version, e.g., ln.context.version = '{better_version}'"
                         )
-                if (
-                    transform is not None
-                    and transform.version is not None
-                    and self.version is not None
-                    and self.version != transform.version
-                ):
-                    raise ValueError(
-                        f"Please pass consistent version: ln.context.version = {transform.version}"
-                    )
             elif transform_settings_are_set:
                 stem_uid, self.version = (
                     transform_settings.stem_uid,
@@ -430,7 +430,7 @@ class Context:
                 suid = transform.stem_uid
                 new_suid = ids.base62_12()
                 transform_type = "Notebook" if is_run_from_ipython else "Script"
-                note = f'Or update the key in your existing family:\n\nln.Transform.filter(key="{transform.key}", uid__startswith="{suid}").update(key="{key}")'
+                note = f'Or update key "{transform.key}" in your existing family:\n\nln.Transform.filter(uid__startswith="{suid}").update(key="{key}")'
                 raise UpdateContext(
                     f"{transform_type} filename changed.\n\nEither init a new transform family by setting:\n\n"
                     f'ln.context.uid = "{new_suid}0000"\n\n{note}'
