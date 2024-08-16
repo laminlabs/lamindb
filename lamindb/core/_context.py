@@ -92,6 +92,8 @@ def raise_missing_context(transform_type: str, key: str) -> None:
         new_uid = f"{suid}{new_ruid}"
         message = f"You already have a {transform_type} version family with key '{key}', suid '{transform.stem_uid}' & name '{transform.name}'.\n\n- to create a new {transform_type} version family, rename your file and rerun: ln.context.track()\n- to bump the version, set: "
     message += f'ln.context.uid = "{new_uid}"'
+    if transform_type == "notebook":
+        message += "\n\nRestart your notebook if you want consecutive cell execution."
     raise MissingContext(message)
 
 
