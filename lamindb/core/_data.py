@@ -23,6 +23,7 @@ from lamindb._query_set import QuerySet
 from lamindb._record import get_name_field
 from lamindb.core._settings import settings
 
+from ._context import context
 from ._feature_manager import (
     get_feature_set_links,
     get_host_id_field,
@@ -30,7 +31,6 @@ from ._feature_manager import (
     print_features,
 )
 from ._label_manager import print_labels
-from ._run_context import run_context
 from .exceptions import ValidationError
 from .schema import (
     dict_related_model_to_related_name,
@@ -40,12 +40,14 @@ from .schema import (
 if TYPE_CHECKING:
     from lnschema_core.types import StrField
 
-WARNING_RUN_TRANSFORM = "no run & transform get linked, consider calling ln.track()"
+WARNING_RUN_TRANSFORM = (
+    "no run & transform get linked, consider calling ln.context.track()"
+)
 
 
 def get_run(run: Run | None) -> Run | None:
     if run is None:
-        run = run_context.run
+        run = context.run
         if run is None and not settings.creation.artifact_silence_missing_run_warning:
             logger.warning(WARNING_RUN_TRANSFORM)
     # suppress run by passing False
@@ -336,7 +338,7 @@ def _track_run_input(
         run = is_run_input
         is_run_input = True
     elif run is None:
-        run = run_context.run
+        run = context.run
     # consider that data is an iterable of Data
     data_iter: Iterable[HasFeatures] = [data] if isinstance(data, HasFeatures) else data
     track_run_input = False
@@ -364,7 +366,7 @@ def _track_run_input(
             if settings.track_run_inputs:
                 logger.hint(
                     "you can auto-track these data as a run input by calling"
-                    " `ln.track()`"
+                    " `ln.context.track()`"
                 )
         # assume we have a run record
         else:
@@ -392,7 +394,7 @@ def _track_run_input(
     if track_run_input:
         if run is None:
             raise ValueError(
-                "No run context set. Call ln.track() or link input to a"
+                "No run context set. Call ln.context.track() or link input to a"
                 " run object via `run.input_artifacts.add(artifact)`"
             )
         # avoid adding the same run twice

@@ -214,7 +214,7 @@ Here is how to create ulabels for them:
     bt.Disease.filter().all().delete()
 
 
-# most underlying logic here is comprehensively tested in test_run_context
+# most underlying logic here is comprehensively tested in test_context
 def test_params_add():
     path = Path("mymodel.pt")
     path.touch()

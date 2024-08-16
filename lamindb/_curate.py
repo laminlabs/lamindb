@@ -313,11 +313,11 @@ class DataFrameCurator:
 
     def clean_up_failed_runs(self):
         """Clean up previous failed runs that don't save any outputs."""
-        from lamindb.core._run_context import run_context
+        from lamindb.core._context import context
 
-        if run_context.transform is not None:
-            Run.filter(transform=run_context.transform, output_artifacts=None).exclude(
-                uid=run_context.run.uid
+        if context.run is not None:
+            Run.filter(transform=context.run.transform, output_artifacts=None).exclude(
+                uid=context.run.uid
             ).delete()
 
 
