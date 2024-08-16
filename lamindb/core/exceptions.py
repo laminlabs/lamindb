@@ -9,11 +9,19 @@ The registry base class:
    ValidationError
    NotebookNotSavedError
    NoTitleError
-   MissingTransformSettings
-   UpdateTransformSettings
+   MissingContext
+   UpdateContext
    IntegrityError
 
 """
+
+
+class TrackNotCalled(SystemExit):
+    pass
+
+
+class NotebookNotSaved(SystemExit):
+    pass
 
 
 class ValidationError(SystemExit):
@@ -31,7 +39,7 @@ class DoesNotExist(Exception):
 
 
 # -------------------------------------------------------------------------------------
-# ln.track() AKA run_context
+# ln.context.track() AKA context
 # -------------------------------------------------------------------------------------
 
 
@@ -57,13 +65,13 @@ class NoTitleError(Exception):
     pass
 
 
-class MissingTransformSettings(SystemExit):
+class MissingContext(SystemExit):
     """User didn't define transform settings."""
 
     pass
 
 
-class UpdateTransformSettings(SystemExit):
+class UpdateContext(SystemExit):
     """Transform settings require update."""
 
     pass

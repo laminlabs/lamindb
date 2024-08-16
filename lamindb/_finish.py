@@ -9,9 +9,6 @@ from typing import TYPE_CHECKING
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_file
-from lnschema_core.types import TransformType
-
-from .core._run_context import is_run_from_ipython, run_context
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -21,51 +18,7 @@ if TYPE_CHECKING:
     from ._query_set import QuerySet
 
 
-class TrackNotCalled(SystemExit):
-    pass
-
-
-class NotebookNotSaved(SystemExit):
-    pass
-
-
-def get_seconds_since_modified(filepath) -> float:
-    return datetime.now().timestamp() - filepath.stat().st_mtime
-
-
-def finish() -> None:
-    """Mark a tracked run as finished.
-
-    Saves source code and, for notebooks, a run report to your default storage location.
-    """
-    if run_context.run is None:
-        raise TrackNotCalled("Please run `ln.track()` before `ln.finish()`")
-    if run_context.path is None:
-        if run_context.transform.type in {"script", "notebook"}:
-            raise ValueError(
-                f"Transform type is not allowed to be 'script' or 'notebook' but is {run_context.transform.type}."
-            )
-        run_context.run.finished_at = datetime.now(timezone.utc)
-        run_context.run.save()
-        # nothing else to do
-        return None
-    if is_run_from_ipython:  # notebooks
-        if (
-            get_seconds_since_modified(run_context.path) > 3
-            and os.getenv("LAMIN_TESTING") is None
-        ):
-            raise NotebookNotSaved(
-                "Please save the notebook in your editor right before running `ln.finish()`"
-            )
-    save_run_context_core(
-        run=run_context.run,
-        transform=run_context.transform,
-        filepath=run_context.path,
-        finished_at=True,
-    )
-
-
-def save_run_context_core(
+def save_context_core(
     *,
     run: Run,
     transform: Transform,
@@ -75,6 +28,8 @@ def save_run_context_core(
     from_cli: bool = False,
 ) -> str | None:
     import lamindb as ln
+
+    from .core._context import context, is_run_from_ipython
 
     ln.settings.verbosity = "success"
 
@@ -182,7 +137,9 @@ def save_run_context_core(
                     f"replaced transform._source_code_artifact: {transform._source_code_artifact}"
                 )
             else:
-                logger.warning("Please re-run `ln.track()` to make a new version")
+                logger.warning(
+                    "Please re-run `ln.context.track()` to make a new version"
+                )
                 return "rerun-the-notebook"
         else:
             logger.important("source code is already saved")
@@ -282,7 +239,7 @@ def save_run_context_core(
             logger.important(
                 f"if you want to update your {thing} without re-running it, use `lamin save {name}`"
             )
-    # because run & transform changed, update the global run_context
-    run_context.run = run
-    run_context.transform = transform
+    # because run & transform changed, update the global context
+    context._run = run
+    context._transform = transform
     return None

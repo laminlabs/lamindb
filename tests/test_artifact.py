@@ -341,7 +341,7 @@ def test_create_from_local_filepath(
     suffix = get_test_filepaths[4]
     # this tests if insufficient information is being provided
     if key is None and not is_in_registered_storage and description is None:
-        # this can fail because ln.track() might set a global run context
+        # this can fail because ln.context.track() might set a global run context
         # in that case, the File would have a run that's not None and the
         # error below wouldn't be thrown
         with pytest.raises(ValueError) as error:
