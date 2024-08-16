@@ -151,7 +151,7 @@ class DataFrameCurator:
     @property
     def fields(self) -> dict:
         """Return the columns fields to validate against."""
-        return self._fields  # type: ignore
+        return self._fields
 
     def lookup(self, using_key: str | None = None) -> CurateLookup:
         """Lookup categories.
@@ -408,7 +408,7 @@ class AnnDataCurator(DataFrameCurator):
     @property
     def categoricals(self) -> dict:
         """Return the obs fields to validate against."""
-        return self._obs_fields  # type: ignore
+        return self._obs_fields
 
     def lookup(self, using_key: str | None = None) -> CurateLookup:
         """Lookup categories.
