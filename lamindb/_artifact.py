@@ -107,7 +107,7 @@ def process_pathlike(
                 new_root = list(filepath.parents)[-1]
                 # do not register remote storage locations on hub if the current instance
                 # is not managed on the hub
-                storage_settings = init_storage(
+                storage_settings, _ = init_storage(
                     new_root, prevent_register_hub=not setup_settings.instance.is_on_hub
                 )
                 storage_record = register_storage_in_instance(storage_settings)
