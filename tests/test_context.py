@@ -131,7 +131,7 @@ def test_create_or_load_transform(monkeypatch):
 def test_run_scripts_for_versioning():
     # regular execution
     result = subprocess.run(  # noqa: S602
-        "python ./tests/scripts/script-to-test-versioning1.py",
+        "python ./tests/scripts/script-to-test-versioning.py",
         shell=True,
         capture_output=True,
     )
@@ -154,7 +154,7 @@ def test_run_scripts_for_versioning():
 
     # version already taken
     result = subprocess.run(  # noqa: S602
-        "python ./tests/scripts/duplicate1/script-to-test-versioning1.py",
+        "python ./tests/scripts/duplicate1/script-to-test-versioning.py",
         shell=True,
         capture_output=True,
     )
@@ -167,7 +167,7 @@ def test_run_scripts_for_versioning():
 
     # regular version bump
     result = subprocess.run(  # noqa: S602
-        "python ./tests/scripts/duplicate2/script-to-test-versioning1.py",
+        "python ./tests/scripts/duplicate2/script-to-test-versioning.py",
         shell=True,
         capture_output=True,
     )
@@ -180,7 +180,7 @@ def test_run_scripts_for_versioning():
 
     # inconsistent version
     result = subprocess.run(  # noqa: S602
-        "python ./tests/scripts/duplicate3/script-to-test-versioning1.py",
+        "python ./tests/scripts/duplicate3/script-to-test-versioning.py",
         shell=True,
         capture_output=True,
     )
