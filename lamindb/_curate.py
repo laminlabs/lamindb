@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import copy
-from typing import TYPE_CHECKING, Iterable, Type
+from typing import TYPE_CHECKING, Iterable
 
 import anndata as ad
 import lamindb_setup as ln_setup
@@ -262,9 +262,6 @@ class DataFrameCurator:
 
     def validate(self, organism: str | None = None) -> bool:
         """Validate variables and categorical observations.
-
-        Args:
-            organism:
 
         Returns:
             Whether the DataFrame is validated.
@@ -1473,6 +1470,7 @@ def update_registry_from_using_instance(
         values: A list of values to be saved as labels.
         field: The FieldAttr object representing the field for which labels are being saved.
         using_key: The name of the instance from which to transfer labels (if applicable).
+        standardize: Whether to also standardize the values.
         kwargs: Additional keyword arguments to pass to the registry model.
 
     Returns:
