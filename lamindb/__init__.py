@@ -1,6 +1,7 @@
-"""A data framework for biology.
+"""LaminDB is an open-source data framework for biology.
 
-Registries:
+Registries
+==========
 
 .. autosummary::
    :toctree: .
@@ -16,7 +17,8 @@ Registries:
    FeatureSet
    Param
 
-Key functionality:
+Key functionality
+=================
 
 .. autosummary::
    :toctree: .
@@ -27,7 +29,8 @@ Key functionality:
    view
    save
 
-Modules & settings:
+Modules & settings
+==================
 
 .. autosummary::
    :toctree: .
