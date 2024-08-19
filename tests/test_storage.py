@@ -14,6 +14,7 @@ from lamindb.core.storage._backed_access import (
     BackedAccessor,
     backed_access,
 )
+from lamindb.core.storage._tiledbsoma import create_tiledbsoma_store
 from lamindb.core.storage._zarr import read_adata_zarr, write_adata_zarr
 from lamindb.core.storage.objects import infer_suffix, write_to_disk
 from lamindb.core.storage.paths import read_adata_h5ad
@@ -263,6 +264,32 @@ def test_backed_tiledbsoma(storage):
 
     artifact_soma.versions.delete(permanent=True, storage=True)
     shutil.rmtree("test.tiledbsoma")
+
+    if storage is not None:
+        ln.settings.storage = previous_storage
+
+
+@pytest.mark.parametrize("storage", [None, "s3://lamindb-test"])
+def test_create_tiledbsoma_store(storage):
+    if storage is not None:
+        previous_storage = ln.setup.settings.storage.root_as_str
+        ln.settings.storage = "s3://lamindb-test"
+
+    fp = ln.core.datasets.anndata_file_pbmc68k_test()
+
+    transform = ln.Transform(name="test create tiledbsoma store")
+    transform.save()
+    run = ln.Run(transform)
+    run.save()
+
+    experiment_path = (ln.settings.storage.root / "test_create.tiledbsoma").as_posix()
+    artifact = create_tiledbsoma_store(experiment_path, fp, run, measurement_name="RNA")
+    artifact.save()
+
+    with artifact.open() as store:
+        assert "lamin_run_uid" in store["obs"].schema.names
+
+    artifact.delete(permanent=True, storage=True)
 
     if storage is not None:
         ln.settings.storage = previous_storage
