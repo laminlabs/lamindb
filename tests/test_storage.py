@@ -234,7 +234,10 @@ def test_backed_tiledbsoma(storage):
     run = ln.Run(transform)
     run.save()
 
-    experiment_path = (ln.settings.storage.root / "test.tiledbsoma").as_posix()
+    experiment_path = ln.settings.storage.root / "test.tiledbsoma"
+    if storage is not None and experiment_path.exists():
+        experiment_path.rmdir()
+
     artifact_soma = write_tiledbsoma_store(
         experiment_path,
         test_file,
