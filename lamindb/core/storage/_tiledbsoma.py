@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
-from anndata import AnnData, read_h5ad
+from anndata import AnnData
 from lamindb_setup.core._settings_storage import get_storage_region
 from lamindb_setup.core.upath import create_path
 from lnschema_core import Artifact, Run
@@ -58,7 +58,7 @@ def _open_tiledbsoma(
 def write_tiledbsoma_store(
     storepath: UPathStr,
     adata: AnnData | UPathStr,
-    run: Run | None,
+    run: Run | None = None,
     artifact_kwargs: dict | None = None,
     **kwargs,
 ) -> Artifact:
@@ -74,7 +74,18 @@ def write_tiledbsoma_store(
         artifact_kwargs = {}
 
     if not isinstance(adata, AnnData):
-        adata = read_h5ad(adata)
+        from lamindb.core.paths import read_adata_h5ad, read_adata_zarr
+
+        # in case adata is somewhere in our managed s3 bucket or just in s3
+        adata = create_path(adata)
+        if adata.is_dir():
+            adata = read_adata_zarr(adata)
+        else:
+            adata = read_adata_h5ad(adata)
+    elif adata.is_view:
+        raise ValueError(
+            "Can not write from an `AnnData` view, please do `adata.copy()` before passing."
+        )
 
     run = get_run(run)
     adata.obs["lamin_run_uid"] = run.uid
