@@ -229,10 +229,16 @@ def test_backed_tiledbsoma(storage):
 
     test_file = ln.core.datasets.anndata_file_pbmc68k_test()
     adata = read_adata_h5ad(test_file)
+    # write less
+    del adata.varp
+    del adata.obsp
+    del adata.layers
     if storage is None:
         # test local with zarr
         test_file = test_file.with_suffix(".zarr")
         adata.write_zarr(test_file)
+    else:
+        adata.write_h5ad(test_file)
 
     # fails with a view
     with pytest.raises(ValueError):
