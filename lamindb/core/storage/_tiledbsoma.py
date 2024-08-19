@@ -55,7 +55,7 @@ def _open_tiledbsoma(
     return SOMAType.open(storepath_str, mode=mode, context=ctx)
 
 
-def create_tiledbsoma_store(
+def write_tiledbsoma_store(
     storepath: UPathStr,
     adata: AnnData | UPathStr,
     run: Run | None,

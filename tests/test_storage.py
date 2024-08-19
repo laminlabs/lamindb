@@ -14,7 +14,7 @@ from lamindb.core.storage._backed_access import (
     BackedAccessor,
     backed_access,
 )
-from lamindb.core.storage._tiledbsoma import create_tiledbsoma_store
+from lamindb.core.storage._tiledbsoma import write_tiledbsoma_store
 from lamindb.core.storage._zarr import read_adata_zarr, write_adata_zarr
 from lamindb.core.storage.objects import infer_suffix, write_to_disk
 from lamindb.core.storage.paths import read_adata_h5ad
@@ -270,7 +270,7 @@ def test_backed_tiledbsoma(storage):
 
 
 @pytest.mark.parametrize("storage", [None, "s3://lamindb-test"])
-def test_create_tiledbsoma_store(storage):
+def test_write_tiledbsoma_store(storage):
     if storage is not None:
         previous_storage = ln.setup.settings.storage.root_as_str
         ln.settings.storage = "s3://lamindb-test"
@@ -283,7 +283,7 @@ def test_create_tiledbsoma_store(storage):
     run.save()
 
     experiment_path = (ln.settings.storage.root / "test_create.tiledbsoma").as_posix()
-    artifact = create_tiledbsoma_store(experiment_path, fp, run, measurement_name="RNA")
+    artifact = write_tiledbsoma_store(experiment_path, fp, run, measurement_name="RNA")
     artifact.save()
 
     with artifact.open() as store:
