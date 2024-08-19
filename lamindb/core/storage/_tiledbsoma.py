@@ -74,7 +74,7 @@ def write_tiledbsoma_store(
         artifact_kwargs = {}
 
     if not isinstance(adata, AnnData):
-        from lamindb.core.paths import read_adata_h5ad, read_adata_zarr
+        from lamindb.core.storage.paths import read_adata_h5ad, read_adata_zarr
 
         # in case adata is somewhere in our managed s3 bucket or just in s3
         adata = create_path(adata)
