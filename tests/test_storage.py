@@ -244,9 +244,6 @@ def test_backed_tiledbsoma(storage):
     )
     artifact_soma.save()
 
-    # copied to cache on .save()
-    cache_path = artifact_soma.cache()
-
     with artifact_soma.open() as store:  # mode="r" by default
         assert isinstance(store, tiledbsoma.Experiment)
         obs = store["obs"]
@@ -255,7 +252,8 @@ def test_backed_tiledbsoma(storage):
         run_id = obs.read(column_names=["lamin_run_uid"]).concat().to_pandas()
         assert all(run_id == run.uid)
 
-    hash_on_disk = artifact_soma.hash
+    cache_path = artifact_soma.cache()
+    hash_before_changes = artifact_soma.hash
     with artifact_soma.open(mode="w") as store:
         assert store.__class__.__name__ == "ExperimentTrack"
         tiledbsoma.io.add_matrix_to_collection(
@@ -265,8 +263,9 @@ def test_backed_tiledbsoma(storage):
             matrix_name="test_array",
             matrix_data=np.ones((n_obs, 2)),
         )
-    assert artifact_soma.hash != hash_on_disk
+    assert artifact_soma.hash != hash_before_changes
     if storage is not None:
+        # cache should be ignored and deleted after the changes
         assert not cache_path.exists()
     else:
         assert artifact_soma.path == cache_path
