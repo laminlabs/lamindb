@@ -3,10 +3,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 from anndata import AnnData, read_h5ad
-from lamindb_setup.core._data import get_run
 from lamindb_setup.core._settings_storage import get_storage_region
 from lamindb_setup.core.upath import create_path
 from lnschema_core import Artifact, Run
+
+from lamindb.core._data import get_run
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
