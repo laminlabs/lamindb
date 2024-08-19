@@ -9,12 +9,12 @@ import pytest
 import tiledbsoma
 import tiledbsoma.io
 import zarr
+from lamindb.core.storage import write_tiledbsoma_store
 from lamindb.core.storage._backed_access import (
     AnnDataAccessor,
     BackedAccessor,
     backed_access,
 )
-from lamindb.core.storage._tiledbsoma import write_tiledbsoma_store
 from lamindb.core.storage._zarr import read_adata_zarr, write_adata_zarr
 from lamindb.core.storage.objects import infer_suffix, write_to_disk
 from lamindb.core.storage.paths import read_adata_h5ad
