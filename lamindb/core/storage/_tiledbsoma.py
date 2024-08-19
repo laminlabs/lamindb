@@ -62,6 +62,13 @@ def write_tiledbsoma_store(
     artifact_kwargs: dict | None = None,
     **kwargs,
 ) -> Artifact:
+    """Write `AnnData` to `tiledbsoma.Experiment`.
+
+    Reads `AnnData`, writes it to `tiledbsoma.Experiment` and creates `lamindb.Artifact`.
+
+    See `tiledbsoma.io.from_h5ad
+    <https://tiledbsoma.readthedocs.io/en/latest/_autosummary/tiledbsoma.io.from_h5ad.html>`__.
+    """
     try:
         import tiledbsoma as soma
         import tiledbsoma.io as soma_io
