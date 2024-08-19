@@ -7,8 +7,6 @@ from lamindb_setup.core._settings_storage import get_storage_region
 from lamindb_setup.core.upath import create_path
 from lnschema_core import Artifact, Run
 
-from lamindb.core._data import get_run
-
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
     from tiledbsoma import Collection as SOMACollection
@@ -69,6 +67,8 @@ def create_tiledbsoma_store(
         import tiledbsoma.io as soma_io
     except ImportError as e:
         raise ImportError("Please install tiledbsoma: pip install tiledbsoma") from e
+
+    from lamindb.core._data import get_run
 
     if artifact_kwargs is None:
         artifact_kwargs = {}
