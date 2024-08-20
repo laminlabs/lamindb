@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Literal
+from typing import TYPE_CHECKING, Any, Callable
 
 from anndata._io.specs.registry import get_spec
 from lnschema_core import Artifact
 
 from ._anndata_accessor import AnnDataAccessor, StorageType, registry
+from ._tiledbsoma import _open_tiledbsoma
 from .paths import filepath_from_artifact
 
 if TYPE_CHECKING:
@@ -50,43 +51,6 @@ def _track_writes_factory(obj: Any, finalize: Callable):
     Track = type(tracked_class.__name__ + "Track", (tracked_class,), type_dict)
     obj.__class__ = Track
     return obj
-
-
-def _open_tiledbsoma(
-    filepath: UPath, mode: Literal["r", "w"] = "r"
-) -> SOMACollection | SOMAExperiment:
-    try:
-        import tiledbsoma as soma
-    except ImportError as e:
-        raise ImportError("Please install tiledbsoma: pip install tiledbsoma") from e
-    filepath_str = filepath.as_posix()
-    if filepath.protocol == "s3":
-        from lamindb_setup.core._settings_storage import get_storage_region
-
-        region = get_storage_region(filepath_str)
-        tiledb_config = {"vfs.s3.region": region}
-        storage_options = filepath.storage_options
-        if "key" in storage_options:
-            tiledb_config["vfs.s3.aws_access_key_id"] = storage_options["key"]
-        if "secret" in storage_options:
-            tiledb_config["vfs.s3.aws_secret_access_key"] = storage_options["secret"]
-        if "token" in storage_options:
-            tiledb_config["vfs.s3.aws_session_token"] = storage_options["token"]
-        ctx = soma.SOMATileDBContext(tiledb_config=tiledb_config)
-        # this is a strange bug
-        # for some reason iterdir futher gives incorrect results
-        # if cache is not invalidated
-        # instead of obs and ms it gives ms and ms in the list of names
-        filepath.fs.invalidate_cache()
-    else:
-        ctx = None
-
-    soma_objects = [obj.name for obj in filepath.iterdir()]
-    if "obs" in soma_objects and "ms" in soma_objects:
-        SOMAType = soma.Experiment
-    else:
-        SOMAType = soma.Collection
-    return SOMAType.open(filepath_str, mode=mode, context=ctx)
 
 
 @dataclass
