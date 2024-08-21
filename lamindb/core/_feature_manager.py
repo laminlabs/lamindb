@@ -363,7 +363,7 @@ def __getitem__(self, slot) -> QuerySet:
 
 @classmethod  # type: ignore
 def filter(cls, **expression) -> QuerySet:
-    """Filter features."""
+    """Filter by features."""
     if cls in {FeatureManagerArtifact, FeatureManagerCollection}:
         model = Feature
         value_model = FeatureValue
@@ -396,6 +396,12 @@ def filter(cls, **expression) -> QuerySet:
         return Collection.filter(**new_expression)
     elif cls == ParamManagerRun:
         return Run.filter(**new_expression)
+
+
+@classmethod  # type: ignore
+def get(cls, **expression) -> Record:
+    """Get by feature."""
+    return filter(cls, **expression).one()
 
 
 @property  # type: ignore
@@ -843,5 +849,6 @@ FeatureManager._add_set_from_anndata = _add_set_from_anndata
 FeatureManager._add_set_from_mudata = _add_set_from_mudata
 FeatureManager._add_from = _add_from
 FeatureManager.filter = filter
+FeatureManager.get = get
 ParamManager.add_values = add_values_params
 ParamManager.get_values = get_values
