@@ -230,6 +230,7 @@ def test_write_read_tiledbsoma(storage):
     test_file = ln.core.datasets.anndata_file_pbmc68k_test()
     adata = read_adata_h5ad(test_file)
     # write less
+    adata = adata[:5, :5].copy()
     del adata.varp
     del adata.obsp
     del adata.layers
