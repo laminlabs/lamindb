@@ -233,6 +233,7 @@ def test_backed_tiledbsoma(storage):
     del adata.varp
     del adata.obsp
     del adata.layers
+    del adata.uns  # seems to cause problems for append
     if storage is None:
         # test local with zarr
         test_file = test_file.with_suffix(".zarr")
