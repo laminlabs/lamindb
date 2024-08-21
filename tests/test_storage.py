@@ -306,6 +306,15 @@ def test_backed_tiledbsoma(storage):
         run=run,
     )
 
+    artifact_soma = write_tiledbsoma_store(
+        artifact_soma,
+        adatas[0],
+        run,
+        measurement_name="RNA",
+        registration_mapping=mapping,
+    )
+    artifact_soma.save()
+
     # wrong mode, should be either r or w for tiledbsoma
     with pytest.raises(ValueError):
         artifact_soma.open(mode="p")
