@@ -361,9 +361,7 @@ def __getitem__(self, slot) -> QuerySet:
     return getattr(feature_set, self._accessor_by_registry[orm_name]).all()
 
 
-@classmethod  # type: ignore
-def filter(cls, **expression) -> QuerySet:
-    """Filter by features."""
+def filter_base(cls, **expression):
     if cls in {FeatureManagerArtifact, FeatureManagerCollection}:
         model = Feature
         value_model = FeatureValue
@@ -399,9 +397,15 @@ def filter(cls, **expression) -> QuerySet:
 
 
 @classmethod  # type: ignore
+def filter(cls, **expression) -> QuerySet:
+    """Filter by features."""
+    return filter_base(cls, **expression)
+
+
+@classmethod  # type: ignore
 def get(cls, **expression) -> Record:
     """Get by feature."""
-    return filter(cls, **expression).one()
+    return filter_base(cls, **expression).one()
 
 
 @property  # type: ignore
