@@ -311,26 +311,32 @@ def test_write_read_tiledbsoma(storage):
     for adata_append in adatas:
         assert "lamin_run_uid" in adata_append.obs.columns
 
-    artifact_soma_new = write_tiledbsoma_store(
+    artifact_soma_updated = write_tiledbsoma_store(
         artifact_soma,
         adatas[0],
         run,
         measurement_name="RNA",
         registration_mapping=mapping,
     )
-    artifact_soma_new.save()
-    assert artifact_soma_new.version == "3"
+    artifact_soma_updated.save()
+    assert artifact_soma_updated.version == "3"
+
+    # try to append without registration mapping
+    with pytest.raises(ValueError):
+        write_tiledbsoma_store(
+            artifact_soma_updated, adatas[1], run, measurement_name="RNA"
+        )
 
     # wrong mode, should be either r or w for tiledbsoma
     with pytest.raises(ValueError):
-        artifact_soma_new.open(mode="p")
+        artifact_soma_updated.open(mode="p")
 
     # run deprecated backed
     # and test running without the context manager
-    store = artifact_soma_new.backed()
+    store = artifact_soma_updated.backed()
     store.close()
 
-    artifact_soma_new.versions.delete(permanent=True, storage=True)
+    artifact_soma_updated.versions.delete(permanent=True, storage=True)
 
     if storage is not None:
         ln.settings.storage = previous_storage
