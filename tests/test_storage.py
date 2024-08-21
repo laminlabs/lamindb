@@ -9,7 +9,7 @@ import pytest
 import tiledbsoma
 import tiledbsoma.io
 import zarr
-from lamindb.core.storage import write_tiledbsoma_store
+from lamindb.core.storage import register_for_tiledbsoma_store, write_tiledbsoma_store
 from lamindb.core.storage._backed_access import (
     AnnDataAccessor,
     BackedAccessor,
@@ -287,6 +287,24 @@ def test_backed_tiledbsoma(storage):
         assert not cache_path.exists()
     else:
         assert artifact_soma.path == cache_path
+
+    adata_to_append_1 = adata[:3].copy()
+    adata_to_append_1.obs["obs_id"] = adata_to_append_1.obs.index.to_numpy() + "***"
+    adata_to_append_1.var["var_id"] = adata_to_append_1.var.index
+    adata_to_append_2 = adata[3:5].copy()
+    adata_to_append_2.obs["obs_id"] = adata_to_append_2.obs.index.to_numpy() + "***"
+    adata_to_append_2.var["var_id"] = adata_to_append_2.var.index
+    adata_to_append_2.write_h5ad("adata_to_append_2.h5ad")
+
+    mapping, adatas = register_for_tiledbsoma_store(
+        artifact_soma,
+        [adata_to_append_1, "adata_to_append_2.h5ad"],
+        measurement_name="RNA",
+        obs_field_name="obs_id",
+        var_field_name="var_id",
+        append_obsm_varm=True,
+        run=run,
+    )
 
     # wrong mode, should be either r or w for tiledbsoma
     with pytest.raises(ValueError):
