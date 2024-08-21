@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from django.db import QuerySet
+from django.db.models import QuerySet
 from lnschema_core import Artifact, Collection, Feature, IsVersioned, Record
 from lnschema_core.types import VisibilityChoice
 
