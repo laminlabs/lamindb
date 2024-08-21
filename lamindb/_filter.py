@@ -42,12 +42,12 @@ def get(
     idlike: int | str | None = None,
     **expressions,
 ) -> Record:
-    if not isinstance(registry_or_queryset, QuerySet):
-        qs = QuerySet(model=registry_or_queryset)
-        registry = registry_or_queryset
-    else:
+    if isinstance(registry_or_queryset, QuerySet):
         qs = registry_or_queryset
         registry = qs.model
+    else:
+        qs = QuerySet(model=registry_or_queryset)
+        registry = registry_or_queryset
     if isinstance(idlike, int):
         return qs.get(id=idlike)
     elif isinstance(idlike, str):
