@@ -1,7 +1,7 @@
 """A data framework for biology.
 
-Registries
-==========
+Records
+=======
 
 .. autosummary::
    :toctree: .
