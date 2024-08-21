@@ -68,7 +68,7 @@ def _open_tiledbsoma(
 
 
 def register_for_tiledbsoma_store(
-    storepath: UPathStr | None,
+    store: UPathStr | Artifact | None,
     adatas: list[AnnData | UPathStr],
     measurement_name: str,
     obs_field_name: str,
@@ -82,10 +82,14 @@ def register_for_tiledbsoma_store(
     except ImportError as e:
         raise ImportError("Please install tiledbsoma: pip install tiledbsoma") from e
 
+    if isinstance(store, Artifact):
+        storepath = store.path
+    else:
+        storepath = None if store is None else create_path(store)
+
     add_run_uid = True
     ctx = None
     if storepath is not None:
-        storepath = create_path(storepath)
         if storepath.protocol == "s3":
             ctx = soma.SOMATileDBContext(tiledb_config=_tiledb_config_s3(storepath))
         if storepath.exists():
@@ -164,7 +168,7 @@ def write_tiledbsoma_store(
             )
         storepath = store.path
     else:
-        storepath = create_path(storepath)
+        storepath = create_path(store)
     add_run_uid: bool = not appending
 
     if not isinstance(adata, AnnData):
