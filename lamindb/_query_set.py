@@ -223,7 +223,7 @@ class QuerySet(models.QuerySet, CanValidate):
         """Query a single record. Raises error if there are more or none."""
         from ._filter import get
 
-        return get(self, idlike, **expressions)
+        return super().get(self, idlike, **expressions)
 
     def one(self) -> Record:
         """Exactly one result. Raises error if there are more or none."""

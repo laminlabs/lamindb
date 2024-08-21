@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from django.db.models import QuerySet
 from lnschema_core import Artifact, Collection, Record
 from lnschema_core.models import IsVersioned
 from lnschema_core.types import VisibilityChoice
 
 from lamindb import settings
+
+from ._query_set import QuerySet
 
 
 def filter(registry: type[Record], **expressions) -> QuerySet:
@@ -51,7 +52,7 @@ def get(
     if isinstance(idlike, int):
         return qs.get(id=idlike)
     elif isinstance(idlike, str):
-        qs = qs.get(uid__startswith=idlike)
+        qs = qs.filter(uid__startswith=idlike)
         if issubclass(registry, IsVersioned):
             if len(idlike) <= registry._len_stem_uid:
                 return qs.latest_version().one()
@@ -62,4 +63,4 @@ def get(
     else:
         assert idlike is None  # noqa: S101
         # below behaves exactly like `.one()`
-        return registry.get(**expressions)
+        return registry.objects.get(**expressions)
