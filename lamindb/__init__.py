@@ -1,4 +1,4 @@
-"""LaminDB is an open-source data framework for biology.
+"""A data framework for biology.
 
 Registries
 ==========
