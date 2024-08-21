@@ -6,14 +6,14 @@ from anndata import AnnData
 from lamin_utils import logger
 from lamindb_setup.core._settings_storage import get_storage_region
 from lamindb_setup.core.upath import create_path
-from lnschema_core import Artifact, Run
+from lnschema_core import Artifact, Run, Storage
+from upath import UPath
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
     from tiledbsoma.io import ExperimentAmbientLabelMapping
-    from upath import UPath
 
 
 def _read_adata_h5ad_zarr(objpath: UPath):
@@ -131,7 +131,7 @@ def register_for_tiledbsoma_store(
 
 
 def write_tiledbsoma_store(
-    storepath: UPathStr,
+    store: Artifact | UPathStr,
     adata: AnnData | UPathStr,
     run: Run | None = None,
     artifact_kwargs: dict | None = None,
@@ -155,7 +155,17 @@ def write_tiledbsoma_store(
     if artifact_kwargs is None:
         artifact_kwargs = {}
 
-    add_run_uid = kwargs.get("registration_mapping", None) is None
+    appending: bool = kwargs.get("registration_mapping", None) is not None
+    store_is_artifact: bool = isinstance(store, Artifact)
+    if store_is_artifact:
+        if not appending:
+            raise ValueError(
+                "Trying to append to an existing store without `registration_mapping`."
+            )
+        storepath = store.path
+    else:
+        storepath = create_path(storepath)
+    add_run_uid: bool = not appending
 
     if not isinstance(adata, AnnData):
         # create_path is used
@@ -171,7 +181,6 @@ def write_tiledbsoma_store(
     if add_run_uid:
         adata.obs["lamin_run_uid"] = run.uid
 
-    storepath = create_path(storepath)
     if storepath.protocol == "s3":
         ctx = soma.SOMATileDBContext(tiledb_config=_tiledb_config_s3(storepath))
     else:
@@ -182,4 +191,30 @@ def write_tiledbsoma_store(
     if add_run_uid:
         del adata.obs["lamin_run_uid"]
 
-    return Artifact(storepath, run=run, **artifact_kwargs)
+    is_new_version_of = None
+    if appending:
+        if store_is_artifact:
+            is_new_version_of = store
+        else:
+            from lamindb._artifact import (
+                check_path_in_existing_storage,
+                get_relative_path_to_directory,
+            )
+
+            storage = check_path_in_existing_storage(storepath)
+            if isinstance(storage, Storage):
+                search_by_key = get_relative_path_to_directory(
+                    path=storepath, directory=UPath(storage.root)
+                ).as_posix()
+                is_new_version_of = Artifact.filter(
+                    key=search_by_key, _key_is_virtual=False
+                ).one_or_none()
+                if is_new_version_of is not None:
+                    logger.info(f"Assuming it is a new version of {is_new_version_of}.")
+
+    if is_new_version_of is None:
+        return Artifact(storepath, run=run, **artifact_kwargs)
+    else:
+        return Artifact(
+            storepath, run=run, is_new_version_of=is_new_version_of, **artifact_kwargs
+        )
