@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-from lnschema_core import Artifact, Collection, Feature, Record
+from django.db import QuerySet
+from lnschema_core import Artifact, Collection, Feature, IsVersioned, Record
 from lnschema_core.types import VisibilityChoice
 
 from lamindb import settings
-from lamindb._query_set import QuerySet
 
 
-def filter(Record: type[Record], **expressions) -> QuerySet:
+def filter(registry: type[Record], **expressions) -> QuerySet:
     """See :meth:`~lamindb.core.Record.filter`."""
     _using_key = None
     if "_using_key" in expressions:
         _using_key = expressions.pop("_using_key")
-    if Record in {Artifact, Collection}:
+    if registry in {Artifact, Collection}:
         # visibility is set to 0 unless expressions contains id or uid equality
         if not (
             "id" in expressions
@@ -29,8 +29,36 @@ def filter(Record: type[Record], **expressions) -> QuerySet:
             # sense for a non-NULLABLE column
             elif visibility in expressions and expressions[visibility] is None:
                 expressions.pop(visibility)
-    qs = QuerySet(model=Record, using=_using_key)
+    qs = QuerySet(model=registry, using=_using_key)
     if len(expressions) > 0:
         return qs.filter(**expressions)
     else:
         return qs
+
+
+def get(
+    registry_or_queryset: type[Record] | QuerySet,
+    idlike: int | str | None = None,
+    **expressions,
+) -> Record:
+    if not isinstance(registry_or_queryset, QuerySet):
+        qs = QuerySet(model=registry_or_queryset)
+        registry = registry_or_queryset
+    else:
+        qs = registry_or_queryset
+        registry = qs.model
+    if isinstance(idlike, int):
+        return qs.get(id=idlike)
+    elif isinstance(idlike, str):
+        qs = qs.get(uid__startswith=idlike)
+        if issubclass(registry, IsVersioned):
+            if len(idlike) <= registry._len_stem_uid:
+                return qs.latest_version().one()
+            else:
+                return qs.one()
+        else:
+            return qs.one()
+    else:
+        assert idlike is None  # noqa: S101
+        # below behaves exactly like `.one()`
+        return registry.get(**expressions)

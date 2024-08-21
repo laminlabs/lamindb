@@ -129,23 +129,9 @@ def get(
     **expressions,
 ) -> Record:
     """{}"""  # noqa: D415
-    from lamindb._filter import filter
+    from lamindb._get import get
 
-    if isinstance(idlike, int):
-        return filter(cls, id=idlike).one()
-    elif isinstance(idlike, str):
-        qs = filter(cls, uid__startswith=idlike)
-        if issubclass(cls, IsVersioned):
-            if len(idlike) <= cls._len_stem_uid:
-                return qs.latest_version().one()
-            else:
-                return qs.one()
-        else:
-            return qs.one()
-    else:
-        assert idlike is None  # noqa: S101
-        # below behaves exactly like `.one()`
-        return cls.objects.get(**expressions)
+    return get(cls, idlike, **expressions)
 
 
 @classmethod  # type:ignore

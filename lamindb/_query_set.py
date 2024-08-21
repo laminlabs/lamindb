@@ -19,6 +19,8 @@ from lnschema_core.models import (
 
 from lamindb.core.exceptions import DoesNotExist
 
+from ._filter import get
+
 if TYPE_CHECKING:
     from lnschema_core.types import ListLike, StrField
 
@@ -219,12 +221,12 @@ class QuerySet(models.QuerySet, CanValidate):
             return None
         return self[0]
 
-    def one(self) -> Record:
-        """Exactly one result. Raises error if there are more or none.
+    def get(self, idlike: int | str | None = None, **expressions) -> Record:
+        """Query a single record. Raises error if there are more or none."""
+        return get(self, idlike, **expressions)
 
-        Examples:
-            >>> ln.ULabel.get(name="benchmark")
-        """
+    def one(self) -> Record:
+        """Exactly one result. Raises error if there are more or none."""
         return one_helper(self)
 
     def one_or_none(self) -> Record | None:
