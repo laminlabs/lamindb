@@ -307,6 +307,8 @@ def test_write_read_tiledbsoma(storage):
         append_obsm_varm=True,
         run=run,
     )
+    for adata_append in adatas:
+        assert "lamin_run_uid" in adata_append.obs.columns
 
     artifact_soma_new = write_tiledbsoma_store(
         artifact_soma,
