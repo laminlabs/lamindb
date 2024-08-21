@@ -125,7 +125,9 @@ def test_latest_version_and_get():
     transform_v4.delete()
     with pytest.raises(Exception):  # # noqa: B017 should be MultipleResultsFound
         ln.Transform.get(name="Introduction")
-    assert ln.Transform.get(name="Introduction").latest_version() == transform_v3
+    assert (
+        ln.Transform.filter(name="Introduction").latest_version().one() == transform_v3
+    )
 
     # test get
     assert ln.Transform.get(transform_v3.uid) == transform_v3

@@ -19,8 +19,6 @@ from lnschema_core.models import (
 
 from lamindb.core.exceptions import DoesNotExist
 
-from ._filter import get
-
 if TYPE_CHECKING:
     from lnschema_core.types import ListLike, StrField
 
@@ -223,6 +221,8 @@ class QuerySet(models.QuerySet, CanValidate):
 
     def get(self, idlike: int | str | None = None, **expressions) -> Record:
         """Query a single record. Raises error if there are more or none."""
+        from ._filter import get
+
         return get(self, idlike, **expressions)
 
     def one(self) -> Record:
