@@ -61,7 +61,7 @@ def save(records: Iterable[Record], ignore_conflicts: bool | None = False) -> No
 
         Update a single existing record:
 
-        >>> transform = ln.filter(ln.Transform, uid="0Cb86EZj").one()
+        >>> transform = ln.get(ln.Transform, uid="0Cb86EZj")
         >>> transform.name = "New name"
         >>> transform.save()
 

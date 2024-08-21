@@ -223,7 +223,7 @@ class QuerySet(models.QuerySet, CanValidate):
         """Exactly one result. Raises error if there are more or none.
 
         Examples:
-            >>> ln.ULabel.filter(name="benchmark").one()
+            >>> ln.ULabel.get(name="benchmark")
         """
         return one_helper(self)
 

@@ -199,7 +199,7 @@ class Context:
             :class:`~lamindb.Transform` object of ``type`` ``"pipeline"``:
 
             >>> ln.Transform(name="Cell Ranger", version="2", type="pipeline").save()
-            >>> transform = ln.Transform.filter(name="Cell Ranger", version="2").one()
+            >>> transform = ln.Transform.get(name="Cell Ranger", version="2")
             >>> ln.context.track(transform=transform)
         """
         self._path = None

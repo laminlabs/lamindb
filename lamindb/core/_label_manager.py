@@ -234,7 +234,7 @@ class LabelManager:
                 if hasattr(self._host, related_name):
                     for feature_name, labels in labels_by_features.items():
                         if feature_name is not None:
-                            feature_id = Feature.filter(name=feature_name).one().id
+                            feature_id = Feature.get(name=feature_name).id
                         else:
                             feature_id = None
                         getattr(self._host, related_name).add(

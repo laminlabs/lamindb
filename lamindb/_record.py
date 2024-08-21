@@ -96,7 +96,7 @@ def __init__(record: Record, *args, **kwargs):
                     ).one_or_none()
                 else:
                     version_comment = ""
-                    existing_record = record.__class__.filter(name=kwargs["name"]).one()
+                    existing_record = record.__class__.get(name=kwargs["name"])
                 if existing_record is not None:
                     logger.important(
                         f"returning existing {record.__class__.__name__} record with same"

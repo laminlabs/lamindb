@@ -382,11 +382,11 @@ def filter(cls, **expression) -> QuerySet:
         normalized_key = key.split("__")[0]
         feature = features.get(name=normalized_key)
         if not feature.dtype.startswith("cat"):
-            feature_value = value_model.filter(feature=feature, value=value).one()
+            feature_value = value_model.get(feature=feature, value=value)
             new_expression["_feature_values"] = feature_value
         else:
             if isinstance(value, str):
-                label = ULabel.filter(name=value).one()
+                label = ULabel.get(name=value)
                 new_expression["ulabels"] = label
             else:
                 raise NotImplementedError
@@ -474,7 +474,7 @@ def _add_values(
     _feature_values = []
     not_validated_values = []
     for key, value in features_values.items():
-        feature = model.filter(name=key).one()
+        feature = model.get(name=key)
         inferred_type, converted_value = infer_feature_type_convert_json(
             value,
             mute=True,

@@ -96,7 +96,7 @@ def test_search_and_get(get_search_test_filepaths):
     # queryset returns the same order of results
     assert res.uid.tolist() == [i.uid for i in res_q]
 
-    f = ln.Artifact.filter(key="test-search5").one()
+    f = ln.Artifact.get(key="test-search5")
     f.suffix = ".txt"
     f.save()
     # multi-field search

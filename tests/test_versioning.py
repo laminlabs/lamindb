@@ -125,10 +125,8 @@ def test_latest_version_and_get():
     assert len(ln.Transform.filter(name="Introduction").latest_version()) == 2
     transform_v4.delete()
     with pytest.raises(MultipleResultsFound):
-        ln.Transform.filter(name="Introduction").one()
-    assert (
-        ln.Transform.filter(name="Introduction").latest_version().one() == transform_v3
-    )
+        ln.Transform.get(name="Introduction")
+    assert ln.Transform.get(name="Introduction").latest_version() == transform_v3
 
     # test get
     assert ln.Transform.get(transform_v3.uid) == transform_v3

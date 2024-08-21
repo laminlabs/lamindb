@@ -153,7 +153,7 @@ Here is how to create ulabels for them:
         100.0,
     }
 
-    assert ln.Artifact.filter(_feature_values__value=27.2).one()
+    assert ln.Artifact.get(_feature_values__value=27.2)
 
     print(artifact.features.get_values())
     print(artifact.features.__repr__())
@@ -197,9 +197,9 @@ Here is how to create ulabels for them:
         "lamindb.core.exceptions.ValidationError: Some keys in the filter expression are not registered as features:"
     )
 
-    ln.Artifact.features.filter(temperature=100.0).one()
-    ln.Artifact.features.filter(project="project_1").one()
-    ln.Artifact.features.filter(is_validated=True).one()
+    ln.Artifact.features.get(temperature=100.0)
+    ln.Artifact.features.get(project="project_1")
+    ln.Artifact.features.get(is_validated=True)
     ln.Artifact.features.filter(
         temperature=100.0, project="project_1", donor="U0123"
     ).one()
@@ -287,7 +287,7 @@ def test_labels_add(adata):
     # now pass a single label
     artifact.labels.add(label, feature=experiment)
     # check that the feature was updated with type = "ULabel"
-    feature = ln.Feature.filter(name="experiment").one()
+    feature = ln.Feature.get(name="experiment")
     assert feature.dtype == "cat[ULabel]"
     with pytest.raises(TypeError):
         experiments = artifact.labels.get("experiment")
@@ -414,7 +414,7 @@ def test_add_labels_using_anndata(adata):
     organism_link = artifact.links_organism.first()
     assert organism_link.organism.name == "mouse"
     assert organism_link.feature.name == "organism"
-    feature = ln.Feature.filter(name="organism").one()
+    feature = ln.Feature.get(name="organism")
     assert feature.dtype == "cat[bionty.Organism]"
     feature_set_obs = artifact.feature_sets.filter(
         registry="Feature", links_artifact__slot="obs"
@@ -430,11 +430,11 @@ def test_add_labels_using_anndata(adata):
     artifact.labels.add(cell_types, feature=features.cell_type)
     artifact.labels.add(cell_types_from_expert, feature=features.cell_type_from_expert)
     artifact.labels.add(tissues, feature=features.tissue)
-    feature = ln.Feature.filter(name="cell_type").one()
+    feature = ln.Feature.get(name="cell_type")
     assert feature.dtype == "cat[bionty.CellType]"
-    feature = ln.Feature.filter(name="cell_type_from_expert").one()
+    feature = ln.Feature.get(name="cell_type_from_expert")
     assert feature.dtype == "cat[bionty.CellType]"
-    feature = ln.Feature.filter(name="tissue").one()
+    feature = ln.Feature.get(name="tissue")
     assert feature.dtype == "cat[bionty.Tissue|ULabel]"
     diseases = [ln.ULabel(name=name) for name in adata.obs["disease"].unique()]
     ln.save(diseases)

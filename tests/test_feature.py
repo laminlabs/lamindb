@@ -80,7 +80,7 @@ def test_feature_from_df(df):
         ln.ULabel.filter(links_artifact__feature__name="feat3").list("name")
     ) == {"cond1", "cond2"}
     for name in df.columns[:4]:
-        queried_feature = ln.Feature.filter(name=name).one()
+        queried_feature = ln.Feature.get(name=name)
         if name in categoricals:
             assert queried_feature.dtype == "cat[ULabel]"
         else:
