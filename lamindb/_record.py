@@ -129,7 +129,7 @@ def get(
     **expressions,
 ) -> Record:
     """{}"""  # noqa: D415
-    from lamindb._get import get
+    from lamindb._filter import get
 
     return get(cls, idlike, **expressions)
 
