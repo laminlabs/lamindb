@@ -25,9 +25,9 @@ def get_or_create_records(
     mute: bool = False,
 ) -> list[Record]:
     """Get or create records from iterables."""
-    Record = field.field.model
+    registry = field.field.model
     if create:
-        return [Record(**{field.field.name: value}) for value in iterable]
+        return [registry(**{field.field.name: value}) for value in iterable]
     creation_search_names = settings.creation.search_names
     feature: Feature = None
     organism = _get_organism_record(field, organism)
@@ -57,21 +57,23 @@ def get_or_create_records(
                     and records[0].source_id
                 ):
                     source_record = records[0].source
-            if not source_record and hasattr(Record, "public"):
+            if not source_record and hasattr(registry, "public"):
                 from bionty._bionty import get_source_record
 
-                source_record = get_source_record(Record.public(organism=organism))
+                source_record = get_source_record(
+                    registry.public(organism=organism), registry
+                )
             if source_record:
                 from bionty.core._add_ontology import check_source_in_db
 
                 check_source_in_db(
-                    registry=Record,
+                    registry=registry,
                     source=source_record,
                     update=True,
                 )
 
                 from_source = not source_record.in_db
-            elif hasattr(Record, "source_id"):
+            elif hasattr(registry, "source_id"):
                 from_source = True
             else:
                 from_source = False
@@ -97,14 +99,14 @@ def get_or_create_records(
                     logger.success(msg)
                 s = "" if len(unmapped_values) == 1 else "s"
                 print_values = colors.yellow(_print_values(unmapped_values))
-                name = Record.__name__
+                name = registry.__name__
                 n_nonval = colors.yellow(f"{len(unmapped_values)} non-validated")
                 if not mute:
                     logger.warning(
                         f"{colors.red('did not create')} {name} record{s} for "
                         f"{n_nonval} {colors.italic(f'{field.field.name}{s}')}: {print_values}"
                     )
-        if Record.__module__.startswith("bionty.") or Record == ULabel:
+        if registry.__get_schema_name__() == "bionty" or registry == ULabel:
             if isinstance(iterable, pd.Series):
                 feature = iterable.name
             feature_name = None
@@ -230,7 +232,7 @@ def create_records_from_source(
         # for custom records that are not created from public sources
         return records, iterable_idx
     # add source record to the kwargs
-    source_record = get_source_record(public_ontology)
+    source_record = get_source_record(public_ontology, model)
     kwargs.update({"source": source_record})
 
     # filter the columns in bionty df based on fields
@@ -373,6 +375,8 @@ def _get_organism_record(
     if _has_organism_field(registry) and check:
         from bionty._bionty import create_or_get_organism_record
 
-        organism_record = create_or_get_organism_record(organism=organism, orm=registry)
+        organism_record = create_or_get_organism_record(
+            organism=organism, registry=registry
+        )
         if organism_record is not None:
             return organism_record
