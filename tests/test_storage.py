@@ -222,7 +222,7 @@ def test_anndata_open_mode():
 
 
 @pytest.mark.parametrize("storage", [None, "s3://lamindb-test"])
-def test_backed_tiledbsoma(storage):
+def test_write_read_tiledbsoma(storage):
     if storage is not None:
         previous_storage = ln.setup.settings.storage.root_as_str
         ln.settings.storage = "s3://lamindb-test"
@@ -283,6 +283,7 @@ def test_backed_tiledbsoma(storage):
             matrix_data=np.ones((n_obs, 2)),
         )
     assert artifact_soma.hash != hash_before_changes
+    assert artifact_soma.version == "2"
     if storage is not None:
         # cache should be ignored and deleted after the changes
         assert not cache_path.exists()
@@ -307,25 +308,26 @@ def test_backed_tiledbsoma(storage):
         run=run,
     )
 
-    artifact_soma = write_tiledbsoma_store(
+    artifact_soma_new = write_tiledbsoma_store(
         artifact_soma,
         adatas[0],
         run,
         measurement_name="RNA",
         registration_mapping=mapping,
     )
-    artifact_soma.save()
+    artifact_soma_new.save()
+    assert artifact_soma_new.version == "3"
 
     # wrong mode, should be either r or w for tiledbsoma
     with pytest.raises(ValueError):
-        artifact_soma.open(mode="p")
+        artifact_soma_new.open(mode="p")
 
     # run deprecated backed
     # and test running without the context manager
-    store = artifact_soma.backed()
+    store = artifact_soma_new.backed()
     store.close()
 
-    artifact_soma.versions.delete(permanent=True, storage=True)
+    artifact_soma_new.versions.delete(permanent=True, storage=True)
 
     if storage is not None:
         ln.settings.storage = previous_storage
