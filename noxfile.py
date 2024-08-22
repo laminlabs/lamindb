@@ -83,7 +83,6 @@ def install_ci(session, group):
     extras = ""
     if group == "unit":
         extras += "bionty,aws,zarr,fcs,jupyter"
-        run(session, "uv pip install --system tiledbsoma")
     elif group == "tutorial":
         extras += "aws,jupyter,bionty"
     elif group == "guide":
@@ -101,6 +100,7 @@ def install_ci(session, group):
             "uv pip install --system --no-deps ./sub/wetlab",
         )
         run(session, "uv pip install --system vitessce")
+        run(session, "uv pip install --system tiledbsoma")
     elif group == "docs":
         extras += "bionty"
         run(session, "uv pip install --system mudata")
