@@ -210,7 +210,7 @@ def test_run_external_script():
     # any of these commits are valid
     assert transform.uid == "m5uCHTTpJnjQ0000"
     assert transform.reference.endswith(
-        "/tests/core/scripts/run-track-and-finish-sync-git.py"
+        "/tests/scripts/run-track-and-finish-sync-git.py"
     )
     assert transform.reference.startswith(
         "https://github.com/laminlabs/lamin-cli/blob/"
