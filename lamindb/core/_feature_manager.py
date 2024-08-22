@@ -361,9 +361,7 @@ def __getitem__(self, slot) -> QuerySet:
     return getattr(feature_set, self._accessor_by_registry[orm_name]).all()
 
 
-@classmethod  # type: ignore
-def filter(cls, **expression) -> QuerySet:
-    """Filter features."""
+def filter_base(cls, **expression):
     if cls in {FeatureManagerArtifact, FeatureManagerCollection}:
         model = Feature
         value_model = FeatureValue
@@ -379,14 +377,19 @@ def filter(cls, **expression) -> QuerySet:
     new_expression = {}
     features = model.filter(name__in=keys_normalized).all().distinct()
     for key, value in expression.items():
-        normalized_key = key.split("__")[0]
+        split_key = key.split("__")
+        normalized_key = split_key[0]
+        comparator = ""
+        if len(split_key) == 2:
+            comparator = f"__{split_key[1]}"
         feature = features.get(name=normalized_key)
         if not feature.dtype.startswith("cat"):
-            feature_value = value_model.filter(feature=feature, value=value).one()
-            new_expression["_feature_values"] = feature_value
+            expression = {"feature": feature, f"value{comparator}": value}
+            feature_value = value_model.filter(**expression)
+            new_expression["_feature_values__in"] = feature_value
         else:
             if isinstance(value, str):
-                label = ULabel.filter(name=value).one()
+                label = ULabel.get(name=value)
                 new_expression["ulabels"] = label
             else:
                 raise NotImplementedError
@@ -396,6 +399,18 @@ def filter(cls, **expression) -> QuerySet:
         return Collection.filter(**new_expression)
     elif cls == ParamManagerRun:
         return Run.filter(**new_expression)
+
+
+@classmethod  # type: ignore
+def filter(cls, **expression) -> QuerySet:
+    """Query artifacts by features."""
+    return filter_base(cls, **expression)
+
+
+@classmethod  # type: ignore
+def get(cls, **expression) -> Record:
+    """Query a single artifact by feature."""
+    return filter_base(cls, **expression).one()
 
 
 @property  # type: ignore
@@ -474,7 +489,7 @@ def _add_values(
     _feature_values = []
     not_validated_values = []
     for key, value in features_values.items():
-        feature = model.filter(name=key).one()
+        feature = model.get(name=key)
         inferred_type, converted_value = infer_feature_type_convert_json(
             value,
             mute=True,
@@ -843,5 +858,6 @@ FeatureManager._add_set_from_anndata = _add_set_from_anndata
 FeatureManager._add_set_from_mudata = _add_set_from_mudata
 FeatureManager._add_from = _add_from
 FeatureManager.filter = filter
+FeatureManager.get = get
 ParamManager.add_values = add_values_params
 ParamManager.get_values = get_values

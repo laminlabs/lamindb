@@ -48,7 +48,7 @@ def test_transfer_from_remote_to_local():
 
     # now prepare a new test case
     # mimic we have an existing feature with a different uid but same name
-    feature = ln.Feature.filter(name="organism").one()
+    feature = ln.Feature.get(name="organism")
     feature.uid = "existing"
     feature.save()
 

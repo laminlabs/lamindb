@@ -28,7 +28,7 @@ class QueryManager(models.Manager):
         >>> ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name"))  # noqa
         >>> labels = ln.ULabel.filter(name__icontains = "label").all()
         >>> ln.ULabel(name="ULabel1").save()
-        >>> label = ln.ULabel.filter(name="ULabel1").one()
+        >>> label = ln.ULabel.get(name="ULabel1")
         >>> label.parents.set(labels)
         >>> manager = label.parents
         >>> manager.df()
@@ -57,7 +57,7 @@ class QueryManager(models.Manager):
             >>> ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name"))
             >>> labels = ln.ULabel.filter(name__icontains="label").all()
             >>> ln.ULabel(name="ULabel1").save()
-            >>> label = ln.ULabel.filter(name="ULabel1").one()
+            >>> label = ln.ULabel.get(name="ULabel1")
             >>> label.parents.set(labels)
             >>> label.parents.list()
             >>> label.parents.list("name")

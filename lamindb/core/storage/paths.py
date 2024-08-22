@@ -84,13 +84,9 @@ def attempt_accessing_path(
             )
     else:
         if artifact._state.db not in ("default", None) and using_key is None:
-            storage = (
-                Storage.using(artifact._state.db).filter(id=artifact.storage_id).one()
-            )
+            storage = Storage.using(artifact._state.db).get(id=artifact.storage_id)
         else:
-            storage = (
-                Storage.objects.using(using_key).filter(id=artifact.storage_id).one()
-            )
+            storage = Storage.objects.using(using_key).get(id=artifact.storage_id)
         # find a better way than passing None to instance_settings in the future!
         storage_settings = StorageSettings(storage.root, access_token=access_token)
     path = storage_settings.key_to_filepath(storage_key)

@@ -109,18 +109,6 @@ def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordsLis
     for name, col in df.items():
         if name in categoricals:
             dtypes[name] = "cat"
-            # below is a harder feature to write, now, because it requires to
-            # query the link tables between the label Record and file or collection
-            # the original implementation fell short
-            # categorical = categoricals[name]
-            # if hasattr(
-            #     categorical, "cat"
-            # ):  # because .categories > pd2.0, .cat.categories < pd2.0
-            #     categorical = categorical.cat
-            # categories = categorical.categories
-            # categoricals_with_unmapped_categories[name] = ULabel.filter(
-            #     feature=name
-            # ).inspect(categories, "name", logging=False)["not_mapped"]
         else:
             dtypes[name] = convert_numpy_dtype_to_lamin_feature_type(col.dtype)
 
@@ -138,44 +126,7 @@ def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordsLis
         settings.verbosity = verbosity
 
     assert len(features) == len(df.columns)  # noqa: S101
-
-    # if len(categoricals_with_unmapped_categories) > 0:
-    #     n_max = 20
-    #     categoricals_with_unmapped_categories_formatted = "\n      ".join(
-    #         [
-    #             (
-    #                 f"{key} ({len(value)}): {', '.join(value)}"
-    #                 if len(value) <= 5
-    #                 else f"{key} ({len(value)}): {', '.join(value[:5])} ..."
-    #             )
-    #             for key, value in take(
-    #                 n_max, categoricals_with_unmapped_categories.items()
-    #             )
-    #         ]
-    #     )
-    #     if len(categoricals_with_unmapped_categories) > n_max:
-    #         categoricals_with_unmapped_categories_formatted += "\n      ..."
-    #     categoricals_with_unmapped_categories_formatted
-    #     logger.info(
-    #         f"{len(categoricals_with_unmapped_categories)} features have"
-    #         f" {colors.yellow('unmapped categories')}:\n     "
-    #         f" {categoricals_with_unmapped_categories_formatted}"
-    #     )
     return RecordsList(features)
-
-
-# def from_df(
-#     self,
-#     df: "pd.DataFrame",
-#     field: Optional[FieldAttr] = Feature.name,
-#     **kwargs,
-# ) -> Dict:
-#     feature_set = FeatureSet.from_df(df, field=field, **kwargs)
-#     if feature_set is not None:
-#         feature_sets = {"columns": feature_set}
-#     else:
-#         feature_sets = {}
-#     return feature_sets
 
 
 @doc_args(Feature.save.__doc__)
