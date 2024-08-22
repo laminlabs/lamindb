@@ -101,6 +101,10 @@ def install_ci(session, group):
         )
         run(session, "uv pip install --system vitessce")
         run(session, "uv pip install --system tiledbsoma")
+        # otherwise test fail on python=3.9 due to pedantic probably
+        # You have a type annotation 'str | None' which makes use
+        # of newer typing features than are supported in your version of Python...
+        run(session, "uv pip install --system eval_type_backport")
     elif group == "docs":
         extras += "bionty"
         run(session, "uv pip install --system mudata")
@@ -116,10 +120,6 @@ def install_ci(session, group):
             "uv pip install --system --no-deps ./sub/bionty",
         )
     run(session, f"uv pip install --system -e .[dev,{extras}]")
-    # otherwise test fail on python=3.9 due to pedantic probably
-    # You have a type annotation 'str | None' which makes use
-    # of newer typing features than are supported in your version of Python...
-    run(session, "uv pip install --system eval_type_backport")
 
 
 @nox.session
