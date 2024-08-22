@@ -152,6 +152,7 @@ def build(session, group):
         ln.setup.settings.auto_connect = True
         run(session, f"pytest -s {coverage_args} ./docs/faq")
     elif group == "storage":
+        run(session, f"pytest {coverage_args} ./tests/storage")
         run(session, f"pytest -s {coverage_args} ./docs/storage")
     elif group == "cli":
         run(session, f"pytest {coverage_args} ./sub/lamin-cli/tests")
