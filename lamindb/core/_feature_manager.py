@@ -377,7 +377,10 @@ def filter_base(cls, **expression):
     new_expression = {}
     features = model.filter(name__in=keys_normalized).all().distinct()
     for key, value in expression.items():
-        normalized_key, comparator = key.split("__")
+        split_key = key.split("__")
+        normalized_key = split_key[0]
+        if len(split_key) == 2:
+            comparator = split_key[1]
         feature = features.get(name=normalized_key)
         if not feature.dtype.startswith("cat"):
             expression = {"feature": feature, f"value__{comparator}": value}
