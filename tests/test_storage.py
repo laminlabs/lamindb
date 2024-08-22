@@ -9,7 +9,7 @@ import pytest
 import tiledbsoma
 import tiledbsoma.io
 import zarr
-from lamindb.core.storage import write_tiledbsoma_store
+from lamindb.core.storage import register_for_tiledbsoma_store, write_tiledbsoma_store
 from lamindb.core.storage._backed_access import (
     AnnDataAccessor,
     BackedAccessor,
@@ -222,7 +222,7 @@ def test_anndata_open_mode():
 
 
 @pytest.mark.parametrize("storage", [None, "s3://lamindb-test"])
-def test_backed_tiledbsoma(storage):
+def test_write_read_tiledbsoma(storage):
     if storage is not None:
         previous_storage = ln.setup.settings.storage.root_as_str
         ln.settings.storage = "s3://lamindb-test"
@@ -230,9 +230,11 @@ def test_backed_tiledbsoma(storage):
     test_file = ln.core.datasets.anndata_file_pbmc68k_test()
     adata = read_adata_h5ad(test_file)
     # write less
+    adata = adata[:5, :2].copy()
     del adata.varp
     del adata.obsp
     del adata.layers
+    del adata.uns  # seems to cause problems for append
     if storage is None:
         # test local with zarr
         test_file = test_file.with_suffix(".zarr")
@@ -282,22 +284,72 @@ def test_backed_tiledbsoma(storage):
             matrix_data=np.ones((n_obs, 2)),
         )
     assert artifact_soma.hash != hash_before_changes
+    assert artifact_soma.version == "2"
     if storage is not None:
         # cache should be ignored and deleted after the changes
         assert not cache_path.exists()
     else:
         assert artifact_soma.path == cache_path
 
+    adata_to_append_1 = adata[:3].copy()
+    adata_to_append_1.obs["obs_id"] = adata_to_append_1.obs.index.to_numpy() + "***"
+    adata_to_append_1.var["var_id"] = adata_to_append_1.var.index
+    adata_to_append_2 = adata[3:5].copy()
+    adata_to_append_2.obs["obs_id"] = adata_to_append_2.obs.index.to_numpy() + "***"
+    adata_to_append_2.var["var_id"] = adata_to_append_2.var.index
+    adata_to_append_2.write_h5ad("adata_to_append_2.h5ad")
+
+    mapping, adatas = register_for_tiledbsoma_store(
+        artifact_soma,
+        [adata_to_append_1, "adata_to_append_2.h5ad"],
+        measurement_name="RNA",
+        obs_field_name="obs_id",
+        var_field_name="var_id",
+        append_obsm_varm=True,
+        run=run,
+    )
+    for adata_append in adatas:
+        assert "lamin_run_uid" in adata_append.obs.columns
+
+    artifact_soma_append = write_tiledbsoma_store(
+        artifact_soma,
+        adatas[0],
+        run,
+        measurement_name="RNA",
+        registration_mapping=mapping,
+    )
+    artifact_soma_append.save()
+    assert artifact_soma_append.version == "3"
+
+    # append with path, should pull the artifact
+    artifact_soma_append = write_tiledbsoma_store(
+        artifact_soma_append.path,
+        adatas[1],
+        run,
+        measurement_name="RNA",
+        registration_mapping=mapping,
+    )
+    artifact_soma_append.save()
+    assert artifact_soma_append.version == "4"
+
+    # try to append without registration mapping
+    with pytest.raises(ValueError):
+        write_tiledbsoma_store(
+            artifact_soma_append, adatas[1], run, measurement_name="RNA"
+        )
+
     # wrong mode, should be either r or w for tiledbsoma
     with pytest.raises(ValueError):
-        artifact_soma.open(mode="p")
+        artifact_soma_append.open(mode="p")
 
     # run deprecated backed
     # and test running without the context manager
-    store = artifact_soma.backed()
+    store = artifact_soma_append.backed()
+    n_obs_final = adata.n_obs + sum(adt.n_obs for adt in adatas)
+    assert len(store["obs"]) == n_obs_final
     store.close()
 
-    artifact_soma.versions.delete(permanent=True, storage=True)
+    artifact_soma_append.versions.delete(permanent=True, storage=True)
 
     if storage is not None:
         ln.settings.storage = previous_storage
