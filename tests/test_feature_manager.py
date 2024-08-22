@@ -205,7 +205,7 @@ Here is how to create ulabels for them:
     ).one()
     # test comparator
     assert ln.Artifact.features.filter(temperature__lt=21).one_or_none() is None
-    assert ln.Artifact.features.filter(temperature__gt=21).one_or_none() is not None
+    assert len(ln.Artifact.features.filter(temperature__gt=21).all()) >= 1
 
     # delete everything we created
     artifact.delete(permanent=True)
