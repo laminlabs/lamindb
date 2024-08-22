@@ -17,7 +17,7 @@ def pytest_sessionstart():
     ln.setup.init(
         storage="./default_storage",
         schema="bionty",
-        name="lamindb-unit-tests",
+        name="lamindb-unit-tests-core",
         db=pgurl,
     )
     ln.setup.register()  # temporarily
@@ -29,9 +29,9 @@ def pytest_sessionfinish(session: pytest.Session):
     logger.set_verbosity(1)
     shutil.rmtree("./default_storage")
     # handle below better in the future
-    if ln.UPath("s3://lamindb-test/.lamindb").exists():
-        ln.UPath("s3://lamindb-test/.lamindb").rmdir()
-    ln.setup.delete("lamindb-unit-tests", force=True)
+    if ln.UPath("s3://lamindb-test/core/.lamindb").exists():
+        ln.UPath("s3://lamindb-test/core/.lamindb").rmdir()
+    ln.setup.delete("lamindb-unit-tests-core", force=True)
     # shutil.rmtree("./outside_storage")
     run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)  # noqa: S602
     ln.setup.settings.auto_connect = AUTO_CONNECT
