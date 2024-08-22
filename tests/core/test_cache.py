@@ -14,12 +14,12 @@ def switch_storage():
     cloud_storage = "s3://lamindb-ci/lamindb-unit-tests-cloud"
     set_managed_storage(cloud_storage)
     yield cloud_storage
-    set_managed_storage("./default_storage")
+    set_managed_storage("./default_storage_core")
 
 
 def test_local_cache():
     # check that we have local storage
-    local_storage = Path("./default_storage").resolve().as_posix()
+    local_storage = Path("./default_storage_core").resolve().as_posix()
     assert ln.setup.settings.storage.root_as_str == local_storage
 
     test_file = ln.core.datasets.anndata_file_pbmc68k_test()

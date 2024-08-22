@@ -14,7 +14,7 @@ def pytest_sessionstart():
     ln_setup._TESTING = True
     pgurl = setup_local_test_postgres()
     ln.setup.init(
-        storage="./default_storage",
+        storage="./default_storage_storage",
         name="lamindb-unit-tests-storage",
         db=pgurl,
     )
@@ -25,7 +25,7 @@ def pytest_sessionstart():
 
 def pytest_sessionfinish(session: pytest.Session):
     logger.set_verbosity(1)
-    shutil.rmtree("./default_storage")
+    shutil.rmtree("./default_storage_storage")
     # handle below better in the future
     if ln.UPath("s3://lamindb-test/storage/.lamindb").exists():
         ln.UPath("s3://lamindb-test/storage/.lamindb").rmdir()

@@ -15,7 +15,7 @@ def pytest_sessionstart():
     ln_setup._TESTING = True
     pgurl = setup_local_test_postgres()
     ln.setup.init(
-        storage="./default_storage",
+        storage="./default_storage_core",
         schema="bionty",
         name="lamindb-unit-tests-core",
         db=pgurl,
@@ -30,7 +30,7 @@ def pytest_sessionstart():
 
 def pytest_sessionfinish(session: pytest.Session):
     logger.set_verbosity(1)
-    shutil.rmtree("./default_storage")
+    shutil.rmtree("./default_storage_core")
     # handle below better in the future
     if ln.UPath("s3://lamindb-test/core/.lamindb").exists():
         ln.UPath("s3://lamindb-test/core/.lamindb").rmdir()
@@ -44,8 +44,8 @@ def pytest_sessionfinish(session: pytest.Session):
     scope="module",
     params=[
         # tuple of is_in_registered_storage, path, suffix, hash of test_dir
-        (True, "./default_storage/", ".csv", "iGtHiFEBV3r1_TFovdQCgw"),
-        (True, "./default_storage/", "", "iGtHiFEBV3r1_TFovdQCgw"),
+        (True, "./default_storage_core/", ".csv", "iGtHiFEBV3r1_TFovdQCgw"),
+        (True, "./default_storage_core/", "", "iGtHiFEBV3r1_TFovdQCgw"),
         (True, "./registered_storage/", ".csv", "iGtHiFEBV3r1_TFovdQCgw"),
         (True, "./registered_storage/", "", "iGtHiFEBV3r1_TFovdQCgw"),
         (False, "./nonregistered_storage/", ".csv", "iGtHiFEBV3r1_TFovdQCgw"),
