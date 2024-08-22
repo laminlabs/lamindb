@@ -389,7 +389,8 @@ def filter_base(cls, **expression):
             new_expression["_feature_values__in"] = feature_value
         else:
             if isinstance(value, str):
-                label = ULabel.get(name=value)
+                expression = {f"name{comparator}": value}
+                label = ULabel.get(**expression)
                 new_expression["ulabels"] = label
             else:
                 raise NotImplementedError
