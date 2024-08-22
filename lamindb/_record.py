@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, List, NamedTuple
 import dj_database_url
 import lamindb_setup as ln_setup
 from django.db import connections, transaction
-from django.db.models import IntegerField, Manager, Q, Value
+from django.db.models import IntegerField, Manager, Q, QuerySet, Value
 from lamin_utils import logger
 from lamin_utils._lookup import Lookup
 from lamindb_setup._connect_instance import get_owner_name_from_identifier
@@ -14,7 +14,6 @@ from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._hub_core import connect_instance
 from lnschema_core.models import IsVersioned, Record
 
-from lamindb._query_set import QuerySet
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings
 
@@ -130,6 +129,10 @@ def get(
     **expressions,
 ) -> Record:
     """{}"""  # noqa: D415
+    # this is the only place in which we need the lamindb queryset
+    # in this file; everywhere else it should be Django's
+    from lamindb._query_set import QuerySet
+
     return QuerySet(model=cls).get(idlike, **expressions)
 
 
