@@ -221,7 +221,7 @@ def get_stat_or_artifact(
         return size, hash, hash_type, n_objects
     # also checks hidden and trashed files
     # in Alex's mind the following two lines should be equivalent
-    # but they aren't according to pytest tests/test_artifact.py::test_from_dir_single_artifact
+    # but they aren't according to pytest tests/core/test_artifact.py::test_from_dir_single_artifact
     if using_key is None:
         result = Artifact.filter(hash=hash, visibility=None).all()
     else:

@@ -131,7 +131,7 @@ def test_create_or_load_transform(monkeypatch):
 def test_run_scripts_for_versioning():
     # regular execution
     result = subprocess.run(  # noqa: S602
-        "python ./tests/scripts/script-to-test-versioning.py",
+        "python ./tests/core/scripts/script-to-test-versioning.py",
         shell=True,
         capture_output=True,
     )
@@ -144,7 +144,7 @@ def test_run_scripts_for_versioning():
 
     # updated key (filename change)
     result = subprocess.run(  # noqa: S602
-        "python ./tests/scripts/script-to-test-filename-change.py",
+        "python ./tests/core/scripts/script-to-test-filename-change.py",
         shell=True,
         capture_output=True,
     )
@@ -154,7 +154,7 @@ def test_run_scripts_for_versioning():
 
     # version already taken
     result = subprocess.run(  # noqa: S602
-        "python ./tests/scripts/duplicate1/script-to-test-versioning.py",
+        "python ./tests/core/scripts/duplicate1/script-to-test-versioning.py",
         shell=True,
         capture_output=True,
     )
@@ -167,7 +167,7 @@ def test_run_scripts_for_versioning():
 
     # regular version bump
     result = subprocess.run(  # noqa: S602
-        "python ./tests/scripts/duplicate2/script-to-test-versioning.py",
+        "python ./tests/core/scripts/duplicate2/script-to-test-versioning.py",
         shell=True,
         capture_output=True,
     )
@@ -180,7 +180,7 @@ def test_run_scripts_for_versioning():
 
     # inconsistent version
     result = subprocess.run(  # noqa: S602
-        "python ./tests/scripts/duplicate3/script-to-test-versioning.py",
+        "python ./tests/core/scripts/duplicate3/script-to-test-versioning.py",
         shell=True,
         capture_output=True,
     )
@@ -210,7 +210,7 @@ def test_run_external_script():
     # any of these commits are valid
     assert transform.uid == "m5uCHTTpJnjQ0000"
     assert transform.reference.endswith(
-        "/tests/scripts/run-track-and-finish-sync-git.py"
+        "/tests/core/scripts/run-track-and-finish-sync-git.py"
     )
     assert transform.reference.startswith(
         "https://github.com/laminlabs/lamin-cli/blob/"
