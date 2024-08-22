@@ -76,7 +76,7 @@ def get(
         qs = QuerySet(model=registry_or_queryset)
         registry = registry_or_queryset
     if isinstance(idlike, int):
-        return super(models.QuerySet, qs).get(id=idlike)
+        return super(QuerySet, qs).get(id=idlike)
     elif isinstance(idlike, str):
         qs = qs.filter(uid__startswith=idlike)
         if issubclass(registry, IsVersioned):
