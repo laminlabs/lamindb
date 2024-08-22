@@ -211,7 +211,7 @@ def write_tiledbsoma_store(
                     path=storepath, directory=UPath(storage.root)
                 ).as_posix()
                 is_new_version_of = Artifact.filter(
-                    key=search_by_key, _key_is_virtual=False
+                    key=search_by_key, is_latest=True, _key_is_virtual=False
                 ).one_or_none()
                 if is_new_version_of is not None:
                     logger.info(f"Assuming it is a new version of {is_new_version_of}.")
