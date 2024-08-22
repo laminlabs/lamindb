@@ -109,4 +109,6 @@ def save_vitessce_config(
     logger.important(
         f"go to: https://lamin.ai/{slug}/artifact/{vitessce_config_artifact.uid}"
     )
+    run.finished_at = datetime.now(timezone.utc)
+    run.save()
     return vitessce_config_artifact
