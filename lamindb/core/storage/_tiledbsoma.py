@@ -76,6 +76,13 @@ def register_for_tiledbsoma_store(
     append_obsm_varm: bool = False,
     run: Run | None = None,
 ) -> tuple[ExperimentAmbientLabelMapping, list[AnnData]]:
+    """Register `AnnData` objects to append to `tiledbsoma.Experiment`.
+
+    Pass the returned registration mapping and `AnnData` objects to `write_tiledbsoma_store`.
+
+    See `tiledbsoma.io.from_h5ad
+    <https://tiledbsoma.readthedocs.io/en/latest/_autosummary/tiledbsoma.io.from_h5ad.html>`__.
+    """
     try:
         import tiledbsoma as soma
         import tiledbsoma.io as soma_io
