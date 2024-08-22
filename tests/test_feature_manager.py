@@ -203,6 +203,9 @@ Here is how to create ulabels for them:
     ln.Artifact.features.filter(
         temperature=100.0, project="project_1", donor="U0123"
     ).one()
+    # test comparator
+    assert ln.Artifact.features.filter(temperature__lt=21).one_or_none() is None
+    assert ln.Artifact.features.filter(temperature__gt=21).one_or_none() is not None
 
     # delete everything we created
     artifact.delete(permanent=True)

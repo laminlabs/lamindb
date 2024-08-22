@@ -377,11 +377,12 @@ def filter_base(cls, **expression):
     new_expression = {}
     features = model.filter(name__in=keys_normalized).all().distinct()
     for key, value in expression.items():
-        normalized_key = key.split("__")[0]
+        normalized_key, comparator = key.split("__")
         feature = features.get(name=normalized_key)
         if not feature.dtype.startswith("cat"):
-            feature_value = value_model.get(feature=feature, value=value)
-            new_expression["_feature_values"] = feature_value
+            expression = {"feature": feature, f"value__{comparator}": value}
+            feature_value = value_model.filter(**expression)
+            new_expression["_feature_values__in"] = feature_value
         else:
             if isinstance(value, str):
                 label = ULabel.get(name=value)
@@ -398,13 +399,13 @@ def filter_base(cls, **expression):
 
 @classmethod  # type: ignore
 def filter(cls, **expression) -> QuerySet:
-    """Filter by features."""
+    """Query artifacts by features."""
     return filter_base(cls, **expression)
 
 
 @classmethod  # type: ignore
 def get(cls, **expression) -> Record:
-    """Get by feature."""
+    """Query a single artifact by feature."""
     return filter_base(cls, **expression).one()
 
 

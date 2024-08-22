@@ -64,6 +64,34 @@ def one_helper(self):
         return self[0]
 
 
+def get(
+    registry_or_queryset: type[Record] | QuerySet,
+    idlike: int | str | None = None,
+    **expressions,
+) -> Record:
+    if isinstance(registry_or_queryset, QuerySet):
+        qs = registry_or_queryset
+        registry = qs.model
+    else:
+        qs = QuerySet(model=registry_or_queryset)
+        registry = registry_or_queryset
+    if isinstance(idlike, int):
+        return super(models.QuerySet, qs).get(id=idlike)
+    elif isinstance(idlike, str):
+        qs = qs.filter(uid__startswith=idlike)
+        if issubclass(registry, IsVersioned):
+            if len(idlike) <= registry._len_stem_uid:
+                return qs.latest_version().one()
+            else:
+                return qs.one()
+        else:
+            return qs.one()
+    else:
+        assert idlike is None  # noqa: S101
+        # below behaves exactly like `.one()`
+        return registry.objects.get(**expressions)
+
+
 class RecordsList(UserList):
     """Is ordered, can't be queried, but has `.df()`."""
 
@@ -221,9 +249,7 @@ class QuerySet(models.QuerySet, CanValidate):
 
     def get(self, idlike: int | str | None = None, **expressions) -> Record:
         """Query a single record. Raises error if there are more or none."""
-        from ._filter import get
-
-        return super().get(self, idlike, **expressions)
+        return get(self, idlike, **expressions)
 
     def one(self) -> Record:
         """Exactly one result. Raises error if there are more or none."""

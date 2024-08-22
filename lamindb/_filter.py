@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from lnschema_core import Artifact, Collection, Record
-from lnschema_core.models import IsVersioned
 from lnschema_core.types import VisibilityChoice
 
 from lamindb import settings
@@ -36,31 +35,3 @@ def filter(registry: type[Record], **expressions) -> QuerySet:
         return qs.filter(**expressions)
     else:
         return qs
-
-
-def get(
-    registry_or_queryset: type[Record] | QuerySet,
-    idlike: int | str | None = None,
-    **expressions,
-) -> Record:
-    if isinstance(registry_or_queryset, QuerySet):
-        qs = registry_or_queryset
-        registry = qs.model
-    else:
-        qs = QuerySet(model=registry_or_queryset)
-        registry = registry_or_queryset
-    if isinstance(idlike, int):
-        return qs.get(id=idlike)
-    elif isinstance(idlike, str):
-        qs = qs.filter(uid__startswith=idlike)
-        if issubclass(registry, IsVersioned):
-            if len(idlike) <= registry._len_stem_uid:
-                return qs.latest_version().one()
-            else:
-                return qs.one()
-        else:
-            return qs.one()
-    else:
-        assert idlike is None  # noqa: S101
-        # below behaves exactly like `.one()`
-        return registry.objects.get(**expressions)
