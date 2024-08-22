@@ -230,7 +230,7 @@ def test_write_read_tiledbsoma(storage):
     test_file = ln.core.datasets.anndata_file_pbmc68k_test()
     adata = read_adata_h5ad(test_file)
     # write less
-    adata = adata[:5, :5].copy()
+    adata = adata[:5, :3].copy()
     del adata.varp
     del adata.obsp
     del adata.layers
@@ -345,6 +345,8 @@ def test_write_read_tiledbsoma(storage):
     # run deprecated backed
     # and test running without the context manager
     store = artifact_soma_append.backed()
+    n_obs_final = adata.n_obs + sum(adt.n_obs for adt in adatas)
+    assert len(store["obs"]) == n_obs_final
     store.close()
 
     artifact_soma_append.versions.delete(permanent=True, storage=True)
