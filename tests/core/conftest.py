@@ -20,6 +20,7 @@ def pytest_sessionstart():
         name="lamindb-unit-tests-core",
         db=pgurl,
     )
+    print(ln.setup.settings.instance._id.hex)
     ln.setup.register()  # temporarily
     ln.setup.settings.auto_connect = True
     ln.settings.creation.artifact_silence_missing_run_warning = True
