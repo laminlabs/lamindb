@@ -250,7 +250,7 @@ class DataFrameCurator:
                 key=categorical,
                 using_key=self._using_key,
                 validated_only=validated_only,
-                sources=self._sources.get(categorical),
+                source=self._sources.get(categorical),
                 **kwargs,
             )
 
@@ -640,6 +640,7 @@ class MuDataCurator:
             using_key=self._using_key,
             validated_only=validated_only,
             dtype="number",
+            source=self._sources.get(modality, {}).get("var_index"),
             **kwargs,
         )
 
@@ -702,6 +703,7 @@ class MuDataCurator:
             using_key=self._using_key,
             validated_only=False,
             df=self._mdata[modality].obs,
+            source=self._sources.get(modality, {}).get("columns"),
             **self._kwargs,  # type: ignore
             **kwargs,
         )
