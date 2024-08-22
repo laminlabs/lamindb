@@ -379,11 +379,12 @@ def filter_base(cls, **expression):
     for key, value in expression.items():
         split_key = key.split("__")
         normalized_key = split_key[0]
+        comparator = ""
         if len(split_key) == 2:
-            comparator = split_key[1]
+            comparator = f"__{split_key[1]}"
         feature = features.get(name=normalized_key)
         if not feature.dtype.startswith("cat"):
-            expression = {"feature": feature, f"value__{comparator}": value}
+            expression = {"feature": feature, f"value{comparator}": value}
             feature_value = value_model.filter(**expression)
             new_expression["_feature_values__in"] = feature_value
         else:
