@@ -14,12 +14,14 @@ AUTO_CONNECT = ln.setup.settings.auto_connect
 def pytest_sessionstart():
     ln_setup._TESTING = True
     pgurl = setup_local_test_postgres()
+    print(ln.setup.settings.instance)
     ln.setup.init(
         storage="./default_storage",
         schema="bionty",
         name="lamindb-unit-tests-core",
         db=pgurl,
     )
+    print(ln.setup.settings.instance)
     print(ln.setup.settings.instance._id.hex)
     ln.setup.register()  # temporarily
     ln.setup.settings.auto_connect = True
