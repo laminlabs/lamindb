@@ -123,7 +123,7 @@ def save_tiledbsoma(
         storepath = revises.path
     else:
         _uid = init_uid(n_full_id=20)
-        storepath = setup_settings.storage.root / f"{_uid}.tiledbsoma"
+        storepath = setup_settings.storage.root / f".lamindb/{_uid}.tiledbsoma"
 
     if storepath.protocol == "s3":
         ctx = soma.SOMATileDBContext(tiledb_config=_tiledb_config_s3(storepath))

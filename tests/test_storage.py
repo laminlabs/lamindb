@@ -242,14 +242,14 @@ def test_write_read_tiledbsoma(storage):
     else:
         adata.write_h5ad(test_file)
 
-    # fails with a view
-    with pytest.raises(ValueError):
-        save_tiledbsoma([adata[:2]], measurement_name="RNA")
-
     transform = ln.Transform(name="test tiledbsoma store")
     transform.save()
     run = ln.Run(transform)
     run.save()
+
+    # fails with a view
+    with pytest.raises(ValueError):
+        save_tiledbsoma([adata[:2]], measurement_name="RNA", run=run)
 
     artifact_soma = save_tiledbsoma(
         [test_file],
