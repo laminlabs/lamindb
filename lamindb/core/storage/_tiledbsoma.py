@@ -155,11 +155,11 @@ def save_tiledbsoma_experiment(
     for adata_obj in adata_objects:
         soma_io.from_anndata(
             storepath,
-            measurement_name,
             adata_obj,
+            measurement_name,
+            context=ctx,
             obs_id_name=obs_id_name,
             var_id_name=var_id_name,
-            context=ctx,
             registration_mapping=registration_mapping,
             **kwargs,
         )
