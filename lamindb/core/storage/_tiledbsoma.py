@@ -91,7 +91,7 @@ def _prepare_adatas(
     return adata_objects
 
 
-def save_tiledbsoma(
+def save_tiledbsoma_experiment(
     adatas: list[AnnData | UPathStr],
     measurement_name: str,
     revises: Artifact | None = None,

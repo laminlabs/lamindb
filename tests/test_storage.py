@@ -9,7 +9,7 @@ import pytest
 import tiledbsoma
 import tiledbsoma.io
 import zarr
-from lamindb.core.storage import save_tiledbsoma
+from lamindb.core.storage import save_tiledbsoma_experiment
 from lamindb.core.storage._backed_access import (
     AnnDataAccessor,
     BackedAccessor,
@@ -249,9 +249,9 @@ def test_write_read_tiledbsoma(storage):
 
     # fails with a view
     with pytest.raises(ValueError):
-        save_tiledbsoma([adata[:2]], measurement_name="RNA", run=run)
+        save_tiledbsoma_experiment([adata[:2]], measurement_name="RNA", run=run)
 
-    artifact_soma = save_tiledbsoma(
+    artifact_soma = save_tiledbsoma_experiment(
         [test_file],
         measurement_name="RNA",
         run=run,
@@ -293,8 +293,8 @@ def test_write_read_tiledbsoma(storage):
     adata_to_append_2.var["var_id"] = adata_to_append_2.var.index
     adata_to_append_2.write_h5ad("adata_to_append_2.h5ad")
 
-    artifact_soma_append = save_tiledbsoma(
-        [adata_to_append_1, adata_to_append_2],
+    artifact_soma_append = save_tiledbsoma_experiment(
+        [adata_to_append_1, "adata_to_append_2.h5ad"],
         measurement_name="RNA",
         revises=artifact_soma,
         run=run,
