@@ -334,7 +334,7 @@ class AnnDataCurator(DataFrameCurator):
 
     Note that if genes are removed from the AnnData object, the object should be recreated using :meth:`~lamindb.Curate.from_anndata`.
 
-    See {doc}`/cellxgene-curate` for instructions on how to curate against a specific cellxgene schema version.
+    See {doc}`docs:cellxgene-curate` for instructions on how to curate against a specific cellxgene schema version.
 
     Args:
         data: The AnnData object or an AnnData-like path.
