@@ -55,7 +55,9 @@ def test_revises_versioned_transform():
     # wrong transform type
     with pytest.raises(TypeError) as error:
         ln.Transform(revises=ln.ULabel(name="x"))
-    assert error.exconly().startswith("TypeError: revises has to be of type Transform")
+    assert error.exconly().startswith(
+        "TypeError: `revises` has to be of type `Transform`"
+    )
 
     # wrong kwargs
     with pytest.raises(ValueError) as error:
