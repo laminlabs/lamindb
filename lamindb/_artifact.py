@@ -46,8 +46,7 @@ from lamindb.core.storage.paths import (
     filepath_from_artifact,
 )
 from lamindb.core.versioning import (
-    get_uid_from_old_version,
-    init_uid,
+    create_uid,
     message_update_key_in_version_family,
 )
 
@@ -341,12 +340,10 @@ def get_artifact_kwargs_from_data(
             stat_or_artifact.transform = run.transform
         return artifact, None
     else:
-        size, hash, hash_type, n_objects, previous_artifact_version = stat_or_artifact
+        size, hash, hash_type, n_objects, revises = stat_or_artifact
 
-    if previous_artifact_version is not None:  # update provisional_uid
-        provisional_uid, version = get_uid_from_old_version(
-            previous_artifact_version, version
-        )
+    if revises is not None:  # update provisional_uid
+        provisional_uid, revises = create_uid(revises=revises, version=version)
         if path.as_posix().startswith(settings._storage_settings.cache_dir.as_posix()):
             path = path.rename(f"{provisional_uid}{suffix}")
 
@@ -576,12 +573,10 @@ def __init__(artifact: Artifact, *args, **kwargs):
             f"`key` is {key}, but `revises.key` is '{revises.key}'\n\n Either do *not* pass `key`.\n\n{note}"
         )
 
-    if revises is None:
-        provisional_uid = init_uid(version=version, n_full_id=20)
-    else:
+    provisional_uid, revises = create_uid(revises=revises, version=version)
+    if revises is not None:
         if not isinstance(revises, Artifact):
             raise TypeError("`revises` has to be of type `Artifact`")
-        provisional_uid, version = get_uid_from_old_version(revises, version)
         if description is None:
             description = revises.description
     kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
@@ -656,7 +651,6 @@ def from_df(
     key: str | None = None,
     description: str | None = None,
     run: Run | None = None,
-    version: str | None = None,
     revises: Artifact | None = None,
     **kwargs,
 ) -> Artifact:
@@ -666,7 +660,6 @@ def from_df(
         key=key,
         run=run,
         description=description,
-        version=version,
         revises=revises,
         _accessor="DataFrame",
         type="dataset",
@@ -683,7 +676,6 @@ def from_anndata(
     key: str | None = None,
     description: str | None = None,
     run: Run | None = None,
-    version: str | None = None,
     revises: Artifact | None = None,
     **kwargs,
 ) -> Artifact:
@@ -695,7 +687,6 @@ def from_anndata(
         key=key,
         run=run,
         description=description,
-        version=version,
         revises=revises,
         _accessor="AnnData",
         type="dataset",

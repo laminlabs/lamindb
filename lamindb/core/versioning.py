@@ -93,13 +93,21 @@ def set_version(version: str | None = None, previous_version: str | None = None)
     return version
 
 
-def init_uid(
+def create_uid(
     *,
     version: str | None = None,
     n_full_id: int = 20,
     revises: IsVersioned | None = None,
-) -> str:
+) -> tuple[str, IsVersioned | None]:
     if revises is not None:
+        if not revises.is_latest:
+            # need one more request
+            revises = revises.__class__.objects.get(
+                is_latest=True, uid__startswith=revises.stem_uid
+            )
+            logger.warning(
+                f"didn't pass the latest version in `revises`, retrieved it: {revises}"
+            )
         suid = revises.stem_uid
         vuid = increment_base62(revises.uid[-4:])
     else:
@@ -116,20 +124,7 @@ def init_uid(
                 raise ValueError(
                     f"Please increment the previous version: '{revises.version}'"
                 )
-    return suid + vuid
-
-
-def get_uid_from_old_version(
-    revises: IsVersioned,
-    version: str | None = None,
-) -> tuple[str, str]:
-    """{}"""  # noqa: D415
-    new_uid = init_uid(
-        version=version,
-        n_full_id=revises._len_full_uid,
-        revises=revises,
-    )
-    return new_uid, version
+    return suid + vuid, revises
 
 
 def get_new_path_from_uid(old_path: UPath, old_uid: str, new_uid: str):
@@ -147,13 +142,13 @@ def process_revises(
     version: str | None,
     name: str | None,
     type: type[IsVersioned],
-) -> tuple[str, str, str]:
+) -> tuple[str, str, str, IsVersioned | None]:
     if revises is not None and not isinstance(revises, type):
         raise TypeError(f"`revises` has to be of type `{type.__name__}`")
-    if revises is None:
-        uid = init_uid(version=version, n_full_id=type._len_full_uid)
-    else:
-        uid, version = get_uid_from_old_version(revises, version)
+    uid, revises = create_uid(
+        revises=revises, version=version, n_full_id=type._len_full_uid
+    )
+    if revises is not None:
         if name is None:
             name = revises.name
-    return uid, version, name
+    return uid, version, name, revises

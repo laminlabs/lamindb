@@ -90,13 +90,22 @@ def __init__(record: Record, *args, **kwargs):
             match = suggest_records_with_similar_names(record, kwargs)
             if match:
                 if "version" in kwargs:
-                    version_comment = " and version"
-                    existing_record = record.__class__.filter(
-                        name=kwargs["name"], version=kwargs["version"]
-                    ).one_or_none()
+                    if kwargs["version"] is not None:
+                        version_comment = " and version"
+                        existing_record = record.__class__.filter(
+                            name=kwargs["name"], version=kwargs["version"]
+                        ).one_or_none()
+                    else:
+                        # for a versioned record, an exact name match is not a
+                        # criterion for retrieving a record in case `version`
+                        # isn't passed - we'd always pull out many records with exactly the
+                        # same name
+                        existing_record = None
                 else:
                     version_comment = ""
-                    existing_record = record.__class__.get(name=kwargs["name"])
+                    existing_record = record.__class__.filter(
+                        name=kwargs["name"]
+                    ).one_or_none()
                 if existing_record is not None:
                     logger.important(
                         f"returning existing {record.__class__.__name__} record with same"
@@ -532,16 +541,8 @@ def save(self, *args, **kwargs) -> Record:
     else:
         # save versioned record
         if isinstance(self, IsVersioned) and self._revises is not None:
-            if self._revises.is_latest:
-                revises = self._revises
-            else:
-                # need one additional request
-                revises = self.__class__.objects.get(
-                    is_latest=True, uid__startswith=self.stem_uid
-                )
-                logger.warning(
-                    f"didn't pass the latest version in `revises`, retrieved it: {revises}"
-                )
+            assert self._revises.is_latest  # noqa: S101
+            revises = self._revises
             revises.is_latest = False
             with transaction.atomic():
                 revises._revises = None  # ensure we don't start a recursion

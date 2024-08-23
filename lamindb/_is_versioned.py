@@ -7,13 +7,13 @@ from lnschema_core.models import IsVersioned
 
 from lamindb._utils import attach_func_to_class_method
 
-from .core.versioning import get_new_path_from_uid, get_uid_from_old_version
+from .core.versioning import create_uid, get_new_path_from_uid
 
 
 # docstring handled through attach_func_to_class_method
 def _add_to_version_family(self, revises: IsVersioned, version: str | None = None):
     old_uid = self.uid
-    new_uid, version = get_uid_from_old_version(revises, version)
+    new_uid, revises = create_uid(revises=revises, version=version)
     if self.__class__.__name__ == "Artifact" and self._key_is_virtual:
         old_path = self.path
         new_path = get_new_path_from_uid(

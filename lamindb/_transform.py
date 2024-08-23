@@ -46,7 +46,7 @@ def __init__(transform: Transform, *args, **kwargs):
         raise ValueError(
             f"`key` is {key}, but `revises.key` is '{revises.key}'\n\n Either do *not* pass `key`.\n\n{note}"
         )
-    new_uid, version, name = process_revises(revises, version, name, Transform)
+    new_uid, version, name, revises = process_revises(revises, version, name, Transform)
     # this is only because the user-facing constructor allows passing a uid
     # most others don't
     if uid is None:

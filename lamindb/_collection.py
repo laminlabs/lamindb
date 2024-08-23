@@ -26,7 +26,7 @@ from lamindb._artifact import update_attributes
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._data import _track_run_input
 from lamindb.core._mapped_collection import MappedCollection
-from lamindb.core.versioning import get_uid_from_old_version, init_uid, process_revises
+from lamindb.core.versioning import process_revises
 
 from . import Artifact, Run
 from ._record import init_self_from_db
@@ -85,7 +85,9 @@ def __init__(
         raise ValueError(
             f"Only artifacts, name, run, description, reference, reference_type, visibility can be passed, you passed: {kwargs}"
         )
-    provisional_uid, version, name = process_revises(revises, version, name, Collection)
+    provisional_uid, version, name, revises = process_revises(
+        revises, version, name, Collection
+    )
     run = get_run(run)
     if isinstance(artifacts, Artifact):
         artifacts = [artifacts]
