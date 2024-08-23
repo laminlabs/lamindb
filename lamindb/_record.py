@@ -548,6 +548,7 @@ def save(self, *args, **kwargs) -> Record:
                 revises._revises = None  # ensure we don't start a recursion
                 revises.save()
                 super(Record, self).save(*args, **kwargs)
+            self._revises = None
         # save unversioned record
         else:
             super(Record, self).save(*args, **kwargs)

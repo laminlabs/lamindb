@@ -703,7 +703,6 @@ def from_mudata(
     key: str | None = None,
     description: str | None = None,
     run: Run | None = None,
-    version: str | None = None,
     revises: Artifact | None = None,
     **kwargs,
 ) -> Artifact:
@@ -713,7 +712,6 @@ def from_mudata(
         key=key,
         run=run,
         description=description,
-        version=version,
         revises=revises,
         _accessor="MuData",
         type="dataset",

@@ -181,9 +181,10 @@ def test_revise_artifact(df, adata):
     assert artifact_r2.version is None
     assert artifact_r2.key is None
     assert artifact_r2.description == "test"
-
+    assert artifact_r2._revises is not None
     artifact_r2.save()
     assert artifact_r2.path.exists()
+    assert artifact_r2._revises is None
 
     # create new file from newly versioned file
     df.iloc[0, 0] = 0  # mutate dataframe so that hash lookup doesn't trigger
