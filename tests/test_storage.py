@@ -284,7 +284,7 @@ def test_write_read_tiledbsoma(storage):
             matrix_data=np.ones((n_obs, 2)),
         )
     assert artifact_soma.hash != hash_before_changes
-    assert artifact_soma.version == "2"
+    assert artifact_soma.uid.endswith("0001")
     if storage is not None:
         # cache should be ignored and deleted after the changes
         assert not cache_path.exists()
@@ -319,7 +319,7 @@ def test_write_read_tiledbsoma(storage):
         registration_mapping=mapping,
     )
     artifact_soma_append.save()
-    assert artifact_soma_append.version == "3"
+    assert artifact_soma_append.uid.endswith("0002")
 
     # append with path, should pull the artifact
     artifact_soma_append = write_tiledbsoma_store(
@@ -330,7 +330,7 @@ def test_write_read_tiledbsoma(storage):
         registration_mapping=mapping,
     )
     artifact_soma_append.save()
-    assert artifact_soma_append.version == "4"
+    assert artifact_soma_append.uid.endswith("0003")
 
     # try to append without registration mapping
     with pytest.raises(ValueError):

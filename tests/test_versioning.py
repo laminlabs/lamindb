@@ -109,7 +109,7 @@ def test_latest_version_and_get():
     transform_v2.save()
     assert not transform_v1.is_latest
     assert transform_v2.is_latest
-    assert transform_v2.version == "2"
+    assert transform_v2.uid.endswith("0001")
     # do not pass the latest version to revises
     transform_v3 = ln.Transform(name="Introduction", revises=transform_v1)
     transform_v3.save()

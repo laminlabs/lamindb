@@ -24,22 +24,23 @@ def test_revises_versioned_transform():
     transform.save()
 
     # create new transform from old transform
-    transform_v2 = ln.Transform(name="My 2nd transform", revises=transform)
+    transform_r2 = ln.Transform(name="My 2nd transform", revises=transform)
     assert transform.version == "1"
-    assert transform_v2.uid != transform.uid
-    assert transform_v2.stem_uid == transform.stem_uid
-    assert transform_v2.version == "2"
+    assert transform_r2.uid != transform.uid
+    assert transform_r2.endswith("0001")
+    assert transform_r2.stem_uid == transform.stem_uid
+    assert transform_r2.version is None
 
-    transform_v2.save()
+    transform_r2.save()
 
     # create new transform from newly versioned transform
-    transform_v3 = ln.Transform(name="My transform", revises=transform_v2)
-    assert transform_v3.stem_uid == transform.stem_uid
-    assert transform_v3.version == "3"
+    transform_r3 = ln.Transform(name="My transform", revises=transform_r2, version="2")
+    assert transform_r3.stem_uid == transform.stem_uid
+    assert transform_r3.version == "2"
 
     # default name
-    transform_v3 = ln.Transform(revises=transform_v2)
-    assert transform_v3.name == transform_v2.name
+    transform_r3 = ln.Transform(revises=transform_r2)
+    assert transform_r3.name == transform_r2.name
 
     # wrong transform type
     with pytest.raises(TypeError) as error:
@@ -55,7 +56,7 @@ def test_revises_versioned_transform():
     )
 
     # test that reference transform cannot be deleted
-    transform_v2.delete()
+    transform_r2.delete()
     transform.delete()
 
 

@@ -195,6 +195,21 @@ def test_revise_artifact(df, adata):
     assert artifact_r3.version == "2"
     assert artifact_r3.description == "test1"
 
+    # revise by matching on `key`
+    key = "my-test-dataset.parquet"
+    artifact_r2.key = key
+    artifact_r2.save()
+    artifact_r3 = ln.Artifact.from_df(df, description="test1", key=key, version="2")
+    assert artifact_r3.uid.endswith("0002")
+    assert artifact_r3.stem_uid == artifact.stem_uid
+    assert artifact_r3.key == key
+    assert artifact_r3.version == "2"
+    assert artifact_r3.description == "test1"
+
+    artifact_r3 = ln.Artifact.from_df(
+        df, description="test1", key="my-test-dataset1.parquet", version="2"
+    )
+
     with pytest.raises(TypeError) as error:
         ln.Artifact.from_df(df, description="test1a", revises=ln.Transform())
     assert error.exconly() == "TypeError: `revises` has to be of type `Artifact`"
