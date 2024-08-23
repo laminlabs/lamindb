@@ -263,6 +263,9 @@ class DataFrameCurator:
     def validate(self, organism: str | None = None) -> bool:
         """Validate variables and categorical observations.
 
+        Args:
+            organism: The organism name.
+
         Returns:
             Whether the DataFrame is validated.
         """
