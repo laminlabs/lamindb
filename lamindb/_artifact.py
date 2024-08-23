@@ -195,6 +195,7 @@ def get_stat_or_artifact(
     path: UPath,
     key: str | None = None,
     check_hash: bool = True,
+    is_replace: bool = False,
     instance: str | None = None,
 ) -> tuple[int, str | None, str | None, int | None, Artifact | None] | Artifact:
     n_objects = None
@@ -222,7 +223,7 @@ def get_stat_or_artifact(
     if not check_hash:
         return size, hash, hash_type, n_objects, None
     previous_artifact_version = None
-    if key is None:
+    if key is None or is_replace:
         result = Artifact.objects.using(instance).filter(hash=hash).all()
         artifact_with_same_hash_exists = len(result) > 0
     else:
@@ -235,6 +236,7 @@ def get_stat_or_artifact(
         )
         artifact_with_same_hash_exists = len(result.filter(hash=hash).all()) > 0
         if not artifact_with_same_hash_exists and len(result) > 0:
+            logger.important(f"creating new artifact revision for {key}")
             previous_artifact_version = result[0]
     if artifact_with_same_hash_exists:
         if settings.creation.artifact_if_hash_exists == "error":
@@ -301,6 +303,7 @@ def get_artifact_kwargs_from_data(
     version: str | None,
     default_storage: Storage,
     using_key: str | None = None,
+    is_replace: bool = False,
     skip_check_exists: bool = False,
 ):
     run = get_run(run)
@@ -317,6 +320,7 @@ def get_artifact_kwargs_from_data(
         path=path,
         key=key,
         instance=using_key,
+        is_replace=is_replace,
     )
     if isinstance(stat_or_artifact, Artifact):
         artifact = stat_or_artifact
@@ -338,7 +342,7 @@ def get_artifact_kwargs_from_data(
             previous_artifact_version, version, using_key
         )
         if path.as_posix().startswith(settings._storage_settings.cache_dir.as_posix()):
-            path.rename(f"{provisional_uid}{suffix}")
+            path = path.rename(f"{provisional_uid}{suffix}")
 
     check_path_in_storage = False
     if use_existing_storage_key:
@@ -831,6 +835,7 @@ def replace(
         format=format,
         default_storage=default_storage,
         version=None,
+        is_replace=True,
     )
 
     # this artifact already exists
