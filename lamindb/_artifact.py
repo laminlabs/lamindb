@@ -9,6 +9,7 @@ import fsspec
 import lamindb_setup as ln_setup
 import pandas as pd
 from anndata import AnnData
+from django.db.models import Q, QuerySet
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage_in_instance
@@ -44,7 +45,10 @@ from lamindb.core.storage.paths import (
     check_path_is_child_of_root,
     filepath_from_artifact,
 )
-from lamindb.core.versioning import get_uid_from_old_version, init_uid
+from lamindb.core.versioning import (
+    create_uid,
+    message_update_key_in_version_family,
+)
 
 from .core._data import (
     add_transform_to_kwargs,
@@ -192,12 +196,14 @@ def process_data(
 
 def get_stat_or_artifact(
     path: UPath,
+    key: str | None = None,
     check_hash: bool = True,
-    using_key: str | None = None,
-) -> tuple[int, str | None, str | None, int | None] | Artifact:
+    is_replace: bool = False,
+    instance: str | None = None,
+) -> tuple[int, str | None, str | None, int | None, Artifact | None] | Artifact:
     n_objects = None
     if settings.creation.artifact_skip_size_hash:
-        return None, None, None, n_objects
+        return None, None, None, n_objects, None
     stat = path.stat()  # one network request
     if not isinstance(path, LocalPathClasses):
         size, hash, hash_type = None, None, None
@@ -210,7 +216,7 @@ def get_stat_or_artifact(
                 size, hash, hash_type, n_objects = get_stat_dir_cloud(path)
         if hash is None:
             logger.warning(f"did not add hash for {path}")
-            return size, hash, hash_type, n_objects
+            return size, hash, hash_type, n_objects, None
     else:
         if path.is_dir():
             size, hash, hash_type, n_objects = hash_dir(path)
@@ -218,17 +224,26 @@ def get_stat_or_artifact(
             hash, hash_type = hash_file(path)
             size = stat.st_size
     if not check_hash:
-        return size, hash, hash_type, n_objects
-    # also checks hidden and trashed files
-    # in Alex's mind the following two lines should be equivalent
-    # but they aren't according to pytest tests/test_artifact.py::test_from_dir_single_artifact
-    if using_key is None:
-        result = Artifact.filter(hash=hash, visibility=None).all()
+        return size, hash, hash_type, n_objects, None
+    previous_artifact_version = None
+    if key is None or is_replace:
+        result = Artifact.objects.using(instance).filter(hash=hash).all()
+        artifact_with_same_hash_exists = len(result) > 0
     else:
+        storage_id = settings.storage.id
         result = (
-            Artifact.objects.using(using_key).filter(hash=hash, visibility=None).all()
+            Artifact.objects.using(instance)
+            .filter(Q(hash=hash) | Q(key=key, storage_id=storage_id))
+            .order_by("-created_at")
+            .all()
         )
-    if len(result) > 0:
+        artifact_with_same_hash_exists = len(result.filter(hash=hash).all()) > 0
+        if not artifact_with_same_hash_exists and len(result) > 0:
+            logger.important(
+                f"creating new artifact version for key='{key}' (storage: '{settings.storage.root_as_str}')"
+            )
+            previous_artifact_version = result[0]
+    if artifact_with_same_hash_exists:
         if settings.creation.artifact_if_hash_exists == "error":
             msg = f"artifact with same hash exists: {result[0]}"
             hint = (
@@ -241,7 +256,7 @@ def get_stat_or_artifact(
                 "creating new Artifact object despite existing artifact with same hash:"
                 f" {result[0]}"
             )
-            return size, hash, hash_type, n_objects
+            return size, hash, hash_type, n_objects, None
         else:
             if result[0].visibility == -1:
                 raise FileExistsError(
@@ -251,7 +266,7 @@ def get_stat_or_artifact(
             logger.important(f"returning existing artifact with same hash: {result[0]}")
             return result[0]
     else:
-        return size, hash, hash_type, n_objects
+        return size, hash, hash_type, n_objects, previous_artifact_version
 
 
 def check_path_in_existing_storage(
@@ -290,8 +305,10 @@ def get_artifact_kwargs_from_data(
     run: Run | None,
     format: str | None,
     provisional_uid: str,
+    version: str | None,
     default_storage: Storage,
     using_key: str | None = None,
+    is_replace: bool = False,
     skip_check_exists: bool = False,
 ):
     run = get_run(run)
@@ -306,7 +323,9 @@ def get_artifact_kwargs_from_data(
     )
     stat_or_artifact = get_stat_or_artifact(
         path=path,
-        using_key=using_key,
+        key=key,
+        instance=using_key,
+        is_replace=is_replace,
     )
     if isinstance(stat_or_artifact, Artifact):
         artifact = stat_or_artifact
@@ -321,7 +340,12 @@ def get_artifact_kwargs_from_data(
             stat_or_artifact.transform = run.transform
         return artifact, None
     else:
-        size, hash, hash_type, n_objects = stat_or_artifact
+        size, hash, hash_type, n_objects, revises = stat_or_artifact
+
+    if revises is not None:  # update provisional_uid
+        provisional_uid, revises = create_uid(revises=revises, version=version)
+        if path.as_posix().startswith(settings._storage_settings.cache_dir.as_posix()):
+            path = path.rename(f"{provisional_uid}{suffix}")
 
     check_path_in_storage = False
     if use_existing_storage_key:
@@ -365,6 +389,7 @@ def get_artifact_kwargs_from_data(
         key_is_virtual = False
 
     kwargs = {
+        "uid": provisional_uid,
         "suffix": suffix,
         "hash": hash,
         "_hash_type": hash_type,
@@ -509,9 +534,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
     description: str | None = (
         kwargs.pop("description") if "description" in kwargs else None
     )
-    is_new_version_of: Artifact | None = (
-        kwargs.pop("is_new_version_of") if "is_new_version_of" in kwargs else None
-    )
+    revises: Artifact | None = kwargs.pop("revises") if "revises" in kwargs else None
     version: str | None = kwargs.pop("version") if "version" in kwargs else None
     visibility: int | None = (
         kwargs.pop("visibility")
@@ -534,28 +557,38 @@ def __init__(artifact: Artifact, *args, **kwargs):
     )
     accessor = kwargs.pop("_accessor") if "_accessor" in kwargs else None
     accessor = _check_accessor_artifact(data=data, accessor=accessor)
+    if "is_new_version_of" in kwargs:
+        logger.warning("`is_new_version_of` will be removed soon, please use `revises`")
+        revises = kwargs.pop("is_new_version_of")
     if not len(kwargs) == 0:
         raise ValueError(
-            "Only data, key, run, description, version, is_new_version_of, visibility"
+            "Only data, key, run, description, version, revises, visibility"
             f" can be passed, you passed: {kwargs}"
         )
-
-    if is_new_version_of is None:
-        provisional_uid = init_uid(version=version, n_full_id=20)
-    else:
-        if not isinstance(is_new_version_of, Artifact):
-            raise TypeError("is_new_version_of has to be of type ln.Artifact")
-        provisional_uid, version = get_uid_from_old_version(
-            is_new_version_of, version, using_key
+    if revises is not None and key is not None and revises.key != key:
+        note = message_update_key_in_version_family(
+            suid=revises.stem_uid,
+            existing_key=revises.key,
+            new_key=key,
+            registry="Artifact",
         )
+        raise ValueError(
+            f"`key` is {key}, but `revises.key` is '{revises.key}'\n\n Either do *not* pass `key`.\n\n{note}"
+        )
+
+    provisional_uid, revises = create_uid(revises=revises, version=version)
+    if revises is not None:
+        if not isinstance(revises, Artifact):
+            raise TypeError("`revises` has to be of type `Artifact`")
         if description is None:
-            description = is_new_version_of.description
+            description = revises.description
     kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
         data=data,
         key=key,
         run=run,
         format=format,
         provisional_uid=provisional_uid,
+        version=version,
         default_storage=default_storage,
         using_key=using_key,
         skip_check_exists=skip_check_exists,
@@ -576,25 +609,23 @@ def __init__(artifact: Artifact, *args, **kwargs):
     else:
         kwargs = kwargs_or_artifact
 
+    # only set key now so that we don't do a look-up on it in case revises is passed
+    if revises is not None:
+        kwargs["key"] = revises.key
     # in case we have a new version of a folder with a different hash, print a
     # warning that the old version can't be recovered
-    if (
-        is_new_version_of is not None
-        and is_new_version_of.n_objects is not None
-        and is_new_version_of.n_objects > 1
-    ):
+    if revises is not None and revises.n_objects is not None and revises.n_objects > 1:
         logger.warning(
-            f"artifact version {version} will _update_ the state of folder {is_new_version_of.path} - "
-            "to _retain_ the old state by duplicating the entire folder, do _not_ pass `is_new_version_of`"
+            f"artifact version {version} will _update_ the state of folder {revises.path} - "
+            "to _retain_ the old state by duplicating the entire folder, do _not_ pass `revises`"
         )
 
     kwargs["type"] = type
-    kwargs["uid"] = provisional_uid
     kwargs["version"] = version
     kwargs["description"] = description
     kwargs["visibility"] = visibility
     kwargs["_accessor"] = accessor
-    kwargs["is_new_version_of"] = is_new_version_of
+    kwargs["revises"] = revises
     # this check needs to come down here because key might be populated from an
     # existing file path during get_artifact_kwargs_from_data()
     if (
@@ -623,8 +654,7 @@ def from_df(
     key: str | None = None,
     description: str | None = None,
     run: Run | None = None,
-    version: str | None = None,
-    is_new_version_of: Artifact | None = None,
+    revises: Artifact | None = None,
     **kwargs,
 ) -> Artifact:
     """{}"""  # noqa: D415
@@ -633,8 +663,7 @@ def from_df(
         key=key,
         run=run,
         description=description,
-        version=version,
-        is_new_version_of=is_new_version_of,
+        revises=revises,
         _accessor="DataFrame",
         type="dataset",
         **kwargs,
@@ -650,8 +679,7 @@ def from_anndata(
     key: str | None = None,
     description: str | None = None,
     run: Run | None = None,
-    version: str | None = None,
-    is_new_version_of: Artifact | None = None,
+    revises: Artifact | None = None,
     **kwargs,
 ) -> Artifact:
     """{}"""  # noqa: D415
@@ -662,8 +690,7 @@ def from_anndata(
         key=key,
         run=run,
         description=description,
-        version=version,
-        is_new_version_of=is_new_version_of,
+        revises=revises,
         _accessor="AnnData",
         type="dataset",
         **kwargs,
@@ -679,8 +706,7 @@ def from_mudata(
     key: str | None = None,
     description: str | None = None,
     run: Run | None = None,
-    version: str | None = None,
-    is_new_version_of: Artifact | None = None,
+    revises: Artifact | None = None,
     **kwargs,
 ) -> Artifact:
     """{}"""  # noqa: D415
@@ -689,8 +715,7 @@ def from_mudata(
         key=key,
         run=run,
         description=description,
-        version=version,
-        is_new_version_of=is_new_version_of,
+        revises=revises,
         _accessor="MuData",
         type="dataset",
         **kwargs,
@@ -815,6 +840,8 @@ def replace(
         run=run,
         format=format,
         default_storage=default_storage,
+        version=None,
+        is_replace=True,
     )
 
     # this artifact already exists
@@ -913,7 +940,7 @@ def open(
                     logger.warning(
                         "The hash of the tiledbsoma store has changed, creating a new version of the artifact."
                     )
-                    new_version = Artifact(filepath, is_new_version_of=self).save()
+                    new_version = Artifact(filepath, revises=self).save()
                     init_self_from_db(self, new_version)
 
                     if localpath != filepath and localpath.exists():

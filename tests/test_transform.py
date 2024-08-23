@@ -5,7 +5,7 @@ import pytest
 from django.db.models.deletion import ProtectedError
 
 
-def test_is_new_version_of_versioned_transform():
+def test_revises_versioned_transform():
     # attempt to create a transform with an invalid version
     with pytest.raises(ValueError) as error:
         transform = ln.Transform(name="My transform", version=0)
@@ -24,45 +24,55 @@ def test_is_new_version_of_versioned_transform():
     transform.save()
 
     # create new transform from old transform
-    transform_v2 = ln.Transform(name="My 2nd transform", is_new_version_of=transform)
-    assert transform.version == "1"
-    assert transform_v2.uid != transform.uid
-    assert transform_v2.stem_uid == transform.stem_uid
-    assert transform_v2.version == "2"
+    transform_r2 = ln.Transform(name="My 2nd transform", is_new_version_of=transform)
+    assert transform_r2.uid != transform.uid
+    assert transform_r2.uid.endswith("0001")
+    transform_r2 = ln.Transform(name="My 2nd transform", revises=transform)
+    assert transform_r2.uid != transform.uid
+    assert transform_r2.uid.endswith("0001")
+    assert transform_r2.stem_uid == transform.stem_uid
+    assert transform_r2.version is None
 
-    transform_v2.save()
+    transform_r2.save()
 
     # create new transform from newly versioned transform
-    transform_v3 = ln.Transform(name="My transform", is_new_version_of=transform_v2)
-    assert transform_v3.stem_uid == transform.stem_uid
-    assert transform_v3.version == "3"
+    transform_r3 = ln.Transform(name="My transform", revises=transform_r2, version="2")
+    assert transform_r3.stem_uid == transform.stem_uid
+    assert transform_r3.version == "2"
 
     # default name
-    transform_v3 = ln.Transform(is_new_version_of=transform_v2)
-    assert transform_v3.name == transform_v2.name
+    transform_r3 = ln.Transform(revises=transform_r2)
+    assert transform_r3.name == transform_r2.name
+
+    # revise by matching on `key`
+    key = "my-notebook.ipynb"
+    transform_r2.key = key
+    transform_r2.save()
+    transform_r3 = ln.Transform(name="My transform", key=key, version="2")
+    assert transform_r3.uid.endswith("0002")
+    assert transform_r3.stem_uid == transform_r2.stem_uid
+    assert transform_r3.key == key
+    assert transform_r3.version == "2"
 
     # wrong transform type
     with pytest.raises(TypeError) as error:
-        ln.Transform(is_new_version_of=ln.ULabel(name="x"))
+        ln.Transform(revises=ln.ULabel(name="x"))
     assert error.exconly().startswith(
-        "TypeError: is_new_version_of has to be of type Transform"
+        "TypeError: `revises` has to be of type `Transform`"
     )
 
     # wrong kwargs
     with pytest.raises(ValueError) as error:
         ln.Transform(x=1)
     assert (
-        error.exconly()
-        == "ValueError: Only name, key, version, type, is_new_version_of,"
+        error.exconly() == "ValueError: Only name, key, version, type, revises,"
         " reference, reference_type can be passed, but you passed: {'x': 1}"
     )
 
     # test that reference transform cannot be deleted
-    transform_v2.delete()
+    transform_r2.delete()
     transform.delete()
 
-
-def test_is_new_version_of_unversioned_transform():
     # unversioned transform
     transform = ln.Transform(name="My transform")
     assert transform.version is None
@@ -72,10 +82,11 @@ def test_is_new_version_of_unversioned_transform():
     transform.save()
 
     # create new transform from old transform
-    new_transform = ln.Transform(name="My new transform", is_new_version_of=transform)
-    assert transform.version == "1"
+    new_transform = ln.Transform(name="My new transform", revises=transform)
+    assert transform.version is None
     assert new_transform.stem_uid == transform.stem_uid
-    assert new_transform.version == "2"
+    assert new_transform.uid.endswith("0001")
+    assert new_transform.version is None
 
     transform.delete()
 

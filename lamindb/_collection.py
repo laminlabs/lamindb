@@ -11,7 +11,6 @@ from typing import (
 import anndata as ad
 import lamindb_setup as ln_setup
 import pandas as pd
-from anndata import AnnData
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import hash_set
@@ -27,7 +26,7 @@ from lamindb._artifact import update_attributes
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._data import _track_run_input
 from lamindb.core._mapped_collection import MappedCollection
-from lamindb.core.versioning import get_uid_from_old_version, init_uid
+from lamindb.core.versioning import process_revises
 
 from . import Artifact, Run
 from ._record import init_self_from_db
@@ -37,10 +36,10 @@ from .core._data import (
     save_feature_set_links,
     save_feature_sets,
 )
+from .core._settings import settings
 
 if TYPE_CHECKING:
     from lamindb.core.storage import UPath
-    from lamindb.core.storage._backed_access import AnnDataAccessor, BackedAccessor
 
     from ._query_set import QuerySet
 
@@ -72,9 +71,7 @@ def __init__(
         kwargs.pop("reference_type") if "reference_type" in kwargs else None
     )
     run: Run | None = kwargs.pop("run") if "run" in kwargs else None
-    is_new_version_of: Collection | None = (
-        kwargs.pop("is_new_version_of") if "is_new_version_of" in kwargs else None
-    )
+    revises: Collection | None = kwargs.pop("revises") if "revises" in kwargs else None
     version: str | None = kwargs.pop("version") if "version" in kwargs else None
     visibility: int | None = (
         kwargs.pop("visibility")
@@ -84,18 +81,16 @@ def __init__(
     feature_sets: dict[str, FeatureSet] = (
         kwargs.pop("feature_sets") if "feature_sets" in kwargs else {}
     )
+    if "is_new_version_of" in kwargs:
+        logger.warning("`is_new_version_of` will be removed soon, please use `revises`")
+        revises = kwargs.pop("is_new_version_of")
     if not len(kwargs) == 0:
         raise ValueError(
             f"Only artifacts, name, run, description, reference, reference_type, visibility can be passed, you passed: {kwargs}"
         )
-    if is_new_version_of is None:
-        provisional_uid = init_uid(version=version, n_full_id=20)
-    else:
-        if not isinstance(is_new_version_of, Collection):
-            raise TypeError("is_new_version_of has to be of type ln.Collection")
-        provisional_uid, version = get_uid_from_old_version(is_new_version_of, version)
-        if name is None:
-            name = is_new_version_of.name
+    provisional_uid, version, name, revises = process_revises(
+        revises, version, name, Collection
+    )
     run = get_run(run)
     if isinstance(artifacts, Artifact):
         artifacts = [artifacts]
@@ -147,6 +142,9 @@ def __init__(
     else:
         kwargs = {}
         add_transform_to_kwargs(kwargs, run)
+        search_names_setting = settings.creation.search_names
+        if revises is not None and name == revises.name:
+            settings.creation.search_names = False
         super(Collection, collection).__init__(
             uid=provisional_uid,
             name=name,
@@ -158,14 +156,15 @@ def __init__(
             run=run,
             version=version,
             visibility=visibility,
-            is_new_version_of=is_new_version_of,
+            revises=revises,
             **kwargs,
         )
+        settings.creation.search_names = search_names_setting
     collection._artifacts = artifacts
     collection._feature_sets = feature_sets
     # register provenance
-    if is_new_version_of is not None:
-        _track_run_input(is_new_version_of, run=run)
+    if revises is not None:
+        _track_run_input(revises, run=run)
     _track_run_input(artifacts, run=run)
 
 

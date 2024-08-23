@@ -148,7 +148,7 @@ def save_context_core(
             _source_code_artifact_path,
             description=f"Source of transform {transform.uid}",
             version=transform.version,
-            is_new_version_of=prev_source,
+            revises=prev_source,
             visibility=0,  # hidden file
             run=False,
         )
@@ -211,7 +211,7 @@ def save_context_core(
             report_file = ln.Artifact(
                 report_path,
                 description=f"Report of run {run.uid}",
-                is_new_version_of=prev_report,
+                revises=prev_report,
                 visibility=0,  # hidden file
                 run=False,
             )

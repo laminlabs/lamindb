@@ -12,7 +12,7 @@ from lamin_utils._lookup import Lookup
 from lamindb_setup._connect_instance import get_owner_name_from_identifier
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._hub_core import connect_instance
-from lnschema_core.models import IsVersioned, Record
+from lnschema_core.models import Collection, IsVersioned, Record
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings
@@ -90,13 +90,22 @@ def __init__(record: Record, *args, **kwargs):
             match = suggest_records_with_similar_names(record, kwargs)
             if match:
                 if "version" in kwargs:
-                    version_comment = " and version"
-                    existing_record = record.__class__.filter(
-                        name=kwargs["name"], version=kwargs["version"]
-                    ).one_or_none()
+                    if kwargs["version"] is not None:
+                        version_comment = " and version"
+                        existing_record = record.__class__.filter(
+                            name=kwargs["name"], version=kwargs["version"]
+                        ).one_or_none()
+                    else:
+                        # for a versioned record, an exact name match is not a
+                        # criterion for retrieving a record in case `version`
+                        # isn't passed - we'd always pull out many records with exactly the
+                        # same name
+                        existing_record = None
                 else:
                     version_comment = ""
-                    existing_record = record.__class__.get(name=kwargs["name"])
+                    existing_record = record.__class__.filter(
+                        name=kwargs["name"]
+                    ).one_or_none()
                 if existing_record is not None:
                     logger.important(
                         f"returning existing {record.__class__.__name__} record with same"
@@ -381,9 +390,11 @@ def add_db_connection(db: str, using: str):
 @doc_args(Record.using.__doc__)
 def using(
     cls,
-    instance: str,
+    instance: str | None,
 ) -> QuerySet:
     """{}"""  # noqa: D415
+    if instance is None:
+        return QuerySet(model=cls, using=None)
     from lamindb_setup._connect_instance import (
         load_instance_settings,
         update_db_using_local,
@@ -529,24 +540,15 @@ def save(self, *args, **kwargs) -> Record:
         init_self_from_db(self, result)
     else:
         # save versioned record
-        if isinstance(self, IsVersioned) and self._is_new_version_of is not None:
-            if self._is_new_version_of.is_latest:
-                is_new_version_of = self._is_new_version_of
-            else:
-                # need one additional request
-                is_new_version_of = self.__class__.objects.get(
-                    is_latest=True, uid__startswith=self.stem_uid
-                )
-                logger.warning(
-                    f"didn't pass the latest version in `is_new_version_of`, retrieved it: {is_new_version_of}"
-                )
-            is_new_version_of.is_latest = False
+        if isinstance(self, IsVersioned) and self._revises is not None:
+            assert self._revises.is_latest  # noqa: S101
+            revises = self._revises
+            revises.is_latest = False
             with transaction.atomic():
-                is_new_version_of._is_new_version_of = (
-                    None  # ensure we don't start a recursion
-                )
-                is_new_version_of.save()
+                revises._revises = None  # ensure we don't start a recursion
+                revises.save()
                 super(Record, self).save(*args, **kwargs)
+            self._revises = None
         # save unversioned record
         else:
             super(Record, self).save(*args, **kwargs)

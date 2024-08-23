@@ -105,14 +105,18 @@ def test_latest_version_and_get():
     assert transform_v1.is_latest
     assert transform_v1.version is None
     # pass the latest version, also vary the name for the fun of it
-    transform_v2 = ln.Transform(name="Introduction v2", is_new_version_of=transform_v1)
+    transform_v2 = ln.Transform(
+        name="Introduction v2", revises=transform_v1, version="2"
+    )
     transform_v2.save()
     assert not transform_v1.is_latest
     assert transform_v2.is_latest
-    assert transform_v2.version == "2"
-    # do not pass the latest version to is_new_version_of
-    transform_v3 = ln.Transform(name="Introduction", is_new_version_of=transform_v1)
+    assert transform_v2.uid.endswith("0001")
+    # consciously *not* pass the latest version to revises but the previous
+    # it automatically retrieves the latest version
+    transform_v3 = ln.Transform(name="Introduction", revises=transform_v1)
     transform_v3.save()
+    assert transform_v3.uid.endswith("0002")
     assert not ln.Transform.objects.get(name="Introduction v2", version="2").is_latest
     assert transform_v3.is_latest
     transform_v4 = ln.Transform(name="Introduction")
@@ -123,7 +127,7 @@ def test_latest_version_and_get():
     assert len(ln.Transform.filter(name="Introduction").all()) == 3
     assert len(ln.Transform.filter(name="Introduction").latest_version()) == 2
     transform_v4.delete()
-    with pytest.raises(Exception):  # # noqa: B017 should be MultipleResultsFound
+    with pytest.raises(Exception):  # noqa: B017 should be MultipleResultsFound
         ln.Transform.get(name="Introduction")
     assert (
         ln.Transform.filter(name="Introduction").latest_version().one() == transform_v3

@@ -11,6 +11,16 @@ if TYPE_CHECKING:
     from lnschema_core.models import IsVersioned
 
 
+def message_update_key_in_version_family(
+    *,
+    suid: str,
+    existing_key: str,
+    registry: str,
+    new_key: str,
+) -> str:
+    return f'Or update key "{existing_key}" in your existing family:\n\nln.{registry}.filter(uid__startswith="{suid}").update(key="{new_key}")'
+
+
 def increment_base62(s: str) -> str:
     # we don't need to throw an error for zzzz because uids are enforced to be unique
     # on the db level and have an enforced maximum length
@@ -78,57 +88,43 @@ def set_version(version: str | None = None, previous_version: str | None = None)
         version: Version string.
         previous_version: Previous version string.
     """
-    if version == previous_version:
-        raise ValueError(f"Please increment the previous version: '{previous_version}'")
     if version is None and previous_version is not None:
         version = bump_version(previous_version, bump_type="major")
     return version
 
 
-def init_uid(
+def create_uid(
     *,
     version: str | None = None,
     n_full_id: int = 20,
-    is_new_version_of: IsVersioned | None = None,
-) -> str:
-    if is_new_version_of is not None:
-        stem_uid = is_new_version_of.stem_uid
+    revises: IsVersioned | None = None,
+) -> tuple[str, IsVersioned | None]:
+    if revises is not None:
+        if not revises.is_latest:
+            # need one more request
+            revises = revises.__class__.objects.get(
+                is_latest=True, uid__startswith=revises.stem_uid
+            )
+            logger.warning(
+                f"didn't pass the latest version in `revises`, retrieved it: {revises}"
+            )
+        suid = revises.stem_uid
+        vuid = increment_base62(revises.uid[-4:])
     else:
-        stem_uid = ids.base62(n_full_id - 4)
+        suid = ids.base62(n_full_id - 4)
+        vuid = "0000"
     if version is not None:
         if not isinstance(version, str):
             raise ValueError(
                 "`version` parameter must be `None` or `str`, e.g., '0.1', '1', '2',"
                 " etc."
             )
-    return stem_uid + ids.base62_4()
-
-
-def get_uid_from_old_version(
-    is_new_version_of: IsVersioned,
-    version: str | None = None,
-    using_key: str | None = None,
-) -> tuple[str, str]:
-    """{}"""  # noqa: D415
-    msg = ""
-    if is_new_version_of.version is None:
-        previous_version = "1"
-        msg = f"setting previous version to '{previous_version}'"
-    else:
-        previous_version = is_new_version_of.version
-    version = set_version(version, previous_version)
-    new_uid = init_uid(
-        version=version,
-        n_full_id=is_new_version_of._len_full_uid,
-        is_new_version_of=is_new_version_of,
-    )
-    # the following covers the edge case where the old file was unversioned
-    if is_new_version_of.version is None:
-        is_new_version_of.version = previous_version
-        is_new_version_of.save(using=using_key)
-        if msg != "":
-            msg += f"& new version to '{version}'"
-    return new_uid, version
+        if revises is not None:
+            if version == revises.version:
+                raise ValueError(
+                    f"Please increment the previous version: '{revises.version}'"
+                )
+    return suid + vuid, revises
 
 
 def get_new_path_from_uid(old_path: UPath, old_uid: str, new_uid: str):
@@ -141,18 +137,18 @@ def get_new_path_from_uid(old_path: UPath, old_uid: str, new_uid: str):
     return new_path
 
 
-def process_is_new_version_of(
-    is_new_version_of: IsVersioned,
+def process_revises(
+    revises: IsVersioned | None,
     version: str | None,
     name: str | None,
     type: type[IsVersioned],
-) -> tuple[str, str, str]:
-    if is_new_version_of is not None and not isinstance(is_new_version_of, type):
-        raise TypeError(f"is_new_version_of has to be of type {type.__name__}")
-    if is_new_version_of is None:
-        uid = init_uid(version=version, n_full_id=type._len_full_uid)
-    else:
-        uid, version = get_uid_from_old_version(is_new_version_of, version)
+) -> tuple[str, str, str, IsVersioned | None]:
+    if revises is not None and not isinstance(revises, type):
+        raise TypeError(f"`revises` has to be of type `{type.__name__}`")
+    uid, revises = create_uid(
+        revises=revises, version=version, n_full_id=type._len_full_uid
+    )
+    if revises is not None:
         if name is None:
-            name = is_new_version_of.name
-    return uid, version, name
+            name = revises.name
+    return uid, version, name, revises

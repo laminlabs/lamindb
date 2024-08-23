@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import Run, Transform
 
 from ._parents import _view_parents
 from ._run import delete_run_artifacts
-from .core.versioning import process_is_new_version_of
+from .core.versioning import message_update_key_in_version_family, process_revises
 
 if TYPE_CHECKING:
     from lnschema_core.types import TransformType
@@ -19,26 +20,38 @@ def __init__(transform: Transform, *args, **kwargs):
         return None
     name: str | None = kwargs.pop("name") if "name" in kwargs else None
     key: str | None = kwargs.pop("key") if "key" in kwargs else None
-    is_new_version_of: Transform | None = (
-        kwargs.pop("is_new_version_of") if "is_new_version_of" in kwargs else None
-    )
+    revises: Transform | None = kwargs.pop("revises") if "revises" in kwargs else None
     version: str | None = kwargs.pop("version") if "version" in kwargs else None
     type: TransformType | None = kwargs.pop("type") if "type" in kwargs else "pipeline"
     reference: str | None = kwargs.pop("reference") if "reference" in kwargs else None
     reference_type: str | None = (
         kwargs.pop("reference_type") if "reference_type" in kwargs else None
     )
+    if "is_new_version_of" in kwargs:
+        logger.warning("`is_new_version_of` will be removed soon, please use `revises`")
+        revises = kwargs.pop("is_new_version_of")
     # below is internal use that we'll hopefully be able to eliminate
     uid: str | None = kwargs.pop("uid") if "uid" in kwargs else None
     if not len(kwargs) == 0:
         raise ValueError(
-            "Only name, key, version, type, is_new_version_of, reference, "
+            "Only name, key, version, type, revises, reference, "
             f"reference_type can be passed, but you passed: {kwargs}"
         )
-    new_uid, version, name = process_is_new_version_of(
-        is_new_version_of, version, name, Transform
-    )
-    # this is only because the user-facing constructor allows passing an id
+    # Transform allows passing a uid, all others don't
+    if uid is None and key is not None:
+        revises = Transform.filter(key=key).order_by("-created_at").first()
+    if revises is not None and key is not None and revises.key != key:
+        note = message_update_key_in_version_family(
+            suid=revises.stem_uid,
+            existing_key=revises.key,
+            new_key=key,
+            registry="Artifact",
+        )
+        raise ValueError(
+            f"`key` is {key}, but `revises.key` is '{revises.key}'\n\n Either do *not* pass `key`.\n\n{note}"
+        )
+    new_uid, version, name, revises = process_revises(revises, version, name, Transform)
+    # this is only because the user-facing constructor allows passing a uid
     # most others don't
     if uid is None:
         has_consciously_provided_uid = False
@@ -54,7 +67,7 @@ def __init__(transform: Transform, *args, **kwargs):
         reference=reference,
         reference_type=reference_type,
         _has_consciously_provided_uid=has_consciously_provided_uid,
-        is_new_version_of=is_new_version_of,
+        revises=revises,
     )
 
 
