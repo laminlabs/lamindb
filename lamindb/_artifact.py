@@ -9,6 +9,7 @@ import fsspec
 import lamindb_setup as ln_setup
 import pandas as pd
 from anndata import AnnData
+from django.db.models import Q, QuerySet
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage_in_instance
@@ -192,8 +193,9 @@ def process_data(
 
 def get_stat_or_artifact(
     path: UPath,
+    key: str | None = None,
     check_hash: bool = True,
-    using_key: str | None = None,
+    instance: str | None = None,
 ) -> tuple[int, str | None, str | None, int | None] | Artifact:
     n_objects = None
     if settings.creation.artifact_skip_size_hash:
@@ -219,15 +221,7 @@ def get_stat_or_artifact(
             size = stat.st_size
     if not check_hash:
         return size, hash, hash_type, n_objects
-    # also checks hidden and trashed files
-    # in Alex's mind the following two lines should be equivalent
-    # but they aren't according to pytest tests/test_artifact.py::test_from_dir_single_artifact
-    if using_key is None:
-        result = Artifact.filter(hash=hash, visibility=None).all()
-    else:
-        result = (
-            Artifact.objects.using(using_key).filter(hash=hash, visibility=None).all()
-        )
+    result = Artifact.objects.using(instance).filter(hash=hash).all()
     if len(result) > 0:
         if settings.creation.artifact_if_hash_exists == "error":
             msg = f"artifact with same hash exists: {result[0]}"
@@ -306,7 +300,8 @@ def get_artifact_kwargs_from_data(
     )
     stat_or_artifact = get_stat_or_artifact(
         path=path,
-        using_key=using_key,
+        key=key,
+        instance=using_key,
     )
     if isinstance(stat_or_artifact, Artifact):
         artifact = stat_or_artifact

@@ -381,9 +381,11 @@ def add_db_connection(db: str, using: str):
 @doc_args(Record.using.__doc__)
 def using(
     cls,
-    instance: str,
+    instance: str | None,
 ) -> QuerySet:
     """{}"""  # noqa: D415
+    if instance is None:
+        return QuerySet(model=cls, using=None)
     from lamindb_setup._connect_instance import (
         load_instance_settings,
         update_db_using_local,
