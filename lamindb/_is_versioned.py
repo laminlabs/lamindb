@@ -11,11 +11,9 @@ from .core.versioning import get_new_path_from_uid, get_uid_from_old_version
 
 
 # docstring handled through attach_func_to_class_method
-def _add_to_version_family(
-    self, is_new_version_of: IsVersioned, version: str | None = None
-):
+def _add_to_version_family(self, revises: IsVersioned, version: str | None = None):
     old_uid = self.uid
-    new_uid, version = get_uid_from_old_version(is_new_version_of, version)
+    new_uid, version = get_uid_from_old_version(revises, version)
     if self.__class__.__name__ == "Artifact" and self._key_is_virtual:
         old_path = self.path
         new_path = get_new_path_from_uid(

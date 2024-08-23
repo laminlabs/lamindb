@@ -529,23 +529,21 @@ def save(self, *args, **kwargs) -> Record:
         init_self_from_db(self, result)
     else:
         # save versioned record
-        if isinstance(self, IsVersioned) and self._is_new_version_of is not None:
-            if self._is_new_version_of.is_latest:
-                is_new_version_of = self._is_new_version_of
+        if isinstance(self, IsVersioned) and self._revises is not None:
+            if self._revises.is_latest:
+                revises = self._revises
             else:
                 # need one additional request
-                is_new_version_of = self.__class__.objects.get(
+                revises = self.__class__.objects.get(
                     is_latest=True, uid__startswith=self.stem_uid
                 )
                 logger.warning(
-                    f"didn't pass the latest version in `is_new_version_of`, retrieved it: {is_new_version_of}"
+                    f"didn't pass the latest version in `revises`, retrieved it: {revises}"
                 )
-            is_new_version_of.is_latest = False
+            revises.is_latest = False
             with transaction.atomic():
-                is_new_version_of._is_new_version_of = (
-                    None  # ensure we don't start a recursion
-                )
-                is_new_version_of.save()
+                revises._revises = None  # ensure we don't start a recursion
+                revises.save()
                 super(Record, self).save(*args, **kwargs)
         # save unversioned record
         else:

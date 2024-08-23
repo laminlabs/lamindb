@@ -89,10 +89,10 @@ def init_uid(
     *,
     version: str | None = None,
     n_full_id: int = 20,
-    is_new_version_of: IsVersioned | None = None,
+    revises: IsVersioned | None = None,
 ) -> str:
-    if is_new_version_of is not None:
-        stem_uid = is_new_version_of.stem_uid
+    if revises is not None:
+        stem_uid = revises.stem_uid
     else:
         stem_uid = ids.base62(n_full_id - 4)
     if version is not None:
@@ -105,27 +105,27 @@ def init_uid(
 
 
 def get_uid_from_old_version(
-    is_new_version_of: IsVersioned,
+    revises: IsVersioned,
     version: str | None = None,
     using_key: str | None = None,
 ) -> tuple[str, str]:
     """{}"""  # noqa: D415
     msg = ""
-    if is_new_version_of.version is None:
+    if revises.version is None:
         previous_version = "1"
         msg = f"setting previous version to '{previous_version}'"
     else:
-        previous_version = is_new_version_of.version
+        previous_version = revises.version
     version = set_version(version, previous_version)
     new_uid = init_uid(
         version=version,
-        n_full_id=is_new_version_of._len_full_uid,
-        is_new_version_of=is_new_version_of,
+        n_full_id=revises._len_full_uid,
+        revises=revises,
     )
     # the following covers the edge case where the old file was unversioned
-    if is_new_version_of.version is None:
-        is_new_version_of.version = previous_version
-        is_new_version_of.save(using=using_key)
+    if revises.version is None:
+        revises.version = previous_version
+        revises.save(using=using_key)
         if msg != "":
             msg += f"& new version to '{version}'"
     return new_uid, version
@@ -141,18 +141,18 @@ def get_new_path_from_uid(old_path: UPath, old_uid: str, new_uid: str):
     return new_path
 
 
-def process_is_new_version_of(
-    is_new_version_of: IsVersioned,
+def process_revises(
+    revises: IsVersioned,
     version: str | None,
     name: str | None,
     type: type[IsVersioned],
 ) -> tuple[str, str, str]:
-    if is_new_version_of is not None and not isinstance(is_new_version_of, type):
-        raise TypeError(f"is_new_version_of has to be of type {type.__name__}")
-    if is_new_version_of is None:
+    if revises is not None and not isinstance(revises, type):
+        raise TypeError(f"revises has to be of type {type.__name__}")
+    if revises is None:
         uid = init_uid(version=version, n_full_id=type._len_full_uid)
     else:
-        uid, version = get_uid_from_old_version(is_new_version_of, version)
+        uid, version = get_uid_from_old_version(revises, version)
         if name is None:
-            name = is_new_version_of.name
+            name = revises.name
     return uid, version, name

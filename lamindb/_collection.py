@@ -72,9 +72,7 @@ def __init__(
         kwargs.pop("reference_type") if "reference_type" in kwargs else None
     )
     run: Run | None = kwargs.pop("run") if "run" in kwargs else None
-    is_new_version_of: Collection | None = (
-        kwargs.pop("is_new_version_of") if "is_new_version_of" in kwargs else None
-    )
+    revises: Collection | None = kwargs.pop("revises") if "revises" in kwargs else None
     version: str | None = kwargs.pop("version") if "version" in kwargs else None
     visibility: int | None = (
         kwargs.pop("visibility")
@@ -88,14 +86,14 @@ def __init__(
         raise ValueError(
             f"Only artifacts, name, run, description, reference, reference_type, visibility can be passed, you passed: {kwargs}"
         )
-    if is_new_version_of is None:
+    if revises is None:
         provisional_uid = init_uid(version=version, n_full_id=20)
     else:
-        if not isinstance(is_new_version_of, Collection):
-            raise TypeError("is_new_version_of has to be of type ln.Collection")
-        provisional_uid, version = get_uid_from_old_version(is_new_version_of, version)
+        if not isinstance(revises, Collection):
+            raise TypeError("revises has to be of type ln.Collection")
+        provisional_uid, version = get_uid_from_old_version(revises, version)
         if name is None:
-            name = is_new_version_of.name
+            name = revises.name
     run = get_run(run)
     if isinstance(artifacts, Artifact):
         artifacts = [artifacts]
@@ -158,14 +156,14 @@ def __init__(
             run=run,
             version=version,
             visibility=visibility,
-            is_new_version_of=is_new_version_of,
+            revises=revises,
             **kwargs,
         )
     collection._artifacts = artifacts
     collection._feature_sets = feature_sets
     # register provenance
-    if is_new_version_of is not None:
-        _track_run_input(is_new_version_of, run=run)
+    if revises is not None:
+        _track_run_input(revises, run=run)
     _track_run_input(artifacts, run=run)
 
 

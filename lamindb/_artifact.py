@@ -509,9 +509,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
     description: str | None = (
         kwargs.pop("description") if "description" in kwargs else None
     )
-    is_new_version_of: Artifact | None = (
-        kwargs.pop("is_new_version_of") if "is_new_version_of" in kwargs else None
-    )
+    revises: Artifact | None = kwargs.pop("revises") if "revises" in kwargs else None
     version: str | None = kwargs.pop("version") if "version" in kwargs else None
     visibility: int | None = (
         kwargs.pop("visibility")
@@ -536,20 +534,18 @@ def __init__(artifact: Artifact, *args, **kwargs):
     accessor = _check_accessor_artifact(data=data, accessor=accessor)
     if not len(kwargs) == 0:
         raise ValueError(
-            "Only data, key, run, description, version, is_new_version_of, visibility"
+            "Only data, key, run, description, version, revises, visibility"
             f" can be passed, you passed: {kwargs}"
         )
 
-    if is_new_version_of is None:
+    if revises is None:
         provisional_uid = init_uid(version=version, n_full_id=20)
     else:
-        if not isinstance(is_new_version_of, Artifact):
-            raise TypeError("is_new_version_of has to be of type ln.Artifact")
-        provisional_uid, version = get_uid_from_old_version(
-            is_new_version_of, version, using_key
-        )
+        if not isinstance(revises, Artifact):
+            raise TypeError("revises has to be of type ln.Artifact")
+        provisional_uid, version = get_uid_from_old_version(revises, version, using_key)
         if description is None:
-            description = is_new_version_of.description
+            description = revises.description
     kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
         data=data,
         key=key,
@@ -578,14 +574,10 @@ def __init__(artifact: Artifact, *args, **kwargs):
 
     # in case we have a new version of a folder with a different hash, print a
     # warning that the old version can't be recovered
-    if (
-        is_new_version_of is not None
-        and is_new_version_of.n_objects is not None
-        and is_new_version_of.n_objects > 1
-    ):
+    if revises is not None and revises.n_objects is not None and revises.n_objects > 1:
         logger.warning(
-            f"artifact version {version} will _update_ the state of folder {is_new_version_of.path} - "
-            "to _retain_ the old state by duplicating the entire folder, do _not_ pass `is_new_version_of`"
+            f"artifact version {version} will _update_ the state of folder {revises.path} - "
+            "to _retain_ the old state by duplicating the entire folder, do _not_ pass `revises`"
         )
 
     kwargs["type"] = type
@@ -594,7 +586,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
     kwargs["description"] = description
     kwargs["visibility"] = visibility
     kwargs["_accessor"] = accessor
-    kwargs["is_new_version_of"] = is_new_version_of
+    kwargs["revises"] = revises
     # this check needs to come down here because key might be populated from an
     # existing file path during get_artifact_kwargs_from_data()
     if (
@@ -624,7 +616,7 @@ def from_df(
     description: str | None = None,
     run: Run | None = None,
     version: str | None = None,
-    is_new_version_of: Artifact | None = None,
+    revises: Artifact | None = None,
     **kwargs,
 ) -> Artifact:
     """{}"""  # noqa: D415
@@ -634,7 +626,7 @@ def from_df(
         run=run,
         description=description,
         version=version,
-        is_new_version_of=is_new_version_of,
+        revises=revises,
         _accessor="DataFrame",
         type="dataset",
         **kwargs,
@@ -651,7 +643,7 @@ def from_anndata(
     description: str | None = None,
     run: Run | None = None,
     version: str | None = None,
-    is_new_version_of: Artifact | None = None,
+    revises: Artifact | None = None,
     **kwargs,
 ) -> Artifact:
     """{}"""  # noqa: D415
@@ -663,7 +655,7 @@ def from_anndata(
         run=run,
         description=description,
         version=version,
-        is_new_version_of=is_new_version_of,
+        revises=revises,
         _accessor="AnnData",
         type="dataset",
         **kwargs,
@@ -680,7 +672,7 @@ def from_mudata(
     description: str | None = None,
     run: Run | None = None,
     version: str | None = None,
-    is_new_version_of: Artifact | None = None,
+    revises: Artifact | None = None,
     **kwargs,
 ) -> Artifact:
     """{}"""  # noqa: D415
@@ -690,7 +682,7 @@ def from_mudata(
         run=run,
         description=description,
         version=version,
-        is_new_version_of=is_new_version_of,
+        revises=revises,
         _accessor="MuData",
         type="dataset",
         **kwargs,
@@ -913,7 +905,7 @@ def open(
                     logger.warning(
                         "The hash of the tiledbsoma store has changed, creating a new version of the artifact."
                     )
-                    new_version = Artifact(filepath, is_new_version_of=self).save()
+                    new_version = Artifact(filepath, revises=self).save()
                     init_self_from_db(self, new_version)
 
                     if localpath != filepath and localpath.exists():

@@ -202,10 +202,10 @@ def write_tiledbsoma_store(
     if add_run_uid:
         del adata.obs["lamin_run_uid"]
 
-    is_new_version_of = None
+    revises = None
     if appending:
         if store_is_artifact:
-            is_new_version_of = store
+            revises = store
         else:
             from lamindb._artifact import (
                 check_path_in_existing_storage,
@@ -217,15 +217,13 @@ def write_tiledbsoma_store(
                 search_by_key = get_relative_path_to_directory(
                     path=storepath, directory=UPath(storage.root)
                 ).as_posix()
-                is_new_version_of = Artifact.filter(
+                revises = Artifact.filter(
                     key=search_by_key, is_latest=True, _key_is_virtual=False
                 ).one_or_none()
-                if is_new_version_of is not None:
-                    logger.info(f"Assuming it is a new version of {is_new_version_of}.")
+                if revises is not None:
+                    logger.info(f"Assuming it is a new version of {revises}.")
 
-    if is_new_version_of is None:
+    if revises is None:
         return Artifact(storepath, run=run, **artifact_kwargs)
     else:
-        return Artifact(
-            storepath, run=run, is_new_version_of=is_new_version_of, **artifact_kwargs
-        )
+        return Artifact(storepath, run=run, revises=revises, **artifact_kwargs)
