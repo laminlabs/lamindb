@@ -101,10 +101,10 @@ def init_uid(
 ) -> str:
     if revises is not None:
         suid = revises.stem_uid
-        ruid = increment_base62(revises.uid[-4:])
+        vuid = increment_base62(revises.uid[-4:])
     else:
         suid = ids.base62(n_full_id - 4)
-        ruid = "0000"
+        vuid = "0000"
     if version is not None:
         if not isinstance(version, str):
             raise ValueError(
@@ -116,7 +116,7 @@ def init_uid(
                 raise ValueError(
                     f"Please increment the previous version: '{revises.version}'"
                 )
-    return suid + ruid
+    return suid + vuid
 
 
 def get_uid_from_old_version(

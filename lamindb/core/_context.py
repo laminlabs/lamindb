@@ -87,9 +87,9 @@ def raise_missing_context(transform_type: str, key: str) -> None:
         message = f"To track this {transform_type}, set\n\n"
     else:
         uid = transform.uid
-        suid, ruid = uid[: Transform._len_stem_uid], uid[Transform._len_stem_uid :]
-        new_ruid = increment_base62(ruid)
-        new_uid = f"{suid}{new_ruid}"
+        suid, vuid = uid[: Transform._len_stem_uid], uid[Transform._len_stem_uid :]
+        new_vuid = increment_base62(vuid)
+        new_uid = f"{suid}{new_vuid}"
         message = f"You already have a {transform_type} version family with key '{key}', suid '{transform.stem_uid}' & name '{transform.name}'.\n\n- to create a new {transform_type} version family, rename your file and rerun: ln.context.track()\n- to bump the version, set: "
     message += f'ln.context.uid = "{new_uid}"'
     if transform_type == "notebook":
@@ -224,7 +224,7 @@ class Context:
                             f"Please pass consistent version: ln.context.version = '{transform.version}'"
                         )
                     # test whether version was already used for another member of the family
-                    suid, ruid = (
+                    suid, vuid = (
                         self.uid[: Transform._len_stem_uid],
                         self.uid[Transform._len_stem_uid :],
                     )
@@ -233,7 +233,7 @@ class Context:
                     ).one_or_none()
                     if (
                         transform is not None
-                        and ruid != transform.uid[Transform._len_stem_uid :]
+                        and vuid != transform.uid[Transform._len_stem_uid :]
                     ):
                         better_version = bump_version_function(self.version)
                         raise SystemExit(
@@ -465,14 +465,14 @@ class Context:
                         if is_run_from_ipython
                         else "Source code changed"
                     )
-                    suid, ruid = (
+                    suid, vuid = (
                         uid[: Transform._len_stem_uid],
                         uid[Transform._len_stem_uid :],
                     )
-                    new_ruid = increment_base62(ruid)
+                    new_vuid = increment_base62(vuid)
                     raise UpdateContext(
                         f"{change_type}, bump version by setting:\n\n"
-                        f'ln.context.uid = "{suid}{new_ruid}"'
+                        f'ln.context.uid = "{suid}{new_vuid}"'
                     )
             else:
                 self._logging_message += f"loaded Transform('{transform.uid}')"
