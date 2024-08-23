@@ -199,7 +199,7 @@ def get_stat_or_artifact(
 ) -> tuple[int, str | None, str | None, int | None, Artifact | None] | Artifact:
     n_objects = None
     if settings.creation.artifact_skip_size_hash:
-        return None, None, None, n_objects
+        return None, None, None, n_objects, None
     stat = path.stat()  # one network request
     if not isinstance(path, LocalPathClasses):
         size, hash, hash_type = None, None, None
@@ -221,10 +221,10 @@ def get_stat_or_artifact(
             size = stat.st_size
     if not check_hash:
         return size, hash, hash_type, n_objects, None
+    previous_artifact_version = None
     if key is None:
         result = Artifact.objects.using(instance).filter(hash=hash).all()
         artifact_with_same_hash_exists = len(result) > 0
-        previous_artifact_version = None
     else:
         storage_id = settings.storage.id
         result = (
