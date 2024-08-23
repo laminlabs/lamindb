@@ -569,7 +569,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
         provisional_uid = init_uid(version=version, n_full_id=20)
     else:
         if not isinstance(revises, Artifact):
-            raise TypeError("revises has to be of type ln.Artifact")
+            raise TypeError("`revises` has to be of type `Artifact`")
         provisional_uid, version = get_uid_from_old_version(revises, version, using_key)
         if description is None:
             description = revises.description

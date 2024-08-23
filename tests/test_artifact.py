@@ -37,7 +37,6 @@ from lamindb_setup.core.upath import (
     CloudPath,
     LocalPathClasses,
     UPath,
-    extract_suffix_from_path,
 )
 
 # how do we properly abstract out the default storage variable?
@@ -134,7 +133,25 @@ def test_data_is_anndata_paths():
     assert not data_is_anndata("s3://somewhere/something.zarr")
 
 
-def test_revises_versioned_file(df, adata):
+def test_basic_validation():
+    # extra kwargs
+    with pytest.raises(ValueError):
+        ln.Artifact("testpath.csv", description="test1b", extra_kwarg="extra")
+
+    # > 1 args
+    with pytest.raises(ValueError) as error:
+        ln.Artifact("testpath.csv", "testpath.csv")
+    assert error.exconly() == "ValueError: Only one non-keyword arg allowed: data"
+
+
+# comment out for now
+# AUTO_KEY_PREFIX
+#    with pytest.raises(ValueError) as error:
+#        ln.Artifact.from_df(df, key=".lamindb/test_df.parquet")
+#    assert error.exconly() == "ValueError: Key cannot start with .lamindb/"
+
+
+def test_revise_file(df, adata):
     # attempt to create a file with an invalid version
     with pytest.raises(ValueError) as error:
         artifact = ln.Artifact.from_df(df, description="test", version=0)
@@ -153,53 +170,36 @@ def test_revises_versioned_file(df, adata):
     assert artifact.path.exists()
 
     with pytest.raises(ValueError) as error:
-        artifact_v2 = ln.Artifact.from_anndata(adata, revises=artifact, version="1")
+        artifact_r2 = ln.Artifact.from_anndata(adata, revises=artifact, version="1")
     assert error.exconly() == "ValueError: Please increment the previous version: '1'"
 
     # create new file from old file
-    artifact_v2 = ln.Artifact.from_anndata(adata, revises=artifact)
+    artifact_r2 = ln.Artifact.from_anndata(adata, revises=artifact)
     assert artifact.version == "1"
-    assert artifact_v2.stem_uid == artifact.stem_uid
-    assert artifact_v2.version == "2"
-    assert artifact_v2.key is None
-    assert artifact_v2.description == "test"
+    assert artifact_r2.stem_uid == artifact.stem_uid
+    assert artifact_r2.version is None
+    assert artifact_r2.key is None
+    assert artifact_r2.description == "test"
 
-    artifact_v2.save()
-    assert artifact_v2.path.exists()
+    artifact_r2.save()
+    assert artifact_r2.path.exists()
 
     # create new file from newly versioned file
-    df.iloc[0, 0] = 0
-    file_v3 = ln.Artifact.from_df(df, description="test1", revises=artifact_v2)
-    assert file_v3.stem_uid == artifact.stem_uid
-    assert file_v3.version == "3"
-    assert file_v3.description == "test1"
+    df.iloc[0, 0] = 0  # mutate dataframe so that hash lookup doesn't trigger
+    file_r3 = ln.Artifact.from_df(
+        df, description="test1", revises=artifact_r2, version="2"
+    )
+    assert file_r3.stem_uid == artifact.stem_uid
+    assert file_r3.version == "2"
+    assert file_r3.description == "test1"
 
     with pytest.raises(TypeError) as error:
         ln.Artifact.from_df(df, description="test1a", revises=ln.Transform())
-    assert error.exconly() == "TypeError: revises has to be of type ln.Artifact"
+    assert error.exconly() == "TypeError: `revises` has to be of type `Artifact`"
 
-    # test that reference file cannot be deleted
-    artifact_v2.delete(permanent=True, storage=True)
+    artifact_r2.delete(permanent=True, storage=True)
     artifact.delete(permanent=True, storage=True)
 
-    # extra kwargs
-    with pytest.raises(ValueError):
-        ln.Artifact.from_df(df, description="test1b", extra_kwarg="extra")
-
-    # > 1 args
-    with pytest.raises(ValueError) as error:
-        ln.Artifact(df, df)
-    assert error.exconly() == "ValueError: Only one non-keyword arg allowed: data"
-
-
-# comment out for now
-# AUTO_KEY_PREFIX
-#    with pytest.raises(ValueError) as error:
-#        ln.Artifact.from_df(df, key=".lamindb/test_df.parquet")
-#    assert error.exconly() == "ValueError: Key cannot start with .lamindb/"
-
-
-def test_revises_unversioned_file(df, adata):
     # unversioned file
     artifact = ln.Artifact.from_df(df, description="test2")
     assert artifact.version is None
@@ -210,9 +210,9 @@ def test_revises_unversioned_file(df, adata):
 
     # create new file from old file
     new_artifact = ln.Artifact.from_anndata(adata, revises=artifact)
-    assert artifact.version == "1"
+    assert artifact.version is None
     assert new_artifact.stem_uid == artifact.stem_uid
-    assert new_artifact.version == "2"
+    assert new_artifact.version is None
     assert new_artifact.description == artifact.description
 
     artifact.delete(permanent=True, storage=True)

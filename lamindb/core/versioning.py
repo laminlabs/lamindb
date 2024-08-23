@@ -78,8 +78,6 @@ def set_version(version: str | None = None, previous_version: str | None = None)
         version: Version string.
         previous_version: Previous version string.
     """
-    if version == previous_version:
-        raise ValueError(f"Please increment the previous version: '{previous_version}'")
     if version is None and previous_version is not None:
         version = bump_version(previous_version, bump_type="major")
     return version
@@ -92,16 +90,23 @@ def init_uid(
     revises: IsVersioned | None = None,
 ) -> str:
     if revises is not None:
-        stem_uid = revises.stem_uid
+        suid = revises.stem_uid
+        ruid = increment_base62(revises.uid[-4:])
     else:
-        stem_uid = ids.base62(n_full_id - 4)
+        suid = ids.base62(n_full_id - 4)
+        ruid = "0000"
     if version is not None:
         if not isinstance(version, str):
             raise ValueError(
                 "`version` parameter must be `None` or `str`, e.g., '0.1', '1', '2',"
                 " etc."
             )
-    return stem_uid + ids.base62_4()
+        if revises is not None:
+            if version == revises.version:
+                raise ValueError(
+                    f"Please increment the previous version: '{revises.version}'"
+                )
+    return suid + ruid
 
 
 def get_uid_from_old_version(
@@ -110,24 +115,11 @@ def get_uid_from_old_version(
     using_key: str | None = None,
 ) -> tuple[str, str]:
     """{}"""  # noqa: D415
-    msg = ""
-    if revises.version is None:
-        previous_version = "1"
-        msg = f"setting previous version to '{previous_version}'"
-    else:
-        previous_version = revises.version
-    version = set_version(version, previous_version)
     new_uid = init_uid(
         version=version,
         n_full_id=revises._len_full_uid,
         revises=revises,
     )
-    # the following covers the edge case where the old file was unversioned
-    if revises.version is None:
-        revises.version = previous_version
-        revises.save(using=using_key)
-        if msg != "":
-            msg += f"& new version to '{version}'"
     return new_uid, version
 
 
