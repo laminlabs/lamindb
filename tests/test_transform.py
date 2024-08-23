@@ -42,6 +42,16 @@ def test_revises_versioned_transform():
     transform_r3 = ln.Transform(revises=transform_r2)
     assert transform_r3.name == transform_r2.name
 
+    # revise by matching on `key`
+    key = "my-notebook.ipynb"
+    transform_r2.key = key
+    transform_r2.save()
+    transform_r3 = ln.Transform(name="My transform", key=key, version="2")
+    assert transform_r3.uid.endswith("0002")
+    assert transform_r3.stem_uid == transform_r2.stem_uid
+    assert transform_r3.key == key
+    assert transform_r3.version == "2"
+
     # wrong transform type
     with pytest.raises(TypeError) as error:
         ln.Transform(revises=ln.ULabel(name="x"))

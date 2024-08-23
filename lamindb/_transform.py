@@ -7,7 +7,7 @@ from lnschema_core.models import Run, Transform
 
 from ._parents import _view_parents
 from ._run import delete_run_artifacts
-from .core.versioning import process_revises
+from .core.versioning import message_update_key_in_version_family, process_revises
 
 if TYPE_CHECKING:
     from lnschema_core.types import TransformType
@@ -33,8 +33,21 @@ def __init__(transform: Transform, *args, **kwargs):
             "Only name, key, version, type, revises, reference, "
             f"reference_type can be passed, but you passed: {kwargs}"
         )
+    # Transform allows passing a uid, all others don't
+    if uid is None and key is not None:
+        revises = Transform.filter(key=key).order_by("-created_at").first()
+    if revises is not None and key is not None and revises.key != key:
+        note = message_update_key_in_version_family(
+            suid=revises.stem_uid,
+            existing_key=revises.key,
+            new_key=key,
+            registry="Artifact",
+        )
+        raise ValueError(
+            f"`key` is {key}, but `revises.key` is '{revises.key}'\n\n Either do *not* pass `key`.\n\n{note}"
+        )
     new_uid, version, name = process_revises(revises, version, name, Transform)
-    # this is only because the user-facing constructor allows passing an id
+    # this is only because the user-facing constructor allows passing a uid
     # most others don't
     if uid is None:
         has_consciously_provided_uid = False

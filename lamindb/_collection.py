@@ -26,7 +26,7 @@ from lamindb._artifact import update_attributes
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._data import _track_run_input
 from lamindb.core._mapped_collection import MappedCollection
-from lamindb.core.versioning import get_uid_from_old_version, init_uid
+from lamindb.core.versioning import get_uid_from_old_version, init_uid, process_revises
 
 from . import Artifact, Run
 from ._record import init_self_from_db
@@ -85,14 +85,7 @@ def __init__(
         raise ValueError(
             f"Only artifacts, name, run, description, reference, reference_type, visibility can be passed, you passed: {kwargs}"
         )
-    if revises is None:
-        provisional_uid = init_uid(version=version, n_full_id=20)
-    else:
-        if not isinstance(revises, Collection):
-            raise TypeError("`revises` has to be of type `Collection`")
-        provisional_uid, version = get_uid_from_old_version(revises, version)
-        if name is None:
-            name = revises.name
+    provisional_uid, version, name = process_revises(revises, version, name, Collection)
     run = get_run(run)
     if isinstance(artifacts, Artifact):
         artifacts = [artifacts]

@@ -565,20 +565,16 @@ def __init__(artifact: Artifact, *args, **kwargs):
             "Only data, key, run, description, version, revises, visibility"
             f" can be passed, you passed: {kwargs}"
         )
-    if revises is not None:
-        if key is not None:
-            if revises.key != key:
-                note = message_update_key_in_version_family(
-                    suid=revises.stem_uid,
-                    existing_key=revises.key,
-                    new_key=key,
-                    registry="Artifact",
-                )
-                raise ValueError(
-                    f"`key` is {key}, but `revises.key` is '{revises.key}'\n\n Either do *not* pass `key`.\n\n{note}"
-                )
-        else:
-            key = revises.key
+    if revises is not None and key is not None and revises.key != key:
+        note = message_update_key_in_version_family(
+            suid=revises.stem_uid,
+            existing_key=revises.key,
+            new_key=key,
+            registry="Artifact",
+        )
+        raise ValueError(
+            f"`key` is {key}, but `revises.key` is '{revises.key}'\n\n Either do *not* pass `key`.\n\n{note}"
+        )
 
     if revises is None:
         provisional_uid = init_uid(version=version, n_full_id=20)
@@ -615,6 +611,9 @@ def __init__(artifact: Artifact, *args, **kwargs):
     else:
         kwargs = kwargs_or_artifact
 
+    # only set key now so that we don't do a look-up on it in case revises is passed
+    if revises is not None:
+        kwargs["key"] = revises.key
     # in case we have a new version of a folder with a different hash, print a
     # warning that the old version can't be recovered
     if revises is not None and revises.n_objects is not None and revises.n_objects > 1:
