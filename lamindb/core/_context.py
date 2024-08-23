@@ -26,7 +26,7 @@ from .exceptions import (
 )
 from .subsettings._transform_settings import transform_settings
 from .versioning import bump_version as bump_version_function
-from .versioning import increment_base62
+from .versioning import increment_base62, message_update_key_in_version_family
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
@@ -432,7 +432,12 @@ class Context:
                 suid = transform.stem_uid
                 new_suid = ids.base62_12()
                 transform_type = "Notebook" if is_run_from_ipython else "Script"
-                note = f'Or update key "{transform.key}" in your existing family:\n\nln.Transform.filter(uid__startswith="{suid}").update(key="{key}")'
+                note = message_update_key_in_version_family(
+                    suid=suid,
+                    existing_key=transform.key,
+                    new_key=key,
+                    registry="Transform",
+                )
                 raise UpdateContext(
                     f"{transform_type} filename changed.\n\nEither init a new transform family by setting:\n\n"
                     f'ln.context.uid = "{new_suid}0000"\n\n{note}'

@@ -12,7 +12,7 @@ from lamin_utils._lookup import Lookup
 from lamindb_setup._connect_instance import get_owner_name_from_identifier
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._hub_core import connect_instance
-from lnschema_core.models import IsVersioned, Record
+from lnschema_core.models import Collection, IsVersioned, Record
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings

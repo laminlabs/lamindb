@@ -329,74 +329,53 @@ def test_collection_mapped(adata, adata2):
     artifact3.delete(permanent=True)
 
 
-def test_revises_versioned_collection(df, adata):
+def test_revise_collection(df, adata):
     # create a versioned collection
     artifact = ln.Artifact.from_df(df, description="test")
     artifact.save()
     collection = ln.Collection(artifact, name="test", version="1")
     assert collection.version == "1"
+    assert collection.uid.endswith("0000")
     collection.save()
 
     artifact = ln.Artifact.from_anndata(adata, description="test")
     artifact.save()
 
     with pytest.raises(ValueError) as error:
-        collection_v2 = ln.Collection(artifact, revises=collection, version="1")
+        collection_r2 = ln.Collection(artifact, revises=collection, version="1")
     assert error.exconly() == "ValueError: Please increment the previous version: '1'"
 
-    # create new collection from old collection
-    collection_v2 = ln.Collection(artifact, revises=collection)
-    assert collection.version == "1"
-    assert collection_v2.stem_uid == collection.stem_uid
-    assert collection_v2.version == "2"
-    assert collection_v2.name == "test"
+    with pytest.raises(TypeError):
+        ln.Collection(adata, revises="wrong-type")
 
-    collection_v2.save()
+    # create new collection from old collection
+    collection_r2 = ln.Collection(artifact, revises=collection)
+    assert collection.version == "1"
+    assert collection_r2.stem_uid == collection.stem_uid
+    assert collection_r2.version is None
+    assert collection_r2.uid.endswith("0001")
+    assert collection_r2.name == "test"
+
+    collection_r2.save()
 
     # create new collection from newly versioned collection
     df.iloc[0, 0] = 0
     artifact = ln.Artifact.from_df(df, description="test")
     artifact.save()
-    collection_v3 = ln.Collection(artifact, name="test1", revises=collection_v2)
-    assert collection_v3.stem_uid == collection.stem_uid
-    assert collection_v3.version == "3"
-    assert collection_v3.name == "test1"
+    collection_r3 = ln.Collection(
+        artifact, name="test1", revises=collection_r2, version="2"
+    )
+    assert collection_r3.stem_uid == collection.stem_uid
+    assert collection_r3.version == "2"
+    assert collection_r3.uid.endswith("0002")
+    assert collection_r3.name == "test1"
 
-    artifacts_v2 = collection_v2.artifacts.all()
-    collection_v2.delete(permanent=True)
-    artifacts_v2.delete(permanent=True)
+    artifacts_r2 = collection_r2.artifacts.all()
+    collection_r2.delete(permanent=True)
+    artifacts_r2.delete(permanent=True)
     artifacts = collection.artifacts.all()
     collection.delete(permanent=True)
     artifacts.delete(permanent=True)
-
-
-def test_revises_unversioned_collection(df, adata):
-    # unversioned collection
-    artifact = ln.Artifact.from_df(df, description="test")
-    artifact.save()
-    collection = ln.Collection(artifact, name="test2")
-    assert collection.version is None
-
-    # what happens if we don't save the old collection?
-    # add a test for it!
-    collection.save()
-
-    with pytest.raises(TypeError):
-        ln.Collection(adata, revises="wrong-type")
-
-    artifact2 = ln.Artifact.from_anndata(adata, description="test")
-    artifact2.save()
-
-    # create new collection from old collection
-    new_collection = ln.Collection(artifact2, revises=collection)
-    assert collection.version == "1"
-    assert new_collection.stem_uid == collection.stem_uid
-    assert new_collection.version == "2"
-    assert new_collection.name == collection.name
-
-    collection.delete(permanent=True)
-    artifact2.delete(permanent=True)
-    artifact.delete(permanent=True)
 
 
 def test_with_metadata(df, adata):

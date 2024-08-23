@@ -151,7 +151,7 @@ def test_basic_validation():
 #    assert error.exconly() == "ValueError: Key cannot start with .lamindb/"
 
 
-def test_revise_file(df, adata):
+def test_revise_artifact(df, adata):
     # attempt to create a file with an invalid version
     with pytest.raises(ValueError) as error:
         artifact = ln.Artifact.from_df(df, description="test", version=0)
@@ -161,9 +161,10 @@ def test_revise_file(df, adata):
         " '2', etc."
     )
 
-    # create a versioned file
+    # create a file and tag it with a version
     artifact = ln.Artifact.from_df(df, description="test", version="1")
     assert artifact.version == "1"
+    assert artifact.uid.endswith("0000")
 
     assert artifact.path.exists()  # because of cache file already exists
     artifact.save()
@@ -175,7 +176,7 @@ def test_revise_file(df, adata):
 
     # create new file from old file
     artifact_r2 = ln.Artifact.from_anndata(adata, revises=artifact)
-    assert artifact.version == "1"
+    assert artifact_r2.uid.endswith("0001")
     assert artifact_r2.stem_uid == artifact.stem_uid
     assert artifact_r2.version is None
     assert artifact_r2.key is None
@@ -186,12 +187,13 @@ def test_revise_file(df, adata):
 
     # create new file from newly versioned file
     df.iloc[0, 0] = 0  # mutate dataframe so that hash lookup doesn't trigger
-    file_r3 = ln.Artifact.from_df(
+    artifact_r3 = ln.Artifact.from_df(
         df, description="test1", revises=artifact_r2, version="2"
     )
-    assert file_r3.stem_uid == artifact.stem_uid
-    assert file_r3.version == "2"
-    assert file_r3.description == "test1"
+    assert artifact_r3.uid.endswith("0002")
+    assert artifact_r3.stem_uid == artifact.stem_uid
+    assert artifact_r3.version == "2"
+    assert artifact_r3.description == "test1"
 
     with pytest.raises(TypeError) as error:
         ln.Artifact.from_df(df, description="test1a", revises=ln.Transform())

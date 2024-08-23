@@ -11,7 +11,6 @@ from typing import (
 import anndata as ad
 import lamindb_setup as ln_setup
 import pandas as pd
-from anndata import AnnData
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import hash_set
@@ -37,10 +36,10 @@ from .core._data import (
     save_feature_set_links,
     save_feature_sets,
 )
+from .core._settings import settings
 
 if TYPE_CHECKING:
     from lamindb.core.storage import UPath
-    from lamindb.core.storage._backed_access import AnnDataAccessor, BackedAccessor
 
     from ._query_set import QuerySet
 
@@ -90,7 +89,7 @@ def __init__(
         provisional_uid = init_uid(version=version, n_full_id=20)
     else:
         if not isinstance(revises, Collection):
-            raise TypeError("revises has to be of type ln.Collection")
+            raise TypeError("`revises` has to be of type `Collection`")
         provisional_uid, version = get_uid_from_old_version(revises, version)
         if name is None:
             name = revises.name
@@ -145,6 +144,9 @@ def __init__(
     else:
         kwargs = {}
         add_transform_to_kwargs(kwargs, run)
+        search_names_setting = settings.creation.search_names
+        if revises is not None and name == revises.name:
+            settings.creation.search_names = False
         super(Collection, collection).__init__(
             uid=provisional_uid,
             name=name,
@@ -159,6 +161,7 @@ def __init__(
             revises=revises,
             **kwargs,
         )
+        settings.creation.search_names = search_names_setting
     collection._artifacts = artifacts
     collection._feature_sets = feature_sets
     # register provenance

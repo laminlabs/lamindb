@@ -11,6 +11,16 @@ if TYPE_CHECKING:
     from lnschema_core.models import IsVersioned
 
 
+def message_update_key_in_version_family(
+    *,
+    suid: str,
+    existing_key: str,
+    registry: str,
+    new_key: str,
+) -> str:
+    return f'Or update key "{existing_key}" in your existing family:\n\nln.{registry}.filter(uid__startswith="{suid}").update(key="{new_key}")'
+
+
 def increment_base62(s: str) -> str:
     # we don't need to throw an error for zzzz because uids are enforced to be unique
     # on the db level and have an enforced maximum length
@@ -112,7 +122,6 @@ def init_uid(
 def get_uid_from_old_version(
     revises: IsVersioned,
     version: str | None = None,
-    using_key: str | None = None,
 ) -> tuple[str, str]:
     """{}"""  # noqa: D415
     new_uid = init_uid(

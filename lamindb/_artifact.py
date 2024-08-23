@@ -45,7 +45,11 @@ from lamindb.core.storage.paths import (
     check_path_is_child_of_root,
     filepath_from_artifact,
 )
-from lamindb.core.versioning import get_uid_from_old_version, init_uid
+from lamindb.core.versioning import (
+    get_uid_from_old_version,
+    init_uid,
+    message_update_key_in_version_family,
+)
 
 from .core._data import (
     add_transform_to_kwargs,
@@ -339,7 +343,7 @@ def get_artifact_kwargs_from_data(
 
     if previous_artifact_version is not None:  # update provisional_uid
         provisional_uid, version = get_uid_from_old_version(
-            previous_artifact_version, version, using_key
+            previous_artifact_version, version
         )
         if path.as_posix().startswith(settings._storage_settings.cache_dir.as_posix()):
             path = path.rename(f"{provisional_uid}{suffix}")
@@ -559,18 +563,27 @@ def __init__(artifact: Artifact, *args, **kwargs):
             "Only data, key, run, description, version, revises, visibility"
             f" can be passed, you passed: {kwargs}"
         )
-    if revises is not None and key is not None:
-        if revises.key != key:
-            raise ValueError(
-                f"`key` needs to be consistent, but `revises.key`: '{revises.key}' != `key`: '{key}'\nHint: Either pass `key` or `revises`"
-            )
+    if revises is not None:
+        if key is not None:
+            if revises.key != key:
+                note = message_update_key_in_version_family(
+                    suid=revises.stem_uid,
+                    existing_key=revises.key,
+                    new_key=key,
+                    registry="Artifact",
+                )
+                raise ValueError(
+                    f"`key` is {key}, but `revises.key` is '{revises.key}'\n\n Either do *not* pass `key`.\n\n{note}"
+                )
+        else:
+            key = revises.key
 
     if revises is None:
         provisional_uid = init_uid(version=version, n_full_id=20)
     else:
         if not isinstance(revises, Artifact):
             raise TypeError("`revises` has to be of type `Artifact`")
-        provisional_uid, version = get_uid_from_old_version(revises, version, using_key)
+        provisional_uid, version = get_uid_from_old_version(revises, version)
         if description is None:
             description = revises.description
     kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
