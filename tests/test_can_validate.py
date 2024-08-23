@@ -56,14 +56,14 @@ def test_add_remove_synonym():
         source.add_synonym("syn")
 
     # a registry that doesn't have a synonyms column
-    user = ln.User.filter(handle="testuser1").one()
+    user = ln.User.get(handle="testuser1")
     with pytest.raises(NotImplementedError):
         user.add_synonym("syn")
 
     cell_types = bt.CellType.from_values(["T cell", "B cell"], "name")
     ln.save(cell_types)
-    tcell = bt.CellType.filter(name="T cell").one()
-    bcell = bt.CellType.filter(name="B cell").one()
+    tcell = bt.CellType.get(name="T cell")
+    bcell = bt.CellType.get(name="B cell")
     tcell.add_synonym(["my cell type"])
     tcell.add_synonym("")
     tcell.add_synonym([])
@@ -97,7 +97,7 @@ def test_add_remove_synonym():
 def test_set_abbr():
     bt.CellType.filter().all().delete()
     bt.CellType(name="my cell type").save()
-    record = bt.CellType.filter(name="my cell type").one()
+    record = bt.CellType.get(name="my cell type")
     # if abbr is name, do not add to synonyms
     record.set_abbr("my cell type")
     assert record.abbr == "my cell type"

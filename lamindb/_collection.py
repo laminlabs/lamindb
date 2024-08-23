@@ -192,7 +192,7 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
     feature_sets_union = {}
     logger.debug("union")
     for slot, feature_set_ids_slot in feature_sets_by_slots.items():
-        feature_set_1 = FeatureSet.filter(id=feature_set_ids_slot[0]).one()
+        feature_set_1 = FeatureSet.get(id=feature_set_ids_slot[0])
         related_name = feature_set_1._get_related_name()
         features_registry = getattr(FeatureSet, related_name).field.model
         start_time = logger.debug("run filter")

@@ -48,8 +48,7 @@ def save(records: Iterable[Record], ignore_conflicts: bool | None = False) -> No
 
     Examples:
 
-        Save a collection of records in one transaction, which is much faster
-        than writing a loop over ``projects.save()``:
+        Save a list of records:
 
         >>> labels = [ln.ULabel(f"Label {i}") for i in range(10)]
         >>> ln.save(projects)
@@ -61,7 +60,7 @@ def save(records: Iterable[Record], ignore_conflicts: bool | None = False) -> No
 
         Update a single existing record:
 
-        >>> transform = ln.filter(ln.Transform, uid="0Cb86EZj").one()
+        >>> transform = ln.Transform.get("0Cb86EZj")
         >>> transform.name = "New name"
         >>> transform.save()
 

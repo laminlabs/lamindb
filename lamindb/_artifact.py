@@ -255,7 +255,7 @@ def get_stat_or_artifact(
 
 
 def check_path_in_existing_storage(
-    path: Path | UPath, using_key: str | None
+    path: Path | UPath, using_key: str | None = None
 ) -> Storage | bool:
     for storage in Storage.objects.using(using_key).filter().all():
         # if path is part of storage, return it

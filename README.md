@@ -4,4 +4,4 @@
 
 # LaminDB - A data framework for biology
 
-Read the [docs](https://lamin.ai/docs).
+Read the [docs](https://docs.lamin.ai).

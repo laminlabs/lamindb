@@ -13,7 +13,7 @@ def test_bulk_save_and_update():
     # test bulk update of existing records
     ln.save(labels)
     assert len(ln.ULabel.filter(name__in=label_names).distinct().all()) == 2
-    assert ln.ULabel.filter(name="ULabel 0 updated").one()
+    assert ln.ULabel.get(name="ULabel 0 updated")
 
 
 def test_prepare_error_message():

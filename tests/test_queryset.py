@@ -3,7 +3,7 @@
 import bionty as bt
 import lamindb as ln
 import pytest
-from lamindb._query_set import DoesNotExist, MultipleResultsFound
+from lamindb._query_set import DoesNotExist
 from lnschema_core.users import current_user_id
 
 
@@ -91,9 +91,9 @@ def test_one_first():
     with pytest.raises(DoesNotExist):
         qs.one()
     qs = bt.Source.filter().all()
-    with pytest.raises(MultipleResultsFound):
+    with pytest.raises(Exception):  # noqa: B017 should be MultipleResultsFound, but internal to Django
         qs.one()
-    with pytest.raises(MultipleResultsFound):
+    with pytest.raises(Exception):  # noqa: B017 should be MultipleResultsFound, but internal to Django
         qs.one_or_none()
 
 

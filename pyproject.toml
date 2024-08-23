@@ -18,7 +18,7 @@ dependencies = [
     # Lamin PINNED packages
     "lnschema_core==0.73.1",
     "lamindb_setup==0.76.5",
-    "lamin_utils==0.13.2",
+    "lamin_utils==0.13.4",
     "lamin_cli==0.16.2",
     # others
     "rapidfuzz",
@@ -38,7 +38,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "bionty==0.48.2",
+    "bionty==0.48.3",
 ]
 aws = [
     "lamindb_setup[aws]",

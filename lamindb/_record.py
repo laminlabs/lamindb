@@ -96,7 +96,7 @@ def __init__(record: Record, *args, **kwargs):
                     ).one_or_none()
                 else:
                     version_comment = ""
-                    existing_record = record.__class__.filter(name=kwargs["name"]).one()
+                    existing_record = record.__class__.get(name=kwargs["name"])
                 if existing_record is not None:
                     logger.important(
                         f"returning existing {record.__class__.__name__} record with same"
@@ -129,23 +129,11 @@ def get(
     **expressions,
 ) -> Record:
     """{}"""  # noqa: D415
-    from lamindb._filter import filter
+    # this is the only place in which we need the lamindb queryset
+    # in this file; everywhere else it should be Django's
+    from lamindb._query_set import QuerySet
 
-    if isinstance(idlike, int):
-        return filter(cls, id=idlike).one()
-    elif isinstance(idlike, str):
-        qs = filter(cls, uid__startswith=idlike)
-        if issubclass(cls, IsVersioned):
-            if len(idlike) <= cls._len_stem_uid:
-                return qs.latest_version().one()
-            else:
-                return qs.one()
-        else:
-            return qs.one()
-    else:
-        assert idlike is None  # noqa: S101
-        # below behaves exactly like `.one()`
-        return cls.objects.get(**expressions)
+    return QuerySet(model=cls).get(idlike, **expressions)
 
 
 @classmethod  # type:ignore
