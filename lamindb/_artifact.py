@@ -212,7 +212,7 @@ def get_stat_or_artifact(
                 size, hash, hash_type, n_objects = get_stat_dir_cloud(path)
         if hash is None:
             logger.warning(f"did not add hash for {path}")
-            return size, hash, hash_type, n_objects
+            return size, hash, hash_type, n_objects, None
     else:
         if path.is_dir():
             size, hash, hash_type, n_objects = hash_dir(path)
@@ -220,7 +220,7 @@ def get_stat_or_artifact(
             hash, hash_type = hash_file(path)
             size = stat.st_size
     if not check_hash:
-        return size, hash, hash_type, n_objects
+        return size, hash, hash_type, n_objects, None
     if key is None:
         result = Artifact.objects.using(instance).filter(hash=hash).all()
         artifact_with_same_hash_exists = len(result) > 0
@@ -249,7 +249,7 @@ def get_stat_or_artifact(
                 "creating new Artifact object despite existing artifact with same hash:"
                 f" {result[0]}"
             )
-            return size, hash, hash_type, n_objects
+            return size, hash, hash_type, n_objects, None
         else:
             if result[0].visibility == -1:
                 raise FileExistsError(
