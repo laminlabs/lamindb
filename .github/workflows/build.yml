@@ -37,14 +37,14 @@ jobs:
         with:
           python-version: "3.11"
       - name: cache pre-commit
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
       - name: cache postgres
         if: ${{ matrix.group == 'faq' || matrix.group == 'unit' }}
         id: cache-postgres
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/postgres.tar
           key: cache-postgres-0
@@ -64,7 +64,7 @@ jobs:
       - run: nox -s lint
         if: ${{ matrix.group == 'tutorial' }} # choose a fast-running a group
       - run: nox -s "install_ci(group='${{ matrix.group }}')"
-      - uses: aws-actions/configure-aws-credentials@v1
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -97,7 +97,7 @@ jobs:
           ssh-key: ${{ secrets.READ_LNDOCS }}
           path: lndocs
           ref: main
-      - uses: aws-actions/configure-aws-credentials@v1
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
