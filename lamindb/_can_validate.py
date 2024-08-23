@@ -405,7 +405,9 @@ def _standardize(
             logger.warning(warn_msg)
 
         mapper.update(std_names_bt_mapper)
-        result = pd.Series(std_names_db).replace(std_names_bt_mapper).tolist()
+        result = (
+            pd.Series(std_names_db).cat.rename_categories(std_names_bt_mapper).tolist()
+        )
         return _return(result=result, mapper=mapper)
 
     else:
