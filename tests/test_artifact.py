@@ -175,6 +175,11 @@ def test_revise_artifact(df, adata):
     assert error.exconly() == "ValueError: Please increment the previous version: '1'"
 
     # create new file from old file
+    artifact_r2 = ln.Artifact.from_anndata(
+        adata, is_new_version_of=artifact
+    )  # backward compat
+    assert artifact_r2.stem_uid == artifact.stem_uid
+    assert artifact_r2.uid.endswith("0001")
     artifact_r2 = ln.Artifact.from_anndata(adata, revises=artifact)
     assert artifact_r2.uid.endswith("0001")
     assert artifact_r2.stem_uid == artifact.stem_uid

@@ -112,7 +112,7 @@ def test_latest_version_and_get():
     assert not transform_v1.is_latest
     assert transform_v2.is_latest
     assert transform_v2.uid.endswith("0001")
-    # consciosuly *not* pass the latest version to revises but the previous
+    # consciously *not* pass the latest version to revises but the previous
     # it automatically retrieves the latest version
     transform_v3 = ln.Transform(name="Introduction", revises=transform_v1)
     transform_v3.save()
@@ -127,7 +127,7 @@ def test_latest_version_and_get():
     assert len(ln.Transform.filter(name="Introduction").all()) == 3
     assert len(ln.Transform.filter(name="Introduction").latest_version()) == 2
     transform_v4.delete()
-    with pytest.raises(Exception):  # # noqa: B017 should be MultipleResultsFound
+    with pytest.raises(Exception):  # noqa: B017 should be MultipleResultsFound
         ln.Transform.get(name="Introduction")
     assert (
         ln.Transform.filter(name="Introduction").latest_version().one() == transform_v3

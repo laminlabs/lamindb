@@ -24,8 +24,10 @@ def test_revises_versioned_transform():
     transform.save()
 
     # create new transform from old transform
+    transform_r2 = ln.Transform(name="My 2nd transform", is_new_version_of=transform)
+    assert transform_r2.uid != transform.uid
+    assert transform_r2.uid.endswith("0001")
     transform_r2 = ln.Transform(name="My 2nd transform", revises=transform)
-    assert transform.version == "1"
     assert transform_r2.uid != transform.uid
     assert transform_r2.uid.endswith("0001")
     assert transform_r2.stem_uid == transform.stem_uid

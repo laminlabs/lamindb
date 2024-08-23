@@ -81,6 +81,9 @@ def __init__(
     feature_sets: dict[str, FeatureSet] = (
         kwargs.pop("feature_sets") if "feature_sets" in kwargs else {}
     )
+    if "is_new_version_of" in kwargs:
+        logger.warning("`is_new_version_of` will be removed soon, please use `revises`")
+        revises = kwargs.pop("is_new_version_of")
     if not len(kwargs) == 0:
         raise ValueError(
             f"Only artifacts, name, run, description, reference, reference_type, visibility can be passed, you passed: {kwargs}"

@@ -557,6 +557,9 @@ def __init__(artifact: Artifact, *args, **kwargs):
     )
     accessor = kwargs.pop("_accessor") if "_accessor" in kwargs else None
     accessor = _check_accessor_artifact(data=data, accessor=accessor)
+    if "is_new_version_of" in kwargs:
+        logger.warning("`is_new_version_of` will be removed soon, please use `revises`")
+        revises = kwargs.pop("is_new_version_of")
     if not len(kwargs) == 0:
         raise ValueError(
             "Only data, key, run, description, version, revises, visibility"

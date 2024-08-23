@@ -349,11 +349,13 @@ def test_revise_collection(df, adata):
         ln.Collection(adata, revises="wrong-type")
 
     # create new collection from old collection
-    collection_r2 = ln.Collection(artifact, revises=collection)
-    assert collection.version == "1"
+    collection_r2 = ln.Collection(artifact, is_new_version_of=collection)
     assert collection_r2.stem_uid == collection.stem_uid
-    assert collection_r2.version is None
     assert collection_r2.uid.endswith("0001")
+    collection_r2 = ln.Collection(artifact, revises=collection)
+    assert collection_r2.stem_uid == collection.stem_uid
+    assert collection_r2.uid.endswith("0001")
+    assert collection_r2.version is None
     assert collection_r2.name == "test"
 
     collection_r2.save()

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import Run, Transform
 
@@ -26,6 +27,9 @@ def __init__(transform: Transform, *args, **kwargs):
     reference_type: str | None = (
         kwargs.pop("reference_type") if "reference_type" in kwargs else None
     )
+    if "is_new_version_of" in kwargs:
+        logger.warning("`is_new_version_of` will be removed soon, please use `revises`")
+        revises = kwargs.pop("is_new_version_of")
     # below is internal use that we'll hopefully be able to eliminate
     uid: str | None = kwargs.pop("uid") if "uid" in kwargs else None
     if not len(kwargs) == 0:
