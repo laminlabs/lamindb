@@ -94,7 +94,7 @@ def _prepare_adatas(
 def save_tiledbsoma(
     adatas: list[AnnData | UPathStr],
     measurement_name: str,
-    revises: Artifact | None,
+    revises: Artifact | None = None,
     run: Run | None = None,
     obs_id_name: str = "obs_id",
     var_id_name: str = "var_id",
