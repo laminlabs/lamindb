@@ -545,6 +545,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
     skip_check_exists = (
         kwargs.pop("skip_check_exists") if "skip_check_exists" in kwargs else False
     )
+    _uid = kwargs.pop("_uid", None)
     if "default_storage" in kwargs:
         default_storage = kwargs.pop("default_storage")
     else:

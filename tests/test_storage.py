@@ -9,7 +9,7 @@ import pytest
 import tiledbsoma
 import tiledbsoma.io
 import zarr
-from lamindb.core.storage import register_for_tiledbsoma_store, write_tiledbsoma_store
+from lamindb.core.storage import save_tiledbsoma
 from lamindb.core.storage._backed_access import (
     AnnDataAccessor,
     BackedAccessor,
@@ -244,25 +244,19 @@ def test_write_read_tiledbsoma(storage):
 
     # fails with a view
     with pytest.raises(ValueError):
-        write_tiledbsoma_store("test.tiledbsoma", adata[:2])
+        save_tiledbsoma([adata[:2]], measurement_name="RNA")
 
     transform = ln.Transform(name="test tiledbsoma store")
     transform.save()
     run = ln.Run(transform)
     run.save()
 
-    experiment_path = ln.settings.storage.root / "test.tiledbsoma"
-    if storage is not None and experiment_path.exists():
-        experiment_path.rmdir()
-
-    artifact_soma = write_tiledbsoma_store(
-        experiment_path,
-        test_file,
-        run,
-        artifact_kwargs={"description": "test tiledbsoma"},
+    artifact_soma = save_tiledbsoma(
+        [test_file],
         measurement_name="RNA",
+        run=run,
+        artifact_kwargs={"description": "test tiledbsoma"},
     )
-    artifact_soma.save()
 
     with artifact_soma.open() as store:  # mode="r" by default
         assert isinstance(store, tiledbsoma.Experiment)
@@ -299,44 +293,13 @@ def test_write_read_tiledbsoma(storage):
     adata_to_append_2.var["var_id"] = adata_to_append_2.var.index
     adata_to_append_2.write_h5ad("adata_to_append_2.h5ad")
 
-    mapping, adatas = register_for_tiledbsoma_store(
-        artifact_soma,
-        [adata_to_append_1, "adata_to_append_2.h5ad"],
+    artifact_soma_append = save_tiledbsoma(
+        [adata_to_append_1, adata_to_append_2],
         measurement_name="RNA",
-        obs_field_name="obs_id",
-        var_field_name="var_id",
-        append_obsm_varm=True,
+        revises=artifact_soma,
         run=run,
     )
-    for adata_append in adatas:
-        assert "lamin_run_uid" in adata_append.obs.columns
-
-    artifact_soma_append = write_tiledbsoma_store(
-        artifact_soma,
-        adatas[0],
-        run,
-        measurement_name="RNA",
-        registration_mapping=mapping,
-    )
-    artifact_soma_append.save()
     assert artifact_soma_append.uid.endswith("0002")
-
-    # append with path, should pull the artifact
-    artifact_soma_append = write_tiledbsoma_store(
-        artifact_soma_append.path,
-        adatas[1],
-        run,
-        measurement_name="RNA",
-        registration_mapping=mapping,
-    )
-    artifact_soma_append.save()
-    assert artifact_soma_append.uid.endswith("0003")
-
-    # try to append without registration mapping
-    with pytest.raises(ValueError):
-        write_tiledbsoma_store(
-            artifact_soma_append, adatas[1], run, measurement_name="RNA"
-        )
 
     # wrong mode, should be either r or w for tiledbsoma
     with pytest.raises(ValueError):
@@ -345,7 +308,9 @@ def test_write_read_tiledbsoma(storage):
     # run deprecated backed
     # and test running without the context manager
     store = artifact_soma_append.backed()
-    n_obs_final = adata.n_obs + sum(adt.n_obs for adt in adatas)
+    n_obs_final = adata.n_obs + sum(
+        adt.n_obs for adt in [adata_to_append_1, adata_to_append_2]
+    )
     assert len(store["obs"]) == n_obs_final
     store.close()
 
