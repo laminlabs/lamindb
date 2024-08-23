@@ -298,6 +298,7 @@ def test_write_read_tiledbsoma(storage):
         measurement_name="RNA",
         revises=artifact_soma,
         run=run,
+        append_obsm_varm=True,
     )
     assert artifact_soma_append.uid.endswith("0002")
 
