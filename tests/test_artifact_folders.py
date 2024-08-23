@@ -46,7 +46,7 @@ def test_folder_like_artifact(get_test_filepaths, key):
     # create a first file
     test_filepath_added = test_dirpath / "my_file_added.txt"
     test_filepath_added.write_text("2")
-    artifact3 = ln.Artifact(test_dirpath, key=key, is_new_version_of=artifact1)
+    artifact3 = ln.Artifact(test_dirpath, key=key, revises=artifact1)
     assert artifact3.n_objects == 4
     assert artifact3.hash != hash_test_dir
     assert artifact3._state.adding

@@ -105,13 +105,13 @@ def test_latest_version_and_get():
     assert transform_v1.is_latest
     assert transform_v1.version is None
     # pass the latest version, also vary the name for the fun of it
-    transform_v2 = ln.Transform(name="Introduction v2", is_new_version_of=transform_v1)
+    transform_v2 = ln.Transform(name="Introduction v2", revises=transform_v1)
     transform_v2.save()
     assert not transform_v1.is_latest
     assert transform_v2.is_latest
     assert transform_v2.version == "2"
-    # do not pass the latest version to is_new_version_of
-    transform_v3 = ln.Transform(name="Introduction", is_new_version_of=transform_v1)
+    # do not pass the latest version to revises
+    transform_v3 = ln.Transform(name="Introduction", revises=transform_v1)
     transform_v3.save()
     assert not ln.Transform.objects.get(name="Introduction v2", version="2").is_latest
     assert transform_v3.is_latest
