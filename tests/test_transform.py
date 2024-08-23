@@ -27,7 +27,7 @@ def test_revises_versioned_transform():
     transform_r2 = ln.Transform(name="My 2nd transform", revises=transform)
     assert transform.version == "1"
     assert transform_r2.uid != transform.uid
-    assert transform_r2.endswith("0001")
+    assert transform_r2.uid.endswith("0001")
     assert transform_r2.stem_uid == transform.stem_uid
     assert transform_r2.version is None
 
@@ -59,8 +59,6 @@ def test_revises_versioned_transform():
     transform_r2.delete()
     transform.delete()
 
-
-def test_revises_unversioned_transform():
     # unversioned transform
     transform = ln.Transform(name="My transform")
     assert transform.version is None
@@ -71,9 +69,10 @@ def test_revises_unversioned_transform():
 
     # create new transform from old transform
     new_transform = ln.Transform(name="My new transform", revises=transform)
-    assert transform.version == "1"
+    assert transform.version is None
     assert new_transform.stem_uid == transform.stem_uid
-    assert new_transform.version == "2"
+    assert new_transform.uid.endswith("0001")
+    assert new_transform.version is None
 
     transform.delete()
 
