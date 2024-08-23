@@ -235,7 +235,7 @@ def get_stat_or_artifact(
         )
         artifact_with_same_hash_exists = len(result.filter(hash=hash).all()) > 0
         if not artifact_with_same_hash_exists and len(result) > 0:
-            previous_artifact_version = result
+            previous_artifact_version = result[0]
     if artifact_with_same_hash_exists:
         if settings.creation.artifact_if_hash_exists == "error":
             msg = f"artifact with same hash exists: {result[0]}"
@@ -556,7 +556,10 @@ def __init__(artifact: Artifact, *args, **kwargs):
             f" can be passed, you passed: {kwargs}"
         )
     if revises is not None and key is not None:
-        raise ValueError("One of revises or key has to be None.")
+        if revises.key != key:
+            raise ValueError(
+                f"`key` needs to be consistent, but `revises.key`: '{revises.key}' != `key`: '{key}'\nHint: Either pass `key` or `revises`"
+            )
 
     if revises is None:
         provisional_uid = init_uid(version=version, n_full_id=20)
