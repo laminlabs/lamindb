@@ -190,9 +190,6 @@ def docs(session):
                 section = (
                     "```\n\n" + "#" * len(names) + " " + " ".join(("lamin", *names[1:]))
                 )
-                if names[1] == "register":
-                    # ignore deprecated 'register' command
-                    continue
 
             help_string = help_dict["help"].replace("Usage: main", "Usage: lamin")
             help_docstring = help_dict["docstring"]
