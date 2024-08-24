@@ -109,7 +109,8 @@ def save_tiledbsoma_experiment(
         raise ImportError("Please install tiledbsoma: pip install tiledbsoma") from e
 
     from lamindb.core._data import get_run
-    from lamindb.core.versioning import init_uid
+    from lamindb.core.storage.paths import auto_storage_key_from_artifact_uid
+    from lamindb.core.versioning import create_uid
 
     run = get_run(run)
 
@@ -122,8 +123,11 @@ def save_tiledbsoma_experiment(
         _uid = None
         storepath = revises.path
     else:
-        _uid = init_uid(n_full_id=20)
-        storepath = setup_settings.storage.root / f".lamindb/{_uid}.tiledbsoma"
+        _uid, _ = create_uid(n_full_id=20)
+        storage_key = auto_storage_key_from_artifact_uid(
+            _uid, ".tiledbsoma", is_dir=True
+        )
+        storepath = setup_settings.storage.root / storage_key
 
     if storepath.protocol == "s3":
         ctx = soma.SOMATileDBContext(tiledb_config=_tiledb_config_s3(storepath))
@@ -165,5 +169,5 @@ def save_tiledbsoma_experiment(
         )
 
     return Artifact(
-        storepath, run=run, is_new_version_of=revises, _uid=_uid, **artifact_kwargs
+        storepath, run=run, revises=revises, _uid=_uid, **artifact_kwargs
     ).save()

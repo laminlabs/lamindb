@@ -561,6 +561,9 @@ def __init__(artifact: Artifact, *args, **kwargs):
     if "is_new_version_of" in kwargs:
         logger.warning("`is_new_version_of` will be removed soon, please use `revises`")
         revises = kwargs.pop("is_new_version_of")
+    assert not (  # noqa: S101
+        revises is not None and _uid is not None
+    ), "Can not init with both `revises` and `_uid`"
     if not len(kwargs) == 0:
         raise ValueError(
             "Only data, key, run, description, version, revises, visibility"
@@ -576,8 +579,10 @@ def __init__(artifact: Artifact, *args, **kwargs):
         raise ValueError(
             f"`key` is {key}, but `revises.key` is '{revises.key}'\n\n Either do *not* pass `key`.\n\n{note}"
         )
-
-    provisional_uid, revises = create_uid(revises=revises, version=version)
+    if _uid is not None:
+        provisional_uid, revises = _uid, None
+    else:
+        provisional_uid, revises = create_uid(revises=revises, version=version)
     if revises is not None:
         if not isinstance(revises, Artifact):
             raise TypeError("`revises` has to be of type `Artifact`")
