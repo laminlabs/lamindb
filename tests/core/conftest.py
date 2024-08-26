@@ -1,6 +1,7 @@
 import shutil
 from pathlib import Path
 from subprocess import DEVNULL, run
+from time import perf_counter
 
 import lamindb as ln
 import lamindb_setup as ln_setup
@@ -12,6 +13,8 @@ AUTO_CONNECT = ln.setup.settings.auto_connect
 
 
 def pytest_sessionstart():
+    t_execute_start = perf_counter()
+
     ln_setup._TESTING = True
     pgurl = setup_local_test_postgres()
     ln.setup.init(
@@ -23,6 +26,11 @@ def pytest_sessionstart():
     ln.setup.register()  # temporarily
     ln.setup.settings.auto_connect = True
     ln.settings.creation.artifact_silence_missing_run_warning = True
+
+    total_time_elapsed = perf_counter() - t_execute_start
+    print(
+        f"Time to setup the instance: {total_time_elapsed:.3f}s",
+    )
 
 
 def pytest_sessionfinish(session: pytest.Session):
