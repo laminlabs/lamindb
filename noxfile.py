@@ -153,6 +153,8 @@ def build(session, group):
     coverage_args = "--cov=lamindb --cov-config=pyproject.toml --cov-append --cov-report=term-missing"
     if group == "unit-core":
         run(session, f"pytest {coverage_args} ./tests/core")
+    elif group == "unit-storage":
+        run(session, f"pytest {coverage_args} ./tests/storage")
     elif group == "tutorial":
         run(session, "lamin logout")
         run(

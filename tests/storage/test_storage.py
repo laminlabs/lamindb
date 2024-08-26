@@ -221,11 +221,11 @@ def test_anndata_open_mode():
     artifact.delete(permanent=True, storage=True)
 
 
-@pytest.mark.parametrize("storage", [None, "s3://lamindb-test"])
+@pytest.mark.parametrize("storage", [None, "s3://lamindb-test/storage"])
 def test_write_read_tiledbsoma(storage):
     if storage is not None:
         previous_storage = ln.setup.settings.storage.root_as_str
-        ln.settings.storage = "s3://lamindb-test"
+        ln.settings.storage = storage
 
     test_file = ln.core.datasets.anndata_file_pbmc68k_test()
     adata = read_adata_h5ad(test_file)
