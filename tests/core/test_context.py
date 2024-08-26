@@ -1,9 +1,12 @@
 import subprocess
+from pathlib import Path
 
 import lamindb as ln
 import pytest
 from lamindb.core._context import context, get_uid_ext
 from lamindb.core.exceptions import TrackNotCalled, ValidationError
+
+scripts_dir = Path(__file__).parent.resolve() / "scripts"
 
 
 def test_track_with_multi_parents():
@@ -131,7 +134,7 @@ def test_create_or_load_transform(monkeypatch):
 def test_run_scripts_for_versioning():
     # regular execution
     result = subprocess.run(  # noqa: S602
-        "python ./tests/scripts/script-to-test-versioning.py",
+        f"python {scripts_dir / 'script-to-test-versioning.py'}",
         shell=True,
         capture_output=True,
     )
@@ -144,7 +147,7 @@ def test_run_scripts_for_versioning():
 
     # updated key (filename change)
     result = subprocess.run(  # noqa: S602
-        "python ./tests/scripts/script-to-test-filename-change.py",
+        f"python {scripts_dir / 'script-to-test-filename-change.py'}",
         shell=True,
         capture_output=True,
     )
@@ -154,7 +157,7 @@ def test_run_scripts_for_versioning():
 
     # version already taken
     result = subprocess.run(  # noqa: S602
-        "python ./tests/scripts/duplicate1/script-to-test-versioning.py",
+        f"python {scripts_dir / 'duplicate1/script-to-test-versioning.py'}",
         shell=True,
         capture_output=True,
     )
@@ -167,7 +170,7 @@ def test_run_scripts_for_versioning():
 
     # regular version bump
     result = subprocess.run(  # noqa: S602
-        "python ./tests/scripts/duplicate2/script-to-test-versioning.py",
+        f"python {scripts_dir / 'duplicate2/script-to-test-versioning.py'}",
         shell=True,
         capture_output=True,
     )
@@ -180,7 +183,7 @@ def test_run_scripts_for_versioning():
 
     # inconsistent version
     result = subprocess.run(  # noqa: S602
-        "python ./tests/scripts/duplicate3/script-to-test-versioning.py",
+        f"python {scripts_dir / 'duplicate3/script-to-test-versioning.py'}",
         shell=True,
         capture_output=True,
     )

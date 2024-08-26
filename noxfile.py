@@ -152,7 +152,7 @@ def build(session, group):
     run(session, "lamin set private-django-api true")
     coverage_args = "--cov=lamindb --cov-config=pyproject.toml --cov-append --cov-report=term-missing"
     if group == "unit-core":
-        run(session, f"pytest {coverage_args} ./tests")
+        run(session, f"pytest {coverage_args} ./tests/core")
     elif group == "tutorial":
         run(session, "lamin logout")
         run(
