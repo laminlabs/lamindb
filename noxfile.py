@@ -71,7 +71,17 @@ def install(session):
 @nox.session
 @nox.parametrize(
     "group",
-    ["unit", "tutorial", "guide", "biology", "faq", "storage", "docs", "cli"],
+    [
+        "unit-core",
+        "unit-storage",
+        "tutorial",
+        "guide",
+        "biology",
+        "faq",
+        "storage",
+        "docs",
+        "cli",
+    ],
 )
 def install_ci(session, group):
     # on the release branch, do not use submodules but run with pypi install
@@ -81,8 +91,10 @@ def install_ci(session, group):
         cmd = "uv pip install --system --no-deps ./sub/lamindb-setup ./sub/lnschema-core ./sub/lamin-cli"
         run(session, cmd)
     extras = ""
-    if group == "unit":
+    if group == "unit-core":
         extras += "bionty,aws,zarr,fcs,jupyter"
+    elif group == "unit-storage":
+        extras += "aws,zarr"
         run(session, "uv pip install --system tiledbsoma")
     elif group == "tutorial":
         extras += "aws,jupyter,bionty"
@@ -121,7 +133,16 @@ def install_ci(session, group):
 @nox.session
 @nox.parametrize(
     "group",
-    ["unit", "tutorial", "guide", "biology", "faq", "storage", "cli"],
+    [
+        "unit-core",
+        "unit-storage",
+        "tutorial",
+        "guide",
+        "biology",
+        "faq",
+        "storage",
+        "cli",
+    ],
 )
 def build(session, group):
     import lamindb as ln
@@ -130,8 +151,10 @@ def build(session, group):
     login_testuser1(session)
     run(session, "lamin set private-django-api true")
     coverage_args = "--cov=lamindb --cov-config=pyproject.toml --cov-append --cov-report=term-missing"
-    if group == "unit":
-        run(session, f"pytest {coverage_args} ./tests")
+    if group == "unit-core":
+        run(session, f"pytest {coverage_args} ./tests/core --durations=50")
+    elif group == "unit-storage":
+        run(session, f"pytest {coverage_args} ./tests/storage --durations=50")
     elif group == "tutorial":
         run(session, "lamin logout")
         run(

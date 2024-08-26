@@ -1,6 +1,7 @@
 import shutil
 from pathlib import Path
 from subprocess import DEVNULL, run
+from time import perf_counter
 
 import lamindb as ln
 import lamindb_setup as ln_setup
@@ -12,27 +13,31 @@ AUTO_CONNECT = ln.setup.settings.auto_connect
 
 
 def pytest_sessionstart():
+    t_execute_start = perf_counter()
+
     ln_setup._TESTING = True
     pgurl = setup_local_test_postgres()
     ln.setup.init(
-        storage="./default_storage",
+        storage="./default_storage_unit_core",
         schema="bionty",
-        name="lamindb-unit-tests",
+        name="lamindb-unit-tests-core",
         db=pgurl,
     )
     ln.setup.register()  # temporarily
     ln.setup.settings.auto_connect = True
     ln.settings.creation.artifact_silence_missing_run_warning = True
 
+    total_time_elapsed = perf_counter() - t_execute_start
+    print(f"Time to setup the instance: {total_time_elapsed:.3f}s")
+
 
 def pytest_sessionfinish(session: pytest.Session):
     logger.set_verbosity(1)
-    shutil.rmtree("./default_storage")
+    shutil.rmtree("./default_storage_unit_core")
     # handle below better in the future
-    if ln.UPath("s3://lamindb-test/.lamindb").exists():
-        ln.UPath("s3://lamindb-test/.lamindb").rmdir()
-    ln.setup.delete("lamindb-unit-tests", force=True)
-    # shutil.rmtree("./outside_storage")
+    if ln.UPath("s3://lamindb-test/core/.lamindb").exists():
+        ln.UPath("s3://lamindb-test/core/.lamindb").rmdir()
+    ln.setup.delete("lamindb-unit-tests-core", force=True)
     run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)  # noqa: S602
     ln.setup.settings.auto_connect = AUTO_CONNECT
 
@@ -41,8 +46,8 @@ def pytest_sessionfinish(session: pytest.Session):
     scope="module",
     params=[
         # tuple of is_in_registered_storage, path, suffix, hash of test_dir
-        (True, "./default_storage/", ".csv", "iGtHiFEBV3r1_TFovdQCgw"),
-        (True, "./default_storage/", "", "iGtHiFEBV3r1_TFovdQCgw"),
+        (True, "./default_storage_unit_core/", ".csv", "iGtHiFEBV3r1_TFovdQCgw"),
+        (True, "./default_storage_unit_core/", "", "iGtHiFEBV3r1_TFovdQCgw"),
         (True, "./registered_storage/", ".csv", "iGtHiFEBV3r1_TFovdQCgw"),
         (True, "./registered_storage/", "", "iGtHiFEBV3r1_TFovdQCgw"),
         (False, "./nonregistered_storage/", ".csv", "iGtHiFEBV3r1_TFovdQCgw"),

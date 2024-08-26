@@ -61,6 +61,8 @@ test-search3
 test-search4
 test-search5
 default_storage
+default_storage_unit_core
+default_storage_unit_storage
 test.ipynb
 run-tests
 

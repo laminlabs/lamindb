@@ -5,13 +5,13 @@ import pytest
 
 @pytest.fixture
 def get_test_artifacts():
-    with open("./default_storage/test-inherit1", "w") as f:
+    with open("./default_storage_unit_core/test-inherit1", "w") as f:
         f.write("artifact1")
-    with open("./default_storage/test-inherit2", "w") as f:
+    with open("./default_storage_unit_core/test-inherit2", "w") as f:
         f.write("artifact2")
-    artifact1 = ln.Artifact("./default_storage/test-inherit1")
+    artifact1 = ln.Artifact("./default_storage_unit_core/test-inherit1")
     artifact1.save()
-    artifact2 = ln.Artifact("./default_storage/test-inherit2")
+    artifact2 = ln.Artifact("./default_storage_unit_core/test-inherit2")
     artifact2.save()
     yield artifact1, artifact2
     artifact1.delete(permanent=True, storage=True)

@@ -14,14 +14,15 @@ jobs:
       fail-fast: false
       matrix:
         group:
-          - "unit"
+          - "unit-core"
+          - "unit-storage"
           - "tutorial"
           - "guide"
           - "biology"
           - "faq"
           - "storage"
           - "cli"
-    timeout-minutes: 11
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
@@ -42,7 +43,7 @@ jobs:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
       - name: cache postgres
-        if: ${{ matrix.group == 'faq' || matrix.group == 'unit' }}
+        if: ${{ matrix.group == 'faq' || matrix.group == 'unit-core' || matrix.group == 'unit-storage' }}
         id: cache-postgres
         uses: actions/cache@v4
         with:

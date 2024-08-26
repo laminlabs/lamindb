@@ -322,7 +322,9 @@ def test_create_from_anndata_strpath(adata_file):
 
 
 @pytest.mark.parametrize(
-    "data", ["adata", "s3://lamindb-test/scrnaseq_pbmc68k_tiny.h5ad"], indirect=True
+    "data",
+    ["adata", "s3://lamindb-test/core/scrnaseq_pbmc68k_tiny.h5ad"],
+    indirect=True,
 )
 def test_create_from_anndata_in_storage(data):
     if isinstance(data, ad.AnnData):
@@ -333,7 +335,7 @@ def test_create_from_anndata_in_storage(data):
         assert hasattr(artifact, "_local_filepath")
     else:
         previous_storage = ln.setup.settings.storage.root_as_str
-        ln.settings.storage = "s3://lamindb-test"
+        ln.settings.storage = "s3://lamindb-test/core"
         filepath = data
         # TODO: automatically add accessor based on file suffix
         artifact = ln.Artifact(filepath)
@@ -567,8 +569,8 @@ def test_create_small_file_from_remote_path(
 
 def test_create_big_file_from_remote_path():
     previous_storage = ln.setup.settings.storage.root_as_str
-    ln.settings.storage = "s3://lamindb-test"
-    filepath_str = "s3://lamindb-test/human_immune.h5ad"
+    ln.settings.storage = "s3://lamindb-test/core"
+    filepath_str = "s3://lamindb-test/core/human_immune.h5ad"
     artifact = ln.Artifact(filepath_str)
     assert artifact.key == "human_immune.h5ad"
     assert artifact._hash_type == "md5-2"
@@ -715,7 +717,7 @@ def test_describe():
 
 def test_zarr_upload_cache(adata):
     previous_storage = ln.setup.settings.storage.root_as_str
-    ln.settings.storage = "s3://lamindb-test"
+    ln.settings.storage = "s3://lamindb-test/core"
 
     def callback(*args, **kwargs):
         pass
