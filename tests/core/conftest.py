@@ -15,9 +15,9 @@ def pytest_sessionstart():
     ln_setup._TESTING = True
     pgurl = setup_local_test_postgres()
     ln.setup.init(
-        storage="./default_storage",
+        storage="./default_storage_unit_core",
         schema="bionty",
-        name="lamindb-unit-tests",
+        name="lamindb-unit-tests-core",
         db=pgurl,
     )
     ln.setup.register()  # temporarily
@@ -27,11 +27,11 @@ def pytest_sessionstart():
 
 def pytest_sessionfinish(session: pytest.Session):
     logger.set_verbosity(1)
-    shutil.rmtree("./default_storage")
+    shutil.rmtree("./default_storage_unit_core")
     # handle below better in the future
     if ln.UPath("s3://lamindb-test/.lamindb").exists():
         ln.UPath("s3://lamindb-test/.lamindb").rmdir()
-    ln.setup.delete("lamindb-unit-tests", force=True)
+    ln.setup.delete("lamindb-unit-tests-core", force=True)
     # shutil.rmtree("./outside_storage")
     run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)  # noqa: S602
     ln.setup.settings.auto_connect = AUTO_CONNECT
@@ -41,8 +41,8 @@ def pytest_sessionfinish(session: pytest.Session):
     scope="module",
     params=[
         # tuple of is_in_registered_storage, path, suffix, hash of test_dir
-        (True, "./default_storage/", ".csv", "iGtHiFEBV3r1_TFovdQCgw"),
-        (True, "./default_storage/", "", "iGtHiFEBV3r1_TFovdQCgw"),
+        (True, "./default_storage_unit_core/", ".csv", "iGtHiFEBV3r1_TFovdQCgw"),
+        (True, "./default_storage_unit_core/", "", "iGtHiFEBV3r1_TFovdQCgw"),
         (True, "./registered_storage/", ".csv", "iGtHiFEBV3r1_TFovdQCgw"),
         (True, "./registered_storage/", "", "iGtHiFEBV3r1_TFovdQCgw"),
         (False, "./nonregistered_storage/", ".csv", "iGtHiFEBV3r1_TFovdQCgw"),
