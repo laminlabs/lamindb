@@ -102,6 +102,26 @@ def save_tiledbsoma_experiment(
     artifact_kwargs: dict | None = None,
     **kwargs,
 ) -> Artifact:
+    """Write `AnnData` to `tiledbsoma.Experiment`.
+
+    Reads `AnnData` objects, writes them to `tiledbsoma.Experiment` and creates `lamindb.Artifact`.
+
+    See also `tiledbsoma.io.from_h5ad
+    <https://tiledbsoma.readthedocs.io/en/latest/_autosummary/tiledbsoma.io.from_h5ad.html>`__.
+
+    Args:
+        adatas: `AnnData` objects to write, in-memory or on-disk.
+        measurement_name: The name of the measurement to store data in `tiledbsoma.Experiment`.
+        revises: `lamindb.Artifact` with `tiledbsoma.Experiment` to append to.
+            Triggers a revision (a new untagged version).
+        run: The run that creates the artifact.
+        obs_id_name: Which `AnnData` `obs` column to use for append mode.
+        var_id_name: Which `AnnData` `var` column to use for append mode.
+        append_obsm_varm: Whether to append `obsm` and `varm` in append mode .
+        artifact_kwargs: Keyword argumnets for the created artifact.
+        **kwargs: Keyword arguments passed to `tiledbsoma.io.from_anndata` that
+            writes adatas.
+    """
     try:
         import tiledbsoma as soma
         import tiledbsoma.io as soma_io
