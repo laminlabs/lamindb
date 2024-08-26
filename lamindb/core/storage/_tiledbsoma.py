@@ -4,16 +4,17 @@ from typing import TYPE_CHECKING, Literal
 
 from anndata import AnnData
 from lamin_utils import logger
+from lamindb_setup import settings as setup_settings
 from lamindb_setup.core._settings_storage import get_storage_region
 from lamindb_setup.core.upath import create_path
-from lnschema_core import Artifact, Run, Storage
-from upath import UPath
+from lnschema_core import Artifact, Run
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
     from tiledbsoma.io import ExperimentAmbientLabelMapping
+    from upath import UPath
 
 
 def _read_adata_h5ad_zarr(objpath: UPath):
@@ -67,21 +68,36 @@ def _open_tiledbsoma(
     return SOMAType.open(storepath_str, mode=mode, context=ctx)
 
 
-def register_for_tiledbsoma_store(
-    store: UPathStr | Artifact | None,
+def save_tiledbsoma_experiment(
     adatas: list[AnnData | UPathStr],
     measurement_name: str,
-    obs_field_name: str,
-    var_field_name: str,
-    append_obsm_varm: bool = False,
+    revises: Artifact | None = None,
     run: Run | None = None,
-) -> tuple[ExperimentAmbientLabelMapping, list[AnnData]]:
-    """Register `AnnData` objects to append to `tiledbsoma.Experiment`.
+    obs_id_name: str = "obs_id",
+    var_id_name: str = "var_id",
+    append_obsm_varm: bool = False,
+    artifact_kwargs: dict | None = None,
+    **kwargs,
+) -> Artifact:
+    """Write `AnnData` to `tiledbsoma.Experiment`.
 
-    Pass the returned registration mapping and `AnnData` objects to `write_tiledbsoma_store`.
+    Reads `AnnData` objects, writes them to `tiledbsoma.Experiment` and creates `lamindb.Artifact`.
 
-    See `tiledbsoma.io.from_h5ad
+    See also `tiledbsoma.io.from_h5ad
     <https://tiledbsoma.readthedocs.io/en/latest/_autosummary/tiledbsoma.io.from_h5ad.html>`__.
+
+    Args:
+        adatas: `AnnData` objects to write, in-memory or on-disk.
+        measurement_name: The name of the measurement to store data in `tiledbsoma.Experiment`.
+        revises: `lamindb.Artifact` with `tiledbsoma.Experiment` to append to.
+            Triggers a revision (a new untagged version).
+        run: The run that creates the artifact.
+        obs_id_name: Which `AnnData` `obs` column to use for append mode.
+        var_id_name: Which `AnnData` `var` column to use for append mode.
+        append_obsm_varm: Whether to append `obsm` and `varm` in append mode .
+        artifact_kwargs: Keyword argumnets for the created artifact.
+        **kwargs: Keyword arguments passed to `tiledbsoma.io.from_anndata` that
+            writes adatas.
     """
     try:
         import tiledbsoma as soma
@@ -89,27 +105,41 @@ def register_for_tiledbsoma_store(
     except ImportError as e:
         raise ImportError("Please install tiledbsoma: pip install tiledbsoma") from e
 
-    if isinstance(store, Artifact):
-        storepath = store.path
+    from lamindb.core._data import get_run
+    from lamindb.core.storage.paths import auto_storage_key_from_artifact_uid
+    from lamindb.core.versioning import create_uid
+
+    run = get_run(run)
+
+    if artifact_kwargs is None:
+        artifact_kwargs = {}
+
+    appending = revises is not None
+
+    if appending:
+        _uid = None
+        storepath = revises.path
     else:
-        storepath = None if store is None else create_path(store)
+        _uid, _ = create_uid(n_full_id=20)
+        storage_key = auto_storage_key_from_artifact_uid(
+            _uid, ".tiledbsoma", is_dir=True
+        )
+        storepath = setup_settings.storage.root / storage_key
+
+    if storepath.protocol == "s3":
+        ctx = soma.SOMATileDBContext(tiledb_config=_tiledb_config_s3(storepath))
+    else:
+        ctx = None
+
+    storepath = storepath.as_posix()
 
     add_run_uid = True
-    ctx = None
-    if storepath is not None:
-        if storepath.protocol == "s3":
-            ctx = soma.SOMATileDBContext(tiledb_config=_tiledb_config_s3(storepath))
-        if storepath.exists():
-            with soma.Experiment.open(
-                storepath.as_posix(), mode="r", context=ctx
-            ) as store:
-                add_run_uid = "lamin_run_uid" in store["obs"].schema.names
-        storepath = storepath.as_posix()
+    if appending:
+        with soma.Experiment.open(storepath, mode="r", context=ctx) as store:
+            add_run_uid = "lamin_run_uid" in store["obs"].schema.names
 
-    if add_run_uid:
-        from lamindb.core._data import get_run
-
-        run = get_run(run)
+    if add_run_uid and run is None:
+        raise ValueError("Pass `run`")
 
     adata_objects = []
     for adata in adatas:
@@ -117,7 +147,7 @@ def register_for_tiledbsoma_store(
             if add_run_uid:
                 if adata.is_view:
                     raise ValueError(
-                        "Can not register an `AnnData` view, please do `adata.copy()` before passing."
+                        "Can not write an `AnnData` view, please do `adata.copy()` before passing."
                     )
                 else:
                     logger.warning("Mutating in-memory AnnData.")
@@ -128,102 +158,31 @@ def register_for_tiledbsoma_store(
                 adata.obs["lamin_run_uid"] = run.uid
         adata_objects.append(adata)
 
-    registration_mapping = soma_io.register_anndatas(
-        experiment_uri=storepath,
-        adatas=adata_objects,
-        measurement_name=measurement_name,
-        obs_field_name=obs_field_name,
-        var_field_name=var_field_name,
-        append_obsm_varm=append_obsm_varm,
-        context=ctx,
-    )
-
-    return registration_mapping, adata_objects
-
-
-def write_tiledbsoma_store(
-    store: Artifact | UPathStr,
-    adata: AnnData | UPathStr,
-    run: Run | None = None,
-    artifact_kwargs: dict | None = None,
-    **kwargs,
-) -> Artifact:
-    """Write `AnnData` to `tiledbsoma.Experiment`.
-
-    Reads `AnnData`, writes it to `tiledbsoma.Experiment` and creates `lamindb.Artifact`.
-
-    See `tiledbsoma.io.from_h5ad
-    <https://tiledbsoma.readthedocs.io/en/latest/_autosummary/tiledbsoma.io.from_h5ad.html>`__.
-    """
-    try:
-        import tiledbsoma as soma
-        import tiledbsoma.io as soma_io
-    except ImportError as e:
-        raise ImportError("Please install tiledbsoma: pip install tiledbsoma") from e
-
-    from lamindb.core._data import get_run
-
-    if artifact_kwargs is None:
-        artifact_kwargs = {}
-
-    appending: bool = kwargs.get("registration_mapping", None) is not None
-    store_is_artifact: bool = isinstance(store, Artifact)
-    if store_is_artifact:
-        if not appending:
-            raise ValueError(
-                "Trying to append to an existing store without `registration_mapping`."
-            )
-        storepath = store.path
+    if appending or len(adata_objects) > 1:
+        registration_mapping = soma_io.register_anndatas(
+            experiment_uri=storepath if appending else None,
+            adatas=adata_objects,
+            measurement_name=measurement_name,
+            obs_field_name=obs_id_name,
+            var_field_name=var_id_name,
+            append_obsm_varm=append_obsm_varm,
+            context=ctx,
+        )
     else:
-        storepath = create_path(store)
-    add_run_uid: bool = not appending
+        registration_mapping = None
 
-    if not isinstance(adata, AnnData):
-        # create_path is used
-        # in case adata is somewhere in our managed s3 bucket or just in s3
-        adata = _read_adata_h5ad_zarr(create_path(adata))
-    elif add_run_uid and adata.is_view:
-        raise ValueError(
-            "Can not write from an `AnnData` view, please do `adata.copy()` before passing."
+    for adata_obj in adata_objects:
+        soma_io.from_anndata(
+            storepath,
+            adata_obj,
+            measurement_name,
+            context=ctx,
+            obs_id_name=obs_id_name,
+            var_id_name=var_id_name,
+            registration_mapping=registration_mapping,
+            **kwargs,
         )
 
-    run = get_run(run)
-
-    if add_run_uid:
-        adata.obs["lamin_run_uid"] = run.uid
-
-    if storepath.protocol == "s3":
-        ctx = soma.SOMATileDBContext(tiledb_config=_tiledb_config_s3(storepath))
-    else:
-        ctx = None
-
-    soma_io.from_anndata(storepath.as_posix(), adata, context=ctx, **kwargs)
-
-    if add_run_uid:
-        del adata.obs["lamin_run_uid"]
-
-    revises = None
-    if appending:
-        if store_is_artifact:
-            revises = store
-        else:
-            from lamindb._artifact import (
-                check_path_in_existing_storage,
-                get_relative_path_to_directory,
-            )
-
-            storage = check_path_in_existing_storage(storepath)
-            if isinstance(storage, Storage):
-                search_by_key = get_relative_path_to_directory(
-                    path=storepath, directory=UPath(storage.root)
-                ).as_posix()
-                revises = Artifact.filter(
-                    key=search_by_key, is_latest=True, _key_is_virtual=False
-                ).one_or_none()
-                if revises is not None:
-                    logger.info(f"Assuming it is a new version of {revises}.")
-
-    if revises is None:
-        return Artifact(storepath, run=run, **artifact_kwargs)
-    else:
-        return Artifact(storepath, run=run, revises=revises, **artifact_kwargs)
+    return Artifact(
+        storepath, run=run, revises=revises, _uid=_uid, **artifact_kwargs
+    ).save()
