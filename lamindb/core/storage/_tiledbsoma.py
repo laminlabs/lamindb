@@ -68,29 +68,6 @@ def _open_tiledbsoma(
     return SOMAType.open(storepath_str, mode=mode, context=ctx)
 
 
-def _prepare_adatas(
-    adatas: list[AnnData | UPathStr], run_uid: str | None
-) -> list[AnnData]:
-    add_run_uid = run_uid is not None
-    adata_objects = []
-    for adata in adatas:
-        if isinstance(adata, AnnData):
-            if add_run_uid:
-                if adata.is_view:
-                    raise ValueError(
-                        "Can not write an `AnnData` view, please do `adata.copy()` before passing."
-                    )
-                else:
-                    logger.warning("Mutating in-memory AnnData.")
-                    adata.obs["lamin_run_uid"] = run_uid
-        else:
-            adata = _read_adata_h5ad_zarr(create_path(adata))
-            if add_run_uid:
-                adata.obs["lamin_run_uid"] = run_uid
-        adata_objects.append(adata)
-    return adata_objects
-
-
 def save_tiledbsoma_experiment(
     adatas: list[AnnData | UPathStr],
     measurement_name: str,
@@ -164,7 +141,22 @@ def save_tiledbsoma_experiment(
     if add_run_uid and run is None:
         raise ValueError("Pass `run`")
 
-    adata_objects = _prepare_adatas(adatas, run.uid if add_run_uid else None)
+    adata_objects = []
+    for adata in adatas:
+        if isinstance(adata, AnnData):
+            if add_run_uid:
+                if adata.is_view:
+                    raise ValueError(
+                        "Can not write an `AnnData` view, please do `adata.copy()` before passing."
+                    )
+                else:
+                    logger.warning("Mutating in-memory AnnData.")
+                    adata.obs["lamin_run_uid"] = run.uid
+        else:
+            adata = _read_adata_h5ad_zarr(create_path(adata))
+            if add_run_uid:
+                adata.obs["lamin_run_uid"] = run.uid
+        adata_objects.append(adata)
 
     if appending or len(adata_objects) > 1:
         registration_mapping = soma_io.register_anndatas(
