@@ -294,6 +294,12 @@ def test_write_read_tiledbsoma(storage):
     adata_to_append_2.var["var_id"] = adata_to_append_2.var.index
     adata_to_append_2.write_h5ad("adata_to_append_2.h5ad")
 
+    # here run should be passed
+    with pytest.raises(ValueError):
+        save_tiledbsoma_experiment(
+            [adata_to_append_1], measurement_name="RNA", revises=artifact_soma, run=None
+        )
+
     artifact_soma_append = save_tiledbsoma_experiment(
         [adata_to_append_1, "adata_to_append_2.h5ad"],
         measurement_name="RNA",

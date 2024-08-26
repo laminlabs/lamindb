@@ -161,6 +161,9 @@ def save_tiledbsoma_experiment(
         with soma.Experiment.open(storepath, mode="r", context=ctx) as store:
             add_run_uid = "lamin_run_uid" in store["obs"].schema.names
 
+    if add_run_uid and run is None:
+        raise ValueError("Pass `run`")
+
     adata_objects = _prepare_adatas(adatas, run.uid if add_run_uid else None)
 
     if appending or len(adata_objects) > 1:
