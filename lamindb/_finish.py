@@ -52,7 +52,7 @@ def save_context_core(
             return None
         notebook_content = read_notebook(filepath)  # type: ignore
         is_consecutive = check_consecutiveness(
-            notebook_content, calling_statement="ln.finish()"
+            notebook_content, calling_statement=".finish()"
         )
         if not is_consecutive:
             msg = "   Do you still want to proceed with finishing? (y/n) "
