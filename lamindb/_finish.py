@@ -66,7 +66,7 @@ def notebook_to_script(
     import jupytext
 
     notebook = jupytext.read(notebook_path)
-    py_format = jupytext.formats.get_format_implementation("py:percent")
+    py_format = jupytext.formats.get_format_implementation("py", "percent")
     script = py_format.writes(notebook, notebook_metadata={}, cell_metadata={})
     script.replace(f"# {transform.name}", "# Transform.name")
     script_path.write_text(script)
@@ -75,7 +75,7 @@ def notebook_to_script(
 def script_to_notebook(transform: Transform, notebook_path: Path) -> None:
     import jupytext
 
-    py_format = jupytext.formats.get_format_implementation("py:percent")
+    py_format = jupytext.formats.get_format_implementation("py", "percent")
     # script content won't have title
     script = transform.source_code.replace("# Transform.name", f"# {transform.name}")
     notebook = py_format.reads(script)
