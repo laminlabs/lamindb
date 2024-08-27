@@ -18,7 +18,7 @@ from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_environment
 from .exceptions import (
     MissingContext,
-    NotebookNotSaved,
+    NotebookFileNotSavedToDisk,
     NotebookNotSavedError,
     NoTitleError,
     TrackNotCalled,
@@ -504,8 +504,8 @@ class Context:
                 get_seconds_since_modified(context._path) > 3
                 and os.getenv("LAMIN_TESTING") is None
             ):
-                raise NotebookNotSaved(
-                    "Please save the notebook in your editor right before running `ln.finish()`"
+                raise NotebookFileNotSavedToDisk(
+                    "Please save the notebook manually in your editor right before running `ln.finish()`"
                 )
         save_context_core(
             run=context.run,
