@@ -81,7 +81,10 @@ def save_tiledbsoma_experiment(
 ) -> Artifact:
     """Write `AnnData` to `tiledbsoma.Experiment`.
 
-    Reads `AnnData` objects, writes them to `tiledbsoma.Experiment` and creates `lamindb.Artifact`.
+    Reads `AnnData` objects, writes them to `tiledbsoma.Experiment`, creates `lamindb.Artifact`
+    and saves the artifact.
+    Note that this function adds `lamin_run_uid` column to `obs` of in-memory `AnnData` objects
+    when it writes to a new store or appends to a store that has this column in `obs`.
 
     See also `tiledbsoma.io.from_h5ad
     <https://tiledbsoma.readthedocs.io/en/latest/_autosummary/tiledbsoma.io.from_h5ad.html>`__.
@@ -97,7 +100,7 @@ def save_tiledbsoma_experiment(
         append_obsm_varm: Whether to append `obsm` and `varm` in append mode .
         artifact_kwargs: Keyword argumnets for the created artifact.
         **kwargs: Keyword arguments passed to `tiledbsoma.io.from_anndata` that
-            writes adatas.
+            writes `adatas`.
     """
     try:
         import tiledbsoma as soma
@@ -150,7 +153,6 @@ def save_tiledbsoma_experiment(
                         "Can not write an `AnnData` view, please do `adata.copy()` before passing."
                     )
                 else:
-                    logger.warning("Mutating in-memory AnnData.")
                     adata.obs["lamin_run_uid"] = run.uid
         else:
             adata = _read_adata_h5ad_zarr(create_path(adata))
