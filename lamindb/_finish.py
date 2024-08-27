@@ -18,6 +18,70 @@ if TYPE_CHECKING:
     from ._query_set import QuerySet
 
 
+# this is the get_title function from nbproject
+# should be moved into lamindb sooner or later
+def get_or_strip_title(nb, strip_title: bool = False) -> str | None:
+    """Get title of the notebook."""
+    # loop through all cells
+    for cell in nb["cells"]:
+        # only consider markdown
+        if cell["cell_type"] == "markdown":
+            # grab source
+            text = cell["source"][0]
+            # loop through lines
+            for line in text.split("\n"):
+                # if finding a level-1 heading, consider it a title
+                if line.startswith("# "):
+                    title = line.lstrip("#").strip(" .").strip("\n")
+                    if not strip_title:
+                        return title
+                    else:
+                        cell["source"][0] = text.replace(line + "\n", "")
+    return None
+
+
+def notebook_to_html(transform: Transform, notebook_path: Path) -> None:
+    import nbformat
+    import traitlets.config as config
+    from nbconvert import HTMLExporter
+
+    c = config.Config()
+    c.Application.log_level = 40
+
+    html_exporter = HTMLExporter(config=c)
+
+    notebook = nbformat.read(notebook_path, as_version=4)
+    # strip title
+    get_or_strip_title(notebook, strip_title=True)
+    # strip the title from the notebook
+    html, _ = html_exporter.from_notebook_node(notebook)
+
+    html_path = notebook_path.with_suffix(".html")
+    html_path.write_text(html, encoding="utf-8")
+
+
+def notebook_to_script(
+    transform: Transform, notebook_path: Path, script_path: Path
+) -> None:
+    import jupytext
+
+    notebook = jupytext.read(notebook_path)
+    py_format = jupytext.formats.get_format_implementation("py:percent")
+    script = py_format.writes(notebook, notebook_metadata={}, cell_metadata={})
+    script.replace(f"# {transform.name}", "# Transform.name")
+    script_path.write_text(script)
+
+
+def script_to_notebook(transform: Transform, notebook_path: Path) -> None:
+    import jupytext
+
+    py_format = jupytext.formats.get_format_implementation("py:percent")
+    # script content won't have title
+    script = transform.source_code.replace("# Transform.name", f"# {transform.name}")
+    notebook = py_format.reads(script)
+    jupytext.write(notebook, notebook_path)
+
+
 def save_context_core(
     *,
     run: Run,
@@ -36,19 +100,17 @@ def save_context_core(
     # for scripts, things are easy
     is_consecutive = True
     is_notebook = transform.type == "notebook"
-    _source_code_artifact_path = filepath
+    source_code_path = filepath
     # for notebooks, we need more work
     if is_notebook:
         try:
-            import nbstripout
+            import jupytext
             from nbproject.dev import (
                 check_consecutiveness,
                 read_notebook,
             )
         except ImportError:
-            logger.error(
-                "install nbproject & nbstripout: pip install nbproject nbstripout"
-            )
+            logger.error("install nbproject & jupytext: pip install nbproject jupytext")
             return None
         notebook_content = read_notebook(filepath)  # type: ignore
         is_consecutive = check_consecutiveness(
@@ -63,18 +125,7 @@ def save_context_core(
             if response != "y":
                 return "aborted-non-consecutive"
         # convert the notebook file to html
-        # log_level is set to 40 to silence the nbconvert logging
-        subprocess.run(
-            [
-                "jupyter",
-                "nbconvert",
-                "--to",
-                "html",
-                filepath.as_posix(),
-                "--Application.log_level=40",
-            ],
-            check=True,
-        )
+        notebook_to_html(transform, filepath)
         # move the temporary file into the cache dir in case it's accidentally
         # in an existing storage location -> we want to move associated
         # artifacts into default storage and not register them in an existing
@@ -87,22 +138,12 @@ def save_context_core(
             report_path_orig,  # type: ignore
             report_path,
         )
-        # strip the output from the notebook to create the source code file
-        # first, copy the notebook file to a temporary file in the cache
-        _source_code_artifact_path = ln_setup.settings.storage.cache_dir / filepath.name
-        shutil.copy2(filepath, _source_code_artifact_path)  # copy
-        subprocess.run(
-            [
-                "nbstripout",
-                _source_code_artifact_path,
-                "--extra-keys",
-                "metadata.version metadata.kernelspec metadata.language_info metadata.pygments_lexer metadata.name metadata.file_extension",
-            ],
-            check=True,
-        )
+        # convert the notebook to `.py` via jupytext to create the source code
+        # representation
+        source_code_path = ln_setup.settings.storage.cache_dir / filepath.name
+        notebook_to_script(transform, filepath, source_code_path)
     # find initial versions of source codes and html reports
     prev_report = None
-    prev_source = None
     if transform_family is None:
         transform_family = transform.versions
     if len(transform_family) > 0:
@@ -113,15 +154,22 @@ def save_context_core(
             ):
                 prev_report = prev_transform.latest_run.report
             if prev_transform._source_code_artifact_id is not None:
-                prev_source = prev_transform._source_code_artifact
+                pass
     ln.settings.creation.artifact_silence_missing_run_warning = True
 
     # track source code
-    if transform._source_code_artifact_id is not None:
+    hash, _ = hash_file(source_code_path)  # ignore hash_type for now
+    if (
+        transform._source_code_artifact_id is not None
+        or transform.source_code is not None
+    ):
         # check if the hash of the transform source code matches
         # (for scripts, we already run the same logic in track() - we can deduplicate the call at some point)
-        hash, _ = hash_file(_source_code_artifact_path)  # ignore hash_type for now
-        if hash != transform._source_code_artifact.hash:
+        if transform.hash is not None:
+            condition = hash != transform.hash
+        else:
+            condition = hash != transform._source_code_artifact.hash
+        if condition:
             if os.getenv("LAMIN_TESTING") is None:
                 # in test, auto-confirm overwrite
                 response = input(
@@ -131,11 +179,8 @@ def save_context_core(
             else:
                 response = "y"
             if response == "y":
-                transform._source_code_artifact.replace(_source_code_artifact_path)
-                transform._source_code_artifact.save(upload=True)
-                logger.success(
-                    f"replaced transform._source_code_artifact: {transform._source_code_artifact}"
-                )
+                transform.source_code = source_code_path.read_text()
+                transform.hash = hash
             else:
                 logger.warning(
                     "Please re-run `ln.context.track()` to make a new version"
@@ -144,19 +189,8 @@ def save_context_core(
         else:
             logger.important("source code is already saved")
     else:
-        _source_code_artifact = ln.Artifact(
-            _source_code_artifact_path,
-            description=f"Source of transform {transform.uid}",
-            version=transform.version,
-            revises=prev_source,
-            visibility=0,  # hidden file
-            run=False,
-        )
-        _source_code_artifact.save(upload=True, print_progress=False)
-        transform._source_code_artifact = _source_code_artifact
-        logger.debug(
-            f"saved transform._source_code_artifact: {transform._source_code_artifact}"
-        )
+        transform.source_code = source_code_path.read_text()
+        transform.hash = hash
 
     # track environment
     env_path = ln_setup.settings.storage.cache_dir / f"run_env_pip_{run.uid}.txt"

@@ -48,7 +48,7 @@ gcp = [
 ]
 jupyter = [
     "nbproject==0.10.4",  # keep pinning
-    "nbstripout==0.6.1", # 0.7.0 seems to be broken, 0.6.2 incompatible with orjson
+    "jupytext",
     "nbconvert",
 ]
 zarr = [
