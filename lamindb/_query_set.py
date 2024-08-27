@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Iterable, NamedTuple
 import pandas as pd
 from django.db import models
 from django.db.models import F
+from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import (
     Artifact,
@@ -221,6 +222,7 @@ class QuerySet(models.QuerySet, CanValidate):
         # both Transform & Run might reference artifacts
         if self.model in {Artifact, Collection, Transform, Run}:
             for record in self:
+                logger.important(f"deleting {record}")
                 record.delete(*args, **kwargs)
         else:
             self._delete_base_class(*args, **kwargs)
