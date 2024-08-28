@@ -193,7 +193,7 @@ def test_anndata_annotator(adata, categoricals):
 
 
 def test_no_categoricals(adata):
-    adata.obs = None
+    adata.obs = pd.DataFrame()
     curate = ln.Curate.from_anndata(
         adata,
         var_index=bt.Gene.symbol,
