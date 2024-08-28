@@ -69,14 +69,18 @@ def _open_tiledbsoma(
 
 
 def save_tiledbsoma_experiment(
+    # Artifact args
     adatas: list[AnnData | UPathStr],
-    measurement_name: str,
-    revises: Artifact | None = None,
+    key: str | None = None,
+    description: str | None = None,
     run: Run | None = None,
+    revises: Artifact | None = None,
+    # tiledbsoma.io.from_anndata args
+    measurement_name: str = "RNA",
     obs_id_name: str = "obs_id",
     var_id_name: str = "var_id",
     append_obsm_varm: bool = False,
-    artifact_kwargs: dict | None = None,
+    # additional keyword args for tiledbsoma.io.from_anndata
     **kwargs,
 ) -> Artifact:
     """Write `AnnData` to `tiledbsoma.Experiment`.
@@ -86,20 +90,21 @@ def save_tiledbsoma_experiment(
     Note that this function adds `lamin_run_uid` column to `obs` of in-memory `AnnData` objects
     when it writes to a new store or appends to a store that has this column in `obs`.
 
-    See also `tiledbsoma.io.from_h5ad
-    <https://tiledbsoma.readthedocs.io/en/latest/_autosummary/tiledbsoma.io.from_h5ad.html>`__.
+    See also `tiledbsoma.io.from_anndata
+    <https://tiledbsoma.readthedocs.io/en/latest/_autosummary/tiledbsoma.io.from_anndata.html>`__.
 
     Args:
         adatas: `AnnData` objects to write, in-memory or on-disk.
-        measurement_name: The name of the measurement to store data in `tiledbsoma.Experiment`.
+        key: A relative path within default storage.
+        description: A description.
+        run: The run that creates the artifact.
         revises: `lamindb.Artifact` with `tiledbsoma.Experiment` to append to.
             Triggers a revision (a new untagged version).
-        run: The run that creates the artifact.
+        measurement_name: The name of the measurement to store data in `tiledbsoma.Experiment`.
         obs_id_name: Which `AnnData` `obs` column to use for append mode.
         var_id_name: Which `AnnData` `var` column to use for append mode.
         append_obsm_varm: Whether to append `obsm` and `varm` in append mode .
-        artifact_kwargs: Keyword argumnets for the created artifact.
-        **kwargs: Keyword arguments passed to `tiledbsoma.io.from_anndata` that
+        **kwargs: Additional keyword arguments passed to `tiledbsoma.io.from_anndata` that
             writes `adatas`.
     """
     try:
@@ -113,9 +118,6 @@ def save_tiledbsoma_experiment(
     from lamindb.core.versioning import create_uid
 
     run = get_run(run)
-
-    if artifact_kwargs is None:
-        artifact_kwargs = {}
 
     appending = revises is not None
 
@@ -186,5 +188,5 @@ def save_tiledbsoma_experiment(
         )
 
     return Artifact(
-        storepath, run=run, revises=revises, _uid=_uid, **artifact_kwargs
+        storepath, key=key, description=description, run=run, revises=revises, _uid=_uid
     ).save()
