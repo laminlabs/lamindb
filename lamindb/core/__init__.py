@@ -30,6 +30,7 @@ Curators:
 .. autosummary::
    :toctree: .
 
+   BaseCurator
    DataFrameCurator
    AnnDataCurator
    MuDataCurator
@@ -80,6 +81,7 @@ from lnschema_core.models import (
 
 from lamindb._curate import (
     AnnDataCurator,
+    BaseCurator,
     CurateLookup,
     DataFrameCurator,
     MuDataCurator,

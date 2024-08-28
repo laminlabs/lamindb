@@ -84,10 +84,34 @@ class CurateLookup:
             return colors.warning("No fields are found!")
 
 
-class DataFrameCurator:
+class BaseCurator:
+    """Curate a dataset."""
+
+    def validate(self) -> bool:
+        """Validate dataset.
+
+        Returns:
+            Boolean indicating whether the dataset is validated.
+        """
+        pass
+
+    def save_artifact(self, description: str | None = None, **kwargs) -> Artifact:
+        """Save the dataset as artifact.
+
+        Args:
+            description: Description of the DataFrame object.
+            **kwargs: Object level metadata.
+
+        Returns:
+            A saved artifact record.
+        """
+        pass
+
+
+class DataFrameCurator(BaseCurator):
     """Curation flow for a DataFrame object.
 
-    See also :class:`~lamindb.Curate`.
+    See also :class:`~lamindb.Curator`.
 
     Args:
         df: The DataFrame object to curate.
@@ -330,7 +354,7 @@ class DataFrameCurator:
 class AnnDataCurator(DataFrameCurator):
     """Curation flow for ``AnnData``.
 
-    See also :class:`~lamindb.Curate`.
+    See also :class:`~lamindb.Curator`.
 
     Note that if genes are removed from the AnnData object, the object should be recreated using :meth:`~lamindb.Curate.from_anndata`.
 
@@ -538,7 +562,7 @@ class AnnDataCurator(DataFrameCurator):
 class MuDataCurator:
     """Curation flow for a ``MuData`` object.
 
-    See also :class:`~lamindb.Curate`.
+    See also :class:`~lamindb.Curator`.
 
     Note that if genes or other measurements are removed from the MuData object,
     the object should be recreated using :meth:`~lamindb.Curate.from_mudata`.
@@ -848,15 +872,15 @@ class MuDataCurator:
         return self._artifact
 
 
-class Curate:
-    """Curation flow.
+class Curator(BaseCurator):
+    """Dataset curator.
 
     Data curation entails accurately labeling datasets with standardized metadata
     to facilitate data integration, interpretation and analysis.
 
     The curation flow has several steps:
 
-    1. Create a :class:`Curate` object corresponding to the object type that you want to curate:
+    1. Instantiate `Curator` from one of the following dataset objects:
 
     - :meth:`~lamindb.Curate.from_df`
     - :meth:`~lamindb.Curate.from_anndata`
@@ -869,7 +893,7 @@ class Curate:
     - Values that can successfully validated and already exist in the registry.
     - Values which are new and not yet validated or potentially problematic values.
 
-    3. Determine how to handle validated and unvalidated values:
+    3. Determine how to handle validated and non-validated values:
 
     - Validated values not yet in the registry can be automatically registered using :meth:`~lamindb.core.DataFrameCurator.add_validated_from`.
     - Valid and new values can be registered using :meth:`~lamindb.core.DataFrameCurator.add_new_from`.
@@ -1521,3 +1545,6 @@ def _save_organism(name: str):  # pragma: no cover
             )
         organism.save()
     return organism
+
+
+Curate = Curator  # backward compat
