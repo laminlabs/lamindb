@@ -84,7 +84,31 @@ class CurateLookup:
             return colors.warning("No fields are found!")
 
 
-class DataFrameCurator:
+class BaseCurator:
+    """Curate a dataset."""
+
+    def validate(self) -> bool:
+        """Validate dataset.
+
+        Returns:
+            Boolean indicating whether the dataset is validated.
+        """
+        pass
+
+    def save_artifact(self, description: str | None = None, **kwargs) -> Artifact:
+        """Save the dataset as artifact.
+
+        Args:
+            description: Description of the DataFrame object.
+            **kwargs: Object level metadata.
+
+        Returns:
+            A saved artifact record.
+        """
+        pass
+
+
+class DataFrameCurator(BaseCurator):
     """Curation flow for a DataFrame object.
 
     See also :class:`~lamindb.Curate`.
@@ -848,8 +872,8 @@ class MuDataCurator:
         return self._artifact
 
 
-class Curate:
-    """Curation flow.
+class Curator(BaseCurator):
+    """Dataset curator.
 
     Data curation entails accurately labeling datasets with standardized metadata
     to facilitate data integration, interpretation and analysis.
@@ -1521,3 +1545,6 @@ def _save_organism(name: str):  # pragma: no cover
             )
         organism.save()
     return organism
+
+
+Curate = Curator  # backward compat
