@@ -192,6 +192,24 @@ def test_anndata_annotator(adata, categoricals):
     bt.CellType.filter().all().delete()
 
 
+def test_no_categoricals(adata):
+    adata.obs = None
+    curate = ln.Curate.from_anndata(
+        adata,
+        var_index=bt.Gene.symbol,
+        organism="human",
+    )
+    curate.add_validated_from("all")
+    validated = curate.validate()
+    assert validated
+
+    artifact = curate.save_artifact(description="test AnnData categoricals")
+
+    # clean up
+    artifact.delete(permanent=True)
+    ln.Gene.filter().all().delete()
+
+
 def test_anndata_annotator_wrong_type(df, categoricals):
     with pytest.raises(ValueError) as error:
         ln.Curate.from_anndata(
