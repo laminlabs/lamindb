@@ -20,10 +20,18 @@ if TYPE_CHECKING:
 
 # this is the get_title function from nbproject
 # should be moved into lamindb sooner or later
-def get_or_strip_title(nb, strip_title: bool = False) -> str | None:
+def prepare_notebook(
+    nb,
+    strip_title: bool = False,
+    replace_title: str | None = None,
+    remove_cell_metadata: bool = False,
+) -> str | None:
     """Get title of the notebook."""
     # loop through all cells
-    for cell in nb["cells"]:
+    for cell in nb.cells:
+        if remove_cell_metadata:
+            # remove cell metadata
+            cell.metadata = {}
         # only consider markdown
         if cell["cell_type"] == "markdown":
             # grab source
@@ -33,10 +41,13 @@ def get_or_strip_title(nb, strip_title: bool = False) -> str | None:
                 # if finding a level-1 heading, consider it a title
                 if line.startswith("# "):
                     title = line.lstrip("#").strip(" .").strip("\n")
-                    if not strip_title:
-                        return title
-                    else:
+                    if strip_title:
                         cell["source"][0] = text.replace(line + "\n", "")
+                    elif replace_title is not None:
+                        cell["source"][0] = text.replace(
+                            f"# {title}", f"# {replace_title}"
+                        )
+
     return None
 
 
@@ -52,7 +63,7 @@ def notebook_to_html(transform: Transform, notebook_path: Path) -> None:
 
     notebook = nbformat.read(notebook_path, as_version=4)
     # strip title
-    get_or_strip_title(notebook, strip_title=True)
+    prepare_notebook(notebook, strip_title=True)
     # strip the title from the notebook
     html, _ = html_exporter.from_notebook_node(notebook)
 
@@ -60,25 +71,21 @@ def notebook_to_html(transform: Transform, notebook_path: Path) -> None:
     html_path.write_text(html, encoding="utf-8")
 
 
-def notebook_to_script(
-    transform: Transform, notebook_path: Path, script_path: Path
-) -> None:
+def notebook_to_script(notebook_path: Path, script_path: Path) -> None:
     import jupytext
 
     notebook = jupytext.read(notebook_path)
-    py_format = jupytext.formats.get_format_implementation("py", "percent")
-    script = py_format.writes(notebook, notebook_metadata={}, cell_metadata={})
-    script.replace(f"# {transform.name}", "# Transform.name")
-    script_path.write_text(script)
+    prepare_notebook(
+        notebook, replace_title="Transform.name", remove_cell_metadata=True
+    )
+    jupytext.write(notebook, script_path, fmt="py:percent")
 
 
 def script_to_notebook(transform: Transform, notebook_path: Path) -> None:
     import jupytext
 
-    py_format = jupytext.formats.get_format_implementation("py", "percent")
-    # script content won't have title
-    script = transform.source_code.replace("# Transform.name", f"# {transform.name}")
-    notebook = py_format.reads(script)
+    notebook = jupytext.reads(transform.source_code, fmt="py:percent")
+    prepare_notebook(notebook, replace_title=transform.name)
     jupytext.write(notebook, notebook_path)
 
 
@@ -141,7 +148,7 @@ def save_context_core(
         # convert the notebook to `.py` via jupytext to create the source code
         # representation
         source_code_path = ln_setup.settings.storage.cache_dir / filepath.name
-        notebook_to_script(transform, filepath, source_code_path)
+        notebook_to_script(filepath, source_code_path)
     # find initial versions of source codes and html reports
     prev_report = None
     if transform_family is None:
