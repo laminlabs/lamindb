@@ -202,12 +202,6 @@ def test_no_categoricals(adata):
     validated = curate.validate()
     assert validated
 
-    artifact = curate.save_artifact(description="test AnnData categoricals")
-
-    # clean up
-    artifact.delete(permanent=True)
-    ln.Gene.filter().all().delete()
-
 
 def test_anndata_annotator_wrong_type(df, categoricals):
     with pytest.raises(ValueError) as error:
