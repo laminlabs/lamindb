@@ -125,7 +125,7 @@ class DataFrameCurator(BaseCurator):
 
     Examples:
         >>> import bionty as bt
-        >>> curate = ln.Curate.from_df(
+        >>> curate = ln.Curator.from_df(
         ...     df,
         ...     categoricals={
         ...         "cell_type_ontology_id": bt.CellType.ontology_id,
@@ -356,7 +356,7 @@ class AnnDataCurator(DataFrameCurator):
 
     See also :class:`~lamindb.Curator`.
 
-    Note that if genes are removed from the AnnData object, the object should be recreated using :meth:`~lamindb.Curate.from_anndata`.
+    Note that if genes are removed from the AnnData object, the object should be recreated using :meth:`~lamindb.Curator.from_anndata`.
 
     See :doc:`docs:cellxgene-curate` for instructions on how to curate against a specific cellxgene schema version.
 
@@ -372,7 +372,7 @@ class AnnDataCurator(DataFrameCurator):
 
     Examples:
         >>> import bionty as bt
-        >>> curate = ln.Curate.from_anndata(
+        >>> curate = ln.Curator.from_anndata(
         ...     adata,
         ...     var_index=bt.Gene.ensembl_gene_id,
         ...     categoricals={
@@ -565,7 +565,7 @@ class MuDataCurator:
     See also :class:`~lamindb.Curator`.
 
     Note that if genes or other measurements are removed from the MuData object,
-    the object should be recreated using :meth:`~lamindb.Curate.from_mudata`.
+    the object should be recreated using :meth:`~lamindb.Curator.from_mudata`.
 
     Args:
         mdata: The MuData object to curate.
@@ -582,7 +582,7 @@ class MuDataCurator:
 
     Examples:
         >>> import bionty as bt
-        >>> curate = ln.Curate.from_mudata(
+        >>> curate = ln.Curator.from_mudata(
         ...     mdata,
         ...     var_index={
         ...         "rna": bt.Gene.ensembl_gene_id,
@@ -882,9 +882,9 @@ class Curator(BaseCurator):
 
     1. Instantiate `Curator` from one of the following dataset objects:
 
-    - :meth:`~lamindb.Curate.from_df`
-    - :meth:`~lamindb.Curate.from_anndata`
-    - :meth:`~lamindb.Curate.from_mudata`
+    - :meth:`~lamindb.Curator.from_df`
+    - :meth:`~lamindb.Curator.from_anndata`
+    - :meth:`~lamindb.Curator.from_mudata`
 
     During object creation, any passed categoricals found in the object will be saved.
 

@@ -86,7 +86,7 @@ def mock_transform():
 
 
 def test_df_annotator(df, categoricals):
-    curate = ln.Curate.from_df(df, categoricals=categoricals)
+    curate = ln.Curator.from_df(df, categoricals=categoricals)
     validated = curate.validate()
     assert validated is False
 
@@ -115,28 +115,28 @@ def test_custom_using_invalid_field_lookup(curate_lookup):
 
 def test_missing_columns(df):
     with pytest.raises(ValueError) as error:
-        ln.Curate.from_df(df, categoricals={"missing_column": "some_registry_field"})
+        ln.Curator.from_df(df, categoricals={"missing_column": "some_registry_field"})
     assert "Columns {'missing_column'} are not found in the data object!" in str(
         error.value
     )
 
 
 def test_additional_args_with_all_key(df, categoricals):
-    curate = ln.Curate.from_df(df, categoricals=categoricals)
+    curate = ln.Curator.from_df(df, categoricals=categoricals)
     with pytest.raises(ValueError) as error:
         curate.add_new_from("all", extra_arg="not_allowed")
     assert "Cannot pass additional arguments to 'all' key!" in str(error.value)
 
 
 def test_save_columns_not_defined_in_fields(df, categoricals):
-    curate = ln.Curate.from_df(df, categoricals=categoricals)
+    curate = ln.Curator.from_df(df, categoricals=categoricals)
     with pytest.raises(ValueError) as error:
         curate._update_registry("nonexistent")
     assert "Feature nonexistent is not part of the fields!" in str(error.value)
 
 
 def test_unvalidated_data_object(df, categoricals):
-    curate = ln.Curate.from_df(df, categoricals=categoricals)
+    curate = ln.Curator.from_df(df, categoricals=categoricals)
     with pytest.raises(ValidationError) as error:
         curate.save_artifact()
     assert "Data object is not validated" in str(error.value)
@@ -161,7 +161,7 @@ def test_clean_up_failed_runs():
 
     assert len(ln.Run.filter(transform=mock_transform).all()) == 2
 
-    curate = ln.Curate.from_df(pd.DataFrame())
+    curate = ln.Curator.from_df(pd.DataFrame())
     curate.clean_up_failed_runs()
 
     assert len(ln.Run.filter(transform=mock_transform).all()) == 1
@@ -172,7 +172,7 @@ def test_clean_up_failed_runs():
 
 
 def test_anndata_annotator(adata, categoricals):
-    curate = ln.Curate.from_anndata(
+    curate = ln.Curator.from_anndata(
         adata,
         categoricals=categoricals,
         var_index=bt.Gene.symbol,
@@ -194,7 +194,7 @@ def test_anndata_annotator(adata, categoricals):
 
 def test_anndata_annotator_wrong_type(df, categoricals):
     with pytest.raises(ValueError) as error:
-        ln.Curate.from_anndata(
+        ln.Curator.from_anndata(
             df,
             categoricals=categoricals,
             var_index=bt.Gene.symbol,
@@ -204,7 +204,7 @@ def test_anndata_annotator_wrong_type(df, categoricals):
 
 
 def test_unvalidated_adata_object(adata, categoricals):
-    curate = ln.Curate.from_anndata(
+    curate = ln.Curator.from_anndata(
         adata,
         categoricals=categoricals,
         var_index=bt.Gene.symbol,
@@ -225,7 +225,7 @@ def test_mudata_annotator(mdata):
         "rna_2:donor": ln.ULabel.name,
     }
 
-    curate = ln.Curate.from_mudata(
+    curate = ln.Curator.from_mudata(
         mdata,
         categoricals=categoricals,
         var_index={"rna": bt.Gene.symbol, "rna_2": bt.Gene.symbol},
