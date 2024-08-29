@@ -1164,6 +1164,9 @@ def validate_categories_in_df(
     **kwargs,
 ) -> tuple[bool, dict]:
     """Validate categories in DataFrame columns using LaminDB registries."""
+    if not fields:
+        return True, {}
+
     if sources is None:
         sources = {}
     validated = True
