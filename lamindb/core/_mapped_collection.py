@@ -17,6 +17,7 @@ from .storage._anndata_accessor import (
     GroupTypes,
     StorageType,
     _safer_read_index,
+    get_spec,
     registry,
 )
 
@@ -153,13 +154,29 @@ class MappedCollection:
         self._make_connections(path_list, parallel)
 
         self.n_obs_list = []
-        for storage in self.storages:
+        for i, storage in enumerate(self.storages):
             with _Connect(storage) as store:
                 X = store["X"]
                 if isinstance(X, ArrayTypes):  # type: ignore
                     self.n_obs_list.append(X.shape[0])
                 else:
                     self.n_obs_list.append(X.attrs["shape"][0])
+                    self._check_csc_raise_error(X, "X", self.path_list[i])
+                for layer_key in self.layers_keys:
+                    if layer_key == "X":
+                        continue
+                    self._check_csc_raise_error(
+                        store["layers"][layer_key],
+                        f"layers/{layer_key}",
+                        self.path_list[i],
+                    )
+                if self.obsm_keys is not None:
+                    for obsm_key in self.obsm_keys:
+                        self._check_csc_raise_error(
+                            store["obsm"][obsm_key],
+                            f"obsm/{obsm_key}",
+                            self.path_list[i],
+                        )
         self.n_obs = sum(self.n_obs_list)
 
         self.indices = np.hstack([np.arange(n_obs) for n_obs in self.n_obs_list])
@@ -280,6 +297,18 @@ class MappedCollection:
             self._read_vars()
         vars = pd.Index(vars)
         return [i for i, vrs in enumerate(self.var_list) if not vrs.equals(vars)]
+
+    def _check_csc_raise_error(
+        self, elem: GroupType | ArrayType, key: str, path: UPathStr
+    ):
+        if isinstance(elem, ArrayTypes):  # type: ignore
+            return
+        if get_spec(elem).encoding_type == "csc_matrix":
+            if not self.parallel:
+                self.close()
+            raise ValueError(
+                f"{key} in {path} is a csc matrix, `MappedCollection` doesn't support this format yet."
+            )
 
     def __len__(self):
         return self.n_obs
