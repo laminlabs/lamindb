@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 from django.db.models.deletion import ProtectedError
 from lamindb import _collection
-from scipy.sparse import csr_matrix
+from scipy.sparse import csc_matrix, csr_matrix
 
 
 @pytest.fixture(scope="module")
@@ -186,13 +186,18 @@ def test_collection_mapped(adata, adata2):
     adata3.var_names = ["A", "B", "C"]
     artifact3 = ln.Artifact.from_anndata(adata3, description="Other vars")
     artifact3.save()
+    adata4 = adata.copy()
+    adata4.layers["layer1"] = csc_matrix(adata4.layers["layer1"])
+    artifact4 = ln.Artifact.from_anndata(adata4, description="csc layer")
+    artifact4.save()
     collection = ln.Collection([artifact1, artifact2], name="Gather")
     collection.save()
     collection_outer = ln.Collection(
         [artifact1, artifact2, artifact3], name="Gather outer"
     )
     collection_outer.save()
-
+    collection_csc = ln.Collection([artifact4, artifact2], name="Check csc")
+    collection_csc.save()
     # test encoders
     with pytest.raises(ValueError):
         ls_ds = collection.mapped(encode_labels=["feat1"])
@@ -322,11 +327,17 @@ def test_collection_mapped(adata, adata2):
         assert np.array_equal(ls_ds[0]["layer1"], np.array([0, 0, 0, 3, 0, 2]))
         assert np.array_equal(ls_ds[4]["layer1"], np.array([1, 2, 5, 0, 0, 0]))
 
+    # csc matrix in layers
+    with pytest.raises(ValueError):
+        collection_csc.mapped(layers_keys="layer1")
+
     collection.delete(permanent=True)
     collection_outer.delete(permanent=True)
+    collection_csc.delete(permanent=True)
     artifact1.delete(permanent=True)
     artifact2.delete(permanent=True)
     artifact3.delete(permanent=True)
+    artifact4.delete(permanent=True)
 
 
 def test_revise_collection(df, adata):
