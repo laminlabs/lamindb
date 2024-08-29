@@ -25,7 +25,7 @@ Key functionality
 
    context
    connect
-   Curate
+   Curator
    view
    save
 
@@ -94,7 +94,7 @@ if _check_instance_setup(from_lamindb=True):
         _ulabel,
         integrations,
     )
-    from ._curate import Curate
+    from ._curate import Curator
     from ._save import save
     from ._view import view
     from .core._context import context
@@ -110,6 +110,7 @@ if _check_instance_setup(from_lamindb=True):
 
     track = context.track  # backward compat
     finish = context.finish  # backward compat
+    Curate = Curator  # backward compat
     settings.__doc__ = """Global :class:`~lamindb.core.Settings`."""
     context.__doc__ = """Global :class:`~lamindb.core.Context`."""
     from django.db.models import Q

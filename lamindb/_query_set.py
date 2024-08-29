@@ -14,8 +14,10 @@ from lnschema_core.models import (
     Collection,
     IsVersioned,
     Record,
+    Registry,
     Run,
     Transform,
+    VisibilityChoice,
 )
 
 from lamindb.core.exceptions import DoesNotExist
@@ -65,6 +67,27 @@ def one_helper(self):
         return self[0]
 
 
+def process_expressions(registry: Registry, expressions: dict) -> dict:
+    if registry in {Artifact, Collection}:
+        # visibility is set to 0 unless expressions contains id or uid equality
+        if not (
+            "id" in expressions
+            or "uid" in expressions
+            or "uid__startswith" in expressions
+        ):
+            visibility = "visibility"
+            if not any(e.startswith(visibility) for e in expressions):
+                expressions[visibility] = (
+                    VisibilityChoice.default.value
+                )  # default visibility
+            # if visibility is None, do not apply a filter
+            # otherwise, it would mean filtering for NULL values, which doesn't make
+            # sense for a non-NULLABLE column
+            elif visibility in expressions and expressions[visibility] is None:
+                expressions.pop(visibility)
+    return expressions
+
+
 def get(
     registry_or_queryset: type[Record] | QuerySet,
     idlike: int | str | None = None,
@@ -89,7 +112,7 @@ def get(
             return qs.one()
     else:
         assert idlike is None  # noqa: S101
-        # below behaves exactly like `.one()`
+        expressions = process_expressions(registry, expressions)
         return registry.objects.get(**expressions)
 
 
