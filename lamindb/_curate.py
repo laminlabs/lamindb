@@ -987,19 +987,17 @@ def standardize_and_inspect(
     **kwargs,
 ):
     """Standardize and inspect values using a registry."""
-    filter_kwargs = get_current_filter_kwargs(registry, kwargs)
-
     if standardize:
         if hasattr(registry, "standardize") and hasattr(
             registry,
             "synonyms",  # https://github.com/laminlabs/lamindb/issues/1685
         ):
             standardized_values = registry.standardize(
-                values, field=field, mute=True, **filter_kwargs
+                values, field=field, mute=True, **kwargs
             )
             values = standardized_values
 
-    return registry.inspect(values, field=field, mute=True, **filter_kwargs)
+    return registry.inspect(values, field=field, mute=True, **kwargs)
 
 
 def check_registry_organism(registry: Record, organism: str | None = None) -> dict:
@@ -1051,10 +1049,8 @@ def validate_categories(
         logger.indent = "   "
 
     registry = field.field.model
-    kwargs = check_registry_organism(registry, organism)
-    kwargs.update({"source": source} if source else {})
 
-    # inspect the default instance
+    # inspect exclude values in the default instance
     if exclude is not None:
         exclude = [exclude] if isinstance(exclude, str) else exclude
         # exclude values are validated without source and organism
@@ -1062,12 +1058,17 @@ def validate_categories(
         # if exclude values are validated, remove them from the values
         values = [i for i in values if i not in inspect_result.validated]
 
+    kwargs = check_registry_organism(registry, organism)
+    kwargs.update({"source": source} if source else {})
+    kwargs_current = get_current_filter_kwargs(registry, kwargs)
+
+    # inspect the default instance
     inspect_result = standardize_and_inspect(
         values=values,
         field=field,
         registry=registry,
         standardize=standardize,
-        **kwargs,
+        **kwargs_current,
     )
     non_validated = inspect_result.non_validated
 
@@ -1093,7 +1094,7 @@ def validate_categories(
             public_records = registry.from_values(
                 non_validated,
                 field=field,
-                **get_current_filter_kwargs(registry, kwargs),
+                **kwargs_current,
             )
             values_validated += [getattr(r, field.field.name) for r in public_records]
         finally:
@@ -1113,9 +1114,13 @@ def validate_categories(
     non_validated = [i for i in non_validated if i not in values_validated]
     n_non_validated = len(non_validated)
     if n_non_validated == 0:
-        logger.indent = ""
-        logger.success(f"{key} is validated against {colors.italic(model_field)}")
-        return True, []
+        if n_validated == 0:
+            logger.indent = ""
+            logger.success(f"{key} is validated against {colors.italic(model_field)}")
+            return True, []
+        else:
+            # validated values still need to be saved to the current instance
+            return False, []
     else:
         are = "are" if n_non_validated > 1 else "is"
         print_values = _print_values(non_validated)
@@ -1331,7 +1336,7 @@ def update_registry(
             field=field,
             registry=registry,
             standardize=standardize,
-            **filter_kwargs,
+            **filter_kwargs_current,
         )
         if not inspect_result_current.non_validated:
             all_labels = registry.from_values(
