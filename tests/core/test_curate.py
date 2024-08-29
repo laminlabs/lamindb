@@ -179,6 +179,7 @@ def test_anndata_annotator(adata, categoricals):
         organism="human",
     )
     curate.add_validated_from("all")
+    curate.add_validated_from_var_index()
     curate.add_new_from("donor")
     validated = curate.validate()
     assert validated
