@@ -157,25 +157,26 @@ class MappedCollection:
         for i, storage in enumerate(self.storages):
             with _Connect(storage) as store:
                 X = store["X"]
+                store_path = self.path_list[i]
+                self._check_csc_raise_error(X, "X", store_path)
                 if isinstance(X, ArrayTypes):  # type: ignore
                     self.n_obs_list.append(X.shape[0])
                 else:
                     self.n_obs_list.append(X.attrs["shape"][0])
-                    self._check_csc_raise_error(X, "X", self.path_list[i])
                 for layer_key in self.layers_keys:
                     if layer_key == "X":
                         continue
                     self._check_csc_raise_error(
                         store["layers"][layer_key],
                         f"layers/{layer_key}",
-                        self.path_list[i],
+                        store_path,
                     )
                 if self.obsm_keys is not None:
                     for obsm_key in self.obsm_keys:
                         self._check_csc_raise_error(
                             store["obsm"][obsm_key],
                             f"obsm/{obsm_key}",
-                            self.path_list[i],
+                            store_path,
                         )
         self.n_obs = sum(self.n_obs_list)
 
