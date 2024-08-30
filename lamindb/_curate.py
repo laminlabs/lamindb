@@ -201,7 +201,7 @@ class DataFrameCurator(BaseCurator):
             if key not in df.columns
         ]
         if missing_keys:
-            raise KeyError(
+            raise ValueError(
                 f"The following keys were passed as categoricals or sources but are missing in the columns: {missing_keys}."
             )
 
