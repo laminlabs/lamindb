@@ -209,7 +209,6 @@ def test_anndata_annotator_wrong_type(df, categoricals):
         ln.Curator.from_df(
             df,
             categoricals=categoricals,
-            var_index=bt.Gene.symbol,
             organism="human",
         )
     assert "data has to be an AnnData object" in str(error.value)
@@ -220,7 +219,6 @@ def test_categorical_key_not_present(df):
         ln.Curator.from_df(
             df,
             categoricals={"not present": None},
-            var_index=bt.Gene.symbol,
             organism="human",
         )
     assert (
