@@ -821,8 +821,8 @@ class MuDataCurator:
                 field=var_field,
                 key=f"{modality}_var_index",
                 using_key=self._using_key,
-                source=self._sources.get(modality).get("var_index"),
-                exclude=self._exclude.get(f"{modality}_var_index"),
+                source=self._sources.get(modality, {}).get("var_index"),
+                exclude=self._exclude.get(modality, {}).get("var_index"),
                 **self._kwargs,  # type: ignore
             )
             validated_var &= is_validated_var
