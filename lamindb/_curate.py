@@ -125,7 +125,7 @@ class DataFrameCurator(BaseCurator):
 
     Examples:
         >>> import bionty as bt
-        >>> curate = ln.Curate.from_df(
+        >>> curate = ln.Curator.from_df(
         ...     df,
         ...     categoricals={
         ...         "cell_type_ontology_id": bt.CellType.ontology_id,
@@ -208,6 +208,7 @@ class DataFrameCurator(BaseCurator):
             using_key=self._using_key,
             validated_only=False,
             source=self._sources.get("columns"),
+            exclude=self._exclude.get("columns"),
             **kwargs,
         )
 
@@ -223,6 +224,7 @@ class DataFrameCurator(BaseCurator):
                 validated_only=validated_only,
                 df=self._df,  # Get the Feature type from df
                 source=self._sources.get("columns"),
+                exclude=self._exclude.get("columns"),
                 warning=False,  # Do not warn about missing columns, just an info message
                 **kwargs,
             )
@@ -275,6 +277,7 @@ class DataFrameCurator(BaseCurator):
                 using_key=self._using_key,
                 validated_only=validated_only,
                 source=self._sources.get(categorical),
+                exclude=self._exclude.get(categorical),
                 **kwargs,
             )
 
@@ -356,7 +359,7 @@ class AnnDataCurator(DataFrameCurator):
 
     See also :class:`~lamindb.Curator`.
 
-    Note that if genes are removed from the AnnData object, the object should be recreated using :meth:`~lamindb.Curate.from_anndata`.
+    Note that if genes are removed from the AnnData object, the object should be recreated using :meth:`~lamindb.Curator.from_anndata`.
 
     See :doc:`docs:cellxgene-curate` for instructions on how to curate against a specific cellxgene schema version.
 
@@ -372,7 +375,7 @@ class AnnDataCurator(DataFrameCurator):
 
     Examples:
         >>> import bionty as bt
-        >>> curate = ln.Curate.from_anndata(
+        >>> curate = ln.Curator.from_anndata(
         ...     adata,
         ...     var_index=bt.Gene.ensembl_gene_id,
         ...     categoricals={
@@ -463,6 +466,7 @@ class AnnDataCurator(DataFrameCurator):
             validated_only=validated_only,
             organism=organism,
             source=self._sources.get("var_index"),
+            exclude=self._exclude.get("var_index"),
         )
 
     def _update_registry_all(self, validated_only: bool = True, **kwargs):
@@ -565,7 +569,7 @@ class MuDataCurator:
     See also :class:`~lamindb.Curator`.
 
     Note that if genes or other measurements are removed from the MuData object,
-    the object should be recreated using :meth:`~lamindb.Curate.from_mudata`.
+    the object should be recreated using :meth:`~lamindb.Curator.from_mudata`.
 
     Args:
         mdata: The MuData object to curate.
@@ -582,7 +586,7 @@ class MuDataCurator:
 
     Examples:
         >>> import bionty as bt
-        >>> curate = ln.Curate.from_mudata(
+        >>> curate = ln.Curator.from_mudata(
         ...     mdata,
         ...     var_index={
         ...         "rna": bt.Gene.ensembl_gene_id,
@@ -667,6 +671,7 @@ class MuDataCurator:
             validated_only=validated_only,
             dtype="number",
             source=self._sources.get(modality, {}).get("var_index"),
+            exclude=self._exclude.get(modality, {}).get("var_index"),
             **kwargs,
         )
 
@@ -730,6 +735,7 @@ class MuDataCurator:
             validated_only=False,
             df=self._mdata[modality].obs,
             source=self._sources.get(modality, {}).get("columns"),
+            exclude=self._exclude.get(modality, {}).get("columns"),
             **self._kwargs,  # type: ignore
             **kwargs,
         )
@@ -815,7 +821,8 @@ class MuDataCurator:
                 field=var_field,
                 key=f"{modality}_var_index",
                 using_key=self._using_key,
-                exclude=self._exclude.get(f"{modality}_var_index"),
+                source=self._sources.get(modality, {}).get("var_index"),
+                exclude=self._exclude.get(modality, {}).get("var_index"),
                 **self._kwargs,  # type: ignore
             )
             validated_var &= is_validated_var
@@ -882,9 +889,9 @@ class Curator(BaseCurator):
 
     1. Instantiate `Curator` from one of the following dataset objects:
 
-    - :meth:`~lamindb.Curate.from_df`
-    - :meth:`~lamindb.Curate.from_anndata`
-    - :meth:`~lamindb.Curate.from_mudata`
+    - :meth:`~lamindb.Curator.from_df`
+    - :meth:`~lamindb.Curator.from_anndata`
+    - :meth:`~lamindb.Curator.from_mudata`
 
     During object creation, any passed categoricals found in the object will be saved.
 
@@ -1008,10 +1015,22 @@ def standardize_and_inspect(
     field: FieldAttr,
     registry: type[Record],
     standardize: bool = False,
+    exclude: str | list | None = None,
     **kwargs,
 ):
     """Standardize and inspect values using a registry."""
-    filter_kwargs = get_current_filter_kwargs(registry, kwargs)
+    # inspect exclude values in the default instance
+    values = list(values)
+    include_validated = []
+    if exclude is not None:
+        exclude = [exclude] if isinstance(exclude, str) else exclude
+        exclude = [i for i in exclude if i in values]
+        if len(exclude) > 0:
+            # exclude values are validated without source and organism
+            inspect_result_exclude = registry.inspect(exclude, field=field, mute=True)
+            # if exclude values are validated, remove them from the values
+            values = [i for i in values if i not in inspect_result_exclude.validated]
+            include_validated = inspect_result_exclude.validated
 
     if standardize:
         if hasattr(registry, "standardize") and hasattr(
@@ -1019,11 +1038,17 @@ def standardize_and_inspect(
             "synonyms",  # https://github.com/laminlabs/lamindb/issues/1685
         ):
             standardized_values = registry.standardize(
-                values, field=field, mute=True, **filter_kwargs
+                values, field=field, mute=True, **kwargs
             )
             values = standardized_values
 
-    return registry.inspect(values, field=field, mute=True, **filter_kwargs)
+    inspect_result = registry.inspect(values, field=field, mute=True, **kwargs)
+    inspect_result._validated += include_validated
+    inspect_result._non_validated = [
+        i for i in inspect_result.non_validated if i not in include_validated
+    ]
+
+    return inspect_result
 
 
 def check_registry_organism(registry: Record, organism: str | None = None) -> dict:
@@ -1075,35 +1100,32 @@ def validate_categories(
         logger.indent = "   "
 
     registry = field.field.model
+
     kwargs = check_registry_organism(registry, organism)
     kwargs.update({"source": source} if source else {})
+    kwargs_current = get_current_filter_kwargs(registry, kwargs)
 
     # inspect the default instance
-    if exclude is not None:
-        exclude = [exclude] if isinstance(exclude, str) else exclude
-        # exclude values are validated without source and organism
-        inspect_result = registry.inspect(exclude, field=field, mute=True)
-        # if exclude values are validated, remove them from the values
-        values = [i for i in values if i not in inspect_result.validated]
-
     inspect_result = standardize_and_inspect(
         values=values,
         field=field,
         registry=registry,
         standardize=standardize,
-        **kwargs,
+        exclude=exclude,
+        **kwargs_current,
     )
     non_validated = inspect_result.non_validated
 
+    # inspect the using instance
     values_validated = []
     if using_key is not None and using_key != "default" and non_validated:
         registry_using = get_registry_instance(registry, using_key)
-        # inspect the using instance
         inspect_result = standardize_and_inspect(
             values=non_validated,
             field=field,
             registry=registry_using,
             standardize=standardize,
+            exclude=exclude,
             **kwargs,
         )
         non_validated = inspect_result.non_validated
@@ -1117,7 +1139,7 @@ def validate_categories(
             public_records = registry.from_values(
                 non_validated,
                 field=field,
-                **get_current_filter_kwargs(registry, kwargs),
+                **kwargs_current,
             )
             values_validated += [getattr(r, field.field.name) for r in public_records]
         finally:
@@ -1137,9 +1159,13 @@ def validate_categories(
     non_validated = [i for i in non_validated if i not in values_validated]
     n_non_validated = len(non_validated)
     if n_non_validated == 0:
-        logger.indent = ""
-        logger.success(f"{key} is validated against {colors.italic(model_field)}")
-        return True, []
+        if n_validated == 0:
+            logger.indent = ""
+            logger.success(f"{key} is validated against {colors.italic(model_field)}")
+            return True, []
+        else:
+            # validated values still need to be saved to the current instance
+            return False, []
     else:
         are = "are" if n_non_validated > 1 else "is"
         print_values = _print_values(non_validated)
@@ -1164,6 +1190,9 @@ def validate_categories_in_df(
     **kwargs,
 ) -> tuple[bool, dict]:
     """Validate categories in DataFrame columns using LaminDB registries."""
+    if not fields:
+        return True, {}
+
     if sources is None:
         sources = {}
     validated = True
@@ -1296,6 +1325,7 @@ def update_registry(
     source: Record | None = None,
     standardize: bool = True,
     warning: bool = True,
+    exclude: str | list | None = None,
     **kwargs,
 ) -> None:
     """Save features or labels records in the default instance from the using_key instance.
@@ -1355,7 +1385,8 @@ def update_registry(
             field=field,
             registry=registry,
             standardize=standardize,
-            **filter_kwargs,
+            exclude=exclude,
+            **filter_kwargs_current,
         )
         if not inspect_result_current.non_validated:
             all_labels = registry.from_values(
@@ -1374,6 +1405,7 @@ def update_registry(
             inspect_result_current.non_validated,
             field=field,
             using_key=using_key,
+            exclude=exclude,
             **filter_kwargs,
         )
 
@@ -1493,6 +1525,7 @@ def update_registry_from_using_instance(
     field: FieldAttr,
     using_key: str | None = None,
     standardize: bool = False,
+    exclude: str | list | None = None,
     **kwargs,
 ) -> tuple[list[str], list[str]]:
     """Save features or labels records from the using_key instance.
@@ -1518,6 +1551,7 @@ def update_registry_from_using_instance(
             field=field,
             registry=registry_using,
             standardize=standardize,
+            exclude=exclude,
             **kwargs,
         )
         labels_using = registry_using.filter(
