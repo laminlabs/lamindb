@@ -158,7 +158,7 @@ class DataFrameCurator(BaseCurator):
         self._kwargs = {"organism": organism} if organism else {}
         if sources is None:
             sources = {}
-        self._check_categoricals_sources_in_cols(df, categoricals, sources)
+        self._check_categoricals_sources_in_cols(df, self._fields, sources)
         self._sources = sources
         if exclude is None:
             exclude = {}

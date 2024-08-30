@@ -226,6 +226,7 @@ def test_source_key_not_present(adata, categoricals):
         ln.Curator.from_anndata(
             adata,
             categoricals=categoricals,
+            var_index=bt.Gene.symbol,
             sources={"not_present": None},
             organism="human",
         )
