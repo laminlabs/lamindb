@@ -208,6 +208,7 @@ class DataFrameCurator(BaseCurator):
             using_key=self._using_key,
             validated_only=False,
             source=self._sources.get("columns"),
+            exclude=self._exclude.get("columns"),
             **kwargs,
         )
 
@@ -223,6 +224,7 @@ class DataFrameCurator(BaseCurator):
                 validated_only=validated_only,
                 df=self._df,  # Get the Feature type from df
                 source=self._sources.get("columns"),
+                exclude=self._exclude.get("columns"),
                 warning=False,  # Do not warn about missing columns, just an info message
                 **kwargs,
             )
@@ -275,6 +277,7 @@ class DataFrameCurator(BaseCurator):
                 using_key=self._using_key,
                 validated_only=validated_only,
                 source=self._sources.get(categorical),
+                exclude=self._exclude.get(categorical),
                 **kwargs,
             )
 
@@ -463,6 +466,7 @@ class AnnDataCurator(DataFrameCurator):
             validated_only=validated_only,
             organism=organism,
             source=self._sources.get("var_index"),
+            exclude=self._exclude.get("var_index"),
         )
 
     def _update_registry_all(self, validated_only: bool = True, **kwargs):
@@ -667,6 +671,7 @@ class MuDataCurator:
             validated_only=validated_only,
             dtype="number",
             source=self._sources.get(modality, {}).get("var_index"),
+            exclude=self._exclude.get(modality, {}).get("var_index"),
             **kwargs,
         )
 
@@ -730,6 +735,7 @@ class MuDataCurator:
             validated_only=False,
             df=self._mdata[modality].obs,
             source=self._sources.get(modality, {}).get("columns"),
+            exclude=self._exclude.get(modality, {}).get("columns"),
             **self._kwargs,  # type: ignore
             **kwargs,
         )
@@ -815,6 +821,7 @@ class MuDataCurator:
                 field=var_field,
                 key=f"{modality}_var_index",
                 using_key=self._using_key,
+                source=self._sources.get(modality).get("var_index"),
                 exclude=self._exclude.get(f"{modality}_var_index"),
                 **self._kwargs,  # type: ignore
             )
@@ -1008,9 +1015,23 @@ def standardize_and_inspect(
     field: FieldAttr,
     registry: type[Record],
     standardize: bool = False,
+    exclude: str | list | None = None,
     **kwargs,
 ):
     """Standardize and inspect values using a registry."""
+    # inspect exclude values in the default instance
+    values = list(values)
+    include_validated = []
+    if exclude is not None:
+        exclude = [exclude] if isinstance(exclude, str) else exclude
+        exclude = [i for i in exclude if i in values]
+        if len(exclude) > 0:
+            # exclude values are validated without source and organism
+            inspect_result_exclude = registry.inspect(exclude, field=field, mute=True)
+            # if exclude values are validated, remove them from the values
+            values = [i for i in values if i not in inspect_result_exclude.validated]
+            include_validated = inspect_result_exclude.validated
+
     if standardize:
         if hasattr(registry, "standardize") and hasattr(
             registry,
@@ -1021,7 +1042,13 @@ def standardize_and_inspect(
             )
             values = standardized_values
 
-    return registry.inspect(values, field=field, mute=True, **kwargs)
+    inspect_result = registry.inspect(values, field=field, mute=True, **kwargs)
+    inspect_result._validated += include_validated
+    inspect_result._non_validated = [
+        i for i in inspect_result.non_validated if i not in include_validated
+    ]
+
+    return inspect_result
 
 
 def check_registry_organism(registry: Record, organism: str | None = None) -> dict:
@@ -1074,14 +1101,6 @@ def validate_categories(
 
     registry = field.field.model
 
-    # inspect exclude values in the default instance
-    if exclude is not None:
-        exclude = [exclude] if isinstance(exclude, str) else exclude
-        # exclude values are validated without source and organism
-        inspect_result = registry.inspect(exclude, field=field, mute=True)
-        # if exclude values are validated, remove them from the values
-        values = [i for i in values if i not in inspect_result.validated]
-
     kwargs = check_registry_organism(registry, organism)
     kwargs.update({"source": source} if source else {})
     kwargs_current = get_current_filter_kwargs(registry, kwargs)
@@ -1092,19 +1111,21 @@ def validate_categories(
         field=field,
         registry=registry,
         standardize=standardize,
+        exclude=exclude,
         **kwargs_current,
     )
     non_validated = inspect_result.non_validated
 
+    # inspect the using instance
     values_validated = []
     if using_key is not None and using_key != "default" and non_validated:
         registry_using = get_registry_instance(registry, using_key)
-        # inspect the using instance
         inspect_result = standardize_and_inspect(
             values=non_validated,
             field=field,
             registry=registry_using,
             standardize=standardize,
+            exclude=exclude,
             **kwargs,
         )
         non_validated = inspect_result.non_validated
@@ -1304,6 +1325,7 @@ def update_registry(
     source: Record | None = None,
     standardize: bool = True,
     warning: bool = True,
+    exclude: str | list | None = None,
     **kwargs,
 ) -> None:
     """Save features or labels records in the default instance from the using_key instance.
@@ -1363,6 +1385,7 @@ def update_registry(
             field=field,
             registry=registry,
             standardize=standardize,
+            exclude=exclude,
             **filter_kwargs_current,
         )
         if not inspect_result_current.non_validated:
@@ -1382,6 +1405,7 @@ def update_registry(
             inspect_result_current.non_validated,
             field=field,
             using_key=using_key,
+            exclude=exclude,
             **filter_kwargs,
         )
 
@@ -1501,6 +1525,7 @@ def update_registry_from_using_instance(
     field: FieldAttr,
     using_key: str | None = None,
     standardize: bool = False,
+    exclude: str | list | None = None,
     **kwargs,
 ) -> tuple[list[str], list[str]]:
     """Save features or labels records from the using_key instance.
@@ -1526,6 +1551,7 @@ def update_registry_from_using_instance(
             field=field,
             registry=registry_using,
             standardize=standardize,
+            exclude=exclude,
             **kwargs,
         )
         labels_using = registry_using.filter(
