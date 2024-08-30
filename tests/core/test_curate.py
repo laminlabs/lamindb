@@ -215,6 +215,35 @@ def test_anndata_annotator_wrong_type(df, categoricals):
     assert "data has to be an AnnData object" in str(error.value)
 
 
+def test_categorical_key_not_present(df):
+    with pytest.raises(ValueError) as error:
+        ln.Curator.from_anndata(
+            df,
+            categoricals={"not present": None},
+            var_index=bt.Gene.symbol,
+            organism="human",
+        )
+    assert (
+        "The following keys were passed as categoricals or source but are missing in the columns"
+        in str(error.value)
+    )
+
+
+def test_source_key_not_present(df, categoricals):
+    with pytest.raises(ValueError) as error:
+        ln.Curator.from_anndata(
+            df,
+            categoricals=categoricals,
+            var_index=bt.Gene.symbol,
+            sources={"not_present": None},
+            organism="human",
+        )
+    assert (
+        "The following keys were passed as categoricals or source but are missing in the columns"
+        in str(error.value)
+    )
+
+
 def test_unvalidated_adata_object(adata, categoricals):
     curate = ln.Curator.from_anndata(
         adata,

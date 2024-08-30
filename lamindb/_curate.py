@@ -87,6 +87,19 @@ class CurateLookup:
 class BaseCurator:
     """Curate a dataset."""
 
+    def _check_keys_in_obs(
+        self, df: pd.DataFrame, categoricals: dict, sources: dict
+    ) -> None:
+        missing_keys = [
+            key
+            for key in list(categoricals.keys()) + list(sources.keys())
+            if key not in df.columns
+        ]
+        if missing_keys:
+            raise KeyError(
+                f"The following keys were passed as categoricals or sources but are missing in the columns: {missing_keys}."
+            )
+
     def validate(self) -> bool:
         """Validate dataset.
 
@@ -146,6 +159,9 @@ class DataFrameCurator(BaseCurator):
         exclude: dict | None = None,
     ) -> None:
         from lamindb.core._settings import settings
+
+        super().__init__()
+        self._check_keys_in_obs(df, categoricals or {}, sources or {})
 
         self._df = df
         self._fields = categoricals or {}
