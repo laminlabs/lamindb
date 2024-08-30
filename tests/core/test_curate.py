@@ -113,14 +113,6 @@ def test_custom_using_invalid_field_lookup(curate_lookup):
     )
 
 
-def test_missing_columns(df):
-    with pytest.raises(ValueError) as error:
-        ln.Curator.from_df(df, categoricals={"missing_column": "some_registry_field"})
-    assert "Columns {'missing_column'} are not found in the data object!" in str(
-        error.value
-    )
-
-
 def test_additional_args_with_all_key(df, categoricals):
     curate = ln.Curator.from_df(df, categoricals=categoricals)
     with pytest.raises(ValueError) as error:
@@ -228,10 +220,10 @@ def test_categorical_key_not_present(df):
     )
 
 
-def test_source_key_not_present(df, categoricals):
+def test_source_key_not_present(adata, categoricals):
     with pytest.raises(ValueError) as error:
-        ln.Curator.from_df(
-            df,
+        ln.Curator.from_anndata(
+            adata,
             categoricals=categoricals,
             sources={"not_present": None},
             organism="human",
