@@ -214,8 +214,9 @@ def test_categorical_key_not_present(df):
             categoricals={"not present": None},
             organism="human",
         )
+
     assert (
-        "The following keys were passed as categoricals or source but are missing in the columns"
+        "The following keys were passed as categoricals or sources but are missing in the columns"
         in str(error.value)
     )
 
