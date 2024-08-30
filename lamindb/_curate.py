@@ -87,19 +87,6 @@ class CurateLookup:
 class BaseCurator:
     """Curate a dataset."""
 
-    def _check_keys_in_obs(
-        self, df: pd.DataFrame, categoricals: dict, sources: dict
-    ) -> None:
-        missing_keys = [
-            key
-            for key in list(categoricals.keys()) + list(sources.keys())
-            if key not in df.columns
-        ]
-        if missing_keys:
-            raise KeyError(
-                f"The following keys were passed as categoricals or sources but are missing in the columns: {missing_keys}."
-            )
-
     def validate(self) -> bool:
         """Validate dataset.
 
@@ -160,9 +147,6 @@ class DataFrameCurator(BaseCurator):
     ) -> None:
         from lamindb.core._settings import settings
 
-        super().__init__()
-        self._check_keys_in_obs(df, categoricals or {}, sources or {})
-
         self._df = df
         self._fields = categoricals or {}
         self._columns_field = columns
@@ -174,6 +158,7 @@ class DataFrameCurator(BaseCurator):
         self._kwargs = {"organism": organism} if organism else {}
         if sources is None:
             sources = {}
+        self._check_categoricals_sources_in_cols(df, categoricals, sources)
         self._sources = sources
         if exclude is None:
             exclude = {}
@@ -206,6 +191,19 @@ class DataFrameCurator(BaseCurator):
             slots={"columns": self._columns_field},
             using_key=using_key or self._using_key,
         )
+
+    def _check_categoricals_sources_in_cols(
+        self, df: pd.DataFrame, categoricals: dict, sources: dict
+    ) -> None:
+        missing_keys = [
+            key
+            for key in list(categoricals.keys()) + list(sources.keys())
+            if key not in df.columns
+        ]
+        if missing_keys:
+            raise KeyError(
+                f"The following keys were passed as categoricals or sources but are missing in the columns: {missing_keys}."
+            )
 
     def _save_columns(self, validated_only: bool = True, **kwargs) -> None:
         """Save column name records."""
