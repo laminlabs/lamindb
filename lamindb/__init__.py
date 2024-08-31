@@ -1,7 +1,6 @@
 """A data framework for biology.
 
-Records
-=======
+Core registries.
 
 .. autosummary::
    :toctree: .
@@ -17,8 +16,7 @@ Records
    FeatureSet
    Param
 
-Key functionality
-=================
+Key functionality.
 
 .. autosummary::
    :toctree: .
@@ -29,8 +27,7 @@ Key functionality
    view
    save
 
-Modules & settings
-==================
+Modules and settings.
 
 .. autosummary::
    :toctree: .
