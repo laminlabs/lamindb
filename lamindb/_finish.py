@@ -149,21 +149,7 @@ def save_context_core(
         # representation
         source_code_path = ln_setup.settings.storage.cache_dir / filepath.name
         notebook_to_script(filepath, source_code_path)
-    # find initial versions of source codes and html reports
-    prev_report = None
-    if transform_family is None:
-        transform_family = transform.versions
-    if len(transform_family) > 0:
-        for prev_transform in transform_family.order_by("-created_at"):
-            if (
-                prev_transform.latest_run is not None
-                and prev_transform.latest_run.report_id is not None
-            ):
-                prev_report = prev_transform.latest_run.report
-            if prev_transform._source_code_artifact_id is not None:
-                pass
     ln.settings.creation.artifact_silence_missing_run_warning = True
-
     # track source code
     hash, _ = hash_file(source_code_path)  # ignore hash_type for now
     if (
@@ -252,7 +238,6 @@ def save_context_core(
             report_file = ln.Artifact(
                 report_path,
                 description=f"Report of run {run.uid}",
-                revises=prev_report,
                 visibility=0,  # hidden file
                 run=False,
             )
