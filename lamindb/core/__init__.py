@@ -10,8 +10,6 @@ Registries:
    QuerySet
    QueryManager
    RecordsList
-   HasFeatures
-   HasParams
    FeatureManager
    ParamManager
    LabelManager
