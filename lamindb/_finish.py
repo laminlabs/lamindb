@@ -18,58 +18,37 @@ if TYPE_CHECKING:
     from ._query_set import QuerySet
 
 
-# this is the get_title function from nbproject
+# this is from the get_title function in nbproject
 # should be moved into lamindb sooner or later
 def prepare_notebook(
     nb,
     strip_title: bool = False,
-    replace_title: str | None = None,
-    remove_cell_metadata: bool = False,
 ) -> str | None:
-    """Get title of the notebook."""
-    # loop through all cells
+    """Strip title from the notebook if requested."""
+    title_found = False
     for cell in nb.cells:
-        if remove_cell_metadata:
-            # remove cell metadata
-            cell.metadata = {}
-        # only consider markdown
-        if cell["cell_type"] == "markdown":
-            # grab source
-            text = cell["source"][0]
-            # loop through lines
-            for line in text.split("\n"):
-                # if finding a level-1 heading, consider it a title
+        cell.metadata.clear()  # strip cell metadata
+        if not title_found and cell["cell_type"] == "markdown":
+            lines = cell["source"].split("\n")
+            for i, line in enumerate(lines):
                 if line.startswith("# "):
-                    title = line.lstrip("#").strip(" .").strip("\n")
+                    line.lstrip("#").strip(" .").strip()
+                    title_found = True
                     if strip_title:
-                        cell["source"][0] = text.replace(line + "\n", "")
-                    elif replace_title is not None:
-                        cell["source"][0] = text.replace(
-                            f"# {title}", f"# {replace_title}"
-                        )
-                    break
+                        lines.pop(i)
+                        cell["source"] = "\n".join(lines)
     return None
 
 
-def notebook_to_html(transform: Transform, notebook_path: Path) -> None:
+def notebook_to_ipynb(notebook_path: Path, output_path: Path) -> None:
     import nbformat
-    import traitlets.config as config
-    from nbconvert import HTMLExporter
 
-    c = config.Config()
-    c.Application.log_level = 40
-
-    html_exporter = HTMLExporter(config=c)
-
-    notebook = nbformat.read(notebook_path, as_version=4)
-    # strip title
+    with open(notebook_path, encoding="utf-8") as f:
+        notebook = nbformat.read(f, as_version=4)
     prepare_notebook(notebook, strip_title=True)
-    # strip the title from the notebook
-    html, _ = html_exporter.from_notebook_node(notebook)
-
-    html_path = notebook_path.with_suffix(".html")
-    html_path.write_text(html, encoding="utf-8")
-    print(html)
+    notebook.metadata.clear()  # strip notebook metadata
+    with open(output_path, "w", encoding="utf-8") as f:
+        nbformat.write(notebook, f)
 
 
 def notebook_to_script(
@@ -90,7 +69,7 @@ def script_to_notebook(transform: Transform, notebook_path: Path) -> None:
     import jupytext
 
     notebook = jupytext.reads(transform.source_code, fmt="py:percent")
-    prepare_notebook(notebook, replace_title=transform.name)
+    prepare_notebook(notebook)
     jupytext.write(notebook, notebook_path)
 
 
@@ -135,22 +114,10 @@ def save_context_core(
                 response = "n"
             if response != "y":
                 return "aborted-non-consecutive"
-        # convert the notebook file to html
-        notebook_to_html(transform, filepath)
-        # move the temporary file into the cache dir in case it's accidentally
-        # in an existing storage location -> we want to move associated
-        # artifacts into default storage and not register them in an existing
-        # location
-        report_path_orig = filepath.with_suffix(".html")  # current location
-        report_path = ln_setup.settings.storage.cache_dir / report_path_orig.name
-        # don't use Path.rename here because of cross-device link error
-        # https://laminlabs.slack.com/archives/C04A0RMA0SC/p1710259102686969
-        shutil.move(
-            report_path_orig,  # type: ignore
-            report_path,
-        )
-        # convert the notebook to `.py` via jupytext to create the source code
-        # representation
+        # write the report
+        report_path = ln_setup.settings.storage.cache_dir / filepath.name
+        notebook_to_ipynb(filepath, report_path)
+        # write the source code
         source_code_path = ln_setup.settings.storage.cache_dir / filepath.name
         notebook_to_script(transform, filepath, source_code_path)
     ln.settings.creation.artifact_silence_missing_run_warning = True
