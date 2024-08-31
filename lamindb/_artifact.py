@@ -1174,3 +1174,4 @@ Artifact._delete_skip_storage = _delete_skip_storage
 Artifact._save_skip_storage = _save_skip_storage
 Artifact.path = path
 Artifact.backed = backed
+Artifact.view_lineage = HasFeatures.view_lineage
