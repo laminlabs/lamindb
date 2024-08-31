@@ -118,13 +118,11 @@ def validate_labels(labels: QuerySet | list | dict):
 
 
 class LabelManager:
-    """Label manager (:attr:`~lamindb.core.HasFeatures.labels`).
+    """Label manager.
 
     This allows to manage untyped labels :class:`~lamindb.ULabel` and arbitrary
     typed labels (e.g., :class:`~bionty.CellLine`) and associate labels
     with features.
-
-    See :class:`~lamindb.core.HasFeatures` for more information.
     """
 
     def __init__(self, host: Artifact | Collection):
