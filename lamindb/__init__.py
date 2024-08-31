@@ -1,7 +1,6 @@
 """A data framework for biology.
 
-Records
-=======
+Core registries.
 
 .. autosummary::
    :toctree: .
@@ -17,20 +16,18 @@ Records
    FeatureSet
    Param
 
-Key functionality
-=================
+Key functionality.
 
 .. autosummary::
    :toctree: .
 
    context
    connect
-   Curate
+   Curator
    view
    save
 
-Modules & settings
-==================
+Modules and settings.
 
 .. autosummary::
    :toctree: .
@@ -44,7 +41,7 @@ Modules & settings
 """
 
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
-__version__ = "0.76.2"
+__version__ = "0.76.3"
 
 import os as _os
 
@@ -94,7 +91,7 @@ if _check_instance_setup(from_lamindb=True):
         _ulabel,
         integrations,
     )
-    from ._curate import Curate
+    from ._curate import Curator
     from ._save import save
     from ._view import view
     from .core._context import context
@@ -110,6 +107,7 @@ if _check_instance_setup(from_lamindb=True):
 
     track = context.track  # backward compat
     finish = context.finish  # backward compat
+    Curate = Curator  # backward compat
     settings.__doc__ = """Global :class:`~lamindb.core.Settings`."""
     context.__doc__ = """Global :class:`~lamindb.core.Context`."""
     from django.db.models import Q

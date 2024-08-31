@@ -249,13 +249,13 @@ def test_write_read_tiledbsoma(storage):
 
     # fails with a view
     with pytest.raises(ValueError):
-        save_tiledbsoma_experiment([adata[:2]], measurement_name="RNA", run=run)
+        save_tiledbsoma_experiment([adata[:2]], run=run, measurement_name="RNA")
 
     artifact_soma = save_tiledbsoma_experiment(
         [test_file],
-        measurement_name="RNA",
+        description="test tiledbsoma",
         run=run,
-        artifact_kwargs={"description": "test tiledbsoma"},
+        measurement_name="RNA",
     )
     assert artifact_soma.path.stem == artifact_soma.uid[:16]
 
@@ -297,14 +297,17 @@ def test_write_read_tiledbsoma(storage):
     # here run should be passed
     with pytest.raises(ValueError):
         save_tiledbsoma_experiment(
-            [adata_to_append_1], measurement_name="RNA", revises=artifact_soma, run=None
+            [adata_to_append_1],
+            revises=artifact_soma,
+            run=None,
+            measurement_name="RNA",
         )
 
     artifact_soma_append = save_tiledbsoma_experiment(
         [adata_to_append_1, "adata_to_append_2.h5ad"],
-        measurement_name="RNA",
         revises=artifact_soma,
         run=run,
+        measurement_name="RNA",
         append_obsm_varm=True,
     )
     assert artifact_soma_append.uid.endswith("0002")

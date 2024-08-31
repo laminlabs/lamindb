@@ -586,7 +586,8 @@ def delete(self) -> None:
     # but that's for another time
     if isinstance(self, IsVersioned) and self.is_latest:
         new_latest = (
-            self.__class__.filter(is_latest=False, uid__startswith=self.stem_uid)
+            self.__class__.objects.using(self._state.db)
+            .filter(is_latest=False, uid__startswith=self.stem_uid)
             .order_by("-created_at")
             .first()
         )

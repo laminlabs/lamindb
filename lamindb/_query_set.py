@@ -14,8 +14,10 @@ from lnschema_core.models import (
     Collection,
     IsVersioned,
     Record,
+    Registry,
     Run,
     Transform,
+    VisibilityChoice,
 )
 
 from lamindb.core.exceptions import DoesNotExist
@@ -65,6 +67,27 @@ def one_helper(self):
         return self[0]
 
 
+def process_expressions(registry: Registry, expressions: dict) -> dict:
+    if registry in {Artifact, Collection}:
+        # visibility is set to 0 unless expressions contains id or uid equality
+        if not (
+            "id" in expressions
+            or "uid" in expressions
+            or "uid__startswith" in expressions
+        ):
+            visibility = "visibility"
+            if not any(e.startswith(visibility) for e in expressions):
+                expressions[visibility] = (
+                    VisibilityChoice.default.value
+                )  # default visibility
+            # if visibility is None, do not apply a filter
+            # otherwise, it would mean filtering for NULL values, which doesn't make
+            # sense for a non-NULLABLE column
+            elif visibility in expressions and expressions[visibility] is None:
+                expressions.pop(visibility)
+    return expressions
+
+
 def get(
     registry_or_queryset: type[Record] | QuerySet,
     idlike: int | str | None = None,
@@ -89,7 +112,7 @@ def get(
             return qs.one()
     else:
         assert idlike is None  # noqa: S101
-        # below behaves exactly like `.one()`
+        expressions = process_expressions(registry, expressions)
         return registry.objects.get(**expressions)
 
 
@@ -109,7 +132,7 @@ class RecordsList(UserList):
         return one_helper(self)
 
 
-class QuerySet(models.QuerySet, CanValidate):
+class QuerySet(models.QuerySet):
     """Sets of records returned by queries.
 
     See Also:
@@ -278,42 +301,50 @@ class QuerySet(models.QuerySet, CanValidate):
         else:
             raise ValueError("Record isn't subclass of `lamindb.core.IsVersioned`")
 
-    @doc_args(Record.search.__doc__)
-    def search(self, string: str, **kwargs):
-        """{}"""  # noqa: D415
-        from ._record import _search
 
-        return _search(cls=self, string=string, **kwargs)
+# -------------------------------------------------------------------------------------
+# CanValidate
+# -------------------------------------------------------------------------------------
 
-    @doc_args(Record.lookup.__doc__)
-    def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
-        """{}"""  # noqa: D415
-        from ._record import _lookup
 
-        return _lookup(cls=self, field=field, **kwargs)
+@doc_args(Record.search.__doc__)
+def search(self, string: str, **kwargs):
+    """{}"""  # noqa: D415
+    from ._record import _search
 
-    @doc_args(CanValidate.validate.__doc__)
-    def validate(self, values: ListLike, field: str | StrField | None = None, **kwargs):
-        """{}"""  # noqa: D415
-        from ._can_validate import _validate
+    return _search(cls=self, string=string, **kwargs)
 
-        return _validate(cls=self, values=values, field=field, **kwargs)
 
-    @doc_args(CanValidate.inspect.__doc__)
-    def inspect(self, values: ListLike, field: str | StrField | None = None, **kwargs):
-        """{}"""  # noqa: D415
-        from ._can_validate import _inspect
+@doc_args(Record.lookup.__doc__)
+def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
+    """{}"""  # noqa: D415
+    from ._record import _lookup
 
-        return _inspect(cls=self, values=values, field=field, **kwargs)
+    return _lookup(cls=self, field=field, **kwargs)
 
-    @doc_args(CanValidate.standardize.__doc__)
-    def standardize(
-        self, values: Iterable, field: str | StrField | None = None, **kwargs
-    ):
-        """{}"""  # noqa: D415
-        from ._can_validate import _standardize
 
-        return _standardize(cls=self, values=values, field=field, **kwargs)
+@doc_args(CanValidate.validate.__doc__)
+def validate(self, values: ListLike, field: str | StrField | None = None, **kwargs):
+    """{}"""  # noqa: D415
+    from ._can_validate import _validate
+
+    return _validate(cls=self, values=values, field=field, **kwargs)
+
+
+@doc_args(CanValidate.inspect.__doc__)
+def inspect(self, values: ListLike, field: str | StrField | None = None, **kwargs):
+    """{}"""  # noqa: D415
+    from ._can_validate import _inspect
+
+    return _inspect(cls=self, values=values, field=field, **kwargs)
+
+
+@doc_args(CanValidate.standardize.__doc__)
+def standardize(self, values: Iterable, field: str | StrField | None = None, **kwargs):
+    """{}"""  # noqa: D415
+    from ._can_validate import _standardize
+
+    return _standardize(cls=self, values=values, field=field, **kwargs)
 
 
 models.QuerySet.df = QuerySet.df
@@ -322,10 +353,10 @@ models.QuerySet.first = QuerySet.first
 models.QuerySet.one = QuerySet.one
 models.QuerySet.one_or_none = QuerySet.one_or_none
 models.QuerySet.latest_version = QuerySet.latest_version
-models.QuerySet.search = QuerySet.search
-models.QuerySet.lookup = QuerySet.lookup
-models.QuerySet.validate = QuerySet.validate
-models.QuerySet.inspect = QuerySet.inspect
-models.QuerySet.standardize = QuerySet.standardize
+models.QuerySet.search = search
+models.QuerySet.lookup = lookup
+models.QuerySet.validate = validate
+models.QuerySet.inspect = inspect
+models.QuerySet.standardize = standardize
 models.QuerySet._delete_base_class = models.QuerySet.delete
 models.QuerySet.delete = QuerySet.delete

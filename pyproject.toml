@@ -16,8 +16,8 @@ classifiers = [
 ]
 dependencies = [
     # Lamin PINNED packages
-    "lnschema_core==0.73.2",
-    "lamindb_setup==0.76.6",
+    "lnschema_core==0.73.3",
+    "lamindb_setup==0.76.7",
     "lamin_utils==0.13.4",
     "lamin_cli==0.16.2",
     # others
@@ -25,8 +25,8 @@ dependencies = [
     "pyarrow",
     "typing_extensions!=4.6.0",
     "python-dateutil",
-    "anndata>=0.8.0,<=0.10.8",  # will upgrade to new anndata releases
-    "scipy<1.13.0rc1",  # anndata backed (Artifact.open) is incompatible otherwise
+    "anndata>=0.8.0,<=0.10.9",  # will upgrade to new anndata releases
+    "scipy<1.13.0rc1",  # Artifact.open for older anndata is incompatible otherwise
     "fsspec",
     "pandas",
     "graphviz",
