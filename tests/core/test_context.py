@@ -223,9 +223,8 @@ def test_run_external_script():
     # ensure that the source code is not saved as an output artifact
     assert transform.latest_run.output_artifacts.count() == 0
     assert transform.runs.count() == 1
-    assert transform._source_code_artifact.hash == "Cwk0OPOyUH5nzTiU2ISlDQ"
-    assert transform._source_code_artifact.transform is None
-    assert transform._source_code_artifact.run is None
+    assert transform.hash == "Cwk0OPOyUH5nzTiU2ISlDQ"
+    assert transform._source_code_artifact is None
 
 
 @pytest.mark.parametrize("type", ["notebook", "script"])
