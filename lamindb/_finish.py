@@ -118,7 +118,9 @@ def save_context_core(
         report_path = ln_setup.settings.storage.cache_dir / filepath.name
         notebook_to_ipynb(filepath, report_path)
         # write the source code
-        source_code_path = ln_setup.settings.storage.cache_dir / filepath.name
+        source_code_path = ln_setup.settings.storage.cache_dir / filepath.with_suffix(
+            ".py"
+        )
         notebook_to_script(transform, filepath, source_code_path)
     ln.settings.creation.artifact_silence_missing_run_warning = True
     # track source code
