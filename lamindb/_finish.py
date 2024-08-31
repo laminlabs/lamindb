@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
-import subprocess
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
@@ -47,7 +47,7 @@ def prepare_notebook(
                         cell["source"][0] = text.replace(
                             f"# {title}", f"# {replace_title}"
                         )
-
+                    break
     return None
 
 
@@ -69,18 +69,21 @@ def notebook_to_html(transform: Transform, notebook_path: Path) -> None:
 
     html_path = notebook_path.with_suffix(".html")
     html_path.write_text(html, encoding="utf-8")
+    print(html)
 
 
-def notebook_to_script(notebook_path: Path, script_path: Path) -> None:
+def notebook_to_script(
+    transform: Transform, notebook_path: Path, script_path: Path
+) -> None:
     import jupytext
 
     notebook = jupytext.read(notebook_path)
-    prepare_notebook(
-        notebook, replace_title="Transform.name", remove_cell_metadata=True
-    )
-    jupytext.write(notebook, script_path, fmt="py:percent")
-    print(script_path.read_text())
-    quit()
+    py_content = jupytext.writes(notebook, fmt="py:percent")
+    # remove global metadata header
+    py_content = re.sub(r"^# ---\n.*?# ---\n\n", "", py_content, flags=re.DOTALL)
+    # replace title
+    py_content = py_content.replace(f"# {transform.name}", "# Transform.name")
+    script_path.write_text(py_content)
 
 
 def script_to_notebook(transform: Transform, notebook_path: Path) -> None:
@@ -149,7 +152,7 @@ def save_context_core(
         # convert the notebook to `.py` via jupytext to create the source code
         # representation
         source_code_path = ln_setup.settings.storage.cache_dir / filepath.name
-        notebook_to_script(filepath, source_code_path)
+        notebook_to_script(transform, filepath, source_code_path)
     ln.settings.creation.artifact_silence_missing_run_warning = True
     # track source code
     hash, _ = hash_file(source_code_path)  # ignore hash_type for now
