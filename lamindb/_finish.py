@@ -79,6 +79,8 @@ def notebook_to_script(notebook_path: Path, script_path: Path) -> None:
         notebook, replace_title="Transform.name", remove_cell_metadata=True
     )
     jupytext.write(notebook, script_path, fmt="py:percent")
+    print(script_path.read_text())
+    quit()
 
 
 def script_to_notebook(transform: Transform, notebook_path: Path) -> None:
@@ -94,7 +96,6 @@ def save_context_core(
     run: Run,
     transform: Transform,
     filepath: Path,
-    transform_family: QuerySet | None = None,
     finished_at: bool = False,
     from_cli: bool = False,
 ) -> str | None:

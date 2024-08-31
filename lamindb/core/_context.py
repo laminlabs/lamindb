@@ -449,29 +449,36 @@ class Context:
                     "updated transform name, "  # white space on purpose
                 )
             # check whether transform source code was already saved
-            if transform._source_code_artifact_id is not None:
-                response = None
+            if (
+                transform._source_code_artifact_id is not None
+                or transform.source_code is not None
+            ):
+                bump_revision = False
                 if is_run_from_ipython:
-                    response = "y"  # auto-bump version
+                    bump_revision = True
                 else:
                     hash, _ = hash_file(self._path)  # ignore hash_type for now
-                    if hash != transform._source_code_artifact.hash:
-                        response = "y"  # auto-bump version
+                    if transform.hash is not None:
+                        condition = hash != transform.hash
+                    else:
+                        condition = hash != transform._source_code_artifact.hash
+                    if condition:
+                        bump_revision = True
                     else:
                         self._logging_message += f"loaded Transform('{transform.uid}')"
-                if response is not None:
+                if bump_revision:
                     change_type = (
                         "Re-running saved notebook"
                         if is_run_from_ipython
                         else "Source code changed"
                     )
                     suid, vuid = (
-                        uid[: Transform._len_stem_uid],
-                        uid[Transform._len_stem_uid :],
+                        uid[:-4],
+                        uid[-4:],
                     )
                     new_vuid = increment_base62(vuid)
                     raise UpdateContext(
-                        f"{change_type}, bump version by setting:\n\n"
+                        f"{change_type}, bump revision by setting:\n\n"
                         f'ln.context.uid = "{suid}{new_vuid}"'
                     )
             else:
