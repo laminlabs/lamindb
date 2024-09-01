@@ -12,33 +12,19 @@ cli
 
 ```{toctree}
 :maxdepth: 1
-:caption: Core API
+:caption: Python
 :hidden:
 
 lamindb
-```
-
-```{toctree}
-:maxdepth: 1
-:caption: Plugins
-:hidden:
-
 bionty
 wetlab
 ```
 
 ```{toctree}
 :maxdepth: 1
-:caption: SDK
+:caption: R & REST
 :hidden:
 
+laminr
 rest
-```
-
-```{toctree}
-:maxdepth: 1
-:caption: Utilities
-:hidden:
-
-readfcs
 ```

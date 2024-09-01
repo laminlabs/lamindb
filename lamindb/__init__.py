@@ -1,7 +1,6 @@
 """A data framework for biology.
 
-Records
-=======
+Core registries.
 
 .. autosummary::
    :toctree: .
@@ -17,8 +16,7 @@ Records
    FeatureSet
    Param
 
-Key functionality
-=================
+Key functionality.
 
 .. autosummary::
    :toctree: .
@@ -29,8 +27,7 @@ Key functionality
    view
    save
 
-Modules & settings
-==================
+Modules and settings.
 
 .. autosummary::
    :toctree: .
@@ -44,7 +41,7 @@ Modules & settings
 """
 
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
-__version__ = "0.76.2"
+__version__ = "0.76.3"
 
 import os as _os
 

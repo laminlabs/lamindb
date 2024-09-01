@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from anndata import AnnData
 from anndata import __version__ as anndata_version
-from anndata._core.index import Index, _normalize_indices
+from anndata._core.index import _normalize_indices
 from anndata._core.views import _resolve_idx
 from anndata._io.h5ad import read_dataframe_legacy as read_dataframe_legacy_h5
 from anndata._io.specs.registry import get_spec, read_elem, read_elem_partial
@@ -28,6 +28,11 @@ if TYPE_CHECKING:
 
 
 anndata_version_parse = version.parse(anndata_version)
+
+if anndata_version_parse < version.parse("0.9.0"):
+    from anndata._core.index import Index
+else:
+    from anndata.compat import Index
 
 if anndata_version_parse < version.parse("0.10.0"):
     if anndata_version_parse < version.parse("0.9.1"):
