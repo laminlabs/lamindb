@@ -144,6 +144,7 @@ class DataFrameCurator(BaseCurator):
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
         exclude: dict | None = None,
+        check_valid_keys: bool = True,
     ) -> None:
         from lamindb.core._settings import settings
 
@@ -163,6 +164,8 @@ class DataFrameCurator(BaseCurator):
             exclude = {}
         self._exclude = exclude
         self._non_validated = None
+        if check_valid_keys:
+            self._check_valid_keys()
         self._save_columns()
 
     @property
@@ -191,14 +194,25 @@ class DataFrameCurator(BaseCurator):
             using_key=using_key or self._using_key,
         )
 
+    def _check_valid_keys(self, extra: set = None) -> None:
+        if extra is None:
+            extra = set()
+        for name, d in {
+            "categoricals": self._fields,
+            "sources": self._sources,
+            "exclude": self._exclude,
+        }.items():
+            if not isinstance(d, dict):
+                raise TypeError(f"{name} must be a dictionary!")
+            valid_keys = set(self._df.columns) | {"columns"} | extra
+            nonval_keys = [key for key in d.keys() if key not in valid_keys]
+            if len(nonval_keys) > 0:
+                raise ValueError(
+                    f"the following keys passed to {name} are not allowed: {nonval_keys}"
+                )
+
     def _save_columns(self, validated_only: bool = True, **kwargs) -> None:
         """Save column name records."""
-        missing_columns = set(self.fields.keys()) - set(self._df.columns)
-        if missing_columns:
-            raise ValueError(
-                f"Columns {missing_columns} are not found in the data object!"
-            )
-
         # Always save features specified as the fields keys
         update_registry(
             values=list(self.fields.keys()),
@@ -426,8 +440,10 @@ class AnnDataCurator(DataFrameCurator):
             organism=organism,
             sources=sources,
             exclude=exclude,
+            check_valid_keys=False,
         )
         self._obs_fields = categoricals
+        self._check_valid_keys(extra={"var_index"})
 
     @property
     def var_index(self) -> FieldAttr:
@@ -633,6 +649,7 @@ class MuDataCurator:
                 verbosity=verbosity,
                 sources=self._sources.get(modality),
                 exclude=self._exclude.get(modality),
+                check_valid_keys=False,
                 **self._kwargs,
             )
             for modality in self._modalities
