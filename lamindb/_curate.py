@@ -195,24 +195,23 @@ class DataFrameCurator(BaseCurator):
     def _check_categoricals_sources_in_cols(
         self, df: pd.DataFrame, categoricals: dict, sources: dict
     ) -> None:
-        missing_keys = [
-            key
-            for key in list(categoricals.keys()) + list(sources.keys())
-            if key not in df.columns
+        missing_categoricals = [
+            key for key in categoricals.keys() if key not in df.columns
         ]
-        if missing_keys:
+        missing_sources = [key for key in sources.keys() if key not in df.columns]
+
+        if missing_categoricals:
             raise ValueError(
-                f"The following keys were passed as categoricals or sources but are missing in the columns: {missing_keys}."
+                f"The following keys were passed as categoricals but are missing in the columns: {missing_categoricals}."
+            )
+
+        if missing_sources:
+            raise ValueError(
+                f"The following keys were passed as sources but are missing in the columns: {missing_sources}."
             )
 
     def _save_columns(self, validated_only: bool = True, **kwargs) -> None:
         """Save column name records."""
-        missing_columns = set(self.fields.keys()) - set(self._df.columns)
-        if missing_columns:
-            raise ValueError(
-                f"Columns {missing_columns} are not found in the data object!"
-            )
-
         # Always save features specified as the fields keys
         update_registry(
             values=list(self.fields.keys()),
