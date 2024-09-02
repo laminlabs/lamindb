@@ -193,7 +193,10 @@ class DataFrameCurator(BaseCurator):
         )
 
     def _check_categoricals_sources_in_cols(
-        self, df: pd.DataFrame, categoricals: dict, sources: dict
+        self,
+        df: pd.DataFrame,
+        categoricals: dict[str, FieldAttr],
+        sources: dict[str, Record],
     ) -> None:
         missing_categoricals = [
             key for key in categoricals.keys() if key not in df.columns
