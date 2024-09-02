@@ -113,14 +113,6 @@ def test_custom_using_invalid_field_lookup(curate_lookup):
     )
 
 
-def test_missing_columns(df):
-    with pytest.raises(ValueError) as error:
-        ln.Curator.from_df(df, categoricals={"missing_column": "some_registry_field"})
-    assert "Columns {'missing_column'} are not found in the data object!" in str(
-        error.value
-    )
-
-
 def test_additional_args_with_all_key(df, categoricals):
     curate = ln.Curator.from_df(df, categoricals=categoricals)
     with pytest.raises(ValueError) as error:
@@ -213,6 +205,35 @@ def test_anndata_annotator_wrong_type(df, categoricals):
             organism="human",
         )
     assert "data has to be an AnnData object" in str(error.value)
+
+
+def test_categorical_key_not_present(df):
+    with pytest.raises(ValueError) as error:
+        ln.Curator.from_df(
+            df,
+            categoricals={"not present": None},
+            organism="human",
+        )
+
+    assert (
+        "The following keys were passed as categoricals but are missing in the columns"
+        in str(error.value)
+    )
+
+
+def test_source_key_not_present(adata, categoricals):
+    with pytest.raises(ValueError) as error:
+        ln.Curator.from_anndata(
+            adata,
+            categoricals=categoricals,
+            var_index=bt.Gene.symbol,
+            sources={"not_present": None},
+            organism="human",
+        )
+    assert (
+        "The following keys were passed as sources but are missing in the columns"
+        in str(error.value)
+    )
 
 
 def test_unvalidated_adata_object(adata, categoricals):
