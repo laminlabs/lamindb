@@ -167,7 +167,8 @@ def save_tiledbsoma_experiment(
                 adata.obs["lamin_run_uid"] = run.uid
         adata_objects.append(adata)
 
-    if appending or len(adata_objects) > 1:
+    registration_mapping = kwargs.get("registration_mapping", None)
+    if registration_mapping is None and (appending or len(adata_objects) > 1):
         registration_mapping = soma_io.register_anndatas(
             experiment_uri=storepath if appending else None,
             adatas=adata_objects,
@@ -177,8 +178,6 @@ def save_tiledbsoma_experiment(
             append_obsm_varm=append_obsm_varm,
             context=ctx,
         )
-    else:
-        registration_mapping = None
 
     for adata_obj in adata_objects:
         soma_io.from_anndata(
