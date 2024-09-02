@@ -144,6 +144,7 @@ class DataFrameCurator(BaseCurator):
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
         exclude: dict | None = None,
+        check_valid_keys: bool = True,
     ) -> None:
         from lamindb.core._settings import settings
 
@@ -158,12 +159,13 @@ class DataFrameCurator(BaseCurator):
         self._kwargs = {"organism": organism} if organism else {}
         if sources is None:
             sources = {}
-        self._check_categoricals_sources_in_cols(df, self._fields, sources)
         self._sources = sources
         if exclude is None:
             exclude = {}
         self._exclude = exclude
         self._non_validated = None
+        if check_valid_keys:
+            self._check_valid_keys()
         self._save_columns()
 
     @property
@@ -192,26 +194,22 @@ class DataFrameCurator(BaseCurator):
             using_key=using_key or self._using_key,
         )
 
-    def _check_categoricals_sources_in_cols(
-        self,
-        df: pd.DataFrame,
-        categoricals: dict[str, FieldAttr],
-        sources: dict[str, Record],
-    ) -> None:
-        missing_categoricals = [
-            key for key in categoricals.keys() if key not in df.columns
-        ]
-        missing_sources = [key for key in sources.keys() if key not in df.columns]
-
-        if missing_categoricals:
-            raise ValueError(
-                f"The following keys were passed as categoricals but are missing in the columns: {missing_categoricals}."
-            )
-
-        if missing_sources:
-            raise ValueError(
-                f"The following keys were passed as sources but are missing in the columns: {missing_sources}."
-            )
+    def _check_valid_keys(self, extra: set = None) -> None:
+        if extra is None:
+            extra = set()
+        for name, d in {
+            "categoricals": self._fields,
+            "sources": self._sources,
+            "exclude": self._exclude,
+        }.items():
+            if not isinstance(d, dict):
+                raise TypeError(f"{name} must be a dictionary!")
+            valid_keys = set(self._df.columns) | {"columns"} | extra
+            nonval_keys = [key for key in d.keys() if key not in valid_keys]
+            if len(nonval_keys) > 0:
+                raise ValueError(
+                    f"the following keys passed to {name} are not allowed: {nonval_keys}"
+                )
 
     def _save_columns(self, validated_only: bool = True, **kwargs) -> None:
         """Save column name records."""
@@ -442,8 +440,10 @@ class AnnDataCurator(DataFrameCurator):
             organism=organism,
             sources=sources,
             exclude=exclude,
+            check_valid_keys=False,
         )
         self._obs_fields = categoricals
+        self._check_valid_keys(extra={"var_index"})
 
     @property
     def var_index(self) -> FieldAttr:
@@ -649,6 +649,7 @@ class MuDataCurator:
                 verbosity=verbosity,
                 sources=self._sources.get(modality),
                 exclude=self._exclude.get(modality),
+                check_valid_keys=False,
                 **self._kwargs,
             )
             for modality in self._modalities

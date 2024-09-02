@@ -215,9 +215,8 @@ def test_categorical_key_not_present(df):
             organism="human",
         )
 
-    assert (
-        "The following keys were passed as categoricals but are missing in the columns"
-        in str(error.value)
+    assert "the following keys passed to categoricals are not allowed:" in str(
+        error.value
     )
 
 
@@ -230,10 +229,7 @@ def test_source_key_not_present(adata, categoricals):
             sources={"not_present": None},
             organism="human",
         )
-    assert (
-        "The following keys were passed as sources but are missing in the columns"
-        in str(error.value)
-    )
+    assert "the following keys passed to sources are not allowed:" in str(error.value)
 
 
 def test_unvalidated_adata_object(adata, categoricals):
