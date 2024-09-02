@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
-from anndata import AnnData
+from anndata import AnnData, read_h5ad
 from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core._settings_storage import get_storage_region
-from lamindb_setup.core.upath import create_path
+from lamindb_setup.core.upath import LocalPathClasses, create_path
 from lnschema_core import Artifact, Run
 
 if TYPE_CHECKING:
@@ -23,7 +23,12 @@ def _read_adata_h5ad_zarr(objpath: UPath):
     if objpath.is_dir():
         adata = read_adata_zarr(objpath)
     else:
-        adata = read_adata_h5ad(objpath)
+        # read only local in backed for now
+        # in principle possible to read remote in backed also
+        if isinstance(objpath, LocalPathClasses):
+            adata = read_h5ad(objpath.as_posix(), backed="r")
+        else:
+            adata = read_adata_h5ad(objpath)
     return adata
 
 
@@ -162,7 +167,8 @@ def save_tiledbsoma_experiment(
                 adata.obs["lamin_run_uid"] = run.uid
         adata_objects.append(adata)
 
-    if appending or len(adata_objects) > 1:
+    registration_mapping = kwargs.get("registration_mapping", None)
+    if registration_mapping is None and (appending or len(adata_objects) > 1):
         registration_mapping = soma_io.register_anndatas(
             experiment_uri=storepath if appending else None,
             adatas=adata_objects,
@@ -172,8 +178,6 @@ def save_tiledbsoma_experiment(
             append_obsm_varm=append_obsm_varm,
             context=ctx,
         )
-    else:
-        registration_mapping = None
 
     for adata_obj in adata_objects:
         soma_io.from_anndata(
