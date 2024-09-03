@@ -73,7 +73,7 @@ def notebook_to_script(
     # remove global metadata header
     py_content = re.sub(r"^# ---\n.*?# ---\n\n", "", py_content, flags=re.DOTALL)
     # replace title
-    py_content = py_content.replace(f"# # {transform.name}", "# # Transform.name")
+    py_content = py_content.replace(f"# # {transform.name}", "# # transform.name")
     script_path.write_text(py_content)
 
 
@@ -82,7 +82,7 @@ def script_to_notebook(transform: Transform, notebook_path: Path) -> None:
 
     # get title back
     py_content = transform.source_code.replace(
-        "# # Transform.name", f"# # {transform.name}"
+        "# # transform.name", f"# # {transform.name}"
     )
     notebook = jupytext.reads(py_content, fmt="py:percent")
     jupytext.write(notebook, notebook_path)
