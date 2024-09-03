@@ -177,7 +177,7 @@ def build(session, group):
     elif group == "storage":
         run(session, f"pytest -s {coverage_args} ./docs/storage")
     elif group == "cli":
-        run(session, f"pytest {coverage_args} ./sub/lamin-cli/tests")
+        run(session, f"pytest -vv {coverage_args} ./sub/lamin-cli/tests")
     # move artifacts into right place
     if group in {"tutorial", "guide", "biology"}:
         target_dir = Path(f"./docs/{group}")

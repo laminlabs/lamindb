@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
-import subprocess
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
@@ -18,12 +18,81 @@ if TYPE_CHECKING:
     from ._query_set import QuerySet
 
 
+# this is from the get_title function in nbproject
+# should be moved into lamindb sooner or later
+def prepare_notebook(
+    nb,
+    strip_title: bool = False,
+) -> str | None:
+    """Strip title from the notebook if requested."""
+    title_found = False
+    for cell in nb.cells:
+        cell.metadata.clear()  # strip cell metadata
+        if not title_found and cell["cell_type"] == "markdown":
+            lines = cell["source"].split("\n")
+            for i, line in enumerate(lines):
+                if line.startswith("# "):
+                    line.lstrip("#").strip(" .").strip()
+                    title_found = True
+                    if strip_title:
+                        lines.pop(i)
+                        cell["source"] = "\n".join(lines)
+    return None
+
+
+def notebook_to_report(notebook_path: Path, output_path: Path) -> None:
+    import nbformat
+    import traitlets.config as config
+    from nbconvert import HTMLExporter
+
+    with open(notebook_path, encoding="utf-8") as f:
+        notebook = nbformat.read(f, as_version=4)
+    prepare_notebook(notebook, strip_title=True)
+    notebook.metadata.clear()  # strip notebook metadata
+    # if we were to export as ipynb, the following two lines would do it
+    # with open(output_path, "w", encoding="utf-8") as f:
+    #     nbformat.write(notebook, f)
+    # instead we need all this code
+    c = config.Config()
+    c.HTMLExporter.preprocessors = []
+    c.HTMLExporter.exclude_input_prompt = True
+    c.HTMLExporter.exclude_output_prompt = True
+    c.HTMLExporter.anchor_link_text = " "
+    html_exporter = HTMLExporter(config=c)
+    html, _ = html_exporter.from_notebook_node(notebook)
+    output_path.write_text(html, encoding="utf-8")
+
+
+def notebook_to_script(
+    transform: Transform, notebook_path: Path, script_path: Path
+) -> None:
+    import jupytext
+
+    notebook = jupytext.read(notebook_path)
+    py_content = jupytext.writes(notebook, fmt="py:percent")
+    # remove global metadata header
+    py_content = re.sub(r"^# ---\n.*?# ---\n\n", "", py_content, flags=re.DOTALL)
+    # replace title
+    py_content = py_content.replace(f"# # {transform.name}", "# # transform.name")
+    script_path.write_text(py_content)
+
+
+def script_to_notebook(transform: Transform, notebook_path: Path) -> None:
+    import jupytext
+
+    # get title back
+    py_content = transform.source_code.replace(
+        "# # transform.name", f"# # {transform.name}"
+    )
+    notebook = jupytext.reads(py_content, fmt="py:percent")
+    jupytext.write(notebook, notebook_path)
+
+
 def save_context_core(
     *,
     run: Run,
     transform: Transform,
     filepath: Path,
-    transform_family: QuerySet | None = None,
     finished_at: bool = False,
     from_cli: bool = False,
 ) -> str | None:
@@ -36,19 +105,17 @@ def save_context_core(
     # for scripts, things are easy
     is_consecutive = True
     is_notebook = transform.type == "notebook"
-    _source_code_artifact_path = filepath
+    source_code_path = filepath
     # for notebooks, we need more work
     if is_notebook:
         try:
-            import nbstripout
+            import jupytext
             from nbproject.dev import (
                 check_consecutiveness,
                 read_notebook,
             )
         except ImportError:
-            logger.error(
-                "install nbproject & nbstripout: pip install nbproject nbstripout"
-            )
+            logger.error("install nbproject & jupytext: pip install nbproject jupytext")
             return None
         notebook_content = read_notebook(filepath)  # type: ignore
         is_consecutive = check_consecutiveness(
@@ -62,66 +129,30 @@ def save_context_core(
                 response = "n"
             if response != "y":
                 return "aborted-non-consecutive"
-        # convert the notebook file to html
-        # log_level is set to 40 to silence the nbconvert logging
-        subprocess.run(
-            [
-                "jupyter",
-                "nbconvert",
-                "--to",
-                "html",
-                filepath.as_posix(),
-                "--Application.log_level=40",
-            ],
-            check=True,
+        # write the report
+        report_path = ln_setup.settings.storage.cache_dir / filepath.name.replace(
+            ".ipynb", ".html"
         )
-        # move the temporary file into the cache dir in case it's accidentally
-        # in an existing storage location -> we want to move associated
-        # artifacts into default storage and not register them in an existing
-        # location
-        report_path_orig = filepath.with_suffix(".html")  # current location
-        report_path = ln_setup.settings.storage.cache_dir / report_path_orig.name
-        # don't use Path.rename here because of cross-device link error
-        # https://laminlabs.slack.com/archives/C04A0RMA0SC/p1710259102686969
-        shutil.move(
-            report_path_orig,  # type: ignore
-            report_path,
+        notebook_to_report(filepath, report_path)
+        # write the source code
+        source_code_path = ln_setup.settings.storage.cache_dir / filepath.name.replace(
+            ".ipynb", ".py"
         )
-        # strip the output from the notebook to create the source code file
-        # first, copy the notebook file to a temporary file in the cache
-        _source_code_artifact_path = ln_setup.settings.storage.cache_dir / filepath.name
-        shutil.copy2(filepath, _source_code_artifact_path)  # copy
-        subprocess.run(
-            [
-                "nbstripout",
-                _source_code_artifact_path,
-                "--extra-keys",
-                "metadata.version metadata.kernelspec metadata.language_info metadata.pygments_lexer metadata.name metadata.file_extension",
-            ],
-            check=True,
-        )
-    # find initial versions of source codes and html reports
-    prev_report = None
-    prev_source = None
-    if transform_family is None:
-        transform_family = transform.versions
-    if len(transform_family) > 0:
-        for prev_transform in transform_family.order_by("-created_at"):
-            if (
-                prev_transform.latest_run is not None
-                and prev_transform.latest_run.report_id is not None
-            ):
-                prev_report = prev_transform.latest_run.report
-            if prev_transform._source_code_artifact_id is not None:
-                prev_source = prev_transform._source_code_artifact
+        notebook_to_script(transform, filepath, source_code_path)
     ln.settings.creation.artifact_silence_missing_run_warning = True
-
     # track source code
-    if transform._source_code_artifact_id is not None:
+    hash, _ = hash_file(source_code_path)  # ignore hash_type for now
+    if (
+        transform._source_code_artifact_id is not None
+        or transform.source_code is not None
+    ):
         # check if the hash of the transform source code matches
         # (for scripts, we already run the same logic in track() - we can deduplicate the call at some point)
-        hash, _ = hash_file(_source_code_artifact_path)  # ignore hash_type for now
-        if hash != transform._source_code_artifact.hash:
+        if transform.hash is not None:
+            condition = hash != transform.hash
+        else:
+            condition = hash != transform._source_code_artifact.hash
+        if condition:
             if os.getenv("LAMIN_TESTING") is None:
                 # in test, auto-confirm overwrite
                 response = input(
@@ -131,11 +162,8 @@ def save_context_core(
             else:
                 response = "y"
             if response == "y":
-                transform._source_code_artifact.replace(_source_code_artifact_path)
-                transform._source_code_artifact.save(upload=True)
-                logger.success(
-                    f"replaced transform._source_code_artifact: {transform._source_code_artifact}"
-                )
+                transform.source_code = source_code_path.read_text()
+                transform.hash = hash
             else:
                 logger.warning(
                     "Please re-run `ln.context.track()` to make a new version"
@@ -144,19 +172,8 @@ def save_context_core(
         else:
             logger.important("source code is already saved")
     else:
-        _source_code_artifact = ln.Artifact(
-            _source_code_artifact_path,
-            description=f"Source of transform {transform.uid}",
-            version=transform.version,
-            revises=prev_source,
-            visibility=0,  # hidden file
-            run=False,
-        )
-        _source_code_artifact.save(upload=True, print_progress=False)
-        transform._source_code_artifact = _source_code_artifact
-        logger.debug(
-            f"saved transform._source_code_artifact: {transform._source_code_artifact}"
-        )
+        transform.source_code = source_code_path.read_text()
+        transform.hash = hash
 
     # track environment
     env_path = ln_setup.settings.storage.cache_dir / f"run_env_pip_{run.uid}.txt"
@@ -211,7 +228,6 @@ def save_context_core(
             report_file = ln.Artifact(
                 report_path,
                 description=f"Report of run {run.uid}",
-                revises=prev_report,
                 visibility=0,  # hidden file
                 run=False,
             )
