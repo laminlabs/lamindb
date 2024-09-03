@@ -40,15 +40,27 @@ def prepare_notebook(
     return None
 
 
-def notebook_to_ipynb(notebook_path: Path, output_path: Path) -> None:
+def notebook_to_report(notebook_path: Path, output_path: Path) -> None:
     import nbformat
+    import traitlets.config as config
+    from nbconvert import HTMLExporter
 
     with open(notebook_path, encoding="utf-8") as f:
         notebook = nbformat.read(f, as_version=4)
     prepare_notebook(notebook, strip_title=True)
     notebook.metadata.clear()  # strip notebook metadata
-    with open(output_path, "w", encoding="utf-8") as f:
-        nbformat.write(notebook, f)
+    # if we were to export as ipynb, the following two lines would do it
+    # with open(output_path, "w", encoding="utf-8") as f:
+    #     nbformat.write(notebook, f)
+    # instead we need all this code
+    c = config.Config()
+    c.HTMLExporter.preprocessors = []
+    c.HTMLExporter.exclude_input_prompt = True
+    c.HTMLExporter.exclude_output_prompt = True
+    c.HTMLExporter.anchor_link_text = " "
+    html_exporter = HTMLExporter(config=c)
+    html, _ = html_exporter.from_notebook_node(notebook)
+    output_path.write_text(html, encoding="utf-8")
 
 
 def notebook_to_script(
@@ -118,8 +130,10 @@ def save_context_core(
             if response != "y":
                 return "aborted-non-consecutive"
         # write the report
-        report_path = ln_setup.settings.storage.cache_dir / filepath.name
-        notebook_to_ipynb(filepath, report_path)
+        report_path = ln_setup.settings.storage.cache_dir / filepath.name.replace(
+            ".ipynb", ".html"
+        )
+        notebook_to_report(filepath, report_path)
         # write the source code
         source_code_path = ln_setup.settings.storage.cache_dir / filepath.name.replace(
             ".ipynb", ".py"
