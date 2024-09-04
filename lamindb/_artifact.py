@@ -632,7 +632,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
         kwargs["key"] = user_provided_key
         if revises is not None:
             assert uid.startswith(revises.stem_uid)  # noqa: S101
-        if len(provisional_uid) == 16:
+        if len(uid) == 16:
             if revises is None:
                 uid += "0000"
             else:
