@@ -585,6 +585,8 @@ def __init__(artifact: Artifact, *args, **kwargs):
     if isinstance(data, (str, Path)) and AUTO_KEY_PREFIX in str(data):
         if _is_internal_call:
             is_automanaged_path = True
+            user_provided_key = key
+            key = None
         else:
             raise ValueError("Do not pass paths inside the `.lamindb` directory.")
     else:
@@ -625,17 +627,17 @@ def __init__(artifact: Artifact, *args, **kwargs):
 
     if is_automanaged_path and _is_internal_call:
         kwargs["_key_is_virtual"] = True
-        if AUTO_KEY_PREFIX in kwargs["key"]:
-            kwargs["key"] = None
-        provisional_uid = artifact.path.stem
+        assert AUTO_KEY_PREFIX in kwargs["key"]  # noqa: S101
+        uid = kwargs["key"].replace(AUTO_KEY_PREFIX, "").replace(kwargs["suffix"], "")
+        kwargs["key"] = user_provided_key
         if revises is not None:
-            assert provisional_uid.startswith(revises.stem_uid)  # noqa: S101
+            assert uid.startswith(revises.stem_uid)  # noqa: S101
         if len(provisional_uid) == 16:
             if revises is None:
-                provisional_uid += "0000"
+                uid += "0000"
             else:
-                provisional_uid, revises = create_uid(revises=revises, version=version)
-        kwargs["uid"] = provisional_uid
+                uid, revises = create_uid(revises=revises, version=version)
+        kwargs["uid"] = uid
 
     # only set key now so that we don't do a look-up on it in case revises is passed
     if revises is not None:
