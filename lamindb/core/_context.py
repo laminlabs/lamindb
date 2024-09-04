@@ -414,6 +414,10 @@ class Context:
         if transform is None:
             if uid is None:
                 uid = f"{stem_uid}{get_uid_ext(version)}"
+            # note that here we're not passing revises because we're not querying it
+            # hence, we need to do a revision family lookup based on key
+            # hence, we need key to be not None
+            assert key is not None  # noqa: S101
             transform = Transform(
                 uid=uid,
                 version=version,
@@ -422,8 +426,7 @@ class Context:
                 reference=transform_ref,
                 reference_type=transform_ref_type,
                 type=transform_type,
-            )
-            transform.save()
+            ).save()
             self._logging_message += f"created Transform('{transform.uid}')"
         else:
             uid = transform.uid
