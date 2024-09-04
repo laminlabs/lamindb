@@ -91,7 +91,7 @@ def test_invalid_transform_type():
     ln.context._run = None
 
 
-def test_create_or_load_transform(monkeypatch):
+def test_create_or_load_transform():
     title = "title"
     stem_uid = "NJvdsWWbJlZS"
     version = "0"
@@ -102,6 +102,7 @@ def test_create_or_load_transform(monkeypatch):
         stem_uid=stem_uid,
         version=version,
         name=title,
+        key="my-test-transform-create-or-load",
         transform_type="notebook",
     )
     assert context._transform.uid == uid
@@ -111,6 +112,7 @@ def test_create_or_load_transform(monkeypatch):
         uid=None,
         transform=context._transform,
         stem_uid=stem_uid,
+        key="my-test-transform-create-or-load",
         version=version,
         name=title,
     )
@@ -125,6 +127,7 @@ def test_create_or_load_transform(monkeypatch):
         stem_uid=stem_uid,
         version=version,
         name="updated title",
+        key="my-test-transform-create-or-load",
     )
     assert context._transform.uid == uid
     assert context._transform.version == version
@@ -180,6 +183,8 @@ def test_run_scripts_for_versioning():
         "created Transform('Ro1gl7n8YrdH0001') & created Run('"
         in result.stdout.decode()
     )
+    assert not ln.Transform.get("Ro1gl7n8YrdH0000").is_latest
+    assert ln.Transform.get("Ro1gl7n8YrdH0001").is_latest
 
     # inconsistent version
     result = subprocess.run(  # noqa: S602

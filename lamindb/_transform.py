@@ -37,8 +37,7 @@ def __init__(transform: Transform, *args, **kwargs):
             "Only name, key, version, type, revises, reference, "
             f"reference_type can be passed, but you passed: {kwargs}"
         )
-    # Transform allows passing a uid, all others don't
-    if uid is None and key is not None:
+    if revises is None and key is not None:
         revises = Transform.filter(key=key).order_by("-created_at").first()
     if revises is not None and key is not None and revises.key != key:
         note = message_update_key_in_version_family(
