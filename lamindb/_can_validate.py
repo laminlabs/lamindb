@@ -79,6 +79,16 @@ def _check_organism_db(organism: Record, using_key: str | None):
                 )
 
 
+def _concat_lists(values: ListLike) -> list[str]:
+    """Concatenate a list of lists of strings into a single list."""
+    if len(values) > 0 and isinstance(values, (list, pd.Series)):
+        if isinstance(values[0], list):
+            if isinstance(values, pd.Series):
+                values = values.tolist()
+            values = sum([v for v in values if isinstance(v, list)], [])
+    return values
+
+
 def _inspect(
     cls,
     values: ListLike,
@@ -94,9 +104,7 @@ def _inspect(
 
     if isinstance(values, str):
         values = [values]
-    if len(values) > 0:
-        if isinstance(values[0], list):
-            values = values.sum()
+    values = _concat_lists(values)
 
     field = get_name_field(cls, field=field)
     queryset = _queryset(cls, using_key)
@@ -187,9 +195,7 @@ def _validate(
     return_str = True if isinstance(values, str) else False
     if isinstance(values, str):
         values = [values]
-    if len(values) > 0:
-        if isinstance(values[0], list):
-            values = values.sum()
+    values = _concat_lists(values)
 
     field = get_name_field(cls, field=field)
 
@@ -321,9 +327,7 @@ def _standardize(
     return_str = True if isinstance(values, str) else False
     if isinstance(values, str):
         values = [values]
-    if len(values) > 0:
-        if isinstance(values[0], list):
-            values = values.sum()
+    values = _concat_lists(values)
 
     field = get_name_field(cls, field=field)
     return_field = get_name_field(
