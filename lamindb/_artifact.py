@@ -576,7 +576,10 @@ def __init__(artifact: Artifact, *args, **kwargs):
             raise TypeError("`revises` has to be of type `Artifact`")
         if description is None:
             description = revises.description
-    assert AUTO_KEY_PREFIX not in key  # noqa: S101
+    if key is not None and AUTO_KEY_PREFIX in key:
+        raise ValueError(
+            f"Do not pass key that contains a managed storage path in {AUTO_KEY_PREFIX}"
+        )
     # below is for internal calls that require defining the storage location
     # ahead of constructing the Artifact
     if isinstance(data, (str, Path)) and AUTO_KEY_PREFIX in str(data):
