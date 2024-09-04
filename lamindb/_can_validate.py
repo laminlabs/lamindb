@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable, Literal
+from typing import TYPE_CHECKING, Literal
 
 import lamindb_setup as ln_setup
 import numpy as np
@@ -94,6 +94,9 @@ def _inspect(
 
     if isinstance(values, str):
         values = [values]
+    if len(values) > 0:
+        if isinstance(values[0], list):
+            values = values.sum()
 
     field = get_name_field(cls, field=field)
     queryset = _queryset(cls, using_key)
@@ -184,6 +187,9 @@ def _validate(
     return_str = True if isinstance(values, str) else False
     if isinstance(values, str):
         values = [values]
+    if len(values) > 0:
+        if isinstance(values[0], list):
+            values = values.sum()
 
     field = get_name_field(cls, field=field)
 
@@ -229,7 +235,7 @@ def _validate(
 @doc_args(CanValidate.standardize.__doc__)
 def standardize(
     cls,
-    values: Iterable,
+    values: ListLike,
     field: str | StrField | None = None,
     *,
     return_field: str = None,
@@ -295,7 +301,7 @@ def remove_synonym(self, synonym: str | ListLike):
 
 def _standardize(
     cls,
-    values: Iterable,
+    values: ListLike,
     field: str | StrField | None = None,
     *,
     return_field: str = None,
@@ -315,6 +321,9 @@ def _standardize(
     return_str = True if isinstance(values, str) else False
     if isinstance(values, str):
         values = [values]
+    if len(values) > 0:
+        if isinstance(values[0], list):
+            values = values.sum()
 
     field = get_name_field(cls, field=field)
     return_field = get_name_field(
@@ -416,7 +425,7 @@ def _standardize(
 
 
 def _add_or_remove_synonyms(
-    synonym: str | Iterable,
+    synonym: str | ListLike,
     record: Record,
     action: Literal["add", "remove"],
     force: bool = False,
