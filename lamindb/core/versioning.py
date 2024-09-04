@@ -99,6 +99,10 @@ def create_uid(
     n_full_id: int = 20,
     revises: IsVersioned | None = None,
 ) -> tuple[str, IsVersioned | None]:
+    """This also updates revises in case it's not the latest version.
+
+    This is why it returns revises.
+    """
     if revises is not None:
         if not revises.is_latest:
             # need one more request

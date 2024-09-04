@@ -143,12 +143,21 @@ def test_basic_validation():
         ln.Artifact("testpath.csv", "testpath.csv")
     assert error.exconly() == "ValueError: Only one non-keyword arg allowed: data"
 
+    # AUTO_KEY_PREFIX in key
+    with pytest.raises(ValueError) as error:
+        ln.Artifact.from_df(df, key=".lamindb/test_df.parquet")
+    assert (
+        error.exconly()
+        == f"ValueError: Do not pass key that contains a managed storage path in `{AUTO_KEY_PREFIX}`"
+    )
 
-# comment out for now
-# AUTO_KEY_PREFIX
-#    with pytest.raises(ValueError) as error:
-#        ln.Artifact.from_df(df, key=".lamindb/test_df.parquet")
-#    assert error.exconly() == "ValueError: Key cannot start with .lamindb/"
+    # path that contains AUTO_KEY_PREFIX
+    with pytest.raises(ValueError) as error:
+        ln.Artifact(".lamindb/test_df.parquet", description="Test")
+    assert (
+        error.exconly()
+        == f"ValueError: Do not pass path inside the `{AUTO_KEY_PREFIX}` directory."
+    )
 
 
 def test_revise_artifact(df, adata):

@@ -366,11 +366,6 @@ def get_artifact_kwargs_from_data(
     else:
         storage = default_storage
 
-    # for now comment out this error to allow creating new versions of stores
-    # in the default folder (.lamindb)
-    #    if key is not None and key.startswith(AUTO_KEY_PREFIX):
-    #        raise ValueError(f"Key cannot start with {AUTO_KEY_PREFIX}")
-
     log_storage_hint(
         check_path_in_storage=check_path_in_storage,
         storage=storage,
@@ -542,10 +537,10 @@ def __init__(artifact: Artifact, *args, **kwargs):
         else VisibilityChoice.default.value
     )
     format = kwargs.pop("format") if "format" in kwargs else None
+    _is_internal_call = kwargs.pop("_is_internal_call", False)
     skip_check_exists = (
         kwargs.pop("skip_check_exists") if "skip_check_exists" in kwargs else False
     )
-    _uid = kwargs.pop("_uid", None)
     if "default_storage" in kwargs:
         default_storage = kwargs.pop("default_storage")
     else:
@@ -561,9 +556,6 @@ def __init__(artifact: Artifact, *args, **kwargs):
     if "is_new_version_of" in kwargs:
         logger.warning("`is_new_version_of` will be removed soon, please use `revises`")
         revises = kwargs.pop("is_new_version_of")
-    assert not (  # noqa: S101
-        revises is not None and _uid is not None
-    ), "Can not init with both `revises` and `_uid`"
     if not len(kwargs) == 0:
         raise ValueError(
             "Only data, key, run, description, version, revises, visibility"
@@ -579,15 +571,29 @@ def __init__(artifact: Artifact, *args, **kwargs):
         raise ValueError(
             f"`key` is {key}, but `revises.key` is '{revises.key}'\n\n Either do *not* pass `key`.\n\n{note}"
         )
-    if _uid is not None:
-        provisional_uid, revises = _uid, None
-    else:
-        provisional_uid, revises = create_uid(revises=revises, version=version)
     if revises is not None:
         if not isinstance(revises, Artifact):
             raise TypeError("`revises` has to be of type `Artifact`")
         if description is None:
             description = revises.description
+    if key is not None and AUTO_KEY_PREFIX in key:
+        raise ValueError(
+            f"Do not pass key that contains a managed storage path in `{AUTO_KEY_PREFIX}`"
+        )
+    # below is for internal calls that require defining the storage location
+    # ahead of constructing the Artifact
+    if isinstance(data, (str, Path)) and AUTO_KEY_PREFIX in str(data):
+        if _is_internal_call:
+            is_automanaged_path = True
+            user_provided_key = key
+            key = None
+        else:
+            raise ValueError(
+                f"Do not pass path inside the `{AUTO_KEY_PREFIX}` directory."
+            )
+    else:
+        is_automanaged_path = False
+    provisional_uid, revises = create_uid(revises=revises, version=version)
     kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
         data=data,
         key=key,
@@ -615,16 +621,29 @@ def __init__(artifact: Artifact, *args, **kwargs):
     else:
         kwargs = kwargs_or_artifact
 
+    if data is not None:
+        artifact._local_filepath = privates["local_filepath"]
+        artifact._cloud_filepath = privates["cloud_filepath"]
+        artifact._memory_rep = privates["memory_rep"]
+        artifact._to_store = not privates["check_path_in_storage"]
+
+    if is_automanaged_path and _is_internal_call:
+        kwargs["_key_is_virtual"] = True
+        assert AUTO_KEY_PREFIX in kwargs["key"]  # noqa: S101
+        uid = kwargs["key"].replace(AUTO_KEY_PREFIX, "").replace(kwargs["suffix"], "")
+        kwargs["key"] = user_provided_key
+        if revises is not None:
+            assert uid.startswith(revises.stem_uid)  # noqa: S101
+        if len(uid) == 16:
+            if revises is None:
+                uid += "0000"
+            else:
+                uid, revises = create_uid(revises=revises, version=version)
+        kwargs["uid"] = uid
+
     # only set key now so that we don't do a look-up on it in case revises is passed
     if revises is not None:
         kwargs["key"] = revises.key
-    # in case we have a new version of a folder with a different hash, print a
-    # warning that the old version can't be recovered
-    if revises is not None and revises.n_objects is not None and revises.n_objects > 1:
-        logger.warning(
-            f"artifact version {version} will _update_ the state of folder {revises.path} - "
-            "to _retain_ the old state by duplicating the entire folder, do _not_ pass `revises`"
-        )
 
     kwargs["type"] = type
     kwargs["version"] = version
@@ -642,12 +661,6 @@ def __init__(artifact: Artifact, *args, **kwargs):
         raise ValueError("Pass one of key, run or description as a parameter")
 
     add_transform_to_kwargs(kwargs, kwargs["run"])
-
-    if data is not None:
-        artifact._local_filepath = privates["local_filepath"]
-        artifact._cloud_filepath = privates["cloud_filepath"]
-        artifact._memory_rep = privates["memory_rep"]
-        artifact._to_store = not privates["check_path_in_storage"]
 
     super(Artifact, artifact).__init__(**kwargs)
 
@@ -943,10 +956,9 @@ def open(
                 if self.hash != hash:
                     from ._record import init_self_from_db
 
-                    logger.warning(
-                        "The hash of the tiledbsoma store has changed, creating a new version of the artifact."
-                    )
-                    new_version = Artifact(filepath, revises=self).save()
+                    new_version = Artifact(
+                        filepath, revises=self, _is_internal_call=True
+                    ).save()
                     init_self_from_db(self, new_version)
 
                     if localpath != filepath and localpath.exists():

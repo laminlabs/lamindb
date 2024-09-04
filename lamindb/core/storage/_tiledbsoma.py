@@ -90,27 +90,24 @@ def save_tiledbsoma_experiment(
 ) -> Artifact:
     """Write `AnnData` to `tiledbsoma.Experiment`.
 
-    Reads `AnnData` objects, writes them to `tiledbsoma.Experiment`, creates `lamindb.Artifact`
-    and saves the artifact.
-    Note that this function adds `lamin_run_uid` column to `obs` of in-memory `AnnData` objects
-    when it writes to a new store or appends to a store that has this column in `obs`.
+    Reads `AnnData` objects, writes them to `tiledbsoma.Experiment`, creates & saves an {class}`~lamindb.Artifact`.
 
-    See also `tiledbsoma.io.from_anndata
+    Populates a column `lamin_run_uid` column in `obs` with the current `run.uid`.
+
+    Is based on `tiledbsoma.io.from_anndata
     <https://tiledbsoma.readthedocs.io/en/latest/_autosummary/tiledbsoma.io.from_anndata.html>`__.
 
     Args:
         adatas: `AnnData` objects to write, in-memory or on-disk.
-        key: A relative path within default storage.
+        key: An optional key to reference the artifact.
         description: A description.
         run: The run that creates the artifact.
         revises: `lamindb.Artifact` with `tiledbsoma.Experiment` to append to.
-            Triggers a revision (a new untagged version).
         measurement_name: The name of the measurement to store data in `tiledbsoma.Experiment`.
         obs_id_name: Which `AnnData` `obs` column to use for append mode.
         var_id_name: Which `AnnData` `var` column to use for append mode.
         append_obsm_varm: Whether to append `obsm` and `varm` in append mode .
-        **kwargs: Additional keyword arguments passed to `tiledbsoma.io.from_anndata` that
-            writes `adatas`.
+        **kwargs: Keyword arguments passed to `tiledbsoma.io.from_anndata`.
     """
     try:
         import tiledbsoma as soma
@@ -125,14 +122,12 @@ def save_tiledbsoma_experiment(
     run = get_run(run)
 
     appending = revises is not None
-
     if appending:
-        _uid = None
         storepath = revises.path
     else:
-        _uid, _ = create_uid(n_full_id=20)
+        uid, _ = create_uid(n_full_id=20)
         storage_key = auto_storage_key_from_artifact_uid(
-            _uid, ".tiledbsoma", is_dir=True
+            uid, ".tiledbsoma", is_dir=True
         )
         storepath = setup_settings.storage.root / storage_key
 
@@ -192,5 +187,10 @@ def save_tiledbsoma_experiment(
         )
 
     return Artifact(
-        storepath, key=key, description=description, run=run, revises=revises, _uid=_uid
+        storepath,
+        key=key,
+        description=description,
+        run=run,
+        revises=revises,
+        _is_internal_call=True,
     ).save()
