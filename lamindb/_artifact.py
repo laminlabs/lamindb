@@ -589,7 +589,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
             raise ValueError("Do not pass paths inside the `.lamindb` directory.")
     else:
         is_automanaged_path = False
-        provisional_uid, revises = create_uid(revises=revises, version=version)
+    provisional_uid, revises = create_uid(revises=revises, version=version)
     kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
         data=data,
         key=key,
