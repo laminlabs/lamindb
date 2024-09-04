@@ -537,7 +537,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
         else VisibilityChoice.default.value
     )
     format = kwargs.pop("format") if "format" in kwargs else None
-    _is_internal = kwargs.pop("_is_internal", False)
+    _is_internal_call = kwargs.pop("_is_internal_call", False)
     skip_check_exists = (
         kwargs.pop("skip_check_exists") if "skip_check_exists" in kwargs else False
     )
@@ -583,24 +583,8 @@ def __init__(artifact: Artifact, *args, **kwargs):
     # below is for internal calls that require defining the storage location
     # ahead of constructing the Artifact
     if isinstance(data, (str, Path)) and AUTO_KEY_PREFIX in str(data):
-        if _is_internal:
+        if _is_internal_call:
             is_automanaged_path = True
-            if isinstance(data, Path):
-                path_last_element = data.name
-            elif isinstance(data, str):  # path is str
-                path_last_element = data.split("/")[-1]  # type: ignore
-            suffix = extract_suffix_from_path(path_last_element)
-            provisional_uid = path_last_element.replace(suffix, "")
-            assert "." not in provisional_uid  # noqa: S101
-            if revises is not None:
-                assert provisional_uid.startswith(revises.stem_uid)  # noqa: S101
-            if len(provisional_uid) == 16:
-                if revises is None:
-                    provisional_uid += "0000"
-                else:
-                    provisional_uid, revises = create_uid(
-                        revises=revises, version=version
-                    )
         else:
             raise ValueError("Do not pass paths inside the `.lamindb` directory.")
     else:
@@ -633,10 +617,19 @@ def __init__(artifact: Artifact, *args, **kwargs):
     else:
         kwargs = kwargs_or_artifact
 
-    if is_automanaged_path:
+    if is_automanaged_path and _is_internal_call:
         kwargs["_key_is_virtual"] = True
         if AUTO_KEY_PREFIX in kwargs["key"]:
             kwargs["key"] = None
+        provisional_uid = artifact.path.stem
+        if revises is not None:
+            assert provisional_uid.startswith(revises.stem_uid)  # noqa: S101
+        if len(provisional_uid) == 16:
+            if revises is None:
+                provisional_uid += "0000"
+            else:
+                provisional_uid, revises = create_uid(revises=revises, version=version)
+        kwargs["uid"] = provisional_uid
 
     # only set key now so that we don't do a look-up on it in case revises is passed
     if revises is not None:

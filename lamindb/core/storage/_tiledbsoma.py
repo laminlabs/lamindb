@@ -193,5 +193,5 @@ def save_tiledbsoma_experiment(
         description=description,
         run=run,
         revises=revises,
-        _is_internal=True,
+        _is_internal_call=True,
     ).save()

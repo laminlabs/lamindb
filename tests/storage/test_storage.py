@@ -258,6 +258,8 @@ def test_write_read_tiledbsoma(storage):
         measurement_name="RNA",
     )
     assert artifact_soma.path.stem == artifact_soma.uid[:16]
+    assert artifact_soma.key is None
+    assert artifact_soma._key_is_virtual
 
     with artifact_soma.open() as store:  # mode="r" by default
         assert isinstance(store, tiledbsoma.Experiment)
