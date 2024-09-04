@@ -617,6 +617,12 @@ def __init__(artifact: Artifact, *args, **kwargs):
     else:
         kwargs = kwargs_or_artifact
 
+    if data is not None:
+        artifact._local_filepath = privates["local_filepath"]
+        artifact._cloud_filepath = privates["cloud_filepath"]
+        artifact._memory_rep = privates["memory_rep"]
+        artifact._to_store = not privates["check_path_in_storage"]
+
     if is_automanaged_path and _is_internal_call:
         kwargs["_key_is_virtual"] = True
         if AUTO_KEY_PREFIX in kwargs["key"]:
@@ -651,12 +657,6 @@ def __init__(artifact: Artifact, *args, **kwargs):
         raise ValueError("Pass one of key, run or description as a parameter")
 
     add_transform_to_kwargs(kwargs, kwargs["run"])
-
-    if data is not None:
-        artifact._local_filepath = privates["local_filepath"]
-        artifact._cloud_filepath = privates["cloud_filepath"]
-        artifact._memory_rep = privates["memory_rep"]
-        artifact._to_store = not privates["check_path_in_storage"]
 
     super(Artifact, artifact).__init__(**kwargs)
 
