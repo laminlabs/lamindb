@@ -343,7 +343,7 @@ def get_artifact_kwargs_from_data(
         size, hash, hash_type, n_objects, revises = stat_or_artifact
 
     if revises is not None:  # update provisional_uid
-        provisional_uid = create_uid(revises=revises, version=version)
+        provisional_uid, revises = create_uid(revises=revises, version=version)
         if path.as_posix().startswith(settings._storage_settings.cache_dir.as_posix()):
             path = path.rename(f"{provisional_uid}{suffix}")
 
@@ -598,12 +598,14 @@ def __init__(artifact: Artifact, *args, **kwargs):
                 if revises is None:
                     provisional_uid += "0000"
                 else:
-                    provisional_uid = create_uid(revises=revises, version=version)
+                    provisional_uid, revises = create_uid(
+                        revises=revises, version=version
+                    )
         else:
             raise ValueError("Do not pass paths inside the `.lamindb` directory.")
     else:
         is_automanaged_path = False
-        provisional_uid = create_uid(revises=revises, version=version)
+        provisional_uid, revises = create_uid(revises=revises, version=version)
     kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
         data=data,
         key=key,

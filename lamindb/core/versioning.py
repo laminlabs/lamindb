@@ -98,7 +98,11 @@ def create_uid(
     version: str | None = None,
     n_full_id: int = 20,
     revises: IsVersioned | None = None,
-) -> str:
+) -> tuple[str, IsVersioned | None]:
+    """This also updates revises in case it's not the latest version.
+
+    This is why it returns revises.
+    """
     if revises is not None:
         if not revises.is_latest:
             # need one more request
@@ -124,7 +128,7 @@ def create_uid(
                 raise ValueError(
                     f"Please increment the previous version: '{revises.version}'"
                 )
-    return suid + vuid
+    return suid + vuid, revises
 
 
 def get_new_path_from_uid(old_path: UPath, old_uid: str, new_uid: str):
@@ -145,7 +149,9 @@ def process_revises(
 ) -> tuple[str, str, str, IsVersioned | None]:
     if revises is not None and not isinstance(revises, type):
         raise TypeError(f"`revises` has to be of type `{type.__name__}`")
-    uid = create_uid(revises=revises, version=version, n_full_id=type._len_full_uid)
+    uid, revises = create_uid(
+        revises=revises, version=version, n_full_id=type._len_full_uid
+    )
     if revises is not None:
         if name is None:
             name = revises.name
