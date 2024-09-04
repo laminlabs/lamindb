@@ -99,7 +99,7 @@ def save_tiledbsoma_experiment(
 
     Args:
         adatas: `AnnData` objects to write, in-memory or on-disk.
-        key: A relative path within default storage.
+        key: An optional key to reference the artifact.
         description: A description.
         run: The run that creates the artifact.
         revises: `lamindb.Artifact` with `tiledbsoma.Experiment` to append to.
@@ -107,8 +107,7 @@ def save_tiledbsoma_experiment(
         obs_id_name: Which `AnnData` `obs` column to use for append mode.
         var_id_name: Which `AnnData` `var` column to use for append mode.
         append_obsm_varm: Whether to append `obsm` and `varm` in append mode .
-        **kwargs: Additional keyword arguments passed to `tiledbsoma.io.from_anndata` that
-            writes `adatas`.
+        **kwargs: Keyword arguments passed to `tiledbsoma.io.from_anndata`.
     """
     try:
         import tiledbsoma as soma
