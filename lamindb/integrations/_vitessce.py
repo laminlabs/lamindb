@@ -56,22 +56,12 @@ def save_vitessce_config(
                 raise ValueError("Each file must have a 'url' key.")
             s3_path = file["url"]
             s3_path_last_element = s3_path.split("/")[-1]
-            # note 1: the following parses the stem uid of the artifact from the S3 path
-            # there might be a better way of doing this in case the vitessce config
-            # gets updated in the future; but given these paths are set in stone
-            # this should be more robust than it looks
-            #
-            # note 2: what's not great is the fact that people might use composite suffixes we don't recognize
-            # I don't know what to do about it other than documenting it clearly
-            # https://github.com/laminlabs/lamindb/blob/main/lamindb/core/storage/_valid_suffixes.py
-            # https://docs.lamin.ai/lamindb.core.storage.valid_suffixes
-            #
             # now start with attempting to strip the composite suffix candidates
             for suffix in valid_composite_zarr_suffixes:
                 s3_path_last_element = s3_path_last_element.replace(suffix, "")
             # in case there was no hit, strip plain ".zarr"
             artifact_stem_uid = s3_path_last_element.replace(".zarr", "")
-            # if there is still a "." in string, we
+            # if there is still a "." in string, raise an error
             if "." in artifact_stem_uid:
                 raise ValueError(
                     f"Suffix should be '.zarr' or one of {valid_composite_zarr_suffixes}. Inspect your path {s3_path}"

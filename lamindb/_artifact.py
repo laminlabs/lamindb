@@ -343,7 +343,7 @@ def get_artifact_kwargs_from_data(
         size, hash, hash_type, n_objects, revises = stat_or_artifact
 
     if revises is not None:  # update provisional_uid
-        provisional_uid, revises = create_uid(revises=revises, version=version)
+        provisional_uid = create_uid(revises=revises, version=version)
         if path.as_posix().startswith(settings._storage_settings.cache_dir.as_posix()):
             path = path.rename(f"{provisional_uid}{suffix}")
 
@@ -365,11 +365,6 @@ def get_artifact_kwargs_from_data(
         check_path_in_storage = True
     else:
         storage = default_storage
-
-    # for now comment out this error to allow creating new versions of stores
-    # in the default folder (.lamindb)
-    #    if key is not None and key.startswith(AUTO_KEY_PREFIX):
-    #        raise ValueError(f"Key cannot start with {AUTO_KEY_PREFIX}")
 
     log_storage_hint(
         check_path_in_storage=check_path_in_storage,
@@ -542,10 +537,10 @@ def __init__(artifact: Artifact, *args, **kwargs):
         else VisibilityChoice.default.value
     )
     format = kwargs.pop("format") if "format" in kwargs else None
+    _is_internal = kwargs.pop("_is_internal", False)
     skip_check_exists = (
         kwargs.pop("skip_check_exists") if "skip_check_exists" in kwargs else False
     )
-    _uid = kwargs.pop("_uid", None)
     if "default_storage" in kwargs:
         default_storage = kwargs.pop("default_storage")
     else:
@@ -561,9 +556,6 @@ def __init__(artifact: Artifact, *args, **kwargs):
     if "is_new_version_of" in kwargs:
         logger.warning("`is_new_version_of` will be removed soon, please use `revises`")
         revises = kwargs.pop("is_new_version_of")
-    assert not (  # noqa: S101
-        revises is not None and _uid is not None
-    ), "Can not init with both `revises` and `_uid`"
     if not len(kwargs) == 0:
         raise ValueError(
             "Only data, key, run, description, version, revises, visibility"
@@ -579,15 +571,36 @@ def __init__(artifact: Artifact, *args, **kwargs):
         raise ValueError(
             f"`key` is {key}, but `revises.key` is '{revises.key}'\n\n Either do *not* pass `key`.\n\n{note}"
         )
-    if _uid is not None:
-        provisional_uid, revises = _uid, None
-    else:
-        provisional_uid, revises = create_uid(revises=revises, version=version)
     if revises is not None:
         if not isinstance(revises, Artifact):
             raise TypeError("`revises` has to be of type `Artifact`")
         if description is None:
             description = revises.description
+    assert AUTO_KEY_PREFIX not in key  # noqa: S101
+    # below is for internal calls that require defining the storage location
+    # ahead of constructing the Artifact
+    if isinstance(data, (str, Path)) and AUTO_KEY_PREFIX in str(data):
+        if _is_internal:
+            is_automanaged_path = True
+            if isinstance(data, Path):
+                path_last_element = data.name
+            elif isinstance(data, str):  # path is str
+                path_last_element = path.split("/")[-1]  # type: ignore
+            suffix = extract_suffix_from_path(path_last_element)
+            provisional_uid = path_last_element.replace(suffix, "")
+            assert "." not in provisional_uid  # noqa: S101
+            if revises is not None:
+                assert provisional_uid.startswith(revises.stem_uid)  # noqa: S101
+            if len(provisional_uid) == 16:
+                if revises is None:
+                    provisional_uid += "0000"
+                else:
+                    provisional_uid = create_uid(revises=revises, version=version)
+        else:
+            raise ValueError("Do not pass paths inside the `.lamindb` directory.")
+    else:
+        is_automanaged_path = False
+        provisional_uid = create_uid(revises=revises, version=version)
     kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
         data=data,
         key=key,
@@ -615,16 +628,14 @@ def __init__(artifact: Artifact, *args, **kwargs):
     else:
         kwargs = kwargs_or_artifact
 
+    if is_automanaged_path:
+        kwargs["_key_is_virtual"] = True
+        if AUTO_KEY_PREFIX in kwargs["key"]:
+            kwargs["key"] = None
+
     # only set key now so that we don't do a look-up on it in case revises is passed
     if revises is not None:
         kwargs["key"] = revises.key
-    # in case we have a new version of a folder with a different hash, print a
-    # warning that the old version can't be recovered
-    if revises is not None and revises.n_objects is not None and revises.n_objects > 1:
-        logger.warning(
-            f"artifact version {version} will _update_ the state of folder {revises.path} - "
-            "to _retain_ the old state by duplicating the entire folder, do _not_ pass `revises`"
-        )
 
     kwargs["type"] = type
     kwargs["version"] = version
