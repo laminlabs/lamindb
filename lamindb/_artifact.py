@@ -588,7 +588,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
             if isinstance(data, Path):
                 path_last_element = data.name
             elif isinstance(data, str):  # path is str
-                path_last_element = path.split("/")[-1]  # type: ignore
+                path_last_element = data.split("/")[-1]  # type: ignore
             suffix = extract_suffix_from_path(path_last_element)
             provisional_uid = path_last_element.replace(suffix, "")
             assert "." not in provisional_uid  # noqa: S101
