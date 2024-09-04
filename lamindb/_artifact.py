@@ -578,7 +578,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
             description = revises.description
     if key is not None and AUTO_KEY_PREFIX in key:
         raise ValueError(
-            f"Do not pass key that contains a managed storage path in {AUTO_KEY_PREFIX}"
+            f"Do not pass key that contains a managed storage path in `{AUTO_KEY_PREFIX}`"
         )
     # below is for internal calls that require defining the storage location
     # ahead of constructing the Artifact
@@ -588,7 +588,9 @@ def __init__(artifact: Artifact, *args, **kwargs):
             user_provided_key = key
             key = None
         else:
-            raise ValueError("Do not pass paths inside the `.lamindb` directory.")
+            raise ValueError(
+                f"Do not pass path inside the `{AUTO_KEY_PREFIX}` directory."
+            )
     else:
         is_automanaged_path = False
     provisional_uid, revises = create_uid(revises=revises, version=version)
