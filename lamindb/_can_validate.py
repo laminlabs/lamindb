@@ -94,8 +94,9 @@ def _inspect(
 
     if isinstance(values, str):
         values = [values]
-    if isinstance(values[0], list):
-        values = values.sum()
+    if len(values) > 0:
+        if isinstance(values[0], list):
+            values = values.sum()
 
     field = get_name_field(cls, field=field)
     queryset = _queryset(cls, using_key)
@@ -186,8 +187,9 @@ def _validate(
     return_str = True if isinstance(values, str) else False
     if isinstance(values, str):
         values = [values]
-    if isinstance(values[0], list):
-        values = values.sum()
+    if len(values) > 0:
+        if isinstance(values[0], list):
+            values = values.sum()
 
     field = get_name_field(cls, field=field)
 
@@ -319,8 +321,9 @@ def _standardize(
     return_str = True if isinstance(values, str) else False
     if isinstance(values, str):
         values = [values]
-    if isinstance(values[0], list):
-        values = values.sum()
+    if len(values) > 0:
+        if isinstance(values[0], list):
+            values = values.sum()
 
     field = get_name_field(cls, field=field)
     return_field = get_name_field(
