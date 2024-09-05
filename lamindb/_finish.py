@@ -94,6 +94,7 @@ def save_context_core(
     transform: Transform,
     filepath: Path,
     finished_at: bool = False,
+    non_consecutive: bool | None = None,
     from_cli: bool = False,
 ) -> str | None:
     import lamindb as ln
@@ -118,13 +119,19 @@ def save_context_core(
             logger.error("install nbproject & jupytext: pip install nbproject jupytext")
             return None
         notebook_content = read_notebook(filepath)  # type: ignore
-        is_consecutive = check_consecutiveness(
-            notebook_content, calling_statement=".finish()"
-        )
-        if not is_consecutive:
-            response = input("   Do you still want to proceed with finishing? (y/n) ")
-            if response != "y":
-                return "aborted-non-consecutive"
+        if non_consecutive is None or not non_consecutive:
+            is_consecutive = check_consecutiveness(
+                notebook_content, calling_statement=".finish()"
+            )
+            if not is_consecutive:
+                if non_consecutive is None:
+                    response = input(
+                        "   Do you still want to proceed with finishing? (y/n) "
+                    )
+                elif not non_consecutive:
+                    response = "n"
+                if response != "y":
+                    return "aborted-non-consecutive"
         # write the report
         report_path = ln_setup.settings.storage.cache_dir / filepath.name.replace(
             ".ipynb", ".html"

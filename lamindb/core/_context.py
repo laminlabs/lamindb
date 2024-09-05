@@ -485,15 +485,19 @@ class Context:
                 self._logging_message += f"loaded Transform('{transform.uid}')"
         self._transform = transform
 
-    def finish(self, confirm: None | bool = None) -> None:
+    def finish(self, non_consecutive: None | bool = None) -> None:
         """Mark the run context as finished.
 
         - Writes a timestamp: `run.finished_at`
         - Saves the source code: `transform.source_code`
-        - For notebooks, requires you to manually save the notebook in your editor and then saves a run report: `run.report`
+
+        When called in the last cell of a notebook in a notebook:
+
+        - prompts for user input if not consecutively executed
+        - requires you to manually save the notebook in your editor and then saves a run report: `run.report`
 
         Args:
-            confirm: Confirm "is consecutive" dialogue.
+            non_consecutive: Whether to ignore if a notebook was non-consecutively executed.
 
         Examples:
 
@@ -532,6 +536,7 @@ class Context:
             transform=context.run.transform,
             filepath=context._path,
             finished_at=True,
+            non_consecutive=non_consecutive,
         )
 
 
