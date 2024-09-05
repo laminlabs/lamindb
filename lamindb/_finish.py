@@ -144,19 +144,20 @@ def save_context_core(
     hash, _ = hash_file(source_code_path)  # ignore hash_type for now
     if (
         transform._source_code_artifact_id is not None
-        or transform.source_code is not None
+        or transform.source_code is not None  # equivalent to transform.hash is not None
     ):
         # check if the hash of the transform source code matches
         # (for scripts, we already run the same logic in track() - we can deduplicate the call at some point)
-        if transform.hash is not None:
-            condition = hash != transform.hash
-        else:
-            condition = hash != transform._source_code_artifact.hash
-        if condition:
+        ref_hash = (
+            transform.hash
+            if transform.hash is not None
+            else transform._source_code_artifact.hash
+        )
+        if hash != ref_hash:
             if os.getenv("LAMIN_TESTING") is None:
                 # in test, auto-confirm overwrite
                 response = input(
-                    f"You are about to replace (overwrite) existing source code (hash '{transform._source_code_artifact.hash}') for transform version"
+                    f"You are about to replace (overwrite) existing source code (hash '{ref_hash}') for transform version"
                     f" '{transform.version}'. Proceed? (y/n)"
                 )
             else:
