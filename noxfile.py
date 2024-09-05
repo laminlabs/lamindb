@@ -57,7 +57,7 @@ def install(session):
         "./sub/bionty",
     ]
     top_deps = [
-        "./sub/lamindb[aws,bionty,jupyter]",
+        ".[aws,bionty,jupyter]",
     ]
     cmds = [
         f"uv pip install {'--system' if CI else ''} --no-cache-dir {' '.join(base_deps)}",
