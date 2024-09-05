@@ -154,14 +154,10 @@ def save_context_core(
             else transform._source_code_artifact.hash
         )
         if hash != ref_hash:
-            if os.getenv("LAMIN_TESTING") is None:
-                # in test, auto-confirm overwrite
-                response = input(
-                    f"You are about to replace (overwrite) existing source code (hash '{ref_hash}') for transform version"
-                    f" '{transform.version}'. Proceed? (y/n)"
-                )
-            else:
-                response = "y"
+            response = input(
+                f"You are about to overwrite existing source code (hash '{ref_hash}') for Transform('{transform.uid}')."
+                f"Proceed? (y/n)"
+            )
             if response == "y":
                 transform.source_code = source_code_path.read_text()
                 transform.hash = hash
@@ -211,13 +207,9 @@ def save_context_core(
         if run.report_id is not None:
             hash, _ = hash_file(report_path)  # ignore hash_type for now
             if hash != run.report.hash:
-                if os.getenv("LAMIN_TESTING") is None:
-                    # in test, auto-confirm overwrite
-                    response = input(
-                        f"You are about to replace (overwrite) an existing run report (hash '{run.report.hash}'). Proceed? (y/n)"
-                    )
-                else:
-                    response = "y"
+                response = input(
+                    f"You are about to overwrite an existing report (hash '{run.report.hash}') for Run('{run.uid}'). Proceed? (y/n)"
+                )
                 if response == "y":
                     run.report.replace(report_path)
                     run.report.save(upload=True)
