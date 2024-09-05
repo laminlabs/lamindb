@@ -78,7 +78,6 @@ def save_vitessce_config(
         transform = Transform(
             uid="kup03MJBsIVa0001",
             name="save_vitessce_config",
-            key="save_vitessce_config",
             type="function",
             version="2",
         )
