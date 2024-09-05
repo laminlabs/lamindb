@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePath
 from typing import TYPE_CHECKING
 
+import lamindb_setup as ln_setup
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_file
 from lnschema_core import Run, Transform, ids
@@ -510,12 +511,9 @@ class Context:
             # nothing else to do
             return None
         if is_run_from_ipython:  # notebooks
-            if (
-                get_seconds_since_modified(context._path) > 3
-                and os.getenv("LAMIN_TESTING") is None
-            ):
+            if get_seconds_since_modified(context._path) > 2 and not ln_setup._TESTING:
                 raise NotebookFileNotSavedToDisk(
-                    "Please save the notebook manually in your editor right before running `ln.finish()`"
+                    "Please save the notebook manually in your editor right before running `ln.context.finish()`"
                 )
         save_context_core(
             run=context.run,

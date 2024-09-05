@@ -122,11 +122,7 @@ def save_context_core(
             notebook_content, calling_statement=".finish()"
         )
         if not is_consecutive:
-            msg = "   Do you still want to proceed with finishing? (y/n) "
-            if os.getenv("LAMIN_TESTING") is None:
-                response = input(msg)
-            else:
-                response = "n"
+            response = input("   Do you still want to proceed with finishing? (y/n) ")
             if response != "y":
                 return "aborted-non-consecutive"
         # write the report
