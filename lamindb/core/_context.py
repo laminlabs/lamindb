@@ -112,7 +112,9 @@ def pretty_pypackages(dependencies: dict) -> str:
 class Context:
     """Run context.
 
-    Bundles all metadata to track run contexts.
+    Manages a :class:`~lamindb.Transform` and a :class:`~lamindb.Run` together
+    with metadata needed to create & load records and to start, re-start and
+    finish.
     """
 
     def __init__(self):
@@ -166,42 +168,36 @@ class Context:
         self,
         *,
         params: dict | None = None,
-        transform: Transform | None = None,
         new_run: bool | None = None,
         path: str | None = None,
+        transform: Transform | None = None,
     ) -> None:
-        """Track notebook or script run.
+        """Triggers data lineage tracking for a run.
 
-        Creates or loads a global :class:`~lamindb.Run` that enables data
-        lineage tracking.
+        Sets :attr:`~lamindb.core.Context.transform` &
+          :attr:`~lamindb.core.Context.run` by creating or loading `Transform` &
+          `Run` records.
 
-        Saves source code and compute environment.
+        Saves compute environment as a `requirements.txt` file: `run.environment`
 
-        If :attr:`~lamindb.core.Settings.sync_git_repo` is set, will first check
-        whether the script exists in the git repository and add a link.
+        If :attr:`~lamindb.core.Settings.sync_git_repo` is set, checks whether a
+        script-like transform exists in a git repository and links it.
 
         Args:
             params: A dictionary of parameters to track for the run.
-            transform: Can be of type `"pipeline"` or `"notebook"`
-                (:class:`~lamindb.core.types.TransformType`).
             new_run: If `False`, loads latest run of transform
                 (default notebook), if `True`, creates new run (default pipeline).
             path: Filepath of notebook or script. Only needed if it can't be
                 automatically detected.
+            transform: Useful to track an abstract pipeline.
 
         Examples:
 
-            To track a notebook or script, call:
+            To track the run of a notebook or script, call:
 
             >>> import lamindb as ln
             >>> ln.context.track()
 
-            If you'd like to track an abstract pipeline run, pass a
-            :class:`~lamindb.Transform` object of ``type`` ``"pipeline"``:
-
-            >>> ln.Transform(name="Cell Ranger", version="2", type="pipeline").save()
-            >>> transform = ln.Transform.get(name="Cell Ranger", version="2")
-            >>> ln.context.track(transform=transform)
         """
         self._path = None
         if transform is None:
@@ -489,10 +485,26 @@ class Context:
                 self._logging_message += f"loaded Transform('{transform.uid}')"
         self._transform = transform
 
-    def finish(self) -> None:
-        """Mark a tracked run as finished.
+    def finish(self, confirm: None | bool = None) -> None:
+        """Mark the run context as finished.
 
-        Saves source code and, for notebooks, a run report to your default storage location.
+        - Writes a timestamp: `run.finished_at`
+        - Saves the source code: `transform.source_code`
+        - For notebooks, requires you to manually save the notebook in your editor and then saves a run report: `run.report`
+
+        Args:
+            confirm: Confirm "is consecutive" dialogue.
+
+        Examples:
+
+            >>> import lamindb as ln
+            >>> ln.context.track()
+            >>> # do things
+            >>> ln.context.finish()
+
+        See Also:
+            `lamin save script.py` or `lamin save notebook.ipynb` → `docs </cli#lamin-save>`__
+
         """
         from lamindb._finish import save_context_core
 

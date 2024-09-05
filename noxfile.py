@@ -189,16 +189,16 @@ def build(session, group):
 @nox.session
 def docs(session):
     # move artifacts into right place
-    for group in ["tutorial", "guide", "biology", "faq", "storage"]:
-        if Path(f"./docs-{group}").exists():
-            if Path(f"./docs/{group}").exists():
-                shutil.rmtree(f"./docs/{group}")
-            Path(f"./docs-{group}").rename(f"./docs/{group}")
-        # move back to root level
-        if group in {"tutorial", "guide", "biology"}:
-            for path in Path(f"./docs/{group}").glob("*"):
-                path.rename(f"./docs/{path.name}")
-    run(session, "lamin init --storage ./docsbuild --schema bionty,wetlab")
+    # for group in ["tutorial", "guide", "biology", "faq", "storage"]:
+    #     if Path(f"./docs-{group}").exists():
+    #         if Path(f"./docs/{group}").exists():
+    #             shutil.rmtree(f"./docs/{group}")
+    #         Path(f"./docs-{group}").rename(f"./docs/{group}")
+    #     # move back to root level
+    #     if group in {"tutorial", "guide", "biology"}:
+    #         for path in Path(f"./docs/{group}").glob("*"):
+    #             path.rename(f"./docs/{path.name}")
+    # run(session, "lamin init --storage ./docsbuild --schema bionty,wetlab")
 
     def generate_cli_docs():
         os.environ["NO_RICH"] = "1"
@@ -220,5 +220,5 @@ def docs(session):
         Path("./docs/cli.md").write_text(page)
 
     generate_cli_docs()
-    build_docs(session, strip_prefix=True, strict=True)
-    upload_docs_artifact(aws=True)
+    # build_docs(session, strip_prefix=True, strict=True)
+    # upload_docs_artifact(aws=True)

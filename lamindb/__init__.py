@@ -108,6 +108,6 @@ if _check_instance_setup(from_lamindb=True):
     track = context.track  # backward compat
     finish = context.finish  # backward compat
     Curate = Curator  # backward compat
-    settings.__doc__ = """Global :class:`~lamindb.core.Settings`."""
-    context.__doc__ = """Global :class:`~lamindb.core.Context`."""
+    settings.__doc__ = """Global settings (:class:`~lamindb.core.Settings`)."""
+    context.__doc__ = """Global run context (:class:`~lamindb.core.Context`)."""
     from django.db.models import Q
