@@ -73,12 +73,16 @@ def save_vitessce_config(
                 )
             else:
                 dataset_artifacts.append(artifact)
-    # link inputs
+    # the below will be replaced with a `ln.tracked()` decorator soon
     with logger.mute():
-        transform = Transform(name="save_vitessce_config", type="function", version="2")
+        transform = Transform(
+            uid="kup03MJBsIVa0001",
+            name="save_vitessce_config",
+            type="function",
+            version="2",
+        )
         transform.save()
-    run = Run(transform=transform)
-    run.save()
+    run = Run(transform=transform).save()
     if len(dataset_artifacts) > 1:
         # if we have more datasets, we should create a collection
         # and attach an action to the collection
