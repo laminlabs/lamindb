@@ -112,9 +112,18 @@ def pretty_pypackages(dependencies: dict) -> str:
 class Context:
     """Run context.
 
-    Manages a :class:`~lamindb.Transform` and a :class:`~lamindb.Run` together
-    with metadata needed to create & load records and to start, re-start and
-    finish.
+    Enables convenient data lineage tracking by managing a transform & run
+    upon :meth:`~lamindb.core.Context.track` & :meth:`~lamindb.core.Context.finish`.
+
+    Examples:
+
+        Is typically used via :class:`~lamindb.context`:
+
+        >>> import lamindb as ln
+        >>> ln.context.track()
+        >>> # do things while tracking data lineage
+        >>> ln.context.finish()
+
     """
 
     def __init__(self):
@@ -172,13 +181,12 @@ class Context:
         path: str | None = None,
         transform: Transform | None = None,
     ) -> None:
-        """Triggers data lineage tracking for a run.
+        """Starts data lineage tracking for a run.
 
-        Sets :attr:`~lamindb.core.Context.transform` &
+        - sets :attr:`~lamindb.core.Context.transform` &
           :attr:`~lamindb.core.Context.run` by creating or loading `Transform` &
-          `Run` records.
-
-        Saves compute environment as a `requirements.txt` file: `run.environment`
+          `Run` records
+        - saves compute environment as a `requirements.txt` file: `run.environment`
 
         If :attr:`~lamindb.core.Settings.sync_git_repo` is set, checks whether a
         script-like transform exists in a git repository and links it.
@@ -488,13 +496,14 @@ class Context:
     def finish(self, ignore_non_consecutive: None | bool = None) -> None:
         """Mark the run context as finished.
 
-        - Writes a timestamp: `run.finished_at`
-        - Saves the source code: `transform.source_code`
+        - writes a timestamp: `run.finished_at`
+        - saves the source code: `transform.source_code`
 
-        When called in the last cell of a notebook in a notebook:
+        When called in the last cell of a notebook:
 
         - prompts for user input if not consecutively executed
-        - requires you to manually save the notebook in your editor and then saves a run report: `run.report`
+        - requires to save the notebook in your editor
+        - saves a run report: `run.report`
 
         Args:
             ignore_non_consecutive: Whether to ignore if a notebook was non-consecutively executed.
@@ -503,7 +512,7 @@ class Context:
 
             >>> import lamindb as ln
             >>> ln.context.track()
-            >>> # do things
+            >>> # do things while tracking data lineage
             >>> ln.context.finish()
 
         See Also:
