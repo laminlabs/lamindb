@@ -485,7 +485,7 @@ class Context:
                 self._logging_message += f"loaded Transform('{transform.uid}')"
         self._transform = transform
 
-    def finish(self, non_consecutive: None | bool = None) -> None:
+    def finish(self, ignore_non_consecutive: None | bool = None) -> None:
         """Mark the run context as finished.
 
         - Writes a timestamp: `run.finished_at`
@@ -497,7 +497,7 @@ class Context:
         - requires you to manually save the notebook in your editor and then saves a run report: `run.report`
 
         Args:
-            non_consecutive: Whether to ignore if a notebook was non-consecutively executed.
+            ignore_non_consecutive: Whether to ignore if a notebook was non-consecutively executed.
 
         Examples:
 
@@ -536,7 +536,7 @@ class Context:
             transform=context.run.transform,
             filepath=context._path,
             finished_at=True,
-            non_consecutive=non_consecutive,
+            ignore_non_consecutive=ignore_non_consecutive,
         )
 
 

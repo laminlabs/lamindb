@@ -94,7 +94,7 @@ def save_context_core(
     transform: Transform,
     filepath: Path,
     finished_at: bool = False,
-    non_consecutive: bool | None = None,
+    ignore_non_consecutive: bool | None = None,
     from_cli: bool = False,
 ) -> str | None:
     import lamindb as ln
@@ -119,17 +119,16 @@ def save_context_core(
             logger.error("install nbproject & jupytext: pip install nbproject jupytext")
             return None
         notebook_content = read_notebook(filepath)  # type: ignore
-        if non_consecutive is None or not non_consecutive:
+        if not ignore_non_consecutive:  # ignore_non_consecutive is None or False
             is_consecutive = check_consecutiveness(
                 notebook_content, calling_statement=".finish()"
             )
             if not is_consecutive:
-                if non_consecutive is None:
+                response = "n"  # ignore_non_consecutive == False
+                if ignore_non_consecutive is None:
                     response = input(
                         "   Do you still want to proceed with finishing? (y/n) "
                     )
-                elif not non_consecutive:
-                    response = "n"
                 if response != "y":
                     return "aborted-non-consecutive"
         # write the report
