@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePath
 from typing import TYPE_CHECKING
 
+import lamindb_setup as ln_setup
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_file
 from lnschema_core import Run, Transform, ids
@@ -111,7 +112,18 @@ def pretty_pypackages(dependencies: dict) -> str:
 class Context:
     """Run context.
 
-    Bundles all metadata to track run contexts.
+    Enables convenient data lineage tracking by managing a transform & run
+    upon :meth:`~lamindb.core.Context.track` & :meth:`~lamindb.core.Context.finish`.
+
+    Examples:
+
+        Is typically used via :class:`~lamindb.context`:
+
+        >>> import lamindb as ln
+        >>> ln.context.track()
+        >>> # do things while tracking data lineage
+        >>> ln.context.finish()
+
     """
 
     def __init__(self):
@@ -165,42 +177,35 @@ class Context:
         self,
         *,
         params: dict | None = None,
-        transform: Transform | None = None,
         new_run: bool | None = None,
         path: str | None = None,
+        transform: Transform | None = None,
     ) -> None:
-        """Track notebook or script run.
+        """Starts data lineage tracking for a run.
 
-        Creates or loads a global :class:`~lamindb.Run` that enables data
-        lineage tracking.
+        - sets :attr:`~lamindb.core.Context.transform` &
+          :attr:`~lamindb.core.Context.run` by creating or loading `Transform` &
+          `Run` records
+        - saves compute environment as a `requirements.txt` file: `run.environment`
 
-        Saves source code and compute environment.
-
-        If :attr:`~lamindb.core.Settings.sync_git_repo` is set, will first check
-        whether the script exists in the git repository and add a link.
+        If :attr:`~lamindb.core.Settings.sync_git_repo` is set, checks whether a
+        script-like transform exists in a git repository and links it.
 
         Args:
             params: A dictionary of parameters to track for the run.
-            transform: Can be of type `"pipeline"` or `"notebook"`
-                (:class:`~lamindb.core.types.TransformType`).
             new_run: If `False`, loads latest run of transform
                 (default notebook), if `True`, creates new run (default pipeline).
             path: Filepath of notebook or script. Only needed if it can't be
                 automatically detected.
+            transform: Useful to track an abstract pipeline.
 
         Examples:
 
-            To track a notebook or script, call:
+            To track the run of a notebook or script, call:
 
             >>> import lamindb as ln
             >>> ln.context.track()
 
-            If you'd like to track an abstract pipeline run, pass a
-            :class:`~lamindb.Transform` object of ``type`` ``"pipeline"``:
-
-            >>> ln.Transform(name="Cell Ranger", version="2", type="pipeline").save()
-            >>> transform = ln.Transform.get(name="Cell Ranger", version="2")
-            >>> ln.context.track(transform=transform)
         """
         self._path = None
         if transform is None:
@@ -488,10 +493,31 @@ class Context:
                 self._logging_message += f"loaded Transform('{transform.uid}')"
         self._transform = transform
 
-    def finish(self) -> None:
-        """Mark a tracked run as finished.
+    def finish(self, ignore_non_consecutive: None | bool = None) -> None:
+        """Mark the run context as finished.
 
-        Saves source code and, for notebooks, a run report to your default storage location.
+        - writes a timestamp: `run.finished_at`
+        - saves the source code: `transform.source_code`
+
+        When called in the last cell of a notebook:
+
+        - prompts for user input if not consecutively executed
+        - requires to save the notebook in your editor
+        - saves a run report: `run.report`
+
+        Args:
+            ignore_non_consecutive: Whether to ignore if a notebook was non-consecutively executed.
+
+        Examples:
+
+            >>> import lamindb as ln
+            >>> ln.context.track()
+            >>> # do things while tracking data lineage
+            >>> ln.context.finish()
+
+        See Also:
+            `lamin save script.py` or `lamin save notebook.ipynb` → `docs </cli#lamin-save>`__
+
         """
         from lamindb._finish import save_context_core
 
@@ -510,18 +536,16 @@ class Context:
             # nothing else to do
             return None
         if is_run_from_ipython:  # notebooks
-            if (
-                get_seconds_since_modified(context._path) > 3
-                and os.getenv("LAMIN_TESTING") is None
-            ):
+            if get_seconds_since_modified(context._path) > 2 and not ln_setup._TESTING:
                 raise NotebookFileNotSavedToDisk(
-                    "Please save the notebook manually in your editor right before running `ln.finish()`"
+                    "Please save the notebook manually in your editor right before running `ln.context.finish()`"
                 )
         save_context_core(
             run=context.run,
             transform=context.run.transform,
             filepath=context._path,
             finished_at=True,
+            ignore_non_consecutive=ignore_non_consecutive,
         )
 
 

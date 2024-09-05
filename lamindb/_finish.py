@@ -94,6 +94,7 @@ def save_context_core(
     transform: Transform,
     filepath: Path,
     finished_at: bool = False,
+    ignore_non_consecutive: bool | None = None,
     from_cli: bool = False,
 ) -> str | None:
     import lamindb as ln
@@ -118,17 +119,18 @@ def save_context_core(
             logger.error("install nbproject & jupytext: pip install nbproject jupytext")
             return None
         notebook_content = read_notebook(filepath)  # type: ignore
-        is_consecutive = check_consecutiveness(
-            notebook_content, calling_statement=".finish()"
-        )
-        if not is_consecutive:
-            msg = "   Do you still want to proceed with finishing? (y/n) "
-            if os.getenv("LAMIN_TESTING") is None:
-                response = input(msg)
-            else:
-                response = "n"
-            if response != "y":
-                return "aborted-non-consecutive"
+        if not ignore_non_consecutive:  # ignore_non_consecutive is None or False
+            is_consecutive = check_consecutiveness(
+                notebook_content, calling_statement=".finish()"
+            )
+            if not is_consecutive:
+                response = "n"  # ignore_non_consecutive == False
+                if ignore_non_consecutive is None:
+                    response = input(
+                        "   Do you still want to proceed with finishing? (y/n) "
+                    )
+                if response != "y":
+                    return "aborted-non-consecutive"
         # write the report
         report_path = ln_setup.settings.storage.cache_dir / filepath.name.replace(
             ".ipynb", ".html"
@@ -154,14 +156,10 @@ def save_context_core(
             else transform._source_code_artifact.hash
         )
         if hash != ref_hash:
-            if os.getenv("LAMIN_TESTING") is None:
-                # in test, auto-confirm overwrite
-                response = input(
-                    f"You are about to replace (overwrite) existing source code (hash '{ref_hash}') for transform version"
-                    f" '{transform.version}'. Proceed? (y/n)"
-                )
-            else:
-                response = "y"
+            response = input(
+                f"You are about to overwrite existing source code (hash '{ref_hash}') for Transform('{transform.uid}')."
+                f"Proceed? (y/n)"
+            )
             if response == "y":
                 transform.source_code = source_code_path.read_text()
                 transform.hash = hash
@@ -211,13 +209,9 @@ def save_context_core(
         if run.report_id is not None:
             hash, _ = hash_file(report_path)  # ignore hash_type for now
             if hash != run.report.hash:
-                if os.getenv("LAMIN_TESTING") is None:
-                    # in test, auto-confirm overwrite
-                    response = input(
-                        f"You are about to replace (overwrite) an existing run report (hash '{run.report.hash}'). Proceed? (y/n)"
-                    )
-                else:
-                    response = "y"
+                response = input(
+                    f"You are about to overwrite an existing report (hash '{run.report.hash}') for Run('{run.uid}'). Proceed? (y/n)"
+                )
                 if response == "y":
                     run.report.replace(report_path)
                     run.report.save(upload=True)
