@@ -41,7 +41,7 @@ def __init__(transform: Transform, *args, **kwargs):
         if key is not None:
             revises = Transform.filter(key=key).order_by("-created_at").first()
         elif uid is not None and not uid.endswith("0000"):
-            revises = Transform.filter(uid__startswith=uid[:-4]).one_or_none()
+            revises = Transform.filter(uid__startswith=uid[:-4], is_latest=True)
     if revises is not None and key is not None and revises.key != key:
         note = message_update_key_in_version_family(
             suid=revises.stem_uid,
