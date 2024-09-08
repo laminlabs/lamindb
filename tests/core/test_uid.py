@@ -36,4 +36,5 @@ def test_bionty_encode_uid():
         ]
         == "2dZ52W9noUDK"
     )
+    bt.Gene.filter().all().delete()
     bt.settings.organism.delete()
