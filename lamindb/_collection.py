@@ -51,7 +51,7 @@ class CollectionFeatureManager:
 
     def get_feature_sets_union(self) -> dict[str, FeatureSet]:
         links_feature_set_artifact = Artifact.feature_sets.through.objects.filter(
-            artifact_id__in=self._collection.artifacts.only("id").all()
+            artifact_id__in=self._collection.artifacts.values_list("id", flat=True)
         )
         feature_sets_by_slots = defaultdict(list)
         for link in links_feature_set_artifact:
