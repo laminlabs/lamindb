@@ -27,15 +27,15 @@ GROUPS["tutorial"] = [
     "tutorial.ipynb",
     "tutorial2.ipynb",
     "transfer.ipynb",
-]
-GROUPS["guide"] = [
     "arrays.ipynb",
     "records.ipynb",
+    "setup.ipynb",
+]
+GROUPS["guide"] = [
     "track.ipynb",
     "curate-df.ipynb",
     "curate-any.ipynb",
     "schemas.ipynb",
-    "setup.ipynb",
 ]
 GROUPS["biology"] = [
     "bio-registries.ipynb",
