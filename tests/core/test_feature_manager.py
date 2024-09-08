@@ -325,7 +325,7 @@ def test_labels_add(adata):
     # test add_from
     adata2 = adata.copy()
     adata2.uns["mutated"] = True
-    artifact2 = ln.Artifact(adata2, name="My new artifact").save()
+    artifact2 = ln.Artifact(adata2, description="My new artifact").save()
     from lamindb.core._label_manager import get_labels_as_dict
 
     artifact2.labels.add_from(artifact)
