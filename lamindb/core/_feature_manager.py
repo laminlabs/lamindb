@@ -792,7 +792,7 @@ def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
     """Transfer features from a artifact or collection."""
     # This only covers feature sets
     if transfer_logs is None:
-        transfer_logs = {}
+        transfer_logs = {"mapped": [], "new": []}
     using_key = settings._using_key
     for slot, feature_set in data.features._feature_set_by_slot.items():
         members = feature_set.members
