@@ -293,10 +293,10 @@ class Context:
                 transform_exists = Transform.filter(id=transform.id).first()
             if transform_exists is None:
                 transform.save()
-                self._logging_message += f"created Transform('{transform.uid}')"
+                self._logging_message += f"created Transform(uid='{transform.uid}')"
                 transform_exists = transform
             else:
-                self._logging_message += f"loaded Transform('{transform.uid}')"
+                self._logging_message += f"loaded Transform(uid='{transform.uid}')"
             self._transform = transform_exists
 
         if new_run is None:  # for notebooks, default to loading latest runs
@@ -312,7 +312,7 @@ class Context:
             if run is not None:  # loaded latest run
                 run.started_at = datetime.now(timezone.utc)  # update run time
                 self._logging_message += (
-                    f" & loaded Run('{format_field_value(run.started_at)}')"
+                    f" & loaded Run(started_at={format_field_value(run.started_at)})"
                 )
 
         if run is None:  # create new run
@@ -322,7 +322,7 @@ class Context:
             )
             run.started_at = datetime.now(timezone.utc)
             self._logging_message += (
-                f" & created Run('{format_field_value(run.started_at)}')"
+                f" & created Run(started_at={format_field_value(run.started_at)})"
             )
         # can only determine at ln.finish() if run was consecutive in
         # interactive session, otherwise, is consecutive
@@ -436,7 +436,7 @@ class Context:
                 reference_type=transform_ref_type,
                 type=transform_type,
             ).save()
-            self._logging_message += f"created Transform('{transform.uid}')"
+            self._logging_message += f"created Transform(uid='{transform.uid}')"
         else:
             uid = transform.uid
             # check whether the transform file has been renamed
@@ -477,7 +477,9 @@ class Context:
                     if condition:
                         bump_revision = True
                     else:
-                        self._logging_message += f"loaded Transform('{transform.uid}')"
+                        self._logging_message += (
+                            f"loaded Transform(uid='{transform.uid}')"
+                        )
                 if bump_revision:
                     change_type = (
                         "Re-running saved notebook"
@@ -494,7 +496,7 @@ class Context:
                         f'ln.context.uid = "{suid}{new_vuid}"'
                     )
             else:
-                self._logging_message += f"loaded Transform('{transform.uid}')"
+                self._logging_message += f"loaded Transform(uid='{transform.uid}')"
         self._transform = transform
 
     def finish(self, ignore_non_consecutive: None | bool = None) -> None:

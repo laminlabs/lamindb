@@ -12,7 +12,7 @@ from lamin_utils._lookup import Lookup
 from lamindb_setup._connect_instance import get_owner_name_from_identifier
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._hub_core import connect_instance
-from lnschema_core.models import Collection, IsVersioned, Record
+from lnschema_core.models import IsVersioned, Record
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings
@@ -478,6 +478,9 @@ def transfer_to_default_db(
     save: bool = False,
     transfer_fk: bool = True,
 ) -> Record | None:
+    from lamindb.core._context import context
+    from lamindb.core._data import WARNING_RUN_TRANSFORM
+
     registry = record.__class__
     record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
     record_str = f"{record.__class__.__name__}(uid='{record.uid}')"
@@ -485,13 +488,9 @@ def transfer_to_default_db(
         transfer_logs["mapped"].append(record_str)
         return record_on_default
     else:
-        transfer_logs["new"].append(record_str)
-
-    from lamindb.core._context import context
-    from lamindb.core._data import WARNING_RUN_TRANSFORM
+        transfer_logs["transferred"].append(record_str)
 
     if hasattr(record, "created_by_id"):
-        # this line is needed to point created_by to default db
         record.created_by = None
         record.created_by_id = ln_setup.settings.user.id
     if hasattr(record, "run_id"):
@@ -540,18 +539,16 @@ def save(self, *args, **kwargs) -> Record:
         artifacts = self.ordered_artifacts.list()
     pre_existing_record = None
     # consider records that are being transferred from other databases
+    transfer_logs: dict[str, list[str]] = {"mapped": [], "transferred": []}
     if db is not None and db != "default" and using_key is None:
         if isinstance(self, IsVersioned):
             if not self.is_latest:
                 raise NotImplementedError(
                     "You are attempting to transfer a record that's not the latest in its version history. This is currently not supported."
                 )
-        transfer_logs: dict[str, list[str]] = {"mapped": [], "new": []}
         pre_existing_record = transfer_to_default_db(
             self, using_key, transfer_logs=transfer_logs
         )
-        for k, v in transfer_logs.items():
-            logger.important(f"{k} records: {', '.join(v)}")
     if pre_existing_record is not None:
         init_self_from_db(self, pre_existing_record)
     else:
@@ -589,6 +586,8 @@ def save(self, *args, **kwargs) -> Record:
             self_on_db.features = FeatureManager(self_on_db)
             self.features._add_from(self_on_db, transfer_logs=transfer_logs)
             self.labels.add_from(self_on_db, transfer_logs=transfer_logs)
+        for k, v in transfer_logs.items():
+            logger.important(f"{k} records: {', '.join(v)}")
     return self
 
 

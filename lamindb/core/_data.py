@@ -98,6 +98,11 @@ def save_feature_set_links(self: Artifact | Collection) -> None:
 @doc_args(Artifact.describe.__doc__)
 def describe(self: Artifact, print_types: bool = False):
     """{}"""  # noqa: D415
+    model_name = self.__class__.__name__
+    msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
+    if self._state.db is not None and self._state.db != "default":
+        msg += f"  {colors.italic('Database instance')}\n"
+        msg += f"    slug: {self._state.db}\n"
     # prefetch all many-to-many relationships
     # doesn't work for describing using artifact
     # self = (
@@ -108,10 +113,7 @@ def describe(self: Artifact, print_types: bool = False):
     #     .get(id=self.id)
     # )
 
-    model_name = self.__class__.__name__
-    msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
     prov_msg = ""
-
     fields = self._meta.fields
     direct_fields = []
     foreign_key_fields = []
