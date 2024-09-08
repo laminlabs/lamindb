@@ -10,7 +10,6 @@ from lnschema_core.models import (
     Collection,
     Feature,
     FeatureSet,
-    HasFeatures,
     Record,
     Run,
     ULabel,
@@ -96,8 +95,8 @@ def save_feature_set_links(self: Artifact | Collection) -> None:
         bulk_create(links, ignore_conflicts=True)
 
 
-@doc_args(HasFeatures.describe.__doc__)
-def describe(self: HasFeatures, print_types: bool = False):
+@doc_args(Artifact.describe.__doc__)
+def describe(self: Artifact, print_types: bool = False):
     """{}"""  # noqa: D415
     # prefetch all many-to-many relationships
     # doesn't work for describing using artifact
@@ -328,7 +327,7 @@ def add_labels(
 
 
 def _track_run_input(
-    data: HasFeatures | Iterable[HasFeatures],
+    data: Artifact | Collection | Iterable[Artifact] | Iterable[Collection],
     is_run_input: bool | None = None,
     run: Run | None = None,
 ):
@@ -340,12 +339,14 @@ def _track_run_input(
     elif run is None:
         run = context.run
     # consider that data is an iterable of Data
-    data_iter: Iterable[HasFeatures] = [data] if isinstance(data, HasFeatures) else data
+    data_iter: Iterable[Artifact] | Iterable[Collection] = (
+        [data] if isinstance(data, (Artifact, Collection)) else data
+    )
     track_run_input = False
     input_data = []
     if run is not None:
         # avoid cycles: data can't be both input and output
-        def is_valid_input(data: HasFeatures):
+        def is_valid_input(data: Artifact | Collection):
             return (
                 data.run_id != run.id
                 and not data._state.adding
@@ -416,7 +417,3 @@ def _track_run_input(
         if len(input_data) == 1:
             if input_data[0].transform is not None:
                 run.transform.predecessors.add(input_data[0].transform)
-
-
-HasFeatures.describe = describe
-HasFeatures.view_lineage = view_lineage

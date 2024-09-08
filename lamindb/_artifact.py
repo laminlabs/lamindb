@@ -28,7 +28,7 @@ from lnschema_core.types import (
 )
 
 from lamindb._utils import attach_func_to_class_method
-from lamindb.core._data import HasFeatures, _track_run_input
+from lamindb.core._data import _track_run_input, describe, view_lineage
 from lamindb.core._settings import settings
 from lamindb.core.exceptions import IntegrityError
 from lamindb.core.storage import (
@@ -497,7 +497,7 @@ def _check_accessor_artifact(data: Any, accessor: str | None = None):
     return accessor
 
 
-def update_attributes(data: HasFeatures, attributes: Mapping[str, str]):
+def update_attributes(data: Artifact, attributes: Mapping[str, str]):
     for key, value in attributes.items():
         if getattr(data, key) != value:
             logger.warning(f"updated {key} from {getattr(data, key)} to {value}")
@@ -1186,4 +1186,5 @@ Artifact._delete_skip_storage = _delete_skip_storage
 Artifact._save_skip_storage = _save_skip_storage
 Artifact.path = path
 Artifact.backed = backed
-Artifact.view_lineage = HasFeatures.view_lineage
+Artifact.describe = describe
+Artifact.view_lineage = view_lineage

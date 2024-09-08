@@ -22,8 +22,6 @@ from lnschema_core.models import (
     FeatureManagerArtifact,
     FeatureManagerCollection,
     FeatureValue,
-    HasFeatures,
-    HasParams,
     LinkORM,
     Param,
     ParamManager,
@@ -116,7 +114,7 @@ def get_feature_set_links(host: Artifact | Collection) -> QuerySet:
     return links_feature_set
 
 
-def get_link_attr(link: LinkORM | type[LinkORM], data: HasFeatures) -> str:
+def get_link_attr(link: LinkORM | type[LinkORM], data: Artifact | Collection) -> str:
     link_model_name = link.__class__.__name__
     if link_model_name in {"Registry", "ModelBase"}:  # we passed the type of the link
         link_model_name = link.__name__
@@ -137,7 +135,7 @@ def custom_aggregate(field, using: str):
 
 
 def print_features(
-    self: HasFeatures | HasParams,
+    self: Artifact | Collection,
     print_types: bool = False,
     to_dict: bool = False,
     print_params: bool = False,
@@ -791,7 +789,7 @@ def _add_set_from_mudata(
     self._host.save()
 
 
-def _add_from(self, data: HasFeatures):
+def _add_from(self, data: Artifact | Collection):
     """Transfer features from a artifact or collection."""
     # This only covers feature sets, though.
     using_key = settings._using_key
