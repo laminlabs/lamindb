@@ -323,7 +323,9 @@ def test_labels_add(adata):
     assert projects.get().name == "project 1"
 
     # test add_from
-    artifact2 = ln.Artifact(artifact, name="My new artifact").save()
+    adata2 = adata.copy()
+    adata2.uns["mutated"] = True
+    artifact2 = ln.Artifact(adata2, name="My new artifact").save()
     from lamindb.core._label_manager import get_labels_as_dict
 
     artifact2.labels.add_from(artifact)
