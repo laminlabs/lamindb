@@ -143,14 +143,16 @@ def test_from_inconsistent_artifacts(df, adata):
 
 
 def test_from_consistent_artifacts(adata, adata2):
-    artifact1 = ln.Artifact.from_anndata(adata, description="My test")
-    artifact1.save()
-    artifact2 = ln.Artifact.from_anndata(adata2, description="My test2")
-    artifact2.save()
-    transform = ln.Transform(name="My test transform")
-    transform.save()
-    run = ln.Run(transform)
-    run.save()
+    ln.Feature(name="feat1", dtype="number").save()
+    curator = ln.Curator.from_anndata(adata, var_index=bt.Gene.symbol, organism="human")
+    curator.add_validated_from_var_index()
+    artifact1 = curator.save_artifact(description="My test")
+    curator = ln.Curator.from_anndata(
+        adata2, var_index=bt.Gene.symbol, organism="human"
+    )
+    artifact2 = curator.save_artifact(description="My test2").save()
+    transform = ln.Transform(name="My test transform").save()
+    run = ln.Run(transform).save()
     collection = ln.Collection([artifact1, artifact2], name="My test", run=run)
     assert collection._state.adding
     collection.save()
@@ -158,6 +160,14 @@ def test_from_consistent_artifacts(adata, adata2):
     adata_joined = collection.load()
     assert "artifact_uid" in adata_joined.obs.columns
     assert artifact1.uid in adata_joined.obs.artifact_uid.cat.categories
+
+    feature_sets = collection.features.get_feature_sets_union()
+    assert set(feature_sets["var"].members.values_list("symbol", flat=True)) == {
+        "MYC",
+        "TCF7",
+        "GATA1",
+    }
+    assert set(feature_sets["obs"].members.values_list("name", flat=True)) == {"feat1"}
 
     # re-run with hash-based lookup
     collection2 = ln.Collection([artifact1, artifact2], name="My test 1", run=run)
@@ -168,6 +178,8 @@ def test_from_consistent_artifacts(adata, adata2):
     collection.delete(permanent=True)
     artifact1.delete(permanent=True)
     artifact2.delete(permanent=True)
+    ln.FeatureSet.filter().delete()
+    ln.Feature.filter().delete()
 
 
 def test_collection_mapped(adata, adata2):

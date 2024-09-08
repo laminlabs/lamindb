@@ -131,7 +131,7 @@ def test_unvalidated_data_object(df, categoricals):
     curate = ln.Curator.from_df(df, categoricals=categoricals)
     with pytest.raises(ValidationError) as error:
         curate.save_artifact()
-    assert "Data object is not validated" in str(error.value)
+    assert "Dataset does not validate. Please curate." in str(error.value)
 
 
 def test_clean_up_failed_runs():
@@ -241,7 +241,7 @@ def test_unvalidated_adata_object(adata, categoricals):
     )
     with pytest.raises(ValidationError) as error:
         curate.save_artifact()
-    assert "Data object is not validated" in str(error.value)
+    assert "Dataset does not validate. Please curate." in str(error.value)
 
 
 def test_mudata_annotator(mdata):

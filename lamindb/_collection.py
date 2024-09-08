@@ -17,7 +17,6 @@ from lamindb_setup.core.hashing import hash_set
 from lnschema_core.models import (
     Collection,
     CollectionArtifact,
-    FeatureManager,
     FeatureSet,
 )
 from lnschema_core.types import VisibilityChoice
@@ -44,12 +43,45 @@ if TYPE_CHECKING:
     from ._query_set import QuerySet
 
 
+class CollectionFeatureManager:
+    """Query features of artifact in collection."""
+
+    def __init__(self, collection: Collection):
+        self._collection = collection
+
+    def get_feature_sets_union(self) -> dict[str, FeatureSet]:
+        links_feature_set_artifact = Artifact.feature_sets.through.objects.filter(
+            artifact_id__in=self._collection.artifacts.values_list("id", flat=True)
+        )
+        feature_sets_by_slots = defaultdict(list)
+        for link in links_feature_set_artifact:
+            feature_sets_by_slots[link.slot].append(link.featureset_id)
+        feature_sets_union = {}
+        for slot, feature_set_ids_slot in feature_sets_by_slots.items():
+            feature_set_1 = FeatureSet.get(id=feature_set_ids_slot[0])
+            related_name = feature_set_1._get_related_name()
+            features_registry = getattr(FeatureSet, related_name).field.model
+            # this way of writing the __in statement turned out to be the fastest
+            # evaluated on a link table with 16M entries connecting 500 feature sets with
+            # 60k genes
+            feature_ids = (
+                features_registry.feature_sets.through.objects.filter(
+                    featureset_id__in=feature_set_ids_slot
+                )
+                .values(f"{features_registry.__name__.lower()}_id")
+                .distinct()
+            )
+            features = features_registry.filter(id__in=feature_ids)
+            feature_sets_union[slot] = FeatureSet(features, dtype=feature_set_1.dtype)
+        return feature_sets_union
+
+
 def __init__(
     collection: Collection,
     *args,
     **kwargs,
 ):
-    collection.features = FeatureManager(collection)
+    collection.features = CollectionFeatureManager(collection)
     if len(args) == len(collection._meta.concrete_fields):
         super(Collection, collection).__init__(*args, **kwargs)
         return None
@@ -78,9 +110,6 @@ def __init__(
         if "visibility" in kwargs
         else VisibilityChoice.default.value
     )
-    feature_sets: dict[str, FeatureSet] = (
-        kwargs.pop("feature_sets") if "feature_sets" in kwargs else {}
-    )
     if "is_new_version_of" in kwargs:
         logger.warning("`is_new_version_of` will be removed soon, please use `revises`")
         revises = kwargs.pop("is_new_version_of")
@@ -98,7 +127,7 @@ def __init__(
         if not hasattr(artifacts, "__getitem__"):
             raise ValueError("Artifact or List[Artifact] is allowed.")
         assert isinstance(artifacts[0], Artifact)  # type: ignore  # noqa: S101
-    hash, feature_sets = from_artifacts(artifacts)  # type: ignore
+    hash = from_artifacts(artifacts)  # type: ignore
     if meta_artifact is not None:
         if not isinstance(meta_artifact, Artifact):
             raise ValueError("meta_artifact has to be an Artifact")
@@ -107,11 +136,6 @@ def __init__(
                 raise ValueError(
                     "Save meta_artifact artifact before creating collection!"
                 )
-            if not feature_sets:
-                feature_sets = meta_artifact.features._feature_set_by_slot
-            else:
-                if len(meta_artifact.features._feature_set_by_slot) > 0:
-                    logger.info("overwriting feature sets linked to artifact")
     # we ignore collections in trash containing the same hash
     if hash is not None:
         existing_collection = Collection.filter(hash=hash).one_or_none()
@@ -134,11 +158,6 @@ def __init__(
             existing_collection.transform = run.transform
         init_self_from_db(collection, existing_collection)
         update_attributes(collection, {"description": description, "name": name})
-        for slot, feature_set in collection.features._feature_set_by_slot.items():
-            if slot in feature_sets:
-                if not feature_sets[slot] == feature_set:
-                    collection.feature_sets.remove(feature_set)
-                    logger.warning(f"removing feature set: {feature_set}")
     else:
         kwargs = {}
         add_transform_to_kwargs(kwargs, run)
@@ -161,7 +180,6 @@ def __init__(
         )
         settings.creation.search_names = search_names_setting
     collection._artifacts = artifacts
-    collection._feature_sets = feature_sets
     # register provenance
     if revises is not None:
         _track_run_input(revises, run=run)
@@ -171,61 +189,21 @@ def __init__(
 # internal function, not exposed to user
 def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
     # assert all artifacts are already saved
-    logger.debug("check not saved")
     saved = not any(artifact._state.adding for artifact in artifacts)
     if not saved:
         raise ValueError("Not all artifacts are yet saved, please save them")
-    # query all feature sets of artifacts
-    logger.debug("artifact ids")
-    artifact_ids = [artifact.id for artifact in artifacts]
-    # query all feature sets at the same time rather
-    # than making a single query per artifact
-    logger.debug("links_feature_set_artifact")
-    links_feature_set_artifact = Artifact.feature_sets.through.objects.filter(
-        artifact_id__in=artifact_ids
-    )
-    feature_sets_by_slots = defaultdict(list)
-    logger.debug("slots")
-    for link in links_feature_set_artifact:
-        feature_sets_by_slots[link.slot].append(link.featureset_id)
-    feature_sets_union = {}
-    logger.debug("union")
-    for slot, feature_set_ids_slot in feature_sets_by_slots.items():
-        feature_set_1 = FeatureSet.get(id=feature_set_ids_slot[0])
-        related_name = feature_set_1._get_related_name()
-        features_registry = getattr(FeatureSet, related_name).field.model
-        start_time = logger.debug("run filter")
-        # this way of writing the __in statement turned out to be the fastest
-        # evaluated on a link table with 16M entries connecting 500 feature sets with
-        # 60k genes
-        feature_ids = (
-            features_registry.feature_sets.through.objects.filter(
-                featureset_id__in=feature_set_ids_slot
-            )
-            .values(f"{features_registry.__name__.lower()}_id")
-            .distinct()
-        )
-        start_time = logger.debug("done, start evaluate", time=start_time)
-        features = features_registry.filter(id__in=feature_ids)
-        feature_sets_union[slot] = FeatureSet(features, dtype=feature_set_1.dtype)
-        start_time = logger.debug("done", time=start_time)
-    # validate consistency of hashes
-    # we do not allow duplicate hashes
-    logger.debug("hashes")
-    # artifact.hash is None for zarr
-    # todo: more careful handling of such cases
+    # validate consistency of hashes - we do not allow duplicate hashes
     hashes = [artifact.hash for artifact in artifacts if artifact.hash is not None]
-    if len(hashes) != len(set(hashes)):
+    hashes_set = set(hashes)
+    if len(hashes) != len(hashes_set):
         seen = set()
         non_unique = [x for x in hashes if x in seen or seen.add(x)]  # type: ignore
         raise ValueError(
             "Please pass artifacts with distinct hashes: these ones are non-unique"
             f" {non_unique}"
         )
-    time = logger.debug("hash")
-    hash = hash_set(set(hashes))
-    logger.debug("done", time=time)
-    return hash, feature_sets_union
+    hash = hash_set(hashes_set)
+    return hash
 
 
 # docstring handled through attach_func_to_class_method
