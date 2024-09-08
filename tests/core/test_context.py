@@ -144,7 +144,7 @@ def test_run_scripts_for_versioning():
     # print(result.stdout.decode())
     assert result.returncode == 0
     assert (
-        "created Transform('Ro1gl7n8YrdH0000') & created Run('"
+        "created Transform(uid='Ro1gl7n8YrdH0000') & created Run(started_at='"
         in result.stdout.decode()
     )
 
@@ -167,7 +167,7 @@ def test_run_scripts_for_versioning():
     # print(result.stderr.decode())
     assert result.returncode == 1
     assert (
-        "Version '1' is already taken by Transform('Ro1gl7n8YrdH0000'); please set another version, e.g., ln.context.version = '1.1'"
+        "Version '1' is already taken by Transform(uid='Ro1gl7n8YrdH0000'); please set another version, e.g., ln.context.version = '1.1'"
         in result.stderr.decode()
     )
 
@@ -180,7 +180,7 @@ def test_run_scripts_for_versioning():
     # print(result.stdout.decode())
     assert result.returncode == 0
     assert (
-        "created Transform('Ro1gl7n8YrdH0001') & created Run('"
+        "created Transform(uid='Ro1gl7n8YrdH0001') & created Run(started_at='"
         in result.stdout.decode()
     )
     assert not ln.Transform.get("Ro1gl7n8YrdH0000").is_latest

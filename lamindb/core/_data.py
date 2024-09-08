@@ -98,6 +98,11 @@ def save_feature_set_links(self: Artifact | Collection) -> None:
 @doc_args(Artifact.describe.__doc__)
 def describe(self: Artifact, print_types: bool = False):
     """{}"""  # noqa: D415
+    model_name = self.__class__.__name__
+    msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
+    if self._state.db is not None and self._state.db != "default":
+        msg += f"  {colors.italic('Database instance')}\n"
+        msg += f"    slug: {self._state.db}\n"
     # prefetch all many-to-many relationships
     # doesn't work for describing using artifact
     # self = (
@@ -108,10 +113,7 @@ def describe(self: Artifact, print_types: bool = False):
     #     .get(id=self.id)
     # )
 
-    model_name = self.__class__.__name__
-    msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
     prov_msg = ""
-
     fields = self._meta.fields
     direct_fields = []
     foreign_key_fields = []
@@ -148,15 +150,24 @@ def describe(self: Artifact, print_types: bool = False):
             ]
         )
         prov_msg += related_msg
-    # input of
-    if self.id is not None and self.input_of_runs.exists():
-        values = [format_field_value(i.started_at) for i in self.input_of_runs.all()]
-        type_str = ": Run" if print_types else ""  # type: ignore
-        prov_msg += f"    .input_of_runs{type_str} = {values}\n"
     if prov_msg:
         msg += f"  {colors.italic('Provenance')}\n"
         msg += prov_msg
+
+    # input of runs
+    input_of_message = ""
+    if self.id is not None and self.input_of_runs.exists():
+        values = [format_field_value(i.started_at) for i in self.input_of_runs.all()]
+        type_str = ": Run" if print_types else ""  # type: ignore
+        input_of_message += f"    .input_of_runs{type_str} = {', '.join(values)}\n"
+    if input_of_message:
+        msg += f"  {colors.italic('Usage')}\n"
+        msg += input_of_message
+
+    # labels
     msg += print_labels(self, print_types=print_types)
+
+    # features
     msg += print_features(  # type: ignore
         self,
         print_types=print_types,
