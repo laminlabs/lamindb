@@ -22,7 +22,6 @@ from lnschema_core.models import (
     FeatureManagerArtifact,
     FeatureManagerCollection,
     FeatureValue,
-    HasParams,
     LinkORM,
     Param,
     ParamManager,
@@ -136,7 +135,7 @@ def custom_aggregate(field, using: str):
 
 
 def print_features(
-    self: Artifact | Collection | HasParams,
+    self: Artifact | Collection,
     print_types: bool = False,
     to_dict: bool = False,
     print_params: bool = False,
