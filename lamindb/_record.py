@@ -430,6 +430,7 @@ def update_fk_to_default_db(
     records: Record | list[Record] | QuerySet,
     fk: str,
     using_key: str | None,
+    transfer_logs: dict,
 ):
     record = records[0] if isinstance(records, (List, QuerySet)) else records
     if hasattr(record, f"{fk}_id") and getattr(record, f"{fk}_id") is not None:
@@ -442,7 +443,9 @@ def update_fk_to_default_db(
             from copy import copy
 
             fk_record_default = copy(fk_record)
-            transfer_to_default_db(fk_record_default, using_key, save=True)
+            transfer_to_default_db(
+                fk_record_default, using_key, save=True, transfer_logs=transfer_logs
+            )
         if isinstance(records, (List, QuerySet)):
             for r in records:
                 setattr(r, f"{fk}", None)
@@ -460,66 +463,67 @@ FKBULK = [
 ]
 
 
-def transfer_fk_to_default_db_bulk(records: list | QuerySet, using_key: str | None):
+def transfer_fk_to_default_db_bulk(
+    records: list | QuerySet, using_key: str | None, transfer_logs: dict
+):
     for fk in FKBULK:
-        update_fk_to_default_db(records, fk, using_key)
+        update_fk_to_default_db(records, fk, using_key, transfer_logs=transfer_logs)
 
 
 def transfer_to_default_db(
     record: Record,
     using_key: str | None,
+    *,
+    transfer_logs: dict,
     save: bool = False,
-    mute: bool = False,
     transfer_fk: bool = True,
 ) -> Record | None:
-    db = record._state.db
-    if db is not None and db != "default" and using_key is None:
-        registry = record.__class__
-        record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
-        if record_on_default is not None:
-            logger.important(
-                f"returning existing {record.__class__.__name__}(uid='{record.uid}') on default database"
-            )
-            return record_on_default
-        if not mute:
-            logger.hint(f"saving from instance {db} to default instance: {record}")
-        from lamindb.core._context import context
-        from lamindb.core._data import WARNING_RUN_TRANSFORM
+    registry = record.__class__
+    record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
+    record_str = f"r{record.__class__.__name__}(uid='{record.uid}')"
+    if record_on_default is not None:
+        transfer_logs["mapped"].append(record_str)
+        return record_on_default
+    else:
+        transfer_logs["new"].append(record_str)
 
-        if hasattr(record, "created_by_id"):
-            # this line is needed to point created_by to default db
-            record.created_by = None
-            record.created_by_id = ln_setup.settings.user.id
-        if hasattr(record, "run_id"):
-            record.run = None
-            if context.run is not None:
-                record.run_id = context.run.id
-            else:
-                if not settings.creation.artifact_silence_missing_run_warning:
-                    logger.warning(WARNING_RUN_TRANSFORM)
-                record.run_id = None
-        if hasattr(record, "transform_id") and record._meta.model_name != "run":
-            record.transform = None
-            if context.run is not None:
-                record.transform_id = context.run.transform_id
-            else:
-                record.transform_id = None
-        # transfer other foreign key fields
-        fk_fields = [
-            i.name
-            for i in record._meta.fields
-            if i.get_internal_type() == "ForeignKey"
-            if i.name not in {"created_by", "run", "transform"}
-        ]
-        if not transfer_fk:
-            # don't transfer fk fields that are already bulk transferred
-            fk_fields = [fk for fk in fk_fields if fk not in FKBULK]
-        for fk in fk_fields:
-            update_fk_to_default_db(record, fk, using_key)
-        record.id = None
-        record._state.db = "default"
-        if save:
-            record.save()
+    from lamindb.core._context import context
+    from lamindb.core._data import WARNING_RUN_TRANSFORM
+
+    if hasattr(record, "created_by_id"):
+        # this line is needed to point created_by to default db
+        record.created_by = None
+        record.created_by_id = ln_setup.settings.user.id
+    if hasattr(record, "run_id"):
+        record.run = None
+        if context.run is not None:
+            record.run_id = context.run.id
+        else:
+            if not settings.creation.artifact_silence_missing_run_warning:
+                logger.warning(WARNING_RUN_TRANSFORM)
+            record.run_id = None
+    if hasattr(record, "transform_id") and record._meta.model_name != "run":
+        record.transform = None
+        if context.run is not None:
+            record.transform_id = context.run.transform_id
+        else:
+            record.transform_id = None
+    # transfer other foreign key fields
+    fk_fields = [
+        i.name
+        for i in record._meta.fields
+        if i.get_internal_type() == "ForeignKey"
+        if i.name not in {"created_by", "run", "transform"}
+    ]
+    if not transfer_fk:
+        # don't transfer fk fields that are already bulk transferred
+        fk_fields = [fk for fk in fk_fields if fk not in FKBULK]
+    for fk in fk_fields:
+        update_fk_to_default_db(record, fk, using_key, transfer_logs=transfer_logs)
+    record.id = None
+    record._state.db = "default"
+    if save:
+        record.save()
     return None
 
 
@@ -534,10 +538,22 @@ def save(self, *args, **kwargs) -> Record:
     if self.__class__.__name__ == "Collection" and self.id is not None:
         # when creating a new collection without being able to access artifacts
         artifacts = self.ordered_artifacts.list()
-    # transfer of the record to the default db with fk fields
-    result = transfer_to_default_db(self, using_key)
-    if result is not None:
-        init_self_from_db(self, result)
+    pre_existing_record = None
+    # consider records that are being transferred from other databases
+    if db is not None and db != "default" and using_key is None:
+        if isinstance(self, IsVersioned):
+            if not self.is_latest:
+                raise NotImplementedError(
+                    "You are attempting to transfer a record that's not the latest in its version history. This is currently not supported."
+                )
+        transfer_logs: dict[str, list[str]] = {"mapped": [], "new": []}
+        pre_existing_record = transfer_to_default_db(
+            self, using_key, transfer_logs=transfer_logs
+        )
+        for k, v in transfer_logs.items():
+            logger.important(f"{k} records: {', '.join(v)}")
+    if pre_existing_record is not None:
+        init_self_from_db(self, pre_existing_record)
     else:
         # save versioned record
         if isinstance(self, IsVersioned) and self._revises is not None:
@@ -571,8 +587,8 @@ def save(self, *args, **kwargs) -> Record:
             self_on_db._state.db = db
             self_on_db.pk = pk_on_db  # manually set the primary key
             self_on_db.features = FeatureManager(self_on_db)
-            self.features._add_from(self_on_db)
-            self.labels.add_from(self_on_db)
+            self.features._add_from(self_on_db, transfer_logs=transfer_logs)
+            self.labels.add_from(self_on_db, transfer_logs=transfer_logs)
     return self
 
 

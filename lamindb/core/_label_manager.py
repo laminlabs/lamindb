@@ -169,14 +169,12 @@ class LabelManager:
 
         return get_labels(self._host, feature=feature, mute=mute, flat_names=flat_names)
 
-    def add_from(self, data: Artifact | Collection) -> None:
+    def add_from(self, data: Artifact | Collection, transfer_logs: dict = None) -> None:
         """Add labels from an artifact or collection to another artifact or collection.
 
         Examples:
-            >>> artifact1 = ln.Artifact(pd.DataFrame(index=[0, 1]))
-            >>> artifact1.save()
-            >>> artifact2 = ln.Artifact(pd.DataFrame(index=[2, 3]))
-            >>> artifact2.save()
+            >>> artifact1 = ln.Artifact(pd.DataFrame(index=[0, 1])).save()
+            >>> artifact2 = ln.Artifact(pd.DataFrame(index=[2, 3])).save()
             >>> ulabels = ln.ULabel.from_values(["Label1", "Label2"], field="name")
             >>> ln.save(ulabels)
             >>> labels = ln.ULabel.filter(name__icontains = "label").all()
@@ -185,6 +183,8 @@ class LabelManager:
         """
         from django.db.utils import ProgrammingError
 
+        if transfer_logs is None:
+            transfer_logs = {}
         using_key = settings._using_key
         for related_name, (_, labels) in get_labels_as_dict(data).items():
             labels = labels.all()
@@ -197,7 +197,9 @@ class LabelManager:
                 features = set()
                 _, new_labels = validate_labels(labels)
                 if len(new_labels) > 0:
-                    transfer_fk_to_default_db_bulk(new_labels, using_key)
+                    transfer_fk_to_default_db_bulk(
+                        new_labels, using_key, transfer_logs=transfer_logs
+                    )
                 for label in labels:
                     # if the link table doesn't follow this convention, we'll ignore it
                     if not hasattr(label, f"links_{data_name_lower}"):
@@ -214,7 +216,7 @@ class LabelManager:
                     label_returned = transfer_to_default_db(
                         label,
                         using_key,
-                        mute=True,
+                        transfer_logs=transfer_logs,
                         transfer_fk=False,
                         save=True,
                     )
@@ -225,10 +227,15 @@ class LabelManager:
                 # treat features
                 _, new_features = validate_labels(list(features))
                 if len(new_features) > 0:
-                    transfer_fk_to_default_db_bulk(new_features, using_key)
+                    transfer_fk_to_default_db_bulk(
+                        new_features, using_key, transfer_logs=transfer_logs
+                    )
                     for feature in new_features:
                         transfer_to_default_db(
-                            feature, using_key, mute=True, transfer_fk=False
+                            feature,
+                            using_key,
+                            transfer_logs=transfer_logs,
+                            transfer_fk=False,
                         )
                     save(new_features)
                 if hasattr(self._host, related_name):

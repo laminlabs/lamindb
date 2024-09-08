@@ -788,9 +788,11 @@ def _add_set_from_mudata(
     self._host.save()
 
 
-def _add_from(self, data: Artifact | Collection):
+def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
     """Transfer features from a artifact or collection."""
-    # This only covers feature sets, though.
+    # This only covers feature sets
+    if transfer_logs is None:
+        transfer_logs = {}
     using_key = settings._using_key
     for slot, feature_set in data.features._feature_set_by_slot.items():
         members = feature_set.members
@@ -812,15 +814,18 @@ def _add_from(self, data: Artifact | Collection):
         new_members = members.filter(**{f"{field}__in": new_members_uids}).all()
         n_new_members = len(new_members)
         if n_new_members > 0:
-            mute = True if n_new_members > 10 else False
             # transfer foreign keys needs to be run before transfer to default db
-            transfer_fk_to_default_db_bulk(new_members, using_key)
+            transfer_fk_to_default_db_bulk(
+                new_members, using_key, transfer_logs=transfer_logs
+            )
             for feature in new_members:
                 # not calling save=True here as in labels, because want to
                 # bulk save below
                 # transfer_fk is set to False because they are already transferred
                 # in the previous step transfer_fk_to_default_db_bulk
-                transfer_to_default_db(feature, using_key, mute=mute, transfer_fk=False)
+                transfer_to_default_db(
+                    feature, using_key, transfer_fk=False, transfer_logs=transfer_logs
+                )
             logger.info(f"saving {n_new_members} new {registry.__name__} records")
             save(new_members)
 
