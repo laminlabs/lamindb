@@ -148,15 +148,24 @@ def describe(self: Artifact, print_types: bool = False):
             ]
         )
         prov_msg += related_msg
-    # input of
-    if self.id is not None and self.input_of_runs.exists():
-        values = [format_field_value(i.started_at) for i in self.input_of_runs.all()]
-        type_str = ": Run" if print_types else ""  # type: ignore
-        prov_msg += f"    .input_of_runs{type_str} = {values}\n"
     if prov_msg:
         msg += f"  {colors.italic('Provenance')}\n"
         msg += prov_msg
+
+    # input of runs
+    input_of_message = ""
+    if self.id is not None and self.input_of_runs.exists():
+        values = [format_field_value(i.started_at) for i in self.input_of_runs.all()]
+        type_str = ": Run" if print_types else ""  # type: ignore
+        input_of_message += f"    .input_of_runs{type_str} = {', '.join(values)}\n"
+    if input_of_message:
+        msg += f"  {colors.italic('Usage')}\n"
+        msg += input_of_message
+
+    # labels
     msg += print_labels(self, print_types=print_types)
+
+    # features
     msg += print_features(  # type: ignore
         self,
         print_types=print_types,

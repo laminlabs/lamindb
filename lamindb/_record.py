@@ -480,7 +480,7 @@ def transfer_to_default_db(
 ) -> Record | None:
     registry = record.__class__
     record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
-    record_str = f"r{record.__class__.__name__}(uid='{record.uid}')"
+    record_str = f"{record.__class__.__name__}(uid='{record.uid}')"
     if record_on_default is not None:
         transfer_logs["mapped"].append(record_str)
         return record_on_default

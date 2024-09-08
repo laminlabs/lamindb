@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import builtins
 import hashlib
-import os
 from datetime import datetime, timezone
 from pathlib import Path, PurePath
 from typing import TYPE_CHECKING
@@ -12,6 +11,7 @@ from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_file
 from lnschema_core import Run, Transform, ids
 from lnschema_core.ids import base62_12
+from lnschema_core.models import format_field_value
 from lnschema_core.users import current_user_id
 
 from ._settings import settings
@@ -311,7 +311,9 @@ class Context:
             )
             if run is not None:  # loaded latest run
                 run.started_at = datetime.now(timezone.utc)  # update run time
-                self._logging_message += f" & loaded Run('{run.started_at}')"
+                self._logging_message += (
+                    f" & loaded Run('{format_field_value(run.started_at)}')"
+                )
 
         if run is None:  # create new run
             run = Run(
@@ -319,7 +321,9 @@ class Context:
                 params=params,
             )
             run.started_at = datetime.now(timezone.utc)
-            self._logging_message += f" & created Run('{run.started_at}')"
+            self._logging_message += (
+                f" & created Run('{format_field_value(run.started_at)}')"
+            )
         # can only determine at ln.finish() if run was consecutive in
         # interactive session, otherwise, is consecutive
         run.is_consecutive = True if is_run_from_ipython else None
