@@ -908,14 +908,6 @@ def replace(
     self._to_store = not check_path_in_storage
 
 
-# deprecated
-def backed(
-    self, mode: str = "r", is_run_input: bool | None = None
-) -> AnnDataAccessor | BackedAccessor | SOMACollection | SOMAExperiment:
-    logger.warning("`.backed()` is deprecated, use `.open()`!'")
-    return self.open(mode, is_run_input)
-
-
 # docstring handled through attach_func_to_class_method
 def open(
     self, mode: str = "r", is_run_input: bool | None = None
@@ -1185,6 +1177,5 @@ for name in METHOD_NAMES:
 Artifact._delete_skip_storage = _delete_skip_storage
 Artifact._save_skip_storage = _save_skip_storage
 Artifact.path = path
-Artifact.backed = backed
 Artifact.describe = describe
 Artifact.view_lineage = view_lineage

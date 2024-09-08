@@ -321,9 +321,8 @@ def test_write_read_tiledbsoma(storage):
     with pytest.raises(ValueError):
         artifact_soma_append.open(mode="p")
 
-    # run deprecated backed
-    # and test running without the context manager
-    store = artifact_soma_append.backed()
+    # test running without the context manager
+    store = artifact_soma_append.open()
     n_obs_final = adata.n_obs + sum(
         adt.n_obs for adt in [adata_to_append_1, adata_to_append_2]
     )

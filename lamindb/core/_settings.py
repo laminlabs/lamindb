@@ -52,7 +52,7 @@ class Settings:
         return creation_settings
 
     track_run_inputs: bool = True
-    """Track files as input upon `.load()`, `.cache()` and `.backed()`.
+    """Track files as input upon `.load()`, `.cache()` and `.open()`.
 
     Requires a global run context with :func:`~lamindb.core.Context.track` was created!
 
