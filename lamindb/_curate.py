@@ -334,9 +334,9 @@ class DataFrameCurator(BaseCurator):
         from lamindb.core._settings import settings
 
         if not self._validated:
-            raise ValidationError(
-                f"Data object is not validated, please run {colors.yellow('validate()')}!"
-            )
+            self.validate()
+            if not self._validated:
+                raise ValidationError("Dataset does not validate. Please curate.")
 
         # Make sure all labels are saved in the current instance
         verbosity = settings.verbosity
@@ -442,7 +442,7 @@ class AnnDataCurator(DataFrameCurator):
             exclude=exclude,
             check_valid_keys=False,
         )
-        self._obs_fields = categoricals
+        self._obs_fields = categoricals or {}
         self._check_valid_keys(extra={"var_index"})
 
     @property
@@ -563,9 +563,9 @@ class AnnDataCurator(DataFrameCurator):
             A saved artifact record.
         """
         if not self._validated:
-            raise ValidationError(
-                f"Data object is not validated, please run {colors.yellow('validate()')}!"
-            )
+            self.validate()
+            if not self._validated:
+                raise ValidationError("Dataset does not validate. Please curate.")
 
         self._artifact = save_artifact(
             self._data,
@@ -1498,14 +1498,14 @@ def log_saved_labels(
 
         if k == "without reference" and validated_only:
             msg = colors.yellow(
-                f"{len(labels)} non-validated categories are not saved in {model_field}: {labels}!"
+                f"{len(labels)} non-validated values are not saved in {model_field}: {labels}!"
             )
             lookup_print = (
                 f"lookup().{key}" if key.isidentifier() else f".lookup()['{key}']"
             )
 
             hint = f".add_new_from('{key}')"
-            msg += f"\n      → to lookup categories, use {lookup_print}"
+            msg += f"\n      → to lookup values, use {lookup_print}"
             msg += (
                 f"\n      → to save, run {colors.yellow(hint)}"
                 if save_function == "add_new_from"
