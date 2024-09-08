@@ -242,7 +242,7 @@ class Context:
                     ):
                         better_version = bump_version_function(self.version)
                         raise SystemExit(
-                            f"Version '{self.version}' is already taken by Transform('{transform.uid}'); please set another version, e.g., ln.context.version = '{better_version}'"
+                            f"Version '{self.version}' is already taken by Transform(uid='{transform.uid}'); please set another version, e.g., ln.context.version = '{better_version}'"
                         )
             elif transform_settings_are_set:
                 stem_uid, self.version = (
