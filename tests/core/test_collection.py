@@ -178,6 +178,8 @@ def test_from_consistent_artifacts(adata, adata2):
     collection.delete(permanent=True)
     artifact1.delete(permanent=True)
     artifact2.delete(permanent=True)
+    ln.FeatureSet.filter().delete()
+    ln.Feature.filter().delete()
 
 
 def test_collection_mapped(adata, adata2):
