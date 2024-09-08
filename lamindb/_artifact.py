@@ -1185,5 +1185,6 @@ for name in METHOD_NAMES:
 Artifact._delete_skip_storage = _delete_skip_storage
 Artifact._save_skip_storage = _save_skip_storage
 Artifact.path = path
+Artifact.backed = backed
 Artifact.describe = describe
 Artifact.view_lineage = view_lineage
