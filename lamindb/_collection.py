@@ -24,7 +24,7 @@ from lnschema_core.types import VisibilityChoice
 
 from lamindb._artifact import update_attributes
 from lamindb._utils import attach_func_to_class_method
-from lamindb.core._data import _track_run_input
+from lamindb.core._data import _track_run_input, describe, view_lineage
 from lamindb.core._mapped_collection import MappedCollection
 from lamindb.core.versioning import process_revises
 
@@ -401,3 +401,5 @@ for name in METHOD_NAMES:
 
 Collection.ordered_artifacts = ordered_artifacts
 Collection.data_artifact = data_artifact
+Collection.describe = describe
+Collection.view_lineage = view_lineage

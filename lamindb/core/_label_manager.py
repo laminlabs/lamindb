@@ -20,12 +20,12 @@ from ._settings import settings
 from .schema import dict_related_model_to_related_name
 
 if TYPE_CHECKING:
-    from lnschema_core.models import Artifact, Collection, HasFeatures, Record
+    from lnschema_core.models import Artifact, Collection, Record
 
     from lamindb._query_set import QuerySet
 
 
-def get_labels_as_dict(self: HasFeatures, links: bool = False):
+def get_labels_as_dict(self: Artifact | Collection, links: bool = False):
     exclude_set = {
         "feature_sets",
         "artifacts",
@@ -57,7 +57,9 @@ def get_labels_as_dict(self: HasFeatures, links: bool = False):
     return labels
 
 
-def print_labels(self: HasFeatures, field: str = "name", print_types: bool = False):
+def print_labels(
+    self: Artifact | Collection, field: str = "name", print_types: bool = False
+):
     labels_msg = ""
     for related_name, (related_model, labels) in get_labels_as_dict(self).items():
         # there is a try except block here to deal with schema inconsistencies
@@ -167,19 +169,19 @@ class LabelManager:
 
         return get_labels(self._host, feature=feature, mute=mute, flat_names=flat_names)
 
-    def add_from(self, data: HasFeatures) -> None:
+    def add_from(self, data: Artifact | Collection) -> None:
         """Add labels from an artifact or collection to another artifact or collection.
 
         Examples:
-            >>> file1 = ln.Artifact(pd.DataFrame(index=[0, 1]))
-            >>> file1.save()
-            >>> file2 = ln.Artifact(pd.DataFrame(index=[2, 3]))
-            >>> file2.save()
+            >>> artifact1 = ln.Artifact(pd.DataFrame(index=[0, 1]))
+            >>> artifact1.save()
+            >>> artifact2 = ln.Artifact(pd.DataFrame(index=[2, 3]))
+            >>> artifact2.save()
             >>> ulabels = ln.ULabel.from_values(["Label1", "Label2"], field="name")
             >>> ln.save(ulabels)
             >>> labels = ln.ULabel.filter(name__icontains = "label").all()
-            >>> file1.ulabels.set(labels)
-            >>> file2.labels.add_from(file1)
+            >>> artifact1.ulabels.set(labels)
+            >>> artifact2.labels.add_from(artifact1)
         """
         from django.db.utils import ProgrammingError
 
