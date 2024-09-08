@@ -66,6 +66,7 @@ dev = [
     "nox",
     "laminci>=0.3",
     "pytest>=6.0",
+    "pytest-xdist",
     "coverage",
     "pytest-cov",
     "mudata",
