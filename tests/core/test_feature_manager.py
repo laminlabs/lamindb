@@ -323,15 +323,14 @@ def test_labels_add(adata):
     assert projects.get().name == "project 1"
 
     # test add_from
-    collection = ln.Collection(artifact, name="My collection")
-    collection.save()
+    artifact2 = ln.Artifact(artifact, name="My new artifact").save()
     from lamindb.core._label_manager import get_labels_as_dict
 
-    collection.labels.add_from(artifact)
-    experiments = collection.labels.get(experiment)
+    artifact2.labels.add_from(artifact)
+    experiments = artifact2.labels.get(experiment)
     assert experiments.get().name == "Experiment 2"
 
-    collection.delete(permanent=True)
+    artifact2.delete(permanent=True)
     artifact.delete(permanent=True)
     ln.FeatureSet.filter().all().delete()
     ln.Feature.filter().all().delete()
