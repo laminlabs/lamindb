@@ -19,8 +19,6 @@ from lnschema_core.models import (
     Collection,
     Feature,
     FeatureManager,
-    FeatureManagerArtifact,
-    FeatureManagerCollection,
     FeatureValue,
     LinkORM,
     Param,
@@ -360,7 +358,7 @@ def __getitem__(self, slot) -> QuerySet:
 
 
 def filter_base(cls, **expression):
-    if cls in {FeatureManagerArtifact, FeatureManagerCollection}:
+    if cls is FeatureManager:
         model = Feature
         value_model = FeatureValue
     else:
@@ -392,10 +390,11 @@ def filter_base(cls, **expression):
                 new_expression["ulabels"] = label
             else:
                 raise NotImplementedError
-    if cls == FeatureManagerArtifact or cls == ParamManagerArtifact:
+    if cls == FeatureManager or cls == ParamManagerArtifact:
         return Artifact.filter(**new_expression)
-    elif cls == FeatureManagerCollection:
-        return Collection.filter(**new_expression)
+    # might renable something similar in the future
+    # elif cls == FeatureManagerCollection:
+    #     return Collection.filter(**new_expression)
     elif cls == ParamManagerRun:
         return Run.filter(**new_expression)
 
