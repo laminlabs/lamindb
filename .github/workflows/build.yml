@@ -72,13 +72,14 @@ jobs:
           aws-region: us-east-1
       - run: nox -s "build(group='${{ matrix.group }}')"
       - name: upload coverage
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: coverage--${{ matrix.group }}
           path: .coverage
+          include-hidden-files: true
       - name: upload docs
         if: ${{ matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology' || matrix.group == 'faq' || matrix.group == 'storage' }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: docs-${{ matrix.group }}
           path: ./docs/${{ matrix.group }}
@@ -108,7 +109,7 @@ jobs:
           python-version: "3.10" # use 3.10, 3.8 and 3.11 give issues
       - run: pip install -U laminci
       - run: nox -s "install_ci(group='docs')"
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
       - run: nox -s docs
       - uses: nwtgck/actions-netlify@v1.2
         with:
@@ -138,7 +139,7 @@ jobs:
           python -m pip install -U uv
           uv pip install --system coverage[toml]
           uv pip install --system --no-deps .
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
       - name: run coverage
         run: |
           coverage combine coverage--*/.coverage*
