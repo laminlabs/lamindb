@@ -173,11 +173,14 @@ def describe(self: Artifact, print_types: bool = False):
     msg += print_labels(self, print_types=print_types)
 
     # features
-    msg += print_features(  # type: ignore
-        self,
-        print_types=print_types,
-        print_params=hasattr(self, "type") and self.type == "model",
-    )
+    if isinstance(self, Artifact):
+        msg += print_features(  # type: ignore
+            self,
+            print_types=print_types,
+            print_params=hasattr(self, "type") and self.type == "model",
+        )
+
+    # print entire message
     logger.print(msg)
 
 
