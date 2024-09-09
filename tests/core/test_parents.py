@@ -26,8 +26,14 @@ def test_add_emoji():
 def test_add_ontology_from_df():
     import bionty as bt
 
-    bt.Ethnicity.filter().delete()
+    record = bt.Ethnicity.from_source(ontology_id="HANCESTRO:0005").save()
+    parent = bt.Ethnicity.get(ontology_id="HANCESTRO:0004")
+    assert parent in record.parents.list()
+    parent.delete()
+
     bt.Ethnicity.import_from_source()
+    parent = bt.Ethnicity.get(ontology_id="HANCESTRO:0004")
+    assert parent in record.parents.list()
     record = bt.Ethnicity.get("7RNCY3yC")
     assert record.parents.all().one().name == "South East Asian"
     # the source.in_db should be set to True since we imported all the records
