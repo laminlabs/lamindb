@@ -130,9 +130,14 @@ def describe(self: Artifact, print_types: bool = False):
             .get(id=self.id)
         )
         # prefetch m-2-m relationships
+        many_to_many_fields = []
+        if isinstance(self, (Collection, Artifact)):
+            many_to_many_fields.append("input_of_runs")
+        if isinstance(self, Artifact):
+            many_to_many_fields.append("feature_sets")
         self = (
             self.__class__.objects.using(self._state.db)
-            .prefetch_related("feature_sets", "input_of_runs")
+            .prefetch_related(*many_to_many_fields)
             .get(id=self.id)
         )
 
@@ -168,11 +173,14 @@ def describe(self: Artifact, print_types: bool = False):
     msg += print_labels(self, print_types=print_types)
 
     # features
-    msg += print_features(  # type: ignore
-        self,
-        print_types=print_types,
-        print_params=hasattr(self, "type") and self.type == "model",
-    )
+    if isinstance(self, Artifact):
+        msg += print_features(  # type: ignore
+            self,
+            print_types=print_types,
+            print_params=hasattr(self, "type") and self.type == "model",
+        )
+
+    # print entire message
     logger.print(msg)
 
 

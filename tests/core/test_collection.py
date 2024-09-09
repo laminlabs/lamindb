@@ -136,6 +136,7 @@ def test_from_inconsistent_artifacts(df, adata):
     assert str(error.exconly()).startswith(
         "RuntimeError: Can only load collections where all artifacts have the same suffix"
     )
+    collection.describe()
     collection.delete(permanent=True)
     artifact1.delete(permanent=True)
     artifact2.delete(permanent=True)
