@@ -36,6 +36,13 @@ def init_self_from_db(self: Record, existing_record: Record):
     self._state.db = "default"
 
 
+def update_attributes(record: Record, attributes: dict[str, str]):
+    for key, value in attributes.items():
+        if getattr(record, key) != value:
+            logger.warning(f"updated {key} from {getattr(record, key)} to {value}")
+            setattr(record, key, value)
+
+
 def validate_required_fields(record: Record, kwargs):
     required_fields = {
         k.name for k in record._meta.fields if not k.null and k.default is None

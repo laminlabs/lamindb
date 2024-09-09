@@ -21,14 +21,13 @@ from lnschema_core.models import (
 )
 from lnschema_core.types import VisibilityChoice
 
-from lamindb._artifact import update_attributes
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._data import _track_run_input, describe, view_lineage
 from lamindb.core._mapped_collection import MappedCollection
 from lamindb.core.versioning import process_revises
 
 from . import Artifact, Run
-from ._record import init_self_from_db
+from ._record import init_self_from_db, update_attributes
 from .core._data import (
     add_transform_to_kwargs,
     get_run,

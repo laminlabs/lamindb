@@ -44,12 +44,18 @@ def __init__(transform: Transform, *args, **kwargs):
                 .order_by("-created_at")
                 .first()
             )
-        elif uid is not None and not uid.endswith("0000"):
+        elif uid is not None:
             revises = (
                 Transform.filter(uid__startswith=uid[:-4], is_latest=True)
                 .order_by("-created_at")
                 .first()
             )
+    if revises is not None and uid is not None and uid == revises.uid:
+        from ._record import init_self_from_db, update_attributes
+
+        init_self_from_db(transform, revises)
+        update_attributes(transform, {"name": name})
+        return None
     if revises is not None and key is not None and revises.key != key:
         note = message_update_key_in_version_family(
             suid=revises.stem_uid,

@@ -497,13 +497,6 @@ def _check_accessor_artifact(data: Any, accessor: str | None = None):
     return accessor
 
 
-def update_attributes(data: Artifact, attributes: Mapping[str, str]):
-    for key, value in attributes.items():
-        if getattr(data, key) != value:
-            logger.warning(f"updated {key} from {getattr(data, key)} to {value}")
-            setattr(data, key, value)
-
-
 def __init__(artifact: Artifact, *args, **kwargs):
     artifact.features = FeatureManager(artifact)
     artifact.params = ParamManager(artifact)
@@ -608,7 +601,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
 
     # an object with the same hash already exists
     if isinstance(kwargs_or_artifact, Artifact):
-        from ._record import init_self_from_db
+        from ._record import init_self_from_db, update_attributes
 
         init_self_from_db(artifact, kwargs_or_artifact)
         # adding "key" here is dangerous because key might be auto-populated
