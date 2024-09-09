@@ -23,6 +23,11 @@ def test_revises_versioned_transform():
 
     transform.save()
 
+    # try to reload the same transform with the same uid
+    transform_reload = ln.Transform(uid=transform.uid, name="My transform updated name")
+    assert transform_reload.id == transform.id
+    assert transform_reload.name == "My transform updated name"
+
     # create new transform from old transform
     transform_r2 = ln.Transform(name="My 2nd transform", is_new_version_of=transform)
     assert transform_r2.uid != transform.uid

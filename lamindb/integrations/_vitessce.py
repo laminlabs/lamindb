@@ -80,8 +80,7 @@ def save_vitessce_config(
             name="save_vitessce_config",
             type="function",
             version="2",
-        )
-        transform.save()
+        ).save()
     run = Run(transform=transform).save()
     if len(dataset_artifacts) > 1:
         # if we have more datasets, we should create a collection
