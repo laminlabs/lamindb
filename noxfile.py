@@ -28,7 +28,7 @@ GROUPS["tutorial"] = [
     "tutorial2.ipynb",
     "transfer.ipynb",
     "arrays.ipynb",
-    "records.ipynb",
+    "registries.ipynb",
     "setup.ipynb",
 ]
 GROUPS["guide"] = [
