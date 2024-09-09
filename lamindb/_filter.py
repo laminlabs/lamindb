@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from lnschema_core import Record
 
 
-def filter(registry: type[Record], **expressions) -> QuerySet:
+def filter(registry: type[Record], *queries, **expressions) -> QuerySet:
     """See :meth:`~lamindb.core.Record.filter`."""
     _using_key = None
     if "_using_key" in expressions:
@@ -18,6 +18,6 @@ def filter(registry: type[Record], **expressions) -> QuerySet:
     expressions = process_expressions(registry, expressions)
     qs = QuerySet(model=registry, using=_using_key)
     if len(expressions) > 0:
-        return qs.filter(**expressions)
+        return qs.filter(*queries, **expressions)
     else:
         return qs

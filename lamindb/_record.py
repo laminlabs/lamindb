@@ -123,11 +123,11 @@ def __init__(record: Record, *args, **kwargs):
 
 @classmethod  # type:ignore
 @doc_args(Record.filter.__doc__)
-def filter(cls, **expressions) -> QuerySet:
+def filter(cls, *queries, **expressions) -> QuerySet:
     """{}"""  # noqa: D415
     from lamindb._filter import filter
 
-    return filter(cls, **expressions)
+    return filter(cls, *queries, **expressions)
 
 
 @classmethod  # type:ignore
