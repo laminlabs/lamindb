@@ -18,7 +18,7 @@ from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_environment
 from .exceptions import (
-    MissingContext,
+    MissingContextUID,
     NotebookFileNotSavedToDisk,
     NotebookNotSavedError,
     NoTitleError,
@@ -81,27 +81,31 @@ def get_notebook_name_colab() -> str:
     return name.rstrip(".ipynb")
 
 
-def raise_missing_context(transform_type: str, key: str) -> None:
+def raise_missing_context(transform_type: str, key: str) -> bool:
     transform = Transform.filter(key=key).latest_version().first()
     if transform is None:
         new_uid = f"{base62_12()}0000"
-        message = f"To track this {transform_type}, set\n\n"
+        message = f"To track this {transform_type}, re-run with a uid set\n\n"
     else:
         uid = transform.uid
         suid, vuid = uid[: Transform._len_stem_uid], uid[Transform._len_stem_uid :]
         new_vuid = increment_base62(vuid)
         new_uid = f"{suid}{new_vuid}"
-        message = f"You already have a {transform_type} version family with key '{key}', suid '{transform.stem_uid}' & name '{transform.name}'.\n\n- to create a new {transform_type} version family, rename your file and rerun: ln.context.track()\n- to bump the version, set: "
+        message = f"You already have a {transform_type} version family with key '{key}', suid '{transform.stem_uid}' & name '{transform.name}'.\n\n- to create a new {transform_type} version family, rename your file and rerun: ln.context.track()\n- to bump the version, re-run with this uid set: "
     message += f'ln.context.uid = "{new_uid}"'
     if transform_type == "notebook":
-        message += "\n\nDone?"
-        response = input(message)
+        message += "\nln.context.track()"
+        message += "\n\n→ Ok? (y/n)"
+        response = input(f"→ {message}")
         if response == "y":
             logger.important(
                 "Restart your notebook if you want consecutive cell execution."
             )
+            return True
+        raise MissingContextUID("Without a uid, you cannot track a notebook.")
     else:
-        raise MissingContext(message)
+        raise MissingContextUID(message)
+    return False
 
 
 def pretty_pypackages(dependencies: dict) -> str:
@@ -286,7 +290,9 @@ class Context:
                 # if no error is raised, the transform is tracked
                 is_tracked = True
             if not is_tracked:
-                raise_missing_context(transform_type, key)
+                early_return = raise_missing_context(transform_type, key)
+                if early_return:
+                    return None
         else:
             if transform.type in {"notebook", "script"}:
                 raise ValueError(
