@@ -1,0 +1,19 @@
+name: Usage question
+description: Ask a usage question
+labels: 🚸 ux
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Note**: This is a public repository! Do not reveal any internal information.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Usage question
+      description: Please ask your question.
+      placeholder: |
+        This is a public repository!
+        Do not reveal any internal information.
+    validations:
+      required: true
