@@ -1,6 +1,7 @@
 name: Feature request
 description: Propose a new feature for lamindb
-labels: ✨ feature
+labels:
+  - ":sparkles: feature"
 body:
   - type: markdown
     attributes:

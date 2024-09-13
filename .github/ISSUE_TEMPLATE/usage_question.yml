@@ -1,6 +1,7 @@
 name: Usage question
 description: Ask a usage question
-labels: 🚸 ux
+labels:
+  - ":children_crossing: ux"
 body:
   - type: markdown
     attributes:
