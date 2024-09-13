@@ -1,6 +1,6 @@
 name: Feature request
 description: Propose a new feature for lamindb
-labels: enhancement
+labels: ✨ feature
 body:
   - type: markdown
     attributes:
