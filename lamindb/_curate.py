@@ -1188,7 +1188,7 @@ def validate_categories(
         print_values = _print_values(non_validated)
         warning_message = (
             f"{colors.red(f'{n_non_validated} terms')} {are} not validated: "
-            f"{colors.red(print_values)}\n      → save terms via "
+            f"{colors.red(print_values)}\n      → fix typos, remove non-existent values, or save terms via "
             f"{colors.red(non_validated_hint_print)}"
         )
         if logger.indent == "":
