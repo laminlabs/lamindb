@@ -326,7 +326,7 @@ def test_write_read_tiledbsoma(storage):
     n_obs_final = adata.n_obs + sum(
         adt.n_obs for adt in [adata_to_append_1, adata_to_append_2]
     )
-    assert len(store["obs"]) == n_obs_final
+    assert len(store["obs"]) == n_obs_final == artifact_soma_append.n_observations
     store.close()
 
     artifact_soma_append.versions.delete(permanent=True, storage=True)
