@@ -262,6 +262,7 @@ def test_write_read_tiledbsoma(storage):
     assert artifact_soma.key == "scrna/my-big-dataset"
     assert artifact_soma._key_is_virtual
     assert artifact_soma._accessor == "TileDB-SOMA"
+    assert artifact_soma.n_observations == adata.n_obs
 
     with artifact_soma.open() as store:  # mode="r" by default
         assert isinstance(store, tiledbsoma.Experiment)

@@ -178,7 +178,7 @@ def save_tiledbsoma_experiment(
         n_observations = len(registration_mapping.obs_axis.data)
     else:  # happens only if not appending and only one adata passed
         assert len(adata_objects) == 1  # noqa: S101
-        n_observations = len(adata_objects[0])
+        n_observations = adata_objects[0].n_obs
 
     for adata_obj in adata_objects:
         soma_io.from_anndata(
