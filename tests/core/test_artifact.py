@@ -24,14 +24,12 @@ from lamindb._artifact import (
 )
 from lamindb.core._settings import settings
 from lamindb.core.exceptions import IntegrityError
+from lamindb.core.loaders import load_fcs, load_to_memory, load_tsv
 from lamindb.core.storage._zarr import write_adata_zarr, zarr_is_adata
 from lamindb.core.storage.paths import (
     AUTO_KEY_PREFIX,
     auto_storage_key_from_artifact_uid,
     delete_storage,
-    load_to_memory,
-    read_fcs,
-    read_tsv,
 )
 from lamindb_setup.core.upath import (
     CloudPath,
@@ -705,10 +703,10 @@ def test_serialize_paths():
 
 def test_load_to_memory(tsv_file, zip_file, fcs_file):
     # tsv
-    df = read_tsv(tsv_file)
+    df = load_tsv(tsv_file)
     assert isinstance(df, pd.DataFrame)
     # fcs
-    adata = read_fcs(fcs_file)
+    adata = load_fcs(fcs_file)
     assert isinstance(adata, ad.AnnData)
     # none
     load_to_memory(zip_file)
