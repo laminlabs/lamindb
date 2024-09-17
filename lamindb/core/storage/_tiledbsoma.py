@@ -201,6 +201,6 @@ def save_tiledbsoma_experiment(
         _is_internal_call=True,
     )
     artifact.n_observations = n_observations
-    artifact._accessor = "TileDB-SOMA"
+    artifact._accessor = "tiledbsoma"
 
     return artifact.save()
