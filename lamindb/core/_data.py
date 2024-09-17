@@ -44,9 +44,7 @@ WARNING_RUN_TRANSFORM = (
     "no run & transform got linked, call `ln.context.track()` & re-run`"
 )
 
-WARNING_NO_INPUT = (
-    "artifact wasn't tracked as run input, call `ln.context.track()` and re-run"
-)
+WARNING_NO_INPUT = "run input wasn't tracked, call `ln.context.track()` and re-run"
 
 
 def get_run(run: Run | None) -> Run | None:
