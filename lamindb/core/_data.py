@@ -384,10 +384,7 @@ def _track_run_input(
         # we don't have a run record
         if run is None:
             if settings.track_run_inputs:
-                logger.hint(
-                    "you can auto-track these data as a run input by calling"
-                    " `ln.context.track()`"
-                )
+                logger.warning(WARNING_RUN_TRANSFORM)
         # assume we have a run record
         else:
             # assume there is non-cyclic candidate input data
