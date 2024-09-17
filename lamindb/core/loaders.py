@@ -15,6 +15,8 @@
 
 """
 
+from __future__ import annotations
+
 import builtins
 import re
 from pathlib import Path
@@ -22,7 +24,6 @@ from typing import TYPE_CHECKING
 
 import anndata as ad
 import pandas as pd
-from lamindb_setup.core.types import UPathStr
 from lamindb_setup.core.upath import (
     create_path,
     infer_filesystem,
@@ -32,6 +33,7 @@ from lamindb.core._settings import settings
 
 if TYPE_CHECKING:
     import mudata as md
+    from lamindb_setup.core.types import UPathStr
 
 try:
     from .storage._zarr import load_anndata_zarr
