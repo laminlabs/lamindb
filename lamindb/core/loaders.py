@@ -24,8 +24,6 @@ import anndata as ad
 import pandas as pd
 from lamindb_setup.core.types import UPathStr
 from lamindb_setup.core.upath import (
-    LocalPathClasses,
-    UPath,
     create_path,
     infer_filesystem,
 )
@@ -36,7 +34,7 @@ if TYPE_CHECKING:
     import mudata as md
 
 try:
-    from .storage._zarr import read_adata_zarr as load_anndata_zarr
+    from .storage._zarr import load_anndata_zarr
 except ImportError:
 
     def read_anndata_zarr(storepath):  # type: ignore
