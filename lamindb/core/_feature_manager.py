@@ -808,7 +808,8 @@ def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
         # create records from ontology_id
         if hasattr(registry, "_ontology_id_field") and len(member_uids) > 0:
             # create from bionty
-            save(registry.from_values(member_uids, field=field))
+            members_records = registry.from_values(member_uids, field=field)
+            save([r for r in members_records if r._state.adding])
         validated = registry.validate(member_uids, field=field, mute=True)
         new_members_uids = list(compress(member_uids, ~validated))
         new_members = members.filter(**{f"{field}__in": new_members_uids}).all()
