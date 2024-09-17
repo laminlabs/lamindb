@@ -37,7 +37,7 @@ try:
     from .storage._zarr import load_anndata_zarr
 except ImportError:
 
-    def read_anndata_zarr(storepath):  # type: ignore
+    def load_anndata_zarr(storepath):  # type: ignore
         raise ImportError("Please install zarr: pip install zarr")
 
 
@@ -109,9 +109,9 @@ def load_json(path: UPathStr) -> dict:
 def load_image(path: UPathStr):
     """Display `.svg` in ipython, otherwise return path."""
     if is_run_from_ipython:
-        from IPython.display import Image
+        from IPython.display import Image, display
 
-        Image(filename=path)
+        display(Image(filename=path))
     else:
         return path
 
@@ -119,9 +119,9 @@ def load_image(path: UPathStr):
 def load_svg(path: UPathStr) -> None | Path:
     """Display `.svg` in ipython, otherwise return path."""
     if is_run_from_ipython:
-        from IPython.display import SVG
+        from IPython.display import SVG, display
 
-        SVG(filename=path)
+        display(SVG(filename=path))
         return None
     else:
         return path
