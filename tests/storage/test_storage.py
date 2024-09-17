@@ -15,7 +15,7 @@ from lamindb.core.storage._backed_access import (
     BackedAccessor,
     backed_access,
 )
-from lamindb.core.storage._zarr import read_adata_zarr, write_adata_zarr
+from lamindb.core.storage._zarr import load_anndata_zarr, write_adata_zarr
 from lamindb.core.storage.objects import infer_suffix, write_to_disk
 from lamindb.integrations import save_tiledbsoma_experiment
 
@@ -58,7 +58,7 @@ def test_anndata_io():
     zarr_path = test_file.with_suffix(".zarr")
     write_adata_zarr(adata, zarr_path, callback)
 
-    adata = read_adata_zarr(zarr_path)
+    adata = load_anndata_zarr(zarr_path)
 
     assert adata.shape == (30, 200)
 
