@@ -29,7 +29,7 @@ def zarr_is_adata(storepath: UPathStr) -> bool:
     return get_spec(storage).encoding_type == "anndata"
 
 
-def read_adata_zarr(storepath: UPathStr) -> AnnData:
+def load_anndata_zarr(storepath: UPathStr) -> AnnData:
     fs, storepath_str = infer_filesystem(storepath)
     if isinstance(fs, LocalFileSystem):
         # this is faster than through an fsspec mapper for local

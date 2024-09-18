@@ -9,21 +9,21 @@ import pytest
 import tiledbsoma
 import tiledbsoma.io
 import zarr
+from lamindb.core.loaders import load_h5ad
 from lamindb.core.storage._backed_access import (
     AnnDataAccessor,
     BackedAccessor,
     backed_access,
 )
-from lamindb.core.storage._zarr import read_adata_zarr, write_adata_zarr
+from lamindb.core.storage._zarr import load_anndata_zarr, write_adata_zarr
 from lamindb.core.storage.objects import infer_suffix, write_to_disk
-from lamindb.core.storage.paths import read_adata_h5ad
 from lamindb.integrations import save_tiledbsoma_experiment
 
 
 @pytest.fixture
 def bad_adata_path():
     fp = ln.core.datasets.anndata_file_pbmc68k_test()
-    adata = read_adata_h5ad(fp)
+    adata = load_h5ad(fp)
     to = fp.with_name("pbmc68k_bad.h5ad")
     shutil.copy(fp, to)
     fp = to
@@ -50,7 +50,7 @@ def bad_adata_path():
 def test_anndata_io():
     test_file = ln.core.datasets.anndata_file_pbmc68k_test()
 
-    adata = read_adata_h5ad(test_file)
+    adata = load_h5ad(test_file)
 
     def callback(*args, **kwargs):
         pass
@@ -58,7 +58,7 @@ def test_anndata_io():
     zarr_path = test_file.with_suffix(".zarr")
     write_adata_zarr(adata, zarr_path, callback)
 
-    adata = read_adata_zarr(zarr_path)
+    adata = load_anndata_zarr(zarr_path)
 
     assert adata.shape == (30, 200)
 
@@ -69,7 +69,7 @@ def test_anndata_io():
 def test_backed_access(adata_format):
     fp = ln.core.datasets.anndata_file_pbmc68k_test()
     if adata_format == "zarr":
-        adata = read_adata_h5ad(fp)
+        adata = load_h5ad(fp)
 
         def callback(*args, **kwargs):
             pass
@@ -228,7 +228,7 @@ def test_write_read_tiledbsoma(storage):
         ln.settings.storage = storage
 
     test_file = ln.core.datasets.anndata_file_pbmc68k_test()
-    adata = read_adata_h5ad(test_file)
+    adata = load_h5ad(test_file)
     # write less
     adata = adata[:5, :2].copy()
     del adata.varp

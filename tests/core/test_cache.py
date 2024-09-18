@@ -3,7 +3,7 @@ from pathlib import Path
 
 import lamindb as ln
 import pytest
-from lamindb.core.storage.paths import read_adata_h5ad
+from lamindb.core.loaders import load_h5ad
 from lamindb_setup._set_managed_storage import set_managed_storage
 
 
@@ -23,7 +23,7 @@ def test_local_cache():
     assert ln.setup.settings.storage.root_as_str == local_storage
 
     test_file = ln.core.datasets.anndata_file_pbmc68k_test()
-    adata = read_adata_h5ad(test_file)
+    adata = load_h5ad(test_file)
 
     artifact = ln.Artifact.from_anndata(adata, key="test_cache.h5ad")
     temp_path = artifact._local_filepath.resolve()
@@ -74,7 +74,7 @@ def test_cloud_cache(switch_storage):
     test_file = ln.core.datasets.anndata_file_pbmc68k_test()
 
     # test cache for saving an in-memory object
-    adata = read_adata_h5ad(test_file)
+    adata = load_h5ad(test_file)
 
     artifact = ln.Artifact.from_anndata(adata, key="test_cache.h5ad")
     temp_path = artifact._local_filepath.resolve()
