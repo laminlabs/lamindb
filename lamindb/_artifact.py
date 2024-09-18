@@ -31,12 +31,12 @@ from lamindb._utils import attach_func_to_class_method
 from lamindb.core._data import _track_run_input, describe, view_lineage
 from lamindb.core._settings import settings
 from lamindb.core.exceptions import IntegrityError
+from lamindb.core.loaders import load_to_memory
 from lamindb.core.storage import (
     LocalPathClasses,
     UPath,
     delete_storage,
     infer_suffix,
-    load_to_memory,
     write_to_disk,
 )
 from lamindb.core.storage.paths import (
@@ -956,13 +956,13 @@ def open(
 
 
 # docstring handled through attach_func_to_class_method
-def load(self, is_run_input: bool | None = None, stream: bool = False, **kwargs) -> Any:
+def load(self, is_run_input: bool | None = None, **kwargs) -> Any:
     if hasattr(self, "_memory_rep") and self._memory_rep is not None:
         access_memory = self._memory_rep
     else:
         using_key = settings._using_key
         access_memory = load_to_memory(
-            filepath_from_artifact(self, using_key=using_key), stream=stream, **kwargs
+            filepath_from_artifact(self, using_key=using_key), **kwargs
         )
     # only call if load is successfull
     _track_run_input(self, is_run_input)

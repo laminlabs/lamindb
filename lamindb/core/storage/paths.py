@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import builtins
-import re
 import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -9,7 +7,6 @@ from typing import TYPE_CHECKING
 import anndata as ad
 import pandas as pd
 from lamin_utils import logger
-from lamindb_setup import settings as setup_settings
 from lamindb_setup.core import StorageSettings
 from lamindb_setup.core.upath import (
     LocalPathClasses,
@@ -22,19 +19,10 @@ from lnschema_core.models import Artifact, Storage
 from lamindb.core._settings import settings
 
 if TYPE_CHECKING:
-    import mudata as md
     from lamindb_setup.core.types import UPathStr
-
-try:
-    from ._zarr import read_adata_zarr
-except ImportError:
-
-    def read_adata_zarr(storepath):  # type: ignore
-        raise ImportError("Please install zarr: pip install zarr")
 
 
 AUTO_KEY_PREFIX = ".lamindb/"
-is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 
 # add type annotations back asap when re-organizing the module
@@ -102,14 +90,6 @@ def filepath_from_artifact(artifact: Artifact, using_key: str | None = None):
     return path
 
 
-def read_adata_h5ad(filepath, **kwargs) -> ad.AnnData:
-    fs, filepath = infer_filesystem(filepath)
-
-    with fs.open(filepath, mode="rb") as file:
-        adata = ad.read_h5ad(file, backed=False, **kwargs)
-        return adata
-
-
 def store_file_or_folder(
     local_path: UPathStr, storage_path: UPath, print_progress: bool = True
 ) -> None:
@@ -159,87 +139,3 @@ def delete_storage(
     else:
         logger.warning(f"{storagepath} is not an existing path!")
     return None
-
-
-# tested in lamin-usecases
-def read_fcs(*args, **kwargs):
-    try:
-        import readfcs
-    except ImportError:  # pragma: no cover
-        raise ImportError("Please install readfcs: pip install readfcs") from None
-    return readfcs.read(*args, **kwargs)
-
-
-def read_tsv(path: UPathStr, **kwargs) -> pd.DataFrame:
-    path_sanitized = Path(path)
-    return pd.read_csv(path_sanitized, sep="\t", **kwargs)
-
-
-def read_mdata_h5mu(filepath: UPathStr, **kwargs) -> md.MuData:
-    import mudata as md
-
-    path_sanitized = Path(filepath)
-    return md.read_h5mu(path_sanitized, **kwargs)
-
-
-def load_html(path: UPathStr):
-    if is_run_from_ipython:
-        with open(path, encoding="utf-8") as f:
-            html_content = f.read()
-        # Extract the body content using regular expressions
-        body_content = re.findall(
-            r"<body(?:.*?)>(?:.*?)</body>", html_content, re.DOTALL
-        )
-        # Remove any empty body tags
-        if body_content:
-            body_content = body_content[0]
-            body_content = body_content.strip()  # type: ignore
-        from IPython.display import HTML, display
-
-        display(HTML(data=body_content))
-    else:
-        return path
-
-
-def load_json(path: UPathStr):
-    import json
-
-    with open(path) as f:
-        data = json.load(f)
-    return data
-
-
-def load_to_memory(filepath: UPathStr, stream: bool = False, **kwargs):
-    """Load a file into memory.
-
-    Returns the filepath if no in-memory form is found.
-    """
-    filepath = create_path(filepath)
-
-    if filepath.suffix not in {".h5ad", ".zarr"}:
-        stream = False
-
-    if not stream:
-        # caching happens here if filename is a UPath
-        # todo: make it safe when filepath is just Path
-        filepath = settings._storage_settings.cloud_to_local(
-            filepath, print_progress=True
-        )
-
-    READER_FUNCS = {
-        ".csv": pd.read_csv,
-        ".tsv": read_tsv,
-        ".h5ad": read_adata_h5ad,
-        ".parquet": pd.read_parquet,
-        ".fcs": read_fcs,
-        ".zarr": read_adata_zarr,
-        ".html": load_html,
-        ".json": load_json,
-        ".h5mu": read_mdata_h5mu,
-    }
-
-    reader = READER_FUNCS.get(filepath.suffix)
-    if reader is None:
-        return filepath
-    else:
-        return reader(filepath, **kwargs)

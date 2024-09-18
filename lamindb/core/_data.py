@@ -39,9 +39,12 @@ from .schema import (
 if TYPE_CHECKING:
     from lnschema_core.types import StrField
 
+
 WARNING_RUN_TRANSFORM = (
-    "no run & transform get linked, consider calling ln.context.track()"
+    "no run & transform got linked, call `ln.context.track()` & re-run`"
 )
+
+WARNING_NO_INPUT = "run input wasn't tracked, call `ln.context.track()` and re-run"
 
 
 def get_run(run: Run | None) -> Run | None:
@@ -384,10 +387,7 @@ def _track_run_input(
         # we don't have a run record
         if run is None:
             if settings.track_run_inputs:
-                logger.hint(
-                    "you can auto-track these data as a run input by calling"
-                    " `ln.context.track()`"
-                )
+                logger.warning(WARNING_NO_INPUT)
         # assume we have a run record
         else:
             # assume there is non-cyclic candidate input data

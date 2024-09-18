@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 from anndata import AnnData, read_h5ad
-from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core._settings_storage import get_storage_region
 from lamindb_setup.core.upath import LocalPathClasses, create_path
@@ -13,22 +12,21 @@ if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
-    from tiledbsoma.io import ExperimentAmbientLabelMapping
     from upath import UPath
 
 
-def _read_adata_h5ad_zarr(objpath: UPath):
-    from lamindb.core.storage.paths import read_adata_h5ad, read_adata_zarr
+def _load_h5ad_zarr(objpath: UPath):
+    from lamindb.core.loaders import load_anndata_zarr, load_h5ad
 
     if objpath.is_dir():
-        adata = read_adata_zarr(objpath)
+        adata = load_anndata_zarr(objpath)
     else:
         # read only local in backed for now
         # in principle possible to read remote in backed also
         if isinstance(objpath, LocalPathClasses):
             adata = read_h5ad(objpath.as_posix(), backed="r")
         else:
-            adata = read_adata_h5ad(objpath)
+            adata = load_h5ad(objpath)
     return adata
 
 
@@ -157,7 +155,7 @@ def save_tiledbsoma_experiment(
                 else:
                     adata.obs["lamin_run_uid"] = run.uid
         else:
-            adata = _read_adata_h5ad_zarr(create_path(adata))
+            adata = _load_h5ad_zarr(create_path(adata))
             if add_run_uid:
                 adata.obs["lamin_run_uid"] = run.uid
         adata_objects.append(adata)
@@ -174,6 +172,12 @@ def save_tiledbsoma_experiment(
             context=ctx,
         )
 
+    if registration_mapping is not None:
+        n_observations = len(registration_mapping.obs_axis.data)
+    else:  # happens only if not appending and only one adata passed
+        assert len(adata_objects) == 1  # noqa: S101
+        n_observations = adata_objects[0].n_obs
+
     for adata_obj in adata_objects:
         soma_io.from_anndata(
             storepath,
@@ -186,11 +190,15 @@ def save_tiledbsoma_experiment(
             **kwargs,
         )
 
-    return Artifact(
+    artifact = Artifact(
         storepath,
         key=key,
         description=description,
         run=run,
         revises=revises,
         _is_internal_call=True,
-    ).save()
+    )
+    artifact.n_observations = n_observations
+    artifact._accessor = "tiledbsoma"
+
+    return artifact.save()

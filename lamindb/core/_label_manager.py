@@ -98,7 +98,8 @@ def validate_labels(labels: QuerySet | list | dict):
         # save labels from ontology_ids
         if hasattr(registry, "_ontology_id_field") and len(label_uids) > 0:
             try:
-                save(registry.from_values(label_uids, field=field))
+                labels_records = registry.from_values(label_uids, field=field)
+                save([r for r in labels_records if r._state.adding])
             except Exception:  # noqa S110
                 pass
             field = "uid"
