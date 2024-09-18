@@ -955,24 +955,8 @@ def open(
     return access
 
 
-# docstring handled through attach_func_to_class_method
-def load(self, is_run_input: bool | None = None, **kwargs) -> Any:
-    if hasattr(self, "_memory_rep") and self._memory_rep is not None:
-        access_memory = self._memory_rep
-    else:
-        using_key = settings._using_key
-        access_memory = load_to_memory(
-            filepath_from_artifact(self, using_key=using_key), **kwargs
-        )
-    # only call if load is successfull
-    _track_run_input(self, is_run_input)
-    return access_memory
-
-
-# docstring handled through attach_func_to_class_method
-def cache(self, is_run_input: bool | None = None) -> Path:
-    using_key = settings._using_key
-    filepath = filepath_from_artifact(self, using_key=using_key)
+# can't really just call .cache in .load because of double tracking
+def _synchronize_cleanup_on_error(filepath: UPath) -> UPath:
     try:
         cache_path = setup_settings.instance.storage.cloud_to_local(
             filepath, print_progress=True
@@ -987,6 +971,26 @@ def cache(self, is_run_input: bool | None = None) -> Path:
             elif cache_path.is_dir():
                 shutil.rmtree(cache_path)
         raise e
+    return cache_path
+
+
+# docstring handled through attach_func_to_class_method
+def load(self, is_run_input: bool | None = None, **kwargs) -> Any:
+    if hasattr(self, "_memory_rep") and self._memory_rep is not None:
+        access_memory = self._memory_rep
+    else:
+        filepath = filepath_from_artifact(self, using_key=settings._using_key)
+        cache_path = _synchronize_cleanup_on_error(filepath)
+        access_memory = load_to_memory(cache_path, **kwargs)
+    # only call if load is successfull
+    _track_run_input(self, is_run_input)
+    return access_memory
+
+
+# docstring handled through attach_func_to_class_method
+def cache(self, is_run_input: bool | None = None) -> Path:
+    filepath = filepath_from_artifact(self, using_key=settings._using_key)
+    cache_path = _synchronize_cleanup_on_error(filepath)
     # only call if sync is successfull
     _track_run_input(self, is_run_input)
     return cache_path
