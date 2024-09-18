@@ -85,7 +85,7 @@ def raise_missing_context(transform_type: str, key: str) -> bool:
     transform = Transform.filter(key=key).latest_version().first()
     if transform is None:
         new_uid = f"{base62_12()}0000"
-        message = f"To track this {transform_type}, copy & paste\n\n"
+        message = f"To track this {transform_type}, copy & paste the below into the current cell and re-run it\n\n"
         message += f'ln.context.uid = "{new_uid}"\nln.context.track()'
     else:
         uid = transform.uid
@@ -98,7 +98,7 @@ def raise_missing_context(transform_type: str, key: str) -> bool:
         response = input("→ Ready to re-run? (y/n)")
         if response == "y":
             logger.important(
-                "restart your notebook if you want consecutive cell execution"
+                "Note: Restart your notebook if you want consecutive cell execution"
             )
             return True
         raise MissingContextUID("Please follow the instructions.")
