@@ -209,9 +209,11 @@ def docs(session):
             names = name.split(" ")
             section = ""
             if len(names) != 1:
-                section = (
-                    "```\n\n" + "#" * len(names) + " " + " ".join(("lamin", *names[1:]))
-                )
+                if len(names) == 2:
+                    separator = "#" * len(names) + " " + " ".join(("lamin", *names[1:]))
+                else:
+                    separator = ""
+                section = "```\n\n" + separator
 
             help_string = help_dict["help"].replace("Usage: main", "Usage: lamin")
             help_docstring = help_dict["docstring"]
