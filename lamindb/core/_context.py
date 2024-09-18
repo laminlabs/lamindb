@@ -19,7 +19,7 @@ from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_environment
 from .exceptions import (
     MissingContextUID,
-    NotebookFileNotSavedToDisk,
+    NotebookNotSaved,
     NotebookNotSavedError,
     NoTitleError,
     TrackNotCalled,
@@ -520,7 +520,7 @@ class Context:
         When called in the last cell of a notebook:
 
         - prompts for user input if not consecutively executed
-        - requires to save the notebook in your editor
+        - requires to save the notebook in your editor right before
         - saves a run report: `run.report`
 
         Args:
@@ -542,6 +542,11 @@ class Context:
         def get_seconds_since_modified(filepath) -> float:
             return datetime.now().timestamp() - filepath.stat().st_mtime
 
+        def get_shortcut() -> str:
+            import platform
+
+            return "CMD + s" if platform.system() == "Darwin" else "CTRL + s"
+
         if context.run is None:
             raise TrackNotCalled("Please run `ln.context.track()` before `ln.finish()`")
         if context._path is None:
@@ -555,8 +560,8 @@ class Context:
             return None
         if is_run_from_ipython:  # notebooks
             if get_seconds_since_modified(context._path) > 2 and not ln_setup._TESTING:
-                raise NotebookFileNotSavedToDisk(
-                    "Please save the notebook manually in your editor right before running `ln.context.finish()`"
+                raise NotebookNotSaved(
+                    f"Please save the notebook in your editor (shortcut `{get_shortcut()}`) right before calling `ln.context.finish()`"
                 )
         save_context_core(
             run=context.run,

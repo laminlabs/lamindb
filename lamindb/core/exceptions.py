@@ -20,7 +20,7 @@ class TrackNotCalled(SystemExit):
     pass
 
 
-class NotebookFileNotSavedToDisk(SystemExit):
+class NotebookNotSaved(SystemExit):
     pass
 
 
