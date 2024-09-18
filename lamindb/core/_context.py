@@ -94,15 +94,14 @@ def raise_missing_context(transform_type: str, key: str) -> bool:
         new_uid = f"{suid}{new_vuid}"
         message = f"You already have a version family with key '{key}' (stem_uid='{transform.stem_uid}').\n\n- to make a revision, set `ln.context.uid = '{new_uid}'`\n- to start a new version family, rename your file and rerun: `ln.context.track()`"
     if transform_type == "notebook":
-        response = input(f"→ {message}\n\n→ Ready to re-run? (y/n)")
+        print(f"→ {message}\n")
+        response = input("→ Ready to re-run? (y/n)")
         if response == "y":
             logger.important(
                 "restart your notebook if you want consecutive cell execution"
             )
             return True
-        raise MissingContextUID(
-            "Without `ln.context.uid` set, you cannot track a notebook."
-        )
+        raise MissingContextUID("Please follow the instructions.")
     else:
         raise MissingContextUID(message)
     return False
