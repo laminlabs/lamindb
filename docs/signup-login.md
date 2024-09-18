@@ -32,5 +32,5 @@ lamin login <email> --key <API-key>
 Log out:
 
 ```
-lamin logout
+lamin login --logout
 ```

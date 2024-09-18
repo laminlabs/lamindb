@@ -155,7 +155,7 @@ def build(session, group):
     elif group == "unit-storage":
         run(session, f"pytest {coverage_args} ./tests/storage --durations=50")
     elif group == "tutorial":
-        run(session, "lamin logout")
+        run(session, "lamin login --logout")
         run(
             session, f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}"
         )
