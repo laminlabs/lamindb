@@ -209,22 +209,14 @@ def load_json(path: UPathStr):
     return data
 
 
-def load_to_memory(filepath: UPathStr, stream: bool = False, **kwargs):
+def load_to_memory(filepath: UPathStr, **kwargs):
     """Load a file into memory.
 
     Returns the filepath if no in-memory form is found.
     """
     filepath = create_path(filepath)
 
-    if filepath.suffix not in {".h5ad", ".zarr"}:
-        stream = False
-
-    if not stream:
-        # caching happens here if filename is a UPath
-        # todo: make it safe when filepath is just Path
-        filepath = settings._storage_settings.cloud_to_local(
-            filepath, print_progress=True
-        )
+    filepath = settings._storage_settings.cloud_to_local(filepath, print_progress=True)
 
     READER_FUNCS = {
         ".csv": pd.read_csv,
