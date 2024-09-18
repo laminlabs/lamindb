@@ -155,7 +155,7 @@ def build(session, group):
     elif group == "unit-storage":
         run(session, f"pytest {coverage_args} ./tests/storage --durations=50")
     elif group == "tutorial":
-        run(session, "lamin logout")
+        run(session, "lamin login --logout")
         run(
             session, f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}"
         )
@@ -209,9 +209,11 @@ def docs(session):
             names = name.split(" ")
             section = ""
             if len(names) != 1:
-                section = (
-                    "```\n\n" + "#" * len(names) + " " + " ".join(("lamin", *names[1:]))
-                )
+                if len(names) == 2:
+                    separator = "#" * len(names) + " " + " ".join(("lamin", *names[1:]))
+                else:
+                    separator = ""
+                section = "```\n\n" + separator
 
             help_string = help_dict["help"].replace("Usage: main", "Usage: lamin")
             help_docstring = help_dict["docstring"]
