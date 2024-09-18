@@ -204,6 +204,9 @@ def test_collection_mapped(adata, adata2):
     artifact4 = ln.Artifact.from_anndata(adata4, description="csc layer")
     artifact4.save()
     collection = ln.Collection([artifact1, artifact2], name="Gather")
+    # test mapped without saving first
+    with collection.mapped() as ls_ds:
+        assert ls_ds.__class__.__name__ == "MappedCollection"
     collection.save()
     collection_outer = ln.Collection(
         [artifact1, artifact2, artifact3], name="Gather outer"
