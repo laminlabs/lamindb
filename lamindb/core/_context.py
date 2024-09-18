@@ -18,8 +18,8 @@ from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_environment
 from .exceptions import (
-    MissingContext,
-    NotebookFileNotSavedToDisk,
+    MissingContextUID,
+    NotebookNotSaved,
     NotebookNotSavedError,
     NoTitleError,
     TrackNotCalled,
@@ -81,21 +81,30 @@ def get_notebook_name_colab() -> str:
     return name.rstrip(".ipynb")
 
 
-def raise_missing_context(transform_type: str, key: str) -> None:
+def raise_missing_context(transform_type: str, key: str) -> bool:
     transform = Transform.filter(key=key).latest_version().first()
     if transform is None:
         new_uid = f"{base62_12()}0000"
-        message = f"To track this {transform_type}, set\n\n"
+        message = f"To track this {transform_type}, copy & paste the below into the current cell and re-run it\n\n"
+        message += f'ln.context.uid = "{new_uid}"\nln.context.track()'
     else:
         uid = transform.uid
         suid, vuid = uid[: Transform._len_stem_uid], uid[Transform._len_stem_uid :]
         new_vuid = increment_base62(vuid)
         new_uid = f"{suid}{new_vuid}"
-        message = f"You already have a {transform_type} version family with key '{key}', suid '{transform.stem_uid}' & name '{transform.name}'.\n\n- to create a new {transform_type} version family, rename your file and rerun: ln.context.track()\n- to bump the version, set: "
-    message += f'ln.context.uid = "{new_uid}"'
+        message = f"You already have a version family with key '{key}' (stem_uid='{transform.stem_uid}').\n\n- to make a revision, set `ln.context.uid = '{new_uid}'`\n- to start a new version family, rename your file and rerun: `ln.context.track()`"
     if transform_type == "notebook":
-        message += "\n\nRestart your notebook if you want consecutive cell execution."
-    raise MissingContext(message)
+        print(f"→ {message}\n")
+        response = input("→ Ready to re-run? (y/n)")
+        if response == "y":
+            logger.important(
+                "Note: Restart your notebook if you want consecutive cell execution"
+            )
+            return True
+        raise MissingContextUID("Please follow the instructions.")
+    else:
+        raise MissingContextUID(message)
+    return False
 
 
 def pretty_pypackages(dependencies: dict) -> str:
@@ -280,7 +289,9 @@ class Context:
                 # if no error is raised, the transform is tracked
                 is_tracked = True
             if not is_tracked:
-                raise_missing_context(transform_type, key)
+                early_return = raise_missing_context(transform_type, key)
+                if early_return:
+                    return None
         else:
             if transform.type in {"notebook", "script"}:
                 raise ValueError(
@@ -508,7 +519,7 @@ class Context:
         When called in the last cell of a notebook:
 
         - prompts for user input if not consecutively executed
-        - requires to save the notebook in your editor
+        - requires to save the notebook in your editor right before
         - saves a run report: `run.report`
 
         Args:
@@ -530,6 +541,11 @@ class Context:
         def get_seconds_since_modified(filepath) -> float:
             return datetime.now().timestamp() - filepath.stat().st_mtime
 
+        def get_shortcut() -> str:
+            import platform
+
+            return "CMD + s" if platform.system() == "Darwin" else "CTRL + s"
+
         if context.run is None:
             raise TrackNotCalled("Please run `ln.context.track()` before `ln.finish()`")
         if context._path is None:
@@ -543,8 +559,8 @@ class Context:
             return None
         if is_run_from_ipython:  # notebooks
             if get_seconds_since_modified(context._path) > 2 and not ln_setup._TESTING:
-                raise NotebookFileNotSavedToDisk(
-                    "Please save the notebook manually in your editor right before running `ln.context.finish()`"
+                raise NotebookNotSaved(
+                    f"Please save the notebook in your editor (shortcut `{get_shortcut()}`) right before calling `ln.context.finish()`"
                 )
         save_context_core(
             run=context.run,

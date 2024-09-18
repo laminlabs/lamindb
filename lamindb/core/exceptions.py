@@ -9,7 +9,7 @@ The registry base class:
    ValidationError
    NotebookNotSavedError
    NoTitleError
-   MissingContext
+   MissingContextUID
    UpdateContext
    IntegrityError
 
@@ -20,7 +20,7 @@ class TrackNotCalled(SystemExit):
     pass
 
 
-class NotebookFileNotSavedToDisk(SystemExit):
+class NotebookNotSaved(SystemExit):
     pass
 
 
@@ -65,7 +65,7 @@ class NoTitleError(Exception):
     pass
 
 
-class MissingContext(SystemExit):
+class MissingContextUID(SystemExit):
     """User didn't define transform settings."""
 
     pass
