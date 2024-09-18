@@ -223,6 +223,7 @@ def mapped(
     path_list = []
     if self._state.adding:
         artifacts = self._artifacts
+        logger.warning("The collection isn't saved, consider calling `.save()`")
     else:
         artifacts = self.ordered_artifacts.all()
     for artifact in artifacts:
