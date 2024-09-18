@@ -221,7 +221,11 @@ def mapped(
     is_run_input: bool | None = None,
 ) -> MappedCollection:
     path_list = []
-    for artifact in self.ordered_artifacts.all():
+    if self._state.adding:
+        artifacts = self._artifacts
+    else:
+        artifacts = self.ordered_artifacts.all()
+    for artifact in artifacts:
         if artifact.suffix not in {".h5ad", ".zarr"}:
             logger.warning(f"Ignoring artifact with suffix {artifact.suffix}")
             continue
