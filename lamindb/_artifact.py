@@ -1147,17 +1147,17 @@ def path(self) -> Path | UPath:
     return filepath_from_artifact(self, using_key=settings._using_key)[0]
 
 
+# get cache path without triggering sync
 @property  # type: ignore
 def _cache_path(self) -> UPath:
-    filepath, storage_settings = filepath_from_artifact(
+    filepath, cache_key = filepath_cache_key_from_artifact(
         self, using_key=settings._using_key
     )
     if isinstance(filepath, LocalPathClasses):
         return filepath
-    cache_key = None
-    if self._key_is_virtual and self.key is not None and storage_settings is not None:
-        cache_key = (storage_settings.root / self.key).path
-    return storage_settings.cloud_to_local_no_update(filepath, cache_key=cache_key)
+    return setup_settings.instance.storage.cloud_to_local_no_update(
+        filepath, cache_key=cache_key
+    )
 
 
 # docstring handled through attach_func_to_class_method

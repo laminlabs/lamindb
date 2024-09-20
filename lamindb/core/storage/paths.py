@@ -95,6 +95,20 @@ def filepath_from_artifact(
     return path, storage_settings
 
 
+def _cache_key_from_artifact_storage(
+    artifact: Artifact, storage_settings: StorageSettings | None
+):
+    cache_key = None
+    if (
+        artifact._key_is_virtual
+        and artifact.key is not None
+        and storage_settings is not None
+        and artifact.is_latest
+    ):
+        cache_key = (storage_settings.root / artifact.key).path
+    return cache_key
+
+
 # return filepath and cache_key if needed
 def filepath_cache_key_from_artifact(
     artifact: Artifact, using_key: str | None = None
@@ -102,13 +116,7 @@ def filepath_cache_key_from_artifact(
     filepath, storage_settings = filepath_from_artifact(artifact, using_key)
     if isinstance(filepath, LocalPathClasses):
         return filepath, None
-    cache_key = None
-    if (
-        artifact._key_is_virtual
-        and artifact.key is not None
-        and storage_settings is not None
-    ):
-        cache_key = (storage_settings.root / artifact.key).path
+    cache_key = _cache_key_from_artifact_storage(artifact, storage_settings)
     return filepath, cache_key
 
 

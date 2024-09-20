@@ -17,6 +17,7 @@ from lnschema_core.models import Artifact, Record
 
 from lamindb.core._settings import settings
 from lamindb.core.storage.paths import (
+    _cache_key_from_artifact_storage,
     attempt_accessing_path,
     auto_storage_key_from_artifact,
     delete_storage_using_key,
@@ -297,13 +298,7 @@ def upload_artifact(
     if isinstance(storage_path, LocalPathClasses):
         cache_path = None
     else:
-        cache_key = None
-        if (
-            artifact._key_is_virtual
-            and artifact.key is not None
-            and storage_settings is not None
-        ):
-            cache_key = (storage_settings.root / artifact.key).path
+        cache_key = _cache_key_from_artifact_storage(artifact, storage_settings)
         cache_path = storage_settings.cloud_to_local_no_update(
             storage_path, cache_key=cache_key
         )
