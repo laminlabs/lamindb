@@ -400,6 +400,7 @@ def get_artifact_kwargs_from_data(
         "run_id": run.id if run is not None else None,
         "run": run,
         "_key_is_virtual": key_is_virtual,
+        "revises": revises,
     }
     if not isinstance(path, LocalPathClasses):
         local_filepath = None
@@ -614,6 +615,9 @@ def __init__(artifact: Artifact, *args, **kwargs):
         return None
     else:
         kwargs = kwargs_or_artifact
+
+    if revises is None:
+        revises = kwargs_or_artifact.pop("revises")
 
     if data is not None:
         artifact._local_filepath = privates["local_filepath"]

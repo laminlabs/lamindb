@@ -5,7 +5,7 @@ import pytest
 from django.db.models.deletion import ProtectedError
 
 
-def test_revises_versioned_transform():
+def test_revise_transforms():
     # attempt to create a transform with an invalid version
     with pytest.raises(ValueError) as error:
         transform = ln.Transform(name="My transform", version=0)
@@ -37,8 +37,10 @@ def test_revises_versioned_transform():
     assert transform_r2.uid.endswith("0001")
     assert transform_r2.stem_uid == transform.stem_uid
     assert transform_r2.version is None
-
+    assert transform_r2.is_latest
+    assert transform.is_latest
     transform_r2.save()
+    assert not transform.is_latest
 
     # create new transform from newly versioned transform
     transform_r3 = ln.Transform(name="My transform", revises=transform_r2, version="2")
@@ -53,11 +55,21 @@ def test_revises_versioned_transform():
     key = "my-notebook.ipynb"
     transform_r2.key = key
     transform_r2.save()
+    assert transform_r2.is_latest
     transform_r3 = ln.Transform(name="My transform", key=key, version="2")
     assert transform_r3.uid.endswith("0002")
     assert transform_r3.stem_uid == transform_r2.stem_uid
     assert transform_r3.key == key
     assert transform_r3.version == "2"
+    assert transform_r3.is_latest
+    # because the new transform isn't yet saved, the old transform still has
+    # is_latest = True
+    assert transform_r2.is_latest
+    assert transform_r3._revises is not None
+    transform_r3.save()
+    # now r2 is no longer the latest version, but need to re-fresh from db
+    transform_r2 = ln.Transform.get(transform_r2.uid)
+    assert not transform_r2.is_latest
 
     # wrong transform type
     with pytest.raises(TypeError) as error:

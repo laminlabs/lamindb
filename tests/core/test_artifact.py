@@ -218,15 +218,25 @@ def test_revise_artifact(df, adata):
     assert artifact_r3.key == key
     assert artifact_r3.version == "2"
     assert artifact_r3.description == "test1"
+    assert artifact_r3.is_latest
+    assert artifact_r2.is_latest
+    artifact_r3.save()
+    # now r2 is no longer the latest version, but need to re-fresh from db
+    artifact_r2 = ln.Artifact.get(artifact_r2.uid)
+    assert not artifact_r2.is_latest
 
-    artifact_r3 = ln.Artifact.from_df(
-        df, description="test1", key="my-test-dataset1.parquet", version="2"
-    )
+    # what happens if I reload based on hash while providing a different key?
+    # artifact_new = ln.Artifact.from_df(
+    #     df, description="test1", key="my-test-dataset1.parquet", version="2"
+    # )
+    # assert artifact_new.version == "2"
+    # assert artifact_new.stem_uid != artifact_r3.stem_uid
 
     with pytest.raises(TypeError) as error:
         ln.Artifact.from_df(df, description="test1a", revises=ln.Transform())
     assert error.exconly() == "TypeError: `revises` has to be of type `Artifact`"
 
+    artifact_r3.delete(permanent=True, storage=True)
     artifact_r2.delete(permanent=True, storage=True)
     artifact.delete(permanent=True, storage=True)
 
