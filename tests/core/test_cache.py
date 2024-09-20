@@ -84,6 +84,9 @@ def test_cloud_cache(switch_storage):
     cloud_path = artifact.path
     cache_path = artifact._cache_path
     assert cache_path.exists()
+    assert (
+        cache_path == cache_dir / "lamindb-ci/lamindb-unit-tests-cloud/test_cache.h5ad"
+    )
     assert cloud_path.modified.timestamp() < cache_path.stat().st_mtime
 
     artifact.delete(permanent=True, storage=True)
@@ -94,6 +97,9 @@ def test_cloud_cache(switch_storage):
     cloud_path = artifact.path
     cache_path = artifact._cache_path
     assert cache_path.exists()
+    assert (
+        cache_path == cache_dir / "lamindb-ci/lamindb-unit-tests-cloud/test_cache.h5ad"
+    )
     assert test_file.stat().st_mtime < cache_path.stat().st_mtime
     assert cloud_path.modified.timestamp() < cache_path.stat().st_mtime
 
@@ -107,6 +113,9 @@ def test_cloud_cache(switch_storage):
     assert adata_zarr_pth.is_dir()
     cache_path = artifact._cache_path
     assert cache_path.is_dir()
+    assert (
+        cache_path == cache_dir / "lamindb-ci/lamindb-unit-tests-cloud/test_cache.zarr"
+    )
 
     shutil.rmtree(adata_zarr_pth)
     artifact.delete(permanent=True, storage=True)
@@ -120,5 +129,8 @@ def test_cloud_cache(switch_storage):
     assert not adata_zarr_pth.exists()
     cache_path = artifact._cache_path
     assert cache_path.is_dir()
+    assert (
+        cache_path == cache_dir / "lamindb-ci/lamindb-unit-tests-cloud/test_cache.zarr"
+    )
 
     artifact.delete(permanent=True, storage=True)
