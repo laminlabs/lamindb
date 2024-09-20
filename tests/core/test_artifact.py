@@ -23,7 +23,7 @@ from lamindb._artifact import (
     process_data,
 )
 from lamindb.core._settings import settings
-from lamindb.core.exceptions import IntegrityError
+from lamindb.core.exceptions import IntegrityError, InvalidArgument
 from lamindb.core.loaders import load_fcs, load_to_memory, load_tsv
 from lamindb.core.storage._zarr import write_adata_zarr, zarr_is_adata
 from lamindb.core.storage.paths import (
@@ -785,11 +785,11 @@ def test_df_suffix(df):
     artifact = ln.Artifact.from_df(df, key="test_.parquet")
     assert artifact.suffix == ".parquet"
 
-    with pytest.raises(ValueError) as error:
+    with pytest.raises(InvalidArgument) as error:
         artifact = ln.Artifact.from_df(df, key="test_.def")
     assert (
         error.exconly().partition(",")[0]
-        == "ValueError: The suffix '.def' of the provided key is incorrect"
+        == "lamindb.core.exceptions.InvalidArgument: The suffix '.def' of the provided key is incorrect"
     )
 
 
@@ -808,11 +808,11 @@ def test_adata_suffix(adata):
         == "ValueError: Error when specifying AnnData storage format"
     )
 
-    with pytest.raises(ValueError) as error:
+    with pytest.raises(InvalidArgument) as error:
         artifact = ln.Artifact.from_anndata(adata, key="test_")
     assert (
         error.exconly().partition(",")[0]
-        == "ValueError: The suffix '' of the provided key is incorrect"
+        == "lamindb.core.exceptions.InvalidArgument: The suffix '' of the provided key is incorrect"
     )
 
 

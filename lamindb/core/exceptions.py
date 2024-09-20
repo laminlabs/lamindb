@@ -5,6 +5,7 @@ The registry base class:
 .. autosummary::
    :toctree: .
 
+   InvalidArgument
    DoesNotExist
    ValidationError
    NotebookNotSavedError
@@ -14,6 +15,12 @@ The registry base class:
    IntegrityError
 
 """
+
+
+class InvalidArgument(SystemExit):
+    """Invalid method or function argument."""
+
+    pass
 
 
 class TrackNotCalled(SystemExit):
