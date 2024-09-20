@@ -183,6 +183,8 @@ def copy_or_move_to_cache(
     if local_path != cache_path:
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         if cache_dir in local_path.parents:
+            if cache_path.is_dir():
+                shutil.rmtree(cache_path)
             local_path.replace(cache_path)
         else:
             if is_dir:
