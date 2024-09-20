@@ -13,3 +13,6 @@
 [submodule "sub/wetlab"]
 	path = sub/wetlab
 	url = https://github.com/laminlabs/wetlab
+[submodule "sub/clinicore"]
+	path = sub/clinicore
+	url = https://github.com/laminlabs/clinicore
