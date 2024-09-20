@@ -381,11 +381,11 @@ def test_create_from_local_filepath(
         inferred_key = get_relative_path_to_directory(
             path=test_filepath, directory=root_dir
         ).as_posix()
-        with pytest.raises(ValueError) as error:
+        with pytest.raises(InvalidArgument) as error:
             artifact = ln.Artifact(test_filepath, key=key, description=description)
         assert (
             error.exconly()
-            == f"ValueError: The path '{test_filepath}' is already in registered"
+            == f"lamindb.core.exceptions.InvalidArgument: The path '{test_filepath}' is already in registered"
             " storage"
             f" '{root_dir.resolve().as_posix()}' with key '{inferred_key}'\nYou"
             f" passed conflicting key '{key}': please move the file before"
