@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 
 
 WARNING_RUN_TRANSFORM = (
-    "no run & transform got linked, call `ln.context.track()` & re-run`"
+    "no run & transform got linked, call `ln.context.track()` & re-run"
 )
 
 WARNING_NO_INPUT = "run input wasn't tracked, call `ln.context.track()` and re-run"
