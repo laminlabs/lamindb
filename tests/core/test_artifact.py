@@ -23,7 +23,7 @@ from lamindb._artifact import (
     process_data,
 )
 from lamindb.core._settings import settings
-from lamindb.core.exceptions import IntegrityError
+from lamindb.core.exceptions import IntegrityError, InvalidArgument
 from lamindb.core.loaders import load_fcs, load_to_memory, load_tsv
 from lamindb.core.storage._zarr import write_adata_zarr, zarr_is_adata
 from lamindb.core.storage.paths import (
@@ -381,11 +381,11 @@ def test_create_from_local_filepath(
         inferred_key = get_relative_path_to_directory(
             path=test_filepath, directory=root_dir
         ).as_posix()
-        with pytest.raises(ValueError) as error:
+        with pytest.raises(InvalidArgument) as error:
             artifact = ln.Artifact(test_filepath, key=key, description=description)
         assert (
             error.exconly()
-            == f"ValueError: The path '{test_filepath}' is already in registered"
+            == f"lamindb.core.exceptions.InvalidArgument: The path '{test_filepath}' is already in registered"
             " storage"
             f" '{root_dir.resolve().as_posix()}' with key '{inferred_key}'\nYou"
             f" passed conflicting key '{key}': please move the file before"
@@ -458,10 +458,10 @@ def test_from_dir_many_artifacts(get_test_filepaths, key):
     test_dirpath = get_test_filepaths[2]
     # the directory contains 3 files, two of them are duplicated
     if key is not None and is_in_registered_storage:
-        with pytest.raises(ValueError) as error:
+        with pytest.raises(InvalidArgument) as error:
             ln.Artifact.from_dir(test_dirpath, key=key)
         assert error.exconly().startswith(
-            "ValueError: The path"  # The path {data} is already in registered storage
+            "lamindb.core.exceptions.InvalidArgument: The path"  # The path {data} is already in registered storage
         )
         return None
     else:
@@ -785,11 +785,11 @@ def test_df_suffix(df):
     artifact = ln.Artifact.from_df(df, key="test_.parquet")
     assert artifact.suffix == ".parquet"
 
-    with pytest.raises(ValueError) as error:
+    with pytest.raises(InvalidArgument) as error:
         artifact = ln.Artifact.from_df(df, key="test_.def")
     assert (
         error.exconly().partition(",")[0]
-        == "ValueError: The suffix '.def' of the provided key is incorrect"
+        == "lamindb.core.exceptions.InvalidArgument: The suffix '.def' of the provided key is incorrect"
     )
 
 
@@ -808,11 +808,11 @@ def test_adata_suffix(adata):
         == "ValueError: Error when specifying AnnData storage format"
     )
 
-    with pytest.raises(ValueError) as error:
+    with pytest.raises(InvalidArgument) as error:
         artifact = ln.Artifact.from_anndata(adata, key="test_")
     assert (
         error.exconly().partition(",")[0]
-        == "ValueError: The suffix '' of the provided key is incorrect"
+        == "lamindb.core.exceptions.InvalidArgument: The suffix '' of the provided key is incorrect"
     )
 
 

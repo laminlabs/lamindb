@@ -30,7 +30,7 @@ from lnschema_core.types import (
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._data import _track_run_input, describe, view_lineage
 from lamindb.core._settings import settings
-from lamindb.core.exceptions import IntegrityError
+from lamindb.core.exceptions import IntegrityError, InvalidArgument
 from lamindb.core.loaders import load_to_memory
 from lamindb.core.storage import (
     LocalPathClasses,
@@ -176,7 +176,7 @@ def process_data(
             key_suffix = None
         suffix = infer_suffix(data, format)
         if key_suffix is not None and key_suffix != suffix:
-            raise ValueError(
+            raise InvalidArgument(
                 f"The suffix '{key_suffix}' of the provided key is incorrect, it should"
                 f" be '{suffix}'."
             )
@@ -357,7 +357,7 @@ def get_artifact_kwargs_from_data(
             key = inferred_key
         else:
             if not key == inferred_key:
-                raise ValueError(
+                raise InvalidArgument(
                     f"The path '{data}' is already in registered storage"
                     f" '{storage.root}' with key '{inferred_key}'\nYou passed"
                     f" conflicting key '{key}': please move the file before"
