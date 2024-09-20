@@ -43,6 +43,7 @@ from lamindb.core.storage.paths import (
     auto_storage_key_from_artifact,
     auto_storage_key_from_artifact_uid,
     check_path_is_child_of_root,
+    filepath_cache_key_from_artifact,
     filepath_from_artifact,
 )
 from lamindb.core.versioning import (
@@ -919,12 +920,14 @@ def open(
     from lamindb.core.storage._backed_access import _track_writes_factory, backed_access
 
     using_key = settings._using_key
-    filepath = filepath_from_artifact(self, using_key=using_key)
+    filepath, cache_key = filepath_cache_key_from_artifact(self, using_key=using_key)
     is_tiledbsoma_w = (
         filepath.name == "soma" or filepath.suffix == ".tiledbsoma"
     ) and mode == "w"
     # consider the case where an object is already locally cached
-    localpath = setup_settings.instance.storage.cloud_to_local_no_update(filepath)
+    localpath = setup_settings.instance.storage.cloud_to_local_no_update(
+        filepath, cache_key=cache_key
+    )
     if not is_tiledbsoma_w and localpath.exists():
         access = backed_access(localpath, mode, using_key)
     else:
@@ -956,15 +959,17 @@ def open(
 
 
 # can't really just call .cache in .load because of double tracking
-def _synchronize_cleanup_on_error(filepath: UPath) -> UPath:
+def _synchronize_cleanup_on_error(
+    filepath: UPath, cache_key: str | None = None
+) -> UPath:
     try:
         cache_path = setup_settings.instance.storage.cloud_to_local(
-            filepath, print_progress=True
+            filepath, cache_key=cache_key, print_progress=True
         )
     except Exception as e:
         if not isinstance(filepath, LocalPathClasses):
             cache_path = setup_settings.instance.storage.cloud_to_local_no_update(
-                filepath
+                filepath, cache_key=cache_key
             )
             if cache_path.is_file():
                 cache_path.unlink(missing_ok=True)
@@ -979,8 +984,11 @@ def load(self, is_run_input: bool | None = None, **kwargs) -> Any:
     if hasattr(self, "_memory_rep") and self._memory_rep is not None:
         access_memory = self._memory_rep
     else:
-        filepath = filepath_from_artifact(self, using_key=settings._using_key)
-        cache_path = _synchronize_cleanup_on_error(filepath)
+        filepath, cache_key = filepath_cache_key_from_artifact(
+            self, using_key=settings._using_key
+        )
+        cache_path = _synchronize_cleanup_on_error(filepath, cache_key=cache_key)
+        # cache_path is local so doesn't trigger any sync in load_to_memory
         access_memory = load_to_memory(cache_path, **kwargs)
     # only call if load is successfull
     _track_run_input(self, is_run_input)
@@ -989,8 +997,10 @@ def load(self, is_run_input: bool | None = None, **kwargs) -> Any:
 
 # docstring handled through attach_func_to_class_method
 def cache(self, is_run_input: bool | None = None) -> Path:
-    filepath = filepath_from_artifact(self, using_key=settings._using_key)
-    cache_path = _synchronize_cleanup_on_error(filepath)
+    filepath, cache_key = filepath_cache_key_from_artifact(
+        self, using_key=settings._using_key
+    )
+    cache_path = _synchronize_cleanup_on_error(filepath, cache_key=cache_key)
     # only call if sync is successfull
     _track_run_input(self, is_run_input)
     return cache_path
@@ -1041,7 +1051,7 @@ def delete(
     if delete_record:
         # need to grab file path before deletion
         try:
-            path = filepath_from_artifact(self, using_key)
+            path, _ = filepath_from_artifact(self, using_key)
         except OSError:
             # we can still delete the record
             logger.warning("Could not get path")
@@ -1133,8 +1143,22 @@ def _save_skip_storage(file, **kwargs) -> None:
 @doc_args(Artifact.path.__doc__)
 def path(self) -> Path | UPath:
     """{}"""  # noqa: D415
-    using_key = settings._using_key
-    return filepath_from_artifact(self, using_key)
+    # return only the path, without StorageSettings
+    filepath, _ = filepath_from_artifact(self, using_key=settings._using_key)
+    return filepath
+
+
+# get cache path without triggering sync
+@property  # type: ignore
+def _cache_path(self) -> UPath:
+    filepath, cache_key = filepath_cache_key_from_artifact(
+        self, using_key=settings._using_key
+    )
+    if isinstance(filepath, LocalPathClasses):
+        return filepath
+    return setup_settings.instance.storage.cloud_to_local_no_update(
+        filepath, cache_key=cache_key
+    )
 
 
 # docstring handled through attach_func_to_class_method
@@ -1173,6 +1197,7 @@ for name in METHOD_NAMES:
 # privates currently dealt with separately
 Artifact._delete_skip_storage = _delete_skip_storage
 Artifact._save_skip_storage = _save_skip_storage
+Artifact._cache_path = _cache_path
 Artifact.path = path
 Artifact.describe = describe
 Artifact.view_lineage = view_lineage
