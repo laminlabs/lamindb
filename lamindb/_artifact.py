@@ -956,11 +956,12 @@ def open(
 
 
 # can't really just call .cache in .load because of double tracking
-def _synchronize_cleanup_on_error(filepath: UPath) -> UPath:
-    try:
+def _synchronize_cleanup_on_error(filepath: UPath, virtual_path: str | None = None) -> UPath:
+    try:            
         cache_path = setup_settings.instance.storage.cloud_to_local(
-            filepath, print_progress=True
+            filepath, print_progress=True, virtual_path=virtual_path
         )
+        cache_path.rename(target_cache_path)
     except Exception as e:
         if not isinstance(filepath, LocalPathClasses):
             cache_path = setup_settings.instance.storage.cloud_to_local_no_update(
@@ -990,7 +991,10 @@ def load(self, is_run_input: bool | None = None, **kwargs) -> Any:
 # docstring handled through attach_func_to_class_method
 def cache(self, is_run_input: bool | None = None) -> Path:
     filepath = filepath_from_artifact(self, using_key=settings._using_key)
-    cache_path = _synchronize_cleanup_on_error(filepath)
+    virtual_path: str | None = None
+    if artifact.key is not None and artifact._key_is_virtual = True:
+        virtual_path = artifact.storage.root.replace("s3://", "") + artifact.key
+    cache_path = _synchronize_cleanup_on_error(filepath, virtual_path=virtual_path)
     # only call if sync is successfull
     _track_run_input(self, is_run_input)
     return cache_path
