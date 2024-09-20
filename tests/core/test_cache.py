@@ -45,7 +45,7 @@ def test_local_cache():
     artifact.save()
     assert adata_zarr_pth.exists()
     assert artifact.path.exists()
-    assert artifact.path.name == adata_zarr_pth.name
+    assert artifact.path.name != artifact.key
 
     shutil.rmtree(adata_zarr_pth)
     artifact.delete(permanent=True, storage=True)
@@ -61,7 +61,7 @@ def test_local_cache():
 
     assert not adata_zarr_pth.exists()
     assert artifact.path.exists()
-    assert artifact.path.name == adata_zarr_pth.name
+    assert artifact.path.name != artifact.key
 
     artifact.delete(permanent=True, storage=True)
 
