@@ -8,6 +8,7 @@ import lamindb_setup as ln_setup
 from lamin_utils import logger
 
 from lamindb._artifact import Artifact
+from lamindb._collection import Collection
 from lamindb._run import Run
 from lamindb._transform import Transform
 
@@ -40,9 +41,11 @@ def save_vitessce_config(
 
     assert isinstance(vitessce_config, VitessceConfig)  # noqa: S101
     vc_dict = vitessce_config.to_dict()
-    valid_composite_zarr_suffixes = [
+    valid_suffixes = [
+        # Composite suffix candidates must appear before simple suffixes in this list,
+        # as we would not want to remove .zarr from ".anndata.zarr" and be left with the partial ".anndata"
         suffix for suffix in VALID_SUFFIXES.COMPOSITE if suffix.endswith(".zarr")
-    ]
+    ] + VALID_SUFFIXES.SIMPLE
     # validate
     dataset_artifacts = []
     assert vc_dict["datasets"]  # noqa: S101
@@ -56,15 +59,14 @@ def save_vitessce_config(
                 raise ValueError("Each file must have a 'url' key.")
             s3_path = file["url"]
             s3_path_last_element = s3_path.split("/")[-1]
-            # now start with attempting to strip the composite suffix candidates
-            for suffix in valid_composite_zarr_suffixes:
+            # now start with attempting to strip the composite suffix candidates,
+            # followed by simple suffix candidates
+            for suffix in valid_suffixes:
                 s3_path_last_element = s3_path_last_element.replace(suffix, "")
-            # in case there was no hit, strip plain ".zarr"
-            artifact_stem_uid = s3_path_last_element.replace(".zarr", "")
             # if there is still a "." in string, raise an error
             if "." in artifact_stem_uid:
                 raise ValueError(
-                    f"Suffix should be '.zarr' or one of {valid_composite_zarr_suffixes}. Inspect your path {s3_path}"
+                    f"Suffix should be '.zarr' or one of {valid_suffixes}. Inspect your path {s3_path}"
                 )
             artifact = Artifact.filter(uid__startswith=artifact_stem_uid).one_or_none()
             if artifact is None:
@@ -82,11 +84,14 @@ def save_vitessce_config(
             version="2",
         ).save()
     run = Run(transform=transform).save()
+    run.input_artifacts.set(dataset_artifacts)
     if len(dataset_artifacts) > 1:
         # if we have more datasets, we should create a collection
         # and attach an action to the collection
-        raise NotImplementedError
-    run.input_artifacts.set(dataset_artifacts)
+        collection_of_artifacts = Collection(dataset_artifacts)
+    else:
+        collection_of_artifacts = None
+    
     # create a JSON export
     config_file_local_path = (
         ln_setup.settings.storage.cache_dir / "config.vitessce.json"
@@ -96,8 +101,11 @@ def save_vitessce_config(
     vitessce_config_artifact = Artifact(
         config_file_local_path, description=description, run=run
     ).save()
-    # we have one and only one dataset artifact, hence the following line is OK
-    dataset_artifacts[0]._actions.add(vitessce_config_artifact)
+    if collection_of_artifacts is None:
+        # we have one and only one dataset artifact, hence the following line is OK
+        dataset_artifacts[0]._actions.add(vitessce_config_artifact)
+    else:
+        collection_of_artifacts._actions.add(vitessce_config_artifact)
     slug = ln_setup.settings.instance.slug
     logger.important(
         f"go to: https://lamin.ai/{slug}/artifact/{vitessce_config_artifact.uid}"
