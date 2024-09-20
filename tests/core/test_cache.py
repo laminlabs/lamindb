@@ -34,7 +34,7 @@ def test_local_cache():
     assert artifact.path.exists()
     assert not temp_path.exists()
 
-    artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True)
 
     # check directories
     adata_zarr_pth = Path("test_adata.zarr")
@@ -48,7 +48,7 @@ def test_local_cache():
     assert artifact.path.name != artifact.key
 
     shutil.rmtree(adata_zarr_pth)
-    artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True)
 
     # check directories in cache
     cache_dir = ln.setup.settings.storage.cache_dir
@@ -63,7 +63,7 @@ def test_local_cache():
     assert artifact.path.exists()
     assert artifact.path.name != artifact.key
 
-    artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True)
 
 
 def test_cloud_cache(switch_storage):
@@ -91,7 +91,7 @@ def test_cloud_cache(switch_storage):
     )
     assert cloud_path.modified.timestamp() < cache_path.stat().st_mtime
 
-    artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True)
 
     # test cache for saving an on-disk object
     artifact = ln.Artifact.from_anndata(test_file, key="test_cache.h5ad")
@@ -105,7 +105,7 @@ def test_cloud_cache(switch_storage):
     assert test_file.stat().st_mtime < cache_path.stat().st_mtime
     assert cloud_path.modified.timestamp() < cache_path.stat().st_mtime
 
-    artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True)
 
     # test cache for a directory on-disk object outside the cache dir
     adata_zarr_pth = Path("test_adata.zarr")
@@ -120,7 +120,7 @@ def test_cloud_cache(switch_storage):
     )
 
     shutil.rmtree(adata_zarr_pth)
-    artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True)
 
     # inside the cache dir
     adata_zarr_pth = cache_dir / "test_adata.zarr"
@@ -135,7 +135,7 @@ def test_cloud_cache(switch_storage):
         cache_path == cache_dir / "lamindb-ci/lamindb-unit-tests-cloud/test_cache.zarr"
     )
 
-    artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True)
 
 
 def test_cloud_cache_versions(switch_storage):
@@ -162,7 +162,9 @@ def test_cloud_cache_versions(switch_storage):
     timestamp_v1 = cache_path_v1.stat().st_mtime
     # new version
     adata.obs["test"] = "test"
-    artifact_v2 = ln.Artifact.from_anndata(adata, key="test_cache.h5ad")
+    artifact_v2 = ln.Artifact.from_anndata(
+        adata, key="test_cache.h5ad", revises=artifact
+    )
     artifact_v2.save()
     cache_path_v2 = artifact_v2.cache()
     assert cache_path_v2.exists()
@@ -184,4 +186,4 @@ def test_cloud_cache_versions(switch_storage):
     assert cache_path_v1.exists()
     assert cache_path_v1.name == f"{artifact.uid}.h5ad"
 
-    artifact_v2.versions.delete(permanent=True, storage=True)
+    artifact_v2.versions.delete(permanent=True)
