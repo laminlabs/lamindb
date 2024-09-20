@@ -743,7 +743,7 @@ def test_zarr_upload_cache(adata):
 
     shutil.rmtree(artifact.cache())
 
-    cache_path = settings._storage_settings.cloud_to_local_no_update(artifact.path)
+    cache_path = artifact._cache_path
     assert isinstance(artifact.load(), ad.AnnData)
     assert cache_path.is_dir()
 
@@ -765,7 +765,7 @@ def test_zarr_upload_cache(adata):
     artifact.save()
     assert isinstance(artifact.path, CloudPath)
     assert artifact.path.exists()
-    cache_path = settings._storage_settings.cloud_to_local_no_update(artifact.path)
+    cache_path = artifact._cache_path
     assert cache_path.is_dir()
 
     shutil.rmtree(cache_path)

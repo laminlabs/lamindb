@@ -69,7 +69,7 @@ def backed_access(
     using_key: str | None = None,
 ) -> AnnDataAccessor | BackedAccessor | SOMACollection | SOMAExperiment:
     if isinstance(artifact_or_filepath, Artifact):
-        filepath = filepath_from_artifact(artifact_or_filepath, using_key=using_key)
+        filepath, _ = filepath_from_artifact(artifact_or_filepath, using_key=using_key)
     else:
         filepath = artifact_or_filepath
     name = filepath.name

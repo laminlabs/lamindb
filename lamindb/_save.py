@@ -17,6 +17,7 @@ from lnschema_core.models import Artifact, Record
 
 from lamindb.core._settings import settings
 from lamindb.core.storage.paths import (
+    _cache_key_from_artifact_storage,
     attempt_accessing_path,
     auto_storage_key_from_artifact,
     delete_storage_using_key,
@@ -135,7 +136,7 @@ def check_and_attempt_upload(
     # a local env it will have a _local_filepath and needs to be uploaded
     if hasattr(artifact, "_local_filepath"):
         try:
-            storage_path = upload_artifact(
+            storage_path, cache_path = upload_artifact(
                 artifact,
                 using_key,
                 access_token=access_token,
@@ -146,7 +147,7 @@ def check_and_attempt_upload(
             return exception
         # copies (if on-disk) or moves the temporary file (if in-memory) to the cache
         if os.getenv("LAMINDB_MULTI_INSTANCE") is None:
-            copy_or_move_to_cache(artifact, storage_path)
+            copy_or_move_to_cache(artifact, storage_path, cache_path)
         # after successful upload, we should remove the attribute so that another call
         # call to save won't upload again, the user should call replace() then
         del artifact._local_filepath
@@ -154,7 +155,9 @@ def check_and_attempt_upload(
     return None
 
 
-def copy_or_move_to_cache(artifact: Artifact, storage_path: UPath):
+def copy_or_move_to_cache(
+    artifact: Artifact, storage_path: UPath, cache_path: UPath | None
+):
     local_path = artifact._local_filepath
 
     # in-memory cases
@@ -166,7 +169,7 @@ def copy_or_move_to_cache(artifact: Artifact, storage_path: UPath):
     cache_dir = settings._storage_settings.cache_dir
 
     # just delete from the cache dir if storage_path is local
-    if isinstance(storage_path, LocalPathClasses):
+    if cache_path is None:
         if (
             local_path.as_posix() != storage_path.as_posix()
             and cache_dir in local_path.parents
@@ -176,11 +179,12 @@ def copy_or_move_to_cache(artifact: Artifact, storage_path: UPath):
             else:
                 local_path.unlink()
         return None
-
-    cache_path = settings._storage_settings.cloud_to_local_no_update(storage_path)
+    # non-local storage_path further
     if local_path != cache_path:
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         if cache_dir in local_path.parents:
+            if cache_path.is_dir():
+                shutil.rmtree(cache_path)
             local_path.replace(cache_path)
         else:
             if is_dir:
@@ -280,11 +284,11 @@ def upload_artifact(
     using_key: str | None = None,
     access_token: str | None = None,
     print_progress: bool = True,
-) -> UPath:
+) -> tuple[UPath, UPath | None]:
     """Store and add file and its linked entries."""
     # can't currently use  filepath_from_artifact here because it resolves to ._local_filepath
     storage_key = auto_storage_key_from_artifact(artifact)
-    storage_path = attempt_accessing_path(
+    storage_path, storage_settings = attempt_accessing_path(
         artifact, storage_key, using_key=using_key, access_token=access_token
     )
     if hasattr(artifact, "_to_store") and artifact._to_store:
@@ -292,4 +296,13 @@ def upload_artifact(
         store_file_or_folder(
             artifact._local_filepath, storage_path, print_progress=print_progress
         )
-    return storage_path
+
+    if isinstance(storage_path, LocalPathClasses):
+        cache_path = None
+    else:
+        cache_key = _cache_key_from_artifact_storage(artifact, storage_settings)
+        cache_path = storage_settings.cloud_to_local_no_update(
+            storage_path, cache_key=cache_key
+        )
+
+    return storage_path, cache_path
