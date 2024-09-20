@@ -82,7 +82,7 @@ def test_cloud_cache(switch_storage):
     artifact.save()
     assert not temp_path.exists()
     cloud_path = artifact.path
-    cache_path = ln.setup.settings.storage.cloud_to_local_no_update(cloud_path)
+    cache_path = artifact._cache_path
     assert cache_path.exists()
     assert cloud_path.modified.timestamp() < cache_path.stat().st_mtime
 
@@ -92,7 +92,7 @@ def test_cloud_cache(switch_storage):
     artifact = ln.Artifact.from_anndata(test_file, key="test_cache.h5ad")
     artifact.save()
     cloud_path = artifact.path
-    cache_path = ln.setup.settings.storage.cloud_to_local_no_update(cloud_path)
+    cache_path = artifact._cache_path
     assert cache_path.exists()
     assert test_file.stat().st_mtime < cache_path.stat().st_mtime
     assert cloud_path.modified.timestamp() < cache_path.stat().st_mtime
@@ -105,7 +105,7 @@ def test_cloud_cache(switch_storage):
     artifact = ln.Artifact(adata_zarr_pth, key="test_cache.zarr")
     artifact.save()
     assert adata_zarr_pth.is_dir()
-    cache_path = ln.setup.settings.storage.cloud_to_local_no_update(artifact.path)
+    cache_path = artifact._cache_path
     assert cache_path.is_dir()
 
     shutil.rmtree(adata_zarr_pth)
@@ -118,7 +118,7 @@ def test_cloud_cache(switch_storage):
     assert adata_zarr_pth.exists()
     artifact.save()
     assert not adata_zarr_pth.exists()
-    cache_path = ln.setup.settings.storage.cloud_to_local_no_update(artifact.path)
+    cache_path = artifact._cache_path
     assert cache_path.is_dir()
 
     artifact.delete(permanent=True, storage=True)

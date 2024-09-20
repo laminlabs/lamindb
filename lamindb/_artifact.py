@@ -43,6 +43,7 @@ from lamindb.core.storage.paths import (
     auto_storage_key_from_artifact,
     auto_storage_key_from_artifact_uid,
     check_path_is_child_of_root,
+    filepath_cache_key_from_artifact,
     filepath_from_artifact,
 )
 from lamindb.core.versioning import (
@@ -919,12 +920,14 @@ def open(
     from lamindb.core.storage._backed_access import _track_writes_factory, backed_access
 
     using_key = settings._using_key
-    filepath, _ = filepath_from_artifact(self, using_key=using_key)
+    filepath, cache_key = filepath_cache_key_from_artifact(self, using_key=using_key)
     is_tiledbsoma_w = (
         filepath.name == "soma" or filepath.suffix == ".tiledbsoma"
     ) and mode == "w"
     # consider the case where an object is already locally cached
-    localpath = setup_settings.instance.storage.cloud_to_local_no_update(filepath)
+    localpath = setup_settings.instance.storage.cloud_to_local_no_update(
+        filepath, cache_key=cache_key
+    )
     if not is_tiledbsoma_w and localpath.exists():
         access = backed_access(localpath, mode, using_key)
     else:
@@ -981,17 +984,11 @@ def load(self, is_run_input: bool | None = None, **kwargs) -> Any:
     if hasattr(self, "_memory_rep") and self._memory_rep is not None:
         access_memory = self._memory_rep
     else:
-        filepath, storage_settings = filepath_from_artifact(
+        filepath, cache_key = filepath_cache_key_from_artifact(
             self, using_key=settings._using_key
         )
-        cache_key = None
-        if (
-            self._key_is_virtual
-            and self.key is not None
-            and storage_settings is not None
-        ):
-            cache_key = (storage_settings.root / self.key).path
         cache_path = _synchronize_cleanup_on_error(filepath, cache_key=cache_key)
+        # cache_path is local so doesn't trigger any sync in load_to_memory
         access_memory = load_to_memory(cache_path, **kwargs)
     # only call if load is successfull
     _track_run_input(self, is_run_input)
@@ -1000,12 +997,9 @@ def load(self, is_run_input: bool | None = None, **kwargs) -> Any:
 
 # docstring handled through attach_func_to_class_method
 def cache(self, is_run_input: bool | None = None) -> Path:
-    filepath, storage_settings = filepath_from_artifact(
+    filepath, cache_key = filepath_cache_key_from_artifact(
         self, using_key=settings._using_key
     )
-    cache_key = None
-    if self._key_is_virtual and self.key is not None and storage_settings is not None:
-        cache_key = (storage_settings.root / self.key).path
     cache_path = _synchronize_cleanup_on_error(filepath, cache_key=cache_key)
     # only call if sync is successfull
     _track_run_input(self, is_run_input)
@@ -1149,9 +1143,21 @@ def _save_skip_storage(file, **kwargs) -> None:
 @doc_args(Artifact.path.__doc__)
 def path(self) -> Path | UPath:
     """{}"""  # noqa: D415
-    using_key = settings._using_key
     # return only the path, without StorageSettings
-    return filepath_from_artifact(self, using_key)[0]
+    return filepath_from_artifact(self, using_key=settings._using_key)[0]
+
+
+@property  # type: ignore
+def _cache_path(self) -> UPath:
+    filepath, storage_settings = filepath_from_artifact(
+        self, using_key=settings._using_key
+    )
+    if isinstance(filepath, LocalPathClasses):
+        return filepath
+    cache_key = None
+    if self._key_is_virtual and self.key is not None and storage_settings is not None:
+        cache_key = (storage_settings.root / self.key).path
+    return storage_settings.cloud_to_local_no_update(filepath, cache_key=cache_key)
 
 
 # docstring handled through attach_func_to_class_method
@@ -1190,6 +1196,7 @@ for name in METHOD_NAMES:
 # privates currently dealt with separately
 Artifact._delete_skip_storage = _delete_skip_storage
 Artifact._save_skip_storage = _save_skip_storage
+Artifact._cache_path = _cache_path
 Artifact.path = path
 Artifact.describe = describe
 Artifact.view_lineage = view_lineage

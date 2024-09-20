@@ -83,7 +83,6 @@ def attempt_accessing_path(
     return path, storage_settings
 
 
-# add type annotations back asap when re-organizing the module
 def filepath_from_artifact(
     artifact: Artifact, using_key: str | None = None
 ) -> tuple[UPath, StorageSettings | None]:
@@ -94,6 +93,23 @@ def filepath_from_artifact(
         artifact, storage_key, using_key=using_key
     )
     return path, storage_settings
+
+
+# return filepath and cache_key if needed
+def filepath_cache_key_from_artifact(
+    artifact: Artifact, using_key: str | None = None
+) -> tuple[UPath, str | None]:
+    filepath, storage_settings = filepath_from_artifact(artifact, using_key)
+    if isinstance(filepath, LocalPathClasses):
+        return filepath, None
+    cache_key = None
+    if (
+        artifact._key_is_virtual
+        and artifact.key is not None
+        and storage_settings is not None
+    ):
+        cache_key = (storage_settings.root / artifact.key).path
+    return filepath, cache_key
 
 
 def store_file_or_folder(
