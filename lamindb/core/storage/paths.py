@@ -95,6 +95,8 @@ def filepath_from_artifact(
     return path, storage_settings
 
 
+# virtual key is taken into consideration
+# only if the version is latest
 def _cache_key_from_artifact_storage(
     artifact: Artifact, storage_settings: StorageSettings | None
 ):

@@ -1144,7 +1144,8 @@ def _save_skip_storage(file, **kwargs) -> None:
 def path(self) -> Path | UPath:
     """{}"""  # noqa: D415
     # return only the path, without StorageSettings
-    return filepath_from_artifact(self, using_key=settings._using_key)[0]
+    filepath, _ = filepath_from_artifact(self, using_key=settings._using_key)
+    return filepath
 
 
 # get cache path without triggering sync
