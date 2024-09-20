@@ -136,3 +136,52 @@ def test_cloud_cache(switch_storage):
     )
 
     artifact.delete(permanent=True, storage=True)
+
+
+def test_cloud_cache_versions(switch_storage):
+    adata = load_h5ad(ln.core.datasets.anndata_file_pbmc68k_test())
+
+    cache_dir = ln.setup.settings.storage.cache_dir
+    assert cache_dir is not None
+
+    artifact = ln.Artifact.from_anndata(adata, key="test_cache.h5ad")
+    artifact.save()
+    cache_path_v1 = artifact.cache()
+    assert cache_path_v1.exists()
+    assert (
+        cache_path_v1
+        == cache_dir / "lamindb-ci/lamindb-unit-tests-cloud/test_cache.h5ad"
+    )
+    cache_path_v1.unlink()
+    artifact.cache()
+    assert cache_path_v1.exists()
+    assert (
+        cache_path_v1
+        == cache_dir / "lamindb-ci/lamindb-unit-tests-cloud/test_cache.h5ad"
+    )
+    timestamp_v1 = cache_path_v1.stat().st_mtime
+    # new version
+    adata.obs["test"] = "test"
+    artifact_v2 = ln.Artifact.from_anndata(adata, key="test_cache.h5ad")
+    artifact_v2.save()
+    cache_path_v2 = artifact_v2.cache()
+    assert cache_path_v2.exists()
+    assert (
+        cache_path_v2
+        == cache_dir / "lamindb-ci/lamindb-unit-tests-cloud/test_cache.h5ad"
+    )
+    assert cache_path_v2.stat().st_mtime > timestamp_v1
+    cache_path_v2.unlink()
+    artifact_v2.cache()
+    assert cache_path_v2.exists()
+    assert (
+        cache_path_v2
+        == cache_dir / "lamindb-ci/lamindb-unit-tests-cloud/test_cache.h5ad"
+    )
+    assert cache_path_v2.stat().st_mtime > timestamp_v1
+    # old version cache ignores key
+    cache_path_v1 = artifact.cache()
+    assert cache_path_v1.exists()
+    assert cache_path_v1.name == f"{artifact.uid}.h5ad"
+
+    artifact_v2.versions.delete(permanent=True, storage=True)
