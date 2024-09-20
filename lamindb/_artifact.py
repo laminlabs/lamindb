@@ -356,7 +356,7 @@ def get_artifact_kwargs_from_data(
             key = inferred_key
         else:
             if not key == inferred_key:
-                raise ValueError(
+                raise InvalidArgument(
                     f"The path '{data}' is already in registered storage"
                     f" '{storage.root}' with key '{inferred_key}'\nYou passed"
                     f" conflicting key '{key}': please move the file before"

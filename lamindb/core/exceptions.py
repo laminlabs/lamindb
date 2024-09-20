@@ -1,7 +1,5 @@
 """Exceptions.
 
-The registry base class:
-
 .. autosummary::
    :toctree: .
 
@@ -16,6 +14,10 @@ The registry base class:
 
 """
 
+# inheriting from SystemExit has the sole purpose of suppressing
+# the traceback - this isn't optimal but the current best solution
+# https://laminlabs.slack.com/archives/C04A0RMA0SC/p1726856875597489
+
 
 class InvalidArgument(SystemExit):
     """Invalid method or function argument."""
@@ -24,10 +26,14 @@ class InvalidArgument(SystemExit):
 
 
 class TrackNotCalled(SystemExit):
+    """ln.context.track() wasn't called."""
+
     pass
 
 
 class NotebookNotSaved(SystemExit):
+    """Notebook wasn't saved."""
+
     pass
 
 

@@ -458,10 +458,10 @@ def test_from_dir_many_artifacts(get_test_filepaths, key):
     test_dirpath = get_test_filepaths[2]
     # the directory contains 3 files, two of them are duplicated
     if key is not None and is_in_registered_storage:
-        with pytest.raises(ValueError) as error:
+        with pytest.raises(InvalidArgument) as error:
             ln.Artifact.from_dir(test_dirpath, key=key)
         assert error.exconly().startswith(
-            "ValueError: The path"  # The path {data} is already in registered storage
+            "lamindb.core.exceptions.InvalidArgument: The path"  # The path {data} is already in registered storage
         )
         return None
     else:
