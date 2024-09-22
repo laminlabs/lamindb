@@ -162,7 +162,7 @@ def test_cloud_cache_versions(switch_storage):
     )
     timestamp_v1 = cache_path_v1.stat().st_mtime
     # new version
-    adata.obs["test"] = "test"
+    adata.obs["test_cache"] = "test"
     artifact_v2 = ln.Artifact.from_anndata(
         adata, key="test_cache.h5ad", revises=artifact
     )
@@ -182,6 +182,7 @@ def test_cloud_cache_versions(switch_storage):
         cache_path_v2
         == cache_dir / "lamindb-ci/lamindb-unit-tests-cloud/test_cache.h5ad"
     )
+    assert "test_cache" in load_h5ad(cache_path_v2).obs.columns
     assert cache_path_v2.stat().st_mtime > timestamp_v1
     # old version cache ignores key
     cache_path_v1 = artifact.cache()
