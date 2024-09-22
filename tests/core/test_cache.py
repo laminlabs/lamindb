@@ -1,5 +1,6 @@
 import shutil
 from pathlib import Path
+from time import sleep
 
 import lamindb as ln
 import pytest
@@ -145,6 +146,7 @@ def test_cloud_cache_versions(switch_storage):
     assert cache_dir is not None
 
     artifact = ln.Artifact.from_anndata(adata, key="test_cache.h5ad")
+    assert ln.settings.storage.cache_dir in artifact._local_filepath.parents
     artifact.save()
     cache_path_v1 = artifact.cache()
     assert cache_path_v1.exists()
@@ -161,11 +163,16 @@ def test_cloud_cache_versions(switch_storage):
     )
     timestamp_v1 = cache_path_v1.stat().st_mtime
     # new version
-    adata.obs["test"] = "test"
+    adata.obs["test_cache"] = "test"
+    # hope it is enough to avoid random timestamp problems further
+    sleep(0.5)
     artifact_v2 = ln.Artifact.from_anndata(
         adata, key="test_cache.h5ad", revises=artifact
     )
+    assert ln.settings.storage.cache_dir in artifact_v2._local_filepath.parents
     artifact_v2.save()
+    assert artifact_v2.is_latest
+    assert not artifact.is_latest
     cache_path_v2 = artifact_v2.cache()
     assert cache_path_v2.exists()
     assert (
@@ -180,6 +187,7 @@ def test_cloud_cache_versions(switch_storage):
         cache_path_v2
         == cache_dir / "lamindb-ci/lamindb-unit-tests-cloud/test_cache.h5ad"
     )
+    assert "test_cache" in load_h5ad(cache_path_v2).obs.columns
     assert cache_path_v2.stat().st_mtime > timestamp_v1
     # old version cache ignores key
     cache_path_v1 = artifact.cache()

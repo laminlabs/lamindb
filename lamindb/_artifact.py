@@ -89,8 +89,6 @@ def process_pathlike(
                 raise FileNotFoundError(filepath)
         except PermissionError:
             pass
-    if isinstance(filepath, LocalPathClasses):
-        filepath = filepath.resolve()
     if check_path_is_child_of_root(filepath, default_storage.root):
         use_existing_storage_key = True
         return default_storage, use_existing_storage_key
@@ -155,7 +153,7 @@ def process_data(
             if hasattr(default_storage, "_access_token")
             else None
         )
-        path = create_path(data, access_token=access_token)
+        path = create_path(data, access_token=access_token).resolve()
         storage, use_existing_storage_key = process_pathlike(
             path,
             default_storage=default_storage,
@@ -181,7 +179,7 @@ def process_data(
                 f" be '{suffix}'."
             )
         cache_name = f"{provisional_uid}{suffix}"
-        path = settings._storage_settings.cache_dir / cache_name
+        path = settings.storage.cache_dir / cache_name
         # Alex: I don't understand the line below
         if path.suffixes == []:
             path = path.with_suffix(suffix)
@@ -345,8 +343,8 @@ def get_artifact_kwargs_from_data(
 
     if revises is not None:  # update provisional_uid
         provisional_uid, revises = create_uid(revises=revises, version=version)
-        if path.as_posix().startswith(settings._storage_settings.cache_dir.as_posix()):
-            path = path.rename(f"{provisional_uid}{suffix}")
+        if settings.storage.cache_dir in path.parents:
+            path = path.rename(path.with_name(f"{provisional_uid}{suffix}"))
 
     check_path_in_storage = False
     if use_existing_storage_key:
@@ -755,7 +753,7 @@ def from_dir(
         " ln.Artifact(dir_path) to get one artifact for the entire directory"
     )
     folderpath: UPath = create_path(path)  # returns Path for local
-    default_storage = settings._storage_settings.record
+    default_storage = settings.storage.record
     using_key = settings._using_key
     storage, use_existing_storage = process_pathlike(
         folderpath, default_storage, using_key
@@ -849,7 +847,7 @@ def replace(
     run: Run | None = None,
     format: str | None = None,
 ) -> None:
-    default_storage = settings._storage_settings.record
+    default_storage = settings.storage.record
     kwargs, privates = get_artifact_kwargs_from_data(
         provisional_uid=self.uid,
         data=data,
