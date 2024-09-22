@@ -1,5 +1,6 @@
 import shutil
 from pathlib import Path
+from time import sleep
 
 import lamindb as ln
 import pytest
@@ -163,11 +164,15 @@ def test_cloud_cache_versions(switch_storage):
     timestamp_v1 = cache_path_v1.stat().st_mtime
     # new version
     adata.obs["test_cache"] = "test"
+    # hope it is enough to avoid random timestamp problems further
+    sleep(0.5)
     artifact_v2 = ln.Artifact.from_anndata(
         adata, key="test_cache.h5ad", revises=artifact
     )
     assert ln.settings.storage.cache_dir in artifact_v2._local_filepath.parents
     artifact_v2.save()
+    assert artifact_v2.is_latest
+    assert not artifact.is_latest
     cache_path_v2 = artifact_v2.cache()
     assert cache_path_v2.exists()
     assert (
