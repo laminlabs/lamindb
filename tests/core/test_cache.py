@@ -145,6 +145,7 @@ def test_cloud_cache_versions(switch_storage):
     assert cache_dir is not None
 
     artifact = ln.Artifact.from_anndata(adata, key="test_cache.h5ad")
+    assert ln.settings.storage.cache_dir in artifact._local_filepath.parents
     artifact.save()
     cache_path_v1 = artifact.cache()
     assert cache_path_v1.exists()
@@ -162,9 +163,8 @@ def test_cloud_cache_versions(switch_storage):
     timestamp_v1 = cache_path_v1.stat().st_mtime
     # new version
     adata.obs["test"] = "test"
-    artifact_v2 = ln.Artifact.from_anndata(
-        adata, key="test_cache.h5ad", revises=artifact
-    )
+    artifact_v2 = ln.Artifact.from_anndata(adata, key="test_cache.h5ad")
+    assert ln.settings.storage.cache_dir in artifact_v2._local_filepath.parents
     artifact_v2.save()
     cache_path_v2 = artifact_v2.cache()
     assert cache_path_v2.exists()
