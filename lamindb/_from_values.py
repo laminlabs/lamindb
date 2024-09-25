@@ -29,7 +29,6 @@ def get_or_create_records(
     if create:
         return [registry(**{field.field.name: value}) for value in iterable]
     creation_search_names = settings.creation.search_names
-    feature: Feature = None
     organism = _get_organism_record(field, organism)
     kwargs: dict = {}
     if organism is not None:
@@ -42,7 +41,11 @@ def get_or_create_records(
 
         # returns existing records & non-existing values
         records, nonexist_values, msg = get_existing_records(
-            iterable_idx=iterable_idx, field=field, mute=mute, **kwargs
+            iterable_idx=iterable_idx,
+            field=field,
+            organism=organism,
+            mute=mute,
+            **kwargs,
         )
 
         # new records to be created based on new values
@@ -82,6 +85,8 @@ def get_or_create_records(
                 records_bionty, unmapped_values = create_records_from_source(
                     iterable_idx=nonexist_values,
                     field=field,
+                    organism=organism,
+                    source=source_record,
                     msg=msg,
                     mute=mute,
                     **kwargs,
@@ -106,17 +111,17 @@ def get_or_create_records(
                         f"{colors.red('did not create')} {name} record{s} for "
                         f"{n_nonval} {colors.italic(f'{field.field.name}{s}')}: {print_values}"
                     )
-        if registry.__get_schema_name__() == "bionty" or registry == ULabel:
-            if isinstance(iterable, pd.Series):
-                feature = iterable.name
-            feature_name = None
-            if isinstance(feature, str):
-                feature_name = feature
-            if feature_name is not None:
-                if feature_name is not None:
-                    for record in records:
-                        record._feature = feature_name
-                logger.debug(f"added default feature '{feature_name}'")
+        # if registry.__get_schema_name__() == "bionty" or registry == ULabel:
+        #     if isinstance(iterable, pd.Series):
+        #         feature = iterable.name
+        #     feature_name = None
+        #     if isinstance(feature, str):
+        #         feature_name = feature
+        #     if feature_name is not None:
+        #         if feature_name is not None:
+        #             for record in records:
+        #                 record._feature = feature_name
+        #         logger.debug(f"added default feature '{feature_name}'")
         return records
     finally:
         settings.creation.search_names = creation_search_names
@@ -125,25 +130,26 @@ def get_or_create_records(
 def get_existing_records(
     iterable_idx: pd.Index,
     field: StrField,
+    organism: Record | None = None,
     mute: bool = False,
     **kwargs,
 ):
     model = field.field.model
     condition: dict = {} if len(kwargs) == 0 else kwargs.copy()
     # existing records matching is agnostic to the bionty source
-    if "source" in condition:
-        condition.pop("source")
+    if organism is not None:
+        condition["organism"] = organism
 
     # standardize based on the DB reference
     # log synonyms mapped terms
-    result = model.inspect(
+    syn_mapper = model.standardize(
         iterable_idx,
         field=field,
-        organism=kwargs.get("organism"),
-        source=kwargs.get("source"),
+        organism=organism,
         mute=True,
+        public_aware=False,
+        return_mapper=True,
     )
-    syn_mapper = result.synonyms_mapper
 
     syn_msg = ""
     if len(syn_mapper) > 0:
@@ -160,11 +166,7 @@ def get_existing_records(
     # get all existing records in the db
     # if necessary, create records for the values in kwargs
     # k:v -> k:v_record
-    # kwargs is used to deal with organism
     condition.update({f"{field.field.name}__in": iterable_idx.values})
-
-    query_set = model.filter(**condition)
-    records = query_set.list()
 
     # now we have to sort the list of queried records
     # preserved = Case(
@@ -177,7 +179,7 @@ def get_existing_records(
     # records = query_set.order_by(preserved).list()
 
     # log validated terms
-    validated = result.validated
+    validated = iterable_idx[model.validate(iterable_idx)]
     msg = ""
     if len(validated) > 0:
         s = "" if len(validated) == 1 else "s"
@@ -197,17 +199,18 @@ def get_existing_records(
             logger.success(syn_msg)
         msg = ""
 
-    existing_values = iterable_idx.intersection(
-        query_set.values_list(field.field.name, flat=True)
-    )
-    nonexist_values = iterable_idx.difference(existing_values)
-
-    return records, nonexist_values, msg
+    if len(validated) == len(iterable_idx):
+        return [], [], msg
+    else:
+        nonexist_values = iterable_idx.difference(validated)
+        return model.filter(**condition).list(), nonexist_values, msg
 
 
 def create_records_from_source(
     iterable_idx: pd.Index,
     field: StrField,
+    organism: Record | None = None,
+    source: Record | None = None,
     msg: str = "",
     mute: bool = False,
     **kwargs,
@@ -227,13 +230,13 @@ def create_records_from_source(
                 organism = "human"
             elif iterable_idx[0].startswith("ENSMUSG"):
                 organism = "mouse"
-        public_ontology = model.public(organism=organism, source=kwargs.get("source"))
+        public_ontology = model.public(organism=organism, source=source)
     except Exception:
         # for custom records that are not created from public sources
         return records, iterable_idx
     # add source record to the kwargs
-    source_record = get_source_record(public_ontology, model)
-    kwargs.update({"source": source_record})
+    if source is None:
+        source = get_source_record(public_ontology, model)
 
     # filter the columns in bionty df based on fields
     bionty_df = filter_bionty_df_columns(model=model, public_ontology=public_ontology)
@@ -264,15 +267,16 @@ def create_records_from_source(
         bionty_kwargs, multi_msg = _bulk_create_dicts_from_df(
             keys=mapped_values, column_name=field.field.name, df=bionty_df
         )
-        organism_kwargs = {}
-        if "organism" not in kwargs:
-            organism_record = _get_organism_record(
-                field, public_ontology.organism, force=True
-            )
-            if organism_record is not None:
-                organism_kwargs["organism"] = organism_record
+        if organism is None:
+            organism = _get_organism_record(field, public_ontology.organism, force=True)
+
+        create_kwargs = (
+            {"organism": organism, "source": source, **kwargs}
+            if organism is not None
+            else {"source": source, **kwargs}
+        )
         for bk in bionty_kwargs:
-            records.append(model(**bk, **kwargs, **organism_kwargs))
+            records.append(model(**bk, **create_kwargs))
 
         # number of records that matches field (not synonyms)
         validated = result.validated
