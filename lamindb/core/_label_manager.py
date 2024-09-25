@@ -65,10 +65,11 @@ def print_labels(
         # there is a try except block here to deal with schema inconsistencies
         # during transfer between instances
         try:
-            labels_list = list(labels.values_list(field, flat=True))
-            if len(labels_list) > 0:
+            # this is much faster than list(labels.values_list(field, flat=True)[:10])
+            labels_list = [getattr(ct, field) for ct in labels[:10]]
+            if labels_list:
                 get_name_field(labels)
-                print_values = _print_values(labels_list, n=10)
+                print_values = _print_values(labels_list)
                 type_str = f": {related_model}" if print_types else ""
                 labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
         except Exception:  # noqa: S112
