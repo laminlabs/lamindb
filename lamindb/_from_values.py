@@ -183,17 +183,19 @@ def get_existing_records(
             logger.success(syn_msg)
         msg = ""
 
+    # get all existing records in the db
+    # if necessary, create records for the values in kwargs
+    # k:v -> k:v_record
+    query = {f"{field.field.name}__in": iterable_idx.values}
+    if organism is not None:
+        query["organism"] = organism
+    records = model.filter(**query).list()
+
     if len(validated) == len(iterable_idx):
-        return [], [], msg
+        return records, [], msg
     else:
-        nonexist_values = iterable_idx.difference(validated)
-        # get all existing records in the db
-        # if necessary, create records for the values in kwargs
-        # k:v -> k:v_record
-        query = {f"{field.field.name}__in": iterable_idx.values}
-        if organism is not None:
-            query["organism"] = organism
-        return model.filter(**query).list(), nonexist_values, msg
+        nonval_values = iterable_idx.difference(validated)
+        return records, nonval_values, msg
 
 
 def create_records_from_source(
