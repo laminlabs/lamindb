@@ -127,11 +127,6 @@ def describe(self: Artifact, print_types: bool = False):
             direct_fields.append(f.name)
     if not self._state.adding:
         # prefetch foreign key relationships
-        self = (
-            self.__class__.objects.using(self._state.db)
-            .select_related(*foreign_key_fields)
-            .get(id=self.id)
-        )
         # prefetch m-2-m relationships
         many_to_many_fields = [
             v
@@ -143,6 +138,7 @@ def describe(self: Artifact, print_types: bool = False):
 
         self = (
             self.__class__.objects.using(self._state.db)
+            .select_related(*foreign_key_fields)
             .prefetch_related(*many_to_many_fields)
             .get(id=self.id)
         )
