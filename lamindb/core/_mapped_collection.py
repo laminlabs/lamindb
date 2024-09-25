@@ -49,6 +49,9 @@ class _Connect:
             self.conn.close()
 
 
+_decode = np.frompyfunc(lambda x: x.decode("utf-8"), 1, 1)
+
+
 class MappedCollection:
     """Map-style collection for use in data loaders.
 
@@ -220,14 +223,15 @@ class MappedCollection:
 
     def _cache_categories(self, obs_keys: list):
         self._cache_cats = {}
-        decode = np.frompyfunc(lambda x: x.decode("utf-8"), 1, 1)
         for label in obs_keys:
             self._cache_cats[label] = []
             for storage in self.storages:
                 with _Connect(storage) as store:
                     cats = self._get_categories(store, label)
                     if cats is not None:
-                        cats = decode(cats) if isinstance(cats[0], bytes) else cats[...]
+                        cats = (
+                            _decode(cats) if isinstance(cats[0], bytes) else cats[...]
+                        )
                     self._cache_cats[label].append(cats)
 
     def _make_encoders(self, encode_labels: list):
@@ -480,25 +484,15 @@ class MappedCollection:
     def get_merged_labels(self, label_key: str):
         """Get merged labels for `label_key` from all `.obs`."""
         labels_merge = []
-        decode = np.frompyfunc(lambda x: x.decode("utf-8"), 1, 1)
         for i, storage in enumerate(self.storages):
             with _Connect(storage) as store:
-                codes = self._get_codes(store, label_key)
-                labels = decode(codes) if isinstance(codes[0], bytes) else codes
-                if label_key in self._cache_cats:
-                    cats = self._cache_cats[label_key][i]
-                else:
-                    cats = self._get_categories(store, label_key)
-                if cats is not None:
-                    cats = decode(cats) if isinstance(cats[0], bytes) else cats
-                    labels = cats[labels]
+                labels = self._get_labels(store, label_key, storage_idx=i)
                 labels_merge.append(labels)
         return np.hstack(labels_merge)
 
     def get_merged_categories(self, label_key: str):
         """Get merged categories for `label_key` from all `.obs`."""
         cats_merge = set()
-        decode = np.frompyfunc(lambda x: x.decode("utf-8"), 1, 1)
         for i, storage in enumerate(self.storages):
             with _Connect(storage) as store:
                 if label_key in self._cache_cats:
@@ -506,11 +500,11 @@ class MappedCollection:
                 else:
                     cats = self._get_categories(store, label_key)
                 if cats is not None:
-                    cats = decode(cats) if isinstance(cats[0], bytes) else cats
+                    cats = _decode(cats) if isinstance(cats[0], bytes) else cats
                     cats_merge.update(cats)
                 else:
                     codes = self._get_codes(store, label_key)
-                    codes = decode(codes) if isinstance(codes[0], bytes) else codes
+                    codes = _decode(codes) if isinstance(codes[0], bytes) else codes
                     cats_merge.update(codes)
         return sorted(cats_merge)
 
@@ -554,6 +548,21 @@ class MappedCollection:
                 return label[...]
             else:
                 return label["codes"][...]
+
+    def _get_labels(
+        self, storage: StorageType, label_key: str, storage_idx: int | None = None
+    ):  # type: ignore
+        """Get labels."""
+        codes = self._get_codes(storage, label_key)
+        labels = _decode(codes) if isinstance(codes[0], bytes) else codes
+        if storage_idx is not None and label_key in self._cache_cats:
+            cats = self._cache_cats[label_key][storage_idx]
+        else:
+            cats = self._get_categories(storage, label_key)
+        if cats is not None:
+            cats = _decode(cats) if isinstance(cats[0], bytes) else cats
+            labels = cats[labels]
+        return labels
 
     def close(self):
         """Close connections to array streaming backend.
