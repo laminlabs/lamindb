@@ -133,7 +133,11 @@ def describe(self: Artifact, print_types: bool = False):
             .get(id=self.id)
         )
         # prefetch m-2-m relationships
-        many_to_many_fields = []
+        many_to_many_fields = [
+            v
+            for v in dict_related_model_to_related_name(self.__class__).values()
+            if not v.startswith("_")
+        ]
         if isinstance(self, (Collection, Artifact)):
             many_to_many_fields.append("input_of_runs")
         if isinstance(self, Artifact):
