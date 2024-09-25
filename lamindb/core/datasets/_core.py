@@ -137,7 +137,17 @@ def file_tiff_suo22() -> Path:  # pragma: no cover
 def dir_iris_images() -> UPath:  # pragma: no cover
     """Directory with 3 studies of the Iris flower: 405 images & metadata.
 
-    Based on: https://github.com/laminlabs/lamindb-dev-datasets/pull/2
+    Provenance: https://lamin.ai/laminlabs/lamindata/transform/3q4MpQxRL2qZ5zKv
+
+    The problem is that the same artifact was also ingested by the downstream
+    demo notebook:
+    https://lamin.ai/laminlabs/lamindata/transform/NJvdsWWbJlZS5zKv
+
+    This is why on the UI, the artifact shows up as output of the downstream
+    demo notebook rather than the upstream curation notebook. The lineage
+    information should still be captured by
+    https://github.com/laminlabs/lnschema-core/blob/a90437e91dfbd6b9002f18c3e978bd0f9c9a632d/lnschema_core/models.py#L2050-L2052
+    but we don't use this in the UI yet.
     """
     return UPath("s3://lamindata/iris_studies")
 
