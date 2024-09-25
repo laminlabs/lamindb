@@ -33,6 +33,7 @@ from lnschema_core.models import (
 
 from lamindb._feature import FEATURE_TYPES, convert_numpy_dtype_to_lamin_feature_type
 from lamindb._feature_set import DICT_KEYS_TYPE, FeatureSet
+from lamindb._from_values import _print_values
 from lamindb._record import (
     REGISTRY_UNIQUE_FIELD,
     get_name_field,
@@ -133,92 +134,98 @@ def custom_aggregate(field, using: str):
 
 
 def print_features(
-    self: Artifact | Collection,
-    print_types: bool = False,
-    to_dict: bool = False,
-    print_params: bool = False,
-) -> str | dict[str, Any]:
-    from lamindb._from_values import _print_values
-
+    self: Artifact | Collection, print_types: bool = False, print_params: bool = False
+) -> str:
     msg = ""
-    dictionary = {}
-    # categorical feature values
+
     if not print_params:
-        labels_msg = ""
-        labels_by_feature = defaultdict(list)
-        for _, (_, links) in get_labels_as_dict(self, links=True).items():
-            for link in links:
-                if link.feature_id is not None:
-                    link_attr = get_link_attr(link, self)
-                    labels_by_feature[link.feature_id].append(
-                        getattr(link, link_attr).name
-                    )
-        labels_msgs = []
-        for feature_id, labels_list in labels_by_feature.items():
-            feature = Feature.objects.using(self._state.db).get(id=feature_id)
-            print_values = _print_values(labels_list, n=10)
-            type_str = f": {feature.dtype}" if print_types else ""
-            if to_dict:
-                dictionary[feature.name] = (
-                    labels_list if len(labels_list) > 1 else labels_list[0]
-                )
-            labels_msgs.append(f"    '{feature.name}'{type_str} = {print_values}")
-        if len(labels_msgs) > 0:
-            labels_msg = "\n".join(sorted(labels_msgs)) + "\n"
-            msg += labels_msg
+        msg += print_categorical_features(self, print_types)
 
-    # non-categorical feature values
-    non_labels_msg = ""
-    if self.id is not None and self.__class__ == Artifact or self.__class__ == Run:
-        attr_name = "param" if print_params else "feature"
-        _feature_values = (
-            getattr(self, f"_{attr_name}_values")
-            .values(f"{attr_name}__name", f"{attr_name}__dtype")
-            .annotate(values=custom_aggregate("value", self._state.db))
-            .order_by(f"{attr_name}__name")
-        )
-        if len(_feature_values) > 0:
-            for fv in _feature_values:
-                feature_name = fv[f"{attr_name}__name"]
-                feature_dtype = fv[f"{attr_name}__dtype"]
-                values = fv["values"]
-                # TODO: understand why the below is necessary
-                if not isinstance(values, list):
-                    values = [values]
-                if to_dict:
-                    dictionary[feature_name] = values if len(values) > 1 else values[0]
-                type_str = f": {feature_dtype}" if print_types else ""
-                printed_values = (
-                    _print_values(values, n=10, quotes=False)
-                    if not feature_dtype.startswith("list")
-                    else values
-                )
-                non_labels_msg += f"    '{feature_name}'{type_str} = {printed_values}\n"
-            msg += non_labels_msg
+    msg += print_non_categorical_features(self, print_types, print_params)
 
-    if msg != "":
+    if not print_params:
+        msg += print_feature_sets(self, print_types)
+
+    if msg:
         header = "Features" if not print_params else "Params"
         msg = f"  {colors.italic(header)}\n" + msg
 
-    # feature sets
-    if not print_params:
-        feature_set_msg = ""
-        for slot, feature_set in get_feature_set_by_slot_(self).items():
-            features = feature_set.members
-            # features.first() is a lot slower than features[0] here
-            name_field = get_name_field(features[0])
-            feature_names = list(features.values_list(name_field, flat=True)[:20])
-            type_str = f": {feature_set.registry}" if print_types else ""
-            feature_set_msg += (
-                f"    '{slot}'{type_str} = {_print_values(feature_names)}\n"
-            )
-        if feature_set_msg:
-            msg += f"  {colors.italic('Feature sets')}\n"
-            msg += feature_set_msg
-    if to_dict:
-        return dictionary
-    else:
-        return msg
+    return msg
+
+
+def print_categorical_features(self, print_types):
+    # Get all labels and links in a single query
+    labels_dict = get_labels_as_dict(self, links=True)
+
+    # Prepare a set of all feature IDs we'll need
+    feature_ids = set()
+    labels_by_feature = defaultdict(list)
+
+    # Process labels and links
+    for _, (_, links) in labels_dict.items():
+        for link in links:
+            if link.feature_id is not None:
+                feature_ids.add(link.feature_id)
+                link_attr = get_link_attr(link, self)
+                labels_by_feature[link.feature_id].append(getattr(link, link_attr).name)
+
+    # Fetch all needed features in a single query
+    features = {
+        f.id: f
+        for f in Feature.objects.using(self._state.db).filter(id__in=feature_ids)
+    }
+
+    # Generate output messages
+    labels_msgs = []
+    for feature_id, labels_list in labels_by_feature.items():
+        feature = features[feature_id]
+        print_values = _print_values(labels_list, n=10)
+        type_str = f": {feature.dtype}" if print_types else ""
+        labels_msgs.append(f"    '{feature.name}'{type_str} = {print_values}")
+
+    return "\n".join(sorted(labels_msgs)) + "\n" if labels_msgs else ""
+
+
+def print_non_categorical_features(self, print_types, print_params):
+    if self.id is None or (self.__class__ != Artifact and self.__class__ != Run):
+        return ""
+
+    attr_name = "param" if print_params else "feature"
+    _feature_values = (
+        getattr(self, f"_{attr_name}_values")
+        .values(f"{attr_name}__name", f"{attr_name}__dtype")
+        .annotate(values=custom_aggregate("value", self._state.db))
+        .order_by(f"{attr_name}__name")
+    )
+
+    msg = ""
+    for fv in _feature_values:
+        feature_name = fv[f"{attr_name}__name"]
+        feature_dtype = fv[f"{attr_name}__dtype"]
+        values = fv["values"] if isinstance(fv["values"], list) else [fv["values"]]
+        type_str = f": {feature_dtype}" if print_types else ""
+        printed_values = (
+            _print_values(values, n=10, quotes=False)
+            if not feature_dtype.startswith("list")
+            else values
+        )
+        msg += f"    '{feature_name}'{type_str} = {printed_values}\n"
+
+    return msg
+
+
+def print_feature_sets(self, print_types):
+    feature_set_msg = ""
+    for slot, feature_set in get_feature_set_by_slot_(self).items():
+        features = feature_set.members
+        name_field = get_name_field(features[0])
+        feature_names = list(features.values_list(name_field, flat=True)[:20])
+        type_str = f": {feature_set.registry}" if print_types else ""
+        feature_set_msg += f"    '{slot}'{type_str} = {_print_values(feature_names)}\n"
+
+    if feature_set_msg:
+        return f"  {colors.italic('Feature sets')}\n{feature_set_msg}"
+    return ""
 
 
 def parse_feature_sets_from_anndata(

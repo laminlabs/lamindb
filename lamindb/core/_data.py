@@ -100,91 +100,78 @@ def save_feature_set_links(self: Artifact | Collection) -> None:
 
 @doc_args(Artifact.describe.__doc__)
 def describe(self: Artifact, print_types: bool = False):
-    """{}"""  # noqa: D415
+    """Describe the artifact."""
     model_name = self.__class__.__name__
     msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
+
     if self._state.db is not None and self._state.db != "default":
         msg += f"  {colors.italic('Database instance')}\n"
         msg += f"    slug: {self._state.db}\n"
-    # prefetch all many-to-many relationships
-    # doesn't work for describing using artifact
-    # self = (
-    #     self.__class__.objects.using(self._state.db)
-    #     .prefetch_related(
-    #         *[f.name for f in self.__class__._meta.get_fields() if f.many_to_many]
-    #     )
-    #     .get(id=self.id)
-    # )
 
-    prov_msg = ""
-    fields = self._meta.fields
-    direct_fields = []
-    foreign_key_fields = []
-    for f in fields:
-        if f.is_relation:
-            foreign_key_fields.append(f.name)
-        else:
-            direct_fields.append(f.name)
     if not self._state.adding:
-        # prefetch foreign key relationships
+        # Fetch all related data in a single query
+        foreign_key_fields = [f.name for f in self._meta.fields if f.is_relation]
+        many_to_many_fields = [
+            v
+            for v in dict_related_model_to_related_name(self.__class__).values()
+            if not v.startswith("_")
+        ]
+        if isinstance(self, (Collection, Artifact)):
+            many_to_many_fields.append("input_of_runs")
+
+        links = list(
+            dict_related_model_to_related_name(self.__class__, links=True).values()
+        )
+
         self = (
             self.__class__.objects.using(self._state.db)
             .select_related(*foreign_key_fields)
-            .get(id=self.id)
-        )
-        # prefetch m-2-m relationships
-        many_to_many_fields = []
-        if isinstance(self, (Collection, Artifact)):
-            many_to_many_fields.append("input_of_runs")
-        if isinstance(self, Artifact):
-            many_to_many_fields.append("feature_sets")
-        self = (
-            self.__class__.objects.using(self._state.db)
-            .prefetch_related(*many_to_many_fields)
+            .prefetch_related(*many_to_many_fields, *links)
             .get(id=self.id)
         )
 
-    # provenance
-    if len(foreign_key_fields) > 0:  # always True for Artifact and Collection
-        fields_values = [(field, getattr(self, field)) for field in foreign_key_fields]
-        type_str = lambda attr: (
-            f": {attr.__class__.__get_name_with_schema__()}" if print_types else ""
-        )
-        related_msg = "".join(
-            [
-                f"    .{field_name}{type_str(attr)} = {format_field_value(getattr(attr, get_name_field(attr)))}\n"
-                for (field_name, attr) in fields_values
-                if attr is not None
-            ]
-        )
-        prov_msg += related_msg
+    # Provenance
+    prov_msg = print_provenance(self, foreign_key_fields, print_types)
     if prov_msg:
-        msg += f"  {colors.italic('Provenance')}\n"
-        msg += prov_msg
+        msg += f"  {colors.italic('Provenance')}\n{prov_msg}"
 
-    # input of runs
-    input_of_message = ""
-    if self.id is not None and self.input_of_runs.exists():
-        values = [format_field_value(i.started_at) for i in self.input_of_runs.all()]
-        type_str = ": Run" if print_types else ""  # type: ignore
-        input_of_message += f"    .input_of_runs{type_str} = {', '.join(values)}\n"
+    # Input of runs
+    input_of_message = print_input_of_runs(self, print_types)
     if input_of_message:
-        msg += f"  {colors.italic('Usage')}\n"
-        msg += input_of_message
+        msg += f"  {colors.italic('Usage')}\n{input_of_message}"
 
-    # labels
+    # Labels
     msg += print_labels(self, print_types=print_types)
 
-    # features
+    # Features
     if isinstance(self, Artifact):
-        msg += print_features(  # type: ignore
+        msg += print_features(
             self,
             print_types=print_types,
             print_params=hasattr(self, "type") and self.type == "model",
         )
 
-    # print entire message
     logger.print(msg)
+
+
+def print_provenance(self, foreign_key_fields, print_types):
+    prov_msg = ""
+    for field in foreign_key_fields:
+        attr = getattr(self, field)
+        if attr is not None:
+            type_str = (
+                f": {attr.__class__.__get_name_with_schema__()}" if print_types else ""
+            )
+            prov_msg += f"    .{field}{type_str} = {format_field_value(getattr(attr, get_name_field(attr)))}\n"
+    return prov_msg
+
+
+def print_input_of_runs(self, print_types):
+    if self.id is None or not self.input_of_runs.exists():
+        return ""
+    values = [format_field_value(i.started_at) for i in self.input_of_runs.all()]
+    type_str = ": Run" if print_types else ""
+    return f"    .input_of_runs{type_str} = {', '.join(values)}\n"
 
 
 def validate_feature(feature: Feature, records: list[Record]) -> None:
