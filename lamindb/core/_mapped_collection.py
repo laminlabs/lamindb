@@ -370,7 +370,7 @@ class MappedCollection:
 
     def _get_data_idx(
         self,
-        lazy_data: ArrayType | GroupType,  # type: ignore
+        lazy_data: ArrayType | GroupType,
         idx: int,
         join_vars: Literal["inner", "outer"] | None = None,
         var_idxs_join: list | None = None,
@@ -508,7 +508,7 @@ class MappedCollection:
                     cats_merge.update(codes)
         return sorted(cats_merge)
 
-    def _get_categories(self, storage: StorageType, label_key: str):  # type: ignore
+    def _get_categories(self, storage: StorageType, label_key: str):
         """Get categories."""
         obs = storage["obs"]  # type: ignore
         if isinstance(obs, ArrayTypes):  # type: ignore
@@ -537,7 +537,7 @@ class MappedCollection:
                     return None
         return None
 
-    def _get_codes(self, storage: StorageType, label_key: str):  # type: ignore
+    def _get_codes(self, storage: StorageType, label_key: str):
         """Get codes."""
         obs = storage["obs"]  # type: ignore
         if isinstance(obs, ArrayTypes):  # type: ignore
