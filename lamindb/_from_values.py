@@ -30,11 +30,6 @@ def get_or_create_records(
         return [registry(**{field.field.name: value}) for value in iterable]
     creation_search_names = settings.creation.search_names
     organism = _get_organism_record(field, organism)
-    kwargs: dict = {}
-    if organism is not None:
-        kwargs["organism"] = organism
-    if source is not None:
-        kwargs["source"] = source
     settings.creation.search_names = False
     try:
         iterable_idx = index_iterable(iterable)
@@ -45,7 +40,6 @@ def get_or_create_records(
             field=field,
             organism=organism,
             mute=mute,
-            **kwargs,
         )
 
         # new records to be created based on new values
@@ -89,7 +83,6 @@ def get_or_create_records(
                     source=source_record,
                     msg=msg,
                     mute=mute,
-                    **kwargs,
                 )
                 if len(records_bionty) > 0:
                     msg = ""
@@ -132,7 +125,6 @@ def get_existing_records(
     field: StrField,
     organism: Record | None = None,
     mute: bool = False,
-    **kwargs,
 ):
     # NOTE: existing records matching is agnostic to the source
     model = field.field.model
@@ -198,7 +190,7 @@ def get_existing_records(
         # get all existing records in the db
         # if necessary, create records for the values in kwargs
         # k:v -> k:v_record
-        query = {f"{field.field.name}__in": iterable_idx.values, **kwargs}
+        query = {f"{field.field.name}__in": iterable_idx.values}
         if organism is not None:
             query["organism"] = organism
         return model.filter(**query).list(), nonexist_values, msg
@@ -211,7 +203,6 @@ def create_records_from_source(
     source: Record | None = None,
     msg: str = "",
     mute: bool = False,
-    **kwargs,
 ):
     model = field.field.model
     records: list = []
@@ -222,8 +213,7 @@ def create_records_from_source(
     # create the corresponding bionty object from model
     try:
         # TODO: more generic
-        organism = kwargs.get("organism")
-        if field.field.name == "ensembl_gene_id":
+        if field.field.name == "ensembl_gene_id" and organism is None:
             if iterable_idx[0].startswith("ENSG"):
                 organism = "human"
             elif iterable_idx[0].startswith("ENSMUSG"):
@@ -232,7 +222,7 @@ def create_records_from_source(
     except Exception:
         # for custom records that are not created from public sources
         return records, iterable_idx
-    # add source record to the kwargs
+    # get the default source
     if source is None:
         source = get_source_record(public_ontology, model)
 
@@ -265,13 +255,13 @@ def create_records_from_source(
         bionty_kwargs, multi_msg = _bulk_create_dicts_from_df(
             keys=mapped_values, column_name=field.field.name, df=bionty_df
         )
-        if organism is None:
+        if not isinstance(organism, Record):
             organism = _get_organism_record(field, public_ontology.organism, force=True)
 
         create_kwargs = (
-            {"organism": organism, "source": source, **kwargs}
+            {"organism": organism, "source": source}
             if organism is not None
-            else {"source": source, **kwargs}
+            else {"source": source}
         )
         for bk in bionty_kwargs:
             records.append(model(**bk, **create_kwargs))
