@@ -134,11 +134,8 @@ def get_existing_records(
     mute: bool = False,
     **kwargs,
 ):
+    # NOTE: existing records matching is agnostic to the source
     model = field.field.model
-    condition: dict = {} if len(kwargs) == 0 else kwargs.copy()
-    # existing records matching is agnostic to the bionty source
-    if organism is not None:
-        condition["organism"] = organism
 
     # standardize based on the DB reference
     # log synonyms mapped terms
@@ -150,23 +147,7 @@ def get_existing_records(
         public_aware=False,
         return_mapper=True,
     )
-
-    syn_msg = ""
-    if len(syn_mapper) > 0:
-        s = "" if len(syn_mapper) == 1 else "s"
-        names = list(syn_mapper.keys())
-        print_values = colors.green(_print_values(names))
-        syn_msg = (
-            "loaded"
-            f" {colors.green(f'{len(syn_mapper)} {model.__name__} record{s}')}"
-            f" matching {colors.italic('synonyms')}: {print_values}"
-        )
-        iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
-
-    # get all existing records in the db
-    # if necessary, create records for the values in kwargs
-    # k:v -> k:v_record
-    condition.update({f"{field.field.name}__in": iterable_idx.values})
+    iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
 
     # now we have to sort the list of queried records
     # preserved = Case(
@@ -179,16 +160,27 @@ def get_existing_records(
     # records = query_set.order_by(preserved).list()
 
     # log validated terms
-    validated = iterable_idx[model.validate(iterable_idx)]
+    validated = iterable_idx[model.validate(iterable_idx, mute=True)]
     msg = ""
-    if len(validated) > 0:
-        s = "" if len(validated) == 1 else "s"
-        print_values = colors.green(_print_values(validated))
-        msg = (
-            "loaded"
-            f" {colors.green(f'{len(validated)} {model.__name__} record{s}')}"
-            f" matching {colors.italic(f'{field.field.name}')}: {print_values}"
-        )
+    syn_msg = ""
+    if not mute:
+        if len(validated) > 0:
+            s = "" if len(validated) == 1 else "s"
+            print_values = colors.green(_print_values(validated))
+            msg = (
+                "loaded"
+                f" {colors.green(f'{len(validated)} {model.__name__} record{s}')}"
+                f" matching {colors.italic(f'{field.field.name}')}: {print_values}"
+            )
+        if len(syn_mapper) > 0:
+            s = "" if len(syn_mapper) == 1 else "s"
+            names = list(syn_mapper.keys())
+            print_values = colors.green(_print_values(names))
+            syn_msg = (
+                "loaded"
+                f" {colors.green(f'{len(syn_mapper)} {model.__name__} record{s}')}"
+                f" matching {colors.italic('synonyms')}: {print_values}"
+            )
 
     # no logging if all values are validated
     # logs if there are synonyms
@@ -203,7 +195,13 @@ def get_existing_records(
         return [], [], msg
     else:
         nonexist_values = iterable_idx.difference(validated)
-        return model.filter(**condition).list(), nonexist_values, msg
+        # get all existing records in the db
+        # if necessary, create records for the values in kwargs
+        # k:v -> k:v_record
+        query = {f"{field.field.name}__in": iterable_idx.values, **kwargs}
+        if organism is not None:
+            query["organism"] = organism
+        return model.filter(**query).list(), nonexist_values, msg
 
 
 def create_records_from_source(
