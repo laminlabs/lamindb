@@ -152,7 +152,7 @@ def get_existing_records(
     # records = query_set.order_by(preserved).list()
 
     # log validated terms
-    validated = iterable_idx[model.validate(iterable_idx, mute=True)]
+    validated = iterable_idx[model.validate(iterable_idx, organism=organism, mute=True)]
     msg = ""
     syn_msg = ""
     if not mute:
