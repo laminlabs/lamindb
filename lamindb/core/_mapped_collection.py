@@ -551,7 +551,7 @@ class MappedCollection:
 
     def _get_labels(
         self, storage: StorageType, label_key: str, storage_idx: int | None = None
-    ):  # type: ignore
+    ):
         """Get labels."""
         codes = self._get_codes(storage, label_key)
         labels = _decode(codes) if isinstance(codes[0], bytes) else codes
