@@ -156,7 +156,7 @@ def test_run_scripts_for_versioning():
     )
     # print(result.stderr.decode())
     assert result.returncode == 1
-    assert "Script filename changed." in result.stderr.decode()
+    assert "clashes with the existing key" in result.stderr.decode()
 
     # version already taken
     result = subprocess.run(  # noqa: S602
