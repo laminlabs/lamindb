@@ -86,6 +86,9 @@ class MappedCollection:
             retrieves ``.X``.
         obsm_keys: Keys from the ``.obsm`` slots.
         obs_keys: Keys from the ``.obs`` slots.
+        obs_filter: Select only observations with these values for the given obs column.
+            Should be a tuple with an obs column name as the first element
+            and filtering values (a string or a tuple of strings) as the second element.
         join: `"inner"` or `"outer"` virtual joins. If ``None`` is passed,
             does not join.
         encode_labels: Encode labels into integers.
