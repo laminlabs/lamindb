@@ -104,6 +104,7 @@ class MappedCollection:
         layers_keys: str | list[str] | None = None,
         obs_keys: str | list[str] | None = None,
         obsm_keys: str | list[str] | None = None,
+        obs_filter: tuple[str, str] | None = None,
         join: Literal["inner", "outer"] | None = "inner",
         encode_labels: bool | list[str] = True,
         unknown_label: str | dict[str, str] | None = None,
@@ -114,6 +115,13 @@ class MappedCollection:
         if join not in {None, "inner", "outer"}:  # pragma: nocover
             raise ValueError(
                 f"join must be one of None, 'inner, or 'outer' but was {type(join)}"
+            )
+
+        self.filtered = obs_filter is not None
+        if self.filtered and len(obs_filter) != 2:
+            raise ValueError(
+                "obs_filter should be a tuple with obs column name "
+                "as the first element and filtering value as the second element"
             )
 
         if layers_keys is None:
@@ -157,18 +165,26 @@ class MappedCollection:
         self._make_connections(path_list, parallel)
 
         self.n_obs_list = []
-        indices_list = []
+        self.indices_list = []
         for i, storage in enumerate(self.storages):
             with _Connect(storage) as store:
                 X = store["X"]
                 store_path = self.path_list[i]
                 self._check_csc_raise_error(X, "X", store_path)
-                if isinstance(X, ArrayTypes):  # type: ignore
-                    n_obs_storage = X.shape[0]
+                if obs_filter is not None:
+                    obs_filter_key, obs_filter_value = obs_filter
+                    indices_storage = np.where(
+                        self._get_labels(store, obs_filter_key) == obs_filter_value
+                    )[0]
+                    n_obs_storage = len(indices_storage)
                 else:
-                    n_obs_storage = X.attrs["shape"][0]
+                    if isinstance(X, ArrayTypes):  # type: ignore
+                        n_obs_storage = X.shape[0]
+                    else:
+                        n_obs_storage = X.attrs["shape"][0]
+                    indices_storage = np.arange(n_obs_storage)
                 self.n_obs_list.append(n_obs_storage)
-                indices_list.append(np.arange(n_obs_storage))
+                self.indices_list.append(indices_storage)
                 for layer_key in self.layers_keys:
                     if layer_key == "X":
                         continue
@@ -186,7 +202,7 @@ class MappedCollection:
                         )
         self.n_obs = sum(self.n_obs_list)
 
-        self.indices = np.hstack(indices_list)
+        self.indices = np.hstack(self.indices_list)
         self.storage_idx = np.repeat(np.arange(len(self.storages)), self.n_obs_list)
 
         self.join_vars: Literal["inner", "outer"] | None = join
@@ -199,11 +215,10 @@ class MappedCollection:
             self._make_join_vars()
             self.n_vars = len(self.var_joint)
 
+        self._cache_cats: dict = {}
         if self.obs_keys is not None:
             if cache_categories:
                 self._cache_categories(self.obs_keys)
-            else:
-                self._cache_cats: dict = {}
             self.encoders: dict = {}
             if self.encode_labels:
                 self._make_encoders(self.encode_labels)  # type: ignore
@@ -490,6 +505,8 @@ class MappedCollection:
         for i, storage in enumerate(self.storages):
             with _Connect(storage) as store:
                 labels = self._get_labels(store, label_key, storage_idx=i)
+                if self.filtered:
+                    labels = labels[self.indices_list[i]]
                 labels_merge.append(labels)
         return np.hstack(labels_merge)
 
