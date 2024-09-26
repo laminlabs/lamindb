@@ -157,15 +157,18 @@ class MappedCollection:
         self._make_connections(path_list, parallel)
 
         self.n_obs_list = []
+        indices_list = []
         for i, storage in enumerate(self.storages):
             with _Connect(storage) as store:
                 X = store["X"]
                 store_path = self.path_list[i]
                 self._check_csc_raise_error(X, "X", store_path)
                 if isinstance(X, ArrayTypes):  # type: ignore
-                    self.n_obs_list.append(X.shape[0])
+                    n_obs_storage = X.shape[0]
                 else:
-                    self.n_obs_list.append(X.attrs["shape"][0])
+                    n_obs_storage = X.attrs["shape"][0]
+                self.n_obs_list.append(n_obs_storage)
+                indices_list.append(np.arange(n_obs_storage))
                 for layer_key in self.layers_keys:
                     if layer_key == "X":
                         continue
@@ -183,7 +186,7 @@ class MappedCollection:
                         )
         self.n_obs = sum(self.n_obs_list)
 
-        self.indices = np.hstack([np.arange(n_obs) for n_obs in self.n_obs_list])
+        self.indices = np.hstack(indices_list)
         self.storage_idx = np.repeat(np.arange(len(self.storages)), self.n_obs_list)
 
         self.join_vars: Literal["inner", "outer"] | None = join
