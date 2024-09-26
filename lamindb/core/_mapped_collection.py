@@ -164,6 +164,14 @@ class MappedCollection:
         self.path_list = path_list
         self._make_connections(path_list, parallel)
 
+        self._cache_cats: dict = {}
+        if self.obs_keys is not None:
+            if cache_categories:
+                self._cache_categories(self.obs_keys)
+            self.encoders: dict = {}
+            if self.encode_labels:
+                self._make_encoders(self.encode_labels)  # type: ignore
+
         self.n_obs_list = []
         self.indices_list = []
         for i, storage in enumerate(self.storages):
@@ -216,14 +224,6 @@ class MappedCollection:
         if self.join_vars is not None:
             self._make_join_vars()
             self.n_vars = len(self.var_joint)
-
-        self._cache_cats: dict = {}
-        if self.obs_keys is not None:
-            if cache_categories:
-                self._cache_categories(self.obs_keys)
-            self.encoders: dict = {}
-            if self.encode_labels:
-                self._make_encoders(self.encode_labels)  # type: ignore
 
         self._dtype = dtype
         self._closed = False
