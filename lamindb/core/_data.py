@@ -23,6 +23,7 @@ from lamindb._record import get_name_field
 from lamindb.core._settings import settings
 
 from ._context import context
+from ._django import get_artifact_with_related, get_related_model
 from ._feature_manager import (
     get_feature_set_links,
     get_host_id_field,
@@ -106,54 +107,26 @@ def describe(self: Artifact, print_types: bool = False):
     if self._state.db is not None and self._state.db != "default":
         msg += f"  {colors.italic('Database instance')}\n"
         msg += f"    slug: {self._state.db}\n"
-    # prefetch all many-to-many relationships
-    # doesn't work for describing using artifact
-    # self = (
-    #     self.__class__.objects.using(self._state.db)
-    #     .prefetch_related(
-    #         *[f.name for f in self.__class__._meta.get_fields() if f.many_to_many]
-    #     )
-    #     .get(id=self.id)
-    # )
 
     prov_msg = ""
-    fields = self._meta.fields
-    direct_fields = []
-    foreign_key_fields = []
-    for f in fields:
-        if f.is_relation:
-            foreign_key_fields.append(f.name)
-        else:
-            direct_fields.append(f.name)
-    if not self._state.adding:
-        # prefetch foreign key relationships
-        # prefetch m-2-m relationships
-        many_to_many_fields = [
-            v
-            for v in dict_related_model_to_related_name(self.__class__).values()
-            if not v.startswith("_")
-        ]
-        if isinstance(self, (Collection, Artifact)):
-            many_to_many_fields.append("input_of_runs")
 
-        self = (
-            self.__class__.objects.using(self._state.db)
-            .select_related(*foreign_key_fields)
-            .prefetch_related(*many_to_many_fields)
-            .get(id=self.id)
-        )
+    result = get_artifact_with_related(self)
+    related_data = result.get("related_data", {})
+    fk_data = related_data.get("fk", {})
+    m2m_data = related_data.get("m2m", {})
 
     # provenance
-    if len(foreign_key_fields) > 0:  # always True for Artifact and Collection
-        fields_values = [(field, getattr(self, field)) for field in foreign_key_fields]
+    if fk_data:  # always True for Artifact and Collection
         type_str = lambda attr: (
-            f": {attr.__class__.__get_name_with_schema__()}" if print_types else ""
+            f": {get_related_model(self.__class__, attr).__name__}"
+            if print_types
+            else ""
         )
         related_msg = "".join(
             [
-                f"    .{field_name}{type_str(attr)} = {format_field_value(getattr(attr, get_name_field(attr)))}\n"
-                for (field_name, attr) in fields_values
-                if attr is not None
+                f"    .{field_name}{type_str(field_name)} = {format_field_value(value.get('display'))}\n"
+                for field_name, value in fk_data.items()
+                if value.get("display")
             ]
         )
         prov_msg += related_msg
@@ -172,12 +145,13 @@ def describe(self: Artifact, print_types: bool = False):
         msg += input_of_message
 
     # labels
-    msg += print_labels(self, print_types=print_types)
+    msg += print_labels(self, m2m_data=m2m_data, print_types=print_types)
 
     # features
     if isinstance(self, Artifact):
         msg += print_features(  # type: ignore
             self,
+            related_data=related_data,
             print_types=print_types,
             print_params=hasattr(self, "type") and self.type == "model",
         )

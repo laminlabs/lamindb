@@ -43,7 +43,7 @@ from lamindb._save import save
 from lamindb.core.exceptions import ValidationError
 from lamindb.core.storage import LocalPathClasses
 
-from ._label_manager import get_labels_as_dict
+from ._django import get_artifact_with_related
 from ._settings import settings
 from .schema import (
     dict_related_model_to_related_name,
@@ -134,35 +134,65 @@ def custom_aggregate(field, using: str):
 
 def print_features(
     self: Artifact | Collection,
+    related_data: dict | None = None,
     print_types: bool = False,
     to_dict: bool = False,
     print_params: bool = False,
 ) -> str | dict[str, Any]:
     from lamindb._from_values import _print_values
 
+    if not related_data:
+        artifact_meta = get_artifact_with_related(self, fks=False)
+        related_data = artifact_meta.get("related_data", {})
+
+    m2m_data = related_data.get("m2m", {}) if related_data else {}
+    m2m_name = {}
+    for related_name, values in m2m_data.items():
+        link_model = getattr(self.__class__, related_name).through
+        related_model_name = link_model.__name__.replace(
+            self.__class__.__name__, ""
+        ).lower()
+        m2m_name[related_model_name] = values
+    links_data = related_data.get("link", {}) if related_data else {}
+    feature_dict = {
+        id: (name, dtype)
+        for id, name, dtype in Feature.objects.using(self._state.db).values_list(
+            "id", "name", "dtype"
+        )
+    }
+
     msg = ""
     dictionary = {}
+
     # categorical feature values
     if not print_params:
         labels_msg = ""
-        labels_by_feature = defaultdict(list)
-        for _, (_, links) in get_labels_as_dict(self, links=True).items():
-            for link in links:
-                if link.feature_id is not None:
-                    link_attr = get_link_attr(link, self)
-                    labels_by_feature[link.feature_id].append(
-                        getattr(link, link_attr).name
-                    )
         labels_msgs = []
-        for feature_id, labels_list in labels_by_feature.items():
-            feature = Feature.objects.using(self._state.db).get(id=feature_id)
+        feature_values: dict = {}
+        for link_name, link_values in links_data.items():
+            related_name = link_name.removeprefix("links_").replace("_", "")
+            link_model = getattr(self.__class__, link_name).rel.related_model
+            if not link_values:
+                continue
+            for link_value in link_values:
+                feature_id = link_value.get("feature")
+                if feature_id is None:
+                    continue
+                feature_name = feature_dict.get(feature_id)[0]
+                if feature_name not in feature_values:
+                    feature_values[feature_name] = (feature_dict.get(feature_id)[1], [])
+                label_id = link_value.get(related_name)
+                feature_values[feature_name][1].append(
+                    m2m_name.get(related_name, {}).get(label_id)
+                )
+        for feature_name, (dtype, labels_list) in feature_values.items():
             print_values = _print_values(labels_list, n=10)
-            type_str = f": {feature.dtype}" if print_types else ""
+            type_str = f": {dtype}" if print_types else ""
             if to_dict:
-                dictionary[feature.name] = (
+                dictionary[feature_name] = (
                     labels_list if len(labels_list) > 1 else labels_list[0]
                 )
-            labels_msgs.append(f"    '{feature.name}'{type_str} = {print_values}")
+            labels_msgs.append(f"    '{feature_name}'{type_str} = {print_values}")
         if len(labels_msgs) > 0:
             labels_msg = "\n".join(sorted(labels_msgs)) + "\n"
             msg += labels_msg

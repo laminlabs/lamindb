@@ -16,6 +16,7 @@ from lamindb._record import (
 )
 from lamindb._save import save
 
+from ._django import get_artifact_with_related, get_related_model
 from ._settings import settings
 from .schema import dict_related_model_to_related_name
 
@@ -58,22 +59,23 @@ def get_labels_as_dict(self: Artifact | Collection, links: bool = False):
 
 
 def print_labels(
-    self: Artifact | Collection, field: str = "name", print_types: bool = False
+    self: Artifact | Collection,
+    m2m_data: dict | None = None,
+    print_types: bool = False,
 ):
     labels_msg = ""
-    for related_name, (related_model, labels) in get_labels_as_dict(self).items():
-        # there is a try except block here to deal with schema inconsistencies
-        # during transfer between instances
-        try:
-            # this is much faster than list(labels.values_list(field, flat=True)[:10])
-            labels_list = [getattr(ct, field) for ct in labels[:10]]
-            if labels_list:
-                get_name_field(labels)
-                print_values = _print_values(labels_list)
-                type_str = f": {related_model}" if print_types else ""
-                labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
-        except Exception:  # noqa: S112
-            continue
+    if not m2m_data:
+        artifact_meta = get_artifact_with_related(self, links=False, fks=False)
+        m2m_data = artifact_meta.get("related_data", {}).get("m2m", {})
+    if m2m_data:
+        for related_name, labels in m2m_data.items():
+            if not labels or related_name == "feature_sets":
+                continue
+            related_model = get_related_model(self, related_name)
+            print_values = _print_values(labels.values(), n=10)
+            type_str = f": {related_model}" if print_types else ""
+            labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
+
     msg = ""
     if labels_msg:
         msg += f"  {colors.italic('Labels')}\n"
