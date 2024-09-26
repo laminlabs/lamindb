@@ -1,6 +1,6 @@
 from django.contrib.postgres.aggregates import ArrayAgg, JSONBAgg
 from django.db import connection
-from django.db.models import F, Func, OuterRef, Q, Subquery, Value
+from django.db.models import F, Func, OuterRef, Q, Subquery
 from django.db.models.fields.related import ForeignKey, ManyToManyField
 from django.db.models.fields.reverse_related import ManyToManyRel, ManyToOneRel
 from django.db.models.functions import JSONObject

@@ -44,6 +44,7 @@ from lamindb.core.exceptions import ValidationError
 from lamindb.core.storage import LocalPathClasses
 
 from ._django import get_artifact_with_related
+from ._label_manager import get_labels_as_dict
 from ._settings import settings
 from .schema import (
     dict_related_model_to_related_name,
@@ -132,13 +133,13 @@ def custom_aggregate(field, using: str):
         return GroupConcat(field)
 
 
-def print_features(
+def _print_features_postgres(
     self: Artifact | Collection,
     related_data: dict | None = None,
     print_types: bool = False,
     to_dict: bool = False,
     print_params: bool = False,
-) -> str | dict[str, Any]:
+) -> str:
     from lamindb._from_values import _print_values
 
     if not related_data:
@@ -196,6 +197,53 @@ def print_features(
         if len(labels_msgs) > 0:
             labels_msg = "\n".join(sorted(labels_msgs)) + "\n"
             msg += labels_msg
+    return msg
+
+
+def print_features(
+    self: Artifact | Collection,
+    related_data: dict | None = None,
+    print_types: bool = False,
+    to_dict: bool = False,
+    print_params: bool = False,
+) -> str | dict[str, Any]:
+    from lamindb._from_values import _print_values
+
+    if connections.vendor == "postgresql":
+        msg = _print_features_postgres(
+            self,
+            related_data=related_data,
+            print_types=print_types,
+            to_dict=to_dict,
+            print_params=print_params,
+        )
+    else:
+        msg = ""
+        dictionary = {}
+        # categorical feature values
+        if not print_params:
+            labels_msg = ""
+            labels_by_feature = defaultdict(list)
+            for _, (_, links) in get_labels_as_dict(self, links=True).items():
+                for link in links:
+                    if link.feature_id is not None:
+                        link_attr = get_link_attr(link, self)
+                        labels_by_feature[link.feature_id].append(
+                            getattr(link, link_attr).name
+                        )
+            labels_msgs = []
+            for feature_id, labels_list in labels_by_feature.items():
+                feature = Feature.objects.using(self._state.db).get(id=feature_id)
+                print_values = _print_values(labels_list, n=10)
+                type_str = f": {feature.dtype}" if print_types else ""
+                if to_dict:
+                    dictionary[feature.name] = (
+                        labels_list if len(labels_list) > 1 else labels_list[0]
+                    )
+                labels_msgs.append(f"    '{feature.name}'{type_str} = {print_values}")
+            if len(labels_msgs) > 0:
+                labels_msg = "\n".join(sorted(labels_msgs)) + "\n"
+                msg += labels_msg
 
     # non-categorical feature values
     non_labels_msg = ""

@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Iterable, List
 
+from django.db import connection
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import (
@@ -99,55 +100,31 @@ def save_feature_set_links(self: Artifact | Collection) -> None:
         bulk_create(links, ignore_conflicts=True)
 
 
-@doc_args(Artifact.describe.__doc__)
-def describe(self: Artifact, print_types: bool = False):
-    """{}"""  # noqa: D415
-    model_name = self.__class__.__name__
-    msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
-    if self._state.db is not None and self._state.db != "default":
-        msg += f"  {colors.italic('Database instance')}\n"
-        msg += f"    slug: {self._state.db}\n"
+def format_provenance(self, fk_data, print_types):
+    type_str = lambda attr: (
+        f": {get_related_model(self.__class__, attr).__name__}" if print_types else ""
+    )
+    return "".join(
+        [
+            f"    .{field_name}{type_str(field_name)} = {format_field_value(value.get('display'))}\n"
+            for field_name, value in fk_data.items()
+            if value.get("display")
+        ]
+    )
 
-    prov_msg = ""
 
-    result = get_artifact_with_related(self)
-    related_data = result.get("related_data", {})
-    fk_data = related_data.get("fk", {})
-    m2m_data = related_data.get("m2m", {})
-
-    # provenance
-    if fk_data:  # always True for Artifact and Collection
-        type_str = lambda attr: (
-            f": {get_related_model(self.__class__, attr).__name__}"
-            if print_types
-            else ""
-        )
-        related_msg = "".join(
-            [
-                f"    .{field_name}{type_str(field_name)} = {format_field_value(value.get('display'))}\n"
-                for field_name, value in fk_data.items()
-                if value.get("display")
-            ]
-        )
-        prov_msg += related_msg
-    if prov_msg:
-        msg += f"  {colors.italic('Provenance')}\n"
-        msg += prov_msg
-
-    # input of runs
-    input_of_message = ""
+def format_input_of_runs(self, print_types):
     if self.id is not None and self.input_of_runs.exists():
         values = [format_field_value(i.started_at) for i in self.input_of_runs.all()]
         type_str = ": Run" if print_types else ""  # type: ignore
-        input_of_message += f"    .input_of_runs{type_str} = {', '.join(values)}\n"
-    if input_of_message:
-        msg += f"  {colors.italic('Usage')}\n"
-        msg += input_of_message
+        return f"    .input_of_runs{type_str} = {', '.join(values)}\n"
+    return ""
 
-    # labels
-    msg += print_labels(self, m2m_data=m2m_data, print_types=print_types)
 
-    # features
+def format_labels_and_features(self, related_data, print_types):
+    msg = print_labels(
+        self, m2m_data=related_data.get("m2m", {}), print_types=print_types
+    )
     if isinstance(self, Artifact):
         msg += print_features(  # type: ignore
             self,
@@ -155,8 +132,82 @@ def describe(self: Artifact, print_types: bool = False):
             print_types=print_types,
             print_params=hasattr(self, "type") and self.type == "model",
         )
+    return msg
 
-    # print entire message
+
+def _describe_postgres(self: Artifact, print_types: bool = False):
+    model_name = self.__class__.__name__
+    msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
+    if self._state.db is not None and self._state.db != "default":
+        msg += f"  {colors.italic('Database instance')}\n"
+        msg += f"    slug: {self._state.db}\n"
+
+    result = get_artifact_with_related(self)
+    related_data = result.get("related_data", {})
+    fk_data = related_data.get("fk", {})
+
+    # Provenance
+    prov_msg = format_provenance(self, fk_data, print_types)
+    if prov_msg:
+        msg += f"  {colors.italic('Provenance')}\n{prov_msg}"
+
+    # Input of runs
+    input_of_message = format_input_of_runs(self, print_types)
+    if input_of_message:
+        msg += f"  {colors.italic('Usage')}\n{input_of_message}"
+
+    # Labels and features
+    msg += format_labels_and_features(self, related_data, print_types)
+
+    # Print entire message
+    logger.print(msg)
+
+
+@doc_args(Artifact.describe.__doc__)
+def describe(self: Artifact, print_types: bool = False):
+    """{}"""  # noqa: D415
+    if connection.vendor == "postgresql":
+        return _describe_postgres(self, print_types=print_types)
+
+    model_name = self.__class__.__name__
+    msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
+    if self._state.db is not None and self._state.db != "default":
+        msg += f"  {colors.italic('Database instance')}\n"
+        msg += f"    slug: {self._state.db}\n"
+
+    if not self._state.adding:
+        # Prefetch foreign key and m2m relationships
+        foreign_key_fields = [f.name for f in self._meta.fields if f.is_relation]
+        many_to_many_fields = (
+            ["input_of_runs"] if isinstance(self, (Collection, Artifact)) else []
+        )
+        if isinstance(self, Artifact):
+            many_to_many_fields.append("feature_sets")
+        self = (
+            self.__class__.objects.using(self._state.db)
+            .select_related(*foreign_key_fields)
+            .prefetch_related(*many_to_many_fields)
+            .get(id=self.id)
+        )
+
+    # Provenance
+    prov_msg = format_provenance(
+        self,
+        {f.name: getattr(self, f.name) for f in self._meta.fields if f.is_relation},
+        print_types,
+    )
+    if prov_msg:
+        msg += f"  {colors.italic('Provenance')}\n{prov_msg}"
+
+    # Input of runs
+    input_of_message = format_input_of_runs(self, print_types)
+    if input_of_message:
+        msg += f"  {colors.italic('Usage')}\n{input_of_message}"
+
+    # Labels and features
+    msg += format_labels_and_features(self, {}, print_types)
+
+    # Print entire message
     logger.print(msg)
 
 

@@ -4,6 +4,7 @@ from collections import defaultdict
 from typing import TYPE_CHECKING, Dict
 
 import numpy as np
+from django.db import connection
 from lamin_utils import colors
 from lnschema_core.models import Feature
 
@@ -58,11 +59,9 @@ def get_labels_as_dict(self: Artifact | Collection, links: bool = False):
     return labels
 
 
-def print_labels(
-    self: Artifact | Collection,
-    m2m_data: dict | None = None,
-    print_types: bool = False,
-):
+def _print_labels_postgres(
+    self: Artifact | Collection, m2m_data: dict | None = None, print_types: bool = False
+) -> str:
     labels_msg = ""
     if not m2m_data:
         artifact_meta = get_artifact_with_related(self, links=False, fks=False)
@@ -75,6 +74,31 @@ def print_labels(
             print_values = _print_values(labels.values(), n=10)
             type_str = f": {related_model}" if print_types else ""
             labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
+    return labels_msg
+
+
+def print_labels(
+    self: Artifact | Collection,
+    m2m_data: dict | None = None,
+    print_types: bool = False,
+):
+    if connection.vendor == "postgresql":
+        labels_msg = _print_labels_postgres(self, m2m_data, print_types)
+    else:
+        labels_msg = ""
+        for related_name, (related_model, labels) in get_labels_as_dict(self).items():
+            # there is a try except block here to deal with schema inconsistencies
+            # during transfer between instances
+            try:
+                field = get_name_field(self.__class__)
+                labels_list = list(labels.values_list(field, flat=True))
+                if len(labels_list) > 0:
+                    get_name_field(labels)
+                    print_values = _print_values(labels_list, n=10)
+                    type_str = f": {related_model}" if print_types else ""
+                    labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
+            except Exception:  # noqa: S112
+                continue
 
     msg = ""
     if labels_msg:
