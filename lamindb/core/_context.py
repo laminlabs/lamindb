@@ -450,11 +450,11 @@ class Context:
             self._logging_message += f"created Transform(uid='{transform.uid}')"
         else:
             uid = transform.uid
-            # check whether the transform file has been renamed
+            # check whether the transform.key is consistent
             if transform.key != key:
                 suid = transform.stem_uid
                 new_suid = ids.base62_12()
-                transform_type = "Notebook" if is_run_from_ipython else "Script"
+                transform_type = "notebook" if is_run_from_ipython else "script"
                 note = message_update_key_in_version_family(
                     suid=suid,
                     existing_key=transform.key,
@@ -462,7 +462,7 @@ class Context:
                     registry="Transform",
                 )
                 raise UpdateContext(
-                    f"{transform_type} filename changed.\n\nEither init a new transform family by setting:\n\n"
+                    f'\n✗ Filename "{key}" clashes with the existing key "{transform.key}" for uid "{transform.uid[:-4]}...."\n\nEither init a new transform with a new uid:\n\n'
                     f'ln.context.uid = "{new_suid}0000"\n\n{note}'
                 )
             elif transform.name != name:
