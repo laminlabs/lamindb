@@ -409,6 +409,9 @@ def using(
         return QuerySet(model=cls, using=None)
     owner, name = get_owner_name_from_identifier(instance)
     settings_file = instance_settings_file(name, owner)
+    cache_filepath = (
+        ln_setup.settings.storage.cache_dir / f"instance--{owner}--{name}--uid.txt"
+    )
     if not settings_file.exists():
         load_result = connect_instance(owner=owner, name=name)
         if isinstance(load_result, str):
@@ -416,11 +419,13 @@ def using(
                 f"Failed to load instance {instance}, please check your permission!"
             )
         instance_result, _ = load_result
+        cache_filepath.write_text(instance_result["lnid"])
         settings_file = instance_settings_file(name, owner)
         db = update_db_using_local(instance_result, settings_file)
     else:
         isettings = load_instance_settings(settings_file)
         db = isettings.db
+        cache_filepath.write_text(isettings.uid)
     add_db_connection(db, instance)
     return QuerySet(model=cls, using=instance)
 
@@ -484,12 +489,12 @@ def get_transfer_run(record) -> Run:
 
     slug = record._state.db
     owner, name = get_owner_name_from_identifier(slug)
-    settings_file = instance_settings_file(name, owner)
-    print(settings_file)
-    if not settings_file.exists():
-        print("settings file does not exit, re-connect")
-        connect_instance(owner=owner, name=name)  # write settings file
-    instance_uid = load_instance_settings(settings_file).uid
+    cache_filepath = (
+        ln_setup.settings.storage.cache_dir / f"instance--{owner}--{name}--uid.txt"
+    )
+    if not cache_filepath.exists():
+        raise SystemExit("Need to call .using() before")
+    instance_uid = cache_filepath.read_text()
     key = f"transfers/{instance_uid}"
     transform = Transform.filter(key=key).one_or_none()
     if transform is None:
