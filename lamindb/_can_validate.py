@@ -388,8 +388,7 @@ def _standardize(
 
     try:
         registry._meta.get_field(synonyms_field)
-        fields = {field, return_field, synonyms_field}
-        fields.remove(None)
+        fields = {i for i in [field, return_field, synonyms_field] if i is not None}
         df = _filter_query_based_on_organism(
             queryset=queryset,
             field=field,
