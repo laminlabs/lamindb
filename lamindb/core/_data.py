@@ -167,73 +167,71 @@ def _describe_postgres(self: Artifact, print_types: bool = False):
 @doc_args(Artifact.describe.__doc__)
 def describe(self: Artifact, print_types: bool = False):
     """{}"""  # noqa: D415
-    if connections[self._state.db] == "postgresql":
-        _describe_postgres(self, print_types=print_types)
-    else:
-        model_name = self.__class__.__name__
-        msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
-        if self._state.db is not None and self._state.db != "default":
-            msg += f"  {colors.italic('Database instance')}\n"
-            msg += f"    slug: {self._state.db}\n"
+    if not self._state.adding and connections[self._state.db] == "postgresql":
+        return _describe_postgres(self, print_types=print_types)
 
-        prov_msg = ""
-        fields = self._meta.fields
-        direct_fields = []
-        foreign_key_fields = []
-        for f in fields:
-            if f.is_relation:
-                foreign_key_fields.append(f.name)
-            else:
-                direct_fields.append(f.name)
-        if not self._state.adding:
-            # prefetch foreign key relationships
-            self = (
-                self.__class__.objects.using(self._state.db)
-                .select_related(*foreign_key_fields)
-                .get(id=self.id)
-            )
-            # prefetch m-2-m relationships
-            many_to_many_fields = []
-            if isinstance(self, (Collection, Artifact)):
-                many_to_many_fields.append("input_of_runs")
-            if isinstance(self, Artifact):
-                many_to_many_fields.append("feature_sets")
-            self = (
-                self.__class__.objects.using(self._state.db)
-                .prefetch_related(*many_to_many_fields)
-                .get(id=self.id)
-            )
+    model_name = self.__class__.__name__
+    msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
+    if self._state.db is not None and self._state.db != "default":
+        msg += f"  {colors.italic('Database instance')}\n"
+        msg += f"    slug: {self._state.db}\n"
 
-        # provenance
-        if len(foreign_key_fields) > 0:  # always True for Artifact and Collection
-            fields_values = [
-                (field, getattr(self, field)) for field in foreign_key_fields
+    prov_msg = ""
+    fields = self._meta.fields
+    direct_fields = []
+    foreign_key_fields = []
+    for f in fields:
+        if f.is_relation:
+            foreign_key_fields.append(f.name)
+        else:
+            direct_fields.append(f.name)
+    if not self._state.adding:
+        # prefetch foreign key relationships
+        self = (
+            self.__class__.objects.using(self._state.db)
+            .select_related(*foreign_key_fields)
+            .get(id=self.id)
+        )
+        # prefetch m-2-m relationships
+        many_to_many_fields = []
+        if isinstance(self, (Collection, Artifact)):
+            many_to_many_fields.append("input_of_runs")
+        if isinstance(self, Artifact):
+            many_to_many_fields.append("feature_sets")
+        self = (
+            self.__class__.objects.using(self._state.db)
+            .prefetch_related(*many_to_many_fields)
+            .get(id=self.id)
+        )
+
+    # provenance
+    if len(foreign_key_fields) > 0:  # always True for Artifact and Collection
+        fields_values = [(field, getattr(self, field)) for field in foreign_key_fields]
+        type_str = lambda attr: (
+            f": {attr.__class__.__get_name_with_schema__()}" if print_types else ""
+        )
+        related_msg = "".join(
+            [
+                f"    .{field_name}{type_str(attr)} = {format_field_value(getattr(attr, get_name_field(attr)))}\n"
+                for (field_name, attr) in fields_values
+                if attr is not None
             ]
-            type_str = lambda attr: (
-                f": {attr.__class__.__get_name_with_schema__()}" if print_types else ""
-            )
-            related_msg = "".join(
-                [
-                    f"    .{field_name}{type_str(attr)} = {format_field_value(getattr(attr, get_name_field(attr)))}\n"
-                    for (field_name, attr) in fields_values
-                    if attr is not None
-                ]
-            )
-            prov_msg += related_msg
-        if prov_msg:
-            msg += f"  {colors.italic('Provenance')}\n"
-            msg += prov_msg
+        )
+        prov_msg += related_msg
+    if prov_msg:
+        msg += f"  {colors.italic('Provenance')}\n"
+        msg += prov_msg
 
-        # Input of runs
-        input_of_message = format_input_of_runs(self, print_types)
-        if input_of_message:
-            msg += f"  {colors.italic('Usage')}\n{input_of_message}"
+    # Input of runs
+    input_of_message = format_input_of_runs(self, print_types)
+    if input_of_message:
+        msg += f"  {colors.italic('Usage')}\n{input_of_message}"
 
-        # Labels and features
-        msg += format_labels_and_features(self, {}, print_types)
+    # Labels and features
+    msg += format_labels_and_features(self, {}, print_types)
 
-        # Print entire message
-        logger.print(msg)
+    # Print entire message
+    logger.print(msg)
 
 
 def validate_feature(feature: Feature, records: list[Record]) -> None:

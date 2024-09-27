@@ -82,7 +82,7 @@ def print_labels(
     m2m_data: dict | None = None,
     print_types: bool = False,
 ):
-    if connections[self._state.db].vendor == "postgresql":
+    if not self._state.adding and connections[self._state.db].vendor == "postgresql":
         labels_msg = _print_labels_postgres(self, m2m_data, print_types)
     else:
         labels_msg = ""

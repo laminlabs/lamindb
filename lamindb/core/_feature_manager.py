@@ -133,13 +133,13 @@ def custom_aggregate(field, using: str):
         return GroupConcat(field)
 
 
-def _print_features_postgres(
+def _print_categoricals_postgres(
     self: Artifact | Collection,
     related_data: dict | None = None,
     print_types: bool = False,
     to_dict: bool = False,
     print_params: bool = False,
-) -> str:
+):
     from lamindb._from_values import _print_values
 
     if not related_data:
@@ -197,7 +197,44 @@ def _print_features_postgres(
         if len(labels_msgs) > 0:
             labels_msg = "\n".join(sorted(labels_msgs)) + "\n"
             msg += labels_msg
-    return msg
+    return msg, dictionary
+
+
+def _print_categoricals(
+    self: Artifact | Collection,
+    print_types: bool = False,
+    to_dict: bool = False,
+    print_params: bool = False,
+):
+    from lamindb._from_values import _print_values
+
+    msg = ""
+    dictionary = {}
+    # categorical feature values
+    if not print_params:
+        labels_msg = ""
+        labels_by_feature = defaultdict(list)
+        for _, (_, links) in get_labels_as_dict(self, links=True).items():
+            for link in links:
+                if link.feature_id is not None:
+                    link_attr = get_link_attr(link, self)
+                    labels_by_feature[link.feature_id].append(
+                        getattr(link, link_attr).name
+                    )
+        labels_msgs = []
+        for feature_id, labels_list in labels_by_feature.items():
+            feature = Feature.objects.using(self._state.db).get(id=feature_id)
+            print_values = _print_values(labels_list, n=10)
+            type_str = f": {feature.dtype}" if print_types else ""
+            if to_dict:
+                dictionary[feature.name] = (
+                    labels_list if len(labels_list) > 1 else labels_list[0]
+                )
+            labels_msgs.append(f"    '{feature.name}'{type_str} = {print_values}")
+        if len(labels_msgs) > 0:
+            labels_msg = "\n".join(sorted(labels_msgs)) + "\n"
+            msg += labels_msg
+    return msg, dictionary
 
 
 def print_features(
@@ -209,8 +246,8 @@ def print_features(
 ) -> str | dict[str, Any]:
     from lamindb._from_values import _print_values
 
-    if connections[self._state.db].vendor == "postgresql":
-        msg = _print_features_postgres(
+    if not self._state.adding and connections[self._state.db].vendor == "postgresql":
+        msg, dictionary = _print_categoricals_postgres(
             self,
             related_data=related_data,
             print_types=print_types,
@@ -218,32 +255,12 @@ def print_features(
             print_params=print_params,
         )
     else:
-        msg = ""
-        dictionary = {}
-        # categorical feature values
-        if not print_params:
-            labels_msg = ""
-            labels_by_feature = defaultdict(list)
-            for _, (_, links) in get_labels_as_dict(self, links=True).items():
-                for link in links:
-                    if link.feature_id is not None:
-                        link_attr = get_link_attr(link, self)
-                        labels_by_feature[link.feature_id].append(
-                            getattr(link, link_attr).name
-                        )
-            labels_msgs = []
-            for feature_id, labels_list in labels_by_feature.items():
-                feature = Feature.objects.using(self._state.db).get(id=feature_id)
-                print_values = _print_values(labels_list, n=10)
-                type_str = f": {feature.dtype}" if print_types else ""
-                if to_dict:
-                    dictionary[feature.name] = (
-                        labels_list if len(labels_list) > 1 else labels_list[0]
-                    )
-                labels_msgs.append(f"    '{feature.name}'{type_str} = {print_values}")
-            if len(labels_msgs) > 0:
-                labels_msg = "\n".join(sorted(labels_msgs)) + "\n"
-                msg += labels_msg
+        msg, dictionary = _print_categoricals(
+            self,
+            print_types=print_types,
+            to_dict=to_dict,
+            print_params=print_params,
+        )
 
     # non-categorical feature values
     non_labels_msg = ""
