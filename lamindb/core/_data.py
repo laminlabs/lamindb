@@ -104,6 +104,7 @@ def format_provenance(self, fk_data, print_types):
     type_str = lambda attr: (
         f": {get_related_model(self.__class__, attr).__name__}" if print_types else ""
     )
+
     return "".join(
         [
             f"    .{field_name}{type_str(field_name)} = {format_field_value(value.get('display'))}\n"
@@ -175,29 +176,53 @@ def describe(self: Artifact, print_types: bool = False):
             msg += f"  {colors.italic('Database instance')}\n"
             msg += f"    slug: {self._state.db}\n"
 
+        prov_msg = ""
+        fields = self._meta.fields
+        direct_fields = []
+        foreign_key_fields = []
+        for f in fields:
+            if f.is_relation:
+                foreign_key_fields.append(f.name)
+            else:
+                direct_fields.append(f.name)
         if not self._state.adding:
-            # Prefetch foreign key and m2m relationships
-            foreign_key_fields = [f.name for f in self._meta.fields if f.is_relation]
-            many_to_many_fields = (
-                ["input_of_runs"] if isinstance(self, (Collection, Artifact)) else []
+            # prefetch foreign key relationships
+            self = (
+                self.__class__.objects.using(self._state.db)
+                .select_related(*foreign_key_fields)
+                .get(id=self.id)
             )
+            # prefetch m-2-m relationships
+            many_to_many_fields = []
+            if isinstance(self, (Collection, Artifact)):
+                many_to_many_fields.append("input_of_runs")
             if isinstance(self, Artifact):
                 many_to_many_fields.append("feature_sets")
             self = (
                 self.__class__.objects.using(self._state.db)
-                .select_related(*foreign_key_fields)
                 .prefetch_related(*many_to_many_fields)
                 .get(id=self.id)
             )
 
-        # Provenance
-        prov_msg = format_provenance(
-            self,
-            {f.name: getattr(self, f.name) for f in self._meta.fields if f.is_relation},
-            print_types,
-        )
+        # provenance
+        if len(foreign_key_fields) > 0:  # always True for Artifact and Collection
+            fields_values = [
+                (field, getattr(self, field)) for field in foreign_key_fields
+            ]
+            type_str = lambda attr: (
+                f": {attr.__class__.__get_name_with_schema__()}" if print_types else ""
+            )
+            related_msg = "".join(
+                [
+                    f"    .{field_name}{type_str(attr)} = {format_field_value(getattr(attr, get_name_field(attr)))}\n"
+                    for (field_name, attr) in fields_values
+                    if attr is not None
+                ]
+            )
+            prov_msg += related_msg
         if prov_msg:
-            msg += f"  {colors.italic('Provenance')}\n{prov_msg}"
+            msg += f"  {colors.italic('Provenance')}\n"
+            msg += prov_msg
 
         # Input of runs
         input_of_message = format_input_of_runs(self, print_types)
