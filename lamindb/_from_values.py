@@ -128,6 +128,9 @@ def get_existing_records(
 ):
     # NOTE: existing records matching is agnostic to the source
     model = field.field.model
+    if organism is None and field.field.name == "ensembl_gene_id":
+        organism = _ensembl_prefix(iterable_idx[0], field, organism)
+        organism = _get_organism_record(field, organism, force=True)
 
     # standardize based on the DB reference
     # log synonyms mapped terms
@@ -215,11 +218,7 @@ def create_records_from_source(
     # create the corresponding bionty object from model
     try:
         # TODO: more generic
-        if field.field.name == "ensembl_gene_id" and organism is None:
-            if iterable_idx[0].startswith("ENSG"):
-                organism = "human"
-            elif iterable_idx[0].startswith("ENSMUSG"):
-                organism = "mouse"
+        organism = _ensembl_prefix(iterable_idx[0], field, organism)
         public_ontology = model.public(organism=organism, source=source)
     except Exception:
         # for custom records that are not created from public sources
@@ -358,6 +357,13 @@ def _has_organism_field(registry: type[Record]) -> bool:
 def _get_organism_record(
     field: StrField, organism: str | Record, force: bool = False
 ) -> Record:
+    """Get organism record.
+
+    Args:
+        field: the field to get the organism record for
+        organism: the organism to get the record for
+        force: whether to force fetching the organism record
+    """
     registry = field.field.model
     check = True
     if not force and hasattr(registry, "_ontology_id_field"):
@@ -374,3 +380,13 @@ def _get_organism_record(
         )
         if organism_record is not None:
             return organism_record
+
+
+def _ensembl_prefix(id: str, field: StrField, organism: Record | None) -> str | None:
+    if field.field.name == "ensembl_gene_id" and organism is None:
+        if id.startswith("ENSG"):
+            organism = "human"
+        elif id.startswith("ENSMUSG"):
+            organism = "mouse"
+
+    return organism
