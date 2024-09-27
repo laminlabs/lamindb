@@ -133,7 +133,8 @@ def get_artifact_with_related(
 
     # Execute the query
     artifact_meta = (
-        model.objects.filter(uid=artifact.uid)
+        model.objects.using(artifact._state.db)
+        .filter(uid=artifact.uid)
         .annotate(**annotations)
         .values(
             *direct_fields,

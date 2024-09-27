@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Iterable, List
 
-from django.db import connection
+from django.db import connections
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import (
@@ -167,7 +167,7 @@ def _describe_postgres(self: Artifact, print_types: bool = False):
 @doc_args(Artifact.describe.__doc__)
 def describe(self: Artifact, print_types: bool = False):
     """{}"""  # noqa: D415
-    if connection.vendor == "postgresql":
+    if connections[self._state.db] == "postgresql":
         _describe_postgres(self, print_types=print_types)
     else:
         model_name = self.__class__.__name__

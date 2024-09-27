@@ -4,7 +4,7 @@ from collections import defaultdict
 from typing import TYPE_CHECKING, Dict
 
 import numpy as np
-from django.db import connection
+from django.db import connections
 from lamin_utils import colors
 from lnschema_core.models import Feature
 
@@ -82,7 +82,7 @@ def print_labels(
     m2m_data: dict | None = None,
     print_types: bool = False,
 ):
-    if connection.vendor == "postgresql":
+    if connections[self._state.db].vendor == "postgresql":
         labels_msg = _print_labels_postgres(self, m2m_data, print_types)
     else:
         labels_msg = ""
