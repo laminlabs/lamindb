@@ -21,6 +21,8 @@ Key functionality.
 .. autosummary::
    :toctree: .
 
+   track
+   finish
    context
    connect
    Curator
