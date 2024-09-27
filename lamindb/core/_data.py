@@ -134,20 +134,23 @@ def format_labels_and_features(self, related_data, print_types):
     return msg
 
 
-def _describe_postgres(self: Artifact, print_types: bool = False):
+def _describe_postgres(self: Artifact | Collection, print_types: bool = False):
     model_name = self.__class__.__name__
     msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
     if self._state.db is not None and self._state.db != "default":
         msg += f"  {colors.italic('Database instance')}\n"
         msg += f"    slug: {self._state.db}\n"
 
-    result = get_artifact_with_related(
-        self,
-        include_feature_link=True,
-        include_fk=True,
-        include_m2m=True,
-        include_featureset=True,
-    )
+    if model_name == "Artifact":
+        result = get_artifact_with_related(
+            self,
+            include_feature_link=True,
+            include_fk=True,
+            include_m2m=True,
+            include_featureset=True,
+        )
+    else:
+        result = get_artifact_with_related(self, include_fk=True, include_m2m=True)
     related_data = result.get("related_data", {})
     fk_data = related_data.get("fk", {})
 
@@ -169,7 +172,7 @@ def _describe_postgres(self: Artifact, print_types: bool = False):
 
 
 @doc_args(Artifact.describe.__doc__)
-def describe(self: Artifact, print_types: bool = False):
+def describe(self: Artifact | Collection, print_types: bool = False):
     """{}"""  # noqa: D415
     if not self._state.adding and connections[self._state.db].vendor == "postgresql":
         return _describe_postgres(self, print_types=print_types)
