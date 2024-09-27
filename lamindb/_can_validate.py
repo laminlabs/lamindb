@@ -382,10 +382,19 @@ def _standardize(
             organism_record.name if organism_record is not None else organism_record
         )
 
+    # only perform synonym mapping if field is the name field
+    if hasattr(registry, "_name_field") and field != registry._name_field:
+        synonyms_field = None
+
     try:
         registry._meta.get_field(synonyms_field)
+        fields = {field, return_field, synonyms_field}
+        fields.remove(None)
         df = _filter_query_based_on_organism(
-            queryset=queryset, field=field, organism=organism
+            queryset=queryset,
+            field=field,
+            organism=organism,
+            fields=list(fields),
         )
     except FieldDoesNotExist:
         df = pd.DataFrame()
@@ -552,6 +561,7 @@ def _filter_query_based_on_organism(
     field: str,
     organism: str | Record | None = None,
     values_list_field: str | None = None,
+    fields: list[str] | None = None,
 ):
     """Filter a queryset based on organism."""
     import pandas as pd
@@ -569,7 +579,12 @@ def _filter_query_based_on_organism(
             queryset = queryset.filter(organism__name=organism_record.name)
 
     if values_list_field is None:
+        if fields:
+            return pd.DataFrame.from_records(
+                queryset.values_list(*fields), columns=fields
+            )
         return pd.DataFrame.from_records(queryset.values())
+
     else:
         return queryset.values_list(values_list_field, flat=True)
 
