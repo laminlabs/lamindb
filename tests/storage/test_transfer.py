@@ -1,5 +1,6 @@
 import lamindb as ln
 import pytest
+from lamindb.core._django import get_artifact_with_related
 
 
 # this test has to be refactored and sped up a lot
@@ -18,6 +19,40 @@ def test_transfer_from_remote_to_local():
         .filter(uid="livFRRpMaOgb3y8U2mK2")
         .one()
     )
+
+    # test describe postgres
+    result = get_artifact_with_related(
+        artifact,
+        include_m2m=True,
+        include_fk=True,
+        include_feature_link=True,
+        include_featureset=True,
+    )
+    assert result["related_data"]["m2m"]["tissues"] == {2: "cortex of kidney"}
+    assert result["related_data"]["link"]["links_ulabel"] == [
+        {"id": 7, "ulabel": 15, "feature": 1},
+        {"id": 8, "ulabel": 10, "feature": 10},
+    ]
+    assert result["related_data"]["featuresets"][615][0] == "obs"
+    assert result["related_data"]["featuresets"][615][1] == {
+        "Feature": [
+            "donor_id",
+            "development_stage",
+            "disease",
+            "cell_type",
+            "sex",
+            "assay",
+            "tissue",
+            "self_reported_ethnicity",
+            "tissue_type",
+            "suspension_type",
+            "organism",
+        ]
+    }
+    assert result["related_data"]["fk"]["storage"] == {
+        "id": 4,
+        "name": "s3://cellxgene-data-public",
+    }
 
     id_remote = artifact.id
     run_remote = artifact.run

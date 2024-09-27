@@ -26,7 +26,7 @@ class InvalidArgument(SystemExit):
 
 
 class TrackNotCalled(SystemExit):
-    """ln.context.track() wasn't called."""
+    """`ln.track()` wasn't called."""
 
     pass
 
@@ -52,7 +52,7 @@ class DoesNotExist(Exception):
 
 
 # -------------------------------------------------------------------------------------
-# ln.context.track() AKA context
+# run context
 # -------------------------------------------------------------------------------------
 
 
