@@ -188,7 +188,7 @@ class Context:
         path: str | None = None,
         transform: Transform | None = None,
     ) -> None:
-        """Initiates a run with tracked data lineage.
+        """Initiate a run with tracked data lineage.
 
         - sets :attr:`~lamindb.core.Context.transform` &
           :attr:`~lamindb.core.Context.run` by creating or loading `Transform` &
