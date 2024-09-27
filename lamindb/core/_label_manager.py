@@ -212,7 +212,7 @@ class LabelManager:
         from django.db.utils import ProgrammingError
 
         if transfer_logs is None:
-            transfer_logs = {"mapped": [], "transferred": []}
+            transfer_logs = {"mapped": [], "transferred": [], "run": None}
         using_key = settings._using_key
         for related_name, (_, labels) in get_labels_as_dict(data).items():
             labels = labels.all()

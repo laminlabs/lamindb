@@ -18,13 +18,16 @@ def __init__(run: Run, *args, **kwargs):
     reference_type: str | None = (
         kwargs.pop("reference_type") if "reference_type" in kwargs else None
     )
+    parent: Run | None = kwargs.pop("parent", None)
     if transform is None:
         raise TypeError("Pass transform parameter")
     if transform._state.adding:
         raise ValueError("Please save transform record before creating a run")
+
     super(Run, run).__init__(
         transform=transform,
         reference=reference,
+        parent=parent,
         reference_type=reference_type,
     )
 
