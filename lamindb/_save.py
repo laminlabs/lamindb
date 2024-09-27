@@ -104,6 +104,7 @@ def save(records: Iterable[Record], ignore_conflicts: bool | None = False) -> No
     return None
 
 
+##
 def bulk_create(records: Iterable[Record], ignore_conflicts: bool | None = False):
     records_by_orm = defaultdict(list)
     for record in records:
