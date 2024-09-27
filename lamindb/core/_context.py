@@ -89,13 +89,13 @@ def raise_missing_context(transform_type: str, key: str) -> bool:
         suid, vuid = uid[: Transform._len_stem_uid], uid[Transform._len_stem_uid :]
         new_vuid = increment_base62(vuid)
         new_uid = f"{suid}{new_vuid}"
-        message = f"You already have a version family with key '{key}' (stem_uid='{transform.stem_uid}').\n\n- to make a revision, set `ln.track('{new_uid}')`\n- to start a new version family, rename your file and rerun: `ln.track()`"
+        message = f"you already have a transform with key '{key}' ('{transform.uid}')\n  - to make a revision, call `ln.track('{new_uid}')`\n  - to create a new transform, rename your file and run: `ln.track()`"
     if transform_type == "notebook":
         print(f"→ {message}\n")
         response = input("→ Ready to re-run? (y/n)")
         if response == "y":
             logger.important(
-                "Note: Restart your notebook if you want consecutive cell execution"
+                "note: restart your notebook if you want consecutive cell execution"
             )
             return True
         raise MissingContextUID("Please follow the instructions.")
@@ -505,7 +505,7 @@ class Context:
                     new_vuid = increment_base62(vuid)
                     raise UpdateContext(
                         f"{change_type}, bump revision by setting:\n\n"
-                        f'ln.track("{suid}{new_vuid}"'
+                        f'ln.track("{suid}{new_vuid}")'
                     )
             else:
                 self._logging_message += f"loaded Transform(uid='{transform.uid}')"
