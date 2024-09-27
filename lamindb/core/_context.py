@@ -123,11 +123,11 @@ class Context:
 
     Examples:
 
-        Is typically used via :class:`~lamindb.context`:
+        Is typically used via the global :class:`~lamindb.context` object via `ln.track()` and `ln.finish()`:
 
         >>> import lamindb as ln
         >>> ln.track()
-        >>> # do things while tracking data lineage
+        >>> # do things
         >>> ln.finish()
 
     """
@@ -212,7 +212,7 @@ class Context:
             To track the run of a notebook or script, call:
 
             >>> import lamindb as ln
-            >>>
+            >>> ln.track()
 
         """
         if uid is not None:
