@@ -129,8 +129,9 @@ def get_existing_records(
     # NOTE: existing records matching is agnostic to the source
     model = field.field.model
     if organism is None and field.field.name == "ensembl_gene_id":
-        organism = _ensembl_prefix(iterable_idx[0], field, organism)
-        organism = _get_organism_record(field, organism, force=True)
+        if len(iterable_idx) > 0:
+            organism = _ensembl_prefix(iterable_idx[0], field, organism)
+            organism = _get_organism_record(field, organism, force=True)
 
     # standardize based on the DB reference
     # log synonyms mapped terms
