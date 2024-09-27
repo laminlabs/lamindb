@@ -35,7 +35,7 @@ class DictAgg(Func):
 
 
 def get_artifact_with_related(
-    artifact: Artifact | Collection,
+    artifact: Artifact,
     fks: bool = True,
     m2m: bool = True,
     links: bool = True,
