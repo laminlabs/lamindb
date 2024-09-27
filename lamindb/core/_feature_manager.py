@@ -239,25 +239,27 @@ def _print_categoricals(
     return msg, dictionary
 
 
-# def _print_featuresets_postgres(
-#     self: Artifact | Collection,
-#     related_data: dict | None = None,
-# ):
-#     from lamindb._from_values import _print_values
+def _print_featuresets_postgres(
+    self: Artifact | Collection,
+    related_data: dict | None = None,
+    print_types: bool = False,
+):
+    from lamindb._from_values import _print_values
 
-#     if not related_data:
-#         artifact_meta = get_artifact_with_related(self, include_featureset=True)
-#         related_data = artifact_meta.get("related_data", {})
+    if not related_data:
+        artifact_meta = get_artifact_with_related(self, include_featureset=True)
+        related_data = artifact_meta.get("related_data", {})
 
-#     fs_data = related_data.get("featuresets", {}) if related_data else {}
-#     feature_set_msg = ""
-#     for _, (slot, data) in fs_data.items():
-#         for type_str, feature_names in data.items():
-#             feature_set_msg += (
-#                 f"    '{slot}'{type_str} = {_print_values(feature_names)}\n"
-#             )
+    fs_data = related_data.get("featuresets", {}) if related_data else {}
+    feature_set_msg = ""
+    for _, (slot, data) in fs_data.items():
+        for type_str, feature_names in data.items():
+            type_str = f": {type_str}" if print_types else ""
+            feature_set_msg += (
+                f"    '{slot}'{type_str} = {_print_values(feature_names)}\n"
+            )
 
-#     return feature_set_msg
+    return feature_set_msg
 
 
 def print_features(
@@ -321,15 +323,20 @@ def print_features(
     # feature sets
     if not print_params:
         feature_set_msg = ""
-        for slot, feature_set in get_feature_set_by_slot_(self).items():
-            features = feature_set.members
-            # features.first() is a lot slower than features[0] here
-            name_field = get_name_field(features[0])
-            feature_names = list(features.values_list(name_field, flat=True)[:20])
-            type_str = f": {feature_set.registry}" if print_types else ""
-            feature_set_msg += (
-                f"    '{slot}'{type_str} = {_print_values(feature_names)}\n"
+        if self.id is not None and connections[self._state.db].vendor == "postgresql":
+            feature_set_msg = _print_featuresets_postgres(
+                self, related_data=related_data
             )
+        else:
+            for slot, feature_set in get_feature_set_by_slot_(self).items():
+                features = feature_set.members
+                # features.first() is a lot slower than features[0] here
+                name_field = get_name_field(features[0])
+                feature_names = list(features.values_list(name_field, flat=True)[:20])
+                type_str = f": {feature_set.registry}" if print_types else ""
+                feature_set_msg += (
+                    f"    '{slot}'{type_str} = {_print_values(feature_names)}\n"
+                )
         if feature_set_msg:
             msg += f"  {colors.italic('Feature sets')}\n"
             msg += feature_set_msg

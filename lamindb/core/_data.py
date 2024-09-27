@@ -148,6 +148,7 @@ def _describe_postgres(self: Artifact, print_types: bool = False):
         include_feature_link=True,
         include_fk=True,
         include_m2m=True,
+        include_featureset=True,
     )
     related_data = result.get("related_data", {})
     fk_data = related_data.get("fk", {})
@@ -172,7 +173,7 @@ def _describe_postgres(self: Artifact, print_types: bool = False):
 @doc_args(Artifact.describe.__doc__)
 def describe(self: Artifact, print_types: bool = False):
     """{}"""  # noqa: D415
-    if not self._state.adding and connections[self._state.db] == "postgresql":
+    if not self._state.adding and connections[self._state.db].vendor == "postgresql":
         return _describe_postgres(self, print_types=print_types)
 
     model_name = self.__class__.__name__
