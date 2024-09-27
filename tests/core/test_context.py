@@ -144,7 +144,7 @@ def test_run_scripts_for_versioning():
     # print(result.stdout.decode())
     assert result.returncode == 0
     assert (
-        "created Transform(uid='Ro1gl7n8YrdH0000') & created Run(started_at='"
+        "created Transform(uid='Ro1gl7n8') & created Run('lmj2lyGD', started_at='"
         in result.stdout.decode()
     )
 
