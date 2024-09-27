@@ -115,7 +115,8 @@ if _check_instance_setup(from_lamindb=True):
 
     Note that you can access:
 
-    - `ln.context.track()` as `ln.track()
-    - `ln.context.finish()` as `ln.finish()
+    - `ln.context.track()` as `ln.track()`
+    - `ln.context.finish()` as `ln.finish()`
+
     """
     from django.db.models import Q

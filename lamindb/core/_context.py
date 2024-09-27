@@ -144,12 +144,12 @@ class Context:
 
     @property
     def transform(self) -> Transform | None:
-        """Transform of context."""
+        """Managed transform of context."""
         return self._transform
 
     @property
     def uid(self) -> str | None:
-        """`uid` to create or load a transform."""
+        """`uid` argument for `context.transform`."""
         return self._uid
 
     @uid.setter
@@ -158,7 +158,7 @@ class Context:
 
     @property
     def name(self) -> str | None:
-        """`name` for a transform."""
+        """`name argument for `context.transform`."""
         return self._name
 
     @name.setter
@@ -167,7 +167,7 @@ class Context:
 
     @property
     def version(self) -> str | None:
-        """`version` for a transform."""
+        """`version` argument for `context.transform`."""
         return self._version
 
     @version.setter
@@ -176,7 +176,7 @@ class Context:
 
     @property
     def run(self) -> Run | None:
-        """Run of context."""
+        """Managed run of context."""
         return self._run
 
     def track(
