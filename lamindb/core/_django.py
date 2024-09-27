@@ -4,7 +4,7 @@ from django.db.models import F, OuterRef, Q, Subquery
 from django.db.models.fields.related import ForeignKey, ManyToManyField
 from django.db.models.fields.reverse_related import ManyToManyRel, ManyToOneRel
 from django.db.models.functions import JSONObject
-from lnschema_core.models import Artifact, Collection, FeatureSet
+from lnschema_core.models import Artifact, FeatureSet, Record
 
 from .schema import dict_related_model_to_related_name
 
@@ -26,7 +26,7 @@ def get_related_model(model, field_name):
 
 
 def get_artifact_with_related(
-    artifact: Artifact | Collection,
+    artifact: Record,
     include_fk: bool = False,
     include_m2m: bool = False,
     include_feature_link: bool = False,
