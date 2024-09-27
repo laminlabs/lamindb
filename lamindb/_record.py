@@ -477,14 +477,20 @@ def transfer_fk_to_default_db_bulk(
 
 
 def get_transfer_run(record) -> Run:
+    from lamindb_setup import settings as setup_settings
+
     from lamindb.core._context import context
     from lamindb.core._data import WARNING_RUN_TRANSFORM
 
     slug = record._state.db
     owner, name = get_owner_name_from_identifier(slug)
     settings_file = instance_settings_file(name, owner)
-    isettings = load_instance_settings(settings_file)
-    key = f"transfers/{isettings.uid}"
+    print(settings_file)
+    if not settings_file.exists():
+        print("settings file does not exit, re-connect")
+        connect_instance(owner=owner, name=name)  # write settings file
+    instance_uid = load_instance_settings(settings_file).uid
+    key = f"transfers/{instance_uid}"
     transform = Transform.filter(key=key).one_or_none()
     if transform is None:
         search_names = settings.creation.search_names
