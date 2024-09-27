@@ -43,6 +43,7 @@ from lamindb._save import save
 from lamindb.core.exceptions import ValidationError
 from lamindb.core.storage import LocalPathClasses
 
+from ._django import get_artifact_with_related
 from ._label_manager import get_labels_as_dict
 from ._settings import settings
 from .schema import (
@@ -132,12 +133,81 @@ def custom_aggregate(field, using: str):
         return GroupConcat(field)
 
 
-def print_features(
+def _print_categoricals_postgres(
+    self: Artifact | Collection,
+    related_data: dict | None = None,
+    print_types: bool = False,
+    to_dict: bool = False,
+    print_params: bool = False,
+):
+    from lamindb._from_values import _print_values
+
+    if not related_data:
+        artifact_meta = get_artifact_with_related(
+            self, include_feature_link=True, include_m2m=True
+        )
+        related_data = artifact_meta.get("related_data", {})
+
+    m2m_data = related_data.get("m2m", {}) if related_data else {}
+    m2m_name = {}
+    for related_name, values in m2m_data.items():
+        link_model = getattr(self.__class__, related_name).through
+        related_model_name = link_model.__name__.replace(
+            self.__class__.__name__, ""
+        ).lower()
+        m2m_name[related_model_name] = values
+    links_data = related_data.get("link", {}) if related_data else {}
+    feature_dict = {
+        id: (name, dtype)
+        for id, name, dtype in Feature.objects.using(self._state.db).values_list(
+            "id", "name", "dtype"
+        )
+    }
+
+    msg = ""
+    dictionary = {}
+
+    # categorical feature values
+    if not print_params:
+        labels_msg = ""
+        labels_msgs = []
+        feature_values: dict = {}
+        for link_name, link_values in links_data.items():
+            related_name = link_name.removeprefix("links_").replace("_", "")
+            link_model = getattr(self.__class__, link_name).rel.related_model
+            if not link_values:
+                continue
+            for link_value in link_values:
+                feature_id = link_value.get("feature")
+                if feature_id is None:
+                    continue
+                feature_name = feature_dict.get(feature_id)[0]
+                if feature_name not in feature_values:
+                    feature_values[feature_name] = (feature_dict.get(feature_id)[1], [])
+                label_id = link_value.get(related_name)
+                feature_values[feature_name][1].append(
+                    m2m_name.get(related_name, {}).get(label_id)
+                )
+        for feature_name, (dtype, labels_list) in feature_values.items():
+            print_values = _print_values(labels_list, n=10)
+            type_str = f": {dtype}" if print_types else ""
+            if to_dict:
+                dictionary[feature_name] = (
+                    labels_list if len(labels_list) > 1 else labels_list[0]
+                )
+            labels_msgs.append(f"    '{feature_name}'{type_str} = {print_values}")
+        if len(labels_msgs) > 0:
+            labels_msg = "\n".join(sorted(labels_msgs)) + "\n"
+            msg += labels_msg
+    return msg, dictionary
+
+
+def _print_categoricals(
     self: Artifact | Collection,
     print_types: bool = False,
     to_dict: bool = False,
     print_params: bool = False,
-) -> str | dict[str, Any]:
+):
     from lamindb._from_values import _print_values
 
     msg = ""
@@ -166,6 +236,56 @@ def print_features(
         if len(labels_msgs) > 0:
             labels_msg = "\n".join(sorted(labels_msgs)) + "\n"
             msg += labels_msg
+    return msg, dictionary
+
+
+def _print_featuresets_postgres(
+    self: Artifact | Collection,
+    related_data: dict | None = None,
+    print_types: bool = False,
+):
+    from lamindb._from_values import _print_values
+
+    if not related_data:
+        artifact_meta = get_artifact_with_related(self, include_featureset=True)
+        related_data = artifact_meta.get("related_data", {})
+
+    fs_data = related_data.get("featuresets", {}) if related_data else {}
+    feature_set_msg = ""
+    for _, (slot, data) in fs_data.items():
+        for type_str, feature_names in data.items():
+            type_str = f": {type_str}" if print_types else ""
+            feature_set_msg += (
+                f"    '{slot}'{type_str} = {_print_values(feature_names)}\n"
+            )
+
+    return feature_set_msg
+
+
+def print_features(
+    self: Artifact | Collection,
+    related_data: dict | None = None,
+    print_types: bool = False,
+    to_dict: bool = False,
+    print_params: bool = False,
+) -> str | dict[str, Any]:
+    from lamindb._from_values import _print_values
+
+    if not self._state.adding and connections[self._state.db].vendor == "postgresql":
+        msg, dictionary = _print_categoricals_postgres(
+            self,
+            related_data=related_data,
+            print_types=print_types,
+            to_dict=to_dict,
+            print_params=print_params,
+        )
+    else:
+        msg, dictionary = _print_categoricals(
+            self,
+            print_types=print_types,
+            to_dict=to_dict,
+            print_params=print_params,
+        )
 
     # non-categorical feature values
     non_labels_msg = ""
@@ -203,15 +323,20 @@ def print_features(
     # feature sets
     if not print_params:
         feature_set_msg = ""
-        for slot, feature_set in get_feature_set_by_slot_(self).items():
-            features = feature_set.members
-            # features.first() is a lot slower than features[0] here
-            name_field = get_name_field(features[0])
-            feature_names = list(features.values_list(name_field, flat=True)[:20])
-            type_str = f": {feature_set.registry}" if print_types else ""
-            feature_set_msg += (
-                f"    '{slot}'{type_str} = {_print_values(feature_names)}\n"
+        if self.id is not None and connections[self._state.db].vendor == "postgresql":
+            feature_set_msg = _print_featuresets_postgres(
+                self, related_data=related_data
             )
+        else:
+            for slot, feature_set in get_feature_set_by_slot_(self).items():
+                features = feature_set.members
+                # features.first() is a lot slower than features[0] here
+                name_field = get_name_field(features[0])
+                feature_names = list(features.values_list(name_field, flat=True)[:20])
+                type_str = f": {feature_set.registry}" if print_types else ""
+                feature_set_msg += (
+                    f"    '{slot}'{type_str} = {_print_values(feature_names)}\n"
+                )
         if feature_set_msg:
             msg += f"  {colors.italic('Feature sets')}\n"
             msg += feature_set_msg
