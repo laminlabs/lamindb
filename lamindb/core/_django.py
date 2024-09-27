@@ -119,7 +119,7 @@ def get_artifact_with_related(
     if not artifact_meta:
         return None
 
-    related_data: dict = {"m2m": {}, "fk": {}, "link": {}}
+    related_data: dict = {"m2m": {}, "fk": {}, "link": {}, "featuresets": {}}
     for k, v in artifact_meta.items():
         if k.startswith("m2mfield_"):
             related_data["m2m"][k[9:]] = v
@@ -129,7 +129,7 @@ def get_artifact_with_related(
             related_data["link"][k[10:]] = v
         elif k == "featuresets":
             related_data["featuresets"] = get_featureset_m2m_relations(
-                artifact, {i["featureset"]: i["slot"] for i in v}
+                artifact, {i["featureset"]: i["slot"] for i in v if v}
             )
 
     related_data["m2m"] = {
