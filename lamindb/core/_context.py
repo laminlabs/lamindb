@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
-msg_path_failed = "failed to infer notebook path.\nfix: pass `path` to "
+msg_path_failed = "failed to infer notebook path.\nfix: pass `path` to `ln.track()`"
 
 
 def get_uid_ext(version: str) -> str:
@@ -126,7 +126,7 @@ class Context:
         Is typically used via :class:`~lamindb.context`:
 
         >>> import lamindb as ln
-        >>>
+        >>> ln.track()
         >>> # do things while tracking data lineage
         >>> ln.finish()
 
@@ -529,7 +529,7 @@ class Context:
         Examples:
 
             >>> import lamindb as ln
-            >>>
+            >>> ln.track()
             >>> # do things while tracking data lineage
             >>> ln.finish()
 

@@ -411,10 +411,7 @@ def _track_run_input(
         track_run_input = is_run_input
     if track_run_input:
         if run is None:
-            raise ValueError(
-                "No run context set. Call  or link input to a"
-                " run object via `run.input_artifacts.add(artifact)`"
-            )
+            raise ValueError("No run context set. Call `ln.track()`.")
         # avoid adding the same run twice
         run.save()
         if data_class_name == "artifact":

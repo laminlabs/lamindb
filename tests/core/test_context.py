@@ -75,7 +75,7 @@ def test_finish_before_track():
     ln.context._run = None
     with pytest.raises(TrackNotCalled) as error:
         ln.finish()
-    assert "Please run `` before `ln.finish()" in error.exconly()
+    assert "Please run `ln.track()` before `ln.finish()" in error.exconly()
 
 
 def test_invalid_transform_type():
@@ -239,5 +239,5 @@ def test_track_notebook_or_script_manually(type):
         ln.context.track(transform=transform)
     assert (
         error.exconly()
-        == "ValueError: Use  without passing transform in a notebook or script - metadata is automatically parsed"
+        == "ValueError: Use `ln.track()` without passing transform in a notebook or script - metadata is automatically parsed"
     )
