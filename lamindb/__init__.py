@@ -21,7 +21,8 @@ Key functionality.
 .. autosummary::
    :toctree: .
 
-   context
+   track
+   finish
    connect
    Curator
    view
@@ -33,6 +34,7 @@ Modules and settings.
    :toctree: .
 
    integrations
+   context
    settings
    setup
    UPath
@@ -105,9 +107,16 @@ if _check_instance_setup(from_lamindb=True):
 
         _reload_schema_modules(_lamindb_setup.settings.instance)
 
-    track = context.track  # backward compat
-    finish = context.finish  # backward compat
+    track = context.track  # simple access because these are so common
+    finish = context.finish  # simple access because these are so common
     Curate = Curator  # backward compat
     settings.__doc__ = """Global settings (:class:`~lamindb.core.Settings`)."""
-    context.__doc__ = """Global run context (:class:`~lamindb.core.Context`)."""
+    context.__doc__ = """Global run context (:class:`~lamindb.core.Context`).
+
+    Note that you can access:
+
+    - `ln.context.track()` as `ln.track()`
+    - `ln.context.finish()` as `ln.finish()`
+
+    """
     from django.db.models import Q
