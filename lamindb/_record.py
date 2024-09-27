@@ -505,7 +505,6 @@ def get_transfer_run(record) -> Run:
     if run is None:
         run = Run(transform=transform, parent=parent).save()
         run.parent = parent  # so that it's available in memory
-    print(Run.df())
     return run
 
 
@@ -517,6 +516,8 @@ def transfer_to_default_db(
     save: bool = False,
     transfer_fk: bool = True,
 ) -> Record | None:
+    if record.state._db is None or record.state._db == "default":
+        return None
     registry = record.__class__
     record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
     record_str = f"{record.__class__.__name__}(uid='{record.uid}')"
