@@ -78,7 +78,7 @@ def get_artifact_with_related(
         link_model = getattr(model, link).rel.related_model
         if not hasattr(link_model, "feature"):
             continue
-        label_field = link.removeprefix("links_").replace("_", "")  # type: ignore
+        label_field = link.removeprefix("links_").replace("_", "")
         annotations[f"linkfield_{link}"] = Subquery(
             link_model.objects.filter(artifact=OuterRef("pk"))
             .annotate(
