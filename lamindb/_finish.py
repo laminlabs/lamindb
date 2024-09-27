@@ -158,7 +158,7 @@ def save_context_core(
         if hash != ref_hash:
             response = input(
                 f"You are about to overwrite existing source code (hash '{ref_hash}') for Transform('{transform.uid}')."
-                f"Proceed? (y/n)"
+                f" Proceed? (y/n)"
             )
             if response == "y":
                 transform.source_code = source_code_path.read_text()
