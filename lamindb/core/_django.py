@@ -4,7 +4,7 @@ from django.db.models import F, Func, OuterRef, Q, Subquery
 from django.db.models.fields.related import ForeignKey, ManyToManyField
 from django.db.models.fields.reverse_related import ManyToManyRel, ManyToOneRel
 from django.db.models.functions import JSONObject
-from lnschema_core.models import Artifact
+from lnschema_core.models import Artifact, FeatureSet
 
 from .schema import dict_related_model_to_related_name
 
@@ -25,31 +25,14 @@ def get_related_model(model, field_name):
         return f"Error: {str(e)}"
 
 
-def get_non_id_value(item):
-    return next((v for k, v in item.items() if k != "id"), "Unknown")
-
-
-class DictAgg(Func):
-    function = "JSONB_OBJECT_AGG"
-    output_field = JSONBAgg()
-
-
 def get_artifact_with_related(
     artifact: Artifact,
-    include_fk: bool = True,
-    include_m2m: bool = True,
-    include_link: bool = True,
+    include_fk: bool = False,
+    include_m2m: bool = False,
+    include_feature_link: bool = False,
+    include_featureset: bool = False,
 ) -> dict:
-    """Fetch an artifact with its related data.
-
-    Args:
-        artifact (Artifact | Collection): The artifact to fetch.
-        m2m (bool, optional): Whether to include many-to-many relationships. Defaults to True.
-        links (bool, optional): Whether to include link tables. Defaults to True.
-
-    Returns:
-        result: the fetched data.
-    """
+    """Fetch an artifact with its related data."""
     from lamindb._can_validate import get_name_field
 
     model = artifact.__class__
@@ -66,7 +49,7 @@ def get_artifact_with_related(
     )
     link_tables = (
         []
-        if not include_link
+        if not include_feature_link
         else list(dict_related_model_to_related_name(model, links=True).values())
     )
 
@@ -82,38 +65,48 @@ def get_artifact_with_related(
                 id=F(f"{fk}__id"), name=F(f"{fk}__{name_field}")
             )
 
-    if include_m2m:
-        for name in m2m_relations:
-            related_model = get_related_model(model, name)
-            name_field = get_name_field(related_model)
-            annotations[f"m2mfield_{name}"] = ArrayAgg(
-                JSONObject(id=F(f"{name}__id"), name=F(f"{name}__{name_field}")),
-                filter=Q(**{f"{name}__isnull": False}),
-                distinct=True,
-            )
+    for name in m2m_relations:
+        related_model = get_related_model(model, name)
+        name_field = get_name_field(related_model)
+        annotations[f"m2mfield_{name}"] = ArrayAgg(
+            JSONObject(id=F(f"{name}__id"), name=F(f"{name}__{name_field}")),
+            filter=Q(**{f"{name}__isnull": False}),
+            distinct=True,
+        )
 
-    if include_link:
-        exclude_link_table_fields = {
-            "run",
-            "created_at",
-            "created_by",
-            "label_ref_is_name",
-            "feature_ref_is_name",
-        }
-        for link in link_tables:
-            link_model = getattr(model, link).rel.related_model
-            fields = [
-                f.name
-                for f in link_model._meta.fields
-                if f.name not in exclude_link_table_fields and f.name != "id"
-            ]
-            annotations[f"linkfield_{link}"] = Subquery(
-                link_model.objects.filter(artifact=OuterRef("pk"))
-                .annotate(data=JSONObject(id=F("id"), **{f: F(f) for f in fields}))
-                .values("artifact")
-                .annotate(json_agg=ArrayAgg("data"))
-                .values("json_agg")
+    for link in link_tables:
+        link_model = getattr(model, link).rel.related_model
+        if not hasattr(link_model, "feature"):
+            continue
+        label_field = link.removeprefix("links_").replace("_", "")
+        annotations[f"linkfield_{link}"] = Subquery(
+            link_model.objects.filter(artifact=OuterRef("pk"))
+            .annotate(
+                data=JSONObject(
+                    id=F("id"),
+                    feature=F("feature"),
+                    **{label_field: F(label_field)},
+                )
             )
+            .values("artifact")
+            .annotate(json_agg=ArrayAgg("data"))
+            .values("json_agg")
+        )
+
+    if include_featureset:
+        annotations["featuresets"] = Subquery(
+            model.feature_sets.through.objects.filter(artifact=OuterRef("pk"))
+            .annotate(
+                data=JSONObject(
+                    id=F("id"),
+                    slot=F("slot"),
+                    featureset=F("featureset"),
+                )
+            )
+            .values("artifact")
+            .annotate(json_agg=ArrayAgg("data"))
+            .values("json_agg")
+        )
 
     artifact_meta = (
         model.objects.using(artifact._state.db)
@@ -134,9 +127,13 @@ def get_artifact_with_related(
             related_data["fk"][k[8:]] = v
         elif k.startswith("linkfield_"):
             related_data["link"][k[10:]] = v
+        elif k == "featuresets":
+            related_data["featuresets"] = get_featureset_m2m_relations(
+                artifact, {i["featureset"]: i["slot"] for i in v}
+            )
 
     related_data["m2m"] = {
-        k: {item["id"]: get_non_id_value(item) for item in v}
+        k: {item["id"]: item["name"] for item in v}
         for k, v in related_data["m2m"].items()
         if v
     }
@@ -145,3 +142,67 @@ def get_artifact_with_related(
         **{name: artifact_meta[name] for name in ["id", "uid"]},
         "related_data": related_data,
     }
+
+
+def get_featureset_m2m_relations(
+    artifact: Artifact, slot_featureset: dict, limit: int = 20
+):
+    """Fetch all many-to-many relationships for given feature sets."""
+    from lamindb._can_validate import get_name_field
+
+    m2m_relations = [
+        v
+        for v in dict_related_model_to_related_name(FeatureSet).values()
+        if not v.startswith("_") and v != "artifacts"
+    ]
+
+    annotations = {}
+    related_names = {}
+    for name in m2m_relations:
+        related_model = get_related_model(FeatureSet, name)
+        name_field = get_name_field(related_model)
+
+        # Get the correct field names for the through table
+        through_model = getattr(FeatureSet, name).through
+        related_field = (
+            through_model.__name__.replace("FeatureSet", "").lower().replace("_", "")
+        )
+
+        # Subquery to get limited related records
+        limited_related = Subquery(
+            through_model.objects.filter(featureset=OuterRef("pk")).values(
+                related_field
+            )[:limit]
+        )
+
+        annotations[f"m2mfield_{name}"] = ArrayAgg(
+            JSONObject(id=F(f"{name}__id"), name=F(f"{name}__{name_field}")),
+            filter=Q(
+                **{
+                    f"{name}__id__in": limited_related,
+                }
+            ),
+            distinct=True,
+        )
+        related_names[name] = related_model.__get_name_with_schema__()
+
+    featureset_m2m = (
+        FeatureSet.objects.using(artifact._state.db)
+        .filter(id__in=slot_featureset.keys())
+        .annotate(**annotations)
+        .values("id", *annotations.keys())
+    )
+
+    result = {}
+    for fs in featureset_m2m:
+        slot = slot_featureset.get(fs["id"])
+        result[fs["id"]] = (
+            slot,
+            {
+                related_names.get(k[9:]): [item["name"] for item in v]
+                for k, v in fs.items()
+                if k.startswith("m2mfield_") and v
+            },
+        )
+
+    return result

@@ -143,7 +143,12 @@ def _describe_postgres(self: Artifact, print_types: bool = False):
         msg += f"  {colors.italic('Database instance')}\n"
         msg += f"    slug: {self._state.db}\n"
 
-    result = get_artifact_with_related(self)
+    result = get_artifact_with_related(
+        self,
+        include_feature_link=True,
+        include_fk=True,
+        include_m2m=True,
+    )
     related_data = result.get("related_data", {})
     fk_data = related_data.get("fk", {})
 

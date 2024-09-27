@@ -143,7 +143,9 @@ def _print_categoricals_postgres(
     from lamindb._from_values import _print_values
 
     if not related_data:
-        artifact_meta = get_artifact_with_related(self, include_fk=False)
+        artifact_meta = get_artifact_with_related(
+            self, include_feature_link=True, include_m2m=True
+        )
         related_data = artifact_meta.get("related_data", {})
 
     m2m_data = related_data.get("m2m", {}) if related_data else {}
@@ -235,6 +237,27 @@ def _print_categoricals(
             labels_msg = "\n".join(sorted(labels_msgs)) + "\n"
             msg += labels_msg
     return msg, dictionary
+
+
+# def _print_featuresets_postgres(
+#     self: Artifact | Collection,
+#     related_data: dict | None = None,
+# ):
+#     from lamindb._from_values import _print_values
+
+#     if not related_data:
+#         artifact_meta = get_artifact_with_related(self, include_featureset=True)
+#         related_data = artifact_meta.get("related_data", {})
+
+#     fs_data = related_data.get("featuresets", {}) if related_data else {}
+#     feature_set_msg = ""
+#     for _, (slot, data) in fs_data.items():
+#         for type_str, feature_names in data.items():
+#             feature_set_msg += (
+#                 f"    '{slot}'{type_str} = {_print_values(feature_names)}\n"
+#             )
+
+#     return feature_set_msg
 
 
 def print_features(
