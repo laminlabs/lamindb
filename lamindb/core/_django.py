@@ -128,9 +128,10 @@ def get_artifact_with_related(
         elif k.startswith("linkfield_"):
             related_data["link"][k[10:]] = v
         elif k == "featuresets":
-            related_data["featuresets"] = get_featureset_m2m_relations(
-                artifact, {i["featureset"]: i["slot"] for i in v if v}
-            )
+            if v:
+                related_data["featuresets"] = get_featureset_m2m_relations(
+                    artifact, {i["featureset"]: i["slot"] for i in v}
+                )
 
     related_data["m2m"] = {
         k: {item["id"]: item["name"] for item in v}
