@@ -296,7 +296,7 @@ class Context:
         else:
             if transform.type in {"notebook", "script"}:
                 raise ValueError(
-                    "Use  without passing transform in a notebook or script"
+                    "Use `ln.track()` without passing transform in a notebook or script"
                     " - metadata is automatically parsed"
                 )
             transform_exists = None
@@ -548,7 +548,7 @@ class Context:
             return "CMD + s" if platform.system() == "Darwin" else "CTRL + s"
 
         if context.run is None:
-            raise TrackNotCalled("Please run `` before `ln.finish()`")
+            raise TrackNotCalled("Please run `ln.track()` before `ln.finish()`")
         if context._path is None:
             if context.run.transform.type in {"script", "notebook"}:
                 raise ValueError(
