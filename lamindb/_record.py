@@ -496,12 +496,13 @@ def get_transfer_run(record) -> Run:
         raise SystemExit("Need to call .using() before")
     instance_uid = cache_filepath.read_text()
     key = f"transfers/{instance_uid}"
-    transform = Transform.filter(key=key).one_or_none()
+    uid = instance_uid + "0000"
+    transform = Transform.filter(uid=uid).one_or_none()
     if transform is None:
         search_names = settings.creation.search_names
         settings.creation.search_names = False
         transform = Transform(
-            name=f"Transfer from `{slug}`", key=key, type="function"
+            uid=uid, name=f"Transfer from `{slug}`", key=key, type="function"
         ).save()
         settings.creation.search_names = search_names
     # use the global run context to get the parent run id
