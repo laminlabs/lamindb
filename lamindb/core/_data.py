@@ -423,10 +423,29 @@ def _track_run_input(
     if run is not None:
         # avoid cycles: data can't be both input and output
         def is_valid_input(data: Artifact | Collection):
+            is_valid = False
+            if data._state.db == "default":
+                # things are OK if the record is on the default db
+                is_valid = True
+            elif data._state.db is None:
+                # if a record is not yet saved, it can't be an input
+                # we silently ignore because what likely happens is that
+                # the user works with an object that's about to be saved
+                # in the current Python session
+                is_valid = False
+            else:
+                # record is on another db
+                # we have to save the record into the current db with
+                # the run being attached to a transfer transform
+                logger.important(
+                    f"completing transfer to track {data.__class__.__name__}('{data.uid[:8]}') as input"
+                )
+                data.save()
+                is_valid = True
             return (
                 data.run_id != run.id
-                and not data._state.adding
-                and data._state.db in {"default", None}
+                and not data._state.adding  # this seems duplicated with data._state.db is None
+                and is_valid
             )
 
         input_data = [data for data in data_iter if is_valid_input(data)]

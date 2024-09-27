@@ -9,10 +9,15 @@ from django.db import connections, transaction
 from django.db.models import IntegerField, Manager, Q, QuerySet, Value
 from lamin_utils import logger
 from lamin_utils._lookup import Lookup
-from lamindb_setup._connect_instance import get_owner_name_from_identifier
+from lamindb_setup._connect_instance import (
+    get_owner_name_from_identifier,
+    load_instance_settings,
+    update_db_using_local,
+)
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._hub_core import connect_instance
-from lnschema_core.models import IsVersioned, Record
+from lamindb_setup.core._settings_store import instance_settings_file
+from lnschema_core.models import IsVersioned, Record, Run, Transform
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings
@@ -402,12 +407,6 @@ def using(
     """{}"""  # noqa: D415
     if instance is None:
         return QuerySet(model=cls, using=None)
-    from lamindb_setup._connect_instance import (
-        load_instance_settings,
-        update_db_using_local,
-    )
-    from lamindb_setup.core._settings_store import instance_settings_file
-
     owner, name = get_owner_name_from_identifier(instance)
     settings_file = instance_settings_file(name, owner)
     if not settings_file.exists():
@@ -477,6 +476,40 @@ def transfer_fk_to_default_db_bulk(
         update_fk_to_default_db(records, fk, using_key, transfer_logs=transfer_logs)
 
 
+def get_transfer_run(record) -> Run:
+    from lamindb.core._context import context
+    from lamindb.core._data import WARNING_RUN_TRANSFORM
+
+    assert "/" in record._state.db  # noqa: S101
+    slug = record._state.db
+    owner, name = slug.split("/")
+    settings_file = instance_settings_file(name, owner)
+    isettings = load_instance_settings(settings_file)
+    key = f"transfers/{isettings.uid}"
+    transform = Transform.filter(key=key).one_or_none()
+    if transform is None:
+        search_names = settings.creation.search_names
+        settings.creation.search_names = False
+        transform = Transform(
+            name=f"Transfer from `{slug}`", key=key, type="function"
+        ).save()
+        settings.creation.search_names = search_names
+    # use the global run context to get the parent run id
+    if context.run is not None:
+        parent = context.run
+    else:
+        if not settings.creation.artifact_silence_missing_run_warning:
+            logger.warning(WARNING_RUN_TRANSFORM)
+        parent = None
+    # it doesn't seem to make sense to create new runs for every transfer
+    run = Run.filter(transform=transform, parent=parent).one_or_none()
+    if run is None:
+        run = Run(transform=transform, parent=parent).save()
+        run.parent = parent  # so that it's available in memory
+    print(Run.df())
+    return run
+
+
 def transfer_to_default_db(
     record: Record,
     using_key: str | None,
@@ -485,12 +518,11 @@ def transfer_to_default_db(
     save: bool = False,
     transfer_fk: bool = True,
 ) -> Record | None:
-    from lamindb.core._context import context
-    from lamindb.core._data import WARNING_RUN_TRANSFORM
-
     registry = record.__class__
     record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
     record_str = f"{record.__class__.__name__}(uid='{record.uid}')"
+    if transfer_logs["run"] is None:
+        transfer_logs["run"] = get_transfer_run(record)
     if record_on_default is not None:
         transfer_logs["mapped"].append(record_str)
         return record_on_default
@@ -502,18 +534,12 @@ def transfer_to_default_db(
         record.created_by_id = ln_setup.settings.user.id
     if hasattr(record, "run_id"):
         record.run = None
-        if context.run is not None:
-            record.run_id = context.run.id
-        else:
-            if not settings.creation.artifact_silence_missing_run_warning:
-                logger.warning(WARNING_RUN_TRANSFORM)
-            record.run_id = None
-    if hasattr(record, "transform_id") and record._meta.model_name != "run":
-        record.transform = None
-        if context.run is not None:
-            record.transform_id = context.run.transform_id
-        else:
-            record.transform_id = None
+        run = transfer_logs["run"]
+        record.run_id = run.id
+        # deal with denormalized transform FK on artifact and collection
+        if hasattr(record, "transform_id"):
+            record.transform = None
+            record.transform_id = run.transform_id
     # transfer other foreign key fields
     fk_fields = [
         i.name
@@ -546,7 +572,7 @@ def save(self, *args, **kwargs) -> Record:
         artifacts = self.ordered_artifacts.list()
     pre_existing_record = None
     # consider records that are being transferred from other databases
-    transfer_logs: dict[str, list[str]] = {"mapped": [], "transferred": []}
+    transfer_logs: dict[str, list[str]] = {"mapped": [], "transferred": [], "run": None}
     if db is not None and db != "default" and using_key is None:
         if isinstance(self, IsVersioned):
             if not self.is_latest:
@@ -594,7 +620,8 @@ def save(self, *args, **kwargs) -> Record:
             self.features._add_from(self_on_db, transfer_logs=transfer_logs)
             self.labels.add_from(self_on_db, transfer_logs=transfer_logs)
         for k, v in transfer_logs.items():
-            logger.important(f"{k} records: {', '.join(v)}")
+            if k != "run":
+                logger.important(f"{k} records: {', '.join(v)}")
     return self
 
 
