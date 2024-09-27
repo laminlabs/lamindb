@@ -23,7 +23,6 @@ Key functionality.
 
    track
    finish
-   context
    connect
    Curator
    view
@@ -35,6 +34,7 @@ Modules and settings.
    :toctree: .
 
    integrations
+   context
    settings
    setup
    UPath
