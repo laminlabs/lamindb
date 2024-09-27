@@ -107,9 +107,9 @@ def format_provenance(self, fk_data, print_types):
 
     return "".join(
         [
-            f"    .{field_name}{type_str(field_name)} = {format_field_value(value.get('display'))}\n"
+            f"    .{field_name}{type_str(field_name)} = {format_field_value(value.get('name'))}\n"
             for field_name, value in fk_data.items()
-            if value.get("display")
+            if value.get("name")
         ]
     )
 

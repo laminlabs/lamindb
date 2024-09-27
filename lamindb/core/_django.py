@@ -4,7 +4,7 @@ from django.db.models import F, Func, OuterRef, Q, Subquery
 from django.db.models.fields.related import ForeignKey, ManyToManyField
 from django.db.models.fields.reverse_related import ManyToManyRel, ManyToOneRel
 from django.db.models.functions import JSONObject
-from lnschema_core.models import Artifact, Collection
+from lnschema_core.models import Artifact
 
 from .schema import dict_related_model_to_related_name
 
@@ -36,9 +36,9 @@ class DictAgg(Func):
 
 def get_artifact_with_related(
     artifact: Artifact,
-    fks: bool = True,
-    m2m: bool = True,
-    links: bool = True,
+    include_fk: bool = True,
+    include_m2m: bool = True,
+    include_link: bool = True,
 ) -> dict:
     """Fetch an artifact with its related data.
 
@@ -52,20 +52,12 @@ def get_artifact_with_related(
     """
     from lamindb._can_validate import get_name_field
 
-    fields = artifact._meta.fields
-    direct_fields = []
-    foreign_key_fields = []
-    for f in fields:
-        if f.is_relation:
-            foreign_key_fields.append(f.name)
-        else:
-            direct_fields.append(f.name)
-
     model = artifact.__class__
+    foreign_key_fields = [f.name for f in model._meta.fields if f.is_relation]
 
     m2m_relations = (
         []
-        if not m2m
+        if not include_m2m
         else [
             v
             for v in dict_related_model_to_related_name(model).values()
@@ -74,45 +66,40 @@ def get_artifact_with_related(
     )
     link_tables = (
         []
-        if not links
+        if not include_link
         else list(dict_related_model_to_related_name(model, links=True).values())
     )
 
     # Clear previous queries
     connection.queries_log.clear()
 
-    # Create subqueries for foreign key relationships
-    fk_subqueries = {}
-    if fks:
+    annotations = {}
+
+    if include_fk:
         for fk in foreign_key_fields:
             name_field = get_name_field(get_related_model(model, fk))
-            fk_subqueries[f"fkfield_{fk}"] = JSONObject(
-                id=F(f"{fk}__id"),
-                display=F(f"{fk}__{name_field}"),
+            annotations[f"fkfield_{fk}"] = JSONObject(
+                id=F(f"{fk}__id"), name=F(f"{fk}__{name_field}")
             )
 
-    # Create subqueries for many-to-many relationships
-    m2m_subqueries = {}
-    if m2m:
+    if include_m2m:
         for name in m2m_relations:
             related_model = get_related_model(model, name)
             name_field = get_name_field(related_model)
-            m2m_subqueries[f"m2mfield_{name}"] = ArrayAgg(
+            annotations[f"m2mfield_{name}"] = ArrayAgg(
                 JSONObject(id=F(f"{name}__id"), name=F(f"{name}__{name_field}")),
                 filter=Q(**{f"{name}__isnull": False}),
                 distinct=True,
             )
 
-    # Create subqueries for link tables
-    exclude_link_table_fields = {
-        "run",
-        "created_at",
-        "created_by",
-        "label_ref_is_name",
-        "feature_ref_is_name",
-    }
-    link_subqueries = {}
-    if links:
+    if include_link:
+        exclude_link_table_fields = {
+            "run",
+            "created_at",
+            "created_by",
+            "label_ref_is_name",
+            "feature_ref_is_name",
+        }
         for link in link_tables:
             link_model = getattr(model, link).rel.related_model
             fields = [
@@ -120,7 +107,7 @@ def get_artifact_with_related(
                 for f in link_model._meta.fields
                 if f.name not in exclude_link_table_fields and f.name != "id"
             ]
-            link_subqueries[f"linkfield_{link}"] = Subquery(
+            annotations[f"linkfield_{link}"] = Subquery(
                 link_model.objects.filter(artifact=OuterRef("pk"))
                 .annotate(data=JSONObject(id=F("id"), **{f: F(f) for f in fields}))
                 .values("artifact")
@@ -128,43 +115,33 @@ def get_artifact_with_related(
                 .values("json_agg")
             )
 
-    # Combine all annotations
-    annotations = {**m2m_subqueries, **fk_subqueries, **link_subqueries}
-
-    # Execute the query
     artifact_meta = (
         model.objects.using(artifact._state.db)
         .filter(uid=artifact.uid)
         .annotate(**annotations)
-        .values(
-            *direct_fields,
-            *m2m_subqueries.keys(),
-            *fk_subqueries.keys(),
-            *link_subqueries.keys(),
-        )
+        .values(*["id", "uid"], *annotations.keys())
         .first()
     )
 
-    # Restructure the result
-    if artifact_meta:
-        related_data: dict = {"m2m": {}, "fk": {}, "link": {}}
-        for k, v in artifact_meta.items():
-            if k.startswith("m2mfield_"):
-                related_data["m2m"][k[9:]] = v
-            elif k.startswith("fkfield_"):
-                related_data["fk"][k[8:]] = v
-            elif k.startswith("linkfield_"):
-                related_data["link"][k[10:]] = v
+    if not artifact_meta:
+        return None
 
-        # map m2m data to dictionaries
-        m2m_data = {}
-        for k, v in related_data["m2m"].items():
-            if v:
-                m2m_data[k] = {item["id"]: get_non_id_value(item) for item in v}
-        related_data["m2m"] = m2m_data
+    related_data: dict = {"m2m": {}, "fk": {}, "link": {}}
+    for k, v in artifact_meta.items():
+        if k.startswith("m2mfield_"):
+            related_data["m2m"][k[9:]] = v
+        elif k.startswith("fkfield_"):
+            related_data["fk"][k[8:]] = v
+        elif k.startswith("linkfield_"):
+            related_data["link"][k[10:]] = v
 
-        return {
-            **{name: artifact_meta[name] for name in direct_fields},
-            "related_data": related_data,
-        }
-    return None
+    related_data["m2m"] = {
+        k: {item["id"]: get_non_id_value(item) for item in v}
+        for k, v in related_data["m2m"].items()
+        if v
+    }
+
+    return {
+        **{name: artifact_meta[name] for name in ["id", "uid"]},
+        "related_data": related_data,
+    }

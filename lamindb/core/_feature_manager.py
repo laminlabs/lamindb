@@ -143,7 +143,7 @@ def _print_categoricals_postgres(
     from lamindb._from_values import _print_values
 
     if not related_data:
-        artifact_meta = get_artifact_with_related(self, fks=False)
+        artifact_meta = get_artifact_with_related(self, include_fk=False)
         related_data = artifact_meta.get("related_data", {})
 
     m2m_data = related_data.get("m2m", {}) if related_data else {}

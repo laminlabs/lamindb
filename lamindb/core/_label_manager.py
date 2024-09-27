@@ -64,7 +64,9 @@ def _print_labels_postgres(
 ) -> str:
     labels_msg = ""
     if not m2m_data:
-        artifact_meta = get_artifact_with_related(self, links=False, fks=False)
+        artifact_meta = get_artifact_with_related(
+            self, include_link=False, include_fk=False
+        )
         m2m_data = artifact_meta.get("related_data", {}).get("m2m", {})
     if m2m_data:
         for related_name, labels in m2m_data.items():
