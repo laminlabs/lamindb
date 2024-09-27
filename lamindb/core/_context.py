@@ -188,7 +188,7 @@ class Context:
         path: str | None = None,
         transform: Transform | None = None,
     ) -> None:
-        """Starts data lineage tracking for a run.
+        """Initiates a run with tracked data lineage.
 
         - sets :attr:`~lamindb.core.Context.transform` &
           :attr:`~lamindb.core.Context.run` by creating or loading `Transform` &
@@ -512,7 +512,7 @@ class Context:
         self._transform = transform
 
     def finish(self, ignore_non_consecutive: None | bool = None) -> None:
-        """Mark the run context as finished.
+        """Finish a tracked run.
 
         - writes a timestamp: `run.finished_at`
         - saves the source code: `transform.source_code`
