@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import builtins
-from typing import TYPE_CHECKING, List, NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
 import dj_database_url
 import lamindb_setup as ln_setup
@@ -443,7 +443,7 @@ def update_fk_to_default_db(
     using_key: str | None,
     transfer_logs: dict,
 ):
-    record = records[0] if isinstance(records, (List, QuerySet)) else records
+    record = records[0] if isinstance(records, (list, QuerySet)) else records
     if hasattr(record, f"{fk}_id") and getattr(record, f"{fk}_id") is not None:
         fk_record = getattr(record, fk)
         field = REGISTRY_UNIQUE_FIELD.get(fk, "uid")
@@ -457,7 +457,7 @@ def update_fk_to_default_db(
             transfer_to_default_db(
                 fk_record_default, using_key, save=True, transfer_logs=transfer_logs
             )
-        if isinstance(records, (List, QuerySet)):
+        if isinstance(records, (list, QuerySet)):
             for r in records:
                 setattr(r, f"{fk}", None)
                 setattr(r, f"{fk}_id", fk_record_default.id)
