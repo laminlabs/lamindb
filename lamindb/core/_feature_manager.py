@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from anndata import AnnData
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.db import connections
+from django.db import connection, connections
 from django.db.models import Aggregate
 from lamin_utils import colors, logger
 from lamindb_setup.core.upath import create_path
@@ -209,7 +209,7 @@ def print_features(
 ) -> str | dict[str, Any]:
     from lamindb._from_values import _print_values
 
-    if connections.vendor == "postgresql":
+    if connection.vendor == "postgresql":
         msg = _print_features_postgres(
             self,
             related_data=related_data,

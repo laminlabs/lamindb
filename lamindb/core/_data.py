@@ -167,48 +167,48 @@ def _describe_postgres(self: Artifact, print_types: bool = False):
 def describe(self: Artifact, print_types: bool = False):
     """{}"""  # noqa: D415
     if connection.vendor == "postgresql":
-        return _describe_postgres(self, print_types=print_types)
+        _describe_postgres(self, print_types=print_types)
+    else:
+        model_name = self.__class__.__name__
+        msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
+        if self._state.db is not None and self._state.db != "default":
+            msg += f"  {colors.italic('Database instance')}\n"
+            msg += f"    slug: {self._state.db}\n"
 
-    model_name = self.__class__.__name__
-    msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
-    if self._state.db is not None and self._state.db != "default":
-        msg += f"  {colors.italic('Database instance')}\n"
-        msg += f"    slug: {self._state.db}\n"
+        if not self._state.adding:
+            # Prefetch foreign key and m2m relationships
+            foreign_key_fields = [f.name for f in self._meta.fields if f.is_relation]
+            many_to_many_fields = (
+                ["input_of_runs"] if isinstance(self, (Collection, Artifact)) else []
+            )
+            if isinstance(self, Artifact):
+                many_to_many_fields.append("feature_sets")
+            self = (
+                self.__class__.objects.using(self._state.db)
+                .select_related(*foreign_key_fields)
+                .prefetch_related(*many_to_many_fields)
+                .get(id=self.id)
+            )
 
-    if not self._state.adding:
-        # Prefetch foreign key and m2m relationships
-        foreign_key_fields = [f.name for f in self._meta.fields if f.is_relation]
-        many_to_many_fields = (
-            ["input_of_runs"] if isinstance(self, (Collection, Artifact)) else []
+        # Provenance
+        prov_msg = format_provenance(
+            self,
+            {f.name: getattr(self, f.name) for f in self._meta.fields if f.is_relation},
+            print_types,
         )
-        if isinstance(self, Artifact):
-            many_to_many_fields.append("feature_sets")
-        self = (
-            self.__class__.objects.using(self._state.db)
-            .select_related(*foreign_key_fields)
-            .prefetch_related(*many_to_many_fields)
-            .get(id=self.id)
-        )
+        if prov_msg:
+            msg += f"  {colors.italic('Provenance')}\n{prov_msg}"
 
-    # Provenance
-    prov_msg = format_provenance(
-        self,
-        {f.name: getattr(self, f.name) for f in self._meta.fields if f.is_relation},
-        print_types,
-    )
-    if prov_msg:
-        msg += f"  {colors.italic('Provenance')}\n{prov_msg}"
+        # Input of runs
+        input_of_message = format_input_of_runs(self, print_types)
+        if input_of_message:
+            msg += f"  {colors.italic('Usage')}\n{input_of_message}"
 
-    # Input of runs
-    input_of_message = format_input_of_runs(self, print_types)
-    if input_of_message:
-        msg += f"  {colors.italic('Usage')}\n{input_of_message}"
+        # Labels and features
+        msg += format_labels_and_features(self, {}, print_types)
 
-    # Labels and features
-    msg += format_labels_and_features(self, {}, print_types)
-
-    # Print entire message
-    logger.print(msg)
+        # Print entire message
+        logger.print(msg)
 
 
 def validate_feature(feature: Feature, records: list[Record]) -> None:
