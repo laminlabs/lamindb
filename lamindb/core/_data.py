@@ -42,11 +42,9 @@ if TYPE_CHECKING:
     from lnschema_core.types import StrField
 
 
-WARNING_RUN_TRANSFORM = (
-    "no run & transform got linked, call `ln.context.track()` & re-run"
-)
+WARNING_RUN_TRANSFORM = "no run & transform got linked, call `` & re-run"
 
-WARNING_NO_INPUT = "run input wasn't tracked, call `ln.context.track()` and re-run"
+WARNING_NO_INPUT = "run input wasn't tracked, call `` and re-run"
 
 
 def get_run(run: Run | None) -> Run | None:
@@ -466,10 +464,7 @@ def _track_run_input(
         track_run_input = is_run_input
     if track_run_input:
         if run is None:
-            raise ValueError(
-                "No run context set. Call ln.context.track() or link input to a"
-                " run object via `run.input_artifacts.add(artifact)`"
-            )
+            raise ValueError("No run context set. Call `ln.track()`.")
         # avoid adding the same run twice
         run.save()
         if data_class_name == "artifact":

@@ -162,10 +162,10 @@ def test_cloud_cache_versions(switch_storage):
         == cache_dir / "lamindb-ci/lamindb-unit-tests-cloud/test_cache.h5ad"
     )
     timestamp_v1 = cache_path_v1.stat().st_mtime
+    # hope it is enough to avoid random timestamp problems further
+    sleep(1)
     # new version
     adata.obs["test_cache"] = "test"
-    # hope it is enough to avoid random timestamp problems further
-    sleep(0.5)
     artifact_v2 = ln.Artifact.from_anndata(
         adata, key="test_cache.h5ad", revises=artifact
     )
@@ -188,7 +188,9 @@ def test_cloud_cache_versions(switch_storage):
         == cache_dir / "lamindb-ci/lamindb-unit-tests-cloud/test_cache.h5ad"
     )
     assert "test_cache" in load_h5ad(cache_path_v2).obs.columns
-    assert cache_path_v2.stat().st_mtime > timestamp_v1
+    cache_mtime = cache_path_v2.stat().st_mtime
+    assert cache_mtime == artifact_v2.path.modified.timestamp()
+    assert cache_mtime > timestamp_v1
     # old version cache ignores key
     cache_path_v1 = artifact.cache()
     assert cache_path_v1.exists()

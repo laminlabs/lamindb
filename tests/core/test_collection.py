@@ -347,6 +347,27 @@ def test_collection_mapped(adata, adata2):
     with pytest.raises(ValueError):
         collection_csc.mapped(layers_keys="layer1")
 
+    # test with obs_filter
+    # wrong obs_vilter value
+    with pytest.raises(ValueError):
+        collection.mapped(obs_filter=("feat1", "A", "B"))
+
+    with collection.mapped(obs_filter=("feat1", ("A", "B"))) as ls_ds:
+        assert ls_ds.shape == (4, 3)
+        assert np.array_equal(ls_ds[1]["X"], np.array([4, 5, 6]))
+        assert np.array_equal(ls_ds[3]["X"], np.array([4, 5, 8]))
+        weights = ls_ds.get_label_weights("feat1")
+        assert len(weights) == 4
+        assert all(weights == 0.5)
+
+    with collection.mapped(obs_filter=("feat1", "B")) as ls_ds:
+        assert ls_ds.shape == (2, 3)
+        assert np.array_equal(ls_ds[0]["X"], np.array([4, 5, 6]))
+        assert np.array_equal(ls_ds[1]["X"], np.array([4, 5, 8]))
+        weights = ls_ds.get_label_weights("feat2")
+        assert len(weights) == 2
+        assert all(weights == 0.5)
+
     collection.delete(permanent=True)
     collection_outer.delete(permanent=True)
     collection_csc.delete(permanent=True)

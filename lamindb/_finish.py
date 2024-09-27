@@ -164,9 +164,7 @@ def save_context_core(
                 transform.source_code = source_code_path.read_text()
                 transform.hash = hash
             else:
-                logger.warning(
-                    "Please re-run `ln.context.track()` to make a new version"
-                )
+                logger.warning("Please re-run `ln.track()` to make a new version")
                 return "rerun-the-notebook"
         else:
             logger.important("source code is already saved")
