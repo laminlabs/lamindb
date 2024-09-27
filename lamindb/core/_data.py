@@ -40,9 +40,9 @@ if TYPE_CHECKING:
     from lnschema_core.types import StrField
 
 
-WARNING_RUN_TRANSFORM = "no run & transform got linked, call `` & re-run"
+WARNING_RUN_TRANSFORM = "no run & transform got linked, call `ln.track()` & re-run"
 
-WARNING_NO_INPUT = "run input wasn't tracked, call `` and re-run"
+WARNING_NO_INPUT = "run input wasn't tracked, call `ln.track()` and re-run"
 
 
 def get_run(run: Run | None) -> Run | None:
