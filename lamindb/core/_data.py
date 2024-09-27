@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Iterable, List
 
+from django.db import connections
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import (
@@ -23,6 +24,7 @@ from lamindb._record import get_name_field
 from lamindb.core._settings import settings
 
 from ._context import context
+from ._django import get_artifact_with_related, get_related_model
 from ._feature_manager import (
     get_feature_set_links,
     get_host_id_field,
@@ -96,23 +98,90 @@ def save_feature_set_links(self: Artifact | Collection) -> None:
         bulk_create(links, ignore_conflicts=True)
 
 
-@doc_args(Artifact.describe.__doc__)
-def describe(self: Artifact, print_types: bool = False):
-    """{}"""  # noqa: D415
+def format_provenance(self, fk_data, print_types):
+    type_str = lambda attr: (
+        f": {get_related_model(self.__class__, attr).__name__}" if print_types else ""
+    )
+
+    return "".join(
+        [
+            f"    .{field_name}{type_str(field_name)} = {format_field_value(value.get('name'))}\n"
+            for field_name, value in fk_data.items()
+            if value.get("name")
+        ]
+    )
+
+
+def format_input_of_runs(self, print_types):
+    if self.id is not None and self.input_of_runs.exists():
+        values = [format_field_value(i.started_at) for i in self.input_of_runs.all()]
+        type_str = ": Run" if print_types else ""  # type: ignore
+        return f"    .input_of_runs{type_str} = {', '.join(values)}\n"
+    return ""
+
+
+def format_labels_and_features(self, related_data, print_types):
+    msg = print_labels(
+        self, m2m_data=related_data.get("m2m", {}), print_types=print_types
+    )
+    if isinstance(self, Artifact):
+        msg += print_features(  # type: ignore
+            self,
+            related_data=related_data,
+            print_types=print_types,
+            print_params=hasattr(self, "type") and self.type == "model",
+        )
+    return msg
+
+
+def _describe_postgres(self: Artifact | Collection, print_types: bool = False):
     model_name = self.__class__.__name__
     msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
     if self._state.db is not None and self._state.db != "default":
         msg += f"  {colors.italic('Database instance')}\n"
         msg += f"    slug: {self._state.db}\n"
-    # prefetch all many-to-many relationships
-    # doesn't work for describing using artifact
-    # self = (
-    #     self.__class__.objects.using(self._state.db)
-    #     .prefetch_related(
-    #         *[f.name for f in self.__class__._meta.get_fields() if f.many_to_many]
-    #     )
-    #     .get(id=self.id)
-    # )
+
+    if model_name == "Artifact":
+        result = get_artifact_with_related(
+            self,
+            include_feature_link=True,
+            include_fk=True,
+            include_m2m=True,
+            include_featureset=True,
+        )
+    else:
+        result = get_artifact_with_related(self, include_fk=True, include_m2m=True)
+    related_data = result.get("related_data", {})
+    fk_data = related_data.get("fk", {})
+
+    # Provenance
+    prov_msg = format_provenance(self, fk_data, print_types)
+    if prov_msg:
+        msg += f"  {colors.italic('Provenance')}\n{prov_msg}"
+
+    # Input of runs
+    input_of_message = format_input_of_runs(self, print_types)
+    if input_of_message:
+        msg += f"  {colors.italic('Usage')}\n{input_of_message}"
+
+    # Labels and features
+    msg += format_labels_and_features(self, related_data, print_types)
+
+    # Print entire message
+    logger.print(msg)
+
+
+@doc_args(Artifact.describe.__doc__)
+def describe(self: Artifact | Collection, print_types: bool = False):
+    """{}"""  # noqa: D415
+    if not self._state.adding and connections[self._state.db].vendor == "postgresql":
+        return _describe_postgres(self, print_types=print_types)
+
+    model_name = self.__class__.__name__
+    msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
+    if self._state.db is not None and self._state.db != "default":
+        msg += f"  {colors.italic('Database instance')}\n"
+        msg += f"    slug: {self._state.db}\n"
 
     prov_msg = ""
     fields = self._meta.fields
@@ -160,28 +229,15 @@ def describe(self: Artifact, print_types: bool = False):
         msg += f"  {colors.italic('Provenance')}\n"
         msg += prov_msg
 
-    # input of runs
-    input_of_message = ""
-    if self.id is not None and self.input_of_runs.exists():
-        values = [format_field_value(i.started_at) for i in self.input_of_runs.all()]
-        type_str = ": Run" if print_types else ""  # type: ignore
-        input_of_message += f"    .input_of_runs{type_str} = {', '.join(values)}\n"
+    # Input of runs
+    input_of_message = format_input_of_runs(self, print_types)
     if input_of_message:
-        msg += f"  {colors.italic('Usage')}\n"
-        msg += input_of_message
+        msg += f"  {colors.italic('Usage')}\n{input_of_message}"
 
-    # labels
-    msg += print_labels(self, print_types=print_types)
+    # Labels and features
+    msg += format_labels_and_features(self, {}, print_types)
 
-    # features
-    if isinstance(self, Artifact):
-        msg += print_features(  # type: ignore
-            self,
-            print_types=print_types,
-            print_params=hasattr(self, "type") and self.type == "model",
-        )
-
-    # print entire message
+    # Print entire message
     logger.print(msg)
 
 
