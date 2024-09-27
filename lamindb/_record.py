@@ -480,9 +480,8 @@ def get_transfer_run(record) -> Run:
     from lamindb.core._context import context
     from lamindb.core._data import WARNING_RUN_TRANSFORM
 
-    assert "/" in record._state.db  # noqa: S101
     slug = record._state.db
-    owner, name = slug.split("/")
+    owner, name = get_owner_name_from_identifier(slug)
     settings_file = instance_settings_file(name, owner)
     isettings = load_instance_settings(settings_file)
     key = f"transfers/{isettings.uid}"
