@@ -516,7 +516,7 @@ def transfer_to_default_db(
     save: bool = False,
     transfer_fk: bool = True,
 ) -> Record | None:
-    if record.state._db is None or record.state._db == "default":
+    if record._state.db is None or record._state.db == "default":
         return None
     registry = record.__class__
     record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
