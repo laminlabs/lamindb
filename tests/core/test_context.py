@@ -143,7 +143,7 @@ def test_run_scripts_for_versioning():
     )
     # print(result.stdout.decode())
     assert result.returncode == 0
-    assert "created Transform(uid='Ro1gl7n8') & created Run(" in result.stdout.decode()
+    assert "created Transform('Ro1gl7n8') & created Run(" in result.stdout.decode()
 
     # updated key (filename change)
     result = subprocess.run(  # noqa: S602
@@ -176,10 +176,7 @@ def test_run_scripts_for_versioning():
     )
     # print(result.stdout.decode())
     assert result.returncode == 0
-    assert (
-        "created Transform(uid='Ro1gl7n8YrdH0001') & created Run(started_at="
-        in result.stdout.decode()
-    )
+    assert "created Transform('Ro1gl7n8') & created Run(" in result.stdout.decode()
     assert not ln.Transform.get("Ro1gl7n8YrdH0000").is_latest
     assert ln.Transform.get("Ro1gl7n8YrdH0001").is_latest
 
