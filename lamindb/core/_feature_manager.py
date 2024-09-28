@@ -497,6 +497,7 @@ def filter_base(cls, **expression):
         )
     new_expression = {}
     features = model.filter(name__in=keys_normalized).all().distinct()
+    feature_param = "param" if model is Param else "feature"
     for key, value in expression.items():
         split_key = key.split("__")
         normalized_key = split_key[0]
@@ -505,9 +506,9 @@ def filter_base(cls, **expression):
             comparator = f"__{split_key[1]}"
         feature = features.get(name=normalized_key)
         if not feature.dtype.startswith("cat"):
-            expression = {"feature": feature, f"value{comparator}": value}
+            expression = {feature_param: feature, f"value{comparator}": value}
             feature_value = value_model.filter(**expression)
-            new_expression["_feature_values__in"] = feature_value
+            new_expression[f"_{feature_param}_values__in"] = feature_value
         else:
             if isinstance(value, str):
                 expression = {f"name{comparator}": value}
@@ -990,3 +991,4 @@ FeatureManager.filter = filter
 FeatureManager.get = get
 ParamManager.add_values = add_values_params
 ParamManager.get_values = get_values
+ParamManager.filter = filter
