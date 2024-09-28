@@ -22,8 +22,6 @@ from lnschema_core.models import IsVersioned, Record, Run, Transform
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings
 
-from ._from_values import get_or_create_records
-
 if TYPE_CHECKING:
     import pandas as pd
     from lnschema_core.types import ListLike, StrField
@@ -172,33 +170,6 @@ def df(
     if hasattr(cls, "updated_at"):
         query_set = query_set.order_by("-updated_at")
     return query_set[:limit].df(include=include, join=join)
-
-
-# from_values doesn't apply for QuerySet or Manager
-@classmethod  # type:ignore
-@doc_args(Record.from_values.__doc__)
-def from_values(
-    cls,
-    values: ListLike,
-    field: StrField | None = None,
-    create: bool = False,
-    organism: Record | str | None = None,
-    source: Record | None = None,
-    mute: bool = False,
-) -> list[Record]:
-    """{}"""  # noqa: D415
-    from_source = True if cls.__module__.startswith("bionty.") else False
-
-    field_str = get_name_field(cls, field=field)
-    return get_or_create_records(
-        iterable=values,
-        field=getattr(cls, field_str),
-        create=create,
-        from_source=from_source,
-        organism=organism,
-        source=source,
-        mute=mute,
-    )
 
 
 def _search(
@@ -671,7 +642,6 @@ METHOD_NAMES = [
     "lookup",
     "save",
     "delete",
-    "from_values",
     "using",
 ]
 
