@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_file
-from lnschema_core.models import format_field_value
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -96,6 +95,10 @@ def save_context_core(
     ignore_non_consecutive: bool | None = None,
     from_cli: bool = False,
 ) -> str | None:
+    from lnschema_core.models import (
+        format_field_value,  # needs to come after lamindb was imported because of CLI use
+    )
+
     import lamindb as ln
 
     from .core._context import context, is_run_from_ipython
