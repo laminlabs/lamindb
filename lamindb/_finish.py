@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import os
 import re
-import shutil
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_file
+from lnschema_core.models import format_field_value
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -234,6 +233,11 @@ def save_context_core(
     transform.save()
 
     # finalize
+    if not from_cli:
+        run_time = run.finished_at - run.started_at
+        logger.important(
+            f"finished Run('{run.uid[:8]}') after {run_time} at {format_field_value(run.finished_at)}"
+        )
     if ln_setup.settings.instance.is_on_hub:
         identifier = ln_setup.settings.instance.slug
         logger.important(

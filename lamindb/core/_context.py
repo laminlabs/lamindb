@@ -323,7 +323,7 @@ class Context:
             )
             if run is not None:  # loaded latest run
                 run.started_at = datetime.now(timezone.utc)  # update run time
-                self._logging_message += f" & loaded Run('{run.uid[:8]}', started_at={format_field_value(run.started_at)})"
+                self._logging_message += f", started Run('{run.uid[:8]}') at {format_field_value(run.started_at)}"
 
         if run is None:  # create new run
             run = Run(
@@ -331,7 +331,7 @@ class Context:
                 params=params,
             )
             run.started_at = datetime.now(timezone.utc)
-            self._logging_message += f" & created Run('{run.uid[:8]}', started_at={format_field_value(run.started_at)})"
+            self._logging_message += f", started new Run('{run.uid[:8]}') at {format_field_value(run.started_at)}"
         # can only determine at ln.finish() if run was consecutive in
         # interactive session, otherwise, is consecutive
         run.is_consecutive = True if is_run_from_ipython else None
@@ -339,7 +339,7 @@ class Context:
         run.save()
         if params is not None:
             run.params.add_values(params)
-            self._logging_message += " with params: " + " ".join(
+            self._logging_message += "\n→ params: " + " ".join(
                 f"{key}='{value}'" for key, value in params.items()
             )
         self._run = run
