@@ -413,15 +413,22 @@ def using(
         ln_setup.settings.storage.cache_dir / f"instance--{owner}--{name}--uid.txt"
     )
     if not settings_file.exists():
-        load_result = connect_instance(owner=owner, name=name)
-        if isinstance(load_result, str):
+        result = connect_instance(owner=owner, name=name)
+        if isinstance(result, str):
             raise RuntimeError(
-                f"Failed to load instance {instance}, please check your permission!"
+                f"Failed to load instance {instance}, please check your permissions!"
             )
-        instance_result, _ = load_result
-        cache_filepath.write_text(instance_result["lnid"])
+        instance, _ = result
+        source_schema = {schema for schema in instance["schema_str"] if schema != ""}  # type: ignore
+        target_schema = ln_setup.settings.instance.schema
+        if not source_schema.issubset(target_schema):
+            missing_members = source_schema - target_schema
+            logger.warning(
+                f"source schema has additional modules: {missing_members}\nconsider mounting these schema modules to not encounter errors"
+            )
+        cache_filepath.write_text(instance["lnid"])  # type: ignore
         settings_file = instance_settings_file(name, owner)
-        db = update_db_using_local(instance_result, settings_file)
+        db = update_db_using_local(instance, settings_file)
     else:
         isettings = load_instance_settings(settings_file)
         db = isettings.db

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 from django.db import connections
-from lamin_utils import colors
+from lamin_utils import colors, logger
 from lnschema_core.models import Feature
 
 from lamindb._from_values import _print_values
@@ -277,4 +277,7 @@ class LabelManager:
                         )
             # ProgrammingError is raised when schemas don't match between source and target instances
             except ProgrammingError:
+                logger.warning(
+                    f"{related_name} labels cannot be transferred because schema module does not exist in target instance: {labels}"
+                )
                 continue
