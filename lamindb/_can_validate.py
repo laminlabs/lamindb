@@ -12,7 +12,7 @@ from lnschema_core import CanValidate, Record
 
 from lamindb._utils import attach_func_to_class_method
 
-from ._from_values import _has_organism_field, _print_values
+from ._from_values import _has_organism_field, _print_values, get_or_create_records
 from ._record import _queryset, get_name_field
 
 if TYPE_CHECKING:
@@ -57,6 +57,33 @@ def validate(
     """{}"""  # noqa: D415
     return _validate(
         cls=cls, values=values, field=field, mute=mute, organism=organism, source=source
+    )
+
+
+# from_values doesn't apply for QuerySet or Manager
+@classmethod  # type:ignore
+@doc_args(CanValidate.from_values.__doc__)
+def from_values(
+    cls,
+    values: ListLike,
+    field: StrField | None = None,
+    create: bool = False,
+    organism: Record | str | None = None,
+    source: Record | None = None,
+    mute: bool = False,
+) -> list[Record]:
+    """{}"""  # noqa: D415
+    from_source = True if cls.__module__.startswith("bionty.") else False
+
+    field_str = get_name_field(cls, field=field)
+    return get_or_create_records(
+        iterable=values,
+        field=getattr(cls, field_str),
+        create=create,
+        from_source=from_source,
+        organism=organism,
+        source=source,
+        mute=mute,
     )
 
 
@@ -564,6 +591,7 @@ METHOD_NAMES = [
     "add_synonym",
     "remove_synonym",
     "set_abbr",
+    "from_values",
 ]
 
 if ln_setup._TESTING:  # type: ignore
