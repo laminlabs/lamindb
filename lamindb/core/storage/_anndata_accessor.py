@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 from functools import cached_property
 from itertools import chain
-from typing import TYPE_CHECKING, Callable, Literal, Mapping, Union
+from typing import TYPE_CHECKING, Callable, Literal, Union
 
 import h5py
 import numpy as np
@@ -21,6 +21,7 @@ from lamindb_setup.core.upath import UPath, create_mapper, infer_filesystem
 from packaging import version
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
 
     from fsspec.core import OpenFile

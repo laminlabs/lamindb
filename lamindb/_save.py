@@ -6,7 +6,7 @@ import traceback
 from collections import defaultdict
 from datetime import datetime
 from functools import partial
-from typing import TYPE_CHECKING, Iterable, overload
+from typing import TYPE_CHECKING, overload
 
 import lamindb_setup
 from django.db import IntegrityError, transaction
@@ -25,6 +25,8 @@ from lamindb.core.storage.paths import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from lamindb_setup.core.upath import UPath
 
 

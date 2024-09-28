@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING
 
 import numpy as np
 from django.db import connections
@@ -139,7 +139,7 @@ def validate_labels(labels: QuerySet | list | dict):
         new_labels = [labels[int(i)] for i in np.argwhere(~validated).flatten()]
         return validated_labels, new_labels
 
-    if isinstance(labels, Dict):
+    if isinstance(labels, dict):
         result = {}
         for registry, labels_registry in labels.items():
             result[registry] = validate_labels_registry(labels_registry)

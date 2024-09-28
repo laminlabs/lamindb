@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import UserList
-from typing import TYPE_CHECKING, Iterable, NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
 import pandas as pd
 from django.db import models
@@ -23,6 +23,8 @@ from lnschema_core.models import (
 from lamindb.core.exceptions import DoesNotExist
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from lnschema_core.types import ListLike, StrField
 
 

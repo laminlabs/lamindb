@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Iterable, List
+from typing import TYPE_CHECKING, Any
 
 from django.db import connections
 from lamin_utils import colors, logger
@@ -39,6 +39,8 @@ from .schema import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from lnschema_core.types import StrField
 
 
@@ -312,7 +314,7 @@ def add_labels(
         records = records.list()
     if isinstance(records, (str, Record)):
         records = [records]
-    if not isinstance(records, List):  # avoids warning for pd Series
+    if not isinstance(records, list):  # avoids warning for pd Series
         records = list(records)
     # create records from values
     if len(records) == 0:

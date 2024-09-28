@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import os
 import shutil
+from collections.abc import Mapping
 from pathlib import Path, PurePath, PurePosixPath
-from typing import TYPE_CHECKING, Any, Mapping
+from typing import TYPE_CHECKING, Any
 
 import fsspec
 import lamindb_setup as ln_setup
