@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING
 
 import numpy as np
 from django.db import connections
-from lamin_utils import colors
+from lamin_utils import colors, logger
 from lnschema_core.models import Feature
 
 from lamindb._from_values import _print_values
@@ -139,7 +139,7 @@ def validate_labels(labels: QuerySet | list | dict):
         new_labels = [labels[int(i)] for i in np.argwhere(~validated).flatten()]
         return validated_labels, new_labels
 
-    if isinstance(labels, Dict):
+    if isinstance(labels, dict):
         result = {}
         for registry, labels_registry in labels.items():
             result[registry] = validate_labels_registry(labels_registry)
@@ -212,7 +212,7 @@ class LabelManager:
         from django.db.utils import ProgrammingError
 
         if transfer_logs is None:
-            transfer_logs = {"mapped": [], "transferred": []}
+            transfer_logs = {"mapped": [], "transferred": [], "run": None}
         using_key = settings._using_key
         for related_name, (_, labels) in get_labels_as_dict(data).items():
             labels = labels.all()
@@ -277,4 +277,7 @@ class LabelManager:
                         )
             # ProgrammingError is raised when schemas don't match between source and target instances
             except ProgrammingError:
+                logger.warning(
+                    f"{related_name} labels cannot be transferred because schema module does not exist in target instance: {labels}"
+                )
                 continue

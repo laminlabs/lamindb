@@ -83,7 +83,7 @@ def raise_missing_context(transform_type: str, key: str) -> bool:
     transform = Transform.filter(key=key).latest_version().first()
     if transform is None:
         new_uid = f"{base62_12()}0000"
-        message = f'To track this {transform_type}, copy & paste `ln.track("{new_uid}")` into the current cell and re-run it\n\n'
+        message = f'to track this {transform_type}, copy & paste `ln.track("{new_uid}")` and re-run'
     else:
         uid = transform.uid
         suid, vuid = uid[: Transform._len_stem_uid], uid[Transform._len_stem_uid :]
@@ -91,7 +91,7 @@ def raise_missing_context(transform_type: str, key: str) -> bool:
         new_uid = f"{suid}{new_vuid}"
         message = f"you already have a transform with key '{key}' ('{transform.uid}')\n  - to make a revision, call `ln.track('{new_uid}')`\n  - to create a new transform, rename your file and run: `ln.track()`"
     if transform_type == "notebook":
-        print(f"→ {message}\n")
+        print(f"→ {message}")
         response = input("→ Ready to re-run? (y/n)")
         if response == "y":
             logger.important(
@@ -100,7 +100,7 @@ def raise_missing_context(transform_type: str, key: str) -> bool:
             return True
         raise MissingContextUID("Please follow the instructions.")
     else:
-        raise MissingContextUID(message)
+        raise MissingContextUID(f"✗ {message}")
     return False
 
 
@@ -305,10 +305,10 @@ class Context:
                 transform_exists = Transform.filter(id=transform.id).first()
             if transform_exists is None:
                 transform.save()
-                self._logging_message += f"created Transform(uid='{transform.uid}')"
+                self._logging_message += f"created Transform('{transform.uid[:8]}')"
                 transform_exists = transform
             else:
-                self._logging_message += f"loaded Transform(uid='{transform.uid}')"
+                self._logging_message += f"loaded Transform('{transform.uid[:8]}')"
             self._transform = transform_exists
 
         if new_run is None:  # for notebooks, default to loading latest runs
@@ -323,9 +323,7 @@ class Context:
             )
             if run is not None:  # loaded latest run
                 run.started_at = datetime.now(timezone.utc)  # update run time
-                self._logging_message += (
-                    f" & loaded Run(started_at={format_field_value(run.started_at)})"
-                )
+                self._logging_message += f", started Run('{run.uid[:8]}') at {format_field_value(run.started_at)}"
 
         if run is None:  # create new run
             run = Run(
@@ -333,9 +331,7 @@ class Context:
                 params=params,
             )
             run.started_at = datetime.now(timezone.utc)
-            self._logging_message += (
-                f" & created Run(started_at={format_field_value(run.started_at)})"
-            )
+            self._logging_message += f", started new Run('{run.uid[:8]}') at {format_field_value(run.started_at)}"
         # can only determine at ln.finish() if run was consecutive in
         # interactive session, otherwise, is consecutive
         run.is_consecutive = True if is_run_from_ipython else None
@@ -343,6 +339,9 @@ class Context:
         run.save()
         if params is not None:
             run.params.add_values(params)
+            self._logging_message += "\n→ params: " + " ".join(
+                f"{key}='{value}'" for key, value in params.items()
+            )
         self._run = run
         track_environment(run)
         logger.important(self._logging_message)
@@ -448,7 +447,7 @@ class Context:
                 reference_type=transform_ref_type,
                 type=transform_type,
             ).save()
-            self._logging_message += f"created Transform(uid='{transform.uid}')"
+            self._logging_message += f"created Transform('{transform.uid[:8]}')"
         else:
             uid = transform.uid
             # check whether the transform.key is consistent
@@ -490,7 +489,7 @@ class Context:
                         bump_revision = True
                     else:
                         self._logging_message += (
-                            f"loaded Transform(uid='{transform.uid}')"
+                            f"loaded Transform('{transform.uid[:8]}')"
                         )
                 if bump_revision:
                     change_type = (
@@ -508,7 +507,7 @@ class Context:
                         f'ln.track("{suid}{new_vuid}")'
                     )
             else:
-                self._logging_message += f"loaded Transform(uid='{transform.uid}')"
+                self._logging_message += f"loaded Transform('{transform.uid[:8]}')"
         self._transform = transform
 
     def finish(self, ignore_non_consecutive: None | bool = None) -> None:

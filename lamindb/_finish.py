@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import os
 import re
-import shutil
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
@@ -97,6 +95,10 @@ def save_context_core(
     ignore_non_consecutive: bool | None = None,
     from_cli: bool = False,
 ) -> str | None:
+    from lnschema_core.models import (
+        format_field_value,  # needs to come after lamindb was imported because of CLI use
+    )
+
     import lamindb as ln
 
     from .core._context import context, is_run_from_ipython
@@ -158,7 +160,7 @@ def save_context_core(
         if hash != ref_hash:
             response = input(
                 f"You are about to overwrite existing source code (hash '{ref_hash}') for Transform('{transform.uid}')."
-                f"Proceed? (y/n)"
+                f" Proceed? (y/n)"
             )
             if response == "y":
                 transform.source_code = source_code_path.read_text()
@@ -234,6 +236,11 @@ def save_context_core(
     transform.save()
 
     # finalize
+    if not from_cli:
+        run_time = run.finished_at - run.started_at
+        logger.important(
+            f"finished Run('{run.uid[:8]}') after {run_time} at {format_field_value(run.finished_at)}"
+        )
     if ln_setup.settings.instance.is_on_hub:
         identifier = ln_setup.settings.instance.slug
         logger.important(

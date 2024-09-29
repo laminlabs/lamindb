@@ -4,7 +4,6 @@ from collections import defaultdict
 from typing import (
     TYPE_CHECKING,
     Any,
-    Iterable,
     Literal,
 )
 
@@ -37,6 +36,8 @@ from .core._data import (
 from .core._settings import settings
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from lamindb.core.storage import UPath
 
     from ._query_set import QuerySet

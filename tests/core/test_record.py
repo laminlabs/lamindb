@@ -16,7 +16,7 @@ def test_signatures():
         pass
 
     # class methods
-    class_methods = ["filter", "get", "df", "search", "lookup", "from_values", "using"]
+    class_methods = ["filter", "get", "df", "search", "lookup", "using"]
     for name in class_methods:
         setattr(Mock, name, getattr(_record, name))
         assert signature(getattr(Mock, name)) == _record.SIGS.pop(name)

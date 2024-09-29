@@ -87,6 +87,33 @@ def validate(
     )
 
 
+# from_values doesn't apply for QuerySet or Manager
+@classmethod  # type:ignore
+@doc_args(CanValidate.from_values.__doc__)
+def from_values(
+    cls,
+    values: ListLike,
+    field: StrField | None = None,
+    create: bool = False,
+    organism: Record | str | None = None,
+    source: Record | None = None,
+    mute: bool = False,
+) -> list[Record]:
+    """{}"""  # noqa: D415
+    from_source = True if cls.__module__.startswith("bionty.") else False
+
+    field_str = get_name_field(cls, field=field)
+    return get_or_create_records(
+        iterable=values,
+        field=getattr(cls, field_str),
+        create=create,
+        from_source=from_source,
+        organism=organism,
+        source=source,
+        mute=mute,
+    )
+
+
 def _check_source_db(source: Record, using_key: str | None):
     """Check if the source is from the DB."""
     if using_key is not None and using_key != "default":

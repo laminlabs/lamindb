@@ -143,10 +143,7 @@ def test_run_scripts_for_versioning():
     )
     # print(result.stdout.decode())
     assert result.returncode == 0
-    assert (
-        "created Transform(uid='Ro1gl7n8YrdH0000') & created Run(started_at="
-        in result.stdout.decode()
-    )
+    assert "created Transform('Ro1gl7n8'), started new Run(" in result.stdout.decode()
 
     # updated key (filename change)
     result = subprocess.run(  # noqa: S602
@@ -179,10 +176,7 @@ def test_run_scripts_for_versioning():
     )
     # print(result.stdout.decode())
     assert result.returncode == 0
-    assert (
-        "created Transform(uid='Ro1gl7n8YrdH0001') & created Run(started_at="
-        in result.stdout.decode()
-    )
+    assert "created Transform('Ro1gl7n8'), started new Run(" in result.stdout.decode()
     assert not ln.Transform.get("Ro1gl7n8YrdH0000").is_latest
     assert ln.Transform.get("Ro1gl7n8YrdH0001").is_latest
 
@@ -212,7 +206,7 @@ def test_run_external_script():
     print(result.stderr.decode())
     assert result.returncode == 0
     assert "created Transform" in result.stdout.decode()
-    assert "created Run" in result.stdout.decode()
+    assert "started new Run" in result.stdout.decode()
     transform = ln.Transform.get(key="run-track-and-finish-sync-git.py")
     # the algorithm currently picks different commits depending on the state of the repo
     # any of these commits are valid

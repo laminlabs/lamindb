@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable, Type
+from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
 import numpy as np
@@ -21,6 +21,8 @@ from .core.schema import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     import pandas as pd
 
     from ._query_set import QuerySet

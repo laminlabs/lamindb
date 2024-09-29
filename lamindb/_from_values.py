@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
@@ -10,6 +10,8 @@ from lnschema_core.models import Feature, Record, ULabel
 from .core._settings import settings
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from lnschema_core.types import ListLike, StrField
 
 
