@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from lamin_utils import colors, logger
-from lnschema_core.models import Feature, Record, ULabel
+from lnschema_core.models import Feature, Field, Record, ULabel
 
 from .core._settings import settings
 
@@ -158,7 +158,9 @@ def get_existing_records(
     # records = query_set.order_by(preserved).list()
 
     # log validated terms
-    validated = iterable_idx[model.validate(iterable_idx, organism=organism, mute=True)]
+    validated = iterable_idx[
+        model.validate(iterable_idx, field=field, organism=organism, mute=True)
+    ]
     msg = ""
     syn_msg = ""
     if not mute:
@@ -378,8 +380,11 @@ def _get_organism_record(
     if _has_organism_field(registry) and check:
         from bionty._bionty import create_or_get_organism_record
 
+        if field and not isinstance(field, str):
+            field = field.field.name
+
         organism_record = create_or_get_organism_record(
-            organism=organism, registry=registry
+            organism=organism, registry=registry, field=field
         )
         if organism_record is not None:
             return organism_record
