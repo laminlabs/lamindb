@@ -75,25 +75,6 @@ def notebook_to_script(
     script_path.write_text(py_content)
 
 
-def script_to_notebook(
-    transform: Transform, notebook_path: Path, bump_revision: bool = False
-) -> None:
-    import jupytext
-
-    from .core.versioning import increment_base62
-
-    py_content = transform.source_code.replace(
-        "# # transform.name", f"# # {transform.name}"
-    )
-    if bump_revision:
-        uid = transform.uid
-        new_uid = f"{uid[:-4]}{increment_base62(uid[-4:])}"
-        py_content = py_content.replace(uid, new_uid)
-        logger.important(f"updated uid: {uid} → {new_uid}")
-    notebook = jupytext.reads(py_content, fmt="py:percent")
-    jupytext.write(notebook, notebook_path)
-
-
 def save_context_core(
     *,
     run: Run,

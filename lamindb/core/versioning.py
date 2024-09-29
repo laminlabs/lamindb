@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 from lamin_utils import logger
-from lamin_utils._base62 import CHARSET_DEFAULT as BASE62_CHARS
+from lamin_utils._base62 import increment_base62
 from lamindb_setup.core.upath import LocalPathClasses, UPath
 from lnschema_core import ids
 
@@ -19,18 +19,6 @@ def message_update_key_in_version_family(
     new_key: str,
 ) -> str:
     return f'Or update key "{existing_key}" to "{new_key}" for all previous versions:\n\nln.{registry}.filter(uid__startswith="{suid}").update(key="{new_key}")\n'
-
-
-def increment_base62(s: str) -> str:
-    # we don't need to throw an error for zzzz because uids are enforced to be unique
-    # on the db level and have an enforced maximum length
-    value = sum(BASE62_CHARS.index(c) * (62**i) for i, c in enumerate(reversed(s)))
-    value += 1
-    result = ""
-    while value:
-        value, remainder = divmod(value, 62)
-        result = BASE62_CHARS[remainder] + result
-    return result.zfill(len(s))
 
 
 def bump_version(
