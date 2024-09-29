@@ -158,9 +158,13 @@ def get_existing_records(
     # records = query_set.order_by(preserved).list()
 
     # log validated terms
-    validated = iterable_idx[
-        model.validate(iterable_idx, field=field, organism=organism, mute=True)
-    ]
+    is_validated = model.validate(
+        iterable_idx, field=field, organism=organism, mute=True
+    )
+    if len(is_validated) > 0:
+        validated = iterable_idx[is_validated]
+    else:
+        validated = []
     msg = ""
     syn_msg = ""
     if not mute:
