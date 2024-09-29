@@ -6,7 +6,7 @@
    InvalidArgument
    DoesNotExist
    ValidationError
-   NotebookNotSavedError
+   NotebookNotSaved
    NoTitleError
    MissingContextUID
    UpdateContext
@@ -51,6 +51,12 @@ class DoesNotExist(Exception):
     pass
 
 
+class InconsistentKey(Exception):
+    """Inconsistent transform or artifact `key`."""
+
+    pass
+
+
 # -------------------------------------------------------------------------------------
 # run context
 # -------------------------------------------------------------------------------------
@@ -62,12 +68,6 @@ class IntegrityError(Exception):
     For instance, it's not allowed to delete artifacts outside managed storage
     locations.
     """
-
-    pass
-
-
-class NotebookNotSavedError(Exception):
-    """Notebook wasn't saved."""
 
     pass
 

@@ -18,7 +18,7 @@ def message_update_key_in_version_family(
     registry: str,
     new_key: str,
 ) -> str:
-    return f'Or update key "{existing_key}" to "{new_key}":\n\nln.{registry}.filter(uid__startswith="{suid}").update(key="{new_key}")\n'
+    return f'Or update key "{existing_key}" to "{new_key}" for all previous versions:\n\nln.{registry}.filter(uid__startswith="{suid}").update(key="{new_key}")\n'
 
 
 def increment_base62(s: str) -> str:

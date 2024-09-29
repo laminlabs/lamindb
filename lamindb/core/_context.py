@@ -12,15 +12,14 @@ from lamindb_setup.core.hashing import hash_file
 from lnschema_core import Run, Transform, ids
 from lnschema_core.ids import base62_12
 from lnschema_core.models import format_field_value
-from lnschema_core.users import current_user_id
 
 from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_environment
 from .exceptions import (
+    InconsistentKey,
     MissingContextUID,
     NotebookNotSaved,
-    NotebookNotSavedError,
     NoTitleError,
     TrackNotCalled,
     UpdateContext,
@@ -86,9 +85,7 @@ def raise_missing_context(transform_type: str, key: str) -> bool:
         message = f'to track this {transform_type}, copy & paste `ln.track("{new_uid}")` and re-run'
     else:
         uid = transform.uid
-        suid, vuid = uid[: Transform._len_stem_uid], uid[Transform._len_stem_uid :]
-        new_vuid = increment_base62(vuid)
-        new_uid = f"{suid}{new_vuid}"
+        new_uid = f"{uid[:-4]}{increment_base62(uid[-4:])}"
         message = f"you already have a transform with key '{key}' ('{transform.uid}')\n  - to make a revision, call `ln.track('{new_uid}')`\n  - to create a new transform, rename your file and run: `ln.track()`"
     if transform_type == "notebook":
         print(f"→ {message}")
@@ -317,7 +314,9 @@ class Context:
         run = None
         if not new_run:  # try loading latest run by same user
             run = (
-                Run.filter(transform=self._transform, created_by_id=current_user_id())
+                Run.filter(
+                    transform=self._transform, created_by_id=ln_setup.settings.user.id
+                )
                 .order_by("-created_at")
                 .first()
             )
@@ -392,7 +391,7 @@ class Context:
             try:
                 nbproject_title = nbproject.meta.live.title
             except IndexError:
-                raise NotebookNotSavedError(
+                raise NotebookNotSaved(
                     "The notebook is not saved, please save the notebook and"
                     " rerun ``"
                 ) from None
@@ -430,52 +429,74 @@ class Context:
         transform_type: TransformType = None,
         transform: Transform | None = None,
     ):
+        def get_key_clashing_message(transform: Transform, key: str) -> str:
+            update_key_note = message_update_key_in_version_family(
+                suid=transform.stem_uid,
+                existing_key=transform.key,
+                new_key=key,
+                registry="Transform",
+            )
+            return (
+                f'Filename "{key}" clashes with the existing key "{transform.key}" for uid "{transform.uid[:-4]}...."\n\nEither init a new transform with a new uid:\n\n'
+                f'ln.track("{ids.base62_12()}0000)"\n\n{update_key_note}'
+            )
+
         # make a new transform record
         if transform is None:
             if uid is None:
                 uid = f"{stem_uid}{get_uid_ext(version)}"
+            # let's query revises so that we can pass it to the constructor and use it for error handling
+            revises = (
+                Transform.filter(uid__startswith=uid[:-4], is_latest=True)
+                .order_by("-created_at")
+                .first()
+            )
             # note that here we're not passing revises because we're not querying it
             # hence, we need to do a revision family lookup based on key
             # hence, we need key to be not None
             assert key is not None  # noqa: S101
-            transform = Transform(
-                uid=uid,
-                version=version,
-                name=name,
-                key=key,
-                reference=transform_ref,
-                reference_type=transform_ref_type,
-                type=transform_type,
-            ).save()
+            raise_update_context = False
+            try:
+                transform = Transform(
+                    uid=uid,
+                    version=version,
+                    name=name,
+                    key=key,
+                    reference=transform_ref,
+                    reference_type=transform_ref_type,
+                    type=transform_type,
+                    revises=revises,
+                ).save()
+            except InconsistentKey:
+                raise_update_context = True
+            if raise_update_context:
+                raise UpdateContext(get_key_clashing_message(revises, key))
             self._logging_message += f"created Transform('{transform.uid[:8]}')"
         else:
             uid = transform.uid
+            # transform was already saved via `finish()`
+            transform_was_saved = (
+                transform._source_code_artifact_id is not None
+                or transform.source_code is not None
+            )
             # check whether the transform.key is consistent
             if transform.key != key:
-                suid = transform.stem_uid
-                new_suid = ids.base62_12()
-                transform_type = "notebook" if is_run_from_ipython else "script"
-                note = message_update_key_in_version_family(
-                    suid=suid,
-                    existing_key=transform.key,
-                    new_key=key,
-                    registry="Transform",
-                )
-                raise UpdateContext(
-                    f'\n✗ Filename "{key}" clashes with the existing key "{transform.key}" for uid "{transform.uid[:-4]}...."\n\nEither init a new transform with a new uid:\n\n'
-                    f'ln.track("{new_suid}0000"\n\n{note}'
-                )
+                raise UpdateContext(get_key_clashing_message(transform, key))
             elif transform.name != name:
                 transform.name = name
                 transform.save()
                 self._logging_message += (
                     "updated transform name, "  # white space on purpose
                 )
-            # check whether transform source code was already saved
-            if (
-                transform._source_code_artifact_id is not None
-                or transform.source_code is not None
+            elif (
+                transform.created_by_id != ln_setup.settings.user.id
+                and not transform_was_saved
             ):
+                raise UpdateContext(
+                    f'{transform.created_by.name} ({transform.created_by.handle}) already works on this draft {transform.type}.\n\nPlease create a revision via `ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")` or a new transform with a *different* filename and `ln.track("{ids.base62_12()}0000")`.'
+                )
+            # check whether transform source code was already saved
+            if transform_was_saved:
                 bump_revision = False
                 if is_run_from_ipython:
                     bump_revision = True
@@ -497,14 +518,9 @@ class Context:
                         if is_run_from_ipython
                         else "Source code changed"
                     )
-                    suid, vuid = (
-                        uid[:-4],
-                        uid[-4:],
-                    )
-                    new_vuid = increment_base62(vuid)
                     raise UpdateContext(
                         f"{change_type}, bump revision by setting:\n\n"
-                        f'ln.track("{suid}{new_vuid}")'
+                        f'ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")'
                     )
             else:
                 self._logging_message += f"loaded Transform('{transform.uid[:8]}')"
