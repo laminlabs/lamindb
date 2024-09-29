@@ -21,6 +21,33 @@ if TYPE_CHECKING:
     from lnschema_core.types import ListLike, StrField
 
 
+# from_values doesn't apply for QuerySet or Manager
+@classmethod  # type:ignore
+@doc_args(CanValidate.from_values.__doc__)
+def from_values(
+    cls,
+    values: ListLike,
+    field: StrField | None = None,
+    create: bool = False,
+    organism: Record | str | None = None,
+    source: Record | None = None,
+    mute: bool = False,
+) -> list[Record]:
+    """{}"""  # noqa: D415
+    from_source = True if cls.__module__.startswith("bionty.") else False
+
+    field_str = get_name_field(cls, field=field)
+    return get_or_create_records(
+        iterable=values,
+        field=getattr(cls, field_str),
+        create=create,
+        from_source=from_source,
+        organism=organism,
+        source=source,
+        mute=mute,
+    )
+
+
 @classmethod  # type: ignore
 @doc_args(CanValidate.inspect.__doc__)
 def inspect(
@@ -57,33 +84,6 @@ def validate(
     """{}"""  # noqa: D415
     return _validate(
         cls=cls, values=values, field=field, mute=mute, organism=organism, source=source
-    )
-
-
-# from_values doesn't apply for QuerySet or Manager
-@classmethod  # type:ignore
-@doc_args(CanValidate.from_values.__doc__)
-def from_values(
-    cls,
-    values: ListLike,
-    field: StrField | None = None,
-    create: bool = False,
-    organism: Record | str | None = None,
-    source: Record | None = None,
-    mute: bool = False,
-) -> list[Record]:
-    """{}"""  # noqa: D415
-    from_source = True if cls.__module__.startswith("bionty.") else False
-
-    field_str = get_name_field(cls, field=field)
-    return get_or_create_records(
-        iterable=values,
-        field=getattr(cls, field_str),
-        create=create,
-        from_source=from_source,
-        organism=organism,
-        source=source,
-        mute=mute,
     )
 
 
@@ -376,16 +376,24 @@ def _standardize(
         from bionty._bionty import create_or_get_organism_record
 
         organism_record = create_or_get_organism_record(
-            organism=organism, registry=registry
+            organism=organism, registry=registry, field=field
         )
         organism = (
             organism_record.name if organism_record is not None else organism_record
         )
 
+    # only perform synonym mapping if field is the name field
+    if hasattr(registry, "_name_field") and field != registry._name_field:
+        synonyms_field = None
+
     try:
         registry._meta.get_field(synonyms_field)
+        fields = {i for i in [field, return_field, synonyms_field] if i is not None}
         df = _filter_query_based_on_organism(
-            queryset=queryset, field=field, organism=organism
+            queryset=queryset,
+            field=field,
+            organism=organism,
+            fields=list(fields),
         )
     except FieldDoesNotExist:
         df = pd.DataFrame()
@@ -552,6 +560,7 @@ def _filter_query_based_on_organism(
     field: str,
     organism: str | Record | None = None,
     values_list_field: str | None = None,
+    fields: list[str] | None = None,
 ):
     """Filter a queryset based on organism."""
     import pandas as pd
@@ -563,13 +572,18 @@ def _filter_query_based_on_organism(
         from bionty._bionty import create_or_get_organism_record
 
         organism_record = create_or_get_organism_record(
-            organism=organism, registry=registry
+            organism=organism, registry=registry, field=field
         )
         if organism_record is not None:
             queryset = queryset.filter(organism__name=organism_record.name)
 
     if values_list_field is None:
+        if fields:
+            return pd.DataFrame.from_records(
+                queryset.values_list(*fields), columns=fields
+            )
         return pd.DataFrame.from_records(queryset.values())
+
     else:
         return queryset.values_list(values_list_field, flat=True)
 

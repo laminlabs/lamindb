@@ -18,7 +18,6 @@ def adata():
 # below the test for the main way of annotating with
 # features
 def test_features_add(adata):
-    ln.ULabel(name="Experiment 1")
     artifact = ln.Artifact.from_anndata(adata, description="test")
     artifact.save()
     with pytest.raises(ValidationError) as error:

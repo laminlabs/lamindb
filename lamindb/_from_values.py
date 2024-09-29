@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from lamin_utils import colors, logger
-from lnschema_core.models import Feature, Record, ULabel
+from lnschema_core.models import Feature, Field, Record, ULabel
 
 from .core._settings import settings
 
@@ -31,20 +31,17 @@ def get_or_create_records(
     if create:
         return [registry(**{field.field.name: value}) for value in iterable]
     creation_search_names = settings.creation.search_names
-    feature: Feature = None
     organism = _get_organism_record(field, organism)
-    kwargs: dict = {}
-    if organism is not None:
-        kwargs["organism"] = organism
-    if source is not None:
-        kwargs["source"] = source
     settings.creation.search_names = False
     try:
         iterable_idx = index_iterable(iterable)
 
         # returns existing records & non-existing values
         records, nonexist_values, msg = get_existing_records(
-            iterable_idx=iterable_idx, field=field, mute=mute, **kwargs
+            iterable_idx=iterable_idx,
+            field=field,
+            organism=organism,
+            mute=mute,
         )
 
         # new records to be created based on new values
@@ -60,11 +57,10 @@ def get_or_create_records(
                 ):
                     source_record = records[0].source
             if not source_record and hasattr(registry, "public"):
-                from bionty._bionty import get_source_record
+                if organism is None:
+                    organism = _ensembl_prefix(nonexist_values[0], field, organism)
+                    organism = _get_organism_record(field, organism, force=True)
 
-                source_record = get_source_record(
-                    registry.public(organism=organism), registry
-                )
             if source_record:
                 from bionty.core._add_ontology import check_source_in_db
 
@@ -84,9 +80,10 @@ def get_or_create_records(
                 records_bionty, unmapped_values = create_records_from_source(
                     iterable_idx=nonexist_values,
                     field=field,
+                    organism=organism,
+                    source=source_record,
                     msg=msg,
                     mute=mute,
-                    **kwargs,
                 )
                 if len(records_bionty) > 0:
                     msg = ""
@@ -108,17 +105,17 @@ def get_or_create_records(
                         f"{colors.red('did not create')} {name} record{s} for "
                         f"{n_nonval} {colors.italic(f'{field.field.name}{s}')}: {print_values}"
                     )
-        if registry.__get_schema_name__() == "bionty" or registry == ULabel:
-            if isinstance(iterable, pd.Series):
-                feature = iterable.name
-            feature_name = None
-            if isinstance(feature, str):
-                feature_name = feature
-            if feature_name is not None:
-                if feature_name is not None:
-                    for record in records:
-                        record._feature = feature_name
-                logger.debug(f"added default feature '{feature_name}'")
+        # if registry.__get_schema_name__() == "bionty" or registry == ULabel:
+        #     if isinstance(iterable, pd.Series):
+        #         feature = iterable.name
+        #     feature_name = None
+        #     if isinstance(feature, str):
+        #         feature_name = feature
+        #     if feature_name is not None:
+        #         if feature_name is not None:
+        #             for record in records:
+        #                 record._feature = feature_name
+        #         logger.debug(f"added default feature '{feature_name}'")
         return records
     finally:
         settings.creation.search_names = creation_search_names
@@ -127,46 +124,27 @@ def get_or_create_records(
 def get_existing_records(
     iterable_idx: pd.Index,
     field: StrField,
+    organism: Record | None = None,
     mute: bool = False,
-    **kwargs,
 ):
+    # NOTE: existing records matching is agnostic to the source
     model = field.field.model
-    condition: dict = {} if len(kwargs) == 0 else kwargs.copy()
-    # existing records matching is agnostic to the bionty source
-    if "source" in condition:
-        condition.pop("source")
+    if organism is None and field.field.name == "ensembl_gene_id":
+        if len(iterable_idx) > 0:
+            organism = _ensembl_prefix(iterable_idx[0], field, organism)
+            organism = _get_organism_record(field, organism, force=True)
 
     # standardize based on the DB reference
     # log synonyms mapped terms
-    result = model.inspect(
+    syn_mapper = model.standardize(
         iterable_idx,
         field=field,
-        organism=kwargs.get("organism"),
-        source=kwargs.get("source"),
+        organism=organism,
         mute=True,
+        public_aware=False,
+        return_mapper=True,
     )
-    syn_mapper = result.synonyms_mapper
-
-    syn_msg = ""
-    if len(syn_mapper) > 0:
-        s = "" if len(syn_mapper) == 1 else "s"
-        names = list(syn_mapper.keys())
-        print_values = colors.green(_print_values(names))
-        syn_msg = (
-            "loaded"
-            f" {colors.green(f'{len(syn_mapper)} {model.__name__} record{s}')}"
-            f" matching {colors.italic('synonyms')}: {print_values}"
-        )
-        iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
-
-    # get all existing records in the db
-    # if necessary, create records for the values in kwargs
-    # k:v -> k:v_record
-    # kwargs is used to deal with organism
-    condition.update({f"{field.field.name}__in": iterable_idx.values})
-
-    query_set = model.filter(**condition)
-    records = query_set.list()
+    iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
 
     # now we have to sort the list of queried records
     # preserved = Case(
@@ -179,16 +157,33 @@ def get_existing_records(
     # records = query_set.order_by(preserved).list()
 
     # log validated terms
-    validated = result.validated
+    is_validated = model.validate(
+        iterable_idx, field=field, organism=organism, mute=True
+    )
+    if len(is_validated) > 0:
+        validated = iterable_idx[is_validated]
+    else:
+        validated = []
     msg = ""
-    if len(validated) > 0:
-        s = "" if len(validated) == 1 else "s"
-        print_values = colors.green(_print_values(validated))
-        msg = (
-            "loaded"
-            f" {colors.green(f'{len(validated)} {model.__name__} record{s}')}"
-            f" matching {colors.italic(f'{field.field.name}')}: {print_values}"
-        )
+    syn_msg = ""
+    if not mute:
+        if len(validated) > 0:
+            s = "" if len(validated) == 1 else "s"
+            print_values = colors.green(_print_values(validated))
+            msg = (
+                "loaded"
+                f" {colors.green(f'{len(validated)} {model.__name__} record{s}')}"
+                f" matching {colors.italic(f'{field.field.name}')}: {print_values}"
+            )
+        if len(syn_mapper) > 0:
+            s = "" if len(syn_mapper) == 1 else "s"
+            names = list(syn_mapper.keys())
+            print_values = colors.green(_print_values(names))
+            syn_msg = (
+                "loaded"
+                f" {colors.green(f'{len(syn_mapper)} {model.__name__} record{s}')}"
+                f" matching {colors.italic('synonyms')}: {print_values}"
+            )
 
     # no logging if all values are validated
     # logs if there are synonyms
@@ -199,20 +194,28 @@ def get_existing_records(
             logger.success(syn_msg)
         msg = ""
 
-    existing_values = iterable_idx.intersection(
-        query_set.values_list(field.field.name, flat=True)
-    )
-    nonexist_values = iterable_idx.difference(existing_values)
+    # get all existing records in the db
+    # if necessary, create records for the values in kwargs
+    # k:v -> k:v_record
+    query = {f"{field.field.name}__in": iterable_idx.values}
+    if organism is not None:
+        query["organism"] = organism
+    records = model.filter(**query).list()
 
-    return records, nonexist_values, msg
+    if len(validated) == len(iterable_idx):
+        return records, [], msg
+    else:
+        nonval_values = iterable_idx.difference(validated)
+        return records, nonval_values, msg
 
 
 def create_records_from_source(
     iterable_idx: pd.Index,
     field: StrField,
+    organism: Record | None = None,
+    source: Record | None = None,
     msg: str = "",
     mute: bool = False,
-    **kwargs,
 ):
     model = field.field.model
     records: list = []
@@ -223,19 +226,13 @@ def create_records_from_source(
     # create the corresponding bionty object from model
     try:
         # TODO: more generic
-        organism = kwargs.get("organism")
-        if field.field.name == "ensembl_gene_id":
-            if iterable_idx[0].startswith("ENSG"):
-                organism = "human"
-            elif iterable_idx[0].startswith("ENSMUSG"):
-                organism = "mouse"
-        public_ontology = model.public(organism=organism, source=kwargs.get("source"))
+        public_ontology = model.public(organism=organism, source=source)
     except Exception:
         # for custom records that are not created from public sources
         return records, iterable_idx
-    # add source record to the kwargs
-    source_record = get_source_record(public_ontology, model)
-    kwargs.update({"source": source_record})
+    # get the default source
+    if source is None:
+        source = get_source_record(public_ontology, model)
 
     # filter the columns in bionty df based on fields
     bionty_df = filter_bionty_df_columns(model=model, public_ontology=public_ontology)
@@ -266,15 +263,17 @@ def create_records_from_source(
         bionty_kwargs, multi_msg = _bulk_create_dicts_from_df(
             keys=mapped_values, column_name=field.field.name, df=bionty_df
         )
-        organism_kwargs = {}
-        if "organism" not in kwargs:
-            organism_record = _get_organism_record(
-                field, public_ontology.organism, force=True
-            )
-            if organism_record is not None:
-                organism_kwargs["organism"] = organism_record
+
+        if hasattr(model, "organism_id") and organism is None:
+            organism = _get_organism_record(field, source.organism, force=True)
+
+        create_kwargs = (
+            {"organism": organism, "source": source}
+            if organism is not None
+            else {"source": source}
+        )
         for bk in bionty_kwargs:
-            records.append(model(**bk, **kwargs, **organism_kwargs))
+            records.append(model(**bk, **create_kwargs))
 
         # number of records that matches field (not synonyms)
         validated = result.validated
@@ -366,6 +365,13 @@ def _has_organism_field(registry: type[Record]) -> bool:
 def _get_organism_record(
     field: StrField, organism: str | Record, force: bool = False
 ) -> Record:
+    """Get organism record.
+
+    Args:
+        field: the field to get the organism record for
+        organism: the organism to get the record for
+        force: whether to force fetching the organism record
+    """
     registry = field.field.model
     check = True
     if not force and hasattr(registry, "_ontology_id_field"):
@@ -377,8 +383,21 @@ def _get_organism_record(
     if _has_organism_field(registry) and check:
         from bionty._bionty import create_or_get_organism_record
 
+        if field and not isinstance(field, str):
+            field = field.field.name
+
         organism_record = create_or_get_organism_record(
-            organism=organism, registry=registry
+            organism=organism, registry=registry, field=field
         )
         if organism_record is not None:
             return organism_record
+
+
+def _ensembl_prefix(id: str, field: StrField, organism: Record | None) -> str | None:
+    if field.field.name == "ensembl_gene_id" and organism is None:
+        if id.startswith("ENSG"):
+            organism = "human"
+        elif id.startswith("ENSMUSG"):
+            organism = "mouse"
+
+    return organism
