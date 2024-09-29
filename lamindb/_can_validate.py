@@ -375,18 +375,12 @@ def _standardize(
         # here, we can safely import bionty
         from bionty._bionty import create_or_get_organism_record
 
-        if (
-            hasattr(registry, "_ontology_id_field")
-            and field == registry._ontology_id_field
-        ):
-            pass
-        else:
-            organism_record = create_or_get_organism_record(
-                organism=organism, registry=registry
-            )
-            organism = (
-                organism_record.name if organism_record is not None else organism_record
-            )
+        organism_record = create_or_get_organism_record(
+            organism=organism, registry=registry, field=field
+        )
+        organism = (
+            organism_record.name if organism_record is not None else organism_record
+        )
 
     # only perform synonym mapping if field is the name field
     if hasattr(registry, "_name_field") and field != registry._name_field:
@@ -578,7 +572,7 @@ def _filter_query_based_on_organism(
         from bionty._bionty import create_or_get_organism_record
 
         organism_record = create_or_get_organism_record(
-            organism=organism, registry=registry
+            organism=organism, registry=registry, field=field
         )
         if organism_record is not None:
             queryset = queryset.filter(organism__name=organism_record.name)
