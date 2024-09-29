@@ -57,11 +57,10 @@ def get_or_create_records(
                 ):
                     source_record = records[0].source
             if not source_record and hasattr(registry, "public"):
-                from bionty._bionty import get_source_record
+                if organism is None:
+                    organism = _ensembl_prefix(nonexist_values[0], field, organism)
+                    organism = _get_organism_record(field, organism, force=True)
 
-                source_record = get_source_record(
-                    registry.public(organism=organism), registry
-                )
             if source_record:
                 from bionty.core._add_ontology import check_source_in_db
 
@@ -227,7 +226,6 @@ def create_records_from_source(
     # create the corresponding bionty object from model
     try:
         # TODO: more generic
-        organism = _ensembl_prefix(iterable_idx[0], field, organism)
         public_ontology = model.public(organism=organism, source=source)
     except Exception:
         # for custom records that are not created from public sources
@@ -265,8 +263,6 @@ def create_records_from_source(
         bionty_kwargs, multi_msg = _bulk_create_dicts_from_df(
             keys=mapped_values, column_name=field.field.name, df=bionty_df
         )
-        if not isinstance(organism, Record):
-            organism = _get_organism_record(field, public_ontology.organism, force=True)
 
         create_kwargs = (
             {"organism": organism, "source": source}
