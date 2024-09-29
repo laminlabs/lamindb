@@ -476,11 +476,11 @@ class Context:
                     "updated transform name, "  # white space on purpose
                 )
             elif (
-                transform.created_by != ln_setup.settings.user.id
+                transform.created_by_id != ln_setup.settings.user.id
                 and not transform_was_saved
             ):
                 raise UpdateContext(
-                    f'{transform.created_by.name} ({transform.created_by.handle}) already works on this draft notebook.\n\nPlease create a revision via `ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")` or a new transform with a *different* filename and `ln.track("{ids.base62_12()}0000")`.'
+                    f'{transform.created_by.name} ({transform.created_by.handle}) already works on this draft {transform.type}.\n\nPlease create a revision via `ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")` or a new transform with a *different* filename and `ln.track("{ids.base62_12()}0000")`.'
                 )
             # check whether transform source code was already saved
             if transform_was_saved:
