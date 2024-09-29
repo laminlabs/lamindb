@@ -20,7 +20,6 @@ from .exceptions import (
     InconsistentKey,
     MissingContextUID,
     NotebookNotSaved,
-    NotebookNotSavedError,
     NoTitleError,
     TrackNotCalled,
     UpdateContext,
@@ -392,7 +391,7 @@ class Context:
             try:
                 nbproject_title = nbproject.meta.live.title
             except IndexError:
-                raise NotebookNotSavedError(
+                raise NotebookNotSaved(
                     "The notebook is not saved, please save the notebook and"
                     " rerun ``"
                 ) from None
