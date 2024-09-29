@@ -17,6 +17,7 @@ from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_environment
 from .exceptions import (
+    InconsistentKey,
     MissingContextUID,
     NotebookNotSaved,
     NotebookNotSavedError,
@@ -429,23 +430,48 @@ class Context:
         transform_type: TransformType = None,
         transform: Transform | None = None,
     ):
+        def get_key_clashing_message(transform: Transform, key: str) -> str:
+            update_key_note = message_update_key_in_version_family(
+                suid=transform.stem_uid,
+                existing_key=transform.key,
+                new_key=key,
+                registry="Transform",
+            )
+            return (
+                f'Filename "{key}" clashes with the existing key "{transform.key}" for uid "{transform.uid[:-4]}...."\n\nEither init a new transform with a new uid:\n\n'
+                f'ln.track("{ids.base62_12()}0000)"\n\n{update_key_note}'
+            )
+
         # make a new transform record
         if transform is None:
             if uid is None:
                 uid = f"{stem_uid}{get_uid_ext(version)}"
+            # let's query revises so that we can pass it to the constructor and use it for error handling
+            revises = (
+                Transform.filter(uid__startswith=uid[:-4], is_latest=True)
+                .order_by("-created_at")
+                .first()
+            )
             # note that here we're not passing revises because we're not querying it
             # hence, we need to do a revision family lookup based on key
             # hence, we need key to be not None
             assert key is not None  # noqa: S101
-            transform = Transform(
-                uid=uid,
-                version=version,
-                name=name,
-                key=key,
-                reference=transform_ref,
-                reference_type=transform_ref_type,
-                type=transform_type,
-            ).save()
+            raise_update_context = False
+            try:
+                transform = Transform(
+                    uid=uid,
+                    version=version,
+                    name=name,
+                    key=key,
+                    reference=transform_ref,
+                    reference_type=transform_ref_type,
+                    type=transform_type,
+                    revises=revises,
+                ).save()
+            except InconsistentKey:
+                raise_update_context = True
+            if raise_update_context:
+                raise UpdateContext(get_key_clashing_message(revises, key))
             self._logging_message += f"created Transform('{transform.uid[:8]}')"
         else:
             uid = transform.uid
@@ -456,19 +482,7 @@ class Context:
             )
             # check whether the transform.key is consistent
             if transform.key != key:
-                suid = transform.stem_uid
-                new_suid = ids.base62_12()
-                transform_type = "notebook" if is_run_from_ipython else "script"
-                note = message_update_key_in_version_family(
-                    suid=suid,
-                    existing_key=transform.key,
-                    new_key=key,
-                    registry="Transform",
-                )
-                raise UpdateContext(
-                    f'\n✗ Filename "{key}" clashes with the existing key "{transform.key}" for uid "{transform.uid[:-4]}...."\n\nEither init a new transform with a new uid:\n\n'
-                    f'ln.track("{new_suid}0000)"\n\n{note}'
-                )
+                raise UpdateContext(get_key_clashing_message(transform, key))
             elif transform.name != name:
                 transform.name = name
                 transform.save()

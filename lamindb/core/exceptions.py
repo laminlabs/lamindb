@@ -51,6 +51,12 @@ class DoesNotExist(Exception):
     pass
 
 
+class InconsistentKey(Exception):
+    """Inconsistent transform or artifact `key`."""
+
+    pass
+
+
 # -------------------------------------------------------------------------------------
 # run context
 # -------------------------------------------------------------------------------------
