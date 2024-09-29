@@ -18,11 +18,6 @@ def adata():
 # below the test for the main way of annotating with
 # features
 def test_features_add(adata):
-    ln.FeatureSet.filter().delete()
-    ln.Artifact.filter().delete(permanent=True)
-    ln.Feature.filter().delete()
-    ln.ULabel.filter().delete()
-
     artifact = ln.Artifact.from_anndata(adata, description="test")
     artifact.save()
     with pytest.raises(ValidationError) as error:
