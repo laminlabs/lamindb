@@ -264,6 +264,9 @@ def create_records_from_source(
             keys=mapped_values, column_name=field.field.name, df=bionty_df
         )
 
+        if hasattr(model, "organism_id") and organism is None:
+            organism = _get_organism_record(field, source.organism, force=True)
+
         create_kwargs = (
             {"organism": organism, "source": source}
             if organism is not None
