@@ -60,7 +60,7 @@ def __getattr__(name):
     raise _InstanceNotSetupError()
 
 
-if _check_instance_setup(from_lamindb=True):
+if _check_instance_setup(from_module="lnschema_core"):
     del _InstanceNotSetupError
     del __getattr__  # delete so that imports work out
     from lnschema_core.models import (
@@ -98,14 +98,6 @@ if _check_instance_setup(from_lamindb=True):
     from ._view import view
     from .core._context import context
     from .core._settings import settings
-
-    # schema modules
-    if not _os.environ.get("LAMINDB_MULTI_INSTANCE") == "true":
-        from lamindb_setup._init_instance import (
-            reload_schema_modules as _reload_schema_modules,
-        )
-
-        _reload_schema_modules(_lamindb_setup.settings.instance)
 
     track = context.track  # simple access because these are so common
     finish = context.finish  # simple access because these are so common
