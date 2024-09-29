@@ -12,7 +12,6 @@ from lamindb_setup.core.hashing import hash_file
 from lnschema_core import Run, Transform, ids
 from lnschema_core.ids import base62_12
 from lnschema_core.models import format_field_value
-from lnschema_core.users import current_user_id
 
 from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo
@@ -315,7 +314,9 @@ class Context:
         run = None
         if not new_run:  # try loading latest run by same user
             run = (
-                Run.filter(transform=self._transform, created_by_id=current_user_id())
+                Run.filter(
+                    transform=self._transform, created_by_id=ln_setup.settings.user.id
+                )
                 .order_by("-created_at")
                 .first()
             )
@@ -448,6 +449,11 @@ class Context:
             self._logging_message += f"created Transform('{transform.uid[:8]}')"
         else:
             uid = transform.uid
+            # transform was already saved via `finish()`
+            transform_was_saved = (
+                transform._source_code_artifact_id is not None
+                or transform.source_code is not None
+            )
             # check whether the transform.key is consistent
             if transform.key != key:
                 suid = transform.stem_uid
@@ -461,7 +467,7 @@ class Context:
                 )
                 raise UpdateContext(
                     f'\n✗ Filename "{key}" clashes with the existing key "{transform.key}" for uid "{transform.uid[:-4]}...."\n\nEither init a new transform with a new uid:\n\n'
-                    f'ln.track("{new_suid}0000"\n\n{note}'
+                    f'ln.track("{new_suid}0000)"\n\n{note}'
                 )
             elif transform.name != name:
                 transform.name = name
@@ -469,11 +475,15 @@ class Context:
                 self._logging_message += (
                     "updated transform name, "  # white space on purpose
                 )
-            # check whether transform source code was already saved
-            if (
-                transform._source_code_artifact_id is not None
-                or transform.source_code is not None
+            elif (
+                transform.created_by != ln_setup.settings.user.id
+                and not transform_was_saved
             ):
+                raise UpdateContext(
+                    f'{transform.created_by.name} ({transform.created_by.handle}) already works on this draft notebook.\n\nPlease create a revision via `ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")` or a new transform with a *different* filename and `ln.track("{ids.base62_12()}0000")`.'
+                )
+            # check whether transform source code was already saved
+            if transform_was_saved:
                 bump_revision = False
                 if is_run_from_ipython:
                     bump_revision = True
@@ -495,14 +505,9 @@ class Context:
                         if is_run_from_ipython
                         else "Source code changed"
                     )
-                    suid, vuid = (
-                        uid[:-4],
-                        uid[-4:],
-                    )
-                    new_vuid = increment_base62(vuid)
                     raise UpdateContext(
                         f"{change_type}, bump revision by setting:\n\n"
-                        f'ln.track("{suid}{new_vuid}")'
+                        f'ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")'
                     )
             else:
                 self._logging_message += f"loaded Transform('{transform.uid[:8]}')"
