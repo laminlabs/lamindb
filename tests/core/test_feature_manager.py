@@ -44,6 +44,9 @@ def test_features_add(adata):
     assert artifact.links_ulabel.get().ulabel.name == "Experiment 1"
     assert artifact.links_ulabel.get().feature is None
 
+    print(artifact.labels.__repr__())
+    quit()
+
     # now add the label with the feature and make sure that it has the feature annotation
     artifact.features.add_values({"experiment": "Experiment 1"})
     assert artifact.links_ulabel.get().ulabel.name == "Experiment 1"
