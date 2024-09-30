@@ -90,10 +90,9 @@ def print_labels(
             # there is a try except block here to deal with schema inconsistencies
             # during transfer between instances
             try:
-                field = get_name_field(self.__class__)
+                field = get_name_field(labels)
                 labels_list = list(labels.values_list(field, flat=True))
                 if len(labels_list) > 0:
-                    get_name_field(labels)
                     print_values = _print_values(labels_list, n=10)
                     type_str = f": {related_model}" if print_types else ""
                     labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
