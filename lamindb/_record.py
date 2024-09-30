@@ -524,14 +524,15 @@ def transfer_to_default_db(
     if hasattr(record, "created_by_id"):
         record.created_by = None
         record.created_by_id = ln_setup.settings.user.id
+    # run & transform
+    run = transfer_logs["run"]
     if hasattr(record, "run_id"):
         record.run = None
-        run = transfer_logs["run"]
         record.run_id = run.id
-        # deal with denormalized transform FK on artifact and collection
-        if hasattr(record, "transform_id"):
-            record.transform = None
-            record.transform_id = run.transform_id
+    # deal with denormalized transform FK on artifact and collection
+    if hasattr(record, "transform_id"):
+        record.transform = None
+        record.transform_id = run.transform_id
     # transfer other foreign key fields
     fk_fields = [
         i.name

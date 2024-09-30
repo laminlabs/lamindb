@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from django.db import connections
 from lamin_utils import colors, logger
-from lnschema_core.models import Feature
+from lnschema_core.models import CanValidate, Feature
 
 from lamindb._from_values import _print_values
 from lamindb._record import (
@@ -133,10 +133,16 @@ def validate_labels(labels: QuerySet | list | dict):
             label_uids = np.array(
                 [getattr(label, field) for label in labels if label is not None]
             )
-        validated = registry.validate(label_uids, field=field, mute=True)
-        validated_uids = label_uids[validated]
-        validated_labels = registry.filter(**{f"{field}__in": validated_uids}).list()
-        new_labels = [labels[int(i)] for i in np.argwhere(~validated).flatten()]
+        if issubclass(registry, CanValidate):
+            validated = registry.validate(label_uids, field=field, mute=True)
+            validated_uids = label_uids[validated]
+            validated_labels = registry.filter(
+                **{f"{field}__in": validated_uids}
+            ).list()
+            new_labels = [labels[int(i)] for i in np.argwhere(~validated).flatten()]
+        else:
+            validated_labels = []
+            new_labels = list(labels)
         return validated_labels, new_labels
 
     if isinstance(labels, dict):
