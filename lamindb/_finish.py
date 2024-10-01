@@ -35,6 +35,13 @@ def prepare_notebook(
                     if strip_title:
                         lines.pop(i)
                         cell["source"] = "\n".join(lines)
+        # strip resaved finish error if present
+        # this is normally the last cell
+        if cell["cell_type"] == "code" and ".finish(" in cell["source"]:
+            for output in cell["outputs"]:
+                if output.get("ename", None) == "NotebookNotSaved":
+                    cell["outputs"] = []
+                    break
     return None
 
 
@@ -112,7 +119,7 @@ def save_context_core(
         notebook_content = read_notebook(filepath)  # type: ignore
         if not ignore_non_consecutive:  # ignore_non_consecutive is None or False
             is_consecutive = check_consecutiveness(
-                notebook_content, calling_statement=".finish()"
+                notebook_content, calling_statement=".finish("
             )
             if not is_consecutive:
                 response = "n"  # ignore_non_consecutive == False
