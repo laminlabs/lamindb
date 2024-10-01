@@ -35,6 +35,13 @@ def prepare_notebook(
                     if strip_title:
                         lines.pop(i)
                         cell["source"] = "\n".join(lines)
+        # strip resaved finish error if present
+        # this is normally the last cell
+        if cell["cell_type"] == "code" and "finish(" in cell["source"]:
+            for output in cell["outputs"]:
+                if output.get("ename", None) == "NotebookNotSaved":
+                    cell["outputs"] = []
+                    break
     return None
 
 
