@@ -16,3 +16,6 @@
 [submodule "sub/clinicore"]
 	path = sub/clinicore
 	url = https://github.com/laminlabs/clinicore
+[submodule "sub/findrefs"]
+	path = sub/findrefs
+	url = https://github.com/laminlabs/findrefs
