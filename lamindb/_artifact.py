@@ -10,7 +10,7 @@ import fsspec
 import lamindb_setup as ln_setup
 import pandas as pd
 from anndata import AnnData
-from django.db.models import Q, QuerySet
+from django.db.models import Q
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage_in_instance
@@ -749,10 +749,6 @@ def from_dir(
     run: Run | None = None,
 ) -> list[Artifact]:
     """{}"""  # noqa: D415
-    logger.warning(
-        "this creates one artifact per file in the directory - consider"
-        " ln.Artifact(dir_path) to get one artifact for the entire directory"
-    )
     folderpath: UPath = create_path(path)  # returns Path for local
     default_storage = settings.storage.record
     using_key = settings._using_key
