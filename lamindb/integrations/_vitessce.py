@@ -88,9 +88,7 @@ def save_vitessce_config(
         raise NotImplementedError
     run.input_artifacts.set(dataset_artifacts)
     # create a JSON export
-    config_file_local_path = (
-        ln_setup.settings.storage.cache_dir / "config.vitessce.json"
-    )
+    config_file_local_path = ln_setup.settings.cache_dir / "config.vitessce.json"
     with open(config_file_local_path, "w") as file:
         json.dump(vc_dict, file)
     vitessce_config_artifact = Artifact(

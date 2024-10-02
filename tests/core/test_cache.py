@@ -29,7 +29,7 @@ def test_local_cache():
     artifact = ln.Artifact.from_anndata(adata, key="test_cache.h5ad")
     temp_path = artifact._local_filepath.resolve()
     assert temp_path.exists()
-    assert ln.setup.settings.storage.cache_dir in temp_path.parents
+    assert ln.setup.settings.cache_dir in temp_path.parents
 
     artifact.save()
     assert artifact.path.exists()
@@ -52,7 +52,7 @@ def test_local_cache():
     artifact.delete(permanent=True)
 
     # check directories in cache
-    cache_dir = ln.setup.settings.storage.cache_dir
+    cache_dir = ln.setup.settings.cache_dir
     adata_zarr_pth = cache_dir / "test_adata.zarr"
     adata.write_zarr(adata_zarr_pth)
 
@@ -71,7 +71,7 @@ def test_cloud_cache(switch_storage):
     # check that we have cloud storage
     assert ln.setup.settings.storage.root_as_str == switch_storage
 
-    cache_dir = ln.setup.settings.storage.cache_dir
+    cache_dir = ln.setup.settings.cache_dir
     assert cache_dir is not None
 
     test_file = ln.core.datasets.anndata_file_pbmc68k_test()
@@ -142,11 +142,11 @@ def test_cloud_cache(switch_storage):
 def test_cloud_cache_versions(switch_storage):
     adata = load_h5ad(ln.core.datasets.anndata_file_pbmc68k_test())
 
-    cache_dir = ln.setup.settings.storage.cache_dir
+    cache_dir = ln.setup.settings.cache_dir
     assert cache_dir is not None
 
     artifact = ln.Artifact.from_anndata(adata, key="test_cache.h5ad")
-    assert ln.settings.storage.cache_dir in artifact._local_filepath.parents
+    assert ln.settings.cache_dir in artifact._local_filepath.parents
     artifact.save()
     cache_path_v1 = artifact.cache()
     assert cache_path_v1.exists()
@@ -169,7 +169,7 @@ def test_cloud_cache_versions(switch_storage):
     artifact_v2 = ln.Artifact.from_anndata(
         adata, key="test_cache.h5ad", revises=artifact
     )
-    assert ln.settings.storage.cache_dir in artifact_v2._local_filepath.parents
+    assert ln.settings.cache_dir in artifact_v2._local_filepath.parents
     artifact_v2.save()
     assert artifact_v2.is_latest
     assert not artifact.is_latest

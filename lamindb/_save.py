@@ -168,7 +168,7 @@ def copy_or_move_to_cache(
 
     local_path = local_path.resolve()
     is_dir = local_path.is_dir()
-    cache_dir = settings._storage_settings.cache_dir
+    cache_dir = settings.cache_dir
 
     # just delete from the cache dir if storage_path is local
     if cache_path is None:

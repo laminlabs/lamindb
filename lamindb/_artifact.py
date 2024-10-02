@@ -180,7 +180,7 @@ def process_data(
                 f" be '{suffix}'."
             )
         cache_name = f"{provisional_uid}{suffix}"
-        path = settings.storage.cache_dir / cache_name
+        path = settings.cache_dir / cache_name
         # Alex: I don't understand the line below
         if path.suffixes == []:
             path = path.with_suffix(suffix)
@@ -344,7 +344,7 @@ def get_artifact_kwargs_from_data(
 
     if revises is not None:  # update provisional_uid
         provisional_uid, revises = create_uid(revises=revises, version=version)
-        if settings.storage.cache_dir in path.parents:
+        if settings.cache_dir in path.parents:
             path = path.rename(path.with_name(f"{provisional_uid}{suffix}"))
 
     check_path_in_storage = False
@@ -1125,7 +1125,7 @@ def save(self, upload: bool | None = None, **kwargs) -> Artifact:
         raise RuntimeError(exception)
     if local_path is not None and not state_was_adding:
         # only move the local artifact to cache if it was not newly created
-        local_path_cache = ln_setup.settings.storage.cache_dir / local_path.name
+        local_path_cache = ln_setup.settings.cache_dir / local_path.name
         # don't use Path.rename here because of cross-device link error
         # https://laminlabs.slack.com/archives/C04A0RMA0SC/p1710259102686969
         shutil.move(
