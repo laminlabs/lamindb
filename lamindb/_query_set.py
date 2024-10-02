@@ -139,7 +139,7 @@ class QuerySet(models.QuerySet):
 
     See Also:
 
-        `django QuerySet <https://docs.djangoproject.com/en/4.2/ref/models/querysets/>`__ # noqa
+        `django QuerySet <https://docs.djangoproject.com/en/4.2/ref/models/querysets/>`__
 
     Examples:
 
@@ -154,7 +154,7 @@ class QuerySet(models.QuerySet):
     ) -> pd.DataFrame:
         """{}"""  # noqa: D415
         # re-order the columns
-        exclude_field_names = ["created_at"]
+        exclude_field_names = ["updated_at"]
         field_names = [
             field.name
             for field in self.model._meta.fields
@@ -168,7 +168,7 @@ class QuerySet(models.QuerySet):
             for field in self.model._meta.fields
             if isinstance(field, models.ForeignKey)
         ]
-        for field_name in ["run_id", "created_at", "created_by_id", "updated_at"]:
+        for field_name in ["run_id", "updated_at", "created_by_id", "updated_at"]:
             if field_name in field_names:
                 field_names.remove(field_name)
                 field_names.append(field_name)
