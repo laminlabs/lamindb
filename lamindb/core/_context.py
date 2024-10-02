@@ -562,26 +562,32 @@ class Context:
 
             return "CMD + s" if platform.system() == "Darwin" else "CTRL + s"
 
-        if context.run is None:
+        if self.run is None:
             raise TrackNotCalled("Please run `ln.track()` before `ln.finish()`")
-        if context._path is None:
-            if context.run.transform.type in {"script", "notebook"}:
+        if self._path is None:
+            if self.run.transform.type in {"script", "notebook"}:
                 raise ValueError(
-                    f"Transform type is not allowed to be 'script' or 'notebook' but is {context.run.transform.type}."
+                    "Transform type is not allowed to be 'script' or 'notebook' because `context._path` is `None`."
                 )
-            context.run.finished_at = datetime.now(timezone.utc)
-            context.run.save()
+            self.run.finished_at = datetime.now(timezone.utc)
+            self.run.save()
             # nothing else to do
             return None
         if is_run_from_ipython:  # notebooks
-            if get_seconds_since_modified(context._path) > 2 and not ln_setup._TESTING:
+            import nbproject
+
+            # it might be that the user modifies the title just before ln.finish()
+            if nbproject_title := nbproject.meta.live.title != self.transform.name:
+                self.transform.name = nbproject_title
+                self.transform.save()
+            if get_seconds_since_modified(self._path) > 2 and not ln_setup._TESTING:
                 raise NotebookNotSaved(
                     f"Please save the notebook in your editor (shortcut `{get_shortcut()}`) right before calling `ln.finish()`"
                 )
         save_context_core(
-            run=context.run,
-            transform=context.run.transform,
-            filepath=context._path,
+            run=self.run,
+            transform=self.run.transform,
+            filepath=self._path,
             finished_at=True,
             ignore_non_consecutive=ignore_non_consecutive,
         )
