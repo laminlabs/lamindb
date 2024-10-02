@@ -144,6 +144,11 @@ class Settings:
         set_managed_storage(path, **kwargs)
 
     @property
+    def cache_dir(self) -> UPath:
+        """Cache root, a local directory to cache cloud files."""
+        return ln_setup.settings.cache_dir
+
+    @property
     def storage_local(self) -> StorageSettings:
         """An additional local default storage (a path to its root).
 
