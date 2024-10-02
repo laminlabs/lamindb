@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from lnschema_core import Artifact, Collection
-
 from ._query_set import QuerySet, process_expressions
 
 if TYPE_CHECKING:
