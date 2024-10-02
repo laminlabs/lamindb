@@ -130,12 +130,12 @@ def save_context_core(
                 if response != "y":
                     return "aborted-non-consecutive"
         # write the report
-        report_path = ln_setup.settings.storage.cache_dir / filepath.name.replace(
+        report_path = ln_setup.settings.cache_dir / filepath.name.replace(
             ".ipynb", ".html"
         )
         notebook_to_report(filepath, report_path)
         # write the source code
-        source_code_path = ln_setup.settings.storage.cache_dir / filepath.name.replace(
+        source_code_path = ln_setup.settings.cache_dir / filepath.name.replace(
             ".ipynb", ".py"
         )
         notebook_to_script(transform, filepath, source_code_path)
@@ -171,7 +171,7 @@ def save_context_core(
         transform.hash = hash
 
     # track environment
-    env_path = ln_setup.settings.storage.cache_dir / f"run_env_pip_{run.uid}.txt"
+    env_path = ln_setup.settings.cache_dir / f"run_env_pip_{run.uid}.txt"
     if env_path.exists():
         overwrite_env = True
         if run.environment_id is not None and from_cli:

@@ -109,7 +109,7 @@ def install_ci(session, group):
         extras += "aws,zarr,bionty,jupyter"
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab",
+            "uv pip install --system --no-deps ./sub/wetlab ./sub/findrefs",
         )
         run(session, "uv pip install --system vitessce")
     elif group == "docs":
