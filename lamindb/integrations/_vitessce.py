@@ -44,12 +44,16 @@ def save_vitessce_config(
     try:
         url_to_artifact_dict = vitessce_config.get_artifacts()
     except AttributeError as e:
-        logger.error("Artifact registration requires vitessce package version 3.4.0 or higher.")
+        logger.error(
+            "Artifact registration requires vitessce package version 3.4.0 or higher."
+        )
         raise e
     dataset_artifacts = list(url_to_artifact_dict.values())
     if len(dataset_artifacts) == 0:
-        logger.warning("No artifacts were registered in this config. If intending to visualize data from artifacts, use _artifact parameters of Vitessce wrapper class constructors to facilitate registration.")
-    
+        logger.warning(
+            "No artifacts were registered in this config. If intending to visualize data from artifacts, use _artifact parameters of Vitessce wrapper class constructors to facilitate registration."
+        )
+
     # the below will be replaced with a `ln.tracked()` decorator soon
     with logger.mute():
         transform = Transform(
@@ -66,7 +70,7 @@ def save_vitessce_config(
         collection_of_artifacts = Collection(dataset_artifacts)
     else:
         collection_of_artifacts = None
-    
+
     # create a JSON export
     config_file_local_path = ln_setup.settings.cache_dir / "config.vitessce.json"
     with open(config_file_local_path, "w") as file:
