@@ -67,7 +67,7 @@ def save_vitessce_config(
     if len(dataset_artifacts) > 1:
         # if we have more datasets, we should create a collection
         # and attach an action to the collection
-        collection_of_artifacts = Collection(dataset_artifacts)
+        collection_of_artifacts = Collection(dataset_artifacts, name=description)
     else:
         collection_of_artifacts = None
 
