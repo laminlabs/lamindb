@@ -12,15 +12,14 @@ from lamindb_setup.core.hashing import hash_file
 from lnschema_core import Run, Transform, ids
 from lnschema_core.ids import base62_12
 from lnschema_core.models import format_field_value
-from lnschema_core.users import current_user_id
 
 from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_environment
 from .exceptions import (
+    InconsistentKey,
     MissingContextUID,
     NotebookNotSaved,
-    NotebookNotSavedError,
     NoTitleError,
     TrackNotCalled,
     UpdateContext,
@@ -35,9 +34,7 @@ if TYPE_CHECKING:
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
-msg_path_failed = (
-    "failed to infer notebook path.\nfix: pass `path` to ln.context.track()"
-)
+msg_path_failed = "failed to infer notebook path.\nfix: pass `path` to `ln.track()`"
 
 
 def get_uid_ext(version: str) -> str:
@@ -85,25 +82,22 @@ def raise_missing_context(transform_type: str, key: str) -> bool:
     transform = Transform.filter(key=key).latest_version().first()
     if transform is None:
         new_uid = f"{base62_12()}0000"
-        message = f"To track this {transform_type}, copy & paste the below into the current cell and re-run it\n\n"
-        message += f'ln.context.uid = "{new_uid}"\nln.context.track()'
+        message = f'to track this {transform_type}, copy & paste `ln.track("{new_uid}")` and re-run'
     else:
         uid = transform.uid
-        suid, vuid = uid[: Transform._len_stem_uid], uid[Transform._len_stem_uid :]
-        new_vuid = increment_base62(vuid)
-        new_uid = f"{suid}{new_vuid}"
-        message = f"You already have a version family with key '{key}' (stem_uid='{transform.stem_uid}').\n\n- to make a revision, set `ln.context.uid = '{new_uid}'`\n- to start a new version family, rename your file and rerun: `ln.context.track()`"
+        new_uid = f"{uid[:-4]}{increment_base62(uid[-4:])}"
+        message = f"you already have a transform with key '{key}' ('{transform.uid}')\n  - to make a revision, call `ln.track('{new_uid}')`\n  - to create a new transform, rename your file and run: `ln.track()`"
     if transform_type == "notebook":
-        print(f"→ {message}\n")
+        print(f"→ {message}")
         response = input("→ Ready to re-run? (y/n)")
         if response == "y":
             logger.important(
-                "Note: Restart your notebook if you want consecutive cell execution"
+                "note: restart your notebook if you want consecutive cell execution"
             )
             return True
         raise MissingContextUID("Please follow the instructions.")
     else:
-        raise MissingContextUID(message)
+        raise MissingContextUID(f"✗ {message}")
     return False
 
 
@@ -126,12 +120,12 @@ class Context:
 
     Examples:
 
-        Is typically used via :class:`~lamindb.context`:
+        Is typically used via the global :class:`~lamindb.context` object via `ln.track()` and `ln.finish()`:
 
         >>> import lamindb as ln
-        >>> ln.context.track()
-        >>> # do things while tracking data lineage
-        >>> ln.context.finish()
+        >>> ln.track()
+        >>> # do things
+        >>> ln.finish()
 
     """
 
@@ -147,12 +141,12 @@ class Context:
 
     @property
     def transform(self) -> Transform | None:
-        """Transform of context."""
+        """Managed transform of context."""
         return self._transform
 
     @property
     def uid(self) -> str | None:
-        """`uid` to create transform."""
+        """`uid` argument for `context.transform`."""
         return self._uid
 
     @uid.setter
@@ -161,7 +155,7 @@ class Context:
 
     @property
     def name(self) -> str | None:
-        """`name` to create transform."""
+        """`name argument for `context.transform`."""
         return self._name
 
     @name.setter
@@ -170,7 +164,7 @@ class Context:
 
     @property
     def version(self) -> str | None:
-        """`version` to create transform."""
+        """`version` argument for `context.transform`."""
         return self._version
 
     @version.setter
@@ -179,18 +173,19 @@ class Context:
 
     @property
     def run(self) -> Run | None:
-        """Run of context."""
+        """Managed run of context."""
         return self._run
 
     def track(
         self,
+        uid: str | None = None,
         *,
         params: dict | None = None,
         new_run: bool | None = None,
         path: str | None = None,
         transform: Transform | None = None,
     ) -> None:
-        """Starts data lineage tracking for a run.
+        """Initiate a run with tracked data lineage.
 
         - sets :attr:`~lamindb.core.Context.transform` &
           :attr:`~lamindb.core.Context.run` by creating or loading `Transform` &
@@ -201,6 +196,7 @@ class Context:
         script-like transform exists in a git repository and links it.
 
         Args:
+            uid: A `uid` to create or load a transform.
             params: A dictionary of parameters to track for the run.
             new_run: If `False`, loads latest run of transform
                 (default notebook), if `True`, creates new run (default pipeline).
@@ -213,9 +209,11 @@ class Context:
             To track the run of a notebook or script, call:
 
             >>> import lamindb as ln
-            >>> ln.context.track()
+            >>> ln.track()
 
         """
+        if uid is not None:
+            self.uid = uid
         self._path = None
         if transform is None:
             is_tracked = False
@@ -225,7 +223,7 @@ class Context:
             )
             transform = None
             stem_uid = None
-            if self.uid is not None:
+            if uid is not None or self.uid is not None:
                 transform = Transform.filter(uid=self.uid).one_or_none()
                 if self.version is not None:
                     # test inconsistent version passed
@@ -295,7 +293,7 @@ class Context:
         else:
             if transform.type in {"notebook", "script"}:
                 raise ValueError(
-                    "Use ln.context.track() without passing transform in a notebook or script"
+                    "Use `ln.track()` without passing transform in a notebook or script"
                     " - metadata is automatically parsed"
                 )
             transform_exists = None
@@ -304,10 +302,10 @@ class Context:
                 transform_exists = Transform.filter(id=transform.id).first()
             if transform_exists is None:
                 transform.save()
-                self._logging_message += f"created Transform(uid='{transform.uid}')"
+                self._logging_message += f"created Transform('{transform.uid[:8]}')"
                 transform_exists = transform
             else:
-                self._logging_message += f"loaded Transform(uid='{transform.uid}')"
+                self._logging_message += f"loaded Transform('{transform.uid[:8]}')"
             self._transform = transform_exists
 
         if new_run is None:  # for notebooks, default to loading latest runs
@@ -316,15 +314,15 @@ class Context:
         run = None
         if not new_run:  # try loading latest run by same user
             run = (
-                Run.filter(transform=self._transform, created_by_id=current_user_id())
+                Run.filter(
+                    transform=self._transform, created_by_id=ln_setup.settings.user.id
+                )
                 .order_by("-created_at")
                 .first()
             )
             if run is not None:  # loaded latest run
                 run.started_at = datetime.now(timezone.utc)  # update run time
-                self._logging_message += (
-                    f" & loaded Run(started_at={format_field_value(run.started_at)})"
-                )
+                self._logging_message += f", started Run('{run.uid[:8]}') at {format_field_value(run.started_at)}"
 
         if run is None:  # create new run
             run = Run(
@@ -332,9 +330,7 @@ class Context:
                 params=params,
             )
             run.started_at = datetime.now(timezone.utc)
-            self._logging_message += (
-                f" & created Run(started_at={format_field_value(run.started_at)})"
-            )
+            self._logging_message += f", started new Run('{run.uid[:8]}') at {format_field_value(run.started_at)}"
         # can only determine at ln.finish() if run was consecutive in
         # interactive session, otherwise, is consecutive
         run.is_consecutive = True if is_run_from_ipython else None
@@ -342,6 +338,9 @@ class Context:
         run.save()
         if params is not None:
             run.params.add_values(params)
+            self._logging_message += "\n→ params: " + " ".join(
+                f"{key}='{value}'" for key, value in params.items()
+            )
         self._run = run
         track_environment(run)
         logger.important(self._logging_message)
@@ -392,9 +391,9 @@ class Context:
             try:
                 nbproject_title = nbproject.meta.live.title
             except IndexError:
-                raise NotebookNotSavedError(
+                raise NotebookNotSaved(
                     "The notebook is not saved, please save the notebook and"
-                    " rerun `ln.context.track()`"
+                    " rerun ``"
                 ) from None
             if nbproject_title is None:
                 raise NoTitleError(
@@ -430,52 +429,74 @@ class Context:
         transform_type: TransformType = None,
         transform: Transform | None = None,
     ):
+        def get_key_clashing_message(transform: Transform, key: str) -> str:
+            update_key_note = message_update_key_in_version_family(
+                suid=transform.stem_uid,
+                existing_key=transform.key,
+                new_key=key,
+                registry="Transform",
+            )
+            return (
+                f'Filename "{key}" clashes with the existing key "{transform.key}" for uid "{transform.uid[:-4]}...."\n\nEither init a new transform with a new uid:\n\n'
+                f'ln.track("{ids.base62_12()}0000)"\n\n{update_key_note}'
+            )
+
         # make a new transform record
         if transform is None:
             if uid is None:
                 uid = f"{stem_uid}{get_uid_ext(version)}"
+            # let's query revises so that we can pass it to the constructor and use it for error handling
+            revises = (
+                Transform.filter(uid__startswith=uid[:-4], is_latest=True)
+                .order_by("-created_at")
+                .first()
+            )
             # note that here we're not passing revises because we're not querying it
             # hence, we need to do a revision family lookup based on key
             # hence, we need key to be not None
             assert key is not None  # noqa: S101
-            transform = Transform(
-                uid=uid,
-                version=version,
-                name=name,
-                key=key,
-                reference=transform_ref,
-                reference_type=transform_ref_type,
-                type=transform_type,
-            ).save()
-            self._logging_message += f"created Transform(uid='{transform.uid}')"
+            raise_update_context = False
+            try:
+                transform = Transform(
+                    uid=uid,
+                    version=version,
+                    name=name,
+                    key=key,
+                    reference=transform_ref,
+                    reference_type=transform_ref_type,
+                    type=transform_type,
+                    revises=revises,
+                ).save()
+            except InconsistentKey:
+                raise_update_context = True
+            if raise_update_context:
+                raise UpdateContext(get_key_clashing_message(revises, key))
+            self._logging_message += f"created Transform('{transform.uid[:8]}')"
         else:
             uid = transform.uid
-            # check whether the transform file has been renamed
+            # transform was already saved via `finish()`
+            transform_was_saved = (
+                transform._source_code_artifact_id is not None
+                or transform.source_code is not None
+            )
+            # check whether the transform.key is consistent
             if transform.key != key:
-                suid = transform.stem_uid
-                new_suid = ids.base62_12()
-                transform_type = "Notebook" if is_run_from_ipython else "Script"
-                note = message_update_key_in_version_family(
-                    suid=suid,
-                    existing_key=transform.key,
-                    new_key=key,
-                    registry="Transform",
-                )
-                raise UpdateContext(
-                    f"{transform_type} filename changed.\n\nEither init a new transform family by setting:\n\n"
-                    f'ln.context.uid = "{new_suid}0000"\n\n{note}'
-                )
+                raise UpdateContext(get_key_clashing_message(transform, key))
             elif transform.name != name:
                 transform.name = name
                 transform.save()
                 self._logging_message += (
                     "updated transform name, "  # white space on purpose
                 )
-            # check whether transform source code was already saved
-            if (
-                transform._source_code_artifact_id is not None
-                or transform.source_code is not None
+            elif (
+                transform.created_by_id != ln_setup.settings.user.id
+                and not transform_was_saved
             ):
+                raise UpdateContext(
+                    f'{transform.created_by.name} ({transform.created_by.handle}) already works on this draft {transform.type}.\n\nPlease create a revision via `ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")` or a new transform with a *different* filename and `ln.track("{ids.base62_12()}0000")`.'
+                )
+            # check whether transform source code was already saved
+            if transform_was_saved:
                 bump_revision = False
                 if is_run_from_ipython:
                     bump_revision = True
@@ -489,7 +510,7 @@ class Context:
                         bump_revision = True
                     else:
                         self._logging_message += (
-                            f"loaded Transform(uid='{transform.uid}')"
+                            f"loaded Transform('{transform.uid[:8]}')"
                         )
                 if bump_revision:
                     change_type = (
@@ -497,21 +518,16 @@ class Context:
                         if is_run_from_ipython
                         else "Source code changed"
                     )
-                    suid, vuid = (
-                        uid[:-4],
-                        uid[-4:],
-                    )
-                    new_vuid = increment_base62(vuid)
                     raise UpdateContext(
                         f"{change_type}, bump revision by setting:\n\n"
-                        f'ln.context.uid = "{suid}{new_vuid}"'
+                        f'ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")'
                     )
             else:
-                self._logging_message += f"loaded Transform(uid='{transform.uid}')"
+                self._logging_message += f"loaded Transform('{transform.uid[:8]}')"
         self._transform = transform
 
     def finish(self, ignore_non_consecutive: None | bool = None) -> None:
-        """Mark the run context as finished.
+        """Finish a tracked run.
 
         - writes a timestamp: `run.finished_at`
         - saves the source code: `transform.source_code`
@@ -528,9 +544,9 @@ class Context:
         Examples:
 
             >>> import lamindb as ln
-            >>> ln.context.track()
+            >>> ln.track()
             >>> # do things while tracking data lineage
-            >>> ln.context.finish()
+            >>> ln.finish()
 
         See Also:
             `lamin save script.py` or `lamin save notebook.ipynb` → `docs </cli#lamin-save>`__
@@ -546,26 +562,32 @@ class Context:
 
             return "CMD + s" if platform.system() == "Darwin" else "CTRL + s"
 
-        if context.run is None:
-            raise TrackNotCalled("Please run `ln.context.track()` before `ln.finish()`")
-        if context._path is None:
-            if context.run.transform.type in {"script", "notebook"}:
+        if self.run is None:
+            raise TrackNotCalled("Please run `ln.track()` before `ln.finish()`")
+        if self._path is None:
+            if self.run.transform.type in {"script", "notebook"}:
                 raise ValueError(
-                    f"Transform type is not allowed to be 'script' or 'notebook' but is {context.run.transform.type}."
+                    "Transform type is not allowed to be 'script' or 'notebook' because `context._path` is `None`."
                 )
-            context.run.finished_at = datetime.now(timezone.utc)
-            context.run.save()
+            self.run.finished_at = datetime.now(timezone.utc)
+            self.run.save()
             # nothing else to do
             return None
         if is_run_from_ipython:  # notebooks
-            if get_seconds_since_modified(context._path) > 2 and not ln_setup._TESTING:
+            import nbproject
+
+            # it might be that the user modifies the title just before ln.finish()
+            if (nbproject_title := nbproject.meta.live.title) != self.transform.name:
+                self.transform.name = nbproject_title
+                self.transform.save()
+            if get_seconds_since_modified(self._path) > 2 and not ln_setup._TESTING:
                 raise NotebookNotSaved(
-                    f"Please save the notebook in your editor (shortcut `{get_shortcut()}`) right before calling `ln.context.finish()`"
+                    f"Please save the notebook in your editor (shortcut `{get_shortcut()}`) right before calling `ln.finish()`"
                 )
         save_context_core(
-            run=context.run,
-            transform=context.run.transform,
-            filepath=context._path,
+            run=self.run,
+            transform=self.run.transform,
+            filepath=self._path,
             finished_at=True,
             ignore_non_consecutive=ignore_non_consecutive,
         )

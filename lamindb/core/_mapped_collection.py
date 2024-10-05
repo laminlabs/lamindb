@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from functools import reduce
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import pandas as pd
@@ -49,6 +49,9 @@ class _Connect:
             self.conn.close()
 
 
+_decode = np.frompyfunc(lambda x: x.decode("utf-8"), 1, 1)
+
+
 class MappedCollection:
     """Map-style collection for use in data loaders.
 
@@ -83,6 +86,9 @@ class MappedCollection:
             retrieves ``.X``.
         obsm_keys: Keys from the ``.obsm`` slots.
         obs_keys: Keys from the ``.obs`` slots.
+        obs_filter: Select only observations with these values for the given obs column.
+            Should be a tuple with an obs column name as the first element
+            and filtering values (a string or a tuple of strings) as the second element.
         join: `"inner"` or `"outer"` virtual joins. If ``None`` is passed,
             does not join.
         encode_labels: Encode labels into integers.
@@ -101,6 +107,7 @@ class MappedCollection:
         layers_keys: str | list[str] | None = None,
         obs_keys: str | list[str] | None = None,
         obsm_keys: str | list[str] | None = None,
+        obs_filter: tuple[str, str | tuple[str, ...]] | None = None,
         join: Literal["inner", "outer"] | None = "inner",
         encode_labels: bool | list[str] = True,
         unknown_label: str | dict[str, str] | None = None,
@@ -111,6 +118,13 @@ class MappedCollection:
         if join not in {None, "inner", "outer"}:  # pragma: nocover
             raise ValueError(
                 f"join must be one of None, 'inner, or 'outer' but was {type(join)}"
+            )
+
+        self.filtered = obs_filter is not None
+        if self.filtered and len(obs_filter) != 2:
+            raise ValueError(
+                "obs_filter should be a tuple with obs column name "
+                "as the first element and filtering values as the second element"
             )
 
         if layers_keys is None:
@@ -153,16 +167,37 @@ class MappedCollection:
         self.path_list = path_list
         self._make_connections(path_list, parallel)
 
+        self._cache_cats: dict = {}
+        if self.obs_keys is not None:
+            if cache_categories:
+                self._cache_categories(self.obs_keys)
+            self.encoders: dict = {}
+            if self.encode_labels:
+                self._make_encoders(self.encode_labels)  # type: ignore
+
         self.n_obs_list = []
+        self.indices_list = []
         for i, storage in enumerate(self.storages):
             with _Connect(storage) as store:
                 X = store["X"]
                 store_path = self.path_list[i]
                 self._check_csc_raise_error(X, "X", store_path)
-                if isinstance(X, ArrayTypes):  # type: ignore
-                    self.n_obs_list.append(X.shape[0])
+                if self.filtered:
+                    obs_filter_key, obs_filter_values = obs_filter
+                    indices_storage = np.where(
+                        np.isin(
+                            self._get_labels(store, obs_filter_key), obs_filter_values
+                        )
+                    )[0]
+                    n_obs_storage = len(indices_storage)
                 else:
-                    self.n_obs_list.append(X.attrs["shape"][0])
+                    if isinstance(X, ArrayTypes):  # type: ignore
+                        n_obs_storage = X.shape[0]
+                    else:
+                        n_obs_storage = X.attrs["shape"][0]
+                    indices_storage = np.arange(n_obs_storage)
+                self.n_obs_list.append(n_obs_storage)
+                self.indices_list.append(indices_storage)
                 for layer_key in self.layers_keys:
                     if layer_key == "X":
                         continue
@@ -180,7 +215,7 @@ class MappedCollection:
                         )
         self.n_obs = sum(self.n_obs_list)
 
-        self.indices = np.hstack([np.arange(n_obs) for n_obs in self.n_obs_list])
+        self.indices = np.hstack(self.indices_list)
         self.storage_idx = np.repeat(np.arange(len(self.storages)), self.n_obs_list)
 
         self.join_vars: Literal["inner", "outer"] | None = join
@@ -192,15 +227,6 @@ class MappedCollection:
         if self.join_vars is not None:
             self._make_join_vars()
             self.n_vars = len(self.var_joint)
-
-        if self.obs_keys is not None:
-            if cache_categories:
-                self._cache_categories(self.obs_keys)
-            else:
-                self._cache_cats: dict = {}
-            self.encoders: dict = {}
-            if self.encode_labels:
-                self._make_encoders(self.encode_labels)  # type: ignore
 
         self._dtype = dtype
         self._closed = False
@@ -220,14 +246,15 @@ class MappedCollection:
 
     def _cache_categories(self, obs_keys: list):
         self._cache_cats = {}
-        decode = np.frompyfunc(lambda x: x.decode("utf-8"), 1, 1)
         for label in obs_keys:
             self._cache_cats[label] = []
             for storage in self.storages:
                 with _Connect(storage) as store:
                     cats = self._get_categories(store, label)
                     if cats is not None:
-                        cats = decode(cats) if isinstance(cats[0], bytes) else cats[...]
+                        cats = (
+                            _decode(cats) if isinstance(cats[0], bytes) else cats[...]
+                        )
                     self._cache_cats[label].append(cats)
 
     def _make_encoders(self, encode_labels: list):
@@ -366,7 +393,7 @@ class MappedCollection:
 
     def _get_data_idx(
         self,
-        lazy_data: ArrayType | GroupType,  # type: ignore
+        lazy_data: ArrayType | GroupType,
         idx: int,
         join_vars: Literal["inner", "outer"] | None = None,
         var_idxs_join: list | None = None,
@@ -480,25 +507,17 @@ class MappedCollection:
     def get_merged_labels(self, label_key: str):
         """Get merged labels for `label_key` from all `.obs`."""
         labels_merge = []
-        decode = np.frompyfunc(lambda x: x.decode("utf-8"), 1, 1)
         for i, storage in enumerate(self.storages):
             with _Connect(storage) as store:
-                codes = self._get_codes(store, label_key)
-                labels = decode(codes) if isinstance(codes[0], bytes) else codes
-                if label_key in self._cache_cats:
-                    cats = self._cache_cats[label_key][i]
-                else:
-                    cats = self._get_categories(store, label_key)
-                if cats is not None:
-                    cats = decode(cats) if isinstance(cats[0], bytes) else cats
-                    labels = cats[labels]
+                labels = self._get_labels(store, label_key, storage_idx=i)
+                if self.filtered:
+                    labels = labels[self.indices_list[i]]
                 labels_merge.append(labels)
         return np.hstack(labels_merge)
 
     def get_merged_categories(self, label_key: str):
         """Get merged categories for `label_key` from all `.obs`."""
         cats_merge = set()
-        decode = np.frompyfunc(lambda x: x.decode("utf-8"), 1, 1)
         for i, storage in enumerate(self.storages):
             with _Connect(storage) as store:
                 if label_key in self._cache_cats:
@@ -506,15 +525,15 @@ class MappedCollection:
                 else:
                     cats = self._get_categories(store, label_key)
                 if cats is not None:
-                    cats = decode(cats) if isinstance(cats[0], bytes) else cats
+                    cats = _decode(cats) if isinstance(cats[0], bytes) else cats
                     cats_merge.update(cats)
                 else:
                     codes = self._get_codes(store, label_key)
-                    codes = decode(codes) if isinstance(codes[0], bytes) else codes
+                    codes = _decode(codes) if isinstance(codes[0], bytes) else codes
                     cats_merge.update(codes)
         return sorted(cats_merge)
 
-    def _get_categories(self, storage: StorageType, label_key: str):  # type: ignore
+    def _get_categories(self, storage: StorageType, label_key: str):
         """Get categories."""
         obs = storage["obs"]  # type: ignore
         if isinstance(obs, ArrayTypes):  # type: ignore
@@ -543,7 +562,7 @@ class MappedCollection:
                     return None
         return None
 
-    def _get_codes(self, storage: StorageType, label_key: str):  # type: ignore
+    def _get_codes(self, storage: StorageType, label_key: str):
         """Get codes."""
         obs = storage["obs"]  # type: ignore
         if isinstance(obs, ArrayTypes):  # type: ignore
@@ -554,6 +573,21 @@ class MappedCollection:
                 return label[...]
             else:
                 return label["codes"][...]
+
+    def _get_labels(
+        self, storage: StorageType, label_key: str, storage_idx: int | None = None
+    ):
+        """Get labels."""
+        codes = self._get_codes(storage, label_key)
+        labels = _decode(codes) if isinstance(codes[0], bytes) else codes
+        if storage_idx is not None and label_key in self._cache_cats:
+            cats = self._cache_cats[label_key][storage_idx]
+        else:
+            cats = self._get_categories(storage, label_key)
+        if cats is not None:
+            cats = _decode(cats) if isinstance(cats[0], bytes) else cats
+            labels = cats[labels]
+        return labels
 
     def close(self):
         """Close connections to array streaming backend.

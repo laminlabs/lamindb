@@ -23,7 +23,7 @@ from lamindb._artifact import (
     process_data,
 )
 from lamindb.core._settings import settings
-from lamindb.core.exceptions import IntegrityError
+from lamindb.core.exceptions import IntegrityError, InvalidArgument
 from lamindb.core.loaders import load_fcs, load_to_memory, load_tsv
 from lamindb.core.storage._zarr import write_adata_zarr, zarr_is_adata
 from lamindb.core.storage.paths import (
@@ -218,15 +218,25 @@ def test_revise_artifact(df, adata):
     assert artifact_r3.key == key
     assert artifact_r3.version == "2"
     assert artifact_r3.description == "test1"
+    assert artifact_r3.is_latest
+    assert artifact_r2.is_latest
+    artifact_r3.save()
+    # now r2 is no longer the latest version, but need to re-fresh from db
+    artifact_r2 = ln.Artifact.get(artifact_r2.uid)
+    assert not artifact_r2.is_latest
 
-    artifact_r3 = ln.Artifact.from_df(
-        df, description="test1", key="my-test-dataset1.parquet", version="2"
-    )
+    # what happens if I reload based on hash while providing a different key?
+    # artifact_new = ln.Artifact.from_df(
+    #     df, description="test1", key="my-test-dataset1.parquet", version="2"
+    # )
+    # assert artifact_new.version == "2"
+    # assert artifact_new.stem_uid != artifact_r3.stem_uid
 
     with pytest.raises(TypeError) as error:
         ln.Artifact.from_df(df, description="test1a", revises=ln.Transform())
     assert error.exconly() == "TypeError: `revises` has to be of type `Artifact`"
 
+    artifact_r3.delete(permanent=True, storage=True)
     artifact_r2.delete(permanent=True, storage=True)
     artifact.delete(permanent=True, storage=True)
 
@@ -367,8 +377,8 @@ def test_create_from_local_filepath(
     suffix = get_test_filepaths[4]
     # this tests if insufficient information is being provided
     if key is None and not is_in_registered_storage and description is None:
-        # this can fail because ln.context.track() might set a global run context
-        # in that case, the File would have a run that's not None and the
+        # this can fail because ln.track() might set a global run context
+        # in that case, the Artifact would have a run that's not None and the
         # error below wouldn't be thrown
         with pytest.raises(ValueError) as error:
             artifact = ln.Artifact(test_filepath, key=key, description=description)
@@ -381,11 +391,11 @@ def test_create_from_local_filepath(
         inferred_key = get_relative_path_to_directory(
             path=test_filepath, directory=root_dir
         ).as_posix()
-        with pytest.raises(ValueError) as error:
+        with pytest.raises(InvalidArgument) as error:
             artifact = ln.Artifact(test_filepath, key=key, description=description)
         assert (
             error.exconly()
-            == f"ValueError: The path '{test_filepath}' is already in registered"
+            == f"lamindb.core.exceptions.InvalidArgument: The path '{test_filepath}' is already in registered"
             " storage"
             f" '{root_dir.resolve().as_posix()}' with key '{inferred_key}'\nYou"
             f" passed conflicting key '{key}': please move the file before"
@@ -458,10 +468,10 @@ def test_from_dir_many_artifacts(get_test_filepaths, key):
     test_dirpath = get_test_filepaths[2]
     # the directory contains 3 files, two of them are duplicated
     if key is not None and is_in_registered_storage:
-        with pytest.raises(ValueError) as error:
+        with pytest.raises(InvalidArgument) as error:
             ln.Artifact.from_dir(test_dirpath, key=key)
         assert error.exconly().startswith(
-            "ValueError: The path"  # The path {data} is already in registered storage
+            "lamindb.core.exceptions.InvalidArgument: The path"  # The path {data} is already in registered storage
         )
         return None
     else:
@@ -743,7 +753,7 @@ def test_zarr_upload_cache(adata):
 
     shutil.rmtree(artifact.cache())
 
-    cache_path = settings._storage_settings.cloud_to_local_no_update(artifact.path)
+    cache_path = artifact._cache_path
     assert isinstance(artifact.load(), ad.AnnData)
     assert cache_path.is_dir()
 
@@ -765,7 +775,7 @@ def test_zarr_upload_cache(adata):
     artifact.save()
     assert isinstance(artifact.path, CloudPath)
     assert artifact.path.exists()
-    cache_path = settings._storage_settings.cloud_to_local_no_update(artifact.path)
+    cache_path = artifact._cache_path
     assert cache_path.is_dir()
 
     shutil.rmtree(cache_path)
@@ -785,11 +795,11 @@ def test_df_suffix(df):
     artifact = ln.Artifact.from_df(df, key="test_.parquet")
     assert artifact.suffix == ".parquet"
 
-    with pytest.raises(ValueError) as error:
+    with pytest.raises(InvalidArgument) as error:
         artifact = ln.Artifact.from_df(df, key="test_.def")
     assert (
         error.exconly().partition(",")[0]
-        == "ValueError: The suffix '.def' of the provided key is incorrect"
+        == "lamindb.core.exceptions.InvalidArgument: The suffix '.def' of the provided key is incorrect"
     )
 
 
@@ -808,11 +818,11 @@ def test_adata_suffix(adata):
         == "ValueError: Error when specifying AnnData storage format"
     )
 
-    with pytest.raises(ValueError) as error:
+    with pytest.raises(InvalidArgument) as error:
         artifact = ln.Artifact.from_anndata(adata, key="test_")
     assert (
         error.exconly().partition(",")[0]
-        == "ValueError: The suffix '' of the provided key is incorrect"
+        == "lamindb.core.exceptions.InvalidArgument: The suffix '' of the provided key is incorrect"
     )
 
 

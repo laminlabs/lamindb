@@ -75,7 +75,7 @@ def test_finish_before_track():
     ln.context._run = None
     with pytest.raises(TrackNotCalled) as error:
         ln.finish()
-    assert "Please run `ln.context.track()` before `ln.finish()" in error.exconly()
+    assert "Please run `ln.track()` before `ln.finish()" in error.exconly()
 
 
 def test_invalid_transform_type():
@@ -143,10 +143,7 @@ def test_run_scripts_for_versioning():
     )
     # print(result.stdout.decode())
     assert result.returncode == 0
-    assert (
-        "created Transform(uid='Ro1gl7n8YrdH0000') & created Run(started_at='"
-        in result.stdout.decode()
-    )
+    assert "created Transform('Ro1gl7n8'), started new Run(" in result.stdout.decode()
 
     # updated key (filename change)
     result = subprocess.run(  # noqa: S602
@@ -156,7 +153,7 @@ def test_run_scripts_for_versioning():
     )
     # print(result.stderr.decode())
     assert result.returncode == 1
-    assert "Script filename changed." in result.stderr.decode()
+    assert "clashes with the existing key" in result.stderr.decode()
 
     # version already taken
     result = subprocess.run(  # noqa: S602
@@ -179,10 +176,7 @@ def test_run_scripts_for_versioning():
     )
     # print(result.stdout.decode())
     assert result.returncode == 0
-    assert (
-        "created Transform(uid='Ro1gl7n8YrdH0001') & created Run(started_at='"
-        in result.stdout.decode()
-    )
+    assert "created Transform('Ro1gl7n8'), started new Run(" in result.stdout.decode()
     assert not ln.Transform.get("Ro1gl7n8YrdH0000").is_latest
     assert ln.Transform.get("Ro1gl7n8YrdH0001").is_latest
 
@@ -212,7 +206,7 @@ def test_run_external_script():
     print(result.stderr.decode())
     assert result.returncode == 0
     assert "created Transform" in result.stdout.decode()
-    assert "created Run" in result.stdout.decode()
+    assert "started new Run" in result.stdout.decode()
     transform = ln.Transform.get(key="run-track-and-finish-sync-git.py")
     # the algorithm currently picks different commits depending on the state of the repo
     # any of these commits are valid
@@ -228,7 +222,7 @@ def test_run_external_script():
     # ensure that the source code is not saved as an output artifact
     assert transform.latest_run.output_artifacts.count() == 0
     assert transform.runs.count() == 1
-    assert transform.hash == "Cwk0OPOyUH5nzTiU2ISlDQ"
+    assert transform.hash == "MoIciBQ0lpVPCKQGofPX6g"
     assert transform._source_code_artifact is None
 
 
@@ -239,5 +233,5 @@ def test_track_notebook_or_script_manually(type):
         ln.context.track(transform=transform)
     assert (
         error.exconly()
-        == "ValueError: Use ln.context.track() without passing transform in a notebook or script - metadata is automatically parsed"
+        == "ValueError: Use `ln.track()` without passing transform in a notebook or script - metadata is automatically parsed"
     )

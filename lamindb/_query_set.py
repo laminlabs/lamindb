@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import UserList
-from typing import TYPE_CHECKING, Iterable, NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
 import pandas as pd
 from django.db import models
@@ -23,6 +23,8 @@ from lnschema_core.models import (
 from lamindb.core.exceptions import DoesNotExist
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from lnschema_core.types import ListLike, StrField
 
 
@@ -137,7 +139,7 @@ class QuerySet(models.QuerySet):
 
     See Also:
 
-        `django QuerySet <https://docs.djangoproject.com/en/4.2/ref/models/querysets/>`__ # noqa
+        `django QuerySet <https://docs.djangoproject.com/en/4.2/ref/models/querysets/>`__
 
     Examples:
 
@@ -152,7 +154,7 @@ class QuerySet(models.QuerySet):
     ) -> pd.DataFrame:
         """{}"""  # noqa: D415
         # re-order the columns
-        exclude_field_names = ["created_at"]
+        exclude_field_names = ["updated_at"]
         field_names = [
             field.name
             for field in self.model._meta.fields

@@ -16,7 +16,7 @@ class BlobHashNotFound(SystemExit):
 
 def get_git_repo_from_remote() -> Path:
     repo_url = settings.sync_git_repo
-    repo_dir = setup_settings.storage.cache_dir / repo_url.split("/")[-1]
+    repo_dir = setup_settings.cache_dir / repo_url.split("/")[-1]
     if repo_dir.exists():
         logger.warning(f"git repo {repo_dir} already exists locally")
         return repo_dir
@@ -26,7 +26,7 @@ def get_git_repo_from_remote() -> Path:
     result = subprocess.run(
         ["git", "clone", "--depth", "10", f"{repo_url}.git"],
         capture_output=True,
-        cwd=setup_settings.storage.cache_dir,
+        cwd=setup_settings.cache_dir,
     )
     if result.returncode != 0 or not repo_dir.exists():
         raise RuntimeError(result.stderr.decode())

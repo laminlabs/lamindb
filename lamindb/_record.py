@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import builtins
-from typing import TYPE_CHECKING, List, NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
 import dj_database_url
 import lamindb_setup as ln_setup
@@ -9,15 +9,18 @@ from django.db import connections, transaction
 from django.db.models import IntegerField, Manager, Q, QuerySet, Value
 from lamin_utils import logger
 from lamin_utils._lookup import Lookup
-from lamindb_setup._connect_instance import get_owner_name_from_identifier
+from lamindb_setup._connect_instance import (
+    get_owner_name_from_identifier,
+    load_instance_settings,
+    update_db_using_local,
+)
 from lamindb_setup.core._docs import doc_args
-from lamindb_setup.core._hub_core import connect_instance
-from lnschema_core.models import IsVersioned, Record
+from lamindb_setup.core._hub_core import connect_instance_hub
+from lamindb_setup.core._settings_store import instance_settings_file
+from lnschema_core.models import IsVersioned, Record, Run, Transform
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings
-
-from ._from_values import get_or_create_records
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -167,33 +170,6 @@ def df(
     if hasattr(cls, "updated_at"):
         query_set = query_set.order_by("-updated_at")
     return query_set[:limit].df(include=include, join=join)
-
-
-# from_values doesn't apply for QuerySet or Manager
-@classmethod  # type:ignore
-@doc_args(Record.from_values.__doc__)
-def from_values(
-    cls,
-    values: ListLike,
-    field: StrField | None = None,
-    create: bool = False,
-    organism: Record | str | None = None,
-    source: Record | None = None,
-    mute: bool = False,
-) -> list[Record]:
-    """{}"""  # noqa: D415
-    from_source = True if cls.__module__.startswith("bionty.") else False
-
-    field_str = get_name_field(cls, field=field)
-    return get_or_create_records(
-        iterable=values,
-        field=getattr(cls, field_str),
-        create=create,
-        from_source=from_source,
-        organism=organism,
-        source=source,
-        mute=mute,
-    )
 
 
 def _search(
@@ -402,26 +378,32 @@ def using(
     """{}"""  # noqa: D415
     if instance is None:
         return QuerySet(model=cls, using=None)
-    from lamindb_setup._connect_instance import (
-        load_instance_settings,
-        update_db_using_local,
-    )
-    from lamindb_setup.core._settings_store import instance_settings_file
-
     owner, name = get_owner_name_from_identifier(instance)
     settings_file = instance_settings_file(name, owner)
+    cache_filepath = ln_setup.settings.cache_dir / f"instance--{owner}--{name}--uid.txt"
     if not settings_file.exists():
-        load_result = connect_instance(owner=owner, name=name)
-        if isinstance(load_result, str):
+        result = connect_instance_hub(owner=owner, name=name)
+        if isinstance(result, str):
             raise RuntimeError(
-                f"Failed to load instance {instance}, please check your permission!"
+                f"Failed to load instance {instance}, please check your permissions!"
             )
-        instance_result, _ = load_result
+        iresult, _ = result
+        source_schema = {
+            schema for schema in iresult["schema_str"].split(",") if schema != ""
+        }  # type: ignore
+        target_schema = ln_setup.settings.instance.schema
+        if not source_schema.issubset(target_schema):
+            missing_members = source_schema - target_schema
+            logger.warning(
+                f"source schema has additional modules: {missing_members}\nconsider mounting these schema modules to not encounter errors"
+            )
+        cache_filepath.write_text(iresult["lnid"])  # type: ignore
         settings_file = instance_settings_file(name, owner)
-        db = update_db_using_local(instance_result, settings_file)
+        db = update_db_using_local(iresult, settings_file)
     else:
         isettings = load_instance_settings(settings_file)
         db = isettings.db
+        cache_filepath.write_text(isettings.uid)
     add_db_connection(db, instance)
     return QuerySet(model=cls, using=instance)
 
@@ -439,7 +421,7 @@ def update_fk_to_default_db(
     using_key: str | None,
     transfer_logs: dict,
 ):
-    record = records[0] if isinstance(records, (List, QuerySet)) else records
+    record = records[0] if isinstance(records, (list, QuerySet)) else records
     if hasattr(record, f"{fk}_id") and getattr(record, f"{fk}_id") is not None:
         fk_record = getattr(record, fk)
         field = REGISTRY_UNIQUE_FIELD.get(fk, "uid")
@@ -453,7 +435,7 @@ def update_fk_to_default_db(
             transfer_to_default_db(
                 fk_record_default, using_key, save=True, transfer_logs=transfer_logs
             )
-        if isinstance(records, (List, QuerySet)):
+        if isinstance(records, (list, QuerySet)):
             for r in records:
                 setattr(r, f"{fk}", None)
                 setattr(r, f"{fk}_id", fk_record_default.id)
@@ -477,6 +459,43 @@ def transfer_fk_to_default_db_bulk(
         update_fk_to_default_db(records, fk, using_key, transfer_logs=transfer_logs)
 
 
+def get_transfer_run(record) -> Run:
+    from lamindb_setup import settings as setup_settings
+
+    from lamindb.core._context import context
+    from lamindb.core._data import WARNING_RUN_TRANSFORM
+
+    slug = record._state.db
+    owner, name = get_owner_name_from_identifier(slug)
+    cache_filepath = ln_setup.settings.cache_dir / f"instance--{owner}--{name}--uid.txt"
+    if not cache_filepath.exists():
+        raise SystemExit("Need to call .using() before")
+    instance_uid = cache_filepath.read_text()
+    key = f"transfers/{instance_uid}"
+    uid = instance_uid + "0000"
+    transform = Transform.filter(uid=uid).one_or_none()
+    if transform is None:
+        search_names = settings.creation.search_names
+        settings.creation.search_names = False
+        transform = Transform(
+            uid=uid, name=f"Transfer from `{slug}`", key=key, type="function"
+        ).save()
+        settings.creation.search_names = search_names
+    # use the global run context to get the parent run id
+    if context.run is not None:
+        parent = context.run
+    else:
+        if not settings.creation.artifact_silence_missing_run_warning:
+            logger.warning(WARNING_RUN_TRANSFORM)
+        parent = None
+    # it doesn't seem to make sense to create new runs for every transfer
+    run = Run.filter(transform=transform, parent=parent).one_or_none()
+    if run is None:
+        run = Run(transform=transform, parent=parent).save()
+        run.parent = parent  # so that it's available in memory
+    return run
+
+
 def transfer_to_default_db(
     record: Record,
     using_key: str | None,
@@ -485,12 +504,13 @@ def transfer_to_default_db(
     save: bool = False,
     transfer_fk: bool = True,
 ) -> Record | None:
-    from lamindb.core._context import context
-    from lamindb.core._data import WARNING_RUN_TRANSFORM
-
+    if record._state.db is None or record._state.db == "default":
+        return None
     registry = record.__class__
     record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
     record_str = f"{record.__class__.__name__}(uid='{record.uid}')"
+    if transfer_logs["run"] is None:
+        transfer_logs["run"] = get_transfer_run(record)
     if record_on_default is not None:
         transfer_logs["mapped"].append(record_str)
         return record_on_default
@@ -500,20 +520,15 @@ def transfer_to_default_db(
     if hasattr(record, "created_by_id"):
         record.created_by = None
         record.created_by_id = ln_setup.settings.user.id
+    # run & transform
+    run = transfer_logs["run"]
     if hasattr(record, "run_id"):
         record.run = None
-        if context.run is not None:
-            record.run_id = context.run.id
-        else:
-            if not settings.creation.artifact_silence_missing_run_warning:
-                logger.warning(WARNING_RUN_TRANSFORM)
-            record.run_id = None
-    if hasattr(record, "transform_id") and record._meta.model_name != "run":
+        record.run_id = run.id
+    # deal with denormalized transform FK on artifact and collection
+    if hasattr(record, "transform_id"):
         record.transform = None
-        if context.run is not None:
-            record.transform_id = context.run.transform_id
-        else:
-            record.transform_id = None
+        record.transform_id = run.transform_id
     # transfer other foreign key fields
     fk_fields = [
         i.name
@@ -546,7 +561,7 @@ def save(self, *args, **kwargs) -> Record:
         artifacts = self.ordered_artifacts.list()
     pre_existing_record = None
     # consider records that are being transferred from other databases
-    transfer_logs: dict[str, list[str]] = {"mapped": [], "transferred": []}
+    transfer_logs: dict[str, list[str]] = {"mapped": [], "transferred": [], "run": None}
     if db is not None and db != "default" and using_key is None:
         if isinstance(self, IsVersioned):
             if not self.is_latest:
@@ -594,7 +609,8 @@ def save(self, *args, **kwargs) -> Record:
             self.features._add_from(self_on_db, transfer_logs=transfer_logs)
             self.labels.add_from(self_on_db, transfer_logs=transfer_logs)
         for k, v in transfer_logs.items():
-            logger.important(f"{k} records: {', '.join(v)}")
+            if k != "run":
+                logger.important(f"{k} records: {', '.join(v)}")
     return self
 
 
@@ -632,7 +648,6 @@ METHOD_NAMES = [
     "lookup",
     "save",
     "delete",
-    "from_values",
     "using",
 ]
 

@@ -6,6 +6,8 @@ from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import Run, Transform
 
+from lamindb.core.exceptions import InconsistentKey
+
 from ._parents import _view_parents
 from ._run import delete_run_artifacts
 from .core.versioning import message_update_key_in_version_family, process_revises
@@ -38,15 +40,16 @@ def __init__(transform: Transform, *args, **kwargs):
             f"reference_type can be passed, but you passed: {kwargs}"
         )
     if revises is None:
-        if key is not None:
+        # need to check uid before checking key
+        if uid is not None:
             revises = (
-                Transform.filter(key=key, is_latest=True)
+                Transform.filter(uid__startswith=uid[:-4], is_latest=True)
                 .order_by("-created_at")
                 .first()
             )
-        elif uid is not None:
+        elif key is not None:
             revises = (
-                Transform.filter(uid__startswith=uid[:-4], is_latest=True)
+                Transform.filter(key=key, is_latest=True)
                 .order_by("-created_at")
                 .first()
             )
@@ -63,8 +66,8 @@ def __init__(transform: Transform, *args, **kwargs):
             new_key=key,
             registry="Artifact",
         )
-        raise ValueError(
-            f"`key` is {key}, but `revises.key` is '{revises.key}'\n\n Either do *not* pass `key`.\n\n{note}"
+        raise InconsistentKey(
+            f"`key` is {key}, but `revises.key` is '{revises.key}'\n\nEither do *not* pass `key`.\n\n{note}"
         )
     new_uid, version, name, revises = process_revises(revises, version, name, Transform)
     # this is only because the user-facing constructor allows passing a uid

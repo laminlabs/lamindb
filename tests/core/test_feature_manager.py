@@ -18,7 +18,6 @@ def adata():
 # below the test for the main way of annotating with
 # features
 def test_features_add(adata):
-    ln.ULabel(name="Experiment 1")
     artifact = ln.Artifact.from_anndata(adata, description="test")
     artifact.save()
     with pytest.raises(ValidationError) as error:
@@ -44,6 +43,7 @@ def test_features_add(adata):
     artifact.ulabels.add(experiment_label)
     assert artifact.links_ulabel.get().ulabel.name == "Experiment 1"
     assert artifact.links_ulabel.get().feature is None
+    assert artifact.labels.__repr__().endswith("    .ulabels = 'Experiment 1'\n")
 
     # now add the label with the feature and make sure that it has the feature annotation
     artifact.features.add_values({"experiment": "Experiment 1"})

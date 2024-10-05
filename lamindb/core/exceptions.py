@@ -1,13 +1,12 @@
 """Exceptions.
 
-The registry base class:
-
 .. autosummary::
    :toctree: .
 
+   InvalidArgument
    DoesNotExist
    ValidationError
-   NotebookNotSavedError
+   NotebookNotSaved
    NoTitleError
    MissingContextUID
    UpdateContext
@@ -15,12 +14,26 @@ The registry base class:
 
 """
 
+# inheriting from SystemExit has the sole purpose of suppressing
+# the traceback - this isn't optimal but the current best solution
+# https://laminlabs.slack.com/archives/C04A0RMA0SC/p1726856875597489
+
+
+class InvalidArgument(SystemExit):
+    """Invalid method or function argument."""
+
+    pass
+
 
 class TrackNotCalled(SystemExit):
+    """`ln.track()` wasn't called."""
+
     pass
 
 
 class NotebookNotSaved(SystemExit):
+    """Notebook wasn't saved."""
+
     pass
 
 
@@ -38,8 +51,14 @@ class DoesNotExist(Exception):
     pass
 
 
+class InconsistentKey(Exception):
+    """Inconsistent transform or artifact `key`."""
+
+    pass
+
+
 # -------------------------------------------------------------------------------------
-# ln.context.track() AKA context
+# run context
 # -------------------------------------------------------------------------------------
 
 
@@ -49,12 +68,6 @@ class IntegrityError(Exception):
     For instance, it's not allowed to delete artifacts outside managed storage
     locations.
     """
-
-    pass
-
-
-class NotebookNotSavedError(Exception):
-    """Notebook wasn't saved."""
 
     pass
 

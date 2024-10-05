@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import shutil
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import anndata as ad
@@ -19,6 +18,8 @@ from lnschema_core.models import Artifact, Storage
 from lamindb.core._settings import settings
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from lamindb_setup.core.types import UPathStr
 
 
@@ -52,12 +53,13 @@ def check_path_is_child_of_root(path: Path | UPath, root: Path | UPath | None) -
     return root.resolve() in path.resolve().parents
 
 
+# returns filepath and root of the storage
 def attempt_accessing_path(
     artifact: Artifact,
     storage_key: str,
     using_key: str | None = None,
     access_token: str | None = None,
-):
+) -> tuple[UPath, StorageSettings]:
     # check whether the file is in the default db and whether storage
     # matches default storage
     if (
@@ -78,23 +80,53 @@ def attempt_accessing_path(
         # find a better way than passing None to instance_settings in the future!
         storage_settings = StorageSettings(storage.root, access_token=access_token)
     path = storage_settings.key_to_filepath(storage_key)
-    return path
+    return path, storage_settings
 
 
-# add type annotations back asap when re-organizing the module
-def filepath_from_artifact(artifact: Artifact, using_key: str | None = None):
+def filepath_from_artifact(
+    artifact: Artifact, using_key: str | None = None
+) -> tuple[UPath, StorageSettings | None]:
     if hasattr(artifact, "_local_filepath") and artifact._local_filepath is not None:
-        return artifact._local_filepath.resolve()
+        return artifact._local_filepath.resolve(), None
     storage_key = auto_storage_key_from_artifact(artifact)
-    path = attempt_accessing_path(artifact, storage_key, using_key=using_key)
-    return path
+    path, storage_settings = attempt_accessing_path(
+        artifact, storage_key, using_key=using_key
+    )
+    return path, storage_settings
+
+
+# virtual key is taken into consideration
+# only if the version is latest
+def _cache_key_from_artifact_storage(
+    artifact: Artifact, storage_settings: StorageSettings | None
+):
+    cache_key = None
+    if (
+        artifact._key_is_virtual
+        and artifact.key is not None
+        and storage_settings is not None
+        and artifact.is_latest
+    ):
+        cache_key = (storage_settings.root / artifact.key).path
+    return cache_key
+
+
+# return filepath and cache_key if needed
+def filepath_cache_key_from_artifact(
+    artifact: Artifact, using_key: str | None = None
+) -> tuple[UPath, str | None]:
+    filepath, storage_settings = filepath_from_artifact(artifact, using_key)
+    if isinstance(filepath, LocalPathClasses):
+        return filepath, None
+    cache_key = _cache_key_from_artifact_storage(artifact, storage_settings)
+    return filepath, cache_key
 
 
 def store_file_or_folder(
     local_path: UPathStr, storage_path: UPath, print_progress: bool = True
 ) -> None:
     """Store file or folder (localpath) at storagepath."""
-    local_path = Path(local_path)
+    local_path = UPath(local_path)
     if not isinstance(storage_path, LocalPathClasses):
         # this uploads files and directories
         create_folder = False if local_path.is_dir() else None
@@ -102,12 +134,11 @@ def store_file_or_folder(
             local_path, create_folder=create_folder, print_progress=print_progress
         )
     else:  # storage path is local
+        if local_path.resolve().as_posix() == storage_path.resolve().as_posix():
+            return None
         storage_path.parent.mkdir(parents=True, exist_ok=True)
         if local_path.is_file():
-            try:
-                shutil.copyfile(local_path, storage_path)
-            except shutil.SameFileError:
-                pass
+            shutil.copyfile(local_path, storage_path)
         else:
             if storage_path.exists():
                 shutil.rmtree(storage_path)
@@ -117,7 +148,7 @@ def store_file_or_folder(
 def delete_storage_using_key(
     artifact: Artifact, storage_key: str, using_key: str | None
 ):
-    filepath = attempt_accessing_path(artifact, storage_key, using_key=using_key)
+    filepath, _ = attempt_accessing_path(artifact, storage_key, using_key=using_key)
     delete_storage(filepath)
 
 

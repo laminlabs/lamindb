@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING
 
 import numpy as np
-from lamin_utils import colors
-from lnschema_core.models import Feature
+from django.db import connections
+from lamin_utils import colors, logger
+from lnschema_core.models import CanValidate, Feature
 
 from lamindb._from_values import _print_values
 from lamindb._record import (
@@ -16,6 +17,7 @@ from lamindb._record import (
 )
 from lamindb._save import save
 
+from ._django import get_artifact_with_related, get_related_model
 from ._settings import settings
 from .schema import dict_related_model_to_related_name
 
@@ -57,22 +59,46 @@ def get_labels_as_dict(self: Artifact | Collection, links: bool = False):
     return labels
 
 
-def print_labels(
-    self: Artifact | Collection, field: str = "name", print_types: bool = False
-):
+def _print_labels_postgres(
+    self: Artifact | Collection, m2m_data: dict | None = None, print_types: bool = False
+) -> str:
     labels_msg = ""
-    for related_name, (related_model, labels) in get_labels_as_dict(self).items():
-        # there is a try except block here to deal with schema inconsistencies
-        # during transfer between instances
-        try:
-            labels_list = list(labels.values_list(field, flat=True))
-            if len(labels_list) > 0:
-                get_name_field(labels)
-                print_values = _print_values(labels_list, n=10)
-                type_str = f": {related_model}" if print_types else ""
-                labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
-        except Exception:  # noqa: S112
-            continue
+    if not m2m_data:
+        artifact_meta = get_artifact_with_related(self, include_m2m=True)
+        m2m_data = artifact_meta.get("related_data", {}).get("m2m", {})
+    if m2m_data:
+        for related_name, labels in m2m_data.items():
+            if not labels or related_name == "feature_sets":
+                continue
+            related_model = get_related_model(self, related_name)
+            print_values = _print_values(labels.values(), n=10)
+            type_str = f": {related_model}" if print_types else ""
+            labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
+    return labels_msg
+
+
+def print_labels(
+    self: Artifact | Collection,
+    m2m_data: dict | None = None,
+    print_types: bool = False,
+):
+    if not self._state.adding and connections[self._state.db].vendor == "postgresql":
+        labels_msg = _print_labels_postgres(self, m2m_data, print_types)
+    else:
+        labels_msg = ""
+        for related_name, (related_model, labels) in get_labels_as_dict(self).items():
+            # there is a try except block here to deal with schema inconsistencies
+            # during transfer between instances
+            try:
+                field = get_name_field(labels)
+                labels_list = list(labels.values_list(field, flat=True))
+                if len(labels_list) > 0:
+                    print_values = _print_values(labels_list, n=10)
+                    type_str = f": {related_model}" if print_types else ""
+                    labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
+            except Exception:  # noqa: S112
+                continue
+
     msg = ""
     if labels_msg:
         msg += f"  {colors.italic('Labels')}\n"
@@ -106,13 +132,19 @@ def validate_labels(labels: QuerySet | list | dict):
             label_uids = np.array(
                 [getattr(label, field) for label in labels if label is not None]
             )
-        validated = registry.validate(label_uids, field=field, mute=True)
-        validated_uids = label_uids[validated]
-        validated_labels = registry.filter(**{f"{field}__in": validated_uids}).list()
-        new_labels = [labels[int(i)] for i in np.argwhere(~validated).flatten()]
+        if issubclass(registry, CanValidate):
+            validated = registry.validate(label_uids, field=field, mute=True)
+            validated_uids = label_uids[validated]
+            validated_labels = registry.filter(
+                **{f"{field}__in": validated_uids}
+            ).list()
+            new_labels = [labels[int(i)] for i in np.argwhere(~validated).flatten()]
+        else:
+            validated_labels = []
+            new_labels = list(labels)
         return validated_labels, new_labels
 
-    if isinstance(labels, Dict):
+    if isinstance(labels, dict):
         result = {}
         for registry, labels_registry in labels.items():
             result[registry] = validate_labels_registry(labels_registry)
@@ -185,7 +217,7 @@ class LabelManager:
         from django.db.utils import ProgrammingError
 
         if transfer_logs is None:
-            transfer_logs = {"mapped": [], "transferred": []}
+            transfer_logs = {"mapped": [], "transferred": [], "run": None}
         using_key = settings._using_key
         for related_name, (_, labels) in get_labels_as_dict(data).items():
             labels = labels.all()
@@ -250,4 +282,7 @@ class LabelManager:
                         )
             # ProgrammingError is raised when schemas don't match between source and target instances
             except ProgrammingError:
+                logger.warning(
+                    f"{related_name} labels cannot be transferred because schema module does not exist in target instance: {labels}"
+                )
                 continue

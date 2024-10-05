@@ -18,6 +18,8 @@ cli
 lamindb
 bionty
 wetlab
+clinicore
+findrefs
 ```
 
 ```{toctree}

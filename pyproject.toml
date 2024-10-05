@@ -4,22 +4,21 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "lamindb"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [{name = "Lamin Labs", email = "open-source@lamin.ai"}]
 readme = "README.md"
 dynamic = ["version", "description"]
 classifiers = [
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
 ]
 dependencies = [
     # Lamin PINNED packages
-    "lnschema_core==0.74.3",
-    "lamindb_setup==0.77.2",
-    "lamin_utils==0.13.4",
-    "lamin_cli==0.17.3",
+    "lnschema_core==0.74.6",
+    "lamindb_setup==0.77.7",
+    "lamin_utils==0.13.6",
+    "lamin_cli==0.17.8",
     # others
     "rapidfuzz",
     "pyarrow",
@@ -38,7 +37,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "bionty==0.50.2",
+    "bionty==0.51.1",
 ]
 aws = [
     "lamindb_setup[aws]",
@@ -62,6 +61,7 @@ erdiagram = [
 ]
 dev = [
     # basic test
+    "line_profiler",
     "pre-commit",
     "nox",
     "laminci>=0.3",

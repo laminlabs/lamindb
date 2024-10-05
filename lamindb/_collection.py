@@ -4,7 +4,6 @@ from collections import defaultdict
 from typing import (
     TYPE_CHECKING,
     Any,
-    Iterable,
     Literal,
 )
 
@@ -37,6 +36,8 @@ from .core._data import (
 from .core._settings import settings
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from lamindb.core.storage import UPath
 
     from ._query_set import QuerySet
@@ -211,6 +212,7 @@ def mapped(
     layers_keys: str | list[str] | None = None,
     obs_keys: str | list[str] | None = None,
     obsm_keys: str | list[str] | None = None,
+    obs_filter: tuple[str, str | tuple[str, ...]] | None = None,
     join: Literal["inner", "outer"] | None = "inner",
     encode_labels: bool | list[str] = True,
     unknown_label: str | dict[str, str] | None = None,
@@ -239,6 +241,7 @@ def mapped(
         layers_keys,
         obs_keys,
         obsm_keys,
+        obs_filter,
         join,
         encode_labels,
         unknown_label,

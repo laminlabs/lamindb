@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import os
 import shutil
+from collections.abc import Mapping
 from pathlib import Path, PurePath, PurePosixPath
-from typing import TYPE_CHECKING, Any, Mapping
+from typing import TYPE_CHECKING, Any
 
 import fsspec
 import lamindb_setup as ln_setup
 import pandas as pd
 from anndata import AnnData
-from django.db.models import Q, QuerySet
+from django.db.models import Q
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage_in_instance
@@ -30,7 +31,7 @@ from lnschema_core.types import (
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._data import _track_run_input, describe, view_lineage
 from lamindb.core._settings import settings
-from lamindb.core.exceptions import IntegrityError
+from lamindb.core.exceptions import IntegrityError, InvalidArgument
 from lamindb.core.loaders import load_to_memory
 from lamindb.core.storage import (
     LocalPathClasses,
@@ -43,6 +44,7 @@ from lamindb.core.storage.paths import (
     auto_storage_key_from_artifact,
     auto_storage_key_from_artifact_uid,
     check_path_is_child_of_root,
+    filepath_cache_key_from_artifact,
     filepath_from_artifact,
 )
 from lamindb.core.versioning import (
@@ -88,8 +90,6 @@ def process_pathlike(
                 raise FileNotFoundError(filepath)
         except PermissionError:
             pass
-    if isinstance(filepath, LocalPathClasses):
-        filepath = filepath.resolve()
     if check_path_is_child_of_root(filepath, default_storage.root):
         use_existing_storage_key = True
         return default_storage, use_existing_storage_key
@@ -154,7 +154,7 @@ def process_data(
             if hasattr(default_storage, "_access_token")
             else None
         )
-        path = create_path(data, access_token=access_token)
+        path = create_path(data, access_token=access_token).resolve()
         storage, use_existing_storage_key = process_pathlike(
             path,
             default_storage=default_storage,
@@ -175,12 +175,12 @@ def process_data(
             key_suffix = None
         suffix = infer_suffix(data, format)
         if key_suffix is not None and key_suffix != suffix:
-            raise ValueError(
+            raise InvalidArgument(
                 f"The suffix '{key_suffix}' of the provided key is incorrect, it should"
                 f" be '{suffix}'."
             )
         cache_name = f"{provisional_uid}{suffix}"
-        path = settings._storage_settings.cache_dir / cache_name
+        path = settings.cache_dir / cache_name
         # Alex: I don't understand the line below
         if path.suffixes == []:
             path = path.with_suffix(suffix)
@@ -344,8 +344,8 @@ def get_artifact_kwargs_from_data(
 
     if revises is not None:  # update provisional_uid
         provisional_uid, revises = create_uid(revises=revises, version=version)
-        if path.as_posix().startswith(settings._storage_settings.cache_dir.as_posix()):
-            path = path.rename(f"{provisional_uid}{suffix}")
+        if settings.cache_dir in path.parents:
+            path = path.rename(path.with_name(f"{provisional_uid}{suffix}"))
 
     check_path_in_storage = False
     if use_existing_storage_key:
@@ -356,7 +356,7 @@ def get_artifact_kwargs_from_data(
             key = inferred_key
         else:
             if not key == inferred_key:
-                raise ValueError(
+                raise InvalidArgument(
                     f"The path '{data}' is already in registered storage"
                     f" '{storage.root}' with key '{inferred_key}'\nYou passed"
                     f" conflicting key '{key}': please move the file before"
@@ -399,6 +399,7 @@ def get_artifact_kwargs_from_data(
         "run_id": run.id if run is not None else None,
         "run": run,
         "_key_is_virtual": key_is_virtual,
+        "revises": revises,
     }
     if not isinstance(path, LocalPathClasses):
         local_filepath = None
@@ -614,6 +615,9 @@ def __init__(artifact: Artifact, *args, **kwargs):
     else:
         kwargs = kwargs_or_artifact
 
+    if revises is None:
+        revises = kwargs_or_artifact.pop("revises")
+
     if data is not None:
         artifact._local_filepath = privates["local_filepath"]
         artifact._cloud_filepath = privates["cloud_filepath"]
@@ -745,12 +749,8 @@ def from_dir(
     run: Run | None = None,
 ) -> list[Artifact]:
     """{}"""  # noqa: D415
-    logger.warning(
-        "this creates one artifact per file in the directory - consider"
-        " ln.Artifact(dir_path) to get one artifact for the entire directory"
-    )
     folderpath: UPath = create_path(path)  # returns Path for local
-    default_storage = settings._storage_settings.record
+    default_storage = settings.storage.record
     using_key = settings._using_key
     storage, use_existing_storage = process_pathlike(
         folderpath, default_storage, using_key
@@ -844,7 +844,7 @@ def replace(
     run: Run | None = None,
     format: str | None = None,
 ) -> None:
-    default_storage = settings._storage_settings.record
+    default_storage = settings.storage.record
     kwargs, privates = get_artifact_kwargs_from_data(
         provisional_uid=self.uid,
         data=data,
@@ -919,12 +919,14 @@ def open(
     from lamindb.core.storage._backed_access import _track_writes_factory, backed_access
 
     using_key = settings._using_key
-    filepath = filepath_from_artifact(self, using_key=using_key)
+    filepath, cache_key = filepath_cache_key_from_artifact(self, using_key=using_key)
     is_tiledbsoma_w = (
         filepath.name == "soma" or filepath.suffix == ".tiledbsoma"
     ) and mode == "w"
     # consider the case where an object is already locally cached
-    localpath = setup_settings.instance.storage.cloud_to_local_no_update(filepath)
+    localpath = setup_settings.instance.storage.cloud_to_local_no_update(
+        filepath, cache_key=cache_key
+    )
     if not is_tiledbsoma_w and localpath.exists():
         access = backed_access(localpath, mode, using_key)
     else:
@@ -956,15 +958,17 @@ def open(
 
 
 # can't really just call .cache in .load because of double tracking
-def _synchronize_cleanup_on_error(filepath: UPath) -> UPath:
+def _synchronize_cleanup_on_error(
+    filepath: UPath, cache_key: str | None = None
+) -> UPath:
     try:
         cache_path = setup_settings.instance.storage.cloud_to_local(
-            filepath, print_progress=True
+            filepath, cache_key=cache_key, print_progress=True
         )
     except Exception as e:
         if not isinstance(filepath, LocalPathClasses):
             cache_path = setup_settings.instance.storage.cloud_to_local_no_update(
-                filepath
+                filepath, cache_key=cache_key
             )
             if cache_path.is_file():
                 cache_path.unlink(missing_ok=True)
@@ -979,8 +983,11 @@ def load(self, is_run_input: bool | None = None, **kwargs) -> Any:
     if hasattr(self, "_memory_rep") and self._memory_rep is not None:
         access_memory = self._memory_rep
     else:
-        filepath = filepath_from_artifact(self, using_key=settings._using_key)
-        cache_path = _synchronize_cleanup_on_error(filepath)
+        filepath, cache_key = filepath_cache_key_from_artifact(
+            self, using_key=settings._using_key
+        )
+        cache_path = _synchronize_cleanup_on_error(filepath, cache_key=cache_key)
+        # cache_path is local so doesn't trigger any sync in load_to_memory
         access_memory = load_to_memory(cache_path, **kwargs)
     # only call if load is successfull
     _track_run_input(self, is_run_input)
@@ -989,8 +996,10 @@ def load(self, is_run_input: bool | None = None, **kwargs) -> Any:
 
 # docstring handled through attach_func_to_class_method
 def cache(self, is_run_input: bool | None = None) -> Path:
-    filepath = filepath_from_artifact(self, using_key=settings._using_key)
-    cache_path = _synchronize_cleanup_on_error(filepath)
+    filepath, cache_key = filepath_cache_key_from_artifact(
+        self, using_key=settings._using_key
+    )
+    cache_path = _synchronize_cleanup_on_error(filepath, cache_key=cache_key)
     # only call if sync is successfull
     _track_run_input(self, is_run_input)
     return cache_path
@@ -1041,7 +1050,7 @@ def delete(
     if delete_record:
         # need to grab file path before deletion
         try:
-            path = filepath_from_artifact(self, using_key)
+            path, _ = filepath_from_artifact(self, using_key)
         except OSError:
             # we can still delete the record
             logger.warning("Could not get path")
@@ -1112,7 +1121,7 @@ def save(self, upload: bool | None = None, **kwargs) -> Artifact:
         raise RuntimeError(exception)
     if local_path is not None and not state_was_adding:
         # only move the local artifact to cache if it was not newly created
-        local_path_cache = ln_setup.settings.storage.cache_dir / local_path.name
+        local_path_cache = ln_setup.settings.cache_dir / local_path.name
         # don't use Path.rename here because of cross-device link error
         # https://laminlabs.slack.com/archives/C04A0RMA0SC/p1710259102686969
         shutil.move(
@@ -1133,8 +1142,22 @@ def _save_skip_storage(file, **kwargs) -> None:
 @doc_args(Artifact.path.__doc__)
 def path(self) -> Path | UPath:
     """{}"""  # noqa: D415
-    using_key = settings._using_key
-    return filepath_from_artifact(self, using_key)
+    # return only the path, without StorageSettings
+    filepath, _ = filepath_from_artifact(self, using_key=settings._using_key)
+    return filepath
+
+
+# get cache path without triggering sync
+@property  # type: ignore
+def _cache_path(self) -> UPath:
+    filepath, cache_key = filepath_cache_key_from_artifact(
+        self, using_key=settings._using_key
+    )
+    if isinstance(filepath, LocalPathClasses):
+        return filepath
+    return setup_settings.instance.storage.cloud_to_local_no_update(
+        filepath, cache_key=cache_key
+    )
 
 
 # docstring handled through attach_func_to_class_method
@@ -1173,6 +1196,7 @@ for name in METHOD_NAMES:
 # privates currently dealt with separately
 Artifact._delete_skip_storage = _delete_skip_storage
 Artifact._save_skip_storage = _save_skip_storage
+Artifact._cache_path = _cache_path
 Artifact.path = path
 Artifact.describe = describe
 Artifact.view_lineage = view_lineage

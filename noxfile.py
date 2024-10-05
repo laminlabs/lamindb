@@ -109,7 +109,7 @@ def install_ci(session, group):
         extras += "aws,zarr,bionty,jupyter"
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab",
+            "uv pip install --system --no-deps ./sub/wetlab ./sub/findrefs",
         )
         run(session, "uv pip install --system vitessce")
     elif group == "docs":
@@ -117,7 +117,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system mudata")
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab",
+            "uv pip install --system --no-deps ./sub/wetlab ./sub/findrefs ./sub/clinicore",
         )
     elif group == "cli":
         extras += "jupyter,aws,bionty"
@@ -148,14 +148,14 @@ def build(session, group):
 
     login_testuser2(session)
     login_testuser1(session)
-    run(session, "lamin set private-django-api true")
+    run(session, "lamin settings set private-django-api true")
     coverage_args = "--cov=lamindb --cov-config=pyproject.toml --cov-append --cov-report=term-missing"
     if group == "unit-core":
         run(session, f"pytest {coverage_args} ./tests/core --durations=50")
     elif group == "unit-storage":
         run(session, f"pytest {coverage_args} ./tests/storage --durations=50")
     elif group == "tutorial":
-        run(session, "lamin login --logout")
+        run(session, "lamin logout")
         run(
             session, f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}"
         )
@@ -176,7 +176,7 @@ def build(session, group):
     elif group == "storage":
         run(session, f"pytest -s {coverage_args} ./docs/storage")
     elif group == "cli":
-        run(session, f"pytest -vv {coverage_args} ./sub/lamin-cli/tests")
+        run(session, f"pytest {coverage_args} ./sub/lamin-cli/tests --durations=50")
     # move artifacts into right place
     if group in {"tutorial", "guide", "biology"}:
         target_dir = Path(f"./docs/{group}")
@@ -197,7 +197,10 @@ def docs(session):
         if group in {"tutorial", "guide", "biology"}:
             for path in Path(f"./docs/{group}").glob("*"):
                 path.rename(f"./docs/{path.name}")
-    run(session, "lamin init --storage ./docsbuild --schema bionty,wetlab")
+    run(
+        session,
+        "lamin init --storage ./docsbuild --schema bionty,wetlab,clinicore,findrefs",
+    )
 
     def generate_cli_docs():
         os.environ["NO_RICH"] = "1"

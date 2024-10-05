@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import os
 import re
-import shutil
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
@@ -37,6 +35,13 @@ def prepare_notebook(
                     if strip_title:
                         lines.pop(i)
                         cell["source"] = "\n".join(lines)
+        # strip resaved finish error if present
+        # this is normally the last cell
+        if cell["cell_type"] == "code" and ".finish(" in cell["source"]:
+            for output in cell["outputs"]:
+                if output.get("ename", None) == "NotebookNotSaved":
+                    cell["outputs"] = []
+                    break
     return None
 
 
@@ -77,17 +82,6 @@ def notebook_to_script(
     script_path.write_text(py_content)
 
 
-def script_to_notebook(transform: Transform, notebook_path: Path) -> None:
-    import jupytext
-
-    # get title back
-    py_content = transform.source_code.replace(
-        "# # transform.name", f"# # {transform.name}"
-    )
-    notebook = jupytext.reads(py_content, fmt="py:percent")
-    jupytext.write(notebook, notebook_path)
-
-
 def save_context_core(
     *,
     run: Run,
@@ -97,6 +91,10 @@ def save_context_core(
     ignore_non_consecutive: bool | None = None,
     from_cli: bool = False,
 ) -> str | None:
+    from lnschema_core.models import (
+        format_field_value,  # needs to come after lamindb was imported because of CLI use
+    )
+
     import lamindb as ln
 
     from .core._context import context, is_run_from_ipython
@@ -121,7 +119,7 @@ def save_context_core(
         notebook_content = read_notebook(filepath)  # type: ignore
         if not ignore_non_consecutive:  # ignore_non_consecutive is None or False
             is_consecutive = check_consecutiveness(
-                notebook_content, calling_statement=".finish()"
+                notebook_content, calling_statement=".finish("
             )
             if not is_consecutive:
                 response = "n"  # ignore_non_consecutive == False
@@ -132,12 +130,12 @@ def save_context_core(
                 if response != "y":
                     return "aborted-non-consecutive"
         # write the report
-        report_path = ln_setup.settings.storage.cache_dir / filepath.name.replace(
+        report_path = ln_setup.settings.cache_dir / filepath.name.replace(
             ".ipynb", ".html"
         )
         notebook_to_report(filepath, report_path)
         # write the source code
-        source_code_path = ln_setup.settings.storage.cache_dir / filepath.name.replace(
+        source_code_path = ln_setup.settings.cache_dir / filepath.name.replace(
             ".ipynb", ".py"
         )
         notebook_to_script(transform, filepath, source_code_path)
@@ -158,15 +156,13 @@ def save_context_core(
         if hash != ref_hash:
             response = input(
                 f"You are about to overwrite existing source code (hash '{ref_hash}') for Transform('{transform.uid}')."
-                f"Proceed? (y/n)"
+                f" Proceed? (y/n)"
             )
             if response == "y":
                 transform.source_code = source_code_path.read_text()
                 transform.hash = hash
             else:
-                logger.warning(
-                    "Please re-run `ln.context.track()` to make a new version"
-                )
+                logger.warning("Please re-run `ln.track()` to make a new version")
                 return "rerun-the-notebook"
         else:
             logger.important("source code is already saved")
@@ -175,7 +171,7 @@ def save_context_core(
         transform.hash = hash
 
     # track environment
-    env_path = ln_setup.settings.storage.cache_dir / f"run_env_pip_{run.uid}.txt"
+    env_path = ln_setup.settings.cache_dir / f"run_env_pip_{run.uid}.txt"
     if env_path.exists():
         overwrite_env = True
         if run.environment_id is not None and from_cli:
@@ -236,6 +232,11 @@ def save_context_core(
     transform.save()
 
     # finalize
+    if not from_cli:
+        run_time = run.finished_at - run.started_at
+        logger.important(
+            f"finished Run('{run.uid[:8]}') after {run_time} at {format_field_value(run.finished_at)}"
+        )
     if ln_setup.settings.instance.is_on_hub:
         identifier = ln_setup.settings.instance.slug
         logger.important(

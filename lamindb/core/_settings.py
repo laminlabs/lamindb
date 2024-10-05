@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Literal, Mapping
+from typing import TYPE_CHECKING, Literal
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger
@@ -13,6 +13,7 @@ from .subsettings._creation_settings import CreationSettings, creation_settings
 from .subsettings._transform_settings import TransformSettings, transform_settings
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
 
     from lamindb_setup.core._settings_storage import StorageSettings
@@ -141,6 +142,11 @@ class Settings:
         else:
             path, kwargs = path_kwargs, {}
         set_managed_storage(path, **kwargs)
+
+    @property
+    def cache_dir(self) -> UPath:
+        """Cache root, a local directory to cache cloud files."""
+        return ln_setup.settings.cache_dir
 
     @property
     def storage_local(self) -> StorageSettings:

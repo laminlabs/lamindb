@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import copy
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING
 
 import anndata as ad
 import lamindb_setup as ln_setup
@@ -19,6 +19,8 @@ from lnschema_core import (
 from .core.exceptions import ValidationError
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from lamindb_setup.core.types import UPathStr
     from lnschema_core.types import FieldAttr
     from mudata import MuData
