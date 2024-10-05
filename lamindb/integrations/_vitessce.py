@@ -41,40 +41,15 @@ def save_vitessce_config(
 
     assert isinstance(vitessce_config, VitessceConfig)  # noqa: S101
     vc_dict = vitessce_config.to_dict()
-    valid_suffixes = [
-        # Composite suffix candidates must appear before simple suffixes in this list,
-        # as we would not want to remove .zarr from ".anndata.zarr" and be left with the partial ".anndata"
-        suffix for suffix in VALID_SUFFIXES.COMPOSITE if suffix.endswith(".zarr")
-    ] + VALID_SUFFIXES.SIMPLE
-    # validate
-    dataset_artifacts = []
-    assert vc_dict["datasets"]  # noqa: S101
-    for vitessce_dataset in vc_dict["datasets"]:
-        # didn't find good ways to violate the below, hence using plain asserts
-        # without user feedback
-        assert "files" in vitessce_dataset  # noqa: S101
-        assert vitessce_dataset["files"]  # noqa: S101
-        for file in vitessce_dataset["files"]:
-            if "url" not in file:
-                raise ValueError("Each file must have a 'url' key.")
-            s3_path = file["url"]
-            s3_path_last_element = s3_path.split("/")[-1]
-            # now start with attempting to strip the composite suffix candidates,
-            # followed by simple suffix candidates
-            for suffix in valid_suffixes:
-                s3_path_last_element = s3_path_last_element.replace(suffix, "")
-            # if there is still a "." in string, raise an error
-            if "." in artifact_stem_uid:
-                raise ValueError(
-                    f"Suffix should be '.zarr' or one of {valid_suffixes}. Inspect your path {s3_path}"
-                )
-            artifact = Artifact.filter(uid__startswith=artifact_stem_uid).one_or_none()
-            if artifact is None:
-                raise ValueError(
-                    f"Could not find dataset with stem uid '{artifact_stem_uid}' in lamindb: {vitessce_dataset}. Did you follow https://docs.lamin.ai/vitessce? It appears the AWS S3 path doesn't encode a lamindb uid."
-                )
-            else:
-                dataset_artifacts.append(artifact)
+    try:
+        url_to_artifact_dict = vitessce_config.get_artifacts()
+    except AttributeError as e:
+        logger.error("Artifact registration requires vitessce package version 3.4.0 or higher.")
+        raise e
+    dataset_artifacts = list(url_to_artifact_dict.values())
+    if len(dataset_artifacts) == 0:
+        logger.warning("No artifacts were registered in this config. If intending to visualize data from artifacts, use _artifact parameters of Vitessce wrapper class constructors to facilitate registration.")
+    
     # the below will be replaced with a `ln.tracked()` decorator soon
     with logger.mute():
         transform = Transform(
