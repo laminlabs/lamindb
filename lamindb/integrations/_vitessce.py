@@ -21,14 +21,16 @@ if TYPE_CHECKING:
 def save_vitessce_config(
     vitessce_config: VitessceConfig, description: str | None = None
 ) -> Artifact:
-    """Validates and saves a ``VitessceConfig`` object.
+    """Validates and saves a `VitessceConfig` object.
 
     Guide: :doc:`docs:vitessce`.
 
     Args:
-        vitessce_config (``VitessceConfig``): A `VitessceConfig` object.
+        vitessce_config: A `VitessceConfig` object.
         description: A description for the `VitessceConfig` artifact.
 
+    .. versionchanged:: 0.76.12
+        Now assumes `vitessce-python >= 3.4.0`, which allows to pass artifacts directly to the `VitessceConfig`.
     .. versionchanged:: 0.75.1
         Now displays the "Vitessce button" on the hub next to the dataset. It additionally keeps displaying it next to the configuration file.
     .. versionchanged:: 0.70.2
