@@ -11,6 +11,10 @@ if __name__ == "__main__":
         "input_dir": args.input_dir,
         "learning_rate": args.learning_rate,
         "downsample": args.downsample,
+        "preprocess_params": {
+            "normalization": "nice",
+            "subset_features": True,
+        },
     }
     ln.track("JjRF4mACd9m00000", params=params)
     # your code
