@@ -59,10 +59,10 @@ def save_vitessce_config(
     # the below will be replaced with a `ln.tracked()` decorator soon
     with logger.mute():
         transform = Transform(
-            uid="kup03MJBsIVa0001",
+            uid="kup03MJBsIVa0002",
             name="save_vitessce_config",
             type="function",
-            version="2",
+            version="3",
         ).save()
     run = Run(transform=transform).save()
     run.input_artifacts.set(dataset_artifacts)
