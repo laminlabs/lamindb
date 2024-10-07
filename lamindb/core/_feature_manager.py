@@ -509,18 +509,21 @@ def filter_base(cls, **expression):
             expression = {feature_param: feature, f"value{comparator}": value}
             feature_value = value_model.filter(**expression)
             new_expression[f"_{feature_param}_values__in"] = feature_value
-        else:
+        elif isinstance(value, (str, Record)):
             if isinstance(value, str):
-                expression = {f"name{comparator}": value}
-                label = ULabel.get(**expression)
-                new_expression["ulabels"] = label
-            else:
-                raise NotImplementedError
+                expression = {"name": value}
+                value = ULabel.get(**expression)
+            accessor_name = (
+                value.__class__.artifacts.through.artifact.field._related_name
+            )
+            new_expression[f"{accessor_name}__feature"] = feature
+            new_expression[f"{accessor_name}__{value.__class__.__name__.lower()}"] = (
+                value
+            )
+        else:
+            raise NotImplementedError
     if cls == FeatureManager or cls == ParamManagerArtifact:
         return Artifact.filter(**new_expression)
-    # might renable something similar in the future
-    # elif cls == FeatureManagerCollection:
-    #     return Collection.filter(**new_expression)
     elif cls == ParamManagerRun:
         return Run.filter(**new_expression)
 
