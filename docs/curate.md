@@ -5,4 +5,5 @@
 
 curate-df
 curate-any
+curate-custom
 ```
