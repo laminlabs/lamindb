@@ -10,12 +10,11 @@ if __name__ == "__main__":
     params = {
         "input_dir": args.input_dir,
         "learning_rate": args.learning_rate,
-        "downsample": args.downsample,
         "preprocess_params": {
-            "normalization": "nice",
-            "subset_features": True,
+            "downsample": args.downsample,
+            "normalization": "the_good_one",
         },
     }
-    ln.track("JjRF4mACd9m00000", params=params)
+    ln.track("JjRF4mACd9m00001", params=params)
     # your code
     ln.finish()
