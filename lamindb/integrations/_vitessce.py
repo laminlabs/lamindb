@@ -51,15 +51,13 @@ def save_vitessce_config(
     try:
         url_to_artifact_dict = vitessce_config.get_artifacts()
     except AttributeError as e:
-        logger.error(
-            "Artifact registration requires vitessce package version 3.4.0 or higher."
-        )
-        raise e
+        raise SystemExit(
+            "save_vitessce_config() requires vitessce>=3.4.0: pip install vitessce>=3.4.0"
+        ) from e
     dataset_artifacts = list(url_to_artifact_dict.values())
-    if len(dataset_artifacts) == 0:
-        logger.warning(
-            "No artifacts were registered in this config. If intending to visualize data from artifacts, use _artifact parameters of Vitessce wrapper class constructors to facilitate registration."
-        )
+    message = "\n".join([artifact.__repr__() for artifact in dataset_artifacts])
+    logger.important(f"VitessceConfig references these artifacts:\n{message}")
+    assert len(dataset_artifacts) > 0  # noqa: S101
 
     # the below will be replaced with a `ln.tracked()` decorator soon
     transform = Transform(
@@ -83,15 +81,21 @@ def save_vitessce_config(
     vitessce_config_artifact = Artifact(
         config_file_local_path, description=description, run=run
     ).save()
+    slug = ln_setup.settings.instance.slug
+    logger.important(
+        f"VitessceConfig: https://lamin.ai/{slug}/artifact/{vitessce_config_artifact.uid}"
+    )
     if collection is None:
         # we have one and only one dataset artifact, hence the following line is OK
         dataset_artifacts[0]._actions.add(vitessce_config_artifact)
+        logger.important(
+            f"Dataset: https://lamin.ai/{slug}/artifact/{dataset_artifacts[0].uid}"
+        )
     else:
         collection._actions.add(vitessce_config_artifact)
-    slug = ln_setup.settings.instance.slug
-    logger.important(
-        f"go to: https://lamin.ai/{slug}/artifact/{vitessce_config_artifact.uid}"
-    )
+        logger.important(
+            f"Collection: https://lamin.ai/{slug}/collection/{collection.uid}"
+        )
     run.finished_at = datetime.now(timezone.utc)
     run.save()
     return vitessce_config_artifact
