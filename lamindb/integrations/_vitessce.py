@@ -23,14 +23,19 @@ def save_vitessce_config(
 ) -> Artifact:
     """Validates and saves a `VitessceConfig` object.
 
+    If the `VitessceConfig` object references multiple artifacts, automatically
+    creates a `Collection` and displays the "Vitessce button" next to it.
+
     Guide: :doc:`docs:vitessce`.
 
     Args:
         vitessce_config: A `VitessceConfig` object.
-        description: A description for the `VitessceConfig` artifact.
+        description: A description for the `VitessceConfig` object. Is used as
+            `name` for a `Collection` in case the `VitessceConfig` object
+            references multiple artifacts.
 
     .. versionchanged:: 0.76.12
-        Now assumes `vitessce-python >= 3.4.0`, which allows to pass artifacts directly to the `VitessceConfig`.
+        Now assumes `vitessce-python >= 3.4.0`, which allows passing artifacts within `VitessceConfig`.
     .. versionchanged:: 0.75.1
         Now displays the "Vitessce button" on the hub next to the dataset. It additionally keeps displaying it next to the configuration file.
     .. versionchanged:: 0.70.2
@@ -57,22 +62,19 @@ def save_vitessce_config(
         )
 
     # the below will be replaced with a `ln.tracked()` decorator soon
-    with logger.mute():
-        transform = Transform(
-            uid="kup03MJBsIVa0002",
-            name="save_vitessce_config",
-            type="function",
-            version="3",
-        ).save()
+    transform = Transform(
+        uid="kup03MJBsIVa0002",
+        name="save_vitessce_config",
+        type="function",
+        version="3",
+    ).save()
     run = Run(transform=transform).save()
     run.input_artifacts.set(dataset_artifacts)
+    collection = None
     if len(dataset_artifacts) > 1:
         # if we have more datasets, we should create a collection
         # and attach an action to the collection
-        collection_of_artifacts = Collection(dataset_artifacts, name=description)
-        collection_of_artifacts.save()
-    else:
-        collection_of_artifacts = None
+        collection = Collection(dataset_artifacts, name=description).save()
 
     # create a JSON export
     config_file_local_path = ln_setup.settings.cache_dir / "config.vitessce.json"
@@ -81,11 +83,11 @@ def save_vitessce_config(
     vitessce_config_artifact = Artifact(
         config_file_local_path, description=description, run=run
     ).save()
-    if collection_of_artifacts is None:
+    if collection is None:
         # we have one and only one dataset artifact, hence the following line is OK
         dataset_artifacts[0]._actions.add(vitessce_config_artifact)
     else:
-        collection_of_artifacts._actions.add(vitessce_config_artifact)
+        collection._actions.add(vitessce_config_artifact)
     slug = ln_setup.settings.instance.slug
     logger.important(
         f"go to: https://lamin.ai/{slug}/artifact/{vitessce_config_artifact.uid}"
