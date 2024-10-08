@@ -21,7 +21,7 @@ DEFAULT_VALUES = {
 }
 
 # Curate against these specified sources
-FIXED_SOURCES = {
+DEFAULT_SOURCES = {
     "disease": bt.Source.filter(
         entity="bionty.Disease", name="mondo", version="2023-04-04"
     ).one(),
@@ -43,7 +43,7 @@ class EHRCurator(DataFrameCurator):
         categoricals: dict[str, FieldAttr] = DEFAULT_CATEGORICALS,
         *,
         defaults: dict[str, str] = None,
-        sources: dict[str, Record] = FIXED_SOURCES,
+        sources: dict[str, Record] = DEFAULT_SOURCES,
         organism="human",
     ):
         self.data = data
