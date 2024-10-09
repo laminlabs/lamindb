@@ -63,6 +63,14 @@ Modules:
 
 """
 
+from lamindb._curate import (  # isort: skip
+    AnnDataCurator,
+    BaseCurator,
+    CurateLookup,
+    DataFrameCurator,
+    MuDataCurator,
+)
+
 from lamin_utils._inspect import InspectResult
 from lnschema_core.models import (
     CanValidate,
@@ -76,13 +84,6 @@ from lnschema_core.models import (
     TracksUpdates,
 )
 
-from lamindb._curate import (
-    AnnDataCurator,
-    BaseCurator,
-    CurateLookup,
-    DataFrameCurator,
-    MuDataCurator,
-)
 from lamindb._query_manager import QueryManager
 from lamindb._query_set import QuerySet, RecordsList
 from lamindb.core._feature_manager import FeatureManager, ParamManager
