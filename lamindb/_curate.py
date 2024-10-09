@@ -8,7 +8,7 @@ import lamindb_setup as ln_setup
 import pandas as pd
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
-from lnschema_core import (
+from lnschema_core.models import (
     Artifact,
     Feature,
     Record,
