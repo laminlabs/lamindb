@@ -3,7 +3,7 @@ from pathlib import Path
 import bionty as bt
 import lamindb as ln
 import pytest
-from lamindb.core.exceptions import ValidationError
+from lamindb.core.exceptions import DoesNotExist, ValidationError
 
 
 @pytest.fixture(scope="module")
@@ -203,7 +203,20 @@ Here is how to create ulabels for them:
     ln.Artifact.features.filter(
         temperature=100.0, project="project_1", donor="U0123"
     ).one()
+    # for bionty
+    assert artifact == ln.Artifact.features.filter(disease=diseases[0]).one()
+
+    # test not finding the ULabel
+    with pytest.raises(DoesNotExist) as error:
+        ln.Artifact.features.get(project="project__1")
+    assert error.exconly().startswith(
+        "lamindb.core.exceptions.DoesNotExist: Did not find a ULabel matching"
+    )
+
     # test comparator
+    assert artifact == ln.Artifact.features.filter(experiment__contains="ment 1").one()
+    # due to the __in comparator, we get the same artifact twice below
+    assert len(ln.Artifact.features.filter(experiment__contains="Experi").all()) == 2
     assert ln.Artifact.features.filter(temperature__lt=21).one_or_none() is None
     assert len(ln.Artifact.features.filter(temperature__gt=21).all()) >= 1
 

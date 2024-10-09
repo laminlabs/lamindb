@@ -145,15 +145,16 @@ def __init__(
         logger.warning(
             f"returning existing collection with same hash: {existing_collection}"
         )
-        # update the run of the existing artifact
+        # update the run of the existing collection
         if run is not None:
-            # save the information that this artifact was previously
-            # produced by another run
-            if existing_collection.run is not None:
+            # save the information that this collection was previously produced
+            # by another run
+            # note: same logic exists for _output_artifacts_with_later_updates
+            if existing_collection.run is not None and existing_collection.run != run:
                 existing_collection.run._output_collections_with_later_updates.add(
                     existing_collection
                 )
-            # update the run of the artifact with the latest run
+            # update the run of the collection with the latest run
             existing_collection.run = run
             existing_collection.transform = run.transform
         init_self_from_db(collection, existing_collection)

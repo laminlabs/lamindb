@@ -15,7 +15,7 @@ from lamindb_setup._connect_instance import (
     update_db_using_local,
 )
 from lamindb_setup.core._docs import doc_args
-from lamindb_setup.core._hub_core import connect_instance
+from lamindb_setup.core._hub_core import connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
 from lnschema_core.models import IsVersioned, Record, Run, Transform
 
@@ -382,7 +382,7 @@ def using(
     settings_file = instance_settings_file(name, owner)
     cache_filepath = ln_setup.settings.cache_dir / f"instance--{owner}--{name}--uid.txt"
     if not settings_file.exists():
-        result = connect_instance(owner=owner, name=name)
+        result = connect_instance_hub(owner=owner, name=name)
         if isinstance(result, str):
             raise RuntimeError(
                 f"Failed to load instance {instance}, please check your permissions!"

@@ -8,6 +8,7 @@ import lamindb_setup as ln_setup
 from lamin_utils import logger
 
 from lamindb._artifact import Artifact
+from lamindb._collection import Collection
 from lamindb._run import Run
 from lamindb._transform import Transform
 
@@ -20,14 +21,21 @@ if TYPE_CHECKING:
 def save_vitessce_config(
     vitessce_config: VitessceConfig, description: str | None = None
 ) -> Artifact:
-    """Validates and saves a ``VitessceConfig`` object.
+    """Validates and saves a `VitessceConfig` object.
+
+    If the `VitessceConfig` object references multiple artifacts, automatically
+    creates a `Collection` and displays the "Vitessce button" next to it.
 
     Guide: :doc:`docs:vitessce`.
 
     Args:
-        vitessce_config (``VitessceConfig``): A `VitessceConfig` object.
-        description: A description for the `VitessceConfig` artifact.
+        vitessce_config: A `VitessceConfig` object.
+        description: A description for the `VitessceConfig` object. Is used as
+            `name` for a `Collection` in case the `VitessceConfig` object
+            references multiple artifacts.
 
+    .. versionchanged:: 0.76.12
+        Now assumes `vitessce-python >= 3.4.0`, which allows passing artifacts within `VitessceConfig`.
     .. versionchanged:: 0.75.1
         Now displays the "Vitessce button" on the hub next to the dataset. It additionally keeps displaying it next to the configuration file.
     .. versionchanged:: 0.70.2
@@ -40,53 +48,32 @@ def save_vitessce_config(
 
     assert isinstance(vitessce_config, VitessceConfig)  # noqa: S101
     vc_dict = vitessce_config.to_dict()
-    valid_composite_zarr_suffixes = [
-        suffix for suffix in VALID_SUFFIXES.COMPOSITE if suffix.endswith(".zarr")
-    ]
-    # validate
-    dataset_artifacts = []
-    assert vc_dict["datasets"]  # noqa: S101
-    for vitessce_dataset in vc_dict["datasets"]:
-        # didn't find good ways to violate the below, hence using plain asserts
-        # without user feedback
-        assert "files" in vitessce_dataset  # noqa: S101
-        assert vitessce_dataset["files"]  # noqa: S101
-        for file in vitessce_dataset["files"]:
-            if "url" not in file:
-                raise ValueError("Each file must have a 'url' key.")
-            s3_path = file["url"]
-            s3_path_last_element = s3_path.split("/")[-1]
-            # now start with attempting to strip the composite suffix candidates
-            for suffix in valid_composite_zarr_suffixes:
-                s3_path_last_element = s3_path_last_element.replace(suffix, "")
-            # in case there was no hit, strip plain ".zarr"
-            artifact_stem_uid = s3_path_last_element.replace(".zarr", "")
-            # if there is still a "." in string, raise an error
-            if "." in artifact_stem_uid:
-                raise ValueError(
-                    f"Suffix should be '.zarr' or one of {valid_composite_zarr_suffixes}. Inspect your path {s3_path}"
-                )
-            artifact = Artifact.filter(uid__startswith=artifact_stem_uid).one_or_none()
-            if artifact is None:
-                raise ValueError(
-                    f"Could not find dataset with stem uid '{artifact_stem_uid}' in lamindb: {vitessce_dataset}. Did you follow https://docs.lamin.ai/vitessce? It appears the AWS S3 path doesn't encode a lamindb uid."
-                )
-            else:
-                dataset_artifacts.append(artifact)
+    try:
+        url_to_artifact_dict = vitessce_config.get_artifacts()
+    except AttributeError as e:
+        raise SystemExit(
+            "save_vitessce_config() requires vitessce>=3.4.0: pip install vitessce>=3.4.0"
+        ) from e
+    dataset_artifacts = list(url_to_artifact_dict.values())
+    message = "\n".join([artifact.__repr__() for artifact in dataset_artifacts])
+    logger.important(f"VitessceConfig references these artifacts:\n{message}")
+    assert len(dataset_artifacts) > 0  # noqa: S101
+
     # the below will be replaced with a `ln.tracked()` decorator soon
-    with logger.mute():
-        transform = Transform(
-            uid="kup03MJBsIVa0001",
-            name="save_vitessce_config",
-            type="function",
-            version="2",
-        ).save()
+    transform = Transform(
+        uid="kup03MJBsIVa0002",
+        name="save_vitessce_config",
+        type="function",
+        version="3",
+    ).save()
     run = Run(transform=transform).save()
+    run.input_artifacts.set(dataset_artifacts)
+    collection = None
     if len(dataset_artifacts) > 1:
         # if we have more datasets, we should create a collection
         # and attach an action to the collection
-        raise NotImplementedError
-    run.input_artifacts.set(dataset_artifacts)
+        collection = Collection(dataset_artifacts, name=description).save()
+
     # create a JSON export
     config_file_local_path = ln_setup.settings.cache_dir / "config.vitessce.json"
     with open(config_file_local_path, "w") as file:
@@ -94,12 +81,21 @@ def save_vitessce_config(
     vitessce_config_artifact = Artifact(
         config_file_local_path, description=description, run=run
     ).save()
-    # we have one and only one dataset artifact, hence the following line is OK
-    dataset_artifacts[0]._actions.add(vitessce_config_artifact)
     slug = ln_setup.settings.instance.slug
     logger.important(
-        f"go to: https://lamin.ai/{slug}/artifact/{vitessce_config_artifact.uid}"
+        f"VitessceConfig: https://lamin.ai/{slug}/artifact/{vitessce_config_artifact.uid}"
     )
+    if collection is None:
+        # we have one and only one dataset artifact, hence the following line is OK
+        dataset_artifacts[0]._actions.add(vitessce_config_artifact)
+        logger.important(
+            f"Dataset: https://lamin.ai/{slug}/artifact/{dataset_artifacts[0].uid}"
+        )
+    else:
+        collection._actions.add(vitessce_config_artifact)
+        logger.important(
+            f"Collection: https://lamin.ai/{slug}/collection/{collection.uid}"
+        )
     run.finished_at = datetime.now(timezone.utc)
     run.save()
     return vitessce_config_artifact

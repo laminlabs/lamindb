@@ -39,7 +39,7 @@ def get_labels_as_dict(self: Artifact | Collection, links: bool = False):
         "links_collection",
         "links_artifact",
         "links_feature_set",
-        "previous_runs",
+        "_previous_runs",
         "_feature_values",
         "_action_targets",
         "_lnschema_core_collection__actions_+",  # something seems off with this one

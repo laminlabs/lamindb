@@ -438,7 +438,7 @@ class Context:
             )
             return (
                 f'Filename "{key}" clashes with the existing key "{transform.key}" for uid "{transform.uid[:-4]}...."\n\nEither init a new transform with a new uid:\n\n'
-                f'ln.track("{ids.base62_12()}0000)"\n\n{update_key_note}'
+                f'ln.track("{ids.base62_12()}0000")\n\n{update_key_note}'
             )
 
         # make a new transform record
@@ -577,7 +577,7 @@ class Context:
             import nbproject
 
             # it might be that the user modifies the title just before ln.finish()
-            if nbproject_title := nbproject.meta.live.title != self.transform.name:
+            if (nbproject_title := nbproject.meta.live.title) != self.transform.name:
                 self.transform.name = nbproject_title
                 self.transform.save()
             if get_seconds_since_modified(self._path) > 2 and not ln_setup._TESTING:
