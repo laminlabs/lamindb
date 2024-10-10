@@ -6,7 +6,7 @@ from django.db.models.fields.reverse_related import ManyToManyRel, ManyToOneRel
 from django.db.models.functions import JSONObject
 from lnschema_core.models import Artifact, FeatureSet, Record
 
-from .schema import dict_related_model_to_related_name
+from .schema import dict_related_model_to_related_name, get_schemas_modules
 
 
 def get_related_model(model, field_name):
@@ -36,21 +36,33 @@ def get_artifact_with_related(
     from lamindb._can_validate import get_name_field
 
     model = artifact.__class__
-    foreign_key_fields = [f.name for f in model._meta.fields if f.is_relation]
+    schema_modules = get_schemas_modules(artifact._state.db)
+
+    foreign_key_fields = [
+        f.name
+        for f in model._meta.fields
+        if f.is_relation and f.related_model.__get_schema_name__() in schema_modules
+    ]
 
     m2m_relations = (
         []
         if not include_m2m
         else [
             v
-            for v in dict_related_model_to_related_name(model).values()
+            for v in dict_related_model_to_related_name(
+                model, instance=artifact._state.db
+            ).values()
             if not v.startswith("_")
         ]
     )
     link_tables = (
         []
         if not include_feature_link
-        else list(dict_related_model_to_related_name(model, links=True).values())
+        else list(
+            dict_related_model_to_related_name(
+                model, links=True, instance=artifact._state.db
+            ).values()
+        )
     )
 
     # Clear previous queries

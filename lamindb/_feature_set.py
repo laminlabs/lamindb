@@ -216,7 +216,9 @@ def members(self) -> QuerySet:
 
 
 def _get_related_name(self: FeatureSet) -> str:
-    feature_sets_related_models = dict_related_model_to_related_name(self)
+    feature_sets_related_models = dict_related_model_to_related_name(
+        self, instance=self._state.db
+    )
     related_name = feature_sets_related_models.get(self.registry)
     return related_name
 

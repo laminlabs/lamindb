@@ -216,7 +216,9 @@ def _print_categoricals(
     if not print_params:
         labels_msg = ""
         labels_by_feature = defaultdict(list)
-        for _, (_, links) in get_labels_as_dict(self, links=True).items():
+        for _, (_, links) in get_labels_as_dict(
+            self, links=True, instance=self._state.db
+        ).items():
             for link in links:
                 if link.feature_id is not None:
                     link_attr = get_link_attr(link, self)
