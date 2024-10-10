@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, NamedTuple
 import dj_database_url
 import lamindb_setup as ln_setup
 from django.db import connections, transaction
-from django.db.models import IntegerField, Manager, Q, QuerySet, Value
+from django.db.models import IntegerField, Manager, Q, Value
 from lamin_utils import logger
 from lamin_utils._lookup import Lookup
 from lamindb_setup._connect_instance import (
@@ -19,6 +19,7 @@ from lamindb_setup.core._hub_core import connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
 from lnschema_core.models import IsVersioned, Record, Run, Transform
 
+from lamindb._query_set import QuerySet
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings
 
