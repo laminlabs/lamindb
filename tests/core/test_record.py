@@ -139,3 +139,4 @@ def test_get_name_field():
 
 def test_using():
     ln.Artifact.using("laminlabs/lamin-site-assets").get(1)
+    ln.Artifact.using("laminlabs/lamin-site-assets").get(uid="MqEaGU7fXvxNy61R0000")

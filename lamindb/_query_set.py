@@ -115,7 +115,7 @@ def get(
     else:
         assert idlike is None  # noqa: S101
         expressions = process_expressions(registry, expressions)
-        return registry.objects.get(**expressions)
+        return registry.objects.using(qs.db).get(**expressions)
 
 
 class RecordsList(UserList):
