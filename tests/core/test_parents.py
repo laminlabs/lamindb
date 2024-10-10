@@ -57,3 +57,18 @@ def test_add_ontology_from_values():
     assert record.parents.all().one().name == "South East Asian"
     # the source.in_db should be set back to False since we deleted all records
     assert record.source.in_db is False
+
+
+def test_view_lineage_circular():
+    import pandas as pd
+
+    transform = ln.Transform(name="test").save()
+    run = ln.Run(transform=transform).save()
+    artifact = ln.Artifact.from_df(
+        pd.DataFrame({"a": [1, 2, 3]}), description="test artifact", run=run
+    ).save()
+    run.input_artifacts.add(artifact)
+    artifact.view_lineage()
+    artifact.delete(permanent=True)
+    run.delete()
+    transform.delete()
