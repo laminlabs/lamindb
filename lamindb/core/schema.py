@@ -12,13 +12,13 @@ from lnschema_core.models import Feature, FeatureSet, LinkORM, Record
 
 def get_schemas_modules(instance: str | None) -> set[str]:
     if instance is None or instance == "default":
-        schema_modules = ln_setup.settings.instance.schema
+        schema_modules = set(ln_setup.settings.instance.schema)
         schema_modules.add("core")
         return schema_modules
     owner, name = get_owner_name_from_identifier(instance)
     settings_file = instance_settings_file(name, owner)
-    schema = load_instance_settings(settings_file).schema
-    shared_schema_modules = ln_setup.settings.instance.schema.intersection(schema)
+    schema = set(load_instance_settings(settings_file).schema)
+    shared_schema_modules = set(ln_setup.settings.instance.schema).intersection(schema)
     shared_schema_modules.add("core")
     return shared_schema_modules
 
