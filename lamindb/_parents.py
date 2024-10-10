@@ -310,7 +310,12 @@ def _record_label(record: Record, field: str | None = None):
             rf' FACE="Monospace">uid={record.uid}<BR/>version={record.version}</FONT>>'
         )
     elif isinstance(record, Run):
-        name = f'{record.transform.name.replace("&", "&amp;")}'
+        if record.transform.name:
+            name = f'{record.transform.name.replace("&", "&amp;")}'
+        elif record.transform.key:
+            name = f'{record.transform.key.replace("&", "&amp;")}'
+        else:
+            name = f"{record.transform.uid}"
         user_display = (
             record.created_by.handle
             if record.created_by.name is None
@@ -365,7 +370,6 @@ def _get_all_parent_runs(data: Artifact | Collection) -> list:
                 inputs_run += (
                     r.input_collections.all().filter(visibility__in=[0, 1]).list()
                 )
-            run_inputs_outputs += [(inputs_run, r)]
             outputs_run = (
                 r.__getattribute__(f"output_{name}s")
                 .all()
@@ -376,7 +380,18 @@ def _get_all_parent_runs(data: Artifact | Collection) -> list:
                 outputs_run += (
                     r.output_collections.all().filter(visibility__in=[0, 1]).list()
                 )
-            run_inputs_outputs += [(r, outputs_run)]
+            # if inputs are outputs artifacts are the same, will result infinite loop
+            # so only show as outputs
+            overlap = set(inputs_run).intersection(outputs_run)
+            if overlap:
+                logger.warning(
+                    f"The following artifacts are both inputs and outputs of Run(uid={r.uid}): {overlap}\n   → Only showing as outputs."
+                )
+                inputs_run = list(set(inputs_run) - overlap)
+            if len(inputs_run) > 0:
+                run_inputs_outputs += [(inputs_run, r)]
+            if len(outputs_run) > 0:
+                run_inputs_outputs += [(r, outputs_run)]
             inputs += inputs_run
         runs = [f.run for f in inputs if f.run is not None]
     return run_inputs_outputs
