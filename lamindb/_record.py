@@ -381,7 +381,6 @@ def using(
     owner, name = get_owner_name_from_identifier(instance)
     settings_file = instance_settings_file(name, owner)
     cache_filepath = ln_setup.settings.cache_dir / f"instance--{owner}--{name}--uid.txt"
-    print(cache_filepath)
     if not settings_file.exists():
         result = connect_instance_hub(owner=owner, name=name)
         if isinstance(result, str):
@@ -404,7 +403,6 @@ def using(
     else:
         isettings = load_instance_settings(settings_file)
         db = isettings.db
-        print(isettings)
         cache_filepath.write_text(f"{isettings.uid}\n{','.join(isettings.schema)}")  # type: ignore
     add_db_connection(db, instance)
     return QuerySet(model=cls, using=instance)
