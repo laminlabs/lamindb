@@ -11,7 +11,7 @@ from lnschema_core.models import Feature, FeatureSet, LinkORM, Record
 
 
 def get_schemas_modules(instance: str | None) -> set[str]:
-    if instance is None:
+    if instance is None or instance == "default":
         schema_modules = ln_setup.settings.instance.schema
         schema_modules.add("core")
         return schema_modules
