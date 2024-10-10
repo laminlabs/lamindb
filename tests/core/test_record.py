@@ -135,3 +135,7 @@ def test_get_name_field():
     with pytest.raises(ValueError):
         _record.get_name_field(ln.Artifact.ulabels.through())
     transform.delete()
+
+
+def test_using():
+    ln.Artifact.using("laminlabs/lamin-site-assets").get(1)
