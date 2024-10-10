@@ -26,34 +26,19 @@ if TYPE_CHECKING:
 
     from lamindb._query_set import QuerySet
 
+LABELS_EXCLUDE_SET = {"feature_sets"}
+
 
 def get_labels_as_dict(
     self: Artifact | Collection, links: bool = False, instance: str | None = None
 ) -> dict:
-    exclude_set = {
-        "feature_sets",
-        "artifacts",
-        "input_of_runs",
-        "collections",
-        "_source_code_artifact_of",
-        "_report_of",
-        "_environment_of",
-        "links_collection",
-        "links_artifact",
-        "links_feature_set",
-        "_previous_runs",
-        "_feature_values",
-        "_action_targets",
-        "_lnschema_core_collection__actions_+",  # something seems off with this one
-        "_actions",
-    }
     labels = {}  # type: ignore
     if self.id is None:
         return labels
     for related_model_name, related_name in dict_related_model_to_related_name(
         self.__class__, links=links, instance=instance
     ).items():
-        if related_name not in exclude_set:
+        if related_name not in LABELS_EXCLUDE_SET and not related_name.startswith("_"):
             labels[related_name] = (
                 related_model_name,
                 getattr(self, related_name).all(),
