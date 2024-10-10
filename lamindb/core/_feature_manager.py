@@ -220,7 +220,7 @@ def _print_categoricals(
             self, links=True, instance=self._state.db
         ).items():
             for link in links:
-                if link.feature_id is not None:
+                if hasattr(link, "feature_id") and link.feature_id is not None:
                     link_attr = get_link_attr(link, self)
                     labels_by_feature[link.feature_id].append(
                         getattr(link, link_attr).name
