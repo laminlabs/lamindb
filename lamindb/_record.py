@@ -376,6 +376,8 @@ def using(
     instance: str | None,
 ) -> QuerySet:
     """{}"""  # noqa: D415
+    from ._query_set import QuerySet
+
     if instance is None:
         return QuerySet(model=cls, using=None)
     owner, name = get_owner_name_from_identifier(instance)
