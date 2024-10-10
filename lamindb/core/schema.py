@@ -17,7 +17,16 @@ def get_schemas_modules(instance: str | None) -> set[str]:
         return schema_modules
     owner, name = get_owner_name_from_identifier(instance)
     settings_file = instance_settings_file(name, owner)
-    schema = set(load_instance_settings(settings_file).schema)
+    if settings_file.exists():
+        schema = set(load_instance_settings(settings_file).schema)
+    else:
+        cache_filepath = (
+            ln_setup.settings.cache_dir / f"instance--{owner}--{name}--uid.txt"
+        )
+        if cache_filepath.exists():
+            schema = set(cache_filepath.read_text().split("\n")[1].split(","))
+        else:
+            raise ValueError(f"Instance {instance} not found")
     shared_schema_modules = set(ln_setup.settings.instance.schema).intersection(schema)
     shared_schema_modules.add("core")
     return shared_schema_modules

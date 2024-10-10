@@ -381,6 +381,7 @@ def using(
     owner, name = get_owner_name_from_identifier(instance)
     settings_file = instance_settings_file(name, owner)
     cache_filepath = ln_setup.settings.cache_dir / f"instance--{owner}--{name}--uid.txt"
+    print(cache_filepath)
     if not settings_file.exists():
         result = connect_instance_hub(owner=owner, name=name)
         if isinstance(result, str):
@@ -395,15 +396,16 @@ def using(
         if not source_schema.issubset(target_schema):
             missing_members = source_schema - target_schema
             logger.warning(
-                f"source schema has additional modules: {missing_members}\nconsider mounting these schema modules to not encounter errors"
+                f"source schema has additional modules: {missing_members}\nconsider mounting these schema modules to transfer all metadata"
             )
-        cache_filepath.write_text(iresult["lnid"])  # type: ignore
+        cache_filepath.write_text(f"{iresult['lnid']}\n{iresult['schema_str']}")  # type: ignore
         settings_file = instance_settings_file(name, owner)
         db = update_db_using_local(iresult, settings_file)
     else:
         isettings = load_instance_settings(settings_file)
         db = isettings.db
-        cache_filepath.write_text(isettings.uid)
+        print(isettings)
+        cache_filepath.write_text(f"{isettings.uid}\n{','.join(isettings.schema)}")  # type: ignore
     add_db_connection(db, instance)
     return QuerySet(model=cls, using=instance)
 
@@ -470,7 +472,7 @@ def get_transfer_run(record) -> Run:
     cache_filepath = ln_setup.settings.cache_dir / f"instance--{owner}--{name}--uid.txt"
     if not cache_filepath.exists():
         raise SystemExit("Need to call .using() before")
-    instance_uid = cache_filepath.read_text()
+    instance_uid = cache_filepath.read_text().split("\n")[0]
     key = f"transfers/{instance_uid}"
     uid = instance_uid + "0000"
     transform = Transform.filter(uid=uid).one_or_none()
