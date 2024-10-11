@@ -67,6 +67,15 @@ def test_df():
     df = ln.ULabel.filter(name="Project 0").df(include="created_by__name")
     assert df["created_by__name"].iloc[0] == "Test User1"
 
+    # do not return fields with no data in the registry
+    df = (
+        ln.Artifact.using("laminlabs/cellxgene")
+        .filter(suffix=".h5ad")
+        .df(include=["tissues__name", "pathways__name"])
+    )
+    assert "tissues__name" in df.columns
+    assert "pathways__name" not in df.columns
+
     # clean up
     project_label.delete()
     for label in labels:
@@ -91,9 +100,10 @@ def test_one_first():
     with pytest.raises(DoesNotExist):
         qs.one()
     qs = bt.Source.filter().all()
-    with pytest.raises(Exception):  # noqa: B017 should be MultipleResultsFound, but internal to Django
+    # should be MultipleResultsFound, but internal to Django
+    with pytest.raises(Exception):  # noqa: B017
         qs.one()
-    with pytest.raises(Exception):  # noqa: B017 should be MultipleResultsFound, but internal to Django
+    with pytest.raises(Exception):  # noqa: B017
         qs.one_or_none()
 
 
