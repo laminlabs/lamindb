@@ -75,6 +75,7 @@ def test_df():
     )
     assert "tissues__name" in df.columns
     assert "pathways__name" not in df.columns
+    assert df.shape[0] > 0
 
     # clean up
     project_label.delete()
