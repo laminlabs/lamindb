@@ -186,6 +186,7 @@ class QuerySet(models.QuerySet):
         if pk_column_name in df.columns:
             df = df.set_index(pk_column_name)
         if len(df) == 0:
+            logger.warning(colors.yellow("No records found"))
             return df
         if include is not None:
             if isinstance(include, str):
@@ -218,7 +219,7 @@ class QuerySet(models.QuerySet):
                             f"{related_ORM.__name__.lower()}__{lookup_str}"
                         )
                     link_df = pd.DataFrame(
-                        field.through.objects.values(
+                        field.through.objects.using(self.db).values(
                             left_side_link_model, values_expression
                         )
                     )
