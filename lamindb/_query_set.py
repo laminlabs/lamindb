@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, NamedTuple
 import pandas as pd
 from django.db import models
 from django.db.models import F
-from lamin_utils import logger
+from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import (
     Artifact,
@@ -223,7 +223,10 @@ class QuerySet(models.QuerySet):
                         )
                     )
                     if link_df.shape[0] == 0:
-                        return df
+                        logger.warning(
+                            f"{colors.yellow(expression)} is not shown because no values are found"
+                        )
+                        continue
                     link_groupby = link_df.groupby(left_side_link_model)[
                         values_expression
                     ].apply(list)
