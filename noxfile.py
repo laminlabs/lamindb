@@ -199,7 +199,7 @@ def docs(session):
                 path.rename(f"./docs/{path.name}")
     run(
         session,
-        "lamin init --storage ./docsbuild --schema bionty,wetlab,clinicore,findrefs",
+        "lamin init --storage ./docsbuild --schema bionty,wetlab,clinicore,findrefs,ourprojects,cellregistry,omop",
     )
 
     def generate_cli_docs():
