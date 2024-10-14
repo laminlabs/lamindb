@@ -25,3 +25,6 @@
 [submodule "sub/cellregistry"]
 	path = sub/cellregistry
 	url = https://github.com/laminlabs/cellregistry
+[submodule "sub/omop"]
+	path = sub/omop
+	url = https://github.com/laminlabs/omop.git
