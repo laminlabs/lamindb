@@ -115,3 +115,8 @@ def test_set_abbr():
     )
 
     record.delete()
+
+
+def test_validate_int():
+    result = bt.User.validate([1, 2], field=bt.User.id)
+    assert result.sum() == 1
