@@ -3,7 +3,7 @@
    ```shell
    lamin login
    ```
-   You will be prompted for your API key. You can create your API key in your account settings on LaminHub. <br/>
+   You will be prompted for your API key. You can create your API key in your account settings on LaminHub.
 
 ```{note}
 
@@ -27,8 +27,4 @@ Log out:
 
 ```
 lamin logout
-```
-
-```python
-
 ```
