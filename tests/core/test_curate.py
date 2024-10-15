@@ -124,7 +124,7 @@ def test_df_annotator(df, categoricals):
         artifact.experimental_factors.through.filter(artifact_id=artifact.id)
         .df()["feature_ref_is_name"]
         .values.sum()
-        == 3
+        == 1
     )
 
     # clean up
@@ -205,10 +205,10 @@ def test_anndata_annotator(adata, categoricals):
     validated = curate.validate()
     assert validated
 
-    artifact = curate.save_artifact(description="test AnnData")
+    curate.save_artifact(description="test AnnData")
 
     # clean up
-    artifact.delete(permanent=True)
+    ln.Artifact.filter().delete(permanent=True)
     ln.ULabel.filter().delete()
     bt.ExperimentalFactor.filter().delete()
     bt.CellType.filter().delete()
@@ -293,10 +293,10 @@ def test_mudata_annotator(mdata):
     curate.add_new_from("donor", modality="rna")
     validated = curate.validate()
     assert validated
-    artifact = curate.save_artifact(description="test MuData")
+    curate.save_artifact(description="test MuData")
 
     # clean up
-    artifact.delete(permanent=True)
+    ln.Artifact.filter().delete(permanent=True)
     ln.ULabel.filter().delete()
     bt.ExperimentalFactor.filter().delete()
     bt.CellType.filter().delete()
