@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from lamindb_setup.core.types import UPathStr
-    from lnschema_core.types import FieldAttr
+    from lnschema_core.types import ArtifactType, FieldAttr
     from mudata import MuData
 
 
@@ -97,12 +97,22 @@ class BaseCurator:
         """
         pass
 
-    def save_artifact(self, description: str | None = None, **kwargs) -> Artifact:
+    def save_artifact(
+        self,
+        description: str | None = None,
+        type: ArtifactType | None = None,
+        key: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ) -> Artifact:
         """Save the dataset as artifact.
 
         Args:
-            description: Description of the DataFrame object.
-            **kwargs: Object level metadata.
+            description: `str | None = None` A description of the DataFrame object.
+            type: `Literal["dataset", "model"] | None = None` The artifact type.
+            key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+            revises: `Artifact | None = None` Previous version of the artifact. Triggers a revision.
+            run: `Run | None = None` The run that creates the artifact.
 
         Returns:
             A saved artifact record.
@@ -323,12 +333,22 @@ class DataFrameCurator(BaseCurator):
         )
         return self._validated
 
-    def save_artifact(self, description: str | None = None, **kwargs) -> Artifact:
+    def save_artifact(
+        self,
+        description: str | None = None,
+        type: ArtifactType | None = None,
+        key: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ) -> Artifact:
         """Save the validated DataFrame and metadata.
 
         Args:
-            description: Description of the DataFrame object.
-            **kwargs: Object level metadata.
+            description: `str | None = None` Description of the DataFrame object.
+            type: `Literal["dataset", "model"] | None = None` The artifact type.
+            key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+            revises: `Artifact | None = None` Previous version of the artifact. Triggers a revision.
+            run: `Run | None = None` The run that creates the artifact.
 
         Returns:
             A saved artifact record.
@@ -352,7 +372,10 @@ class DataFrameCurator(BaseCurator):
                 description=description,
                 fields=self.fields,
                 columns_field=self._columns_field,
-                **kwargs,
+                type=type,
+                key=key,
+                revises=revises,
+                run=run,
                 **self._kwargs,
             )
         finally:
@@ -554,12 +577,22 @@ class AnnDataCurator(DataFrameCurator):
         self._validated = validated_var and validated_obs
         return self._validated
 
-    def save_artifact(self, description: str | None = None, **kwargs) -> Artifact:
+    def save_artifact(
+        self,
+        description: str | None = None,
+        type: ArtifactType | None = None,
+        key: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ) -> Artifact:
         """Save the validated ``AnnData`` and metadata.
 
         Args:
-            description: Description of the ``AnnData`` object.
-            **kwargs: Object level metadata.
+            description: `str | None = None` A description of the ``AnnData`` object.
+            type: `Literal["dataset", "model"] | None = None` The artifact type.
+            key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+            revises: `Artifact | None = None` Previous version of the artifact. Triggers a revision.
+            run: `Run | None = None` The run that creates the artifact.
 
         Returns:
             A saved artifact record.
@@ -575,8 +608,11 @@ class AnnDataCurator(DataFrameCurator):
             description=description,
             columns_field=self.var_index,
             fields=self.categoricals,
+            type=type,
+            key=key,
+            revises=revises,
+            run=run,
             **self._kwargs,
-            **kwargs,
         )
         return self._artifact
 
@@ -874,12 +910,22 @@ class MuDataCurator:
         self._validated = validated_var and validated_obs
         return self._validated
 
-    def save_artifact(self, description: str | None = None, **kwargs) -> Artifact:
+    def save_artifact(
+        self,
+        description: str | None = None,
+        type: ArtifactType | None = None,
+        key: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ) -> Artifact:
         """Save the validated ``MuData`` and metadata.
 
         Args:
-            description: Description of the ``MuData`` object.
-            **kwargs: Object level metadata.
+            description: `str | None = None` A description of the ``MuData`` object.
+            type: `Literal["dataset", "model"] | None = None` The artifact type.
+            key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+            revises: `Artifact | None = None` Previous version of the artifact. Triggers a revision.
+            run: `Run | None = None` The run that creates the artifact.
 
         Returns:
             A saved artifact record.
@@ -892,8 +938,11 @@ class MuDataCurator:
             description=description,
             columns_field=self.var_index,
             fields=self.categoricals,
+            type=type,
+            key=key,
+            revises=revises,
+            run=run,
             **self._kwargs,
-            **kwargs,
         )
         return self._artifact
 
@@ -1239,7 +1288,10 @@ def save_artifact(
     description: str | None = None,
     organism: str | None = None,
     adata: ad.AnnData | None = None,
-    **kwargs,
+    type: ArtifactType | None = None,
+    key: str | None = None,
+    revises: Artifact | None = None,
+    run: Run | None = None,
 ) -> Artifact:
     """Save all metadata with an Artifact.
 
@@ -1249,8 +1301,11 @@ def save_artifact(
         fields: A dictionary mapping obs_column to registry_field.
         columns_field: The registry field to validate variables index against.
         organism: The organism name.
-        adata: The AnnData object to save, must be provided if data is a path.
-        kwargs: Additional keyword arguments to pass to the registry model.
+        adata: The AnnData object to save and get n_observations, must be provided if data is a path.
+        type: `Literal["dataset", "model"] | None = None` The artifact type.
+        key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+        revises: `Artifact | None = None` Previous version of the artifact. Triggers a revision.
+        run: `Run | None = None` The run that creates the artifact.
 
     Returns:
         The saved Artifact.
@@ -1261,18 +1316,29 @@ def save_artifact(
     artifact = None
     if data_is_anndata(data):
         assert adata is not None  # noqa: S101
-        artifact = Artifact.from_anndata(data, description=description, **kwargs)
+        artifact = Artifact.from_anndata(
+            data, description=description, type=type, key=key, revises=revises, run=run
+        )
         artifact.n_observations = adata.shape[0]
         data = adata
 
     elif isinstance(data, pd.DataFrame):
-        artifact = Artifact.from_df(data, description=description, **kwargs)
+        artifact = Artifact.from_df(
+            data, description=description, type=type, key=key, revises=revises, run=run
+        )
     else:
         try:
             from mudata import MuData
 
             if isinstance(data, MuData):
-                artifact = Artifact.from_mudata(data, description=description, **kwargs)
+                artifact = Artifact.from_mudata(
+                    data,
+                    description=description,
+                    type=type,
+                    key=key,
+                    revises=revises,
+                    run=run,
+                )
                 artifact.n_observations = data.n_obs
         except ImportError:
             pass
