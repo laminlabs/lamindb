@@ -128,12 +128,9 @@ def test_df_annotator(df, categoricals):
     )
 
     # clean up
-    artifact.delete(permanent=True)
-    artifact.ulabels.through.filter().delete()
+    ln.Artifact.filter().delete(permanent=True)
     ln.ULabel.filter().delete()
-    artifact.experimental_factors.through.filter().delete()
     bt.ExperimentalFactor.filter().delete()
-    artifact.cell_types.through.filter().delete()
     bt.CellType.filter().delete()
 
 
@@ -212,9 +209,9 @@ def test_anndata_annotator(adata, categoricals):
 
     # clean up
     artifact.delete(permanent=True)
-    ln.ULabel.filter().all().delete()
-    bt.ExperimentalFactor.filter().all().delete()
-    bt.CellType.filter().all().delete()
+    ln.ULabel.filter().delete()
+    bt.ExperimentalFactor.filter().delete()
+    bt.CellType.filter().delete()
 
 
 def test_no_categoricals(adata):
@@ -300,6 +297,6 @@ def test_mudata_annotator(mdata):
 
     # clean up
     artifact.delete(permanent=True)
-    ln.ULabel.filter().all().delete()
-    bt.ExperimentalFactor.filter().all().delete()
-    bt.CellType.filter().all().delete()
+    ln.ULabel.filter().delete()
+    bt.ExperimentalFactor.filter().delete()
+    bt.CellType.filter().delete()
