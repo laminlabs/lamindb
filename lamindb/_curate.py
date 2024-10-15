@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from lamindb_setup.core.types import UPathStr
-    from lnschema_core.types import ArtifactType, FieldAttr
+    from lnschema_core.types import FieldAttr
     from mudata import MuData
 
 
@@ -34,21 +34,21 @@ class CurateLookup:
         categoricals: dict[str, FieldAttr],
         slots: dict[str, FieldAttr] = None,
         using_key: str | None = None,
+        public: bool = False,
     ) -> None:
         if slots is None:
             slots = {}
         self._fields = {**categoricals, **slots}
         self._using_key = None if using_key == "default" else using_key
         self._using_key_name = self._using_key or ln_setup.settings.instance.slug
-        debug_message = (
-            f"Lookup objects from the " f"{colors.italic(self._using_key_name)}"
-        )
+        self._public = public
+        debug_message = f"Lookup objects from {colors.italic(self._using_key_name)}"
         logger.debug(debug_message)
 
     def __getattr__(self, name):
         if name in self._fields:
             registry = self._fields[name].field.model
-            if self._using_key == "public":
+            if self._public and hasattr(registry, "public"):
                 return registry.public().lookup()
             else:
                 return get_registry_instance(registry, self._using_key).lookup()
@@ -59,7 +59,7 @@ class CurateLookup:
     def __getitem__(self, name):
         if name in self._fields:
             registry = self._fields[name].field.model
-            if self._using_key == "public":
+            if self._public and hasattr(registry, "public"):
                 return registry.public().lookup()
             else:
                 return get_registry_instance(registry, self._using_key).lookup()
@@ -75,12 +75,14 @@ class CurateLookup:
             getitem_keys = "\n ".join(
                 [str([key]) for key in self._fields if not key.isidentifier()]
             )
+            ref = "public" if self._public else self._using_key_name
             return (
-                f"Lookup objects from the {colors.italic(self._using_key_name)}:\n "
+                f"Lookup objects from the {colors.italic(ref)}:\n "
                 f"{colors.green(getattr_keys)}\n "
-                f"{colors.green(getitem_keys)}\n\n"
-                "Example:\n    → categories = validator.lookup().cell_type\n"
-                "    → categories.alveolar_type_1_fibroblast_cell"
+                f"{colors.green(getitem_keys)}\n"
+                "Example:\n    → categories = validator.lookup()['cell_type']\n"
+                "    → categories.alveolar_type_1_fibroblast_cell\n\n"
+                "To look up public ontologies, use .lookup(public=True)"
             )
         else:  # pragma: no cover
             return colors.warning("No fields are found!")
@@ -190,7 +192,9 @@ class DataFrameCurator(BaseCurator):
         """Return the columns fields to validate against."""
         return self._fields
 
-    def lookup(self, using_key: str | None = None) -> CurateLookup:
+    def lookup(
+        self, using_key: str | None = None, public: bool = False
+    ) -> CurateLookup:
         """Lookup categories.
 
         Args:
@@ -202,6 +206,7 @@ class DataFrameCurator(BaseCurator):
             categoricals=self._fields,
             slots={"columns": self._columns_field},
             using_key=using_key or self._using_key,
+            public=public,
         )
 
     def _check_valid_keys(self, extra: set = None) -> None:
@@ -475,7 +480,9 @@ class AnnDataCurator(DataFrameCurator):
         """Return the obs fields to validate against."""
         return self._obs_fields
 
-    def lookup(self, using_key: str | None = None) -> CurateLookup:
+    def lookup(
+        self, using_key: str | None = None, public: bool = False
+    ) -> CurateLookup:
         """Lookup categories.
 
         Args:
@@ -487,6 +494,7 @@ class AnnDataCurator(DataFrameCurator):
             categoricals=self._obs_fields,
             slots={"columns": self._columns_field, "var_index": self._var_field},
             using_key=using_key or self._using_key,
+            public=public,
         )
 
     def _save_from_var_index(
@@ -740,7 +748,9 @@ class MuDataCurator:
                 obs_fields["obs"][k] = v
         return obs_fields
 
-    def lookup(self, using_key: str | None = None) -> CurateLookup:
+    def lookup(
+        self, using_key: str | None = None, public: bool = False
+    ) -> CurateLookup:
         """Lookup categories.
 
         Args:
@@ -755,6 +765,7 @@ class MuDataCurator:
                 **{f"{k}_var_index": v for k, v in self._var_fields.items()},
             },
             using_key=using_key or self._using_key,
+            public=public,
         )
 
     def add_new_from_columns(
@@ -1212,7 +1223,7 @@ def validate_categories(
             f"{colors.yellow(validated_hint_print)}"
         )
 
-    non_validated_hint_print = f".add_new_from('{key}')"
+    non_validated_hint_print = validated_hint_print.replace("_validated_", "_new_")
     non_validated = [i for i in non_validated if i not in values_validated]
     n_non_validated = len(non_validated)
     if n_non_validated == 0:

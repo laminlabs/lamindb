@@ -90,7 +90,7 @@ def test_df_annotator(df, categoricals):
     validated = curate.validate()
     assert validated is False
 
-    cell_types = curate.lookup("public").cell_type
+    cell_types = curate.lookup(public=True)["cell_type"]
     df["cell_type"] = df["cell_type"].replace(
         {"cerebral pyramidal neuron": cell_types.cerebral_cortex_pyramidal_neuron.name}
     )
