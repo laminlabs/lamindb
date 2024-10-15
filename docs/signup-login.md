@@ -1,8 +1,9 @@
 1. [Sign up](https://lamin.ai/signup) for a free account (see more [info](https://lamin.ai/docs/setup)) and copy the API key.
 2. Log in on the command line:
    ```shell
-   lamin login <email> --key <API-key>
+   lamin login
    ```
+   You will be prompted for your API key. You can create your API key in your account settings on LaminHub. <br/>
 
 ```{note}
 
@@ -16,21 +17,18 @@ For more, see [doc](inv:docs#access), [the source code](https://github.com/lamin
 
 ```
 
-On the command line, you can log in with either email or handle:
+On the command line, you can log in with your handle if you have a cached API-key:
 
 ```
-lamin login testuser1@lamin.ai
 lamin login testuser1
-```
-
-If you don't have a cached API-key in your environment, you need to copy it from your lamin.ai account and pass it:
-
-```
-lamin login <email> --key <API-key>
 ```
 
 Log out:
 
 ```
 lamin logout
+```
+
+```python
+
 ```
