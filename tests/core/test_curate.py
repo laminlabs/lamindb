@@ -129,9 +129,12 @@ def test_df_annotator(df, categoricals):
 
     # clean up
     artifact.delete(permanent=True)
-    ln.ULabel.filter().all().delete()
-    bt.ExperimentalFactor.filter().all().delete()
-    bt.CellType.filter().all().delete()
+    artifact.ulabels.through.filter().delete()
+    ln.ULabel.filter().delete()
+    artifact.experimental_factors.through.filter().delete()
+    bt.ExperimentalFactor.filter().delete()
+    artifact.cell_types.through.filter().delete()
+    bt.CellType.filter().delete()
 
 
 def test_custom_using_invalid_field_lookup(curate_lookup):
