@@ -1212,7 +1212,7 @@ def validate_categories(
             f"{colors.yellow(validated_hint_print)}"
         )
 
-    non_validated_hint_print = f".add_new_from('{key}')"
+    non_validated_hint_print = validated_hint_print.replace("_validated_", "_new_")
     non_validated = [i for i in non_validated if i not in values_validated]
     n_non_validated = len(non_validated)
     if n_non_validated == 0:
