@@ -34,21 +34,21 @@ class CurateLookup:
         categoricals: dict[str, FieldAttr],
         slots: dict[str, FieldAttr] = None,
         using_key: str | None = None,
+        public: bool = False,
     ) -> None:
         if slots is None:
             slots = {}
         self._fields = {**categoricals, **slots}
         self._using_key = None if using_key == "default" else using_key
         self._using_key_name = self._using_key or ln_setup.settings.instance.slug
-        debug_message = (
-            f"Lookup objects from the " f"{colors.italic(self._using_key_name)}"
-        )
+        self._public = public
+        debug_message = f"Lookup objects from {colors.italic(self._using_key_name)}"
         logger.debug(debug_message)
 
     def __getattr__(self, name):
         if name in self._fields:
             registry = self._fields[name].field.model
-            if self._using_key == "public":
+            if self._public:
                 return registry.public().lookup()
             else:
                 return get_registry_instance(registry, self._using_key).lookup()
@@ -59,7 +59,7 @@ class CurateLookup:
     def __getitem__(self, name):
         if name in self._fields:
             registry = self._fields[name].field.model
-            if self._using_key == "public":
+            if self._using_key == "public" and hasattr(registry, "public"):
                 return registry.public().lookup()
             else:
                 return get_registry_instance(registry, self._using_key).lookup()
@@ -78,9 +78,10 @@ class CurateLookup:
             return (
                 f"Lookup objects from the {colors.italic(self._using_key_name)}:\n "
                 f"{colors.green(getattr_keys)}\n "
-                f"{colors.green(getitem_keys)}\n\n"
+                f"{colors.green(getitem_keys)}\n"
                 "Example:\n    → categories = validator.lookup().cell_type\n"
-                "    → categories.alveolar_type_1_fibroblast_cell"
+                "    → categories.alveolar_type_1_fibroblast_cell\n\n"
+                "To look up public ontologies, use .Lookup(public=True)"
             )
         else:  # pragma: no cover
             return colors.warning("No fields are found!")
