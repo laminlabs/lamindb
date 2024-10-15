@@ -99,7 +99,36 @@ def test_df_annotator(df, categoricals):
     validated = curate.validate()
     assert validated is True
 
+    artifact = curate.save_artifact(description="test-curate-df")
+
+    assert (
+        artifact.cell_types.through.filter(artifact_id=artifact.id)
+        .df()["label_ref_is_name"]
+        .values.sum()
+        == 3
+    )
+    assert (
+        artifact.cell_types.through.filter(artifact_id=artifact.id)
+        .df()["feature_ref_is_name"]
+        .values.sum()
+        == 3
+    )
+
+    assert (
+        artifact.experimental_factors.through.filter(artifact_id=artifact.id)
+        .df()["label_ref_is_name"]
+        .values.sum()
+        == 0
+    )
+    assert (
+        artifact.experimental_factors.through.filter(artifact_id=artifact.id)
+        .df()["feature_ref_is_name"]
+        .values.sum()
+        == 3
+    )
+
     # clean up
+    artifact.delete(permanent=True)
     ln.ULabel.filter().all().delete()
     bt.ExperimentalFactor.filter().all().delete()
     bt.CellType.filter().all().delete()
