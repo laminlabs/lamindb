@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from lamindb_setup.core.types import UPathStr
-    from lnschema_core.types import ArtifactType, FieldAttr
+    from lnschema_core.types import FieldAttr
     from mudata import MuData
 
 
@@ -48,7 +48,7 @@ class CurateLookup:
     def __getattr__(self, name):
         if name in self._fields:
             registry = self._fields[name].field.model
-            if self._public:
+            if self._public and hasattr(registry, "public"):
                 return registry.public().lookup()
             else:
                 return get_registry_instance(registry, self._using_key).lookup()
@@ -59,7 +59,7 @@ class CurateLookup:
     def __getitem__(self, name):
         if name in self._fields:
             registry = self._fields[name].field.model
-            if self._using_key == "public" and hasattr(registry, "public"):
+            if self._public and hasattr(registry, "public"):
                 return registry.public().lookup()
             else:
                 return get_registry_instance(registry, self._using_key).lookup()
@@ -75,13 +75,14 @@ class CurateLookup:
             getitem_keys = "\n ".join(
                 [str([key]) for key in self._fields if not key.isidentifier()]
             )
+            ref = "public" if self._public else self._using_key_name
             return (
-                f"Lookup objects from the {colors.italic(self._using_key_name)}:\n "
+                f"Lookup objects from the {colors.italic(ref)}:\n "
                 f"{colors.green(getattr_keys)}\n "
                 f"{colors.green(getitem_keys)}\n"
-                "Example:\n    → categories = validator.lookup().cell_type\n"
+                "Example:\n    → categories = validator.lookup()['cell_type']\n"
                 "    → categories.alveolar_type_1_fibroblast_cell\n\n"
-                "To look up public ontologies, use .Lookup(public=True)"
+                "To look up public ontologies, use .lookup(public=True)"
             )
         else:  # pragma: no cover
             return colors.warning("No fields are found!")
@@ -191,7 +192,9 @@ class DataFrameCurator(BaseCurator):
         """Return the columns fields to validate against."""
         return self._fields
 
-    def lookup(self, using_key: str | None = None) -> CurateLookup:
+    def lookup(
+        self, using_key: str | None = None, public: bool = False
+    ) -> CurateLookup:
         """Lookup categories.
 
         Args:
@@ -203,6 +206,7 @@ class DataFrameCurator(BaseCurator):
             categoricals=self._fields,
             slots={"columns": self._columns_field},
             using_key=using_key or self._using_key,
+            public=public,
         )
 
     def _check_valid_keys(self, extra: set = None) -> None:
@@ -476,7 +480,9 @@ class AnnDataCurator(DataFrameCurator):
         """Return the obs fields to validate against."""
         return self._obs_fields
 
-    def lookup(self, using_key: str | None = None) -> CurateLookup:
+    def lookup(
+        self, using_key: str | None = None, public: bool = False
+    ) -> CurateLookup:
         """Lookup categories.
 
         Args:
@@ -488,6 +494,7 @@ class AnnDataCurator(DataFrameCurator):
             categoricals=self._obs_fields,
             slots={"columns": self._columns_field, "var_index": self._var_field},
             using_key=using_key or self._using_key,
+            public=public,
         )
 
     def _save_from_var_index(
@@ -741,7 +748,9 @@ class MuDataCurator:
                 obs_fields["obs"][k] = v
         return obs_fields
 
-    def lookup(self, using_key: str | None = None) -> CurateLookup:
+    def lookup(
+        self, using_key: str | None = None, public: bool = False
+    ) -> CurateLookup:
         """Lookup categories.
 
         Args:
@@ -756,6 +765,7 @@ class MuDataCurator:
                 **{f"{k}_var_index": v for k, v in self._var_fields.items()},
             },
             using_key=using_key or self._using_key,
+            public=public,
         )
 
     def add_new_from_columns(
