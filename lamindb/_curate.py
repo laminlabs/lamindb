@@ -1519,7 +1519,8 @@ def update_registry(
         if not validated_only:
             non_validated_records = []
             if df is not None and registry == Feature:
-                non_validated_records = Feature.from_df(df)
+                nonval_columns = Feature.inspect(df.columns, mute=True).non_validated
+                non_validated_records = Feature.from_df(df.loc[:, nonval_columns])
             else:
                 if "organism" in filter_kwargs:
                     # make sure organism record is saved to the current instance
