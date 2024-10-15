@@ -1256,6 +1256,7 @@ def save_artifact(
         The saved Artifact.
     """
     from ._artifact import data_is_anndata
+    from .core._data import add_labels
 
     artifact = None
     if data_is_anndata(data):
@@ -1301,7 +1302,12 @@ def save_artifact(
     else:
         raise NotImplementedError
 
-    def _add_labels(data, artifact: Artifact, fields: dict[str, FieldAttr]):
+    def _add_labels(
+        data,
+        artifact: Artifact,
+        fields: dict[str, FieldAttr],
+        feature_ref_is_name: bool | None = None,
+    ):
         features = Feature.lookup().dict()
         for key, field in fields.items():
             feature = features.get(key)
@@ -1314,16 +1320,38 @@ def save_artifact(
                 field=field,
                 **filter_kwargs_current,
             )
-            artifact.labels.add(labels, feature)
+            if len(labels) == 0:
+                continue
+            if hasattr(registry, "_name_field"):
+                label_ref_is_name = field.field.name == registry._name_field
+                add_labels(
+                    artifact,
+                    records=labels,
+                    feature=feature,
+                    feature_ref_is_name=feature_ref_is_name,
+                    label_ref_is_name=label_ref_is_name,
+                )
 
     if artifact._accessor == "MuData":
         for modality, modality_fields in fields.items():
             if modality == "obs":
-                _add_labels(data, artifact, modality_fields)
+                _add_labels(
+                    data,
+                    artifact,
+                    modality_fields,
+                    feature_ref_is_name=_ref_is_name(columns_field.get("obs")),
+                )
             else:
-                _add_labels(data[modality], artifact, modality_fields)
+                _add_labels(
+                    data[modality],
+                    artifact,
+                    modality_fields,
+                    feature_ref_is_name=_ref_is_name(columns_field.get(modality)),
+                )
     else:
-        _add_labels(data, artifact, fields)
+        _add_labels(
+            data, artifact, fields, feature_ref_is_name=_ref_is_name(columns_field)
+        )
 
     slug = ln_setup.settings.instance.slug
     if ln_setup.settings.instance.is_remote:  # pragma: no cover
@@ -1598,6 +1626,14 @@ def _save_organism(name: str):  # pragma: no cover
             )
         organism.save()
     return organism
+
+
+def _ref_is_name(field: FieldAttr) -> bool | None:
+    """Check if the reference field is a name field."""
+    from ._can_validate import get_name_field
+
+    name_field = get_name_field(field.field.model)
+    return field.field.name == name_field
 
 
 Curate = Curator  # backward compat

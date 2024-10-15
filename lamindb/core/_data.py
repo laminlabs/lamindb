@@ -305,6 +305,8 @@ def add_labels(
     feature: Feature | None = None,
     *,
     field: StrField | None = None,
+    feature_ref_is_name: bool | None = None,
+    label_ref_is_name: bool | None = None,
 ) -> None:
     """{}"""  # noqa: D415
     if self._state.adding:
@@ -373,6 +375,8 @@ def add_labels(
             if registry_name not in self.features._accessor_by_registry:
                 logger.warning(f"skipping {registry_name}")
                 continue
+            if len(records) == 0:
+                continue
             labels_accessor = getattr(
                 self, self.features._accessor_by_registry[registry_name]
             )
@@ -380,7 +384,12 @@ def add_labels(
             linked_labels = [r for r in records if r in labels_accessor.filter()]
             if len(linked_labels) > 0:
                 labels_accessor.remove(*linked_labels)
-            labels_accessor.add(*records, through_defaults={"feature_id": feature.id})
+            through_defaults = {"feature_id": feature.id}
+            link_model = labels_accessor.through
+            if hasattr(link_model, "feature_ref_is_name"):
+                through_defaults["feature_ref_is_name"] = feature_ref_is_name
+                through_defaults["label_ref_is_name"] = label_ref_is_name
+            labels_accessor.add(*records, through_defaults=through_defaults)
         links_feature_set = get_feature_set_links(self)
         feature_set_ids = [link.featureset_id for link in links_feature_set.all()]
         # get all linked features of type Feature
