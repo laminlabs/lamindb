@@ -118,5 +118,5 @@ def test_set_abbr():
 
 
 def test_validate_int():
-    result = ln.User.validate([1, 2], field=bt.User.id)
+    result = ln.User.validate([1, 2], field=ln.User.id)
     assert result.sum() == 1
