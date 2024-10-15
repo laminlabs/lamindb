@@ -100,7 +100,6 @@ class BaseCurator:
     def save_artifact(
         self,
         description: str | None = None,
-        type: ArtifactType | None = None,
         key: str | None = None,
         revises: Artifact | None = None,
         run: Run | None = None,
@@ -109,7 +108,6 @@ class BaseCurator:
 
         Args:
             description: `str | None = None` A description of the DataFrame object.
-            type: `Literal["dataset", "model"] | None = None` The artifact type.
             key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
             revises: `Artifact | None = None` Previous version of the artifact. Triggers a revision.
             run: `Run | None = None` The run that creates the artifact.
@@ -336,7 +334,6 @@ class DataFrameCurator(BaseCurator):
     def save_artifact(
         self,
         description: str | None = None,
-        type: ArtifactType | None = None,
         key: str | None = None,
         revises: Artifact | None = None,
         run: Run | None = None,
@@ -345,7 +342,6 @@ class DataFrameCurator(BaseCurator):
 
         Args:
             description: `str | None = None` Description of the DataFrame object.
-            type: `Literal["dataset", "model"] | None = None` The artifact type.
             key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
             revises: `Artifact | None = None` Previous version of the artifact. Triggers a revision.
             run: `Run | None = None` The run that creates the artifact.
@@ -372,7 +368,6 @@ class DataFrameCurator(BaseCurator):
                 description=description,
                 fields=self.fields,
                 columns_field=self._columns_field,
-                type=type,
                 key=key,
                 revises=revises,
                 run=run,
@@ -580,7 +575,6 @@ class AnnDataCurator(DataFrameCurator):
     def save_artifact(
         self,
         description: str | None = None,
-        type: ArtifactType | None = None,
         key: str | None = None,
         revises: Artifact | None = None,
         run: Run | None = None,
@@ -589,7 +583,6 @@ class AnnDataCurator(DataFrameCurator):
 
         Args:
             description: `str | None = None` A description of the ``AnnData`` object.
-            type: `Literal["dataset", "model"] | None = None` The artifact type.
             key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
             revises: `Artifact | None = None` Previous version of the artifact. Triggers a revision.
             run: `Run | None = None` The run that creates the artifact.
@@ -608,7 +601,6 @@ class AnnDataCurator(DataFrameCurator):
             description=description,
             columns_field=self.var_index,
             fields=self.categoricals,
-            type=type,
             key=key,
             revises=revises,
             run=run,
@@ -913,7 +905,6 @@ class MuDataCurator:
     def save_artifact(
         self,
         description: str | None = None,
-        type: ArtifactType | None = None,
         key: str | None = None,
         revises: Artifact | None = None,
         run: Run | None = None,
@@ -922,7 +913,6 @@ class MuDataCurator:
 
         Args:
             description: `str | None = None` A description of the ``MuData`` object.
-            type: `Literal["dataset", "model"] | None = None` The artifact type.
             key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
             revises: `Artifact | None = None` Previous version of the artifact. Triggers a revision.
             run: `Run | None = None` The run that creates the artifact.
@@ -938,7 +928,6 @@ class MuDataCurator:
             description=description,
             columns_field=self.var_index,
             fields=self.categoricals,
-            type=type,
             key=key,
             revises=revises,
             run=run,
@@ -1288,7 +1277,6 @@ def save_artifact(
     description: str | None = None,
     organism: str | None = None,
     adata: ad.AnnData | None = None,
-    type: ArtifactType | None = None,
     key: str | None = None,
     revises: Artifact | None = None,
     run: Run | None = None,
@@ -1317,14 +1305,14 @@ def save_artifact(
     if data_is_anndata(data):
         assert adata is not None  # noqa: S101
         artifact = Artifact.from_anndata(
-            data, description=description, type=type, key=key, revises=revises, run=run
+            data, description=description, key=key, revises=revises, run=run
         )
         artifact.n_observations = adata.shape[0]
         data = adata
 
     elif isinstance(data, pd.DataFrame):
         artifact = Artifact.from_df(
-            data, description=description, type=type, key=key, revises=revises, run=run
+            data, description=description, key=key, revises=revises, run=run
         )
     else:
         try:
@@ -1334,7 +1322,6 @@ def save_artifact(
                 artifact = Artifact.from_mudata(
                     data,
                     description=description,
-                    type=type,
                     key=key,
                     revises=revises,
                     run=run,
