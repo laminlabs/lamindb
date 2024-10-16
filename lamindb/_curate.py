@@ -950,29 +950,27 @@ class MuDataCurator:
 class Curator(BaseCurator):
     """Dataset curator.
 
-    Data curation entails accurately labeling datasets with standardized metadata
-    to facilitate data integration, interpretation and analysis.
+    A `Curator` object makes it easy to save validated & annotated artifacts.
 
-    The curation flow has several steps:
+    Example:
 
-    1. Instantiate `Curator` from one of the following dataset objects:
+    >>> curator = ln.Curator.from_df(
+    >>>     df,
+    >>>     # define validation criteria as mappings
+    >>>     columns=ln.Feature.name,  # map column names
+    >>>     categoricals={"perturbation": ln.ULabel.name},  # map categories
+    >>> )
+    >>> curator.validate()  # validate the data in df
+    >>> artifact = curate.save_artifact(description="my RNA-seq")
+    >>> artifact.describe()  # see annotations
 
-    - :meth:`~lamindb.Curator.from_df`
-    - :meth:`~lamindb.Curator.from_anndata`
-    - :meth:`~lamindb.Curator.from_mudata`
+    `curator.validate()` maps values within `df` according to the mapping criteria and logs validated & problematic values.
 
-    During object creation, any passed categoricals found in the object will be saved.
+    If you find non-validated values, you have several options:
 
-    2. Run :meth:`~lamindb.core.DataFrameCurator.validate` to check the data against the defined criteria. This method identifies:
-
-    - Values that can successfully validated and already exist in the registry.
-    - Values which are new and not yet validated or potentially problematic values.
-
-    3. Determine how to handle validated and non-validated values:
-
-    - Validated values not yet in the registry can be automatically registered using :meth:`~lamindb.core.DataFrameCurator.add_validated_from`.
-    - Valid and new values can be registered using :meth:`~lamindb.core.DataFrameCurator.add_new_from`.
-    - All unvalidated values can be accessed using :meth:`~lamindb.core.DataFrameCurator.non_validated` and subsequently removed from the object at hand.
+    - validated values not yet in the registry can be automatically registered using :meth:`~lamindb.core.DataFrameCurator.add_validated_from`
+    - new values found in the data can be registered using :meth:`~lamindb.core.DataFrameCurator.add_new_from`
+    - non-validated values can be accessed using :meth:`~lamindb.core.DataFrameCurator.non_validated` and addressed manually
     """
 
     @classmethod
