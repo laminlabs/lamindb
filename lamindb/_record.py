@@ -7,7 +7,7 @@ import dj_database_url
 import lamindb_setup as ln_setup
 from django.db import connections, transaction
 from django.db.models import IntegerField, Manager, Q, QuerySet, Value
-from lamin_utils import logger
+from lamin_utils import colors, logger
 from lamin_utils._lookup import Lookup
 from lamindb_setup._connect_instance import (
     get_owner_name_from_identifier,
@@ -17,7 +17,7 @@ from lamindb_setup._connect_instance import (
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._hub_core import connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
-from lnschema_core.models import IsVersioned, Record, Run, Transform
+from lnschema_core.models import Artifact, Feature, IsVersioned, Record, Run, Transform
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings
@@ -129,6 +129,7 @@ def __init__(record: Record, *args, **kwargs):
     else:
         # object is loaded from DB (**kwargs could be omitted below, I believe)
         super(Record, record).__init__(*args, **kwargs)
+        _store_record_old_name(record)
 
 
 @classmethod  # type:ignore
@@ -584,11 +585,15 @@ def save(self, *args, **kwargs) -> Record:
             with transaction.atomic():
                 revises._revises = None  # ensure we don't start a recursion
                 revises.save()
+                name_changed_warning(self)
                 super(Record, self).save(*args, **kwargs)
+                _store_record_old_name(self)
             self._revises = None
         # save unversioned record
         else:
+            name_changed_warning(self)
             super(Record, self).save(*args, **kwargs)
+            _store_record_old_name(self)
     # perform transfer of many-to-many fields
     # only supported for Artifact and Collection records
     if db is not None and db != "default" and using_key is None:
@@ -614,6 +619,47 @@ def save(self, *args, **kwargs) -> Record:
             if k != "run":
                 logger.important(f"{k} records: {', '.join(v)}")
     return self
+
+
+def _store_record_old_name(record: Record):
+    # writes the name to the _name attribute, so we can detect renaming upon save
+    if hasattr(record, "_name_field"):
+        record._name = getattr(record, record._name_field)
+
+
+def name_changed_warning(record: Record):
+    """Warns if a record's name has changed."""
+    if (
+        record.pk
+        and hasattr(record, "_name")
+        and record._name != getattr(record, record._name_field)
+    ):
+        # when a label is renamed, only raise a warning if it has a feature
+        if hasattr(record, "artifacts"):
+            linked_artifacts = (
+                record.artifacts.through.filter(label_ref_is_name=True)
+                .exclude(feature_ref_is_name=None)
+                .list("artifact__uid")
+            )
+            n = len(linked_artifacts)
+            s = "s" if n > 1 else ""
+            are = "are" if n > 1 else "is"
+            if n > 0:
+                logger.warning(
+                    f"label {colors.yellow('name changed')} from '{record._name}' to '{getattr(record, record._name_field)}'!\n   → The following {n} artifact{s} {are} {colors.yellow('no longer validated')}: {linked_artifacts}"
+                )
+        # when a feature is renamed
+        elif isinstance(record, Feature):
+            linked_artifacts = Artifact.filter(
+                Q(feature_sets__features=record) | Q(_feature_values__feature=record)
+            ).list("uid")
+            n = len(linked_artifacts)
+            s = "s" if n > 1 else ""
+            are = "are" if n > 1 else "is"
+            if n > 0:
+                logger.warning(
+                    f"feature {colors.yellow('name changed')} from '{record._name}' to '{getattr(record, record._name_field)}'!\n   → The following {n} artifact{s} {are} {colors.yellow('no longer validated')}: {linked_artifacts}"
+                )
 
 
 def delete(self) -> None:
