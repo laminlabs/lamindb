@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, NamedTuple
 import pandas as pd
 from django.db import models
 from django.db.models import F
-from lamin_utils import logger
+from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import (
     Artifact,
@@ -115,7 +115,7 @@ def get(
     else:
         assert idlike is None  # noqa: S101
         expressions = process_expressions(registry, expressions)
-        return registry.objects.get(**expressions)
+        return registry.objects.using(qs.db).get(**expressions)
 
 
 class RecordsList(UserList):
@@ -186,6 +186,7 @@ class QuerySet(models.QuerySet):
         if pk_column_name in df.columns:
             df = df.set_index(pk_column_name)
         if len(df) == 0:
+            logger.warning(colors.yellow("No records found"))
             return df
         if include is not None:
             if isinstance(include, str):
@@ -218,12 +219,15 @@ class QuerySet(models.QuerySet):
                             f"{related_ORM.__name__.lower()}__{lookup_str}"
                         )
                     link_df = pd.DataFrame(
-                        field.through.objects.values(
+                        field.through.objects.using(self.db).values(
                             left_side_link_model, values_expression
                         )
                     )
                     if link_df.shape[0] == 0:
-                        return df
+                        logger.warning(
+                            f"{colors.yellow(expression)} is not shown because no values are found"
+                        )
+                        continue
                     link_groupby = link_df.groupby(left_side_link_model)[
                         values_expression
                     ].apply(list)

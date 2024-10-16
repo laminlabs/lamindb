@@ -731,6 +731,10 @@ def test_describe():
     artifact = ln.Artifact("mini.csv", description="test")
     artifact.describe()
 
+    # test describing from a remote instance with less schemas
+    artifact = ln.Artifact.using("laminlabs/lamin-site-assets").filter().first()
+    artifact.describe()
+
 
 def test_zarr_upload_cache(adata):
     previous_storage = ln.setup.settings.storage.root_as_str

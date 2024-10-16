@@ -34,21 +34,21 @@ class CurateLookup:
         categoricals: dict[str, FieldAttr],
         slots: dict[str, FieldAttr] = None,
         using_key: str | None = None,
+        public: bool = False,
     ) -> None:
         if slots is None:
             slots = {}
         self._fields = {**categoricals, **slots}
         self._using_key = None if using_key == "default" else using_key
         self._using_key_name = self._using_key or ln_setup.settings.instance.slug
-        debug_message = (
-            f"Lookup objects from the " f"{colors.italic(self._using_key_name)}"
-        )
+        self._public = public
+        debug_message = f"Lookup objects from {colors.italic(self._using_key_name)}"
         logger.debug(debug_message)
 
     def __getattr__(self, name):
         if name in self._fields:
             registry = self._fields[name].field.model
-            if self._using_key == "public":
+            if self._public and hasattr(registry, "public"):
                 return registry.public().lookup()
             else:
                 return get_registry_instance(registry, self._using_key).lookup()
@@ -59,7 +59,7 @@ class CurateLookup:
     def __getitem__(self, name):
         if name in self._fields:
             registry = self._fields[name].field.model
-            if self._using_key == "public":
+            if self._public and hasattr(registry, "public"):
                 return registry.public().lookup()
             else:
                 return get_registry_instance(registry, self._using_key).lookup()
@@ -75,12 +75,14 @@ class CurateLookup:
             getitem_keys = "\n ".join(
                 [str([key]) for key in self._fields if not key.isidentifier()]
             )
+            ref = "public" if self._public else self._using_key_name
             return (
-                f"Lookup objects from the {colors.italic(self._using_key_name)}:\n "
+                f"Lookup objects from the {colors.italic(ref)}:\n "
                 f"{colors.green(getattr_keys)}\n "
-                f"{colors.green(getitem_keys)}\n\n"
-                "Example:\n    → categories = validator.lookup().cell_type\n"
-                "    → categories.alveolar_type_1_fibroblast_cell"
+                f"{colors.green(getitem_keys)}\n"
+                "Example:\n    → categories = validator.lookup()['cell_type']\n"
+                "    → categories.alveolar_type_1_fibroblast_cell\n\n"
+                "To look up public ontologies, use .lookup(public=True)"
             )
         else:  # pragma: no cover
             return colors.warning("No fields are found!")
@@ -97,12 +99,20 @@ class BaseCurator:
         """
         pass
 
-    def save_artifact(self, description: str | None = None, **kwargs) -> Artifact:
+    def save_artifact(
+        self,
+        description: str | None = None,
+        key: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ) -> Artifact:
         """Save the dataset as artifact.
 
         Args:
-            description: Description of the DataFrame object.
-            **kwargs: Object level metadata.
+            description: `str | None = None` A description of the DataFrame object.
+            key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+            revises: `Artifact | None = None` Previous version of the artifact. Triggers a revision.
+            run: `Run | None = None` The run that creates the artifact.
 
         Returns:
             A saved artifact record.
@@ -182,7 +192,9 @@ class DataFrameCurator(BaseCurator):
         """Return the columns fields to validate against."""
         return self._fields
 
-    def lookup(self, using_key: str | None = None) -> CurateLookup:
+    def lookup(
+        self, using_key: str | None = None, public: bool = False
+    ) -> CurateLookup:
         """Lookup categories.
 
         Args:
@@ -194,6 +206,7 @@ class DataFrameCurator(BaseCurator):
             categoricals=self._fields,
             slots={"columns": self._columns_field},
             using_key=using_key or self._using_key,
+            public=public,
         )
 
     def _check_valid_keys(self, extra: set = None) -> None:
@@ -323,12 +336,20 @@ class DataFrameCurator(BaseCurator):
         )
         return self._validated
 
-    def save_artifact(self, description: str | None = None, **kwargs) -> Artifact:
+    def save_artifact(
+        self,
+        description: str | None = None,
+        key: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ) -> Artifact:
         """Save the validated DataFrame and metadata.
 
         Args:
-            description: Description of the DataFrame object.
-            **kwargs: Object level metadata.
+            description: `str | None = None` Description of the DataFrame object.
+            key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+            revises: `Artifact | None = None` Previous version of the artifact. Triggers a revision.
+            run: `Run | None = None` The run that creates the artifact.
 
         Returns:
             A saved artifact record.
@@ -352,7 +373,9 @@ class DataFrameCurator(BaseCurator):
                 description=description,
                 fields=self.fields,
                 columns_field=self._columns_field,
-                **kwargs,
+                key=key,
+                revises=revises,
+                run=run,
                 **self._kwargs,
             )
         finally:
@@ -457,7 +480,9 @@ class AnnDataCurator(DataFrameCurator):
         """Return the obs fields to validate against."""
         return self._obs_fields
 
-    def lookup(self, using_key: str | None = None) -> CurateLookup:
+    def lookup(
+        self, using_key: str | None = None, public: bool = False
+    ) -> CurateLookup:
         """Lookup categories.
 
         Args:
@@ -469,6 +494,7 @@ class AnnDataCurator(DataFrameCurator):
             categoricals=self._obs_fields,
             slots={"columns": self._columns_field, "var_index": self._var_field},
             using_key=using_key or self._using_key,
+            public=public,
         )
 
     def _save_from_var_index(
@@ -554,12 +580,20 @@ class AnnDataCurator(DataFrameCurator):
         self._validated = validated_var and validated_obs
         return self._validated
 
-    def save_artifact(self, description: str | None = None, **kwargs) -> Artifact:
+    def save_artifact(
+        self,
+        description: str | None = None,
+        key: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ) -> Artifact:
         """Save the validated ``AnnData`` and metadata.
 
         Args:
-            description: Description of the ``AnnData`` object.
-            **kwargs: Object level metadata.
+            description: `str | None = None` A description of the ``AnnData`` object.
+            key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+            revises: `Artifact | None = None` Previous version of the artifact. Triggers a revision.
+            run: `Run | None = None` The run that creates the artifact.
 
         Returns:
             A saved artifact record.
@@ -575,8 +609,10 @@ class AnnDataCurator(DataFrameCurator):
             description=description,
             columns_field=self.var_index,
             fields=self.categoricals,
+            key=key,
+            revises=revises,
+            run=run,
             **self._kwargs,
-            **kwargs,
         )
         return self._artifact
 
@@ -712,7 +748,9 @@ class MuDataCurator:
                 obs_fields["obs"][k] = v
         return obs_fields
 
-    def lookup(self, using_key: str | None = None) -> CurateLookup:
+    def lookup(
+        self, using_key: str | None = None, public: bool = False
+    ) -> CurateLookup:
         """Lookup categories.
 
         Args:
@@ -727,6 +765,7 @@ class MuDataCurator:
                 **{f"{k}_var_index": v for k, v in self._var_fields.items()},
             },
             using_key=using_key or self._using_key,
+            public=public,
         )
 
     def add_new_from_columns(
@@ -874,12 +913,20 @@ class MuDataCurator:
         self._validated = validated_var and validated_obs
         return self._validated
 
-    def save_artifact(self, description: str | None = None, **kwargs) -> Artifact:
+    def save_artifact(
+        self,
+        description: str | None = None,
+        key: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ) -> Artifact:
         """Save the validated ``MuData`` and metadata.
 
         Args:
-            description: Description of the ``MuData`` object.
-            **kwargs: Object level metadata.
+            description: `str | None = None` A description of the ``MuData`` object.
+            key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+            revises: `Artifact | None = None` Previous version of the artifact. Triggers a revision.
+            run: `Run | None = None` The run that creates the artifact.
 
         Returns:
             A saved artifact record.
@@ -892,8 +939,10 @@ class MuDataCurator:
             description=description,
             columns_field=self.var_index,
             fields=self.categoricals,
+            key=key,
+            revises=revises,
+            run=run,
             **self._kwargs,
-            **kwargs,
         )
         return self._artifact
 
@@ -1174,7 +1223,7 @@ def validate_categories(
             f"{colors.yellow(validated_hint_print)}"
         )
 
-    non_validated_hint_print = f".add_new_from('{key}')"
+    non_validated_hint_print = validated_hint_print.replace("_validated_", "_new_")
     non_validated = [i for i in non_validated if i not in values_validated]
     n_non_validated = len(non_validated)
     if n_non_validated == 0:
@@ -1239,7 +1288,9 @@ def save_artifact(
     description: str | None = None,
     organism: str | None = None,
     adata: ad.AnnData | None = None,
-    **kwargs,
+    key: str | None = None,
+    revises: Artifact | None = None,
+    run: Run | None = None,
 ) -> Artifact:
     """Save all metadata with an Artifact.
 
@@ -1249,29 +1300,43 @@ def save_artifact(
         fields: A dictionary mapping obs_column to registry_field.
         columns_field: The registry field to validate variables index against.
         organism: The organism name.
-        adata: The AnnData object to save, must be provided if data is a path.
-        kwargs: Additional keyword arguments to pass to the registry model.
+        adata: The AnnData object to save and get n_observations, must be provided if data is a path.
+        type: `Literal["dataset", "model"] | None = None` The artifact type.
+        key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+        revises: `Artifact | None = None` Previous version of the artifact. Triggers a revision.
+        run: `Run | None = None` The run that creates the artifact.
 
     Returns:
         The saved Artifact.
     """
     from ._artifact import data_is_anndata
+    from .core._data import add_labels
 
     artifact = None
     if data_is_anndata(data):
         assert adata is not None  # noqa: S101
-        artifact = Artifact.from_anndata(data, description=description, **kwargs)
+        artifact = Artifact.from_anndata(
+            data, description=description, key=key, revises=revises, run=run
+        )
         artifact.n_observations = adata.shape[0]
         data = adata
 
     elif isinstance(data, pd.DataFrame):
-        artifact = Artifact.from_df(data, description=description, **kwargs)
+        artifact = Artifact.from_df(
+            data, description=description, key=key, revises=revises, run=run
+        )
     else:
         try:
             from mudata import MuData
 
             if isinstance(data, MuData):
-                artifact = Artifact.from_mudata(data, description=description, **kwargs)
+                artifact = Artifact.from_mudata(
+                    data,
+                    description=description,
+                    key=key,
+                    revises=revises,
+                    run=run,
+                )
                 artifact.n_observations = data.n_obs
         except ImportError:
             pass
@@ -1301,7 +1366,12 @@ def save_artifact(
     else:
         raise NotImplementedError
 
-    def _add_labels(data, artifact: Artifact, fields: dict[str, FieldAttr]):
+    def _add_labels(
+        data,
+        artifact: Artifact,
+        fields: dict[str, FieldAttr],
+        feature_ref_is_name: bool | None = None,
+    ):
         features = Feature.lookup().dict()
         for key, field in fields.items():
             feature = features.get(key)
@@ -1314,16 +1384,38 @@ def save_artifact(
                 field=field,
                 **filter_kwargs_current,
             )
-            artifact.labels.add(labels, feature)
+            if len(labels) == 0:
+                continue
+            if hasattr(registry, "_name_field"):
+                label_ref_is_name = field.field.name == registry._name_field
+                add_labels(
+                    artifact,
+                    records=labels,
+                    feature=feature,
+                    feature_ref_is_name=feature_ref_is_name,
+                    label_ref_is_name=label_ref_is_name,
+                )
 
     if artifact._accessor == "MuData":
         for modality, modality_fields in fields.items():
             if modality == "obs":
-                _add_labels(data, artifact, modality_fields)
+                _add_labels(
+                    data,
+                    artifact,
+                    modality_fields,
+                    feature_ref_is_name=_ref_is_name(columns_field.get("obs")),
+                )
             else:
-                _add_labels(data[modality], artifact, modality_fields)
+                _add_labels(
+                    data[modality],
+                    artifact,
+                    modality_fields,
+                    feature_ref_is_name=_ref_is_name(columns_field.get(modality)),
+                )
     else:
-        _add_labels(data, artifact, fields)
+        _add_labels(
+            data, artifact, fields, feature_ref_is_name=_ref_is_name(columns_field)
+        )
 
     slug = ln_setup.settings.instance.slug
     if ln_setup.settings.instance.is_remote:  # pragma: no cover
@@ -1438,7 +1530,8 @@ def update_registry(
         if not validated_only:
             non_validated_records = []
             if df is not None and registry == Feature:
-                non_validated_records = Feature.from_df(df)
+                nonval_columns = Feature.inspect(df.columns, mute=True).non_validated
+                non_validated_records = Feature.from_df(df.loc[:, nonval_columns])
             else:
                 if "organism" in filter_kwargs:
                     # make sure organism record is saved to the current instance
@@ -1598,6 +1691,14 @@ def _save_organism(name: str):  # pragma: no cover
             )
         organism.save()
     return organism
+
+
+def _ref_is_name(field: FieldAttr) -> bool | None:
+    """Check if the reference field is a name field."""
+    from ._can_validate import get_name_field
+
+    name_field = get_name_field(field.field.model)
+    return field.field.name == name_field
 
 
 Curate = Curator  # backward compat

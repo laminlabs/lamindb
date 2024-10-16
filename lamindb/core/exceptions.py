@@ -45,7 +45,7 @@ class ValidationError(SystemExit):
 
 # inspired by Django's DoesNotExist
 # equivalent to SQLAlchemy's NoResultFound
-class DoesNotExist(Exception):
+class DoesNotExist(SystemExit):
     """No record found."""
 
     pass

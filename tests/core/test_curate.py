@@ -90,7 +90,7 @@ def test_df_annotator(df, categoricals):
     validated = curate.validate()
     assert validated is False
 
-    cell_types = curate.lookup("public").cell_type
+    cell_types = curate.lookup(public=True)["cell_type"]
     df["cell_type"] = df["cell_type"].replace(
         {"cerebral pyramidal neuron": cell_types.cerebral_cortex_pyramidal_neuron.name}
     )
@@ -99,10 +99,39 @@ def test_df_annotator(df, categoricals):
     validated = curate.validate()
     assert validated is True
 
+    artifact = curate.save_artifact(description="test-curate-df")
+
+    assert (
+        artifact.cell_types.through.filter(artifact_id=artifact.id)
+        .df()["label_ref_is_name"]
+        .values.sum()
+        == 3
+    )
+    assert (
+        artifact.cell_types.through.filter(artifact_id=artifact.id)
+        .df()["feature_ref_is_name"]
+        .values.sum()
+        == 3
+    )
+
+    assert (
+        artifact.experimental_factors.through.filter(artifact_id=artifact.id)
+        .df()["label_ref_is_name"]
+        .values.sum()
+        == 0
+    )
+    assert (
+        artifact.experimental_factors.through.filter(artifact_id=artifact.id)
+        .df()["feature_ref_is_name"]
+        .values.sum()
+        == 1
+    )
+
     # clean up
-    ln.ULabel.filter().all().delete()
-    bt.ExperimentalFactor.filter().all().delete()
-    bt.CellType.filter().all().delete()
+    artifact.delete(permanent=True)
+    ln.ULabel.filter().delete()
+    bt.ExperimentalFactor.filter().delete()
+    bt.CellType.filter().delete()
 
 
 def test_custom_using_invalid_field_lookup(curate_lookup):
@@ -180,9 +209,9 @@ def test_anndata_annotator(adata, categoricals):
 
     # clean up
     artifact.delete(permanent=True)
-    ln.ULabel.filter().all().delete()
-    bt.ExperimentalFactor.filter().all().delete()
-    bt.CellType.filter().all().delete()
+    ln.ULabel.filter().delete()
+    bt.ExperimentalFactor.filter().delete()
+    bt.CellType.filter().delete()
 
 
 def test_no_categoricals(adata):
@@ -268,6 +297,6 @@ def test_mudata_annotator(mdata):
 
     # clean up
     artifact.delete(permanent=True)
-    ln.ULabel.filter().all().delete()
-    bt.ExperimentalFactor.filter().all().delete()
-    bt.CellType.filter().all().delete()
+    ln.ULabel.filter().delete()
+    bt.ExperimentalFactor.filter().delete()
+    bt.CellType.filter().delete()

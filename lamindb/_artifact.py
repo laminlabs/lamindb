@@ -331,9 +331,10 @@ def get_artifact_kwargs_from_data(
         artifact = stat_or_artifact
         # update the run of the existing artifact
         if run is not None:
-            # save the information that this artifact was previously
-            # produced by another run
-            if artifact.run is not None:
+            # save the information that this artifact was previously produced by
+            # another run
+            # note: same logic exists for _output_collections_with_later_updates
+            if artifact.run is not None and artifact.run != run:
                 artifact.run._output_artifacts_with_later_updates.add(artifact)
             # update the run of the artifact with the latest run
             stat_or_artifact.run = run

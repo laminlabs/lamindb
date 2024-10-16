@@ -64,11 +64,7 @@ def get_or_create_records(
             if source_record:
                 from bionty.core._add_ontology import check_source_in_db
 
-                check_source_in_db(
-                    registry=registry,
-                    source=source_record,
-                    update=True,
-                )
+                check_source_in_db(registry=registry, source=source_record)
 
                 from_source = not source_record.in_db
             elif hasattr(registry, "source_id"):

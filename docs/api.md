@@ -17,9 +17,12 @@ cli
 
 lamindb
 bionty
+ourprojects
+findrefs
+cellregistry
 wetlab
 clinicore
-findrefs
+omop
 ```
 
 ```{toctree}

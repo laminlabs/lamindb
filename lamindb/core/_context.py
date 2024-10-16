@@ -438,7 +438,7 @@ class Context:
             )
             return (
                 f'Filename "{key}" clashes with the existing key "{transform.key}" for uid "{transform.uid[:-4]}...."\n\nEither init a new transform with a new uid:\n\n'
-                f'ln.track("{ids.base62_12()}0000)"\n\n{update_key_note}'
+                f'ln.track("{ids.base62_12()}0000")\n\n{update_key_note}'
             )
 
         # make a new transform record

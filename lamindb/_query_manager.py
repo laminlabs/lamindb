@@ -98,26 +98,11 @@ class QueryManager(models.Manager):
 
         return _lookup(cls=self.all(), field=field, **kwargs)
 
-    def __getitem__(self, item: str):
-        try:
-            source_field_name = self.source_field_name
-            target_field_name = self.target_field_name
-
-            if (
-                source_field_name in {"artifact", "collection"}
-                and target_field_name == "feature_set"
-            ):
-                return get_feature_set_by_slot_(host=self.instance).get(item)
-
-        except Exception:  # pragma: no cover
-            return
-
 
 models.Manager.list = QueryManager.list
 models.Manager.df = QueryManager.df
 models.Manager.search = QueryManager.search
 models.Manager.lookup = QueryManager.lookup
-models.Manager.__getitem__ = QueryManager.__getitem__
 models.Manager._track_run_input_manager = QueryManager._track_run_input_manager
 # the two lines below would be easy if we could actually inherit; like this,
 # they're suboptimal

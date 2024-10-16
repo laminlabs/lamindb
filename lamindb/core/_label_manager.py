@@ -26,32 +26,19 @@ if TYPE_CHECKING:
 
     from lamindb._query_set import QuerySet
 
+LABELS_EXCLUDE_SET = {"feature_sets"}
 
-def get_labels_as_dict(self: Artifact | Collection, links: bool = False):
-    exclude_set = {
-        "feature_sets",
-        "artifacts",
-        "input_of_runs",
-        "collections",
-        "_source_code_artifact_of",
-        "_report_of",
-        "_environment_of",
-        "links_collection",
-        "links_artifact",
-        "links_feature_set",
-        "previous_runs",
-        "_feature_values",
-        "_action_targets",
-        "_lnschema_core_collection__actions_+",  # something seems off with this one
-        "_actions",
-    }
+
+def get_labels_as_dict(
+    self: Artifact | Collection, links: bool = False, instance: str | None = None
+) -> dict:
     labels = {}  # type: ignore
     if self.id is None:
         return labels
     for related_model_name, related_name in dict_related_model_to_related_name(
-        self.__class__, links=links
+        self.__class__, links=links, instance=instance
     ).items():
-        if related_name not in exclude_set:
+        if related_name not in LABELS_EXCLUDE_SET and not related_name.startswith("_"):
             labels[related_name] = (
                 related_model_name,
                 getattr(self, related_name).all(),
@@ -86,18 +73,15 @@ def print_labels(
         labels_msg = _print_labels_postgres(self, m2m_data, print_types)
     else:
         labels_msg = ""
-        for related_name, (related_model, labels) in get_labels_as_dict(self).items():
-            # there is a try except block here to deal with schema inconsistencies
-            # during transfer between instances
-            try:
-                field = get_name_field(labels)
-                labels_list = list(labels.values_list(field, flat=True))
-                if len(labels_list) > 0:
-                    print_values = _print_values(labels_list, n=10)
-                    type_str = f": {related_model}" if print_types else ""
-                    labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
-            except Exception:  # noqa: S112
-                continue
+        for related_name, (related_model, labels) in get_labels_as_dict(
+            self, instance=self._state.db
+        ).items():
+            field = get_name_field(labels)
+            labels_list = list(labels.values_list(field, flat=True))
+            if len(labels_list) > 0:
+                print_values = _print_values(labels_list, n=10)
+                type_str = f": {related_model}" if print_types else ""
+                labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
 
     msg = ""
     if labels_msg:
@@ -214,75 +198,68 @@ class LabelManager:
             >>> artifact1.ulabels.set(labels)
             >>> artifact2.labels.add_from(artifact1)
         """
-        from django.db.utils import ProgrammingError
-
         if transfer_logs is None:
             transfer_logs = {"mapped": [], "transferred": [], "run": None}
         using_key = settings._using_key
-        for related_name, (_, labels) in get_labels_as_dict(data).items():
+        for related_name, (_, labels) in get_labels_as_dict(
+            data, instance=self._host._state.db
+        ).items():
             labels = labels.all()
-            try:
-                if not labels.exists():
-                    continue
-                # look for features
-                data_name_lower = data.__class__.__name__.lower()
-                labels_by_features = defaultdict(list)
-                features = set()
-                _, new_labels = validate_labels(labels)
-                if len(new_labels) > 0:
-                    transfer_fk_to_default_db_bulk(
-                        new_labels, using_key, transfer_logs=transfer_logs
+            if not labels.exists():
+                continue
+            # look for features
+            data_name_lower = data.__class__.__name__.lower()
+            labels_by_features = defaultdict(list)
+            features = set()
+            _, new_labels = validate_labels(labels)
+            if len(new_labels) > 0:
+                transfer_fk_to_default_db_bulk(
+                    new_labels, using_key, transfer_logs=transfer_logs
+                )
+            for label in labels:
+                # if the link table doesn't follow this convention, we'll ignore it
+                if not hasattr(label, f"links_{data_name_lower}"):
+                    key = None
+                else:
+                    link = getattr(label, f"links_{data_name_lower}").get(
+                        **{f"{data_name_lower}_id": data.id}
                     )
-                for label in labels:
-                    # if the link table doesn't follow this convention, we'll ignore it
-                    if not hasattr(label, f"links_{data_name_lower}"):
-                        key = None
+                    if link.feature is not None:
+                        features.add(link.feature)
+                        key = link.feature.name
                     else:
-                        link = getattr(label, f"links_{data_name_lower}").get(
-                            **{f"{data_name_lower}_id": data.id}
-                        )
-                        if link.feature is not None:
-                            features.add(link.feature)
-                            key = link.feature.name
-                        else:
-                            key = None
-                    label_returned = transfer_to_default_db(
-                        label,
+                        key = None
+                label_returned = transfer_to_default_db(
+                    label,
+                    using_key,
+                    transfer_logs=transfer_logs,
+                    transfer_fk=False,
+                    save=True,
+                )
+                # TODO: refactor return value of transfer to default db
+                if label_returned is not None:
+                    label = label_returned
+                labels_by_features[key].append(label)
+            # treat features
+            _, new_features = validate_labels(list(features))
+            if len(new_features) > 0:
+                transfer_fk_to_default_db_bulk(
+                    new_features, using_key, transfer_logs=transfer_logs
+                )
+                for feature in new_features:
+                    transfer_to_default_db(
+                        feature,
                         using_key,
                         transfer_logs=transfer_logs,
                         transfer_fk=False,
-                        save=True,
                     )
-                    # TODO: refactor return value of transfer to default db
-                    if label_returned is not None:
-                        label = label_returned
-                    labels_by_features[key].append(label)
-                # treat features
-                _, new_features = validate_labels(list(features))
-                if len(new_features) > 0:
-                    transfer_fk_to_default_db_bulk(
-                        new_features, using_key, transfer_logs=transfer_logs
+                save(new_features)
+            if hasattr(self._host, related_name):
+                for feature_name, labels in labels_by_features.items():
+                    if feature_name is not None:
+                        feature_id = Feature.get(name=feature_name).id
+                    else:
+                        feature_id = None
+                    getattr(self._host, related_name).add(
+                        *labels, through_defaults={"feature_id": feature_id}
                     )
-                    for feature in new_features:
-                        transfer_to_default_db(
-                            feature,
-                            using_key,
-                            transfer_logs=transfer_logs,
-                            transfer_fk=False,
-                        )
-                    save(new_features)
-                if hasattr(self._host, related_name):
-                    for feature_name, labels in labels_by_features.items():
-                        if feature_name is not None:
-                            feature_id = Feature.get(name=feature_name).id
-                        else:
-                            feature_id = None
-                        getattr(self._host, related_name).add(
-                            *labels, through_defaults={"feature_id": feature_id}
-                        )
-            # ProgrammingError is raised when schemas don't match between source and target instances
-            except ProgrammingError:
-                logger.warning(
-                    f"{related_name} labels cannot be transferred because schema module does not exist in target instance: {labels}"
-                )
-                continue
