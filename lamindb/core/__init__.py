@@ -60,9 +60,11 @@ Modules:
    types
    exceptions
    subsettings
+   logger
 
 """
 
+from lamin_utils import logger
 from lamin_utils._inspect import InspectResult
 from lnschema_core.models import (
     CanValidate,

@@ -13,6 +13,7 @@
 from lamindb_setup.core.types import UPathStr
 from lnschema_core.types import (
     ArtifactType,
+    FieldAttr,
     ListLike,
     StrField,
     TransformType,

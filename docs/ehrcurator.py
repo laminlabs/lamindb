@@ -1,11 +1,9 @@
 import bionty as bt
 import pandas as pd
+from lamindb.core import DataFrameCurator, Record, logger
+from lamindb.core.types import UPathStr, FieldAttr
 
-from lamindb.core import DataFrameCurator
-from lamindb_setup.core.types import UPathStr
-from lnschema_core import Record
-from lnschema_core.types import FieldAttr
-from lamin_utils import logger
+__version__ = "0.1.0"
 
 # Curate these columns against the specified fields
 DEFAULT_CATEGORICALS = {
@@ -21,17 +19,17 @@ DEFAULT_VALUES = {
     "phenotype": "unknown",
 }
 
-# Curate against these specified sources
+# Map values onto the following ontology versions
 DEFAULT_SOURCES = {
-    "disease": bt.Source.filter(
+    "disease": bt.Source.get(
         entity="bionty.Disease", name="mondo", version="2023-04-04"
-    ).one(),
-    "developmental_stage": bt.Source.filter(
+    ),
+    "developmental_stage": bt.Source.get(
         entity="bionty.DevelopmentalStage", name="hsapdv", version="2020-03-10"
-    ).one(),
-    "phenotype": bt.Source.filter(
+    ),
+    "phenotype": bt.Source.get(
         entity="bionty.Phenotype", name="hp", version="2023-06-17", organism="human"
-    ).one(),
+    ),
 }
 
 
