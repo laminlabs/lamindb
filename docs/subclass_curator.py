@@ -5,6 +5,7 @@ from lamindb.core import DataFrameCurator
 from lamindb_setup.core.types import UPathStr
 from lnschema_core import Record
 from lnschema_core.types import FieldAttr
+from lamin_utils import logger
 
 # Curate these columns against the specified fields
 DEFAULT_CATEGORICALS = {
@@ -47,20 +48,27 @@ class EHRCurator(DataFrameCurator):
         organism="human",
     ):
         self.data = data
-        self.organism = organism
 
         if defaults:
             for col, default in defaults.items():
-                if col not in data.columns:
-                    data[col] = default
+                if col not in self.data.columns:
+                    self.data[col] = default
                 else:
-                    data[col].fillna(default, inplace=True)
+                    self.data[col].fillna(default, inplace=True)
 
         super().__init__(
-            df=data, categoricals=categoricals, sources=sources, organism=organism
+            df=self.data, categoricals=categoricals, sources=sources, organism=organism
         )
 
     def validate(self, organism: str | None = None) -> bool:
-        """Further custom validation."""
-        # --- Custom validation logic goes here --- #
+        """Validates the internal EHR standard."""
+        missing_columns = {"disease", "phenotype", "developmental_stage", "age"} - set(
+            self.data.columns
+        )
+        if missing_columns:
+            logger.error(
+                f"Columns {', '.join(map(repr, missing_columns))} are missing but required."
+            )
+            return False
+
         return DataFrameCurator.validate(self, organism)
