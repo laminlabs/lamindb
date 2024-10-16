@@ -47,7 +47,7 @@ gcp = [
     "lamindb_setup[gcp]",
 ]
 jupyter = [
-    "nbproject==0.10.4",  # keep pinning
+    "nbproject==0.10.5",  # keep pinning
     "jupytext",
     "nbconvert",
 ]
