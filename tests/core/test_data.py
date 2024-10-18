@@ -13,7 +13,6 @@ def test_add_transform_to_kwargs():
 
 
 def test_rename():
-    import bionty as bt
     import pandas as pd
     from lamindb.core.exceptions import RecordNameChangeIntegrityError
 
@@ -24,7 +23,6 @@ def test_rename():
                 "label-to-rename",
                 "label-not-to-rename",
             ],
-            "cell_type": ["T cell", "B cell", "neuron"],
         }
     )
 
@@ -32,7 +30,6 @@ def test_rename():
         df,
         categoricals={
             "feature_to_rename": ln.ULabel.name,
-            "cell_type": bt.CellType.name,
         },
     )
     curator.add_new_from("feature_to_rename")
