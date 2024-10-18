@@ -714,7 +714,7 @@ class MuDataCurator:
             values=list(self._mdata[modality].var.index),
             field=self._var_fields[modality],
             key="var_index",
-            save_function=".add_new_from_var_index()",
+            save_function=f'.add_new_from_var_index("{modality}")',
             using_key=self._using_key,
             validated_only=validated_only,
             dtype="number",
@@ -840,6 +840,8 @@ class MuDataCurator:
 
     def validate(self, organism: str | None = None) -> bool:
         """Validate categories."""
+        from lamindb.core._settings import settings
+
         self._kwargs.update({"organism": organism} if organism else {})
         if self._using_key is not None and self._using_key != "default":
             logger.important(
@@ -847,7 +849,12 @@ class MuDataCurator:
             )
 
         # add all validated records to the current instance
-        self._update_registry_all()
+        verbosity = settings.verbosity
+        try:
+            settings.verbosity = "error"
+            self._update_registry_all()
+        finally:
+            settings.verbosity = verbosity
 
         validated_var = True
         non_validated_var_modality = {}
@@ -859,6 +866,7 @@ class MuDataCurator:
                 using_key=self._using_key,
                 source=self._sources.get(modality, {}).get("var_index"),
                 exclude=self._exclude.get(modality, {}).get("var_index"),
+                validated_hint_print=f'.add_validated_from_var_index("{modality}")',
                 **self._kwargs,  # type: ignore
             )
             validated_var &= is_validated_var
@@ -1385,19 +1393,28 @@ def save_artifact(
 
     if artifact._accessor == "MuData":
         for modality, modality_fields in fields.items():
+            column_field_modality = columns_field.get(modality)
             if modality == "obs":
                 _add_labels(
                     data,
                     artifact,
                     modality_fields,
-                    feature_ref_is_name=_ref_is_name(columns_field.get("obs")),
+                    feature_ref_is_name=(
+                        None
+                        if column_field_modality is None
+                        else _ref_is_name(column_field_modality)
+                    ),
                 )
             else:
                 _add_labels(
                     data[modality],
                     artifact,
                     modality_fields,
-                    feature_ref_is_name=_ref_is_name(columns_field.get(modality)),
+                    feature_ref_is_name=(
+                        None
+                        if column_field_modality is None
+                        else _ref_is_name(column_field_modality)
+                    ),
                 )
     else:
         _add_labels(
