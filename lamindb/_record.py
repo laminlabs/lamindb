@@ -21,6 +21,7 @@ from lnschema_core.models import Artifact, Feature, IsVersioned, Record, Run, Tr
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings
+from lamindb.core.exceptions import RecordNameChangeIntegrityError
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -630,36 +631,63 @@ def _store_record_old_name(record: Record):
 def name_changed_warning(record: Record):
     """Warns if a record's name has changed."""
     if (
-        record.pk
-        and hasattr(record, "_name")
-        and record._name != getattr(record, record._name_field)
+        not record.pk
+        or not hasattr(record, "_name")
+        or not hasattr(record, "_name_field")
     ):
+        return
+
+    old_name = record._name
+    new_name = getattr(record, record._name_field)
+    registry = record.__class__.__name__
+
+    if old_name != new_name:
         # when a label is renamed, only raise a warning if it has a feature
         if hasattr(record, "artifacts"):
-            linked_artifacts = (
-                record.artifacts.through.filter(label_ref_is_name=True)
-                .exclude(feature_ref_is_name=None)
-                .list("artifact__uid")
+            linked_records = (
+                record.artifacts.through.filter(
+                    label_ref_is_name=True, **{f"{registry.lower()}_id": record.pk}
+                )
+                .exclude(feature_id=None)  # must have a feature
+                .exclude(
+                    feature_ref_is_name=None
+                )  # must be linked via Curator and therefore part of a featureset
+                .distinct()
+            )
+            artifact_ids = linked_records.list("artifact__uid")
+            n = len(artifact_ids)
+            s = "s" if n > 1 else ""
+            if n > 0:
+                logger.error(
+                    f"You are trying to {colors.red('rename label')} from '{old_name}' to '{new_name}'!\n"
+                    f"   → The following {n} artifact{s} {colors.red('will no longer be validated')}: {artifact_ids}\n\n"
+                    f"{colors.bold('To rename this label')}, make it external:\n"
+                    f"   → run `artifact.labels.make_external(label)`\n\n"
+                    f"After renaming, consider re-curating the above artifact{s}:\n"
+                    f'   → in each dataset, manually modify label "{old_name}" to "{new_name}"\n'
+                    f"   → run `ln.Curator`\n"
+                )
+                raise RecordNameChangeIntegrityError
+
+        # when a feature is renamed
+        elif isinstance(record, Feature):
+            # only internal features are associated with featuresets
+            linked_artifacts = Artifact.filter(feature_sets__features=record).list(
+                "uid"
             )
             n = len(linked_artifacts)
             s = "s" if n > 1 else ""
-            are = "are" if n > 1 else "is"
             if n > 0:
-                logger.warning(
-                    f"label {colors.yellow('name changed')} from '{record._name}' to '{getattr(record, record._name_field)}'!\n   → The following {n} artifact{s} {are} {colors.yellow('no longer validated')}: {linked_artifacts}"
+                logger.error(
+                    f"You are trying to {colors.red('rename feature')} from '{old_name}' to '{new_name}'!\n"
+                    f"   → The following {n} artifact{s} {colors.red('will no longer be validated')}: {linked_artifacts}\n\n"
+                    f"{colors.bold('To rename this feature')}, make it external:\n"
+                    "   → run `artifact.features.make_external(feature)`\n\n"
+                    f"After renaming, consider re-curating the above artifact{s}:\n"
+                    f"   → in each dataset, manually modify feature '{old_name}' to '{new_name}'\n"
+                    f"   → run `ln.Curator`\n"
                 )
-        # when a feature is renamed
-        elif isinstance(record, Feature):
-            linked_artifacts = Artifact.filter(
-                Q(feature_sets__features=record) | Q(_feature_values__feature=record)
-            ).list("uid")
-            n = len(linked_artifacts)
-            s = "s" if n > 1 else ""
-            are = "are" if n > 1 else "is"
-            if n > 0:
-                logger.warning(
-                    f"feature {colors.yellow('name changed')} from '{record._name}' to '{getattr(record, record._name_field)}'!\n   → The following {n} artifact{s} {are} {colors.yellow('no longer validated')}: {linked_artifacts}"
-                )
+                raise RecordNameChangeIntegrityError
 
 
 def delete(self) -> None:

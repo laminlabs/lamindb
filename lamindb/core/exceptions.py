@@ -11,6 +11,7 @@
    MissingContextUID
    UpdateContext
    IntegrityError
+   RecordNameChangeIntegrityError
 
 """
 
@@ -53,6 +54,12 @@ class DoesNotExist(SystemExit):
 
 class InconsistentKey(Exception):
     """Inconsistent transform or artifact `key`."""
+
+    pass
+
+
+class RecordNameChangeIntegrityError(SystemExit):
+    """Custom exception for name change errors."""
 
     pass
 
