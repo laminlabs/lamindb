@@ -81,7 +81,7 @@ def test_rename():
     assert artifact.feature_sets.count() == 0
 
     # clean up
-    artifact.delete()
+    artifact.delete(permanent=True)
     ln.FeatureSet.filter().delete()
     ln.ULabel.filter().delete()
     ln.Feature.filter().delete()
