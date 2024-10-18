@@ -428,6 +428,27 @@ def test_revise_collection(df, adata):
     artifacts.delete(permanent=True)
 
 
+def test_collection_append(df, adata):
+    artifact = ln.Artifact.from_df(df, description="test")
+    artifact.save()
+    artifact_1 = ln.Artifact.from_anndata(adata, description="test")
+    artifact_1.save()
+
+    col = ln.Collection(artifact, name="Test", description="Test append")
+    col.save()
+
+    col_append = col.append(artifact_1).save()
+
+    assert col_append.name == col.name
+    assert col_append.description == col.description
+    assert col_append.uid.endswith("0001")
+    artifacts = col_append.artifacts.all()
+    assert len(artifacts) == 2
+
+    col_append.versions.delete(permanent=True)
+    artifacts.delete(permanent=True)
+
+
 def test_with_metadata(df, adata):
     meta_artifact = ln.Artifact.from_df(df, description="test")
     meta_artifact.save()
