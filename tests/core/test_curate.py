@@ -14,7 +14,11 @@ from lamindb.core.exceptions import ValidationError
 def df():
     return pd.DataFrame(
         {
-            "cell_type": ["cerebral pyramidal neuron", "astrocyte", "oligodendrocyte"],
+            "cell_type": [
+                "cerebral cortex pyramidal neuron",
+                "astrocyte",
+                "oligodendrocyte",
+            ],
             "cell_type_2": ["oligodendrocyte", "oligodendrocyte", "astrocyte"],
             "assay_ontology_id": ["EFO:0008913", "EFO:0008913", "EFO:0008913"],
             "donor": ["D0001", "D0002", "DOOO3"],
@@ -214,12 +218,14 @@ def test_anndata_annotator(adata, categoricals):
 
     artifact = curate.save_artifact(description="test AnnData")
 
-    assert artifact.features.get_values("cell_type").values("name") == {
-        "cerebral pyramidal neuron",
+    print(artifact.features.get_values())
+
+    assert set(artifact.features.get_values()["cell_type"]) == {
+        "cerebral cortex pyramidal neuron",
         "astrocyte",
         "oligodendrocyte",
     }
-    assert artifact.features.get_values("cell_type_2").values("name") == {
+    assert set(artifact.features.get_values()["cell_type_2"]) == {
         "oligodendrocyte",
         "astrocyte",
     }
