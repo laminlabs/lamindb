@@ -26,6 +26,7 @@ from lamindb.core._settings import settings
 from ._context import context
 from ._django import get_artifact_with_related, get_related_model
 from ._feature_manager import (
+    add_label_feature_links,
     get_feature_set_links,
     get_host_id_field,
     get_label_links,
@@ -383,19 +384,15 @@ def add_labels(
                 continue
             if len(records) == 0:
                 continue
-            labels_accessor = getattr(
-                self, self.features._accessor_by_registry[registry_name]
+            features_labels = {
+                registry_name: [(feature, label_record) for label_record in records]
+            }
+            add_label_feature_links(
+                self.features,
+                features_labels,
+                feature_ref_is_name=feature_ref_is_name,
+                label_ref_is_name=label_ref_is_name,
             )
-            # remove labels that are already linked as add doesn't perform update
-            linked_labels = [r for r in records if r in labels_accessor.filter()]
-            if len(linked_labels) > 0:
-                labels_accessor.remove(*linked_labels)
-            through_defaults = {"feature_id": feature.id}
-            link_model = labels_accessor.through
-            if hasattr(link_model, "feature_ref_is_name"):
-                through_defaults["feature_ref_is_name"] = feature_ref_is_name
-                through_defaults["label_ref_is_name"] = label_ref_is_name
-            labels_accessor.add(*records, through_defaults=through_defaults)
         links_feature_set = get_feature_set_links(self)
         feature_set_ids = [link.featureset_id for link in links_feature_set.all()]
         # get all linked features of type Feature

@@ -14,7 +14,13 @@ from lamindb.core.exceptions import ValidationError
 def df():
     return pd.DataFrame(
         {
-            "cell_type": ["cerebral pyramidal neuron", "astrocyte", "oligodendrocyte"],
+            "cell_type": [
+                # there is an error in the below annotation on purpose
+                "cerebral pyramidal neuron",
+                "astrocyte",
+                "oligodendrocyte",
+            ],
+            "cell_type_2": ["oligodendrocyte", "oligodendrocyte", "astrocyte"],
             "assay_ontology_id": ["EFO:0008913", "EFO:0008913", "EFO:0008913"],
             "donor": ["D0001", "D0002", "DOOO3"],
         }
@@ -29,6 +35,11 @@ def adata():
                 "cerebral cortex pyramidal neuron",
                 "astrocyte",
                 "oligodendrocyte",
+            ],
+            "cell_type_2": [
+                "oligodendrocyte",
+                "oligodendrocyte",
+                "astrocyte",
             ],
             "assay_ontology_id": ["EFO:0008913", "EFO:0008913", "EFO:0008913"],
             "donor": ["D0001", "D0002", "DOOO3"],
@@ -61,6 +72,7 @@ def mdata(adata):
 def categoricals():
     return {
         "cell_type": bt.CellType.name,
+        "cell_type_2": bt.CellType.name,
         "assay_ontology_id": bt.ExperimentalFactor.ontology_id,
         "donor": ln.ULabel.name,
     }
@@ -105,13 +117,13 @@ def test_df_annotator(df, categoricals):
         artifact.cell_types.through.filter(artifact_id=artifact.id)
         .df()["label_ref_is_name"]
         .values.sum()
-        == 3
+        == 5
     )
     assert (
         artifact.cell_types.through.filter(artifact_id=artifact.id)
         .df()["feature_ref_is_name"]
         .values.sum()
-        == 3
+        == 5
     )
 
     assert (
@@ -126,6 +138,16 @@ def test_df_annotator(df, categoricals):
         .values.sum()
         == 1
     )
+
+    assert set(artifact.features.get_values()["cell_type"]) == {
+        "cerebral cortex pyramidal neuron",
+        "astrocyte",
+        "oligodendrocyte",
+    }
+    assert set(artifact.features.get_values()["cell_type_2"]) == {
+        "oligodendrocyte",
+        "astrocyte",
+    }
 
     # clean up
     artifact.delete(permanent=True)
@@ -206,6 +228,16 @@ def test_anndata_annotator(adata, categoricals):
     assert validated
 
     artifact = curate.save_artifact(description="test AnnData")
+
+    assert set(artifact.features.get_values()["cell_type"]) == {
+        "cerebral cortex pyramidal neuron",
+        "astrocyte",
+        "oligodendrocyte",
+    }
+    assert set(artifact.features.get_values()["cell_type_2"]) == {
+        "oligodendrocyte",
+        "astrocyte",
+    }
 
     # clean up
     artifact.delete(permanent=True)
