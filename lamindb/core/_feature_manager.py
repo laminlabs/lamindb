@@ -618,22 +618,14 @@ def add_label_feature_links(
             save(links, ignore_conflicts=False)
         except Exception:
             save(links, ignore_conflicts=True)
-            # now deal with links that were previously saved without a feature_id
-            links_saved = LinkORM.filter(
-                **{
-                    "artifact_id": self._host.id,
-                    f"{field_name}__in": [l.id for _, l in registry_features_labels],
-                }
-            )
-            for link in links_saved.all():
-                # TODO: also check for inconsistent features
-                if link.feature_id is None:
-                    link.feature_id = [
-                        f.id
-                        for f, l in registry_features_labels
-                        if l.id == getattr(link, field_name)
-                    ][0]
-                    link.save()
+        # now delete links that were previously saved without a feature
+        LinkORM.filter(
+            **{
+                "artifact_id": self._host.id,
+                "feature_id": None,
+                f"{field_name}__in": [l.id for _, l in registry_features_labels],
+            }
+        ).all().delete()
 
 
 def _add_values(
