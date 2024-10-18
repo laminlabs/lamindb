@@ -925,7 +925,7 @@ def open(
         filepath.name == "soma" or filepath.suffix == ".tiledbsoma"
     ) and mode == "w"
     # consider the case where an object is already locally cached
-    localpath = setup_settings.instance.storage.cloud_to_local_no_update(
+    localpath = setup_settings.paths.cloud_to_local_no_update(
         filepath, cache_key=cache_key
     )
     if not is_tiledbsoma_w and localpath.exists():
@@ -963,12 +963,12 @@ def _synchronize_cleanup_on_error(
     filepath: UPath, cache_key: str | None = None
 ) -> UPath:
     try:
-        cache_path = setup_settings.instance.storage.cloud_to_local(
+        cache_path = setup_settings.paths.cloud_to_local(
             filepath, cache_key=cache_key, print_progress=True
         )
     except Exception as e:
         if not isinstance(filepath, LocalPathClasses):
-            cache_path = setup_settings.instance.storage.cloud_to_local_no_update(
+            cache_path = setup_settings.paths.cloud_to_local_no_update(
                 filepath, cache_key=cache_key
             )
             if cache_path.is_file():
@@ -1156,9 +1156,7 @@ def _cache_path(self) -> UPath:
     )
     if isinstance(filepath, LocalPathClasses):
         return filepath
-    return setup_settings.instance.storage.cloud_to_local_no_update(
-        filepath, cache_key=cache_key
-    )
+    return setup_settings.paths.cloud_to_local_no_update(filepath, cache_key=cache_key)
 
 
 # docstring handled through attach_func_to_class_method

@@ -1,8 +1,13 @@
+__MACOSX/
+
 # LaminDB
+*.db
+*.lndb
+*.jpg
+*.zarr/
 docsbuild/
 docs/lamin.md
 docs/guide/data-validation.ipynb
-docs/guide/knowledge.ipynb
 docs/guide/bionty.ipynb
 docs/guide/lnschema-core.ipynb
 docs/paradisi05_laminopathic_nuclei.jpg
@@ -15,19 +20,10 @@ lamin-tutorial/
 mytest/
 rds/
 mydb/
-bfx-output/
-scrnaseq-cellranger/
-scrnaseq-cellranger-schmidt22/
-cellranger_run_001
 docs/test-annotate-flexible/
-__MACOSX/
 docs/lamindb.*
 lamin_sphinx
 docs/conf.py
-*.db
-*.lndb
-*.jpg
-*.zarr/
 lamindb/setup/.env
 _secrets.py
 _configuration.py
@@ -56,9 +52,6 @@ test-inherit1
 test-inherit2
 test-search0
 test-search1
-test-search2
-test-search3
-test-search4
 test-search5
 default_storage
 default_storage_unit_core
