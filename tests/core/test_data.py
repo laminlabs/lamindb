@@ -23,6 +23,11 @@ def test_rename():
                 "label-to-rename",
                 "label-not-to-rename",
             ],
+            "feature_to_rename2": [
+                "label-not-to-rename",
+                "label-not-to-rename",
+                "label-not-to-rename",
+            ],
         }
     )
 
@@ -30,9 +35,11 @@ def test_rename():
         df,
         categoricals={
             "feature_to_rename": ln.ULabel.name,
+            "feature_to_rename2": ln.ULabel.name,
         },
     )
     curator.add_new_from("feature_to_rename")
+    curator.add_new_from("feature_to_rename2")
     artifact = curator.save_artifact(description="test-rename")
     assert artifact.ulabels.through.objects.filter(
         feature__name="feature_to_rename", ulabel__name="label-to-rename"
@@ -47,7 +54,7 @@ def test_rename():
 
     artifact.labels.make_external(ulabel)
     assert not artifact.ulabels.through.objects.filter(
-        feature__name="feature_to_rename"
+        feature__name="feature_to_rename", ulabel__name="label-to-rename"
     ).exists()
     ulabel.name = "label-renamed"
     ulabel.save()
@@ -62,8 +69,16 @@ def test_rename():
     assert not ln.Artifact.filter(
         feature_sets__features__name="feature_to_rename"
     ).exists()
+    assert ln.Artifact.filter(
+        feature_sets__features__name="feature_to_rename2"
+    ).exists()
     feature.name = "feature_renamed"
     feature.save()
+
+    # rename the other feature, automatically deletes no-member featureset
+    feature2 = ln.Feature.get(name="feature_to_rename2")
+    artifact.features.make_external(feature2)
+    assert artifact.feature_sets.count() == 0
 
     # clean up
     artifact.delete()
