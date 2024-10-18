@@ -274,6 +274,13 @@ class LabelManager:
         registry = label.__class__
         related_name = d.get(registry.__get_name_with_schema__())
         link_model = getattr(self._host, related_name).through
-        link_model.filter(
+        link_records = link_model.filter(
             artifact_id=self._host.id, **{f"{registry.__name__.lower()}_id": label.id}
-        ).update(feature_id=None, feature_ref_is_name=None)
+        )
+        features = link_records.values_list("feature__name", flat=True).distinct()
+        s = "s" if len(features) > 1 else ""
+        link_records.update(feature_id=None, feature_ref_is_name=None)
+        logger.warning(
+            f'{registry.__name__} "{getattr(label, label._name_field)}" is no longer associated with the following feature{s}:\n'
+            f"{list(features)}"
+        )
