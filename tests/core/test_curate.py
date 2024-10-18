@@ -15,7 +15,8 @@ def df():
     return pd.DataFrame(
         {
             "cell_type": [
-                "cerebral cortex pyramidal neuron",
+                # there is an error in the below annotation on purpose
+                "cerebral pyramidal neuron",
                 "astrocyte",
                 "oligodendrocyte",
             ],

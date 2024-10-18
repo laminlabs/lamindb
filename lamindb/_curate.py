@@ -1386,6 +1386,7 @@ def save_artifact(
                 continue
             if hasattr(registry, "_name_field"):
                 label_ref_is_name = field.field.name == registry._name_field
+                print("add labels", artifact, feature, labels)
                 add_labels(
                     artifact,
                     records=labels,
