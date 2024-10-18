@@ -187,6 +187,16 @@ def __init__(
     _track_run_input(artifacts, run=run)
 
 
+# docstring handled through attach_func_to_class_method
+def append(self, artifact: Artifact, run: Run | None = None) -> Collection:
+    return Collection(
+        self.artifacts.all().list() + [artifact],
+        description=self.description,
+        revises=self,
+        run=run,
+    )
+
+
 # internal function, not exposed to user
 def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
     # assert all artifacts are already saved
@@ -353,6 +363,7 @@ def restore(self) -> None:
 @doc_args(Collection.ordered_artifacts.__doc__)
 def ordered_artifacts(self) -> QuerySet:
     """{}"""  # noqa: D415
+    # tracking is done via QueryManager (_query_manager.py)
     return self.artifacts.order_by("links_collection__id")
 
 
@@ -365,6 +376,7 @@ def data_artifact(self) -> Artifact | None:
 
 METHOD_NAMES = [
     "__init__",
+    "append",
     "mapped",
     "cache",
     "load",
