@@ -106,7 +106,6 @@ def test_df_annotator(df, categoricals):
     df["cell_type"] = df["cell_type"].replace(
         {"cerebral pyramidal neuron": cell_types.cerebral_cortex_pyramidal_neuron.name}
     )
-    curate.add_validated_from("all")
     curate.add_new_from("donor")
     validated = curate.validate()
     assert validated is True
@@ -221,8 +220,6 @@ def test_anndata_annotator(adata, categoricals):
         var_index=bt.Gene.symbol,
         organism="human",
     )
-    curate.add_validated_from("all")
-    curate.add_validated_from_var_index()
     curate.add_new_from("donor")
     validated = curate.validate()
     assert validated
@@ -252,7 +249,6 @@ def test_no_categoricals(adata):
         var_index=bt.Gene.symbol,
         organism="human",
     )
-    curate.add_validated_from("all")
     validated = curate.validate()
     assert validated
 
@@ -321,7 +317,6 @@ def test_mudata_annotator(mdata):
         var_index={"rna": bt.Gene.symbol, "rna_2": bt.Gene.symbol},
         organism="human",
     )
-    curate.add_validated_from("all", modality="rna")
     curate.add_new_from("donor", modality="rna")
     validated = curate.validate()
     assert validated

@@ -258,16 +258,6 @@ class DataFrameCurator(BaseCurator):
                 **kwargs,
             )
 
-    def add_validated_from(self, key: str, organism: str | None = None):
-        """Add validated categories.
-
-        Args:
-            key: The key referencing the slot in the DataFrame.
-            organism: The organism name.
-        """
-        self._kwargs.update({"organism": organism} if organism else {})
-        self._update_registry(key, validated_only=True, **self._kwargs)
-
     def add_new_from(self, key: str, organism: str | None = None, **kwargs):
         """Add validated & new categories.
 
@@ -313,7 +303,7 @@ class DataFrameCurator(BaseCurator):
     def _update_registry_all(self, validated_only: bool = True, **kwargs):
         """Save labels for all features."""
         for name in self.fields.keys():
-            logger.info(f"saving labels for '{name}'")
+            logger.info(f"saving validated records of '{name}'")
             self._update_registry(name, validated_only=validated_only, **kwargs)
 
     def validate(self, organism: str | None = None) -> bool:
@@ -326,6 +316,10 @@ class DataFrameCurator(BaseCurator):
             Whether the DataFrame is validated.
         """
         self._kwargs.update({"organism": organism} if organism else {})
+
+        # add all validated records to the current instance
+        self._update_registry_all()
+
         self._validated, self._non_validated = validate_categories_in_df(  # type: ignore
             self._df,
             fields=self.fields,
@@ -365,8 +359,9 @@ class DataFrameCurator(BaseCurator):
         verbosity = settings.verbosity
         try:
             settings.verbosity = "warning"
-            # save all validated records to the current instance
-            self.add_validated_from("all")
+            if not self._validated:
+                # save all validated records to the current instance
+                self._update_registry_all()
 
             self._artifact = save_artifact(
                 self._df,
@@ -505,7 +500,7 @@ class AnnDataCurator(DataFrameCurator):
             values=list(self._adata.var.index),
             field=self.var_index,
             key="var_index",
-            save_function="add_new_from_var_index",
+            save_function=".add_new_from_var_index()",
             using_key=self._using_key,
             validated_only=validated_only,
             organism=organism,
@@ -513,14 +508,13 @@ class AnnDataCurator(DataFrameCurator):
             exclude=self._exclude.get("var_index"),
         )
 
-    def _update_registry_all(self, validated_only: bool = True, **kwargs):
+    def _update_registry_all(self):
         """Save labels for all features."""
-        for name in self.fields.keys():
-            logger.info(f"saving labels for '{name}'")
-            if name == "var_index":
-                self._save_from_var_index(validated_only=validated_only, **kwargs)
-            else:
-                self._update_registry(name, validated_only=validated_only, **kwargs)
+        logger.info("saving validated records of 'var_index'")
+        self._save_from_var_index(validated_only=True, **self._kwargs)
+        for name in self._obs_fields.keys():
+            logger.info(f"saving validated terms of '{name}'")
+            self._update_registry(name, validated_only=True, **self._kwargs)
 
     def add_new_from_var_index(self, organism: str | None = None, **kwargs):
         """Update variable records.
@@ -531,15 +525,6 @@ class AnnDataCurator(DataFrameCurator):
         """
         self._kwargs.update({"organism": organism} if organism else {})
         self._save_from_var_index(validated_only=False, **self._kwargs, **kwargs)
-
-    def add_validated_from_var_index(self, organism: str | None = None):
-        """Add validated variable records.
-
-        Args:
-            organism: The organism name.
-        """
-        self._kwargs.update({"organism": organism} if organism else {})
-        self._save_from_var_index(validated_only=True, **self._kwargs)
 
     def validate(self, organism: str | None = None) -> bool:
         """Validate categories.
@@ -555,6 +540,9 @@ class AnnDataCurator(DataFrameCurator):
             logger.important(
                 f"validating metadata using registries of instance {colors.italic(self._using_key)}"
             )
+
+        # add all validated records to the current instance
+        self._update_registry_all()
 
         validated_var, non_validated_var = validate_categories(
             self._adata.var.index,
@@ -598,22 +586,31 @@ class AnnDataCurator(DataFrameCurator):
         Returns:
             A saved artifact record.
         """
+        from lamindb.core._settings import settings
+
         if not self._validated:
             self.validate()
             if not self._validated:
                 raise ValidationError("Dataset does not validate. Please curate.")
-
-        self._artifact = save_artifact(
-            self._data,
-            adata=self._adata,
-            description=description,
-            columns_field=self.var_index,
-            fields=self.categoricals,
-            key=key,
-            revises=revises,
-            run=run,
-            **self._kwargs,
-        )
+        verbosity = settings.verbosity
+        try:
+            settings.verbosity = "warning"
+            if not self._validated:
+                # save all validated records to the current instance
+                self._update_registry_all()
+            self._artifact = save_artifact(
+                self._data,
+                adata=self._adata,
+                description=description,
+                columns_field=self.var_index,
+                fields=self.categoricals,
+                key=key,
+                revises=revises,
+                run=run,
+                **self._kwargs,
+            )
+        finally:
+            settings.verbosity = verbosity
         return self._artifact
 
 
@@ -692,10 +689,6 @@ class MuDataCurator:
             )
             for modality in self._modalities
         }
-        for modality in self._var_fields.keys():
-            self._save_from_var_index_modality(
-                modality=modality, validated_only=True, **self._kwargs
-            )
 
     @property
     def var_index(self) -> FieldAttr:
@@ -721,7 +714,7 @@ class MuDataCurator:
             values=list(self._mdata[modality].var.index),
             field=self._var_fields[modality],
             key="var_index",
-            save_function="add_new_from_var_index",
+            save_function=".add_new_from_var_index()",
             using_key=self._using_key,
             validated_only=validated_only,
             dtype="number",
@@ -813,33 +806,14 @@ class MuDataCurator:
             modality=modality, validated_only=False, **self._kwargs, **kwargs
         )
 
-    def add_validated_from_var_index(self, modality: str, organism: str | None = None):
-        """Add validated variable records.
-
-        Args:
-            modality: The modality name.
-            organism: The organism name.
-        """
-        self._kwargs.update({"organism": organism} if organism else {})
-        self._save_from_var_index_modality(
-            modality=modality, validated_only=True, **self._kwargs
-        )
-
-    def add_validated_from(
-        self, key: str, modality: str | None = None, organism: str | None = None
-    ):
-        """Add validated categories.
-
-        Args:
-            key: The key referencing the slot in the DataFrame.
-            modality: The modality name.
-            organism: The organism name.
-        """
-        self._kwargs.update({"organism": organism} if organism else {})
-        modality = modality or "obs"
-        if modality in self._df_annotators:
-            df_annotator = self._df_annotators[modality]
-            df_annotator.add_validated_from(key=key, **self._kwargs)
+    def _update_registry_all(self):
+        """Update all registries."""
+        for modality in self._var_fields.keys():
+            self._save_from_var_index_modality(
+                modality=modality, validated_only=True, **self._kwargs
+            )
+        for _, df_annotator in self._df_annotators.items():
+            df_annotator._update_registry_all(validated_only=True, **self._kwargs)
 
     def add_new_from(
         self,
@@ -871,6 +845,10 @@ class MuDataCurator:
             logger.important(
                 f"validating metadata using registries of instance {colors.italic(self._using_key)}"
             )
+
+        # add all validated records to the current instance
+        self._update_registry_all()
+
         validated_var = True
         non_validated_var_modality = {}
         for modality, var_field in self._var_fields.items():
@@ -931,19 +909,31 @@ class MuDataCurator:
         Returns:
             A saved artifact record.
         """
-        if not self._validated:
-            raise ValidationError("Please run `validate()` first!")
+        from lamindb.core._settings import settings
 
-        self._artifact = save_artifact(
-            self._mdata,
-            description=description,
-            columns_field=self.var_index,
-            fields=self.categoricals,
-            key=key,
-            revises=revises,
-            run=run,
-            **self._kwargs,
-        )
+        if not self._validated:
+            self.validate()
+            if not self._validated:
+                raise ValidationError("Dataset does not validate. Please curate.")
+        verbosity = settings.verbosity
+        try:
+            settings.verbosity = "warning"
+            if not self._validated:
+                # save all validated records to the current instance
+                self._update_registry_all()
+
+            self._artifact = save_artifact(
+                self._mdata,
+                description=description,
+                columns_field=self.var_index,
+                fields=self.categoricals,
+                key=key,
+                revises=revises,
+                run=run,
+                **self._kwargs,
+            )
+        finally:
+            settings.verbosity = verbosity
         return self._artifact
 
 
@@ -968,7 +958,6 @@ class Curator(BaseCurator):
 
     If you find non-validated values, you have several options:
 
-    - validated values not yet in the registry can be automatically registered using :meth:`~lamindb.core.DataFrameCurator.add_validated_from`
     - new values found in the data can be registered using :meth:`~lamindb.core.DataFrameCurator.add_new_from`
     - non-validated values can be accessed using :meth:`~lamindb.core.DataFrameCurator.non_validated` and addressed manually
     """

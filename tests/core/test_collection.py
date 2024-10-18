@@ -146,7 +146,6 @@ def test_from_inconsistent_artifacts(df, adata):
 def test_from_consistent_artifacts(adata, adata2):
     ln.Feature(name="feat1", dtype="number").save()
     curator = ln.Curator.from_anndata(adata, var_index=bt.Gene.symbol, organism="human")
-    curator.add_validated_from_var_index()
     artifact1 = curator.save_artifact(description="My test")
     curator = ln.Curator.from_anndata(
         adata2, var_index=bt.Gene.symbol, organism="human"
