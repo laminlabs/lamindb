@@ -428,7 +428,7 @@ def test_revise_collection(df, adata):
     artifacts.delete(permanent=True)
 
 
-def test_collection_append():
+def test_collection_append(df, adata):
     artifact = ln.Artifact.from_df(df, description="test")
     artifact.save()
     artifact_1 = ln.Artifact.from_anndata(adata, description="test")
