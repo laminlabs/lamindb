@@ -139,6 +139,16 @@ def test_df_annotator(df, categoricals):
         == 1
     )
 
+    assert set(artifact.features.get_values()["cell_type"]) == {
+        "cerebral cortex pyramidal neuron",
+        "astrocyte",
+        "oligodendrocyte",
+    }
+    assert set(artifact.features.get_values()["cell_type_2"]) == {
+        "oligodendrocyte",
+        "astrocyte",
+    }
+
     # clean up
     artifact.delete(permanent=True)
     ln.ULabel.filter().delete()
@@ -218,8 +228,6 @@ def test_anndata_annotator(adata, categoricals):
     assert validated
 
     artifact = curate.save_artifact(description="test AnnData")
-
-    print(artifact.features.get_values())
 
     assert set(artifact.features.get_values()["cell_type"]) == {
         "cerebral cortex pyramidal neuron",
