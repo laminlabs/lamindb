@@ -7,7 +7,7 @@ import dj_database_url
 import lamindb_setup as ln_setup
 from django.db import connections, transaction
 from django.db.models import IntegerField, Manager, Q, QuerySet, Value
-from lamin_utils import logger
+from lamin_utils import colors, logger
 from lamin_utils._lookup import Lookup
 from lamindb_setup._connect_instance import (
     get_owner_name_from_identifier,
@@ -17,10 +17,11 @@ from lamindb_setup._connect_instance import (
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._hub_core import connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
-from lnschema_core.models import IsVersioned, Record, Run, Transform
+from lnschema_core.models import Artifact, Feature, IsVersioned, Record, Run, Transform
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings
+from lamindb.core.exceptions import RecordNameChangeIntegrityError
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -129,6 +130,7 @@ def __init__(record: Record, *args, **kwargs):
     else:
         # object is loaded from DB (**kwargs could be omitted below, I believe)
         super(Record, record).__init__(*args, **kwargs)
+        _store_record_old_name(record)
 
 
 @classmethod  # type:ignore
@@ -584,11 +586,15 @@ def save(self, *args, **kwargs) -> Record:
             with transaction.atomic():
                 revises._revises = None  # ensure we don't start a recursion
                 revises.save()
+                check_name_change(self)
                 super(Record, self).save(*args, **kwargs)
+                _store_record_old_name(self)
             self._revises = None
         # save unversioned record
         else:
+            check_name_change(self)
             super(Record, self).save(*args, **kwargs)
+            _store_record_old_name(self)
     # perform transfer of many-to-many fields
     # only supported for Artifact and Collection records
     if db is not None and db != "default" and using_key is None:
@@ -614,6 +620,74 @@ def save(self, *args, **kwargs) -> Record:
             if k != "run":
                 logger.important(f"{k} records: {', '.join(v)}")
     return self
+
+
+def _store_record_old_name(record: Record):
+    # writes the name to the _name attribute, so we can detect renaming upon save
+    if hasattr(record, "_name_field"):
+        record._name = getattr(record, record._name_field)
+
+
+def check_name_change(record: Record):
+    """Warns if a record's name has changed."""
+    if (
+        not record.pk
+        or not hasattr(record, "_name")
+        or not hasattr(record, "_name_field")
+    ):
+        return
+
+    old_name = record._name
+    new_name = getattr(record, record._name_field)
+    registry = record.__class__.__name__
+
+    if old_name != new_name:
+        # when a label is renamed, only raise a warning if it has a feature
+        if hasattr(record, "artifacts"):
+            linked_records = (
+                record.artifacts.through.filter(
+                    label_ref_is_name=True, **{f"{registry.lower()}_id": record.pk}
+                )
+                .exclude(feature_id=None)  # must have a feature
+                .exclude(
+                    feature_ref_is_name=None
+                )  # must be linked via Curator and therefore part of a featureset
+                .distinct()
+            )
+            artifact_ids = linked_records.list("artifact__uid")
+            n = len(artifact_ids)
+            s = "s" if n > 1 else ""
+            if n > 0:
+                logger.error(
+                    f"You are trying to {colors.red('rename label')} from '{old_name}' to '{new_name}'!\n"
+                    f"   → The following {n} artifact{s} {colors.red('will no longer be validated')}: {artifact_ids}\n\n"
+                    f"{colors.bold('To rename this label')}, make it external:\n"
+                    f"   → run `artifact.labels.make_external(label)`\n\n"
+                    f"After renaming, consider re-curating the above artifact{s}:\n"
+                    f'   → in each dataset, manually modify label "{old_name}" to "{new_name}"\n'
+                    f"   → run `ln.Curator`\n"
+                )
+                raise RecordNameChangeIntegrityError
+
+        # when a feature is renamed
+        elif isinstance(record, Feature):
+            # only internal features are associated with featuresets
+            linked_artifacts = Artifact.filter(feature_sets__features=record).list(
+                "uid"
+            )
+            n = len(linked_artifacts)
+            s = "s" if n > 1 else ""
+            if n > 0:
+                logger.error(
+                    f"You are trying to {colors.red('rename feature')} from '{old_name}' to '{new_name}'!\n"
+                    f"   → The following {n} artifact{s} {colors.red('will no longer be validated')}: {linked_artifacts}\n\n"
+                    f"{colors.bold('To rename this feature')}, make it external:\n"
+                    "   → run `artifact.features.make_external(feature)`\n\n"
+                    f"After renaming, consider re-curating the above artifact{s}:\n"
+                    f"   → in each dataset, manually modify feature '{old_name}' to '{new_name}'\n"
+                    f"   → run `ln.Curator`\n"
+                )
+                raise RecordNameChangeIntegrityError
 
 
 def delete(self) -> None:

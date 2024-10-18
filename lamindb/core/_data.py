@@ -67,11 +67,17 @@ def add_transform_to_kwargs(kwargs: dict[str, Any], run: Run):
 
 def save_feature_sets(self: Artifact | Collection) -> None:
     if hasattr(self, "_feature_sets"):
+        from lamindb.core._feature_manager import get_feature_set_by_slot_
+
+        existing_feature_sets = get_feature_set_by_slot_(self)
         saved_feature_sets = {}
         for key, feature_set in self._feature_sets.items():
             if isinstance(feature_set, FeatureSet) and feature_set._state.adding:
                 feature_set.save()
                 saved_feature_sets[key] = feature_set
+            if key in existing_feature_sets:
+                # remove existing feature set on the same slot
+                self.feature_sets.remove(existing_feature_sets[key])
         if len(saved_feature_sets) > 0:
             s = "s" if len(saved_feature_sets) > 1 else ""
             display_feature_set_keys = ",".join(

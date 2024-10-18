@@ -263,3 +263,24 @@ class LabelManager:
                     getattr(self._host, related_name).add(
                         *labels, through_defaults={"feature_id": feature_id}
                     )
+
+    def make_external(self, label: Record):
+        """Make a label external, aka dissociate label from internal features.
+
+        Args:
+            label: Label record to make external.
+        """
+        d = dict_related_model_to_related_name(self._host)
+        registry = label.__class__
+        related_name = d.get(registry.__get_name_with_schema__())
+        link_model = getattr(self._host, related_name).through
+        link_records = link_model.filter(
+            artifact_id=self._host.id, **{f"{registry.__name__.lower()}_id": label.id}
+        )
+        features = link_records.values_list("feature__name", flat=True).distinct()
+        s = "s" if len(features) > 1 else ""
+        link_records.update(feature_id=None, feature_ref_is_name=None)
+        logger.warning(
+            f'{registry.__name__} "{getattr(label, label._name_field)}" is no longer associated with the following feature{s}:\n'
+            f"{list(features)}"
+        )

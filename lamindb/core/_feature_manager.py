@@ -13,6 +13,7 @@ from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connections
 from django.db.models import Aggregate
 from lamin_utils import colors, logger
+from lamindb_setup.core.hashing import hash_set
 from lamindb_setup.core.upath import create_path
 from lnschema_core.models import (
     Artifact,
@@ -1006,6 +1007,36 @@ def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
         self._host.features.add_feature_set(feature_set_self, slot)
 
 
+def make_external(self, feature: Feature) -> None:
+    """Make a feature external, aka, remove feature from feature sets.
+
+    Args:
+        feature: `Feature` A feature record.
+
+    """
+    if not isinstance(feature, Feature):
+        raise TypeError("feature must be a Feature record!")
+    feature_sets = FeatureSet.filter(features=feature).all()
+    for fs in feature_sets:
+        f = Feature.filter(uid=feature.uid).all()
+        features_updated = fs.members.difference(f)
+        if len(features_updated) > 0:
+            # re-compute the hash of feature sets based on the updated members
+            features_hash = hash_set({feature.uid for feature in features_updated})
+            fs.hash = features_hash
+            fs.n = len(features_updated)
+            fs.save()
+        # delete the link between the feature and the feature set
+        FeatureSet.features.through.objects.filter(
+            feature_id=feature.id, featureset_id=fs.id
+        ).delete()
+        # if no members are left in the featureset, delete it
+        if len(features_updated) == 0:
+            logger.warning(f"deleting empty feature set: {fs}")
+            fs.artifacts.set([])
+            fs.delete()
+
+
 FeatureManager.__init__ = __init__
 ParamManager.__init__ = __init__
 FeatureManager.__repr__ = __repr__
@@ -1022,6 +1053,7 @@ FeatureManager._add_set_from_mudata = _add_set_from_mudata
 FeatureManager._add_from = _add_from
 FeatureManager.filter = filter
 FeatureManager.get = get
+FeatureManager.make_external = make_external
 ParamManager.add_values = add_values_params
 ParamManager.get_values = get_values
 ParamManager.filter = filter
