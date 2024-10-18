@@ -587,6 +587,48 @@ def _accessor_by_registry(self):
     return self._accessor_by_registry_
 
 
+def add_label_feature_links(
+    self,
+    features_labels,
+    *,
+    label_ref_is_name: bool | None = None,
+    feature_ref_is_name: bool | None = None,
+):
+    if list(features_labels.keys()) != ["ULabel"]:
+        related_names = dict_related_model_to_related_name(self._host.__class__)
+    else:
+        related_names = {"ULabel": "ulabels"}
+    for class_name, registry_features_labels in features_labels.items():
+        related_name = related_names[class_name]  # e.g., "ulabels"
+        LinkORM = getattr(self._host, related_name).through
+        field_name = f"{get_link_attr(LinkORM, self._host)}_id"  # e.g., ulabel_id
+        links = [
+            LinkORM(
+                **{
+                    "artifact_id": self._host.id,
+                    "feature_id": feature.id,
+                    field_name: label.id,
+                    "feature_ref_is_name": feature_ref_is_name,
+                    "label_ref_is_name": label_ref_is_name,
+                }
+            )
+            for (feature, label) in registry_features_labels
+        ]
+        # a link might already exist
+        try:
+            save(links, ignore_conflicts=False)
+        except Exception:
+            save(links, ignore_conflicts=True)
+        # now delete links that were previously saved without a feature
+        LinkORM.filter(
+            **{
+                "artifact_id": self._host.id,
+                "feature_id": None,
+                f"{field_name}__in": [l.id for _, l in registry_features_labels],
+            }
+        ).all().delete()
+
+
 def _add_values(
     self,
     values: dict[str, str | int | float | bool],
@@ -718,49 +760,9 @@ def _add_values(
             f"Here is how to create ulabels for them:\n\n{hint}"
         )
         raise ValidationError(msg)
-    # bulk add all links to ArtifactULabel
+    # bulk add all links
     if features_labels:
-        if list(features_labels.keys()) != ["ULabel"]:
-            related_names = dict_related_model_to_related_name(self._host.__class__)
-        else:
-            related_names = {"ULabel": "ulabels"}
-        for class_name, registry_features_labels in features_labels.items():
-            related_name = related_names[class_name]  # e.g., "ulabels"
-            LinkORM = getattr(self._host, related_name).through
-            field_name = f"{get_link_attr(LinkORM, self._host)}_id"  # e.g., ulabel_id
-            links = [
-                LinkORM(
-                    **{
-                        "artifact_id": self._host.id,
-                        "feature_id": feature.id,
-                        field_name: label.id,
-                    }
-                )
-                for (feature, label) in registry_features_labels
-            ]
-            # a link might already exist
-            try:
-                save(links, ignore_conflicts=False)
-            except Exception:
-                save(links, ignore_conflicts=True)
-                # now deal with links that were previously saved without a feature_id
-                links_saved = LinkORM.filter(
-                    **{
-                        "artifact_id": self._host.id,
-                        f"{field_name}__in": [
-                            l.id for _, l in registry_features_labels
-                        ],
-                    }
-                )
-                for link in links_saved.all():
-                    # TODO: also check for inconsistent features
-                    if link.feature_id is None:
-                        link.feature_id = [
-                            f.id
-                            for f, l in registry_features_labels
-                            if l.id == getattr(link, field_name)
-                        ][0]
-                        link.save()
+        add_label_feature_links(self, features_labels)
     if _feature_values:
         save(_feature_values)
         if is_param:
