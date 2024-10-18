@@ -15,6 +15,7 @@ def df():
     return pd.DataFrame(
         {
             "cell_type": ["cerebral pyramidal neuron", "astrocyte", "oligodendrocyte"],
+            "cell_type_2": ["oligodendrocyte", "oligodendrocyte", "astrocyte"],
             "assay_ontology_id": ["EFO:0008913", "EFO:0008913", "EFO:0008913"],
             "donor": ["D0001", "D0002", "DOOO3"],
         }
@@ -29,6 +30,11 @@ def adata():
                 "cerebral cortex pyramidal neuron",
                 "astrocyte",
                 "oligodendrocyte",
+            ],
+            "cell_type_2": [
+                "oligodendrocyte",
+                "oligodendrocyte",
+                "astrocyte",
             ],
             "assay_ontology_id": ["EFO:0008913", "EFO:0008913", "EFO:0008913"],
             "donor": ["D0001", "D0002", "DOOO3"],
@@ -61,6 +67,7 @@ def mdata(adata):
 def categoricals():
     return {
         "cell_type": bt.CellType.name,
+        "cell_type_2": bt.CellType.name,
         "assay_ontology_id": bt.ExperimentalFactor.ontology_id,
         "donor": ln.ULabel.name,
     }
@@ -206,6 +213,16 @@ def test_anndata_annotator(adata, categoricals):
     assert validated
 
     artifact = curate.save_artifact(description="test AnnData")
+
+    assert artifact.features.get_values("cell_type").values("name") == {
+        "cerebral pyramidal neuron",
+        "astrocyte",
+        "oligodendrocyte",
+    }
+    assert artifact.features.get_values("cell_type_2").values("name") == {
+        "oligodendrocyte",
+        "astrocyte",
+    }
 
     # clean up
     artifact.delete(permanent=True)
