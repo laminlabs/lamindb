@@ -117,13 +117,13 @@ def test_df_annotator(df, categoricals):
         artifact.cell_types.through.filter(artifact_id=artifact.id)
         .df()["label_ref_is_name"]
         .values.sum()
-        == 3
+        == 5
     )
     assert (
         artifact.cell_types.through.filter(artifact_id=artifact.id)
         .df()["feature_ref_is_name"]
         .values.sum()
-        == 3
+        == 5
     )
 
     assert (
