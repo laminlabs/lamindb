@@ -586,13 +586,13 @@ def save(self, *args, **kwargs) -> Record:
             with transaction.atomic():
                 revises._revises = None  # ensure we don't start a recursion
                 revises.save()
-                name_changed_warning(self)
+                check_name_change(self)
                 super(Record, self).save(*args, **kwargs)
                 _store_record_old_name(self)
             self._revises = None
         # save unversioned record
         else:
-            name_changed_warning(self)
+            check_name_change(self)
             super(Record, self).save(*args, **kwargs)
             _store_record_old_name(self)
     # perform transfer of many-to-many fields
@@ -628,7 +628,7 @@ def _store_record_old_name(record: Record):
         record._name = getattr(record, record._name_field)
 
 
-def name_changed_warning(record: Record):
+def check_name_change(record: Record):
     """Warns if a record's name has changed."""
     if (
         not record.pk
