@@ -69,7 +69,7 @@ class MappedCollection:
 
     .. note::
 
-        For a guide, see :doc:`docs:scrna5`.
+        For a guide, see :doc:`docs:scrna-mappedcollection`.
 
         For more convenient use within :class:`~lamindb.core.MappedCollection`,
         see :meth:`~lamindb.Collection.mapped`.
