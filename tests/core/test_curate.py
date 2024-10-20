@@ -165,7 +165,7 @@ def test_custom_using_invalid_field_lookup(curate_lookup):
 
 def test_additional_args_with_all_key(df, categoricals):
     curate = ln.Curator.from_df(df, categoricals=categoricals)
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ValueError) as error:
         curate.add_new_from("all", extra_arg="not_allowed")
     assert "Cannot pass additional arguments to 'all' key!" in str(error.value)
 

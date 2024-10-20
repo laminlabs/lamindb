@@ -1,6 +1,7 @@
 import bionty as bt
 import lamindb as ln
 import pytest
+from lamindb.core.exceptions import ValidationError
 
 
 # some validate tests are in test_queryset
@@ -68,9 +69,9 @@ def test_add_remove_synonym():
     tcell.add_synonym("")
     tcell.add_synonym([])
     assert "my cell type" in tcell.synonyms
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         bcell.add_synonym("my cell type")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         tcell.add_synonym("my|celltype")
 
     tcell.remove_synonym("my cell type")
