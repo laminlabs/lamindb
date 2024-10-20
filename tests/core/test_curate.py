@@ -165,14 +165,14 @@ def test_custom_using_invalid_field_lookup(curate_lookup):
 
 def test_additional_args_with_all_key(df, categoricals):
     curate = ln.Curator.from_df(df, categoricals=categoricals)
-    with pytest.raises(ValueError) as error:
+    with pytest.raises(ValidationError) as error:
         curate.add_new_from("all", extra_arg="not_allowed")
     assert "Cannot pass additional arguments to 'all' key!" in str(error.value)
 
 
 def test_save_columns_not_defined_in_fields(df, categoricals):
     curate = ln.Curator.from_df(df, categoricals=categoricals)
-    with pytest.raises(ValueError) as error:
+    with pytest.raises(ValidationError) as error:
         curate._update_registry("nonexistent")
     assert "Feature nonexistent is not part of the fields!" in str(error.value)
 
@@ -265,7 +265,7 @@ def test_anndata_annotator_wrong_type(df, categoricals):
 
 
 def test_categorical_key_not_present(df):
-    with pytest.raises(ValueError) as error:
+    with pytest.raises(ValidationError) as error:
         ln.Curator.from_df(
             df,
             categoricals={"not present": None},
@@ -278,7 +278,7 @@ def test_categorical_key_not_present(df):
 
 
 def test_source_key_not_present(adata, categoricals):
-    with pytest.raises(ValueError) as error:
+    with pytest.raises(ValidationError) as error:
         ln.Curator.from_anndata(
             adata,
             categoricals=categoricals,
