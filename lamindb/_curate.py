@@ -1596,24 +1596,25 @@ def log_saved_labels(
             continue
 
         if k == "without reference" and validated_only:
-            msg = colors.yellow(
-                f"{len(labels)} non-validated values are not saved in {model_field}: {labels}!"
-            )
-            lookup_print = (
-                f"lookup().{key}" if key.isidentifier() else f".lookup()['{key}']"
-            )
+            continue
+            # msg = colors.yellow(
+            #     f"{len(labels)} non-validated values are not saved in {model_field}: {labels}!"
+            # )
+            # lookup_print = (
+            #     f"lookup().{key}" if key.isidentifier() else f".lookup()['{key}']"
+            # )
 
-            hint = f".add_new_from('{key}')"
-            msg += f"\n      → to lookup values, use {lookup_print}"
-            msg += (
-                f"\n      → to save, run {colors.yellow(hint)}"
-                if save_function == "add_new_from"
-                else f"\n      → to save, run {colors.yellow(save_function)}"
-            )
-            if warning:
-                logger.warning(msg)
-            else:
-                logger.info(msg)
+            # hint = f".add_new_from('{key}')"
+            # msg += f"\n      → to lookup values, use {lookup_print}"
+            # msg += (
+            #     f"\n      → to save, run {colors.yellow(hint)}"
+            #     if save_function == "add_new_from"
+            #     else f"\n      → to save, run {colors.yellow(save_function)}"
+            # )
+            # if warning:
+            #     logger.warning(msg)
+            # else:
+            #     logger.info(msg)
         else:
             k = "" if k == "without reference" else f"{colors.green(k)} "
             # the term "transferred" stresses that this is always in the context of transferring
@@ -1631,8 +1632,8 @@ def save_ulabels_with_parent(values: list[str], field: FieldAttr, key: str) -> N
     all_records = registry.from_values(list(values), field=field)
     is_feature = registry.filter(name=f"is_{key}").one_or_none()
     if is_feature is None:
-        is_feature = registry(name=f"is_{key}")
-        is_feature.save()
+        is_feature = registry(name=f"is_{key}").save()
+        logger.important(f"Created a parent ULabel: {is_feature}")
     is_feature.children.add(*all_records)
 
 
