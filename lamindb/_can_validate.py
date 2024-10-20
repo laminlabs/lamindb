@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Literal
 import lamindb_setup as ln_setup
 import numpy as np
 import pandas as pd
-from django.core.exceptions import FieldDoesNotExist
+from django.core.exceptions import FieldDoesNotExist, ValidationError
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lnschema_core import CanValidate, Record
@@ -496,9 +496,9 @@ def _add_or_remove_synonyms(
                 " with the following records:\n"
             )
             display(records_df)
-            raise ValueError(
-                "cannot assigned a synonym that is already associated with a record to a different record.\n"
-                "Consider removing the synonym from existing records or using a different synonym."
+            raise ValidationError(
+                f"you are trying to assign a synonym to record: {record}\n"
+                "    → consider removing the synonym from existing records or using a different synonym."
             )
 
     # passed synonyms
@@ -516,7 +516,7 @@ def _add_or_remove_synonyms(
         return
     # because we use | as the separator
     if any("|" in i for i in syn_new_set):
-        raise ValueError("a synonym can't contain '|'!")
+        raise ValidationError("a synonym can't contain '|'!")
 
     # existing synonyms
     syns_exist = record.synonyms
