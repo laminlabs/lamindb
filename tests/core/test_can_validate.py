@@ -53,7 +53,7 @@ def test_add_remove_synonym():
     bt.CellType.filter().all().delete()
     # a registry that cannot validate
     source = bt.Source.filter(organism="human").first()
-    with pytest.raises(AttributeError):
+    with pytest.raises(ValidationError):
         source.add_synonym("syn")
 
     # a registry that doesn't have a synonyms column
