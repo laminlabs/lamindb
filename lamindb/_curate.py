@@ -1596,24 +1596,25 @@ def log_saved_labels(
             continue
 
         if k == "without reference" and validated_only:
-            msg = colors.yellow(
-                f"{len(labels)} non-validated values are not saved in {model_field}: {labels}!"
-            )
-            lookup_print = (
-                f"lookup().{key}" if key.isidentifier() else f".lookup()['{key}']"
-            )
+            continue
+            # msg = colors.yellow(
+            #     f"{len(labels)} non-validated values are not saved in {model_field}: {labels}!"
+            # )
+            # lookup_print = (
+            #     f"lookup().{key}" if key.isidentifier() else f".lookup()['{key}']"
+            # )
 
-            hint = f".add_new_from('{key}')"
-            msg += f"\n      → to lookup values, use {lookup_print}"
-            msg += (
-                f"\n      → to save, run {colors.yellow(hint)}"
-                if save_function == "add_new_from"
-                else f"\n      → to save, run {colors.yellow(save_function)}"
-            )
-            if warning:
-                logger.warning(msg)
-            else:
-                logger.info(msg)
+            # hint = f".add_new_from('{key}')"
+            # msg += f"\n      → to lookup values, use {lookup_print}"
+            # msg += (
+            #     f"\n      → to save, run {colors.yellow(hint)}"
+            #     if save_function == "add_new_from"
+            #     else f"\n      → to save, run {colors.yellow(save_function)}"
+            # )
+            # if warning:
+            #     logger.warning(msg)
+            # else:
+            #     logger.info(msg)
         else:
             k = "" if k == "without reference" else f"{colors.green(k)} "
             # the term "transferred" stresses that this is always in the context of transferring
