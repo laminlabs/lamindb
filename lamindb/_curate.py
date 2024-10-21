@@ -510,13 +510,13 @@ class AnnDataCurator(DataFrameCurator):
             exclude=self._exclude.get("var_index"),
         )
 
-    def _update_registry_all(self):
+    def _update_registry_all(self, validated_only: bool = True, **kwargs):
         """Save labels for all features."""
         logger.info("saving validated records of 'var_index'")
-        self._save_from_var_index(validated_only=True, **self._kwargs)
+        self._save_from_var_index(validated_only=validated_only, **self._kwargs)
         for name in self._obs_fields.keys():
             logger.info(f"saving validated terms of '{name}'")
-            self._update_registry(name, validated_only=True, **self._kwargs)
+            self._update_registry(name, validated_only=validated_only, **self._kwargs)
 
     def add_new_from_var_index(self, organism: str | None = None, **kwargs):
         """Update variable records.

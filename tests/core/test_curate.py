@@ -213,14 +213,15 @@ def test_clean_up_failed_runs():
     context._run = previous_run
 
 
-def test_anndata_annotator(adata, categoricals):
+@pytest.mark.parametrize("to_add", ["donor", "all"])
+def test_anndata_annotator(adata, categoricals, to_add):
     curate = ln.Curator.from_anndata(
         adata,
         categoricals=categoricals,
         var_index=bt.Gene.symbol,
         organism="human",
     )
-    curate.add_new_from("donor")
+    curate.add_new_from(to_add)
     validated = curate.validate()
     assert validated
 
