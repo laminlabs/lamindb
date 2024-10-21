@@ -26,9 +26,7 @@ dependencies = [
     "typing_extensions!=4.6.0",
     "python-dateutil",
     "anndata>=0.8.0,<=0.10.9",  # will upgrade to new anndata releases
-    "scipy<1.13.0rc1",  # Artifact.open for older anndata is incompatible otherwise
     "fsspec",
-    "pandas",
     "graphviz",
     "psycopg2-binary",
 ]
