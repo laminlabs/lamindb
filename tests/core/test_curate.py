@@ -221,8 +221,8 @@ def test_anndata_annotator(adata, categoricals, to_add):
         var_index=bt.Gene.symbol,
         organism="human",
     )
-    curate.add_new_from(to_add)
     validated = curate.validate()
+    curate.add_new_from(to_add)
     assert validated
 
     artifact = curate.save_artifact(description="test AnnData")
