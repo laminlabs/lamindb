@@ -213,7 +213,7 @@ def test_clean_up_failed_runs():
     context._run = previous_run
 
 
-@pytest.mark.parameterize("to_add", ["donor", "all"])
+@pytest.mark.parametrize("to_add", ["donor", "all"])
 def test_anndata_annotator(adata, categoricals, to_add):
     curate = ln.Curator.from_anndata(
         adata,
