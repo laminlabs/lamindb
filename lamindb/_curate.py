@@ -184,7 +184,7 @@ class DataFrameCurator(BaseCurator):
     def non_validated(self) -> list:
         """Return the non-validated features and labels."""
         if self._non_validated is None:
-            raise ValueError("Please run validate() first!")
+            raise ValidationError("Please run validate() first!")
         return self._non_validated
 
     @property
@@ -222,7 +222,7 @@ class DataFrameCurator(BaseCurator):
             valid_keys = set(self._df.columns) | {"columns"} | extra
             nonval_keys = [key for key in d.keys() if key not in valid_keys]
             if len(nonval_keys) > 0:
-                raise ValueError(
+                raise ValidationError(
                     f"the following keys passed to {name} are not allowed: {nonval_keys}"
                 )
 
@@ -288,7 +288,9 @@ class DataFrameCurator(BaseCurator):
             self._save_columns(validated_only=validated_only, **kwargs)
         else:
             if categorical not in self.fields:
-                raise ValueError(f"Feature {categorical} is not part of the fields!")
+                raise ValidationError(
+                    f"Feature {categorical} is not part of the fields!"
+                )
             update_registry(
                 values=self._df[categorical].unique().tolist(),
                 field=self.fields[categorical],
@@ -704,7 +706,7 @@ class MuDataCurator:
         """Verify the modality exists."""
         for modality in modalities:
             if modality not in self._mdata.mod.keys():
-                raise ValueError(f"modality '{modality}' does not exist!")
+                raise ValidationError(f"modality '{modality}' does not exist!")
 
     def _save_from_var_index_modality(
         self, modality: str, validated_only: bool = True, **kwargs
@@ -729,7 +731,7 @@ class MuDataCurator:
         obs_fields: dict[str, dict[str, FieldAttr]] = {}
         for k, v in categoricals.items():
             if k not in self._mdata.obs.columns:
-                raise ValueError(f"column '{k}' does not exist in mdata.obs!")
+                raise ValidationError(f"column '{k}' does not exist in mdata.obs!")
             if any(k.startswith(prefix) for prefix in prefixes):
                 modality, col = k.split(":")[0], k.split(":")[1]
                 if modality not in obs_fields.keys():
@@ -1120,7 +1122,7 @@ def check_registry_organism(registry: Record, organism: str | None = None) -> di
         import bionty as bt
 
         if organism is None and bt.settings.organism is None:
-            raise ValueError(
+            raise ValidationError(
                 f"{registry.__name__} registry requires an organism!\n"
                 "      → please pass an organism name via organism="
             )
@@ -1690,7 +1692,7 @@ def _save_organism(name: str):  # pragma: no cover
     if organism is None:
         organism = bt.Organism.from_source(name=name)
         if organism is None:
-            raise ValueError(
+            raise ValidationError(
                 f"Organism '{name}' not found\n"
                 f"      → please save it: bt.Organism(name='{name}').save()"
             )
