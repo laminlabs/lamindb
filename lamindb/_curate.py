@@ -1215,9 +1215,7 @@ def validate_categories(
 
     if n_validated > 0:
         _log_mapping_info()
-        terms_str = ", ".join([f"'{v}'" for v in values_validated[:10]])
-        if len(values_validated) > 10:
-            terms_str += ", ..."
+        terms_str = f"{', '.join([f'{chr(39)}{v}{chr(39)}' for v in values_validated[:10]])}{', ...' if len(values_validated) > 10 else ''}"
 
         logger.warning(
             f"found {colors.yellow(n_validated)} validated terms: "
