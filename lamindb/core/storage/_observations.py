@@ -9,7 +9,7 @@ from lamindb_setup.core.upath import LocalPathClasses, UPath, create_mapper
 from ._tiledbsoma import _open_tiledbsoma
 
 
-def _X_shape(X):
+def _X_n_obs(X):
     if "shape" in X.attrs:
         return X.attrs["shape"][0]
     else:
@@ -22,7 +22,7 @@ def n_observations(storepath: UPath) -> int | None:
             return None
         with storepath.open(mode="rb") as open_obj:
             with h5py.File(open_obj, mode="r") as storage:
-                return _X_shape(storage["X"])
+                return _X_n_obs(storage["X"])
     else:
         zarr_meta = {".zarray", ".zgroup"}
         tdbsoma_meta = {"__tiledb_group.tdb", "__group", "__meta"}
@@ -49,7 +49,7 @@ def n_observations(storepath: UPath) -> int | None:
             storage = zarr.open(open_obj, mode="r")
             if get_spec(storage).encoding_type != "anndata":
                 return None
-            return _X_shape(storage["X"])
+            return _X_n_obs(storage["X"])
         elif is_tdbsoma:
             try:
                 with _open_tiledbsoma(storepath, mode="r") as storage:

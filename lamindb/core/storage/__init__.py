@@ -19,6 +19,7 @@ Array accessors.
 from lamindb_setup.core.upath import LocalPathClasses, UPath, infer_filesystem
 
 from ._backed_access import AnnDataAccessor, BackedAccessor
+from ._observations import n_observations
 from ._tiledbsoma import save_tiledbsoma_experiment
 from ._valid_suffixes import VALID_SUFFIXES
 from .objects import infer_suffix, write_to_disk

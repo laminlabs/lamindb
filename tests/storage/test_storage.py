@@ -10,6 +10,7 @@ import tiledbsoma
 import tiledbsoma.io
 import zarr
 from lamindb.core.loaders import load_h5ad
+from lamindb.core.storage import n_observations
 from lamindb.core.storage._backed_access import (
     AnnDataAccessor,
     BackedAccessor,
@@ -50,6 +51,8 @@ def bad_adata_path():
 def test_anndata_io():
     test_file = ln.core.datasets.anndata_file_pbmc68k_test()
 
+    assert n_observations(test_file) == 30
+
     adata = load_h5ad(test_file)
 
     def callback(*args, **kwargs):
@@ -57,6 +60,8 @@ def test_anndata_io():
 
     zarr_path = test_file.with_suffix(".zarr")
     write_adata_zarr(adata, zarr_path, callback)
+
+    assert n_observations(zarr_path) == 30
 
     adata = load_anndata_zarr(zarr_path)
 
@@ -263,6 +268,7 @@ def test_write_read_tiledbsoma(storage):
     assert artifact_soma._key_is_virtual
     assert artifact_soma._accessor == "tiledbsoma"
     assert artifact_soma.n_observations == adata.n_obs
+    assert n_observations(artifact_soma.path) == adata.n_obs
 
     with artifact_soma.open() as store:  # mode="r" by default
         assert isinstance(store, tiledbsoma.Experiment)
