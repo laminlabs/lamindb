@@ -1216,7 +1216,7 @@ def validate_categories(
         _log_mapping_info()
         logger.warning(
             f"found {colors.yellow(n_validated)} validated terms: "
-            f"{colors.yellow(', '.join(values_validated[:10]) + ', ...') if len(values_validated) > 10 else colors.yellow(values_validated)}\n      → save terms via "
+            f"{colors.yellow(', '.join(values_validated[:10]) + ', ...' if len(values_validated) > 10 else ', '.join(values_validated))}\n      → save terms via "
             f"{colors.yellow(validated_hint_print)}"
         )
 
@@ -1236,7 +1236,7 @@ def validate_categories(
         print_values = _print_values(non_validated)
         warning_message = (
             f"{colors.red(f'{n_non_validated} terms')} {are} not validated: "
-            f"{colors.red(', '.join(print_values[:10]) + ', ...') if len(print_values) > 10 else colors.red(', '.join(print_values))}\n      → fix typos, remove non-existent values, or save terms via "
+            f"{colors.red(', '.join(print_values.split(', ')[:10]) + ', ...' if len(print_values.split(', ')) > 10 else print_values)}\n      → fix typos, remove non-existent values, or save terms via "
             f"{colors.red(non_validated_hint_print)}"
         )
 
