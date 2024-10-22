@@ -1212,12 +1212,15 @@ def validate_categories(
 
     validated_hint_print = validated_hint_print or f".add_validated_from('{key}')"
     n_validated = len(values_validated)
+
     if n_validated > 0:
         _log_mapping_info()
+        terms_str = f"{', '.join([f'{chr(39)}{v}{chr(39)}' for v in values_validated[:10]])}{', ...' if len(values_validated) > 10 else ''}"
+
         logger.warning(
             f"found {colors.yellow(n_validated)} validated terms: "
-            f"{colors.yellow(values_validated)}\n      → save terms via "
-            f"{colors.yellow(validated_hint_print)}"
+            f"{colors.yellow(terms_str)}\n"
+            f"→ save terms via {colors.yellow(validated_hint_print)}"
         )
 
     non_validated_hint_print = validated_hint_print.replace("_validated_", "_new_")
@@ -1236,9 +1239,11 @@ def validate_categories(
         print_values = _print_values(non_validated)
         warning_message = (
             f"{colors.red(f'{n_non_validated} terms')} {are} not validated: "
-            f"{colors.red(print_values)}\n      → fix typos, remove non-existent values, or save terms via "
+            f"{colors.red(', '.join(print_values.split(', ')[:10]) + ', ...' if len(print_values.split(', ')) > 10 else print_values)}\n"
+            f"→ fix typos, remove non-existent values, or save terms via "
             f"{colors.red(non_validated_hint_print)}"
         )
+
         if logger.indent == "":
             _log_mapping_info()
         logger.warning(warning_message)
