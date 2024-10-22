@@ -36,7 +36,7 @@ jobs:
       - uses: actions/setup-python@v5
         if: ${{ matrix.group != 'storage' }}
         with:
-          python-version: "3.11"
+          python-version: "3.12"
       - name: cache pre-commit
         uses: actions/cache@v4
         with:
@@ -134,7 +134,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
       - run: |
           python -m pip install -U uv
           uv pip install --system coverage[toml]
