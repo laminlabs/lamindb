@@ -1212,13 +1212,17 @@ def validate_categories(
 
     validated_hint_print = validated_hint_print or f".add_validated_from('{key}')"
     n_validated = len(values_validated)
+
     if n_validated > 0:
         _log_mapping_info()
+        terms_str = ", ".join([f"'{v}'" for v in values_validated[:10]])
+        if len(values_validated) > 10:
+            terms_str += ", ..."
+
         logger.warning(
             f"found {colors.yellow(n_validated)} validated terms: "
-            f"{colors.yellow(', '.join(values_validated[:10]) + ', ...' if len(values_validated) > 10 else ', '.join(values_validated))}\n"
-            f"→ save terms via "
-            f"{colors.yellow(validated_hint_print)}"
+            f"{colors.yellow(terms_str)}\n"
+            f"→ save terms via {colors.yellow(validated_hint_print)}"
         )
 
     non_validated_hint_print = validated_hint_print.replace("_validated_", "_new_")
