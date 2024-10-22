@@ -106,7 +106,7 @@ jobs:
           aws-region: us-east-1
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12" # use 3.10 because 3.11+ give issues
+          python-version: "3.10" # use 3.10 because 3.11+ give issues (ablog lacks 3.12 support)
       - run: pip install "laminci@git+https://x-access-token:${{ secrets.LAMIN_BUILD_DOCS }}@github.com/laminlabs/laminci"
       - run: nox -s "install_ci(group='docs')"
       - uses: actions/download-artifact@v4
