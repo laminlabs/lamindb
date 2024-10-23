@@ -20,8 +20,8 @@ def test_query_parents_children():
     label1.save()
     label2.save()
     label3.save()
-    label1.parents.add(label2)
-    label2.parents.add(label3)
+    label1.children.add(label2)
+    label2.children.add(label3)
     parents = label3.query_parents()
     assert len(parents) == 2
     assert label1 in parents and label2 in parents
