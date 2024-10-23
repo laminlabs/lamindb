@@ -27,7 +27,7 @@ is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 # this is optimized to have fewer recursive calls
 # also len of QuerySet can be costly at times
 def _query_relatives(
-    records: QuerySet | list,
+    records: QuerySet | list[Record],
     kind: Literal["parents", "children"],
     cls: type[HasParents],
 ) -> QuerySet:
