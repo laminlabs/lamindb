@@ -244,6 +244,16 @@ def test_anndata_annotator(adata, categoricals, to_add):
     bt.CellType.filter().delete()
 
 
+def test_str_var_index(adata):
+    curate = ln.Curate.from_anndata(
+        adata,
+        var_index="symbol",
+        organism="human",
+    )
+    validated = curate.validate()
+    assert validated
+
+
 def test_no_categoricals(adata):
     curate = ln.Curate.from_anndata(
         adata,
@@ -291,14 +301,14 @@ def test_source_key_not_present(adata, categoricals):
 
 
 def test_unvalidated_adata_object(adata, categoricals):
-    curate = ln.Curator.from_anndata(
+    curator = ln.Curator.from_anndata(
         adata,
         categoricals=categoricals,
         var_index=bt.Gene.symbol,
         organism="human",
     )
     with pytest.raises(ValidationError) as error:
-        curate.save_artifact()
+        curator.save_artifact()
     assert "Dataset does not validate. Please curate." in str(error.value)
 
 
@@ -312,16 +322,16 @@ def test_mudata_annotator(mdata):
         "rna_2:donor": ln.ULabel.name,
     }
 
-    curate = ln.Curator.from_mudata(
+    curator = ln.Curator.from_mudata(
         mdata,
         categoricals=categoricals,
         var_index={"rna": bt.Gene.symbol, "rna_2": bt.Gene.symbol},
         organism="human",
     )
-    curate.add_new_from("donor", modality="rna")
-    validated = curate.validate()
+    curator.add_new_from("donor", modality="rna")
+    validated = curator.validate()
     assert validated
-    artifact = curate.save_artifact(description="test MuData")
+    artifact = curator.save_artifact(description="test MuData")
 
     # clean up
     artifact.delete(permanent=True)
