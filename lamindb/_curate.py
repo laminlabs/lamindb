@@ -425,7 +425,7 @@ class AnnDataCurator(DataFrameCurator):
     def __init__(
         self,
         data: ad.AnnData | UPathStr,
-        var_index: FieldAttr,
+        var_index: FieldAttr | str,
         categoricals: dict[str, FieldAttr] | None = None,
         obs_columns: FieldAttr = Feature.name,
         using_key: str = "default",
@@ -452,6 +452,11 @@ class AnnDataCurator(DataFrameCurator):
             self._adata = backed_access(upath.create_path(data))
 
         self._data = data
+
+        if isinstance(var_index, str):
+            import bionty as bt
+
+            var_index = getattr(bt.Gene, var_index)
         self._var_field = var_index
         super().__init__(
             df=self._adata.obs,
