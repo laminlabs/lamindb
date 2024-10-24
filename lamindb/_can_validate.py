@@ -389,7 +389,11 @@ def _standardize(
 
     try:
         registry._meta.get_field(synonyms_field)
-        fields = {i for i in [field, return_field, synonyms_field] if i is not None}
+        fields = {
+            field_name
+            for field_name in [field, return_field, synonyms_field]
+            if field_name is not None
+        }
         df = _filter_query_based_on_organism(
             queryset=queryset,
             field=field,
@@ -447,14 +451,21 @@ def _standardize(
             s = "" if len(std_names_bt_mapper) == 1 else "s"
             field_print = "synonym" if field == return_field else field
             warn_msg = (
-                f"found {len(std_names_bt_mapper)} {field_print}{s} in Bionty:"
-                f" {list(std_names_bt_mapper.keys())}"
+                f"found {len(std_names_bt_mapper)} {field_print}{s} in Bionty: "
+                f"{list(std_names_bt_mapper.keys())[:10]}{'...' if len(std_names_bt_mapper) > 10 else ''}. Saving to instance..."
             )
-            warn_msg += (
-                f"\n   please add corresponding {registry._meta.model.__name__} records via"
-                f" `.from_values({list(set(std_names_bt_mapper.values()))})`"
-            )
+
             logger.warning(warn_msg)
+
+            # Save all records found in public that are not yet in the instance
+            public_records = [
+                registry.from_source(**{return_field: val}, organism=organism)
+                for val in std_names_bt_mapper.values()
+            ]
+
+            from lamindb._save import save
+
+            save(public_records)
 
         mapper.update(std_names_bt_mapper)
         if pd.api.types.is_categorical_dtype(std_names_db):
