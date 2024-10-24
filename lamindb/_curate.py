@@ -1150,8 +1150,8 @@ def validate_categories(
         using_key: A reference LaminDB instance.
         organism: The organism name.
         source: The source record.
-        exclude: Exclude specific values.
-        standardize: Standardize the values.
+        exclude: Exclude specific values from validation.
+        standardize: Whether to standardize the values.
         validated_hint_print: The hint to print for validated values.
     """
     from lamindb._from_values import _print_values
@@ -1216,11 +1216,11 @@ def validate_categories(
     if n_validated > 0:
         _log_mapping_info()
         terms_str = f"{', '.join([f'{chr(39)}{v}{chr(39)}' for v in values_validated[:10]])}{', ...' if len(values_validated) > 10 else ''}"
-
+        val_numerous = "" if n_validated == 1 else "s"
         logger.warning(
-            f"found {colors.yellow(n_validated)} validated terms: "
+            f"found {colors.yellow(n_validated)} validated term{val_numerous}: "
             f"{colors.yellow(terms_str)}\n"
-            f"→ save terms via {colors.yellow(validated_hint_print)}"
+            f"→ save term{val_numerous} via {colors.yellow(validated_hint_print)}"
         )
 
     non_validated_hint_print = validated_hint_print.replace("_validated_", "_new_")
@@ -1235,12 +1235,12 @@ def validate_categories(
             # validated values still need to be saved to the current instance
             return False, []
     else:
-        are = "are" if n_non_validated > 1 else "is"
+        non_val_numerous = ("", "is") if n_non_validated == 1 else ("s", "are")
         print_values = _print_values(non_validated)
         warning_message = (
-            f"{colors.red(f'{n_non_validated} terms')} {are} not validated: "
+            f"{colors.red(f'{n_non_validated} term{non_val_numerous[0]}')} {non_val_numerous[1]} not validated: "
             f"{colors.red(', '.join(print_values.split(', ')[:10]) + ', ...' if len(print_values.split(', ')) > 10 else print_values)}\n"
-            f"→ fix typos, remove non-existent values, or save terms via "
+            f"→ fix typo{non_val_numerous[0]}, remove non-existent value{non_val_numerous[0]}, or save term{non_val_numerous[0]} via "
             f"{colors.red(non_validated_hint_print)}"
         )
 
