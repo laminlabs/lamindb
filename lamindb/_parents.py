@@ -15,11 +15,37 @@ from ._record import get_name_field
 if TYPE_CHECKING:
     from lnschema_core.types import StrField
 
+    from lamindb.core import QuerySet
+
 LAMIN_GREEN_LIGHTER = "#10b981"
 LAMIN_GREEN_DARKER = "#065f46"
 GREEN_FILL = "honeydew"
 TRANSFORM_EMOJIS = {"notebook": "📔", "app": "🖥️", "pipeline": "🧩"}
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
+
+
+# this is optimized to have fewer recursive calls
+# also len of QuerySet can be costly at times
+def _query_relatives(
+    records: QuerySet | list[Record],
+    kind: Literal["parents", "children"],
+    cls: type[HasParents],
+) -> QuerySet:
+    relatives = cls.objects.none()
+    if len(records) == 0:
+        return relatives
+    for record in records:
+        relatives = relatives.union(getattr(record, kind).all())
+    relatives = relatives.union(_query_relatives(relatives, kind, cls))
+    return relatives
+
+
+def query_parents(self) -> QuerySet:
+    return _query_relatives([self], "parents", self.__class__)
+
+
+def query_children(self) -> QuerySet:
+    return _query_relatives([self], "children", self.__class__)
 
 
 def _transform_emoji(transform: Transform):
@@ -474,9 +500,7 @@ def _df_edges_from_runs(df_values: list):
     return df
 
 
-METHOD_NAMES = [
-    "view_parents",
-]
+METHOD_NAMES = ["view_parents", "query_parents", "query_children"]
 
 if ln_setup._TESTING:  # type: ignore
     from inspect import signature
