@@ -109,14 +109,12 @@ def save_context_core(
     if is_notebook:
         try:
             import jupytext
-            from nbproject.dev import (
-                check_consecutiveness,
-                read_notebook,
-            )
+
+            from .core.notebook import check_consecutiveness, read_notebook
         except ImportError:
             logger.error("install nbproject & jupytext: pip install nbproject jupytext")
             return None
-        notebook_content = read_notebook(filepath)  # type: ignore
+        notebook_content = read_notebook(filepath, as_version=4)
         if not ignore_non_consecutive:  # ignore_non_consecutive is None or False
             is_consecutive = check_consecutiveness(
                 notebook_content, calling_statement=".finish("
