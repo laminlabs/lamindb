@@ -335,3 +335,39 @@ def test_write_read_tiledbsoma(storage):
 
     if storage is not None:
         ln.settings.storage = previous_storage
+
+
+def test_backed_parquet():
+    previous_storage = ln.setup.settings.storage.root_as_str
+    ln.settings.storage = "s3://lamindb-test/storage"
+
+    df = pd.DataFrame({"feat1": [0, 0, 1, 1], "feat2": [6, 7, 8, 9]})
+    # check as non-partitioned file
+    df.to_parquet("save_df.parquet", engine="pyarrow")
+    artifact_file = ln.Artifact(
+        "save_df.parquet", description="Test non-partitioned parquet"
+    )
+    artifact_file.save()
+    # cached after saving
+    ds = artifact_file.open()
+    assert ds.to_table().to_pandas().equals(df)
+    # remove cache
+    artifact_file.cache().unlink()
+    assert ds.to_table().to_pandas().equals(df)
+    # check as partitioned folder
+    df.to_parquet("save_df", engine="pyarrow", partition_cols=["feat1"])
+    assert Path("save_df").is_dir()
+    artifact_folder = ln.Artifact("save_df", description="Test partitioned parquet")
+    artifact_folder.save()
+    # cached after saving
+    ds = artifact_folder.open()
+    assert ds.to_table().to_pandas().equals(df[["feat2"]])
+    # remove cache
+    shutil.rmtree(artifact_folder.cache())
+    ds = artifact_folder.open()
+    assert ds.to_table().to_pandas().equals(df[["feat2"]])
+
+    artifact_file.delete(permanent=True)
+    artifact_folder.delete(permanent=True)
+
+    ln.settings.storage = previous_storage

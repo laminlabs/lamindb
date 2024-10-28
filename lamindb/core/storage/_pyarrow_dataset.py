@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from upath import UPath
 
 
-PYARROW_SUFFIXES = {".parquet", ".csv", ".json", ".orc", ".arrow", ".feather"}
+PYARROW_SUFFIXES = (".parquet", ".csv", ".json", ".orc", ".arrow", ".feather")
 
 
 def _is_pyarrow_dataset(path: UPath) -> bool:

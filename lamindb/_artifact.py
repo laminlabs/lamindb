@@ -58,6 +58,7 @@ from .core._data import (
     save_feature_set_links,
     save_feature_sets,
 )
+from .core.storage._pyarrow_dataset import PYARROW_SUFFIXES
 from .core.storage.objects import _mudata_is_installed
 from .core.storage.paths import AUTO_KEY_PREFIX
 
@@ -910,12 +911,15 @@ def open(
     AnnDataAccessor | BackedAccessor | SOMACollection | SOMAExperiment | PyArrowDataset
 ):
     # ignore empty suffix for now
-    suffixes = (".h5", ".hdf5", ".h5ad", ".zarr", ".tiledbsoma", "")
+    suffixes = ("", ".h5", ".hdf5", ".h5ad", ".zarr", ".tiledbsoma") + PYARROW_SUFFIXES
     if self.suffix not in suffixes:
         raise ValueError(
-            "Artifact should have a zarr, h5 or tiledbsoma object as the underlying data, please"
-            " use one of the following suffixes for the object name:"
-            f" {', '.join(suffixes[:-1])}."
+            "Artifact should have a zarr, h5, tiledbsoma object"
+            " or a compatible `pyarrow.dataset.dataset` directory"
+            " as the underlying data, please use one of the following suffixes"
+            f" for the object name: {', '.join(suffixes[1:])}."
+            f" Or no suffix for a folder with {', '.join(PYARROW_SUFFIXES)} files"
+            " (no mixing allowed)."
         )
     if self.suffix != ".tiledbsoma" and self.key != "soma" and mode != "r":
         raise ValueError("Only a tiledbsoma store can be openened with `mode!='r'`.")
