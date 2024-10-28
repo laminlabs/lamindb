@@ -58,6 +58,7 @@ from .core._data import (
     save_feature_set_links,
     save_feature_sets,
 )
+from .core.storage._pyarrow_dataset import PYARROW_SUFFIXES
 from .core.storage.objects import _mudata_is_installed
 from .core.storage.paths import AUTO_KEY_PREFIX
 
@@ -72,6 +73,7 @@ except ImportError:
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
     from mudata import MuData
+    from pyarrow.dataset import Dataset as PyArrowDataset
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
 
@@ -905,14 +907,19 @@ def replace(
 # docstring handled through attach_func_to_class_method
 def open(
     self, mode: str = "r", is_run_input: bool | None = None
-) -> AnnDataAccessor | BackedAccessor | SOMACollection | SOMAExperiment:
+) -> (
+    AnnDataAccessor | BackedAccessor | SOMACollection | SOMAExperiment | PyArrowDataset
+):
     # ignore empty suffix for now
-    suffixes = (".h5", ".hdf5", ".h5ad", ".zarr", ".tiledbsoma", "")
+    suffixes = ("", ".h5", ".hdf5", ".h5ad", ".zarr", ".tiledbsoma") + PYARROW_SUFFIXES
     if self.suffix not in suffixes:
         raise ValueError(
-            "Artifact should have a zarr, h5 or tiledbsoma object as the underlying data, please"
-            " use one of the following suffixes for the object name:"
-            f" {', '.join(suffixes[:-1])}."
+            "Artifact should have a zarr, h5, tiledbsoma object"
+            " or a compatible `pyarrow.dataset.dataset` directory"
+            " as the underlying data, please use one of the following suffixes"
+            f" for the object name: {', '.join(suffixes[1:])}."
+            f" Or no suffix for a folder with {', '.join(PYARROW_SUFFIXES)} files"
+            " (no mixing allowed)."
         )
     if self.suffix != ".tiledbsoma" and self.key != "soma" and mode != "r":
         raise ValueError("Only a tiledbsoma store can be openened with `mode!='r'`.")
