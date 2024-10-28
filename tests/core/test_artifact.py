@@ -267,9 +267,9 @@ def test_create_from_dataframe(df):
     assert artifact.type == "dataset"
     assert hasattr(artifact, "_local_filepath")
     artifact.save()
-    # can't do backed
-    with pytest.raises(ValueError):
-        artifact.open()
+    # can do backed now, tested in test_storage.py
+    ds = artifact.open()
+    assert len(ds.files) == 1
     # check that the local filepath has been cleared
     assert not hasattr(artifact, "_local_filepath")
     artifact.delete(permanent=True, storage=True)
