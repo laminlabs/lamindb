@@ -24,7 +24,7 @@ def _is_pyarrow_dataset(path: UPath) -> bool:
 
 def _open_pyarrow_dataset(path: UPath) -> pyarrow.dataset.Dataset:
     if isinstance(path, LocalPathClasses):
-        path_str, _filesytem = path.as_posix(), None
+        path_str, filesystem = path.as_posix(), None
     else:
         path_str, filesystem = path.path, path.fs
 

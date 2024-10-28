@@ -337,7 +337,7 @@ def test_write_read_tiledbsoma(storage):
         ln.settings.storage = previous_storage
 
 
-def test_backed_parquet():
+def test_backed_pyarrow():
     previous_storage = ln.setup.settings.storage.root_as_str
     ln.settings.storage = "s3://lamindb-test/storage"
 
@@ -353,6 +353,7 @@ def test_backed_parquet():
     assert ds.to_table().to_pandas().equals(df)
     # remove cache
     artifact_file.cache().unlink()
+    ds = artifact_file.open()
     assert ds.to_table().to_pandas().equals(df)
     # check as partitioned folder
     df.to_parquet("save_df", engine="pyarrow", partition_cols=["feat1"])
