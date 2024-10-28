@@ -372,3 +372,15 @@ def test_backed_pyarrow():
     artifact_folder.delete(permanent=True)
 
     ln.settings.storage = previous_storage
+
+
+def test_backed_wrong_suffix():
+    fp = Path("test_file.txt")
+    fp.write_text("test open with wrong suffix")
+
+    artifact = ln.Artifact(fp, description="Test open wrong suffix")
+    # do not save here, it just tries to open the local path
+    with pytest.raises(ValueError):
+        artifact.open()
+
+    fp.unlink()
