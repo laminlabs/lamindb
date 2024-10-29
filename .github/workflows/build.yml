@@ -32,9 +32,13 @@ jobs:
       - uses: actions/setup-python@v5
         if: ${{ matrix.group == 'storage' }}
         with:
-          python-version: "3.9" # run just one job with a different python version
+          python-version: "3.9"
       - uses: actions/setup-python@v5
-        if: ${{ matrix.group != 'storage' }}
+        if: ${{ matrix.group == 'unit-storage' }}
+        with:
+          python-version: "3.11" # there are problems with installation time with python 3.12
+      - uses: actions/setup-python@v5
+        if: ${{ matrix.group != 'storage' && matrix.group != 'unit-storage'}}
         with:
           python-version: "3.12"
       - name: cache pre-commit
