@@ -19,9 +19,9 @@ from lamindb_setup.core._hub_core import connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
 from lnschema_core.models import Artifact, Feature, IsVersioned, Record, Run, Transform
 
-from lamindb._utils import attach_func_to_class_method
-from lamindb.core._settings import settings
-from lamindb.core.exceptions import RecordNameChangeIntegrityError
+from ._utils import attach_func_to_class_method
+from .core._settings import settings
+from .core.exceptions import RecordNameChangeIntegrityError
 
 if TYPE_CHECKING:
     import pandas as pd
