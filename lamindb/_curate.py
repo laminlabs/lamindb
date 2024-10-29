@@ -292,7 +292,7 @@ class DataFrameCurator(BaseCurator):
                     f"Feature {categorical} is not part of the fields!"
                 )
             update_registry(
-                values=self._df[categorical].unique().tolist(),
+                values=flatten_unique(self._df[categorical]),
                 field=self.fields[categorical],
                 key=categorical,
                 using_key=self._using_key,
@@ -1432,6 +1432,19 @@ def save_artifact(
     if ln_setup.settings.instance.is_remote:  # pragma: no cover
         logger.important(f"go to https://lamin.ai/{slug}/artifact/{artifact.uid}")
     return artifact
+
+
+def flatten_unique(series):
+    """Flatten a pandas series if it contains lists."""
+    result = set()
+
+    for item in series:
+        if isinstance(item, list):
+            result.update(item)
+        else:
+            result.add(item)
+
+    return list(result)
 
 
 def update_registry(
