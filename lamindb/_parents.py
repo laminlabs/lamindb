@@ -8,9 +8,8 @@ from lamin_utils import logger
 from lnschema_core import Artifact, Collection, Record, Run, Transform
 from lnschema_core.models import HasParents, format_field_value
 
-from lamindb._utils import attach_func_to_class_method
-
 from ._record import get_name_field
+from ._utils import attach_func_to_class_method
 
 if TYPE_CHECKING:
     from lnschema_core.types import StrField

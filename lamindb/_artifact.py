@@ -28,39 +28,40 @@ from lnschema_core.types import (
     VisibilityChoice,
 )
 
-from lamindb._utils import attach_func_to_class_method
-from lamindb.core._data import _track_run_input, describe, view_lineage
-from lamindb.core._settings import settings
-from lamindb.core.exceptions import IntegrityError, InvalidArgument
-from lamindb.core.loaders import load_to_memory
-from lamindb.core.storage import (
+from ._utils import attach_func_to_class_method
+from .core._data import (
+    _track_run_input,
+    add_transform_to_kwargs,
+    describe,
+    get_run,
+    save_feature_set_links,
+    save_feature_sets,
+    view_lineage,
+)
+from .core._settings import settings
+from .core.exceptions import IntegrityError, InvalidArgument
+from .core.loaders import load_to_memory
+from .core.storage import (
     LocalPathClasses,
     UPath,
     delete_storage,
     infer_suffix,
     write_to_disk,
 )
-from lamindb.core.storage.paths import (
+from .core.storage._pyarrow_dataset import PYARROW_SUFFIXES
+from .core.storage.objects import _mudata_is_installed
+from .core.storage.paths import (
+    AUTO_KEY_PREFIX,
     auto_storage_key_from_artifact,
     auto_storage_key_from_artifact_uid,
     check_path_is_child_of_root,
     filepath_cache_key_from_artifact,
     filepath_from_artifact,
 )
-from lamindb.core.versioning import (
+from .core.versioning import (
     create_uid,
     message_update_key_in_version_family,
 )
-
-from .core._data import (
-    add_transform_to_kwargs,
-    get_run,
-    save_feature_set_links,
-    save_feature_sets,
-)
-from .core.storage._pyarrow_dataset import PYARROW_SUFFIXES
-from .core.storage.objects import _mudata_is_installed
-from .core.storage.paths import AUTO_KEY_PREFIX
 
 try:
     from .core.storage._zarr import zarr_is_adata
@@ -774,19 +775,14 @@ def from_dir(
     else:
         folder_key_path = Path(key)
 
-    # always sanitize by stripping a trailing slash
-    folder_key = folder_key_path.as_posix().rstrip("/")
-
-    # TODO: (non-local) UPath doesn't list the first level artifacts and dirs with "*"
-    pattern = "" if not isinstance(folderpath, LocalPathClasses) else "*"
-
+    folder_key = folder_key_path.as_posix()
     # silence fine-grained logging
     verbosity = settings.verbosity
     verbosity_int = settings._verbosity_int
     if verbosity_int >= 1:
         settings.verbosity = "warning"
     artifacts_dict = {}
-    for filepath in folderpath.rglob(pattern):
+    for filepath in folderpath.rglob("*"):
         if filepath.is_file():
             relative_path = get_relative_path_to_directory(filepath, folderpath)
             artifact_key = folder_key + "/" + relative_path.as_posix()
@@ -804,7 +800,8 @@ def from_dir(
         if artifact.hash is not None
     ]
     uids = artifacts_dict.keys()
-    if len(set(hashes)) == len(hashes):
+    n_unique_hashes = len(set(hashes))
+    if n_unique_hashes == len(hashes):
         artifacts = list(artifacts_dict.values())
     else:
         # consider exact duplicates (same id, same hash)
@@ -813,7 +810,7 @@ def from_dir(
         #     logger.warning("dropping duplicate records in list of artifact records")
         #     artifacts = list(set(uids))
         # consider false duplicates (different id, same hash)
-        if not len(set(uids)) == len(set(hashes)):
+        if not len(set(uids)) == n_unique_hashes:
             seen_hashes = set()
             non_unique_artifacts = {
                 hash: artifact

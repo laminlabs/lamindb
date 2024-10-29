@@ -7,9 +7,8 @@ from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import Record
 
-from lamindb.core._settings import settings
-
 from .core._feature_manager import get_feature_set_by_slot_
+from .core._settings import settings
 
 if TYPE_CHECKING:
     from lnschema_core.types import StrField

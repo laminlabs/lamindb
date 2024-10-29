@@ -10,10 +10,9 @@ from lamindb_setup.core.hashing import hash_set
 from lnschema_core import Feature, FeatureSet, Record, ids
 from lnschema_core.types import FieldAttr, ListLike
 
-from lamindb._utils import attach_func_to_class_method
-
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
 from ._record import init_self_from_db
+from ._utils import attach_func_to_class_method
 from .core.exceptions import ValidationError
 from .core.schema import (
     dict_related_model_to_related_name,
