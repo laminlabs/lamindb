@@ -20,6 +20,7 @@ from .core.exceptions import ValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+    from typing import Any
 
     from lamindb_setup.core.types import UPathStr
     from lnschema_core.types import FieldAttr
@@ -292,7 +293,7 @@ class DataFrameCurator(BaseCurator):
                     f"Feature {categorical} is not part of the fields!"
                 )
             update_registry(
-                values=flatten_unique(self._df[categorical]),
+                values=_flatten_unique(self._df[categorical]),
                 field=self.fields[categorical],
                 key=categorical,
                 using_key=self._using_key,
@@ -1434,8 +1435,8 @@ def save_artifact(
     return artifact
 
 
-def flatten_unique(series):
-    """Flatten a pandas series if it contains lists."""
+def _flatten_unique(series: pd.Series[list[Any] | Any]) -> list[Any]:
+    """Flatten a Pandas series containing lists or single items into a unique list of elements."""
     result = set()
 
     for item in series:
