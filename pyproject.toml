@@ -59,6 +59,24 @@ fcs = [
 erdiagram = [
     "django-schema-graph",
 ]
+wetlab = [
+    "wetlab"
+]
+findrefs = [
+    "findrefs"
+]
+clinicore = [
+    "clinicore"
+]
+cellregistry = [
+    "cellregistry"
+]
+omop = [
+    "omop"
+]
+ourprojects = [
+    "ourprojects"
+]
 dev = [
     # basic test
     "line_profiler",
