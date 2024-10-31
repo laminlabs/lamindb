@@ -102,6 +102,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system ipywidgets")
     elif group == "faq":
         extras += "aws,bionty,jupyter"
+        run(session, "uv pip install --system rbo")
     elif group == "storage":
         extras += "aws,zarr,bionty,jupyter"
         run(
