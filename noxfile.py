@@ -84,15 +84,10 @@ def install(session):
     ],
 )
 def install_ci(session, group):
-    # on the release branch, do not use submodules but run with pypi install
-    # only exception is the docs group which should always use the submodule
-    # to push docs fixes fast
-    if IS_PR or group == "docs":
-        cmd = "uv pip install --system --no-deps ./sub/lamindb-setup ./sub/lnschema-core ./sub/lamin-cli"
-        run(session, cmd)
     extras = ""
     if group == "unit-core":
         extras += "bionty,aws,zarr,fcs,jupyter"
+        run(session, "uv pip install --system huggingface_hub")
     elif group == "unit-storage":
         extras += "aws,zarr,bionty"
         run(session, "uv pip install --system tiledbsoma")
@@ -114,7 +109,7 @@ def install_ci(session, group):
         )
         run(session, "uv pip install --system vitessce")
     elif group == "docs":
-        extras += "bionty"
+        extras += "bionty,zarr"
         run(session, "uv pip install --system mudata")
         run(
             session,
@@ -122,12 +117,20 @@ def install_ci(session, group):
         )
     elif group == "cli":
         extras += "jupyter,aws,bionty"
-    if IS_PR and "bionty" in extras:
-        run(
-            session,
-            "uv pip install --system --no-deps ./sub/bionty",
-        )
     run(session, f"uv pip install --system -e .[dev,{extras}]")
+    # on the release branch, do not use submodules but run with pypi install
+    # only exception is the docs group which should always use the submodule
+    # to push docs fixes fast
+    # installing this after lamindb to be sure that these packages won't be reinstaled
+    # during lamindb installation
+    if IS_PR or group == "docs":
+        cmd = "uv pip install --system --no-deps ./sub/lamindb-setup ./sub/lnschema-core ./sub/lamin-cli"
+        run(session, cmd)
+        if "bionty" in extras:
+            run(
+                session,
+                "uv pip install --system --no-deps ./sub/bionty",
+            )
 
 
 @nox.session
