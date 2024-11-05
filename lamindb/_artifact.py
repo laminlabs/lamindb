@@ -111,12 +111,19 @@ def process_pathlike(
             # for the storage root: the bucket
             if not isinstance(filepath, LocalPathClasses):
                 # for a cloud path, new_root is always the bucket name
-                new_root = list(filepath.parents)[-1]
+                if filepath.protocol == "hf":
+                    hf_path = filepath.fs.resolve_path(filepath.as_posix())
+                    hf_path.path_in_repo = ""
+                    new_root = "hf://" + hf_path.unresolve()
+                else:
+                    new_root = list(filepath.parents)[-1]
                 # do not register remote storage locations on hub if the current instance
                 # is not managed on the hub
+                print(new_root)
                 storage_settings, _ = init_storage(
                     new_root, prevent_register_hub=not setup_settings.instance.is_on_hub
                 )
+                print(storage_settings)
                 storage_record = register_storage_in_instance(storage_settings)
                 use_existing_storage_key = True
                 return storage_record, use_existing_storage_key
