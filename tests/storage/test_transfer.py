@@ -3,7 +3,6 @@ import pytest
 from lamindb.core._django import get_artifact_with_related
 
 
-# this test has to be refactored and sped up a lot
 def test_transfer_from_remote_to_local():
     """Test transfer from remote to local instance."""
     import bionty as bt
@@ -13,6 +12,7 @@ def test_transfer_from_remote_to_local():
     ln.ULabel.filter().delete()
     bt.CellType.filter().delete()
 
+    # test transfer form a remote instance with extra schema modules to a local instance (laminlabs/lamin-dev)
     # transfer 1st artifact
     artifact = (
         ln.Artifact.using("laminlabs/lamin-dev")
@@ -100,8 +100,17 @@ def test_transfer_from_remote_to_local():
     assert artifact2.organisms.get(name="mouse") == bt.settings.organism
     assert artifact.features["obs"].get(name="organism").uid == "existing"
 
+    # test transfer form a remote instance with less schema modules to a local instance (laminlabs/lamin-site-assets)
+    artifact3 = ln.Artifact.using("laminlabs/lamin-site-assets").get(
+        "lgRNHNtMxjU0y8nIagt7"
+    )
+    # load saves the artifact to default instance
+    artifact3.load()
+    assert artifact3._state.db == "default"
+
     artifact.delete(permanent=True, storage=False)
     artifact2.delete(permanent=True, storage=False)
+    artifact3.delete(permanent=True, storage=False)
     ln.FeatureSet.filter().delete()
     bt.Gene.filter().delete()
     bt.Organism.filter().delete()
