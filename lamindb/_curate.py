@@ -227,7 +227,7 @@ class DataFrameCurator(BaseCurator):
                     f"the following keys passed to {name} are not allowed: {nonval_keys}"
                 )
 
-    def _save_columns(self, validated_only: bool = True, **kwargs) -> None:
+    def _save_columns(self, validated_only: bool = True) -> None:
         """Save column name records."""
         # Always save features specified as the fields keys
         update_registry(
@@ -239,7 +239,7 @@ class DataFrameCurator(BaseCurator):
             validated_only=False,
             source=self._sources.get("columns"),
             exclude=self._exclude.get("columns"),
-            **kwargs,
+            **self._kwargs,  # type: ignore
         )
 
         # Save the rest of the columns based on validated_only
@@ -256,7 +256,7 @@ class DataFrameCurator(BaseCurator):
                 source=self._sources.get("columns"),
                 exclude=self._exclude.get("columns"),
                 warning=False,  # Do not warn about missing columns, just an info message
-                **kwargs,
+                **self._kwargs,  # type: ignore
             )
 
     def add_new_from(self, key: str, organism: str | None = None, **kwargs):
