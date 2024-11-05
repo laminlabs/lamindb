@@ -458,7 +458,7 @@ def _standardize(
             warn_msg = (
                 f"found {len(std_names_bt_mapper)} {field_print}{s} in Bionty{truncated_note}:"
                 f" {reduced_mapped_keys_str}\n"
-                f"  please add corresponding {registry._meta.model.__name__} records via{truncated_note}"
+                f"  please add corresponding {registry._meta.model.__name__} records via{truncated_note}:"
                 f" `.from_values({reduced_mapped_keys_str})`"
             )
 
