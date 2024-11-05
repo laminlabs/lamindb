@@ -917,5 +917,5 @@ def test_huggingface_links():
     assert artifact_pq.cache().is_dir()
     shutil.rmtree(artifact_pq._cache_path)
 
-    artifact_adata.delete(permanent=True)
-    artifact_pq.delete(permanent=True)
+    artifact_adata.delete(permanent=True, storage=False)
+    artifact_pq.delete(permanent=True, storage=False)
