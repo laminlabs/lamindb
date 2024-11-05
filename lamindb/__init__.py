@@ -59,12 +59,10 @@ from . import setup
 def __getattr__(name):
     raise _InstanceNotSetupError()
 
-
 if _check_instance_setup(from_module="lnschema_core"):
     del _InstanceNotSetupError
     del __getattr__  # delete so that imports work out
     from lnschema_core.models import (
-        Artifact,
         Collection,
         Feature,
         FeatureSet,
@@ -75,10 +73,17 @@ if _check_instance_setup(from_module="lnschema_core"):
         ULabel,
         User,
     )
-
     from . import core  # isort: split
+    # note regarding the ._xxx imports here:
+    #   because each of these imports is dynamically changing the class interface
+    #   of the django models, all of these imports actually become order dependent
+    #   For that reason in this PR we have to provide Artifact in the global
+    #   namespace here first, to not break consecutive imports...
+    #   This would all go away when this the monkey patching would be removed from
+    #   all classes.
+    from . import _artifact
+    Artifact = _artifact.Artifact
     from . import (
-        _artifact,
         _can_validate,
         _collection,
         _curate,
