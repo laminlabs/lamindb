@@ -307,9 +307,7 @@ class DataFrameCurator(BaseCurator):
         """Save labels for all features."""
         for name in self.fields.keys():
             logger.info(f"saving validated records of '{name}'")
-            self._update_registry(
-                name, validated_only=validated_only, **self._kwargs, **kwargs
-            )
+            self._update_registry(name, validated_only=validated_only, **kwargs)
 
     def validate(self, organism: str | None = None) -> bool:
         """Validate variables and categorical observations.
