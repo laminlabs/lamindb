@@ -60,23 +60,27 @@ def validate_required_fields(record: Record, kwargs):
         raise TypeError(f"{missing_fields} are required.")
 
 
-def suggest_records_with_similar_names(record: Record, kwargs) -> bool:
+def suggest_records_with_similar_names(record: Record, name_field: str, kwargs) -> bool:
     """Returns True if found exact match, otherwise False.
 
     Logs similar matches if found.
     """
-    if kwargs.get("name") is None:
+    if kwargs.get(name_field) is None:
         return False
     queryset = _search(
-        record.__class__, kwargs["name"], field="name", truncate_words=True, limit=3
+        record.__class__,
+        kwargs[name_field],
+        field=name_field,
+        truncate_words=True,
+        limit=3,
     )
     if not queryset.exists():  # empty queryset
         return False
     for alternative_record in queryset:
-        if alternative_record.name == kwargs["name"]:
+        if getattr(alternative_record, name_field) == kwargs[name_field]:
             return True
     s, it, nots = ("", "it", "s") if len(queryset) == 1 else ("s", "one of them", "")
-    msg = f"record{s} with similar name{s} exist{nots}! did you mean to load {it}?"
+    msg = f"record{s} with similar {name_field}{s} exist{nots}! did you mean to load {it}?"
     if IPYTHON:
         from IPython.display import display
 
@@ -98,13 +102,17 @@ def __init__(record: Record, *args, **kwargs):
         if "_has_consciously_provided_uid" in kwargs:
             has_consciously_provided_uid = kwargs.pop("_has_consciously_provided_uid")
         if settings.creation.search_names and not has_consciously_provided_uid:
-            match = suggest_records_with_similar_names(record, kwargs)
+            name_field = get_name_field(registry=record.__class__)
+            match = suggest_records_with_similar_names(record, name_field, kwargs)
             if match:
                 if "version" in kwargs:
                     if kwargs["version"] is not None:
                         version_comment = " and version"
                         existing_record = record.__class__.filter(
-                            name=kwargs["name"], version=kwargs["version"]
+                            **{
+                                name_field: kwargs[name_field],
+                                "version": kwargs["version"],
+                            }
                         ).one_or_none()
                     else:
                         # for a versioned record, an exact name match is not a
@@ -115,12 +123,12 @@ def __init__(record: Record, *args, **kwargs):
                 else:
                     version_comment = ""
                     existing_record = record.__class__.filter(
-                        name=kwargs["name"]
+                        **{name_field: kwargs[name_field]}
                     ).one_or_none()
                 if existing_record is not None:
                     logger.important(
                         f"returning existing {record.__class__.__name__} record with same"
-                        f" name{version_comment}: '{kwargs['name']}'"
+                        f" {name_field}{version_comment}: '{kwargs[name_field]}'"
                     )
                     init_self_from_db(record, existing_record)
                     return None
