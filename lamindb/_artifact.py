@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import functools
 import os
 import shutil
-from collections.abc import Mapping
 from pathlib import Path, PurePath, PurePosixPath
+from types import FunctionType
+from types import MethodType
 from typing import TYPE_CHECKING, Any
 
 import fsspec
@@ -23,12 +25,13 @@ from lamindb_setup.core.upath import (
     get_stat_dir_cloud,
     get_stat_file_cloud,
 )
-from lnschema_core.models import Artifact, FeatureManager, ParamManager, Run, Storage
+from lnschema_core.models import FeatureManager, ParamManager, Run, Storage
+from lnschema_core.models import Artifact as _Artifact
+from lnschema_core.models import record_repr
 from lnschema_core.types import (
     VisibilityChoice,
 )
 
-from ._utils import attach_func_to_class_method
 from .core._data import (
     _track_run_input,
     add_transform_to_kwargs,
@@ -667,7 +670,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
 
 
 @classmethod  # type: ignore
-@doc_args(Artifact.from_df.__doc__)
+@doc_args(_Artifact.from_df.__doc__)
 def from_df(
     cls,
     df: pd.DataFrame,
@@ -692,7 +695,7 @@ def from_df(
 
 
 @classmethod  # type: ignore
-@doc_args(Artifact.from_anndata.__doc__)
+@doc_args(_Artifact.from_anndata.__doc__)
 def from_anndata(
     cls,
     adata: AnnData | UPathStr,
@@ -719,7 +722,7 @@ def from_anndata(
 
 
 @classmethod  # type: ignore
-@doc_args(Artifact.from_mudata.__doc__)
+@doc_args(_Artifact.from_mudata.__doc__)
 def from_mudata(
     cls,
     mdata: MuData,
@@ -744,7 +747,7 @@ def from_mudata(
 
 
 @classmethod  # type: ignore
-@doc_args(Artifact.from_dir.__doc__)
+@doc_args(_Artifact.from_dir.__doc__)
 def from_dir(
     cls,
     path: UPathStr,
@@ -904,9 +907,7 @@ def replace(
 # docstring handled through attach_func_to_class_method
 def open(
     self, mode: str = "r", is_run_input: bool | None = None
-) -> (
-    AnnDataAccessor | BackedAccessor | SOMACollection | SOMAExperiment | PyArrowDataset
-):
+) -> AnnDataAccessor | BackedAccessor | SOMACollection | SOMAExperiment | PyArrowDataset:
     # ignore empty suffix for now
     suffixes = ("", ".h5", ".hdf5", ".h5ad", ".zarr", ".tiledbsoma") + PYARROW_SUFFIXES
     if self.suffix not in suffixes:
@@ -1144,7 +1145,7 @@ def _save_skip_storage(file, **kwargs) -> None:
 
 
 @property  # type: ignore
-@doc_args(Artifact.path.__doc__)
+@doc_args(_Artifact.path.__doc__)
 def path(self) -> Path | UPath:
     """{}"""  # noqa: D415
     # return only the path, without StorageSettings
@@ -1169,6 +1170,8 @@ def restore(self) -> None:
     self.save()
 
 
+# === attempt to clean up all the monkeypatching ======================
+
 METHOD_NAMES = [
     "__init__",
     "from_anndata",
@@ -1188,18 +1191,159 @@ if ln_setup._TESTING:
     from inspect import signature
 
     SIGS = {
-        name: signature(getattr(Artifact, name))
+        name: signature(getattr(_Artifact, name))
         for name in METHOD_NAMES
         if name != "__init__"
     }
 
-for name in METHOD_NAMES:
-    attach_func_to_class_method(name, Artifact, globals())
 
-# privates currently dealt with separately
-Artifact._delete_skip_storage = _delete_skip_storage
-Artifact._save_skip_storage = _save_skip_storage
-Artifact._cache_path = _cache_path
-Artifact.path = path
-Artifact.describe = describe
-Artifact.view_lineage = view_lineage
+# --- undo monkey patching ----------------------------------------------------
+# the following 3 helpers would go away if the monkeypatched methods defined
+# above would be integrated into the artifact class.
+
+def recast_model_instance(obj, django_model, lamin_class):
+    # check if a cast from the orm instance to Artifact is required
+    if isinstance(obj, django_model):
+        return lamin_class._from_model(obj)
+    elif (
+        isinstance(obj, (list, tuple))
+        and all(isinstance(x, django_model) for x in obj)
+    ):
+        return type(obj)(map(lamin_class._from_model, obj))
+    else:
+        return obj
+
+
+def recast_decorator(lamin_cls):
+    """used for decorating delegated classmethods"""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            obj = func(*args, **kwargs)
+            return recast_model_instance(
+                obj, django_model=lamin_cls.model_cls, lamin_class=lamin_cls
+            )
+        return wrapper
+    return decorator
+
+
+def redirect_super_decorator(func):
+    """used for recovering super usage in methods above"""
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        def super(_cls, _inst):
+            return self.model
+        return func(self, *args, **kwargs)
+    return wrapper
+
+
+class ArtifactMeta(type):
+    """
+    This metaclass would be obsolete if the class interface would be clearly
+    defined in the Artifact class below
+    """
+
+    def __getattr__(cls, item):
+        """
+        If functionality is not found on class instance, we delegate to
+        the model class.
+        """
+        model_cls = cls.model_cls
+        obj = getattr(model_cls, item)
+
+        if isinstance(obj, (FunctionType, MethodType)):
+            return recast_decorator(cls)(obj)
+
+        else:
+            return recast_model_instance(
+                obj, django_model=model_cls, lamin_class=cls
+            )
+
+
+# Note: the __init__ function defined above should just be moved into
+#   the class body of the Artifact class, to keep the diff of this
+#   patch small we keep a reference under a different name
+_model_init = __init__
+del __init__
+
+
+class Artifact(metaclass=ArtifactMeta):
+    """this is a class fully controlled by lamin
+
+    All the dynamically assigned methods in here could be moved to this class body.
+
+    """
+
+    # === provide access to the underlying orm model and model class ==========
+
+    model_cls = _Artifact
+
+    @property
+    def model(self) -> _Artifact:
+        """provide direct access to the orm"""
+        return self._model
+
+    # === provide the Artifact constructor and a db instance based one ========
+
+    def __init__(self, *args, **kwargs) -> None:
+        """
+        Provide the old ln.Artifact.__init__ interface by reusing the
+        __init__ function defined further up in this module.
+
+        Note: This is to just keep the diff for this POC minimal.
+          The __init__ method should just be moved here.
+        """
+        model = _Artifact.__new__(_Artifact)
+        _model_init.__get__(model)(*args, **kwargs)
+        self._model = model
+
+    @classmethod
+    def _from_model(cls, model: _Artifact) -> Artifact:
+        """
+        Alternative constructor to create the Artifact from a db model
+        """
+        if not isinstance(model, _Artifact):
+            raise TypeError("...")
+        obj = object.__new__(cls)
+        obj._model = model
+        return obj
+
+    # === add the methods defined further up in this module ===================
+
+    for method_name in METHOD_NAMES:
+        if method_name == "__init__":
+            continue  # have to treat this one extra
+
+        method = globals()[method_name]
+
+        # original
+        # >>> for name in METHOD_NAMES:
+        # >>>    attach_func_to_class_method(name, Artifact, globals())
+        method.__doc__ = getattr(_Artifact, method_name).__doc__
+
+        locals()[method_name] = method  # none of them return django models
+    del method_name, method
+
+    _delete_skip_storage = _delete_skip_storage
+    _save_skip_storage = _save_skip_storage
+    _cache_path = _cache_path
+    path = path
+    describe = describe
+    view_lineage = view_lineage
+
+    def __repr__(self) -> str:
+        return record_repr(self.model)
+
+    # === delegate attribute access to the Artifact ORM model instance ========
+
+    def __getattr__(self, item: str):
+        """
+        If functionality is not found on this instance, we delegate to
+        the model instance.
+        """
+        obj = getattr(self._model, item)
+
+        # check if a cast from the orm instance to Artifact is required
+        return recast_model_instance(
+            obj, django_model=type(self).model_cls, lamin_class=type(self)
+        )

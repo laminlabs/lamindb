@@ -148,6 +148,11 @@ class QuerySet(models.QuerySet):
         >>> queryset
     """
 
+    def __init__(self, model=None, query=None, using=None, hints=None):
+        if not issubclass(model, Record) and hasattr(model, "model_cls"):
+            model = model.model_cls
+        super().__init__(model, query, using, hints)
+
     @doc_args(Record.df.__doc__)
     def df(
         self, include: str | list[str] | None = None, join: str = "inner"
