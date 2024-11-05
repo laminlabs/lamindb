@@ -65,7 +65,7 @@ def suggest_records_with_similar_names(record: Record, name_field: str, kwargs) 
 
     Logs similar matches if found.
     """
-    if kwargs.get(name_field) is None:
+    if kwargs.get(name_field) is None or not isinstance(kwargs.get(name_field), str):
         return False
     queryset = _search(
         record.__class__,
