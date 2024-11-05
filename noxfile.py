@@ -96,6 +96,7 @@ def install_ci(session, group):
     elif group == "unit-storage":
         extras += "aws,zarr,bionty"
         run(session, "uv pip install --system tiledbsoma")
+        run(session, "uv pip install --system huggingface_hub")
     elif group == "tutorial":
         extras += "aws,jupyter,bionty"
     elif group == "guide":
