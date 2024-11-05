@@ -102,12 +102,9 @@ def __init__(record: Record, *args, **kwargs):
         if "_has_consciously_provided_uid" in kwargs:
             has_consciously_provided_uid = kwargs.pop("_has_consciously_provided_uid")
         if settings.creation.search_names and not has_consciously_provided_uid:
-            try:
-                name_field = get_name_field(registry=record.__class__)
-            except ValueError:
-                name_field = "name"
-            if name_field is None:
-                name_field = "name"
+            name_field = (
+                "name" if not hasattr(record, "_name_field") else record._name_field
+            )
             match = suggest_records_with_similar_names(record, name_field, kwargs)
             if match:
                 if "version" in kwargs:
