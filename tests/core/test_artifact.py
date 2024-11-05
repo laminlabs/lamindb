@@ -897,3 +897,22 @@ def test_bulk_delete():
     assert not report_path.exists()
     assert not _source_code_artifact_path.exists()
     assert not environment_path.exists()
+
+
+def test_huggingface_links():
+    artifact_adata = ln.Artifact(
+        "hf://datasets/Koncopd/lamindb-test@main/anndata/pbmc68k_test.h5ad"
+    )
+    artifact_adata.save()
+    assert isinstance(artifact_adata.load(), ad.AnnData)
+    assert artifact_adata._cache_path.exists()
+    artifact_adata._cache_path.unlink()
+
+    artifact_pq = ln.Artifact("hf://datasets/Koncopd/lamindb-test/sharded_parquet")
+    artifact_pq.save()
+    assert len(artifact_pq.open().files) == 11
+    assert artifact_pq.cache().is_dir()
+    shutil.rmtree(artifact_pq._cache_path)
+
+    artifact_adata.delete(permanent=True)
+    artifact_pq.delete(permanent=True)
