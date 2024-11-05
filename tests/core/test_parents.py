@@ -13,6 +13,26 @@ def test_view_parents():
     label2.delete()
 
 
+def test_query_parents_children():
+    label1 = ln.ULabel(name="label1")
+    label2 = ln.ULabel(name="label2")
+    label3 = ln.ULabel(name="label3")
+    label1.save()
+    label2.save()
+    label3.save()
+    label1.children.add(label2)
+    label2.children.add(label3)
+    parents = label3.query_parents()
+    assert len(parents) == 2
+    assert label1 in parents and label2 in parents
+    children = label1.query_children()
+    assert len(children) == 2
+    assert label2 in children and label3 in children
+    label1.delete()
+    label2.delete()
+    label3.delete()
+
+
 def test_add_emoji():
     record = ln.Transform(type="app")
     assert _add_emoji(record, label="transform") == "🖥️ transform"

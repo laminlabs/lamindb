@@ -4,7 +4,7 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "lamindb"
-requires-python = ">=3.9"
+requires-python = ">=3.9,<3.13"
 authors = [{name = "Lamin Labs", email = "open-source@lamin.ai"}]
 readme = "README.md"
 dynamic = ["version", "description"]
@@ -12,10 +12,11 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
     # Lamin PINNED packages
-    "lnschema_core==0.76.0",
+    "lnschema_core==0.76.1",
     "lamin_utils==0.13.7",
     "lamin_cli==0.20.1",
     # PINNED in lamin-cli
@@ -57,6 +58,24 @@ fcs = [
 ]
 erdiagram = [
     "django-schema-graph",
+]
+wetlab = [
+    "wetlab"
+]
+findrefs = [
+    "findrefs"
+]
+clinicore = [
+    "clinicore"
+]
+cellregistry = [
+    "cellregistry"
+]
+omop = [
+    "omop"
+]
+ourprojects = [
+    "ourprojects"
 ]
 dev = [
     # basic test
