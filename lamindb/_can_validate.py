@@ -450,22 +450,20 @@ def _standardize(
         if len(std_names_bt_mapper) > 0 and not mute:
             s = "" if len(std_names_bt_mapper) == 1 else "s"
             field_print = "synonym" if field == return_field else field
+
+            reduced_mapped_keys_str = f"{list(std_names_bt_mapper.keys())[:10] + ['...'] if len(std_names_bt_mapper) > 10 else list(std_names_bt_mapper.keys())}"
+            truncated_note = (
+                " (output truncated)" if len(std_names_bt_mapper) > 10 else ""
+            )
+
             warn_msg = (
-                f"found {len(std_names_bt_mapper)} {field_print}{s} in Bionty: "
-                f"{list(std_names_bt_mapper.keys())[:10]}{'...' if len(std_names_bt_mapper) > 10 else ''}. Saving to instance..."
+                f"found {len(std_names_bt_mapper)} {field_print}{s} in Bionty{truncated_note}:"
+                f" {reduced_mapped_keys_str}\n"
+                f"  please add corresponding {registry._meta.model.__name__} records via{truncated_note}"
+                f" `.from_values({reduced_mapped_keys_str})`"
             )
 
             logger.warning(warn_msg)
-
-            # Save all records found in public that are not yet in the instance
-            public_records = [
-                registry.from_source(**{return_field: val}, organism=organism)
-                for val in std_names_bt_mapper.values()
-            ]
-
-            from lamindb._save import save
-
-            save(public_records)
 
         mapper.update(std_names_bt_mapper)
         if pd.api.types.is_categorical_dtype(std_names_db):
