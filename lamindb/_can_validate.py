@@ -108,16 +108,14 @@ def _check_organism_db(organism: Record, using_key: str | None):
 
 def _concat_lists(values: ListLike) -> list[str]:
     """Concatenate a list of lists of strings into a single list."""
-    if len(values) > 0 and isinstance(values, (list, pd.Series)):
-        try:
-            if values and isinstance(values, (list, pd.Series)):
-                first_item = values[0] if isinstance(values, list) else values.iloc[0]
-                if isinstance(first_item, list):
-                    if isinstance(values, pd.Series):
-                        values = values.tolist()
-                    values = sum([v for v in values if isinstance(v, list)], [])
-        except KeyError:
-            pass
+    if isinstance(values, (list, pd.Series)) and len(values) > 0:
+        first_item = values[0] if isinstance(values, list) else values.iloc[0]
+        if isinstance(first_item, list):
+            if isinstance(values, pd.Series):
+                values = values.tolist()
+            values = [
+                v for sublist in values if isinstance(sublist, list) for v in sublist
+            ]
     return values
 
 
