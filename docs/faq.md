@@ -13,4 +13,5 @@ faq/key
 faq/visibility
 faq/delete
 faq/keep-artifacts-local
+faq/symbol_mapping
 ```
