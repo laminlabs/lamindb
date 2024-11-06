@@ -96,6 +96,7 @@ def install_ci(session, group):
     elif group == "guide":
         extras += "aws,bionty,zarr,jupyter"
         run(session, "uv pip install --system scanpy")
+        run(session, "uv pip install --system huggingface_hub")
     elif group == "biology":
         extras += "bionty,fcs,jupyter"
         run(session, "uv pip install --system ipywidgets")
