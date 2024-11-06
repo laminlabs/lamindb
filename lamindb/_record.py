@@ -260,12 +260,27 @@ def _search(
     for field in fields:
         exact_expression |= Q(**{f"{field}__{case_sensitive_i}exact": string})
 
-    # Layer 2: Contains full phrase
+    # Layer 2: Contains the isolated phrase (prioritize names ending with the search phrase)
+    iso_phrase_expression = Q()
+    for field in fields:
+        iso_phrase_expression |= Q(
+            **{f"{field}__{case_sensitive_i}contains": f" {string}"}
+        )
+        iso_phrase_expression |= Q(
+            **{f"{field}__{case_sensitive_i}contains": f"{string} "}
+        )
+        iso_phrase_expression |= Q(
+            **{f"{field}__{case_sensitive_i}contains": f" {string} "}
+        )
+        iso_phrase_expression |= Q(**{f"{field}__{case_sensitive_i}startswith": string})
+        iso_phrase_expression |= Q(**{f"{field}__{case_sensitive_i}endswith": string})
+
+    # Layer 3: Contains full phrase as a phrase
     phrase_expression = Q()
     for field in fields:
         phrase_expression |= Q(**{f"{field}__{case_sensitive_i}contains": string})
 
-    # Layer 3: Contains individual terms and pairs
+    # Layer 4: Contains individual terms and pairs
     terms_expression = Q()
     for field in fields:
         for term in search_terms:
@@ -276,20 +291,27 @@ def _search(
         ordering=Value(1, output_field=IntegerField())
     )
 
-    phrase_matches = input_queryset.filter(
-        phrase_expression & ~Q(pk__in=exact_matches.values("pk"))
+    iso_phrase_matches = input_queryset.filter(
+        iso_phrase_expression & ~Q(pk__in=exact_matches.values("pk"))
     ).annotate(ordering=Value(2, output_field=IntegerField()))
+
+    phrase_matches = input_queryset.filter(
+        phrase_expression
+        & ~Q(pk__in=exact_matches.values("pk"))
+        & ~Q(pk__in=iso_phrase_matches.values("pk"))
+    ).annotate(ordering=Value(3, output_field=IntegerField()))
 
     term_matches = input_queryset.filter(
         terms_expression
         & ~Q(pk__in=exact_matches.values("pk"))
+        & ~Q(pk__in=iso_phrase_matches.values("pk"))
         & ~Q(pk__in=phrase_matches.values("pk"))
-    ).annotate(ordering=Value(3, output_field=IntegerField()))
+    ).annotate(ordering=Value(4, output_field=IntegerField()))
 
     # Combine results maintaining priority order
-    combined_queryset = exact_matches.union(phrase_matches, term_matches).order_by(
-        "ordering"
-    )
+    combined_queryset = exact_matches.union(
+        iso_phrase_matches, phrase_matches, term_matches
+    ).order_by("ordering")
 
     if limit is not None:
         combined_queryset = combined_queryset[:limit]
