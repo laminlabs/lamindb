@@ -112,8 +112,7 @@ def _concat_lists(values: ListLike) -> list[str]:
         try:
             if isinstance(values, pd.Series):
                 values = values.tolist()
-            if all(isinstance(v, list) for v in values):
-                values = sum(values, [])
+            values = sum([v for v in values if isinstance(v, list)], [])
         except KeyError:
             pass
     return values
