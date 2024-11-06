@@ -219,7 +219,25 @@ def _search(
             else:
                 fields.append(field)
 
-    # decompose search string
+    def tokenize_search_string(search_str: str) -> list[str]:
+        # Split the string
+        terms = str(search_str).split()
+        result_terms = set()
+
+        # Add original terms
+        result_terms.update(terms)
+
+        # Add adjacent pairs to maintain context
+        for i in range(len(terms) - 1):
+            pair = f"{terms[i]} {terms[i+1]}"
+            result_terms.add(pair)
+
+        # Add the full search string
+        if search_str.strip():
+            result_terms.add(search_str)
+
+        return list(result_terms)
+
     def truncate_word(word) -> str:
         if len(word) > 5:
             n_80_pct = int(len(word) * 0.8)
@@ -229,37 +247,53 @@ def _search(
         else:
             return word
 
-    decomposed_string = str(string).split()
-    # add the entire string back
-    decomposed_string += [string]
-    for word in decomposed_string:
-        # will not search against words with 3 or fewer characters
-        if len(word) <= 3:
-            decomposed_string.remove(word)
+    # Get search terms
+    search_terms = tokenize_search_string(string)
     if truncate_words:
-        decomposed_string = [truncate_word(word) for word in decomposed_string]
-    # construct the query
-    expression = Q()
+        search_terms = [truncate_word(word) for word in search_terms]
+
+    # Build layered queries for better ranking
     case_sensitive_i = "" if case_sensitive else "i"
+
+    # Layer 1: Exact matches (highest priority)
+    exact_expression = Q()
     for field in fields:
-        for word in decomposed_string:
-            query = {f"{field}__{case_sensitive_i}contains": word}
-            expression |= Q(**query)
-    output_queryset = input_queryset.filter(expression)
-    # ensure exact matches are at the top
-    narrow_expression = Q()
+        exact_expression |= Q(**{f"{field}__{case_sensitive_i}exact": string})
+
+    # Layer 2: Contains full phrase
+    phrase_expression = Q()
     for field in fields:
-        query = {f"{field}__{case_sensitive_i}contains": string}
-        narrow_expression |= Q(**query)
-    refined_output_queryset = output_queryset.filter(narrow_expression).annotate(
+        phrase_expression |= Q(**{f"{field}__{case_sensitive_i}contains": string})
+
+    # Layer 3: Contains individual terms and pairs
+    terms_expression = Q()
+    for field in fields:
+        for term in search_terms:
+            terms_expression |= Q(**{f"{field}__{case_sensitive_i}contains": term})
+
+    # Combine queries with priority ranking
+    exact_matches = input_queryset.filter(exact_expression).annotate(
         ordering=Value(1, output_field=IntegerField())
     )
-    remaining_output_queryset = output_queryset.exclude(narrow_expression).annotate(
-        ordering=Value(2, output_field=IntegerField())
+
+    phrase_matches = input_queryset.filter(
+        phrase_expression & ~Q(pk__in=exact_matches.values("pk"))
+    ).annotate(ordering=Value(2, output_field=IntegerField()))
+
+    term_matches = input_queryset.filter(
+        terms_expression
+        & ~Q(pk__in=exact_matches.values("pk"))
+        & ~Q(pk__in=phrase_matches.values("pk"))
+    ).annotate(ordering=Value(3, output_field=IntegerField()))
+
+    # Combine results maintaining priority order
+    combined_queryset = exact_matches.union(phrase_matches, term_matches).order_by(
+        "ordering"
     )
-    combined_queryset = refined_output_queryset.union(
-        remaining_output_queryset
-    ).order_by("ordering")[:limit]
+
+    if limit is not None:
+        combined_queryset = combined_queryset[:limit]
+
     return combined_queryset
 
 
