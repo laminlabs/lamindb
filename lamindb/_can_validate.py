@@ -110,10 +110,12 @@ def _concat_lists(values: ListLike) -> list[str]:
     """Concatenate a list of lists of strings into a single list."""
     if len(values) > 0 and isinstance(values, (list, pd.Series)):
         try:
-            if isinstance(values, pd.Series):
-                values = values.tolist()
-            if isinstance(values[0], list):
-                values = sum([v for v in values if isinstance(v, list)], [])
+            if values and isinstance(values, (list, pd.Series)):
+                first_item = values[0] if isinstance(values, list) else values.iloc[0]
+                if isinstance(first_item, list):
+                    if isinstance(values, pd.Series):
+                        values = values.tolist()
+                    values = sum([v for v in values if isinstance(v, list)], [])
         except KeyError:
             pass
     return values
