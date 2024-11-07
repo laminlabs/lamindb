@@ -7,11 +7,13 @@ from anndata._io.specs.registry import get_spec
 from lnschema_core import Artifact
 
 from ._anndata_accessor import AnnDataAccessor, StorageType, registry
+from ._pyarrow_dataset import _is_pyarrow_dataset, _open_pyarrow_dataset
 from ._tiledbsoma import _open_tiledbsoma
 from .paths import filepath_from_artifact
 
 if TYPE_CHECKING:
     from fsspec.core import OpenFile
+    from pyarrow.dataset import Dataset as PyArrowDataset
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
     from upath import UPath
@@ -67,22 +69,28 @@ def backed_access(
     artifact_or_filepath: Artifact | UPath,
     mode: str = "r",
     using_key: str | None = None,
-) -> AnnDataAccessor | BackedAccessor | SOMACollection | SOMAExperiment:
+) -> (
+    AnnDataAccessor | BackedAccessor | SOMACollection | SOMAExperiment | PyArrowDataset
+):
     if isinstance(artifact_or_filepath, Artifact):
-        filepath, _ = filepath_from_artifact(artifact_or_filepath, using_key=using_key)
+        objectpath, _ = filepath_from_artifact(
+            artifact_or_filepath, using_key=using_key
+        )
     else:
-        filepath = artifact_or_filepath
-    name = filepath.name
-    suffix = filepath.suffix
+        objectpath = artifact_or_filepath
+    name = objectpath.name
+    suffix = objectpath.suffix
 
     if name == "soma" or suffix == ".tiledbsoma":
         if mode not in {"r", "w"}:
             raise ValueError("`mode` should be either 'r' or 'w' for tiledbsoma.")
-        return _open_tiledbsoma(filepath, mode=mode)  # type: ignore
+        return _open_tiledbsoma(objectpath, mode=mode)  # type: ignore
     elif suffix in {".h5", ".hdf5", ".h5ad"}:
-        conn, storage = registry.open("h5py", filepath, mode=mode)
+        conn, storage = registry.open("h5py", objectpath, mode=mode)
     elif suffix == ".zarr":
-        conn, storage = registry.open("zarr", filepath, mode=mode)
+        conn, storage = registry.open("zarr", objectpath, mode=mode)
+    elif _is_pyarrow_dataset(objectpath):
+        return _open_pyarrow_dataset(objectpath)
     else:
         raise ValueError(
             "object should have .h5, .hdf5, .h5ad, .zarr, .tiledbsoma suffix, not"

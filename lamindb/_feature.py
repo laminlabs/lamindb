@@ -8,10 +8,9 @@ from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import Artifact, Feature
 from pandas.api.types import CategoricalDtype, is_string_dtype
 
-from lamindb._utils import attach_func_to_class_method
-from lamindb.core._settings import settings
-
 from ._query_set import RecordsList
+from ._utils import attach_func_to_class_method
+from .core._settings import settings
 from .core.schema import dict_schema_name_to_model_name
 
 if TYPE_CHECKING:

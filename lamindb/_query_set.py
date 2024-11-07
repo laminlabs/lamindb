@@ -20,7 +20,7 @@ from lnschema_core.models import (
     VisibilityChoice,
 )
 
-from lamindb.core.exceptions import DoesNotExist
+from .core.exceptions import DoesNotExist
 
 if TYPE_CHECKING:
     from collections.abc import Iterable

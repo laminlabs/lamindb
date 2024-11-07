@@ -97,7 +97,7 @@ def mock_transform():
     return mock_transform
 
 
-def test_df_annotator(df, categoricals):
+def test_df_curator(df, categoricals):
     curator = ln.Curator.from_df(df, categoricals=categoricals)
     validated = curator.validate()
     assert validated is False
@@ -214,7 +214,7 @@ def test_clean_up_failed_runs():
 
 
 @pytest.mark.parametrize("to_add", ["donor", "all"])
-def test_anndata_annotator(adata, categoricals, to_add):
+def test_anndata_curator(adata, categoricals, to_add):
     curator = ln.Curator.from_anndata(
         adata,
         categoricals=categoricals,
@@ -264,7 +264,7 @@ def test_no_categoricals(adata):
     assert validated
 
 
-def test_anndata_annotator_wrong_type(df, categoricals):
+def test_anndata_curator_wrong_type(df, categoricals):
     with pytest.raises(ValueError) as error:
         ln.Curator.from_anndata(
             df,
@@ -312,7 +312,7 @@ def test_unvalidated_adata_object(adata, categoricals):
     assert "Dataset does not validate. Please curate." in str(error.value)
 
 
-def test_mudata_annotator(mdata):
+def test_mudata_curator(mdata):
     categoricals = {
         "rna:cell_type": bt.CellType.name,
         "rna:assay_ontology_id": bt.ExperimentalFactor.ontology_id,

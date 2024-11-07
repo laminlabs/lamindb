@@ -15,8 +15,8 @@ from lamin_utils import logger
 from lamindb_setup.core.upath import LocalPathClasses
 from lnschema_core.models import Artifact, Record
 
-from lamindb.core._settings import settings
-from lamindb.core.storage.paths import (
+from .core._settings import settings
+from .core.storage.paths import (
     _cache_key_from_artifact_storage,
     attempt_accessing_path,
     auto_storage_key_from_artifact,

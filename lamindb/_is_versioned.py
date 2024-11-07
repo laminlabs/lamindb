@@ -5,8 +5,7 @@ from lamin_utils import logger
 from lamindb_setup.core.upath import UPath
 from lnschema_core.models import IsVersioned
 
-from lamindb._utils import attach_func_to_class_method
-
+from ._utils import attach_func_to_class_method
 from .core.versioning import create_uid, get_new_path_from_uid
 
 

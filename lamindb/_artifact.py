@@ -28,38 +28,40 @@ from lnschema_core.types import (
     VisibilityChoice,
 )
 
-from lamindb._utils import attach_func_to_class_method
-from lamindb.core._data import _track_run_input, describe, view_lineage
-from lamindb.core._settings import settings
-from lamindb.core.exceptions import IntegrityError, InvalidArgument
-from lamindb.core.loaders import load_to_memory
-from lamindb.core.storage import (
+from ._utils import attach_func_to_class_method
+from .core._data import (
+    _track_run_input,
+    add_transform_to_kwargs,
+    describe,
+    get_run,
+    save_feature_set_links,
+    save_feature_sets,
+    view_lineage,
+)
+from .core._settings import settings
+from .core.exceptions import IntegrityError, InvalidArgument
+from .core.loaders import load_to_memory
+from .core.storage import (
     LocalPathClasses,
     UPath,
     delete_storage,
     infer_suffix,
     write_to_disk,
 )
-from lamindb.core.storage.paths import (
+from .core.storage._pyarrow_dataset import PYARROW_SUFFIXES
+from .core.storage.objects import _mudata_is_installed
+from .core.storage.paths import (
+    AUTO_KEY_PREFIX,
     auto_storage_key_from_artifact,
     auto_storage_key_from_artifact_uid,
     check_path_is_child_of_root,
     filepath_cache_key_from_artifact,
     filepath_from_artifact,
 )
-from lamindb.core.versioning import (
+from .core.versioning import (
     create_uid,
     message_update_key_in_version_family,
 )
-
-from .core._data import (
-    add_transform_to_kwargs,
-    get_run,
-    save_feature_set_links,
-    save_feature_sets,
-)
-from .core.storage.objects import _mudata_is_installed
-from .core.storage.paths import AUTO_KEY_PREFIX
 
 try:
     from .core.storage._zarr import zarr_is_adata
@@ -72,6 +74,7 @@ except ImportError:
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
     from mudata import MuData
+    from pyarrow.dataset import Dataset as PyArrowDataset
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
 
@@ -108,7 +111,12 @@ def process_pathlike(
             # for the storage root: the bucket
             if not isinstance(filepath, LocalPathClasses):
                 # for a cloud path, new_root is always the bucket name
-                new_root = list(filepath.parents)[-1]
+                if filepath.protocol == "hf":
+                    hf_path = filepath.fs.resolve_path(filepath.as_posix())
+                    hf_path.path_in_repo = ""
+                    new_root = "hf://" + hf_path.unresolve()
+                else:
+                    new_root = list(filepath.parents)[-1]
                 # do not register remote storage locations on hub if the current instance
                 # is not managed on the hub
                 storage_settings, _ = init_storage(
@@ -210,9 +218,9 @@ def get_stat_or_artifact(
         if stat is not None:
             # convert UPathStatResult to fsspec info dict
             stat = stat.as_info()
-            if "ETag" in stat:  # is file
+            if (store_type := stat["type"]) == "file":
                 size, hash, hash_type = get_stat_file_cloud(stat)
-            elif stat["type"] == "directory":
+            elif store_type == "directory":
                 size, hash, hash_type, n_objects = get_stat_dir_cloud(path)
         if hash is None:
             logger.warning(f"did not add hash for {path}")
@@ -237,7 +245,7 @@ def get_stat_or_artifact(
             .order_by("-created_at")
             .all()
         )
-        artifact_with_same_hash_exists = len(result.filter(hash=hash).all()) > 0
+        artifact_with_same_hash_exists = result.filter(hash=hash).count() > 0
         if not artifact_with_same_hash_exists and len(result) > 0:
             logger.important(
                 f"creating new artifact version for key='{key}' (storage: '{settings.storage.root_as_str}')"
@@ -772,19 +780,14 @@ def from_dir(
     else:
         folder_key_path = Path(key)
 
-    # always sanitize by stripping a trailing slash
-    folder_key = folder_key_path.as_posix().rstrip("/")
-
-    # TODO: (non-local) UPath doesn't list the first level artifacts and dirs with "*"
-    pattern = "" if not isinstance(folderpath, LocalPathClasses) else "*"
-
+    folder_key = folder_key_path.as_posix()
     # silence fine-grained logging
     verbosity = settings.verbosity
     verbosity_int = settings._verbosity_int
     if verbosity_int >= 1:
         settings.verbosity = "warning"
     artifacts_dict = {}
-    for filepath in folderpath.rglob(pattern):
+    for filepath in folderpath.rglob("*"):
         if filepath.is_file():
             relative_path = get_relative_path_to_directory(filepath, folderpath)
             artifact_key = folder_key + "/" + relative_path.as_posix()
@@ -802,7 +805,8 @@ def from_dir(
         if artifact.hash is not None
     ]
     uids = artifacts_dict.keys()
-    if len(set(hashes)) == len(hashes):
+    n_unique_hashes = len(set(hashes))
+    if n_unique_hashes == len(hashes):
         artifacts = list(artifacts_dict.values())
     else:
         # consider exact duplicates (same id, same hash)
@@ -811,7 +815,7 @@ def from_dir(
         #     logger.warning("dropping duplicate records in list of artifact records")
         #     artifacts = list(set(uids))
         # consider false duplicates (different id, same hash)
-        if not len(set(uids)) == len(set(hashes)):
+        if not len(set(uids)) == n_unique_hashes:
             seen_hashes = set()
             non_unique_artifacts = {
                 hash: artifact
@@ -905,14 +909,19 @@ def replace(
 # docstring handled through attach_func_to_class_method
 def open(
     self, mode: str = "r", is_run_input: bool | None = None
-) -> AnnDataAccessor | BackedAccessor | SOMACollection | SOMAExperiment:
+) -> (
+    AnnDataAccessor | BackedAccessor | SOMACollection | SOMAExperiment | PyArrowDataset
+):
     # ignore empty suffix for now
-    suffixes = (".h5", ".hdf5", ".h5ad", ".zarr", ".tiledbsoma", "")
+    suffixes = ("", ".h5", ".hdf5", ".h5ad", ".zarr", ".tiledbsoma") + PYARROW_SUFFIXES
     if self.suffix not in suffixes:
         raise ValueError(
-            "Artifact should have a zarr, h5 or tiledbsoma object as the underlying data, please"
-            " use one of the following suffixes for the object name:"
-            f" {', '.join(suffixes[:-1])}."
+            "Artifact should have a zarr, h5, tiledbsoma object"
+            " or a compatible `pyarrow.dataset.dataset` directory"
+            " as the underlying data, please use one of the following suffixes"
+            f" for the object name: {', '.join(suffixes[1:])}."
+            f" Or no suffix for a folder with {', '.join(PYARROW_SUFFIXES)} files"
+            " (no mixing allowed)."
         )
     if self.suffix != ".tiledbsoma" and self.key != "soma" and mode != "r":
         raise ValueError("Only a tiledbsoma store can be openened with `mode!='r'`.")

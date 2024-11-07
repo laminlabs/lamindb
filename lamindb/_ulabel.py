@@ -6,7 +6,7 @@ import lamindb_setup as ln_setup
 from lamindb_setup.core._docs import doc_args
 from lnschema_core import ULabel
 
-from lamindb._utils import attach_func_to_class_method
+from ._utils import attach_func_to_class_method
 
 if TYPE_CHECKING:
     from lnschema_core.types import ListLike
