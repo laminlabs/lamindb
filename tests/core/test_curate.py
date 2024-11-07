@@ -244,6 +244,17 @@ def test_anndata_curator(adata, categoricals, to_add):
     bt.CellType.filter().delete()
 
 
+def test_str_var_index(adata):
+    with pytest.raises(
+        ValueError, match="var_index parameter has to be a bionty field"
+    ):
+        _ = ln.Curator.from_anndata(
+            adata,
+            var_index="symbol",
+            organism="human",
+        )
+
+
 def test_no_categoricals(adata):
     curator = ln.Curator.from_anndata(
         adata,
@@ -255,31 +266,31 @@ def test_no_categoricals(adata):
 
 
 def test_anndata_curator_wrong_type(df, categoricals):
-    with pytest.raises(ValueError) as error:
+    with pytest.raises(ValueError, match="data has to be an AnnData object"):
         ln.Curator.from_anndata(
             df,
             categoricals=categoricals,
             var_index=bt.Gene.symbol,
             organism="human",
         )
-    assert "data has to be an AnnData object" in str(error.value)
 
 
 def test_categorical_key_not_present(df):
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(
+        ValidationError,
+        match="the following keys passed to categoricals are not allowed:",
+    ):
         ln.Curator.from_df(
             df,
             categoricals={"not present": None},
             organism="human",
         )
 
-    assert "the following keys passed to categoricals are not allowed:" in str(
-        error.value
-    )
-
 
 def test_source_key_not_present(adata, categoricals):
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(
+        ValidationError, match="the following keys passed to sources are not allowed:"
+    ):
         ln.Curator.from_anndata(
             adata,
             categoricals=categoricals,
@@ -287,7 +298,6 @@ def test_source_key_not_present(adata, categoricals):
             sources={"not_present": None},
             organism="human",
         )
-    assert "the following keys passed to sources are not allowed:" in str(error.value)
 
 
 def test_unvalidated_adata_object(adata, categoricals):
@@ -297,9 +307,10 @@ def test_unvalidated_adata_object(adata, categoricals):
         var_index=bt.Gene.symbol,
         organism="human",
     )
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(
+        ValidationError, match="Dataset does not validate. Please curate."
+    ):
         curator.save_artifact()
-    assert "Dataset does not validate. Please curate." in str(error.value)
 
 
 def test_mudata_curator(mdata):
