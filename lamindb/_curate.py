@@ -455,7 +455,6 @@ class AnnDataCurator(DataFrameCurator):
             self._adata = backed_access(upath.create_path(data))
 
         self._data = data
-
         self._var_field = var_index
         super().__init__(
             df=self._adata.obs,
