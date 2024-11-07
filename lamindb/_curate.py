@@ -437,14 +437,14 @@ class AnnDataCurator(DataFrameCurator):
         from lamindb_setup.core import upath
 
         if isinstance(var_index, str):
-            raise ValueError("var_index parameter has to be a bionty field")
+            raise TypeError("var_index parameter has to be a bionty field")
 
         from ._artifact import data_is_anndata
 
         if sources is None:
             sources = {}
         if not data_is_anndata(data):
-            raise ValueError(
+            raise TypeError(
                 "data has to be an AnnData object or a path to AnnData-like"
             )
         if isinstance(data, ad.AnnData):

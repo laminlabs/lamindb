@@ -245,9 +245,7 @@ def test_anndata_curator(adata, categoricals, to_add):
 
 
 def test_str_var_index(adata):
-    with pytest.raises(
-        ValueError, match="var_index parameter has to be a bionty field"
-    ):
+    with pytest.raises(TypeError, match="var_index parameter has to be a bionty field"):
         _ = ln.Curator.from_anndata(
             adata,
             var_index="symbol",
@@ -266,7 +264,7 @@ def test_no_categoricals(adata):
 
 
 def test_anndata_curator_wrong_type(df, categoricals):
-    with pytest.raises(ValueError, match="data has to be an AnnData object"):
+    with pytest.raises(TypeError, match="data has to be an AnnData object"):
         ln.Curator.from_anndata(
             df,
             categoricals=categoricals,
