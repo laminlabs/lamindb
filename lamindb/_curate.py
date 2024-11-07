@@ -306,7 +306,6 @@ class DataFrameCurator(BaseCurator):
     def _update_registry_all(self, validated_only: bool = True, **kwargs):
         """Save labels for all features."""
         for name in self.fields.keys():
-            logger.info(f"saving validated records of '{name}'")
             self._update_registry(name, validated_only=validated_only, **kwargs)
 
     def validate(self, organism: str | None = None) -> bool:
@@ -513,10 +512,8 @@ class AnnDataCurator(DataFrameCurator):
 
     def _update_registry_all(self, validated_only: bool = True, **kwargs):
         """Save labels for all features."""
-        logger.info("saving validated records of 'var_index'")
         self._save_from_var_index(validated_only=validated_only, **self._kwargs)
         for name in self._obs_fields.keys():
-            logger.info(f"saving validated terms of '{name}'")
             self._update_registry(name, validated_only=validated_only, **self._kwargs)
 
     def add_new_from_var_index(self, organism: str | None = None, **kwargs):
@@ -1230,7 +1227,7 @@ def validate_categories(
     if n_non_validated == 0:
         if n_validated == 0:
             logger.indent = ""
-            logger.success(f"{key} is validated against {colors.italic(model_field)}")
+            logger.success(f"'{key}' is validated against {colors.italic(model_field)}")
             return True, []
         else:
             # validated values still need to be saved to the current instance
@@ -1506,9 +1503,14 @@ def update_registry(
 
         public_records = [r for r in existing_and_public_records if r._state.adding]
         # here we check to only save the public records if they are from the specified source
-        # we check the uid because r.source and soruce can be from different instances
+        # we check the uid because r.source and source can be from different instances
         if source:
             public_records = [r for r in public_records if r.source.uid == source.uid]
+
+        if public_records:
+            settings.verbosity = "info"
+            logger.info(f"saving validated records of '{key}'")
+            settings.verbosity = "error"
         ln_save(public_records)
         labels_saved["from public"] = [
             getattr(r, field.field.name) for r in public_records
