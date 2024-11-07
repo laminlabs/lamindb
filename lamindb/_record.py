@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import builtins
+from itertools import combinations
 from typing import TYPE_CHECKING, NamedTuple
 
 import dj_database_url
@@ -286,10 +287,19 @@ def _search(
             **{f"{field}__{case_sensitive_i}contains": f" {string} "}
         )
 
-    # Layer 4: Contains full phrase as a phrase
+    # Layer 4: Contains full phrase OR all terms
     phrase_expression = Q()
     for field in fields:
+        # Original phrase matching
         phrase_expression |= Q(**{f"{field}__{case_sensitive_i}contains": string})
+
+        # match for all individual terms appearing in any order
+        if len(search_terms) > 1:
+            all_terms_q = Q()
+            single_terms = [t for t in search_terms if len(t.split()) == 1]
+            for term in single_terms:
+                all_terms_q &= Q(**{f"{field}__{case_sensitive_i}contains": term})
+            phrase_expression |= all_terms_q
 
     # Layer 5: Contains individual terms and pairs
     terms_expression = Q()
@@ -333,7 +343,7 @@ def _search(
     ).annotate(
         **{
             "ordering": Value(4, output_field=IntegerField()),
-            "name_length": Length(name_field),
+            "name_length": Value(4, output_field=IntegerField()),
         }
     )
 
