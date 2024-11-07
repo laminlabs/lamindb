@@ -98,19 +98,19 @@ def mock_transform():
 
 
 def test_df_curator(df, categoricals):
-    curate = ln.Curator.from_df(df, categoricals=categoricals)
-    validated = curate.validate()
+    curator = ln.Curator.from_df(df, categoricals=categoricals)
+    validated = curator.validate()
     assert validated is False
 
-    cell_types = curate.lookup(public=True)["cell_type"]
+    cell_types = curator.lookup(public=True)["cell_type"]
     df["cell_type"] = df["cell_type"].replace(
         {"cerebral pyramidal neuron": cell_types.cerebral_cortex_pyramidal_neuron.name}
     )
-    curate.add_new_from("donor")
-    validated = curate.validate()
+    curator.add_new_from("donor")
+    validated = curator.validate()
     assert validated is True
 
-    artifact = curate.save_artifact(description="test-curate-df")
+    artifact = curator.save_artifact(description="test-curate-df")
 
     assert (
         artifact.cell_types.through.filter(artifact_id=artifact.id)
@@ -164,23 +164,23 @@ def test_custom_using_invalid_field_lookup(curate_lookup):
 
 
 def test_additional_args_with_all_key(df, categoricals):
-    curate = ln.Curator.from_df(df, categoricals=categoricals)
+    curator = ln.Curator.from_df(df, categoricals=categoricals)
     with pytest.raises(ValueError) as error:
-        curate.add_new_from("all", extra_arg="not_allowed")
+        curator.add_new_from("all", extra_arg="not_allowed")
     assert "Cannot pass additional arguments to 'all' key!" in str(error.value)
 
 
 def test_save_columns_not_defined_in_fields(df, categoricals):
-    curate = ln.Curator.from_df(df, categoricals=categoricals)
+    curator = ln.Curator.from_df(df, categoricals=categoricals)
     with pytest.raises(ValidationError) as error:
-        curate._update_registry("nonexistent")
+        curator._update_registry("nonexistent")
     assert "Feature nonexistent is not part of the fields!" in str(error.value)
 
 
 def test_unvalidated_data_object(df, categoricals):
-    curate = ln.Curator.from_df(df, categoricals=categoricals)
+    curator = ln.Curator.from_df(df, categoricals=categoricals)
     with pytest.raises(ValidationError) as error:
-        curate.save_artifact()
+        curator.save_artifact()
     assert "Dataset does not validate. Please curate." in str(error.value)
 
 
@@ -203,8 +203,8 @@ def test_clean_up_failed_runs():
 
     assert len(ln.Run.filter(transform=mock_transform).all()) == 2
 
-    curate = ln.Curator.from_df(pd.DataFrame())
-    curate.clean_up_failed_runs()
+    curator = ln.Curator.from_df(pd.DataFrame())
+    curator.clean_up_failed_runs()
 
     assert len(ln.Run.filter(transform=mock_transform).all()) == 1
 
@@ -215,17 +215,17 @@ def test_clean_up_failed_runs():
 
 @pytest.mark.parametrize("to_add", ["donor", "all"])
 def test_anndata_curator(adata, categoricals, to_add):
-    curate = ln.Curator.from_anndata(
+    curator = ln.Curator.from_anndata(
         adata,
         categoricals=categoricals,
         var_index=bt.Gene.symbol,
         organism="human",
     )
-    curate.add_new_from(to_add)
-    validated = curate.validate()
+    curator.add_new_from(to_add)
+    validated = curator.validate()
     assert validated
 
-    artifact = curate.save_artifact(description="test AnnData")
+    artifact = curator.save_artifact(description="test AnnData")
 
     assert set(artifact.features.get_values()["cell_type"]) == {
         "cerebral cortex pyramidal neuron",
@@ -244,42 +244,51 @@ def test_anndata_curator(adata, categoricals, to_add):
     bt.CellType.filter().delete()
 
 
+def test_str_var_index(adata):
+    with pytest.raises(TypeError, match="var_index parameter has to be a bionty field"):
+        _ = ln.Curator.from_anndata(
+            adata,
+            var_index="symbol",
+            organism="human",
+        )
+
+
 def test_no_categoricals(adata):
-    curate = ln.Curate.from_anndata(
+    curator = ln.Curator.from_anndata(
         adata,
         var_index=bt.Gene.symbol,
         organism="human",
     )
-    validated = curate.validate()
+    validated = curator.validate()
     assert validated
 
 
 def test_anndata_curator_wrong_type(df, categoricals):
-    with pytest.raises(ValueError) as error:
+    with pytest.raises(TypeError, match="data has to be an AnnData object"):
         ln.Curator.from_anndata(
             df,
             categoricals=categoricals,
             var_index=bt.Gene.symbol,
             organism="human",
         )
-    assert "data has to be an AnnData object" in str(error.value)
 
 
 def test_categorical_key_not_present(df):
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(
+        ValidationError,
+        match="the following keys passed to categoricals are not allowed:",
+    ):
         ln.Curator.from_df(
             df,
             categoricals={"not present": None},
             organism="human",
         )
 
-    assert "the following keys passed to categoricals are not allowed:" in str(
-        error.value
-    )
-
 
 def test_source_key_not_present(adata, categoricals):
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(
+        ValidationError, match="the following keys passed to sources are not allowed:"
+    ):
         ln.Curator.from_anndata(
             adata,
             categoricals=categoricals,
@@ -287,19 +296,19 @@ def test_source_key_not_present(adata, categoricals):
             sources={"not_present": None},
             organism="human",
         )
-    assert "the following keys passed to sources are not allowed:" in str(error.value)
 
 
 def test_unvalidated_adata_object(adata, categoricals):
-    curate = ln.Curator.from_anndata(
+    curator = ln.Curator.from_anndata(
         adata,
         categoricals=categoricals,
         var_index=bt.Gene.symbol,
         organism="human",
     )
-    with pytest.raises(ValidationError) as error:
-        curate.save_artifact()
-    assert "Dataset does not validate. Please curate." in str(error.value)
+    with pytest.raises(
+        ValidationError, match="Dataset does not validate. Please curate."
+    ):
+        curator.save_artifact()
 
 
 def test_mudata_curator(mdata):
@@ -312,16 +321,16 @@ def test_mudata_curator(mdata):
         "rna_2:donor": ln.ULabel.name,
     }
 
-    curate = ln.Curator.from_mudata(
+    curator = ln.Curator.from_mudata(
         mdata,
         categoricals=categoricals,
         var_index={"rna": bt.Gene.symbol, "rna_2": bt.Gene.symbol},
         organism="human",
     )
-    curate.add_new_from("donor", modality="rna")
-    validated = curate.validate()
+    curator.add_new_from("donor", modality="rna")
+    validated = curator.validate()
     assert validated
-    artifact = curate.save_artifact(description="test MuData")
+    artifact = curator.save_artifact(description="test MuData")
 
     # clean up
     artifact.delete(permanent=True)
