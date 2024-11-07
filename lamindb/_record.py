@@ -301,7 +301,7 @@ def _search(
     exact_matches = input_queryset.filter(exact_expression).annotate(
         **{
             "ordering": Value(1, output_field=IntegerField()),
-            "name_length": Length(name_field),
+            "name_length": Value(1, output_field=IntegerField()),
         }
     )
 
