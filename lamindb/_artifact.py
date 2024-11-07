@@ -218,9 +218,9 @@ def get_stat_or_artifact(
         if stat is not None:
             # convert UPathStatResult to fsspec info dict
             stat = stat.as_info()
-            if "ETag" in stat:  # is file
+            if (store_type := stat["type"]) == "file":
                 size, hash, hash_type = get_stat_file_cloud(stat)
-            elif stat["type"] == "directory":
+            elif store_type == "directory":
                 size, hash, hash_type, n_objects = get_stat_dir_cloud(path)
         if hash is None:
             logger.warning(f"did not add hash for {path}")
@@ -245,7 +245,7 @@ def get_stat_or_artifact(
             .order_by("-created_at")
             .all()
         )
-        artifact_with_same_hash_exists = len(result.filter(hash=hash).all()) > 0
+        artifact_with_same_hash_exists = result.filter(hash=hash).count() > 0
         if not artifact_with_same_hash_exists and len(result) > 0:
             logger.important(
                 f"creating new artifact version for key='{key}' (storage: '{settings.storage.root_as_str}')"
