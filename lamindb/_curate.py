@@ -425,7 +425,7 @@ class AnnDataCurator(DataFrameCurator):
     def __init__(
         self,
         data: ad.AnnData | UPathStr,
-        var_index: FieldAttr | str,
+        var_index: FieldAttr,
         categoricals: dict[str, FieldAttr] | None = None,
         obs_columns: FieldAttr = Feature.name,
         using_key: str = "default",
@@ -435,6 +435,9 @@ class AnnDataCurator(DataFrameCurator):
         exclude: dict | None = None,
     ) -> None:
         from lamindb_setup.core import upath
+
+        if isinstance(var_index, str):
+            raise ValueError("var_index parameter has to be a bionty field")
 
         from ._artifact import data_is_anndata
 
@@ -453,10 +456,6 @@ class AnnDataCurator(DataFrameCurator):
 
         self._data = data
 
-        if isinstance(var_index, str):
-            import bionty as bt
-
-            var_index = getattr(bt.Gene, var_index)
         self._var_field = var_index
         super().__init__(
             df=self._adata.obs,

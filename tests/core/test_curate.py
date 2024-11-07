@@ -203,8 +203,8 @@ def test_clean_up_failed_runs():
 
     assert len(ln.Run.filter(transform=mock_transform).all()) == 2
 
-    curate = ln.Curator.from_df(pd.DataFrame())
-    curate.clean_up_failed_runs()
+    curator = ln.Curator.from_df(pd.DataFrame())
+    curator.clean_up_failed_runs()
 
     assert len(ln.Run.filter(transform=mock_transform).all()) == 1
 
@@ -244,23 +244,13 @@ def test_anndata_curator(adata, categoricals, to_add):
     bt.CellType.filter().delete()
 
 
-def test_str_var_index(adata):
-    curate = ln.Curate.from_anndata(
-        adata,
-        var_index="symbol",
-        organism="human",
-    )
-    validated = curate.validate()
-    assert validated
-
-
 def test_no_categoricals(adata):
-    curate = ln.Curate.from_anndata(
+    curator = ln.Curator.from_anndata(
         adata,
         var_index=bt.Gene.symbol,
         organism="human",
     )
-    validated = curate.validate()
+    validated = curator.validate()
     assert validated
 
 
