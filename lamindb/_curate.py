@@ -451,7 +451,7 @@ class AnnDataCurator(DataFrameCurator):
 
             self._adata = backed_access(upath.create_path(data))
 
-        if "symbol" in str(self.var_index):
+        if "symbol" in str(var_index):
             logger.warning(
                 "Curating gene symbols is discouraged. See FAQ for more details."
             )
