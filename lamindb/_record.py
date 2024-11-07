@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import builtins
-from itertools import combinations
 from typing import TYPE_CHECKING, NamedTuple
 
 import dj_database_url
 import lamindb_setup as ln_setup
 from django.db import connections, transaction
-from django.db.models import Case, IntegerField, Manager, Q, QuerySet, Value, When
+from django.db.models import IntegerField, Manager, Q, QuerySet, Value
 from django.db.models.functions import Length
 from lamin_utils import colors, logger
 from lamin_utils._lookup import Lookup
