@@ -7,6 +7,7 @@ import dj_database_url
 import lamindb_setup as ln_setup
 from django.db import connections, transaction
 from django.db.models import IntegerField, Manager, Q, QuerySet, Value
+from django.db.models.functions import Length
 from lamin_utils import colors, logger
 from lamin_utils._lookup import Lookup
 from lamindb_setup._connect_instance import (
@@ -196,6 +197,7 @@ def _search(
 ) -> QuerySet:
     input_queryset = _queryset(cls, using_key=using_key)
     registry = input_queryset.model
+    name_field = None
     if field is None:
         fields = [
             field.name
@@ -205,6 +207,7 @@ def _search(
     else:
         if not isinstance(field, list):
             fields_input = [field]
+            name_field = field if isinstance(field, str) else field.field.name
         else:
             fields_input = field
         fields = []
@@ -218,6 +221,10 @@ def _search(
                     ) from error
             else:
                 fields.append(field)
+    if not name_field:
+        name_field = (
+            fields[0] if not hasattr(registry, "_name_field") else registry._name_field
+        )
 
     def tokenize_search_string(search_str: str) -> list[str]:
         # Split the string
@@ -260,7 +267,16 @@ def _search(
     for field in fields:
         exact_expression |= Q(**{f"{field}__{case_sensitive_i}exact": string})
 
-    # Layer 2: Contains the isolated phrase (prioritize names ending with the search phrase)
+    # Layer 2: Starts/ends with the search phrase
+    startsendswith_expression = Q()
+    for field in fields:
+        startsendswith_expression |= Q(
+            **{f"{field}__{case_sensitive_i}startswith": string}
+        )
+        # to de-prioritize "club cell" when searching "B cell"
+        startsendswith_expression |= Q(**{f"{field}__endswith": f" {string}"})
+
+    # Layer 3: Contains the isolated phrase (prioritize names ending with the search phrase)
     iso_phrase_expression = Q()
     for field in fields:
         iso_phrase_expression |= Q(
@@ -269,15 +285,6 @@ def _search(
         iso_phrase_expression |= Q(
             **{f"{field}__{case_sensitive_i}contains": f" {string} "}
         )
-
-    # Layer 3: Starts/ends with the search phrase
-    startsendswith_expression = Q()
-    for field in fields:
-        startsendswith_expression |= Q(
-            **{f"{field}__{case_sensitive_i}startswith": string}
-        )
-        # to de-prioritize "club cell" when searching "B cell"
-        startsendswith_expression |= Q(**{f"{field}__endswith": string})
 
     # Layer 4: Contains full phrase as a phrase
     phrase_expression = Q()
@@ -292,38 +299,61 @@ def _search(
 
     # Combine queries with priority ranking
     exact_matches = input_queryset.filter(exact_expression).annotate(
-        ordering=Value(1, output_field=IntegerField())
+        **{
+            "ordering": Value(1, output_field=IntegerField()),
+            "name_length": Length(name_field),
+        }
+    )
+
+    startsendswith_matches = input_queryset.filter(
+        startsendswith_expression & ~Q(pk__in=exact_matches.values("pk"))
+    ).annotate(
+        **{
+            "ordering": Value(2, output_field=IntegerField()),
+            "name_length": Length(name_field),
+        }
     )
 
     iso_phrase_matches = input_queryset.filter(
-        iso_phrase_expression & ~Q(pk__in=exact_matches.values("pk"))
-    ).annotate(ordering=Value(2, output_field=IntegerField()))
-
-    startsendswith_matches = input_queryset.filter(
-        startsendswith_expression
+        iso_phrase_expression
         & ~Q(pk__in=exact_matches.values("pk"))
-        & ~Q(pk__in=iso_phrase_matches.values("pk"))
-    ).annotate(ordering=Value(3, output_field=IntegerField()))
+        & ~Q(pk__in=startsendswith_matches.values("pk"))
+    ).annotate(
+        **{
+            "ordering": Value(3, output_field=IntegerField()),
+            "name_length": Length(name_field),
+        }
+    )
 
     phrase_matches = input_queryset.filter(
         phrase_expression
         & ~Q(pk__in=exact_matches.values("pk"))
-        & ~Q(pk__in=iso_phrase_matches.values("pk"))
         & ~Q(pk__in=startsendswith_matches.values("pk"))
-    ).annotate(ordering=Value(4, output_field=IntegerField()))
+        & ~Q(pk__in=iso_phrase_matches.values("pk"))
+    ).annotate(
+        **{
+            "ordering": Value(4, output_field=IntegerField()),
+            "name_length": Length(name_field),
+        }
+    )
 
     term_matches = input_queryset.filter(
         terms_expression
         & ~Q(pk__in=exact_matches.values("pk"))
-        & ~Q(pk__in=iso_phrase_matches.values("pk"))
         & ~Q(pk__in=startsendswith_matches.values("pk"))
+        & ~Q(pk__in=iso_phrase_matches.values("pk"))
         & ~Q(pk__in=phrase_matches.values("pk"))
-    ).annotate(ordering=Value(5, output_field=IntegerField()))
+    ).annotate(
+        **{
+            "ordering": Value(5, output_field=IntegerField()),
+            "name_length": Length(name_field),
+        }
+    )
 
     # Combine results maintaining priority order
     combined_queryset = exact_matches.union(
-        iso_phrase_matches, startsendswith_matches, phrase_matches, term_matches
-    ).order_by("ordering")
+        startsendswith_matches, iso_phrase_matches, phrase_matches, term_matches
+    ).order_by("ordering", "name_length")
 
     if limit is not None:
         combined_queryset = combined_queryset[:limit]
