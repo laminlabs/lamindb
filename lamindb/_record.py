@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, NamedTuple
 import dj_database_url
 import lamindb_setup as ln_setup
 from django.db import connections, transaction
-from django.db.models import IntegerField, Manager, Q, QuerySet, Value
+from django.db.models import Case, IntegerField, Manager, Q, QuerySet, Value, When
 from django.db.models.functions import Length
 from lamin_utils import colors, logger
 from lamin_utils._lookup import Lookup
@@ -268,40 +268,41 @@ def _search(
     for field in fields:
         exact_expression |= Q(**{f"{field}__{case_sensitive_i}exact": string})
 
-    # Layer 2: Starts/ends with the search phrase
-    startsendswith_expression = Q()
+    # Layer 2: Synonyms exact match with the search phrase
+    synonym_expression = Q()
     for field in fields:
-        startsendswith_expression |= Q(
-            **{f"{field}__{case_sensitive_i}startswith": string}
+        synonym_expression |= Q(
+            **{f"{field}__{case_sensitive_i}regex": f"(?:^|\\|){string}(?:\\||$)"}
         )
-        # to de-prioritize "club cell" when searching "B cell"
-        startsendswith_expression |= Q(**{f"{field}__endswith": f" {string}"})
 
-    # Layer 3: Contains the isolated phrase (prioritize names ending with the search phrase)
+    # Layer 3: Contains isolated phrase
     iso_phrase_expression = Q()
     for field in fields:
+        iso_phrase_expression |= Q(**{f"{field}__{case_sensitive_i}startswith": string})
+        # to de-prioritize "club cell" when searching "B cell"
         iso_phrase_expression |= Q(
-            **{f"{field}__{case_sensitive_i}contains": f" {string}"}
+            **{f"{field}__{case_sensitive_i}endswith": f" {string}"}
         )
         iso_phrase_expression |= Q(
-            **{f"{field}__{case_sensitive_i}contains": f" {string} "}
+            **{f"{field}__{case_sensitive_i}regex": f"(?:\\s{string}\\s|\\s{string}$)"}
         )
 
-    # Layer 4: Contains full phrase OR all terms
-    phrase_expression = Q()
+    # Layer 4: Contains full phrase
+    fullphrase_expression = Q()
     for field in fields:
-        # Original phrase matching
-        phrase_expression |= Q(**{f"{field}__{case_sensitive_i}contains": string})
+        fullphrase_expression |= Q(**{f"{field}__{case_sensitive_i}contains": string})
 
-        # match for all individual terms appearing in any order
-        if len(search_terms) > 1:
-            all_terms_q = Q()
-            single_terms = [t for t in search_terms if len(t.split()) == 1]
-            for term in single_terms:
-                all_terms_q &= Q(**{f"{field}__{case_sensitive_i}contains": term})
-            phrase_expression |= all_terms_q
+    # Layer 5: Contains all split words
+    partialphrase_expression = Q()
+    for field in fields:
+        # All terms must appear
+        words = string.split()
+        all_terms_q = Q()
+        for word in words:
+            all_terms_q &= Q(**{f"{field}__{case_sensitive_i}contains": word})
+        partialphrase_expression |= all_terms_q
 
-    # Layer 5: Contains individual terms and pairs
+    # Layer 6: Contains individual words
     terms_expression = Q()
     for field in fields:
         for term in search_terms:
@@ -315,19 +316,19 @@ def _search(
         }
     )
 
-    startsendswith_matches = input_queryset.filter(
-        startsendswith_expression & ~Q(pk__in=exact_matches.values("pk"))
+    synonym_matches = input_queryset.filter(
+        synonym_expression & ~Q(pk__in=exact_matches.values("pk"))
     ).annotate(
         **{
             "ordering": Value(2, output_field=IntegerField()),
-            "name_length": Length(name_field),
+            "name_length": Value(2, output_field=IntegerField()),
         }
     )
 
     iso_phrase_matches = input_queryset.filter(
         iso_phrase_expression
         & ~Q(pk__in=exact_matches.values("pk"))
-        & ~Q(pk__in=startsendswith_matches.values("pk"))
+        & ~Q(pk__in=synonym_matches.values("pk"))
     ).annotate(
         **{
             "ordering": Value(3, output_field=IntegerField()),
@@ -335,10 +336,10 @@ def _search(
         }
     )
 
-    phrase_matches = input_queryset.filter(
-        phrase_expression
+    fullphrase_matches = input_queryset.filter(
+        fullphrase_expression
         & ~Q(pk__in=exact_matches.values("pk"))
-        & ~Q(pk__in=startsendswith_matches.values("pk"))
+        & ~Q(pk__in=synonym_matches.values("pk"))
         & ~Q(pk__in=iso_phrase_matches.values("pk"))
     ).annotate(
         **{
@@ -347,22 +348,40 @@ def _search(
         }
     )
 
-    term_matches = input_queryset.filter(
-        terms_expression
+    partialphrase_matches = input_queryset.filter(
+        partialphrase_expression
         & ~Q(pk__in=exact_matches.values("pk"))
-        & ~Q(pk__in=startsendswith_matches.values("pk"))
+        & ~Q(pk__in=synonym_matches.values("pk"))
         & ~Q(pk__in=iso_phrase_matches.values("pk"))
-        & ~Q(pk__in=phrase_matches.values("pk"))
+        & ~Q(pk__in=fullphrase_matches.values("pk"))
     ).annotate(
         **{
             "ordering": Value(5, output_field=IntegerField()),
-            "name_length": Length(name_field),
+            "name_length": Value(5, output_field=IntegerField()),
+        }
+    )
+
+    term_matches = input_queryset.filter(
+        terms_expression
+        & ~Q(pk__in=exact_matches.values("pk"))
+        & ~Q(pk__in=synonym_matches.values("pk"))
+        & ~Q(pk__in=iso_phrase_matches.values("pk"))
+        & ~Q(pk__in=fullphrase_matches.values("pk"))
+        & ~Q(pk__in=partialphrase_matches.values("pk"))
+    ).annotate(
+        **{
+            "ordering": Value(6, output_field=IntegerField()),
+            "name_length": Value(6, output_field=IntegerField()),
         }
     )
 
     # Combine results maintaining priority order
     combined_queryset = exact_matches.union(
-        startsendswith_matches, iso_phrase_matches, phrase_matches, term_matches
+        synonym_matches,
+        iso_phrase_matches,
+        fullphrase_matches,
+        partialphrase_matches,
+        term_matches,
     ).order_by("ordering", "name_length")
 
     if limit is not None:
