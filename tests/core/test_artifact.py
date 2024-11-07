@@ -905,6 +905,7 @@ def test_huggingface_links():
         description="hf adata",
     )
     artifact_adata.save()
+    assert artifact_adata.hash is not None
     assert isinstance(artifact_adata.load(), ad.AnnData)
     assert artifact_adata._cache_path.exists()
     artifact_adata._cache_path.unlink()
@@ -913,6 +914,7 @@ def test_huggingface_links():
         "hf://datasets/Koncopd/lamindb-test/sharded_parquet", description="hf parquet"
     )
     artifact_pq.save()
+    assert artifact_pq.hash is not None
     assert len(artifact_pq.open().files) == 11
     assert artifact_pq.cache().is_dir()
     shutil.rmtree(artifact_pq._cache_path)
