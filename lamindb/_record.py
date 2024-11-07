@@ -7,6 +7,7 @@ import dj_database_url
 import lamindb_setup as ln_setup
 from django.db import connections, transaction
 from django.db.models import IntegerField, Manager, Q, QuerySet, Value
+from django.db.models.functions import Length
 from lamin_utils import colors, logger
 from lamin_utils._lookup import Lookup
 from lamindb_setup._connect_instance import (
@@ -196,6 +197,7 @@ def _search(
 ) -> QuerySet:
     input_queryset = _queryset(cls, using_key=using_key)
     registry = input_queryset.model
+    name_field = None
     if field is None:
         fields = [
             field.name
@@ -205,6 +207,7 @@ def _search(
     else:
         if not isinstance(field, list):
             fields_input = [field]
+            name_field = field if isinstance(field, str) else field.field.name
         else:
             fields_input = field
         fields = []
@@ -218,8 +221,30 @@ def _search(
                     ) from error
             else:
                 fields.append(field)
+    if not name_field:
+        name_field = (
+            fields[0] if not hasattr(registry, "_name_field") else registry._name_field
+        )
 
-    # decompose search string
+    def tokenize_search_string(search_str: str) -> list[str]:
+        # Split the string
+        terms = str(search_str).split()
+        result_terms = set()
+
+        # Add original terms
+        result_terms.update(terms)
+
+        # Add adjacent pairs to maintain context
+        for i in range(len(terms) - 1):
+            pair = f"{terms[i]} {terms[i+1]}"
+            result_terms.add(pair)
+
+        # Add the full search string
+        if search_str.strip():
+            result_terms.add(search_str)
+
+        return list(result_terms)
+
     def truncate_word(word) -> str:
         if len(word) > 5:
             n_80_pct = int(len(word) * 0.8)
@@ -229,37 +254,110 @@ def _search(
         else:
             return word
 
-    decomposed_string = str(string).split()
-    # add the entire string back
-    decomposed_string += [string]
-    for word in decomposed_string:
-        # will not search against words with 3 or fewer characters
-        if len(word) <= 3:
-            decomposed_string.remove(word)
+    # Get search terms
+    search_terms = tokenize_search_string(string)
     if truncate_words:
-        decomposed_string = [truncate_word(word) for word in decomposed_string]
-    # construct the query
-    expression = Q()
+        search_terms = [truncate_word(word) for word in search_terms]
+
+    # Build layered queries for better ranking
     case_sensitive_i = "" if case_sensitive else "i"
+
+    # Layer 1: Exact matches (highest priority)
+    exact_expression = Q()
     for field in fields:
-        for word in decomposed_string:
-            query = {f"{field}__{case_sensitive_i}contains": word}
-            expression |= Q(**query)
-    output_queryset = input_queryset.filter(expression)
-    # ensure exact matches are at the top
-    narrow_expression = Q()
+        exact_expression |= Q(**{f"{field}__{case_sensitive_i}exact": string})
+
+    # Layer 2: Starts/ends with the search phrase
+    startsendswith_expression = Q()
     for field in fields:
-        query = {f"{field}__{case_sensitive_i}contains": string}
-        narrow_expression |= Q(**query)
-    refined_output_queryset = output_queryset.filter(narrow_expression).annotate(
-        ordering=Value(1, output_field=IntegerField())
+        startsendswith_expression |= Q(
+            **{f"{field}__{case_sensitive_i}startswith": string}
+        )
+        # to de-prioritize "club cell" when searching "B cell"
+        startsendswith_expression |= Q(**{f"{field}__endswith": f" {string}"})
+
+    # Layer 3: Contains the isolated phrase (prioritize names ending with the search phrase)
+    iso_phrase_expression = Q()
+    for field in fields:
+        iso_phrase_expression |= Q(
+            **{f"{field}__{case_sensitive_i}contains": f" {string}"}
+        )
+        iso_phrase_expression |= Q(
+            **{f"{field}__{case_sensitive_i}contains": f" {string} "}
+        )
+
+    # Layer 4: Contains full phrase as a phrase
+    phrase_expression = Q()
+    for field in fields:
+        phrase_expression |= Q(**{f"{field}__{case_sensitive_i}contains": string})
+
+    # Layer 5: Contains individual terms and pairs
+    terms_expression = Q()
+    for field in fields:
+        for term in search_terms:
+            terms_expression |= Q(**{f"{field}__{case_sensitive_i}contains": term})
+
+    # Combine queries with priority ranking
+    exact_matches = input_queryset.filter(exact_expression).annotate(
+        **{
+            "ordering": Value(1, output_field=IntegerField()),
+            "name_length": Value(1, output_field=IntegerField()),
+        }
     )
-    remaining_output_queryset = output_queryset.exclude(narrow_expression).annotate(
-        ordering=Value(2, output_field=IntegerField())
+
+    startsendswith_matches = input_queryset.filter(
+        startsendswith_expression & ~Q(pk__in=exact_matches.values("pk"))
+    ).annotate(
+        **{
+            "ordering": Value(2, output_field=IntegerField()),
+            "name_length": Length(name_field),
+        }
     )
-    combined_queryset = refined_output_queryset.union(
-        remaining_output_queryset
-    ).order_by("ordering")[:limit]
+
+    iso_phrase_matches = input_queryset.filter(
+        iso_phrase_expression
+        & ~Q(pk__in=exact_matches.values("pk"))
+        & ~Q(pk__in=startsendswith_matches.values("pk"))
+    ).annotate(
+        **{
+            "ordering": Value(3, output_field=IntegerField()),
+            "name_length": Length(name_field),
+        }
+    )
+
+    phrase_matches = input_queryset.filter(
+        phrase_expression
+        & ~Q(pk__in=exact_matches.values("pk"))
+        & ~Q(pk__in=startsendswith_matches.values("pk"))
+        & ~Q(pk__in=iso_phrase_matches.values("pk"))
+    ).annotate(
+        **{
+            "ordering": Value(4, output_field=IntegerField()),
+            "name_length": Length(name_field),
+        }
+    )
+
+    term_matches = input_queryset.filter(
+        terms_expression
+        & ~Q(pk__in=exact_matches.values("pk"))
+        & ~Q(pk__in=startsendswith_matches.values("pk"))
+        & ~Q(pk__in=iso_phrase_matches.values("pk"))
+        & ~Q(pk__in=phrase_matches.values("pk"))
+    ).annotate(
+        **{
+            "ordering": Value(5, output_field=IntegerField()),
+            "name_length": Length(name_field),
+        }
+    )
+
+    # Combine results maintaining priority order
+    combined_queryset = exact_matches.union(
+        startsendswith_matches, iso_phrase_matches, phrase_matches, term_matches
+    ).order_by("ordering", "name_length")
+
+    if limit is not None:
+        combined_queryset = combined_queryset[:limit]
+
     return combined_queryset
 
 
