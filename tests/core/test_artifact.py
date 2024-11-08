@@ -934,7 +934,7 @@ def test_gcp_paths():
         "gs://rxrx1-europe-west4/images/test/HEPG2-08/Plate1/B02_s1_w1.png",
         description="Test GCP file",
     ).save()
-    assert artifact_folder.hash == "foEgLjmuUHO62CazxN97rA"
+    assert artifact_file.hash == "foEgLjmuUHO62CazxN97rA"
     cache_path = artifact_file.cache()
     assert cache_path.is_file()
 
