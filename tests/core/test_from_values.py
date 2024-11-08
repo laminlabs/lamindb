@@ -47,9 +47,10 @@ def test_from_values_multiple_match():
 
 def test_from_values_organism():
     from bionty import Gene, settings
+    from bionty._bionty import OrganismNotSet
 
     settings._organism = None
-    with pytest.raises(ValueError):
+    with pytest.raises(OrganismNotSet):
         Gene.from_values(["ABC1"], Gene.symbol)
     # no organism is needed if the values are ensembl gene ids
     result = Gene.from_values(["ENSG00000068097"], Gene.ensembl_gene_id)
