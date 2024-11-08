@@ -227,7 +227,7 @@ class DataFrameCurator(BaseCurator):
                     f"the following keys passed to {name} are not allowed: {nonval_keys}"
                 )
 
-    def _save_columns(self, validated_only: bool = True, **kwargs) -> None:
+    def _save_columns(self, validated_only: bool = True) -> None:
         """Save column name records."""
         # Always save features specified as the fields keys
         update_registry(
@@ -239,7 +239,7 @@ class DataFrameCurator(BaseCurator):
             validated_only=False,
             source=self._sources.get("columns"),
             exclude=self._exclude.get("columns"),
-            **kwargs,
+            **self._kwargs,  # type: ignore
         )
 
         # Save the rest of the columns based on validated_only
@@ -256,7 +256,7 @@ class DataFrameCurator(BaseCurator):
                 source=self._sources.get("columns"),
                 exclude=self._exclude.get("columns"),
                 warning=False,  # Do not warn about missing columns, just an info message
-                **kwargs,
+                **self._kwargs,  # type: ignore
             )
 
     def add_new_from(self, key: str, organism: str | None = None, **kwargs):
@@ -306,7 +306,6 @@ class DataFrameCurator(BaseCurator):
     def _update_registry_all(self, validated_only: bool = True, **kwargs):
         """Save labels for all features."""
         for name in self.fields.keys():
-            logger.info(f"saving validated records of '{name}'")
             self._update_registry(name, validated_only=validated_only, **kwargs)
 
     def validate(self, organism: str | None = None) -> bool:
@@ -437,12 +436,15 @@ class AnnDataCurator(DataFrameCurator):
     ) -> None:
         from lamindb_setup.core import upath
 
+        if isinstance(var_index, str):
+            raise TypeError("var_index parameter has to be a bionty field")
+
         from ._artifact import data_is_anndata
 
         if sources is None:
             sources = {}
         if not data_is_anndata(data):
-            raise ValueError(
+            raise TypeError(
                 "data has to be an AnnData object or a path to AnnData-like"
             )
         if isinstance(data, ad.AnnData):
@@ -451,6 +453,11 @@ class AnnDataCurator(DataFrameCurator):
             from lamindb.core.storage._backed_access import backed_access
 
             self._adata = backed_access(upath.create_path(data))
+
+        if "symbol" in str(var_index):
+            logger.warning(
+                "Curating gene symbols is discouraged. See FAQ for more details."
+            )
 
         self._data = data
         self._var_field = var_index
@@ -513,10 +520,8 @@ class AnnDataCurator(DataFrameCurator):
 
     def _update_registry_all(self, validated_only: bool = True, **kwargs):
         """Save labels for all features."""
-        logger.info("saving validated records of 'var_index'")
         self._save_from_var_index(validated_only=validated_only, **self._kwargs)
         for name in self._obs_fields.keys():
-            logger.info(f"saving validated terms of '{name}'")
             self._update_registry(name, validated_only=validated_only, **self._kwargs)
 
     def add_new_from_var_index(self, organism: str | None = None, **kwargs):
@@ -1230,7 +1235,7 @@ def validate_categories(
     if n_non_validated == 0:
         if n_validated == 0:
             logger.indent = ""
-            logger.success(f"{key} is validated against {colors.italic(model_field)}")
+            logger.success(f"'{key}' is validated against {colors.italic(model_field)}")
             return True, []
         else:
             # validated values still need to be saved to the current instance
@@ -1506,9 +1511,14 @@ def update_registry(
 
         public_records = [r for r in existing_and_public_records if r._state.adding]
         # here we check to only save the public records if they are from the specified source
-        # we check the uid because r.source and soruce can be from different instances
+        # we check the uid because r.source and source can be from different instances
         if source:
             public_records = [r for r in public_records if r.source.uid == source.uid]
+
+        if public_records:
+            settings.verbosity = "info"
+            logger.info(f"saving validated records of '{key}'")
+            settings.verbosity = "error"
         ln_save(public_records)
         labels_saved["from public"] = [
             getattr(r, field.field.name) for r in public_records

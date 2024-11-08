@@ -108,14 +108,14 @@ def _check_organism_db(organism: Record, using_key: str | None):
 
 def _concat_lists(values: ListLike) -> list[str]:
     """Concatenate a list of lists of strings into a single list."""
-    if len(values) > 0 and isinstance(values, (list, pd.Series)):
-        try:
-            if isinstance(values[0], list):
-                if isinstance(values, pd.Series):
-                    values = values.tolist()
-                values = sum([v for v in values if isinstance(v, list)], [])
-        except KeyError:
-            pass
+    if isinstance(values, (list, pd.Series)) and len(values) > 0:
+        first_item = values[0] if isinstance(values, list) else values.iloc[0]
+        if isinstance(first_item, list):
+            if isinstance(values, pd.Series):
+                values = values.tolist()
+            values = [
+                v for sublist in values if isinstance(sublist, list) for v in sublist
+            ]
     return values
 
 
@@ -388,7 +388,11 @@ def _standardize(
 
     try:
         registry._meta.get_field(synonyms_field)
-        fields = {i for i in [field, return_field, synonyms_field] if i is not None}
+        fields = {
+            field_name
+            for field_name in [field, return_field, synonyms_field]
+            if field_name is not None
+        }
         df = _filter_query_based_on_organism(
             queryset=queryset,
             field=field,
@@ -445,14 +449,19 @@ def _standardize(
         if len(std_names_bt_mapper) > 0 and not mute:
             s = "" if len(std_names_bt_mapper) == 1 else "s"
             field_print = "synonym" if field == return_field else field
+
+            reduced_mapped_keys_str = f"{list(std_names_bt_mapper.keys())[:10] + ['...'] if len(std_names_bt_mapper) > 10 else list(std_names_bt_mapper.keys())}"
+            truncated_note = (
+                " (output truncated)" if len(std_names_bt_mapper) > 10 else ""
+            )
+
             warn_msg = (
-                f"found {len(std_names_bt_mapper)} {field_print}{s} in Bionty:"
-                f" {list(std_names_bt_mapper.keys())}"
+                f"found {len(std_names_bt_mapper)} {field_print}{s} in Bionty{truncated_note}:"
+                f" {reduced_mapped_keys_str}\n"
+                f"  please add corresponding {registry._meta.model.__name__} records via{truncated_note}:"
+                f" `.from_values({reduced_mapped_keys_str})`"
             )
-            warn_msg += (
-                f"\n   please add corresponding {registry._meta.model.__name__} records via"
-                f" `.from_values({list(set(std_names_bt_mapper.values()))})`"
-            )
+
             logger.warning(warn_msg)
 
         mapper.update(std_names_bt_mapper)

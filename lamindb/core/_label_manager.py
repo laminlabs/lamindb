@@ -202,7 +202,7 @@ class LabelManager:
             transfer_logs = {"mapped": [], "transferred": [], "run": None}
         using_key = settings._using_key
         for related_name, (_, labels) in get_labels_as_dict(
-            data, instance=self._host._state.db
+            data, instance=data._state.db
         ).items():
             labels = labels.all()
             if not labels.exists():
