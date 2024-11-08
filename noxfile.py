@@ -86,7 +86,7 @@ def install(session):
 def install_ci(session, group):
     extras = ""
     if group == "unit-core":
-        extras += "bionty,aws,zarr,fcs,jupyter"
+        extras += "bionty,aws,gcp,zarr,fcs,jupyter"
         run(session, "uv pip install --system huggingface_hub")
     elif group == "unit-storage":
         extras += "aws,zarr,bionty"

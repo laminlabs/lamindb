@@ -899,7 +899,7 @@ def test_bulk_delete():
     assert not environment_path.exists()
 
 
-def test_huggingface_links():
+def test_huggingface_paths():
     artifact_adata = ln.Artifact(
         "hf://datasets/Koncopd/lamindb-test@main/anndata/pbmc68k_test.h5ad",
         description="hf adata",
@@ -921,3 +921,23 @@ def test_huggingface_links():
 
     artifact_adata.delete(permanent=True, storage=False)
     artifact_pq.delete(permanent=True, storage=False)
+
+
+def test_gcp_paths():
+    artifact_folder = ln.Artifact(
+        "gs://rxrx1-europe-west4/images/test/HEPG2-08", description="Test GCP folder"
+    ).save()
+    assert artifact_folder.hash == "6r5Hkce0UTy7X6gLeaqzBA"
+    assert artifact_folder.n_objects == 14772
+
+    artifact_file = ln.Artifact(
+        "gs://rxrx1-europe-west4/images/test/HEPG2-08/Plate1/B02_s1_w1.png",
+        description="Test GCP file",
+    ).save()
+    assert artifact_file.hash == "foEgLjmuUHO62CazxN97rA"
+    cache_path = artifact_file.cache()
+    assert cache_path.is_file()
+
+    cache_path.unlink()
+    artifact_folder.delete(permanent=True, storage=False)
+    artifact_file.delete(permanent=True, storage=False)
