@@ -51,7 +51,7 @@ def test_add_ontology_from_df():
     assert parent in record.parents.list()
     parent.delete()
 
-    bt.Ethnicity.import_from_source()
+    bt.Ethnicity.import_source()
     parent = bt.Ethnicity.get(ontology_id="HANCESTRO:0004")
     assert parent in record.parents.list()
     record = bt.Ethnicity.get("7RNCY3yC")
