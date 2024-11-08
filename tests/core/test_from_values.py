@@ -49,7 +49,7 @@ def test_from_values_organism():
     from bionty import Gene, settings
 
     settings._organism = None
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         Gene.from_values(["ABC1"], Gene.symbol)
     # no organism is needed if the values are ensembl gene ids
     result = Gene.from_values(["ENSG00000068097"], Gene.ensembl_gene_id)

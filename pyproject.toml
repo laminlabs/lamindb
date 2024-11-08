@@ -199,6 +199,14 @@ convention = "google"
 ]
 "*/__init__.py" = ["F401"]
 
+[tool.pytest.ini_options]
+testpaths = [
+    "tests",
+]
+filterwarnings = [
+    "ignore:Jupyter is migrating its paths to use standard platformdirs:DeprecationWarning"
+]
+
 
 [tool.coverage.report]
 exclude_lines = [
