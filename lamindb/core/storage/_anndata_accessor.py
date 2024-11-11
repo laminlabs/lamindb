@@ -54,13 +54,16 @@ if anndata_version_parse < version.parse("0.10.0"):
         return SparseDataset(group)
 
 else:
+    if anndata_version_parse >= version.parse("0.11.0"):
+        from anndata._core.sparse_dataset import (  # type: ignore
+            _CSRDataset as CSRDataset,
+        )
+    else:
+        from anndata._core.sparse_dataset import CSRDataset  # type: ignore
     from anndata._core.sparse_dataset import (
         BaseCompressedSparseDataset as SparseDataset,
     )
-    from anndata._core.sparse_dataset import (  # type: ignore
-        CSRDataset,
-        sparse_dataset,
-    )
+    from anndata._core.sparse_dataset import sparse_dataset  # type: ignore
 
     def _check_group_format(*args):
         pass
