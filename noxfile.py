@@ -90,7 +90,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system huggingface_hub")
     elif group == "unit-storage":
         extras += "aws,zarr,bionty"
-        run(session, "uv pip install --system tiledbsoma")
+        run(session, "uv pip install --system tiledbsoma>=1.15.0rc3")
     elif group == "tutorial":
         extras += "aws,jupyter,bionty"
         run(session, "uv pip install --system huggingface_hub")
