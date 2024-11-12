@@ -242,7 +242,11 @@ def _search(
     exact_lookup = Exact if case_sensitive else IExact
     regex_lookup = Regex if case_sensitive else IRegex
     for field in fields:
-        field_expr = Coalesce(F(field), Value(""), output_field=TextField())
+        field_expr = Coalesce(
+            Cast(F(field), output_field=TextField()),
+            Value(""),
+            output_field=TextField(),
+        )
         # exact rank
         exact_rank = exact_lookup(field_expr, string)
         exact_rank = Cast(exact_rank, output_field=IntegerField()) * 100
