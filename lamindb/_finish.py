@@ -233,7 +233,7 @@ def save_context_core(
 
     # finalize
     if not from_cli:
-        run_time = run.finished_at - run.started_at
+        run_time = run.finished_at - run.started_at.split(".")[0]
         logger.important(
             f"finished Run('{run.uid[:8]}') after {run_time} at {format_field_value(run.finished_at)}"
         )
