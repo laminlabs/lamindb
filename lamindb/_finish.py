@@ -234,8 +234,9 @@ def save_context_core(
     # finalize
     if not from_cli:
         run_time = run.finished_at - run.started_at.split(".")[0]
+        formatted_run_time = f"{int(run_time.split(':')[0])}h {int(run_time.split(':')[1])}m {int(run_time.split(':')[2])}s"
         logger.important(
-            f"finished Run('{run.uid[:8]}') after {run_time.replace(':', 'h ', 1).replace(':', 'm ', 1)}s at {format_field_value(run.finished_at)}"
+            f"finished Run('{run.uid[:8]}') after {formatted_run_time} at {format_field_value(run.finished_at)}"
         )
     if ln_setup.settings.instance.is_on_hub:
         identifier = ln_setup.settings.instance.slug
