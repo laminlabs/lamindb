@@ -7,7 +7,9 @@ import dj_database_url
 import lamindb_setup as ln_setup
 from django.core.exceptions import FieldDoesNotExist
 from django.db import connections, transaction
-from django.db.models import IntegerField, Manager, Q, QuerySet, Value
+from django.db.models import F, IntegerField, Manager, Q, QuerySet, TextField, Value
+from django.db.models.functions import Cast, Coalesce
+from django.db.models.lookups import Exact, IExact, IRegex, Regex
 from lamin_utils import colors, logger
 from lamin_utils._lookup import Lookup
 from lamindb_setup._connect_instance import (
@@ -82,7 +84,7 @@ def suggest_records_with_similar_names(record: Record, name_field: str, kwargs) 
         record.__class__,
         kwargs[name_field],
         field=name_field,
-        truncate_words=True,
+        truncate_string=True,
         limit=3,
     )
     if not queryset.exists():  # empty queryset
@@ -203,11 +205,12 @@ def _search(
     limit: int | None = 20,
     case_sensitive: bool = False,
     using_key: str | None = None,
-    truncate_words: bool = False,
+    truncate_string: bool = False,
 ) -> QuerySet:
     input_queryset = _queryset(cls, using_key=using_key)
     registry = input_queryset.model
     if field is None:
+        #        fields = [cls._name_field]
         fields = [
             field.name
             for field in registry._meta.fields
@@ -230,48 +233,52 @@ def _search(
             else:
                 fields.append(field)
 
-    # decompose search string
-    def truncate_word(word) -> str:
-        if len(word) > 5:
-            n_80_pct = int(len(word) * 0.8)
-            return word[:n_80_pct]
-        elif len(word) > 3:
-            return word[:3]
-        else:
-            return word
+    if truncate_string:
+        if (len_string := len(string)) > 5:
+            n_80_pct = int(len_string * 0.8)
+            string = string[:n_80_pct]
 
-    decomposed_string = str(string).split()
-    # add the entire string back
-    decomposed_string += [string]
-    for word in decomposed_string:
-        # will not search against words with 3 or fewer characters
-        if len(word) <= 3:
-            decomposed_string.remove(word)
-    if truncate_words:
-        decomposed_string = [truncate_word(word) for word in decomposed_string]
-    # construct the query
-    expression = Q()
-    case_sensitive_i = "" if case_sensitive else "i"
+    rank_exprs = []
+    exact_lookup = Exact if case_sensitive else IExact
+    regex_lookup = Regex if case_sensitive else IRegex
     for field in fields:
-        for word in decomposed_string:
-            query = {f"{field}__{case_sensitive_i}contains": word}
-            expression |= Q(**query)
-    output_queryset = input_queryset.filter(expression)
-    # ensure exact matches are at the top
-    narrow_expression = Q()
-    for field in fields:
-        query = {f"{field}__{case_sensitive_i}contains": string}
-        narrow_expression |= Q(**query)
-    refined_output_queryset = output_queryset.filter(narrow_expression).annotate(
-        ordering=Value(1, output_field=IntegerField())
+        field_expr = Coalesce(F(field), Value(""), output_field=TextField())
+        # exact rank
+        exact_rank = exact_lookup(field_expr, string)
+        exact_rank = Cast(exact_rank, output_field=IntegerField()) * 100
+        rank_exprs.append(exact_rank)
+        # exact synonym
+        synonym_rank = regex_lookup(field_expr, rf"(?:^|.*\|){string}(?:\|.*|$)")
+        synonym_rank = Cast(synonym_rank, output_field=IntegerField()) * 100
+        rank_exprs.append(synonym_rank)
+        # match as sub-phrase
+        # note that this always matches the exact string also
+        sub_rank = regex_lookup(field_expr, f"(?:^|.* ){string}(?: .*|$)")
+        sub_rank = Cast(sub_rank, output_field=IntegerField()) * 4
+        rank_exprs.append(sub_rank)
+        # startswith and avoid matching string with " " on the right
+        # mostly for truncated
+        startswith_rank = regex_lookup(field_expr, rf"(?:^|\|){string}[^ ]*(\||$)")
+        startswith_rank = Cast(startswith_rank, output_field=IntegerField()) * 3
+        rank_exprs.append(startswith_rank)
+        # avoid matching string with " " on the right
+        # mostly for truncated
+        no_space_rank = regex_lookup(field_expr, rf"(?:^|.*[ \|]){string}[^ ]*(\||$)")
+        no_space_rank = Cast(no_space_rank, output_field=IntegerField())
+        rank_exprs.append(no_space_rank)
+        # match as sub-phrase from the left
+        # mostly for truncated, also always matches the exact string if present
+        left_rank = regex_lookup(field_expr, rf"(?:^|.*[ \|]){string}.*")
+        left_rank = Cast(left_rank, output_field=IntegerField())
+        rank_exprs.append(left_rank)
+
+    ranked_queryset = (
+        input_queryset.annotate(rank=sum(rank_exprs))
+        .filter(rank__gt=0)
+        .order_by("-rank")
     )
-    remaining_output_queryset = output_queryset.exclude(narrow_expression).annotate(
-        ordering=Value(2, output_field=IntegerField())
-    )
-    combined_queryset = refined_output_queryset.union(
-        remaining_output_queryset
-    ).order_by("ordering")[:limit]
-    return combined_queryset
+
+    return ranked_queryset[:limit]
 
 
 @classmethod  # type: ignore
