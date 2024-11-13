@@ -160,9 +160,13 @@ def __init__(record: Record, *args, **kwargs):
 @doc_args(Record.filter.__doc__)
 def filter(cls, *queries, **expressions) -> QuerySet:
     """{}"""  # noqa: D415
-    from lamindb._filter import filter
+    from lamindb._query_set import QuerySet
 
-    return filter(cls, *queries, **expressions)
+    _using_key = None
+    if "_using_key" in expressions:
+        _using_key = expressions.pop("_using_key")
+
+    return QuerySet(model=cls, using=_using_key).filter(*queries, **expressions)
 
 
 @classmethod  # type:ignore
@@ -173,8 +177,6 @@ def get(
     **expressions,
 ) -> Record:
     """{}"""  # noqa: D415
-    # this is the only place in which we need the lamindb queryset
-    # in this file; everywhere else it should be Django's
     from lamindb._query_set import QuerySet
 
     return QuerySet(model=cls).get(idlike, **expressions)
@@ -189,9 +191,7 @@ def df(
     limit: int = 100,
 ) -> pd.DataFrame:
     """{}"""  # noqa: D415
-    from lamindb._filter import filter
-
-    query_set = filter(cls)
+    query_set = cls.filter()
     if hasattr(cls, "updated_at"):
         query_set = query_set.order_by("-updated_at")
     return query_set[:limit].df(include=include, join=join)

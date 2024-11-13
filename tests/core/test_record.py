@@ -2,6 +2,7 @@ import shutil
 from inspect import signature
 from pathlib import Path
 
+import bionty as bt
 import lamindb as ln
 import pytest
 from lamindb import _record
@@ -140,3 +141,17 @@ def test_get_name_field():
 def test_using():
     ln.Artifact.using("laminlabs/lamin-site-assets").get(1)
     ln.Artifact.using("laminlabs/lamin-site-assets").get(uid="MqEaGU7fXvxNy61R0000")
+    # cross-database query
+    cell_types = bt.CellType.using("laminlabs/lamindata").lookup()
+    assert (
+        ln.Artifact.using("laminlabs/cellxgene")
+        .filter(cell_types=cell_types.t_cell)
+        .first()
+        is not None
+    )
+    assert (
+        ln.Artifact.using("laminlabs/cellxgene")
+        .filter(cell_types__in=[cell_types.t_cell])
+        .first()
+        is not None
+    )
