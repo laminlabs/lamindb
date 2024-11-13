@@ -14,5 +14,5 @@ faq/visibility
 faq/delete
 faq/keep-artifacts-local
 faq/symbol-mapping
-faq/benchmark-search
+faq/search
 ```
