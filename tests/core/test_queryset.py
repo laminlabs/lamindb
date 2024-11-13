@@ -116,6 +116,11 @@ def test_search():
     print("THIS IS THE QUERYSET WE CARE ABOUT")
     print(qs)
     print("xxxxxxxxxxxxxxxxxxxxxx")
+    print("THIS IS THE SEARCH WE CARE ABOUT")
+    srch = qs.search("ULabel 1").list()
+    print(srch)
+    print([(rec.name, rec.ordering) for rec in srch])
+    print("xxxxxxxxxxxxxxxxxxxxxx")
     assert qs.search("ULabel 1")[0].name == "ULabel 1"
     assert qs.search("ULabel 1", field=ln.ULabel.name)[0].name == "ULabel 1"
     for label in labels:
