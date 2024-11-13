@@ -114,9 +114,13 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
             # sense for a non-NULLABLE column
             elif visibility in expressions and expressions[visibility] is None:
                 expressions.pop(visibility)
-    processed_expressions = dict(
-        (_process_value(value, key, queryset._db) for key, value in expressions.items())
-    )
+    if queryset._db is not None:
+        processed_expressions = dict(
+            (
+                _process_value(value, key, queryset._db)
+                for key, value in expressions.items()
+            )
+        )
     return processed_expressions
 
 
