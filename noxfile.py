@@ -156,7 +156,7 @@ def build(session, group):
     run(session, "lamin settings set private-django-api true")
     coverage_args = "--cov=lamindb --cov-config=pyproject.toml --cov-append --cov-report=term-missing"
     if group == "unit-core":
-        run(session, f"pytest {coverage_args} ./tests/core --durations=50")
+        run(session, f"pytest -s {coverage_args} ./tests/core --durations=50")
     elif group == "unit-storage":
         run(session, f"pytest {coverage_args} ./tests/storage --durations=50")
     elif group == "tutorial":
