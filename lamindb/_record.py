@@ -210,7 +210,6 @@ def _search(
     input_queryset = _queryset(cls, using_key=using_key)
     registry = input_queryset.model
     if field is None:
-        #        fields = [cls._name_field]
         fields = [
             field.name
             for field in registry._meta.fields
@@ -237,6 +236,8 @@ def _search(
         if (len_string := len(string)) > 5:
             n_80_pct = int(len_string * 0.8)
             string = string[:n_80_pct]
+
+    string = string.strip()
 
     rank_exprs = []
     exact_lookup = Exact if case_sensitive else IExact
@@ -274,9 +275,7 @@ def _search(
         rank_exprs.append(left_rank)
 
     ranked_queryset = (
-        input_queryset.annotate(rank=sum(rank_exprs))
-        .filter(rank__gt=0)
-        .order_by("-rank")
+        input_queryset.alias(rank=sum(rank_exprs)).filter(rank__gt=0).order_by("-rank")
     )
 
     return ranked_queryset[:limit]
