@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from collections import UserList
-from typing import TYPE_CHECKING, NamedTuple
+from collections.abc import Iterable
+from collections.abc import Iterable as IterableType
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 import pandas as pd
 from django.db import models
@@ -69,8 +71,33 @@ def one_helper(self):
         return self[0]
 
 
-def process_expressions(registry: Registry, expressions: dict) -> dict:
-    if registry in {Artifact, Collection}:
+def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
+    def _map_databases(value: Any, key: str, target_db: str) -> tuple[str, Any]:
+        if isinstance(value, Record):
+            if value._state.db != target_db:
+                logger.warning(
+                    f"passing record from database {value._state.db} to query {target_db}, matching on uid '{value.uid}'"
+                )
+                return f"{key}__uid", value.uid
+            return key, value
+
+        if (
+            key.endswith("__in")
+            and isinstance(value, IterableType)
+            and not isinstance(value, str)
+        ):
+            if any(isinstance(v, Record) and v._state.db != target_db for v in value):
+                logger.warning(
+                    f"passing records from another database to query {target_db}, matching on uids"
+                )
+                return key.replace("__in", "__uid__in"), [
+                    v.uid if isinstance(v, Record) else v for v in value
+                ]
+            return key, value
+
+        return key, value
+
+    if queryset.model in {Artifact, Collection}:
         # visibility is set to 0 unless expressions contains id or uid equality
         if not (
             "id" in expressions
@@ -87,7 +114,17 @@ def process_expressions(registry: Registry, expressions: dict) -> dict:
             # sense for a non-NULLABLE column
             elif visibility in expressions and expressions[visibility] is None:
                 expressions.pop(visibility)
-    return expressions
+    if queryset._db is not None:
+        # only check for database mismatch if there is a defined database on the
+        # queryset
+        return dict(
+            (
+                _map_databases(value, key, queryset._db)
+                for key, value in expressions.items()
+            )
+        )
+    else:
+        return expressions
 
 
 def get(
@@ -114,7 +151,7 @@ def get(
             return qs.one()
     else:
         assert idlike is None  # noqa: S101
-        expressions = process_expressions(registry, expressions)
+        expressions = process_expressions(qs, expressions)
         return registry.objects.using(qs.db).get(**expressions)
 
 
@@ -281,6 +318,14 @@ class QuerySet(models.QuerySet):
     def get(self, idlike: int | str | None = None, **expressions) -> Record:
         """Query a single record. Raises error if there are more or none."""
         return get(self, idlike, **expressions)
+
+    def filter(self, *queries, **expressions) -> QuerySet:
+        """Query a set of records."""
+        expressions = process_expressions(self, expressions)
+        if len(expressions) > 0:
+            return super().filter(*queries, **expressions)
+        else:
+            return self
 
     def one(self) -> Record:
         """Exactly one result. Raises error if there are more or none."""
