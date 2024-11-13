@@ -256,23 +256,20 @@ def _search(
         synonym_rank = Cast(synonym_rank, output_field=IntegerField()) * 100
         rank_exprs.append(synonym_rank)
         # match as sub-phrase
-        # note that this always matches the exact string also
         sub_rank = regex_lookup(field_expr, f"(?:^|.* ){string}(?: .*|$)")
-        sub_rank = Cast(sub_rank, output_field=IntegerField()) * 4
+        sub_rank = Cast(sub_rank, output_field=IntegerField()) * 5
         rank_exprs.append(sub_rank)
         # startswith and avoid matching string with " " on the right
         # mostly for truncated
         startswith_rank = regex_lookup(field_expr, rf"(?:^|\|){string}[^ ]*(\||$)")
-        startswith_rank = Cast(startswith_rank, output_field=IntegerField()) * 3
+        startswith_rank = Cast(startswith_rank, output_field=IntegerField()) * 4
         rank_exprs.append(startswith_rank)
-        # avoid matching string with " " on the right
-        # mostly for truncated
-        no_space_rank = regex_lookup(field_expr, rf"(?:^|.*[ \|]){string}[^ ]*(\||$)")
-        no_space_rank = Cast(no_space_rank, output_field=IntegerField())
-        rank_exprs.append(no_space_rank)
-        # match as sub-phrase from the left
-        # mostly for truncated, also always matches the exact string if present
-        left_rank = regex_lookup(field_expr, rf"(?:^|.*[ \|]){string}.*")
+        # match as sub-phrase from the left, mostly for truncated
+        right_rank = regex_lookup(field_expr, rf"(?:^|.*[ \|]){string}.*")
+        right_rank = Cast(right_rank, output_field=IntegerField())
+        rank_exprs.append(right_rank)
+        # match as sub-phrase from the right
+        left_rank = regex_lookup(field_expr, rf".*{string}(?:$|[ \|].*)")
         left_rank = Cast(left_rank, output_field=IntegerField())
         rank_exprs.append(left_rank)
 
