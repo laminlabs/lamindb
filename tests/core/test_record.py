@@ -128,7 +128,7 @@ def test_suggest_similar_names():
     ulabel1 = ln.ULabel(name="Test experiment 1").save()
     ulabel2 = ln.ULabel(name="Test experiment 2").save()
 
-    assert ln.ULabel("Test experiment 1").uid == ulabel1.uid
+    assert ln.ULabel(name="Test experiment 1").uid == ulabel1.uid
 
     assert suggest_records_with_similar_names(
         ulabel1, "name", {"name": "Test experiment 1"}
