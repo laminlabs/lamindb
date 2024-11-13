@@ -234,9 +234,12 @@ def save_context_core(
     # finalize
     if not from_cli:
         run_time = run.finished_at - run.started_at
-        hours, remainder = divmod(run_time.seconds, 3600)
-        minutes, seconds = divmod(remainder, 60)
-        formatted_run_time = f"{hours}h {minutes}m {seconds}s"
+        days = run_time.days
+        seconds = run_time.seconds
+        hours = seconds // 3600
+        minutes = (seconds % 3600) // 60
+        secs = seconds % 60
+        formatted_run_time = f"{days}d {hours}h {minutes}m {secs}s"
 
         logger.important(
             f"finished Run('{run.uid[:8]}') after {formatted_run_time} at {format_field_value(run.finished_at)}"
