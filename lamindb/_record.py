@@ -18,7 +18,18 @@ from lamindb_setup._connect_instance import (
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._hub_core import connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
-from lnschema_core.models import Artifact, Feature, IsVersioned, Record, Run, Transform
+from lnschema_core.models import (
+    Artifact,
+    Collection,
+    Feature,
+    FeatureSet,
+    IsVersioned,
+    Param,
+    Record,
+    Run,
+    Transform,
+    ULabel,
+)
 
 from ._utils import attach_func_to_class_method
 from .core._settings import settings
@@ -49,6 +60,7 @@ def update_attributes(record: Record, attributes: dict[str, str]):
 
 
 def validate_required_fields(record: Record, kwargs):
+    # a "required field" is a Django field that has `null=True, default=None`
     required_fields = {
         k.name for k in record._meta.fields if not k.null and k.default is None
     }
@@ -59,7 +71,17 @@ def validate_required_fields(record: Record, kwargs):
     ]
     if missing_fields:
         raise TypeError(f"{missing_fields} are required.")
-    try:
+    # ensure the exact length of the internal uid for core entities
+    if record.__class__ in {
+        Artifact,
+        Collection,
+        Transform,
+        Run,
+        ULabel,
+        Feature,
+        FeatureSet,
+        Param,
+    }:
         uid_max_length = record.__class__._meta.get_field(
             "uid"
         ).max_length  # triggers FieldDoesNotExist
@@ -67,8 +89,6 @@ def validate_required_fields(record: Record, kwargs):
             raise ValidationError(
                 f'`uid` must be exactly {uid_max_length} characters long, got {len(kwargs["uid"])}.'
             )
-    except (FieldDoesNotExist, KeyError):
-        pass
 
 
 def suggest_records_with_similar_names(record: Record, name_field: str, kwargs) -> bool:
