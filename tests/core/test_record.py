@@ -6,6 +6,7 @@ import bionty as bt
 import lamindb as ln
 import pytest
 from lamindb import _record
+from lamindb._record import _search, suggest_records_with_similar_names
 
 
 def test_signatures():
@@ -121,6 +122,32 @@ def test_search_and_get(get_search_test_filepaths):
     artifact3.delete(permanent=True, storage=True)
     artifact4.delete(permanent=True, storage=True)
     artifact5.delete(permanent=True, storage=True)
+
+
+def test_suggest_similar_names():
+    ulabel1 = ln.ULabel(name="Test experiment 1").save()
+    ulabel2 = ln.ULabel(name="Test experiment 2").save()
+
+    assert ln.ULabel(name="Test experiment 1").uid == ulabel1.uid
+
+    assert suggest_records_with_similar_names(
+        ulabel1, "name", {"name": "Test experiment 1"}
+    )
+    assert not suggest_records_with_similar_names(
+        ulabel2, "name", {"name": "Test experiment 123"}
+    )
+
+    queryset = _search(
+        ln.ULabel,
+        "Test experiment 123",
+        field="name",
+        truncate_string=True,
+        limit=3,
+    )
+    assert queryset.count() == 2
+
+    ulabel1.delete()
+    ulabel2.delete()
 
 
 def test_pass_version():
