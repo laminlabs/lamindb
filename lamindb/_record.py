@@ -72,7 +72,7 @@ def validate_required_fields(record: Record, kwargs):
     if missing_fields:
         raise TypeError(f"{missing_fields} are required.")
     # ensure the exact length of the internal uid for core entities
-    if record.__class__ in {
+    if "uid" in kwargs and record.__class__ in {
         Artifact,
         Collection,
         Transform,
