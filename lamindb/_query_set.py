@@ -72,7 +72,7 @@ def one_helper(self):
 
 
 def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
-    def _process_value(value: Any, key: str, target_db: str) -> tuple[str, Any]:
+    def _map_databases(value: Any, key: str, target_db: str) -> tuple[str, Any]:
         if isinstance(value, Record):
             if value._state.db != target_db:
                 logger.warning(
@@ -115,13 +115,16 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
             elif visibility in expressions and expressions[visibility] is None:
                 expressions.pop(visibility)
     if queryset._db is not None:
-        processed_expressions = dict(
+        # only check for database mismatch if there is a defined database on the
+        # queryset
+        return dict(
             (
-                _process_value(value, key, queryset._db)
+                _map_databases(value, key, queryset._db)
                 for key, value in expressions.items()
             )
         )
-    return processed_expressions
+    else:
+        return expressions
 
 
 def get(
