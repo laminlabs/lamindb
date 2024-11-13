@@ -189,9 +189,7 @@ def df(
     limit: int = 100,
 ) -> pd.DataFrame:
     """{}"""  # noqa: D415
-    from lamindb._filter import filter
-
-    query_set = filter(cls)
+    query_set = cls.filter()
     if hasattr(cls, "updated_at"):
         query_set = query_set.order_by("-updated_at")
     return query_set[:limit].df(include=include, join=join)
