@@ -179,6 +179,7 @@ def __init__(record: Record, *args, **kwargs):
             # avoid making network requests
             record.clean_fields()
         else:
+            print(dir(record))
             record.__clean_fields()
     elif len(args) != len(record._meta.concrete_fields):
         raise ValueError("please provide keyword arguments, not plain arguments")
