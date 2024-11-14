@@ -109,7 +109,7 @@ def load_json(path: UPathStr) -> dict:
 
 
 def load_image(path: UPathStr):
-    """Display `.svg` in ipython, otherwise return path."""
+    """Display `.jpg`, `.png` or `.gif` in ipython, otherwise return path."""
     if is_run_from_ipython:
         from IPython.display import Image, display
 
@@ -141,6 +141,7 @@ FILE_LOADERS = {
     ".h5mu": load_h5mu,
     ".jpg": load_image,
     ".png": load_image,
+    ".gif": load_image,
     ".svg": load_svg,
 }
 
