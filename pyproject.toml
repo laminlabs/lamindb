@@ -18,7 +18,7 @@ dependencies = [
     # Lamin PINNED packages
     "lnschema_core==0.76.1",
     "lamin_utils==0.13.7",
-    "lamin_cli==0.20.1",
+    "lamin_cli==0.21.0",
     # PINNED in lamin-cli
     "lamindb_setup",
     # others
