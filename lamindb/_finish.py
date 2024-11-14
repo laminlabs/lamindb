@@ -103,10 +103,10 @@ def save_context_core(
 
     # for scripts, things are easy
     is_consecutive = True
-    is_notebook = transform.type == "notebook"
+    is_ipynb = filepath.suffix == ".ipynb"
     source_code_path = filepath
     # for notebooks, we need more work
-    if is_notebook:
+    if is_ipynb:
         try:
             import jupytext
             from nbproject.dev import (
@@ -198,7 +198,7 @@ def save_context_core(
         run.finished_at = datetime.now(timezone.utc)
 
     # track report and set is_consecutive
-    if not is_notebook:
+    if not is_ipynb:
         run.is_consecutive = True
         run.save()
     else:
@@ -251,9 +251,7 @@ def save_context_core(
         )
         if not from_cli:
             thing, name = (
-                ("notebook", "notebook.ipynb")
-                if is_notebook
-                else ("script", "script.py")
+                ("notebook", "notebook.ipynb") if is_ipynb else ("script", "script.py")
             )
             logger.important(
                 f"if you want to update your {thing} without re-running it, use `lamin save {name}`"
