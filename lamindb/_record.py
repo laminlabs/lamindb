@@ -62,8 +62,11 @@ def update_attributes(record: Record, attributes: dict[str, str]):
             setattr(record, key, value)
 
 
-def validate_required_fields(record: Record, kwargs):
-    # a "required field" is a Django field that has `null=True, default=None`
+def validate_fields(record: Record, kwargs):
+    from lnschema_core.validation import validate_literal_fields
+
+    # validate required fields
+    # a "required field" is a Django field that has `null=False, default=None`
     required_fields = {
         k.name for k in record._meta.fields if not k.null and k.default is None
     }
@@ -92,6 +95,8 @@ def validate_required_fields(record: Record, kwargs):
             raise ValidationError(
                 f'`uid` must be exactly {uid_max_length} characters long, got {len(kwargs["uid"])}.'
             )
+    # validate literals
+    validate_literal_fields(record, kwargs)
 
 
 def suggest_records_with_similar_names(record: Record, name_field: str, kwargs) -> bool:
@@ -128,7 +133,7 @@ def suggest_records_with_similar_names(record: Record, name_field: str, kwargs) 
 
 def __init__(record: Record, *args, **kwargs):
     if not args:
-        validate_required_fields(record, kwargs)
+        validate_fields(record, kwargs)
 
         # do not search for names if an id is passed; this is important
         # e.g. when synching ids from the notebook store to lamindb
@@ -169,6 +174,11 @@ def __init__(record: Record, *args, **kwargs):
                     init_self_from_db(record, existing_record)
                     return None
         super(Record, record).__init__(**kwargs)
+        # this will trigger validation against django validators
+        if hasattr(record, "full_clean"):
+            record.full_clean()
+        else:
+            record._full_clean()
     elif len(args) != len(record._meta.concrete_fields):
         raise ValueError("please provide keyword arguments, not plain arguments")
     else:
