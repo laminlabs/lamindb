@@ -176,9 +176,9 @@ def __init__(record: Record, *args, **kwargs):
         super(Record, record).__init__(**kwargs)
         # this will trigger validation against django validators
         if hasattr(record, "full_clean"):
-            record.full_clean(validate_unique=False)
+            record.full_clean(validate_unique=False, validate_constraints=False)
         else:
-            record._full__clean(validate_unique=False)
+            record._full__clean(validate_unique=False, validate_constraints=False)
     elif len(args) != len(record._meta.concrete_fields):
         raise ValueError("please provide keyword arguments, not plain arguments")
     else:
