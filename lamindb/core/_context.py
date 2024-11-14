@@ -86,7 +86,10 @@ def raise_missing_context(transform_type: str, key: str) -> bool:
     else:
         uid = transform.uid
         new_uid = f"{uid[:-4]}{increment_base62(uid[-4:])}"
-        message = f"you already have a transform with key '{key}' ('{transform.uid}')\n  - to make a revision, call `ln.track('{new_uid}')`\n  - to create a new transform, rename your file and run: `ln.track()`"
+        message = (
+            f"you already have a transform with key '{key}': Transform('{transform.uid[:8]}')\n"
+            f'  (1) to make a revision, run: ln.track("{new_uid}")\n  (2) to create a new transform, rename your {transform_type} file and re-run: ln.track()'
+        )
     if transform_type == "notebook":
         print(f"→ {message}")
         response = input("→ Ready to re-run? (y/n)")
