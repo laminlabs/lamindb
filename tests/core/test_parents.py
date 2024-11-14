@@ -36,7 +36,7 @@ def test_query_parents_children():
 
 
 def test_add_emoji():
-    record = ln.Transform(type="app")
+    record = ln.Transform(type="upload")
     assert _add_emoji(record, label="transform") == "🖥️ transform"
     with pytest.raises(ValidationError):
         transform = ln.Transform(name="test", type="app")
