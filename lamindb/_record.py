@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import builtins
+from functools import reduce
 from typing import TYPE_CHECKING, NamedTuple
 
 import dj_database_url
@@ -259,50 +260,57 @@ def _search(
 
     string = string.strip()
 
-    rank_exprs = []
     exact_lookup = Exact if case_sensitive else IExact
     regex_lookup = Regex if case_sensitive else IRegex
     contains_lookup = Contains if case_sensitive else IContains
+
+    ranks = []
+    contains_filters = []
     for field in fields:
         field_expr = Coalesce(
-            Cast(F(field), output_field=TextField()),
+            Cast(field, output_field=TextField()),
             Value(""),
             output_field=TextField(),
         )
         # exact rank
-        exact_rank = exact_lookup(field_expr, string)
-        exact_rank = Cast(exact_rank, output_field=IntegerField()) * 200
-        rank_exprs.append(exact_rank)
+        exact_expr = exact_lookup(field_expr, string)
+        exact_rank = Cast(exact_expr, output_field=IntegerField()) * 200
+        ranks.append(exact_rank)
         # exact synonym
-        synonym_rank = regex_lookup(field_expr, rf"(?:^|.*\|){string}(?:\|.*|$)")
-        synonym_rank = Cast(synonym_rank, output_field=IntegerField()) * 200
-        rank_exprs.append(synonym_rank)
+        synonym_expr = regex_lookup(field_expr, rf"(?:^|.*\|){string}(?:\|.*|$)")
+        synonym_rank = Cast(synonym_expr, output_field=IntegerField()) * 200
+        ranks.append(synonym_rank)
         # match as sub-phrase
-        sub_rank = regex_lookup(
+        sub_expr = regex_lookup(
             field_expr, rf"(?:^|.*[ \|\.,;:]){string}(?:[ \|\.,;:].*|$)"
         )
-        sub_rank = Cast(sub_rank, output_field=IntegerField()) * 10
-        rank_exprs.append(sub_rank)
+        sub_rank = Cast(sub_expr, output_field=IntegerField()) * 10
+        ranks.append(sub_rank)
         # startswith and avoid matching string with " " on the right
         # mostly for truncated
-        startswith_rank = regex_lookup(field_expr, rf"(?:^|\|){string}[^ ]*(\||$)")
-        startswith_rank = Cast(startswith_rank, output_field=IntegerField()) * 8
-        rank_exprs.append(startswith_rank)
+        startswith_expr = regex_lookup(field_expr, rf"(?:^|\|){string}[^ ]*(\||$)")
+        startswith_rank = Cast(startswith_expr, output_field=IntegerField()) * 8
+        ranks.append(startswith_rank)
         # match as sub-phrase from the left, mostly for truncated
-        right_rank = regex_lookup(field_expr, rf"(?:^|.*[ \|]){string}.*")
-        right_rank = Cast(right_rank, output_field=IntegerField()) * 2
-        rank_exprs.append(right_rank)
+        right_expr = regex_lookup(field_expr, rf"(?:^|.*[ \|]){string}.*")
+        right_rank = Cast(right_expr, output_field=IntegerField()) * 2
+        ranks.append(right_rank)
         # match as sub-phrase from the right
-        left_rank = regex_lookup(field_expr, rf".*{string}(?:$|[ \|\.,;:].*)")
-        left_rank = Cast(left_rank, output_field=IntegerField()) * 2
-        rank_exprs.append(left_rank)
-        # simple contains check
-        contains_rank = contains_lookup(field_expr, string)
-        contains_rank = Cast(contains_rank, output_field=IntegerField())
-        rank_exprs.append(contains_rank)
+        left_expr = regex_lookup(field_expr, rf".*{string}(?:$|[ \|\.,;:].*)")
+        left_rank = Cast(left_expr, output_field=IntegerField()) * 2
+        ranks.append(left_rank)
+        # simple contains filter
+        contains_expr = contains_lookup(field_expr, string)
+        contains_filter = Q(contains_expr)
+        contains_filters.append(contains_filter)
+        # also rank by contains
+        contains_rank = Cast(contains_expr, output_field=IntegerField())
+        ranks.append(contains_rank)
 
     ranked_queryset = (
-        input_queryset.alias(rank=sum(rank_exprs)).filter(rank__gt=0).order_by("-rank")
+        input_queryset.filter(reduce(lambda a, b: a | b, contains_filters))
+        .alias(rank=sum(ranks))
+        .order_by("-rank")
     )
 
     return ranked_queryset[:limit]
