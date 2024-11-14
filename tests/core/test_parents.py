@@ -1,4 +1,6 @@
 import lamindb as ln
+import pytest
+from django.core.exceptions import ValidationError
 from lamindb._parents import _add_emoji
 
 
@@ -36,7 +38,9 @@ def test_query_parents_children():
 def test_add_emoji():
     record = ln.Transform(type="app")
     assert _add_emoji(record, label="transform") == "🖥️ transform"
-    transform = ln.Transform(name="test", type="app")
+    with pytest.raises(ValidationError):
+        transform = ln.Transform(name="test", type="app")
+    transform = ln.Transform(name="test", type="upload")
     transform.save()
     record = ln.Run(transform=transform)
     assert _add_emoji(record, label="run") == "🖥️ run"

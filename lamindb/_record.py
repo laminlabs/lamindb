@@ -174,12 +174,13 @@ def __init__(record: Record, *args, **kwargs):
                     init_self_from_db(record, existing_record)
                     return None
         super(Record, record).__init__(**kwargs)
-        # this will trigger validation against django validators
-        if hasattr(record, "clean_fields"):
-            # avoid making network requests
-            record.clean_fields()
-        else:
-            record._Model__clean_fields()
+        if record.__class__.__get_schema_name__() not in {"core", "bionty"}:
+            # this will trigger validation against django validators
+            if hasattr(record, "clean_fields"):
+                # avoid making network requests
+                record.clean_fields()
+            else:
+                record._Model__clean_fields()
     elif len(args) != len(record._meta.concrete_fields):
         raise ValueError("please provide keyword arguments, not plain arguments")
     else:
