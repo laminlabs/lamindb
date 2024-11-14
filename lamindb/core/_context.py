@@ -82,7 +82,7 @@ def raise_missing_context(transform_type: str, key: str) -> bool:
     transform = Transform.filter(key=key).latest_version().first()
     if transform is None:
         new_uid = f"{base62_12()}0000"
-        message = f'to track this {transform_type}, copy & paste `ln.track("{new_uid}")` and re-run'
+        message = f'to track this {transform_type}, run: ln.track("{new_uid}")'
     else:
         uid = transform.uid
         new_uid = f"{uid[:-4]}{increment_base62(uid[-4:])}"
@@ -118,6 +118,8 @@ class Context:
     Enables convenient data lineage tracking by managing a transform & run
     upon :meth:`~lamindb.core.Context.track` & :meth:`~lamindb.core.Context.finish`.
 
+    Guide: :doc:`/track`
+
     Examples:
 
         Is typically used via the global :class:`~lamindb.context` object via `ln.track()` and `ln.finish()`:
@@ -137,7 +139,8 @@ class Context:
         self._run: Run | None = None
         self._path: Path | None = None
         """A local path to the script that's running."""
-        self._logging_message: str = ""
+        self._logging_message_track: str = ""
+        self._logging_message_imports: str = ""
 
     @property
     def transform(self) -> Transform | None:
@@ -178,12 +181,11 @@ class Context:
 
     def track(
         self,
-        uid: str | None = None,
+        transform: str | Transform | None = None,
         *,
         params: dict | None = None,
         new_run: bool | None = None,
         path: str | None = None,
-        transform: Transform | None = None,
     ) -> None:
         """Initiate a run with tracked data lineage.
 
@@ -196,24 +198,31 @@ class Context:
         script-like transform exists in a git repository and links it.
 
         Args:
-            uid: A `uid` to create or load a transform.
+            transform: A transform `uid` or record. If `None`, creates a `uid`.
             params: A dictionary of parameters to track for the run.
             new_run: If `False`, loads latest run of transform
                 (default notebook), if `True`, creates new run (default pipeline).
             path: Filepath of notebook or script. Only needed if it can't be
                 automatically detected.
-            transform: Useful to track an abstract pipeline.
 
         Examples:
 
-            To track the run of a notebook or script, call:
+            To create a transform `uid` for tracking a script or notebook, call:
 
-            >>> import lamindb as ln
             >>> ln.track()
 
+            To track the run of a notebook or script, call:
+
+            >>> ln.track("FPnfDtJz8qbE0000")  # replace with your uid
+
         """
-        if uid is not None:
+        self._logging_message_track = ""
+        self._logging_message_imports = ""
+        uid = None
+        if transform is not None and isinstance(transform, str):
+            uid = transform
             self.uid = uid
+            transform = None
         self._path = None
         if transform is None:
             is_tracked = False
@@ -223,17 +232,20 @@ class Context:
             )
             transform = None
             stem_uid = None
+            # you can set ln.context.uid and then call ln.track() without passing anythin
+            # that has been the preferred syntax for a while; we'll likely
+            # deprecate it at some point
             if uid is not None or self.uid is not None:
                 transform = Transform.filter(uid=self.uid).one_or_none()
                 if self.version is not None:
                     # test inconsistent version passed
                     if (
                         transform is not None
-                        and transform.version is not None
-                        and self.version != transform.version
+                        and transform.version is not None  # type: ignore
+                        and self.version != transform.version  # type: ignore
                     ):
                         raise SystemExit(
-                            f"Please pass consistent version: ln.context.version = '{transform.version}'"
+                            f"Please pass consistent version: ln.context.version = '{transform.version}'"  # type: ignore
                         )
                     # test whether version was already used for another member of the family
                     suid, vuid = (
@@ -302,10 +314,14 @@ class Context:
                 transform_exists = Transform.filter(id=transform.id).first()
             if transform_exists is None:
                 transform.save()
-                self._logging_message += f"created Transform('{transform.uid[:8]}')"
+                self._logging_message_track += (
+                    f"created Transform('{transform.uid[:8]}')"
+                )
                 transform_exists = transform
             else:
-                self._logging_message += f"loaded Transform('{transform.uid[:8]}')"
+                self._logging_message_track += (
+                    f"loaded Transform('{transform.uid[:8]}')"
+                )
             self._transform = transform_exists
 
         if new_run is None:  # for notebooks, default to loading latest runs
@@ -322,7 +338,7 @@ class Context:
             )
             if run is not None:  # loaded latest run
                 run.started_at = datetime.now(timezone.utc)  # update run time
-                self._logging_message += f", started Run('{run.uid[:8]}') at {format_field_value(run.started_at)}"
+                self._logging_message_track += f", started Run('{run.uid[:8]}') at {format_field_value(run.started_at)}"
 
         if run is None:  # create new run
             run = Run(
@@ -330,7 +346,7 @@ class Context:
                 params=params,
             )
             run.started_at = datetime.now(timezone.utc)
-            self._logging_message += f", started new Run('{run.uid[:8]}') at {format_field_value(run.started_at)}"
+            self._logging_message_track += f", started new Run('{run.uid[:8]}') at {format_field_value(run.started_at)}"
         # can only determine at ln.finish() if run was consecutive in
         # interactive session, otherwise, is consecutive
         run.is_consecutive = True if is_run_from_ipython else None
@@ -338,13 +354,14 @@ class Context:
         run.save()
         if params is not None:
             run.params.add_values(params)
-            self._logging_message += "\n→ params: " + " ".join(
+            self._logging_message_track += "\n→ params: " + " ".join(
                 f"{key}='{value}'" for key, value in params.items()
             )
         self._run = run
         track_environment(run)
-        logger.important(self._logging_message)
-        self._logging_message = ""
+        logger.important(self._logging_message_track)
+        if self._logging_message_imports:
+            logger.important(self._logging_message_imports)
 
     def _track_script(
         self,
@@ -406,9 +423,9 @@ class Context:
                 from nbproject.dev._pypackage import infer_pypackages
 
                 nb = nbproject.dev.read_notebook(path_str)
-                logger.important(
+                self._logging_message_imports += (
                     "notebook imports:"
-                    f" {pretty_pypackages(infer_pypackages(nb, pin_versions=True))}"
+                    f" {pretty_pypackages(infer_pypackages(nb, pin_versions=True))}\n"
                 )
             except Exception:
                 logger.debug("inferring imported packages failed")
@@ -471,7 +488,7 @@ class Context:
                 raise_update_context = True
             if raise_update_context:
                 raise UpdateContext(get_key_clashing_message(revises, key))
-            self._logging_message += f"created Transform('{transform.uid[:8]}')"
+            self._logging_message_track += f"created Transform('{transform.uid[:8]}')"
         else:
             uid = transform.uid
             # transform was already saved via `finish()`
@@ -485,7 +502,7 @@ class Context:
             elif transform.name != name:
                 transform.name = name
                 transform.save()
-                self._logging_message += (
+                self._logging_message_track += (
                     "updated transform name, "  # white space on purpose
                 )
             elif (
@@ -509,7 +526,7 @@ class Context:
                     if condition:
                         bump_revision = True
                     else:
-                        self._logging_message += (
+                        self._logging_message_track += (
                             f"loaded Transform('{transform.uid[:8]}')"
                         )
                 if bump_revision:
@@ -523,7 +540,9 @@ class Context:
                         f'ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")'
                     )
             else:
-                self._logging_message += f"loaded Transform('{transform.uid[:8]}')"
+                self._logging_message_track += (
+                    f"loaded Transform('{transform.uid[:8]}')"
+                )
         self._transform = transform
 
     def finish(self, ignore_non_consecutive: None | bool = None) -> None:
