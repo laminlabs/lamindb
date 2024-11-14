@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING
 
 import scipy.sparse as sparse
 import zarr
-from anndata.io import read_zarr
 from anndata._io.specs import write_elem
 from anndata._io.specs.registry import get_spec
+from anndata.io import read_zarr
 from fsspec.implementations.local import LocalFileSystem
 from lamindb_setup.core.upath import create_mapper, infer_filesystem
 
