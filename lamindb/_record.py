@@ -178,7 +178,7 @@ def __init__(record: Record, *args, **kwargs):
         if hasattr(record, "full_clean"):
             record.full_clean()
         else:
-            record._full_clean()
+            record._full__clean()
     elif len(args) != len(record._meta.concrete_fields):
         raise ValueError("please provide keyword arguments, not plain arguments")
     else:
