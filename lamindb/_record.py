@@ -176,10 +176,10 @@ def __init__(record: Record, *args, **kwargs):
         super(Record, record).__init__(**kwargs)
         # this will trigger validation against django validators
         if hasattr(record, "clean_fields"):
-            # set validate_unique and validate_constraints to False to avoid making network requests
+            # avoid making network requests
             record.clean_fields()
         else:
-            record._clean_fields()
+            record.__clean_fields()
     elif len(args) != len(record._meta.concrete_fields):
         raise ValueError("please provide keyword arguments, not plain arguments")
     else:
