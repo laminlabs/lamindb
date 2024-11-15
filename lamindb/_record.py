@@ -28,12 +28,12 @@ from lnschema_core.models import (
     Feature,
     FeatureSet,
     IsVersioned,
-    LinkORM,
     Param,
     Record,
     Run,
     Transform,
     ULabel,
+    ValidateFields,
 )
 from lnschema_core.validation import FieldValidationError
 
@@ -177,10 +177,7 @@ def __init__(record: Record, *args, **kwargs):
                     init_self_from_db(record, existing_record)
                     return None
         super(Record, record).__init__(**kwargs)
-        if record.__class__.__get_schema_name__() not in {
-            "core",
-            "bionty",
-        } and not isinstance(record, LinkORM):
+        if isinstance(record, ValidateFields):
             # this will trigger validation against django validators
             try:
                 if hasattr(record, "clean_fields"):

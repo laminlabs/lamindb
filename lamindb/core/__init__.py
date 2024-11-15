@@ -21,6 +21,7 @@ Registries:
    ParamValue
    FeatureValue
    InspectResult
+   ValidateFields
    fields
 
 Curators:
@@ -76,6 +77,7 @@ from lnschema_core.models import (
     Registry,
     TracksRun,
     TracksUpdates,
+    ValidateFields,
 )
 
 from lamindb._curate import (
