@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, NamedTuple
 import dj_database_url
 import lamindb_setup as ln_setup
 from django.core.exceptions import FieldDoesNotExist
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import connections, transaction
 from django.db.models import F, IntegerField, Manager, Q, QuerySet, TextField, Value
 from django.db.models.functions import Cast, Coalesce
@@ -34,6 +35,7 @@ from lnschema_core.models import (
     Transform,
     ULabel,
 )
+from lnschema_core.validation import FieldValidationError
 
 from ._utils import attach_func_to_class_method
 from .core._settings import settings
@@ -180,17 +182,51 @@ def __init__(record: Record, *args, **kwargs):
             "bionty",
         } and not isinstance(record, LinkORM):
             # this will trigger validation against django validators
-            if hasattr(record, "clean_fields"):
-                # avoid making network requests
-                record.clean_fields()
-            else:
-                record._Model__clean_fields()
+            try:
+                if hasattr(record, "clean_fields"):
+                    record.clean_fields()
+                else:
+                    record._Model__clean_fields()
+            except DjangoValidationError as e:
+                message = _format_django_validation_error(record, e)
+                raise FieldValidationError(message) from e
     elif len(args) != len(record._meta.concrete_fields):
         raise ValueError("please provide keyword arguments, not plain arguments")
     else:
         # object is loaded from DB (**kwargs could be omitted below, I believe)
         super(Record, record).__init__(*args, **kwargs)
         _store_record_old_name(record)
+
+
+def _format_django_validation_error(record: Record, e: DjangoValidationError):
+    """Pretty print Django validation errors."""
+    errors = {}
+    if hasattr(e, "error_dict"):
+        error_dict = e.error_dict
+    else:
+        error_dict = {"__all__": e.error_list}
+
+    for field_name, error_list in error_dict.items():
+        for error in error_list:
+            if hasattr(error, "message"):
+                msg = error.message
+            else:
+                msg = str(error)
+
+            if field_name == "__all__":
+                errors[field_name] = f"{colors.yellow(msg)}"
+            else:
+                current_value = getattr(record, field_name, None)
+                errors[field_name] = (
+                    f"{field_name}: {colors.yellow(current_value)} is not valid\n    → {msg}"
+                )
+
+    if errors:
+        message = "\n  "
+        for _, error in errors.items():
+            message += error + "\n  "
+
+        return message
 
 
 @classmethod  # type:ignore
