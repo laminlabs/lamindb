@@ -10,7 +10,16 @@ from django.core.exceptions import FieldDoesNotExist
 from django.db import connections, transaction
 from django.db.models import F, IntegerField, Manager, Q, QuerySet, TextField, Value
 from django.db.models.functions import Cast, Coalesce
-from django.db.models.lookups import Contains, Exact, IContains, IExact, IRegex, Regex
+from django.db.models.lookups import (
+    Contains,
+    Exact,
+    IContains,
+    IExact,
+    IRegex,
+    IStartsWith,
+    Regex,
+    StartsWith,
+)
 from lamin_utils import colors, logger
 from lamin_utils._lookup import Lookup
 from lamindb_setup._connect_instance import (
@@ -136,9 +145,7 @@ def __init__(record: Record, *args, **kwargs):
         if "_has_consciously_provided_uid" in kwargs:
             has_consciously_provided_uid = kwargs.pop("_has_consciously_provided_uid")
         if settings.creation.search_names and not has_consciously_provided_uid:
-            name_field = (
-                "name" if not hasattr(record, "_name_field") else record._name_field
-            )
+            name_field = getattr(record, "_name_field", "name")
             match = suggest_records_with_similar_names(record, name_field, kwargs)
             if match:
                 if "version" in kwargs:
@@ -230,6 +237,7 @@ def _search(
 ) -> QuerySet:
     input_queryset = _queryset(cls, using_key=using_key)
     registry = input_queryset.model
+    name_field = getattr(registry, "_name_field", "name")
     if field is None:
         fields = [
             field.name
@@ -306,6 +314,16 @@ def _search(
         # also rank by contains
         contains_rank = Cast(contains_expr, output_field=IntegerField())
         ranks.append(contains_rank)
+        # additional rule for truncated strings
+        # weight matches from the beginning of the string higher
+        # sometimes whole words get truncated and startswith_expr is not enough
+        if truncate_string and field == name_field:
+            startswith_lookup = StartsWith if case_sensitive else IStartsWith
+            name_startswith_expr = startswith_lookup(field_expr, string)
+            name_startswith_rank = (
+                Cast(name_startswith_expr, output_field=IntegerField()) * 2
+            )
+            ranks.append(name_startswith_rank)
 
     ranked_queryset = (
         input_queryset.filter(reduce(lambda a, b: a | b, contains_filters))
