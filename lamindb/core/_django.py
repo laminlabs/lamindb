@@ -33,7 +33,7 @@ def get_artifact_with_related(
     include_featureset: bool = False,
 ) -> dict:
     """Fetch an artifact with its related data."""
-    from lamindb._can_validate import get_name_field
+    from lamindb._can_curate import get_name_field
 
     from ._label_manager import LABELS_EXCLUDE_SET
 
@@ -163,7 +163,7 @@ def get_featureset_m2m_relations(
     artifact: Artifact, slot_featureset: dict, limit: int = 20
 ):
     """Fetch all many-to-many relationships for given feature sets."""
-    from lamindb._can_validate import get_name_field
+    from lamindb._can_curate import get_name_field
 
     m2m_relations = [
         v

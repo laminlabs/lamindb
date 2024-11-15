@@ -1731,7 +1731,7 @@ def _save_organism(name: str):  # pragma: no cover
 
 def _ref_is_name(field: FieldAttr) -> bool | None:
     """Check if the reference field is a name field."""
-    from ._can_validate import get_name_field
+    from ._can_curate import get_name_field
 
     name_field = get_name_field(field.field.model)
     return field.field.name == name_field

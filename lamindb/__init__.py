@@ -79,7 +79,7 @@ if _check_instance_setup(from_module="lnschema_core"):
     from . import core  # isort: split
     from . import (
         _artifact,
-        _can_validate,
+        _can_curate,
         _collection,
         _curate,
         _feature,

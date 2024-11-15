@@ -1,7 +1,7 @@
 import lamindb as ln
 import pytest
-from django.core.exceptions import ValidationError
 from lamindb._parents import _add_emoji
+from lnschema_core.validation import FieldValidationError
 
 
 def test_view_parents():
@@ -38,7 +38,8 @@ def test_query_parents_children():
 def test_add_emoji():
     record = ln.Transform(type="upload")
     assert _add_emoji(record, label="transform") == "🖥️ transform"
-    with pytest.raises(ValidationError):
+    # validate literal
+    with pytest.raises(FieldValidationError):
         transform = ln.Transform(name="test", type="app")
     transform = ln.Transform(name="test", type="upload")
     transform.save()

@@ -8,7 +8,7 @@ import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
-from lnschema_core import CanValidate, Record
+from lnschema_core import CanCurate, Record
 
 from ._from_values import _has_organism_field, _print_values, get_or_create_records
 from ._record import _queryset, get_name_field
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 # from_values doesn't apply for QuerySet or Manager
 @classmethod  # type:ignore
-@doc_args(CanValidate.from_values.__doc__)
+@doc_args(CanCurate.from_values.__doc__)
 def from_values(
     cls,
     values: ListLike,
@@ -49,7 +49,7 @@ def from_values(
 
 
 @classmethod  # type: ignore
-@doc_args(CanValidate.inspect.__doc__)
+@doc_args(CanCurate.inspect.__doc__)
 def inspect(
     cls,
     values: ListLike,
@@ -71,7 +71,7 @@ def inspect(
 
 
 @classmethod  # type: ignore
-@doc_args(CanValidate.validate.__doc__)
+@doc_args(CanCurate.validate.__doc__)
 def validate(
     cls,
     values: ListLike,
@@ -268,7 +268,7 @@ def _validate(
 
 
 @classmethod  # type: ignore
-@doc_args(CanValidate.standardize.__doc__)
+@doc_args(CanCurate.standardize.__doc__)
 def standardize(
     cls,
     values: ListLike,
@@ -621,10 +621,10 @@ if ln_setup._TESTING:  # type: ignore
     from inspect import signature
 
     SIGS = {
-        name: signature(getattr(CanValidate, name))
+        name: signature(getattr(CanCurate, name))
         for name in METHOD_NAMES
         if not name.startswith("__")
     }
 
 for name in METHOD_NAMES:
-    attach_func_to_class_method(name, CanValidate, globals())
+    attach_func_to_class_method(name, CanCurate, globals())

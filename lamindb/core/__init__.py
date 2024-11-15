@@ -14,7 +14,7 @@ Registries:
    ParamManager
    LabelManager
    IsVersioned
-   CanValidate
+   CanCurate
    HasParents
    TracksRun
    TracksUpdates
@@ -68,7 +68,7 @@ Modules:
 from lamin_utils import logger
 from lamin_utils._inspect import InspectResult
 from lnschema_core.models import (
-    CanValidate,
+    CanCurate,
     FeatureValue,
     HasParents,
     IsVersioned,
