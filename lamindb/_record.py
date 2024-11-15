@@ -27,6 +27,7 @@ from lnschema_core.models import (
     Feature,
     FeatureSet,
     IsVersioned,
+    LinkORM,
     Param,
     Record,
     Run,
@@ -174,7 +175,10 @@ def __init__(record: Record, *args, **kwargs):
                     init_self_from_db(record, existing_record)
                     return None
         super(Record, record).__init__(**kwargs)
-        if record.__class__.__get_schema_name__() not in {"core", "bionty"}:
+        if record.__class__.__get_schema_name__() not in {
+            "core",
+            "bionty",
+        } and not isinstance(record, LinkORM):
             # this will trigger validation against django validators
             if hasattr(record, "clean_fields"):
                 # avoid making network requests
