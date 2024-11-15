@@ -127,6 +127,8 @@ def test_search_and_get(get_search_test_filepaths):
 def test_suggest_similar_names():
     ulabel1 = ln.ULabel(name="Test experiment 1").save()
     ulabel2 = ln.ULabel(name="Test experiment 2").save()
+    ulabel3 = ln.ULabel(name="Special test experiment abc").save()
+    ulabel4 = ln.ULabel(name="A very special test experiment abc").save()
 
     assert ln.ULabel(name="Test experiment 1").uid == ulabel1.uid
 
@@ -144,10 +146,22 @@ def test_suggest_similar_names():
         truncate_string=True,
         limit=3,
     )
+    assert queryset.count() == 3
+
+    queryset = _search(
+        ln.ULabel,
+        "Special test experiment abc",
+        field="name",
+        truncate_string=True,
+        limit=3,
+    )
     assert queryset.count() == 2
+    assert queryset[0].name == "Special test experiment abc"
 
     ulabel1.delete()
     ulabel2.delete()
+    ulabel3.delete()
+    ulabel4.delete()
 
 
 def test_pass_version():
