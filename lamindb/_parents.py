@@ -19,7 +19,14 @@ if TYPE_CHECKING:
 LAMIN_GREEN_LIGHTER = "#10b981"
 LAMIN_GREEN_DARKER = "#065f46"
 GREEN_FILL = "honeydew"
-TRANSFORM_EMOJIS = {"notebook": "📔", "app": "🖥️", "pipeline": "🧩"}
+TRANSFORM_EMOJIS = {
+    "notebook": "📔",
+    "upload": "🖥️",
+    "pipeline": "🧩",
+    "script": "📝",
+    "function": "🔧",
+    "glue": "🧲",
+}
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 

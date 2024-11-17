@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, NamedTuple
 import dj_database_url
 import lamindb_setup as ln_setup
 from django.core.exceptions import FieldDoesNotExist
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import connections, transaction
 from django.db.models import F, IntegerField, Manager, Q, QuerySet, TextField, Value
 from django.db.models.functions import Cast, Coalesce
@@ -41,7 +42,9 @@ from lnschema_core.models import (
     Run,
     Transform,
     ULabel,
+    ValidateFields,
 )
+from lnschema_core.validation import FieldValidationError
 
 from ._utils import attach_func_to_class_method
 from .core._settings import settings
@@ -71,8 +74,11 @@ def update_attributes(record: Record, attributes: dict[str, str]):
             setattr(record, key, value)
 
 
-def validate_required_fields(record: Record, kwargs):
-    # a "required field" is a Django field that has `null=True, default=None`
+def validate_fields(record: Record, kwargs):
+    from lnschema_core.validation import validate_literal_fields
+
+    # validate required fields
+    # a "required field" is a Django field that has `null=False, default=None`
     required_fields = {
         k.name for k in record._meta.fields if not k.null and k.default is None
     }
@@ -101,6 +107,8 @@ def validate_required_fields(record: Record, kwargs):
             raise ValidationError(
                 f'`uid` must be exactly {uid_max_length} characters long, got {len(kwargs["uid"])}.'
             )
+    # validate literals
+    validate_literal_fields(record, kwargs)
 
 
 def suggest_records_with_similar_names(record: Record, name_field: str, kwargs) -> bool:
@@ -137,7 +145,7 @@ def suggest_records_with_similar_names(record: Record, name_field: str, kwargs) 
 
 def __init__(record: Record, *args, **kwargs):
     if not args:
-        validate_required_fields(record, kwargs)
+        validate_fields(record, kwargs)
 
         # do not search for names if an id is passed; this is important
         # e.g. when synching ids from the notebook store to lamindb
@@ -176,12 +184,53 @@ def __init__(record: Record, *args, **kwargs):
                     init_self_from_db(record, existing_record)
                     return None
         super(Record, record).__init__(**kwargs)
+        if isinstance(record, ValidateFields):
+            # this will trigger validation against django validators
+            try:
+                if hasattr(record, "clean_fields"):
+                    record.clean_fields()
+                else:
+                    record._Model__clean_fields()
+            except DjangoValidationError as e:
+                message = _format_django_validation_error(record, e)
+                raise FieldValidationError(message) from e
     elif len(args) != len(record._meta.concrete_fields):
         raise ValueError("please provide keyword arguments, not plain arguments")
     else:
         # object is loaded from DB (**kwargs could be omitted below, I believe)
         super(Record, record).__init__(*args, **kwargs)
         _store_record_old_name(record)
+
+
+def _format_django_validation_error(record: Record, e: DjangoValidationError):
+    """Pretty print Django validation errors."""
+    errors = {}
+    if hasattr(e, "error_dict"):
+        error_dict = e.error_dict
+    else:
+        error_dict = {"__all__": e.error_list}
+
+    for field_name, error_list in error_dict.items():
+        for error in error_list:
+            if hasattr(error, "message"):
+                msg = error.message
+            else:
+                msg = str(error)
+
+            if field_name == "__all__":
+                errors[field_name] = f"{colors.yellow(msg)}"
+            else:
+                current_value = getattr(record, field_name, None)
+                errors[field_name] = (
+                    f"{field_name}: {colors.yellow(current_value)} is not valid\n    → {msg}"
+                )
+
+    if errors:
+        message = "\n  "
+        for _, error in errors.items():
+            message += error + "\n  "
+
+        return message
 
 
 @classmethod  # type:ignore

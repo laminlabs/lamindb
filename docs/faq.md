@@ -13,6 +13,7 @@ faq/key
 faq/visibility
 faq/delete
 faq/keep-artifacts-local
+faq/validate-fields
 faq/symbol-mapping
 faq/search
 ```

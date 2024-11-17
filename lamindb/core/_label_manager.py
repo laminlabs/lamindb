@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from django.db import connections
 from lamin_utils import colors, logger
-from lnschema_core.models import CanValidate, Feature
+from lnschema_core.models import CanCurate, Feature
 
 from lamindb._from_values import _print_values
 from lamindb._record import (
@@ -116,7 +116,7 @@ def validate_labels(labels: QuerySet | list | dict):
             label_uids = np.array(
                 [getattr(label, field) for label in labels if label is not None]
             )
-        if issubclass(registry, CanValidate):
+        if issubclass(registry, CanCurate):
             validated = registry.validate(label_uids, field=field, mute=True)
             validated_uids = label_uids[validated]
             validated_labels = registry.filter(

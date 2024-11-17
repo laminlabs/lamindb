@@ -12,7 +12,7 @@ from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import (
     Artifact,
-    CanValidate,
+    CanCurate,
     Collection,
     IsVersioned,
     Record,
@@ -354,7 +354,7 @@ class QuerySet(models.QuerySet):
 
 
 # -------------------------------------------------------------------------------------
-# CanValidate
+# CanCurate
 # -------------------------------------------------------------------------------------
 
 
@@ -374,26 +374,26 @@ def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
     return _lookup(cls=self, field=field, **kwargs)
 
 
-@doc_args(CanValidate.validate.__doc__)
+@doc_args(CanCurate.validate.__doc__)
 def validate(self, values: ListLike, field: str | StrField | None = None, **kwargs):
     """{}"""  # noqa: D415
-    from ._can_validate import _validate
+    from ._can_curate import _validate
 
     return _validate(cls=self, values=values, field=field, **kwargs)
 
 
-@doc_args(CanValidate.inspect.__doc__)
+@doc_args(CanCurate.inspect.__doc__)
 def inspect(self, values: ListLike, field: str | StrField | None = None, **kwargs):
     """{}"""  # noqa: D415
-    from ._can_validate import _inspect
+    from ._can_curate import _inspect
 
     return _inspect(cls=self, values=values, field=field, **kwargs)
 
 
-@doc_args(CanValidate.standardize.__doc__)
+@doc_args(CanCurate.standardize.__doc__)
 def standardize(self, values: Iterable, field: str | StrField | None = None, **kwargs):
     """{}"""  # noqa: D415
-    from ._can_validate import _standardize
+    from ._can_curate import _standardize
 
     return _standardize(cls=self, values=values, field=field, **kwargs)
 
