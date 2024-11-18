@@ -288,7 +288,7 @@ def test_categorical_key_not_present(df):
 def test_source_key_not_present(adata, categoricals):
     with pytest.raises(
         ValidationError,
-        match="the following 1 key passed to categoricals is not allowed:",
+        match="the following 1 key passed to sources is not allowed:",
     ):
         ln.Curator.from_anndata(
             adata,
