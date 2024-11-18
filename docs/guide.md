@@ -2,15 +2,6 @@
 
 ```{toctree}
 :hidden:
-:caption: Overview
-
-introduction
-tutorial
-tutorial2
-```
-
-```{toctree}
-:hidden:
 :caption: "How to"
 
 setup
