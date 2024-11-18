@@ -10,6 +10,7 @@
    load_h5mu
    load_html
    load_json
+   load_yaml
    load_image
    load_svg
 
@@ -107,9 +108,17 @@ def load_json(path: UPathStr) -> dict:
         data = json.load(f)
     return data
 
+def load_yaml(path: UPathStr) -> dict:
+    """Load `.yaml` to `dict`."""
+    import yaml
+
+    with open(path) as f:
+        data = yaml.safe_load(f)
+    return data
+
 
 def load_image(path: UPathStr):
-    """Display `.svg` in ipython, otherwise return path."""
+    """Display `.jpg`, `.png` or `.gif` in ipython, otherwise return path."""
     if is_run_from_ipython:
         from IPython.display import Image, display
 
@@ -138,9 +147,11 @@ FILE_LOADERS = {
     ".zarr": load_anndata_zarr,
     ".html": load_html,
     ".json": load_json,
+    ".yaml": load_yaml,
     ".h5mu": load_h5mu,
     ".jpg": load_image,
     ".png": load_image,
+    ".gif": load_image,
     ".svg": load_svg,
 }
 
