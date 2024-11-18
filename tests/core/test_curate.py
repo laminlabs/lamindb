@@ -158,7 +158,7 @@ def test_df_curator(df, categoricals):
 def test_custom_using_invalid_field_lookup(curate_lookup):
     with pytest.raises(AttributeError) as excinfo:
         _ = curate_lookup["invalid_field"]
-    assert "'CurateLookup' object has no attribute 'invalid_field'" in str(
+    assert '"CurateLookup" object has no attribute "invalid_field"' in str(
         excinfo.value
     )
 
@@ -276,7 +276,7 @@ def test_anndata_curator_wrong_type(df, categoricals):
 def test_categorical_key_not_present(df):
     with pytest.raises(
         ValidationError,
-        match="the following keys passed to categoricals are not allowed:",
+        match="the following 1 key passed to categoricals is not allowed:",
     ):
         ln.Curator.from_df(
             df,
@@ -287,7 +287,8 @@ def test_categorical_key_not_present(df):
 
 def test_source_key_not_present(adata, categoricals):
     with pytest.raises(
-        ValidationError, match="the following keys passed to sources are not allowed:"
+        ValidationError,
+        match="the following 1 key passed to categoricals is not allowed:",
     ):
         ln.Curator.from_anndata(
             adata,
