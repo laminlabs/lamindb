@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import warnings
 from typing import TYPE_CHECKING
 
 import anndata as ad
@@ -16,6 +17,7 @@ from lnschema_core import (
     ULabel,
 )
 
+from ._from_values import _print_values
 from .core.exceptions import ValidationError
 
 if TYPE_CHECKING:
@@ -54,7 +56,7 @@ class CurateLookup:
             else:
                 return get_registry_instance(registry, self._using_key).lookup()
         raise AttributeError(
-            f"'{self.__class__.__name__}' object has no attribute '{name}'"
+            f'"{self.__class__.__name__}" object has no attribute "{name}"'
         )
 
     def __getitem__(self, name):
@@ -65,7 +67,7 @@ class CurateLookup:
             else:
                 return get_registry_instance(registry, self._using_key).lookup()
         raise AttributeError(
-            f"'{self.__class__.__name__}' object has no attribute '{name}'"
+            f'"{self.__class__.__name__}" object has no attribute "{name}"'
         )
 
     def __repr__(self) -> str:
@@ -81,7 +83,7 @@ class CurateLookup:
                 f"Lookup objects from the {colors.italic(ref)}:\n "
                 f"{colors.green(getattr_keys)}\n "
                 f"{colors.green(getitem_keys)}\n"
-                "Example:\n    → categories = validator.lookup()['cell_type']\n"
+                'Example:\n    → categories = validator.lookup()["cell_type"]\n'
                 "    → categories.alveolar_type_1_fibroblast_cell\n\n"
                 "To look up public ontologies, use .lookup(public=True)"
             )
@@ -97,6 +99,16 @@ class BaseCurator:
 
         Returns:
             Boolean indicating whether the dataset is validated.
+        """
+        pass
+
+    def standardize(self) -> None:
+        """Standardize the dataset.
+
+        Inplace modification of the dataset.
+
+        Returns:
+            None
         """
         pass
 
@@ -136,6 +148,9 @@ class DataFrameCurator(BaseCurator):
         sources: A dictionary mapping column names to Source records.
         exclude: A dictionary mapping column names to values to exclude.
 
+    Returns:
+        A curator object.
+
     Examples:
         >>> import bionty as bt
         >>> curate = ln.Curator.from_df(
@@ -165,17 +180,14 @@ class DataFrameCurator(BaseCurator):
         self._fields = categoricals or {}
         self._columns_field = columns
         self._using_key = using_key
+        # TODO: change verbosity back
         settings.verbosity = verbosity
         self._artifact = None
         self._collection = None
         self._validated = False
         self._kwargs = {"organism": organism} if organism else {}
-        if sources is None:
-            sources = {}
-        self._sources = sources
-        if exclude is None:
-            exclude = {}
-        self._exclude = exclude
+        self._sources = sources or {}
+        self._exclude = exclude or {}
         self._non_validated = None
         if check_valid_keys:
             self._check_valid_keys()
@@ -210,9 +222,8 @@ class DataFrameCurator(BaseCurator):
             public=public,
         )
 
-    def _check_valid_keys(self, extra: set = None) -> None:
-        if extra is None:
-            extra = set()
+    def _check_valid_keys(self, extra: set | None = None) -> None:
+        extra = extra or set()
         for name, d in {
             "categoricals": self._fields,
             "sources": self._sources,
@@ -222,9 +233,12 @@ class DataFrameCurator(BaseCurator):
                 raise TypeError(f"{name} must be a dictionary!")
             valid_keys = set(self._df.columns) | {"columns"} | extra
             nonval_keys = [key for key in d.keys() if key not in valid_keys]
+            n = len(nonval_keys)
+            s = "s" if n > 1 else ""
+            are = "are" if n > 1 else "is"
             if len(nonval_keys) > 0:
                 raise ValidationError(
-                    f"the following keys passed to {name} are not allowed: {nonval_keys}"
+                    f"the following {n} key{s} passed to {name} {are} not allowed: {colors.yellow(_print_values(nonval_keys))}"
                 )
 
     def _save_columns(self, validated_only: bool = True) -> None:
@@ -273,14 +287,13 @@ class DataFrameCurator(BaseCurator):
         self._update_registry(key, validated_only=False, **self._kwargs, **kwargs)
 
     def add_new_from_columns(self, organism: str | None = None, **kwargs):
-        """Add validated & new column names to its registry.
-
-        Args:
-            organism: The organism name.
-            **kwargs: Additional keyword arguments to pass to the registry model.
-        """
-        self._kwargs.update({"organism": organism} if organism else {})
-        self._save_columns(validated_only=False, **self._kwargs, **kwargs)
+        """Deprecated to run by default during init."""
+        warnings.warn(
+            "`.add_new_from_columns()` is deprecated and will be removed in a future version. It's run by default during initialization.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        pass
 
     def _update_registry(self, categorical: str, validated_only: bool = True, **kwargs):
         if categorical == "all":
