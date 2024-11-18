@@ -5,13 +5,20 @@ from typing import TYPE_CHECKING
 
 import scipy.sparse as sparse
 import zarr
-from anndata._io import read_zarr
+from anndata import __version__ as anndata_version
 from anndata._io.specs import write_elem
 from anndata._io.specs.registry import get_spec
 from fsspec.implementations.local import LocalFileSystem
 from lamindb_setup.core.upath import create_mapper, infer_filesystem
+from packaging import version
 
 from ._anndata_sizes import _size_elem, _size_raw, size_adata
+
+if version.parse(anndata_version) < version.parse("0.11.0"):
+    from anndata._io import read_zarr
+else:
+    from anndata.io import read_zarr
+
 
 if TYPE_CHECKING:
     from anndata import AnnData
