@@ -720,6 +720,8 @@ def test_load_to_memory(tsv_file, zip_file, fcs_file):
     assert isinstance(adata, ad.AnnData)
     # none
     load_to_memory(zip_file)
+    # check that it is a path
+    assert isinstance(load_to_memory("./somefile.rds"), UPath)
 
     with pytest.raises(TypeError) as error:
         ln.Artifact(True)
