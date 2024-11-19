@@ -1157,7 +1157,7 @@ def validate_categories(
     organism: str | None = None,
     source: Record | None = None,
     exclude: str | list | None = None,
-    standardize: bool = True,
+    standardize: bool = False,
     validated_hint_print: str | None = None,
 ) -> tuple[bool, list]:
     """Validate ontology terms in a pandas series using LaminDB registries.
@@ -1268,6 +1268,15 @@ def validate_categories(
         logger.warning(warning_message)
         logger.indent = ""
         return False, non_validated
+
+
+def standardize_categories(
+    df: pd.DataFrame,
+    fields: dict[str, FieldAttr],
+    using_key: str | None = None,
+    sources: dict[str, Record] = None,
+) -> None:
+    pass
 
 
 def validate_categories_in_df(
@@ -1477,7 +1486,7 @@ def update_registry(
     organism: str | None = None,
     dtype: str | None = None,
     source: Record | None = None,
-    standardize: bool = True,
+    standardize: bool = False,
     warning: bool = True,
     exclude: str | list | None = None,
     **kwargs,
