@@ -24,12 +24,13 @@ from typing import TYPE_CHECKING
 
 import anndata as ad
 import pandas as pd
+from lamin_utils import logger
 from lamindb_setup.core.upath import (
     create_path,
     infer_filesystem,
 )
 
-from lamindb.core._settings import settings
+from ._settings import settings
 
 if TYPE_CHECKING:
     import mudata as md
@@ -79,7 +80,7 @@ def load_h5mu(filepath: UPathStr, **kwargs):
     return md.read_h5mu(path_sanitized, **kwargs)
 
 
-def load_html(path: UPathStr):
+def load_html(path: UPathStr) -> None | UPathStr:
     """Display `.html` in ipython, otherwise return path."""
     if is_run_from_ipython:
         with open(path, encoding="utf-8") as f:
@@ -95,6 +96,7 @@ def load_html(path: UPathStr):
         from IPython.display import HTML, display
 
         display(HTML(data=body_content))
+        return None
     else:
         return path
 
@@ -108,17 +110,18 @@ def load_json(path: UPathStr) -> dict:
     return data
 
 
-def load_image(path: UPathStr):
+def load_image(path: UPathStr) -> None | UPathStr:
     """Display `.svg` in ipython, otherwise return path."""
     if is_run_from_ipython:
         from IPython.display import Image, display
 
         display(Image(filename=path))
+        return None
     else:
         return path
 
 
-def load_svg(path: UPathStr) -> None | Path:
+def load_svg(path: UPathStr) -> None | UPathStr:
     """Display `.svg` in ipython, otherwise return path."""
     if is_run_from_ipython:
         from IPython.display import SVG, display
@@ -127,6 +130,12 @@ def load_svg(path: UPathStr) -> None | Path:
         return None
     else:
         return path
+
+
+def load_rds(path: UPathStr) -> UPathStr:
+    """Just warn when trying to load `.rds`."""
+    logger.warning("Please use `laminr` to load `.rds` files")
+    return path
 
 
 FILE_LOADERS = {
@@ -142,9 +151,10 @@ FILE_LOADERS = {
     ".jpg": load_image,
     ".png": load_image,
     ".svg": load_svg,
+    ".rds": load_rds,
 }
 
-SUPPORTED_SUFFIXES = list(FILE_LOADERS.keys())
+SUPPORTED_SUFFIXES = [sfx for sfx in FILE_LOADERS.keys() if sfx != ".rds"]
 """Suffixes with defined artifact loaders."""
 
 
