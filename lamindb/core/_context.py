@@ -280,10 +280,12 @@ class Context:
                 transform_ref = None
                 transform_ref_type = None
             else:
-                (name, key, transform_ref, transform_ref_type) = self._track_script(
-                    path=path
+                # the below function is typically used for `.py` scripts
+                # it is also used for `.Rmd` and `.qmd` files, which we classify
+                # as "notebook" because they typically come with an .html run report
+                (name, key, transform_type, transform_ref, transform_ref_type) = (
+                    self._track_source_code(path=path)
                 )
-                transform_type = "script"
             if self.uid is not None or transform_settings_are_set:
                 # overwrite whatever is auto-detected in the notebook or script
                 if self.name is not None:
@@ -366,11 +368,11 @@ class Context:
         if self._logging_message_imports:
             logger.important(self._logging_message_imports)
 
-    def _track_script(
+    def _track_source_code(
         self,
         *,
         path: UPathStr | None,
-    ) -> tuple[str, str, str, str]:
+    ) -> tuple[str, str, str, str, str]:
         if path is None:
             import inspect
 
@@ -379,6 +381,9 @@ class Context:
             self._path = Path(module.__file__)
         else:
             self._path = Path(path)
+        transform_type = (
+            "notebook" if self._path.suffix in {".Rmd", ".qmd"} else "script"
+        )
         name = self._path.name
         key = name
         reference = None
@@ -386,7 +391,7 @@ class Context:
         if settings.sync_git_repo is not None:
             reference = get_transform_reference_from_git_repo(self._path)
             reference_type = "url"
-        return name, key, reference, reference_type
+        return name, key, transform_type, reference, reference_type
 
     def _track_notebook(
         self,
