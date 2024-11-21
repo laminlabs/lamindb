@@ -1232,15 +1232,14 @@ def validate_categories(
     validated_hint_print = validated_hint_print or f".add_validated_from('{key}')"
     n_validated = len(values_validated)
 
-    if n_validated > 0:
-        _log_mapping_info()
-        terms_str = f"{', '.join([f'{chr(39)}{v}{chr(39)}' for v in values_validated[:10]])}{', ...' if len(values_validated) > 10 else ''}"
-        val_numerous = "" if n_validated == 1 else "s"
-        logger.warning(
-            f"found {colors.yellow(n_validated)} validated term{val_numerous}: "
-            f"{colors.yellow(terms_str)}\n"
-            f"→ save term{val_numerous} via {colors.yellow(validated_hint_print)}"
-        )
+    # if n_validated > 0:
+    #     _log_mapping_info()
+    #     s = "" if n_validated == 1 else "s"
+    #     logger.warning(
+    #         f"found {colors.yellow(n_validated)} validated term{s}: "
+    #         f"{colors.yellow(_print_values(values_validated))}\n"
+    #         f'→ curate term{s} in your dataset via {colors.yellow(".standardize()")}'
+    #     )
 
     non_validated_hint_print = validated_hint_print.replace("_validated_", "_new_")
     non_validated = [i for i in non_validated if i not in values_validated]
@@ -1274,9 +1273,27 @@ def standardize_categories(
     df: pd.DataFrame,
     fields: dict[str, FieldAttr],
     using_key: str | None = None,
+    organism: str | None = None,
     sources: dict[str, Record] = None,
 ) -> None:
-    pass
+    for key, field in fields.items():
+        model = field.field.model
+        if hasattr(model, "standardize"):
+            if using_key is not None and using_key != "default":
+                model = get_registry_instance(model, using_key)
+            logger.info(
+                f'standardizing "{key}" using {model.__name__}.{field.field.name}'
+            )
+            if sources is None:
+                sources = {}
+            source = sources.get(key)
+            df[key] = model.standardize(
+                df[key],
+                field=field.field.name,
+                organism=organism,
+                source=source,
+                mute=True,
+            )
 
 
 def validate_categories_in_df(
