@@ -345,7 +345,9 @@ def _search(
         ranks.append(sub_rank)
         # startswith and avoid matching string with " " on the right
         # mostly for truncated
-        startswith_expr = regex_lookup(field_expr, rf"(?:^|.*\|){string}[^ ]*(\|.*|$)")
+        startswith_expr = regex_lookup(
+            field_expr, rf"(?:^|.*\|){string}[^ ]*(?:\|.*|$)"
+        )
         startswith_rank = Cast(startswith_expr, output_field=IntegerField()) * 8
         ranks.append(startswith_rank)
         # match as sub-phrase from the left, mostly for truncated
