@@ -280,7 +280,7 @@ class DataFrameCurator(BaseCurator):
             **kwargs: Additional keyword arguments to pass to the registry model.
         """
         self._kwargs.update({"organism": organism} if organism else {})
-        self._save_columns(validated_only=False, **self._kwargs, **kwargs)
+        self._save_columns(validated_only=False, **kwargs)
 
     def _update_registry(self, categorical: str, validated_only: bool = True, **kwargs):
         if categorical == "all":
