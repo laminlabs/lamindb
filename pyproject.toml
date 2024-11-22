@@ -22,7 +22,6 @@ dependencies = [
     # PINNED in lamin-cli
     "lamindb_setup",
     # others
-    "rapidfuzz",
     "pyarrow",
     "typing_extensions!=4.6.0",
     "python-dateutil",
