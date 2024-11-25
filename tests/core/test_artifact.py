@@ -648,6 +648,14 @@ def test_get_relative_path_to_directory():
 
 
 def test_check_path_is_child_of_root():
+    # str
+    root = "s3://lamindb-ci"
+    upath = "s3://lamindb-ci/test-data/test.csv"
+    assert check_path_is_child_of_root(upath, root=root)
+    # str different protocols
+    root = "prot1://lamindb-ci"
+    upath = "prot2://lamindb-ci/test-data/test.csv"
+    assert not check_path_is_child_of_root(upath, root=root)
     # UPath
     root = UPath("s3://lamindb-ci")
     upath = UPath("s3://lamindb-ci/test-data/test.csv")
