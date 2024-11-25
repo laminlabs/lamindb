@@ -24,8 +24,6 @@ CI = os.environ.get("CI")
 
 GROUPS = {}
 GROUPS["tutorial"] = [
-    "tutorial.ipynb",
-    "tutorial2.ipynb",
     "transfer.ipynb",
     "arrays.ipynb",
     "registries.ipynb",
@@ -90,7 +88,9 @@ def install_ci(session, group):
         run(session, "uv pip install --system huggingface_hub")
     elif group == "unit-storage":
         extras += "aws,zarr,bionty"
-        run(session, "uv pip install --system tiledbsoma>=1.15.0rc3")
+        # for tiledbsoma, otherwise resolution fails for some reason
+        run(session, "uv pip install --system scanpy>=1.10.0")
+        run(session, "uv pip install --system tiledbsoma>=1.15.0rc3,!=1.15.0rc4")
     elif group == "tutorial":
         extras += "aws,jupyter,bionty"
         run(session, "uv pip install --system huggingface_hub")

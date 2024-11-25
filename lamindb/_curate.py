@@ -469,7 +469,7 @@ class AnnDataCurator(DataFrameCurator):
 
         if "symbol" in str(var_index):
             logger.warning(
-                "Curating gene symbols is discouraged. See FAQ for more details."
+                "indexing datasets with gene symbols can be problematic: https://docs.lamin.ai/faq/symbol-mapping"
             )
 
         self._data = data
