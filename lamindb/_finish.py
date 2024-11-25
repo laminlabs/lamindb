@@ -207,8 +207,8 @@ def save_context_core(
         run.finished_at = datetime.now(timezone.utc)
 
     # track report and set is_consecutive
-    if not is_ipynb and not is_r_notebook:
-        run.is_consecutive = True
+    if report_path is None:
+        run.is_consecutive = is_consecutive
         run.save()
     else:
         if run.report_id is not None:
