@@ -104,7 +104,9 @@ def save_context_core(
     # for scripts, things are easy
     is_consecutive = True
     is_ipynb = filepath.suffix == ".ipynb"
+    is_r_notebook = filepath.suffix in {".qmd", ".Rmd"}
     source_code_path = filepath
+    report_path: Path | None = None
     # for notebooks, we need more work
     if is_ipynb:
         try:
@@ -139,6 +141,13 @@ def save_context_core(
             ".ipynb", ".py"
         )
         notebook_to_script(transform, filepath, source_code_path)
+    elif is_r_notebook:
+        if not filepath.with_suffix(".nb.html").exists():
+            logger.warning(
+                f"no auto-knitted file {filepath.with_suffix('.nb.html')} found, save your manually rendered .html report via the CLI: lamin save {filepath}"
+            )
+        else:
+            report_path = filepath.with_suffix(".nb.html")
     ln.settings.creation.artifact_silence_missing_run_warning = True
     # track source code
     hash, _ = hash_file(source_code_path)  # ignore hash_type for now
@@ -198,7 +207,7 @@ def save_context_core(
         run.finished_at = datetime.now(timezone.utc)
 
     # track report and set is_consecutive
-    if not is_ipynb:
+    if not is_ipynb and not is_r_notebook:
         run.is_consecutive = True
         run.save()
     else:
