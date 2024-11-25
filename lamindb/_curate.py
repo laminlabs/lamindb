@@ -1181,15 +1181,16 @@ def validate_categories(
     def _log_mapping_info():
         logger.indent = ""
         logger.info(f"mapping {colors.italic(key)} on {colors.italic(model_field)}")
-        logger.indent = "   "
+        logger.indent = "  "
 
     registry = field.field.model
 
+    # {"organism": organism_name/organism_record}
     kwargs = check_registry_organism(registry, organism)
     kwargs.update({"source": source} if source else {})
     kwargs_current = get_current_filter_kwargs(registry, kwargs)
 
-    # inspect the default instance
+    # inspect values from the default instance
     inspect_result = standardize_and_inspect(
         values=values,
         field=field,
@@ -1199,8 +1200,9 @@ def validate_categories(
         **kwargs_current,
     )
     non_validated = inspect_result.non_validated
+    syn_mapper = inspect_result.synonyms_mapper
 
-    # inspect the using instance
+    # inspect the non-validated values from the using_key instance
     values_validated = []
     if using_key is not None and using_key != "default" and non_validated:
         registry_using = get_registry_instance(registry, using_key)
@@ -1214,6 +1216,7 @@ def validate_categories(
         )
         non_validated = inspect_result.non_validated
         values_validated += inspect_result.validated
+        syn_mapper.update(inspect_result.synonyms_mapper)
 
     # inspect from public (bionty only)
     if hasattr(registry, "public"):
@@ -1253,14 +1256,20 @@ def validate_categories(
             # validated values still need to be saved to the current instance
             return False, []
     else:
-        non_val_numerous = ("", "is") if n_non_validated == 1 else ("s", "are")
+        are = "is" if n_non_validated == 1 else "are"
+        s = "" if n_non_validated == 1 else "s"
         print_values = _print_values(non_validated)
-        warning_message = (
-            f"{colors.red(f'{n_non_validated} term{non_val_numerous[0]}')} {non_val_numerous[1]} not validated: "
-            f"{colors.red(', '.join(print_values.split(', ')[:10]) + ', ...' if len(print_values.split(', ')) > 10 else print_values)}\n"
-            f"→ fix typo{non_val_numerous[0]}, remove non-existent value{non_val_numerous[0]}, or save term{non_val_numerous[0]} via "
-            f"{colors.red(non_validated_hint_print)}"
-        )
+        warning_message = f"{colors.red(f'{n_non_validated} term{s}')} {are} not validated: {colors.red(print_values)}\n"
+        if syn_mapper:
+            s = "" if len(syn_mapper) == 1 else "s"
+            syn_mapper_print = _print_values(
+                [f"{k} → {v}" for k, v in syn_mapper.items()], sep=""
+            )
+            warning_message += f"    {colors.yellow(f'{len(syn_mapper)} synonym{s}')} found: {colors.yellow(syn_mapper_print)}\n    → curate synonyms via {colors.cyan('.standardize()')}\n"
+        if n_non_validated > len(syn_mapper):
+            if syn_mapper:
+                warning_message += "    for remaining terms:\n"
+            warning_message += f"    → fix typos, remove non-existent values, or save terms via {colors.cyan(non_validated_hint_print)}"
 
         if logger.indent == "":
             _log_mapping_info()
