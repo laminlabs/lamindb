@@ -3,14 +3,10 @@ description: Ask a usage question.
 labels:
   - "usage question"
 body:
-  - type: markdown
-    attributes:
-      value: Add a description
   - type: textarea
     id: description
     attributes:
       label: Add a description
-      description: Add a description
       placeholder: |
         This is a public repository!
         Do not reveal any internal information.
