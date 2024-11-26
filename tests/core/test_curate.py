@@ -96,6 +96,7 @@ def mock_transform():
 
 
 def test_df_curator(df, categoricals):
+    df = df.copy()
     curator = ln.Curator.from_df(df, categoricals=categoricals)
     with pytest.raises(ValidationError):
         _ = curator.non_validated
@@ -178,6 +179,8 @@ def test_df_curator(df, categoricals):
     ln.ULabel.filter().delete()
     bt.ExperimentalFactor.filter().delete()
     bt.CellType.filter().delete()
+    bt.Gene.filter().delete()
+    ln.Feature.filter().delete()
 
 
 def test_custom_using_invalid_field_lookup(curate_lookup):
@@ -240,6 +243,7 @@ def test_clean_up_failed_runs():
 
 @pytest.mark.parametrize("to_add", ["donor", "all"])
 def test_anndata_curator(adata, categoricals, to_add):
+    adata = adata.copy()
     # # must pass an organism
     # with pytest.raises(ValidationError):
     #     ln.Curator.from_anndata(
@@ -301,6 +305,8 @@ def test_anndata_curator(adata, categoricals, to_add):
     ln.ULabel.filter().delete()
     bt.ExperimentalFactor.filter().delete()
     bt.CellType.filter().delete()
+    bt.Gene.filter().delete()
+    ln.Feature.filter().delete()
 
 
 def test_str_var_index(adata):
@@ -372,6 +378,7 @@ def test_unvalidated_adata_object(adata, categoricals):
 
 
 def test_mudata_curator(mdata):
+    mdata = mdata.copy()
     categoricals = {
         "rna:cell_type": bt.CellType.name,
         "rna:assay_ontology_id": bt.ExperimentalFactor.ontology_id,
