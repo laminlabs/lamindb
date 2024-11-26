@@ -62,6 +62,7 @@ def adata():
 @pytest.fixture(scope="module")
 def mdata(adata):
     mdata = md.MuData({"rna": adata, "rna_2": adata})
+    mdata.obs["donor"] = ["D0001", "D0002", "DOOO3"]
 
     return mdata
 
@@ -179,8 +180,7 @@ def test_df_curator(df, categoricals):
     ln.ULabel.filter().delete()
     bt.ExperimentalFactor.filter().delete()
     bt.CellType.filter().delete()
-    bt.Gene.filter().delete()
-    ln.Feature.filter().delete()
+    ln.FeatureSet.filter().delete()
 
 
 def test_custom_using_invalid_field_lookup(curate_lookup):
@@ -244,13 +244,13 @@ def test_clean_up_failed_runs():
 @pytest.mark.parametrize("to_add", ["donor", "all"])
 def test_anndata_curator(adata, categoricals, to_add):
     adata = adata.copy()
-    # # must pass an organism
-    # with pytest.raises(ValidationError):
-    #     ln.Curator.from_anndata(
-    #         adata,
-    #         categoricals=categoricals,
-    #         var_index=bt.Gene.symbol,
-    #     ).validate()
+    # must pass an organism
+    with pytest.raises(ValidationError):
+        ln.Curator.from_anndata(
+            adata,
+            categoricals=categoricals,
+            var_index=bt.Gene.symbol,
+        ).validate()
 
     curator = ln.Curator.from_anndata(
         adata,
@@ -305,8 +305,8 @@ def test_anndata_curator(adata, categoricals, to_add):
     ln.ULabel.filter().delete()
     bt.ExperimentalFactor.filter().delete()
     bt.CellType.filter().delete()
+    ln.FeatureSet.filter().delete()
     bt.Gene.filter().delete()
-    ln.Feature.filter().delete()
 
 
 def test_str_var_index(adata):
@@ -386,6 +386,7 @@ def test_mudata_curator(mdata):
         "rna_2:cell_type": bt.CellType.name,
         "rna_2:assay_ontology_id": bt.ExperimentalFactor.ontology_id,
         "rna_2:donor": ln.ULabel.name,
+        "donor": ln.ULabel.name,
     }
 
     curator = ln.Curator.from_mudata(
@@ -418,6 +419,7 @@ def test_mudata_curator(mdata):
     _ = curator.lookup()
 
     # standardize
+    curator.standardize("all", modality="rna")
     curator.standardize("all", modality="rna_2")
     assert curator._mod_adata_curators["rna_2"].non_validated == {
         "donor": ["D0001", "D0002", "DOOO3"]
@@ -436,3 +438,5 @@ def test_mudata_curator(mdata):
     ln.ULabel.filter().delete()
     bt.ExperimentalFactor.filter().delete()
     bt.CellType.filter().delete()
+    ln.FeatureSet.filter().delete()
+    bt.Gene.filter().delete()
