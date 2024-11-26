@@ -287,7 +287,10 @@ def print_features(
     from lamindb._from_values import _print_values
 
     msg = ""
-    dictionary = {}
+    dictionary: dict[str, Any] = {}
+
+    if self._state.adding:
+        return dictionary if to_dict else msg
 
     # feature sets
     if not print_params and not to_dict:
@@ -310,11 +313,11 @@ def print_features(
             msg += f"  {colors.italic('Feature sets')}\n"
             msg += feature_set_msg
 
-    feature_set = self.feature_sets.filter(registry="Feature").one_or_none()
-    if feature_set is not None:
-        internal_features = set(feature_set.members.values_list("name", flat=True))
-    else:
-        internal_features = {}  # type: ignore
+    internal_features: set[str] = {}  # type: ignore
+    if isinstance(self, Artifact):
+        feature_set = self.feature_sets.filter(registry="Feature").one_or_none()
+        if feature_set is not None:
+            internal_features = set(feature_set.members.values_list("name", flat=True))  # type: ignore
 
     # categorical feature values
     # Get the categorical data using the appropriate method
