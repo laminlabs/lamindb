@@ -102,7 +102,7 @@ class BaseCurator:
         Returns:
             Boolean indicating whether the dataset is validated.
         """
-        pass
+        pass  # pragma: no cover
 
     def standardize(self, key: str) -> None:
         """Standardize the dataset.
@@ -112,7 +112,7 @@ class BaseCurator:
         Returns:
             None
         """
-        pass
+        pass  # pragma: no cover
 
     def save_artifact(
         self,
@@ -132,7 +132,7 @@ class BaseCurator:
         Returns:
             A saved artifact record.
         """
-        pass
+        pass  # pragma: no cover
 
 
 class DataFrameCurator(BaseCurator):
