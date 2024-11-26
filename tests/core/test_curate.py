@@ -245,8 +245,8 @@ def test_clean_up_failed_runs():
 def test_anndata_curator(adata, categoricals, to_add):
     adata = adata.copy()
     # must pass an organism
-    bt.settings.organism = None
     with pytest.raises(ValidationError):
+        bt.settings._organism = None  # make sure organism is not set globally
         ln.Curator.from_anndata(
             adata,
             categoricals=categoricals,
