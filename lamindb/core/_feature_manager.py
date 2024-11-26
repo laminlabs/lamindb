@@ -333,7 +333,11 @@ def print_features(
                 values = fv["values"]
                 if not isinstance(values, (list, dict, set)):
                     values = {values}
-                elif isinstance(values, list) and feature_dtype != "dict":
+                elif (
+                    isinstance(values, list)
+                    and feature_dtype != "dict"
+                    and not feature_dtype.startswith("list")
+                ):
                     values = set(values)
                 # the remaining case is that we have a dictionary
                 if feature_dtype == "datetime":
