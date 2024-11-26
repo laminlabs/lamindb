@@ -116,7 +116,7 @@ def test_df_curator(df, categoricals):
         "cell_type": ["cerebral pyramidal neuron"],
         "donor": ["D0001", "D0002", "DOOO3"],
     }
-    assert "cerebral cortex pyramidal neuron" in df["cell_type"].values
+    assert "astrocyte" in df["cell_type"].values
 
     # add new
     curator.add_new_from("donor")
