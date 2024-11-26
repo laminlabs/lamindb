@@ -197,12 +197,12 @@ Here is how to create ulabels for them:
     }
     # hard to test because of italic formatting
     msg = """\
-    'cell_type_by_expert' = 'T Cell'
-    'disease' = 'Alzheimer disease', 'atopic eczema'
-    'donor' = 'U0123'
-    'experiment' = 'Experiment 1', 'Experiment 2'
-    'organism' = 'mouse'
-    'project' = 'project_1'
+    'cell_type_by_expert' = T Cell
+    'disease' = Alzheimer disease, atopic eczema
+    'donor' = U0123
+    'experiment' = Experiment 1, Experiment 2
+    'organism' = mouse
+    'project' = project_1
     'date_of_experiment' = 2024-12-01
     'datetime_of_experiment' = 2024-12-01 00:00:00
     'is_validated' = True
