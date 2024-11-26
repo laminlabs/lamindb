@@ -46,7 +46,7 @@ gcp = [
 jupyter = [
     "nbproject==0.10.5",  # keep pinning
     "jupytext",
-    "nbconvert",
+    "nbconvert>=7.2.1", # avoid lxml[html_clean] dependency
 ]
 zarr = [
     "zarr>=2.16.0",
