@@ -3,13 +3,10 @@ description: Report a bug.
 labels:
   - ":bug: bug"
 body:
-  - type: markdown
-    attributes:
-      value: Add a description
   - type: textarea
     id: report
     attributes:
-      label: Report
+      label: Add a description
       description: Add a description
       placeholder: |
         Describe and consider providing version information. Please ensure you're on the latest version of lamindb.
