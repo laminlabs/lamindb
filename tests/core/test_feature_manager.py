@@ -1,3 +1,4 @@
+import datetime
 from pathlib import Path
 
 import bionty as bt
@@ -10,14 +11,13 @@ from lamindb.core.exceptions import DoesNotExist, ValidationError
 def adata():
     adata = ln.core.datasets.anndata_with_obs()
     # add another column
-    adata.obs["cell_type_from_expert"] = adata.obs["cell_type"]
-    adata.obs.loc["obs0", "cell_type_from_expert"] = "B cell"
+    adata.obs["cell_type_by_expert"] = adata.obs["cell_type"]
+    adata.obs.loc["obs0", "cell_type_by_expert"] = "B cell"
     return adata
 
 
-# below the test for the main way of annotating with
-# features
-def test_features_add(adata):
+# below the test for annotating with feature values
+def test_features_add_remove(adata):
     artifact = ln.Artifact.from_anndata(adata, description="test")
     artifact.save()
     with pytest.raises(ValidationError) as error:
@@ -65,6 +65,29 @@ def test_features_add(adata):
     temperature.save()
     artifact.features.add_values({"temperature": 27.2})
     assert artifact._feature_values.first().value == 27.2
+
+    # datetime feature
+    with pytest.raises(ValidationError) as error:
+        artifact.features.add_values({"date_of_experiment": "2024-12-01"})
+    assert (
+        error.exconly()
+        == """lamindb.core.exceptions.ValidationError: These keys could not be validated: ['date_of_experiment']
+Here is how to create a feature:
+
+  ln.Feature(name='date_of_experiment', dtype='date').save()"""
+    )
+
+    ln.Feature(name="date_of_experiment", dtype="date").save()
+    with pytest.raises(ValidationError) as error:
+        artifact.features.add_values({"date_of_experiment": "Typo2024-12-01"})
+    assert (
+        error.exconly()
+        == """lamindb.core.exceptions.ValidationError: Expected dtype for 'date_of_experiment' is 'date', got 'cat[ULabel]'"""
+    )
+    artifact.features.add_values({"date_of_experiment": "2024-12-01"})
+
+    ln.Feature(name="datetime_of_experiment", dtype="datetime").save()
+    artifact.features.add_values({"datetime_of_experiment": "2024-12-01 00:00:00"})
 
     # bionty feature
     mouse = bt.Organism.from_source(name="mouse")
@@ -151,34 +174,41 @@ Here is how to create ulabels for them:
         27.2,
         True,
         100.0,
+        "2024-12-01",
+        "2024-12-01T00:00:00",
     }
 
     assert ln.Artifact.get(_feature_values__value=27.2)
 
     print(artifact.features.get_values())
     print(artifact.features.__repr__())
-    # hard to test because of italic formatting
-    msg = """\
-    'cell_type_by_expert' = 'T Cell'
-    'disease' = 'Alzheimer disease', 'atopic eczema'
-    'donor' = 'U0123'
-    'experiment' = 'Experiment 1', 'Experiment 2'
-    'organism' = 'mouse'
-    'project' = 'project_1'
-    'is_validated' = True
-    'temperature' = 27.2, 100.0
-"""
-    assert artifact.features.__repr__().endswith(msg)
+    #
     assert artifact.features.get_values() == {
-        "disease": ["Alzheimer disease", "atopic eczema"],
-        "experiment": ["Experiment 1", "Experiment 2"],
+        "disease": {"Alzheimer disease", "atopic eczema"},
+        "experiment": {"Experiment 1", "Experiment 2"},
         "project": "project_1",
         "cell_type_by_expert": "T Cell",
         "donor": "U0123",
         "organism": "mouse",
         "is_validated": True,
-        "temperature": [27.2, 100.0],
+        "temperature": {27.2, 100.0},
+        "date_of_experiment": datetime.date(2024, 12, 1),
+        "datetime_of_experiment": datetime.datetime(2024, 12, 1, 0, 0, 0),
     }
+    # hard to test because of italic formatting
+    msg = """\
+    'cell_type_by_expert' = T Cell
+    'disease' = Alzheimer disease, atopic eczema
+    'donor' = U0123
+    'experiment' = Experiment 1, Experiment 2
+    'organism' = mouse
+    'project' = project_1
+    'date_of_experiment' = 2024-12-01
+    'datetime_of_experiment' = 2024-12-01 00:00:00
+    'is_validated' = True
+    'temperature' = 27.2, 100.0
+"""
+    assert artifact.features.__repr__().endswith(msg)
 
     # repeat
     artifact.features.add_values(features)
@@ -186,6 +216,8 @@ Here is how to create ulabels for them:
         27.2,
         True,
         100.0,
+        "2024-12-01",
+        "2024-12-01T00:00:00",
     }
     assert artifact.features.__repr__().endswith(msg)
 
@@ -219,6 +251,14 @@ Here is how to create ulabels for them:
     assert len(ln.Artifact.features.filter(experiment__contains="Experi").all()) == 2
     assert ln.Artifact.features.filter(temperature__lt=21).one_or_none() is None
     assert len(ln.Artifact.features.filter(temperature__gt=21).all()) >= 1
+
+    # test remove_values
+    artifact.features.remove_values("date_of_experiment")
+    alzheimer = bt.Disease.get(name="Alzheimer disease")
+    artifact.features.remove_values("disease", value=alzheimer)
+    values = artifact.features.get_values()
+    assert "date_of_experiment" not in values
+    assert "Alzheimer disease" not in values["disease"]
 
     # delete everything we created
     artifact.delete(permanent=True)
@@ -356,10 +396,10 @@ def test_add_labels_using_anndata(adata):
     organism = bt.Organism.from_source(name="mouse")
     cell_types = [bt.CellType(name=name) for name in adata.obs["cell_type"].unique()]
     ln.save(cell_types)
-    inspector = bt.CellType.inspect(adata.obs["cell_type_from_expert"].unique())
+    inspector = bt.CellType.inspect(adata.obs["cell_type_by_expert"].unique())
     ln.save([bt.CellType(name=name) for name in inspector.non_validated])
     cell_types_from_expert = bt.CellType.from_values(
-        adata.obs["cell_type_from_expert"].unique()
+        adata.obs["cell_type_by_expert"].unique()
     )
     actual_tissues = [bt.Tissue(name=name) for name in adata.obs["tissue"].unique()]
     organoid = ln.ULabel(name="organoid")
@@ -398,7 +438,7 @@ def test_add_labels_using_anndata(adata):
     # (we are not interested in cell_type_id, here)
     ln.save(
         ln.Feature.from_df(
-            adata.obs[["cell_type", "tissue", "cell_type_from_expert", "disease"]]
+            adata.obs[["cell_type", "tissue", "cell_type_by_expert", "disease"]]
         )
     )
     artifact = ln.Artifact.from_anndata(adata, description="Mini adata")
@@ -442,14 +482,14 @@ def test_add_labels_using_anndata(adata):
 
     # now we add cell types & tissues and run checks
     ln.Feature(name="cell_type", dtype="cat").save()
-    ln.Feature(name="cell_type_from_expert", dtype="cat").save()
+    ln.Feature(name="cell_type_by_expert", dtype="cat").save()
     ln.Feature(name="tissue", dtype="cat").save()
     artifact.labels.add(cell_types, feature=features.cell_type)
-    artifact.labels.add(cell_types_from_expert, feature=features.cell_type_from_expert)
+    artifact.labels.add(cell_types_from_expert, feature=features.cell_type_by_expert)
     artifact.labels.add(tissues, feature=features.tissue)
     feature = ln.Feature.get(name="cell_type")
     assert feature.dtype == "cat[bionty.CellType]"
-    feature = ln.Feature.get(name="cell_type_from_expert")
+    feature = ln.Feature.get(name="cell_type_by_expert")
     assert feature.dtype == "cat[bionty.CellType]"
     feature = ln.Feature.get(name="tissue")
     assert feature.dtype == "cat[bionty.Tissue|ULabel]"
@@ -461,7 +501,7 @@ def test_add_labels_using_anndata(adata):
         "cell_type",
         "disease",
         "tissue",
-        "cell_type_from_expert",
+        "cell_type_by_expert",
     }
     assert set(df["dtype"]) == {
         "cat[bionty.CellType]",
@@ -517,7 +557,7 @@ def test_add_labels_using_anndata(adata):
         "hematopoietic stem cell",
         "B cell",
     }
-    assert set(artifact.labels.get(features.cell_type_from_expert).list("name")) == {
+    assert set(artifact.labels.get(features.cell_type_by_expert).list("name")) == {
         "T cell",
         "my new cell type",
         "hepatocyte",

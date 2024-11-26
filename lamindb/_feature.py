@@ -21,6 +21,8 @@ FEATURE_TYPES = {
     "int": "int",
     "float": "float",
     "bool": "bool",
+    "date": "date",
+    "datetime": "datetime",
     "str": "cat",
     "object": "cat",
 }
