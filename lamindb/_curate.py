@@ -373,7 +373,8 @@ class DataFrameCurator(BaseCurator):
                 exclude=self._exclude.get(categorical),
                 **kwargs,
             )
-            if not validated_only:
+            # adding new records removes them from non_validated
+            if not validated_only and self._non_validated:
                 self._non_validated.pop(categorical, None)  # type: ignore
 
     def _update_registry_all(self, validated_only: bool = True, **kwargs):

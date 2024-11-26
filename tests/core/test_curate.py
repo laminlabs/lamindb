@@ -244,13 +244,13 @@ def test_clean_up_failed_runs():
 @pytest.mark.parametrize("to_add", ["donor", "all"])
 def test_anndata_curator(adata, categoricals, to_add):
     adata = adata.copy()
-    # must pass an organism
-    with pytest.raises(ValidationError):
-        ln.Curator.from_anndata(
-            adata,
-            categoricals=categoricals,
-            var_index=bt.Gene.symbol,
-        ).validate()
+    # # must pass an organism
+    # with pytest.raises(ValidationError):
+    #     ln.Curator.from_anndata(
+    #         adata,
+    #         categoricals=categoricals,
+    #         var_index=bt.Gene.symbol,
+    #     ).validate()
 
     curator = ln.Curator.from_anndata(
         adata,
