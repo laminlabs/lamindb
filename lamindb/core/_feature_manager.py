@@ -212,6 +212,48 @@ def _get_categoricals(
     return dict(result)
 
 
+def _get_non_categoricals(
+    self,
+    print_params: bool = False,
+) -> dict[tuple[str, str], set[Any]]:
+    """Get non-categorical features and their values."""
+    non_categoricals = {}
+
+    if self.id is not None and isinstance(self, (Artifact, Run)):
+        attr_name = "param" if print_params else "feature"
+        _feature_values = (
+            getattr(self, f"_{attr_name}_values")
+            .values(f"{attr_name}__name", f"{attr_name}__dtype")
+            .annotate(values=custom_aggregate("value", self._state.db))
+            .order_by(f"{attr_name}__name")
+        )
+
+        for fv in _feature_values:
+            feature_name = fv[f"{attr_name}__name"]
+            feature_dtype = fv[f"{attr_name}__dtype"]
+            values = fv["values"]
+
+            # Convert single values to sets
+            if not isinstance(values, (list, dict, set)):
+                values = {values}
+            elif (
+                isinstance(values, list)
+                and feature_dtype != "dict"
+                and not feature_dtype.startswith("list")
+            ):
+                values = set(values)
+
+            # Handle special datetime types
+            if feature_dtype == "datetime":
+                values = {datetime.fromisoformat(value) for value in values}
+            if feature_dtype == "date":
+                values = {date.fromisoformat(value) for value in values}
+
+            non_categoricals[(feature_name, feature_dtype)] = values
+
+    return non_categoricals
+
+
 def _print_featuresets_postgres(
     self: Artifact | Collection,
     related_data: dict | None = None,
@@ -245,6 +287,7 @@ def print_features(
     from lamindb._from_values import _print_values
 
     msg = ""
+    dictionary = ""
 
     # feature sets
     if not print_params and not to_dict:
@@ -267,8 +310,11 @@ def print_features(
             msg += f"  {colors.italic('Feature sets')}\n"
             msg += feature_set_msg
 
+    internal_features = set(
+        self.feature_sets.get(registry="Feature").members.values_list("name", flat=True)
+    )
+
     # categorical feature values
-    labels_msg = ""
     # Get the categorical data using the appropriate method
     if not self._state.adding and connections[self._state.db].vendor == "postgresql":
         categoricals = _get_categoricals_postgres(
@@ -282,70 +328,55 @@ def print_features(
             print_params=print_params,
         )
 
-    dictionary = {}
-    labels_msgs = []
-    for (feature_name, feature_dtype), labels in sorted(categoricals.items()):
-        labels_list = sorted(labels)
-        print_values = _print_values(labels_list, n=10)
-        type_str = f": {feature_dtype}" if print_types else ""
+    # Get non-categorical features
+    non_categoricals = _get_non_categoricals(
+        self,
+        print_params=print_params,
+    )
 
-        if to_dict:
-            dictionary[feature_name] = (
-                set(labels_list) if len(labels_list) > 1 else labels_list[0]
-            )
+    # Combine all features and prepare messages
+    internal_msgs = []
+    external_msgs = []
 
-        labels_msgs.append(f"    '{feature_name}'{type_str} = {print_values}")
-
-    labels_msg = "\n".join(labels_msgs) + "\n" if labels_msgs else ""
-
-    # non-categorical feature values
-    non_labels_msg = ""
-    if self.id is not None and self.__class__ == Artifact or self.__class__ == Run:
-        attr_name = "param" if print_params else "feature"
-        _feature_values = (
-            getattr(self, f"_{attr_name}_values")
-            .values(f"{attr_name}__name", f"{attr_name}__dtype")
-            .annotate(values=custom_aggregate("value", self._state.db))
-            .order_by(f"{attr_name}__name")
-        )
-        if len(_feature_values) > 0:
-            for fv in _feature_values:
-                feature_name = fv[f"{attr_name}__name"]
-                feature_dtype = fv[f"{attr_name}__dtype"]
-                values = fv["values"]
-                if not isinstance(values, (list, dict, set)):
-                    values = {values}
-                elif (
-                    isinstance(values, list)
-                    and feature_dtype != "dict"
-                    and not feature_dtype.startswith("list")
-                ):
-                    values = set(values)
-                # the remaining case is that we have a dictionary
-                if feature_dtype == "datetime":
-                    values = {datetime.fromisoformat(value) for value in values}
-                if feature_dtype == "date":
-                    values = {date.fromisoformat(value) for value in values}
-                if to_dict:
-                    dictionary[feature_name] = (
-                        values if len(values) > 1 else values.pop()
-                    )
+    # Process all features and sort into internal/external messages
+    for features, is_list_type in [(categoricals, False), (non_categoricals, True)]:
+        for (feature_name, feature_dtype), values in sorted(features.items()):
+            # Handle dictionary conversion - no separation needed for dictionary
+            if to_dict:
+                dict_value = values if len(values) > 1 else next(iter(values))
+                dictionary[feature_name] = dict_value  # type: ignore
+            else:
+                # Format message
                 type_str = f": {feature_dtype}" if print_types else ""
                 printed_values = (
                     _print_values(values, n=10, quotes=False)
-                    if not feature_dtype.startswith("list")
+                    if not is_list_type or not feature_dtype.startswith("list")
                     else values
                 )
-                non_labels_msg += f"    '{feature_name}'{type_str} = {printed_values}\n"
+                msg_line = f"    '{feature_name}'{type_str} = {printed_values}"
 
-    if labels_msg + non_labels_msg != "":
-        header = "Feature values" if not print_params else "Params"
-        msg += f"  {colors.italic(header)}\n" + labels_msg + non_labels_msg
+                # Sort into internal/external
+                if feature_name in internal_features:
+                    internal_msgs.append(msg_line)
+                else:
+                    external_msgs.append(msg_line)
 
     if to_dict:
         return dictionary
-    else:
-        return msg
+
+    # Build the final message
+    if internal_msgs or external_msgs:
+        if internal_msgs:
+            header = "Feature values -- internal"
+            msg += f"  {colors.italic(header)}\n"
+            msg += "\n".join(internal_msgs) + "\n"
+
+        if external_msgs:
+            header = "Feature values -- external" if not print_params else "Params"
+            msg += f"  {colors.italic(header)}\n"
+            msg += "\n".join(external_msgs) + "\n"
+
+    return msg
 
 
 def parse_feature_sets_from_anndata(
