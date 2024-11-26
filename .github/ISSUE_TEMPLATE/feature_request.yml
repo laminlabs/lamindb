@@ -1,18 +1,10 @@
-name: Feature request
-description: Propose a new feature for lamindb
-labels:
-  - ":sparkles: feature"
+name: Enhancement
+description: Propose an enhancement or new feature
 body:
-  - type: markdown
-    attributes:
-      value: |
-        **Note**: This is a public repository! Do not reveal any internal information.
-
   - type: textarea
     id: description
     attributes:
-      label: Description of feature
-      description: Please describe your suggestion for a new feature. It might help to describe a problem or use case, plus any alternatives that you have considered.
+      description: Add a description
       placeholder: |
         This is a public repository!
         Do not reveal any internal information.
