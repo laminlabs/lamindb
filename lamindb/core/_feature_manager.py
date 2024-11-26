@@ -331,10 +331,11 @@ def print_features(
                 feature_name = fv[f"{attr_name}__name"]
                 feature_dtype = fv[f"{attr_name}__dtype"]
                 values = fv["values"]
-                if not isinstance(values, list):
+                if not isinstance(values, (list, dict, set)):
                     values = {values}
-                else:
+                elif isinstance(values, list) and feature_dtype != "dict":
                     values = set(values)
+                # the remaining case is that we have a dictionary
                 if feature_dtype == "datetime":
                     values = {datetime.fromisoformat(value) for value in values}
                 if feature_dtype == "date":
