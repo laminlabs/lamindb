@@ -135,14 +135,14 @@ def custom_aggregate(field, using: str):
         return GroupConcat(field)
 
 
-def _print_categoricals_postgres(
+def _get_categoricals_postgres(
     self: Artifact | Collection,
     related_data: dict | None = None,
-    print_types: bool = False,
-    to_dict: bool = False,
     print_params: bool = False,
-):
-    from lamindb._from_values import _print_values
+) -> dict[tuple[str, str], set[str]]:
+    """Get categorical features and their values using PostgreSQL-specific optimizations."""
+    if print_params:
+        return {}
 
     if not related_data:
         artifact_meta = get_artifact_with_related(
@@ -150,6 +150,7 @@ def _print_categoricals_postgres(
         )
         related_data = artifact_meta.get("related_data", {})
 
+    # Process m2m data
     m2m_data = related_data.get("m2m", {}) if related_data else {}
     m2m_name = {}
     for related_name, values in m2m_data.items():
@@ -158,6 +159,8 @@ def _print_categoricals_postgres(
             self.__class__.__name__, ""
         ).lower()
         m2m_name[related_model_name] = values
+
+    # Get feature information
     links_data = related_data.get("link", {}) if related_data else {}
     feature_dict = {
         id: (name, dtype)
@@ -166,81 +169,47 @@ def _print_categoricals_postgres(
         )
     }
 
-    msg = ""
-    dictionary = {}
+    # Build result dictionary
+    result = defaultdict(set)
+    for link_name, link_values in links_data.items():
+        related_name = link_name.removeprefix("links_").replace("_", "")
+        if not link_values:
+            continue
 
-    # categorical feature values
-    if not print_params:
-        labels_msg = ""
-        labels_msgs = []
-        feature_values: dict = {}
-        for link_name, link_values in links_data.items():
-            related_name = link_name.removeprefix("links_").replace("_", "")
-            link_model = getattr(self.__class__, link_name).rel.related_model
-            if not link_values:
+        for link_value in link_values:
+            feature_id = link_value.get("feature")
+            if feature_id is None:
                 continue
-            for link_value in link_values:
-                feature_id = link_value.get("feature")
-                if feature_id is None:
-                    continue
-                feature_name = feature_dict.get(feature_id)[0]
-                if feature_name not in feature_values:
-                    feature_values[feature_name] = (feature_dict.get(feature_id)[1], [])
-                label_id = link_value.get(related_name)
-                feature_values[feature_name][1].append(
-                    m2m_name.get(related_name, {}).get(label_id)
-                )
-        for feature_name, (dtype, labels_list) in feature_values.items():
-            print_values = _print_values(labels_list, n=10)
-            type_str = f": {dtype}" if print_types else ""
-            if to_dict:
-                dictionary[feature_name] = (
-                    set(labels_list) if len(labels_list) > 1 else labels_list[0]
-                )
-            labels_msgs.append(f"    '{feature_name}'{type_str} = {print_values}")
-        if len(labels_msgs) > 0:
-            labels_msg = "\n".join(sorted(labels_msgs)) + "\n"
-            msg += labels_msg
-    return msg, dictionary
+
+            feature_name, feature_dtype = feature_dict.get(feature_id)
+            label_id = link_value.get(related_name)
+            label_name = m2m_name.get(related_name, {}).get(label_id)
+            if label_name:
+                result[(feature_name, feature_dtype)].add(label_name)
+
+    return dict(result)
 
 
-def _print_categoricals(
+def _get_categoricals(
     self: Artifact | Collection,
-    print_types: bool = False,
-    to_dict: bool = False,
     print_params: bool = False,
-):
-    from lamindb._from_values import _print_values
+) -> dict[tuple[str, str], set[str]]:
+    """Get categorical features and their values using the default approach."""
+    if print_params:
+        return {}
 
-    msg = ""
-    dictionary = {}
-    # categorical feature values
-    if not print_params:
-        labels_msg = ""
-        labels_by_feature = defaultdict(list)
-        for _, (_, links) in get_labels_as_dict(
-            self, links=True, instance=self._state.db
-        ).items():
-            for link in links:
-                if hasattr(link, "feature_id") and link.feature_id is not None:
-                    link_attr = get_link_attr(link, self)
-                    labels_by_feature[link.feature_id].append(
-                        getattr(link, link_attr).name
-                    )
-        labels_msgs = []
-        for feature_id, labels_list in labels_by_feature.items():
-            feature = Feature.objects.using(self._state.db).get(id=feature_id)
-            print_values = _print_values(labels_list, n=10)
-            type_str = f": {feature.dtype}" if print_types else ""
-            if to_dict:
-                dictionary[feature.name] = (
-                    set(labels_list) if len(labels_list) > 1 else labels_list[0]
-                )
-            labels_msgs.append(f"    '{feature.name}'{type_str} = {print_values}")
-        if len(labels_msgs) > 0:
-            labels_msg = "\n".join(sorted(labels_msgs)) + "\n"
-            msg += labels_msg
-    return msg, dictionary
+    result = defaultdict(set)
+    for _, (_, links) in get_labels_as_dict(
+        self, links=True, instance=self._state.db
+    ).items():
+        for link in links:
+            if hasattr(link, "feature_id") and link.feature_id is not None:
+                feature = Feature.objects.using(self._state.db).get(id=link.feature_id)
+                link_attr = get_link_attr(link, self)
+                label_name = getattr(link, link_attr).name
+                result[(feature.name, feature.dtype)].add(label_name)
+
+    return dict(result)
 
 
 def _print_featuresets_postgres(
@@ -300,21 +269,34 @@ def print_features(
 
     # categorical feature values
     labels_msg = ""
+    # Get the categorical data using the appropriate method
     if not self._state.adding and connections[self._state.db].vendor == "postgresql":
-        labels_msg, dictionary = _print_categoricals_postgres(
+        categoricals = _get_categoricals_postgres(
             self,
             related_data=related_data,
-            print_types=print_types,
-            to_dict=to_dict,
             print_params=print_params,
         )
     else:
-        labels_msg, dictionary = _print_categoricals(
+        categoricals = _get_categoricals(
             self,
-            print_types=print_types,
-            to_dict=to_dict,
             print_params=print_params,
         )
+
+    dictionary = {}
+    labels_msgs = []
+    for (feature_name, feature_dtype), labels in sorted(categoricals.items()):
+        labels_list = sorted(labels)
+        print_values = _print_values(labels_list, n=10)
+        type_str = f": {feature_dtype}" if print_types else ""
+
+        if to_dict:
+            dictionary[feature_name] = (
+                set(labels_list) if len(labels_list) > 1 else labels_list[0]
+            )
+
+        labels_msgs.append(f"    '{feature_name}'{type_str} = {print_values}")
+
+    labels_msg = "\n".join(labels_msgs) + "\n" if labels_msgs else ""
 
     # non-categorical feature values
     non_labels_msg = ""
