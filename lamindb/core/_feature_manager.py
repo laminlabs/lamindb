@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Iterable
+from datetime import date, datetime
 from itertools import compress
 from typing import TYPE_CHECKING, Any
 
@@ -194,7 +195,7 @@ def _print_categoricals_postgres(
             type_str = f": {dtype}" if print_types else ""
             if to_dict:
                 dictionary[feature_name] = (
-                    labels_list if len(labels_list) > 1 else labels_list[0]
+                    set(labels_list) if len(labels_list) > 1 else labels_list[0]
                 )
             labels_msgs.append(f"    '{feature_name}'{type_str} = {print_values}")
         if len(labels_msgs) > 0:
@@ -233,7 +234,7 @@ def _print_categoricals(
             type_str = f": {feature.dtype}" if print_types else ""
             if to_dict:
                 dictionary[feature.name] = (
-                    labels_list if len(labels_list) > 1 else labels_list[0]
+                    set(labels_list) if len(labels_list) > 1 else labels_list[0]
                 )
             labels_msgs.append(f"    '{feature.name}'{type_str} = {print_values}")
         if len(labels_msgs) > 0:
@@ -274,8 +275,33 @@ def print_features(
 ) -> str | dict[str, Any]:
     from lamindb._from_values import _print_values
 
+    msg = ""
+
+    # feature sets
+    if not print_params and not to_dict:
+        feature_set_msg = ""
+        if self.id is not None and connections[self._state.db].vendor == "postgresql":
+            feature_set_msg = _print_featuresets_postgres(
+                self, related_data=related_data
+            )
+        else:
+            for slot, feature_set in get_feature_set_by_slot_(self).items():
+                features = feature_set.members
+                # features.first() is a lot slower than features[0] here
+                name_field = get_name_field(features[0])
+                feature_names = list(features.values_list(name_field, flat=True)[:20])
+                type_str = f": {feature_set.registry}" if print_types else ""
+                feature_set_msg += (
+                    f"    '{slot}'{type_str} = {_print_values(feature_names)}\n"
+                )
+        if feature_set_msg:
+            msg += f"  {colors.italic('Feature sets')}\n"
+            msg += feature_set_msg
+
+    # categorical feature values
+    labels_msg = ""
     if not self._state.adding and connections[self._state.db].vendor == "postgresql":
-        msg, dictionary = _print_categoricals_postgres(
+        labels_msg, dictionary = _print_categoricals_postgres(
             self,
             related_data=related_data,
             print_types=print_types,
@@ -283,7 +309,7 @@ def print_features(
             print_params=print_params,
         )
     else:
-        msg, dictionary = _print_categoricals(
+        labels_msg, dictionary = _print_categoricals(
             self,
             print_types=print_types,
             to_dict=to_dict,
@@ -305,11 +331,18 @@ def print_features(
                 feature_name = fv[f"{attr_name}__name"]
                 feature_dtype = fv[f"{attr_name}__dtype"]
                 values = fv["values"]
-                # TODO: understand why the below is necessary
                 if not isinstance(values, list):
-                    values = [values]
+                    values = {values}
+                else:
+                    values = set(values)
+                if feature_dtype == "datetime":
+                    values = {datetime.fromisoformat(value) for value in values}
+                if feature_dtype == "date":
+                    values = {date.fromisoformat(value) for value in values}
                 if to_dict:
-                    dictionary[feature_name] = values if len(values) > 1 else values[0]
+                    dictionary[feature_name] = (
+                        values if len(values) > 1 else values.pop()
+                    )
                 type_str = f": {feature_dtype}" if print_types else ""
                 printed_values = (
                     _print_values(values, n=10, quotes=False)
@@ -317,32 +350,11 @@ def print_features(
                     else values
                 )
                 non_labels_msg += f"    '{feature_name}'{type_str} = {printed_values}\n"
-            msg += non_labels_msg
 
-    if msg != "":
-        header = "Features" if not print_params else "Params"
-        msg = f"  {colors.italic(header)}\n" + msg
+    if labels_msg + non_labels_msg != "":
+        header = "Feature values" if not print_params else "Params"
+        msg += f"  {colors.italic(header)}\n" + labels_msg + non_labels_msg
 
-    # feature sets
-    if not print_params:
-        feature_set_msg = ""
-        if self.id is not None and connections[self._state.db].vendor == "postgresql":
-            feature_set_msg = _print_featuresets_postgres(
-                self, related_data=related_data
-            )
-        else:
-            for slot, feature_set in get_feature_set_by_slot_(self).items():
-                features = feature_set.members
-                # features.first() is a lot slower than features[0] here
-                name_field = get_name_field(features[0])
-                feature_names = list(features.values_list(name_field, flat=True)[:20])
-                type_str = f": {feature_set.registry}" if print_types else ""
-                feature_set_msg += (
-                    f"    '{slot}'{type_str} = {_print_values(feature_names)}\n"
-                )
-        if feature_set_msg:
-            msg += f"  {colors.italic('Feature sets')}\n"
-            msg += feature_set_msg
     if to_dict:
         return dictionary
     else:
@@ -409,6 +421,16 @@ def parse_feature_sets_from_anndata(
     return feature_sets
 
 
+def is_valid_datetime_str(date_string: str) -> bool | str:
+    try:
+        dt = datetime.fromisoformat(date_string)
+        if dt.hour == 0 and dt.minute == 0 and dt.second == 0 and dt.microsecond == 0:
+            return "date"
+        return "datetime"
+    except ValueError:
+        return False
+
+
 def infer_feature_type_convert_json(
     value: Any, mute: bool = False, str_as_ulabel: bool = True
 ) -> tuple[str, Any]:
@@ -418,8 +440,14 @@ def infer_feature_type_convert_json(
         return FEATURE_TYPES["int"], value
     elif isinstance(value, float):
         return FEATURE_TYPES["float"], value
+    elif isinstance(value, date):
+        return FEATURE_TYPES["date"], value.isoformat()
+    elif isinstance(value, datetime):
+        return FEATURE_TYPES["datetime"], value.isoformat(sep=" ")
     elif isinstance(value, str):
-        if str_as_ulabel:
+        if dt_type := is_valid_datetime_str(value):
+            return FEATURE_TYPES[dt_type], value  # type: ignore
+        elif str_as_ulabel:
             return FEATURE_TYPES["str"] + "[ULabel]", value
         else:
             return "str", value
@@ -711,7 +739,6 @@ def _add_values(
                 f"Expected dtype for '{key}' is '{feature.dtype}', got '{inferred_type}'"
             )
         if not feature.dtype.startswith("cat"):
-            # can remove the query once we have the unique constraint
             filter_kwargs = {model_name.lower(): feature, "value": converted_value}
             feature_value = value_model.filter(**filter_kwargs).one_or_none()
             if feature_value is None:
@@ -812,6 +839,59 @@ def add_values_params(
         values: A dictionary of keys (features) & values (labels, numbers, booleans).
     """
     _add_values(self, values, Param.name, str_as_ulabel=False)
+
+
+def remove_values(
+    self,
+    feature: str | Feature,
+    *,
+    value: Any | None = None,
+):
+    """Remove value annotations for a given feature.
+
+    Args:
+        feature: The feature for which to remove values.
+        value: An optional value to restrict removal to a single value.
+
+    """
+    if isinstance(feature, str):
+        feature = Feature.get(name=feature)
+    filter_kwargs = {"feature": feature}
+    if feature.dtype.startswith("cat["):
+        feature_registry = feature.dtype.replace("cat[", "").replace("]", "")
+        if value is not None:
+            assert isinstance(value, Record)  # noqa: S101
+            # the below uses our convention for field names in link models
+            link_name = (
+                feature_registry.split(".")[1]
+                if "." in feature_registry
+                else feature_registry
+            ).lower()
+            filter_kwargs[link_name] = value
+        if feature_registry == "ULabel":
+            link_attribute = "links_ulabel"
+        else:
+            link_models_on_models = {
+                getattr(
+                    Artifact, obj.related_name
+                ).through.__get_name_with_schema__(): obj.related_model.__get_name_with_schema__()
+                for obj in Artifact._meta.related_objects
+                if obj.related_model.__get_name_with_schema__() == feature_registry
+            }
+            link_attribute = {
+                obj.related_name
+                for obj in Artifact._meta.related_objects
+                if obj.related_model.__get_name_with_schema__() in link_models_on_models
+            }.pop()
+        getattr(self._host, link_attribute).filter(**filter_kwargs).all().delete()
+    else:
+        if value is not None:
+            filter_kwargs["value"] = value
+        feature_values = self._host._feature_values.filter(**filter_kwargs)
+        self._host._feature_values.remove(*feature_values)
+        # this might leave a dangling feature_value record
+        # but we don't want to pay the price of making another query just to remove this annotation
+        # we can clean the FeatureValue registry periodically if we want to
 
 
 def add_feature_set(self, feature_set: FeatureSet, slot: str) -> None:
@@ -1056,6 +1136,7 @@ FeatureManager._add_from = _add_from
 FeatureManager.filter = filter
 FeatureManager.get = get
 FeatureManager.make_external = make_external
+FeatureManager.remove_values = remove_values
 ParamManager.add_values = add_values_params
 ParamManager.get_values = get_values
 ParamManager.filter = filter
