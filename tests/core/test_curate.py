@@ -110,6 +110,8 @@ def test_df_curator(df, categoricals):
     curator.add_new_from_columns()
 
     # standardize
+    with pytest.raises(KeyError):
+        curator.standardize("nonexistent-key")
     curator.standardize("all")
     assert curator.non_validated == {
         "cell_type": ["cerebral pyramidal neuron"],
@@ -132,8 +134,6 @@ def test_df_curator(df, categoricals):
 
     # no need to standardize
     curator.standardize("cell_type")
-    with pytest.raises(KeyError):
-        curator.standardize("nonexistent-key")
 
     artifact = curator.save_artifact(description="test-curate-df")
 
