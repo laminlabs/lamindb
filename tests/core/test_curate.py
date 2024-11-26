@@ -15,9 +15,8 @@ def df():
     return pd.DataFrame(
         {
             "cell_type": [
-                # there is an error in the below annotation on purpose
-                "cerebral pyramidal neuron",
-                "astrocyte",
+                "cerebral pyramidal neuron",  # on purpose, should be "cerebral cortex pyramidal neuron"
+                "astrocytic glia",  # synonym of astrocyte
                 "oligodendrocyte",
             ],
             "cell_type_2": ["oligodendrocyte", "oligodendrocyte", "astrocyte"],
@@ -33,7 +32,7 @@ def adata():
         {
             "cell_type": [
                 "cerebral cortex pyramidal neuron",
-                "astrocyte",
+                "astrocytic glia",  # synonym of astrocyte
                 "oligodendrocyte",
             ],
             "cell_type_2": [
@@ -49,7 +48,7 @@ def adata():
 
     X = pd.DataFrame(
         {
-            "TCF7": [1, 2, 3],
+            "TCF-1": [1, 2, 3],  # synonym of TCF7
             "PDCD1": [4, 5, 6],
             "CD3E": [7, 8, 9],
             "CD4": [10, 11, 12],
@@ -99,16 +98,43 @@ def mock_transform():
 
 def test_df_curator(df, categoricals):
     curator = ln.Curator.from_df(df, categoricals=categoricals)
+    with pytest.raises(ValidationError):
+        _ = curator.non_validated
     validated = curator.validate()
+    assert curator.non_validated == {
+        "cell_type": ["cerebral pyramidal neuron", "astrocytic glia"],
+        "donor": ["D0001", "D0002", "DOOO3"],
+    }
     assert validated is False
 
+    # deprecated method
+    curator.add_new_from_columns()
+
+    # standardize
+    curator.standardize("all")
+    assert curator.non_validated == {
+        "cell_type": ["cerebral pyramidal neuron"],
+        "donor": ["D0001", "D0002", "DOOO3"],
+    }
+    assert "cerebral cortex pyramidal neuron" in df["cell_type"].values
+
+    # add new
+    curator.add_new_from("donor")
+    assert curator.non_validated == {"cell_type": ["cerebral pyramidal neuron"]}
+
+    # lookup
     cell_types = curator.lookup(public=True)["cell_type"]
     df["cell_type"] = df["cell_type"].replace(
         {"cerebral pyramidal neuron": cell_types.cerebral_cortex_pyramidal_neuron.name}
     )
-    curator.add_new_from("donor")
     validated = curator.validate()
     assert validated is True
+    assert curator.non_validated == {}
+
+    # no need to standardize
+    curator.standardize("cell_type")
+    with pytest.raises(KeyError):
+        curator.standardize("nonexistent-key")
 
     artifact = curator.save_artifact(description="test-curate-df")
 
@@ -215,13 +241,47 @@ def test_clean_up_failed_runs():
 
 @pytest.mark.parametrize("to_add", ["donor", "all"])
 def test_anndata_curator(adata, categoricals, to_add):
+    # must pass an organism
+    with pytest.raises(ValidationError):
+        ln.Curator.from_anndata(
+            adata,
+            categoricals=categoricals,
+            var_index=bt.Gene.symbol,
+        ).validate()
+
     curator = ln.Curator.from_anndata(
         adata,
         categoricals=categoricals,
         var_index=bt.Gene.symbol,
         organism="human",
     )
+    validated = curator.validate()
+    assert validated is False
+    assert curator.non_validated == {
+        "cell_type": ["astrocytic glia"],
+        "donor": ["D0001", "D0002", "DOOO3"],
+        "var_index": ["TCF-1"],
+    }
+
+    # standardize var_index
+    curator.standardize("var_index")
+    assert "TCF7" in adata.var.index
+    assert curator.non_validated == {
+        "cell_type": ["astrocytic glia"],
+        "donor": ["D0001", "D0002", "DOOO3"],
+    }
+    curator.standardize("all")
+    assert curator.non_validated == {"donor": ["D0001", "D0002", "DOOO3"]}
+
+    # lookup
+    lookup = curator.lookup()
+    assert lookup.cell_type.oligodendrocyte.name == "oligodendrocyte"
+
+    # add new
     curator.add_new_from(to_add)
+    assert curator.non_validated == {}
+    # just for coverage, doesn't do anything
+    curator.add_new_from_var_index()
     validated = curator.validate()
     assert validated
 

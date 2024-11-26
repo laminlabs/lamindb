@@ -97,6 +97,8 @@ class BaseCurator:
     def validate(self) -> bool:
         """Validate dataset.
 
+        This method also registers the validated records in the current instance.
+
         Returns:
             Boolean indicating whether the dataset is validated.
         """
@@ -295,7 +297,7 @@ class DataFrameCurator(BaseCurator):
         self, key: str, syn_mapper: dict, values: pd.Series | pd.Index
     ):
         # replace the values in df
-        values.replace(syn_mapper, inplace=True)
+        std_values = values.map(lambda x: syn_mapper.get(x, x))
         # remove the standardized values from self.non_validated
         non_validated = [i for i in self.non_validated[key] if i not in syn_mapper]
         if len(non_validated) == 0:
@@ -312,6 +314,7 @@ class DataFrameCurator(BaseCurator):
             logger.success(
                 f'standardized {n} synonym{s} in "{key}": {colors.green(syn_mapper_print)}'
             )
+        return std_values
 
     def standardize(self, key: str):
         """Standardize the dataset.
@@ -332,7 +335,7 @@ class DataFrameCurator(BaseCurator):
                     source=self._sources.get(k),
                     **self._kwargs,
                 )
-                self._replace_synonyms(k, syn_mapper, self._df[k])
+                self._df[k] = self._replace_synonyms(k, syn_mapper, self._df[k])
         else:
             if key not in avail_keys:
                 raise KeyError(
@@ -346,13 +349,11 @@ class DataFrameCurator(BaseCurator):
                     source=self._sources.get(key),
                     **self._kwargs,
                 )
-                self._replace_synonyms(key, syn_mapper, self._df[key])
+                self._df[key] = self._replace_synonyms(key, syn_mapper, self._df[key])
 
     def _update_registry(self, categorical: str, validated_only: bool = True, **kwargs):
         if categorical == "all":
             self._update_registry_all(validated_only=validated_only, **kwargs)
-        elif categorical == "columns":
-            self._save_columns(validated_only=validated_only, **kwargs)
         else:
             if categorical not in self.fields:
                 raise ValidationError(
@@ -368,6 +369,8 @@ class DataFrameCurator(BaseCurator):
                 exclude=self._exclude.get(categorical),
                 **kwargs,
             )
+            if not validated_only:
+                self._non_validated.pop(categorical, None)  # type: ignore
 
     def _update_registry_all(self, validated_only: bool = True, **kwargs):
         """Save labels for all features."""
@@ -376,6 +379,8 @@ class DataFrameCurator(BaseCurator):
 
     def validate(self, organism: str | None = None) -> bool:
         """Validate variables and categorical observations.
+
+        This method also registers the validated records in the current instance.
 
         Args:
             organism: The organism name.
@@ -427,10 +432,6 @@ class DataFrameCurator(BaseCurator):
         verbosity = settings.verbosity
         try:
             settings.verbosity = "warning"
-            if not self._validated:
-                # save all validated records to the current instance
-                self._update_registry_all()
-
             self._artifact = save_artifact(
                 self._df,
                 description=description,
@@ -603,6 +604,8 @@ class AnnDataCurator(DataFrameCurator):
     def validate(self, organism: str | None = None) -> bool:
         """Validate categories.
 
+        This method also registers the validated records in the current instance.
+
         Args:
             organism: The organism name.
 
@@ -647,7 +650,7 @@ class AnnDataCurator(DataFrameCurator):
 
         Inplace modification of the dataset.
         """
-        if key in self._adata.obs.columns:
+        if key in self._adata.obs.columns or key == "all":
             super().standardize(key)
         # in addition to the obs columns, standardize the var.index
         if key == "var_index" or key == "all":
@@ -658,7 +661,10 @@ class AnnDataCurator(DataFrameCurator):
                 source=self._sources.get("var_index"),
                 **self._kwargs,
             )
-            self._replace_synonyms("var_index", syn_mapper, self._adata.var.index)
+            if "var_index" in self._non_validated:  # type: ignore
+                self._adata.var.index = self._replace_synonyms(
+                    "var_index", syn_mapper, self._adata.var.index
+                )
 
     def save_artifact(
         self,
@@ -687,9 +693,6 @@ class AnnDataCurator(DataFrameCurator):
         verbosity = settings.verbosity
         try:
             settings.verbosity = "warning"
-            if not self._validated:
-                # save all validated records to the current instance
-                self._update_registry_all()
             self._artifact = save_artifact(
                 self._data,
                 adata=self._adata,
@@ -1024,10 +1027,6 @@ class MuDataCurator:
         verbosity = settings.verbosity
         try:
             settings.verbosity = "warning"
-            if not self._validated:
-                # save all validated records to the current instance
-                self._update_registry_all()
-
             self._artifact = save_artifact(
                 self._mdata,
                 description=description,
@@ -1319,7 +1318,7 @@ def validate_categories(
                 [f'"{k}" → "{v}"' for k, v in syn_mapper.items()], sep=""
             )
             hint_msg = f'.standardize("{key}")'
-            warning_message += f"    {colors.yellow(f'{len(syn_mapper)} synonym{s}')} found: {colors.yellow(syn_mapper_print)}\n    → curate synonyms via {colors.cyan(hint_msg)}\n"
+            warning_message += f"    {colors.yellow(f'{len(syn_mapper)} synonym{s}')} found: {colors.yellow(syn_mapper_print)}\n    → curate synonyms via {colors.cyan(hint_msg)}"
         if n_non_validated > len(syn_mapper):
             if syn_mapper:
                 warning_message += "    for remaining terms:\n"
@@ -1787,7 +1786,7 @@ def update_registry_from_using_instance(
     return labels_saved, not_saved
 
 
-def _save_organism(name: str):  # pragma: no cover
+def _save_organism(name: str):
     """Save an organism record."""
     import bionty as bt
 
