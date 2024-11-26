@@ -1,5 +1,6 @@
 name: Enhancement
 description: Propose an enhancement or new feature
+labels: []
 body:
   - type: textarea
     id: description
