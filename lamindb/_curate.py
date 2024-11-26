@@ -277,7 +277,7 @@ class DataFrameCurator(BaseCurator):
         Args:
             key: The key referencing the slot in the DataFrame from which to draw terms.
             organism: The organism name.
-            **kwargs: Additional keyword arguments to pass to the registry model.
+            **kwargs: Additional keyword arguments to pass to create new records
         """
         if len(kwargs) > 0 and key == "all":
             raise ValueError("Cannot pass additional arguments to 'all' key!")
@@ -599,7 +599,7 @@ class AnnDataCurator(DataFrameCurator):
 
         Args:
             organism: The organism name.
-            **kwargs: Additional keyword arguments to pass to the registry model.
+            **kwargs: Additional keyword arguments to pass to create new records.
         """
         self._kwargs.update({"organism": organism} if organism else {})
         self._save_from_var_index(validated_only=False, **self._kwargs, **kwargs)
@@ -826,22 +826,6 @@ class MuDataCurator:
             if modality not in self._mdata.mod.keys():
                 raise ValidationError(f"modality '{modality}' does not exist!")
 
-    # def _save_from_var_index_modality(
-    #     self, modality: str, validated_only: bool = True, **kwargs
-    # ):
-    #     """Save variable records."""
-    #     update_registry(
-    #         values=list(self._mdata[modality].var.index),
-    #         field=self._var_fields[modality],
-    #         key="var_index",
-    #         using_key=self._using_key,
-    #         validated_only=validated_only,
-    #         dtype="number",
-    #         source=self._sources.get(modality, {}).get("var_index"),
-    #         exclude=self._exclude.get(modality, {}).get("var_index"),
-    #         **kwargs,
-    #     )
-
     def _parse_categoricals(self, categoricals: dict[str, FieldAttr]) -> dict:
         """Parse the categorical fields."""
         prefixes = {f"{k}:" for k in self._mdata.mod.keys()}
@@ -901,24 +885,19 @@ class MuDataCurator:
         Args:
             modality: The modality name.
             organism: The organism name.
-            **kwargs: Additional keyword arguments to pass to the registry model.
+            **kwargs: Additional keyword arguments to pass to create new records.
         """
         self._kwargs.update({"organism": organism} if organism else {})
-        self._mod_adata_curators[modality].add_new_from_var_index(**self._kwargs)
-        # self._save_from_var_index_modality(
-        #     modality=modality, validated_only=False, **self._kwargs, **kwargs
-        # )
+        self._mod_adata_curators[modality].add_new_from_var_index(
+            **self._kwargs, **kwargs
+        )
 
     def _update_registry_all(self):
         """Update all registries."""
-        # for modality in self._var_fields.keys():
-        #     self._save_from_var_index_modality(
-        #         modality=modality, validated_only=True, **self._kwargs
-        #     )
-        self._obs_df_curator._update_registry_all(validated_only=True, **self._kwargs)
-        # for _, df_curator in self._obs_df_curator.items():
-        #     df_curator._update_registry_all(validated_only=True, **self._kwargs)
-
+        if self._obs_df_curator is not None:
+            self._obs_df_curator._update_registry_all(
+                validated_only=True, **self._kwargs
+            )
         for _, adata_curator in self._mod_adata_curators.items():
             adata_curator._update_registry_all(validated_only=True, **self._kwargs)
 
@@ -935,7 +914,7 @@ class MuDataCurator:
             key: The key referencing the slot in the DataFrame.
             modality: The modality name.
             organism: The organism name.
-            **kwargs: Additional keyword arguments to pass to the registry model.
+            **kwargs: Additional keyword arguments to pass to create new records.
         """
         if len(kwargs) > 0 and key == "all":
             raise ValueError("Cannot pass additional arguments to 'all' key!")
@@ -1792,8 +1771,8 @@ def _save_organism(name: str):
         organism = bt.Organism.from_source(name=name)
         if organism is None:
             raise ValidationError(
-                f"Organism '{name}' not found\n"
-                f"      → please save it: bt.Organism(name='{name}').save()"
+                f'Organism "{name}" not found\n'
+                f'      → please save it: bt.Organism(name="{name}").save()'
             )
         organism.save()
     return organism
