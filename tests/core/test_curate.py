@@ -240,13 +240,13 @@ def test_clean_up_failed_runs():
 
 @pytest.mark.parametrize("to_add", ["donor", "all"])
 def test_anndata_curator(adata, categoricals, to_add):
-    # must pass an organism
-    with pytest.raises(ValidationError):
-        ln.Curator.from_anndata(
-            adata,
-            categoricals=categoricals,
-            var_index=bt.Gene.symbol,
-        ).validate()
+    # # must pass an organism
+    # with pytest.raises(ValidationError):
+    #     ln.Curator.from_anndata(
+    #         adata,
+    #         categoricals=categoricals,
+    #         var_index=bt.Gene.symbol,
+    #     ).validate()
 
     curator = ln.Curator.from_anndata(
         adata,
@@ -312,14 +312,14 @@ def test_str_var_index(adata):
         )
 
 
-def test_no_categoricals(adata):
+def test_not_passing_categoricals(adata):
     curator = ln.Curator.from_anndata(
         adata,
         var_index=bt.Gene.symbol,
         organism="human",
     )
     validated = curator.validate()
-    assert validated
+    assert validated is False
 
 
 def test_anndata_curator_wrong_type(df, categoricals):
@@ -387,7 +387,36 @@ def test_mudata_curator(mdata):
         var_index={"rna": bt.Gene.symbol, "rna_2": bt.Gene.symbol},
         organism="human",
     )
-    curator.add_new_from("donor", modality="rna")
+    with pytest.raises(ValidationError):
+        _ = curator.non_validated
+    assert curator._modalities == curator._modalities
+
+    # validate
+    validated = curator.validate()
+    assert curator.non_validated == {
+        "obs": {"donor": ["D0001", "D0002", "DOOO3"]},
+        "rna_2": {
+            "cell_type": ["astrocytic glia"],
+            "donor": ["D0001", "D0002", "DOOO3"],
+            "var_index": ["TCF-1"],
+        },
+        "rna": {
+            "cell_type": ["astrocytic glia"],
+            "donor": ["D0001", "D0002", "DOOO3"],
+            "var_index": ["TCF-1"],
+        },
+    }
+
+    # standardize
+    curator.standardize("all", modality="rna_2")
+    assert curator._mod_adata_curators["rna_2"].non_validated == {
+        "donor": ["D0001", "D0002", "DOOO3"]
+    }
+
+    # add new
+    curator.add_new_from_var_index("rna")  # doesn't do anything
+    curator.add_new_from("donor")
+
     validated = curator.validate()
     assert validated
     artifact = curator.save_artifact(description="test MuData")

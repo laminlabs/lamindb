@@ -328,28 +328,32 @@ class DataFrameCurator(BaseCurator):
 
         if key == "all":
             for k in avail_keys:
-                syn_mapper = standardize_categories(
-                    self.non_validated[k],
-                    field=self._fields[k],
-                    using_key=self._using_key,
-                    source=self._sources.get(k),
-                    **self._kwargs,
-                )
-                self._df[k] = self._replace_synonyms(k, syn_mapper, self._df[k])
+                if k in self._fields:  # needed to exclude var_index
+                    syn_mapper = standardize_categories(
+                        self.non_validated[k],
+                        field=self._fields[k],
+                        using_key=self._using_key,
+                        source=self._sources.get(k),
+                        **self._kwargs,
+                    )
+                    self._df[k] = self._replace_synonyms(k, syn_mapper, self._df[k])
         else:
             if key not in avail_keys:
                 raise KeyError(
                     f'"{key}" is not a valid key, available keys are: {", ".join(avail_keys)}!'
                 )
             else:
-                syn_mapper = standardize_categories(
-                    self.non_validated[key],
-                    field=self._fields[key],
-                    using_key=self._using_key,
-                    source=self._sources.get(key),
-                    **self._kwargs,
-                )
-                self._df[key] = self._replace_synonyms(key, syn_mapper, self._df[key])
+                if key in self._fields:  # needed to exclude var_index
+                    syn_mapper = standardize_categories(
+                        self.non_validated[key],
+                        field=self._fields[key],
+                        using_key=self._using_key,
+                        source=self._sources.get(key),
+                        **self._kwargs,
+                    )
+                    self._df[key] = self._replace_synonyms(
+                        key, syn_mapper, self._df[key]
+                    )
 
     def _update_registry(self, categorical: str, validated_only: bool = True, **kwargs):
         if categorical == "all":
@@ -577,7 +581,6 @@ class AnnDataCurator(DataFrameCurator):
             values=list(self._adata.var.index),
             field=self.var_index,
             key="var_index",
-            # save_function=".add_new_from_var_index()",
             using_key=self._using_key,
             validated_only=validated_only,
             organism=organism,
@@ -771,19 +774,34 @@ class MuDataCurator:
         self._modalities = set(self._var_fields.keys()) | set(self._obs_fields.keys())
         self._using_key = using_key
         self._verbosity = verbosity
-        self._df_annotators = {
-            modality: DataFrameCurator(
-                df=mdata[modality].obs if modality != "obs" else mdata.obs,
-                categoricals=self._obs_fields.get(modality, {}),
+        self._obs_df_curator = None
+        if "obs" in self._modalities:
+            self._obs_df_curator = DataFrameCurator(
+                df=mdata.obs,
+                columns=Feature.name,
+                categoricals=self._obs_fields.get("obs", {}),
+                using_key=using_key,
+                verbosity=verbosity,
+                sources=self._sources.get("obs"),
+                exclude=self._exclude.get("obs"),
+                check_valid_keys=False,
+                **self._kwargs,
+            )
+        self._mod_adata_curators = {
+            modality: AnnDataCurator(
+                data=mdata[modality],
+                var_index=var_index.get(modality),
+                categoricals=self._obs_fields.get(modality),
                 using_key=using_key,
                 verbosity=verbosity,
                 sources=self._sources.get(modality),
                 exclude=self._exclude.get(modality),
-                check_valid_keys=False,
                 **self._kwargs,
             )
             for modality in self._modalities
+            if modality != "obs"
         }
+        self._non_validated = None
 
     @property
     def var_index(self) -> FieldAttr:
@@ -795,28 +813,34 @@ class MuDataCurator:
         """Return the obs fields to validate against."""
         return self._obs_fields
 
+    @property
+    def non_validated(self) -> dict:
+        """Return the non-validated features and labels."""
+        if self._non_validated is None:
+            raise ValidationError("Please run validate() first!")
+        return self._non_validated
+
     def _verify_modality(self, modalities: Iterable[str]):
         """Verify the modality exists."""
         for modality in modalities:
             if modality not in self._mdata.mod.keys():
                 raise ValidationError(f"modality '{modality}' does not exist!")
 
-    def _save_from_var_index_modality(
-        self, modality: str, validated_only: bool = True, **kwargs
-    ):
-        """Save variable records."""
-        update_registry(
-            values=list(self._mdata[modality].var.index),
-            field=self._var_fields[modality],
-            key="var_index",
-            # save_function=f'.add_new_from_var_index("{modality}")',
-            using_key=self._using_key,
-            validated_only=validated_only,
-            dtype="number",
-            source=self._sources.get(modality, {}).get("var_index"),
-            exclude=self._exclude.get(modality, {}).get("var_index"),
-            **kwargs,
-        )
+    # def _save_from_var_index_modality(
+    #     self, modality: str, validated_only: bool = True, **kwargs
+    # ):
+    #     """Save variable records."""
+    #     update_registry(
+    #         values=list(self._mdata[modality].var.index),
+    #         field=self._var_fields[modality],
+    #         key="var_index",
+    #         using_key=self._using_key,
+    #         validated_only=validated_only,
+    #         dtype="number",
+    #         source=self._sources.get(modality, {}).get("var_index"),
+    #         exclude=self._exclude.get(modality, {}).get("var_index"),
+    #         **kwargs,
+    #     )
 
     def _parse_categoricals(self, categoricals: dict[str, FieldAttr]) -> dict:
         """Parse the categorical fields."""
@@ -862,27 +886,11 @@ class MuDataCurator:
         organism: str | None = None,
         **kwargs,
     ):
-        """Update columns records.
-
-        Args:
-            modality: The modality name.
-            column_names: The column names to save.
-            organism: The organism name.
-            **kwargs: Additional keyword arguments to pass to the registry model.
-        """
-        self._kwargs.update({"organism": organism} if organism else {})
-        values = column_names or self._mdata[modality].obs.columns
-        update_registry(
-            values=list(values),
-            field=Feature.name,
-            key=f"{modality} obs columns",
-            using_key=self._using_key,
-            validated_only=False,
-            df=self._mdata[modality].obs,
-            source=self._sources.get(modality, {}).get("columns"),
-            exclude=self._exclude.get(modality, {}).get("columns"),
-            **self._kwargs,  # type: ignore
-            **kwargs,
+        """Update columns records."""
+        warnings.warn(
+            "`.add_new_from_columns()` is deprecated and will be removed in a future version. It's run by default during initialization.",
+            DeprecationWarning,
+            stacklevel=2,
         )
 
     def add_new_from_var_index(
@@ -896,18 +904,23 @@ class MuDataCurator:
             **kwargs: Additional keyword arguments to pass to the registry model.
         """
         self._kwargs.update({"organism": organism} if organism else {})
-        self._save_from_var_index_modality(
-            modality=modality, validated_only=False, **self._kwargs, **kwargs
-        )
+        self._mod_adata_curators[modality].add_new_from_var_index(**self._kwargs)
+        # self._save_from_var_index_modality(
+        #     modality=modality, validated_only=False, **self._kwargs, **kwargs
+        # )
 
     def _update_registry_all(self):
         """Update all registries."""
-        for modality in self._var_fields.keys():
-            self._save_from_var_index_modality(
-                modality=modality, validated_only=True, **self._kwargs
-            )
-        for _, df_annotator in self._df_annotators.items():
-            df_annotator._update_registry_all(validated_only=True, **self._kwargs)
+        # for modality in self._var_fields.keys():
+        #     self._save_from_var_index_modality(
+        #         modality=modality, validated_only=True, **self._kwargs
+        #     )
+        self._obs_df_curator._update_registry_all(validated_only=True, **self._kwargs)
+        # for _, df_curator in self._obs_df_curator.items():
+        #     df_curator._update_registry_all(validated_only=True, **self._kwargs)
+
+        for _, adata_curator in self._mod_adata_curators.items():
+            adata_curator._update_registry_all(validated_only=True, **self._kwargs)
 
     def add_new_from(
         self,
@@ -928,9 +941,11 @@ class MuDataCurator:
             raise ValueError("Cannot pass additional arguments to 'all' key!")
         self._kwargs.update({"organism": organism} if organism else {})
         modality = modality or "obs"
-        if modality in self._df_annotators:
-            df_annotator = self._df_annotators[modality]
-            df_annotator.add_new_from(key=key, **self._kwargs, **kwargs)
+        if modality in self._mod_adata_curators:
+            adata_curator = self._mod_adata_curators[modality]
+            adata_curator.add_new_from(key=key, **self._kwargs, **kwargs)
+        if modality == "obs":
+            self._obs_df_curator.add_new_from(key=key, **self._kwargs, **kwargs)
 
     def validate(self, organism: str | None = None) -> bool:
         """Validate categories."""
@@ -939,7 +954,7 @@ class MuDataCurator:
         self._kwargs.update({"organism": organism} if organism else {})
         if self._using_key is not None and self._using_key != "default":
             logger.important(
-                f"validating metadata using registries of instance {colors.italic(self._using_key)}"
+                f"validating using registries of instance {colors.italic(self._using_key)}"
             )
 
         # add all validated records to the current instance
@@ -950,55 +965,37 @@ class MuDataCurator:
         finally:
             settings.verbosity = verbosity
 
-        validated_var = True
-        non_validated_var_modality = {}
-        for modality, var_field in self._var_fields.items():
-            is_validated_var, non_validated_var = validate_categories(
-                self._mdata[modality].var.index,
-                field=var_field,
-                key=f"{modality}_var_index",
-                using_key=self._using_key,
-                source=self._sources.get(modality, {}).get("var_index"),
-                exclude=self._exclude.get(modality, {}).get("var_index"),
-                hint_print=f'.add_new_from_var_index("{modality}")',
-                **self._kwargs,  # type: ignore
-            )
-            validated_var &= is_validated_var
-            if len(non_validated_var) > 0:
-                non_validated_var_modality[modality] = non_validated_var
+        self._non_validated = {}  # type: ignore
 
-        validated_obs = True
-        non_validated_obs_modality = {}
-        for modality, fields in self._obs_fields.items():
-            if modality == "obs":
-                obs = self._mdata.obs
-            else:
-                obs = self._mdata[modality].obs
-            is_validated_obs, non_validated_obs = validate_categories_in_df(
-                obs,
-                fields=fields,
-                using_key=self._using_key,
-                sources=self._sources.get(modality),
-                exclude=self._exclude.get(modality),
-                **self._kwargs,
-            )
-            validated_obs &= is_validated_obs
-            non_validated_obs_modality[modality] = non_validated_obs
-            if modality in non_validated_var_modality:
-                non_validated_obs_modality[modality]["var_index"] = (
-                    non_validated_var_modality[modality]
-                )
-            if len(non_validated_obs_modality[modality]) > 0:
-                self._non_validated = non_validated_obs_modality[modality]
-        self._validated = validated_var and validated_obs
+        obs_validated = True
+        if "obs" in self._modalities:
+            logger.info('validating categoricals in "obs"...')
+            obs_validated &= self._obs_df_curator.validate(**self._kwargs)
+            self._non_validated["obs"] = self._obs_df_curator.non_validated  # type: ignore
+            logger.print("")
+
+        mods_validated = True
+        for modality, adata_curator in self._mod_adata_curators.items():
+            logger.info(f'validating categoricals in modality "{modality}"...')
+            mods_validated &= adata_curator.validate(**self._kwargs)
+            if len(adata_curator.non_validated) > 0:
+                self._non_validated[modality] = adata_curator.non_validated  # type: ignore
+            logger.print("")
+
+        self._validated = obs_validated & mods_validated
         return self._validated
 
-    def standardize(self, key: str, modality: str):
+    def standardize(self, key: str, modality: str | None = None):
         """Standardize the dataset.
 
         Inplace modification of the dataset.
         """
-        pass
+        modality = modality or "obs"
+        if modality in self._mod_adata_curators:
+            adata_curator = self._mod_adata_curators[modality]
+            adata_curator.standardize(key=key)
+        if modality == "obs":
+            self._obs_df_curator.standardize(key=key)
 
     def save_artifact(
         self,
