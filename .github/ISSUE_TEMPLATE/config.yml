@@ -2,7 +2,7 @@ blank_issues_enabled: true
 contact_links:
     - name: LaminHub issues
       url: https://github.com/laminlabs/laminhub-public
-      about: If you have issues with LaminHub, please report them here.
+      about: If you have issues with the GUI/web app at lamin.ai, please report them here.
     - name: Enterprise support
       url: https://lamin.ai/contact
-      about: If you have non-technical inquiries, please contact us directly.
+      about: If you have other questions, contact us directly.

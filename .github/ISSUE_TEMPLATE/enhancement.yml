@@ -1,15 +1,15 @@
-name: Report a bug
-description: Report a bug.
-labels:
-  - ":bug: bug"
+name: Propose an enhancement
+description: Propose an enhancement.
 body:
+  - type: markdown
+    attributes:
+      value: Add a description
   - type: textarea
-    id: report
+    id: description
     attributes:
       label: Add a description
       description: Add a description
       placeholder: |
-        Describe and consider providing version information. Please ensure you're on the latest version of lamindb.
         This is a public repository!
         Do not reveal any internal information.
     validations:
