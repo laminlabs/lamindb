@@ -1,5 +1,5 @@
-name: Usage question
-description: Ask a usage question
+name: Ask a usage question
+description: Ask a usage question.
 labels:
   - "usage question"
 body:
