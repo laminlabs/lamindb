@@ -1,6 +1,9 @@
 name: Propose an enhancement
 description: Propose an enhancement.
 body:
+  - type: markdown
+    attributes:
+      value: Add a description
   - type: textarea
     id: description
     attributes:

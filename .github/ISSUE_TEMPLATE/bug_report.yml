@@ -3,6 +3,9 @@ description: Report a bug.
 labels:
   - ":bug: bug"
 body:
+  - type: markdown
+    attributes:
+      value: Add a description
   - type: textarea
     id: report
     attributes:
