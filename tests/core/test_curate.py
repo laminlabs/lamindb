@@ -6,8 +6,7 @@ import lamindb as ln
 import mudata as md
 import pandas as pd
 import pytest
-from lamindb._curate import CurateLookup
-from lamindb.core.exceptions import ValidationError
+from lamindb._curate import CurateLookup, ValidationError
 
 
 @pytest.fixture(scope="module")
