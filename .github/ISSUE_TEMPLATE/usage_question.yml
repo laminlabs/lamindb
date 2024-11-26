@@ -1,18 +1,13 @@
 name: Usage question
 description: Ask a usage question
 labels:
-  - ":children_crossing: ux"
+  - "usage question"
 body:
-  - type: markdown
-    attributes:
-      value: |
-        **Note**: This is a public repository! Do not reveal any internal information.
-
   - type: textarea
     id: description
     attributes:
       label: Usage question
-      description: Please ask your question.
+      description: Add a description
       placeholder: |
         This is a public repository!
         Do not reveal any internal information.
