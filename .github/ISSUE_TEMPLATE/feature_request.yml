@@ -1,10 +1,10 @@
 name: Enhancement
 description: Propose an enhancement or new feature
-labels: []
 body:
   - type: textarea
     id: description
     attributes:
+      label: Usage question    
       description: Add a description
       placeholder: |
         This is a public repository!
