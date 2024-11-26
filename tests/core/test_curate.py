@@ -407,6 +407,9 @@ def test_mudata_curator(mdata):
         },
     }
 
+    # lookup
+    _ = curator.lookup()
+
     # standardize
     curator.standardize("all", modality="rna_2")
     assert curator._mod_adata_curators["rna_2"].non_validated == {
