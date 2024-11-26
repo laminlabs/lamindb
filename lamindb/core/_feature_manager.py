@@ -411,9 +411,7 @@ def parse_feature_sets_from_anndata(
 def is_valid_datetime_str(date_string: str) -> bool | str:
     try:
         dt = datetime.fromisoformat(date_string)
-        if dt.hour == 0 and dt.minute == 0 and dt.second == 0 and dt.microsecond == 0:
-            return "date"
-        return "datetime"
+        return dt.isoformat()
     except ValueError:
         return False
 
@@ -430,10 +428,14 @@ def infer_feature_type_convert_json(
     elif isinstance(value, date):
         return FEATURE_TYPES["date"], value.isoformat()
     elif isinstance(value, datetime):
-        return FEATURE_TYPES["datetime"], value.isoformat(sep=" ")
+        return FEATURE_TYPES["datetime"], value.isoformat()
     elif isinstance(value, str):
-        if dt_type := is_valid_datetime_str(value):
-            return FEATURE_TYPES[dt_type], value  # type: ignore
+        if datetime_str := is_valid_datetime_str(value):
+            dt_type = (
+                "date" if len(value) == 10 else "datetime"
+            )  # YYYY-MM-DD is exactly 10 characters
+            sanitized_value = datetime_str[:10] if dt_type == "date" else datetime_str  # type: ignore
+            return FEATURE_TYPES[dt_type], sanitized_value  # type: ignore
         elif str_as_ulabel:
             return FEATURE_TYPES["str"] + "[ULabel]", value
         else:

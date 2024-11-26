@@ -86,6 +86,9 @@ Here is how to create a feature:
     )
     artifact.features.add_values({"date_of_experiment": "2024-12-01"})
 
+    ln.Feature(name="datetime_of_experiment", dtype="datetime").save()
+    artifact.features.add_values({"datetime_of_experiment": "2024-12-01 00:00:00"})
+
     # bionty feature
     mouse = bt.Organism.from_source(name="mouse")
     with pytest.raises(ValidationError) as error:
@@ -172,6 +175,7 @@ Here is how to create ulabels for them:
         True,
         100.0,
         "2024-12-01",
+        "2024-12-01T00:00:00",
     }
 
     assert ln.Artifact.get(_feature_values__value=27.2)
@@ -189,6 +193,7 @@ Here is how to create ulabels for them:
         "is_validated": True,
         "temperature": {27.2, 100.0},
         "date_of_experiment": datetime.date(2024, 12, 1),
+        "datetime_of_experiment": datetime.datetime(2024, 12, 1, 0, 0, 0),
     }
     # hard to test because of italic formatting
     msg = """\
@@ -199,6 +204,7 @@ Here is how to create ulabels for them:
     'organism' = 'mouse'
     'project' = 'project_1'
     'date_of_experiment' = 2024-12-01
+    'datetime_of_experiment' = 2024-12-01 00:00:00
     'is_validated' = True
     'temperature' = 27.2, 100.0
 """
@@ -211,6 +217,7 @@ Here is how to create ulabels for them:
         True,
         100.0,
         "2024-12-01",
+        "2024-12-01T00:00:00",
     }
     assert artifact.features.__repr__().endswith(msg)
 
