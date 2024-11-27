@@ -4,6 +4,7 @@ import shutil
 from typing import TYPE_CHECKING
 
 import anndata as ad
+import fsspec
 import pandas as pd
 from lamin_utils import logger
 from lamindb_setup.core import StorageSettings
@@ -45,12 +46,16 @@ def auto_storage_key_from_artifact_uid(uid: str, suffix: str, is_dir: bool) -> s
     return storage_key
 
 
-def check_path_is_child_of_root(path: Path | UPath, root: Path | UPath | None) -> bool:
+def check_path_is_child_of_root(path: UPathStr, root: UPathStr) -> bool:
     # str is needed to eliminate UPath storage_options
     # from the equality checks below
-    path = UPath(str(path))
-    root = UPath(str(root))
-    return root.resolve() in path.resolve().parents
+    # and for fsspec.utils.get_protocol
+    path_str = str(path)
+    root_str = str(root)
+    # check that the protocols are the same first
+    if fsspec.utils.get_protocol(path_str) != fsspec.utils.get_protocol(root_str):
+        return False
+    return UPath(root_str).resolve() in UPath(path_str).resolve().parents
 
 
 # returns filepath and root of the storage

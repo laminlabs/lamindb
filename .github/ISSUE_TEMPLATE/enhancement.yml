@@ -1,7 +1,5 @@
-name: Ask a usage question
-description: Ask a usage question.
-labels:
-  - "usage question"
+name: Propose an enhancement
+description: Propose an enhancement.
 body:
   - type: textarea
     id: description
