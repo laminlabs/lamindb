@@ -327,7 +327,8 @@ class DataFrameCurator(BaseCurator):
 
         Modifies the input dataset inplace.
         """
-        avail_keys = self.non_validated.keys()
+        # list is needed to avoid RuntimeError: dictionary changed size during iteration
+        avail_keys = list(self.non_validated.keys())
         if len(avail_keys) == 0:
             logger.warning("values are already standardized")
             return
