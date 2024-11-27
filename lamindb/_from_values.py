@@ -305,7 +305,9 @@ def index_iterable(iterable: Iterable) -> pd.Index:
     return idx[(idx != "") & (~idx.isnull())]
 
 
-def _print_values(names: Iterable, n: int = 20, quotes: bool = True) -> str:
+def _print_values(
+    names: Iterable, n: int = 20, quotes: bool = True, sep: str = "'"
+) -> str:
     if isinstance(names, dict):
         items = {
             f"{key}: {value}": None
@@ -319,7 +321,7 @@ def _print_values(names: Iterable, n: int = 20, quotes: bool = True) -> str:
     unique_items = list(items.keys())
 
     if quotes:
-        unique_items = [f"'{item}'" for item in unique_items]
+        unique_items = [f"{sep}{item}{sep}" for item in unique_items]
 
     print_values = ", ".join(unique_items[:n])
 

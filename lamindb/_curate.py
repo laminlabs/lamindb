@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import warnings
 from typing import TYPE_CHECKING
 
 import anndata as ad
@@ -16,6 +17,7 @@ from lnschema_core import (
     ULabel,
 )
 
+from ._from_values import _print_values
 from .core.exceptions import ValidationError
 
 if TYPE_CHECKING:
@@ -28,7 +30,21 @@ if TYPE_CHECKING:
 
 
 class CurateLookup:
-    """Lookup categories from the reference instance."""
+    """Lookup categories from the reference instance.
+
+    Args:
+        categoricals: A dictionary of categorical fields to lookup.
+        slots: A dictionary of slot fields to lookup.
+        using_key: The key of the instance to lookup from. Defaults to the
+            current instance if not specified.
+        public: Whether to lookup from the public instance. Defaults to False.
+
+    Example:
+        >>> validator = ln.Validator()
+        >>> validator.lookup()["cell_type"].alveolar_type_1_fibroblast_cell
+        <Category: alveolar_type_1_fibroblast_cell>
+
+    """
 
     def __init__(
         self,
@@ -37,8 +53,7 @@ class CurateLookup:
         using_key: str | None = None,
         public: bool = False,
     ) -> None:
-        if slots is None:
-            slots = {}
+        slots = slots or {}
         self._fields = {**categoricals, **slots}
         self._using_key = None if using_key == "default" else using_key
         self._using_key_name = self._using_key or ln_setup.settings.instance.slug
@@ -54,7 +69,7 @@ class CurateLookup:
             else:
                 return get_registry_instance(registry, self._using_key).lookup()
         raise AttributeError(
-            f"'{self.__class__.__name__}' object has no attribute '{name}'"
+            f'"{self.__class__.__name__}" object has no attribute "{name}"'
         )
 
     def __getitem__(self, name):
@@ -65,7 +80,7 @@ class CurateLookup:
             else:
                 return get_registry_instance(registry, self._using_key).lookup()
         raise AttributeError(
-            f"'{self.__class__.__name__}' object has no attribute '{name}'"
+            f'"{self.__class__.__name__}" object has no attribute "{name}"'
         )
 
     def __repr__(self) -> str:
@@ -81,7 +96,7 @@ class CurateLookup:
                 f"Lookup objects from the {colors.italic(ref)}:\n "
                 f"{colors.green(getattr_keys)}\n "
                 f"{colors.green(getitem_keys)}\n"
-                "Example:\n    → categories = validator.lookup()['cell_type']\n"
+                'Example:\n    → categories = validator.lookup()["cell_type"]\n'
                 "    → categories.alveolar_type_1_fibroblast_cell\n\n"
                 "To look up public ontologies, use .lookup(public=True)"
             )
@@ -95,10 +110,25 @@ class BaseCurator:
     def validate(self) -> bool:
         """Validate dataset.
 
+        This method also registers the validated records in the current instance.
+
         Returns:
             Boolean indicating whether the dataset is validated.
         """
-        pass
+        pass  # pragma: no cover
+
+    def standardize(self, key: str) -> None:
+        """Replace synonyms with standardized values.
+
+        Inplace modification of the dataset.
+
+        Args:
+            key: `str` The name of the column to standardize.
+
+        Returns:
+            None
+        """
+        pass  # pragma: no cover
 
     def save_artifact(
         self,
@@ -118,7 +148,7 @@ class BaseCurator:
         Returns:
             A saved artifact record.
         """
-        pass
+        pass  # pragma: no cover
 
 
 class DataFrameCurator(BaseCurator):
@@ -127,14 +157,17 @@ class DataFrameCurator(BaseCurator):
     See also :class:`~lamindb.Curator`.
 
     Args:
-        df: The DataFrame object to curate.
-        columns: The field attribute for the feature column.
-        categoricals: A dictionary mapping column names to registry_field.
-        using_key: The reference instance containing registries to validate against.
-        verbosity: The verbosity level.
-        organism: The organism name.
-        sources: A dictionary mapping column names to Source records.
-        exclude: A dictionary mapping column names to values to exclude.
+        df: `pd.DataFrame` The DataFrame object to curate.
+        columns: `FieldAttr=Feature.name` The field attribute for the feature column.
+        categoricals: `dict[str, FieldAttr] | None = None` A dictionary mapping column names to registry_field.
+        using_key: `str | None = None` The reference instance containing registries to validate against.
+        verbosity: `str = "hint"` The verbosity level.
+        organism: `str | None = None` The organism name.
+        sources: `dict[str, Record] | None = None` A dictionary mapping column names to Source records.
+        exclude: `dict | None = None` A dictionary mapping column names to values to exclude.
+
+    Returns:
+        A curator object.
 
     Examples:
         >>> import bionty as bt
@@ -165,24 +198,21 @@ class DataFrameCurator(BaseCurator):
         self._fields = categoricals or {}
         self._columns_field = columns
         self._using_key = using_key
+        # TODO: change verbosity back
         settings.verbosity = verbosity
         self._artifact = None
         self._collection = None
         self._validated = False
         self._kwargs = {"organism": organism} if organism else {}
-        if sources is None:
-            sources = {}
-        self._sources = sources
-        if exclude is None:
-            exclude = {}
-        self._exclude = exclude
+        self._sources = sources or {}
+        self._exclude = exclude or {}
         self._non_validated = None
         if check_valid_keys:
             self._check_valid_keys()
         self._save_columns()
 
     @property
-    def non_validated(self) -> list:
+    def non_validated(self) -> dict[str, list[str]]:
         """Return the non-validated features and labels."""
         if self._non_validated is None:
             raise ValidationError("Please run validate() first!")
@@ -200,7 +230,6 @@ class DataFrameCurator(BaseCurator):
 
         Args:
             using_key: The instance where the lookup is performed.
-                if None (default), the lookup is performed on the instance specified in "using_key" parameter of the validator.
                 if "public", the lookup is performed on the public reference.
         """
         return CurateLookup(
@@ -210,9 +239,8 @@ class DataFrameCurator(BaseCurator):
             public=public,
         )
 
-    def _check_valid_keys(self, extra: set = None) -> None:
-        if extra is None:
-            extra = set()
+    def _check_valid_keys(self, extra: set | None = None) -> None:
+        extra = extra or set()
         for name, d in {
             "categoricals": self._fields,
             "sources": self._sources,
@@ -222,9 +250,12 @@ class DataFrameCurator(BaseCurator):
                 raise TypeError(f"{name} must be a dictionary!")
             valid_keys = set(self._df.columns) | {"columns"} | extra
             nonval_keys = [key for key in d.keys() if key not in valid_keys]
+            n = len(nonval_keys)
+            s = "s" if n > 1 else ""
+            are = "are" if n > 1 else "is"
             if len(nonval_keys) > 0:
                 raise ValidationError(
-                    f"the following keys passed to {name} are not allowed: {nonval_keys}"
+                    f"the following {n} key{s} passed to {name} {are} not allowed: {colors.yellow(_print_values(nonval_keys))}"
                 )
 
     def _save_columns(self, validated_only: bool = True) -> None:
@@ -234,7 +265,6 @@ class DataFrameCurator(BaseCurator):
             values=list(self.fields.keys()),
             field=self._columns_field,
             key="columns",
-            save_function="add_new_from_columns",
             using_key=self._using_key,
             validated_only=False,
             source=self._sources.get("columns"),
@@ -249,13 +279,11 @@ class DataFrameCurator(BaseCurator):
                 values=list(additional_columns),
                 field=self._columns_field,
                 key="columns",
-                save_function="add_new_from_columns",
                 using_key=self._using_key,
                 validated_only=validated_only,
                 df=self._df,  # Get the Feature type from df
                 source=self._sources.get("columns"),
                 exclude=self._exclude.get("columns"),
-                warning=False,  # Do not warn about missing columns, just an info message
                 **self._kwargs,  # type: ignore
             )
 
@@ -265,7 +293,7 @@ class DataFrameCurator(BaseCurator):
         Args:
             key: The key referencing the slot in the DataFrame from which to draw terms.
             organism: The organism name.
-            **kwargs: Additional keyword arguments to pass to the registry model.
+            **kwargs: Additional keyword arguments to pass to create new records
         """
         if len(kwargs) > 0 and key == "all":
             raise ValueError("Cannot pass additional arguments to 'all' key!")
@@ -273,20 +301,83 @@ class DataFrameCurator(BaseCurator):
         self._update_registry(key, validated_only=False, **self._kwargs, **kwargs)
 
     def add_new_from_columns(self, organism: str | None = None, **kwargs):
-        """Add validated & new column names to its registry.
+        """Deprecated to run by default during init."""
+        warnings.warn(
+            "`.add_new_from_columns()` is deprecated and will be removed in a future version. It's run by default during initialization.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        pass
+
+    def _replace_synonyms(
+        self, key: str, syn_mapper: dict, values: pd.Series | pd.Index
+    ):
+        # replace the values in df
+        std_values = values.map(lambda unstd_val: syn_mapper.get(unstd_val, unstd_val))
+        # remove the standardized values from self.non_validated
+        non_validated = [i for i in self.non_validated[key] if i not in syn_mapper]
+        if len(non_validated) == 0:
+            self._non_validated.pop(key, None)  # type: ignore
+        else:
+            self._non_validated[key] = non_validated  # type: ignore
+        # logging
+        n = len(syn_mapper)
+        if n > 0:
+            syn_mapper_print = _print_values(
+                [f'"{k}" → "{v}"' for k, v in syn_mapper.items()], sep=""
+            )
+            s = "s" if n > 1 else ""
+            logger.success(
+                f'standardized {n} synonym{s} in "{key}": {colors.green(syn_mapper_print)}'
+            )
+        return std_values
+
+    def standardize(self, key: str):
+        """Replace synonyms with standardized values.
 
         Args:
-            organism: The organism name.
-            **kwargs: Additional keyword arguments to pass to the registry model.
+            key: `str` The key referencing the slot in the DataFrame from which to draw terms.
+
+        Modifies the input dataset inplace.
         """
-        self._kwargs.update({"organism": organism} if organism else {})
-        self._save_columns(validated_only=False, **self._kwargs, **kwargs)
+        # list is needed to avoid RuntimeError: dictionary changed size during iteration
+        avail_keys = list(self.non_validated.keys())
+        if len(avail_keys) == 0:
+            logger.warning("values are already standardized")
+            return
+
+        if key == "all":
+            for k in avail_keys:
+                if k in self._fields:  # needed to exclude var_index
+                    syn_mapper = standardize_categories(
+                        self.non_validated[k],
+                        field=self._fields[k],
+                        using_key=self._using_key,
+                        source=self._sources.get(k),
+                        **self._kwargs,
+                    )
+                    self._df[k] = self._replace_synonyms(k, syn_mapper, self._df[k])
+        else:
+            if key not in avail_keys:
+                raise KeyError(
+                    f'"{key}" is not a valid key, available keys are: {_print_values(avail_keys)}!'
+                )
+            else:
+                if key in self._fields:  # needed to exclude var_index
+                    syn_mapper = standardize_categories(
+                        self.non_validated[key],
+                        field=self._fields[key],
+                        using_key=self._using_key,
+                        source=self._sources.get(key),
+                        **self._kwargs,
+                    )
+                    self._df[key] = self._replace_synonyms(
+                        key, syn_mapper, self._df[key]
+                    )
 
     def _update_registry(self, categorical: str, validated_only: bool = True, **kwargs):
         if categorical == "all":
             self._update_registry_all(validated_only=validated_only, **kwargs)
-        elif categorical == "columns":
-            self._save_columns(validated_only=validated_only, **kwargs)
         else:
             if categorical not in self.fields:
                 raise ValidationError(
@@ -302,6 +393,9 @@ class DataFrameCurator(BaseCurator):
                 exclude=self._exclude.get(categorical),
                 **kwargs,
             )
+            # adding new records removes them from non_validated
+            if not validated_only and self._non_validated:
+                self._non_validated.pop(categorical, None)  # type: ignore
 
     def _update_registry_all(self, validated_only: bool = True, **kwargs):
         """Save labels for all features."""
@@ -310,6 +404,10 @@ class DataFrameCurator(BaseCurator):
 
     def validate(self, organism: str | None = None) -> bool:
         """Validate variables and categorical observations.
+
+        This method also registers the validated records in the current instance:
+        - from public sources
+        - from the using_key instance
 
         Args:
             organism: The organism name.
@@ -361,10 +459,6 @@ class DataFrameCurator(BaseCurator):
         verbosity = settings.verbosity
         try:
             settings.verbosity = "warning"
-            if not self._validated:
-                # save all validated records to the current instance
-                self._update_registry_all()
-
             self._artifact = save_artifact(
                 self._df,
                 description=description,
@@ -400,14 +494,15 @@ class AnnDataCurator(DataFrameCurator):
     See :doc:`docs:cellxgene-curate` for instructions on how to curate against a specific cellxgene schema version.
 
     Args:
-        data: The AnnData object or an AnnData-like path.
-        var_index: The registry field for mapping the ``.var`` index.
-        categoricals: A dictionary mapping ``.obs.columns`` to a registry field.
-        using_key: A reference LaminDB instance.
-        verbosity: The verbosity level.
-        organism: The organism name.
-        sources: A dictionary mapping ``.obs.columns`` to Source records.
-        exclude: A dictionary mapping column names to values to exclude.
+        data: `ad.AnnData | UPathStr` The AnnData object or an AnnData-like path.
+        var_index: `FieldAttr` The registry field for mapping the ``.var`` index.
+        categoricals: `dict[str, FieldAttr] | None = None` A dictionary mapping ``.obs.columns`` to a registry field.
+        obs_columns: `FieldAttr` The registry field for mapping the ``.obs.columns``.
+        using_key: `str | None = None` A reference LaminDB instance.
+        verbosity: `str = "hint"` The verbosity level.
+        organism: `str | None = None` The organism name.
+        sources: `dict[str, Record] | None = None` A dictionary mapping ``.obs.columns`` to Source records.
+        exclude: `dict | None = None` A dictionary mapping column names to values to exclude.
 
     Examples:
         >>> import bionty as bt
@@ -428,7 +523,7 @@ class AnnDataCurator(DataFrameCurator):
         var_index: FieldAttr,
         categoricals: dict[str, FieldAttr] | None = None,
         obs_columns: FieldAttr = Feature.name,
-        using_key: str = "default",
+        using_key: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
@@ -492,7 +587,6 @@ class AnnDataCurator(DataFrameCurator):
 
         Args:
             using_key: The instance where the lookup is performed.
-                if None (default), the lookup is performed on the instance specified in "using" parameter of the validator.
                 if "public", the lookup is performed on the public reference.
         """
         return CurateLookup(
@@ -510,7 +604,6 @@ class AnnDataCurator(DataFrameCurator):
             values=list(self._adata.var.index),
             field=self.var_index,
             key="var_index",
-            save_function=".add_new_from_var_index()",
             using_key=self._using_key,
             validated_only=validated_only,
             organism=organism,
@@ -529,13 +622,15 @@ class AnnDataCurator(DataFrameCurator):
 
         Args:
             organism: The organism name.
-            **kwargs: Additional keyword arguments to pass to the registry model.
+            **kwargs: Additional keyword arguments to pass to create new records.
         """
         self._kwargs.update({"organism": organism} if organism else {})
         self._save_from_var_index(validated_only=False, **self._kwargs, **kwargs)
 
     def validate(self, organism: str | None = None) -> bool:
         """Validate categories.
+
+        This method also registers the validated records in the current instance.
 
         Args:
             organism: The organism name.
@@ -558,7 +653,7 @@ class AnnDataCurator(DataFrameCurator):
             key="var_index",
             using_key=self._using_key,
             source=self._sources.get("var_index"),
-            validated_hint_print=".add_validated_from_var_index()",
+            hint_print=".add_new_from_var_index()",
             exclude=self._exclude.get("var_index"),
             **self._kwargs,  # type: ignore
         )
@@ -575,6 +670,33 @@ class AnnDataCurator(DataFrameCurator):
             self._non_validated["var_index"] = non_validated_var  # type: ignore
         self._validated = validated_var and validated_obs
         return self._validated
+
+    def standardize(self, key: str):
+        """Replace synonyms with standardized values.
+
+        Args:
+            key: `str` The key referencing the slot in `adata.obs` from which to draw terms. Same as the key in `categoricals`.
+            - If "var_index", standardize the var.index.
+            - If "all", standardize all obs columns and var.index.
+
+        Inplace modification of the dataset.
+        """
+        if key in self._adata.obs.columns or key == "all":
+            # standardize obs columns
+            super().standardize(key)
+        # in addition to the obs columns, standardize the var.index
+        if key == "var_index" or key == "all":
+            syn_mapper = standardize_categories(
+                self._adata.var.index,
+                field=self.var_index,
+                using_key=self._using_key,
+                source=self._sources.get("var_index"),
+                **self._kwargs,
+            )
+            if "var_index" in self._non_validated:  # type: ignore
+                self._adata.var.index = self._replace_synonyms(
+                    "var_index", syn_mapper, self._adata.var.index
+                )
 
     def save_artifact(
         self,
@@ -603,9 +725,6 @@ class AnnDataCurator(DataFrameCurator):
         verbosity = settings.verbosity
         try:
             settings.verbosity = "warning"
-            if not self._validated:
-                # save all validated records to the current instance
-                self._update_registry_all()
             self._artifact = save_artifact(
                 self._data,
                 adata=self._adata,
@@ -631,17 +750,17 @@ class MuDataCurator:
     the object should be recreated using :meth:`~lamindb.Curator.from_mudata`.
 
     Args:
-        mdata: The MuData object to curate.
-        var_index: The registry field for mapping the ``.var`` index for each modality.
+        mdata: `MuData` The MuData object to curate.
+        var_index: `dict[str, dict[str, FieldAttr]]` The registry field for mapping the ``.var`` index for each modality.
             For example:
             ``{"modality_1": bt.Gene.ensembl_gene_id, "modality_2": ln.CellMarker.name}``
-        categoricals: A dictionary mapping ``.obs.columns`` to a registry field.
+        categoricals: `dict[str, FieldAttr] | None = None` A dictionary mapping ``.obs.columns`` to a registry field.
             Use modality keys to specify categoricals for MuData slots such as `"rna:cell_type": bt.CellType.name"`.
-        using_key: A reference LaminDB instance.
-        verbosity: The verbosity level.
-        organism: The organism name.
-        sources: A dictionary mapping ``.obs.columns`` to Source records.
-        exclude: A dictionary mapping column names to values to exclude.
+        using_key: `str | None = None` A reference LaminDB instance.
+        verbosity: `str = "hint"` The verbosity level.
+        organism: `str | None = None` The organism name.
+        sources: `dict[str, Record] | None = None` A dictionary mapping ``.obs.columns`` to Source records.
+        exclude: `dict | None = None` A dictionary mapping column names to values to exclude.
 
     Examples:
         >>> import bionty as bt
@@ -664,11 +783,11 @@ class MuDataCurator:
         mdata: MuData,
         var_index: dict[str, dict[str, FieldAttr]],
         categoricals: dict[str, FieldAttr] | None = None,
-        using_key: str = "default",
+        using_key: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
-        exclude: dict | None = None,
+        exclude: dict | None = None,  # {modality: {field: [values]}}
     ) -> None:
         if sources is None:
             sources = {}
@@ -684,19 +803,34 @@ class MuDataCurator:
         self._modalities = set(self._var_fields.keys()) | set(self._obs_fields.keys())
         self._using_key = using_key
         self._verbosity = verbosity
-        self._df_annotators = {
-            modality: DataFrameCurator(
-                df=mdata[modality].obs if modality != "obs" else mdata.obs,
-                categoricals=self._obs_fields.get(modality, {}),
+        self._obs_df_curator = None
+        if "obs" in self._modalities:
+            self._obs_df_curator = DataFrameCurator(
+                df=mdata.obs,
+                columns=Feature.name,
+                categoricals=self._obs_fields.get("obs", {}),
+                using_key=using_key,
+                verbosity=verbosity,
+                sources=self._sources.get("obs"),
+                exclude=self._exclude.get("obs"),
+                check_valid_keys=False,
+                **self._kwargs,
+            )
+        self._mod_adata_curators = {
+            modality: AnnDataCurator(
+                data=mdata[modality],
+                var_index=var_index.get(modality),
+                categoricals=self._obs_fields.get(modality),
                 using_key=using_key,
                 verbosity=verbosity,
                 sources=self._sources.get(modality),
                 exclude=self._exclude.get(modality),
-                check_valid_keys=False,
                 **self._kwargs,
             )
             for modality in self._modalities
+            if modality != "obs"
         }
+        self._non_validated = None
 
     @property
     def var_index(self) -> FieldAttr:
@@ -708,28 +842,18 @@ class MuDataCurator:
         """Return the obs fields to validate against."""
         return self._obs_fields
 
+    @property
+    def non_validated(self) -> dict[str, dict[str, list[str]]]:
+        """Return the non-validated features and labels."""
+        if self._non_validated is None:
+            raise ValidationError("Please run validate() first!")
+        return self._non_validated
+
     def _verify_modality(self, modalities: Iterable[str]):
         """Verify the modality exists."""
         for modality in modalities:
             if modality not in self._mdata.mod.keys():
                 raise ValidationError(f"modality '{modality}' does not exist!")
-
-    def _save_from_var_index_modality(
-        self, modality: str, validated_only: bool = True, **kwargs
-    ):
-        """Save variable records."""
-        update_registry(
-            values=list(self._mdata[modality].var.index),
-            field=self._var_fields[modality],
-            key="var_index",
-            save_function=f'.add_new_from_var_index("{modality}")',
-            using_key=self._using_key,
-            validated_only=validated_only,
-            dtype="number",
-            source=self._sources.get(modality, {}).get("var_index"),
-            exclude=self._exclude.get(modality, {}).get("var_index"),
-            **kwargs,
-        )
 
     def _parse_categoricals(self, categoricals: dict[str, FieldAttr]) -> dict:
         """Parse the categorical fields."""
@@ -756,13 +880,18 @@ class MuDataCurator:
 
         Args:
             using_key: The instance where the lookup is performed.
-                if None (default), the lookup is performed on the instance specified in "using_key" parameter of the validator.
                 if "public", the lookup is performed on the public reference.
         """
+        obs_fields = {}
+        for mod, fields in self._obs_fields.items():
+            for k, v in fields.items():
+                if k == "obs":
+                    obs_fields[k] = v
+                else:
+                    obs_fields[f"{mod}:{k}"] = v
         return CurateLookup(
-            categoricals=self._obs_fields,
+            categoricals=obs_fields,
             slots={
-                **self._obs_fields,
                 **{f"{k}_var_index": v for k, v in self._var_fields.items()},
             },
             using_key=using_key or self._using_key,
@@ -776,27 +905,11 @@ class MuDataCurator:
         organism: str | None = None,
         **kwargs,
     ):
-        """Update columns records.
-
-        Args:
-            modality: The modality name.
-            column_names: The column names to save.
-            organism: The organism name.
-            **kwargs: Additional keyword arguments to pass to the registry model.
-        """
-        self._kwargs.update({"organism": organism} if organism else {})
-        values = column_names or self._mdata[modality].obs.columns
-        update_registry(
-            values=list(values),
-            field=Feature.name,
-            key=f"{modality} obs columns",
-            using_key=self._using_key,
-            validated_only=False,
-            df=self._mdata[modality].obs,
-            source=self._sources.get(modality, {}).get("columns"),
-            exclude=self._exclude.get(modality, {}).get("columns"),
-            **self._kwargs,  # type: ignore
-            **kwargs,
+        """Update columns records."""
+        warnings.warn(
+            "`.add_new_from_columns()` is deprecated and will be removed in a future version. It's run by default during initialization.",
+            DeprecationWarning,
+            stacklevel=2,
         )
 
     def add_new_from_var_index(
@@ -807,21 +920,21 @@ class MuDataCurator:
         Args:
             modality: The modality name.
             organism: The organism name.
-            **kwargs: Additional keyword arguments to pass to the registry model.
+            **kwargs: Additional keyword arguments to pass to create new records.
         """
         self._kwargs.update({"organism": organism} if organism else {})
-        self._save_from_var_index_modality(
-            modality=modality, validated_only=False, **self._kwargs, **kwargs
+        self._mod_adata_curators[modality].add_new_from_var_index(
+            **self._kwargs, **kwargs
         )
 
     def _update_registry_all(self):
         """Update all registries."""
-        for modality in self._var_fields.keys():
-            self._save_from_var_index_modality(
-                modality=modality, validated_only=True, **self._kwargs
+        if self._obs_df_curator is not None:
+            self._obs_df_curator._update_registry_all(
+                validated_only=True, **self._kwargs
             )
-        for _, df_annotator in self._df_annotators.items():
-            df_annotator._update_registry_all(validated_only=True, **self._kwargs)
+        for _, adata_curator in self._mod_adata_curators.items():
+            adata_curator._update_registry_all(validated_only=True, **self._kwargs)
 
     def add_new_from(
         self,
@@ -836,15 +949,17 @@ class MuDataCurator:
             key: The key referencing the slot in the DataFrame.
             modality: The modality name.
             organism: The organism name.
-            **kwargs: Additional keyword arguments to pass to the registry model.
+            **kwargs: Additional keyword arguments to pass to create new records.
         """
         if len(kwargs) > 0 and key == "all":
             raise ValueError("Cannot pass additional arguments to 'all' key!")
         self._kwargs.update({"organism": organism} if organism else {})
         modality = modality or "obs"
-        if modality in self._df_annotators:
-            df_annotator = self._df_annotators[modality]
-            df_annotator.add_new_from(key=key, **self._kwargs, **kwargs)
+        if modality in self._mod_adata_curators:
+            adata_curator = self._mod_adata_curators[modality]
+            adata_curator.add_new_from(key=key, **self._kwargs, **kwargs)
+        if modality == "obs":
+            self._obs_df_curator.add_new_from(key=key, **self._kwargs, **kwargs)
 
     def validate(self, organism: str | None = None) -> bool:
         """Validate categories."""
@@ -853,7 +968,7 @@ class MuDataCurator:
         self._kwargs.update({"organism": organism} if organism else {})
         if self._using_key is not None and self._using_key != "default":
             logger.important(
-                f"validating metadata using registries of instance {colors.italic(self._using_key)}"
+                f"validating using registries of instance {colors.italic(self._using_key)}"
             )
 
         # add all validated records to the current instance
@@ -864,48 +979,41 @@ class MuDataCurator:
         finally:
             settings.verbosity = verbosity
 
-        validated_var = True
-        non_validated_var_modality = {}
-        for modality, var_field in self._var_fields.items():
-            is_validated_var, non_validated_var = validate_categories(
-                self._mdata[modality].var.index,
-                field=var_field,
-                key=f"{modality}_var_index",
-                using_key=self._using_key,
-                source=self._sources.get(modality, {}).get("var_index"),
-                exclude=self._exclude.get(modality, {}).get("var_index"),
-                validated_hint_print=f'.add_validated_from_var_index("{modality}")',
-                **self._kwargs,  # type: ignore
-            )
-            validated_var &= is_validated_var
-            if len(non_validated_var) > 0:
-                non_validated_var_modality[modality] = non_validated_var
+        self._non_validated = {}  # type: ignore
 
-        validated_obs = True
-        non_validated_obs_modality = {}
-        for modality, fields in self._obs_fields.items():
-            if modality == "obs":
-                obs = self._mdata.obs
-            else:
-                obs = self._mdata[modality].obs
-            is_validated_obs, non_validated_obs = validate_categories_in_df(
-                obs,
-                fields=fields,
-                using_key=self._using_key,
-                sources=self._sources.get(modality),
-                exclude=self._exclude.get(modality),
-                **self._kwargs,
-            )
-            validated_obs &= is_validated_obs
-            non_validated_obs_modality[modality] = non_validated_obs
-            if modality in non_validated_var_modality:
-                non_validated_obs_modality[modality]["var_index"] = (
-                    non_validated_var_modality[modality]
-                )
-            if len(non_validated_obs_modality[modality]) > 0:
-                self._non_validated = non_validated_obs_modality[modality]
-        self._validated = validated_var and validated_obs
+        obs_validated = True
+        if "obs" in self._modalities:
+            logger.info('validating categoricals in "obs"...')
+            obs_validated &= self._obs_df_curator.validate(**self._kwargs)
+            self._non_validated["obs"] = self._obs_df_curator.non_validated  # type: ignore
+            logger.print("")
+
+        mods_validated = True
+        for modality, adata_curator in self._mod_adata_curators.items():
+            logger.info(f'validating categoricals in modality "{modality}"...')
+            mods_validated &= adata_curator.validate(**self._kwargs)
+            if len(adata_curator.non_validated) > 0:
+                self._non_validated[modality] = adata_curator.non_validated  # type: ignore
+            logger.print("")
+
+        self._validated = obs_validated & mods_validated
         return self._validated
+
+    def standardize(self, key: str, modality: str | None = None):
+        """Replace synonyms with standardized values.
+
+        Args:
+            key: `str` The key referencing the slot in the `MuData`.
+            modality: `str | None = None` The modality name.
+
+        Inplace modification of the dataset.
+        """
+        modality = modality or "obs"
+        if modality in self._mod_adata_curators:
+            adata_curator = self._mod_adata_curators[modality]
+            adata_curator.standardize(key=key)
+        if modality == "obs":
+            self._obs_df_curator.standardize(key=key)
 
     def save_artifact(
         self,
@@ -934,10 +1042,6 @@ class MuDataCurator:
         verbosity = settings.verbosity
         try:
             settings.verbosity = "warning"
-            if not self._validated:
-                # save all validated records to the current instance
-                self._update_registry_all()
-
             self._artifact = save_artifact(
                 self._mdata,
                 description=description,
@@ -1007,7 +1111,7 @@ class Curator(BaseCurator):
         var_index: FieldAttr,
         categoricals: dict[str, FieldAttr] | None = None,
         obs_columns: FieldAttr = Feature.name,
-        using_key: str = "default",
+        using_key: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
@@ -1031,7 +1135,7 @@ class Curator(BaseCurator):
         mdata: MuData,
         var_index: dict[str, dict[str, FieldAttr]],
         categoricals: dict[str, FieldAttr] | None = None,
-        using_key: str = "default",
+        using_key: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
     ) -> MuDataCurator:
@@ -1081,15 +1185,14 @@ def get_current_filter_kwargs(registry: type[Record], kwargs: dict) -> dict:
     return filter_kwargs
 
 
-def standardize_and_inspect(
+def inspect_instance(
     values: Iterable[str],
     field: FieldAttr,
     registry: type[Record],
-    standardize: bool = False,
     exclude: str | list | None = None,
     **kwargs,
 ):
-    """Standardize and inspect values using a registry."""
+    """Inspect values using a registry."""
     # inspect exclude values in the default instance
     values = list(values)
     include_validated = []
@@ -1102,16 +1205,6 @@ def standardize_and_inspect(
             # if exclude values are validated, remove them from the values
             values = [i for i in values if i not in inspect_result_exclude.validated]
             include_validated = inspect_result_exclude.validated
-
-    if standardize:
-        if hasattr(registry, "standardize") and hasattr(
-            registry,
-            "synonyms",  # https://github.com/laminlabs/lamindb/issues/1685
-        ):
-            standardized_values = registry.standardize(
-                values, field=field, mute=True, **kwargs
-            )
-            values = standardized_values
 
     inspect_result = registry.inspect(values, field=field, mute=True, **kwargs)
     inspect_result._validated += include_validated
@@ -1144,8 +1237,7 @@ def validate_categories(
     organism: str | None = None,
     source: Record | None = None,
     exclude: str | list | None = None,
-    standardize: bool = True,
-    validated_hint_print: str | None = None,
+    hint_print: str | None = None,
 ) -> tuple[bool, list]:
     """Validate ontology terms in a pandas series using LaminDB registries.
 
@@ -1158,7 +1250,7 @@ def validate_categories(
         source: The source record.
         exclude: Exclude specific values from validation.
         standardize: Whether to standardize the values.
-        validated_hint_print: The hint to print for validated values.
+        hint_print: The hint to print that suggests fixing non-validated values.
     """
     from lamindb._from_values import _print_values
     from lamindb.core._settings import settings
@@ -1167,42 +1259,43 @@ def validate_categories(
 
     def _log_mapping_info():
         logger.indent = ""
-        logger.info(f"mapping {colors.italic(key)} on {colors.italic(model_field)}")
-        logger.indent = "   "
+        logger.info(f'mapping "{key}" on {colors.italic(model_field)}')
+        logger.indent = "  "
 
     registry = field.field.model
 
+    # {"organism": organism_name/organism_record}
     kwargs = check_registry_organism(registry, organism)
     kwargs.update({"source": source} if source else {})
     kwargs_current = get_current_filter_kwargs(registry, kwargs)
 
-    # inspect the default instance
-    inspect_result = standardize_and_inspect(
+    # inspect values from the default instance
+    inspect_result = inspect_instance(
         values=values,
         field=field,
         registry=registry,
-        standardize=standardize,
         exclude=exclude,
         **kwargs_current,
     )
     non_validated = inspect_result.non_validated
+    syn_mapper = inspect_result.synonyms_mapper
 
-    # inspect the using instance
+    # inspect the non-validated values from the using_key instance
     values_validated = []
     if using_key is not None and using_key != "default" and non_validated:
         registry_using = get_registry_instance(registry, using_key)
-        inspect_result = standardize_and_inspect(
+        inspect_result = inspect_instance(
             values=non_validated,
             field=field,
             registry=registry_using,
-            standardize=standardize,
             exclude=exclude,
             **kwargs,
         )
         non_validated = inspect_result.non_validated
         values_validated += inspect_result.validated
+        syn_mapper.update(inspect_result.synonyms_mapper)
 
-    # inspect from public (bionty only)
+    # inspect the non-validated values from public (bionty only)
     if hasattr(registry, "public"):
         verbosity = settings.verbosity
         try:
@@ -1216,45 +1309,79 @@ def validate_categories(
         finally:
             settings.verbosity = verbosity
 
-    validated_hint_print = validated_hint_print or f".add_validated_from('{key}')"
-    n_validated = len(values_validated)
-
-    if n_validated > 0:
-        _log_mapping_info()
-        terms_str = f"{', '.join([f'{chr(39)}{v}{chr(39)}' for v in values_validated[:10]])}{', ...' if len(values_validated) > 10 else ''}"
-        val_numerous = "" if n_validated == 1 else "s"
-        logger.warning(
-            f"found {colors.yellow(n_validated)} validated term{val_numerous}: "
-            f"{colors.yellow(terms_str)}\n"
-            f"→ save term{val_numerous} via {colors.yellow(validated_hint_print)}"
-        )
-
-    non_validated_hint_print = validated_hint_print.replace("_validated_", "_new_")
+    # logging messages
+    non_validated_hint_print = hint_print or f'.add_new_from("{key}")'
     non_validated = [i for i in non_validated if i not in values_validated]
     n_non_validated = len(non_validated)
     if n_non_validated == 0:
-        if n_validated == 0:
+        if len(values_validated) == 0:
+            # nothing to validate
             logger.indent = ""
-            logger.success(f"'{key}' is validated against {colors.italic(model_field)}")
+            logger.success(f'"{key}" is validated against {colors.italic(model_field)}')
             return True, []
         else:
             # validated values still need to be saved to the current instance
             return False, []
     else:
-        non_val_numerous = ("", "is") if n_non_validated == 1 else ("s", "are")
+        are = "is" if n_non_validated == 1 else "are"
+        s = "" if n_non_validated == 1 else "s"
         print_values = _print_values(non_validated)
-        warning_message = (
-            f"{colors.red(f'{n_non_validated} term{non_val_numerous[0]}')} {non_val_numerous[1]} not validated: "
-            f"{colors.red(', '.join(print_values.split(', ')[:10]) + ', ...' if len(print_values.split(', ')) > 10 else print_values)}\n"
-            f"→ fix typo{non_val_numerous[0]}, remove non-existent value{non_val_numerous[0]}, or save term{non_val_numerous[0]} via "
-            f"{colors.red(non_validated_hint_print)}"
-        )
+        warning_message = f"{colors.red(f'{n_non_validated} term{s}')} {are} not validated: {colors.red(print_values)}\n"
+        if syn_mapper:
+            s = "" if len(syn_mapper) == 1 else "s"
+            syn_mapper_print = _print_values(
+                [f'"{k}" → "{v}"' for k, v in syn_mapper.items()], sep=""
+            )
+            hint_msg = f'.standardize("{key}")'
+            warning_message += f"    {colors.yellow(f'{len(syn_mapper)} synonym{s}')} found: {colors.yellow(syn_mapper_print)}\n    → curate synonyms via {colors.cyan(hint_msg)}"
+        if n_non_validated > len(syn_mapper):
+            if syn_mapper:
+                warning_message += "    for remaining terms:\n"
+            warning_message += f"    → fix typos, remove non-existent values, or save terms via {colors.cyan(non_validated_hint_print)}"
 
         if logger.indent == "":
             _log_mapping_info()
         logger.warning(warning_message)
         logger.indent = ""
         return False, non_validated
+
+
+def standardize_categories(
+    values: Iterable[str],
+    field: FieldAttr,
+    using_key: str | None = None,
+    organism: str | None = None,
+    source: Record | None = None,
+) -> dict:
+    """Get a synonym mapper."""
+    registry = field.field.model
+    if not hasattr(registry, "standardize"):
+        return {}
+    # standardize values using the default instance
+    syn_mapper = registry.standardize(
+        values,
+        field=field.field.name,
+        organism=organism,
+        source=source,
+        mute=True,
+        return_mapper=True,
+    )
+
+    if len(values) > len(syn_mapper):  # type: ignore
+        # standardize values using the using_key instance
+        if using_key is not None and using_key != "default":
+            registry_using = get_registry_instance(registry, using_key)
+            syn_mapper.update(
+                registry_using.standardize(
+                    [v for v in values if v not in syn_mapper],
+                    field=field.field.name,
+                    organism=organism,
+                    source=source,
+                    mute=True,
+                    return_mapper=True,
+                )
+            )
+    return syn_mapper
 
 
 def validate_categories_in_df(
@@ -1304,9 +1431,9 @@ def save_artifact(
 
     Args:
         data: The DataFrame or AnnData object to save.
-        description: A description of the artifact.
         fields: A dictionary mapping obs_column to registry_field.
         columns_field: The registry field to validate variables index against.
+        description: A description of the artifact.
         organism: The organism name.
         adata: The AnnData object to save and get n_observations, must be provided if data is a path.
         type: `Literal["dataset", "model"] | None = None` The artifact type.
@@ -1457,15 +1584,12 @@ def update_registry(
     values: list[str],
     field: FieldAttr,
     key: str,
-    save_function: str = "add_new_from",
     using_key: str | None = None,
     validated_only: bool = True,
     df: pd.DataFrame | None = None,
     organism: str | None = None,
     dtype: str | None = None,
     source: Record | None = None,
-    standardize: bool = True,
-    warning: bool = True,
     exclude: str | list | None = None,
     **kwargs,
 ) -> None:
@@ -1475,13 +1599,13 @@ def update_registry(
         values: A list of values to be saved as labels.
         field: The FieldAttr object representing the field for which labels are being saved.
         key: The name of the feature to save.
-        save_function: The name of the function to save the labels.
         using_key: The name of the instance from which to transfer labels (if applicable).
         validated_only: If True, only save validated labels.
         df: A DataFrame to save labels from.
         organism: The organism name.
         dtype: The type of the feature.
         source: The source record.
+        exclude: Values to exclude from inspect.
         kwargs: Additional keyword arguments to pass to the registry model to create new records.
     """
     from lamindb._save import save as ln_save
@@ -1490,78 +1614,55 @@ def update_registry(
     registry = field.field.model
     filter_kwargs = check_registry_organism(registry, organism)
     filter_kwargs.update({"source": source} if source else {})
+    if not values:
+        return
 
     verbosity = settings.verbosity
     try:
         settings.verbosity = "error"
+        labels_saved: dict = {"from public": [], "new": []}
 
-        # save from public
+        # inspect the default instance and save validated records from public
         filter_kwargs_current = get_current_filter_kwargs(registry, filter_kwargs)
-        existing_and_public_records = (
-            registry.from_values(
-                list(values),
-                field=field,
-                **filter_kwargs_current,
-            )
-            if values
-            else []
+        existing_and_public_records = registry.from_values(
+            list(values), field=field, **filter_kwargs_current
         )
-
-        labels_saved: dict = {"from public": [], "without reference": []}
-
+        existing_and_public_labels = [
+            getattr(r, field.field.name) for r in existing_and_public_records
+        ]
+        # public records that are not already in the database
         public_records = [r for r in existing_and_public_records if r._state.adding]
         # here we check to only save the public records if they are from the specified source
         # we check the uid because r.source and source can be from different instances
         if source:
             public_records = [r for r in public_records if r.source.uid == source.uid]
-
-        if public_records:
+        if len(public_records) > 0:
             settings.verbosity = "info"
             logger.info(f"saving validated records of '{key}'")
             settings.verbosity = "error"
-        ln_save(public_records)
-        labels_saved["from public"] = [
-            getattr(r, field.field.name) for r in public_records
+            ln_save(public_records)
+            labels_saved["from public"] = [
+                getattr(r, field.field.name) for r in public_records
+            ]
+        # non-validated records from the default instance
+        non_validated_labels = [
+            i for i in values if i not in existing_and_public_labels
         ]
-        non_public_labels = [i for i in values if i not in labels_saved["from public"]]
 
-        # inspect the default instance
-        inspect_result_current = standardize_and_inspect(
-            values=non_public_labels,
-            field=field,
-            registry=registry,
-            standardize=standardize,
-            exclude=exclude,
-            **filter_kwargs_current,
-        )
-        if not inspect_result_current.non_validated:
-            all_labels = registry.from_values(
-                inspect_result_current.validated,
-                field=field,
-                **filter_kwargs_current,
-            )
-            settings.verbosity = verbosity
-            return all_labels
-
-        # inspect the using_key instance
+        # inspect and save validated records the using_key instance
         (
             labels_saved[f"from {using_key}"],
             non_validated_labels,
         ) = update_registry_from_using_instance(
-            inspect_result_current.non_validated,
+            non_validated_labels,
             field=field,
             using_key=using_key,
             exclude=exclude,
             **filter_kwargs,
         )
 
-        labels_saved["without reference"] = [
-            i
-            for i in non_validated_labels
-            if i not in labels_saved[f"from {using_key}"]
-        ]
-
-        # save non-validated records
+        # save non-validated/new records
+        labels_saved["new"] = non_validated_labels
         if not validated_only:
             non_validated_records = []
             if df is not None and registry == Feature:
@@ -1572,7 +1673,7 @@ def update_registry(
                     # make sure organism record is saved to the current instance
                     filter_kwargs["organism"] = _save_organism(name=organism)
                 init_kwargs = {}
-                for value in labels_saved["without reference"]:
+                for value in labels_saved["new"]:
                     init_kwargs[field.field.name] = value
                     if registry == Feature:
                         init_kwargs["dtype"] = "cat" if dtype is None else dtype
@@ -1585,38 +1686,26 @@ def update_registry(
                     )
             ln_save(non_validated_records)
 
-        # save parent labels for ulabels
+        # save parent labels for ulabels, for example a parent label "project" for label "project001"
         if registry == ULabel and field.field.name == "name":
-            save_ulabels_with_parent(values, field=field, key=key)
+            save_ulabels_parent(values, field=field, key=key)
 
-        # # get all records that are now validated in the current instance
-        # all_labels = registry.from_values(
-        #     inspect_result_current.validated + inspect_result_current.non_validated,
-        #     field=field,
-        #     **get_current_filter_kwargs(registry, filter_kwargs),
-        # )
     finally:
         settings.verbosity = verbosity
 
     log_saved_labels(
         labels_saved,
         key=key,
-        save_function=save_function,
         model_field=f"{registry.__name__}.{field.field.name}",
         validated_only=validated_only,
-        warning=warning,
     )
-
-    # return all_labels
 
 
 def log_saved_labels(
     labels_saved: dict,
     key: str,
-    save_function: str,
     model_field: str,
     validated_only: bool = True,
-    warning: bool = True,
 ) -> None:
     """Log the saved labels."""
     from ._from_values import _print_values
@@ -1625,45 +1714,26 @@ def log_saved_labels(
     for k, labels in labels_saved.items():
         if not labels:
             continue
-
-        if k == "without reference" and validated_only:
+        if k == "new" and validated_only:
             continue
-            # msg = colors.yellow(
-            #     f"{len(labels)} non-validated values are not saved in {model_field}: {labels}!"
-            # )
-            # lookup_print = (
-            #     f"lookup().{key}" if key.isidentifier() else f".lookup()['{key}']"
-            # )
-
-            # hint = f".add_new_from('{key}')"
-            # msg += f"\n      → to lookup values, use {lookup_print}"
-            # msg += (
-            #     f"\n      → to save, run {colors.yellow(hint)}"
-            #     if save_function == "add_new_from"
-            #     else f"\n      → to save, run {colors.yellow(save_function)}"
-            # )
-            # if warning:
-            #     logger.warning(msg)
-            # else:
-            #     logger.info(msg)
         else:
-            k = "" if k == "without reference" else f"{colors.green(k)} "
+            k = "" if k == "new" else f"{colors.green(k)} "
             # the term "transferred" stresses that this is always in the context of transferring
             # labels from a public ontology or a different instance to the present instance
             s = "s" if len(labels) > 1 else ""
             logger.success(
-                f"added {len(labels)} record{s} {k}with {model_field} for {colors.italic(key)}: {_print_values(labels)}"
+                f'added {len(labels)} record{s} {k}with {model_field} for "{key}": {_print_values(labels)}'
             )
 
 
-def save_ulabels_with_parent(values: list[str], field: FieldAttr, key: str) -> None:
+def save_ulabels_parent(values: list[str], field: FieldAttr, key: str) -> None:
     """Save a parent label for the given labels."""
     registry = field.field.model
     assert registry == ULabel  # noqa: S101
     all_records = registry.from_values(list(values), field=field)
-    is_feature = registry.filter(name=f"is_{key}").one_or_none()
+    is_feature = registry.filter(name=f"{key}").one_or_none()
     if is_feature is None:
-        is_feature = registry(name=f"is_{key}").save()
+        is_feature = registry(name=f"{key}").save()
         logger.important(f"Created a parent ULabel: {is_feature}")
     is_feature.children.add(*all_records)
 
@@ -1672,7 +1742,6 @@ def update_registry_from_using_instance(
     values: list[str],
     field: FieldAttr,
     using_key: str | None = None,
-    standardize: bool = False,
     exclude: str | list | None = None,
     **kwargs,
 ) -> tuple[list[str], list[str]]:
@@ -1682,7 +1751,6 @@ def update_registry_from_using_instance(
         values: A list of values to be saved as labels.
         field: The FieldAttr object representing the field for which labels are being saved.
         using_key: The name of the instance from which to transfer labels (if applicable).
-        standardize: Whether to also standardize the values.
         kwargs: Additional keyword arguments to pass to the registry model.
 
     Returns:
@@ -1694,11 +1762,10 @@ def update_registry_from_using_instance(
     if using_key is not None and using_key != "default":
         registry_using = get_registry_instance(field.field.model, using_key)
 
-        inspect_result_using = standardize_and_inspect(
+        inspect_result_using = inspect_instance(
             values=values,
             field=field,
             registry=registry_using,
-            standardize=standardize,
             exclude=exclude,
             **kwargs,
         )
@@ -1713,7 +1780,7 @@ def update_registry_from_using_instance(
     return labels_saved, not_saved
 
 
-def _save_organism(name: str):  # pragma: no cover
+def _save_organism(name: str):
     """Save an organism record."""
     import bionty as bt
 
@@ -1722,8 +1789,8 @@ def _save_organism(name: str):  # pragma: no cover
         organism = bt.Organism.from_source(name=name)
         if organism is None:
             raise ValidationError(
-                f"Organism '{name}' not found\n"
-                f"      → please save it: bt.Organism(name='{name}').save()"
+                f'Organism "{name}" not found\n'
+                f'      → please save it: bt.Organism(name="{name}").save()'
             )
         organism.save()
     return organism
