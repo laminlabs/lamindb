@@ -8,12 +8,18 @@ import lamindb_setup as ln_setup
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_file
 
+from lamindb.core.exceptions import NotebookNotSaved
+
 if TYPE_CHECKING:
     from pathlib import Path
 
     from lnschema_core import Run, Transform
 
     from ._query_set import QuerySet
+
+
+def get_seconds_since_modified(filepath) -> float:
+    return datetime.now().timestamp() - filepath.stat().st_mtime
 
 
 # this is from the get_title function in nbproject
@@ -211,6 +217,12 @@ def save_context_core(
         run.is_consecutive = is_consecutive
         run.save()
     else:
+        if not from_cli:
+            if get_seconds_since_modified(filepath) > 2 and not ln_setup._TESTING:
+                # this can happen when auto-knitting an html with RStudio
+                raise NotebookNotSaved(
+                    "Please save the notebook in RStudio right before calling `db$finish()`"
+                )
         if run.report_id is not None:
             hash, _ = hash_file(report_path)  # ignore hash_type for now
             if hash != run.report.hash:

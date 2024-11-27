@@ -579,10 +579,7 @@ class Context:
             `lamin save script.py` or `lamin save notebook.ipynb` → `docs </cli#lamin-save>`__
 
         """
-        from lamindb._finish import save_context_core
-
-        def get_seconds_since_modified(filepath) -> float:
-            return datetime.now().timestamp() - filepath.stat().st_mtime
+        from lamindb._finish import get_seconds_since_modified, save_context_core
 
         def get_shortcut() -> str:
             import platform
