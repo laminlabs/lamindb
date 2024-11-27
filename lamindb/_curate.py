@@ -196,7 +196,7 @@ class DataFrameCurator(BaseCurator):
         self._save_columns()
 
     @property
-    def non_validated(self) -> dict:
+    def non_validated(self) -> dict[str, list[str]]:
         """Return the non-validated features and labels."""
         if self._non_validated is None:
             raise ValidationError("Please run validate() first!")
@@ -815,7 +815,7 @@ class MuDataCurator:
         return self._obs_fields
 
     @property
-    def non_validated(self) -> dict:
+    def non_validated(self) -> dict[str, list[str]]:
         """Return the non-validated features and labels."""
         if self._non_validated is None:
             raise ValidationError("Please run validate() first!")
