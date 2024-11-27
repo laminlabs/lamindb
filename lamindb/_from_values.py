@@ -305,7 +305,9 @@ def index_iterable(iterable: Iterable) -> pd.Index:
     return idx[(idx != "") & (~idx.isnull())]
 
 
-def _print_values(names: Iterable, n: int = 20, quotes: bool = True, sep="'") -> str:
+def _print_values(
+    names: Iterable, n: int = 20, quotes: bool = True, sep: str = "'"
+) -> str:
     if isinstance(names, dict):
         items = {
             f"{key}: {value}": None

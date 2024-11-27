@@ -105,9 +105,12 @@ class BaseCurator:
         pass  # pragma: no cover
 
     def standardize(self, key: str) -> None:
-        """Standardize the dataset.
+        """Replace synonyms with standardized values.
 
         Inplace modification of the dataset.
+
+        Args:
+            key: `str` The name of the column to standardize.
 
         Returns:
             None
@@ -297,7 +300,7 @@ class DataFrameCurator(BaseCurator):
         self, key: str, syn_mapper: dict, values: pd.Series | pd.Index
     ):
         # replace the values in df
-        std_values = values.map(lambda x: syn_mapper.get(x, x))
+        std_values = values.map(lambda unstd_val: syn_mapper.get(unstd_val, unstd_val))
         # remove the standardized values from self.non_validated
         non_validated = [i for i in self.non_validated[key] if i not in syn_mapper]
         if len(non_validated) == 0:
@@ -317,13 +320,16 @@ class DataFrameCurator(BaseCurator):
         return std_values
 
     def standardize(self, key: str):
-        """Standardize the dataset.
+        """Replace synonyms with standardized values.
 
-        Inplace modification of the input dataset.
+        Args:
+            key: `str` The key referencing the slot in the DataFrame from which to draw terms.
+
+        Modifies the input dataset inplace.
         """
-        avail_keys = list(self.non_validated.keys())
+        avail_keys = self.non_validated.keys()
         if len(avail_keys) == 0:
-            logger.warning("No need to standardize")
+            logger.warning("values are already standardized")
             return
 
         if key == "all":
@@ -340,7 +346,7 @@ class DataFrameCurator(BaseCurator):
         else:
             if key not in avail_keys:
                 raise KeyError(
-                    f'"{key}" is not a valid key, available keys are: {", ".join(avail_keys)}!'
+                    f'"{key}" is not a valid key, available keys are: {_print_values(avail_keys)}!'
                 )
             else:
                 if key in self._fields:  # needed to exclude var_index
@@ -385,7 +391,9 @@ class DataFrameCurator(BaseCurator):
     def validate(self, organism: str | None = None) -> bool:
         """Validate variables and categorical observations.
 
-        This method also registers the validated records in the current instance.
+        This method also registers the validated records in the current instance:
+        - from public sources
+        - from the using_key instance
 
         Args:
             organism: The organism name.
@@ -650,7 +658,12 @@ class AnnDataCurator(DataFrameCurator):
         return self._validated
 
     def standardize(self, key: str):
-        """Standardize the dataset.
+        """Replace synonyms with standardized values.
+
+        Args:
+            key: `str` The key referencing the slot in `adata.obs` from which to draw terms. Same as the key in `categoricals`.
+            - If "var_index", standardize the var.index.
+            - If "all", standardize all obs columns and var.index.
 
         Inplace modification of the dataset.
         """
@@ -966,7 +979,11 @@ class MuDataCurator:
         return self._validated
 
     def standardize(self, key: str, modality: str | None = None):
-        """Standardize the dataset.
+        """Replace synonyms with standardized values.
+
+        Args:
+            key: `str` The key referencing the slot in the `MuData`.
+            modality: `str | None = None` The modality name.
 
         Inplace modification of the dataset.
         """
@@ -1212,7 +1229,7 @@ def validate_categories(
         source: The source record.
         exclude: Exclude specific values from validation.
         standardize: Whether to standardize the values.
-        hint_print: The hint to print to fix non-validated values.
+        hint_print: The hint to print that suggests fixing non-validated values.
     """
     from lamindb._from_values import _print_values
     from lamindb.core._settings import settings
@@ -1314,7 +1331,8 @@ def standardize_categories(
     using_key: str | None = None,
     organism: str | None = None,
     source: Record | None = None,
-):
+) -> dict:
+    """Get a synonym mapper."""
     registry = field.field.model
     if not hasattr(registry, "standardize"):
         return {}
@@ -1575,35 +1593,28 @@ def update_registry(
     registry = field.field.model
     filter_kwargs = check_registry_organism(registry, organism)
     filter_kwargs.update({"source": source} if source else {})
+    if not values:
+        return
 
     verbosity = settings.verbosity
     try:
         settings.verbosity = "error"
+        labels_saved: dict = {"from public": [], "new": []}
 
-        # save from public
+        # inspect the default instance and save validated records from public
         filter_kwargs_current = get_current_filter_kwargs(registry, filter_kwargs)
-        existing_and_public_records = (
-            registry.from_values(
-                list(values),
-                field=field,
-                **filter_kwargs_current,
-            )
-            if values
-            else []
+        existing_and_public_records = registry.from_values(
+            list(values), field=field, **filter_kwargs_current
         )
         existing_and_public_labels = [
             getattr(r, field.field.name) for r in existing_and_public_records
         ]
-
-        labels_saved: dict = {"from public": [], "without reference": []}
-
         # public records that are not already in the database
         public_records = [r for r in existing_and_public_records if r._state.adding]
         # here we check to only save the public records if they are from the specified source
         # we check the uid because r.source and source can be from different instances
         if source:
             public_records = [r for r in public_records if r.source.uid == source.uid]
-
         if len(public_records) > 0:
             settings.verbosity = "info"
             logger.info(f"saving validated records of '{key}'")
@@ -1612,23 +1623,12 @@ def update_registry(
             labels_saved["from public"] = [
                 getattr(r, field.field.name) for r in public_records
             ]
-        # non_public_labels = [i for i in values if i not in labels_saved["from public"]]
-
         # non-validated records from the default instance
         non_validated_labels = [
             i for i in values if i not in existing_and_public_labels
         ]
 
-        # # inspect the default instance
-        # inspect_result_current = inspect_instance(
-        #     values=non_public_labels,
-        #     field=field,
-        #     registry=registry,
-        #     exclude=exclude,
-        #     **filter_kwargs_current,
-        # )
-
-        # inspect the using_key instance
+        # inspect and save validated records the using_key instance
         (
             labels_saved[f"from {using_key}"],
             non_validated_labels,
@@ -1640,13 +1640,8 @@ def update_registry(
             **filter_kwargs,
         )
 
-        labels_saved["without reference"] = [
-            i
-            for i in non_validated_labels
-            if i not in labels_saved[f"from {using_key}"]
-        ]
-
         # save non-validated/new records
+        labels_saved["new"] = non_validated_labels
         if not validated_only:
             non_validated_records = []
             if df is not None and registry == Feature:
@@ -1657,7 +1652,7 @@ def update_registry(
                     # make sure organism record is saved to the current instance
                     filter_kwargs["organism"] = _save_organism(name=organism)
                 init_kwargs = {}
-                for value in labels_saved["without reference"]:
+                for value in labels_saved["new"]:
                     init_kwargs[field.field.name] = value
                     if registry == Feature:
                         init_kwargs["dtype"] = "cat" if dtype is None else dtype
@@ -1698,10 +1693,10 @@ def log_saved_labels(
     for k, labels in labels_saved.items():
         if not labels:
             continue
-        if k == "without reference" and validated_only:
+        if k == "new" and validated_only:
             continue
         else:
-            k = "" if k == "without reference" else f"{colors.green(k)} "
+            k = "" if k == "new" else f"{colors.green(k)} "
             # the term "transferred" stresses that this is always in the context of transferring
             # labels from a public ontology or a different instance to the present instance
             s = "s" if len(labels) > 1 else ""

@@ -9,7 +9,7 @@ import pytest
 from lamindb._curate import CurateLookup, ValidationError
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def df():
     return pd.DataFrame(
         {
@@ -25,7 +25,7 @@ def df():
     )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def adata():
     df = pd.DataFrame(
         {
@@ -59,7 +59,7 @@ def adata():
     return ad.AnnData(X=X, obs=df)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def mdata(adata):
     mdata = md.MuData({"rna": adata, "rna_2": adata})
     mdata.obs["donor"] = ["D0001", "D0002", "DOOO3"]
@@ -97,7 +97,6 @@ def mock_transform():
 
 
 def test_df_curator(df, categoricals):
-    df = df.copy()
     curator = ln.Curator.from_df(df, categoricals=categoricals)
     with pytest.raises(ValidationError):
         _ = curator.non_validated
@@ -243,7 +242,6 @@ def test_clean_up_failed_runs():
 
 @pytest.mark.parametrize("to_add", ["donor", "all"])
 def test_anndata_curator(adata, categoricals, to_add):
-    adata = adata.copy()
     # must pass an organism
     with pytest.raises(ValidationError):
         bt.settings._organism = None  # make sure organism is not set globally
@@ -379,7 +377,6 @@ def test_unvalidated_adata_object(adata, categoricals):
 
 
 def test_mudata_curator(mdata):
-    mdata = mdata.copy()
     categoricals = {
         "rna:cell_type": bt.CellType.name,
         "rna:assay_ontology_id": bt.ExperimentalFactor.ontology_id,
