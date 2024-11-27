@@ -30,7 +30,21 @@ if TYPE_CHECKING:
 
 
 class CurateLookup:
-    """Lookup categories from the reference instance."""
+    """Lookup categories from the reference instance.
+
+    Args:
+        categoricals: A dictionary of categorical fields to lookup.
+        slots: A dictionary of slot fields to lookup.
+        using_key: The key of the instance to lookup from. Defaults to the
+            current instance if not specified.
+        public: Whether to lookup from the public instance. Defaults to False.
+
+    Example:
+        >>> validator = ln.Validator()
+        >>> validator.lookup()["cell_type"].alveolar_type_1_fibroblast_cell
+        <Category: alveolar_type_1_fibroblast_cell>
+
+    """
 
     def __init__(
         self,
@@ -39,8 +53,7 @@ class CurateLookup:
         using_key: str | None = None,
         public: bool = False,
     ) -> None:
-        if slots is None:
-            slots = {}
+        slots = slots or {}
         self._fields = {**categoricals, **slots}
         self._using_key = None if using_key == "default" else using_key
         self._using_key_name = self._using_key or ln_setup.settings.instance.slug
@@ -669,6 +682,7 @@ class AnnDataCurator(DataFrameCurator):
         Inplace modification of the dataset.
         """
         if key in self._adata.obs.columns or key == "all":
+            # standardize obs columns
             super().standardize(key)
         # in addition to the obs columns, standardize the var.index
         if key == "var_index" or key == "all":
@@ -868,10 +882,16 @@ class MuDataCurator:
             using_key: The instance where the lookup is performed.
                 if "public", the lookup is performed on the public reference.
         """
+        obs_fields = {}
+        for mod, fields in self._obs_fields.items():
+            for k, v in fields.items():
+                if k == "obs":
+                    obs_fields[k] = v
+                else:
+                    obs_fields[f"{mod}:{k}"] = v
         return CurateLookup(
-            categoricals=self._obs_fields,
+            categoricals=obs_fields,
             slots={
-                **self._obs_fields,
                 **{f"{k}_var_index": v for k, v in self._var_fields.items()},
             },
             using_key=using_key or self._using_key,

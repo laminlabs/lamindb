@@ -61,7 +61,8 @@ def adata():
 
 @pytest.fixture
 def mdata(adata):
-    mdata = md.MuData({"rna": adata, "rna_2": adata})
+    # can't be the same adata object due to in-place modifications
+    mdata = md.MuData({"rna": adata, "rna_2": adata.copy()})
     mdata.obs["donor"] = ["D0001", "D0002", "DOOO3"]
 
     return mdata
@@ -395,7 +396,7 @@ def test_mudata_curator(mdata):
     )
     with pytest.raises(ValidationError):
         _ = curator.non_validated
-    assert curator._modalities == curator._modalities
+    assert curator._modalities == {"obs", "rna", "rna_2"}
 
     # validate
     validated = curator.validate()
@@ -414,7 +415,8 @@ def test_mudata_curator(mdata):
     }
 
     # lookup
-    _ = curator.lookup()
+    lookup = curator.lookup()
+    assert lookup["obs:donor"].donor.name == "donor"
 
     # standardize
     curator.standardize("all", modality="rna")
