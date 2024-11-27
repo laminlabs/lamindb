@@ -1591,48 +1591,49 @@ def update_registry(
             if values
             else []
         )
+        existing_and_public_labels = [
+            getattr(r, field.field.name) for r in existing_and_public_records
+        ]
 
         labels_saved: dict = {"from public": [], "without reference": []}
 
+        # public records that are not already in the database
         public_records = [r for r in existing_and_public_records if r._state.adding]
         # here we check to only save the public records if they are from the specified source
         # we check the uid because r.source and source can be from different instances
         if source:
             public_records = [r for r in public_records if r.source.uid == source.uid]
 
-        if public_records:
+        if len(public_records) > 0:
             settings.verbosity = "info"
             logger.info(f"saving validated records of '{key}'")
             settings.verbosity = "error"
-        ln_save(public_records)
-        labels_saved["from public"] = [
-            getattr(r, field.field.name) for r in public_records
-        ]
-        non_public_labels = [i for i in values if i not in labels_saved["from public"]]
+            ln_save(public_records)
+            labels_saved["from public"] = [
+                getattr(r, field.field.name) for r in public_records
+            ]
+        # non_public_labels = [i for i in values if i not in labels_saved["from public"]]
 
-        # inspect the default instance
-        inspect_result_current = inspect_instance(
-            values=non_public_labels,
-            field=field,
-            registry=registry,
-            exclude=exclude,
-            **filter_kwargs_current,
-        )
-        if not inspect_result_current.non_validated:
-            all_labels = registry.from_values(
-                inspect_result_current.validated,
-                field=field,
-                **filter_kwargs_current,
-            )
-            settings.verbosity = verbosity
-            return all_labels
+        # non-validated records from the default instance
+        non_validated_labels = [
+            i for i in values if i not in existing_and_public_labels
+        ]
+
+        # # inspect the default instance
+        # inspect_result_current = inspect_instance(
+        #     values=non_public_labels,
+        #     field=field,
+        #     registry=registry,
+        #     exclude=exclude,
+        #     **filter_kwargs_current,
+        # )
 
         # inspect the using_key instance
         (
             labels_saved[f"from {using_key}"],
             non_validated_labels,
         ) = update_registry_from_using_instance(
-            inspect_result_current.non_validated,
+            non_validated_labels,
             field=field,
             using_key=using_key,
             exclude=exclude,
@@ -1645,7 +1646,7 @@ def update_registry(
             if i not in labels_saved[f"from {using_key}"]
         ]
 
-        # save non-validated records
+        # save non-validated/new records
         if not validated_only:
             non_validated_records = []
             if df is not None and registry == Feature:
@@ -1669,9 +1670,9 @@ def update_registry(
                     )
             ln_save(non_validated_records)
 
-        # save parent labels for ulabels
+        # save parent labels for ulabels, for example a parent label "project" for label "project001"
         if registry == ULabel and field.field.name == "name":
-            save_ulabels_with_parent(values, field=field, key=key)
+            save_ulabels_parent(values, field=field, key=key)
 
     finally:
         settings.verbosity = verbosity
@@ -1709,14 +1710,14 @@ def log_saved_labels(
             )
 
 
-def save_ulabels_with_parent(values: list[str], field: FieldAttr, key: str) -> None:
+def save_ulabels_parent(values: list[str], field: FieldAttr, key: str) -> None:
     """Save a parent label for the given labels."""
     registry = field.field.model
     assert registry == ULabel  # noqa: S101
     all_records = registry.from_values(list(values), field=field)
-    is_feature = registry.filter(name=f"is_{key}").one_or_none()
+    is_feature = registry.filter(name=f"{key}").one_or_none()
     if is_feature is None:
-        is_feature = registry(name=f"is_{key}").save()
+        is_feature = registry(name=f"{key}").save()
         logger.important(f"Created a parent ULabel: {is_feature}")
     is_feature.children.add(*all_records)
 

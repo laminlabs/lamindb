@@ -179,14 +179,11 @@ def get_featureset_m2m_relations(
 
         # Get the correct field names for the through table
         through_model = getattr(FeatureSet, name).through
-        related_field = (
-            through_model.__name__.replace("FeatureSet", "").lower().replace("_", "")
-        )
 
         # Subquery to get limited related records
         limited_related = Subquery(
             through_model.objects.filter(featureset=OuterRef("pk")).values(
-                related_field
+                related_model.__name__.lower()
             )[:limit]
         )
 
