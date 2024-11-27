@@ -259,11 +259,9 @@ def save_context_core(
             f"go to: https://lamin.ai/{identifier}/transform/{transform.uid}"
         )
         if not from_cli:
-            thing, name = (
-                ("notebook", "notebook.ipynb") if is_ipynb else ("script", "script.py")
-            )
+            thing = "notebook" if (is_ipynb or is_r_notebook) else "script"
             logger.important(
-                f"if you want to update your {thing} without re-running it, use `lamin save {name}`"
+                f"if you want to update your {thing} without re-running it, use `lamin save {filepath}`"
             )
     # because run & transform changed, update the global context
     context._run = run
