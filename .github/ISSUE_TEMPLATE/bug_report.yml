@@ -7,7 +7,6 @@ body:
     id: report
     attributes:
       label: Add a description
-      description: Add a description
       placeholder: |
         Describe and consider providing version information. Please ensure you're on the latest version of lamindb.
         This is a public repository!
