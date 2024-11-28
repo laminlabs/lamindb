@@ -379,11 +379,13 @@ def add_labels(
     else:
         validate_feature(feature, records)  # type:ignore
         records_by_registry = defaultdict(list)
-        feature_set = self.feature_sets.filter(registry="Feature").one_or_none()
-        if feature_set is not None:
-            internal_features = set(feature_set.members.values_list("name", flat=True))  # type: ignore
-        else:
-            internal_features = {}  # type: ignore
+        feature_sets = self.feature_sets.filter(registry="Feature").all()
+        internal_features = set()  # type: ignore
+        if len(feature_sets) > 0:
+            for feature_set in feature_sets:
+                internal_features.union(
+                    set(feature_set.members.values_list("name", flat=True))
+                )  # type: ignore
         for record in records:
             records_by_registry[record.__class__.__get_name_with_schema__()].append(
                 record

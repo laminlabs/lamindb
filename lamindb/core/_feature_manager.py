@@ -481,16 +481,19 @@ def infer_feature_type_convert_json(
             first_element_type = type(next(iter(value)))
             if all(isinstance(elem, first_element_type) for elem in value):
                 if first_element_type is bool:
-                    return "list['bool']", value
+                    return "list[bool]", value
                 elif first_element_type is int:
-                    return "list['int']", value
+                    return "list[int]", value
                 elif first_element_type is float:
-                    return "list['float']]", value
+                    return "list[float]", value
                 elif first_element_type is str:
-                    return "cat[ULabel] / str / cat[bionty.CellType] / etc.", value
+                    return (
+                        "list[cat[ULabel] / str / cat[bionty.CellType] / etc.]",
+                        value,
+                    )
                 elif first_element_type == Record:
                     return (
-                        f"cat[{first_element_type.__get_name_with_schema__()}]",
+                        f"list[cat[{first_element_type.__get_name_with_schema__()}]]",
                         value,
                     )
     elif isinstance(value, Record):
@@ -750,7 +753,9 @@ def _add_values(
                     raise TypeError(
                         f"Value for feature '{key}' with type '{feature.dtype}' must be a string or record."
                     )
-        elif feature.dtype not in inferred_type:
+        elif (feature.dtype == "str" and feature.dtype not in inferred_type) or (
+            feature.dtype != "str" and feature.dtype != inferred_type
+        ):
             raise ValidationError(
                 f"Expected dtype for '{key}' is '{feature.dtype}', got '{inferred_type}'"
             )
