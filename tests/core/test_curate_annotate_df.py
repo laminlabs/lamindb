@@ -16,8 +16,8 @@ def test_curate_annotate_df():
     # dataset-level metadata
     ln.Feature(name="temperature", dtype="float").save()
     ln.Feature(name="study", dtype="cat[ULabel]").save()
-    ln.Feature(name="date_of_experiment", dtype="date").save()
-    ln.Feature(name="experiment_note", dtype="str").save()
+    ln.Feature(name="date_of_study", dtype="date").save()
+    ln.Feature(name="study_note", dtype="str").save()
 
     ## Register permissible values for categoricals
 
@@ -46,8 +46,8 @@ def test_curate_annotate_df():
     metadata = {
         "temperature": 21.6,
         "study": "Candidate marker study 1",
-        "date_of_experiment": "2024-12-01",
-        "experiment_note": "We had a great time performing this experiment and the results look compelling.",
+        "date_of_study": "2024-12-01",
+        "study_note": "We had a great time performing this study and the results look compelling.",
     }
     # the dataset as DataFrame
     dataset_df = pd.DataFrame(dataset_dict, index=["sample1", "sample2", "sample3"])
@@ -86,8 +86,8 @@ def test_curate_annotate_df():
     # >     'cell_medium': cat[ULabel] = DMSO, IFNG
     # >   Feature values -- external
     # >     'study': cat[ULabel] = Candidate marker study 1
-    # >     'date_of_experiment': date = 2024-12-01
-    # >     'experiment_note': str = We had a great time performing this experiment and the results look compelling.
+    # >     'date_of_study': date = 2024-12-01
+    # >     'study_note': str = We had a great time performing this study and the results look compelling.
     # >     'temperature': float = 21.6
 
     print(description)
@@ -102,8 +102,8 @@ def test_curate_annotate_df():
     assert internal_features in description
 
     external_features = """'study': cat[ULabel] = Candidate marker study 1
-    'date_of_experiment': date = 2024-12-01
-    'experiment_note': str = We had a great time performing this experiment and the results look compelling.
+    'date_of_study': date = 2024-12-01
+    'study_note': str = We had a great time performing this study and the results look compelling.
     'temperature': float = 21.6"""
     assert external_features in description
 
