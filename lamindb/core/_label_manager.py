@@ -76,7 +76,7 @@ def _print_labels(self, m2m_data: dict, print_types: bool = False):
             if len(labels_list) > 0:
                 print_values = _print_values(labels_list, n=10)
         if print_values:
-            type_str = f": {related_model}" if print_types else ""
+            type_str = f": {related_model.__name__}" if print_types else ""
             labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
     return labels_msg
 
@@ -126,7 +126,7 @@ def print_labels(
 
     if not self._state.adding and connections[self._state.db].vendor == "postgresql":
         m2m_data = _get_labels_postgres(self, m2m_data)
-    if m2m_data is None:
+    if not m2m_data:
         m2m_data = _get_labels(self, instance=self._state.db)
 
     labels_msg = _print_labels(self, m2m_data, print_types)

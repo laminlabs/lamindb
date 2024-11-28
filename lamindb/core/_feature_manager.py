@@ -199,7 +199,7 @@ def _get_categoricals(
         return {}
 
     result = defaultdict(set)
-    for _, (_, links) in _get_labels(self, links=True, instance=self._state.db).items():
+    for _, links in _get_labels(self, links=True, instance=self._state.db).items():
         for link in links:
             if hasattr(link, "feature_id") and link.feature_id is not None:
                 feature = Feature.objects.using(self._state.db).get(id=link.feature_id)
