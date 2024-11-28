@@ -123,7 +123,7 @@ class BaseCurator:
         Inplace modification of the dataset.
 
         Args:
-            key: `str` The name of the column to standardize.
+            key: The name of the column to standardize.
 
         Returns:
             None
@@ -336,7 +336,7 @@ class DataFrameCurator(BaseCurator):
         """Replace synonyms with standardized values.
 
         Args:
-            key: `str` The key referencing the slot in the DataFrame from which to draw terms.
+            key: The key referencing the slot in the DataFrame from which to draw terms.
 
         Modifies the input dataset inplace.
         """
@@ -675,9 +675,10 @@ class AnnDataCurator(DataFrameCurator):
         """Replace synonyms with standardized values.
 
         Args:
-            key: `str` The key referencing the slot in `adata.obs` from which to draw terms. Same as the key in `categoricals`.
-            - If "var_index", standardize the var.index.
-            - If "all", standardize all obs columns and var.index.
+            key: The key referencing the slot in `adata.obs` from which to draw terms. Same as the key in `categoricals`.
+
+                - If "var_index", standardize the var.index.
+                - If "all", standardize all obs columns and var.index.
 
         Inplace modification of the dataset.
         """
