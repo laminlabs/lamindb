@@ -9,6 +9,7 @@ import lamindb_setup as ln_setup
 import pandas as pd
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
+from lamindb_setup.core.upath import UPath
 from lnschema_core import (
     Artifact,
     Feature,
@@ -1056,6 +1057,59 @@ class MuDataCurator:
         finally:
             settings.verbosity = verbosity
         return self._artifact
+
+
+class SOMACurator(BaseCurator):
+    def __init__(
+        self,
+        experiment_uri: UPathStr,
+        var_index: dict[str, FieldAttr],
+        categoricals: dict[str, FieldAttr] | None = None,
+        using_key: str | None = None,
+        verbosity: str = "hint",
+        organism: str | None = None,
+        sources: dict[str, Record] | None = None,
+        exclude: dict | None = None,  # {modality: {field: [values]}}
+    ):
+        self._experiment_uri = UPath(experiment_uri)
+        self.obs_fields = categoricals or {}
+        self._using_key = using_key
+        self._sources = sources or {}
+        self._exclude = exclude or {}
+
+    def validate(self):
+        from pyarrow.compute import unique
+
+        from lamindb.core.storage._tiledbsoma import _open_tiledbsoma
+
+        validated = True
+        self._non_validated = {}
+        with _open_tiledbsoma(self._experiment_uri) as experiment:
+            obs = experiment["obs"]
+            for key, field in self.obs_fields.items():
+                values = unique(obs.read(column_names=[key]).concat()[key]).to_pylist()
+                update_registry(
+                    values=values,
+                    field=field,
+                    key=key,
+                    using_key=self._using_key,
+                    validated_only=True,
+                    source=self._sources.get(key),
+                    exclude=self._exclude.get(key),
+                )
+                is_val, non_val = validate_categories(
+                    values=values,
+                    field=field,
+                    key=key,
+                    using_key=self._using_key,
+                    source=self._sources.get(key),
+                    exclude=self._exclude.get(key),
+                )
+                validated &= is_val
+                if len(non_val) > 0:
+                    self._non_validated[key] = non_val
+        self._validated = validated
+        return self._validated
 
 
 class Curator(BaseCurator):
