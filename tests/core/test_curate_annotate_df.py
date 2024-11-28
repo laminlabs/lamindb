@@ -50,6 +50,7 @@ def test_curate_annotate_df():
         "experiment_note": "We had a great time performing this experiment and the results look compelling.",
     }
     adata1 = ad.AnnData(dataset.iloc[:, :3], obs=dataset.iloc[:, 3:])
+    # curate dataset
     curator = ln.Curator.from_anndata(
         adata1,
         var_index=bt.Gene.symbol,
@@ -61,6 +62,7 @@ def test_curate_annotate_df():
         organism="human",
     )
     artifact1 = curator.save_artifact(key="example_datasets/dataset1.h5ad")
+    # annotate with dataset-level features
     artifact1.features.add_values(metadata)
 
     description = describe(artifact1, print_types=True)

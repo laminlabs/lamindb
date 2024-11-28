@@ -98,7 +98,7 @@ def __init__(self, *args, **kwargs):
             self.dtype.startswith("cat[") if dtype == "cat" else self.dtype == dtype
         ):
             raise ValidationError(
-                f"Feature already exists with dtype {self.dtype}, you passed {dtype}"
+                f"Feature {self.name} already exists with dtype {self.dtype}, you passed {dtype}"
             )
 
 
@@ -114,7 +114,7 @@ def categoricals_from_df(df: pd.DataFrame) -> dict:
         c = pd.Categorical(df[key])
         if len(c.categories) < len(c):
             logger.warning(
-                "consider changing the dtype of string column `key` to categorical"
+                f"consider changing the dtype of string column `{key}` to categorical"
             )
     return categoricals
 
