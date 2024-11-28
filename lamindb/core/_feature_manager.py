@@ -741,7 +741,7 @@ def _add_values(
             mute=True,
             str_as_ulabel=str_as_ulabel,
         )
-        if feature.dtype == "number":
+        if feature.dtype == "num":
             if inferred_type not in {"int", "float"}:
                 raise TypeError(
                     f"Value for feature '{key}' with type {feature.dtype} must be a number"

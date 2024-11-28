@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
     from ._query_set import QuerySet
 
-NUMBER_TYPE = "number"
+NUMBER_TYPE = "num"
 DICT_KEYS_TYPE = type({}.keys())  # type: ignore
 
 
