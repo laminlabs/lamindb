@@ -18,6 +18,7 @@ from .core.schema import dict_schema_name_to_model_name
 
 if TYPE_CHECKING:
     from lnschema_core.types import FieldAttr
+    from pandas.core.dtypes.base import ExtensionDtype
 
 
 FEATURE_DTYPES = {
@@ -51,9 +52,12 @@ def get_dtype_str_from_dtype(dtype: Any) -> str:
     return dtype_str
 
 
-def convert_pandas_dtype_to_lamin_dtype(pandas_dtype) -> str:
-    if is_string_dtype(pandas_dtype) and not isinstance(pandas_dtype, CategoricalDtype):
-        dtype = "str"
+def convert_pandas_dtype_to_lamin_dtype(pandas_dtype: ExtensionDtype) -> str:
+    if is_string_dtype(pandas_dtype):
+        if not isinstance(pandas_dtype, CategoricalDtype):
+            dtype = "str"
+        else:
+            dtype = "cat"
     else:
         # strip precision qualifiers
         dtype = "".join(dt for dt in pandas_dtype.name if not dt.isdigit())
@@ -97,7 +101,7 @@ def __init__(self, *args, **kwargs):
         if not (
             self.dtype.startswith("cat[") if dtype == "cat" else self.dtype == dtype
         ):
-            raise ValidationError(
+            raise ValueError(
                 f"Feature {self.name} already exists with dtype {self.dtype}, you passed {dtype}"
             )
 
