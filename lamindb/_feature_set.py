@@ -179,7 +179,9 @@ def from_df(
             logger.warning("no validated features, skip creating feature set")
         return None
     if registry == Feature:
-        validated_features = Feature.from_df(df.loc[:, validated])
+        validated_features = Feature.from_values(
+            df.columns, field=field, organism=organism
+        )
         feature_set = FeatureSet(validated_features, name=name, dtype=None)
     else:
         dtypes = [col.dtype for (_, col) in df.loc[:, validated].items()]

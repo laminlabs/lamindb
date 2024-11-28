@@ -139,7 +139,6 @@ def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordsLis
         else:
             dtypes[name] = convert_pandas_dtype_to_lamin_dtype(col.dtype)
     with logger.mute():  # silence the warning "loaded record with exact same name "
-        # create records for all features including non-validated
         features = [Feature(name=name, dtype=dtype) for name, dtype in dtypes.items()]
     assert len(features) == len(df.columns)  # noqa: S101
     return RecordsList(features)

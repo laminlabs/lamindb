@@ -943,7 +943,10 @@ def add_feature_set(self, feature_set: FeatureSet, slot: str) -> None:
 
 
 def _add_set_from_df(
-    self, field: FieldAttr = Feature.name, organism: str | None = None
+    self,
+    field: FieldAttr = Feature.name,
+    organism: str | None = None,
+    mute: bool = False,
 ):
     """Add feature set corresponding to column names of DataFrame."""
     if isinstance(self._host, Artifact):
@@ -951,21 +954,14 @@ def _add_set_from_df(
     else:
         # Collection
         assert self._host.artifact._accessor == "DataFrame"  # noqa: S101
-
-    # parse and register features
-    registry = field.field.model
     df = self._host.load()
-    features = registry.from_values(df.columns, field=field, organism=organism)
-    if len(features) == 0:
-        logger.error(
-            "no validated features found in DataFrame! please register features first!"
-        )
-        return
-
-    # create and link feature sets
-    feature_set = FeatureSet(features=features)
-    feature_sets = {"columns": feature_set}
-    self._host._feature_sets = feature_sets
+    feature_set = FeatureSet.from_df(
+        df=df,
+        field=field,
+        mute=mute,
+        organism=organism,
+    )
+    self._host._feature_sets = {"columns": feature_set}
     self._host.save()
 
 
