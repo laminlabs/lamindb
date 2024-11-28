@@ -26,39 +26,44 @@ if TYPE_CHECKING:
 
     from lamindb._query_set import QuerySet
 
-LABELS_EXCLUDE_SET = {"feature_sets"}
+EXCLUDE_LABELS = {"feature_sets"}
 
 
-def get_labels_as_dict(
-    self: Artifact | Collection, links: bool = False, instance: str | None = None
-) -> dict[str, tuple[str, QuerySet]]:
-    labels = {}  # type: ignore
-    if self.id is None:
-        return labels
-    for related_model_name, related_name in dict_related_model_to_related_name(
-        self.__class__, links=links, instance=instance
-    ).items():
-        if related_name not in LABELS_EXCLUDE_SET and not related_name.startswith("_"):
-            labels[related_name] = (
-                related_model_name,
-                getattr(self, related_name).all(),
-            )
+def _get_labels(
+    obj, links: bool = False, instance: str | None = None
+) -> dict[str, QuerySet]:
+    """Get all labels associated with an object as a dictionary.
+
+    This is a generic approach that uses django orm.
+    """
+    if obj.id is None:
+        return {}
+
+    labels = {}
+    related_models = dict_related_model_to_related_name(
+        obj.__class__, links=links, instance=instance
+    )
+
+    for _, related_name in related_models.items():
+        if related_name not in EXCLUDE_LABELS and not related_name.startswith("_"):
+            labels[related_name] = getattr(obj, related_name).all()
     return labels
 
 
 def _get_labels_postgres(
     self: Artifact | Collection, m2m_data: dict | None = None
-) -> dict:
+) -> dict[str, list]:
+    """Get all labels associated with an artifact or collection as a dictionary.
+
+    This is a postgres-specific approach that uses django Subquery.
+    """
     if m2m_data is None:
         artifact_meta = get_artifact_with_related(self, include_m2m=True)
         m2m_data = artifact_meta.get("related_data", {}).get("m2m", {})
     return m2m_data
 
 
-def _print_labels_postgres(
-    self: Artifact | Collection, m2m_data: dict, print_types: bool = False
-) -> str:
-    m2m_data = _get_labels_postgres(self, m2m_data)
+def _print_labels(self, m2m_data: dict, print_types: bool = False):
     labels_msg = ""
     for related_name, labels in m2m_data.items():
         if not labels or related_name == "feature_sets":
@@ -68,6 +73,21 @@ def _print_labels_postgres(
         type_str = f": {related_model}" if print_types else ""
         labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
     return labels_msg
+
+
+# def _print_labels_postgres(
+#     self: Artifact | Collection, m2m_data: dict, print_types: bool = False
+# ) -> str:
+#     m2m_data = _get_labels_postgres(self, m2m_data)
+#     labels_msg = ""
+#     for related_name, labels in m2m_data.items():
+#         if not labels or related_name == "feature_sets":
+#             continue
+#         related_model = get_related_model(self, related_name)
+#         print_values = _print_values(labels.values(), n=10)
+#         type_str = f": {related_model}" if print_types else ""
+#         labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
+#     return labels_msg
 
 
 def print_labels(
@@ -84,19 +104,26 @@ def print_labels(
     Returns:
         A string representation of the labels associated with the artifact or collection.
     """
+    # if not self._state.adding and connections[self._state.db].vendor == "postgresql":
+    #     labels_msg = _print_labels_postgres(self, m2m_data, print_types)
+    # else:
+    #     labels_msg = ""
+    #     for related_name, (related_model, labels) in _get_labels(
+    #         self, instance=self._state.db
+    #     ).items():
+    #         field = get_name_field(labels)
+    #         labels_list = list(labels.values_list(field, flat=True))
+    #         if len(labels_list) > 0:
+    #             print_values = _print_values(labels_list, n=10)
+    #             type_str = f": {related_model}" if print_types else ""
+    #             labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
+
     if not self._state.adding and connections[self._state.db].vendor == "postgresql":
-        labels_msg = _print_labels_postgres(self, m2m_data, print_types)
-    else:
-        labels_msg = ""
-        for related_name, (related_model, labels) in get_labels_as_dict(
-            self, instance=self._state.db
-        ).items():
-            field = get_name_field(labels)
-            labels_list = list(labels.values_list(field, flat=True))
-            if len(labels_list) > 0:
-                print_values = _print_values(labels_list, n=10)
-                type_str = f": {related_model}" if print_types else ""
-                labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
+        m2m_data = _get_labels_postgres(self, m2m_data)
+    if m2m_data is None:
+        m2m_data = _get_labels(self, instance=self._state.db)
+
+    labels_msg = _print_labels(self, m2m_data, print_types)
 
     msg = ""
     if labels_msg:
@@ -218,7 +245,7 @@ class LabelManager:
         if transfer_logs is None:
             transfer_logs = {"mapped": [], "transferred": [], "run": None}
         using_key = settings._using_key
-        for related_name, (_, labels) in get_labels_as_dict(
+        for related_name, (_, labels) in _get_labels(
             data, instance=data._state.db
         ).items():
             labels = labels.all()

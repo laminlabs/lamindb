@@ -46,7 +46,7 @@ from lamindb.core.exceptions import DoesNotExist, ValidationError
 from lamindb.core.storage import LocalPathClasses
 
 from ._django import get_artifact_with_related
-from ._label_manager import get_labels_as_dict
+from ._label_manager import _get_labels
 from ._settings import settings
 from .schema import (
     dict_related_model_to_related_name,
@@ -199,9 +199,7 @@ def _get_categoricals(
         return {}
 
     result = defaultdict(set)
-    for _, (_, links) in get_labels_as_dict(
-        self, links=True, instance=self._state.db
-    ).items():
+    for _, (_, links) in _get_labels(self, links=True, instance=self._state.db).items():
         for link in links:
             if hasattr(link, "feature_id") and link.feature_id is not None:
                 feature = Feature.objects.using(self._state.db).get(id=link.feature_id)
