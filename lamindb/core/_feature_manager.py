@@ -33,7 +33,7 @@ from lnschema_core.models import (
     ULabel,
 )
 
-from lamindb._feature import FEATURE_TYPES, convert_numpy_dtype_to_lamin_feature_type
+from lamindb._feature import FEATURE_DTYPES, convert_pandas_dtype_to_lamin_dtype
 from lamindb._feature_set import DICT_KEYS_TYPE, FeatureSet
 from lamindb._record import (
     REGISTRY_UNIQUE_FIELD,
@@ -406,7 +406,7 @@ def parse_feature_sets_from_anndata(
         type = (
             "float"
             if adata.X is None
-            else convert_numpy_dtype_to_lamin_feature_type(adata.X.dtype)
+            else convert_pandas_dtype_to_lamin_dtype(adata.X.dtype)
         )
     feature_sets = {}
     if var_field is not None:
@@ -456,47 +456,40 @@ def infer_feature_type_convert_json(
     value: Any, mute: bool = False, str_as_ulabel: bool = True
 ) -> tuple[str, Any]:
     if isinstance(value, bool):
-        return FEATURE_TYPES["bool"], value
+        return "bool", value
     elif isinstance(value, int):
-        return FEATURE_TYPES["int"], value
+        return "int", value
     elif isinstance(value, float):
-        return FEATURE_TYPES["float"], value
+        return "float", value
     elif isinstance(value, date):
-        return FEATURE_TYPES["date"], value.isoformat()
+        return "date", value.isoformat()
     elif isinstance(value, datetime):
-        return FEATURE_TYPES["datetime"], value.isoformat()
+        return "datetime", value.isoformat()
     elif isinstance(value, str):
         if datetime_str := is_valid_datetime_str(value):
             dt_type = (
                 "date" if len(value) == 10 else "datetime"
             )  # YYYY-MM-DD is exactly 10 characters
             sanitized_value = datetime_str[:10] if dt_type == "date" else datetime_str  # type: ignore
-            return FEATURE_TYPES[dt_type], sanitized_value  # type: ignore
-        elif str_as_ulabel:
-            return FEATURE_TYPES["str"] + "[ULabel]", value
+            return dt_type, sanitized_value  # type: ignore
         else:
-            return "str", value
+            return "cat[ULabel] / str / cat[bionty.CellType] / etc.", value
     elif isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
         if isinstance(value, (pd.Series, np.ndarray)):
-            return convert_numpy_dtype_to_lamin_feature_type(
-                value.dtype, str_as_cat=str_as_ulabel
-            ), list(value)
+            return convert_pandas_dtype_to_lamin_dtype(value.dtype), list(value)
         if isinstance(value, dict):
             return "dict", value
         if len(value) > 0:  # type: ignore
             first_element_type = type(next(iter(value)))
             if all(isinstance(elem, first_element_type) for elem in value):
                 if first_element_type is bool:
-                    return f"list[{FEATURE_TYPES['bool']}]", value
+                    return "list['bool']", value
                 elif first_element_type is int:
-                    return f"list[{FEATURE_TYPES['int']}]", value
+                    return "list['int']", value
                 elif first_element_type is float:
-                    return f"list[{FEATURE_TYPES['float']}]", value
+                    return "list['float']]", value
                 elif first_element_type is str:
-                    if str_as_ulabel:
-                        return FEATURE_TYPES["str"] + "[ULabel]", value
-                    else:
-                        return "list[str]", value
+                    return "cat[ULabel] / str / cat[bionty.CellType] / etc.", value
                 elif first_element_type == Record:
                     return (
                         f"cat[{first_element_type.__get_name_with_schema__()}]",
@@ -759,7 +752,7 @@ def _add_values(
                     raise TypeError(
                         f"Value for feature '{key}' with type '{feature.dtype}' must be a string or record."
                     )
-        elif not inferred_type == feature.dtype:
+        elif feature.dtype not in inferred_type:
             raise ValidationError(
                 f"Expected dtype for '{key}' is '{feature.dtype}', got '{inferred_type}'"
             )
