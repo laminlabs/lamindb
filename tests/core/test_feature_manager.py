@@ -4,6 +4,7 @@ from pathlib import Path
 import bionty as bt
 import lamindb as ln
 import pytest
+from lamindb.core._data import add_labels
 from lamindb.core.exceptions import DoesNotExist, ValidationError
 
 
@@ -82,7 +83,7 @@ Here is how to create a feature:
         artifact.features.add_values({"date_of_experiment": "Typo2024-12-01"})
     assert (
         error.exconly()
-        == """lamindb.core.exceptions.ValidationError: Expected dtype for 'date_of_experiment' is 'date', got 'cat[ULabel]'"""
+        == """lamindb.core.exceptions.ValidationError: Expected dtype for 'date_of_experiment' is 'date', got 'cat[ULabel] / str / cat[bionty.CellType] / etc.'"""
     )
     artifact.features.add_values({"date_of_experiment": "2024-12-01"})
 
@@ -140,10 +141,10 @@ Here is how to create a feature:
 lamindb.core.exceptions.ValidationError: These keys could not be validated: ['project', 'is_validated', 'cell_type_by_expert', 'donor']
 Here is how to create a feature:
 
-  ln.Feature(name='project', dtype='cat[ULabel]').save()
+  ln.Feature(name='project', dtype='cat[ULabel] / str / cat[bionty.CellType] / etc.').save()
   ln.Feature(name='is_validated', dtype='bool').save()
-  ln.Feature(name='cell_type_by_expert', dtype='cat[ULabel]').save()
-  ln.Feature(name='donor', dtype='cat[ULabel]').save()"""
+  ln.Feature(name='cell_type_by_expert', dtype='cat[ULabel] / str / cat[bionty.CellType] / etc.').save()
+  ln.Feature(name='donor', dtype='cat[ULabel] / str / cat[bionty.CellType] / etc.').save()"""
     )
 
     ln.Feature(name="project", dtype="cat[ULabel]").save()
@@ -358,16 +359,14 @@ def test_labels_add(adata):
     assert experiments.get().name == "Experiment 1"
 
     # running from_values to load validated label records under the hood
-    experiment = ln.Feature(name="experiment_with_reg", dtype="cat[ULabel]")
-    experiment.save()
+    experiment = ln.Feature(name="experiment_with_reg", dtype="cat[ULabel]").save()
     ln.ULabel(name="Experiment 2").save()
     artifact.labels.add("Experiment 2", experiment)
     experiments = artifact.labels.get(experiment)
     assert experiments.get().name == "Experiment 2"
 
     # now, try adding a new label for a new feature, extending the feature set
-    project = ln.ULabel(name="project 1")
-    project.save()
+    project = ln.ULabel(name="project 1").save()
     ln.Feature(name="project", dtype="cat").save()
     features = ln.Feature.lookup()
     artifact.labels.add(project, feature=features.project)
@@ -484,9 +483,23 @@ def test_add_labels_using_anndata(adata):
     ln.Feature(name="cell_type", dtype="cat").save()
     ln.Feature(name="cell_type_by_expert", dtype="cat").save()
     ln.Feature(name="tissue", dtype="cat").save()
-    artifact.labels.add(cell_types, feature=features.cell_type)
-    artifact.labels.add(cell_types_from_expert, feature=features.cell_type_by_expert)
-    artifact.labels.add(tissues, feature=features.tissue)
+    add_labels(artifact, cell_types, feature=features.cell_type, from_curator=True)
+    add_labels(
+        artifact,
+        cell_types_from_expert,
+        feature=features.cell_type_by_expert,
+        from_curator=True,
+    )
+    with pytest.raises(ValidationError) as err:
+        add_labels(artifact, tissues, feature=features.tissue, from_curator=True)
+    assert (
+        err.exconly()
+        == "lamindb.core.exceptions.ValidationError: Label type ULabel is not valid for Feature(name='tissue', dtype='cat[bionty.Tissue]'), consider updating to dtype='cat[bionty.Tissue|ULabel]'"
+    )
+    tissue = ln.Feature.get(name="tissue")
+    tissue.dtype = "cat[bionty.Tissue|ULabel]"
+    tissue.save()
+    add_labels(artifact, tissues, feature=tissue, from_curator=True)
     feature = ln.Feature.get(name="cell_type")
     assert feature.dtype == "cat[bionty.CellType]"
     feature = ln.Feature.get(name="cell_type_by_expert")
@@ -495,7 +508,7 @@ def test_add_labels_using_anndata(adata):
     assert feature.dtype == "cat[bionty.Tissue|ULabel]"
     diseases = [ln.ULabel(name=name) for name in adata.obs["disease"].unique()]
     ln.save(diseases)
-    artifact.labels.add(diseases, feature=features.disease)
+    add_labels(artifact, diseases, feature=features.disease, from_curator=True)
     df = artifact.features["obs"].df()
     assert set(df["name"]) == {
         "cell_type",
@@ -510,8 +523,7 @@ def test_add_labels_using_anndata(adata):
     }
 
     # now, let's add another feature to ext
-    experiment_1 = ln.ULabel(name="experiment_1")
-    experiment_1.save()
+    experiment_1 = ln.ULabel(name="experiment_1").save()
     ln.Feature(name="experiment", dtype="cat").save()
     features = ln.Feature.lookup()
     artifact.labels.add(experiment_1, feature=features.experiment)

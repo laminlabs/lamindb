@@ -406,7 +406,7 @@ def add_labels(
                 elif registry_name not in feature.dtype:
                     new_dtype = feature.dtype.rstrip("]") + f"|{registry_name}]"
                     raise ValidationError(
-                        f"label registry not part of dtype={feature.dtype}, consider updating to dtype='{new_dtype}'"
+                        f"Label type {registry_name} is not valid for Feature(name='{feature.name}', dtype='{feature.dtype}'), consider updating to dtype='{new_dtype}'"
                     )
 
             if registry_name not in self.features._accessor_by_registry:
