@@ -92,7 +92,9 @@ def print_labels(
             print_values = _print_values(labels.values_list(field, flat=True), n=10)
         if print_values:
             related_model = get_related_model(self, related_name)
-            type_str = f": {related_model.__name__}" if print_types else ""
+            type_str = (
+                f": {related_model.__get_name_with_schema__()}" if print_types else ""
+            )
             labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
 
     msg = ""

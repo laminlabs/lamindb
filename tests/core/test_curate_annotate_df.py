@@ -2,7 +2,7 @@ import anndata as ad
 import bionty as bt
 import lamindb as ln
 import pandas as pd
-from lamindb.core._data import describe
+from lamindb.core._data import _describe_postgres
 
 
 def test_curate_annotate_df():
@@ -31,6 +31,7 @@ def test_curate_annotate_df():
 
     ## Ingest a dataset
 
+    # define dataset
     dataset = pd.DataFrame(
         {
             "CD8A": [1, 2, 3],
@@ -65,8 +66,29 @@ def test_curate_annotate_df():
     # annotate with dataset-level features
     artifact1.features.add_values(metadata)
 
-    description = describe(artifact1, print_types=True)
-    print(description)
+    # expected output has italicized elements that can't be tested
+    # hence testing is restricted to section content, not headings
+    description = _describe_postgres(artifact1, print_types=True)
+    # > Artifact(uid='tQAwzih2n44VQRjO0000', is_latest=True, key='example_datasets/dataset1.h5ad', suffix='.h5ad', type='dataset', size=23560, hash='voB-uoihaivmNskhV7osPQ', n_observations=3, _hash_type='md5', _accessor='AnnData', visibility=1, _key_is_virtual=True, created_at=2024-11-28 17:05:30 UTC)
+    # >   Provenance
+    # >     .storage: Storage = '/Users/falexwolf/repos/laminhub/rest-hub/sub/lamindb/default_storage_unit_core'
+    # >     .created_by: User = 'falexwolf'
+    # >   Labels
+    # >     .cell_types: CellType = 'B cell', 'T cell'
+    # >     .ulabels: ULabel = 'DMSO', 'IFNG', 'Candidate marker study 1'
+    # >   Feature sets
+    # >     'var' = 'CD8A', 'CD4', 'CD14'
+    # >     'obs' = 'medium', 'sample_note', 'cell_type_by_expert', 'cell_type_by_model'
+    # >   Feature values -- internal
+    # >     'cell_type_by_expert': cat[bionty.CellType] = B cell, T cell
+    # >     'cell_type_by_model': cat[bionty.CellType] = B cell, T cell
+    # >     'medium': cat[ULabel] = DMSO, IFNG
+    # >   Feature values -- external
+    # >     'study': cat[ULabel] = Candidate marker study 1
+    # >     'date_of_experiment': date = 2024-12-01
+    # >     'experiment_note': str = We had a great time performing this experiment and the results look compelling.
+    # >     'temperature': float = 21.6
+
     labels = """.cell_types: bionty.CellType = 'B cell', 'T cell'
     .ulabels: ULabel = 'DMSO', 'IFNG', 'Candidate marker study 1'"""
     assert labels in description

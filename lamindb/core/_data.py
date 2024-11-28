@@ -176,17 +176,10 @@ def _describe_postgres(self: Artifact | Collection, print_types: bool = False):
     # Labels and features
     msg += format_labels_and_features(self, related_data, print_types)
 
-    # Print entire message
-    logger.print(msg)
     return msg
 
 
-@doc_args(Artifact.describe.__doc__)
-def describe(self: Artifact | Collection, print_types: bool = False):
-    """{}"""  # noqa: D415
-    if not self._state.adding and connections[self._state.db].vendor == "postgresql":
-        return _describe_postgres(self, print_types=print_types)
-
+def _describe_sqlite(self: Artifact | Collection, print_types: bool = False):
     model_name = self.__class__.__name__
     msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
     if self._state.db is not None and self._state.db != "default":
@@ -247,9 +240,18 @@ def describe(self: Artifact | Collection, print_types: bool = False):
     # Labels and features
     msg += format_labels_and_features(self, {}, print_types)
 
-    # Print entire message
-    logger.print(msg)
     return msg
+
+
+@doc_args(Artifact.describe.__doc__)
+def describe(self: Artifact | Collection, print_types: bool = False):
+    """{}"""  # noqa: D415
+    if not self._state.adding and connections[self._state.db].vendor == "postgresql":
+        msg = _describe_postgres(self, print_types=print_types)
+    else:
+        msg = _describe_sqlite(self, print_types=print_types)
+
+    logger.print(msg)
 
 
 def validate_feature(feature: Feature, records: list[Record]) -> None:
