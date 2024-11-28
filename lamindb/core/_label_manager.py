@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-import numpy as np
 from django.db import connections
 from lamin_utils import colors, logger
 from lnschema_core.models import CanCurate, Feature
@@ -69,9 +68,16 @@ def _print_labels(self, m2m_data: dict, print_types: bool = False):
         if not labels or related_name == "feature_sets":
             continue
         related_model = get_related_model(self, related_name)
-        print_values = _print_values(labels.values(), n=10)
-        type_str = f": {related_model}" if print_types else ""
-        labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
+        if isinstance(labels, dict):
+            print_values = _print_values(labels.values(), n=10)
+        else:  # labels are a QuerySet
+            field = get_name_field(labels)
+            labels_list = list(labels.values_list(field, flat=True))
+            if len(labels_list) > 0:
+                print_values = _print_values(labels_list, n=10)
+        if print_values:
+            type_str = f": {related_model}" if print_types else ""
+            labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
     return labels_msg
 
 
@@ -132,52 +138,73 @@ def print_labels(
     return msg
 
 
-def save_validated_records(labels: QuerySet | list | dict) -> tuple[list, list]:
-    """Save validated labels from public based on ontology_id_fields."""
+def _save_validated_records(
+    labels: QuerySet | list | dict,
+) -> tuple[list[str], list[str]]:
+    if not labels:
+        return [], []
+    registry = labels[0].__class__
+    field = (
+        REGISTRY_UNIQUE_FIELD.get(registry.__name__.lower(), "uid")
+        if not hasattr(registry, "_ontology_id_field")
+        else registry._ontology_id_field
+    )
+    # if the field value is None, use uid field
+    # label_uids = np.array(
+    #     [getattr(label, field) for label in labels if label is not None]
+    # )
+    label_uids = [getattr(label, field) for label in labels if label is not None]
+    # save labels from ontology_ids
+    # if hasattr(registry, "_ontology_id_field") and len(label_uids) > 0:
+    #     try:
+    #         labels_records = registry.from_values(label_uids, field=field)
+    #         save([r for r in labels_records if r._state.adding])
+    #     except Exception:  # S110
+    #         pass
+    #     field = "uid"
+    #     label_uids = np.array(
+    #         [getattr(label, field) for label in labels if label is not None]
+    #     )
+    # if issubclass(registry, CanCurate):
+    #     validated = registry.validate(label_uids, field=field, mute=True)
+    #     validated_uids = label_uids[validated]
+    #     validated_labels = registry.filter(**{f"{field}__in": validated_uids}).list()
+    #     new_labels = [labels[int(i)] for i in np.argwhere(~validated).flatten()]
+    # else:
+    #     validated_labels = []
+    #     new_labels = list(labels)
+    if hasattr(registry, "_ontology_id_field") and label_uids:
+        try:
+            records = registry.from_values(label_uids, field=field)
+            save([r for r in records if r._state.adding])
+        except Exception:  # noqa: S110
+            pass
+        field = "uid"
+        label_uids = [label.uid for label in labels if label is not None]
 
-    def save_records_from_ontology_ids(
-        labels: QuerySet | list | dict,
-    ) -> tuple[list[str], list[str]]:
-        if len(labels) == 0:
-            return [], []
-        registry = labels[0].__class__
-        field = REGISTRY_UNIQUE_FIELD.get(registry.__name__.lower(), "uid")
-        if hasattr(registry, "_ontology_id_field"):
-            field = registry._ontology_id_field
-        # if the field value is None, use uid field
-        label_uids = np.array(
-            [getattr(label, field) for label in labels if label is not None]
-        )
-        # save labels from ontology_ids
-        if hasattr(registry, "_ontology_id_field") and len(label_uids) > 0:
-            try:
-                labels_records = registry.from_values(label_uids, field=field)
-                save([r for r in labels_records if r._state.adding])
-            except Exception:  # noqa S110
-                pass
-            field = "uid"
-            label_uids = np.array(
-                [getattr(label, field) for label in labels if label is not None]
-            )
-        if issubclass(registry, CanCurate):
-            validated = registry.validate(label_uids, field=field, mute=True)
-            validated_uids = label_uids[validated]
-            validated_labels = registry.filter(
-                **{f"{field}__in": validated_uids}
-            ).list()
-            new_labels = [labels[int(i)] for i in np.argwhere(~validated).flatten()]
-        else:
-            validated_labels = []
-            new_labels = list(labels)
+    if issubclass(registry, CanCurate):
+        validated = registry.validate(label_uids, field=field, mute=True)
+        validated_uids = [
+            uid for uid, is_valid in zip(label_uids, validated) if is_valid
+        ]
+        validated_labels = registry.filter(**{f"{field}__in": validated_uids}).list()
+        new_labels = [
+            label for label, is_valid in zip(labels, validated) if not is_valid
+        ]
         return validated_labels, new_labels
+    return [], list(labels)
 
+
+def save_validated_records(
+    labels: QuerySet | list | dict,
+) -> tuple[list[str], list[str]] | dict[str, tuple[list[str], list[str]]]:
+    """Save validated labels from public based on ontology_id_fields."""
     if isinstance(labels, dict):
-        result = {}
-        for registry, labels_registry in labels.items():
-            result[registry] = save_records_from_ontology_ids(labels_registry)
-        return result  # type: ignore
-    else:
-        return save_records_from_ontology_ids(labels)
+        return {
+            registry: _save_validated_records(registry_labels)
+            for registry, registry_labels in labels.items()
+        }
+    return _save_validated_records(labels)
 
 
 class LabelManager:
@@ -245,9 +272,7 @@ class LabelManager:
         if transfer_logs is None:
             transfer_logs = {"mapped": [], "transferred": [], "run": None}
         using_key = settings._using_key
-        for related_name, (_, labels) in _get_labels(
-            data, instance=data._state.db
-        ).items():
+        for related_name, labels in _get_labels(data, instance=data._state.db).items():
             labels = labels.all()
             if not labels.exists():
                 continue
