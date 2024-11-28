@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, get_args
 
 import lamindb_setup as ln_setup
 import pandas as pd
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import Artifact, Feature, Record
+from lnschema_core.types import FeatureDtype
 from pandas.api.types import CategoricalDtype, is_string_dtype
 
 from lamindb.core.exceptions import ValidationError
@@ -21,17 +22,7 @@ if TYPE_CHECKING:
     from pandas.core.dtypes.base import ExtensionDtype
 
 
-FEATURE_DTYPES = {
-    "cat",  # categorical variables
-    "num",  # numerical variables
-    "str",  # string variables
-    "int",  # integer variables
-    "float",  # float variables
-    "bool",  # boolean variables
-    "date",  # date variables
-    "datetime",  # datetime variables
-    "object",  # this is a pandas type, we're only using it for complicated types, not for strings
-}
+FEATURE_DTYPES = set(get_args(FeatureDtype))
 
 
 def get_dtype_str_from_dtype(dtype: Any) -> str:
