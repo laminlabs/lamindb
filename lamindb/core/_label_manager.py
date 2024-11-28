@@ -31,7 +31,7 @@ LABELS_EXCLUDE_SET = {"feature_sets"}
 
 def get_labels_as_dict(
     self: Artifact | Collection, links: bool = False, instance: str | None = None
-) -> dict:
+) -> dict[str, tuple[str, QuerySet]]:
     labels = {}  # type: ignore
     if self.id is None:
         return labels
@@ -46,21 +46,27 @@ def get_labels_as_dict(
     return labels
 
 
-def _print_labels_postgres(
-    self: Artifact | Collection, m2m_data: dict | None = None, print_types: bool = False
-) -> str:
-    labels_msg = ""
-    if not m2m_data:
+def _get_labels_postgres(
+    self: Artifact | Collection, m2m_data: dict | None = None
+) -> dict:
+    if m2m_data is None:
         artifact_meta = get_artifact_with_related(self, include_m2m=True)
         m2m_data = artifact_meta.get("related_data", {}).get("m2m", {})
-    if m2m_data:
-        for related_name, labels in m2m_data.items():
-            if not labels or related_name == "feature_sets":
-                continue
-            related_model = get_related_model(self, related_name)
-            print_values = _print_values(labels.values(), n=10)
-            type_str = f": {related_model}" if print_types else ""
-            labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
+    return m2m_data
+
+
+def _print_labels_postgres(
+    self: Artifact | Collection, m2m_data: dict, print_types: bool = False
+) -> str:
+    m2m_data = _get_labels_postgres(self, m2m_data)
+    labels_msg = ""
+    for related_name, labels in m2m_data.items():
+        if not labels or related_name == "feature_sets":
+            continue
+        related_model = get_related_model(self, related_name)
+        print_values = _print_values(labels.values(), n=10)
+        type_str = f": {related_model}" if print_types else ""
+        labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
     return labels_msg
 
 
@@ -68,7 +74,16 @@ def print_labels(
     self: Artifact | Collection,
     m2m_data: dict | None = None,
     print_types: bool = False,
-):
+) -> str:
+    """Print labels associated with an artifact or collection.
+
+    Args:
+        m2m_data: A dictionary of m2m data. If not provided, it will be fetched.
+        print_types: Whether to print the types of the related models.
+
+    Returns:
+        A string representation of the labels associated with the artifact or collection.
+    """
     if not self._state.adding and connections[self._state.db].vendor == "postgresql":
         labels_msg = _print_labels_postgres(self, m2m_data, print_types)
     else:
@@ -90,9 +105,10 @@ def print_labels(
     return msg
 
 
-# Alex: is this a label transfer function?
-def validate_labels(labels: QuerySet | list | dict):
-    def validate_labels_registry(
+def save_validated_records(labels: QuerySet | list | dict) -> tuple[list, list]:
+    """Save validated labels from public based on ontology_id_fields."""
+
+    def save_records_from_ontology_ids(
         labels: QuerySet | list | dict,
     ) -> tuple[list[str], list[str]]:
         if len(labels) == 0:
@@ -131,9 +147,10 @@ def validate_labels(labels: QuerySet | list | dict):
     if isinstance(labels, dict):
         result = {}
         for registry, labels_registry in labels.items():
-            result[registry] = validate_labels_registry(labels_registry)
+            result[registry] = save_records_from_ontology_ids(labels_registry)
+        return result  # type: ignore
     else:
-        return validate_labels_registry(labels)
+        return save_records_from_ontology_ids(labels)
 
 
 class LabelManager:
@@ -144,7 +161,7 @@ class LabelManager:
     with features.
     """
 
-    def __init__(self, host: Artifact | Collection):
+    def __init__(self, host: Artifact | Collection) -> None:
         self._host = host
 
     def __repr__(self) -> str:
@@ -211,7 +228,7 @@ class LabelManager:
             data_name_lower = data.__class__.__name__.lower()
             labels_by_features = defaultdict(list)
             features = set()
-            _, new_labels = validate_labels(labels)
+            _, new_labels = save_validated_records(labels)
             if len(new_labels) > 0:
                 transfer_fk_to_default_db_bulk(
                     new_labels, using_key, transfer_logs=transfer_logs
@@ -241,7 +258,7 @@ class LabelManager:
                     label = label_returned
                 labels_by_features[key].append(label)
             # treat features
-            _, new_features = validate_labels(list(features))
+            _, new_features = save_validated_records(list(features))
             if len(new_features) > 0:
                 transfer_fk_to_default_db_bulk(
                     new_features, using_key, transfer_logs=transfer_logs
@@ -255,16 +272,16 @@ class LabelManager:
                     )
                 save(new_features)
             if hasattr(self._host, related_name):
-                for feature_name, labels in labels_by_features.items():
+                for feature_name, feature_labels in labels_by_features.items():
                     if feature_name is not None:
                         feature_id = Feature.get(name=feature_name).id
                     else:
                         feature_id = None
                     getattr(self._host, related_name).add(
-                        *labels, through_defaults={"feature_id": feature_id}
+                        *feature_labels, through_defaults={"feature_id": feature_id}
                     )
 
-    def make_external(self, label: Record):
+    def make_external(self, label: Record) -> None:
         """Make a label external, aka dissociate label from internal features.
 
         Args:
