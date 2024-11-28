@@ -62,40 +62,6 @@ def _get_labels_postgres(
     return m2m_data
 
 
-def _print_labels(self, m2m_data: dict, print_types: bool = False):
-    labels_msg = ""
-    for related_name, labels in m2m_data.items():
-        if not labels or related_name == "feature_sets":
-            continue
-        related_model = get_related_model(self, related_name)
-        if isinstance(labels, dict):
-            print_values = _print_values(labels.values(), n=10)
-        else:  # labels are a QuerySet
-            field = get_name_field(labels)
-            labels_list = list(labels.values_list(field, flat=True))
-            if len(labels_list) > 0:
-                print_values = _print_values(labels_list, n=10)
-        if print_values:
-            type_str = f": {related_model.__name__}" if print_types else ""
-            labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
-    return labels_msg
-
-
-# def _print_labels_postgres(
-#     self: Artifact | Collection, m2m_data: dict, print_types: bool = False
-# ) -> str:
-#     m2m_data = _get_labels_postgres(self, m2m_data)
-#     labels_msg = ""
-#     for related_name, labels in m2m_data.items():
-#         if not labels or related_name == "feature_sets":
-#             continue
-#         related_model = get_related_model(self, related_name)
-#         print_values = _print_values(labels.values(), n=10)
-#         type_str = f": {related_model}" if print_types else ""
-#         labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
-#     return labels_msg
-
-
 def print_labels(
     self: Artifact | Collection,
     m2m_data: dict | None = None,
@@ -110,26 +76,26 @@ def print_labels(
     Returns:
         A string representation of the labels associated with the artifact or collection.
     """
-    # if not self._state.adding and connections[self._state.db].vendor == "postgresql":
-    #     labels_msg = _print_labels_postgres(self, m2m_data, print_types)
-    # else:
-    #     labels_msg = ""
-    #     for related_name, (related_model, labels) in _get_labels(
-    #         self, instance=self._state.db
-    #     ).items():
-    #         field = get_name_field(labels)
-    #         labels_list = list(labels.values_list(field, flat=True))
-    #         if len(labels_list) > 0:
-    #             print_values = _print_values(labels_list, n=10)
-    #             type_str = f": {related_model}" if print_types else ""
-    #             labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
-
     if not self._state.adding and connections[self._state.db].vendor == "postgresql":
         m2m_data = _get_labels_postgres(self, m2m_data)
     if not m2m_data:
         m2m_data = _get_labels(self, instance=self._state.db)
 
-    labels_msg = _print_labels(self, m2m_data, print_types)
+    labels_msg = ""
+    for related_name, labels in m2m_data.items():
+        if not labels or related_name == "feature_sets":
+            continue
+        if isinstance(labels, dict):
+            print_values = _print_values(labels.values(), n=10)
+        else:  # labels are a QuerySet
+            field = get_name_field(labels)
+            labels_list = list(labels.values_list(field, flat=True))
+            if len(labels_list) > 0:
+                print_values = _print_values(labels_list, n=10)
+        if print_values:
+            related_model = get_related_model(self, related_name)
+            type_str = f": {related_model.__name__}" if print_types else ""
+            labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
 
     msg = ""
     if labels_msg:
@@ -150,29 +116,8 @@ def _save_validated_records(
         else registry._ontology_id_field
     )
     # if the field value is None, use uid field
-    # label_uids = np.array(
-    #     [getattr(label, field) for label in labels if label is not None]
-    # )
     label_uids = [getattr(label, field) for label in labels if label is not None]
     # save labels from ontology_ids
-    # if hasattr(registry, "_ontology_id_field") and len(label_uids) > 0:
-    #     try:
-    #         labels_records = registry.from_values(label_uids, field=field)
-    #         save([r for r in labels_records if r._state.adding])
-    #     except Exception:  # S110
-    #         pass
-    #     field = "uid"
-    #     label_uids = np.array(
-    #         [getattr(label, field) for label in labels if label is not None]
-    #     )
-    # if issubclass(registry, CanCurate):
-    #     validated = registry.validate(label_uids, field=field, mute=True)
-    #     validated_uids = label_uids[validated]
-    #     validated_labels = registry.filter(**{f"{field}__in": validated_uids}).list()
-    #     new_labels = [labels[int(i)] for i in np.argwhere(~validated).flatten()]
-    # else:
-    #     validated_labels = []
-    #     new_labels = list(labels)
     if hasattr(registry, "_ontology_id_field") and label_uids:
         try:
             records = registry.from_values(label_uids, field=field)
