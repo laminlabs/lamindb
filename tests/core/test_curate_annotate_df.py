@@ -2,6 +2,7 @@ import anndata as ad
 import bionty as bt
 import lamindb as ln
 import pandas as pd
+from lamindb.core._data import describe
 
 
 def test_curate_annotate_df():
@@ -62,5 +63,19 @@ def test_curate_annotate_df():
     artifact1 = curator.save_artifact(key="example_datasets/dataset1.h5ad")
     artifact1.features.add_values(metadata)
 
-    print(artifact1.describe(print_types=True))
-    quit()
+    description = describe(artifact1, print_types=True)
+    print(description)
+    labels = """.cell_types: bionty.CellType = 'B cell', 'T cell'
+    .ulabels: ULabel = 'DMSO', 'IFNG', 'Candidate marker study 1'"""
+    assert labels in description
+
+    internal_features = """'cell_type_by_expert': cat[bionty.CellType] = B cell, T cell
+    'cell_type_by_model': cat[bionty.CellType] = B cell, T cell
+    'medium': cat[ULabel] = DMSO, IFNG"""
+    assert internal_features in description
+
+    external_features = """'study': cat[ULabel] = Candidate marker study 1
+    'date_of_experiment': date = 2024-12-01
+    'experiment_note': str = We had a great time performing this experiment and the results look compelling.
+    'temperature': float = 21.6"""
+    assert external_features in description

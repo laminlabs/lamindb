@@ -94,7 +94,9 @@ def __init__(self, *args, **kwargs):
     kwargs["dtype"] = dtype_str
     super(Feature, self).__init__(*args, **kwargs)
     if not self._state.adding:
-        if self.dtype != dtype:
+        if not (
+            self.dtype.startswith("cat[") if dtype == "cat" else self.dtype == dtype
+        ):
             raise ValidationError(
                 f"Feature already exists with dtype {self.dtype}, you passed {dtype}"
             )

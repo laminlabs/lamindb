@@ -1529,6 +1529,7 @@ def save_artifact(
                     feature=feature,
                     feature_ref_is_name=feature_ref_is_name,
                     label_ref_is_name=label_ref_is_name,
+                    from_curator=True,
                 )
 
     if artifact._accessor == "MuData":

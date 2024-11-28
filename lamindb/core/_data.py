@@ -178,6 +178,7 @@ def _describe_postgres(self: Artifact | Collection, print_types: bool = False):
 
     # Print entire message
     logger.print(msg)
+    return msg
 
 
 @doc_args(Artifact.describe.__doc__)
@@ -248,6 +249,7 @@ def describe(self: Artifact | Collection, print_types: bool = False):
 
     # Print entire message
     logger.print(msg)
+    return msg
 
 
 def validate_feature(feature: Feature, records: list[Record]) -> None:
@@ -314,6 +316,7 @@ def add_labels(
     field: StrField | None = None,
     feature_ref_is_name: bool | None = None,
     label_ref_is_name: bool | None = None,
+    from_curator: bool = False,
 ) -> None:
     """{}"""  # noqa: D415
     if self._state.adding:
@@ -384,7 +387,7 @@ def add_labels(
                 record
             )
         for registry_name, records in records_by_registry.items():
-            if feature.name in internal_features:
+            if not from_curator and feature.name in internal_features:
                 raise ValidationError(
                     "Cannot manually annotate internal feature with label. Please use ln.Curator"
                 )
