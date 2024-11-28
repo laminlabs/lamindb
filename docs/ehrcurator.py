@@ -46,7 +46,7 @@ class EHRCurator(DataFrameCurator):
             if col not in self.data.columns:
                 self.data[col] = default
             else:
-                self.data[col].fillna(default, inplace=True)
+                self.data[col] = self.data[col].fillna(default)
 
         super().__init__(
             df=self.data,
