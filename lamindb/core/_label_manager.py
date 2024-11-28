@@ -51,7 +51,7 @@ def _get_labels(
 
 def _get_labels_postgres(
     self: Artifact | Collection, m2m_data: dict | None = None
-) -> dict[str, list]:
+) -> dict[str, dict[int, str]]:
     """Get all labels associated with an artifact or collection as a dictionary.
 
     This is a postgres-specific approach that uses django Subquery.
@@ -85,13 +85,11 @@ def print_labels(
     for related_name, labels in m2m_data.items():
         if not labels or related_name == "feature_sets":
             continue
-        if isinstance(labels, dict):
+        if isinstance(labels, dict):  # postgres, labels are a dict[id, name]
             print_values = _print_values(labels.values(), n=10)
         else:  # labels are a QuerySet
             field = get_name_field(labels)
-            labels_list = list(labels.values_list(field, flat=True))
-            if len(labels_list) > 0:
-                print_values = _print_values(labels_list, n=10)
+            print_values = _print_values(labels.values_list(field, flat=True), n=10)
         if print_values:
             related_model = get_related_model(self, related_name)
             type_str = f": {related_model.__name__}" if print_types else ""
@@ -106,9 +104,9 @@ def print_labels(
 
 def _save_validated_records(
     labels: QuerySet | list | dict,
-) -> tuple[list[str], list[str]]:
+) -> list[str]:
     if not labels:
-        return [], []
+        return []
     registry = labels[0].__class__
     field = (
         REGISTRY_UNIQUE_FIELD.get(registry.__name__.lower(), "uid")
@@ -129,20 +127,16 @@ def _save_validated_records(
 
     if issubclass(registry, CanCurate):
         validated = registry.validate(label_uids, field=field, mute=True)
-        validated_uids = [
-            uid for uid, is_valid in zip(label_uids, validated) if is_valid
-        ]
-        validated_labels = registry.filter(**{f"{field}__in": validated_uids}).list()
         new_labels = [
             label for label, is_valid in zip(labels, validated) if not is_valid
         ]
-        return validated_labels, new_labels
-    return [], list(labels)
+        return new_labels
+    return list(labels)
 
 
 def save_validated_records(
     labels: QuerySet | list | dict,
-) -> tuple[list[str], list[str]] | dict[str, tuple[list[str], list[str]]]:
+) -> list[str] | dict[str, list[str]]:
     """Save validated labels from public based on ontology_id_fields."""
     if isinstance(labels, dict):
         return {
@@ -225,7 +219,7 @@ class LabelManager:
             data_name_lower = data.__class__.__name__.lower()
             labels_by_features = defaultdict(list)
             features = set()
-            _, new_labels = save_validated_records(labels)
+            new_labels = save_validated_records(labels)
             if len(new_labels) > 0:
                 transfer_fk_to_default_db_bulk(
                     new_labels, using_key, transfer_logs=transfer_logs
@@ -255,7 +249,7 @@ class LabelManager:
                     label = label_returned
                 labels_by_features[key].append(label)
             # treat features
-            _, new_features = save_validated_records(list(features))
+            new_features = save_validated_records(list(features))
             if len(new_features) > 0:
                 transfer_fk_to_default_db_bulk(
                     new_features, using_key, transfer_logs=transfer_logs
