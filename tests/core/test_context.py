@@ -25,7 +25,7 @@ def test_track_with_multi_parents():
 Here is how to create a param:
 
   ln.Param(name='param1', dtype='int').save()
-  ln.Param(name='param2', dtype='str').save()
+  ln.Param(name='param2', dtype='cat[ULabel] / str / cat[bionty.CellType] / etc.').save()
   ln.Param(name='param3', dtype='float').save()"""
     )
     ln.Param(name="param1", dtype="int").save()

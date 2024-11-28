@@ -176,16 +176,10 @@ def _describe_postgres(self: Artifact | Collection, print_types: bool = False):
     # Labels and features
     msg += format_labels_and_features(self, related_data, print_types)
 
-    # Print entire message
-    logger.print(msg)
+    return msg
 
 
-@doc_args(Artifact.describe.__doc__)
-def describe(self: Artifact | Collection, print_types: bool = False):
-    """{}"""  # noqa: D415
-    if not self._state.adding and connections[self._state.db].vendor == "postgresql":
-        return _describe_postgres(self, print_types=print_types)
-
+def _describe_sqlite(self: Artifact | Collection, print_types: bool = False):
     model_name = self.__class__.__name__
     msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
     if self._state.db is not None and self._state.db != "default":
@@ -246,7 +240,17 @@ def describe(self: Artifact | Collection, print_types: bool = False):
     # Labels and features
     msg += format_labels_and_features(self, {}, print_types)
 
-    # Print entire message
+    return msg
+
+
+@doc_args(Artifact.describe.__doc__)
+def describe(self: Artifact | Collection, print_types: bool = False):
+    """{}"""  # noqa: D415
+    if not self._state.adding and connections[self._state.db].vendor == "postgresql":
+        msg = _describe_postgres(self, print_types=print_types)
+    else:
+        msg = _describe_sqlite(self, print_types=print_types)
+
     logger.print(msg)
 
 
@@ -314,6 +318,7 @@ def add_labels(
     field: StrField | None = None,
     feature_ref_is_name: bool | None = None,
     label_ref_is_name: bool | None = None,
+    from_curator: bool = False,
 ) -> None:
     """{}"""  # noqa: D415
     if self._state.adding:
@@ -374,11 +379,36 @@ def add_labels(
     else:
         validate_feature(feature, records)  # type:ignore
         records_by_registry = defaultdict(list)
+        feature_sets = self.feature_sets.filter(registry="Feature").all()
+        internal_features = set()  # type: ignore
+        if len(feature_sets) > 0:
+            for feature_set in feature_sets:
+                internal_features = internal_features.union(
+                    set(feature_set.members.values_list("name", flat=True))
+                )  # type: ignore
         for record in records:
             records_by_registry[record.__class__.__get_name_with_schema__()].append(
                 record
             )
         for registry_name, records in records_by_registry.items():
+            if not from_curator and feature.name in internal_features:
+                raise ValidationError(
+                    "Cannot manually annotate internal feature with label. Please use ln.Curator"
+                )
+            if registry_name not in feature.dtype:
+                if not feature.dtype.startswith("cat"):
+                    raise ValidationError(
+                        f"Feature needs dtype='cat' for label annotation, currently has dtype='{feature.dtype}'"
+                    )
+                if feature.dtype == "cat":
+                    feature.dtype = f"cat[{registry_name}]"
+                    feature.save()
+                elif registry_name not in feature.dtype:
+                    new_dtype = feature.dtype.rstrip("]") + f"|{registry_name}]"
+                    raise ValidationError(
+                        f"Label type {registry_name} is not valid for Feature(name='{feature.name}', dtype='{feature.dtype}'), consider updating to dtype='{new_dtype}'"
+                    )
+
             if registry_name not in self.features._accessor_by_registry:
                 logger.warning(f"skipping {registry_name}")
                 continue
@@ -393,27 +423,6 @@ def add_labels(
                 feature_ref_is_name=feature_ref_is_name,
                 label_ref_is_name=label_ref_is_name,
             )
-        links_feature_set = get_feature_set_links(self)
-        feature_set_ids = [link.featureset_id for link in links_feature_set.all()]
-        # get all linked features of type Feature
-        feature_sets = FeatureSet.filter(id__in=feature_set_ids).all()
-        {
-            links_feature_set.filter(featureset_id=feature_set.id)
-            .one()
-            .slot: feature_set.features.all()
-            for feature_set in feature_sets
-            if "Feature" == feature_set.registry
-        }
-        for registry_name, _ in records_by_registry.items():
-            if registry_name not in feature.dtype:
-                logger.debug(
-                    f"updated categorical feature '{feature.name}' type with registry '{registry_name}'"
-                )
-                if not feature.dtype.startswith("cat["):
-                    feature.dtype = f"cat[{registry_name}]"
-                elif registry_name not in feature.dtype:
-                    feature.dtype = feature.dtype.rstrip("]") + f"|{registry_name}]"
-                feature.save()
 
 
 def _track_run_input(

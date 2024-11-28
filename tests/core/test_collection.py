@@ -144,7 +144,9 @@ def test_from_inconsistent_artifacts(df, adata):
 
 
 def test_from_consistent_artifacts(adata, adata2):
-    ln.Feature(name="feat1", dtype="number").save()
+    if (feature := ln.Feature.filter(name="feat1").one_or_none()) is not None:
+        feature.delete()
+    ln.Feature(name="feat1", dtype="num").save()
     curator = ln.Curator.from_anndata(adata, var_index=bt.Gene.symbol, organism="human")
     artifact1 = curator.save_artifact(description="My test")
     curator = ln.Curator.from_anndata(

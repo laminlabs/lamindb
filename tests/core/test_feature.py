@@ -5,7 +5,8 @@ import lamindb as ln
 import pandas as pd
 import pytest
 from lamindb import _feature
-from lamindb._feature import convert_numpy_dtype_to_lamin_feature_type
+from lamindb._feature import convert_pandas_dtype_to_lamin_dtype
+from lamindb.core.exceptions import ValidationError
 from lnschema_core.models import ArtifactULabel
 from pandas.api.types import is_categorical_dtype, is_string_dtype
 
@@ -41,68 +42,6 @@ def test_signatures():
         assert signature(getattr(_feature, name)) == sig
 
 
-def test_feature_from_df(df):
-    # try to generate the file without validated features
-    feat1 = ln.Feature.filter(name="feat1").one_or_none()
-    if feat1 is not None:
-        feat1.delete()
-    artifact = ln.Artifact.from_df(df, description="test")
-
-    # now, register all 4 features
-    features = ln.Feature.from_df(df.iloc[:, :4])
-    ln.save(features)
-    # try again
-    artifact = ln.Artifact.from_df(df, description="test")
-    artifact.save()
-    # link features
-    artifact.features.add_feature_set(ln.FeatureSet(features), slot="columns")
-    features = artifact.features["columns"]
-    assert len(features) == len(df.columns[:4])
-    string_cols = [col for col in df.columns if is_string_dtype(df[col])]
-    categoricals = {col: df[col] for col in df.columns if is_categorical_dtype(df[col])}
-    for key in string_cols:
-        c = pd.Categorical(df[key])
-        if len(c.categories) < len(c):
-            categoricals[key] = c
-    for feature in features:
-        if feature.name in categoricals:
-            assert feature.dtype == "cat"
-        else:
-            orig_type = df[feature.name].dtype
-            assert feature.dtype == convert_numpy_dtype_to_lamin_feature_type(orig_type)
-    for feature in features:
-        feature.save()
-    labels = [ln.ULabel(name=name) for name in df["feat3"].unique()]
-    ln.save(labels)
-    features_lookup = ln.Feature.lookup()
-    artifact.labels.add(labels, feature=features_lookup.feat3)
-    assert set(
-        ln.ULabel.filter(links_artifact__feature__name="feat3").list("name")
-    ) == {"cond1", "cond2"}
-    for name in df.columns[:4]:
-        queried_feature = ln.Feature.get(name=name)
-        if name in categoricals:
-            assert queried_feature.dtype == "cat[ULabel]"
-        else:
-            orig_type = df[name].dtype
-            assert queried_feature.dtype == convert_numpy_dtype_to_lamin_feature_type(
-                orig_type
-            )
-    links_artifactlabel = ArtifactULabel.objects.filter(
-        artifact_id=artifact.id, feature__name="feat3"
-    )
-    label_ids = links_artifactlabel.values_list("ulabel_id")
-    assert set(
-        ln.ULabel.objects.filter(id__in=label_ids).values_list("name", flat=True)
-    ) == {"cond1", "cond2"}
-
-    # clean up
-    artifact.delete(permanent=True)
-    ln.FeatureSet.filter().all().delete()
-    ln.ULabel.filter().all().delete()
-    ln.Feature.filter().all().delete()
-
-
 def test_feature_init():
     # no args allowed
     with pytest.raises(ValueError):
@@ -116,11 +55,63 @@ def test_feature_init():
     # type has to be a list of Record types
     with pytest.raises(ValueError):
         ln.Feature(name="feat", dtype="cat[1]")
-    feat1 = ln.Feature.filter(name="feat1").one_or_none()
-    if feat1 is not None:
+    # ensure feat1 does not exist
+    if feat1 := ln.Feature.filter(name="feat1").one_or_none() is not None:
         feat1.delete()
+    feat1 = ln.Feature(name="feat", dtype="str").save()
+    with pytest.raises(ValidationError) as error:
+        ln.Feature(name="feat", dtype="cat")
+    assert (
+        error.exconly()
+        == "lamindb.core.exceptions.ValidationError: Feature feat already exists with dtype str, you passed cat"
+    )
+    feat1.delete()
     # check that this works
     feature = ln.Feature(name="feat1", dtype="cat[ULabel|bionty.Gene]")
     # check that it also works via objects
     feature = ln.Feature(name="feat1", dtype=[ln.ULabel, bt.Gene])
     assert feature.dtype == "cat[ULabel|bionty.Gene]"
+
+
+def test_feature_from_df(df):
+    if feat1 := ln.Feature.filter(name="feat1").one_or_none() is not None:
+        feat1.delete()
+    features = ln.Feature.from_df(df.iloc[:, :4]).save()
+    artifact = ln.Artifact.from_df(df, description="test").save()
+    artifact.features.add_feature_set(ln.FeatureSet(features), slot="columns")
+    features = artifact.features["columns"]
+    assert len(features) == len(df.columns[:4])
+    [col for col in df.columns if is_string_dtype(df[col])]
+    categoricals = {col: df[col] for col in df.columns if is_categorical_dtype(df[col])}
+    for feature in features:
+        if feature.name in categoricals:
+            assert feature.dtype == "cat"
+        else:
+            orig_type = df[feature.name].dtype
+            assert feature.dtype == convert_pandas_dtype_to_lamin_dtype(orig_type)
+    for feature in features:
+        feature.save()
+    labels = [ln.ULabel(name=name) for name in df["feat3"].unique()]
+    ln.save(labels)
+    feature = ln.Feature.get(name="feat3")
+    feature.dtype = "cat"
+    feature.save()
+    with pytest.raises(ValidationError) as err:
+        artifact.labels.add(labels, feature=feature)
+    assert (
+        err.exconly()
+        == "lamindb.core.exceptions.ValidationError: Cannot manually annotate internal feature with label. Please use ln.Curator"
+    )
+    extfeature = ln.Feature(name="extfeat", dtype="str").save()
+    with pytest.raises(ValidationError) as err:
+        artifact.labels.add(labels, feature=extfeature)
+    assert (
+        err.exconly()
+        == "lamindb.core.exceptions.ValidationError: Feature needs dtype='cat' for label annotation, currently has dtype='str'"
+    )
+
+    # clean up
+    artifact.delete(permanent=True)
+    ln.FeatureSet.filter().all().delete()
+    ln.ULabel.filter().all().delete()
+    ln.Feature.filter().all().delete()

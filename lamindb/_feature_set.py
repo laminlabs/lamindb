@@ -10,7 +10,7 @@ from lamindb_setup.core.hashing import hash_set
 from lnschema_core import Feature, FeatureSet, Record, ids
 from lnschema_core.types import FieldAttr, ListLike
 
-from ._feature import convert_numpy_dtype_to_lamin_feature_type
+from ._feature import convert_pandas_dtype_to_lamin_dtype
 from ._record import init_self_from_db
 from ._utils import attach_func_to_class_method
 from .core.exceptions import ValidationError
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
     from ._query_set import QuerySet
 
-NUMBER_TYPE = "number"
+NUMBER_TYPE = "num"
 DICT_KEYS_TYPE = type({}.keys())  # type: ignore
 
 
@@ -179,13 +179,15 @@ def from_df(
             logger.warning("no validated features, skip creating feature set")
         return None
     if registry == Feature:
-        validated_features = Feature.from_df(df.loc[:, validated])
+        validated_features = Feature.from_values(
+            df.columns, field=field, organism=organism
+        )
         feature_set = FeatureSet(validated_features, name=name, dtype=None)
     else:
         dtypes = [col.dtype for (_, col) in df.loc[:, validated].items()]
         if len(set(dtypes)) != 1:
             raise ValueError(f"data types are heterogeneous: {set(dtypes)}")
-        dtype = convert_numpy_dtype_to_lamin_feature_type(dtypes[0])
+        dtype = convert_pandas_dtype_to_lamin_dtype(dtypes[0])
         validated_features = registry.from_values(
             df.columns[validated],
             field=field,
