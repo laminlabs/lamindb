@@ -107,7 +107,7 @@ def test_curate_annotate_df():
     'temperature': float = 21.6"""
     assert external_features in description
 
-    ln.Artifact.filter().delete(permanent=True)
+    artifact.delete(permanent=True)
     ln.FeatureSet.filter().delete()
     bt.Gene.filter().delete()
     ln.ULabel.filter().delete()
