@@ -106,3 +106,9 @@ def test_curate_annotate_df():
     'experiment_note': str = We had a great time performing this experiment and the results look compelling.
     'temperature': float = 21.6"""
     assert external_features in description
+
+    ln.Artifact.filter().delete(permanent=True)
+    ln.FeatureSet.filter().delete()
+    bt.Gene.filter().delete()
+    ln.ULabel.filter().delete()
+    bt.CellType.filter().delete()
