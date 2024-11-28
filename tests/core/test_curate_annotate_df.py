@@ -90,13 +90,15 @@ def test_curate_annotate_df():
     # >     'experiment_note': str = We had a great time performing this experiment and the results look compelling.
     # >     'temperature': float = 21.6
 
+    print(description)
+
     labels = """.cell_types: bionty.CellType = 'B cell', 'T cell'
     .ulabels: ULabel = 'DMSO', 'IFNG', 'Candidate marker study 1'"""
     assert labels in description
 
-    internal_features = """'cell_type_by_expert': cat[bionty.CellType] = B cell, T cell
-    'cell_type_by_model': cat[bionty.CellType] = B cell, T cell
-    'cell_medium': cat[ULabel] = DMSO, IFNG"""
+    internal_features = """'cell_medium': cat[ULabel] = DMSO, IFNG
+    'cell_type_by_expert': cat[bionty.CellType] = B cell, T cell
+    'cell_type_by_model': cat[bionty.CellType] = B cell, T cell"""
     assert internal_features in description
 
     external_features = """'study': cat[ULabel] = Candidate marker study 1
