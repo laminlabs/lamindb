@@ -9,7 +9,7 @@ def test_curate_annotate_df():
     ## Define the schema of the dataset & its metadata
 
     # observation-level metadata
-    ln.Feature(name="medium", dtype="cat[ULabel]").save()
+    ln.Feature(name="cell_medium", dtype="cat[ULabel]").save()
     ln.Feature(name="sample_note", dtype="str").save()
     ln.Feature(name="cell_type_by_expert", dtype="cat[bionty.CellType]").save()
     ln.Feature(name="cell_type_by_model", dtype="cat[bionty.CellType]").save()
@@ -37,7 +37,7 @@ def test_curate_annotate_df():
         "CD8A": [1, 2, 3],
         "CD4": [3, 4, 5],
         "CD14": [5, 6, 7],
-        "medium": ["DMSO", "IFNG", "DMSO"],
+        "cell_medium": ["DMSO", "IFNG", "DMSO"],
         "sample_note": ["was ok", "looks naah", "pretty! 🤩"],
         "cell_type_by_expert": ["B cell", "T cell", "T cell"],
         "cell_type_by_model": ["B cell", "T cell", "T cell"],
@@ -57,7 +57,7 @@ def test_curate_annotate_df():
         dataset_ad,
         var_index=bt.Gene.symbol,
         categoricals={
-            "medium": ln.ULabel.name,
+            "cell_medium": ln.ULabel.name,
             "cell_type_by_expert": bt.CellType.name,
             "cell_type_by_model": bt.CellType.name,
         },
@@ -79,11 +79,11 @@ def test_curate_annotate_df():
     # >     .ulabels: ULabel = 'DMSO', 'IFNG', 'Candidate marker study 1'
     # >   Feature sets
     # >     'var' = 'CD8A', 'CD4', 'CD14'
-    # >     'obs' = 'medium', 'sample_note', 'cell_type_by_expert', 'cell_type_by_model'
+    # >     'obs' = 'cell_medium', 'sample_note', 'cell_type_by_expert', 'cell_type_by_model'
     # >   Feature values -- internal
     # >     'cell_type_by_expert': cat[bionty.CellType] = B cell, T cell
     # >     'cell_type_by_model': cat[bionty.CellType] = B cell, T cell
-    # >     'medium': cat[ULabel] = DMSO, IFNG
+    # >     'cell_medium': cat[ULabel] = DMSO, IFNG
     # >   Feature values -- external
     # >     'study': cat[ULabel] = Candidate marker study 1
     # >     'date_of_experiment': date = 2024-12-01
@@ -96,7 +96,7 @@ def test_curate_annotate_df():
 
     internal_features = """'cell_type_by_expert': cat[bionty.CellType] = B cell, T cell
     'cell_type_by_model': cat[bionty.CellType] = B cell, T cell
-    'medium': cat[ULabel] = DMSO, IFNG"""
+    'cell_medium': cat[ULabel] = DMSO, IFNG"""
     assert internal_features in description
 
     external_features = """'study': cat[ULabel] = Candidate marker study 1
