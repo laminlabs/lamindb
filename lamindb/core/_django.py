@@ -35,7 +35,7 @@ def get_artifact_with_related(
     """Fetch an artifact with its related data."""
     from lamindb._can_curate import get_name_field
 
-    from ._label_manager import LABELS_EXCLUDE_SET
+    from ._label_manager import EXCLUDE_LABELS
 
     model = artifact.__class__
     schema_modules = get_schemas_modules(artifact._state.db)
@@ -54,7 +54,7 @@ def get_artifact_with_related(
             for v in dict_related_model_to_related_name(
                 model, instance=artifact._state.db
             ).values()
-            if not v.startswith("_") and v not in LABELS_EXCLUDE_SET
+            if not v.startswith("_") and v not in EXCLUDE_LABELS
         ]
     )
     link_tables = (
