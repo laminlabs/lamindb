@@ -56,7 +56,7 @@ def convert_pandas_dtype_to_lamin_dtype(pandas_dtype) -> str:
         dtype = "str"
     else:
         # strip precision qualifiers
-        dtype = "".join(i for i in pandas_dtype.name if not i.isdigit())
+        dtype = "".join(dt for dt in pandas_dtype.name if not dt.isdigit())
     assert dtype in FEATURE_DTYPES  # noqa: S101
     return dtype
 
@@ -71,7 +71,7 @@ def __init__(self, *args, **kwargs):
     dtype: type | str = kwargs.pop("dtype") if "dtype" in kwargs else None
     # cast type
     if dtype is None:
-        raise ValueError("Please pass dtype!")
+        raise ValueError(f"Please pass dtype, one of {FEATURE_DTYPES}")
     elif dtype is not None:
         if not isinstance(dtype, str):
             dtype_str = get_dtype_str_from_dtype(dtype)
