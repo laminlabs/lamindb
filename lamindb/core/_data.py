@@ -383,7 +383,7 @@ def add_labels(
         internal_features = set()  # type: ignore
         if len(feature_sets) > 0:
             for feature_set in feature_sets:
-                internal_features.union(
+                internal_features = internal_features.union(
                     set(feature_set.members.values_list("name", flat=True))
                 )  # type: ignore
         for record in records:

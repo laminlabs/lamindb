@@ -63,7 +63,7 @@ def test_feature_init():
         ln.Feature(name="feat", dtype="cat")
     assert (
         error.exconly()
-        == "lamindb.core.exceptions.ValidationError: Feature already exists with dtype str, you passed cat"
+        == "lamindb.core.exceptions.ValidationError: Feature feat already exists with dtype str, you passed cat"
     )
     feat1.delete()
     # check that this works
@@ -77,7 +77,6 @@ def test_feature_from_df(df):
     if feat1 := ln.Feature.filter(name="feat1").one_or_none() is not None:
         feat1.delete()
     features = ln.Feature.from_df(df.iloc[:, :4]).save()
-    print(features.df()[["name", "dtype"]])
     artifact = ln.Artifact.from_df(df, description="test").save()
     artifact.features.add_feature_set(ln.FeatureSet(features), slot="columns")
     features = artifact.features["columns"]
@@ -94,9 +93,11 @@ def test_feature_from_df(df):
         feature.save()
     labels = [ln.ULabel(name=name) for name in df["feat3"].unique()]
     ln.save(labels)
-    features_lookup = ln.Feature.lookup()
+    feature = ln.Feature.get(name="feat3")
+    feature.dtype = "cat"
+    feature.save()
     with pytest.raises(ValidationError) as err:
-        artifact.labels.add(labels, feature=features_lookup.feat3)
+        artifact.labels.add(labels, feature=feature)
     assert (
         err.exconly()
         == "lamindb.core.exceptions.ValidationError: Cannot manually annotate internal feature with label. Please use ln.Curator"

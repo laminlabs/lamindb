@@ -101,7 +101,7 @@ def __init__(self, *args, **kwargs):
         if not (
             self.dtype.startswith("cat[") if dtype == "cat" else self.dtype == dtype
         ):
-            raise ValueError(
+            raise ValidationError(
                 f"Feature {self.name} already exists with dtype {self.dtype}, you passed {dtype}"
             )
 
