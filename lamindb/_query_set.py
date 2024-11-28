@@ -170,6 +170,13 @@ class RecordsList(UserList):
         """Exactly one result. Throws error if there are more or none."""
         return one_helper(self)
 
+    def save(self) -> RecordsList:
+        """Save all records to the database."""
+        from lamindb._save import save
+
+        save(self)
+        return self
+
 
 class QuerySet(models.QuerySet):
     """Sets of records returned by queries.

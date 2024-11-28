@@ -9,6 +9,8 @@ from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import Artifact, Feature, Record
 from pandas.api.types import CategoricalDtype, is_string_dtype
 
+from lamindb.core.exceptions import ValidationError
+
 from ._query_set import RecordsList
 from ._utils import attach_func_to_class_method
 from .core._settings import settings
@@ -91,6 +93,11 @@ def __init__(self, *args, **kwargs):
                             )
     kwargs["dtype"] = dtype_str
     super(Feature, self).__init__(*args, **kwargs)
+    if not self._state.adding:
+        if self.dtype != dtype:
+            raise ValidationError(
+                f"Feature already exists with dtype {self.dtype}, you passed {dtype}"
+            )
 
 
 def categoricals_from_df(df: pd.DataFrame) -> dict:
@@ -104,7 +111,9 @@ def categoricals_from_df(df: pd.DataFrame) -> dict:
     for key in string_cols:
         c = pd.Categorical(df[key])
         if len(c.categories) < len(c):
-            logger.warning("string column `key` could be better modeled as categorical")
+            logger.warning(
+                "consider changing the dtype of string column `key` to categorical"
+            )
     return categoricals
 
 
