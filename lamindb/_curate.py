@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import copy
 import warnings
+from itertools import chain
 from typing import TYPE_CHECKING
 
 import anndata as ad
 import lamindb_setup as ln_setup
 import pandas as pd
+import pyarrow as pa
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import UPath
@@ -1168,8 +1170,6 @@ class SOMACurator(BaseCurator):
             )
 
     def validate(self):
-        from pyarrow.compute import unique
-
         from lamindb.core.storage._tiledbsoma import _open_tiledbsoma
 
         validated = True
@@ -1215,7 +1215,9 @@ class SOMACurator(BaseCurator):
                 # already validated and cached
                 if key in self._validated_values:
                     continue
-                values = unique(obs.read(column_names=[key]).concat()[key]).to_pylist()
+                values = pa.compute.unique(
+                    obs.read(column_names=[key]).concat()[key]
+                ).to_pylist()
                 update_registry(
                     values=values,
                     field=field,
@@ -1252,24 +1254,25 @@ class SOMACurator(BaseCurator):
             ms = key.partition("__")[0]
             field = self._var_fields[ms][1]
         else:
-            raise ValidationError(f"key {key} is invalid")
-        if key in self._non_validated_values:
-            values = self._non_validated_values[key]
-        elif key in self._validated_values:
-            values = []
-        else:
-            raise ValidationError(f"key {key} was not specified on init")
+            raise KeyError(f"key {key} is invalid!")
+        values = self._non_validated_values.get(key, [])
         return values, field
 
-    def add_new_from(self, key: str | list[str]):
+    def add_new_from(self, key: str):
         if self._non_validated_values is None:
-            raise ValidationError("Run .validate() first")
-        if isinstance(key, str):
-            if key == "all":
-                key = list(self._obs_fields.keys())
-            else:
-                key = [key]
-        for k in key:
+            raise ValidationError("Run .validate() first.")
+        if key == "all":
+            keys = list(self._non_validated_values.keys())
+        else:
+            avail_keys = list(
+                chain(self._non_validated_values.keys(), self._validated_values.keys())
+            )
+            if key not in avail_keys:
+                raise KeyError(
+                    f'"{key}" is not a valid key, available keys are: {_print_values(avail_keys + ["all"])}!'
+                )
+            keys = [key]
+        for k in keys:
             values, field = self._non_validated_values_field(k)
             if len(values) > 0:
                 update_registry(
@@ -1282,6 +1285,66 @@ class SOMACurator(BaseCurator):
                     source=self._sources.get(k),
                     exclude=self._exclude.get(k),
                 )
+
+    def standardize(self, key: str):
+        avail_keys = list(self._non_validated_values.keys())
+        if len(avail_keys) == 0:
+            logger.warning("values are already standardized")
+            return
+        if key == "all":
+            keys = avail_keys
+        else:
+            if key not in avail_keys:
+                raise KeyError(
+                    f'"{key}" is not a valid key, available keys are: {_print_values(avail_keys + ["all"])}!'
+                )
+            keys = [key]
+
+        for k in keys:
+            values, field = self._non_validated_values_field(k)
+            if k in self._valid_var_keys:
+                ms, _, slot_key = k.partition("__")
+                slot = lambda experiment: experiment.ms[ms].var  # noqa: B023
+            else:
+                slot = lambda experiment: experiment.obs
+                slot_key = key
+            # errors if public ontology and the model has no organism
+            # has to be fixed in bionty
+            organism = (
+                self._organism if hasattr(field.field.model, "organism_id") else None
+            )
+            syn_mapper = standardize_categories(
+                values=values,
+                field=field,
+                using_key=self._using_key,
+                source=self._sources.get(k),
+                organism=organism,
+            )
+            if (n_syn_mapper := len(syn_mapper)) == 0:
+                continue
+
+            from lamindb.core.storage._tiledbsoma import _open_tiledbsoma
+
+            with _open_tiledbsoma(self._experiment_uri, mode="r") as experiment:
+                value_filter = f"{slot_key} in {list(syn_mapper.keys())}"
+                table = slot(experiment).read(value_filter=value_filter).concat()
+
+            if len(table) == 0:
+                continue
+
+            df = table.to_pandas()
+            # map values
+            df[slot_key] = df[slot_key].map(lambda val: syn_mapper.get(val, val))  # noqa: B023
+            # write the mapped values
+            with _open_tiledbsoma(self._experiment_uri, mode="w") as experiment:
+                slot(experiment).write(pa.Table.from_pandas(df, schema=table.schema))
+            syn_mapper_print = _print_values(
+                [f'"{m_k}" → "{m_v}"' for m_k, m_v in syn_mapper.items()], sep=""
+            )
+            s = "s" if n_syn_mapper > 1 else ""
+            logger.success(
+                f'standardized {n_syn_mapper} synonym{s} in "{k}": {colors.green(syn_mapper_print)}'
+            )
 
 
 class Curator(BaseCurator):
