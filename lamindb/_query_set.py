@@ -32,7 +32,7 @@ T = TypeVar("T")
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from lnschema_core.types import StrField, listLike
+    from lnschema_core.types import ListLike, StrField
 
 
 class MultipleResultsFound(Exception):
@@ -354,7 +354,7 @@ def reshape_annotate_result(
                 for col in feature_values.columns:
                     if col in result.columns:
                         continue
-                    result.insert(3, col, feature_values[col])
+                    result.insert(0, col, feature_values[col])
 
         # Handle links features if they exist
         links_features = [
@@ -425,7 +425,7 @@ def process_links_features(
         for feature_name in feature_names:
             mask = df[feature_col] == feature_name
             feature_values = df[mask].groupby("id")[value_col].agg(set)
-            result.insert(3, feature_name, result["id"].map(feature_values))
+            result.insert(0, feature_name, result["id"].map(feature_values))
 
     return result
 
@@ -583,7 +583,7 @@ def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
 
 
 @doc_args(CanCurate.validate.__doc__)
-def validate(self, values: listLike, field: str | StrField | None = None, **kwargs):
+def validate(self, values: ListLike, field: str | StrField | None = None, **kwargs):
     """{}"""  # noqa: D415
     from ._can_curate import _validate
 
@@ -591,7 +591,7 @@ def validate(self, values: listLike, field: str | StrField | None = None, **kwar
 
 
 @doc_args(CanCurate.inspect.__doc__)
-def inspect(self, values: listLike, field: str | StrField | None = None, **kwargs):
+def inspect(self, values: ListLike, field: str | StrField | None = None, **kwargs):
     """{}"""  # noqa: D415
     from ._can_curate import _inspect
 
