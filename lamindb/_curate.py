@@ -140,10 +140,10 @@ class BaseCurator:
         """Save the dataset as artifact.
 
         Args:
-            description: `str | None = None` A description of the DataFrame object.
-            key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
-            revises: `Artifact | None = None` Previous version of the artifact. Triggers a revision.
-            run: `Run | None = None` The run that creates the artifact.
+            description: A description of the DataFrame object.
+            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+            revises: Previous version of the artifact. Triggers a revision.
+            run: The run that creates the artifact.
 
         Returns:
             A saved artifact record.
@@ -157,14 +157,14 @@ class DataFrameCurator(BaseCurator):
     See also :class:`~lamindb.Curator`.
 
     Args:
-        df: `pd.DataFrame` The DataFrame object to curate.
-        columns: `FieldAttr=Feature.name` The field attribute for the feature column.
-        categoricals: `dict[str, FieldAttr] | None = None` A dictionary mapping column names to registry_field.
-        using_key: `str | None = None` The reference instance containing registries to validate against.
-        verbosity: `str = "hint"` The verbosity level.
-        organism: `str | None = None` The organism name.
-        sources: `dict[str, Record] | None = None` A dictionary mapping column names to Source records.
-        exclude: `dict | None = None` A dictionary mapping column names to values to exclude.
+        df: The DataFrame object to curate.
+        columns: The field attribute for the feature column.
+        categoricals: A dictionary mapping column names to registry_field.
+        using_key: The reference instance containing registries to validate against.
+        verbosity: The verbosity level.
+        organism: The organism name.
+        sources: A dictionary mapping column names to Source records.
+        exclude: A dictionary mapping column names to values to exclude.
 
     Returns:
         A curator object.
@@ -440,10 +440,10 @@ class DataFrameCurator(BaseCurator):
         """Save the validated DataFrame and metadata.
 
         Args:
-            description: `str | None = None` Description of the DataFrame object.
-            key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
-            revises: `Artifact | None = None` Previous version of the artifact. Triggers a revision.
-            run: `Run | None = None` The run that creates the artifact.
+            description: Description of the DataFrame object.
+            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+            revises: Previous version of the artifact. Triggers a revision.
+            run: The run that creates the artifact.
 
         Returns:
             A saved artifact record.
@@ -494,15 +494,15 @@ class AnnDataCurator(DataFrameCurator):
     See :doc:`docs:cellxgene-curate` for instructions on how to curate against a specific cellxgene schema version.
 
     Args:
-        data: `ad.AnnData | UPathStr` The AnnData object or an AnnData-like path.
-        var_index: `FieldAttr` The registry field for mapping the ``.var`` index.
-        categoricals: `dict[str, FieldAttr] | None = None` A dictionary mapping ``.obs.columns`` to a registry field.
-        obs_columns: `FieldAttr` The registry field for mapping the ``.obs.columns``.
-        using_key: `str | None = None` A reference LaminDB instance.
-        verbosity: `str = "hint"` The verbosity level.
-        organism: `str | None = None` The organism name.
-        sources: `dict[str, Record] | None = None` A dictionary mapping ``.obs.columns`` to Source records.
-        exclude: `dict | None = None` A dictionary mapping column names to values to exclude.
+        data: The AnnData object or an AnnData-like path.
+        var_index: The registry field for mapping the ``.var`` index.
+        categoricals: A dictionary mapping ``.obs.columns`` to a registry field.
+        obs_columns: The registry field for mapping the ``.obs.columns``.
+        using_key: A reference LaminDB instance.
+        verbosity: The verbosity level.
+        organism: The organism name.
+        sources: A dictionary mapping ``.obs.columns`` to Source records.
+        exclude: A dictionary mapping column names to values to exclude.
 
     Examples:
         >>> import bionty as bt
@@ -709,10 +709,10 @@ class AnnDataCurator(DataFrameCurator):
         """Save the validated ``AnnData`` and metadata.
 
         Args:
-            description: `str | None = None` A description of the ``AnnData`` object.
-            key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
-            revises: `Artifact | None = None` Previous version of the artifact. Triggers a revision.
-            run: `Run | None = None` The run that creates the artifact.
+            description: A description of the ``AnnData`` object.
+            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+            revises: Previous version of the artifact. Triggers a revision.
+            run: The run that creates the artifact.
 
         Returns:
             A saved artifact record.
@@ -751,17 +751,17 @@ class MuDataCurator:
     the object should be recreated using :meth:`~lamindb.Curator.from_mudata`.
 
     Args:
-        mdata: `MuData` The MuData object to curate.
-        var_index: `dict[str, dict[str, FieldAttr]]` The registry field for mapping the ``.var`` index for each modality.
+        mdata: The MuData object to curate.
+        var_index: The registry field for mapping the ``.var`` index for each modality.
             For example:
             ``{"modality_1": bt.Gene.ensembl_gene_id, "modality_2": ln.CellMarker.name}``
-        categoricals: `dict[str, FieldAttr] | None = None` A dictionary mapping ``.obs.columns`` to a registry field.
+        categoricals: A dictionary mapping ``.obs.columns`` to a registry field.
             Use modality keys to specify categoricals for MuData slots such as `"rna:cell_type": bt.CellType.name"`.
-        using_key: `str | None = None` A reference LaminDB instance.
-        verbosity: `str = "hint"` The verbosity level.
-        organism: `str | None = None` The organism name.
-        sources: `dict[str, Record] | None = None` A dictionary mapping ``.obs.columns`` to Source records.
-        exclude: `dict | None = None` A dictionary mapping column names to values to exclude.
+        using_key: A reference LaminDB instance.
+        verbosity: The verbosity level.
+        organism: The organism name.
+        sources: A dictionary mapping ``.obs.columns`` to Source records.
+        exclude: A dictionary mapping column names to values to exclude.
 
     Examples:
         >>> import bionty as bt
@@ -1004,8 +1004,8 @@ class MuDataCurator:
         """Replace synonyms with standardized values.
 
         Args:
-            key: `str` The key referencing the slot in the `MuData`.
-            modality: `str | None = None` The modality name.
+            key: The key referencing the slot in the `MuData`.
+            modality: The modality name.
 
         Inplace modification of the dataset.
         """
@@ -1026,10 +1026,10 @@ class MuDataCurator:
         """Save the validated ``MuData`` and metadata.
 
         Args:
-            description: `str | None = None` A description of the ``MuData`` object.
-            key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
-            revises: `Artifact | None = None` Previous version of the artifact. Triggers a revision.
-            run: `Run | None = None` The run that creates the artifact.
+            description: A description of the ``MuData`` object.
+            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+            revises: Previous version of the artifact. Triggers a revision.
+            run: The run that creates the artifact.
 
         Returns:
             A saved artifact record.
@@ -1437,10 +1437,10 @@ def save_artifact(
         description: A description of the artifact.
         organism: The organism name.
         adata: The AnnData object to save and get n_observations, must be provided if data is a path.
-        type: `Literal["dataset", "model"] | None = None` The artifact type.
-        key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
-        revises: `Artifact | None = None` Previous version of the artifact. Triggers a revision.
-        run: `Run | None = None` The run that creates the artifact.
+        type: The artifact type.
+        key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+        revises: Previous version of the artifact. Triggers a revision.
+        run: The run that creates the artifact.
 
     Returns:
         The saved Artifact.
