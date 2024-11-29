@@ -20,14 +20,11 @@ def test_curate_annotate_df():
     ln.Feature(name="study_note", dtype="str").save()
 
     ## Register permissible values for categoricals
-
-    ln.save(ln.ULabel.from_values(["DMSO", "IFNG"], create=True))
-    ln.save(
-        ln.ULabel.from_values(
-            ["Candidate marker study 1", "Candidate marker study 2"], create=True
-        )
-    )
-    ln.save(bt.CellType.from_values(["B cell", "T cell"], create=True))
+    ln.ULabel.from_values(["DMSO", "IFNG"], create=True).save()
+    ln.ULabel.from_values(
+        ["Candidate marker study 1", "Candidate marker study 2"], create=True
+    ).save()
+    bt.CellType.from_values(["B cell", "T cell"], create=True).save()
 
     ## Ingest a dataset
 
