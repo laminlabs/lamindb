@@ -1146,13 +1146,16 @@ class SOMACurator(BaseCurator):
 
         # register obs columns' names
         register_columns = list(self._obs_fields.keys())
+        organism = check_registry_organism(
+            self._columns_field.model, self._organism
+        ).get("organism")
         update_registry(
             values=register_columns,
             field=self._columns_field,
             key="columns",
             using_key=self._using_key,
             validated_only=False,
-            organism=self._organism,
+            organism=organism,
             source=self._sources.get("columns"),
             exclude=self._exclude.get("columns"),
         )
@@ -1168,7 +1171,7 @@ class SOMACurator(BaseCurator):
                 key="columns",
                 using_key=self._using_key,
                 validated_only=True,
-                organism=self._organism,
+                organism=organism,
                 source=self._sources.get("columns"),
                 exclude=self._exclude.get("columns"),
             )
@@ -1188,10 +1191,9 @@ class SOMACurator(BaseCurator):
                 var_ms_values = (
                     var_ms.read(column_names=[key]).concat()[key].to_pylist()
                 )
-
-                organism = check_registry_organism(field.field.model, self._organism)[
-                    "organism"
-                ]
+                organism = check_registry_organism(
+                    field.field.model, self._organism
+                ).get("organism")
                 update_registry(
                     values=var_ms_values,
                     field=field,
@@ -1225,9 +1227,9 @@ class SOMACurator(BaseCurator):
                 values = pa.compute.unique(
                     obs.read(column_names=[key]).concat()[key]
                 ).to_pylist()
-                organism = check_registry_organism(field.field.model, self._organism)[
-                    "organism"
-                ]
+                organism = check_registry_organism(
+                    field.field.model, self._organism
+                ).get("organism")
                 update_registry(
                     values=values,
                     field=field,
@@ -1285,9 +1287,9 @@ class SOMACurator(BaseCurator):
         for k in keys:
             values, field = self._non_validated_values_field(k)
             if len(values) > 0:
-                organism = check_registry_organism(field.field.model, self._organism)[
-                    "organism"
-                ]
+                organism = check_registry_organism(
+                    field.field.model, self._organism
+                ).get("organism")
                 update_registry(
                     values=values,
                     field=field,
@@ -1323,9 +1325,9 @@ class SOMACurator(BaseCurator):
                 slot_key = key
             # errors if public ontology and the model has no organism
             # has to be fixed in bionty
-            organism = check_registry_organism(field.field.model, self._organism)[
+            organism = check_registry_organism(field.field.model, self._organism).get(
                 "organism"
-            ]
+            )
             syn_mapper = standardize_categories(
                 values=values,
                 field=field,
@@ -1383,7 +1385,7 @@ class SOMACurator(BaseCurator):
         feature_sets = {}
         organism = check_registry_organism(
             self._columns_field.field.model, self._organism
-        )["organism"]
+        ).get("organism")
         feature_sets["obs"] = FeatureSet.from_values(
             values=list(self._obs_fields.keys()),
             field=self._columns_field,
@@ -1392,9 +1394,10 @@ class SOMACurator(BaseCurator):
         )
         for ms in self._var_fields:
             var_key, var_field = self._var_fields[ms]
-            organism = check_registry_organism(var_field.field.model, self._organism)[
-                "organism"
-            ]
+            organism = check_registry_organism(
+                var_field.field.model, self._organism
+            ).get("organism")
+            # todo: add type
             feature_sets[f"{ms}__var"] = FeatureSet.from_values(
                 values=self._validated_values[f"{ms}__{var_key}"],
                 field=var_field,
