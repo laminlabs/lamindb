@@ -1147,7 +1147,7 @@ class SOMACurator(BaseCurator):
         # register obs columns' names
         register_columns = list(self._obs_fields.keys())
         organism = check_registry_organism(
-            self._columns_field.model, self._organism
+            self._columns_field.field.model, self._organism
         ).get("organism")
         update_registry(
             values=register_columns,
