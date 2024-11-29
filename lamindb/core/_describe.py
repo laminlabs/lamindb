@@ -40,16 +40,32 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
     general.add(f".uid = '{self.uid}'")
     if hasattr(self, "n_observations") and self.n_observations:
         general.add(Text(f".n_observations = {self.n_observations}"))
+    if hasattr(self, "key") and self.key:
+        general.add(
+            f".key (virtual) = '{self.key}'"
+            if self._key_is_virtual
+            else f".key = {self.key}"
+        )
     if hasattr(self, "storage"):
         storage_root = self.storage.root
-        general.add(f".storage = {storage_root}")
+        # general.add(f".storage = {storage_root}")
         general.add(
             Text.assemble(
                 ".path = ",
-                ("storage/", "dim"),
-                f" {str(self.path).removeprefix(storage_root).removeprefix('/')}",
+                (storage_root, "dim"),
+                f"{str(self.path).removeprefix(storage_root)}",
             )
         )
+    general.add(
+        Text.assemble(
+            ".created_by = ",
+            (
+                self.created_by.handle
+                if self.created_by.name is None
+                else f"{self.created_by.handle} ({self.created_by.name})"
+            ),
+        )
+    )
     general.add(Text.assemble(".created_at = ", highlight_time(str(self.created_at))))
     if self.transform:
         general.add(
@@ -67,6 +83,7 @@ def describe_labels(
     labels_data: dict | None = None,
     print_types: bool = False,
     tree: Tree | None = None,
+    as_subtree: bool = False,
 ):
     from ._label_manager import (
         _get_labels,
@@ -87,7 +104,6 @@ def describe_labels(
     if not labels_data:
         return tree
 
-    labels_tree = tree.add(Text("Labels", style="bold bright_green"))
     labels_table = Table(
         Column("Name", style="", no_wrap=True, width=NAME_WIDTH),
         Column("Type", style="dim", no_wrap=True, width=TYPE_WIDTH),
@@ -111,8 +127,12 @@ def describe_labels(
                 f".{related_name}", Text(type_str, style="dim"), print_values
             )
 
-    labels_tree.add(labels_table)
-    return tree
+    if as_subtree:
+        return labels_table
+    else:
+        labels_tree = tree.add(Text("Labels", style="bold pale_green3"))
+        labels_tree.add(labels_table)
+        return tree
 
 
 def describe_features(
@@ -122,6 +142,7 @@ def describe_features(
     to_dict: bool = False,
     print_params: bool = False,
     tree: Tree | None = None,
+    with_labels: bool = False,
 ):
     from lamindb._from_values import _print_values
 
@@ -139,7 +160,7 @@ def describe_features(
     if tree is None:
         tree = describe_header(self)
 
-    dataset_tree = tree.add(Text("Dataset", style="bold dark_orange"))
+    dataset_tree = tree.add(Text("Dataset", style="bold cornflower_blue"))
     dictionary: dict[str, Any] = {}
 
     if self._state.adding:
@@ -233,6 +254,7 @@ def describe_features(
     if to_dict:
         return dictionary
 
+    # Internal features from the Feature registry
     internal_features_slot: dict[str, list] = {}
     for feature_name, feature_row in internal_data.items():
         slot, registry_str = feature_data.get(feature_name)
@@ -246,13 +268,14 @@ def describe_features(
         dataset_tree.add(
             _create_feature_table(
                 Text.assemble(
-                    (slot, "purple"),
-                    (f" ← {feature_set.n} [{feature_set.dtype}]", "dim"),
+                    (slot, "violet"),
+                    (f" ← {feature_set.n} [{feature_set.registry}]", "dim"),
                 ),
                 feature_rows,
             )
         )
 
+    # Internal features from other registries (e.g. bionty.Gene)
     for slot, (feature_set, feature_names) in feature_set_data.items():
         if feature_set.registry == "Feature":
             continue
@@ -263,7 +286,7 @@ def describe_features(
         dataset_tree.add(
             _create_feature_table(
                 Text.assemble(
-                    (slot, "purple"),
+                    (slot, "violet"),
                     (f" ← {feature_set.n} [{feature_set.registry}]", "dim"),
                 ),
                 features,
@@ -273,8 +296,13 @@ def describe_features(
     # Annotations (external features)
     annotations_tree = tree.add(Text("Annotations", style="bold dark_orange"))
     annotations_tree.add(
-        _create_feature_table(Text.assemble(("Features", "purple")), external_data)
+        _create_feature_table(Text.assemble(("Features", "pale_green3")), external_data)
     )
+
+    if with_labels:
+        labels_table = describe_labels(self, as_subtree=True)
+        annotations_tree.add(Text("Labels", style="bold pale_green3"))
+        annotations_tree.add(labels_table)
     return tree
 
 
