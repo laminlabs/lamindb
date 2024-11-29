@@ -110,7 +110,7 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
         general.add(
             Text(
                 f".transform = '{self.transform.name}'",
-                style="khaki1",
+                style="cyan3",
             )
         )
 

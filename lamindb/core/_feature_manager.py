@@ -276,11 +276,11 @@ def _get_featuresets_postgres(
     return fs_data
 
 
-def _create_feature_table(name: str, data: list) -> Table:
+def _create_feature_table(name: str, registry_str: str, data: list) -> Table:
     """Create a Rich table for a feature group."""
     table = Table(
         Column(name, style="", no_wrap=True, width=NAME_WIDTH),
-        Column("", style="dim", no_wrap=True, width=TYPE_WIDTH),
+        Column(registry_str, style="dim", no_wrap=True, width=TYPE_WIDTH),
         Column("", width=VALUES_WIDTH, no_wrap=True),
         show_header=True,
         box=None,
@@ -334,7 +334,7 @@ def describe_features(
                 features = feature_set.members
                 # features.first() is a lot slower than features[0] here
                 name_field = get_name_field(features[0])
-                feature_names = list(features.values_list(name_field, flat=True)[:10])
+                feature_names = list(features.values_list(name_field, flat=True)[:20])
                 feature_set_data[slot] = (feature_set, feature_names)
                 for feature_name in feature_names:
                     feature_data[feature_name] = (slot, feature_set.registry)
@@ -369,102 +369,85 @@ def describe_features(
         print_params=print_params,
     )
 
-    # Combine all features
-    internal_data = {}
+    # Process all Features containing labels and sort into internal/external
+    internal_feature_labels = {}
     external_data = []
-
-    # Process all Features and sort into internal/external
     for features, is_list_type in [(categoricals, False), (non_categoricals, True)]:
         for (feature_name, feature_dtype), values in sorted(features.items()):
-            # Handle dictionary conversion - no separation needed for dictionary
+            # Handle dictionary conversion
             if to_dict:
                 dict_value = values if len(values) > 1 else next(iter(values))
                 dictionary[feature_name] = dict_value
-            else:
-                # Format message
-                printed_values = (
-                    _print_values(sorted(values), n=10, quotes=False)
-                    if not is_list_type or not feature_dtype.startswith("list")
-                    else sorted(values)
-                )
+                continue
 
-                # Sort into internal/external
-                if feature_name in internal_feature_names:
-                    internal_data[feature_name] = (
-                        feature_name,
-                        Text(feature_dtype, style="dim"),
-                        printed_values,
-                    )
-                else:
-                    external_data.append(
-                        (
-                            feature_name,
-                            Text(feature_dtype, style="dim"),
-                            printed_values,
-                        )
-                    )
+            # Format message
+            printed_values = (
+                _print_values(sorted(values), n=10, quotes=False)
+                if not is_list_type or not feature_dtype.startswith("list")
+                else sorted(values)
+            )
+
+            # Sort into internal/external
+            feature_info = (
+                feature_name,
+                Text(feature_dtype, style="dim"),
+                printed_values,
+            )
+            if feature_name in internal_feature_names:
+                internal_feature_labels[feature_name] = feature_info
+            else:
+                external_data.append(feature_info)
 
     if to_dict:
         return dictionary
 
     # Dataset section
-    ## internal features from the Feature registry
-    internal_features_slot: dict[str, list] = {}
-    for feature_name, feature_row in internal_data.items():
+    internal_features_slot: dict[
+        str, list
+    ] = {}  # internal features from the `Feature` registry that contain labels
+    for feature_name, feature_row in internal_feature_labels.items():
         slot, _ = feature_data.get(feature_name)
         internal_features_slot.setdefault(slot, []).append(feature_row)
-
-    dataset_tree = None
     dataset_tree_children = []
-    for slot, feature_rows in internal_features_slot.items():
-        feature_set = feature_set_data[slot][0]
+
+    for slot, (feature_set, feature_names) in feature_set_data.items():
+        if slot in internal_features_slot:
+            feature_rows = internal_features_slot[slot]
+        else:
+            feature_rows = [
+                (feature_name, Text(str(feature_set.dtype), style="dim"), "")
+                for feature_name in feature_names
+            ]
         dataset_tree_children.append(
             _create_feature_table(
                 Text.assemble(
                     (slot, "violet"),
-                    (f" ← {feature_set.n} [{feature_set.registry}]", "dim"),
+                    (" • ", "dim"),
+                    (str(feature_set.n), "pink1"),
                 ),
+                Text.assemble((f"[{feature_set.registry}]", "pink1")),
                 feature_rows,
             )
         )
-    ## internal features from other registries (e.g. bionty.Gene)
-    for slot, (feature_set, feature_names) in feature_set_data.items():
-        if feature_set.registry == "Feature":
-            continue
-        features = [
-            (feature_name, Text(str(feature_set.dtype), style="dim"), "")
-            for feature_name in feature_names
-        ]
-        dataset_tree_children.append(
-            _create_feature_table(
-                Text.assemble(
-                    (slot, "violet"),
-                    (f" ← {feature_set.n} [{feature_set.registry}]", "dim"),
-                ),
-                features,
-            )
-        )
+    ## internal features from the non-`Feature` registry
     if dataset_tree_children:
-        if dataset_tree is None:
-            dataset_tree = tree.add(Text("Dataset", style="bold cornflower_blue"))
+        dataset_tree = tree.add(Text("Dataset", style="bold bright_magenta"))
         for child in dataset_tree_children:
             dataset_tree.add(child)
 
     # Annotations section
     ## external features
-    annotations_tree = None
     annotations_tree_children = []
     if external_data:
         annotations_tree_children.append(
             _create_feature_table(
-                Text.assemble(("Features", "pale_green3")), external_data
+                Text.assemble(("Features", "green_yellow")), "", external_data
             )
         )
-    ## labels
     if with_labels:
         labels_table = describe_labels(self, as_subtree=True)
         if labels_table:
-            annotations_tree_children.append(Text("Labels", style="bold pale_green3"))
+            annotations_tree_children.append(Text("Labels", style="bold green_yellow"))
             annotations_tree_children.append(labels_table)
     if annotations_tree_children:
         annotations_tree = tree.add(Text("Annotations", style="bold dark_orange"))

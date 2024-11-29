@@ -126,7 +126,7 @@ def describe_labels(
             return labels_table
     else:
         if labels_table.rows:
-            labels_tree = tree.add(Text("Labels", style="bold pale_green3"))
+            labels_tree = tree.add(Text("Labels", style="bold green_yellow"))
             labels_tree.add(labels_table)
         return tree
 

@@ -364,7 +364,7 @@ def add_labels(
             if registry_name not in feature.dtype:
                 if not feature.dtype.startswith("cat"):
                     raise ValidationError(
-                        f"Feature needs dtype='cat' for label annotation, currently has dtype='{feature.dtype}'"
+                        f"Feature {feature.name} needs dtype='cat' for label annotation, currently has dtype='{feature.dtype}'"
                     )
                 if feature.dtype == "cat":
                     feature.dtype = f"cat[{registry_name}]"
