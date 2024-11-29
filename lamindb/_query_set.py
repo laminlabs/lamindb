@@ -3,7 +3,8 @@ from __future__ import annotations
 from collections import UserList
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
-from typing import TYPE_CHECKING, Any, NamedTuple
+from dataclasses import is_dataclass
+from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar
 
 import pandas as pd
 from django.db import models
@@ -23,6 +24,8 @@ from lnschema_core.models import (
 )
 
 from .core.exceptions import DoesNotExist
+
+T = TypeVar("T")
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -155,22 +158,25 @@ def get(
         return registry.objects.using(qs.db).get(**expressions)
 
 
-class RecordsList(UserList):
+class RecordList(UserList, Generic[T]):
     """Is ordered, can't be queried, but has `.df()`."""
 
-    def __init__(self, records: Iterable[Record]):
-        super().__init__(record for record in records)
+    def __init__(self, records: Iterable[T]):
+        if isinstance(records, list):
+            self.data = records  # Direct assignment if already a list, no copy
+        else:
+            super().__init__(records)  # Let UserList handle the conversion
 
     def df(self) -> pd.DataFrame:
         keys = get_keys_from_df(self.data, self.data[0].__class__)
         values = [record.__dict__ for record in self.data]
         return pd.DataFrame(values, columns=keys)
 
-    def one(self) -> Record:
+    def one(self) -> T:
         """Exactly one result. Throws error if there are more or none."""
         return one_helper(self)
 
-    def save(self) -> RecordsList:
+    def save(self) -> RecordList[T]:
         """Save all records to the database."""
         from lamindb._save import save
 

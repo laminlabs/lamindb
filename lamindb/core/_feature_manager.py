@@ -471,9 +471,9 @@ def infer_feature_type_convert_json(
             sanitized_value = datetime_str[:10] if dt_type == "date" else datetime_str  # type: ignore
             return dt_type, sanitized_value  # type: ignore
         else:
-            return "cat[ULabel] / str / cat[bionty.CellType] / etc.", value
+            return "cat ? str", value
     elif isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
-        if isinstance(value, (pd.Series, np.ndarray)):
+        if isinstance(value, (pd.Series, np.ndarray, pd.Categorical)):
             return convert_pandas_dtype_to_lamin_dtype(value.dtype), list(value)
         if isinstance(value, dict):
             return "dict", value
@@ -488,7 +488,7 @@ def infer_feature_type_convert_json(
                     return "list[float]", value
                 elif first_element_type is str:
                     return (
-                        "list[cat[ULabel] / str / cat[bionty.CellType] / etc.]",
+                        "list[cat ? str]",
                         value,
                     )
                 elif first_element_type == Record:
