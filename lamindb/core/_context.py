@@ -90,7 +90,7 @@ def raise_missing_context(transform_type: str, key: str) -> bool:
             f"you already have a transform with key '{key}': Transform('{transform.uid[:8]}')\n"
             f'  (1) to make a revision, run: ln.track("{new_uid}")\n  (2) to create a new transform, rename your {transform_type} file and re-run: ln.track()'
         )
-    if transform_type == "notebook":
+    if is_run_from_ipython:
         print(f"→ {message}")
         response = input("→ Ready to re-run? (y/n)")
         if response == "y":
