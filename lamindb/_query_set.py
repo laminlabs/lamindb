@@ -39,6 +39,9 @@ class MultipleResultsFound(Exception):
     pass
 
 
+pd.set_option("display.max_columns", 200)
+
+
 # def format_and_convert_to_local_time(series: pd.Series):
 #     tzinfo = datetime.now().astimezone().tzinfo
 #     timedelta = tzinfo.utcoffset(datetime.now())  # type: ignore
@@ -201,7 +204,14 @@ def get_basic_field_names(qs: QuerySet) -> list[str]:
         for field in qs.model._meta.fields
         if isinstance(field, models.ForeignKey)
     ]
-    for field_name in ["run_id", "created_at", "created_by_id", "updated_at"]:
+    for field_name in [
+        "version",
+        "is_latest",
+        "run_id",
+        "created_at",
+        "created_by_id",
+        "updated_at",
+    ]:
         if field_name in field_names:
             field_names.remove(field_name)
             field_names.append(field_name)
@@ -259,7 +269,7 @@ def get_feature_annotate_kwargs(show_features: bool | list[str]) -> dict[str, An
 
 # https://claude.ai/share/16280046-6ae5-4f6a-99ac-dec01813dc3c
 def analyze_lookup_cardinality(
-    model_class: Registry, lookup_paths: str | list[str] | None
+    model_class: Record, lookup_paths: list[str] | None
 ) -> dict[str, str]:
     """Analyze lookup cardinality.
 
@@ -276,8 +286,6 @@ def analyze_lookup_cardinality(
     result = {}  # type: ignore
     if lookup_paths is None:
         return result
-    elif isinstance(lookup_paths, str):
-        lookup_paths = [lookup_paths]
     for lookup_path in lookup_paths:
         parts = lookup_path.split("__")
         current_model = model_class
@@ -343,7 +351,10 @@ def reshape_annotate_result(
         if all(col in df.columns for col in feature_cols):
             feature_values = process_feature_values(df, features)
             if not feature_values.empty:
-                result = result.merge(feature_values, on="id", how="left")
+                for col in feature_values.columns:
+                    if col in result.columns:
+                        continue
+                    result.insert(3, col, feature_values[col])
 
         # Handle links features if they exist
         links_features = [
@@ -388,6 +399,7 @@ def process_links_features(
     features: bool | list[str],
 ) -> pd.DataFrame:
     """Process links_XXX feature columns."""
+    # this loops over different entities that might be linked under a feature
     for feature_col in feature_cols:
         prefix = re.match(r"links_(.+?)__feature__name", feature_col).group(1)
 
@@ -404,6 +416,7 @@ def process_links_features(
 
         value_col = value_cols[0]
         feature_names = df[feature_col].unique()
+        feature_names = feature_names[~pd.isna(feature_names)]
 
         # Filter features if specific ones requested
         if isinstance(features, list):
@@ -412,7 +425,7 @@ def process_links_features(
         for feature_name in feature_names:
             mask = df[feature_col] == feature_name
             feature_values = df[mask].groupby("id")[value_col].agg(set)
-            result[feature_name] = result["id"].map(feature_values)
+            result.insert(3, feature_name, result["id"].map(feature_values))
 
     return result
 
@@ -426,7 +439,7 @@ def process_extra_columns(
             continue
 
         values = df.groupby("id")[col].agg(set if col_type == "many" else "first")
-        result[col] = result["id"].map(values)
+        result.insert(0, col, result["id"].map(values))
 
     return result
 
@@ -458,14 +471,20 @@ class QuerySet(models.QuerySet):
         if features:
             annotate_kwargs.update(get_feature_annotate_kwargs(features))
         if include:
+            if isinstance(include, str):
+                include = [include]
+            include = include.copy()[::-1]
             include_kwargs = {s: F(s) for s in include}
             annotate_kwargs.update(include_kwargs)
         if annotate_kwargs:
-            queryset = self.annotate(**annotate_kwargs).distinct()
+            queryset = self.annotate(**annotate_kwargs)
         else:
             queryset = self
         df = pd.DataFrame(queryset.values(*field_names, *list(annotate_kwargs.keys())))
-        extra_cols = analyze_lookup_cardinality(self.model.__class__, include)
+        if len(df) == 0:
+            df = pd.DataFrame({}, columns=field_names)
+            return df
+        extra_cols = analyze_lookup_cardinality(self.model, include)  # type: ignore
         df_reshaped = reshape_annotate_result(field_names, df, extra_cols, features)
         pk_name = self.model._meta.pk.name
         pk_column_name = pk_name if pk_name in df.columns else f"{pk_name}_id"

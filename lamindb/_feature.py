@@ -57,6 +57,8 @@ def convert_pandas_dtype_to_lamin_dtype(pandas_dtype: ExtensionDtype) -> str:
     else:
         # strip precision qualifiers
         dtype = "".join(dt for dt in pandas_dtype.name if not dt.isdigit())
+    if dtype.startswith("datetime"):
+        dtype = dtype.split("[")[0]
     assert dtype in FEATURE_DTYPES  # noqa: S101
     return dtype
 

@@ -264,6 +264,7 @@ def get(
 def df(
     cls,
     include: str | list[str] | None = None,
+    features: bool | list[str] = False,
     join: str = "inner",
     limit: int = 100,
 ) -> pd.DataFrame:
@@ -271,7 +272,7 @@ def df(
     query_set = cls.filter()
     if hasattr(cls, "updated_at"):
         query_set = query_set.order_by("-updated_at")
-    return query_set[:limit].df(include=include, join=join)
+    return query_set[:limit].df(include=include, features=features, join=join)
 
 
 def _search(
