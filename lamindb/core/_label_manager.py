@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import warnings
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
 from django.db import connections
 from lamin_utils import colors, logger
 from lnschema_core.models import CanCurate, Feature
+from rich.table import Column, Table
+from rich.text import Text
 
 from lamindb._from_values import _print_values
 from lamindb._record import (
@@ -16,12 +19,20 @@ from lamindb._record import (
 )
 from lamindb._save import save
 
+from ._describe import (
+    NAME_WIDTH,
+    TYPE_WIDTH,
+    VALUES_WIDTH,
+    describe_header,
+    print_rich_tree,
+)
 from ._django import get_artifact_with_related, get_related_model
 from ._settings import settings
 from .schema import dict_related_model_to_related_name
 
 if TYPE_CHECKING:
     from lnschema_core.models import Artifact, Collection, Record
+    from rich.tree import Tree
 
     from lamindb._query_set import QuerySet
 
@@ -62,27 +73,40 @@ def _get_labels_postgres(
     return m2m_data
 
 
-def print_labels(
+def describe_labels(
     self: Artifact | Collection,
-    m2m_data: dict | None = None,
-    print_types: bool = False,
-) -> str:
-    """Print labels associated with an artifact or collection.
-
-    Args:
-        m2m_data: A dictionary of m2m data. If not provided, it will be fetched.
-        print_types: Whether to print the types of the related models.
-
-    Returns:
-        A string representation of the labels associated with the artifact or collection.
-    """
+    labels_data: dict | None = None,
+    print_types: bool = False,  # deprecated
+    tree: Tree | None = None,
+    as_subtree: bool = False,
+):
+    """Describe labels associated with an artifact or collection."""
+    if print_types:
+        warnings.warn(
+            "`print_types` parameter is deprecated and will be removed in a future version. Types are now always printed.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     if not self._state.adding and connections[self._state.db].vendor == "postgresql":
-        m2m_data = _get_labels_postgres(self, m2m_data)
-    if not m2m_data:
-        m2m_data = _get_labels(self, instance=self._state.db)
+        labels_data = _get_labels_postgres(self, labels_data)
+    if not labels_data:
+        labels_data = _get_labels(self, instance=self._state.db)
 
-    labels_msg = ""
-    for related_name, labels in m2m_data.items():
+    # initialize tree
+    if tree is None:
+        tree = describe_header(self)
+    if not labels_data:
+        return tree
+
+    labels_table = Table(
+        Column("Name", style="", no_wrap=True, width=NAME_WIDTH),
+        Column("Type", style="dim", no_wrap=True, width=TYPE_WIDTH),
+        Column("Values", width=VALUES_WIDTH, no_wrap=True),
+        show_header=False,
+        box=None,
+        pad_edge=False,
+    )
+    for related_name, labels in labels_data.items():
         if not labels or related_name == "feature_sets":
             continue
         if isinstance(labels, dict):  # postgres, labels are a dict[id, name]
@@ -92,16 +116,19 @@ def print_labels(
             print_values = _print_values(labels.values_list(field, flat=True), n=10)
         if print_values:
             related_model = get_related_model(self, related_name)
-            type_str = (
-                f": {related_model.__get_name_with_schema__()}" if print_types else ""
+            type_str = related_model.__get_name_with_schema__()
+            labels_table.add_row(
+                f".{related_name}", Text(type_str, style="dim"), print_values
             )
-            labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
 
-    msg = ""
-    if labels_msg:
-        msg += f"  {colors.italic('Labels')}\n"
-        msg += labels_msg
-    return msg
+    if as_subtree:
+        if labels_table.rows:
+            return labels_table
+    else:
+        if labels_table.rows:
+            labels_tree = tree.add(Text("Labels", style="bold pale_green3"))
+            labels_tree.add(labels_table)
+        return tree
 
 
 def _save_validated_records(
@@ -160,11 +187,8 @@ class LabelManager:
         self._host = host
 
     def __repr__(self) -> str:
-        msg = print_labels(self._host)
-        if len(msg) > 0:
-            return msg
-        else:
-            return "no linked labels"
+        tree = describe_labels(self._host)
+        return print_rich_tree(tree, fallback="no linked labels")
 
     def add(
         self,

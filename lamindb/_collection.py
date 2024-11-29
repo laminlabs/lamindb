@@ -21,6 +21,7 @@ from lnschema_core.models import (
 from lnschema_core.types import VisibilityChoice
 
 from . import Artifact, Run
+from ._parents import view_lineage
 from ._record import init_self_from_db, update_attributes
 from ._utils import attach_func_to_class_method
 from .core._data import (
@@ -30,7 +31,6 @@ from .core._data import (
     get_run,
     save_feature_set_links,
     save_feature_sets,
-    view_lineage,
 )
 from .core._mapped_collection import MappedCollection
 from .core._settings import settings

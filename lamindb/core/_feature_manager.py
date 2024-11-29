@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from collections import defaultdict
 from collections.abc import Iterable
 from datetime import date, datetime
@@ -32,9 +33,12 @@ from lnschema_core.models import (
     Run,
     ULabel,
 )
+from rich.table import Column, Table
+from rich.text import Text
 
 from lamindb._feature import FEATURE_DTYPES, convert_pandas_dtype_to_lamin_dtype
 from lamindb._feature_set import DICT_KEYS_TYPE, FeatureSet
+from lamindb._from_values import _print_values
 from lamindb._record import (
     REGISTRY_UNIQUE_FIELD,
     get_name_field,
@@ -45,8 +49,15 @@ from lamindb._save import save
 from lamindb.core.exceptions import DoesNotExist, ValidationError
 from lamindb.core.storage import LocalPathClasses
 
+from ._describe import (
+    NAME_WIDTH,
+    TYPE_WIDTH,
+    VALUES_WIDTH,
+    describe_header,
+    print_rich_tree,
+)
 from ._django import get_artifact_with_related
-from ._label_manager import _get_labels
+from ._label_manager import _get_labels, describe_labels
 from ._settings import settings
 from .schema import (
     dict_related_model_to_related_name,
@@ -54,6 +65,7 @@ from .schema import (
 
 if TYPE_CHECKING:
     from lnschema_core.types import FieldAttr
+    from rich.tree import Tree
 
     from lamindb._query_set import QuerySet
 
@@ -264,52 +276,77 @@ def _get_featuresets_postgres(
     return fs_data
 
 
-def print_features(
+def _create_feature_table(name: str, data: list) -> Table:
+    """Create a Rich table for a feature group."""
+    table = Table(
+        Column(name, style="", no_wrap=True, width=NAME_WIDTH),
+        Column("", style="dim", no_wrap=True, width=TYPE_WIDTH),
+        Column("", width=VALUES_WIDTH, no_wrap=True),
+        show_header=True,
+        box=None,
+        pad_edge=False,
+    )
+    for row in data:
+        table.add_row(*row)
+    return table
+
+
+def describe_features(
     self: Artifact | Collection,
     related_data: dict | None = None,
     print_types: bool = False,
     to_dict: bool = False,
     print_params: bool = False,
-) -> str | dict[str, Any]:
-    from lamindb._from_values import _print_values
+    tree: Tree | None = None,
+    with_labels: bool = False,
+):
+    """Describe features of an artifact or collection."""
+    if print_types:
+        warnings.warn(
+            "`print_types` parameter is deprecated and will be removed in a future version. Types are now always printed.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
-    msg = ""
+    # initialize tree
+    if tree is None:
+        tree = describe_header(self)
+
+    dataset_tree = tree.add(Text("Dataset", style="bold cornflower_blue"))
     dictionary: dict[str, Any] = {}
 
     if self._state.adding:
-        return dictionary if to_dict else msg
+        return dictionary if to_dict else tree
 
     # feature sets
+    feature_set_data: dict[str, tuple[str, list[str]]] = {}
+    feature_data: dict[str, tuple[str, list[str]]] = {}
     if not print_params and not to_dict:
-        feature_set_msg = ""
         if self.id is not None and connections[self._state.db].vendor == "postgresql":
             fs_data = _get_featuresets_postgres(self, related_data=related_data)
-            feature_set_msg = ""
-            for _, (slot, data) in fs_data.items():
-                for type_str, feature_names in data.items():
-                    type_str = f": {type_str}" if print_types else ""
-                    feature_set_msg += (
-                        f"    '{slot}'{type_str} = {_print_values(feature_names)}\n"
-                    )
+            for fs_id, (slot, data) in fs_data.items():
+                for registry_str, feature_names in data.items():
+                    feature_set = FeatureSet.get(id=fs_id)
+                    feature_set_data[slot] = (feature_set, feature_names)
+                    for feature_name in feature_names:
+                        feature_data[feature_name] = (slot, registry_str)
         else:
             for slot, feature_set in get_feature_set_by_slot_(self).items():
                 features = feature_set.members
                 # features.first() is a lot slower than features[0] here
                 name_field = get_name_field(features[0])
-                feature_names = list(features.values_list(name_field, flat=True)[:20])
-                type_str = f": {feature_set.registry}" if print_types else ""
-                feature_set_msg += (
-                    f"    '{slot}'{type_str} = {_print_values(feature_names)}\n"
-                )
-        if feature_set_msg:
-            msg += f"  {colors.italic('Feature sets')}\n"
-            msg += feature_set_msg
+                feature_names = list(features.values_list(name_field, flat=True)[:10])
+                feature_set_data[slot] = (feature_set, feature_names)
+                for feature_name in feature_names:
+                    feature_data[feature_name] = (slot, feature_set.registry)
 
-    internal_features: set[str] = {}  # type: ignore
+    internal_feature_names: set[str] = {}  # type: ignore
     if isinstance(self, Artifact):
         feature_set = self.feature_sets.filter(registry="Feature").one_or_none()
         if feature_set is not None:
-            internal_features = set(feature_set.members.values_list("name", flat=True))  # type: ignore
+            internal_feature_names = set(
+                feature_set.members.values_list("name", flat=True)
+            )  # type: ignore
 
     # categorical feature values
     # Get the categorical data using the appropriate method
@@ -331,11 +368,11 @@ def print_features(
         print_params=print_params,
     )
 
-    # Combine all features and prepare messages
-    internal_msgs = []
-    external_msgs = []
+    # Combine all features
+    internal_data = {}
+    external_data = []
 
-    # Process all features and sort into internal/external messages
+    # Process all Features and sort into internal/external
     for features, is_list_type in [(categoricals, False), (non_categoricals, True)]:
         for (feature_name, feature_dtype), values in sorted(features.items()):
             # Handle dictionary conversion - no separation needed for dictionary
@@ -344,36 +381,82 @@ def print_features(
                 dictionary[feature_name] = dict_value
             else:
                 # Format message
-                type_str = f": {feature_dtype}" if print_types else ""
                 printed_values = (
                     _print_values(sorted(values), n=10, quotes=False)
                     if not is_list_type or not feature_dtype.startswith("list")
                     else sorted(values)
                 )
-                msg_line = f"    '{feature_name}'{type_str} = {printed_values}"
 
                 # Sort into internal/external
-                if feature_name in internal_features:
-                    internal_msgs.append(msg_line)
+                if feature_name in internal_feature_names:
+                    internal_data[feature_name] = (
+                        feature_name,
+                        Text(feature_dtype, style="dim"),
+                        printed_values,
+                    )
                 else:
-                    external_msgs.append(msg_line)
+                    external_data.append(
+                        (
+                            feature_name,
+                            Text(feature_dtype, style="dim"),
+                            printed_values,
+                        )
+                    )
 
     if to_dict:
         return dictionary
 
-    # Build the final message
-    if internal_msgs or external_msgs:
-        if internal_msgs:
-            header = "Feature values -- internal"
-            msg += f"  {colors.italic(header)}\n"
-            msg += "\n".join(internal_msgs) + "\n"
+    # Internal features from the Feature registry
+    internal_features_slot: dict[str, list] = {}
+    for feature_name, feature_row in internal_data.items():
+        slot, registry_str = feature_data.get(feature_name)
+        if slot not in internal_features_slot:
+            internal_features_slot[slot] = []
+        else:
+            internal_features_slot[slot].append(feature_row)
 
-        if external_msgs:
-            header = "Feature values -- external" if not print_params else "Params"
-            msg += f"  {colors.italic(header)}\n"
-            msg += "\n".join(external_msgs) + "\n"
+    for slot, feature_rows in internal_features_slot.items():
+        feature_set = feature_set_data[slot][0]
+        dataset_tree.add(
+            _create_feature_table(
+                Text.assemble(
+                    (slot, "violet"),
+                    (f" ← {feature_set.n} [{feature_set.registry}]", "dim"),
+                ),
+                feature_rows,
+            )
+        )
 
-    return msg
+    # Internal features from other registries (e.g. bionty.Gene)
+    for slot, (feature_set, feature_names) in feature_set_data.items():
+        if feature_set.registry == "Feature":
+            continue
+        features = [
+            (feature_name, Text(str(feature_set.dtype), style="dim"), "")
+            for feature_name in feature_names
+        ]
+        dataset_tree.add(
+            _create_feature_table(
+                Text.assemble(
+                    (slot, "violet"),
+                    (f" ← {feature_set.n} [{feature_set.registry}]", "dim"),
+                ),
+                features,
+            )
+        )
+
+    # Annotations (external features)
+    annotations_tree = tree.add(Text("Annotations", style="bold dark_orange"))
+    annotations_tree.add(
+        _create_feature_table(Text.assemble(("Features", "pale_green3")), external_data)
+    )
+
+    if with_labels:
+        labels_table = describe_labels(self, as_subtree=True)
+        if labels_table:
+            annotations_tree.add(Text("Labels", style="bold pale_green3"))
+            annotations_tree.add(labels_table)
+    return tree
 
 
 def parse_feature_sets_from_anndata(
@@ -504,12 +587,13 @@ def __init__(self, host: Artifact | Collection | Run):
 
 
 def __repr__(self) -> str:
-    return print_features(self._host, print_params=(self.__class__ == ParamManager))  # type: ignore
+    tree = describe_features(self._host, print_params=(self.__class__ == ParamManager))  # type: ignore
+    return print_rich_tree(tree, fallback="no linked features")
 
 
 def get_values(self) -> dict[str, Any]:
     """Get feature values as a dictionary."""
-    return print_features(
+    return describe_features(
         self._host, to_dict=True, print_params=(self.__class__ == ParamManager)
     )  # type: ignore
 
