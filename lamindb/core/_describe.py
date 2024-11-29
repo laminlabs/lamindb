@@ -131,7 +131,6 @@ def describe_features(
         _get_categoricals_postgres,
         _get_featuresets_postgres,
         _get_non_categoricals,
-        colors,
         connections,
         get_feature_set_by_slot_,
         get_name_field,
@@ -140,7 +139,7 @@ def describe_features(
     if tree is None:
         tree = describe_header(self)
 
-    features_tree = tree.add(Text("Features", style="bold dark_orange"))
+    dataset_tree = tree.add(Text("Dataset", style="bold dark_orange"))
     dictionary: dict[str, Any] = {}
 
     if self._state.adding:
@@ -157,11 +156,7 @@ def describe_features(
                     feature_set = FeatureSet.get(id=fs_id)
                     feature_set_data[slot] = (feature_set, feature_names)
                     for feature_name in feature_names:
-                        feature_data[feature_name] = (
-                            slot,
-                            registry_str,
-                        )
-
+                        feature_data[feature_name] = (slot, registry_str)
         else:
             for slot, feature_set in get_feature_set_by_slot_(self).items():
                 features = feature_set.members
@@ -170,16 +165,15 @@ def describe_features(
                 feature_names = list(features.values_list(name_field, flat=True)[:10])
                 feature_set_data[slot] = (feature_set, feature_names)
                 for feature_name in feature_names:
-                    feature_data[feature_name] = (
-                        slot,
-                        feature_set.registry,
-                    )
+                    feature_data[feature_name] = (slot, feature_set.registry)
 
-    internal_features: set[str] = {}  # type: ignore
+    internal_feature_names: set[str] = {}  # type: ignore
     if isinstance(self, Artifact):
         feature_set = self.feature_sets.filter(registry="Feature").one_or_none()
         if feature_set is not None:
-            internal_features = set(feature_set.members.values_list("name", flat=True))  # type: ignore
+            internal_feature_names = set(
+                feature_set.members.values_list("name", flat=True)
+            )  # type: ignore
 
     # categorical feature values
     # Get the categorical data using the appropriate method
@@ -221,7 +215,7 @@ def describe_features(
                 )
 
                 # Sort into internal/external
-                if feature_name in internal_features:
+                if feature_name in internal_feature_names:
                     internal_data[feature_name] = (
                         feature_name,
                         Text(feature_dtype, style="dim"),
@@ -239,27 +233,23 @@ def describe_features(
     if to_dict:
         return dictionary
 
-    features_tree.add(
-        _create_feature_table(Text.assemble(("Features", "purple")), external_data)
-    )
-
     internal_features_slot: dict[str, list] = {}
-    for feature_name, feature in internal_data.items():
+    for feature_name, feature_row in internal_data.items():
         slot, registry_str = feature_data.get(feature_name)
-        if slot not in internal_features:
+        if slot not in internal_features_slot:
             internal_features_slot[slot] = []
         else:
-            internal_features_slot[slot].append(feature)
+            internal_features_slot[slot].append(feature_row)
 
-    for slot, features in internal_features_slot.items():
+    for slot, feature_rows in internal_features_slot.items():
         feature_set = feature_set_data[slot][0]
-        features_tree.add(
+        dataset_tree.add(
             _create_feature_table(
                 Text.assemble(
                     (slot, "purple"),
-                    (f" {feature_set.n} ← [{feature_set.dtype}]", "dim"),
+                    (f" ← {feature_set.n} [{feature_set.dtype}]", "dim"),
                 ),
-                features,
+                feature_rows,
             )
         )
 
@@ -270,7 +260,7 @@ def describe_features(
             (feature_name, Text(str(feature_set.dtype), style="dim"), "")
             for feature_name in feature_names
         ]
-        features_tree.add(
+        dataset_tree.add(
             _create_feature_table(
                 Text.assemble(
                     (slot, "purple"),
@@ -280,6 +270,11 @@ def describe_features(
             )
         )
 
+    # Annotations (external features)
+    annotations_tree = tree.add(Text("Annotations", style="bold dark_orange"))
+    annotations_tree.add(
+        _create_feature_table(Text.assemble(("Features", "purple")), external_data)
+    )
     return tree
 
 
