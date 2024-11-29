@@ -1063,7 +1063,7 @@ class SOMACurator(BaseCurator):
     def __init__(
         self,
         experiment_uri: UPathStr,
-        var_index: dict[str, FieldAttr],
+        var_index: dict[str, tuple[str, FieldAttr]],
         categoricals: dict[str, FieldAttr] | None = None,
         using_key: str | None = None,
         verbosity: str = "hint",
@@ -1071,8 +1071,10 @@ class SOMACurator(BaseCurator):
         sources: dict[str, Record] | None = None,
         exclude: dict | None = None,  # {modality: {field: [values]}}
     ):
+        self._obs_fields = categoricals or {}
+        self._var_fields = var_index
         self._experiment_uri = UPath(experiment_uri)
-        self.obs_fields = categoricals or {}
+        self._organism = organism
         self._using_key = using_key
         self._sources = sources or {}
         self._exclude = exclude or {}
@@ -1084,9 +1086,38 @@ class SOMACurator(BaseCurator):
 
         validated = True
         self._non_validated = {}
-        with _open_tiledbsoma(self._experiment_uri) as experiment:
+        with _open_tiledbsoma(self._experiment_uri, mode="r") as experiment:
+            for ms, (key, field) in self._var_fields.items():
+                var_ms = experiment.ms[ms]
+                var_ms_values = (
+                    var_ms["var"].read(column_names=[key]).concat()[key].to_pylist()
+                )
+                var_ms_key = f"{ms}__{key}"
+                update_registry(
+                    values=var_ms_values,
+                    field=field,
+                    key=var_ms_key,
+                    using_key=self._using_key,
+                    validated_only=True,
+                    organism=self._organism,
+                    source=self._sources.get(var_ms_key),
+                    exclude=self._exclude.get(var_ms_key),
+                )
+                is_val, non_val = validate_categories(
+                    values=var_ms_values,
+                    field=field,
+                    key=var_ms_key,
+                    using_key=self._using_key,
+                    organism=self._organism,
+                    source=self._sources.get(var_ms_key),
+                    exclude=self._exclude.get(var_ms_key),
+                )
+                validated &= is_val
+                if len(non_val) > 0:
+                    self._non_validated[var_ms_key] = non_val
+
             obs = experiment["obs"]
-            for key, field in self.obs_fields.items():
+            for key, field in self._obs_fields.items():
                 values = unique(obs.read(column_names=[key]).concat()[key]).to_pylist()
                 update_registry(
                     values=values,
@@ -1094,6 +1125,7 @@ class SOMACurator(BaseCurator):
                     key=key,
                     using_key=self._using_key,
                     validated_only=True,
+                    organism=self._organism,
                     source=self._sources.get(key),
                     exclude=self._exclude.get(key),
                 )
@@ -1102,6 +1134,7 @@ class SOMACurator(BaseCurator):
                     field=field,
                     key=key,
                     using_key=self._using_key,
+                    organism=self._organism,
                     source=self._sources.get(key),
                     exclude=self._exclude.get(key),
                 )
