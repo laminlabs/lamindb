@@ -312,7 +312,6 @@ def describe_features(
     if tree is None:
         tree = describe_header(self)
 
-    dataset_tree = tree.add(Text("Dataset", style="bold cornflower_blue"))
     dictionary: dict[str, Any] = {}
 
     if self._state.adding:
@@ -342,11 +341,13 @@ def describe_features(
 
     internal_feature_names: set[str] = {}  # type: ignore
     if isinstance(self, Artifact):
-        feature_set = self.feature_sets.filter(registry="Feature").one_or_none()
-        if feature_set is not None:
-            internal_feature_names = set(
-                feature_set.members.values_list("name", flat=True)
-            )  # type: ignore
+        feature_sets = self.feature_sets.filter(registry="Feature").all()
+        internal_feature_names = set()  # type: ignore
+        if len(feature_sets) > 0:
+            for feature_set in feature_sets:
+                internal_feature_names = internal_feature_names.union(
+                    set(feature_set.members.values_list("name", flat=True))
+                )  # type: ignore
 
     # categorical feature values
     # Get the categorical data using the appropriate method
@@ -406,18 +407,18 @@ def describe_features(
     if to_dict:
         return dictionary
 
-    # Internal features from the Feature registry
+    # Dataset section
+    ## internal features from the Feature registry
     internal_features_slot: dict[str, list] = {}
     for feature_name, feature_row in internal_data.items():
-        slot, registry_str = feature_data.get(feature_name)
-        if slot not in internal_features_slot:
-            internal_features_slot[slot] = []
-        else:
-            internal_features_slot[slot].append(feature_row)
+        slot, _ = feature_data.get(feature_name)
+        internal_features_slot.setdefault(slot, []).append(feature_row)
 
+    dataset_tree = None
+    dataset_tree_children = []
     for slot, feature_rows in internal_features_slot.items():
         feature_set = feature_set_data[slot][0]
-        dataset_tree.add(
+        dataset_tree_children.append(
             _create_feature_table(
                 Text.assemble(
                     (slot, "violet"),
@@ -426,8 +427,7 @@ def describe_features(
                 feature_rows,
             )
         )
-
-    # Internal features from other registries (e.g. bionty.Gene)
+    ## internal features from other registries (e.g. bionty.Gene)
     for slot, (feature_set, feature_names) in feature_set_data.items():
         if feature_set.registry == "Feature":
             continue
@@ -435,7 +435,7 @@ def describe_features(
             (feature_name, Text(str(feature_set.dtype), style="dim"), "")
             for feature_name in feature_names
         ]
-        dataset_tree.add(
+        dataset_tree_children.append(
             _create_feature_table(
                 Text.assemble(
                     (slot, "violet"),
@@ -444,18 +444,33 @@ def describe_features(
                 features,
             )
         )
+    if dataset_tree_children:
+        if dataset_tree is None:
+            dataset_tree = tree.add(Text("Dataset", style="bold cornflower_blue"))
+        for child in dataset_tree_children:
+            dataset_tree.add(child)
 
-    # Annotations (external features)
-    annotations_tree = tree.add(Text("Annotations", style="bold dark_orange"))
-    annotations_tree.add(
-        _create_feature_table(Text.assemble(("Features", "pale_green3")), external_data)
-    )
-
+    # Annotations section
+    ## external features
+    annotations_tree = None
+    annotations_tree_children = []
+    if external_data:
+        annotations_tree_children.append(
+            _create_feature_table(
+                Text.assemble(("Features", "pale_green3")), external_data
+            )
+        )
+    ## labels
     if with_labels:
         labels_table = describe_labels(self, as_subtree=True)
         if labels_table:
-            annotations_tree.add(Text("Labels", style="bold pale_green3"))
-            annotations_tree.add(labels_table)
+            annotations_tree_children.append(Text("Labels", style="bold pale_green3"))
+            annotations_tree_children.append(labels_table)
+    if annotations_tree_children:
+        annotations_tree = tree.add(Text("Annotations", style="bold dark_orange"))
+        for child in annotations_tree_children:
+            annotations_tree.add(child)
+
     return tree
 
 
