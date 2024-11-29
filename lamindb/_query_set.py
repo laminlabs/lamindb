@@ -1,20 +1,22 @@
 from __future__ import annotations
 
+import re
 from collections import UserList
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
-from dataclasses import is_dataclass
 from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar
 
 import pandas as pd
 from django.db import models
-from django.db.models import F
-from lamin_utils import colors, logger
+from django.db.models import F, ForeignKey, ManyToManyField
+from django.db.models.fields.related import ForeignObjectRel
+from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import (
     Artifact,
     CanCurate,
     Collection,
+    Feature,
     IsVersioned,
     Record,
     Registry,
@@ -30,7 +32,7 @@ T = TypeVar("T")
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from lnschema_core.types import ListLike, StrField
+    from lnschema_core.types import StrField, listLike
 
 
 class MultipleResultsFound(Exception):
@@ -184,6 +186,251 @@ class RecordList(UserList, Generic[T]):
         return self
 
 
+def get_basic_field_names(qs: QuerySet) -> list[str]:
+    exclude_field_names = ["updated_at"]
+    field_names = [
+        field.name
+        for field in qs.model._meta.fields
+        if (
+            not isinstance(field, models.ForeignKey)
+            and field.name not in exclude_field_names
+        )
+    ]
+    field_names += [
+        f"{field.name}_id"
+        for field in qs.model._meta.fields
+        if isinstance(field, models.ForeignKey)
+    ]
+    for field_name in ["run_id", "created_at", "created_by_id", "updated_at"]:
+        if field_name in field_names:
+            field_names.remove(field_name)
+            field_names.append(field_name)
+    if field_names[0] != "uid" and "uid" in field_names:
+        field_names.remove("uid")
+        field_names.insert(0, "uid")
+    return field_names
+
+
+def get_feature_annotate_kwargs(show_features: bool | list[str]) -> dict[str, Any]:
+    features = Feature.filter()
+    if isinstance(show_features, list):
+        features.filter(name__in=show_features)
+    # Get the categorical features
+    cat_feature_types = {
+        feature.dtype.replace("cat[", "").replace("]", "")
+        for feature in features
+        if feature.dtype.startswith("cat[")
+    }
+    # Get relationships of labels and features
+    link_models_on_models = {
+        getattr(
+            Artifact, obj.related_name
+        ).through.__get_name_with_schema__(): obj.related_model.__get_name_with_schema__()
+        for obj in Artifact._meta.related_objects
+        if obj.related_model.__get_name_with_schema__() in cat_feature_types
+    }
+    link_models_on_models["ArtifactULabel"] = "ULabel"
+    link_attributes_on_models = {
+        obj.related_name: link_models_on_models[
+            obj.related_model.__get_name_with_schema__()
+        ]
+        for obj in Artifact._meta.related_objects
+        if obj.related_model.__get_name_with_schema__() in link_models_on_models
+    }
+    # Prepare Django's annotate for features
+    annotate_kwargs = {}
+    for link_attr, feature_type in link_attributes_on_models.items():
+        annotate_kwargs[f"{link_attr}__feature__name"] = F(
+            f"{link_attr}__feature__name"
+        )
+        field_name = (
+            feature_type.split(".")[1] if "." in feature_type else feature_type
+        ).lower()
+        annotate_kwargs[f"{link_attr}__{field_name}__name"] = F(
+            f"{link_attr}__{field_name}__name"
+        )
+
+    annotate_kwargs["_feature_values__feature__name"] = F(
+        "_feature_values__feature__name"
+    )
+    annotate_kwargs["_feature_values__value"] = F("_feature_values__value")
+    return annotate_kwargs
+
+
+# https://claude.ai/share/16280046-6ae5-4f6a-99ac-dec01813dc3c
+def analyze_lookup_cardinality(
+    model_class: Registry, lookup_paths: str | list[str] | None
+) -> dict[str, str]:
+    """Analyze lookup cardinality.
+
+    Analyzes Django model lookups to determine if they will result in
+    one-to-one or one-to-many relationships when used in annotations.
+
+    Args:
+        model_class: The Django model class to analyze
+        include: List of lookup paths (e.g. ["created_by__name", "ulabels__name"])
+
+    Returns:
+        Dictionary mapping lookup paths to either 'one' or 'many'
+    """
+    result = {}  # type: ignore
+    if lookup_paths is None:
+        return result
+    elif isinstance(lookup_paths, str):
+        lookup_paths = [lookup_paths]
+    for lookup_path in lookup_paths:
+        parts = lookup_path.split("__")
+        current_model = model_class
+        is_many = False
+
+        # Walk through each part of the lookup path
+        for part in parts[:-1]:  # Exclude the last part as it's an attribute
+            field = None
+
+            # Handle reverse relations
+            for f in current_model._meta.get_fields():
+                if isinstance(f, ForeignObjectRel) and f.get_accessor_name() == part:
+                    field = f
+                    is_many = not f.one_to_one
+                    if hasattr(f, "field"):
+                        current_model = f.field.model
+                    break
+
+            # Handle forward relations
+            if field is None:
+                field = current_model._meta.get_field(part)
+                if isinstance(field, ManyToManyField):
+                    is_many = True
+                    current_model = field.remote_field.model
+                elif isinstance(field, ForeignKey):
+                    current_model = field.remote_field.model
+
+        result[lookup_path] = "many" if is_many else "one"
+
+    return result
+
+
+# https://lamin.ai/laminlabs/lamindata/transform/BblTiuKxsb2g0003
+# https://claude.ai/chat/6ea2498c-944d-4e7a-af08-29e5ddf637d2
+def reshape_annotate_result(
+    field_names: list[str],
+    df: pd.DataFrame,
+    extra_columns: dict[str, str] | None = None,
+    features: bool | list[str] = False,
+) -> pd.DataFrame:
+    """Reshapes experimental data with optional feature handling.
+
+    Parameters:
+    field_names: List of basic fields to include in result
+    df: Input dataframe with experimental data
+    extra_columns: Dict specifying additional columns to process with types ('one' or 'many')
+                  e.g., {'ulabels__name': 'many', 'created_by__name': 'one'}
+    features: If False, skip feature processing. If True, process all features.
+             If list of strings, only process specified features.
+
+    Returns:
+    DataFrame with reshaped data
+    """
+    extra_columns = extra_columns or {}
+
+    # Initialize result with basic fields
+    result = df[field_names].drop_duplicates(subset=["id"])
+
+    # Process features if requested
+    if features:
+        # Handle _feature_values if columns exist
+        feature_cols = ["_feature_values__feature__name", "_feature_values__value"]
+        if all(col in df.columns for col in feature_cols):
+            feature_values = process_feature_values(df, features)
+            if not feature_values.empty:
+                result = result.merge(feature_values, on="id", how="left")
+
+        # Handle links features if they exist
+        links_features = [
+            col
+            for col in df.columns
+            if "feature__name" in col and col.startswith("links_")
+        ]
+
+        if links_features:
+            result = process_links_features(df, result, links_features, features)
+
+    # Process extra columns
+    if extra_columns:
+        result = process_extra_columns(df, result, extra_columns)
+
+    return result
+
+
+def process_feature_values(
+    df: pd.DataFrame, features: bool | list[str]
+) -> pd.DataFrame:
+    """Process _feature_values columns."""
+    feature_values = df.groupby(["id", "_feature_values__feature__name"])[
+        "_feature_values__value"
+    ].agg(set)
+
+    # Filter features if specific ones requested
+    if isinstance(features, list):
+        feature_values = feature_values[
+            feature_values.index.get_level_values(
+                "_feature_values__feature__name"
+            ).isin(features)
+        ]
+
+    return feature_values.unstack().reset_index()
+
+
+def process_links_features(
+    df: pd.DataFrame,
+    result: pd.DataFrame,
+    feature_cols: list[str],
+    features: bool | list[str],
+) -> pd.DataFrame:
+    """Process links_XXX feature columns."""
+    for feature_col in feature_cols:
+        prefix = re.match(r"links_(.+?)__feature__name", feature_col).group(1)
+
+        value_cols = [
+            col
+            for col in df.columns
+            if col.startswith(f"links_{prefix}__")
+            and col.endswith("__name")
+            and "feature__name" not in col
+        ]
+
+        if not value_cols:
+            continue
+
+        value_col = value_cols[0]
+        feature_names = df[feature_col].unique()
+
+        # Filter features if specific ones requested
+        if isinstance(features, list):
+            feature_names = [f for f in feature_names if f in features]
+
+        for feature_name in feature_names:
+            mask = df[feature_col] == feature_name
+            feature_values = df[mask].groupby("id")[value_col].agg(set)
+            result[feature_name] = result["id"].map(feature_values)
+
+    return result
+
+
+def process_extra_columns(
+    df: pd.DataFrame, result: pd.DataFrame, extra_columns: dict[str, str]
+) -> pd.DataFrame:
+    """Process additional columns based on their specified types."""
+    for col, col_type in extra_columns.items():
+        if col not in df.columns:
+            continue
+
+        values = df.groupby("id")[col].agg(set if col_type == "many" else "first")
+        result[col] = result["id"].map(values)
+
+    return result
+
+
 class QuerySet(models.QuerySet):
     """Sets of records returned by queries.
 
@@ -193,108 +440,38 @@ class QuerySet(models.QuerySet):
 
     Examples:
 
-        >>> ln.ULabel(name="my label").save()
-        >>> queryset = ln.ULabel.filter(name="my label")
+        >>> ULabel(name="my label").save()
+        >>> queryset = ULabel.filter(name="my label")
         >>> queryset
     """
 
     @doc_args(Record.df.__doc__)
     def df(
-        self, include: str | list[str] | None = None, join: str = "inner"
+        self,
+        include: str | list[str] | None = None,
+        features: bool | list[str] = False,
+        join: str = "inner",
     ) -> pd.DataFrame:
         """{}"""  # noqa: D415
-        # re-order the columns
-        exclude_field_names = ["updated_at"]
-        field_names = [
-            field.name
-            for field in self.model._meta.fields
-            if (
-                not isinstance(field, models.ForeignKey)
-                and field.name not in exclude_field_names
-            )
-        ]
-        field_names += [
-            f"{field.name}_id"
-            for field in self.model._meta.fields
-            if isinstance(field, models.ForeignKey)
-        ]
-        for field_name in ["run_id", "created_at", "created_by_id", "updated_at"]:
-            if field_name in field_names:
-                field_names.remove(field_name)
-                field_names.append(field_name)
-        if field_names[0] != "uid" and "uid" in field_names:
-            field_names.remove("uid")
-            field_names.insert(0, "uid")
-        # create the dataframe
-        df = pd.DataFrame(self.values(), columns=field_names)
-        # if len(df) > 0 and "updated_at" in df:
-        #     df.updated_at = format_and_convert_to_local_time(df.updated_at)
-        # if len(df) > 0 and "started_at" in df:
-        #     df.started_at = format_and_convert_to_local_time(df.started_at)
+        field_names = get_basic_field_names(self)
+        annotate_kwargs = {}
+        if features:
+            annotate_kwargs.update(get_feature_annotate_kwargs(features))
+        if include:
+            include_kwargs = {s: F(s) for s in include}
+            annotate_kwargs.update(include_kwargs)
+        if annotate_kwargs:
+            queryset = self.annotate(**annotate_kwargs).distinct()
+        else:
+            queryset = self
+        df = pd.DataFrame(queryset.values(*field_names, *list(annotate_kwargs.keys())))
+        extra_cols = analyze_lookup_cardinality(self.model.__class__, include)
+        df_reshaped = reshape_annotate_result(field_names, df, extra_cols, features)
         pk_name = self.model._meta.pk.name
         pk_column_name = pk_name if pk_name in df.columns else f"{pk_name}_id"
-        if pk_column_name in df.columns:
-            df = df.set_index(pk_column_name)
-        if len(df) == 0:
-            logger.warning(colors.yellow("No records found"))
-            return df
-        if include is not None:
-            if isinstance(include, str):
-                include = [include]
-            # fix ordering
-            include = include[::-1]
-            for expression in include:
-                split = expression.split("__")
-                field_name = split[0]
-                if len(split) > 1:
-                    lookup_str = "__".join(split[1:])
-                else:
-                    lookup_str = "id"
-                Record = self.model
-                field = getattr(Record, field_name)
-                if isinstance(field.field, models.ManyToManyField):
-                    related_ORM = (
-                        field.field.model
-                        if field.field.model != Record
-                        else field.field.related_model
-                    )
-                    if Record == related_ORM:
-                        left_side_link_model = f"from_{Record.__name__.lower()}"
-                        values_expression = (
-                            f"to_{Record.__name__.lower()}__{lookup_str}"
-                        )
-                    else:
-                        left_side_link_model = f"{Record.__name__.lower()}"
-                        values_expression = (
-                            f"{related_ORM.__name__.lower()}__{lookup_str}"
-                        )
-                    link_df = pd.DataFrame(
-                        field.through.objects.using(self.db).values(
-                            left_side_link_model, values_expression
-                        )
-                    )
-                    if link_df.shape[0] == 0:
-                        logger.warning(
-                            f"{colors.yellow(expression)} is not shown because no values are found"
-                        )
-                        continue
-                    link_groupby = link_df.groupby(left_side_link_model)[
-                        values_expression
-                    ].apply(list)
-                    df = pd.concat((link_groupby, df), axis=1, join=join)
-                    df.rename(columns={values_expression: expression}, inplace=True)
-                else:
-                    # the F() based implementation could also work for many-to-many,
-                    # would need to test what is faster
-                    df_anno = pd.DataFrame(
-                        self.annotate(expression=F(expression)).values(
-                            pk_column_name, "expression"
-                        )
-                    )
-                    df_anno = df_anno.set_index(pk_column_name)
-                    df_anno.rename(columns={"expression": expression}, inplace=True)
-                    df = pd.concat((df_anno, df), axis=1, join=join)
-        return df
+        if pk_column_name in df_reshaped.columns:
+            df_reshaped = df_reshaped.set_index(pk_column_name)
+        return df_reshaped
 
     def delete(self, *args, **kwargs):
         """Delete all records in the query set."""
@@ -348,8 +525,8 @@ class QuerySet(models.QuerySet):
         """At most one result. Returns it if there is one, otherwise returns ``None``.
 
         Examples:
-            >>> ln.ULabel.filter(name="benchmark").one_or_none()
-            >>> ln.ULabel.filter(name="non existing label").one_or_none()
+            >>> ULabel.filter(name="benchmark").one_or_none()
+            >>> ULabel.filter(name="non existing label").one_or_none()
         """
         if len(self) == 0:
             return None
@@ -388,7 +565,7 @@ def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
 
 
 @doc_args(CanCurate.validate.__doc__)
-def validate(self, values: ListLike, field: str | StrField | None = None, **kwargs):
+def validate(self, values: listLike, field: str | StrField | None = None, **kwargs):
     """{}"""  # noqa: D415
     from ._can_curate import _validate
 
@@ -396,7 +573,7 @@ def validate(self, values: ListLike, field: str | StrField | None = None, **kwar
 
 
 @doc_args(CanCurate.inspect.__doc__)
-def inspect(self, values: ListLike, field: str | StrField | None = None, **kwargs):
+def inspect(self, values: listLike, field: str | StrField | None = None, **kwargs):
     """{}"""  # noqa: D415
     from ._can_curate import _inspect
 

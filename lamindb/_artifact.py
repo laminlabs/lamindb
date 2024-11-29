@@ -615,11 +615,14 @@ def __init__(artifact: Artifact, *args, **kwargs):
 
         init_self_from_db(artifact, kwargs_or_artifact)
         # adding "key" here is dangerous because key might be auto-populated
-        update_attributes(artifact, {"description": description})
-        if artifact.key != key and key is not None:
+        attr_to_update = {"description": description}
+        if kwargs_or_artifact._key_is_virtual and kwargs_or_artifact.key is None:
+            attr_to_update["key"] = key
+        elif artifact.key != key and key is not None:
             logger.warning(
                 f"key {artifact.key} on existing artifact differs from passed key {key}"
             )
+        update_attributes(artifact, attr_to_update)
         return None
     else:
         kwargs = kwargs_or_artifact

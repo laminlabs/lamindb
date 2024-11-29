@@ -6,6 +6,7 @@ Small in-memory datasets.
    :toctree: .
 
    small_dataset1
+   small_dataset2
    anndata_with_obs
 
 Files.
@@ -84,7 +85,4 @@ from ._core import (
     schmidt22_perturbseq,
 )
 from ._fake import fake_bio_notebook_titles
-from ._small import (
-    anndata_with_obs,
-    small_dataset1,
-)
+from ._small import anndata_with_obs, small_dataset1, small_dataset2
