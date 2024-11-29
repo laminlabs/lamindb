@@ -218,7 +218,7 @@ def save_context_core(
         run.save()
     else:
         if not from_cli:
-            if get_seconds_since_modified(filepath) > 2 and not ln_setup._TESTING:
+            if get_seconds_since_modified(report_path) > 2 and not ln_setup._TESTING:
                 # this can happen when auto-knitting an html with RStudio
                 raise NotebookNotSaved(
                     "Please save the notebook in RStudio right before calling `db$finish()`"
