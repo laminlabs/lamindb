@@ -3,6 +3,7 @@ import bionty as bt
 import lamindb as ln
 import pandas as pd
 from lamindb.core._data import _describe_postgres
+from lamindb.core.datasets import small_dataset1
 
 
 def test_curate_annotate_df():
@@ -27,28 +28,8 @@ def test_curate_annotate_df():
     bt.CellType.from_values(["B cell", "T cell"], create=True).save()
 
     ## Ingest a dataset
+    dataset_ad = small_dataset1(format="anndata")
 
-    # define the data in the dataset
-    # it's a mix of numerical measurements and observation-level metadata
-    dataset_dict = {
-        "CD8A": [1, 2, 3],
-        "CD4": [3, 4, 5],
-        "CD14": [5, 6, 7],
-        "cell_medium": ["DMSO", "IFNG", "DMSO"],
-        "sample_note": ["was ok", "looks naah", "pretty! 🤩"],
-        "cell_type_by_expert": ["B cell", "T cell", "T cell"],
-        "cell_type_by_model": ["B cell", "T cell", "T cell"],
-    }
-    # define the dataset-level metadata
-    metadata = {
-        "temperature": 21.6,
-        "study": "Candidate marker study 1",
-        "date_of_study": "2024-12-01",
-        "study_note": "We had a great time performing this study and the results look compelling.",
-    }
-    # the dataset as DataFrame
-    dataset_df = pd.DataFrame(dataset_dict, index=["sample1", "sample2", "sample3"])
-    dataset_ad = ad.AnnData(dataset_df.iloc[:, :3], obs=dataset_df.iloc[:, 3:])
     # curate dataset
     curator = ln.Curator.from_anndata(
         dataset_ad,
@@ -62,7 +43,7 @@ def test_curate_annotate_df():
     )
     artifact = curator.save_artifact(key="example_datasets/dataset1.h5ad")
     # annotate with dataset-level features
-    artifact.features.add_values(metadata)
+    artifact.features.add_values(dataset_ad.uns)
 
     # expected output has italicized elements that can't be tested
     # hence testing is restricted to section content, not headings
