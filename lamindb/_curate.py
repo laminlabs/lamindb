@@ -1059,25 +1059,106 @@ class MuDataCurator:
         return self._artifact
 
 
+def _maybe_validation_error(nonval_keys: list[str], name: str):
+    if (n := len(nonval_keys)) > 0:
+        s = "s" if n > 1 else ""
+        are = "are" if n > 1 else "is"
+        raise ValidationError(
+            f"the following {n} key{s} passed to {name} {are} not allowed: {colors.yellow(_print_values(nonval_keys))}"
+        )
+
+
 class SOMACurator(BaseCurator):
     def __init__(
         self,
         experiment_uri: UPathStr,
         var_index: dict[str, tuple[str, FieldAttr]],
         categoricals: dict[str, FieldAttr] | None = None,
+        obs_columns: FieldAttr = Feature.name,
         using_key: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
-        exclude: dict | None = None,  # {modality: {field: [values]}}
+        exclude: dict[str, str | list[str]] | None = None,
     ):
         self._obs_fields = categoricals or {}
         self._var_fields = var_index
+        self._columns_field = obs_columns
         self._experiment_uri = UPath(experiment_uri)
         self._organism = organism
         self._using_key = using_key
         self._sources = sources or {}
         self._exclude = exclude or {}
+
+        self._check_save_keys()
+
+    def _check_save_keys(self):
+        from lamindb.core.storage._tiledbsoma import _open_tiledbsoma
+
+        with _open_tiledbsoma(self._experiment_uri, mode="r") as experiment:
+            valid_obs_keys = [k for k in experiment.obs.keys() if k != "soma_joinid"]
+
+            valid_var_keys = []
+            ms_list = []
+            for ms in experiment.ms.keys():
+                ms_list.append(ms)
+                var_ms = experiment.ms[ms].var
+                valid_var_keys += [
+                    f"{ms}__{k}" for k in var_ms.keys() if k != "soma_joinid"
+                ]
+
+        # check validity of keys in categoricals
+        nonval_keys = []
+        for obs_key in self._obs_fields.keys():
+            if obs_key not in valid_obs_keys:
+                nonval_keys.append(obs_key)
+        _maybe_validation_error(nonval_keys, "categoricals")
+
+        # check validity of keys in var_index
+        nonval_keys = []
+        for ms_key in self._var_fields.keys():
+            var_key, _ = self._var_fields[ms_key]
+            if f"{ms_key}__{var_key}" not in valid_var_keys:
+                nonval_keys.append(f"({ms_key}, {var_key})")
+        _maybe_validation_error(nonval_keys, "var_index")
+
+        # check validity of keys in sources and exclude
+        valid_arg_keys = valid_obs_keys + valid_var_keys + ["columns"]
+        for name, dct in (("sources", self._sources), ("exclude", self._exclude)):
+            nonval_keys = []
+            for arg_key in dct.keys():
+                if arg_key not in valid_arg_keys:
+                    nonval_keys.append(arg_key)
+            _maybe_validation_error(nonval_keys, name)
+
+        # register obs columns' names
+        register_columns = list(self._obs_fields.keys())
+        update_registry(
+            values=register_columns,
+            field=self._columns_field,
+            key="columns",
+            using_key=self._using_key,
+            validated_only=False,
+            organism=self._organism,
+            source=self._sources.get("columns"),
+            exclude=self._exclude.get("columns"),
+        )
+        additional_columns = [k for k in valid_obs_keys if k not in register_columns]
+        # no need to register with validated_only=True if columns are features
+        if (
+            len(additional_columns) > 0
+            and self._columns_field.field.model is not Feature
+        ):
+            update_registry(
+                values=additional_columns,
+                field=self._columns_field,
+                key="columns",
+                using_key=self._using_key,
+                validated_only=True,
+                organism=self._organism,
+                source=self._sources.get("columns"),
+                exclude=self._exclude.get("columns"),
+            )
 
     def validate(self):
         from pyarrow.compute import unique
@@ -1088,9 +1169,9 @@ class SOMACurator(BaseCurator):
         self._non_validated = {}
         with _open_tiledbsoma(self._experiment_uri, mode="r") as experiment:
             for ms, (key, field) in self._var_fields.items():
-                var_ms = experiment.ms[ms]
+                var_ms = experiment.ms[ms].var
                 var_ms_values = (
-                    var_ms["var"].read(column_names=[key]).concat()[key].to_pylist()
+                    var_ms.read(column_names=[key]).concat()[key].to_pylist()
                 )
                 var_ms_key = f"{ms}__{key}"
                 update_registry(
@@ -1116,7 +1197,7 @@ class SOMACurator(BaseCurator):
                 if len(non_val) > 0:
                     self._non_validated[var_ms_key] = non_val
 
-            obs = experiment["obs"]
+            obs = experiment.obs
             for key, field in self._obs_fields.items():
                 values = unique(obs.read(column_names=[key]).concat()[key]).to_pylist()
                 update_registry(
