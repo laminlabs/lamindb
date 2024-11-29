@@ -49,6 +49,9 @@ def convert_pandas_dtype_to_lamin_dtype(pandas_dtype: ExtensionDtype) -> str:
             dtype = "str"
         else:
             dtype = "cat"
+    # there are string-like categoricals and "pure" categoricals (pd.Categorical)
+    elif isinstance(pandas_dtype, CategoricalDtype):
+        dtype = "cat"
     else:
         # strip precision qualifiers
         dtype = "".join(dt for dt in pandas_dtype.name if not dt.isdigit())

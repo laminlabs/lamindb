@@ -83,7 +83,7 @@ Here is how to create a feature:
         artifact.features.add_values({"date_of_experiment": "Typo2024-12-01"})
     assert (
         error.exconly()
-        == """lamindb.core.exceptions.ValidationError: Expected dtype for 'date_of_experiment' is 'date', got 'cat[ULabel] / str / cat[bionty.CellType] / etc.'"""
+        == """lamindb.core.exceptions.ValidationError: Expected dtype for 'date_of_experiment' is 'date', got 'cat ? str'"""
     )
     artifact.features.add_values({"date_of_experiment": "2024-12-01"})
 
@@ -141,10 +141,10 @@ Here is how to create a feature:
 lamindb.core.exceptions.ValidationError: These keys could not be validated: ['project', 'is_validated', 'cell_type_by_expert', 'donor']
 Here is how to create a feature:
 
-  ln.Feature(name='project', dtype='cat[ULabel] / str / cat[bionty.CellType] / etc.').save()
+  ln.Feature(name='project', dtype='cat ? str').save()
   ln.Feature(name='is_validated', dtype='bool').save()
-  ln.Feature(name='cell_type_by_expert', dtype='cat[ULabel] / str / cat[bionty.CellType] / etc.').save()
-  ln.Feature(name='donor', dtype='cat[ULabel] / str / cat[bionty.CellType] / etc.').save()"""
+  ln.Feature(name='cell_type_by_expert', dtype='cat ? str').save()
+  ln.Feature(name='donor', dtype='cat ? str').save()"""
     )
 
     ln.Feature(name="project", dtype="cat[ULabel]").save()
