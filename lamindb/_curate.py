@@ -1076,7 +1076,6 @@ class SOMACurator(BaseCurator):
         categoricals: dict[str, FieldAttr] | None = None,
         obs_columns: FieldAttr = Feature.name,
         using_key: str | None = None,
-        verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
         exclude: dict[str, str | list[str]] | None = None,
@@ -1090,6 +1089,12 @@ class SOMACurator(BaseCurator):
         self._sources = sources or {}
         self._exclude = exclude or {}
 
+        self._validated: bool | None = False
+        self._non_validated_values: dict[str, list] | None = None
+        self._validated_values: dict[str, list] = {}
+        # filled by _check_save_keys
+        self._valid_obs_keys: list[str] | None = None
+        self._valid_var_keys: list[str] | None = None
         self._check_save_keys()
 
     def _check_save_keys(self):
@@ -1097,6 +1102,7 @@ class SOMACurator(BaseCurator):
 
         with _open_tiledbsoma(self._experiment_uri, mode="r") as experiment:
             valid_obs_keys = [k for k in experiment.obs.keys() if k != "soma_joinid"]
+            self._valid_obs_keys = valid_obs_keys
 
             valid_var_keys = []
             ms_list = []
@@ -1106,6 +1112,7 @@ class SOMACurator(BaseCurator):
                 valid_var_keys += [
                     f"{ms}__{k}" for k in var_ms.keys() if k != "soma_joinid"
                 ]
+            self._valid_var_keys = valid_var_keys
 
         # check validity of keys in categoricals
         nonval_keys = []
@@ -1166,14 +1173,18 @@ class SOMACurator(BaseCurator):
         from lamindb.core.storage._tiledbsoma import _open_tiledbsoma
 
         validated = True
-        self._non_validated = {}
+        self._non_validated_values = {}
         with _open_tiledbsoma(self._experiment_uri, mode="r") as experiment:
             for ms, (key, field) in self._var_fields.items():
                 var_ms = experiment.ms[ms].var
+                var_ms_key = f"{ms}__{key}"
+                # it was already validated and cached
+                if var_ms_key in self._validated_values:
+                    continue
                 var_ms_values = (
                     var_ms.read(column_names=[key]).concat()[key].to_pylist()
                 )
-                var_ms_key = f"{ms}__{key}"
+
                 update_registry(
                     values=var_ms_values,
                     field=field,
@@ -1184,7 +1195,7 @@ class SOMACurator(BaseCurator):
                     source=self._sources.get(var_ms_key),
                     exclude=self._exclude.get(var_ms_key),
                 )
-                is_val, non_val = validate_categories(
+                _, non_val = validate_categories(
                     values=var_ms_values,
                     field=field,
                     key=var_ms_key,
@@ -1193,12 +1204,17 @@ class SOMACurator(BaseCurator):
                     source=self._sources.get(var_ms_key),
                     exclude=self._exclude.get(var_ms_key),
                 )
-                validated &= is_val
                 if len(non_val) > 0:
-                    self._non_validated[var_ms_key] = non_val
+                    validated = False
+                    self._non_validated_values[var_ms_key] = non_val
+                else:
+                    self._validated_values[var_ms_key] = var_ms_values
 
             obs = experiment.obs
             for key, field in self._obs_fields.items():
+                # already validated and cached
+                if key in self._validated_values:
+                    continue
                 values = unique(obs.read(column_names=[key]).concat()[key]).to_pylist()
                 update_registry(
                     values=values,
@@ -1210,7 +1226,7 @@ class SOMACurator(BaseCurator):
                     source=self._sources.get(key),
                     exclude=self._exclude.get(key),
                 )
-                is_val, non_val = validate_categories(
+                _, non_val = validate_categories(
                     values=values,
                     field=field,
                     key=key,
@@ -1219,11 +1235,53 @@ class SOMACurator(BaseCurator):
                     source=self._sources.get(key),
                     exclude=self._exclude.get(key),
                 )
-                validated &= is_val
                 if len(non_val) > 0:
-                    self._non_validated[key] = non_val
+                    validated = False
+                    self._non_validated_values[key] = non_val
+                else:
+                    self._validated_values[key] = values
         self._validated = validated
         return self._validated
+
+    def _non_validated_values_field(self, key: str) -> tuple[list, FieldAttr]:
+        assert self._non_validated_values is not None  # noqa: S101
+
+        if key in self._valid_obs_keys:
+            field = self._obs_fields[key]
+        elif key in self._valid_var_keys:
+            ms = key.partition("__")[0]
+            field = self._var_fields[ms][1]
+        else:
+            raise ValidationError(f"key {key} is invalid")
+        if key in self._non_validated_values:
+            values = self._non_validated_values[key]
+        elif key in self._validated_values:
+            values = []
+        else:
+            raise ValidationError(f"key {key} was not specified on init")
+        return values, field
+
+    def add_new_from(self, key: str | list[str]):
+        if self._non_validated_values is None:
+            raise ValidationError("Run .validate() first")
+        if isinstance(key, str):
+            if key == "all":
+                key = list(self._obs_fields.keys())
+            else:
+                key = [key]
+        for k in key:
+            values, field = self._non_validated_values_field(k)
+            if len(values) > 0:
+                update_registry(
+                    values=values,
+                    field=field,
+                    key=k,
+                    using_key=self._using_key,
+                    validated_only=False,
+                    organism=self._organism,
+                    source=self._sources.get(k),
+                    exclude=self._exclude.get(k),
+                )
 
 
 class Curator(BaseCurator):
