@@ -463,7 +463,6 @@ class QuerySet(models.QuerySet):
         self,
         include: str | list[str] | None = None,
         features: bool | list[str] = False,
-        join: str = "inner",
     ) -> pd.DataFrame:
         """{}"""  # noqa: D415
         field_names = get_basic_field_names(self)
