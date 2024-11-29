@@ -5,7 +5,9 @@ from typing import TYPE_CHECKING
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from lamin_utils import colors, logger
-from lnschema_core.models import Feature, Field, Record, ULabel
+from lnschema_core.models import Record
+
+from lamindb._query_set import RecordList
 
 from .core._settings import settings
 
@@ -25,11 +27,11 @@ def get_or_create_records(
     organism: Record | str | None = None,
     source: Record | None = None,
     mute: bool = False,
-) -> list[Record]:
+) -> RecordList:
     """Get or create records from iterables."""
     registry = field.field.model
     if create:
-        return [registry(**{field.field.name: value}) for value in iterable]
+        return RecordList([registry(**{field.field.name: value}) for value in iterable])
     creation_search_names = settings.creation.search_names
     organism = _get_organism_record(field, organism)
     settings.creation.search_names = False
@@ -112,7 +114,7 @@ def get_or_create_records(
         #             for record in records:
         #                 record._feature = feature_name
         #         logger.debug(f"added default feature '{feature_name}'")
-        return records
+        return RecordList(records)
     finally:
         settings.creation.search_names = creation_search_names
 

@@ -12,7 +12,7 @@ from pandas.api.types import CategoricalDtype, is_string_dtype
 
 from lamindb.core.exceptions import ValidationError
 
-from ._query_set import RecordsList
+from ._query_set import RecordList
 from ._utils import attach_func_to_class_method
 from .core._settings import settings
 from .core.schema import dict_schema_name_to_model_name
@@ -119,7 +119,7 @@ def categoricals_from_df(df: pd.DataFrame) -> dict:
 
 @classmethod  # type:ignore
 @doc_args(Feature.from_df.__doc__)
-def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordsList:
+def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordList:
     """{}"""  # noqa: D415
     field = Feature.name if field is None else field
     registry = field.field.model
@@ -135,7 +135,7 @@ def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordsLis
     with logger.mute():  # silence the warning "loaded record with exact same name "
         features = [Feature(name=name, dtype=dtype) for name, dtype in dtypes.items()]
     assert len(features) == len(df.columns)  # noqa: S101
-    return RecordsList(features)
+    return RecordList(features)
 
 
 @doc_args(Feature.save.__doc__)

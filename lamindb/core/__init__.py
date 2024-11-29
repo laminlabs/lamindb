@@ -9,7 +9,7 @@ Registries:
    Registry
    QuerySet
    QueryManager
-   RecordsList
+   RecordList
    FeatureManager
    ParamManager
    LabelManager
@@ -88,7 +88,7 @@ from lamindb._curate import (
     MuDataCurator,
 )
 from lamindb._query_manager import QueryManager
-from lamindb._query_set import QuerySet, RecordsList
+from lamindb._query_set import QuerySet, RecordList
 from lamindb.core._feature_manager import FeatureManager, ParamManager
 from lamindb.core._label_manager import LabelManager
 

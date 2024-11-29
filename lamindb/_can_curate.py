@@ -20,6 +20,8 @@ if TYPE_CHECKING:
     from lamin_utils._inspect import InspectResult
     from lnschema_core.types import ListLike, StrField
 
+    from lamindb._query_set import RecordList
+
 
 # from_values doesn't apply for QuerySet or Manager
 @classmethod  # type:ignore
@@ -32,7 +34,7 @@ def from_values(
     organism: Record | str | None = None,
     source: Record | None = None,
     mute: bool = False,
-) -> list[Record]:
+) -> RecordList:
     """{}"""  # noqa: D415
     from_source = True if cls.__module__.startswith("bionty.") else False
 
