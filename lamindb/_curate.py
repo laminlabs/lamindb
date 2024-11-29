@@ -1368,10 +1368,13 @@ class SOMACurator(BaseCurator):
         revises: Artifact | None = None,
         run: Run | None = None,
     ) -> Artifact:
+        from lamindb.core._data import add_labels
+
         if not self._validated:
             self.validate()
             if not self._validated:
                 raise ValidationError("Dataset does not validate. Please curate.")
+
         artifact = Artifact(
             self._experiment_uri,
             description=description,
@@ -1406,6 +1409,29 @@ class SOMACurator(BaseCurator):
                 raise_validation_error=False,
             )
         artifact._feature_sets = feature_sets
+
+        feature_ref_is_name = _ref_is_name(self._columns_field)
+        features = Feature.lookup().dict()
+        for key, field in self._obs_fields.items():
+            feature = features.get(key)
+            registry = field.field.model
+            organism = check_registry_organism(field.field.model, self._organism).get(
+                "organism"
+            )
+            labels = registry.from_values(
+                values=self._validated_values[key], field=field, organism=organism
+            )
+            if len(labels) == 0:
+                continue
+            if hasattr(registry, "_name_field"):
+                label_ref_is_name = field.field.name == registry._name_field
+                add_labels(
+                    artifact,
+                    records=labels,
+                    feature=feature,
+                    feature_ref_is_name=feature_ref_is_name,
+                    label_ref_is_name=label_ref_is_name,
+                )
 
         return artifact.save()
 
