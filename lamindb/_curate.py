@@ -15,6 +15,7 @@ from lamindb_setup.core.upath import UPath
 from lnschema_core import (
     Artifact,
     Feature,
+    FeatureSet,
     Record,
     Run,
     ULabel,
@@ -1095,6 +1096,7 @@ class SOMACurator(BaseCurator):
         self._non_validated_values: dict[str, list] | None = None
         self._validated_values: dict[str, list] = {}
         # filled by _check_save_keys
+        self._n_obs: int | None = None
         self._valid_obs_keys: list[str] | None = None
         self._valid_var_keys: list[str] | None = None
         self._check_save_keys()
@@ -1103,7 +1105,9 @@ class SOMACurator(BaseCurator):
         from lamindb.core.storage._tiledbsoma import _open_tiledbsoma
 
         with _open_tiledbsoma(self._experiment_uri, mode="r") as experiment:
-            valid_obs_keys = [k for k in experiment.obs.keys() if k != "soma_joinid"]
+            experiment_obs = experiment.obs
+            self._n_obs = len(experiment_obs)
+            valid_obs_keys = [k for k in experiment_obs.keys() if k != "soma_joinid"]
             self._valid_obs_keys = valid_obs_keys
 
             valid_var_keys = []
@@ -1185,13 +1189,16 @@ class SOMACurator(BaseCurator):
                     var_ms.read(column_names=[key]).concat()[key].to_pylist()
                 )
 
+                organism = check_registry_organism(field.field.model, self._organism)[
+                    "organism"
+                ]
                 update_registry(
                     values=var_ms_values,
                     field=field,
                     key=var_ms_key,
                     using_key=self._using_key,
                     validated_only=True,
-                    organism=self._organism,
+                    organism=organism,
                     source=self._sources.get(var_ms_key),
                     exclude=self._exclude.get(var_ms_key),
                 )
@@ -1200,7 +1207,7 @@ class SOMACurator(BaseCurator):
                     field=field,
                     key=var_ms_key,
                     using_key=self._using_key,
-                    organism=self._organism,
+                    organism=organism,
                     source=self._sources.get(var_ms_key),
                     exclude=self._exclude.get(var_ms_key),
                 )
@@ -1218,13 +1225,16 @@ class SOMACurator(BaseCurator):
                 values = pa.compute.unique(
                     obs.read(column_names=[key]).concat()[key]
                 ).to_pylist()
+                organism = check_registry_organism(field.field.model, self._organism)[
+                    "organism"
+                ]
                 update_registry(
                     values=values,
                     field=field,
                     key=key,
                     using_key=self._using_key,
                     validated_only=True,
-                    organism=self._organism,
+                    organism=organism,
                     source=self._sources.get(key),
                     exclude=self._exclude.get(key),
                 )
@@ -1233,7 +1243,7 @@ class SOMACurator(BaseCurator):
                     field=field,
                     key=key,
                     using_key=self._using_key,
-                    organism=self._organism,
+                    organism=organism,
                     source=self._sources.get(key),
                     exclude=self._exclude.get(key),
                 )
@@ -1275,13 +1285,16 @@ class SOMACurator(BaseCurator):
         for k in keys:
             values, field = self._non_validated_values_field(k)
             if len(values) > 0:
+                organism = check_registry_organism(field.field.model, self._organism)[
+                    "organism"
+                ]
                 update_registry(
                     values=values,
                     field=field,
                     key=k,
                     using_key=self._using_key,
                     validated_only=False,
-                    organism=self._organism,
+                    organism=organism,
                     source=self._sources.get(k),
                     exclude=self._exclude.get(k),
                 )
@@ -1310,9 +1323,9 @@ class SOMACurator(BaseCurator):
                 slot_key = key
             # errors if public ontology and the model has no organism
             # has to be fixed in bionty
-            organism = (
-                self._organism if hasattr(field.field.model, "organism_id") else None
-            )
+            organism = check_registry_organism(field.field.model, self._organism)[
+                "organism"
+            ]
             syn_mapper = standardize_categories(
                 values=values,
                 field=field,
@@ -1345,6 +1358,52 @@ class SOMACurator(BaseCurator):
             logger.success(
                 f'standardized {n_syn_mapper} synonym{s} in "{k}": {colors.green(syn_mapper_print)}'
             )
+
+    def save_artifact(
+        self,
+        description: str | None = None,
+        key: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ) -> Artifact:
+        if not self._validated:
+            self.validate()
+            if not self._validated:
+                raise ValidationError("Dataset does not validate. Please curate.")
+        artifact = Artifact(
+            self._experiment_uri,
+            description=description,
+            key=key,
+            revises=revises,
+            run=run,
+        )
+        artifact.n_observations = self._n_obs
+        artifact._accessor = "tiledbsoma"
+
+        feature_sets = {}
+        organism = check_registry_organism(
+            self._columns_field.field.model, self._organism
+        )["organism"]
+        feature_sets["obs"] = FeatureSet.from_values(
+            values=list(self._obs_fields.keys()),
+            field=self._columns_field,
+            organism=organism,
+            raise_validation_error=False,
+        )
+        for ms in self._var_fields:
+            var_key, var_field = self._var_fields[ms]
+            organism = check_registry_organism(var_field.field.model, self._organism)[
+                "organism"
+            ]
+            feature_sets[f"{ms}__var"] = FeatureSet.from_values(
+                values=self._validated_values[f"{ms}__{var_key}"],
+                field=var_field,
+                organism=organism,
+                raise_validation_error=False,
+            )
+        artifact._feature_sets = feature_sets
+
+        return artifact.save()
 
 
 class Curator(BaseCurator):
