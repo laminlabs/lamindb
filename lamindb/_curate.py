@@ -1381,6 +1381,7 @@ class SOMACurator(BaseCurator):
         )
         artifact.n_observations = self._n_obs
         artifact._accessor = "tiledbsoma"
+        artifact.save()
 
         feature_sets = {}
         organism = check_registry_organism(
