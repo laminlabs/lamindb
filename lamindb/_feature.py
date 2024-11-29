@@ -18,6 +18,8 @@ from .core._settings import settings
 from .core.schema import dict_schema_name_to_model_name
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from lnschema_core.types import FieldAttr
     from pandas.core.dtypes.base import ExtensionDtype
 
@@ -100,6 +102,20 @@ def __init__(self, *args, **kwargs):
             )
 
 
+def suggest_categorical_for_str_iterable(
+    iterable: Iterable[str], key: str = None
+) -> str:
+    c = pd.Categorical(iterable)
+    message = ""
+    if len(c.categories) < len(c):
+        if key != "":
+            key_note = f" for feature {key}"
+        else:
+            key_note = ""
+        message = f"You have few permissible values{key_note}, consider dtype 'cat' instead of 'str'"
+    return message
+
+
 def categoricals_from_df(df: pd.DataFrame) -> dict:
     """Returns categorical columns."""
     string_cols = [col for col in df.columns if is_string_dtype(df[col])]
@@ -109,11 +125,9 @@ def categoricals_from_df(df: pd.DataFrame) -> dict:
         if isinstance(df[col].dtype, CategoricalDtype)
     }
     for key in string_cols:
-        c = pd.Categorical(df[key])
-        if len(c.categories) < len(c):
-            logger.warning(
-                f"consider changing the dtype of string column `{key}` to categorical"
-            )
+        message = suggest_categorical_for_str_iterable(df[key], key)
+        if message:
+            logger.warning(message)
     return categoricals
 
 

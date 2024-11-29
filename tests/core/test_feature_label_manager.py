@@ -5,6 +5,7 @@ import bionty as bt
 import lamindb as ln
 import pytest
 from lamindb.core._data import add_labels
+from lamindb.core.datasets import small_dataset1
 from lamindb.core.exceptions import DoesNotExist, ValidationError
 
 
@@ -18,7 +19,24 @@ def adata():
 
 
 def test_features_add():
-    pass
+    df, metadata = small_dataset1(format="df")
+    artifact = ln.Artifact.from_df(df, description="test dataset").save()
+    with pytest.raises(ValidationError) as err:
+        artifact.features.add_values({"cell_medium": df.cell_medium.unique()})
+    assert (
+        err.exconly()
+        == """lamindb.core.exceptions.ValidationError: These keys could not be validated: ['cell_medium']
+Here is how to create a feature:
+
+  ln.Feature(name='cell_medium', dtype='cat ? str').save()"""
+    )
+
+    ln.Feature(name="cell_medium", dtype="cat").save()
+    ln.ULabel.from_values(["DMSO", "IFNG"], create=True).save()
+    artifact.features.add_values({"cell_medium": df.cell_medium.unique()})
+    artifact.delete(permanent=True)
+    ln.ULabel.filter().all().delete()
+    ln.Feature.filter().all().delete()
 
 
 # below the test for annotating with feature values
