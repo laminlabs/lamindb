@@ -252,27 +252,16 @@ def _get_non_categoricals(
     return non_categoricals
 
 
-def _print_featuresets_postgres(
+def _get_featuresets_postgres(
     self: Artifact | Collection,
     related_data: dict | None = None,
-    print_types: bool = False,
-):
-    from lamindb._from_values import _print_values
-
+) -> dict:
     if not related_data:
         artifact_meta = get_artifact_with_related(self, include_featureset=True)
         related_data = artifact_meta.get("related_data", {})
 
     fs_data = related_data.get("featuresets", {}) if related_data else {}
-    feature_set_msg = ""
-    for _, (slot, data) in fs_data.items():
-        for type_str, feature_names in data.items():
-            type_str = f": {type_str}" if print_types else ""
-            feature_set_msg += (
-                f"    '{slot}'{type_str} = {_print_values(feature_names)}\n"
-            )
-
-    return feature_set_msg
+    return fs_data
 
 
 def print_features(
@@ -294,9 +283,14 @@ def print_features(
     if not print_params and not to_dict:
         feature_set_msg = ""
         if self.id is not None and connections[self._state.db].vendor == "postgresql":
-            feature_set_msg = _print_featuresets_postgres(
-                self, related_data=related_data
-            )
+            fs_data = _get_featuresets_postgres(self, related_data=related_data)
+            feature_set_msg = ""
+            for _, (slot, data) in fs_data.items():
+                for type_str, feature_names in data.items():
+                    type_str = f": {type_str}" if print_types else ""
+                    feature_set_msg += (
+                        f"    '{slot}'{type_str} = {_print_values(feature_names)}\n"
+                    )
         else:
             for slot, feature_set in get_feature_set_by_slot_(self).items():
                 features = feature_set.members
