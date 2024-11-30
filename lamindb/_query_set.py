@@ -189,7 +189,9 @@ class RecordList(UserList, Generic[T]):
         return self
 
 
-def get_basic_field_names(qs: QuerySet) -> list[str]:
+def get_basic_field_names(
+    qs: QuerySet, include: list[str], features: bool | list[str] = False
+) -> list[str]:
     exclude_field_names = ["updated_at"]
     field_names = [
         field.name
@@ -218,6 +220,11 @@ def get_basic_field_names(qs: QuerySet) -> list[str]:
     if field_names[0] != "uid" and "uid" in field_names:
         field_names.remove("uid")
         field_names.insert(0, "uid")
+    if include or features:
+        subset_field_names = field_names[:4]
+        intersection = set(field_names) & set(include)
+        subset_field_names += list(intersection)
+        field_names = subset_field_names
     return field_names
 
 
@@ -354,7 +361,7 @@ def reshape_annotate_result(
                 for col in feature_values.columns:
                     if col in result.columns:
                         continue
-                    result.insert(0, col, feature_values[col])
+                    result.insert(4, col, feature_values[col])
 
         # Handle links features if they exist
         links_features = [
@@ -425,7 +432,7 @@ def process_links_features(
         for feature_name in feature_names:
             mask = df[feature_col] == feature_name
             feature_values = df[mask].groupby("id")[value_col].agg(set)
-            result.insert(0, feature_name, result["id"].map(feature_values))
+            result.insert(4, feature_name, result["id"].map(feature_values))
 
     return result
 
@@ -437,9 +444,11 @@ def process_extra_columns(
     for col, col_type in extra_columns.items():
         if col not in df.columns:
             continue
+        if col in result.columns:
+            continue
 
         values = df.groupby("id")[col].agg(set if col_type == "many" else "first")
-        result.insert(0, col, result["id"].map(values))
+        result.insert(4, col, result["id"].map(values))
 
     return result
 
@@ -465,15 +474,17 @@ class QuerySet(models.QuerySet):
         features: bool | list[str] = False,
     ) -> pd.DataFrame:
         """{}"""  # noqa: D415
-        field_names = get_basic_field_names(self)
+        if include is None:
+            include = []
+        elif isinstance(include, str):
+            include = [include]
+        field_names = get_basic_field_names(self, include, features)
         annotate_kwargs = {}
         if features:
             annotate_kwargs.update(get_feature_annotate_kwargs(features))
         if include:
-            if isinstance(include, str):
-                include = [include]
             include = include.copy()[::-1]
-            include_kwargs = {s: F(s) for s in include}
+            include_kwargs = {s: F(s) for s in include if s not in field_names}
             annotate_kwargs.update(include_kwargs)
         if annotate_kwargs:
             queryset = self.annotate(**annotate_kwargs)
