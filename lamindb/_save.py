@@ -112,6 +112,7 @@ def bulk_create(records: Iterable[Record], ignore_conflicts: bool | None = False
         records_by_orm[record.__class__].append(record)
     for registry, records in records_by_orm.items():
         registry.objects.bulk_create(records, ignore_conflicts=ignore_conflicts)
+        # records[:] = created  # In-place list update; does not seem to be necessary
 
 
 def bulk_update(records: Iterable[Record], ignore_conflicts: bool | None = False):

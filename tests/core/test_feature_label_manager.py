@@ -5,6 +5,7 @@ import bionty as bt
 import lamindb as ln
 import pytest
 from lamindb.core._data import add_labels
+from lamindb.core.datasets import small_dataset1
 from lamindb.core.exceptions import DoesNotExist, ValidationError
 
 
@@ -17,10 +18,30 @@ def adata():
     return adata
 
 
+def test_features_add():
+    df, metadata = small_dataset1(format="df")
+    artifact = ln.Artifact.from_df(df, description="test dataset").save()
+    with pytest.raises(ValidationError) as err:
+        artifact.features.add_values({"cell_medium": df.cell_medium.unique()})
+    assert (
+        err.exconly()
+        == """lamindb.core.exceptions.ValidationError: These keys could not be validated: ['cell_medium']
+Here is how to create a feature:
+
+  ln.Feature(name='cell_medium', dtype='cat ? str').save()"""
+    )
+
+    ln.Feature(name="cell_medium", dtype="cat").save()
+    ln.ULabel.from_values(["DMSO", "IFNG"], create=True).save()
+    artifact.features.add_values({"cell_medium": df.cell_medium.unique()})
+    artifact.delete(permanent=True)
+    ln.ULabel.filter().all().delete()
+    ln.Feature.filter().all().delete()
+
+
 # below the test for annotating with feature values
 def test_features_add_remove(adata):
-    artifact = ln.Artifact.from_anndata(adata, description="test")
-    artifact.save()
+    artifact = ln.Artifact.from_anndata(adata, description="test").save()
     with pytest.raises(ValidationError) as error:
         artifact.params.add_values({"learning_rate": 0.01})
     assert (
@@ -32,8 +53,7 @@ def test_features_add_remove(adata):
     assert error.exconly().startswith(
         "lamindb.core.exceptions.ValidationError: These keys could not be validated:"
     )
-    experiment = ln.Feature(name="experiment", dtype="cat")
-    experiment.save()
+    ln.Feature(name="experiment", dtype="cat").save()
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
     assert error.exconly().startswith(
@@ -83,7 +103,7 @@ Here is how to create a feature:
         artifact.features.add_values({"date_of_experiment": "Typo2024-12-01"})
     assert (
         error.exconly()
-        == """lamindb.core.exceptions.ValidationError: Expected dtype for 'date_of_experiment' is 'date', got 'cat[ULabel] / str / cat[bionty.CellType] / etc.'"""
+        == """lamindb.core.exceptions.ValidationError: Expected dtype for 'date_of_experiment' is 'date', got 'cat ? str'"""
     )
     artifact.features.add_values({"date_of_experiment": "2024-12-01"})
 
@@ -141,10 +161,10 @@ Here is how to create a feature:
 lamindb.core.exceptions.ValidationError: These keys could not be validated: ['project', 'is_validated', 'cell_type_by_expert', 'donor']
 Here is how to create a feature:
 
-  ln.Feature(name='project', dtype='cat[ULabel] / str / cat[bionty.CellType] / etc.').save()
+  ln.Feature(name='project', dtype='cat ? str').save()
   ln.Feature(name='is_validated', dtype='bool').save()
-  ln.Feature(name='cell_type_by_expert', dtype='cat[ULabel] / str / cat[bionty.CellType] / etc.').save()
-  ln.Feature(name='donor', dtype='cat[ULabel] / str / cat[bionty.CellType] / etc.').save()"""
+  ln.Feature(name='cell_type_by_expert', dtype='cat ? str').save()
+  ln.Feature(name='donor', dtype='cat ? str').save()"""
     )
 
     ln.Feature(name="project", dtype="cat[ULabel]").save()
@@ -611,3 +631,53 @@ def test_labels_get():
     artifact.delete(permanent=True, storage=True)
     feature_set.delete()
     feature_name_feature.delete()
+
+
+@pytest.fixture
+def get_test_artifacts():
+    with open("./default_storage_unit_core/test-inherit1", "w") as f:
+        f.write("artifact1")
+    with open("./default_storage_unit_core/test-inherit2", "w") as f:
+        f.write("artifact2")
+    artifact1 = ln.Artifact("./default_storage_unit_core/test-inherit1")
+    artifact1.save()
+    artifact2 = ln.Artifact("./default_storage_unit_core/test-inherit2")
+    artifact2.save()
+    yield artifact1, artifact2
+    artifact1.delete(permanent=True, storage=True)
+    artifact2.delete(permanent=True, storage=True)
+
+
+# also see test_feature_manager!
+def test_add_from(get_test_artifacts):
+    artifact1, artifact2 = get_test_artifacts
+    label_names = [f"Project {i}" for i in range(3)]
+    ulabels = [ln.ULabel(name=label_name) for label_name in label_names]
+    ln.save(ulabels)
+
+    cell_line_names = [f"Cell line {i}" for i in range(3)]
+    cell_lines = [bt.CellLine(name=name) for name in cell_line_names]
+    ln.save(cell_lines)
+
+    # pass a list of length 0
+    artifact2.labels.add([])
+    # now actually pass the labels
+    artifact2.labels.add(ulabels)
+    # here test add without passing a feature
+    artifact2.labels.add(cell_lines)
+    assert artifact2.cell_lines.count() == len(cell_lines)
+
+    assert artifact1.ulabels.exists() is False
+    artifact1.labels.add_from(artifact2)
+    assert artifact1.ulabels.count() == artifact2.ulabels.count()
+    assert artifact1.cell_lines.count() == artifact2.cell_lines.count()
+
+    artifact2.cell_lines.remove(*cell_lines)
+    artifact1.cell_lines.remove(*cell_lines)
+    artifact2.ulabels.remove(*ulabels)
+    artifact1.ulabels.remove(*ulabels)
+
+    for ulabel in ulabels:
+        ulabel.delete()
+    for cell_line in cell_lines:
+        cell_line.delete()

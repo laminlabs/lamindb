@@ -782,7 +782,7 @@ class MuDataCurator:
     def __init__(
         self,
         mdata: MuData,
-        var_index: dict[str, dict[str, FieldAttr]],
+        var_index: dict[str, FieldAttr],
         categoricals: dict[str, FieldAttr] | None = None,
         using_key: str | None = None,
         verbosity: str = "hint",

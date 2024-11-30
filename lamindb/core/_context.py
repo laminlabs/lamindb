@@ -433,7 +433,7 @@ class Context:
                 nb = nbproject.dev.read_notebook(path_str)
                 self._logging_message_imports += (
                     "notebook imports:"
-                    f" {pretty_pypackages(infer_pypackages(nb, pin_versions=True))}\n"
+                    f" {pretty_pypackages(infer_pypackages(nb, pin_versions=True))}"
                 )
             except Exception:
                 logger.debug("inferring imported packages failed")

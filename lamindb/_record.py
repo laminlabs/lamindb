@@ -264,14 +264,14 @@ def get(
 def df(
     cls,
     include: str | list[str] | None = None,
-    join: str = "inner",
+    features: bool | list[str] = False,
     limit: int = 100,
 ) -> pd.DataFrame:
     """{}"""  # noqa: D415
     query_set = cls.filter()
     if hasattr(cls, "updated_at"):
         query_set = query_set.order_by("-updated_at")
-    return query_set[:limit].df(include=include, join=join)
+    return query_set[:limit].df(include=include, features=features)
 
 
 def _search(

@@ -1,4 +1,15 @@
-"""Test collections.
+"""Test datasets.
+
+Small in-memory datasets.
+
+.. autosummary::
+   :toctree: .
+
+   small_dataset1
+   small_dataset2
+   anndata_with_obs
+
+Files.
 
 .. autosummary::
    :toctree: .
@@ -11,8 +22,20 @@
    file_fastq
    file_bam
    file_mini_csv
+
+Directories.
+
+.. autosummary::
+   :toctree: .
+
    dir_scrnaseq_cellranger
    dir_iris_images
+
+Dataframe, AnnData, MuData.
+
+.. autosummary::
+   :toctree: .
+
    df_iris
    df_iris_in_meter
    df_iris_in_meter_study1
@@ -27,6 +50,12 @@
    mudata_papalexi21_subset
    schmidt22_crispra_gws_IFNG
    schmidt22_perturbseq
+
+Other.
+
+.. autosummary::
+   :toctree: .
+
    fake_bio_notebook_titles
 """
 
@@ -37,7 +66,6 @@ from ._core import (
     anndata_pbmc3k_processed,
     anndata_pbmc68k_reduced,
     anndata_suo22_Visium10X,
-    anndata_with_obs,
     df_iris,
     df_iris_in_meter,
     df_iris_in_meter_study1,
@@ -57,3 +85,4 @@ from ._core import (
     schmidt22_perturbseq,
 )
 from ._fake import fake_bio_notebook_titles
+from ._small import anndata_with_obs, small_dataset1, small_dataset2

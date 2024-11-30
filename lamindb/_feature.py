@@ -12,12 +12,14 @@ from pandas.api.types import CategoricalDtype, is_string_dtype
 
 from lamindb.core.exceptions import ValidationError
 
-from ._query_set import RecordsList
+from ._query_set import RecordList
 from ._utils import attach_func_to_class_method
 from .core._settings import settings
 from .core.schema import dict_schema_name_to_model_name
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from lnschema_core.types import FieldAttr
     from pandas.core.dtypes.base import ExtensionDtype
 
@@ -49,9 +51,14 @@ def convert_pandas_dtype_to_lamin_dtype(pandas_dtype: ExtensionDtype) -> str:
             dtype = "str"
         else:
             dtype = "cat"
+    # there are string-like categoricals and "pure" categoricals (pd.Categorical)
+    elif isinstance(pandas_dtype, CategoricalDtype):
+        dtype = "cat"
     else:
         # strip precision qualifiers
         dtype = "".join(dt for dt in pandas_dtype.name if not dt.isdigit())
+    if dtype.startswith("datetime"):
+        dtype = dtype.split("[")[0]
     assert dtype in FEATURE_DTYPES  # noqa: S101
     return dtype
 
@@ -97,6 +104,20 @@ def __init__(self, *args, **kwargs):
             )
 
 
+def suggest_categorical_for_str_iterable(
+    iterable: Iterable[str], key: str = None
+) -> str:
+    c = pd.Categorical(iterable)
+    message = ""
+    if len(c.categories) < len(c):
+        if key != "":
+            key_note = f" for feature {key}"
+        else:
+            key_note = ""
+        message = f"You have few permissible values{key_note}, consider dtype 'cat' instead of 'str'"
+    return message
+
+
 def categoricals_from_df(df: pd.DataFrame) -> dict:
     """Returns categorical columns."""
     string_cols = [col for col in df.columns if is_string_dtype(df[col])]
@@ -106,17 +127,15 @@ def categoricals_from_df(df: pd.DataFrame) -> dict:
         if isinstance(df[col].dtype, CategoricalDtype)
     }
     for key in string_cols:
-        c = pd.Categorical(df[key])
-        if len(c.categories) < len(c):
-            logger.warning(
-                f"consider changing the dtype of string column `{key}` to categorical"
-            )
+        message = suggest_categorical_for_str_iterable(df[key], key)
+        if message:
+            logger.warning(message)
     return categoricals
 
 
 @classmethod  # type:ignore
 @doc_args(Feature.from_df.__doc__)
-def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordsList:
+def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordList:
     """{}"""  # noqa: D415
     field = Feature.name if field is None else field
     registry = field.field.model
@@ -132,7 +151,7 @@ def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordsLis
     with logger.mute():  # silence the warning "loaded record with exact same name "
         features = [Feature(name=name, dtype=dtype) for name, dtype in dtypes.items()]
     assert len(features) == len(df.columns)  # noqa: S101
-    return RecordsList(features)
+    return RecordList(features)
 
 
 @doc_args(Feature.save.__doc__)

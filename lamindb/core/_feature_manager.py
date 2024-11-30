@@ -36,7 +36,11 @@ from lnschema_core.models import (
 from rich.table import Column, Table
 from rich.text import Text
 
-from lamindb._feature import FEATURE_DTYPES, convert_pandas_dtype_to_lamin_dtype
+from lamindb._feature import (
+    FEATURE_DTYPES,
+    convert_pandas_dtype_to_lamin_dtype,
+    suggest_categorical_for_str_iterable,
+)
 from lamindb._feature_set import DICT_KEYS_TYPE, FeatureSet
 from lamindb._from_values import _print_values
 from lamindb._record import (
@@ -526,56 +530,66 @@ def is_valid_datetime_str(date_string: str) -> bool | str:
 
 
 def infer_feature_type_convert_json(
-    value: Any, mute: bool = False, str_as_ulabel: bool = True
-) -> tuple[str, Any]:
+    key: str, value: Any, mute: bool = False, str_as_ulabel: bool = True
+) -> tuple[str, Any, str]:
+    message = ""
     if isinstance(value, bool):
-        return "bool", value
+        return "bool", value, message
     elif isinstance(value, int):
-        return "int", value
+        return "int", value, message
     elif isinstance(value, float):
-        return "float", value
+        return "float", value, message
     elif isinstance(value, date):
-        return "date", value.isoformat()
+        return "date", value.isoformat(), message
     elif isinstance(value, datetime):
-        return "datetime", value.isoformat()
+        return "datetime", value.isoformat(), message
     elif isinstance(value, str):
         if datetime_str := is_valid_datetime_str(value):
             dt_type = (
                 "date" if len(value) == 10 else "datetime"
             )  # YYYY-MM-DD is exactly 10 characters
             sanitized_value = datetime_str[:10] if dt_type == "date" else datetime_str  # type: ignore
-            return dt_type, sanitized_value  # type: ignore
+            return dt_type, sanitized_value, message  # type: ignore
         else:
-            return "cat[ULabel] / str / cat[bionty.CellType] / etc.", value
+            return "cat ? str", value, message
     elif isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
-        if isinstance(value, (pd.Series, np.ndarray)):
-            return convert_pandas_dtype_to_lamin_dtype(value.dtype), list(value)
+        if isinstance(value, (pd.Series, np.ndarray, pd.Categorical)):
+            dtype = convert_pandas_dtype_to_lamin_dtype(value.dtype)
+            if dtype == "str":
+                # ndarray doesn't know categorical, so there was no conscious choice
+                # offer both options
+                if isinstance(value, np.ndarray):
+                    dtype = "cat ? str"
+                else:
+                    # suggest to create a categorical if there are few unique values
+                    message = suggest_categorical_for_str_iterable(value, key)
+                    if message:
+                        message = f"  # {message}"
+            return dtype, list(value), message
         if isinstance(value, dict):
-            return "dict", value
+            return "dict", value, message
         if len(value) > 0:  # type: ignore
             first_element_type = type(next(iter(value)))
             if all(isinstance(elem, first_element_type) for elem in value):
                 if first_element_type is bool:
-                    return "list[bool]", value
+                    return "list[bool]", value, message
                 elif first_element_type is int:
-                    return "list[int]", value
+                    return "list[int]", value, message
                 elif first_element_type is float:
-                    return "list[float]", value
+                    return "list[float]", value, message
                 elif first_element_type is str:
-                    return (
-                        "list[cat[ULabel] / str / cat[bionty.CellType] / etc.]",
-                        value,
-                    )
+                    return ("list[cat ? str]", value, message)
                 elif first_element_type == Record:
                     return (
                         f"list[cat[{first_element_type.__get_name_with_schema__()}]]",
                         value,
+                        message,
                     )
     elif isinstance(value, Record):
-        return (f"cat[{value.__class__.__get_name_with_schema__()}]", value)
+        return (f"cat[{value.__class__.__get_name_with_schema__()}]", value, message)
     if not mute:
         logger.warning(f"cannot infer feature type of: {value}, returning '?")
-    return ("?", value)
+    return "?", value, message
 
 
 def __init__(self, host: Artifact | Collection | Run):
@@ -792,10 +806,14 @@ def _add_values(
     validated_keys = keys_array[validated]
     if validated.sum() != len(keys):
         not_validated_keys = keys_array[~validated]
+        not_validated_keys_dtype_message = [
+            (key, infer_feature_type_convert_json(key, features_values[key]))
+            for key in not_validated_keys
+        ]
         hint = "\n".join(
             [
-                f"  ln.{model_name}(name='{key}', dtype='{infer_feature_type_convert_json(features_values[key], str_as_ulabel=str_as_ulabel)[0]}').save()"
-                for key in not_validated_keys
+                f"  ln.{model_name}(name='{key}', dtype='{dtype}').save(){message}"
+                for key, (dtype, _, message) in not_validated_keys_dtype_message
             ]
         )
         msg = (
@@ -813,7 +831,8 @@ def _add_values(
     not_validated_values = []
     for key, value in features_values.items():
         feature = model.get(name=key)
-        inferred_type, converted_value = infer_feature_type_convert_json(
+        inferred_type, converted_value, _ = infer_feature_type_convert_json(
+            key,
             value,
             mute=True,
             str_as_ulabel=str_as_ulabel,
