@@ -20,6 +20,7 @@ lamin-tutorial/
 mytest/
 rds/
 mydb/
+docs/test-registries/
 docs/test-annotate-flexible/
 docs/lamindb.*
 lamin_sphinx

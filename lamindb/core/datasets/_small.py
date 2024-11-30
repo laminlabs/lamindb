@@ -9,14 +9,16 @@ import pandas as pd
 
 def small_dataset1(
     format: Literal["df", "anndata"],
+    with_typo: bool = False,
 ) -> tuple[pd.DataFrame, dict[str, Any]] | ad.AnnData:
     # define the data in the dataset
     # it's a mix of numerical measurements and observation-level metadata
+    ifng = "IFNJ" if with_typo else "IFNG"
     dataset_dict = {
         "CD8A": [1, 2, 3],
         "CD4": [3, 4, 5],
         "CD14": [5, 6, 7],
-        "cell_medium": ["DMSO", "IFNG", "DMSO"],
+        "cell_medium": ["DMSO", ifng, "DMSO"],
         "sample_note": ["was ok", "looks naah", "pretty! 🤩"],
         "cell_type_by_expert": ["B cell", "T cell", "T cell"],
         "cell_type_by_model": ["B cell", "T cell", "T cell"],
@@ -30,12 +32,44 @@ def small_dataset1(
     }
     # the dataset as DataFrame
     dataset_df = pd.DataFrame(dataset_dict, index=["sample1", "sample2", "sample3"])
-    dataset_ad = ad.AnnData(
-        dataset_df.iloc[:, :3], obs=dataset_df.iloc[:, 3:], uns=metadata
+    if format == "df":
+        return dataset_df, metadata
+    else:
+        dataset_ad = ad.AnnData(
+            dataset_df.iloc[:, :3], obs=dataset_df.iloc[:, 3:], uns=metadata
+        )
+        return dataset_ad
+
+
+def small_dataset2(
+    format: Literal["df", "anndata"],
+) -> tuple[pd.DataFrame, dict[str, Any]] | ad.AnnData:
+    dataset_dict = {
+        "CD8A": [2, 3, 3],
+        "CD4": [3, 4, 5],
+        "CD38": [4, 2, 3],
+        "cell_medium": ["DMSO", "IFNG", "IFNG"],
+        "cell_type_by_model": ["B cell", "T cell", "T cell"],
+    }
+    metadata = {
+        "temperature": 22.6,
+        "study": "Candidate marker study 2",
+        "date_of_study": "2025-02-13",
+    }
+    dataset_df = pd.DataFrame(
+        dataset_dict,
+        index=["sample4", "sample5", "sample6"],
+    )
+    ad.AnnData(
+        dataset_df[["CD8A", "CD4", "CD38"]],
+        obs=dataset_df[["cell_medium", "cell_type_by_model"]],
     )
     if format == "df":
         return dataset_df, metadata
     else:
+        dataset_ad = ad.AnnData(
+            dataset_df.iloc[:, :3], obs=dataset_df.iloc[:, 3:], uns=metadata
+        )
         return dataset_ad
 
 

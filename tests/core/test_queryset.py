@@ -8,58 +8,41 @@ from lnschema_core.users import current_user_id
 
 
 def test_df():
-    # for self-referential models
-    project_label = ln.ULabel(name="Project")
-    project_label.save()
+    project_label = ln.ULabel(name="project").save()
     project_names = [f"Project {i}" for i in range(3)]
-    labels = [ln.ULabel(name=name) for name in project_names]
-    ln.save(labels)
-    for label in labels:
-        label.parents.add(project_label)
-    df = ln.ULabel.filter().df(include="parents__name")
-    assert df.columns[0] == "parents__name"
-    # order is not conserved
-    assert df["parents__name"].iloc[0] == [project_label.name]
-    # pass a list
-    df = ln.ULabel.filter().df(include=["parents__name", "parents__created_by_id"])
-    assert df.columns[1] == "parents__created_by_id"
-    assert df["parents__name"].iloc[0] == [project_label.name]
+    labels = ln.ULabel.from_values(project_names, create=True).save()
+    project_label.children.add(*labels)
+    df = ln.ULabel.df(include="parents__name")
+    assert df.columns[3] == "parents__name"
+    assert df["parents__name"].iloc[0] == {project_label.name}
+    df = ln.ULabel.df(include=["parents__name", "parents__created_by_id"])
+    assert df.columns[4] == "parents__created_by_id"
+    assert df["parents__name"].iloc[0] == {project_label.name}
     assert set(df["parents__created_by_id"].iloc[0]) == {current_user_id()}
 
     # for other models
     feature_names = [f"Feature {i}" for i in range(3)]
     features = [ln.Feature(name=name, dtype=int) for name in feature_names]
     ln.save(features)
-    feature_set = ln.FeatureSet(features, name="my feature_set")
-    feature_set.save()
+    feature_set = ln.FeatureSet(features, name="my feature_set").save()
     feature_set.features.set(features)
 
     df = ln.FeatureSet.filter(name="my feature_set").df(include="features__name")
-    assert df.columns[0] == "features__name"
+    assert df.columns[3] == "features__name"
     # order is not conserved
     assert set(df["features__name"].iloc[0]) == set(feature_names)
     # pass a list
     df = ln.FeatureSet.filter(name="my feature_set").df(
         include=["features__name", "features__created_by_id"]
     )
-    assert df.columns[1] == "features__created_by_id"
+    assert df.columns[4] == "features__created_by_id"
     assert set(df["features__name"].iloc[0]) == set(feature_names)
     assert set(df["features__created_by_id"].iloc[0]) == {current_user_id()}
 
     # inner join parents on features
     df = ln.FeatureSet.filter().df(
-        include=["features__name", "features__created_by_id"], join="inner"
+        include=["features__name", "features__created_by_id"]
     )
-    print(df)
-    assert set(df["features__name"].iloc[0]) == set(feature_names)
-    assert set(df["features__created_by_id"].iloc[0]) == {current_user_id()}
-
-    # outer join parents on features (this test should be expanded to make it
-    # actually relevant)
-    df = ln.FeatureSet.filter().df(
-        include=["features__name", "features__created_by_id"], join="outer"
-    )
-    print(df)
     assert set(df["features__name"].iloc[0]) == set(feature_names)
     assert set(df["features__created_by_id"].iloc[0]) == {current_user_id()}
 
@@ -68,14 +51,16 @@ def test_df():
     assert df["created_by__name"].iloc[0] == "Test User1"
 
     # do not return fields with no data in the registry
-    df = (
-        ln.Artifact.using("laminlabs/cellxgene")
-        .filter(suffix=".h5ad")
-        .df(include=["tissues__name", "pathways__name"])
-    )
-    assert "tissues__name" in df.columns
-    assert "pathways__name" not in df.columns
-    assert df.shape[0] > 0
+    # does not make sense in Alex's opinion
+    # too much magic; got removed in https://github.com/laminlabs/lamindb/pull/2238
+    # df = (
+    #     ln.Artifact.using("laminlabs/cellxgene")
+    #     .filter(suffix=".h5ad")
+    #     .df(include=["tissues__name", "pathways__name"])
+    # )
+    # assert "tissues__name" in df.columns
+    # assert "pathways__name" not in df.columns
+    # assert df.shape[0] > 0
 
     # clean up
     project_label.delete()
