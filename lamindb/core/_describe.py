@@ -51,8 +51,10 @@ def print_rich_tree(tree: Tree, fallback=str):
 
 
 def describe_header(self: Artifact | Collection) -> Tree:
-    if not self.is_latest:
-        logger.warning("This is not the latest version of the artifact.")
+    if hasattr(self, "is_latest") and not self.is_latest:
+        logger.warning(
+            f"This is not the latest version of the {self.__class__.__name__}."
+        )
     if self.visibility == 0:
         logger.warning("This artifact is hidden.")
     elif self.visibility == -1:
@@ -105,7 +107,10 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
             ),
         )
     )
-    general.add(Text.assemble(".created_at = ", highlight_time(str(self.created_at))))
+    if hasattr(self, "created_at") and self.created_at:
+        general.add(
+            Text.assemble(".created_at = ", highlight_time(str(self.created_at)))
+        )
     if self.transform:
         general.add(
             Text(
