@@ -55,12 +55,17 @@ def describe_header(self: Artifact | Collection) -> Tree:
         logger.warning(
             f"This is not the latest version of the {self.__class__.__name__}."
         )
-    if self.visibility == 0:
-        logger.warning("This artifact is hidden.")
-    elif self.visibility == -1:
-        logger.warning("This artifact is the trash.")
+    if hasattr(self, "is_latest"):
+        if self.visibility == 0:
+            logger.warning("This artifact is hidden.")
+        elif self.visibility == -1:
+            logger.warning("This artifact is the trash.")
     # initialize tree
-    suffix = f" - {self.suffix.removeprefix('.')}" if self.suffix else ""
+    suffix = (
+        f" - {self.suffix.removeprefix('.')}"
+        if hasattr(self, "suffix") and self.suffix
+        else ""
+    )
     tree = Tree(Text(f"Artifact{suffix}", style="bold"), guide_style="dim")
     return tree
 
@@ -97,21 +102,22 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
                 f"{str(self.path).removeprefix(storage_root)}",
             )
         )
-    general.add(
-        Text.assemble(
-            ".created_by = ",
-            (
-                self.created_by.handle
-                if self.created_by.name is None
-                else f"{self.created_by.handle} ({self.created_by.name})"
-            ),
+    if hasattr(self, "created_by") and self.created_by:
+        general.add(
+            Text.assemble(
+                ".created_by = ",
+                (
+                    self.created_by.handle
+                    if self.created_by.name is None
+                    else f"{self.created_by.handle} ({self.created_by.name})"
+                ),
+            )
         )
-    )
     if hasattr(self, "created_at") and self.created_at:
         general.add(
             Text.assemble(".created_at = ", highlight_time(str(self.created_at)))
         )
-    if self.transform:
+    if hasattr(self, "transform") and self.transform:
         general.add(
             Text(
                 f".transform = '{self.transform.name}'",
