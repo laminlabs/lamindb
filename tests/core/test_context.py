@@ -3,7 +3,7 @@ from pathlib import Path
 
 import lamindb as ln
 import pytest
-from lamindb._finish import clean_r_notebook_html
+from lamindb._finish import clean_r_notebook_html, get_shortcut
 from lamindb.core._context import context, get_uid_ext
 from lamindb.core.exceptions import TrackNotCalled, ValidationError
 
@@ -237,12 +237,14 @@ def test_track_notebook_or_script_manually(type):
 
 
 def test_clean_r_notebook_html():
+    orig_notebook_path = NOTEBOOKS_DIR / "basic-r-notebook.Rmd.html"
+    content = orig_notebook_path.read_text()
+    orig_notebook_path.write_text(content.replace("SHORTCUT", get_shortcut()))
     comparison_path = NOTEBOOKS_DIR / "basic-r-notebook.Rmd.cleaned.html"
     compare = comparison_path.read_text()
     comparison_path.unlink()
-    title_text, cleaned_path = clean_r_notebook_html(
-        NOTEBOOKS_DIR / "basic-r-notebook.Rmd.html"
-    )
+    title_text, cleaned_path = clean_r_notebook_html(orig_notebook_path)
     assert comparison_path == cleaned_path
     assert title_text == "My exemplary R analysis"
     assert compare == comparison_path.read_text()
+    orig_notebook_path.write_text(content.replace(get_shortcut(), "SHORTCUT"))
