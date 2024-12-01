@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connection
 from django.db.models import F, OuterRef, Q, Subquery

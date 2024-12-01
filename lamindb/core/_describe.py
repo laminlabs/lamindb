@@ -1,9 +1,14 @@
+from __future__ import annotations
+
 import datetime
+from typing import TYPE_CHECKING
 
 from lamin_utils import logger
-from lnschema_core.models import Artifact, Collection
 from rich.text import Text
 from rich.tree import Tree
+
+if TYPE_CHECKING:
+    from lnschema_core.models import Artifact, Collection
 
 
 def highlight_time(iso: str):
