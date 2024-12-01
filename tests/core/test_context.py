@@ -4,9 +4,10 @@ from pathlib import Path
 import lamindb as ln
 import pytest
 from lamindb.core._context import context, get_uid_ext
+from lamindb.core._finish import clean_error_from_r_notebook_html
 from lamindb.core.exceptions import TrackNotCalled, ValidationError
 
-scripts_dir = Path(__file__).parent.resolve() / "scripts"
+SCRIPTS_DIR = Path(__file__).parent.resolve() / "scripts"
 
 
 def test_track_with_multi_parents():
@@ -134,7 +135,7 @@ def test_create_or_load_transform():
 def test_run_scripts_for_versioning():
     # regular execution
     result = subprocess.run(  # noqa: S602
-        f"python {scripts_dir / 'script-to-test-versioning.py'}",
+        f"python {SCRIPTS_DIR / 'script-to-test-versioning.py'}",
         shell=True,
         capture_output=True,
     )
@@ -144,7 +145,7 @@ def test_run_scripts_for_versioning():
 
     # updated key (filename change)
     result = subprocess.run(  # noqa: S602
-        f"python {scripts_dir / 'script-to-test-filename-change.py'}",
+        f"python {SCRIPTS_DIR / 'script-to-test-filename-change.py'}",
         shell=True,
         capture_output=True,
     )
@@ -154,7 +155,7 @@ def test_run_scripts_for_versioning():
 
     # version already taken
     result = subprocess.run(  # noqa: S602
-        f"python {scripts_dir / 'duplicate1/script-to-test-versioning.py'}",
+        f"python {SCRIPTS_DIR / 'duplicate1/script-to-test-versioning.py'}",
         shell=True,
         capture_output=True,
     )
@@ -167,7 +168,7 @@ def test_run_scripts_for_versioning():
 
     # regular version bump
     result = subprocess.run(  # noqa: S602
-        f"python {scripts_dir / 'duplicate2/script-to-test-versioning.py'}",
+        f"python {SCRIPTS_DIR / 'duplicate2/script-to-test-versioning.py'}",
         shell=True,
         capture_output=True,
     )
@@ -179,7 +180,7 @@ def test_run_scripts_for_versioning():
 
     # inconsistent version
     result = subprocess.run(  # noqa: S602
-        f"python {scripts_dir / 'duplicate3/script-to-test-versioning.py'}",
+        f"python {SCRIPTS_DIR / 'duplicate3/script-to-test-versioning.py'}",
         shell=True,
         capture_output=True,
     )
@@ -232,3 +233,11 @@ def test_track_notebook_or_script_manually(type):
         error.exconly()
         == "ValueError: Use `ln.track()` without passing transform in a notebook or script - metadata is automatically parsed"
     )
+
+
+def test_clean_error_from_r_notebook_html():
+    comparison_path = SCRIPTS_DIR / "basic-r-notebook.Rmd.html"
+    compare = comparison_path.read_text()
+    comparison_path.unlink()
+    clean_error_from_r_notebook_html(SCRIPTS_DIR / "basic-r-notebook.Rmd.html")
+    assert compare == comparison_path.read_text()

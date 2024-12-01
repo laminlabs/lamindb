@@ -94,6 +94,18 @@ def notebook_to_script(
     script_path.write_text(py_content)
 
 
+# removes NotebookNotSaved error message from notebook html
+def clean_error_from_r_notebook_html(file_path: Path):
+    import re
+
+    content = file_path.read_text()
+    # Pattern to match the specific error message that contains NotebookNotSaved
+    pattern = r"Error in py_call_impl.*?NotebookNotSaved.*?for details\."
+    cleaned_content = re.sub(pattern, "", content, flags=re.DOTALL)
+    cleaned_path = file_path.parent / (f"{file_path.stem}.cleaned{file_path.suffix}")
+    cleaned_path.write_text(cleaned_content)
+
+
 def save_context_core(
     *,
     run: Run,
@@ -167,6 +179,7 @@ def save_context_core(
         transform._source_code_artifact_id is not None
         or transform.source_code is not None  # equivalent to transform.hash is not None
     ):
+        print(transform.source_code)
         # check if the hash of the transform source code matches
         # (for scripts, we already run the same logic in track() - we can deduplicate the call at some point)
         ref_hash = (
