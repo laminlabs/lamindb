@@ -90,7 +90,7 @@ def raise_missing_context(transform_type: str, key: str) -> bool:
             f"you already have a transform with key '{key}': Transform('{transform.uid[:8]}')\n"
             f'  (1) to make a revision, run: ln.track("{new_uid}")\n  (2) to create a new transform, rename your {transform_type} file and re-run: ln.track()'
         )
-    if transform_type == "notebook":
+    if is_run_from_ipython:
         print(f"→ {message}")
         response = input("→ Ready to re-run? (y/n)")
         if response == "y":
@@ -343,7 +343,7 @@ class Context:
             )
             if run is not None:  # loaded latest run
                 run.started_at = datetime.now(timezone.utc)  # update run time
-                self._logging_message_track += f", started Run('{run.uid[:8]}') at {format_field_value(run.started_at)}"
+                self._logging_message_track += f", re-started Run('{run.uid[:8]}') at {format_field_value(run.started_at)}"
 
         if run is None:  # create new run
             run = Run(
@@ -579,15 +579,11 @@ class Context:
             `lamin save script.py` or `lamin save notebook.ipynb` → `docs </cli#lamin-save>`__
 
         """
-        from lamindb._finish import save_context_core
-
-        def get_seconds_since_modified(filepath) -> float:
-            return datetime.now().timestamp() - filepath.stat().st_mtime
-
-        def get_shortcut() -> str:
-            import platform
-
-            return "CMD + s" if platform.system() == "Darwin" else "CTRL + s"
+        from lamindb._finish import (
+            get_seconds_since_modified,
+            get_shortcut,
+            save_context_core,
+        )
 
         if self.run is None:
             raise TrackNotCalled("Please run `ln.track()` before `ln.finish()`")
@@ -609,7 +605,7 @@ class Context:
                 self.transform.save()
             if get_seconds_since_modified(self._path) > 2 and not ln_setup._TESTING:
                 raise NotebookNotSaved(
-                    f"Please save the notebook in your editor (shortcut `{get_shortcut()}`) right before calling `ln.finish()`"
+                    f"Please save the notebook in your editor (shortcut `{get_shortcut()}`) within 2 sec before calling `ln.finish()`"
                 )
         save_context_core(
             run=self.run,

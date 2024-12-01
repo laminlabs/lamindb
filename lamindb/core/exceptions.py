@@ -79,7 +79,7 @@ class IntegrityError(Exception):
     pass
 
 
-class NoTitleError(Exception):
+class NoTitleError(SystemExit):
     """Notebook has no title."""
 
     pass
