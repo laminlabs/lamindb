@@ -439,7 +439,7 @@ def describe_features(
             Text.assemble(
                 ("Dataset", "bold bright_magenta"),
                 ("/", "dim"),
-                ("FeatureSet", "dim bold"),
+                (".feature_sets", "dim bold"),
             )
         )
         for child in dataset_tree_children:
