@@ -18,6 +18,12 @@ if TYPE_CHECKING:
     from ._query_set import QuerySet
 
 
+def get_shortcut() -> str:
+    import platform
+
+    return "CMD + s" if platform.system() == "Darwin" else "CTRL + s"
+
+
 def get_seconds_since_modified(filepath) -> float:
     return datetime.now().timestamp() - filepath.stat().st_mtime
 
@@ -213,15 +219,12 @@ def save_context_core(
         run.finished_at = datetime.now(timezone.utc)
 
     # track report and set is_consecutive
-    if report_path is None:
-        run.is_consecutive = is_consecutive
-        run.save()
-    else:
+    if report_path is not None:
         if not from_cli:
             if get_seconds_since_modified(report_path) > 2 and not ln_setup._TESTING:
                 # this can happen when auto-knitting an html with RStudio
                 raise NotebookNotSaved(
-                    "Please save the notebook in RStudio right before calling `db$finish()`"
+                    f"Please save the notebook in RStudio (shortcut `{get_shortcut()}`) within 2 sec before calling `db$finish()`"
                 )
         if run.report_id is not None:
             hash, _ = hash_file(report_path)  # ignore hash_type for now
@@ -245,11 +248,13 @@ def save_context_core(
             )
             report_file.save(upload=True, print_progress=False)
             run.report = report_file
-        run.is_consecutive = is_consecutive
-        run.save()
         logger.debug(
             f"saved transform.latest_run.report: {transform.latest_run.report}"
         )
+    run.is_consecutive = is_consecutive
+
+    # save both run & transform records if we arrive here
+    run.save()
     transform.save()
 
     # finalize

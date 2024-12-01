@@ -579,12 +579,11 @@ class Context:
             `lamin save script.py` or `lamin save notebook.ipynb` → `docs </cli#lamin-save>`__
 
         """
-        from lamindb._finish import get_seconds_since_modified, save_context_core
-
-        def get_shortcut() -> str:
-            import platform
-
-            return "CMD + s" if platform.system() == "Darwin" else "CTRL + s"
+        from lamindb._finish import (
+            get_seconds_since_modified,
+            get_shortcut,
+            save_context_core,
+        )
 
         if self.run is None:
             raise TrackNotCalled("Please run `ln.track()` before `ln.finish()`")
@@ -606,7 +605,7 @@ class Context:
                 self.transform.save()
             if get_seconds_since_modified(self._path) > 2 and not ln_setup._TESTING:
                 raise NotebookNotSaved(
-                    f"Please save the notebook in your editor (shortcut `{get_shortcut()}`) right before calling `ln.finish()`"
+                    f"Please save the notebook in your editor (shortcut `{get_shortcut()}`) within 2 sec before calling `ln.finish()`"
                 )
         save_context_core(
             run=self.run,
