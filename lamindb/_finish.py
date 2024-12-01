@@ -18,6 +18,10 @@ if TYPE_CHECKING:
     from ._query_set import QuerySet
 
 
+def get_r_save_notebook_message() -> str:
+    return f"Please save the notebook in RStudio (shortcut `{get_shortcut()}`) within 2 sec before calling `db$finish()`"
+
+
 def get_shortcut() -> str:
     import platform
 
@@ -99,9 +103,7 @@ def clean_error_from_r_notebook_html(file_path: Path) -> Path:
     import re
 
     content = file_path.read_text()
-    # Pattern to match the specific error message that contains NotebookNotSaved
-    pattern = r"Error in py_call_impl.*?NotebookNotSaved.*?for details\."
-    cleaned_content = re.sub(pattern, "", content, flags=re.DOTALL)
+    cleaned_content = content.replace(get_r_save_notebook_message(), "")
     cleaned_path = file_path.parent / (f"{file_path.stem}.cleaned{file_path.suffix}")
     cleaned_path.write_text(cleaned_content)
     return cleaned_path
@@ -178,9 +180,8 @@ def save_context_core(
     hash, _ = hash_file(source_code_path)  # ignore hash_type for now
     if (
         transform._source_code_artifact_id is not None
-        or transform.source_code is not None  # equivalent to transform.hash is not None
+        or transform.hash is not None  # .hash is equivalent to .transform
     ):
-        print(transform.source_code)
         # check if the hash of the transform source code matches
         # (for scripts, we already run the same logic in track() - we can deduplicate the call at some point)
         ref_hash = (
@@ -200,7 +201,7 @@ def save_context_core(
                 logger.warning("Please re-run `ln.track()` to make a new version")
                 return "rerun-the-notebook"
         else:
-            logger.important("source code is already saved")
+            logger.debug("source code is already saved")
     else:
         transform.source_code = source_code_path.read_text()
         transform.hash = hash
@@ -237,9 +238,7 @@ def save_context_core(
         if not from_cli:
             if get_seconds_since_modified(report_path) > 2 and not ln_setup._TESTING:
                 # this can happen when auto-knitting an html with RStudio
-                raise NotebookNotSaved(
-                    f"Please save the notebook in RStudio (shortcut `{get_shortcut()}`) within 2 sec before calling `db$finish()`"
-                )
+                raise NotebookNotSaved(get_r_save_notebook_message())
         if is_r_notebook:
             report_path = clean_error_from_r_notebook_html(report_path)
         if run.report_id is not None:
