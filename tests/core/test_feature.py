@@ -107,7 +107,7 @@ def test_feature_from_df(df):
         artifact.labels.add(labels, feature=extfeature)
     assert (
         err.exconly()
-        == "lamindb.core.exceptions.ValidationError: Feature needs dtype='cat' for label annotation, currently has dtype='str'"
+        == f"lamindb.core.exceptions.ValidationError: Feature {extfeature.name} needs dtype='cat' for label annotation, currently has dtype='str'"
     )
 
     # clean up

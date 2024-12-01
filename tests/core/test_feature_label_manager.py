@@ -216,8 +216,8 @@ Here is how to create ulabels for them:
         "datetime_of_experiment": datetime.datetime(2024, 12, 1, 0, 0, 0),
     }
     # hard to test because of italic formatting
-    print_rich_tree(artifact)
     tree = describe_features(artifact)
+    print_rich_tree(tree)
     assert tree.label.plain == "Artifact .h5ad | AnnData"
     assert tree.children[0].label.plain == "Annotations"
     assert len(tree.children[0].children[0].label.columns) == 3
@@ -349,7 +349,7 @@ def test_params_add():
         },
     }
     # test describe params
-    tree = describe_features(artifact)
+    tree = describe_features(artifact, print_params=True)
     assert tree.label.plain == "Artifact .pt"
     assert tree.children[0].label.plain == "Annotations"
     assert len(tree.children[0].children[0].label.columns) == 3
