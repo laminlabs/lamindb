@@ -12,7 +12,7 @@ repos:
       - id: prettier
         exclude: |
           (?x)(
-            docs/changelog.md|.github/ISSUE_TEMPLATE/config.yml
+            docs/changelog.md|.github/ISSUE_TEMPLATE/config.yml|tests/core/notebooks/basic-r-notebook.Rmd.cleaned.html
           )
   - repo: https://github.com/kynan/nbstripout
     rev: 0.6.1

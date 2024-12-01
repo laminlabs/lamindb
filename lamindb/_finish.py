@@ -110,8 +110,8 @@ def clean_r_notebook_html(file_path: Path) -> Path:
     if title_match:
         title_text = title_match.group(1)
         pattern_h1 = f"<h1[^>]*>{re.escape(title_text)}</h1>"
-        cleaned_content = re.sub(pattern_title, "\n", cleaned_content)
-        cleaned_content = re.sub(pattern_h1, "\n", cleaned_content)
+        cleaned_content = re.sub(pattern_title, "", cleaned_content)
+        cleaned_content = re.sub(pattern_h1, "", cleaned_content)
     cleaned_content = cleaned_content.replace(
         f"NotebookNotSaved: {get_r_save_notebook_message()}", ""
     )
