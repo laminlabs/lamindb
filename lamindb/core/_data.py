@@ -124,20 +124,6 @@ def format_input_of_runs(self, print_types):
     return ""
 
 
-# def format_labels_and_features(self, related_data, print_types):
-#     msg = print_labels(
-#         self, m2m_data=related_data.get("m2m", {}), print_types=print_types
-#     )
-#     if isinstance(self, Artifact):
-#         msg += print_features(  # type: ignore
-#             self,
-#             related_data=related_data,
-#             print_types=print_types,
-#             print_params=hasattr(self, "type") and self.type == "model",
-#         )
-#     return msg
-
-
 def _describe_postgres(self: Artifact | Collection, print_types: bool = False):
     from ._describe import describe_general
     from ._feature_manager import describe_features
