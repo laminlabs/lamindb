@@ -3,11 +3,12 @@ from pathlib import Path
 
 import lamindb as ln
 import pytest
+from lamindb._finish import clean_error_from_r_notebook_html
 from lamindb.core._context import context, get_uid_ext
-from lamindb.core._finish import clean_error_from_r_notebook_html
 from lamindb.core.exceptions import TrackNotCalled, ValidationError
 
 SCRIPTS_DIR = Path(__file__).parent.resolve() / "scripts"
+NOTEBOOKS_DIR = Path(__file__).parent.resolve() / "notebooks"
 
 
 def test_track_with_multi_parents():
@@ -236,8 +237,8 @@ def test_track_notebook_or_script_manually(type):
 
 
 def test_clean_error_from_r_notebook_html():
-    comparison_path = SCRIPTS_DIR / "basic-r-notebook.Rmd.html"
+    comparison_path = NOTEBOOKS_DIR / "basic-r-notebook.Rmd.cleaned.html"
     compare = comparison_path.read_text()
     comparison_path.unlink()
-    clean_error_from_r_notebook_html(SCRIPTS_DIR / "basic-r-notebook.Rmd.html")
+    clean_error_from_r_notebook_html(NOTEBOOKS_DIR / "basic-r-notebook.Rmd.html")
     assert compare == comparison_path.read_text()
