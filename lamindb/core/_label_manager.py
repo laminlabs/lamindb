@@ -99,10 +99,15 @@ def describe_labels(
         return tree
 
     labels_table = Table(
-        Column("Name", style="", no_wrap=True, width=NAME_WIDTH),
-        Column("Type", style="dim", no_wrap=True, width=TYPE_WIDTH),
-        Column("Values", width=VALUES_WIDTH, no_wrap=True),
-        show_header=False,
+        Column(
+            Text.assemble(("Labels", "green_yellow")),
+            style="",
+            no_wrap=True,
+            width=NAME_WIDTH,
+        ),
+        Column("", style="dim", no_wrap=True, width=TYPE_WIDTH),
+        Column("", width=VALUES_WIDTH, no_wrap=True),
+        # show_header=True,
         box=None,
         pad_edge=False,
     )
@@ -126,8 +131,7 @@ def describe_labels(
             return labels_table
     else:
         if labels_table.rows:
-            labels_tree = tree.add(Text("Labels", style="bold green_yellow"))
-            labels_tree.add(labels_table)
+            tree.add(labels_table)
         return tree
 
 

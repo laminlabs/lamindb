@@ -47,46 +47,99 @@ def test_curate_annotate_df():
 
     # expected output has italicized elements that can't be tested
     # hence testing is restricted to section content, not headings
-    description = _describe_postgres(artifact, print_types=True)
-    # > Artifact(uid='tQAwzih2n44VQRjO0000', is_latest=True, key='example_datasets/dataset1.h5ad', suffix='.h5ad', type='dataset', size=23560, hash='voB-uoihaivmNskhV7osPQ', n_observations=3, _hash_type='md5', _accessor='AnnData', visibility=1, _key_is_virtual=True, created_at=2024-11-28 17:05:30 UTC)
-    # >   Provenance
-    # >     .storage: Storage = '/Users/falexwolf/repos/laminhub/rest-hub/sub/lamindb/default_storage_unit_core'
-    # >     .created_by: User = 'falexwolf'
-    # >   Labels
-    # >     .cell_types: CellType = 'B cell', 'T cell'
-    # >     .ulabels: ULabel = 'DMSO', 'IFNG', 'Candidate marker study 1'
-    # >   Feature sets
-    # >     'var' = 'CD8A', 'CD4', 'CD14'
-    # >     'obs' = 'cell_medium', 'sample_note', 'cell_type_by_expert', 'cell_type_by_model'
-    # >   Feature values -- internal
-    # >     'cell_type_by_expert': cat[bionty.CellType] = B cell, T cell
-    # >     'cell_type_by_model': cat[bionty.CellType] = B cell, T cell
-    # >     'cell_medium': cat[ULabel] = DMSO, IFNG
-    # >   Feature values -- external
-    # >     'study': cat[ULabel] = Candidate marker study 1
-    # >     'date_of_study': date = 2024-12-01
-    # >     'study_note': str = We had a great time performing this study and the results look compelling.
-    # >     'temperature': float = 21.6
+    description_tree = _describe_postgres(artifact, print_types=True)
+    print(description_tree)
 
-    print(description)
+    # general section
+    assert len(description_tree.children) == 3
+    gernal_node = description_tree.children[0]
+    assert gernal_node.label.plain == "General"
+    assert gernal_node.children[0].label == f".uid = '{artifact.uid}'"
+    assert gernal_node.children[1].label == ".key = 'example_datasets/dataset1.h5ad'"
+    assert ".size = " in gernal_node.children[2].label
+    assert ".hash = " in gernal_node.children[3].label
+    assert gernal_node.children[4].label.plain == ".n_observations = 3"
+    assert ".path = " in gernal_node.children[5].label.plain
+    assert ".created_by = " in gernal_node.children[6].label.plain
+    assert ".created_at = " in gernal_node.children[7].label.plain
 
-    labels = """.cell_types: bionty.CellType = 'B cell', 'T cell'
-    .ulabels: ULabel = 'DMSO', 'IFNG', 'Candidate marker study 1'"""
-    assert labels in description
+    # dataset section
+    dataset_node = description_tree.children[1]
+    assert dataset_node.label.plain == "Dataset"
+    assert len(dataset_node.children) == 2
+    assert len(dataset_node.children[0].label.rows) == 3
+    assert len(dataset_node.children[0].label.columns) == 3
+    assert dataset_node.children[0].label.columns[0].header.plain == "var • 3"
+    assert dataset_node.children[0].label.columns[0]._cells == ["CD8A", "CD4", "CD14"]
+    assert dataset_node.children[0].label.columns[1].header.plain == "[bionty.Gene]"
+    assert dataset_node.children[0].label.columns[1]._cells[0].plain == "int"
+    assert dataset_node.children[1].label.columns[0].header.plain == "obs • 4"
+    assert dataset_node.children[1].label.columns[0]._cells == [
+        "cell_medium",
+        "cell_type_by_expert",
+        "cell_type_by_model",
+    ]
+    assert dataset_node.children[1].label.columns[1].header.plain == "[Feature]"
+    assert dataset_node.children[1].label.columns[1]._cells[0].plain == "cat[ULabel]"
+    assert (
+        dataset_node.children[1].label.columns[1]._cells[1].plain
+        == "cat[bionty.CellType]"
+    )
+    assert (
+        dataset_node.children[1].label.columns[1]._cells[2].plain
+        == "cat[bionty.CellType]"
+    )
+    assert dataset_node.children[1].label.columns[2]._cells == [
+        "DMSO, IFNG",
+        "B cell, T cell",
+        "B cell, T cell",
+    ]
 
-    internal_features = """'cell_medium': cat[ULabel] = DMSO, IFNG
-    'cell_type_by_expert': cat[bionty.CellType] = B cell, T cell
-    'cell_type_by_model': cat[bionty.CellType] = B cell, T cell"""
-    assert internal_features in description
-
-    external_features = """'study': cat[ULabel] = Candidate marker study 1
-    'date_of_study': date = 2024-12-01
-    'study_note': str = We had a great time performing this study and the results look compelling.
-    'temperature': float = 21.6"""
-    assert external_features in description
+    # annotations section
+    annotations_node = description_tree.children[2]
+    assert annotations_node.label.plain == "Annotations"
+    assert len(annotations_node.children) == 2
+    assert len(annotations_node.children[0].label.columns) == 3
+    assert len(annotations_node.children[0].label.rows) == 4
+    assert annotations_node.children[0].label.columns[0].header.plain == "Features"
+    assert annotations_node.children[0].label.columns[0]._cells == [
+        "study",
+        "date_of_study",
+        "study_note",
+        "temperature",
+    ]
+    assert (
+        annotations_node.children[0].label.columns[1]._cells[0].plain == "cat[ULabel]"
+    )
+    assert annotations_node.children[0].label.columns[1]._cells[1].plain == "date"
+    assert annotations_node.children[0].label.columns[1]._cells[2].plain == "str"
+    assert annotations_node.children[0].label.columns[1]._cells[3].plain == "float"
+    assert annotations_node.children[0].label.columns[2]._cells == [
+        "Candidate marker study 1",
+        "2024-12-01",
+        "We had a great time performing this study and the results look compelling.",
+        "21.6",
+    ]
+    assert len(annotations_node.children[0].label.columns) == 3
+    assert len(annotations_node.children[1].label.rows) == 2
+    assert annotations_node.children[1].label.columns[0].header.plain == "Labels"
+    assert annotations_node.children[1].label.columns[0]._cells == [
+        ".cell_types",
+        ".ulabels",
+    ]
+    assert (
+        annotations_node.children[1].label.columns[1]._cells[0].plain
+        == "bionty.CellType"
+    )
+    assert annotations_node.children[1].label.columns[1]._cells[1].plain == "ULabel"
+    assert annotations_node.children[1].label.columns[2]._cells == [
+        "'B cell', 'T cell'",
+        "'DMSO', 'IFNG', 'Candidate marker study 1'",
+    ]
 
     artifact.delete(permanent=True)
     ln.FeatureSet.filter().delete()
+    ln.Feature.filter().delete()
     bt.Gene.filter().delete()
     ln.ULabel.filter().delete()
     bt.CellType.filter().delete()

@@ -441,22 +441,25 @@ def describe_features(
 
     # Annotations section
     ## external features
-    annotations_tree_children = []
+    features_tree_children = []
     if external_data:
-        annotations_tree_children.append(
+        features_tree_children.append(
             _create_feature_table(
                 Text.assemble(("Features", "green_yellow")), "", external_data
             )
         )
-    if with_labels:
-        labels_table = describe_labels(self, as_subtree=True)
-        if labels_table:
-            annotations_tree_children.append(Text("Labels", style="bold green_yellow"))
-            annotations_tree_children.append(labels_table)
-    if annotations_tree_children:
+    annotations_tree = None
+    if features_tree_children:
         annotations_tree = tree.add(Text("Annotations", style="bold dark_orange"))
-        for child in annotations_tree_children:
+        for child in features_tree_children:
             annotations_tree.add(child)
+    if with_labels:
+        labels_tree = describe_labels(self, as_subtree=True)
+        if labels_tree:
+            if annotations_tree:
+                annotations_tree.add(labels_tree)
+            else:
+                tree.add(labels_tree)
 
     return tree
 
