@@ -56,15 +56,14 @@ def print_rich_tree(tree: Tree, fallback=str):
 
 
 def describe_header(self: Artifact | Collection) -> Tree:
-    if hasattr(self, "is_latest") and not self.is_latest:
+    if not self.is_latest:
         logger.warning(
             f"This is not the latest version of the {self.__class__.__name__}."
         )
-    if hasattr(self, "is_latest"):
-        if self.visibility == 0:
-            logger.warning("This artifact is hidden.")
-        elif self.visibility == -1:
-            logger.warning("This artifact is the trash.")
+    if self.visibility == 0:
+        logger.warning("This artifact is hidden.")
+    elif self.visibility == -1:
+        logger.warning("This artifact is the trash.")
     # initialize tree
     suffix = (
         f" - {self.suffix.removeprefix('.')}"
