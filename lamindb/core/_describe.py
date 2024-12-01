@@ -8,7 +8,7 @@ from rich.text import Text
 from rich.tree import Tree
 
 if TYPE_CHECKING:
-    from lnschema_core.models import Artifact, Collection
+    from lnschema_core.models import Artifact, Collection, Run
 
 
 def highlight_time(iso: str):
@@ -55,21 +55,17 @@ def print_rich_tree(tree: Tree, fallback=str):
         return fallback
 
 
-def describe_header(self: Artifact | Collection) -> Tree:
-    if not self.is_latest:
+def describe_header(self: Artifact | Collection | Run) -> Tree:
+    if hasattr(self, "is_latest") and not self.is_latest:
         logger.warning(
             f"This is not the latest version of the {self.__class__.__name__}."
         )
-    if self.visibility == 0:
-        logger.warning("This artifact is hidden.")
-    elif self.visibility == -1:
-        logger.warning("This artifact is the trash.")
+    if hasattr(self, "visibility"):
+        if self.visibility == 0:
+            logger.warning("This artifact is hidden.")
+        elif self.visibility == -1:
+            logger.warning("This artifact is the trash.")
     # initialize tree
-    suffix = (
-        f" - {self.suffix.removeprefix('.')}"
-        if hasattr(self, "suffix") and self.suffix
-        else ""
-    )
     suffix = self.suffix if hasattr(self, "suffix") and self.suffix else ""
     accessor = self._accessor if hasattr(self, "_accessor") and self._accessor else ""
     suffix_accessor = (
