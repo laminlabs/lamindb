@@ -95,7 +95,7 @@ def notebook_to_script(
 
 
 # removes NotebookNotSaved error message from notebook html
-def clean_error_from_r_notebook_html(file_path: Path):
+def clean_error_from_r_notebook_html(file_path: Path) -> Path:
     import re
 
     content = file_path.read_text()
@@ -104,6 +104,7 @@ def clean_error_from_r_notebook_html(file_path: Path):
     cleaned_content = re.sub(pattern, "", content, flags=re.DOTALL)
     cleaned_path = file_path.parent / (f"{file_path.stem}.cleaned{file_path.suffix}")
     cleaned_path.write_text(cleaned_content)
+    return cleaned_path
 
 
 def save_context_core(
@@ -239,6 +240,8 @@ def save_context_core(
                 raise NotebookNotSaved(
                     f"Please save the notebook in RStudio (shortcut `{get_shortcut()}`) within 2 sec before calling `db$finish()`"
                 )
+        if is_r_notebook:
+            report_path = clean_error_from_r_notebook_html(report_path)
         if run.report_id is not None:
             hash, _ = hash_file(report_path)  # ignore hash_type for now
             if hash != run.report.hash:
