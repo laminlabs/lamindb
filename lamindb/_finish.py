@@ -181,15 +181,14 @@ def save_context_core(
         )
         notebook_to_script(transform, filepath, source_code_path)
     elif is_r_notebook:
-        if not filepath.with_suffix(".nb.html").exists():
-            logger.warning(
-                f"no auto-knitted file {filepath.with_suffix('.nb.html')} found, save your manually rendered .html report via the CLI: lamin save {filepath}"
-            )
+        if filepath.with_suffix(".nb.html").exists():
+            report_path = filepath.with_suffix(".nb.html")
+        elif filepath.with_suffix(".html").exists():
+            report_path = filepath.with_suffix(".html")
         else:
-            if filepath.with_suffix(".nb.html").exists():
-                report_path = filepath.with_suffix(".nb.html")
-            elif filepath.with_suffix(".html").exists():
-                report_path = filepath.with_suffix(".html")
+            logger.warning(
+                f"no {filepath.with_suffix('.nb.html')} found, save your manually rendered .html report via the CLI: lamin save {filepath}"
+            )
     ln.settings.creation.artifact_silence_missing_run_warning = True
     # track source code
     hash, _ = hash_file(source_code_path)  # ignore hash_type for now
