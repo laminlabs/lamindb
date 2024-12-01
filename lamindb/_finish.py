@@ -186,7 +186,10 @@ def save_context_core(
                 f"no auto-knitted file {filepath.with_suffix('.nb.html')} found, save your manually rendered .html report via the CLI: lamin save {filepath}"
             )
         else:
-            report_path = filepath.with_suffix(".nb.html")
+            if filepath.with_suffix(".nb.html").exists():
+                report_path = filepath.with_suffix(".nb.html")
+            elif filepath.with_suffix(".html").exists():
+                report_path = filepath.with_suffix(".html")
     ln.settings.creation.artifact_silence_missing_run_warning = True
     # track source code
     hash, _ = hash_file(source_code_path)  # ignore hash_type for now
@@ -263,7 +266,7 @@ def save_context_core(
                 )
                 if response == "y":
                     run.report.replace(report_path)
-                    run.report.save(upload=True)
+                    run.report.save(upload=True, print_progress=False)
                 else:
                     logger.important("keeping old report")
             else:
