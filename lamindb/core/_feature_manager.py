@@ -92,7 +92,9 @@ def get_accessor_by_registry_(host: Artifact | Collection) -> dict:
     return dictionary
 
 
-def get_feature_set_by_slot_(host) -> dict:
+def get_feature_set_by_slot_(host: Artifact | Collection) -> dict:
+    if isinstance(host, Collection):
+        return {}
     # if the host is not yet saved
     if host._state.adding:
         if hasattr(host, "_feature_sets"):
@@ -421,6 +423,7 @@ def describe_features(
             feature_rows = [
                 (feature_name, Text(str(feature_set.dtype), style="dim"), "")
                 for feature_name in feature_names
+                if feature_name
             ]
         dataset_tree_children.append(
             _create_feature_table(
