@@ -436,7 +436,11 @@ def describe_features(
     ## internal features from the non-`Feature` registry
     if dataset_tree_children:
         dataset_tree = tree.add(
-            Text.assemble(("Dataset", "bold bright_magenta"), ("/FeatureSet", "dim"))
+            Text.assemble(
+                ("Dataset", "bold bright_magenta"),
+                ("/", "dim"),
+                ("FeatureSet", "dim bold"),
+            )
         )
         for child in dataset_tree_children:
             dataset_tree.add(child)
@@ -462,10 +466,11 @@ def describe_features(
     if with_labels:
         labels_tree = describe_labels(self, as_subtree=True)
         if labels_tree:
-            if annotations_tree:
-                annotations_tree.add(labels_tree)
-            else:
-                tree.add(labels_tree)
+            if annotations_tree is None:
+                annotations_tree = tree.add(
+                    Text("Annotations", style="bold dark_orange")
+                )
+            annotations_tree.add(labels_tree)
 
     return tree
 
