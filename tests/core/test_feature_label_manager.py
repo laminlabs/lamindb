@@ -218,7 +218,7 @@ Here is how to create ulabels for them:
     # hard to test because of italic formatting
     tree = describe_features(artifact)
     print_rich_tree(tree)
-    assert tree.label.plain == "Artifact .h5ad | AnnData"
+    assert tree.label.plain == "Artifact .h5ad/AnnData"
     assert tree.children[0].label.plain == "Annotations"
     assert len(tree.children[0].children[0].label.columns) == 3
     assert len(tree.children[0].children[0].label.rows) == 10

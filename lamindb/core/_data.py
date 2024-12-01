@@ -163,7 +163,11 @@ def _describe_postgres(self: Artifact | Collection, print_types: bool = False):
 
     tree = describe_general(self)
     return describe_features(
-        self, tree=tree, related_data=related_data, with_labels=True
+        self,
+        tree=tree,
+        related_data=related_data,
+        with_labels=True,
+        print_params=hasattr(self, "type") and self.type == "model",
     )
 
 
@@ -204,7 +208,12 @@ def _describe_sqlite(self: Artifact | Collection, print_types: bool = False):
             .get(id=self.id)
         )
     tree = describe_general(self)
-    return describe_features(self, tree=tree, with_labels=True)
+    return describe_features(
+        self,
+        tree=tree,
+        with_labels=True,
+        print_params=hasattr(self, "type") and self.type == "model",
+    )
 
 
 @doc_args(Artifact.describe.__doc__)

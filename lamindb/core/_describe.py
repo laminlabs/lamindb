@@ -74,7 +74,7 @@ def describe_header(self: Artifact | Collection) -> Tree:
     suffix = self.suffix if hasattr(self, "suffix") and self.suffix else ""
     accessor = self._accessor if hasattr(self, "_accessor") and self._accessor else ""
     suffix_accessor = (
-        f"{suffix} | {accessor}" if suffix and accessor else suffix or accessor or ""
+        f"{suffix}/{accessor}" if suffix and accessor else suffix or accessor or ""
     )
 
     tree = Tree(

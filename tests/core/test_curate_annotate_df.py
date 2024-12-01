@@ -65,7 +65,7 @@ def test_curate_annotate_df():
 
     # dataset section
     dataset_node = description_tree.children[1]
-    assert dataset_node.label.plain == "Dataset"
+    assert dataset_node.label.plain == "Dataset/FeatureSet"
     assert len(dataset_node.children) == 2
     assert len(dataset_node.children[0].label.rows) == 3
     assert len(dataset_node.children[0].label.columns) == 3

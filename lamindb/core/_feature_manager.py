@@ -435,7 +435,9 @@ def describe_features(
         )
     ## internal features from the non-`Feature` registry
     if dataset_tree_children:
-        dataset_tree = tree.add(Text("Dataset", style="bold bright_magenta"))
+        dataset_tree = tree.add(
+            Text.assemble(("Dataset", "bold bright_magenta"), ("/FeatureSet", "dim"))
+        )
         for child in dataset_tree_children:
             dataset_tree.add(child)
 
