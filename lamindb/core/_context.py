@@ -343,7 +343,7 @@ class Context:
             )
             if run is not None:  # loaded latest run
                 run.started_at = datetime.now(timezone.utc)  # update run time
-                self._logging_message_track += f", started Run('{run.uid[:8]}') at {format_field_value(run.started_at)}"
+                self._logging_message_track += f", re-started Run('{run.uid[:8]}') at {format_field_value(run.started_at)}"
 
         if run is None:  # create new run
             run = Run(
