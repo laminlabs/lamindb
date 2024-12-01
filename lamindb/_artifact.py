@@ -28,6 +28,7 @@ from lnschema_core.types import (
     VisibilityChoice,
 )
 
+from ._parents import view_lineage
 from ._utils import attach_func_to_class_method
 from .core._data import (
     _track_run_input,
@@ -36,7 +37,6 @@ from .core._data import (
     get_run,
     save_feature_set_links,
     save_feature_sets,
-    view_lineage,
 )
 from .core._settings import settings
 from .core.exceptions import IntegrityError, InvalidArgument

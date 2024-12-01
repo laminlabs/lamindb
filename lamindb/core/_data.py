@@ -18,21 +18,16 @@ from lnschema_core.models import (
     record_repr,
 )
 
-from lamindb._parents import view_lineage
 from lamindb._query_set import QuerySet
-from lamindb._record import get_name_field
 from lamindb.core._settings import settings
 
 from ._context import context
 from ._django import get_artifact_with_related, get_related_model
 from ._feature_manager import (
     add_label_feature_links,
-    get_feature_set_links,
     get_host_id_field,
     get_label_links,
-    print_features,
 )
-from ._label_manager import print_labels
 from .exceptions import ValidationError
 from .schema import (
     dict_related_model_to_related_name,
@@ -129,21 +124,10 @@ def format_input_of_runs(self, print_types):
     return ""
 
 
-def format_labels_and_features(self, related_data, print_types):
-    msg = print_labels(
-        self, m2m_data=related_data.get("m2m", {}), print_types=print_types
-    )
-    if isinstance(self, Artifact):
-        msg += print_features(  # type: ignore
-            self,
-            related_data=related_data,
-            print_types=print_types,
-            print_params=hasattr(self, "type") and self.type == "model",
-        )
-    return msg
-
-
 def _describe_postgres(self: Artifact | Collection, print_types: bool = False):
+    from ._describe import describe_general
+    from ._feature_manager import describe_features
+
     model_name = self.__class__.__name__
     msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
     if self._state.db is not None and self._state.db != "default":
@@ -161,32 +145,28 @@ def _describe_postgres(self: Artifact | Collection, print_types: bool = False):
     else:
         result = get_artifact_with_related(self, include_fk=True, include_m2m=True)
     related_data = result.get("related_data", {})
-    fk_data = related_data.get("fk", {})
+    # TODO: fk_data = related_data.get("fk", {})
 
-    # Provenance
-    prov_msg = format_provenance(self, fk_data, print_types)
-    if prov_msg:
-        msg += f"  {colors.italic('Provenance')}\n{prov_msg}"
-
-    # Input of runs
-    input_of_message = format_input_of_runs(self, print_types)
-    if input_of_message:
-        msg += f"  {colors.italic('Usage')}\n{input_of_message}"
-
-    # Labels and features
-    msg += format_labels_and_features(self, related_data, print_types)
-
-    return msg
+    tree = describe_general(self)
+    return describe_features(
+        self,
+        tree=tree,
+        related_data=related_data,
+        with_labels=True,
+        print_params=hasattr(self, "type") and self.type == "model",
+    )
 
 
 def _describe_sqlite(self: Artifact | Collection, print_types: bool = False):
+    from ._describe import describe_general
+    from ._feature_manager import describe_features
+
     model_name = self.__class__.__name__
     msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
     if self._state.db is not None and self._state.db != "default":
         msg += f"  {colors.italic('Database instance')}\n"
         msg += f"    slug: {self._state.db}\n"
 
-    prov_msg = ""
     fields = self._meta.fields
     direct_fields = []
     foreign_key_fields = []
@@ -213,45 +193,26 @@ def _describe_sqlite(self: Artifact | Collection, print_types: bool = False):
             .prefetch_related(*many_to_many_fields)
             .get(id=self.id)
         )
-
-    # provenance
-    if len(foreign_key_fields) > 0:  # always True for Artifact and Collection
-        fields_values = [(field, getattr(self, field)) for field in foreign_key_fields]
-        type_str = lambda attr: (
-            f": {attr.__class__.__get_name_with_schema__()}" if print_types else ""
-        )
-        related_msg = "".join(
-            [
-                f"    .{field_name}{type_str(attr)} = {format_field_value(getattr(attr, get_name_field(attr)))}\n"
-                for (field_name, attr) in fields_values
-                if attr is not None
-            ]
-        )
-        prov_msg += related_msg
-    if prov_msg:
-        msg += f"  {colors.italic('Provenance')}\n"
-        msg += prov_msg
-
-    # Input of runs
-    input_of_message = format_input_of_runs(self, print_types)
-    if input_of_message:
-        msg += f"  {colors.italic('Usage')}\n{input_of_message}"
-
-    # Labels and features
-    msg += format_labels_and_features(self, {}, print_types)
-
-    return msg
+    tree = describe_general(self)
+    return describe_features(
+        self,
+        tree=tree,
+        with_labels=True,
+        print_params=hasattr(self, "type") and self.type == "model",
+    )
 
 
 @doc_args(Artifact.describe.__doc__)
 def describe(self: Artifact | Collection, print_types: bool = False):
     """{}"""  # noqa: D415
-    if not self._state.adding and connections[self._state.db].vendor == "postgresql":
-        msg = _describe_postgres(self, print_types=print_types)
-    else:
-        msg = _describe_sqlite(self, print_types=print_types)
+    from ._describe import print_rich_tree
 
-    logger.print(msg)
+    if not self._state.adding and connections[self._state.db].vendor == "postgresql":
+        tree = _describe_postgres(self, print_types=print_types)
+    else:
+        tree = _describe_sqlite(self, print_types=print_types)
+
+    print_rich_tree(tree)
 
 
 def validate_feature(feature: Feature, records: list[Record]) -> None:
@@ -398,7 +359,7 @@ def add_labels(
             if registry_name not in feature.dtype:
                 if not feature.dtype.startswith("cat"):
                     raise ValidationError(
-                        f"Feature needs dtype='cat' for label annotation, currently has dtype='{feature.dtype}'"
+                        f"Feature {feature.name} needs dtype='cat' for label annotation, currently has dtype='{feature.dtype}'"
                     )
                 if feature.dtype == "cat":
                     feature.dtype = f"cat[{registry_name}]"
