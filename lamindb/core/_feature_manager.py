@@ -445,7 +445,11 @@ def describe_features(
     if external_data:
         features_tree_children.append(
             _create_feature_table(
-                Text.assemble(("Features", "green_yellow")), "", external_data
+                Text.assemble(
+                    ("Params" if print_params else "Features", "green_yellow")
+                ),
+                "",
+                external_data,
             )
         )
     annotations_tree = None

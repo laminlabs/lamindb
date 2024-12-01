@@ -5,6 +5,8 @@ import bionty as bt
 import lamindb as ln
 import pytest
 from lamindb.core._data import add_labels
+from lamindb.core._feature_manager import describe_features
+from lamindb.core._label_manager import print_rich_tree
 from lamindb.core.datasets import small_dataset1
 from lamindb.core.exceptions import DoesNotExist, ValidationError
 
@@ -64,7 +66,6 @@ def test_features_add_remove(adata):
     artifact.ulabels.add(experiment_label)
     assert artifact.links_ulabel.get().ulabel.name == "Experiment 1"
     assert artifact.links_ulabel.get().feature is None
-    assert artifact.labels.__repr__().endswith("    .ulabels = 'Experiment 1'\n")
 
     # now add the label with the feature and make sure that it has the feature annotation
     artifact.features.add_values({"experiment": "Experiment 1"})
@@ -202,8 +203,6 @@ Here is how to create ulabels for them:
     assert ln.Artifact.get(_feature_values__value=27.2)
 
     print(artifact.features.get_values())
-    print(artifact.features.__repr__())
-    #
     assert artifact.features.get_values() == {
         "disease": {"Alzheimer disease", "atopic eczema"},
         "experiment": {"Experiment 1", "Experiment 2"},
@@ -217,20 +216,50 @@ Here is how to create ulabels for them:
         "datetime_of_experiment": datetime.datetime(2024, 12, 1, 0, 0, 0),
     }
     # hard to test because of italic formatting
-    msg = """\
-    'cell_type_by_expert' = T Cell
-    'disease' = Alzheimer disease, atopic eczema
-    'donor' = U0123
-    'experiment' = Experiment 1, Experiment 2
-    'organism' = mouse
-    'project' = project_1
-    'date_of_experiment' = 2024-12-01
-    'datetime_of_experiment' = 2024-12-01 00:00:00
-    'is_validated' = True
-    'temperature' = 27.2, 100.0
-"""
-    assert artifact.features.__repr__().endswith(msg)
-
+    print_rich_tree(artifact)
+    tree = describe_features(artifact)
+    assert tree.label.plain == "Artifact .h5ad | AnnData"
+    assert tree.children[0].label.plain == "Annotations"
+    assert len(tree.children[0].children[0].label.columns) == 3
+    assert len(tree.children[0].children[0].label.rows) == 10
+    assert tree.children[0].children[0].label.columns[0].header.plain == "Features"
+    assert tree.children[0].children[0].label.columns[0]._cells == [
+        "cell_type_by_expert",
+        "disease",
+        "donor",
+        "experiment",
+        "organism",
+        "project",
+        "date_of_experiment",
+        "datetime_of_experiment",
+        "is_validated",
+        "temperature",
+    ]
+    types = [i.plain for i in tree.children[0].children[0].label.columns[1]._cells]
+    assert types == [
+        "cat[ULabel]",
+        "cat[bionty.Disease]",
+        "cat[ULabel]",
+        "cat[ULabel]",
+        "cat[bionty.Organism]",
+        "cat[ULabel]",
+        "date",
+        "datetime",
+        "bool",
+        "num",
+    ]
+    assert tree.children[0].children[0].label.columns[2]._cells == [
+        "T Cell",
+        "Alzheimer disease, atopic eczema",
+        "U0123",
+        "Experiment 1, Experiment 2",
+        "mouse",
+        "project_1",
+        "2024-12-01",
+        "2024-12-01 00:00:00",
+        "True",
+        "27.2, 100.0",
+    ]
     # repeat
     artifact.features.add_values(features)
     assert set(artifact._feature_values.all().values_list("value", flat=True)) == {
@@ -240,7 +269,6 @@ Here is how to create ulabels for them:
         "2024-12-01",
         "2024-12-01T00:00:00",
     }
-    assert artifact.features.__repr__().endswith(msg)
 
     with pytest.raises(ValidationError) as error:
         ln.Artifact.features.filter(
@@ -320,13 +348,22 @@ def test_params_add():
             "container": "labsyspharm/quantification",
         },
     }
-    # hard to test because of italic formatting
-    msg = """
-    'learning_rate' = 0.01
-    'quantification' = {'name': 'mcquant', 'container': 'labsyspharm/quantification'}
-"""
-    print(artifact.params.__repr__())
-    assert artifact.params.__repr__().endswith(msg)
+    # test describe params
+    tree = describe_features(artifact)
+    assert tree.label.plain == "Artifact .pt"
+    assert tree.children[0].label.plain == "Annotations"
+    assert len(tree.children[0].children[0].label.columns) == 3
+    assert tree.children[0].children[0].label.columns[0].header.plain == "Params"
+    assert tree.children[0].children[0].label.columns[0]._cells == [
+        "learning_rate",
+        "quantification",
+    ]
+    assert tree.children[0].children[0].label.columns[1]._cells[0].plain == "float"
+    assert tree.children[0].children[0].label.columns[1]._cells[1].plain == "dict"
+    assert tree.children[0].children[0].label.columns[2]._cells == [
+        "0.01",
+        "{'name': 'mcquant', 'container': 'labsyspharm/quantification'}",
+    ]
     artifact.describe()
     artifact.delete(permanent=True)
     path.unlink()
@@ -625,7 +662,7 @@ def test_labels_get():
     feature_set = ln.FeatureSet(features=[feature_name_feature])
     feature_set.save()
     artifact.save()
-    assert str(artifact.features) == ""
+    assert str(artifact.features) == "no linked features"
     artifact.features.add_feature_set(feature_set, slot="random")
     assert artifact.feature_sets.first() == feature_set
     artifact.delete(permanent=True, storage=True)
