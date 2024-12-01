@@ -240,5 +240,9 @@ def test_clean_r_notebook_html():
     comparison_path = NOTEBOOKS_DIR / "basic-r-notebook.Rmd.cleaned.html"
     compare = comparison_path.read_text()
     comparison_path.unlink()
-    clean_r_notebook_html(NOTEBOOKS_DIR / "basic-r-notebook.Rmd.html")
+    title_text, cleaned_path = clean_r_notebook_html(
+        NOTEBOOKS_DIR / "basic-r-notebook.Rmd.html"
+    )
+    assert comparison_path == cleaned_path
+    assert title_text == "My exemplary R analysis"
     assert compare == comparison_path.read_text()

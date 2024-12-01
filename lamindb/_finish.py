@@ -99,7 +99,7 @@ def notebook_to_script(
 
 
 # removes NotebookNotSaved error message from notebook html
-def clean_r_notebook_html(file_path: Path) -> Path:
+def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
     import re
 
     cleaned_content = (
@@ -107,6 +107,7 @@ def clean_r_notebook_html(file_path: Path) -> Path:
     )  # at this point cleaned_content is still raw
     pattern_title = r"<title>(.*?)</title>"
     title_match = re.search(pattern_title, cleaned_content)
+    title_text = None
     if title_match:
         title_text = title_match.group(1)
         pattern_h1 = f"<h1[^>]*>{re.escape(title_text)}</h1>"
@@ -117,7 +118,7 @@ def clean_r_notebook_html(file_path: Path) -> Path:
     )
     cleaned_path = file_path.parent / (f"{file_path.stem}.cleaned{file_path.suffix}")
     cleaned_path.write_text(cleaned_content)
-    return cleaned_path
+    return title_text, cleaned_path
 
 
 def save_context_core(
@@ -251,7 +252,9 @@ def save_context_core(
                 # this can happen when auto-knitting an html with RStudio
                 raise NotebookNotSaved(get_r_save_notebook_message())
         if is_r_notebook:
-            report_path = clean_r_notebook_html(report_path)
+            title_text, report_path = clean_r_notebook_html(report_path)
+            if title_text is not None:
+                transform.name = title_text
         if run.report_id is not None:
             hash, _ = hash_file(report_path)  # ignore hash_type for now
             if hash != run.report.hash:
