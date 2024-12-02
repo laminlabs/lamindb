@@ -505,6 +505,16 @@ def test_soma_curator(adata, categoricals):
         "donor": ["D0001", "D0002", "DOOO3"],
     }
 
+    # test invalid key in standardize
+    with pytest.raises(KeyError):
+        curator.standardize("invalid_key")
+
+    curator.standardize("donor")
+    assert curator.non_validated == {
+        "cell_type": ["astrocytic glia"],
+        "donor": ["D0001", "D0002", "DOOO3"],
+    }
+
     curator.standardize("all")
     assert curator.non_validated == {"donor": ["D0001", "D0002", "DOOO3"]}
 
@@ -518,9 +528,6 @@ def test_soma_curator(adata, categoricals):
 
     # cover no keys to standardize
     curator.standardize("donor")
-    # test invalid key
-    with pytest.raises(KeyError):
-        curator.standardize("invalid_key")
 
     # save and check
     artifact = curator.save_artifact(description="test tiledbsoma curation")
