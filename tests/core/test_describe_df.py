@@ -7,56 +7,38 @@ from lamindb.core import datasets
 from lamindb.core._data import _describe_postgres
 
 
-def check_df_equality(actual_df, expected_df):
-    """
-    Checks equality between two DataFrames, with special handling for columns containing sets
-    and NaN values.
+def check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame):
+    """Checks equality between two DataFrames.
 
-    Args:
-        actual_df (pd.DataFrame): The DataFrame to test
-        expected_df (pd.DataFrame): The DataFrame with expected values
-
-    Returns:
-        bool: True if DataFrames are equal, raises AssertionError otherwise
+    Special handling for columns containing sets and NaN values.
     """
-    # Check index
     pd.testing.assert_index_equal(actual_df.index, expected_df.index)
-
-    # Check column names
     assert set(actual_df.columns) == set(expected_df.columns)
-
-    # Check values for each column
     for col in expected_df.columns:
         # Detect if column contains sets by checking first non-null value
         first_value = next((v for v in expected_df[col] if pd.notna(v)), None)
         is_set_column = isinstance(first_value, set)
-
         if is_set_column:
             # For set columns, compare sets with NaN handling
             for idx in expected_df.index:
                 actual_val = actual_df.loc[idx, col]
                 expected_val = expected_df.loc[idx, col]
-
                 # If both are NaN, they're equal
                 if pd.isna(actual_val) and pd.isna(expected_val):
                     continue
-
                 # If one is NaN and the other isn't, they're not equal
                 if pd.isna(actual_val) != pd.isna(expected_val):
                     raise AssertionError(f"NaN mismatch at index {idx} in column {col}")
-
                 # If neither is NaN, compare the sets
                 assert (
                     actual_val == expected_val
                 ), f"Set mismatch at index {idx} in column {col}"
         else:
-            # For other columns, use pandas testing
             pd.testing.assert_series_equal(
                 actual_df[col],
                 expected_df[col],
-                check_names=False,  # If you want to ignore Series names
+                check_names=False,  # ignore series names
             )
-
     return True
 
 
