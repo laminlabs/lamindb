@@ -7,6 +7,7 @@ import lamindb as ln
 import mudata as md
 import pandas as pd
 import pytest
+import tiledbsoma
 import tiledbsoma.io
 from lamindb._curate import CurateLookup, SOMACurator, ValidationError
 
@@ -459,8 +460,41 @@ def test_soma_curator(adata, categoricals):
         curator.save_artifact(description="test tiledbsoma curation")
     assert "Dataset does not validate. Please curate." in str(error.value)
 
+    assert curator.non_validated == {
+        "cell_type": ["astrocytic glia"],
+        "donor": ["D0001", "D0002", "DOOO3"],
+        "var_index": ["TCF-1"],
+    }
+
+    curator.standardize("var_index")
+    with tiledbsoma.open("curate.tiledbsoma", mode="r") as experiment:
+        var_idx = (
+            experiment.ms["RNA"]
+            .var.read(column_names=["var_id"])
+            .concat()
+            .to_pandas()["var_id"]
+        )
+    assert "TCF7" in var_idx
+
+    assert not curator.validate()
+    assert curator.non_validated == {
+        "cell_type": ["astrocytic glia"],
+        "donor": ["D0001", "D0002", "DOOO3"],
+    }
+
+    curator.standardize("all")
+    curator.validate()
+    assert curator.non_validated == {"donor": ["D0001", "D0002", "DOOO3"]}
+
+    curator.add_new_from("all")
+    assert curator.validate()
+    assert curator.non_validated == {}
+
+    artifact = curator.save_artifact(description="test tiledbsoma curation")
+
     # clean up
     shutil.rmtree("curate.tiledbsoma")
+    artifact.delete(permanent=True)
     ln.ULabel.filter().delete()
     bt.ExperimentalFactor.filter().delete()
     bt.CellType.filter().delete()

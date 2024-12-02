@@ -1301,6 +1301,10 @@ class SOMACurator(BaseCurator):
                     exclude=self._exclude.get(k),
                 )
 
+    @property
+    def non_validated(self):
+        return self._non_validated_values
+
     def standardize(self, key: str):
         avail_keys = list(self._non_validated_values.keys())
         if len(avail_keys) == 0:
