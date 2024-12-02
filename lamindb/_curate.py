@@ -1078,7 +1078,7 @@ class SOMACurator(BaseCurator):
 
     Args:
         experiment_uri: The uri of a `tiledbsoma.Experiment`.
-        var_index: The registry fields for mapping the ``.var`` columns for measurements.
+        var_index: The registry fields for mapping the ``.var`` indices for measurements.
             Should be in the form `{"measurement name": ("var column", field)}`.
             These keys should be used in the flattened form ('{measurement name}__{column name in .var}')
             in `.standardize` or `.add_new_from`, see the output of `.var_index`.

@@ -480,6 +480,10 @@ def test_soma_curator(adata, categoricals):
         categoricals=categoricals,
         organism="human",
     )
+    assert curator.categoricals == categoricals
+    var_keys = list(curator.var_index.keys())
+    assert len(var_keys) == 1
+    assert var_keys[0] == "RNA__var_id"
 
     with pytest.raises(ValidationError) as error:
         curator.add_new_from("donor")
@@ -532,6 +536,11 @@ def test_soma_curator(adata, categoricals):
 
     # cover no keys to standardize
     curator.standardize("donor")
+
+    # lookup
+    lookup = curator.lookup()
+    assert lookup.cell_type.oligodendrocyte.name == "oligodendrocyte"
+    assert lookup.RNA__var_id.pdcd1.symbol == "PDCD1"
 
     # save and check
     artifact = curator.save_artifact(description="test tiledbsoma curation")
