@@ -33,6 +33,7 @@ Curators:
    DataFrameCurator
    AnnDataCurator
    MuDataCurator
+   SOMACurator
    CurateLookup
 
 Settings & context:
@@ -86,6 +87,7 @@ from lamindb._curate import (
     CurateLookup,
     DataFrameCurator,
     MuDataCurator,
+    SOMACurator,
 )
 from lamindb._query_manager import QueryManager
 from lamindb._query_set import QuerySet, RecordList

@@ -1072,6 +1072,36 @@ def _maybe_validation_error(nonval_keys: list[str], name: str):
 
 
 class SOMACurator(BaseCurator):
+    """Curation flow for ``tiledbsoma``.
+
+    See also :class:`~lamindb.Curator`.
+
+    Args:
+        experiment_uri: The uri of a `tiledbsoma.Experiment`.
+        var_index: The registry fields for mapping the ``.var`` columns for measurements.
+            Should be in the form `{"measurement name": ("var column", field)}`.
+            These keys should be used in the flattened form ('{measurement name}__{column name in .var}')
+            in `.standardize` or `.add_new_from`, see the output of `.var_index`.
+        categoricals: A dictionary mapping ``.obs`` columns to a registry field.
+        obs_columns: The registry field for mapping the ``.obs`` columns.
+        using_key: A reference LaminDB instance.
+        organism: The organism name.
+        sources: A dictionary mapping ``.obs`` columns to Source records.
+        exclude: A dictionary mapping column names to values to exclude.
+
+    Examples:
+        >>> import bionty as bt
+        >>> curate = ln.Curator.from_tiledbsoma(
+        ...     "store.tiledbsoma",
+        ...     var_index={"RNA": ("var_id", bt.Gene.symbol)},
+        ...     categoricals={
+        ...         "cell_type_ontology_id": bt.CellType.ontology_id,
+        ...         "donor_id": ln.ULabel.name
+        ...     },
+        ...     organism="human",
+        ... )
+    """
+
     def __init__(
         self,
         experiment_uri: UPathStr,
@@ -1182,6 +1212,7 @@ class SOMACurator(BaseCurator):
             )
 
     def validate(self):
+        """Validate categories."""
         from lamindb.core.storage._tiledbsoma import _open_tiledbsoma
 
         validated = True
@@ -1276,6 +1307,13 @@ class SOMACurator(BaseCurator):
         return values, field
 
     def add_new_from(self, key: str):
+        """Add validated & new categories.
+
+        Args:
+            key: The key referencing the slot in the ``tiledbsoma`` store.
+                It should be '{measurement name}__{column name in .var}' for columns in ``.var``
+                or a column name in ``.obs``.
+        """
         if self._non_validated_values is None:
             raise ValidationError("Run .validate() first.")
         if key == "all":
@@ -1319,7 +1357,7 @@ class SOMACurator(BaseCurator):
 
     @property
     def var_index(self) -> dict[str, FieldAttr]:
-        """Return the registry fields to validate variables indices against."""
+        """Return the registry fields with flattened keys to validate variables indices against."""
         return self._var_fields_flat
 
     @property
@@ -1344,6 +1382,15 @@ class SOMACurator(BaseCurator):
         )
 
     def standardize(self, key: str):
+        """Replace synonyms with standardized values.
+
+        Args:
+            key: The key referencing the slot in the ``tiledbsoma`` store.
+                It should be '{measurement name}__{column name in .var}' for columns in ``.var``
+                or a column name in ``.obs``.
+
+        Inplace modification of the dataset.
+        """
         if len(self.non_validated) == 0:
             logger.warning("values are already standardized")
             return
@@ -1418,6 +1465,17 @@ class SOMACurator(BaseCurator):
         revises: Artifact | None = None,
         run: Run | None = None,
     ) -> Artifact:
+        """Save the validated `tiledbsoma` store and metadata.
+
+        Args:
+            description: A description of the ``tiledbsoma`` store.
+            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/mystore.tiledbsoma"`. Artifacts with the same key form a revision family.
+            revises: Previous version of the artifact. Triggers a revision.
+            run: The run that creates the artifact.
+
+        Returns:
+            A saved artifact record.
+        """
         from lamindb.core._data import add_labels
 
         if not self._validated:
@@ -1581,6 +1639,7 @@ class Curator(BaseCurator):
         )
 
     @classmethod
+    @doc_args(SOMACurator.__doc__)
     def from_tiledbsoma(
         cls,
         experiment_uri: UPathStr,
@@ -1592,6 +1651,7 @@ class Curator(BaseCurator):
         sources: dict[str, Record] | None = None,
         exclude: dict[str, str | list[str]] | None = None,
     ) -> SOMACurator:
+        """{}"""  # noqa: D415
         return SOMACurator(
             experiment_uri=experiment_uri,
             var_index=var_index,
