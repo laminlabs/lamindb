@@ -1405,15 +1405,16 @@ class SOMACurator(BaseCurator):
         artifact.save()
 
         feature_sets = {}
-        organism = check_registry_organism(
-            self._columns_field.field.model, self._organism
-        ).get("organism")
-        feature_sets["obs"] = FeatureSet.from_values(
-            values=list(self._obs_fields.keys()),
-            field=self._columns_field,
-            organism=organism,
-            raise_validation_error=False,
-        )
+        if len(self._obs_fields) > 0:
+            organism = check_registry_organism(
+                self._columns_field.field.model, self._organism
+            ).get("organism")
+            feature_sets["obs"] = FeatureSet.from_values(
+                values=list(self._obs_fields.keys()),
+                field=self._columns_field,
+                organism=organism,
+                raise_validation_error=False,
+            )
         for ms in self._var_fields:
             var_key, var_field = self._var_fields[ms]
             organism = check_registry_organism(
