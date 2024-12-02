@@ -1312,10 +1312,10 @@ class SOMACurator(BaseCurator):
         return non_val
 
     def standardize(self, key: str):
-        avail_keys = list(self._non_validated_values.keys())
-        if len(avail_keys) == 0:
+        if len(self.non_validated) == 0:
             logger.warning("values are already standardized")
             return
+        avail_keys = list(self._non_validated_values.keys())
         if key == "all":
             keys = avail_keys
         else:

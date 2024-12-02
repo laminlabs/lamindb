@@ -449,6 +449,31 @@ def test_mudata_curator(mdata):
 def test_soma_curator(adata, categoricals):
     tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
 
+    with pytest.raises(ValidationError) as error:
+        SOMACurator(
+            "curate.tiledbsoma",
+            {"RNA": ("var_id", bt.Gene.symbol)},
+            categoricals={"invalid_key": bt.CellType.name},
+        )
+    assert "key passed to categoricals is not allowed" in str(error.value)
+
+    with pytest.raises(ValidationError) as error:
+        SOMACurator(
+            "curate.tiledbsoma",
+            {"RNA": ("invalid_key", bt.Gene.symbol)},
+            categoricals={"cell_type": bt.CellType.name},
+        )
+    assert "key passed to var_index is not allowed" in str(error.value)
+
+    with pytest.raises(ValidationError) as error:
+        SOMACurator(
+            "curate.tiledbsoma",
+            {"RNA": ("var_id", bt.Gene.symbol)},
+            categoricals={"cell_type": bt.CellType.name},
+            sources={"invalid_key": None},
+        )
+    assert "key passed to sources is not allowed" in str(error.value)
+
     curator = SOMACurator(
         "curate.tiledbsoma",
         {"RNA": ("var_id", bt.Gene.symbol)},
@@ -485,8 +510,29 @@ def test_soma_curator(adata, categoricals):
 
     curator.add_new_from("all")
     assert curator.non_validated == {}
+    # test already added
+    curator.add_new_from("donor")
+    # test invalid key
+    with pytest.raises(KeyError):
+        curator.add_new_from("invalid_key")
 
+    # cover no keys to standardize
+    curator.standardize("donor")
+    # test invalid key
+    with pytest.raises(KeyError):
+        curator.standardize("invalid_key")
+
+    # save and check
     artifact = curator.save_artifact(description="test tiledbsoma curation")
+    assert set(artifact.features.get_values()["cell_type"]) == {
+        "cerebral cortex pyramidal neuron",
+        "astrocyte",
+        "oligodendrocyte",
+    }
+    assert set(artifact.features.get_values()["cell_type_2"]) == {
+        "oligodendrocyte",
+        "astrocyte",
+    }
 
     # clean up
     shutil.rmtree("curate.tiledbsoma")
