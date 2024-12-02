@@ -1326,7 +1326,7 @@ class SOMACurator(BaseCurator):
                 slot = lambda experiment: experiment.ms[ms].var  # noqa: B023
             else:
                 slot = lambda experiment: experiment.obs
-                slot_key = key
+                slot_key = k
             # errors if public ontology and the model has no organism
             # has to be fixed in bionty
             organism = check_registry_organism(field.field.model, self._organism).get(
