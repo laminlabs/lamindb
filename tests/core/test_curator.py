@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 import tiledbsoma
 import tiledbsoma.io
-from lamindb._curate import CurateLookup, SOMACurator, ValidationError
+from lamindb._curate import CurateLookup, ValidationError
 
 
 @pytest.fixture
@@ -450,7 +450,7 @@ def test_soma_curator(adata, categoricals):
     tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
 
     with pytest.raises(ValidationError) as error:
-        SOMACurator(
+        ln.Curator.from_tiledbsoma(
             "curate.tiledbsoma",
             {"RNA": ("var_id", bt.Gene.symbol)},
             categoricals={"invalid_key": bt.CellType.name},
@@ -458,7 +458,7 @@ def test_soma_curator(adata, categoricals):
     assert "key passed to categoricals is not allowed" in str(error.value)
 
     with pytest.raises(ValidationError) as error:
-        SOMACurator(
+        ln.Curator.from_tiledbsoma(
             "curate.tiledbsoma",
             {"RNA": ("invalid_key", bt.Gene.symbol)},
             categoricals={"cell_type": bt.CellType.name},
@@ -466,7 +466,7 @@ def test_soma_curator(adata, categoricals):
     assert "key passed to var_index is not allowed" in str(error.value)
 
     with pytest.raises(ValidationError) as error:
-        SOMACurator(
+        ln.Curator.from_tiledbsoma(
             "curate.tiledbsoma",
             {"RNA": ("var_id", bt.Gene.symbol)},
             categoricals={"cell_type": bt.CellType.name},
@@ -474,7 +474,7 @@ def test_soma_curator(adata, categoricals):
         )
     assert "key passed to sources is not allowed" in str(error.value)
 
-    curator = SOMACurator(
+    curator = ln.Curator.from_tiledbsoma(
         "curate.tiledbsoma",
         {"RNA": ("var_id", bt.Gene.symbol)},
         categoricals=categoricals,
@@ -560,7 +560,7 @@ def test_soma_curator_genes_columns(adata):
     adata.obs = pd.DataFrame(adata.X[:, :3], columns=adata.var_names[:3])
     tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
 
-    curator = SOMACurator(
+    curator = ln.Curator.from_tiledbsoma(
         "curate.tiledbsoma",
         {"RNA": ("var_id", bt.Gene.symbol)},
         obs_columns=bt.Gene.symbol,
@@ -569,7 +569,7 @@ def test_soma_curator_genes_columns(adata):
 
     assert not curator.validate()
     curator.standardize("all")
-    # test several subsequent .validate calls()
+    # test 2 subsequent .validate calls()
     assert curator.validate()
     assert curator.validate()
 

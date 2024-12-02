@@ -1548,6 +1548,29 @@ class Curator(BaseCurator):
             organism=organism,
         )
 
+    @classmethod
+    def from_tiledbsoma(
+        cls,
+        experiment_uri: UPathStr,
+        var_index: dict[str, tuple[str, FieldAttr]],
+        categoricals: dict[str, FieldAttr] | None = None,
+        obs_columns: FieldAttr = Feature.name,
+        using_key: str | None = None,
+        organism: str | None = None,
+        sources: dict[str, Record] | None = None,
+        exclude: dict[str, str | list[str]] | None = None,
+    ) -> SOMACurator:
+        return SOMACurator(
+            experiment_uri=experiment_uri,
+            var_index=var_index,
+            categoricals=categoricals,
+            obs_columns=obs_columns,
+            using_key=using_key,
+            organism=organism,
+            sources=sources,
+            exclude=exclude,
+        )
+
 
 def get_registry_instance(registry: Record, using_key: str | None = None) -> Record:
     """Get a registry instance using a specific instance."""
