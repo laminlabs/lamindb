@@ -540,6 +540,7 @@ def test_soma_curator(adata, categoricals):
     # lookup
     lookup = curator.lookup()
     assert lookup.cell_type.oligodendrocyte.name == "oligodendrocyte"
+    raise Exception(str(lookup.RNA__var_id.pdcd1))
     assert lookup.RNA__var_id.pdcd1.symbol == "PDCD1"
 
     # save and check
