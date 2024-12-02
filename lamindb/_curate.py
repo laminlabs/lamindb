@@ -44,8 +44,8 @@ class CurateLookup:
         public: Whether to lookup from the public instance. Defaults to False.
 
     Example:
-        >>> validator = ln.Validator()
-        >>> validator.lookup()["cell_type"].alveolar_type_1_fibroblast_cell
+        >>> curator = ln.Curator.from_df(...)
+        >>> curator.lookup()["cell_type"].alveolar_type_1_fibroblast_cell
         <Category: alveolar_type_1_fibroblast_cell>
 
     """
@@ -100,7 +100,7 @@ class CurateLookup:
                 f"Lookup objects from the {colors.italic(ref)}:\n "
                 f"{colors.green(getattr_keys)}\n "
                 f"{colors.green(getitem_keys)}\n"
-                'Example:\n    → categories = validator.lookup()["cell_type"]\n'
+                'Example:\n    → categories = curator.lookup()["cell_type"]\n'
                 "    → categories.alveolar_type_1_fibroblast_cell\n\n"
                 "To look up public ontologies, use .lookup(public=True)"
             )
@@ -1099,6 +1099,7 @@ class SOMACurator(BaseCurator):
         self._n_obs: int | None = None
         self._valid_obs_keys: list[str] | None = None
         self._valid_var_keys: list[str] | None = None
+        self._var_fields_flat: dict[str, FieldAttr] | None = None
         self._check_save_keys()
 
     def _check_save_keys(self):
@@ -1128,11 +1129,15 @@ class SOMACurator(BaseCurator):
         _maybe_validation_error(nonval_keys, "categoricals")
 
         # check validity of keys in var_index
+        self._var_fields_flat = {}
         nonval_keys = []
         for ms_key in self._var_fields.keys():
-            var_key, _ = self._var_fields[ms_key]
-            if f"{ms_key}__{var_key}" not in valid_var_keys:
+            var_key, var_field = self._var_fields[ms_key]
+            var_key_flat = f"{ms_key}__{var_key}"
+            if var_key_flat not in valid_var_keys:
                 nonval_keys.append(f"({ms_key}, {var_key})")
+            else:
+                self._var_fields_flat[var_key_flat] = var_field
         _maybe_validation_error(nonval_keys, "var_index")
 
         # check validity of keys in sources and exclude
@@ -1307,9 +1312,36 @@ class SOMACurator(BaseCurator):
                 self._non_validated_values[k] = []
 
     @property
-    def non_validated(self):
+    def non_validated(self) -> dict[str, list]:
+        """Return the non-validated features and labels."""
         non_val = {k: v for k, v in self._non_validated_values.items() if v != []}
         return non_val
+
+    @property
+    def var_index(self) -> dict[str, FieldAttr]:
+        """Return the registry fields to validate variables indices against."""
+        return self._var_fields_flat
+
+    @property
+    def categoricals(self) -> dict[str, FieldAttr]:
+        """Return the obs fields to validate against."""
+        return self._obs_fields
+
+    def lookup(
+        self, using_key: str | None = None, public: bool = False
+    ) -> CurateLookup:
+        """Lookup categories.
+
+        Args:
+            using_key: The instance where the lookup is performed.
+                if "public", the lookup is performed on the public reference.
+        """
+        return CurateLookup(
+            categoricals=self._obs_fields,
+            slots={"columns": self._columns_field, **self._var_fields_flat},
+            using_key=using_key or self._using_key,
+            public=public,
+        )
 
     def standardize(self, key: str):
         if len(self.non_validated) == 0:
