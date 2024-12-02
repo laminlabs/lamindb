@@ -482,6 +482,10 @@ def test_soma_curator(adata, categoricals):
     )
 
     with pytest.raises(ValidationError) as error:
+        curator.add_new_from("donor")
+    assert "Run .validate() first." in str(error.value)
+
+    with pytest.raises(ValidationError) as error:
         curator.save_artifact(description="test tiledbsoma curation")
     assert "Dataset does not validate. Please curate." in str(error.value)
 
@@ -565,6 +569,9 @@ def test_soma_curator_genes_columns(adata):
 
     assert not curator.validate()
     curator.standardize("all")
+    # test several subsequent .validate calls()
+    assert curator.validate()
+    assert curator.validate()
 
     artifact = curator.save_artifact(
         description="test tiledbsoma curation genes in obs"
