@@ -463,10 +463,10 @@ def test_soma_curator(adata, categoricals):
     assert curator.non_validated == {
         "cell_type": ["astrocytic glia"],
         "donor": ["D0001", "D0002", "DOOO3"],
-        "var_index": ["TCF-1"],
+        "RNA__var_id": ["TCF-1"],
     }
 
-    curator.standardize("var_index")
+    curator.standardize("RNA__var_id")
     with tiledbsoma.open("curate.tiledbsoma", mode="r") as experiment:
         var_idx = (
             experiment.ms["RNA"]
@@ -477,6 +477,7 @@ def test_soma_curator(adata, categoricals):
     assert "TCF7" in var_idx
 
     assert not curator.validate()
+    # updates only after .validate()
     assert curator.non_validated == {
         "cell_type": ["astrocytic glia"],
         "donor": ["D0001", "D0002", "DOOO3"],
