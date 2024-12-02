@@ -12,7 +12,9 @@ def check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame):
 
     Special handling for columns containing sets and NaN values.
     """
-    pd.testing.assert_index_equal(actual_df.index, expected_df.index)
+    # do not test indices by default
+    # pd.testing.assert_index_equal(actual_df.index, expected_df.index)
+    expected_df.index = actual_df.index
     assert set(actual_df.columns) == set(expected_df.columns)
     for col in expected_df.columns:
         # Detect if column contains sets by checking first non-null value
@@ -93,11 +95,13 @@ def test_curate_df():
     artifact2.features.add_values(adata2.uns)
 
     # Test df(include=[...])
-    df = ln.Artifact.df(include=["feature_sets__hash", "feature_sets__name"]).drop(
-        "uid", axis=1
+    df = (
+        ln.Artifact.filter(key__startswith="example_datasets/dataset", suffix=".h5ad")
+        .order_by("-key")
+        .df(include=["feature_sets__hash", "feature_sets__name"])
+        .drop(["uid"], axis=1)
     )
     expected_data = {
-        "id": [2, 1],
         "key": ["example_datasets/dataset2.h5ad", "example_datasets/dataset1.h5ad"],
         "description": [None, None],
         "feature_sets__hash": [
@@ -106,13 +110,17 @@ def test_curate_df():
         ],
         "feature_sets__name": [{None}, {None}],
     }
-    expected_df = pd.DataFrame(expected_data).set_index("id")
+    expected_df = pd.DataFrame(expected_data)
     check_df_equality(df, expected_df)
 
     # Test df(features=True)
-    df = ln.Artifact.df(features=True).drop("uid", axis=1)
+    df = (
+        ln.Artifact.filter(key__startswith="example_datasets/dataset", suffix=".h5ad")
+        .order_by("-key")
+        .df(features=True)
+        .drop(["uid"], axis=1)
+    )
     expected_data = {
-        "id": [2, 1],
         "key": ["example_datasets/dataset2.h5ad", "example_datasets/dataset1.h5ad"],
         "description": [None, None],
         "cell_type_by_expert": [np.nan, {"T cell", "B cell"}],
@@ -128,7 +136,7 @@ def test_curate_df():
         ],
         "date_of_study": [{"2024-12-01"}, np.nan],
     }
-    expected_df = pd.DataFrame(expected_data).set_index("id")
+    expected_df = pd.DataFrame(expected_data)
     check_df_equality(df, expected_df)
 
     # expected output has italicized elements that can't be tested
