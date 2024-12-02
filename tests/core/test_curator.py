@@ -1,3 +1,4 @@
+import shutil
 from unittest.mock import Mock
 
 import anndata as ad
@@ -6,7 +7,8 @@ import lamindb as ln
 import mudata as md
 import pandas as pd
 import pytest
-from lamindb._curate import CurateLookup, ValidationError
+import tiledbsoma.io
+from lamindb._curate import CurateLookup, SOMACurator, ValidationError
 
 
 @pytest.fixture
@@ -440,4 +442,28 @@ def test_mudata_curator(mdata):
     bt.ExperimentalFactor.filter().delete()
     bt.CellType.filter().delete()
     ln.FeatureSet.filter().delete()
+    bt.Gene.filter().delete()
+
+
+def test_soma_curator(adata, categoricals):
+    tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
+
+    curator = SOMACurator(
+        "curate.tiledbsoma",
+        {"RNA": ("var_id", bt.Gene.symbol)},
+        categoricals=categoricals,
+        organism="human",
+    )
+
+    with pytest.raises(ValidationError) as error:
+        curator.save_artifact(description="test tiledbsoma curation")
+    assert "Dataset does not validate. Please curate." in str(error.value)
+
+    # clean up
+    shutil.rmtree("curate.tiledbsoma")
+    ln.ULabel.filter().delete()
+    bt.ExperimentalFactor.filter().delete()
+    bt.CellType.filter().delete()
+    ln.FeatureSet.filter().delete()
+    ln.Feature.filter().delete()
     bt.Gene.filter().delete()
