@@ -471,8 +471,8 @@ def test_soma_curator(adata, categoricals):
         var_idx = (
             experiment.ms["RNA"]
             .var.read(column_names=["var_id"])
-            .concat()
-            .to_pandas()["var_id"]
+            .concat()["var_id"]
+            .to_pylist()
         )
     assert "TCF7" in var_idx
 
