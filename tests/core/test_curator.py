@@ -550,3 +550,32 @@ def test_soma_curator(adata, categoricals):
     ln.FeatureSet.filter().delete()
     ln.Feature.filter().delete()
     bt.Gene.filter().delete()
+
+
+def test_soma_curator_genes_columns(adata):
+    adata.obs = pd.DataFrame(adata.X[:, :3], columns=adata.var_names[:3])
+    tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
+
+    curator = SOMACurator(
+        "curate.tiledbsoma",
+        {"RNA": ("var_id", bt.Gene.symbol)},
+        obs_columns=bt.Gene.symbol,
+        organism="human",
+    )
+
+    assert not curator.validate()
+    curator.standardize("all")
+
+    artifact = curator.save_artifact(
+        description="test tiledbsoma curation genes in obs"
+    )
+
+    # clean up
+    shutil.rmtree("curate.tiledbsoma")
+    artifact.delete(permanent=True)
+    ln.ULabel.filter().delete()
+    bt.ExperimentalFactor.filter().delete()
+    bt.CellType.filter().delete()
+    ln.FeatureSet.filter().delete()
+    ln.Feature.filter().delete()
+    bt.Gene.filter().delete()
