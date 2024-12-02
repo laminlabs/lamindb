@@ -1286,24 +1286,30 @@ class SOMACurator(BaseCurator):
             keys = [key]
         for k in keys:
             values, field = self._non_validated_values_field(k)
-            if len(values) > 0:
-                organism = check_registry_organism(
-                    field.field.model, self._organism
-                ).get("organism")
-                update_registry(
-                    values=values,
-                    field=field,
-                    key=k,
-                    using_key=self._using_key,
-                    validated_only=False,
-                    organism=organism,
-                    source=self._sources.get(k),
-                    exclude=self._exclude.get(k),
-                )
+            if len(values) == 0:
+                continue
+            organism = check_registry_organism(field.field.model, self._organism).get(
+                "organism"
+            )
+            update_registry(
+                values=values,
+                field=field,
+                key=k,
+                using_key=self._using_key,
+                validated_only=False,
+                organism=organism,
+                source=self._sources.get(k),
+                exclude=self._exclude.get(k),
+            )
+            # update non-validated values list but keep the key there
+            # it will be removed by .validate()
+            if k in self._non_validated_values:
+                self._non_validated_values[k] = []
 
     @property
     def non_validated(self):
-        return self._non_validated_values
+        non_val = {k: v for k, v in self._non_validated_values.items() if v != []}
+        return non_val
 
     def standardize(self, key: str):
         avail_keys = list(self._non_validated_values.keys())
@@ -1321,6 +1327,8 @@ class SOMACurator(BaseCurator):
 
         for k in keys:
             values, field = self._non_validated_values_field(k)
+            if len(values) == 0:
+                continue
             if k in self._valid_var_keys:
                 ms, _, slot_key = k.partition("__")
                 slot = lambda experiment: experiment.ms[ms].var  # noqa: B023
@@ -1357,6 +1365,12 @@ class SOMACurator(BaseCurator):
             # write the mapped values
             with _open_tiledbsoma(self._experiment_uri, mode="w") as experiment:
                 slot(experiment).write(pa.Table.from_pandas(df, schema=table.schema))
+            # update non_validated dict
+            non_val_k = [
+                nv for nv in self._non_validated_values[k] if nv not in syn_mapper
+            ]
+            self._non_validated_values[k] = non_val_k
+
             syn_mapper_print = _print_values(
                 [f'"{m_k}" → "{m_v}"' for m_k, m_v in syn_mapper.items()], sep=""
             )

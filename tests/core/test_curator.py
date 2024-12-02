@@ -475,20 +475,15 @@ def test_soma_curator(adata, categoricals):
             .to_pylist()
         )
     assert "TCF7" in var_idx
-
-    assert not curator.validate()
-    # updates only after .validate()
     assert curator.non_validated == {
         "cell_type": ["astrocytic glia"],
         "donor": ["D0001", "D0002", "DOOO3"],
     }
 
     curator.standardize("all")
-    curator.validate()
     assert curator.non_validated == {"donor": ["D0001", "D0002", "DOOO3"]}
 
     curator.add_new_from("all")
-    assert curator.validate()
     assert curator.non_validated == {}
 
     artifact = curator.save_artifact(description="test tiledbsoma curation")
