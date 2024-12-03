@@ -2,16 +2,20 @@ from __future__ import annotations
 
 import copy
 import warnings
+from itertools import chain
 from typing import TYPE_CHECKING
 
 import anndata as ad
 import lamindb_setup as ln_setup
 import pandas as pd
+import pyarrow as pa
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
+from lamindb_setup.core.upath import UPath
 from lnschema_core import (
     Artifact,
     Feature,
+    FeatureSet,
     Record,
     Run,
     ULabel,
@@ -40,8 +44,8 @@ class CurateLookup:
         public: Whether to lookup from the public instance. Defaults to False.
 
     Example:
-        >>> validator = ln.Validator()
-        >>> validator.lookup()["cell_type"].alveolar_type_1_fibroblast_cell
+        >>> curator = ln.Curator.from_df(...)
+        >>> curator.lookup()["cell_type"].alveolar_type_1_fibroblast_cell
         <Category: alveolar_type_1_fibroblast_cell>
 
     """
@@ -96,7 +100,7 @@ class CurateLookup:
                 f"Lookup objects from the {colors.italic(ref)}:\n "
                 f"{colors.green(getattr_keys)}\n "
                 f"{colors.green(getitem_keys)}\n"
-                'Example:\n    → categories = validator.lookup()["cell_type"]\n'
+                'Example:\n    → categories = curator.lookup()["cell_type"]\n'
                 "    → categories.alveolar_type_1_fibroblast_cell\n\n"
                 "To look up public ontologies, use .lookup(public=True)"
             )
@@ -164,14 +168,16 @@ class DataFrameCurator(BaseCurator):
         verbosity: The verbosity level.
         organism: The organism name.
         sources: A dictionary mapping column names to Source records.
-        exclude: A dictionary mapping column names to values to exclude.
+        exclude: A dictionary mapping column names to values to exclude from validation.
+            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
+            using the exclude parameter ensures they are not validated.
 
     Returns:
         A curator object.
 
     Examples:
         >>> import bionty as bt
-        >>> curate = ln.Curator.from_df(
+        >>> curator = ln.Curator.from_df(
         ...     df,
         ...     categoricals={
         ...         "cell_type_ontology_id": bt.CellType.ontology_id,
@@ -502,11 +508,13 @@ class AnnDataCurator(DataFrameCurator):
         verbosity: The verbosity level.
         organism: The organism name.
         sources: A dictionary mapping ``.obs.columns`` to Source records.
-        exclude: A dictionary mapping column names to values to exclude.
+        exclude: A dictionary mapping column names to values to exclude from validation.
+            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
+            using the exclude parameter ensures they are not validated.
 
     Examples:
         >>> import bionty as bt
-        >>> curate = ln.Curator.from_anndata(
+        >>> curator = ln.Curator.from_anndata(
         ...     adata,
         ...     var_index=bt.Gene.ensembl_gene_id,
         ...     categoricals={
@@ -761,11 +769,13 @@ class MuDataCurator:
         verbosity: The verbosity level.
         organism: The organism name.
         sources: A dictionary mapping ``.obs.columns`` to Source records.
-        exclude: A dictionary mapping column names to values to exclude.
+        exclude: A dictionary mapping column names to values to exclude from validation.
+            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
+            using the exclude parameter ensures they are not validated.
 
     Examples:
         >>> import bionty as bt
-        >>> curate = ln.Curator.from_mudata(
+        >>> curator = ln.Curator.from_mudata(
         ...     mdata,
         ...     var_index={
         ...         "rna": bt.Gene.ensembl_gene_id,
@@ -1058,6 +1068,493 @@ class MuDataCurator:
         return self._artifact
 
 
+def _maybe_curation_keys_not_present(nonval_keys: list[str], name: str):
+    if (n := len(nonval_keys)) > 0:
+        s = "s" if n > 1 else ""
+        are = "are" if n > 1 else "is"
+        raise ValidationError(
+            f"the following {n} key{s} passed to {name} {are} not allowed: {colors.yellow(_print_values(nonval_keys))}"
+        )
+
+
+class SOMACurator(BaseCurator):
+    """Curation flow for ``tiledbsoma``.
+
+    See also :class:`~lamindb.Curator`.
+
+    Args:
+        experiment_uri: A local or cloud path to a `tiledbsoma.Experiment`.
+        var_index: The registry fields for mapping the `.var` indices for measurements.
+            Should be in the form `{"measurement name": ("var column", field)}`.
+            These keys should be used in the flattened form (`'{measurement name}__{column name in .var}'`)
+            in `.standardize` or `.add_new_from`, see the output of `.var_index`.
+        categoricals: A dictionary mapping categorical `.obs` columns to a registry field.
+        obs_columns: The registry field for mapping the names of the `.obs` columns.
+        organism: The organism name.
+        sources: A dictionary mapping `.obs` columns to Source records.
+        exclude: A dictionary mapping column names to values to exclude from validation.
+            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
+            using the exclude parameter ensures they are not validated.
+
+    Examples:
+        >>> import bionty as bt
+        >>> curator = ln.Curator.from_tiledbsoma(
+        ...     "./my_array_store.tiledbsoma",
+        ...     var_index={"RNA": ("var_id", bt.Gene.symbol)},
+        ...     categoricals={
+        ...         "cell_type_ontology_id": bt.CellType.ontology_id,
+        ...         "donor_id": ln.ULabel.name
+        ...     },
+        ...     organism="human",
+        ... )
+    """
+
+    def __init__(
+        self,
+        experiment_uri: UPathStr,
+        var_index: dict[str, tuple[str, FieldAttr]],
+        categoricals: dict[str, FieldAttr] | None = None,
+        obs_columns: FieldAttr = Feature.name,
+        organism: str | None = None,
+        sources: dict[str, Record] | None = None,
+        exclude: dict[str, str | list[str]] | None = None,
+        using_key: str | None = None,
+    ):
+        self._obs_fields = categoricals or {}
+        self._var_fields = var_index
+        self._columns_field = obs_columns
+        self._experiment_uri = UPath(experiment_uri)
+        self._organism = organism
+        self._using_key = using_key
+        self._sources = sources or {}
+        self._exclude = exclude or {}
+
+        self._validated: bool | None = False
+        self._non_validated_values: dict[str, list] | None = None
+        self._validated_values: dict[str, list] = {}
+        # filled by _check_save_keys
+        self._n_obs: int | None = None
+        self._valid_obs_keys: list[str] | None = None
+        self._valid_var_keys: list[str] | None = None
+        self._var_fields_flat: dict[str, FieldAttr] | None = None
+        self._check_save_keys()
+
+    # check that the provided keys in var_index and categoricals are available in the store
+    # and save features
+    def _check_save_keys(self):
+        from lamindb.core.storage._tiledbsoma import _open_tiledbsoma
+
+        with _open_tiledbsoma(self._experiment_uri, mode="r") as experiment:
+            experiment_obs = experiment.obs
+            self._n_obs = len(experiment_obs)
+            valid_obs_keys = [k for k in experiment_obs.keys() if k != "soma_joinid"]
+            self._valid_obs_keys = valid_obs_keys
+
+            valid_var_keys = []
+            ms_list = []
+            for ms in experiment.ms.keys():
+                ms_list.append(ms)
+                var_ms = experiment.ms[ms].var
+                valid_var_keys += [
+                    f"{ms}__{k}" for k in var_ms.keys() if k != "soma_joinid"
+                ]
+            self._valid_var_keys = valid_var_keys
+
+        # check validity of keys in categoricals
+        nonval_keys = []
+        for obs_key in self._obs_fields.keys():
+            if obs_key not in valid_obs_keys:
+                nonval_keys.append(obs_key)
+        _maybe_curation_keys_not_present(nonval_keys, "categoricals")
+
+        # check validity of keys in var_index
+        self._var_fields_flat = {}
+        nonval_keys = []
+        for ms_key in self._var_fields.keys():
+            var_key, var_field = self._var_fields[ms_key]
+            var_key_flat = f"{ms_key}__{var_key}"
+            if var_key_flat not in valid_var_keys:
+                nonval_keys.append(f"({ms_key}, {var_key})")
+            else:
+                self._var_fields_flat[var_key_flat] = var_field
+        _maybe_curation_keys_not_present(nonval_keys, "var_index")
+
+        # check validity of keys in sources and exclude
+        valid_arg_keys = valid_obs_keys + valid_var_keys + ["columns"]
+        for name, dct in (("sources", self._sources), ("exclude", self._exclude)):
+            nonval_keys = []
+            for arg_key in dct.keys():
+                if arg_key not in valid_arg_keys:
+                    nonval_keys.append(arg_key)
+            _maybe_curation_keys_not_present(nonval_keys, name)
+
+        # register obs columns' names
+        register_columns = list(self._obs_fields.keys())
+        organism = check_registry_organism(
+            self._columns_field.field.model, self._organism
+        ).get("organism")
+        update_registry(
+            values=register_columns,
+            field=self._columns_field,
+            key="columns",
+            using_key=self._using_key,
+            validated_only=False,
+            organism=organism,
+            source=self._sources.get("columns"),
+            exclude=self._exclude.get("columns"),
+        )
+        additional_columns = [k for k in valid_obs_keys if k not in register_columns]
+        # no need to register with validated_only=True if columns are features
+        if (
+            len(additional_columns) > 0
+            and self._columns_field.field.model is not Feature
+        ):
+            update_registry(
+                values=additional_columns,
+                field=self._columns_field,
+                key="columns",
+                using_key=self._using_key,
+                validated_only=True,
+                organism=organism,
+                source=self._sources.get("columns"),
+                exclude=self._exclude.get("columns"),
+            )
+
+    def validate(self):
+        """Validate categories."""
+        from lamindb.core.storage._tiledbsoma import _open_tiledbsoma
+
+        validated = True
+        self._non_validated_values = {}
+        with _open_tiledbsoma(self._experiment_uri, mode="r") as experiment:
+            for ms, (key, field) in self._var_fields.items():
+                var_ms = experiment.ms[ms].var
+                var_ms_key = f"{ms}__{key}"
+                # it was already validated and cached
+                if var_ms_key in self._validated_values:
+                    continue
+                var_ms_values = (
+                    var_ms.read(column_names=[key]).concat()[key].to_pylist()
+                )
+                organism = check_registry_organism(
+                    field.field.model, self._organism
+                ).get("organism")
+                update_registry(
+                    values=var_ms_values,
+                    field=field,
+                    key=var_ms_key,
+                    using_key=self._using_key,
+                    validated_only=True,
+                    organism=organism,
+                    source=self._sources.get(var_ms_key),
+                    exclude=self._exclude.get(var_ms_key),
+                )
+                _, non_val = validate_categories(
+                    values=var_ms_values,
+                    field=field,
+                    key=var_ms_key,
+                    using_key=self._using_key,
+                    organism=organism,
+                    source=self._sources.get(var_ms_key),
+                    exclude=self._exclude.get(var_ms_key),
+                )
+                if len(non_val) > 0:
+                    validated = False
+                    self._non_validated_values[var_ms_key] = non_val
+                else:
+                    self._validated_values[var_ms_key] = var_ms_values
+
+            obs = experiment.obs
+            for key, field in self._obs_fields.items():
+                # already validated and cached
+                if key in self._validated_values:
+                    continue
+                values = pa.compute.unique(
+                    obs.read(column_names=[key]).concat()[key]
+                ).to_pylist()
+                organism = check_registry_organism(
+                    field.field.model, self._organism
+                ).get("organism")
+                update_registry(
+                    values=values,
+                    field=field,
+                    key=key,
+                    using_key=self._using_key,
+                    validated_only=True,
+                    organism=organism,
+                    source=self._sources.get(key),
+                    exclude=self._exclude.get(key),
+                )
+                _, non_val = validate_categories(
+                    values=values,
+                    field=field,
+                    key=key,
+                    using_key=self._using_key,
+                    organism=organism,
+                    source=self._sources.get(key),
+                    exclude=self._exclude.get(key),
+                )
+                if len(non_val) > 0:
+                    validated = False
+                    self._non_validated_values[key] = non_val
+                else:
+                    self._validated_values[key] = values
+        self._validated = validated
+        return self._validated
+
+    def _non_validated_values_field(self, key: str) -> tuple[list, FieldAttr]:
+        assert self._non_validated_values is not None  # noqa: S101
+
+        if key in self._valid_obs_keys:
+            field = self._obs_fields[key]
+        elif key in self._valid_var_keys:
+            ms = key.partition("__")[0]
+            field = self._var_fields[ms][1]
+        else:
+            raise KeyError(f"key {key} is invalid!")
+        values = self._non_validated_values.get(key, [])
+        return values, field
+
+    def add_new_from(self, key: str) -> None:
+        """Add validated & new categories.
+
+        Args:
+            key: The key referencing the slot in the `tiledbsoma` store.
+                It should be `'{measurement name}__{column name in .var}'` for columns in `.var`
+                or a column name in `.obs`.
+        """
+        if self._non_validated_values is None:
+            raise ValidationError("Run .validate() first.")
+        if key == "all":
+            keys = list(self._non_validated_values.keys())
+        else:
+            avail_keys = list(
+                chain(self._non_validated_values.keys(), self._validated_values.keys())
+            )
+            if key not in avail_keys:
+                raise KeyError(
+                    f'"{key}" is not a valid key, available keys are: {_print_values(avail_keys + ["all"])}!'
+                )
+            keys = [key]
+        for k in keys:
+            values, field = self._non_validated_values_field(k)
+            if len(values) == 0:
+                continue
+            organism = check_registry_organism(field.field.model, self._organism).get(
+                "organism"
+            )
+            update_registry(
+                values=values,
+                field=field,
+                key=k,
+                using_key=self._using_key,
+                validated_only=False,
+                organism=organism,
+                source=self._sources.get(k),
+                exclude=self._exclude.get(k),
+            )
+            # update non-validated values list but keep the key there
+            # it will be removed by .validate()
+            if k in self._non_validated_values:
+                self._non_validated_values[k] = []
+
+    @property
+    def non_validated(self) -> dict[str, list]:
+        """Return the non-validated features and labels."""
+        non_val = {k: v for k, v in self._non_validated_values.items() if v != []}
+        return non_val
+
+    @property
+    def var_index(self) -> dict[str, FieldAttr]:
+        """Return the registry fields with flattened keys to validate variables indices against."""
+        return self._var_fields_flat
+
+    @property
+    def categoricals(self) -> dict[str, FieldAttr]:
+        """Return the obs fields to validate against."""
+        return self._obs_fields
+
+    def lookup(
+        self, using_key: str | None = None, public: bool = False
+    ) -> CurateLookup:
+        """Lookup categories.
+
+        Args:
+            using_key: The instance where the lookup is performed.
+                if "public", the lookup is performed on the public reference.
+        """
+        return CurateLookup(
+            categoricals=self._obs_fields,
+            slots={"columns": self._columns_field, **self._var_fields_flat},
+            using_key=using_key or self._using_key,
+            public=public,
+        )
+
+    def standardize(self, key: str):
+        """Replace synonyms with standardized values.
+
+        Args:
+            key: The key referencing the slot in the `tiledbsoma` store.
+                It should be `'{measurement name}__{column name in .var}'` for columns in `.var`
+                or a column name in `.obs`.
+
+        Inplace modification of the dataset.
+        """
+        if len(self.non_validated) == 0:
+            logger.warning("values are already standardized")
+            return
+        avail_keys = list(self._non_validated_values.keys())
+        if key == "all":
+            keys = avail_keys
+        else:
+            if key not in avail_keys:
+                raise KeyError(
+                    f'"{key}" is not a valid key, available keys are: {_print_values(avail_keys + ["all"])}!'
+                )
+            keys = [key]
+
+        for k in keys:
+            values, field = self._non_validated_values_field(k)
+            if len(values) == 0:
+                continue
+            if k in self._valid_var_keys:
+                ms, _, slot_key = k.partition("__")
+                slot = lambda experiment: experiment.ms[ms].var  # noqa: B023
+            else:
+                slot = lambda experiment: experiment.obs
+                slot_key = k
+            # errors if public ontology and the model has no organism
+            # has to be fixed in bionty
+            organism = check_registry_organism(field.field.model, self._organism).get(
+                "organism"
+            )
+            syn_mapper = standardize_categories(
+                values=values,
+                field=field,
+                using_key=self._using_key,
+                source=self._sources.get(k),
+                organism=organism,
+            )
+            if (n_syn_mapper := len(syn_mapper)) == 0:
+                continue
+
+            from lamindb.core.storage._tiledbsoma import _open_tiledbsoma
+
+            with _open_tiledbsoma(self._experiment_uri, mode="r") as experiment:
+                value_filter = f"{slot_key} in {list(syn_mapper.keys())}"
+                table = slot(experiment).read(value_filter=value_filter).concat()
+
+            if len(table) == 0:
+                continue
+
+            df = table.to_pandas()
+            # map values
+            df[slot_key] = df[slot_key].map(lambda val: syn_mapper.get(val, val))  # noqa: B023
+            # write the mapped values
+            with _open_tiledbsoma(self._experiment_uri, mode="w") as experiment:
+                slot(experiment).write(pa.Table.from_pandas(df, schema=table.schema))
+            # update non_validated dict
+            non_val_k = [
+                nv for nv in self._non_validated_values[k] if nv not in syn_mapper
+            ]
+            self._non_validated_values[k] = non_val_k
+
+            syn_mapper_print = _print_values(
+                [f'"{m_k}" → "{m_v}"' for m_k, m_v in syn_mapper.items()], sep=""
+            )
+            s = "s" if n_syn_mapper > 1 else ""
+            logger.success(
+                f'standardized {n_syn_mapper} synonym{s} in "{k}": {colors.green(syn_mapper_print)}'
+            )
+
+    def save_artifact(
+        self,
+        description: str | None = None,
+        key: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ) -> Artifact:
+        """Save the validated `tiledbsoma` store and metadata.
+
+        Args:
+            description: A description of the ``tiledbsoma`` store.
+            key: A path-like key to reference artifact in default storage,
+                e.g., `"myfolder/mystore.tiledbsoma"`. Artifacts with the same key form a revision family.
+            revises: Previous version of the artifact. Triggers a revision.
+            run: The run that creates the artifact.
+
+        Returns:
+            A saved artifact record.
+        """
+        from lamindb.core._data import add_labels
+
+        if not self._validated:
+            self.validate()
+            if not self._validated:
+                raise ValidationError("Dataset does not validate. Please curate.")
+
+        artifact = Artifact(
+            self._experiment_uri,
+            description=description,
+            key=key,
+            revises=revises,
+            run=run,
+        )
+        artifact.n_observations = self._n_obs
+        artifact._accessor = "tiledbsoma"
+        artifact.save()
+
+        feature_sets = {}
+        if len(self._obs_fields) > 0:
+            organism = check_registry_organism(
+                self._columns_field.field.model, self._organism
+            ).get("organism")
+            feature_sets["obs"] = FeatureSet.from_values(
+                values=list(self._obs_fields.keys()),
+                field=self._columns_field,
+                organism=organism,
+                raise_validation_error=False,
+            )
+        for ms in self._var_fields:
+            var_key, var_field = self._var_fields[ms]
+            organism = check_registry_organism(
+                var_field.field.model, self._organism
+            ).get("organism")
+            feature_sets[f"{ms}__var"] = FeatureSet.from_values(
+                values=self._validated_values[f"{ms}__{var_key}"],
+                field=var_field,
+                organism=organism,
+                raise_validation_error=False,
+            )
+        artifact._feature_sets = feature_sets
+
+        feature_ref_is_name = _ref_is_name(self._columns_field)
+        features = Feature.lookup().dict()
+        for key, field in self._obs_fields.items():
+            feature = features.get(key)
+            registry = field.field.model
+            organism = check_registry_organism(field.field.model, self._organism).get(
+                "organism"
+            )
+            labels = registry.from_values(
+                values=self._validated_values[key], field=field, organism=organism
+            )
+            if len(labels) == 0:
+                continue
+            if hasattr(registry, "_name_field"):
+                label_ref_is_name = field.field.name == registry._name_field
+                add_labels(
+                    artifact,
+                    records=labels,
+                    feature=feature,
+                    feature_ref_is_name=feature_ref_is_name,
+                    label_ref_is_name=label_ref_is_name,
+                    from_curator=True,
+                )
+
+        return artifact.save()
+
+
 class Curator(BaseCurator):
     """Dataset curator.
 
@@ -1072,7 +1569,7 @@ class Curator(BaseCurator):
     >>>     categoricals={"perturbation": ln.ULabel.name},  # map categories
     >>> )
     >>> curator.validate()  # validate the data in df
-    >>> artifact = curate.save_artifact(description="my RNA-seq")
+    >>> artifact = curator.save_artifact(description="my RNA-seq")
     >>> artifact.describe()  # see annotations
 
     `curator.validate()` maps values within `df` according to the mapping criteria and logs validated & problematic values.
@@ -1148,6 +1645,31 @@ class Curator(BaseCurator):
             using_key=using_key,
             verbosity=verbosity,
             organism=organism,
+        )
+
+    @classmethod
+    @doc_args(SOMACurator.__doc__)
+    def from_tiledbsoma(
+        cls,
+        experiment_uri: UPathStr,
+        var_index: dict[str, tuple[str, FieldAttr]],
+        categoricals: dict[str, FieldAttr] | None = None,
+        obs_columns: FieldAttr = Feature.name,
+        using_key: str | None = None,
+        organism: str | None = None,
+        sources: dict[str, Record] | None = None,
+        exclude: dict[str, str | list[str]] | None = None,
+    ) -> SOMACurator:
+        """{}"""  # noqa: D415
+        return SOMACurator(
+            experiment_uri=experiment_uri,
+            var_index=var_index,
+            categoricals=categoricals,
+            obs_columns=obs_columns,
+            using_key=using_key,
+            organism=organism,
+            sources=sources,
+            exclude=exclude,
         )
 
 

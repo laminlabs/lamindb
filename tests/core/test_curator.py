@@ -1,3 +1,4 @@
+import shutil
 from unittest.mock import Mock
 
 import anndata as ad
@@ -6,6 +7,8 @@ import lamindb as ln
 import mudata as md
 import pandas as pd
 import pytest
+import tiledbsoma
+import tiledbsoma.io
 from lamindb._curate import CurateLookup, ValidationError
 
 
@@ -440,4 +443,158 @@ def test_mudata_curator(mdata):
     bt.ExperimentalFactor.filter().delete()
     bt.CellType.filter().delete()
     ln.FeatureSet.filter().delete()
+    bt.Gene.filter().delete()
+
+
+def test_soma_curator(adata, categoricals):
+    tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
+
+    with pytest.raises(
+        ValidationError, match="key passed to categoricals is not allowed"
+    ):
+        ln.Curator.from_tiledbsoma(
+            "curate.tiledbsoma",
+            {"RNA": ("var_id", bt.Gene.symbol)},
+            categoricals={"invalid_key": bt.CellType.name},
+        )
+
+    with pytest.raises(ValidationError, match="key passed to var_index is not allowed"):
+        ln.Curator.from_tiledbsoma(
+            "curate.tiledbsoma",
+            {"RNA": ("invalid_key", bt.Gene.symbol)},
+            categoricals={"cell_type": bt.CellType.name},
+        )
+
+    with pytest.raises(ValidationError, match="key passed to sources is not allowed"):
+        ln.Curator.from_tiledbsoma(
+            "curate.tiledbsoma",
+            {"RNA": ("var_id", bt.Gene.symbol)},
+            categoricals={"cell_type": bt.CellType.name},
+            sources={"invalid_key": None},
+        )
+
+    curator = ln.Curator.from_tiledbsoma(
+        "curate.tiledbsoma",
+        {"RNA": ("var_id", bt.Gene.symbol)},
+        categoricals=categoricals,
+        organism="human",
+    )
+    assert curator.categoricals == categoricals
+    var_keys = list(curator.var_index.keys())
+    assert len(var_keys) == 1
+    assert var_keys[0] == "RNA__var_id"
+
+    with pytest.raises(ValidationError) as error:
+        curator.add_new_from("donor")
+    assert "Run .validate() first." in str(error.value)
+
+    with pytest.raises(ValidationError) as error:
+        curator.save_artifact(description="test tiledbsoma curation")
+    assert "Dataset does not validate. Please curate." in str(error.value)
+
+    assert curator.non_validated == {
+        "cell_type": ["astrocytic glia"],
+        "donor": ["D0001", "D0002", "DOOO3"],
+        "RNA__var_id": ["TCF-1"],
+    }
+
+    curator.standardize("RNA__var_id")
+    with tiledbsoma.open("curate.tiledbsoma", mode="r") as experiment:
+        var_idx = (
+            experiment.ms["RNA"]
+            .var.read(column_names=["var_id"])
+            .concat()["var_id"]
+            .to_pylist()
+        )
+    assert "TCF7" in var_idx
+    assert curator.non_validated == {
+        "cell_type": ["astrocytic glia"],
+        "donor": ["D0001", "D0002", "DOOO3"],
+    }
+
+    # test invalid key in standardize
+    with pytest.raises(KeyError):
+        curator.standardize("invalid_key")
+
+    curator.standardize("donor")
+    assert curator.non_validated == {
+        "cell_type": ["astrocytic glia"],
+        "donor": ["D0001", "D0002", "DOOO3"],
+    }
+
+    curator.standardize("all")
+    assert curator.non_validated == {"donor": ["D0001", "D0002", "DOOO3"]}
+
+    curator.add_new_from("all")
+    assert curator.non_validated == {}
+    # test already added
+    curator.add_new_from("donor")
+    # test invalid key
+    with pytest.raises(KeyError):
+        curator.add_new_from("invalid_key")
+
+    # cover no keys to standardize
+    curator.standardize("donor")
+
+    # lookup
+    lookup = curator.lookup()
+    assert lookup.cell_type.oligodendrocyte.name == "oligodendrocyte"
+    assert lookup.RNA__var_id.cd4.symbol == "CD4"
+
+    # test the internal key error
+    with pytest.raises(KeyError):
+        curator._non_validated_values_field("invalid_key")
+
+    # save and check
+    artifact = curator.save_artifact(description="test tiledbsoma curation")
+    assert set(artifact.features.get_values()["cell_type"]) == {
+        "cerebral cortex pyramidal neuron",
+        "astrocyte",
+        "oligodendrocyte",
+    }
+    assert set(artifact.features.get_values()["cell_type_2"]) == {
+        "oligodendrocyte",
+        "astrocyte",
+    }
+
+    # clean up
+    shutil.rmtree("curate.tiledbsoma")
+    artifact.delete(permanent=True)
+    ln.ULabel.filter().delete()
+    bt.ExperimentalFactor.filter().delete()
+    bt.CellType.filter().delete()
+    ln.FeatureSet.filter().delete()
+    ln.Feature.filter().delete()
+    bt.Gene.filter().delete()
+
+
+def test_soma_curator_genes_columns(adata):
+    adata.obs = pd.DataFrame(adata.X[:, :3], columns=adata.var_names[:3])
+    tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
+
+    curator = ln.Curator.from_tiledbsoma(
+        "curate.tiledbsoma",
+        {"RNA": ("var_id", bt.Gene.symbol)},
+        obs_columns=bt.Gene.symbol,
+        organism="human",
+    )
+
+    assert not curator.validate()
+    curator.standardize("all")
+    # test 2 subsequent .validate calls()
+    assert curator.validate()
+    assert curator.validate()
+
+    artifact = curator.save_artifact(
+        description="test tiledbsoma curation genes in obs"
+    )
+
+    # clean up
+    shutil.rmtree("curate.tiledbsoma")
+    artifact.delete(permanent=True)
+    ln.ULabel.filter().delete()
+    bt.ExperimentalFactor.filter().delete()
+    bt.CellType.filter().delete()
+    ln.FeatureSet.filter().delete()
+    ln.Feature.filter().delete()
     bt.Gene.filter().delete()
