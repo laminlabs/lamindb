@@ -86,10 +86,14 @@ def install_ci(session, group):
     if group == "unit-core":
         extras += "bionty,aws,gcp,zarr,fcs,jupyter"
         run(session, "uv pip install --system huggingface_hub")
+        # pinning 1.15.0rc3 because 1.14.5 is incompatible with anndata>=0.11.0
+        # and >1.15.0rc4 has a different append mode API
+        # wating for a normal release to adapt
+        run(
+            session, "uv pip install --system tiledbsoma==1.15.0rc3"
+        )  # test SOMACurator
     elif group == "unit-storage":
         extras += "aws,zarr,bionty"
-        # for tiledbsoma, otherwise resolution fails for some reason
-        run(session, "uv pip install --system scanpy>=1.10.0")
         run(session, "uv pip install --system tiledbsoma==1.15.0rc3")
     elif group == "tutorial":
         extras += "aws,jupyter,bionty"

@@ -24,6 +24,7 @@ dependencies = [
     "pyarrow",
     "typing_extensions!=4.6.0",
     "python-dateutil",
+    "pandas>=2.0.0", # for .infer_objects(copy=False) in lamin-utils
     "anndata>=0.8.0,<=0.11.1",  # will upgrade to new anndata releases
     "fsspec",
     "graphviz",

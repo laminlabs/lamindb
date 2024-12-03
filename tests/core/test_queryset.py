@@ -7,6 +7,7 @@ from lamindb._query_set import DoesNotExist
 from lnschema_core.users import current_user_id
 
 
+# please also see the test_curate_df.py tests
 def test_df():
     project_label = ln.ULabel(name="project").save()
     project_names = [f"Project {i}" for i in range(3)]
