@@ -5,7 +5,6 @@ import importlib
 import inspect
 from typing import TYPE_CHECKING
 
-from IPython.display import HTML, display
 from lamin_utils import colors, logger
 from lamindb_setup import settings
 from lamindb_setup._init_instance import get_schema_module_name
@@ -24,6 +23,8 @@ is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 def display_df_with_descriptions(
     df: pd.DataFrame, descriptions: dict[str, str] | None = None
 ):
+    from IPython.display import HTML, display
+
     if descriptions is None:
         display(df)
         return None
