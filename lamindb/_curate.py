@@ -1449,7 +1449,9 @@ class SOMACurator(BaseCurator):
 
             df = table.to_pandas()
             # map values
-            df[slot_key] = df[slot_key].map(lambda val: syn_mapper.get(val, val))  # noqa: B023
+            df[slot_key] = df[slot_key].map(
+                lambda val: syn_mapper.get(val, val)  # noqa
+            )
             # write the mapped values
             with _open_tiledbsoma(self._experiment_uri, mode="w") as experiment:
                 slot(experiment).write(pa.Table.from_pandas(df, schema=table.schema))
@@ -2044,16 +2046,17 @@ def save_artifact(
             )
             if len(labels) == 0:
                 continue
+            label_ref_is_name = None
             if hasattr(registry, "_name_field"):
                 label_ref_is_name = field.field.name == registry._name_field
-                add_labels(
-                    artifact,
-                    records=labels,
-                    feature=feature,
-                    feature_ref_is_name=feature_ref_is_name,
-                    label_ref_is_name=label_ref_is_name,
-                    from_curator=True,
-                )
+            add_labels(
+                artifact,
+                records=labels,
+                feature=feature,
+                feature_ref_is_name=feature_ref_is_name,
+                label_ref_is_name=label_ref_is_name,
+                from_curator=True,
+            )
 
     if artifact._accessor == "MuData":
         for modality, modality_fields in fields.items():
