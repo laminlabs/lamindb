@@ -184,10 +184,17 @@ def copy_or_move_to_cache(
         return None
     # non-local storage_path further
     if local_path != cache_path:
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        if cache_dir in local_path.parents:
+        if cache_path.exists():
+            logger.warning(
+                f"The cache path {cache_path.as_posix()} already exists, replacing it."
+            )
             if cache_path.is_dir():
                 shutil.rmtree(cache_path)
+            else:
+                cache_path.unlink()
+        else:
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+        if cache_dir in local_path.parents:
             local_path.replace(cache_path)
         else:
             if is_dir:
