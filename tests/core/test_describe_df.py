@@ -144,7 +144,9 @@ def test_curate_df():
     description_tree = _describe_postgres(artifact, print_types=True)
 
     # general section
-    assert len(description_tree.children) == 3
+    assert (
+        len(description_tree.children) == 4
+    )  # general, internal features, external features, labels
     general_node = description_tree.children[0]
     assert general_node.label.plain == "General"
     assert general_node.children[0].label == f".uid = '{artifact.uid}'"
@@ -196,43 +198,43 @@ def test_curate_df():
         "B cell, T cell",
     ]
 
-    # annotations section
-    annotations_node = description_tree.children[2]
-    assert annotations_node.label.plain == "External features"
-    assert len(annotations_node.children) == 2
-    assert len(annotations_node.children[0].label.columns) == 3
-    assert len(annotations_node.children[0].label.rows) == 4
-    assert annotations_node.children[0].label.columns[0]._cells == [
+    # external features section
+    ext_features_node = description_tree.children[2]
+    assert ext_features_node.label.plain == "External features"
+    assert len(ext_features_node.children) == 1
+    assert len(ext_features_node.children[0].label.columns) == 3
+    assert len(ext_features_node.children[0].label.rows) == 4
+    assert ext_features_node.children[0].label.columns[0]._cells == [
         "study",
         "date_of_study",
         "study_note",
         "temperature",
     ]
     assert (
-        annotations_node.children[0].label.columns[1]._cells[0].plain == "cat[ULabel]"
+        ext_features_node.children[0].label.columns[1]._cells[0].plain == "cat[ULabel]"
     )
-    assert annotations_node.children[0].label.columns[1]._cells[1].plain == "date"
-    assert annotations_node.children[0].label.columns[1]._cells[2].plain == "str"
-    assert annotations_node.children[0].label.columns[1]._cells[3].plain == "float"
-    assert annotations_node.children[0].label.columns[2]._cells == [
+    assert ext_features_node.children[0].label.columns[1]._cells[1].plain == "date"
+    assert ext_features_node.children[0].label.columns[1]._cells[2].plain == "str"
+    assert ext_features_node.children[0].label.columns[1]._cells[3].plain == "float"
+    assert ext_features_node.children[0].label.columns[2]._cells == [
         "Candidate marker study 1",
         "2024-12-01",
         "We had a great time performing this study and the results look compelling.",
         "21.6",
     ]
-    assert len(annotations_node.children[0].label.columns) == 3
-    assert len(annotations_node.children[1].label.rows) == 2
-    assert annotations_node.children[1].label.columns[0].header.plain == "Labels"
-    assert annotations_node.children[1].label.columns[0]._cells == [
+
+    # labels section
+    labels_node = description_tree.children[3].label
+    assert labels_node.label.plain == "Labels"
+    assert len(labels_node.children[0].label.columns) == 3
+    assert len(labels_node.children[0].label.rows) == 2
+    assert labels_node.children[0].label.columns[0]._cells == [
         ".cell_types",
         ".ulabels",
     ]
-    assert (
-        annotations_node.children[1].label.columns[1]._cells[0].plain
-        == "bionty.CellType"
-    )
-    assert annotations_node.children[1].label.columns[1]._cells[1].plain == "ULabel"
-    assert annotations_node.children[1].label.columns[2]._cells == [
+    assert labels_node.children[0].label.columns[1]._cells[0].plain == "bionty.CellType"
+    assert labels_node.children[0].label.columns[1]._cells[1].plain == "ULabel"
+    assert labels_node.children[0].label.columns[2]._cells == [
         "'B cell', 'T cell'",
         "'DMSO', 'IFNG', 'Candidate marker study 1'",
     ]

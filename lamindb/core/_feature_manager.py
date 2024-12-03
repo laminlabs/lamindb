@@ -462,7 +462,9 @@ def describe_features(
             )
         )
     # ext_features_tree = None
-    ext_features_header = Text("External features", style="bold dark_orange")
+    ext_features_header = Text(
+        "Params" if print_params else "External features", style="bold dark_orange"
+    )
     if ext_features_tree_children:
         ext_features_tree = tree.add(ext_features_header)
         for child in ext_features_tree_children:
