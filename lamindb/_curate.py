@@ -1062,7 +1062,7 @@ class MuDataCurator:
         return self._artifact
 
 
-def _maybe_validation_error(nonval_keys: list[str], name: str):
+def _maybe_curation_keys_not_present(nonval_keys: list[str], name: str):
     if (n := len(nonval_keys)) > 0:
         s = "s" if n > 1 else ""
         are = "are" if n > 1 else "is"
@@ -1077,22 +1077,21 @@ class SOMACurator(BaseCurator):
     See also :class:`~lamindb.Curator`.
 
     Args:
-        experiment_uri: The uri of a `tiledbsoma.Experiment`.
-        var_index: The registry fields for mapping the ``.var`` indices for measurements.
+        experiment_uri: A local or cloud path to a `tiledbsoma.Experiment`.
+        var_index: The registry fields for mapping the `.var` indices for measurements.
             Should be in the form `{"measurement name": ("var column", field)}`.
-            These keys should be used in the flattened form ('{measurement name}__{column name in .var}')
+            These keys should be used in the flattened form (`'{measurement name}__{column name in .var}'`)
             in `.standardize` or `.add_new_from`, see the output of `.var_index`.
-        categoricals: A dictionary mapping ``.obs`` columns to a registry field.
-        obs_columns: The registry field for mapping the ``.obs`` columns.
-        using_key: A reference LaminDB instance.
+        categoricals: A dictionary mapping categorical `.obs` columns to a registry field.
+        obs_columns: The registry field for mapping the names of the `.obs` columns.
         organism: The organism name.
-        sources: A dictionary mapping ``.obs`` columns to Source records.
+        sources: A dictionary mapping `.obs` columns to Source records.
         exclude: A dictionary mapping column names to values to exclude.
 
     Examples:
         >>> import bionty as bt
         >>> curate = ln.Curator.from_tiledbsoma(
-        ...     "store.tiledbsoma",
+        ...     "./my_array_store.tiledbsoma",
         ...     var_index={"RNA": ("var_id", bt.Gene.symbol)},
         ...     categoricals={
         ...         "cell_type_ontology_id": bt.CellType.ontology_id,
@@ -1108,10 +1107,10 @@ class SOMACurator(BaseCurator):
         var_index: dict[str, tuple[str, FieldAttr]],
         categoricals: dict[str, FieldAttr] | None = None,
         obs_columns: FieldAttr = Feature.name,
-        using_key: str | None = None,
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
         exclude: dict[str, str | list[str]] | None = None,
+        using_key: str | None = None,
     ):
         self._obs_fields = categoricals or {}
         self._var_fields = var_index
@@ -1132,6 +1131,8 @@ class SOMACurator(BaseCurator):
         self._var_fields_flat: dict[str, FieldAttr] | None = None
         self._check_save_keys()
 
+    # check that the provided keys in var_index and categoricals are available in the store
+    # and save features
     def _check_save_keys(self):
         from lamindb.core.storage._tiledbsoma import _open_tiledbsoma
 
@@ -1156,7 +1157,7 @@ class SOMACurator(BaseCurator):
         for obs_key in self._obs_fields.keys():
             if obs_key not in valid_obs_keys:
                 nonval_keys.append(obs_key)
-        _maybe_validation_error(nonval_keys, "categoricals")
+        _maybe_curation_keys_not_present(nonval_keys, "categoricals")
 
         # check validity of keys in var_index
         self._var_fields_flat = {}
@@ -1168,7 +1169,7 @@ class SOMACurator(BaseCurator):
                 nonval_keys.append(f"({ms_key}, {var_key})")
             else:
                 self._var_fields_flat[var_key_flat] = var_field
-        _maybe_validation_error(nonval_keys, "var_index")
+        _maybe_curation_keys_not_present(nonval_keys, "var_index")
 
         # check validity of keys in sources and exclude
         valid_arg_keys = valid_obs_keys + valid_var_keys + ["columns"]
@@ -1177,7 +1178,7 @@ class SOMACurator(BaseCurator):
             for arg_key in dct.keys():
                 if arg_key not in valid_arg_keys:
                     nonval_keys.append(arg_key)
-            _maybe_validation_error(nonval_keys, name)
+            _maybe_curation_keys_not_present(nonval_keys, name)
 
         # register obs columns' names
         register_columns = list(self._obs_fields.keys())
@@ -1306,13 +1307,13 @@ class SOMACurator(BaseCurator):
         values = self._non_validated_values.get(key, [])
         return values, field
 
-    def add_new_from(self, key: str):
+    def add_new_from(self, key: str) -> None:
         """Add validated & new categories.
 
         Args:
-            key: The key referencing the slot in the ``tiledbsoma`` store.
-                It should be '{measurement name}__{column name in .var}' for columns in ``.var``
-                or a column name in ``.obs``.
+            key: The key referencing the slot in the `tiledbsoma` store.
+                It should be `'{measurement name}__{column name in .var}'` for columns in `.var`
+                or a column name in `.obs`.
         """
         if self._non_validated_values is None:
             raise ValidationError("Run .validate() first.")
@@ -1385,9 +1386,9 @@ class SOMACurator(BaseCurator):
         """Replace synonyms with standardized values.
 
         Args:
-            key: The key referencing the slot in the ``tiledbsoma`` store.
-                It should be '{measurement name}__{column name in .var}' for columns in ``.var``
-                or a column name in ``.obs``.
+            key: The key referencing the slot in the `tiledbsoma` store.
+                It should be `'{measurement name}__{column name in .var}'` for columns in `.var`
+                or a column name in `.obs`.
 
         Inplace modification of the dataset.
         """
@@ -1469,7 +1470,8 @@ class SOMACurator(BaseCurator):
 
         Args:
             description: A description of the ``tiledbsoma`` store.
-            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/mystore.tiledbsoma"`. Artifacts with the same key form a revision family.
+            key: A path-like key to reference artifact in default storage,
+                e.g., `"myfolder/mystore.tiledbsoma"`. Artifacts with the same key form a revision family.
             revises: Previous version of the artifact. Triggers a revision.
             run: The run that creates the artifact.
 
@@ -1510,7 +1512,6 @@ class SOMACurator(BaseCurator):
             organism = check_registry_organism(
                 var_field.field.model, self._organism
             ).get("organism")
-            # todo: add type
             feature_sets[f"{ms}__var"] = FeatureSet.from_values(
                 values=self._validated_values[f"{ms}__{var_key}"],
                 field=var_field,
