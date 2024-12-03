@@ -433,10 +433,6 @@ def test_mudata_curator(mdata):
     curator.add_new_from_var_index("rna")  # doesn't do anything
     curator.add_new_from("donor")
 
-    # test the internal key error
-    with pytest.raises(KeyError):
-        curator._non_validated_values_field("invalid_key")
-
     validated = curator.validate()
     assert validated
     artifact = curator.save_artifact(description="test MuData")
@@ -544,6 +540,10 @@ def test_soma_curator(adata, categoricals):
     lookup = curator.lookup()
     assert lookup.cell_type.oligodendrocyte.name == "oligodendrocyte"
     assert lookup.RNA__var_id.cd4.symbol == "CD4"
+
+    # test the internal key error
+    with pytest.raises(KeyError):
+        curator._non_validated_values_field("invalid_key")
 
     # save and check
     artifact = curator.save_artifact(description="test tiledbsoma curation")
