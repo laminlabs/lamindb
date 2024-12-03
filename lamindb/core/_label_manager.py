@@ -5,10 +5,11 @@ from collections import defaultdict
 from typing import TYPE_CHECKING
 
 from django.db import connections
-from lamin_utils import colors, logger
+from lamin_utils import logger
 from lnschema_core.models import CanCurate, Feature
 from rich.table import Column, Table
 from rich.text import Text
+from rich.tree import Tree
 
 from lamindb._from_values import _print_values
 from lamindb._record import (
@@ -32,7 +33,6 @@ from .schema import dict_related_model_to_related_name
 
 if TYPE_CHECKING:
     from lnschema_core.models import Artifact, Collection, Record
-    from rich.tree import Tree
 
     from lamindb._query_set import QuerySet
 
@@ -99,15 +99,10 @@ def describe_labels(
         return tree
 
     labels_table = Table(
-        Column(
-            Text.assemble(("Labels", "green_yellow")),
-            style="",
-            no_wrap=True,
-            width=NAME_WIDTH,
-        ),
+        Column("", style="", no_wrap=True, width=NAME_WIDTH),
         Column("", style="dim", no_wrap=True, width=TYPE_WIDTH),
         Column("", width=VALUES_WIDTH, no_wrap=True),
-        # show_header=True,
+        show_header=False,
         box=None,
         pad_edge=False,
     )
@@ -126,12 +121,16 @@ def describe_labels(
                 f".{related_name}", Text(type_str, style="dim"), print_values
             )
 
+    labels_header = Text("Labels", style="bold green_yellow")
     if as_subtree:
         if labels_table.rows:
-            return labels_table
+            labels_tree = Tree(labels_header, guide_style="dim")
+            labels_tree.add(labels_table)
+            return labels_tree
     else:
         if labels_table.rows:
-            tree.add(labels_table)
+            labels_tree = tree.add(labels_header)
+            labels_tree.add(labels_table)
         return tree
 
 

@@ -219,10 +219,9 @@ Here is how to create ulabels for them:
     tree = describe_features(artifact)
     print_rich_tree(tree)
     assert tree.label.plain == "Artifact .h5ad/AnnData"
-    assert tree.children[0].label.plain == "Annotations"
+    assert tree.children[0].label.plain == "External features"
     assert len(tree.children[0].children[0].label.columns) == 3
     assert len(tree.children[0].children[0].label.rows) == 10
-    assert tree.children[0].children[0].label.columns[0].header.plain == "Features"
     assert tree.children[0].children[0].label.columns[0]._cells == [
         "cell_type_by_expert",
         "disease",
@@ -351,9 +350,8 @@ def test_params_add():
     # test describe params
     tree = describe_features(artifact, print_params=True)
     assert tree.label.plain == "Artifact .pt"
-    assert tree.children[0].label.plain == "Annotations"
+    assert tree.children[0].label.plain == "Params"
     assert len(tree.children[0].children[0].label.columns) == 3
-    assert tree.children[0].children[0].label.columns[0].header.plain == "Params"
     assert tree.children[0].children[0].label.columns[0]._cells == [
         "learning_rate",
         "quantification",

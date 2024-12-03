@@ -282,13 +282,15 @@ def _get_featuresets_postgres(
     return fs_data
 
 
-def _create_feature_table(name: str, registry_str: str, data: list) -> Table:
+def _create_feature_table(
+    name: str, registry_str: str, data: list, show_header: bool = False
+) -> Table:
     """Create a Rich table for a feature group."""
     table = Table(
         Column(name, style="", no_wrap=True, width=NAME_WIDTH),
         Column(registry_str, style="dim", no_wrap=True, width=TYPE_WIDTH),
         Column("", width=VALUES_WIDTH, no_wrap=True),
-        show_header=True,
+        show_header=show_header,
         box=None,
         pad_edge=False,
     )
@@ -407,14 +409,14 @@ def describe_features(
     if to_dict:
         return dictionary
 
-    # Dataset section
+    # Internal features section
     internal_features_slot: dict[
         str, list
     ] = {}  # internal features from the `Feature` registry that contain labels
     for feature_name, feature_row in internal_feature_labels.items():
         slot, _ = feature_data.get(feature_name)
         internal_features_slot.setdefault(slot, []).append(feature_row)
-    dataset_tree_children = []
+    int_features_tree_children = []
 
     for slot, (feature_set, feature_names) in feature_set_data.items():
         if slot in internal_features_slot:
@@ -425,7 +427,7 @@ def describe_features(
                 for feature_name in feature_names
                 if feature_name
             ]
-        dataset_tree_children.append(
+        int_features_tree_children.append(
             _create_feature_table(
                 Text.assemble(
                     (slot, "violet"),
@@ -434,46 +436,43 @@ def describe_features(
                 ),
                 Text.assemble((f"[{feature_set.registry}]", "pink1")),
                 feature_rows,
+                show_header=True,
             )
         )
     ## internal features from the non-`Feature` registry
-    if dataset_tree_children:
+    if int_features_tree_children:
         dataset_tree = tree.add(
             Text.assemble(
-                ("Dataset", "bold bright_magenta"),
+                ("Internal features", "bold bright_magenta"),
                 ("/", "dim"),
                 (".feature_sets", "dim bold"),
             )
         )
-        for child in dataset_tree_children:
+        for child in int_features_tree_children:
             dataset_tree.add(child)
 
-    # Annotations section
-    ## external features
-    features_tree_children = []
+    # External features
+    ext_features_tree_children = []
     if external_data:
-        features_tree_children.append(
+        ext_features_tree_children.append(
             _create_feature_table(
-                Text.assemble(
-                    ("Params" if print_params else "Features", "green_yellow")
-                ),
+                "",
                 "",
                 external_data,
             )
         )
-    annotations_tree = None
-    if features_tree_children:
-        annotations_tree = tree.add(Text("Annotations", style="bold dark_orange"))
-        for child in features_tree_children:
-            annotations_tree.add(child)
+    # ext_features_tree = None
+    ext_features_header = Text(
+        "Params" if print_params else "External features", style="bold dark_orange"
+    )
+    if ext_features_tree_children:
+        ext_features_tree = tree.add(ext_features_header)
+        for child in ext_features_tree_children:
+            ext_features_tree.add(child)
     if with_labels:
         labels_tree = describe_labels(self, as_subtree=True)
         if labels_tree:
-            if annotations_tree is None:
-                annotations_tree = tree.add(
-                    Text("Annotations", style="bold dark_orange")
-                )
-            annotations_tree.add(labels_tree)
+            tree.add(labels_tree)
 
     return tree
 
