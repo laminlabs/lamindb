@@ -168,14 +168,16 @@ class DataFrameCurator(BaseCurator):
         verbosity: The verbosity level.
         organism: The organism name.
         sources: A dictionary mapping column names to Source records.
-        exclude: A dictionary mapping column names to values to exclude.
+        exclude: A dictionary mapping column names to values to exclude from validation.
+            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
+            using the exclude parameter ensures they are not validated.
 
     Returns:
         A curator object.
 
     Examples:
         >>> import bionty as bt
-        >>> curate = ln.Curator.from_df(
+        >>> curator = ln.Curator.from_df(
         ...     df,
         ...     categoricals={
         ...         "cell_type_ontology_id": bt.CellType.ontology_id,
@@ -506,11 +508,13 @@ class AnnDataCurator(DataFrameCurator):
         verbosity: The verbosity level.
         organism: The organism name.
         sources: A dictionary mapping ``.obs.columns`` to Source records.
-        exclude: A dictionary mapping column names to values to exclude.
+        exclude: A dictionary mapping column names to values to exclude from validation.
+            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
+            using the exclude parameter ensures they are not validated.
 
     Examples:
         >>> import bionty as bt
-        >>> curate = ln.Curator.from_anndata(
+        >>> curator = ln.Curator.from_anndata(
         ...     adata,
         ...     var_index=bt.Gene.ensembl_gene_id,
         ...     categoricals={
@@ -765,11 +769,13 @@ class MuDataCurator:
         verbosity: The verbosity level.
         organism: The organism name.
         sources: A dictionary mapping ``.obs.columns`` to Source records.
-        exclude: A dictionary mapping column names to values to exclude.
+        exclude: A dictionary mapping column names to values to exclude from validation.
+            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
+            using the exclude parameter ensures they are not validated.
 
     Examples:
         >>> import bionty as bt
-        >>> curate = ln.Curator.from_mudata(
+        >>> curator = ln.Curator.from_mudata(
         ...     mdata,
         ...     var_index={
         ...         "rna": bt.Gene.ensembl_gene_id,
@@ -1086,11 +1092,13 @@ class SOMACurator(BaseCurator):
         obs_columns: The registry field for mapping the names of the `.obs` columns.
         organism: The organism name.
         sources: A dictionary mapping `.obs` columns to Source records.
-        exclude: A dictionary mapping column names to values to exclude.
+        exclude: A dictionary mapping column names to values to exclude from validation.
+            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
+            using the exclude parameter ensures they are not validated.
 
     Examples:
         >>> import bionty as bt
-        >>> curate = ln.Curator.from_tiledbsoma(
+        >>> curator = ln.Curator.from_tiledbsoma(
         ...     "./my_array_store.tiledbsoma",
         ...     var_index={"RNA": ("var_id", bt.Gene.symbol)},
         ...     categoricals={
@@ -1561,7 +1569,7 @@ class Curator(BaseCurator):
     >>>     categoricals={"perturbation": ln.ULabel.name},  # map categories
     >>> )
     >>> curator.validate()  # validate the data in df
-    >>> artifact = curate.save_artifact(description="my RNA-seq")
+    >>> artifact = curator.save_artifact(description="my RNA-seq")
     >>> artifact.describe()  # see annotations
 
     `curator.validate()` maps values within `df` according to the mapping criteria and logs validated & problematic values.
