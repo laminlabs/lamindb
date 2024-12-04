@@ -450,6 +450,7 @@ def describe_features(
                 show_header=True,
             )
         )
+    ## internal features from the non-`Feature` registry
     if int_features_tree_children:
         dataset_tree = tree.add(
             Text.assemble(
