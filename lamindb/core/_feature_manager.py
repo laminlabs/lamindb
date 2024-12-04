@@ -434,7 +434,18 @@ def describe_features(
         else:
             # add internal non-Feature features without labels
             feature_rows = [
-                (feature_name, Text(str(feature_set.dtype), style="dim"), "")
+                (
+                    feature_name,
+                    Text(
+                        str(
+                            internal_feature_names.get(feature_name)
+                            if feature_name in internal_feature_names
+                            else feature_set.dtype
+                        ),
+                        style="dim",
+                    ),
+                    "",
+                )
                 for feature_name in feature_names
                 if feature_name
             ]
