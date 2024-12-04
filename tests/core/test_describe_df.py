@@ -197,6 +197,7 @@ def test_curate_df():
         "DMSO, IFNG",
         "B cell, T cell",
         "B cell, T cell",
+        "",
     ]
 
     # external features section
