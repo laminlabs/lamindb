@@ -110,11 +110,11 @@ def describe_labels(
         if not labels or related_name == "feature_sets":
             continue
         if isinstance(labels, dict):  # postgres, labels are a dict[id, name]
-            print_values = _print_values(labels.values(), n=10)
+            print_values = _print_values(labels.values(), n=10, quotes=False)
         else:  # labels are a QuerySet
             field = get_name_field(labels)
             print_values = _print_values(
-                labels.values_list(field, flat=True), n=10, sep=""
+                labels.values_list(field, flat=True), n=10, quotes=False
             )
         if print_values:
             related_model = get_related_model(self, related_name)

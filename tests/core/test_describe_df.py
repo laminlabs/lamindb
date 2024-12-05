@@ -237,8 +237,8 @@ def test_curate_df():
     assert labels_node.children[0].label.columns[1]._cells[0].plain == "bionty.CellType"
     assert labels_node.children[0].label.columns[1]._cells[1].plain == "ULabel"
     assert labels_node.children[0].label.columns[2]._cells == [
-        "'B cell', 'T cell'",
-        "'DMSO', 'IFNG', 'Candidate marker study 1'",
+        "B cell, T cell",
+        "DMSO, IFNG, Candidate marker study 1",
     ]
 
     artifact.delete(permanent=True)
