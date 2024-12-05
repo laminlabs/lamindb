@@ -179,6 +179,7 @@ def test_curate_df():
         "cell_medium",
         "cell_type_by_expert",
         "cell_type_by_model",
+        "sample_note",
     ]
     assert int_features_node.children[1].label.columns[1].header.plain == "[Feature]"
     assert (
@@ -196,6 +197,7 @@ def test_curate_df():
         "DMSO, IFNG",
         "B cell, T cell",
         "B cell, T cell",
+        "",
     ]
 
     # external features section
