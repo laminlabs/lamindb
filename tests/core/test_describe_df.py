@@ -160,7 +160,7 @@ def test_curate_df():
 
     # dataset section
     int_features_node = description_tree.children[1]
-    assert int_features_node.label.plain == "Internal features/.feature_sets"
+    assert int_features_node.label.plain == "Dataset featuers/.feature_sets"
     assert len(int_features_node.children) == 2
     assert len(int_features_node.children[0].label.rows) == 3
     assert len(int_features_node.children[0].label.columns) == 3
@@ -202,7 +202,7 @@ def test_curate_df():
 
     # external features section
     ext_features_node = description_tree.children[2]
-    assert ext_features_node.label.plain == "External features"
+    assert ext_features_node.label.plain == "Linked featuers"
     assert len(ext_features_node.children) == 1
     assert len(ext_features_node.children[0].label.columns) == 3
     assert len(ext_features_node.children[0].label.rows) == 4
