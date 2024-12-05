@@ -113,7 +113,9 @@ def describe_labels(
             print_values = _print_values(labels.values(), n=10)
         else:  # labels are a QuerySet
             field = get_name_field(labels)
-            print_values = _print_values(labels.values_list(field, flat=True), n=10)
+            print_values = _print_values(
+                labels.values_list(field, flat=True), n=10, sep=""
+            )
         if print_values:
             related_model = get_related_model(self, related_name)
             type_str = related_model.__get_name_with_schema__()
