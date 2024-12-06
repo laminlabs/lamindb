@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import builtins
+import re
 from functools import reduce
 from typing import TYPE_CHECKING, NamedTuple
 
@@ -316,6 +317,7 @@ def _search(
             string = string[:n_80_pct]
 
     string = string.strip()
+    string_escape = re.escape(string)
 
     exact_lookup = Exact if case_sensitive else IExact
     regex_lookup = Regex if case_sensitive else IRegex
@@ -334,28 +336,28 @@ def _search(
         exact_rank = Cast(exact_expr, output_field=IntegerField()) * 200
         ranks.append(exact_rank)
         # exact synonym
-        synonym_expr = regex_lookup(field_expr, rf"(?:^|.*\|){string}(?:\|.*|$)")
+        synonym_expr = regex_lookup(field_expr, rf"(?:^|.*\|){string_escape}(?:\|.*|$)")
         synonym_rank = Cast(synonym_expr, output_field=IntegerField()) * 200
         ranks.append(synonym_rank)
         # match as sub-phrase
         sub_expr = regex_lookup(
-            field_expr, rf"(?:^|.*[ \|\.,;:]){string}(?:[ \|\.,;:].*|$)"
+            field_expr, rf"(?:^|.*[ \|\.,;:]){string_escape}(?:[ \|\.,;:].*|$)"
         )
         sub_rank = Cast(sub_expr, output_field=IntegerField()) * 10
         ranks.append(sub_rank)
         # startswith and avoid matching string with " " on the right
         # mostly for truncated
         startswith_expr = regex_lookup(
-            field_expr, rf"(?:^|.*\|){string}[^ ]*(?:\|.*|$)"
+            field_expr, rf"(?:^|.*\|){string_escape}[^ ]*(?:\|.*|$)"
         )
         startswith_rank = Cast(startswith_expr, output_field=IntegerField()) * 8
         ranks.append(startswith_rank)
         # match as sub-phrase from the left, mostly for truncated
-        right_expr = regex_lookup(field_expr, rf"(?:^|.*[ \|]){string}.*")
+        right_expr = regex_lookup(field_expr, rf"(?:^|.*[ \|]){string_escape}.*")
         right_rank = Cast(right_expr, output_field=IntegerField()) * 2
         ranks.append(right_rank)
         # match as sub-phrase from the right
-        left_expr = regex_lookup(field_expr, rf".*{string}(?:$|[ \|\.,;:].*)")
+        left_expr = regex_lookup(field_expr, rf".*{string_escape}(?:$|[ \|\.,;:].*)")
         left_rank = Cast(left_expr, output_field=IntegerField()) * 2
         ranks.append(left_rank)
         # simple contains filter
