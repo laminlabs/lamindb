@@ -409,7 +409,7 @@ def describe_features(
     if to_dict:
         return dictionary
 
-    # Internal features section
+    # Dataset featuers section
     # internal features that contain labels (only `Feature` features contain labels)
     internal_feature_labels_slot: dict[str, list] = {}
     for feature_name, feature_row in internal_feature_labels.items():
@@ -465,7 +465,7 @@ def describe_features(
     if int_features_tree_children:
         dataset_tree = tree.add(
             Text.assemble(
-                ("Internal features", "bold bright_magenta"),
+                ("Dataset featuers", "bold bright_magenta"),
                 ("/", "dim"),
                 (".feature_sets", "dim bold"),
             )
@@ -473,7 +473,7 @@ def describe_features(
         for child in int_features_tree_children:
             dataset_tree.add(child)
 
-    # External features
+    # Linked featuers
     ext_features_tree_children = []
     if external_data:
         ext_features_tree_children.append(
@@ -485,7 +485,7 @@ def describe_features(
         )
     # ext_features_tree = None
     ext_features_header = Text(
-        "Params" if print_params else "External features", style="bold dark_orange"
+        "Params" if print_params else "Linked featuers", style="bold dark_orange"
     )
     if ext_features_tree_children:
         ext_features_tree = tree.add(ext_features_header)
