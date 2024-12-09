@@ -1,4 +1,5 @@
 import shutil
+from pathlib import Path
 from unittest.mock import Mock
 
 import anndata as ad
@@ -569,6 +570,9 @@ def test_soma_curator(adata, categoricals):
 
 
 def test_soma_curator_genes_columns(adata):
+    if Path("curate.tiledbsoma").exists():
+        shutil.rmtree("curate.tiledbsoma")
+
     adata.obs = pd.DataFrame(adata.X[:, :3], columns=adata.var_names[:3])
     tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
 
