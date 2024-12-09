@@ -449,7 +449,7 @@ def test_mudata_curator(mdata):
 
 @pytest.fixture()
 def clean_soma_files():
-    if Path("curate.tiledbsoma").exits():
+    if Path("curate.tiledbsoma").exists():
         shutil.rmtree("curate.tiledbsoma")
 
     yield  # Let the test run
