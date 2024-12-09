@@ -29,23 +29,28 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
+
       - uses: actions/setup-python@v5
         if: ${{ matrix.group == 'storage' }}
         with:
           python-version: "3.9"
+
       - uses: actions/setup-python@v5
         if: ${{ matrix.group == 'unit-storage' }}
         with:
           python-version: "3.11" # there are problems with installation time with python 3.12
+
       - uses: actions/setup-python@v5
         if: ${{ matrix.group != 'storage' && matrix.group != 'unit-storage'}}
         with:
           python-version: "3.12"
+
       - name: cache pre-commit
         uses: actions/cache@v4
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
       - name: cache postgres
         if: ${{ matrix.group == 'faq' || matrix.group == 'unit-core' || matrix.group == 'unit-storage' }}
         id: cache-postgres
@@ -63,9 +68,11 @@ jobs:
       - name: install postgres
         if: ${{ matrix.group == 'faq' }}
         run: sudo apt-get install libpq-dev
+
       - name: install graphviz
         if: ${{ matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology' }}
         run: sudo apt-get -y install graphviz
+
       - run: nox -s lint
         if: ${{ matrix.group == 'tutorial' }} # choose a fast-running a group
       - run: nox -s "install_ci(group='${{ matrix.group }}')"
@@ -75,12 +82,14 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
       - run: nox -s "build(group='${{ matrix.group }}')"
+
       - name: upload coverage
         uses: actions/upload-artifact@v4
         with:
           name: coverage--${{ matrix.group }}
           path: .coverage
           include-hidden-files: true
+
       - name: upload docs
         if: ${{ matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology' || matrix.group == 'faq' || matrix.group == 'storage' }}
         uses: actions/upload-artifact@v4
@@ -96,6 +105,7 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
+
       - name: checkout lndocs
         uses: actions/checkout@v4
         with:
@@ -103,11 +113,13 @@ jobs:
           ssh-key: ${{ secrets.READ_LNDOCS }}
           path: lndocs
           ref: main
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10" # use 3.10 because 3.11+ give issues (ablog lacks 3.12 support)
@@ -124,6 +136,7 @@ jobs:
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+
       - uses: peter-evans/repository-dispatch@v2
         if: ${{ github.event_name == 'push' }}
         with:
@@ -143,6 +156,7 @@ jobs:
           python -m pip install -U uv
           uv pip install --system coverage[toml]
           uv pip install --system --no-deps .
+
       - uses: actions/download-artifact@v4
       - name: run coverage
         run: |

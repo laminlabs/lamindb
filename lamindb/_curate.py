@@ -21,7 +21,7 @@ from lnschema_core import (
     ULabel,
 )
 
-from ._from_values import _print_values
+from ._from_values import _format_values
 from .core.exceptions import ValidationError
 
 if TYPE_CHECKING:
@@ -110,6 +110,15 @@ class CurateLookup:
 
 class BaseCurator:
     """Curate a dataset."""
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        import sys
+
+        # Deprecated methods
+        if "sphinx" not in sys.modules:
+            if hasattr(cls, "_add_new_from_columns"):
+                cls.add_new_from_columns = cls._add_new_from_columns
 
     def validate(self) -> bool:
         """Validate dataset.
@@ -261,7 +270,7 @@ class DataFrameCurator(BaseCurator):
             are = "are" if n > 1 else "is"
             if len(nonval_keys) > 0:
                 raise ValidationError(
-                    f"the following {n} key{s} passed to {name} {are} not allowed: {colors.yellow(_print_values(nonval_keys))}"
+                    f"key{s} passed to {name} {are} not present in columns: {colors.yellow(_format_values(nonval_keys))}"
                 )
 
     def _save_columns(self, validated_only: bool = True) -> None:
@@ -306,7 +315,7 @@ class DataFrameCurator(BaseCurator):
         self._kwargs.update({"organism": organism} if organism else {})
         self._update_registry(key, validated_only=False, **self._kwargs, **kwargs)
 
-    def add_new_from_columns(self, organism: str | None = None, **kwargs):
+    def _add_new_from_columns(self, organism: str | None = None, **kwargs):
         """Deprecated to run by default during init."""
         warnings.warn(
             "`.add_new_from_columns()` is deprecated and will be removed in a future version. It's run by default during initialization.",
@@ -329,7 +338,7 @@ class DataFrameCurator(BaseCurator):
         # logging
         n = len(syn_mapper)
         if n > 0:
-            syn_mapper_print = _print_values(
+            syn_mapper_print = _format_values(
                 [f'"{k}" → "{v}"' for k, v in syn_mapper.items()], sep=""
             )
             s = "s" if n > 1 else ""
@@ -338,13 +347,13 @@ class DataFrameCurator(BaseCurator):
             )
         return std_values
 
-    def standardize(self, key: str):
+    def standardize(self, key: str) -> None:
         """Replace synonyms with standardized values.
 
-        Args:
-            key: The key referencing the slot in the DataFrame from which to draw terms.
-
         Modifies the input dataset inplace.
+
+        Args:
+            key: The key referencing the column in the DataFrame to standardize.
         """
         # list is needed to avoid RuntimeError: dictionary changed size during iteration
         avail_keys = list(self.non_validated.keys())
@@ -365,9 +374,12 @@ class DataFrameCurator(BaseCurator):
                     self._df[k] = self._replace_synonyms(k, syn_mapper, self._df[k])
         else:
             if key not in avail_keys:
-                raise KeyError(
-                    f'"{key}" is not a valid key, available keys are: {_print_values(avail_keys)}!'
-                )
+                if key in self._fields:
+                    logger.info(f"No unstandardized values found for {key!r}")
+                else:
+                    raise KeyError(
+                        f"{key!r} is not a valid key, available keys are: {_format_values(avail_keys)}!"
+                    )
             else:
                 if key in self._fields:  # needed to exclude var_index
                     syn_mapper = standardize_categories(
@@ -381,7 +393,9 @@ class DataFrameCurator(BaseCurator):
                         key, syn_mapper, self._df[key]
                     )
 
-    def _update_registry(self, categorical: str, validated_only: bool = True, **kwargs):
+    def _update_registry(
+        self, categorical: str, validated_only: bool = True, **kwargs
+    ) -> None:
         if categorical == "all":
             self._update_registry_all(validated_only=validated_only, **kwargs)
         else:
@@ -447,7 +461,8 @@ class DataFrameCurator(BaseCurator):
 
         Args:
             description: Description of the DataFrame object.
-            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`.
+                Artifacts with the same key form a revision family.
             revises: Previous version of the artifact. Triggers a revision.
             run: The run that creates the artifact.
 
@@ -718,7 +733,8 @@ class AnnDataCurator(DataFrameCurator):
 
         Args:
             description: A description of the ``AnnData`` object.
-            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`.
+                Artifacts with the same key form a revision family.
             revises: Previous version of the artifact. Triggers a revision.
             run: The run that creates the artifact.
 
@@ -1073,7 +1089,7 @@ def _maybe_curation_keys_not_present(nonval_keys: list[str], name: str):
         s = "s" if n > 1 else ""
         are = "are" if n > 1 else "is"
         raise ValidationError(
-            f"the following {n} key{s} passed to {name} {are} not allowed: {colors.yellow(_print_values(nonval_keys))}"
+            f"key{s} passed to {name} {are} not present: {colors.yellow(_format_values(nonval_keys))}"
         )
 
 
@@ -1333,7 +1349,7 @@ class SOMACurator(BaseCurator):
             )
             if key not in avail_keys:
                 raise KeyError(
-                    f'"{key}" is not a valid key, available keys are: {_print_values(avail_keys + ["all"])}!'
+                    f"'{key!r}' is not a valid key, available keys are: {_format_values(avail_keys + ['all'])}!"
                 )
             keys = [key]
         for k in keys:
@@ -1393,12 +1409,12 @@ class SOMACurator(BaseCurator):
     def standardize(self, key: str):
         """Replace synonyms with standardized values.
 
+        Modifies the dataset inplace.
+
         Args:
             key: The key referencing the slot in the `tiledbsoma` store.
                 It should be `'{measurement name}__{column name in .var}'` for columns in `.var`
                 or a column name in `.obs`.
-
-        Inplace modification of the dataset.
         """
         if len(self.non_validated) == 0:
             logger.warning("values are already standardized")
@@ -1409,7 +1425,7 @@ class SOMACurator(BaseCurator):
         else:
             if key not in avail_keys:
                 raise KeyError(
-                    f'"{key}" is not a valid key, available keys are: {_print_values(avail_keys + ["all"])}!'
+                    f"'{key!r}' is not a valid key, available keys are: {_format_values(avail_keys + ['all'])}!"
                 )
             keys = [key]
 
@@ -1461,7 +1477,7 @@ class SOMACurator(BaseCurator):
             ]
             self._non_validated_values[k] = non_val_k
 
-            syn_mapper_print = _print_values(
+            syn_mapper_print = _format_values(
                 [f'"{m_k}" → "{m_v}"' for m_k, m_v in syn_mapper.items()], sep=""
             )
             s = "s" if n_syn_mapper > 1 else ""
@@ -1777,7 +1793,7 @@ def validate_categories(
         standardize: Whether to standardize the values.
         hint_print: The hint to print that suggests fixing non-validated values.
     """
-    from lamindb._from_values import _print_values
+    from lamindb._from_values import _format_values
     from lamindb.core._settings import settings
 
     model_field = f"{field.field.model.__name__}.{field.field.name}"
@@ -1850,11 +1866,11 @@ def validate_categories(
     else:
         are = "is" if n_non_validated == 1 else "are"
         s = "" if n_non_validated == 1 else "s"
-        print_values = _print_values(non_validated)
+        print_values = _format_values(non_validated)
         warning_message = f"{colors.red(f'{n_non_validated} term{s}')} {are} not validated: {colors.red(print_values)}\n"
         if syn_mapper:
             s = "" if len(syn_mapper) == 1 else "s"
-            syn_mapper_print = _print_values(
+            syn_mapper_print = _format_values(
                 [f'"{k}" → "{v}"' for k, v in syn_mapper.items()], sep=""
             )
             hint_msg = f'.standardize("{key}")'
@@ -2235,7 +2251,7 @@ def log_saved_labels(
     validated_only: bool = True,
 ) -> None:
     """Log the saved labels."""
-    from ._from_values import _print_values
+    from ._from_values import _format_values
 
     model_field = colors.italic(model_field)
     for k, labels in labels_saved.items():
@@ -2249,7 +2265,7 @@ def log_saved_labels(
             # labels from a public ontology or a different instance to the present instance
             s = "s" if len(labels) > 1 else ""
             logger.success(
-                f'added {len(labels)} record{s} {k}with {model_field} for "{key}": {_print_values(labels)}'
+                f'added {len(labels)} record{s} {k}with {model_field} for "{key}": {_format_values(labels)}'
             )
 
 

@@ -42,7 +42,7 @@ from lamindb._feature import (
     suggest_categorical_for_str_iterable,
 )
 from lamindb._feature_set import DICT_KEYS_TYPE, FeatureSet
-from lamindb._from_values import _print_values
+from lamindb._from_values import _format_values
 from lamindb._record import (
     REGISTRY_UNIQUE_FIELD,
     get_name_field,
@@ -390,7 +390,7 @@ def describe_features(
 
             # Format message
             printed_values = (
-                _print_values(sorted(values), n=10, quotes=False)
+                _format_values(sorted(values), n=10, quotes=False)
                 if not is_list_type or not feature_dtype.startswith("list")
                 else sorted(values)
             )

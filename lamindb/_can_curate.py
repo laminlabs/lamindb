@@ -10,7 +10,7 @@ from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lnschema_core import CanCurate, Record
 
-from ._from_values import _has_organism_field, _print_values, get_or_create_records
+from ._from_values import _format_values, _has_organism_field, get_or_create_records
 from ._record import _queryset, get_name_field
 from ._utils import attach_func_to_class_method
 from .core.exceptions import ValidationError
@@ -168,7 +168,7 @@ def _inspect(
             bionty_mapper = bionty_result.synonyms_mapper
             hint = False
             if len(bionty_validated) > 0 and not mute:
-                print_values = _print_values(bionty_validated)
+                print_values = _format_values(bionty_validated)
                 s = "" if len(bionty_validated) == 1 else "s"
                 labels = colors.yellow(f"{len(bionty_validated)} {model_name} term{s}")
                 logger.print(
@@ -178,7 +178,7 @@ def _inspect(
                 hint = True
 
             if len(bionty_mapper) > 0 and not mute:
-                print_values = _print_values(list(bionty_mapper.keys()))
+                print_values = _format_values(list(bionty_mapper.keys()))
                 s = "" if len(bionty_mapper) == 1 else "s"
                 labels = colors.yellow(f"{len(bionty_mapper)} {model_name} term{s}")
                 logger.print(
@@ -199,7 +199,7 @@ def _inspect(
             logger.warning("no Bionty source found, skipping Bionty validation")
 
     if len(nonval) > 0 and not mute:
-        print_values = _print_values(list(nonval))
+        print_values = _format_values(list(nonval))
         s = "" if len(nonval) == 1 else "s"
         labels = colors.red(f"{len(nonval)} term{s}")
         logger.print(f"   couldn't validate {labels}: {colors.red(print_values)}")
