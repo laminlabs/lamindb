@@ -95,7 +95,7 @@ def get_or_create_records(
                 if len(msg) > 0 and not mute:
                     logger.success(msg)
                 s = "" if len(unmapped_values) == 1 else "s"
-                print_values = colors.yellow(_print_values(unmapped_values))
+                print_values = colors.yellow(_format_values(unmapped_values))
                 name = registry.__name__
                 n_nonval = colors.yellow(f"{len(unmapped_values)} non-validated")
                 if not mute:
@@ -167,7 +167,7 @@ def get_existing_records(
     if not mute:
         if len(validated) > 0:
             s = "" if len(validated) == 1 else "s"
-            print_values = colors.green(_print_values(validated))
+            print_values = colors.green(_format_values(validated))
             msg = (
                 "loaded"
                 f" {colors.green(f'{len(validated)} {model.__name__} record{s}')}"
@@ -176,7 +176,7 @@ def get_existing_records(
         if len(syn_mapper) > 0:
             s = "" if len(syn_mapper) == 1 else "s"
             names = list(syn_mapper.keys())
-            print_values = colors.green(_print_values(names))
+            print_values = colors.green(_format_values(names))
             syn_msg = (
                 "loaded"
                 f" {colors.green(f'{len(syn_mapper)} {model.__name__} record{s}')}"
@@ -243,7 +243,7 @@ def create_records_from_source(
     if len(syn_mapper) > 0:
         s = "" if len(syn_mapper) == 1 else "s"
         names = list(syn_mapper.keys())
-        print_values = colors.purple(_print_values(names))
+        print_values = colors.purple(_format_values(names))
         msg_syn = (
             "created"
             f" {colors.purple(f'{len(syn_mapper)} {model.__name__} record{s} from Bionty')}"
@@ -277,7 +277,7 @@ def create_records_from_source(
         validated = result.validated
         if len(validated) > 0:
             s = "" if len(validated) == 1 else "s"
-            print_values = colors.purple(_print_values(validated))
+            print_values = colors.purple(_format_values(validated))
             # this is the success msg for existing records in the DB
             if len(msg) > 0 and not mute:
                 logger.success(msg)
@@ -307,7 +307,7 @@ def index_iterable(iterable: Iterable) -> pd.Index:
     return idx[(idx != "") & (~idx.isnull())]
 
 
-def _print_values(
+def _format_values(
     names: Iterable, n: int = 20, quotes: bool = True, sep: str = "'"
 ) -> str:
     if isinstance(names, dict):
@@ -317,6 +317,7 @@ def _print_values(
             if key != "None" and value != "None"
         }
     else:
+        # Use a dictionary instead of a list to have unique values and preserve order
         items = {str(name): None for name in names if name != "None"}
 
     unique_items = list(items.keys())
@@ -344,7 +345,7 @@ def _bulk_create_dicts_from_df(
         dup = df.index[df.index.duplicated()].unique().tolist()
         if len(dup) > 0:
             s = "" if len(dup) == 1 else "s"
-            print_values = _print_values(dup)
+            print_values = _format_values(dup)
             multi_msg = (
                 f"ambiguous validation in Bionty for {len(dup)} record{s}:"
                 f" {print_values}"

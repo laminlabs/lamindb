@@ -11,7 +11,7 @@ from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
 
-from lamindb._from_values import _print_values
+from lamindb._from_values import _format_values
 from lamindb._record import (
     REGISTRY_UNIQUE_FIELD,
     get_name_field,
@@ -110,10 +110,10 @@ def describe_labels(
         if not labels or related_name == "feature_sets":
             continue
         if isinstance(labels, dict):  # postgres, labels are a dict[id, name]
-            print_values = _print_values(labels.values(), n=10, quotes=False)
+            print_values = _format_values(labels.values(), n=10, quotes=False)
         else:  # labels are a QuerySet
             field = get_name_field(labels)
-            print_values = _print_values(
+            print_values = _format_values(
                 labels.values_list(field, flat=True), n=10, quotes=False
             )
         if print_values:

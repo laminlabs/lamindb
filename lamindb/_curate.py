@@ -21,7 +21,7 @@ from lnschema_core import (
     ULabel,
 )
 
-from ._from_values import _print_values
+from ._from_values import _format_values
 from .core.exceptions import ValidationError
 
 if TYPE_CHECKING:
@@ -261,7 +261,7 @@ class DataFrameCurator(BaseCurator):
             are = "are" if n > 1 else "is"
             if len(nonval_keys) > 0:
                 raise ValidationError(
-                    f"the following {n} key{s} passed to {name} {are} not allowed: {colors.yellow(_print_values(nonval_keys))}"
+                    f"the following {n} key{s} passed to {name} {are} not allowed: {colors.yellow(_format_values(nonval_keys))}"
                 )
 
     def _save_columns(self, validated_only: bool = True) -> None:
@@ -329,7 +329,7 @@ class DataFrameCurator(BaseCurator):
         # logging
         n = len(syn_mapper)
         if n > 0:
-            syn_mapper_print = _print_values(
+            syn_mapper_print = _format_values(
                 [f'"{k}" → "{v}"' for k, v in syn_mapper.items()], sep=""
             )
             s = "s" if n > 1 else ""
@@ -366,7 +366,7 @@ class DataFrameCurator(BaseCurator):
         else:
             if key not in avail_keys:
                 raise KeyError(
-                    f"{key!r} is not a valid key, available keys are: {_print_values(avail_keys)}!"
+                    f"{key!r} is not a valid key, available keys are: {_format_values(avail_keys)}!"
                 )
             else:
                 if key in self._fields:  # needed to exclude var_index
@@ -1073,7 +1073,7 @@ def _maybe_curation_keys_not_present(nonval_keys: list[str], name: str):
         s = "s" if n > 1 else ""
         are = "are" if n > 1 else "is"
         raise ValidationError(
-            f"the following {n} key{s} passed to {name} {are} not allowed: {colors.yellow(_print_values(nonval_keys))}"
+            f"the following {n} key{s} passed to {name} {are} not allowed: {colors.yellow(_format_values(nonval_keys))}"
         )
 
 
@@ -1333,7 +1333,7 @@ class SOMACurator(BaseCurator):
             )
             if key not in avail_keys:
                 raise KeyError(
-                    f'"{key!r}" is not a valid key, available keys are: {_print_values(avail_keys + ["all"])}!'
+                    f"'{key!r}' is not a valid key, available keys are: {_format_values(avail_keys + ['all'])}!"
                 )
             keys = [key]
         for k in keys:
@@ -1409,7 +1409,7 @@ class SOMACurator(BaseCurator):
         else:
             if key not in avail_keys:
                 raise KeyError(
-                    f'"{key!r}" is not a valid key, available keys are: {_print_values(avail_keys + ["all"])}!'
+                    f"'{key!r}' is not a valid key, available keys are: {_format_values(avail_keys + ['all'])}!"
                 )
             keys = [key]
 
@@ -1461,7 +1461,7 @@ class SOMACurator(BaseCurator):
             ]
             self._non_validated_values[k] = non_val_k
 
-            syn_mapper_print = _print_values(
+            syn_mapper_print = _format_values(
                 [f'"{m_k}" → "{m_v}"' for m_k, m_v in syn_mapper.items()], sep=""
             )
             s = "s" if n_syn_mapper > 1 else ""
@@ -1777,7 +1777,7 @@ def validate_categories(
         standardize: Whether to standardize the values.
         hint_print: The hint to print that suggests fixing non-validated values.
     """
-    from lamindb._from_values import _print_values
+    from lamindb._from_values import _format_values
     from lamindb.core._settings import settings
 
     model_field = f"{field.field.model.__name__}.{field.field.name}"
@@ -1850,11 +1850,11 @@ def validate_categories(
     else:
         are = "is" if n_non_validated == 1 else "are"
         s = "" if n_non_validated == 1 else "s"
-        print_values = _print_values(non_validated)
+        print_values = _format_values(non_validated)
         warning_message = f"{colors.red(f'{n_non_validated} term{s}')} {are} not validated: {colors.red(print_values)}\n"
         if syn_mapper:
             s = "" if len(syn_mapper) == 1 else "s"
-            syn_mapper_print = _print_values(
+            syn_mapper_print = _format_values(
                 [f'"{k}" → "{v}"' for k, v in syn_mapper.items()], sep=""
             )
             hint_msg = f'.standardize("{key}")'
@@ -2235,7 +2235,7 @@ def log_saved_labels(
     validated_only: bool = True,
 ) -> None:
     """Log the saved labels."""
-    from ._from_values import _print_values
+    from ._from_values import _format_values
 
     model_field = colors.italic(model_field)
     for k, labels in labels_saved.items():
@@ -2249,7 +2249,7 @@ def log_saved_labels(
             # labels from a public ontology or a different instance to the present instance
             s = "s" if len(labels) > 1 else ""
             logger.success(
-                f'added {len(labels)} record{s} {k}with {model_field} for "{key}": {_print_values(labels)}'
+                f'added {len(labels)} record{s} {k}with {model_field} for "{key}": {_format_values(labels)}'
             )
 
 
