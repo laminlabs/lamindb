@@ -447,7 +447,18 @@ def test_mudata_curator(mdata):
     bt.Gene.filter().delete()
 
 
-def test_soma_curator(adata, categoricals):
+@pytest.fixture()
+def clean_soma_files():
+    if Path("curate.tiledbsoma").exits():
+        shutil.rmtree("curate.tiledbsoma")
+
+    yield  # Let the test run
+
+    if Path("curate.tiledbsoma").exists():
+        shutil.rmtree("curate.tiledbsoma")
+
+
+def test_soma_curator(adata, categoricals, clean_soma_files):
     tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
 
     with pytest.raises(
@@ -559,7 +570,6 @@ def test_soma_curator(adata, categoricals):
     }
 
     # clean up
-    shutil.rmtree("curate.tiledbsoma")
     artifact.delete(permanent=True)
     ln.ULabel.filter().delete()
     bt.ExperimentalFactor.filter().delete()
@@ -569,10 +579,7 @@ def test_soma_curator(adata, categoricals):
     bt.Gene.filter().delete()
 
 
-def test_soma_curator_genes_columns(adata):
-    if Path("curate.tiledbsoma").exists():
-        shutil.rmtree("curate.tiledbsoma")
-
+def test_soma_curator_genes_columns(adata, clean_soma_files):
     adata.obs = pd.DataFrame(adata.X[:, :3], columns=adata.var_names[:3])
     tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
 
