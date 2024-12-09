@@ -347,7 +347,15 @@ class DataFrameCurator(BaseCurator):
             )
         return std_values
 
-    def standardize(self, key: str):
+    def standardize(self, key: str) -> None:
+        """Replace synonyms with standardized values.
+
+        Modifies the input dataset inplace.
+
+        Args:
+            key: The key referencing the column in the DataFrame to standardize.
+        """
+        # list is needed to avoid RuntimeError: dictionary changed size during iteration
         avail_keys = list(self.non_validated.keys())
         if len(avail_keys) == 0:
             logger.warning("values are already standardized")
