@@ -217,6 +217,14 @@ class DataFrameCurator(BaseCurator):
             self._check_valid_keys()
         self._save_columns()
 
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        import sys
+
+        # Deprecated methods
+        if "sphinx" not in sys.modules:
+            cls.add_new_from_columns = cls._add_new_from_columns
+
     @property
     def non_validated(self) -> dict[str, list[str]]:
         """Return the non-validated features and labels."""
@@ -261,7 +269,7 @@ class DataFrameCurator(BaseCurator):
             are = "are" if n > 1 else "is"
             if len(nonval_keys) > 0:
                 raise ValidationError(
-                    f"the following {n} key{s} passed to {name} {are} not allowed: {colors.yellow(_format_values(nonval_keys))}"
+                    f"key{s} passed to {name} {are} not present in columns: {colors.yellow(_format_values(nonval_keys))}"
                 )
 
     def _save_columns(self, validated_only: bool = True) -> None:
@@ -306,7 +314,7 @@ class DataFrameCurator(BaseCurator):
         self._kwargs.update({"organism": organism} if organism else {})
         self._update_registry(key, validated_only=False, **self._kwargs, **kwargs)
 
-    def add_new_from_columns(self, organism: str | None = None, **kwargs):
+    def _add_new_from_columns(self, organism: str | None = None, **kwargs):
         """Deprecated to run by default during init."""
         warnings.warn(
             "`.add_new_from_columns()` is deprecated and will be removed in a future version. It's run by default during initialization.",
@@ -339,14 +347,6 @@ class DataFrameCurator(BaseCurator):
         return std_values
 
     def standardize(self, key: str):
-        """Replace synonyms with standardized values.
-
-        Args:
-            key: The key referencing the slot in the DataFrame from which to draw terms.
-
-        Modifies the input dataset inplace.
-        """
-        # list is needed to avoid RuntimeError: dictionary changed size during iteration
         avail_keys = list(self.non_validated.keys())
         if len(avail_keys) == 0:
             logger.warning("values are already standardized")
@@ -365,9 +365,12 @@ class DataFrameCurator(BaseCurator):
                     self._df[k] = self._replace_synonyms(k, syn_mapper, self._df[k])
         else:
             if key not in avail_keys:
-                raise KeyError(
-                    f"{key!r} is not a valid key, available keys are: {_format_values(avail_keys)}!"
-                )
+                if key in self._fields:
+                    logger.info(f"No unstandardized values found for {key!r}")
+                else:
+                    raise KeyError(
+                        f"{key!r} is not a valid key, available keys are: {_format_values(avail_keys)}!"
+                    )
             else:
                 if key in self._fields:  # needed to exclude var_index
                     syn_mapper = standardize_categories(
@@ -381,7 +384,9 @@ class DataFrameCurator(BaseCurator):
                         key, syn_mapper, self._df[key]
                     )
 
-    def _update_registry(self, categorical: str, validated_only: bool = True, **kwargs):
+    def _update_registry(
+        self, categorical: str, validated_only: bool = True, **kwargs
+    ) -> None:
         if categorical == "all":
             self._update_registry_all(validated_only=validated_only, **kwargs)
         else:
@@ -447,7 +452,8 @@ class DataFrameCurator(BaseCurator):
 
         Args:
             description: Description of the DataFrame object.
-            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`.
+                Artifacts with the same key form a revision family.
             revises: Previous version of the artifact. Triggers a revision.
             run: The run that creates the artifact.
 
@@ -718,7 +724,8 @@ class AnnDataCurator(DataFrameCurator):
 
         Args:
             description: A description of the ``AnnData`` object.
-            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`.
+                Artifacts with the same key form a revision family.
             revises: Previous version of the artifact. Triggers a revision.
             run: The run that creates the artifact.
 
@@ -1393,12 +1400,12 @@ class SOMACurator(BaseCurator):
     def standardize(self, key: str):
         """Replace synonyms with standardized values.
 
+        Modifies the dataset inplace.
+
         Args:
             key: The key referencing the slot in the `tiledbsoma` store.
                 It should be `'{measurement name}__{column name in .var}'` for columns in `.var`
                 or a column name in `.obs`.
-
-        Inplace modification of the dataset.
         """
         if len(self.non_validated) == 0:
             logger.warning("values are already standardized")

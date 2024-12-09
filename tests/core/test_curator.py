@@ -344,7 +344,7 @@ def test_anndata_curator_wrong_type(df, categoricals):
 def test_categorical_key_not_present(df):
     with pytest.raises(
         ValidationError,
-        match="the following 1 key passed to categoricals is not allowed:",
+        match="key not present in columns",
     ):
         ln.Curator.from_df(
             df,
@@ -449,9 +449,7 @@ def test_mudata_curator(mdata):
 def test_soma_curator(adata, categoricals):
     tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
 
-    with pytest.raises(
-        ValidationError, match="key passed to categoricals is not allowed"
-    ):
+    with pytest.raises(ValidationError, match="key not present in columns"):
         ln.Curator.from_tiledbsoma(
             "curate.tiledbsoma",
             {"RNA": ("var_id", bt.Gene.symbol)},
