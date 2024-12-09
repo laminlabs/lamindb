@@ -449,7 +449,7 @@ def test_mudata_curator(mdata):
 def test_soma_curator(adata, categoricals):
     tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
 
-    with pytest.raises(ValidationError, match="key not present in columns"):
+    with pytest.raises(ValidationError, match="key not present"):
         ln.Curator.from_tiledbsoma(
             "curate.tiledbsoma",
             {"RNA": ("var_id", bt.Gene.symbol)},

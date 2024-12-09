@@ -111,6 +111,14 @@ class CurateLookup:
 class BaseCurator:
     """Curate a dataset."""
 
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        import sys
+
+        # Deprecated methods
+        if "sphinx" not in sys.modules:
+            cls.add_new_from_columns = cls._add_new_from_columns
+
     def validate(self) -> bool:
         """Validate dataset.
 
@@ -216,19 +224,6 @@ class DataFrameCurator(BaseCurator):
         if check_valid_keys:
             self._check_valid_keys()
         self._save_columns()
-
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        import sys
-
-        # Debug version - show us what's in sys.modules
-        sphinx_modules = [m for m in sys.modules if "sphinx" in m.lower()]
-        if sphinx_modules:
-            raise RuntimeError(f"Unexpected sphinx modules found: {sphinx_modules}")
-
-        # Deprecated methods
-        if "sphinx" not in sys.modules:
-            cls.add_new_from_columns = classmethod(cls._add_new_from_columns)
 
     @property
     def non_validated(self) -> dict[str, list[str]]:
@@ -1085,7 +1080,7 @@ def _maybe_curation_keys_not_present(nonval_keys: list[str], name: str):
         s = "s" if n > 1 else ""
         are = "are" if n > 1 else "is"
         raise ValidationError(
-            f"the following {n} key{s} passed to {name} {are} not allowed: {colors.yellow(_format_values(nonval_keys))}"
+            f"key{s} passed to {name} {are} not present: {colors.yellow(_format_values(nonval_keys))}"
         )
 
 
