@@ -458,14 +458,14 @@ def test_soma_curator(adata, categoricals):
             categoricals={"invalid_key": bt.CellType.name},
         )
 
-    with pytest.raises(ValidationError, match="key passed to var_index is not allowed"):
+    with pytest.raises(ValidationError, match="key passed to var_index is not present"):
         ln.Curator.from_tiledbsoma(
             "curate.tiledbsoma",
             {"RNA": ("invalid_key", bt.Gene.symbol)},
             categoricals={"cell_type": bt.CellType.name},
         )
 
-    with pytest.raises(ValidationError, match="key passed to sources is not allowed"):
+    with pytest.raises(ValidationError, match="key passed to sources is not present"):
         ln.Curator.from_tiledbsoma(
             "curate.tiledbsoma",
             {"RNA": ("var_id", bt.Gene.symbol)},
