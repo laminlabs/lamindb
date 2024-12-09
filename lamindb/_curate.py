@@ -117,7 +117,8 @@ class BaseCurator:
 
         # Deprecated methods
         if "sphinx" not in sys.modules:
-            cls.add_new_from_columns = cls._add_new_from_columns
+            if hasattr(cls, "_add_new_from_columns"):
+                cls.add_new_from_columns = cls._add_new_from_columns
 
     def validate(self) -> bool:
         """Validate dataset.
