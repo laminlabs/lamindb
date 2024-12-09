@@ -366,7 +366,7 @@ class DataFrameCurator(BaseCurator):
         else:
             if key not in avail_keys:
                 raise KeyError(
-                    f'"{key}" is not a valid key, available keys are: {_print_values(avail_keys)}!'
+                    f"{key!r} is not a valid key, available keys are: {_print_values(avail_keys)}!"
                 )
             else:
                 if key in self._fields:  # needed to exclude var_index
@@ -1333,7 +1333,7 @@ class SOMACurator(BaseCurator):
             )
             if key not in avail_keys:
                 raise KeyError(
-                    f'"{key}" is not a valid key, available keys are: {_print_values(avail_keys + ["all"])}!'
+                    f'"{key!r}" is not a valid key, available keys are: {_print_values(avail_keys + ["all"])}!'
                 )
             keys = [key]
         for k in keys:
@@ -1409,7 +1409,7 @@ class SOMACurator(BaseCurator):
         else:
             if key not in avail_keys:
                 raise KeyError(
-                    f'"{key}" is not a valid key, available keys are: {_print_values(avail_keys + ["all"])}!'
+                    f'"{key!r}" is not a valid key, available keys are: {_print_values(avail_keys + ["all"])}!'
                 )
             keys = [key]
 

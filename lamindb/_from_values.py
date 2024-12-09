@@ -317,7 +317,6 @@ def _print_values(
             if key != "None" and value != "None"
         }
     else:
-        # Use a dictionary instead of a list to have unique values and preserve order
         items = {str(name): None for name in names if name != "None"}
 
     unique_items = list(items.keys())
