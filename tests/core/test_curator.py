@@ -344,7 +344,7 @@ def test_anndata_curator_wrong_type(df, categoricals):
 def test_categorical_key_not_present(df):
     with pytest.raises(
         ValidationError,
-        match="key not present in columns",
+        match="key passed to categoricals is not present in columns",
     ):
         ln.Curator.from_df(
             df,
@@ -356,7 +356,7 @@ def test_categorical_key_not_present(df):
 def test_source_key_not_present(adata, categoricals):
     with pytest.raises(
         ValidationError,
-        match="the following 1 key passed to sources is not allowed:",
+        match="key passed to sources is not present in columns",
     ):
         ln.Curator.from_anndata(
             adata,

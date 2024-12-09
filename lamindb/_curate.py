@@ -221,9 +221,14 @@ class DataFrameCurator(BaseCurator):
         super().__init_subclass__(**kwargs)
         import sys
 
+        # Debug version - show us what's in sys.modules
+        sphinx_modules = [m for m in sys.modules if "sphinx" in m.lower()]
+        if sphinx_modules:
+            raise RuntimeError(f"Unexpected sphinx modules found: {sphinx_modules}")
+
         # Deprecated methods
         if "sphinx" not in sys.modules:
-            cls.add_new_from_columns = cls._add_new_from_columns
+            cls.add_new_from_columns = classmethod(cls._add_new_from_columns)
 
     @property
     def non_validated(self) -> dict[str, list[str]]:
