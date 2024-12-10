@@ -120,7 +120,7 @@ def load_yaml(path: UPathStr) -> dict | UPathStr:
         return data
     except ImportError:
         logger.warning(
-            "Please install PyYAML (`pip install PyYAML`) to load `.yml` files."
+            "Please install PyYAML (`pip install PyYAML`) to load `.yaml` files."
         )
         return path
 

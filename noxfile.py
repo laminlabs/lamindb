@@ -85,6 +85,8 @@ def install_ci(session, group):
     extras = ""
     if group == "unit-core":
         extras += "bionty,aws,gcp,zarr,fcs,jupyter"
+        # testing load_to_memory for yaml
+        run(session, "uv pip install --system PyYAML")
         run(session, "uv pip install --system huggingface_hub")
         # pinning 1.15.0rc3 because 1.14.5 is incompatible with anndata>=0.11.0
         # and >1.15.0rc4 has a different append mode API
