@@ -1,4 +1,5 @@
 import shutil
+from pathlib import Path
 from unittest.mock import Mock
 
 import anndata as ad
@@ -344,7 +345,7 @@ def test_anndata_curator_wrong_type(df, categoricals):
 def test_categorical_key_not_present(df):
     with pytest.raises(
         ValidationError,
-        match="the following 1 key passed to categoricals is not allowed:",
+        match="key passed to categoricals is not present in columns",
     ):
         ln.Curator.from_df(
             df,
@@ -356,7 +357,7 @@ def test_categorical_key_not_present(df):
 def test_source_key_not_present(adata, categoricals):
     with pytest.raises(
         ValidationError,
-        match="the following 1 key passed to sources is not allowed:",
+        match="key passed to sources is not present in columns",
     ):
         ln.Curator.from_anndata(
             adata,
@@ -446,11 +447,22 @@ def test_mudata_curator(mdata):
     bt.Gene.filter().delete()
 
 
-def test_soma_curator(adata, categoricals):
+@pytest.fixture()
+def clean_soma_files():
+    if Path("curate.tiledbsoma").exists():
+        shutil.rmtree("curate.tiledbsoma")
+
+    yield  # Let the test run
+
+    if Path("curate.tiledbsoma").exists():
+        shutil.rmtree("curate.tiledbsoma")
+
+
+def test_soma_curator(adata, categoricals, clean_soma_files):
     tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
 
     with pytest.raises(
-        ValidationError, match="key passed to categoricals is not allowed"
+        ValidationError, match="key passed to categoricals is not present"
     ):
         ln.Curator.from_tiledbsoma(
             "curate.tiledbsoma",
@@ -458,14 +470,14 @@ def test_soma_curator(adata, categoricals):
             categoricals={"invalid_key": bt.CellType.name},
         )
 
-    with pytest.raises(ValidationError, match="key passed to var_index is not allowed"):
+    with pytest.raises(ValidationError, match="key passed to var_index is not present"):
         ln.Curator.from_tiledbsoma(
             "curate.tiledbsoma",
             {"RNA": ("invalid_key", bt.Gene.symbol)},
             categoricals={"cell_type": bt.CellType.name},
         )
 
-    with pytest.raises(ValidationError, match="key passed to sources is not allowed"):
+    with pytest.raises(ValidationError, match="key passed to sources is not present"):
         ln.Curator.from_tiledbsoma(
             "curate.tiledbsoma",
             {"RNA": ("var_id", bt.Gene.symbol)},
@@ -558,7 +570,6 @@ def test_soma_curator(adata, categoricals):
     }
 
     # clean up
-    shutil.rmtree("curate.tiledbsoma")
     artifact.delete(permanent=True)
     ln.ULabel.filter().delete()
     bt.ExperimentalFactor.filter().delete()
@@ -568,7 +579,7 @@ def test_soma_curator(adata, categoricals):
     bt.Gene.filter().delete()
 
 
-def test_soma_curator_genes_columns(adata):
+def test_soma_curator_genes_columns(adata, clean_soma_files):
     adata.obs = pd.DataFrame(adata.X[:, :3], columns=adata.var_names[:3])
     tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
 
