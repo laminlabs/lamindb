@@ -383,6 +383,8 @@ def _standardize(
         organism = (
             organism_record.name if organism_record is not None else organism_record
         )
+    else:
+        organism = None
 
     # only perform synonym mapping if field is the name field
     if hasattr(registry, "_name_field") and field != registry._name_field:
