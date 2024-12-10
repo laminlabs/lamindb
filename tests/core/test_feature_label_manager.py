@@ -219,7 +219,7 @@ Here is how to create ulabels for them:
     tree = describe_features(artifact)
     print_rich_tree(tree)
     assert tree.label.plain == "Artifact .h5ad/AnnData"
-    assert tree.children[0].label.plain == "Linked featuers"
+    assert tree.children[0].label.plain == "Linked features"
     assert len(tree.children[0].children[0].label.columns) == 3
     assert len(tree.children[0].children[0].label.rows) == 10
     assert tree.children[0].children[0].label.columns[0]._cells == [
