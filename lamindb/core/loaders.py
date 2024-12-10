@@ -110,8 +110,23 @@ def load_json(path: UPathStr) -> dict:
     return data
 
 
+def load_yaml(path: UPathStr) -> dict | UPathStr:
+    """Load `.yaml` to `dict`."""
+    try:
+        import yaml  # type: ignore
+
+        with open(path) as f:
+            data = yaml.safe_load(f)
+        return data
+    except ImportError:
+        logger.warning(
+            "Please install PyYAML (`pip install PyYAML`) to load `.yml` files."
+        )
+        return path
+
+
 def load_image(path: UPathStr) -> None | UPathStr:
-    """Display `.svg` in ipython, otherwise return path."""
+    """Display `.jpg`, `.gif` or `.png` in ipython, otherwise return path."""
     if is_run_from_ipython:
         from IPython.display import Image, display
 
@@ -147,7 +162,9 @@ FILE_LOADERS = {
     ".zarr": load_anndata_zarr,
     ".html": load_html,
     ".json": load_json,
+    ".yaml": load_yaml,
     ".h5mu": load_h5mu,
+    ".gif": load_image,
     ".jpg": load_image,
     ".png": load_image,
     ".svg": load_svg,
