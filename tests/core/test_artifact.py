@@ -15,6 +15,7 @@ import lamindb_setup
 import numpy as np
 import pandas as pd
 import pytest
+import yaml  # type: ignore
 from lamindb import _artifact
 from lamindb._artifact import (
     check_path_is_child_of_root,
@@ -94,6 +95,16 @@ def tsv_file():
 def zip_file():
     filepath = Path("test.zip")
     pd.DataFrame([1, 2]).to_csv(filepath, sep="\t")
+    yield filepath
+    filepath.unlink()
+
+
+@pytest.fixture(scope="module")
+def yaml_file():
+    filepath = Path("test.yaml")
+    dct = {"a": 1, "b": 2}
+    with open(filepath, "w") as f:
+        yaml.dump(dct, f)
     yield filepath
     filepath.unlink()
 
@@ -719,7 +730,7 @@ def test_serialize_paths():
     assert isinstance(filepath, CloudPath)
 
 
-def test_load_to_memory(tsv_file, zip_file, fcs_file):
+def test_load_to_memory(tsv_file, zip_file, fcs_file, yaml_file):
     # tsv
     df = load_tsv(tsv_file)
     assert isinstance(df, pd.DataFrame)
@@ -730,6 +741,10 @@ def test_load_to_memory(tsv_file, zip_file, fcs_file):
     load_to_memory(zip_file)
     # check that it is a path
     assert isinstance(load_to_memory("./somefile.rds"), UPath)
+    # yaml
+    dct = load_to_memory(yaml_file)
+    assert dct["a"] == 1
+    assert dct["b"] == 2
 
     with pytest.raises(TypeError) as error:
         ln.Artifact(True)
