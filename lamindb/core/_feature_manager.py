@@ -333,7 +333,7 @@ def describe_features(
             fs_data = _get_featuresets_postgres(self, related_data=related_data)
             for fs_id, (slot, data) in fs_data.items():
                 for registry_str, feature_names in data.items():
-                    feature_set = FeatureSet.get(id=fs_id)
+                    feature_set = FeatureSet.objects.using(self._state.db).get(id=fs_id)
                     feature_set_data[slot] = (feature_set, feature_names)
                     for feature_name in feature_names:
                         feature_data[feature_name] = (slot, registry_str)
@@ -492,7 +492,9 @@ def describe_features(
         for child in ext_features_tree_children:
             ext_features_tree.add(child)
     if with_labels:
-        labels_tree = describe_labels(self, as_subtree=True)
+        # avoid querying the db if the labels were queried already
+        labels_data = related_data.get("m2m") if related_data is not None else None
+        labels_tree = describe_labels(self, labels_data=labels_data, as_subtree=True)
         if labels_tree:
             tree.add(labels_tree)
 
