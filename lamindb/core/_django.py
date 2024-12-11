@@ -144,6 +144,8 @@ def get_artifact_with_related(
         lambda a, b: a | b,
         (Q(**{f"{m2m_name}__isnull": False}) for m2m_name in m2m_relations),
     )
+    # this is needed to avoid querying all m2m relations even if they are all empty
+    # this checks if non-empty m2m relations are present in the record
     m2m_any = (
         model.objects.using(artifact._state.db)
         .filter(uid=artifact.uid)
