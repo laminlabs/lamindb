@@ -81,15 +81,6 @@ def get_artifact_with_related(
                 id=F(f"{fk}__id"), name=F(f"{fk}__{name_field}")
             )
 
-    for name in m2m_relations:
-        related_model = get_related_model(model, name)
-        name_field = get_name_field(related_model)
-        annotations[f"m2mfield_{name}"] = ArrayAgg(
-            JSONObject(id=F(f"{name}__id"), name=F(f"{name}__{name_field}")),
-            filter=Q(**{f"{name}__isnull": False}),
-            distinct=True,
-        )
-
     for link in link_tables:
         link_model = getattr(model, link).rel.related_model
         if not hasattr(link_model, "feature"):
@@ -137,9 +128,7 @@ def get_artifact_with_related(
 
     related_data: dict = {"m2m": {}, "fk": {}, "link": {}, "featuresets": {}}
     for k, v in artifact_meta.items():
-        if k.startswith("m2mfield_"):
-            related_data["m2m"][k[9:]] = v
-        elif k.startswith("fkfield_"):
+        if k.startswith("fkfield_"):
             related_data["fk"][k[8:]] = v
         elif k.startswith("linkfield_"):
             related_data["link"][k[10:]] = v
@@ -149,11 +138,17 @@ def get_artifact_with_related(
                     artifact, {i["featureset"]: i["slot"] for i in v}
                 )
 
-    related_data["m2m"] = {
-        k: {item["id"]: item["name"] for item in v}
-        for k, v in related_data["m2m"].items()
-        if v
-    }
+    m2m_data = related_data["m2m"]
+    for m2m_name in m2m_relations:
+        related_model = get_related_model(model, m2m_name)
+        name_field = get_name_field(related_model)
+        m2m_records = (
+            getattr(artifact, m2m_name).values_list("id", name_field).distinct()
+        )
+        for rec_id, rec_name in m2m_records:
+            if m2m_name not in m2m_data:
+                m2m_data[m2m_name] = {}
+            m2m_data[m2m_name][rec_id] = rec_name
 
     return {
         **{name: artifact_meta[name] for name in ["id", "uid"]},
