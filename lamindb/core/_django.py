@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from functools import reduce
+
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connection
 from django.db.models import F, OuterRef, Q, Subquery
@@ -138,17 +140,28 @@ def get_artifact_with_related(
                     artifact, {i["featureset"]: i["slot"] for i in v}
                 )
 
-    m2m_data = related_data["m2m"]
-    for m2m_name in m2m_relations:
-        related_model = get_related_model(model, m2m_name)
-        name_field = get_name_field(related_model)
-        m2m_records = (
-            getattr(artifact, m2m_name).values_list("id", name_field).distinct()
-        )
-        for rec_id, rec_name in m2m_records:
-            if m2m_name not in m2m_data:
-                m2m_data[m2m_name] = {}
-            m2m_data[m2m_name][rec_id] = rec_name
+    m2m_any_expr = reduce(
+        lambda a, b: a | b,
+        (Q(**{f"{m2m_name}__isnull": False}) for m2m_name in m2m_relations),
+    )
+    m2m_any = (
+        model.objects.using(artifact._state.db)
+        .filter(uid=artifact.uid)
+        .filter(m2m_any_expr)
+        .exists()
+    )
+    if m2m_any:
+        m2m_data = related_data["m2m"]
+        for m2m_name in m2m_relations:
+            related_model = get_related_model(model, m2m_name)
+            name_field = get_name_field(related_model)
+            m2m_records = (
+                getattr(artifact, m2m_name).values_list("id", name_field).distinct()
+            )
+            for rec_id, rec_name in m2m_records:
+                if m2m_name not in m2m_data:
+                    m2m_data[m2m_name] = {}
+                m2m_data[m2m_name][rec_id] = rec_name
 
     return {
         **{name: artifact_meta[name] for name in ["id", "uid"]},
