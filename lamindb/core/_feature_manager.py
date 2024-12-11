@@ -492,7 +492,9 @@ def describe_features(
         for child in ext_features_tree_children:
             ext_features_tree.add(child)
     if with_labels:
-        labels_tree = describe_labels(self, as_subtree=True)
+        # avoid querying the db if the labels were queried already
+        labels_data = related_data.get("m2m") if related_data is not None else None
+        labels_tree = describe_labels(self, labels_data=labels_data, as_subtree=True)
         if labels_tree:
             tree.add(labels_tree)
 
