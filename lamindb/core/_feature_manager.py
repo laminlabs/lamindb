@@ -333,7 +333,7 @@ def describe_features(
             fs_data = _get_featuresets_postgres(self, related_data=related_data)
             for fs_id, (slot, data) in fs_data.items():
                 for registry_str, feature_names in data.items():
-                    feature_set = FeatureSet.get(id=fs_id)
+                    feature_set = FeatureSet.objects.using(self._state.db).get(id=fs_id)
                     feature_set_data[slot] = (feature_set, feature_names)
                     for feature_name in feature_names:
                         feature_data[feature_name] = (slot, registry_str)
