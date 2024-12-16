@@ -1127,7 +1127,7 @@ class SOMACurator(BaseCurator):
 
     def __init__(
         self,
-        experiment_uri: UPathStr,
+        experiment_uri: UPathStr | Artifact,
         var_index: dict[str, tuple[str, FieldAttr]],
         categoricals: dict[str, FieldAttr] | None = None,
         obs_columns: FieldAttr = Feature.name,
@@ -1139,7 +1139,12 @@ class SOMACurator(BaseCurator):
         self._obs_fields = categoricals or {}
         self._var_fields = var_index
         self._columns_field = obs_columns
-        self._experiment_uri = UPath(experiment_uri)
+        if isinstance(experiment_uri, Artifact):
+            self._experiment_uri = experiment_uri.path
+            self._artifact = experiment_uri
+        else:
+            self._experiment_uri = UPath(experiment_uri)
+            self._artifact = None
         self._organism = organism
         self._using_key = using_key
         self._sources = sources or {}
@@ -1511,16 +1516,19 @@ class SOMACurator(BaseCurator):
             if not self._validated:
                 raise ValidationError("Dataset does not validate. Please curate.")
 
-        artifact = Artifact(
-            self._experiment_uri,
-            description=description,
-            key=key,
-            revises=revises,
-            run=run,
-        )
-        artifact.n_observations = self._n_obs
-        artifact._accessor = "tiledbsoma"
-        artifact.save()
+        if self._artifact is None:
+            artifact = Artifact(
+                self._experiment_uri,
+                description=description,
+                key=key,
+                revises=revises,
+                run=run,
+            )
+            artifact.n_observations = self._n_obs
+            artifact._accessor = "tiledbsoma"
+            artifact.save()
+        else:
+            artifact = self._artifact
 
         feature_sets = {}
         if len(self._obs_fields) > 0:
