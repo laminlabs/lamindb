@@ -108,12 +108,15 @@ def install_ci(session, group):
         run(session, "uv pip install --system ipywidgets")
     elif group == "faq":
         extras += "aws,bionty,jupyter"
-        run(session, "uv pip install --system --no-deps ./sub/findrefs")
+        run(
+            session,
+            "uv pip install --system --no-deps ./sub/findrefs ./sub/ourprojects",
+        )
     elif group == "storage":
         extras += "aws,zarr,bionty,jupyter"
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab ./sub/findrefs",
+            "uv pip install --system --no-deps ./sub/wetlab ./sub/findrefs ./sub/ourprojects",
         )
         run(session, "uv pip install --system vitessce")
     elif group == "docs":
