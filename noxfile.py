@@ -109,6 +109,7 @@ def install_ci(session, group):
     elif group == "faq":
         extras += "aws,bionty,jupyter"
         run(session, "uv pip install --system --no-deps ./sub/findrefs")
+        run(session, "uv pip install --system --no-deps ./sub/ourprojects")
     elif group == "storage":
         extras += "aws,zarr,bionty,jupyter"
         run(
