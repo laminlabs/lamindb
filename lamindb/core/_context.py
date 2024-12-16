@@ -580,8 +580,8 @@ class Context:
 
         """
         from lamindb._finish import (
+            get_save_notebook_message,
             get_seconds_since_modified,
-            get_shortcut,
             save_context_core,
         )
 
@@ -604,9 +604,7 @@ class Context:
                 self.transform.name = nbproject_title
                 self.transform.save()
             if get_seconds_since_modified(self._path) > 2 and not ln_setup._TESTING:
-                raise NotebookNotSaved(
-                    f"Please save the notebook in your editor (shortcut `{get_shortcut()}`) within 2 sec before calling `ln.finish()`"
-                )
+                raise NotebookNotSaved(get_save_notebook_message())
         save_context_core(
             run=self.run,
             transform=self.run.transform,

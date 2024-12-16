@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from ._query_set import QuerySet
 
 
-def get_r_save_notebook_message() -> str:
+def get_save_notebook_message() -> str:
     return f"Please save the notebook in your editor (shortcut `{get_shortcut()}`) within 2 sec before calling `finish()`"
 
 
@@ -114,7 +114,7 @@ def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
         cleaned_content = re.sub(pattern_title, "", cleaned_content)
         cleaned_content = re.sub(pattern_h1, "", cleaned_content)
     cleaned_content = cleaned_content.replace(
-        f"NotebookNotSaved: {get_r_save_notebook_message()}", ""
+        f"NotebookNotSaved: {get_save_notebook_message()}", ""
     )
     cleaned_path = file_path.parent / (f"{file_path.stem}.cleaned{file_path.suffix}")
     cleaned_path.write_text(cleaned_content)
@@ -192,7 +192,7 @@ def save_context_core(
     if report_path is not None and not from_cli:
         if get_seconds_since_modified(report_path) > 2 and not ln_setup._TESTING:
             # this can happen when auto-knitting an html with RStudio
-            raise NotebookNotSaved(get_r_save_notebook_message())
+            raise NotebookNotSaved(get_save_notebook_message())
     ln.settings.creation.artifact_silence_missing_run_warning = True
     # track source code
     hash, _ = hash_file(source_code_path)  # ignore hash_type for now
