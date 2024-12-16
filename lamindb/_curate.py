@@ -1855,14 +1855,9 @@ def validate_categories(
     non_validated = [i for i in non_validated if i not in values_validated]
     n_non_validated = len(non_validated)
     if n_non_validated == 0:
-        if len(values_validated) == 0:
-            # nothing to validate
-            logger.indent = ""
-            logger.success(f'"{key}" is validated against {colors.italic(model_field)}')
-            return True, []
-        else:
-            # validated values still need to be saved to the current instance
-            return False, []
+        logger.indent = ""
+        logger.success(f'"{key}" is validated against {colors.italic(model_field)}')
+        return True, []
     else:
         are = "is" if n_non_validated == 1 else "are"
         s = "" if n_non_validated == 1 else "s"
