@@ -1156,6 +1156,9 @@ class SOMACurator(BaseCurator):
         # filled by _check_save_keys
         self._n_obs: int | None = None
         self._valid_obs_keys: list[str] | None = None
+        self._obs_pa_schema: pa.lib.Schema | None = (
+            None  # this is needed to create the obs feature set
+        )
         self._valid_var_keys: list[str] | None = None
         self._var_fields_flat: dict[str, FieldAttr] | None = None
         self._check_save_keys()
@@ -1168,8 +1171,12 @@ class SOMACurator(BaseCurator):
         with _open_tiledbsoma(self._experiment_uri, mode="r") as experiment:
             experiment_obs = experiment.obs
             self._n_obs = len(experiment_obs)
-            valid_obs_keys = [k for k in experiment_obs.keys() if k != "soma_joinid"]
+            valid_obs_keys = [
+                k for k in experiment_obs.schema.names if k != "soma_joinid"
+            ]
+
             self._valid_obs_keys = valid_obs_keys
+            self._obs_pa_schema = experiment_obs.schema
 
             valid_var_keys = []
             ms_list = []
@@ -1535,11 +1542,16 @@ class SOMACurator(BaseCurator):
             organism = check_registry_organism(
                 self._columns_field.field.model, self._organism
             ).get("organism")
-            feature_sets["obs"] = FeatureSet.from_values(
-                values=list(self._obs_fields.keys()),
+            empty_dict = {field.name: [] for field in self._obs_pa_schema}  # type: ignore
+            mock_df = pa.Table.from_pydict(
+                empty_dict, schema=self._obs_pa_schema
+            ).to_pandas()
+            # in parallel to https://github.com/laminlabs/lamindb/blob/2a1709990b5736b480c6de49c0ada47fafc8b18d/lamindb/core/_feature_manager.py#L549-L554
+            feature_sets["obs"] = FeatureSet.from_df(
+                df=mock_df,
                 field=self._columns_field,
+                mute=True,
                 organism=organism,
-                raise_validation_error=False,
             )
         for ms in self._var_fields:
             var_key, var_field = self._var_fields[ms]
