@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 from anndata import AnnData, read_h5ad
+from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core._settings_storage import get_storage_region
 from lamindb_setup.core.upath import LocalPathClasses, create_path
@@ -178,6 +179,7 @@ def save_tiledbsoma_experiment(
         assert len(adata_objects) == 1  # noqa: S101
         n_observations = adata_objects[0].n_obs
 
+    logger.important(f"Writing the tiledbsoma store to {storepath}")
     for adata_obj in adata_objects:
         soma_io.from_anndata(
             storepath,
