@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 
 def get_r_save_notebook_message() -> str:
-    return f"Please save the notebook in RStudio (shortcut `{get_shortcut()}`) within 2 sec before calling `db$finish()`"
+    return f"Please save the notebook in your editor (shortcut `{get_shortcut()}`) within 2 sec before calling `finish()`"
 
 
 def get_shortcut() -> str:
@@ -189,6 +189,10 @@ def save_context_core(
             logger.warning(
                 f"no {filepath.with_suffix('.nb.html')} found, save your manually rendered .html report via the CLI: lamin save {filepath}"
             )
+    if report_path is not None and not from_cli:
+        if get_seconds_since_modified(report_path) > 2 and not ln_setup._TESTING:
+            # this can happen when auto-knitting an html with RStudio
+            raise NotebookNotSaved(get_r_save_notebook_message())
     ln.settings.creation.artifact_silence_missing_run_warning = True
     # track source code
     hash, _ = hash_file(source_code_path)  # ignore hash_type for now
@@ -249,10 +253,6 @@ def save_context_core(
 
     # track report and set is_consecutive
     if report_path is not None:
-        if not from_cli:
-            if get_seconds_since_modified(report_path) > 2 and not ln_setup._TESTING:
-                # this can happen when auto-knitting an html with RStudio
-                raise NotebookNotSaved(get_r_save_notebook_message())
         if is_r_notebook:
             title_text, report_path = clean_r_notebook_html(report_path)
             if title_text is not None:
