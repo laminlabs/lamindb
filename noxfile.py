@@ -124,7 +124,7 @@ def install_ci(session, group):
         extras += "aws,zarr,bionty,jupyter"
         run(
             session,
-            "uv pip install --system --no-deps ./sub/lamin-spatial",
+            "uv pip install --system ./sub/lamin-spatial",
         )
     elif group == "docs":
         extras += "bionty,zarr"
