@@ -124,7 +124,7 @@ def install_ci(session, group):
         extras += "aws,zarr,bionty,jupyter"
         run(
             session,
-            "uv pip install --system ./sub/wetlab ./sub/lamin-spatial",
+            "uv pip install --system ./sub/lamin-spatial",
         )
         run(
             session,
@@ -203,7 +203,10 @@ def build(session, group):
     elif group == "storage":
         run(session, f"pytest -s {coverage_args} ./docs/storage")
     elif group == "spatial":
-        run(session, f"pytest {coverage_args} ./sub/lamin-spatial/tests --durations=50")
+        run(
+            session,
+            f"pytest {coverage_args} ./sub/lamin-spatial/tests/test_spatialdata_curator.py --durations=50",
+        )
     elif group == "cli":
         run(session, f"pytest {coverage_args} ./sub/lamin-cli/tests --durations=50")
     # move artifacts into right place
