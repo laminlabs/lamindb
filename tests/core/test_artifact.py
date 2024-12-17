@@ -693,6 +693,11 @@ def test_check_path_is_child_of_root():
     assert check_path_is_child_of_root(upath, root=root)
     upath2 = UPath("s3://lamindb-ci/test-data-1/test/test.csv")
     assert not check_path_is_child_of_root(upath2, root=root)
+    # http
+    assert check_path_is_child_of_root(
+        "https://raw.githubusercontent.com/laminlabs/lamindb/refs/heads/main/README.md",
+        root="https://raw.githubusercontent.com",
+    )
 
 
 def test_serialize_paths():
