@@ -971,3 +971,22 @@ def test_gcp_paths():
     cache_path.unlink()
     artifact_folder.delete(permanent=True, storage=False)
     artifact_file.delete(permanent=True, storage=False)
+
+
+def test_http_paths():
+    http_path = UPath(
+        "https://raw.githubusercontent.com/laminlabs/lamindb/refs/heads/main/README.md"
+    )
+    artifact_readme = ln.Artifact(http_path, description="register http readme").save()
+    cache_path = artifact_readme.cache()
+    assert cache_path.exists()
+    assert cache_path.stat().st_size == http_path.stat().st_size
+    cache_path.unlink()
+    # just check saving for the second time (when Strage record is in the db)
+    artifact_license = ln.Artifact(
+        "https://raw.githubusercontent.com/laminlabs/lamindb/refs/heads/main/LICENSE",
+        description="register http license",
+    ).save()
+
+    artifact_readme.delete(permanent=True, storage=False)
+    artifact_license.delete(permanent=True, storage=False)
