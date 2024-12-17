@@ -124,7 +124,7 @@ def install_ci(session, group):
         extras += "aws,zarr,bionty,jupyter"
         run(
             session,
-            "uv pip install --system .sub/wetlab ./sub/lamin-spatial",
+            "uv pip install --system ./sub/wetlab ./sub/lamin-spatial",
         )
         run(
             session,
