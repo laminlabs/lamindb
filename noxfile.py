@@ -157,7 +157,7 @@ def install_ci(session, group):
     [
         "unit-core",
         "unit-storage",
-        "unit-spatial",
+        "spatial",
         "tutorial",
         "guide",
         "biology",
