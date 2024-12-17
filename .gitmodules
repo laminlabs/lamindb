@@ -28,3 +28,6 @@
 [submodule "sub/omop"]
 	path = sub/omop
 	url = https://github.com/laminlabs/omop.git
+[submodule "sub/lamin-spatial"]
+	path = sub/lamin-spatial
+	url = https://github.com/laminlabs/lamin-spatial

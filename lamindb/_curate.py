@@ -28,9 +28,11 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from typing import Any
 
+    from lamin_spatial import SpatialDataCurator
     from lamindb_setup.core.types import UPathStr
     from lnschema_core.types import FieldAttr
     from mudata import MuData
+    from spatialdata import SpatialData
 
 
 class CurateLookup:
@@ -1696,6 +1698,78 @@ class Curator(BaseCurator):
             organism=organism,
             sources=sources,
             exclude=exclude,
+        )
+
+    @classmethod
+    def from_spatialdata(
+        cls,
+        sdata: SpatialData,
+        var_index: dict[str, FieldAttr],
+        categoricals: dict[str, dict[str, FieldAttr]] | None = None,
+        using_key: str | None = None,
+        organism: str | None = None,
+        sources: dict[str, dict[str, Record]] | None = None,
+        exclude: dict[str, dict] | None = None,
+        verbosity: str = "hint",
+        *,
+        sample_metadata_key: str = "sample",
+    ) -> SpatialDataCurator:
+        """Curation flow for a ``Spatialdata`` object.
+
+        See also :class:`~lamindb.Curator`.
+
+        Note that if genes or other measurements are removed from the SpatialData object,
+        the object should be recreated.
+
+        In the following docstring, an accessor refers to either a ``.table`` key or the ``sample_metadata_key``.
+
+        Args:
+            sdata: The SpatialData object to curate.
+            var_index: A dictionary mapping table keys to the ``.var`` indices.
+            categoricals: A nested dictionary mapping an accessor to dictionaries that map columns to a registry field.
+            using_key: A reference LaminDB instance.
+            organism: The organism name.
+            sources: A dictionary mapping an accessor to dictionaries that map columns to Source records.
+            exclude: A dictionary mapping an accessor to dictionaries of column names to values to exclude from validation.
+                When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
+                using the exclude parameter ensures they are not validated.
+            verbosity: The verbosity level of the logger.
+            sample_metadata_key: The key in ``.attrs`` that stores the sample level metadata.
+
+        Examples:
+            >>> import lamindb as ln
+            >>> import bionty as bt
+            >>> curator = ln.Curator.from_spatialdata(
+            ...     sdata,
+            ...     var_index={
+            ...         "table_1": bt.Gene.ensembl_gene_id,
+            ...     },
+            ...     categoricals={
+            ...         "table1":
+            ...             {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name},
+            ...         "sample":
+            ...             {"experimental_factor": bt.ExperimentalFactor.name},
+            ...     },
+            ...     organism="human",
+            ... )
+        """
+        try:
+            from lamin_spatial import SpatialDataCurator
+        except ImportError as e:
+            raise ImportError(
+                "Please install lamin_spatial: pip install lamin_spatial"
+            ) from e
+
+        return SpatialDataCurator(
+            sdata=sdata,
+            var_index=var_index,
+            categoricals=categoricals,
+            using_key=using_key,
+            verbosity=verbosity,
+            organism=organism,
+            sources=sources,
+            exclude=exclude,
+            sample_metadata_key=sample_metadata_key,
         )
 
 

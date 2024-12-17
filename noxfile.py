@@ -77,6 +77,7 @@ def install(session):
         "biology",
         "faq",
         "storage",
+        "spatial",
         "docs",
         "cli",
     ],
@@ -119,12 +120,18 @@ def install_ci(session, group):
             "uv pip install --system --no-deps ./sub/wetlab ./sub/findrefs ./sub/ourprojects",
         )
         run(session, "uv pip install --system vitessce")
+    elif group == "spatial":
+        extras += "aws,zarr,bionty,jupyter"
+        run(
+            session,
+            "uv pip install --system --no-deps ./sub/lamin_spatial",
+        )
     elif group == "docs":
         extras += "bionty,zarr"
         run(session, "uv pip install --system mudata")
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab ./sub/findrefs ./sub/clinicore ./sub/omop ./sub/cellregistry ./sub/ourprojects",
+            "uv pip install --system --no-deps ./sub/wetlab ./sub/findrefs ./sub/clinicore ./sub/omop ./sub/cellregistry ./sub/ourprojects .sub/lamin_spatial",
         )
     elif group == "cli":
         extras += "jupyter,aws,bionty"
@@ -150,6 +157,7 @@ def install_ci(session, group):
     [
         "unit-core",
         "unit-storage",
+        "unit-spatial",
         "tutorial",
         "guide",
         "biology",
@@ -190,6 +198,8 @@ def build(session, group):
         run(session, f"pytest -s {coverage_args} ./docs/faq")
     elif group == "storage":
         run(session, f"pytest -s {coverage_args} ./docs/storage")
+    elif group == "spatial":
+        run(session, f"pytest {coverage_args} ./sub/lamin_spatial/tests --durations=50")
     elif group == "cli":
         run(session, f"pytest {coverage_args} ./sub/lamin-cli/tests --durations=50")
     # move artifacts into right place
