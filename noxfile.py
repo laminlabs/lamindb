@@ -124,8 +124,12 @@ def install_ci(session, group):
         extras += "aws,zarr,bionty,jupyter"
         run(
             session,
-            "uv pip install --system ./sub/lamin-spatial",
+            "uv pip install --system ./sub/wetlab ./sub/lamin-spatial",
         )
+        run(
+            session,
+            "uv pip install --system -U git+https://github.com/scverse/spatialdata.git@refs/pull/806/head",
+        )  # Required to access metadata attrs
     elif group == "docs":
         extras += "bionty,zarr"
         run(session, "uv pip install --system mudata")
