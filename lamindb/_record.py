@@ -772,7 +772,7 @@ def check_name_change(record: Record):
         return
 
     # renaming feature sets is not checked
-    if record.__class__.__name__ == "FeatureSet":
+    if isinstance(record, FeatureSet):
         return
 
     old_name = record._name
