@@ -52,10 +52,19 @@ def check_path_is_child_of_root(path: UPathStr, root: UPathStr) -> bool:
     # and for fsspec.utils.get_protocol
     path_str = str(path)
     root_str = str(root)
+    root_protocol = fsspec.utils.get_protocol(root_str)
     # check that the protocols are the same first
-    if fsspec.utils.get_protocol(path_str) != fsspec.utils.get_protocol(root_str):
+    if fsspec.utils.get_protocol(path_str) != root_protocol:
         return False
-    return UPath(root_str).resolve() in UPath(path_str).resolve().parents
+    if root_protocol in {"http", "https"}:
+        # in this case it is a base url, not a file
+        # so formally does not exist
+        resolve_kwargs = {"follow_redirects": False}
+    else:
+        resolve_kwargs = {}
+    return (
+        UPath(root_str).resolve(**resolve_kwargs) in UPath(path_str).resolve().parents
+    )
 
 
 # returns filepath and root of the storage
