@@ -771,6 +771,10 @@ def check_name_change(record: Record):
     ):
         return
 
+    # renaming feature sets is not checked
+    if record.__class__.__name__ == "FeatureSet":
+        return
+
     old_name = record._name
     new_name = getattr(record, record._name_field)
     registry = record.__class__.__name__
