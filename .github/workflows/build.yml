@@ -16,6 +16,7 @@ jobs:
         group:
           - "unit-core"
           - "unit-storage"
+          - "spatial"
           - "tutorial"
           - "guide"
           - "biology"
