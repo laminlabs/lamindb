@@ -31,6 +31,7 @@ def df():
 
 @pytest.fixture
 def adata():
+    # this should be using small_dataset1 instead of the custom code here
     df = pd.DataFrame(
         {
             "cell_type": [
@@ -45,6 +46,8 @@ def adata():
             ],
             "assay_ontology_id": ["EFO:0008913", "EFO:0008913", "EFO:0008913"],
             "donor": ["D0001", "D0002", "DOOO3"],
+            "sample_note": ["was ok", "looks naah", "pretty! 🤩"],
+            "temperature": [23.1, 23.2, 33.3],
         }
     )
     df.index = ["obs1", "obs2", "obs3"]
@@ -553,12 +556,24 @@ def test_soma_curator(adata, categoricals, clean_soma_files):
     assert lookup.cell_type.oligodendrocyte.name == "oligodendrocyte"
     assert lookup.RNA__var_id.cd4.symbol == "CD4"
 
+    # define non-categorical features
+    ln.Feature(name="temperature", dtype="float").save()
+    ln.Feature(name="sample_note", dtype="str").save()
+
     # test the internal key error
     with pytest.raises(KeyError):
         curator._non_validated_values_field("invalid_key")
 
     # save and check
     artifact = curator.save_artifact(description="test tiledbsoma curation")
+    assert set(artifact.features["obs"].values_list("name", "dtype")) == {
+        ("cell_type", "cat[bionty.CellType]"),
+        ("cell_type_2", "cat[bionty.CellType]"),
+        ("assay_ontology_id", "cat[bionty.ExperimentalFactor]"),
+        ("donor", "cat[ULabel]"),
+        ("sample_note", "str"),
+        ("temperature", "float"),
+    }
     assert set(artifact.features.get_values()["cell_type"]) == {
         "cerebral cortex pyramidal neuron",
         "astrocyte",
