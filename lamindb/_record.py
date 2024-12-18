@@ -285,6 +285,9 @@ def _search(
     using_key: str | None = None,
     truncate_string: bool = False,
 ) -> QuerySet:
+    if string is None:
+        raise ValueError("Cannot search for None value! Please pass a valid string.")
+
     input_queryset = _queryset(cls, using_key=using_key)
     registry = input_queryset.model
     name_field = getattr(registry, "_name_field", "name")
