@@ -223,7 +223,7 @@ def test_unvalidated_data_object(df, categoricals):
 
 def test_invalid_organism_type(df, categoricals):
     with pytest.raises(
-        ValidationError, match="organism must be a string such as 'human' or 'mouse'!"
+        ValueError, match="organism must be a string such as 'human' or 'mouse'!"
     ):
         ln.Curator.from_df(
             df, categoricals=categoricals, organism=bt.Organism.filter(name="human")
