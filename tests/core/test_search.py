@@ -56,3 +56,10 @@ def test_search_limit(prepare_cell_type_registry):
 def test_search_case_sensitive(prepare_cell_type_registry):
     result = bt.CellType.search("b cell", case_sensitive=False).df()
     assert result.name.iloc[0] == "B cell"
+
+
+def test_search_None():
+    with pytest.raises(
+        ValueError, match="Cannot search for None value! Please pass a valid string."
+    ):
+        bt.CellType.search(None)
