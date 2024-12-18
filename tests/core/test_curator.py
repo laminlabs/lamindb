@@ -222,13 +222,12 @@ def test_unvalidated_data_object(df, categoricals):
 
 
 def test_invalid_organism_type(df, categoricals):
-    curator = ln.Curator.from_df(
-        df, categoricals=categoricals, organism=bt.Organism.filter(name="human")
-    )
     with pytest.raises(
         ValidationError, match="organism must be a string such as 'human' or 'mouse'!"
     ):
-        curator.save_artifact()
+        ln.Curator.from_df(
+            df, categoricals=categoricals, organism=bt.Organism.filter(name="human")
+        )
 
 
 def test_clean_up_failed_runs():
