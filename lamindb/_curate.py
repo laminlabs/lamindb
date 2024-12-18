@@ -209,6 +209,9 @@ class DataFrameCurator(BaseCurator):
     ) -> None:
         from lamindb.core._settings import settings
 
+        if not isinstance(organism, str):
+            raise ValueError("organism must be a string such as 'human' or 'mouse'!")
+
         self._df = df
         self._fields = categoricals or {}
         self._columns_field = columns
