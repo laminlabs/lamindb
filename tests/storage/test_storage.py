@@ -279,8 +279,7 @@ def test_write_read_tiledbsoma(storage):
         ms_rna = store.ms["RNA"]
         n_vars = len(ms_rna.var)
         assert n_vars == adata.n_vars
-        # without setting shape like .coos((n_obs, n_vars))
-        X = ms_rna["X"]["data"].read().coos().concat().to_scipy()
+        X = ms_rna["X"]["data"].read().coos((n_obs, n_vars)).concat().to_scipy()
         assert X.sum() == adata.X.sum()
 
     cache_path = artifact_soma.cache()
