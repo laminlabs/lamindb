@@ -268,11 +268,11 @@ class SpatialDataCurator:
     def standardize(self, key: str, accessor: str | None = None) -> None:
         """Replace synonyms with canonical values.
 
+        Modifies the dataset inplace.
+
         Args:
             key: The key referencing the slot in the table or sample metadata.
             accessor: The accessor key such as 'sample_key' or 'table_key'.
-
-        Modifies the dataset inplace.
         """
         if len(self.non_validated) == 0:
             logger.warning("values are already standardized")

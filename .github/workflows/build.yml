@@ -43,7 +43,7 @@ jobs:
         id: check-files
         if: ${{ matrix.group == 'spatial' }} # Extend condition here for other groups
         run: |
-          git diff --name-only e510f7d92a458fdbd9a3c1321e9fe675d35953cb cb9559aa7ade1b41724ef0861e35d1638d0d67fb > changed_files.txt
+          git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > changed_files.txt
           echo "Changed files:"
           cat changed_files.txt
           echo "Paths to check:"
