@@ -271,6 +271,11 @@ def test_write_read_tiledbsoma(storage):
         assert "lamin_run_uid" in obs.schema.names
         run_id = obs.read(column_names=["lamin_run_uid"]).concat().to_pandas()
         assert all(run_id == run.uid)
+        # test reading X
+        ms_rna = store.ms["RNA"]
+        n_var = len(ms_rna.var)
+        X = ms_rna["X"]["data"].read().coos((n_obs, n_var)).concat().to_scipy()
+        assert X.sum() == adata.X.sum()
 
     cache_path = artifact_soma.cache()
     hash_before_changes = artifact_soma.hash

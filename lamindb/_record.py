@@ -285,6 +285,9 @@ def _search(
     using_key: str | None = None,
     truncate_string: bool = False,
 ) -> QuerySet:
+    if string is None:
+        raise ValueError("Cannot search for None value! Please pass a valid string.")
+
     input_queryset = _queryset(cls, using_key=using_key)
     registry = input_queryset.model
     name_field = getattr(registry, "_name_field", "name")
@@ -769,6 +772,10 @@ def check_name_change(record: Record):
         or not hasattr(record, "_name")
         or not hasattr(record, "_name_field")
     ):
+        return
+
+    # renaming feature sets is not checked
+    if isinstance(record, FeatureSet):
         return
 
     old_name = record._name
