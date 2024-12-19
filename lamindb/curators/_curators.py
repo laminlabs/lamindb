@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from mudata import MuData
     from spatialdata import SpatialData
 
-    from ..curators._spatial import SpatialDataCurator
+    from ._spatial import SpatialDataCurator
 
 
 class CurateLookup:
@@ -1775,7 +1775,7 @@ class Curator(BaseCurator):
                 "Please install spatialdata: pip install spatialdata"
             ) from e
 
-        from ..curators._spatial import SpatialDataCurator
+        from ._spatial import SpatialDataCurator
 
         return SpatialDataCurator(
             sdata=sdata,
