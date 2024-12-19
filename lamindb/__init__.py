@@ -54,7 +54,6 @@ from lamindb_setup._connect_instance import connect
 from lamindb_setup.core.upath import UPath
 
 from . import setup
-from .curators import _curators
 
 
 def __getattr__(name):
