@@ -132,7 +132,10 @@ def install_ci(session, group):
         )  # Required to access metadata attrs
     elif group == "docs":
         extras += "bionty,zarr"
-        run(session, "uv pip install --system mudata spatialdata")
+        run(
+            session,
+            "uv pip install --system -U mudata git+https://github.com/scverse/spatialdata.git@refs/pull/806/head",
+        )
         run(
             session,
             "uv pip install --system ./sub/wetlab ./sub/findrefs ./sub/clinicore ./sub/omop ./sub/cellregistry ./sub/ourprojects",
