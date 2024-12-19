@@ -81,7 +81,6 @@ if _check_instance_setup(from_module="lnschema_core"):
         _artifact,
         _can_curate,
         _collection,
-        _curate,
         _feature,
         _feature_set,
         _is_versioned,
@@ -93,11 +92,11 @@ if _check_instance_setup(from_module="lnschema_core"):
         _ulabel,
         integrations,
     )
-    from ._curate import Curator
     from ._save import save
     from ._view import view
     from .core._context import context
     from .core._settings import settings
+    from .curators import Curator
 
     track = context.track  # simple access because these are so common
     finish = context.finish  # simple access because these are so common
