@@ -4,25 +4,11 @@
 
 ```{toctree}
 :maxdepth: 1
-:caption: CLI
+:caption: CLI & lamindb
 :hidden:
 
 cli
-```
-
-```{toctree}
-:maxdepth: 1
-:caption: Python
-:hidden:
-
 lamindb
-bionty
-ourprojects
-findrefs
-cellregistry
-wetlab
-clinicore
-omop
 ```
 
 ```{toctree}
@@ -32,4 +18,17 @@ omop
 
 laminr
 rest
+```
+
+```{toctree}
+:maxdepth: 1
+:caption: Schema modules
+:hidden:
+
+bionty
+ourprojects
+wetlab
+clinicore
+cellregistry
+omop
 ```
