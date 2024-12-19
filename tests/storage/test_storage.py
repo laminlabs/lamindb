@@ -242,20 +242,18 @@ def test_write_read_tiledbsoma(storage):
     else:
         adata.write_h5ad(test_file)
 
-    transform = ln.Transform(name="test tiledbsoma store")
-    transform.save()
-    run = ln.Run(transform)
-    run.save()
+    create_transform = ln.Transform(name="test create tiledbsoma store").save()
+    create_run = ln.Run(create_transform).save()
 
     # fails with a view
     with pytest.raises(ValueError):
-        save_tiledbsoma_experiment([adata[:2]], run=run, measurement_name="RNA")
+        save_tiledbsoma_experiment([adata[:2]], run=None, measurement_name="RNA")
 
     artifact_soma = save_tiledbsoma_experiment(
         [test_file],
         description="test tiledbsoma",
         key="scrna/my-big-dataset",  # can also be None, but that's trivial
-        run=run,
+        run=create_run,
         measurement_name="RNA",
     )
     assert artifact_soma.path.stem == artifact_soma.uid[:16]
@@ -269,8 +267,10 @@ def test_write_read_tiledbsoma(storage):
         obs = store["obs"]
         n_obs = len(obs)
         assert "lamin_run_uid" in obs.schema.names
-        run_id = obs.read(column_names=["lamin_run_uid"]).concat().to_pandas()
-        assert all(run_id == run.uid)
+        run_ids = (
+            obs.read(column_names=["lamin_run_uid"]).concat().to_pandas().cat.categories
+        )
+        assert set(run_ids) == {create_run.uid}
         # test reading X
         ms_rna = store.ms["RNA"]
         n_var = len(ms_rna.var)
@@ -313,10 +313,13 @@ def test_write_read_tiledbsoma(storage):
             measurement_name="RNA",
         )
 
+    append_transform = ln.Transform(name="test append tiledbsoma store").save()
+    append_run = ln.Run(append_transform).save()
+
     artifact_soma_append = save_tiledbsoma_experiment(
         [adata_to_append_1, "adata_to_append_2.h5ad"],
         revises=artifact_soma,
-        run=run,
+        run=append_run,
         measurement_name="RNA",
         append_obsm_varm=True,
     )
@@ -333,7 +336,12 @@ def test_write_read_tiledbsoma(storage):
     n_obs_final = adata.n_obs + sum(
         adt.n_obs for adt in [adata_to_append_1, adata_to_append_2]
     )
-    assert len(store["obs"]) == n_obs_final == artifact_soma_append.n_observations
+    obs = store["obs"]
+    assert len(obs) == n_obs_final == artifact_soma_append.n_observations
+    run_ids = (
+        obs.read(column_names=["lamin_run_uid"]).concat().to_pandas().cat.categories
+    )
+    assert set(run_ids) == {create_run.uid, append_run.uid}
     store.close()
 
     artifact_soma_append.versions.delete(permanent=True, storage=True)
