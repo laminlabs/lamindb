@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 import pandas as pd
+import pyarrow as pa
 from anndata import AnnData, read_h5ad
 from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
@@ -147,12 +148,9 @@ def save_tiledbsoma_experiment(
             # this is needed to enable backwards compatibility with tiledbsoma stores
             # created before PR 2300
             if add_run_uid:
-                columns_metadata = obs_schema.pandas_metadata["columns"]
-                for col in columns_metadata:
-                    if col["name"] == "lamin_run_uid":
-                        if col["pandas_type"] != "categorical":
-                            run_uid_dtype = None
-                        break
+                column_type = obs_schema.types[obs_schema.names.index("lamin_run_uid")]
+                if not isinstance(column_type, pa.DictionaryType):
+                    run_uid_dtype = None
 
     if add_run_uid and run is None:
         raise ValueError("Pass `run`")
