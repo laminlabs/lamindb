@@ -157,7 +157,7 @@ def save_tiledbsoma_experiment(
             adata = _load_h5ad_zarr(create_path(adata))
         if add_run_uid:
             adata.obs["lamin_run_uid"] = pd.Series(
-                [run.uid] * adata.n_obs, index=adata.obs.index, dtype="category"
+                run.uid, index=adata.obs.index, dtype="category"
             )
         adata_objects.append(adata)
 
