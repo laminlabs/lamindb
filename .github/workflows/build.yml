@@ -43,21 +43,12 @@ jobs:
         id: check-files
         if: ${{ matrix.group == 'spatial' }} # Extend condition here for other groups
         run: |
-          git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > changed_files.txt
-          echo "Changed files:"
-          cat changed_files.txt
-          echo "Paths to check:"
-          echo "$PATHS_TO_CHECK"
-          for path in $PATHS_TO_CHECK; do
-            echo "Checking path: $path"
-            if grep -q "$path" changed_files.txt; then
-              echo "Found match for: $path"
-              echo "relevant_changes=true" >> $GITHUB_ENV
-              exit 0
-            else
-              echo "No match found for: $path"
-            fi
-          done
+          git diff --name-only ${{ github.event.before }} ${{ github.sha }} > changed_files.txt
+          if grep -q "$PATHS_TO_CHECK" changed_files.txt; then
+            echo "relevant_changes=true" >> $GITHUB_ENV
+          else
+            echo "relevant_changes=false" >> $GITHUB_ENV
+          fi
 
       - name: Skip test group if no relevant changes
         if: ${{ matrix.group == 'spatial' && env.relevant_changes == 'false' }}
