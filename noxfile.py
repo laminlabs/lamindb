@@ -124,7 +124,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system mudata")
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab ./sub/clinicore ./sub/omop ./sub/cellregistry ./sub/ourprojects",
+            "uv pip install --system --no-deps ./sub/wetlab ./sub/clinicore ./sub/cellregistry ./sub/ourprojects",
         )
     elif group == "cli":
         extras += "jupyter,bionty"
