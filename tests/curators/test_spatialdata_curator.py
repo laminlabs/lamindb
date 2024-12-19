@@ -29,13 +29,12 @@ def blobs_data():
 
 
 def test_spatialdata_curator(blobs_data):
-    from lamin_spatial import SpatialDataCurator
     from lamindb.core.exceptions import ValidationError
 
     with pytest.raises(
         ValidationError, match="key passed to categoricals is not present"
     ):
-        SpatialDataCurator(
+        ln.Curator.from_spatialdata(
             blobs_data,
             var_index={"table": bt.Gene.ensembl_gene_id},
             categoricals={
@@ -47,7 +46,7 @@ def test_spatialdata_curator(blobs_data):
         )
 
     with pytest.raises(ValidationError, match="key passed to sources is not present"):
-        SpatialDataCurator(
+        ln.Curator.from_spatialdata(
             blobs_data,
             var_index={"table": bt.Gene.ensembl_gene_id},
             categoricals={
@@ -57,7 +56,7 @@ def test_spatialdata_curator(blobs_data):
             organism="human",
         )
 
-    curator = SpatialDataCurator(
+    curator = ln.Curator.from_spatialdata(
         blobs_data,
         var_index={"table": bt.Gene.ensembl_gene_id},
         categoricals={
