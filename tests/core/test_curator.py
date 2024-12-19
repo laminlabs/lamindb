@@ -9,7 +9,7 @@ import lamindb as ln
 import mudata as md
 import pandas as pd
 import pytest
-from lamindb.curators._curators import CurateLookup, ValidationError
+from lamindb.curators import CurateLookup, ValidationError
 
 
 @pytest.fixture
