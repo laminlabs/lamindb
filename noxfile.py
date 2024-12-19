@@ -209,7 +209,7 @@ def build(session, group):
     elif group == "spatial":
         run(
             session,
-            f"pytest {coverage_args} ./sub/lamin-spatial/tests --ignore=./sub/lamin-spatial/tests/test_notebooks.py --durations=50",
+            f"pytest {coverage_args} tests/curators/test_spatialdata_curator.py --durations=50",
         )
     elif group == "cli":
         run(session, f"pytest {coverage_args} ./sub/lamin-cli/tests --durations=50")
