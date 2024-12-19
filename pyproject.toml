@@ -19,7 +19,8 @@ dependencies = [
     "lnschema_core==0.77.1",
     "lamin_utils==0.13.10",
     "lamin_cli==0.22.0",
-    "lamindb_setup==0.81.3",
+    "lamindb_setup[aws]==0.81.3",
+    "ourprojects==0.1.0",
     # others
     "pyarrow",
     "typing_extensions!=4.6.0",
@@ -37,9 +38,6 @@ Home = "https://github.com/laminlabs/lamindb"
 [project.optional-dependencies]
 bionty = [
     "bionty==0.53.2",
-]
-aws = [
-    "lamindb_setup[aws]",
 ]
 gcp = [
     "lamindb_setup[gcp]",
@@ -72,9 +70,6 @@ cellregistry = [
 ]
 omop = [
     "omop"
-]
-ourprojects = [
-    "ourprojects"
 ]
 dev = [
     # basic test

@@ -16,15 +16,9 @@
 [submodule "sub/clinicore"]
 	path = sub/clinicore
 	url = https://github.com/laminlabs/clinicore
-[submodule "sub/findrefs"]
-	path = sub/findrefs
-	url = https://github.com/laminlabs/findrefs
 [submodule "sub/ourprojects"]
 	path = sub/ourprojects
 	url = https://github.com/laminlabs/ourprojects
 [submodule "sub/cellregistry"]
 	path = sub/cellregistry
 	url = https://github.com/laminlabs/cellregistry
-[submodule "sub/omop"]
-	path = sub/omop
-	url = https://github.com/laminlabs/omop.git
