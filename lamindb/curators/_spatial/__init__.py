@@ -358,7 +358,7 @@ class SpatialDataCurator:
             key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.zarr"`.
                 Artifacts with the same key form a revision family.
             revises: Previous version of the artifact. Triggers a revision.
-            run: The run that creates the artifact.
+            run: The Run that creates the artifact.
 
         Returns:
             A saved Artifact record.

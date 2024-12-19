@@ -134,7 +134,7 @@ def install_ci(session, group):
         extras += "bionty,zarr"
         run(
             session,
-            "uv pip install --system -U mudata git+https://github.com/scverse/spatialdata.git@refs/pull/806/head",
+            "uv pip install --system -U mudata spatialdata",
         )
         run(
             session,
