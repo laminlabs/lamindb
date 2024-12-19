@@ -266,6 +266,7 @@ def test_write_read_tiledbsoma(storage):
         assert isinstance(store, tiledbsoma.Experiment)
         obs = store["obs"]
         n_obs = len(obs)
+        assert n_obs == adata.n_obs
         assert "lamin_run_uid" in obs.schema.names
         run_ids = (
             obs.read(column_names=["lamin_run_uid"])
@@ -276,8 +277,9 @@ def test_write_read_tiledbsoma(storage):
         assert set(run_ids) == {create_run.uid}
         # test reading X
         ms_rna = store.ms["RNA"]
-        n_var = len(ms_rna.var)
-        X = ms_rna["X"]["data"].read().coos((n_obs, n_var)).concat().to_scipy()
+        n_vars = len(ms_rna.var)
+        assert n_vars == adata.n_vars
+        X = ms_rna["X"]["data"].read().coos((n_obs, n_vars)).concat().to_scipy()
         assert X.sum() == adata.X.sum()
 
     cache_path = artifact_soma.cache()
