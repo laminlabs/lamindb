@@ -272,14 +272,15 @@ def test_write_read_tiledbsoma(storage):
             obs.read(column_names=["lamin_run_uid"])
             .concat()
             .to_pandas()["lamin_run_uid"]
-            .cat.categories
         )
-        assert set(run_ids) == {create_run.uid}
+        assert all(run_ids == create_run.uid)
+        assert set(run_ids.cat.categories) == {create_run.uid}
         # test reading X
         ms_rna = store.ms["RNA"]
         n_vars = len(ms_rna.var)
         assert n_vars == adata.n_vars
-        X = ms_rna["X"]["data"].read().coos((n_obs, n_vars)).concat().to_scipy()
+        # without setting shape like .coos((n_obs, n_vars))
+        X = ms_rna["X"]["data"].read().coos().concat().to_scipy()
         assert X.sum() == adata.X.sum()
 
     cache_path = artifact_soma.cache()
