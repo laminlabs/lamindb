@@ -139,9 +139,20 @@ def save_tiledbsoma_experiment(
     storepath = storepath.as_posix()
 
     add_run_uid = True
+    run_uid_dtype = "category"
     if appending:
         with soma.Experiment.open(storepath, mode="r", context=ctx) as store:
-            add_run_uid = "lamin_run_uid" in store["obs"].schema.names
+            obs_schema = store["obs"].schema
+            add_run_uid = "lamin_run_uid" in obs_schema.names
+            # this is needed to enable backwards compatibility with tiledbsoma stores
+            # created before PR 2300
+            if add_run_uid:
+                columns_metadata = obs_schema.pandas_metadata["columns"]
+                for col in columns_metadata:
+                    if col["name"] == "lamin_run_uid":
+                        if col["pandas_type"] != "categorical":
+                            run_uid_dtype = None
+                        break
 
     if add_run_uid and run is None:
         raise ValueError("Pass `run`")
@@ -157,7 +168,7 @@ def save_tiledbsoma_experiment(
             adata = _load_h5ad_zarr(create_path(adata))
         if add_run_uid:
             adata.obs["lamin_run_uid"] = pd.Series(
-                run.uid, index=adata.obs.index, dtype="category"
+                run.uid, index=adata.obs.index, dtype=run_uid_dtype
             )
         adata_objects.append(adata)
 

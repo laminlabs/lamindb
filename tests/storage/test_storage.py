@@ -246,8 +246,8 @@ def test_write_read_tiledbsoma(storage):
     create_run = ln.Run(create_transform).save()
 
     # fails with a view
-    with pytest.raises(ValueError):
-        save_tiledbsoma_experiment([adata[:2]], run=None, measurement_name="RNA")
+    with pytest.raises(ValueError, match="Can not write an `AnnData` view"):
+        save_tiledbsoma_experiment([adata[:2]], run=create_run, measurement_name="RNA")
 
     artifact_soma = save_tiledbsoma_experiment(
         [test_file],
@@ -310,17 +310,17 @@ def test_write_read_tiledbsoma(storage):
     adata_to_append_2.var["var_id"] = adata_to_append_2.var.index
     adata_to_append_2.write_h5ad("adata_to_append_2.h5ad")
 
+    append_transform = ln.Transform(name="test append tiledbsoma store").save()
+    append_run = ln.Run(append_transform).save()
+
     # here run should be passed
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Pass `run`"):
         save_tiledbsoma_experiment(
             [adata_to_append_1],
             revises=artifact_soma,
             run=None,
             measurement_name="RNA",
         )
-
-    append_transform = ln.Transform(name="test append tiledbsoma store").save()
-    append_run = ln.Run(append_transform).save()
 
     artifact_soma_append = save_tiledbsoma_experiment(
         [adata_to_append_1, "adata_to_append_2.h5ad"],
