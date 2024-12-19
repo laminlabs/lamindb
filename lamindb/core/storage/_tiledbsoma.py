@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
+import pandas as pd
 from anndata import AnnData, read_h5ad
 from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
@@ -148,17 +149,16 @@ def save_tiledbsoma_experiment(
     adata_objects = []
     for adata in adatas:
         if isinstance(adata, AnnData):
-            if add_run_uid:
-                if adata.is_view:
-                    raise ValueError(
-                        "Can not write an `AnnData` view, please do `adata.copy()` before passing."
-                    )
-                else:
-                    adata.obs["lamin_run_uid"] = run.uid
+            if add_run_uid and adata.is_view:
+                raise ValueError(
+                    "Can not write an `AnnData` view, please do `adata.copy()` before passing."
+                )
         else:
             adata = _load_h5ad_zarr(create_path(adata))
-            if add_run_uid:
-                adata.obs["lamin_run_uid"] = run.uid
+        if add_run_uid:
+            adata.obs["lamin_run_uid"] = pd.Series(
+                [run.uid] * adata.n_obs, index=adata.obs.index, dtype="category"
+            )
         adata_objects.append(adata)
 
     registration_mapping = kwargs.get("registration_mapping", None)
