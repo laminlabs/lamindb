@@ -10,9 +10,6 @@ import lamindb_setup as ln_setup
 import pandas as pd
 import pyarrow as pa
 from lamin_utils import colors, logger
-from lamindb._from_values import _format_values
-from lamindb.core.exceptions import ValidationError
-from lamindb.curators._spatial import SpatialDataCurator
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import UPath
 from lnschema_core import (
@@ -24,6 +21,9 @@ from lnschema_core import (
     ULabel,
 )
 
+from .._from_values import _format_values
+from ..core.exceptions import ValidationError
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from typing import Any
@@ -32,6 +32,8 @@ if TYPE_CHECKING:
     from lnschema_core.types import FieldAttr
     from mudata import MuData
     from spatialdata import SpatialData
+
+    from ..curators._spatial import SpatialDataCurator
 
 
 class CurateLookup:
@@ -561,7 +563,7 @@ class AnnDataCurator(DataFrameCurator):
         if isinstance(var_index, str):
             raise TypeError("var_index parameter has to be a bionty field")
 
-        from lamindb._artifact import data_is_anndata
+        from .._artifact import data_is_anndata
 
         if sources is None:
             sources = {}
@@ -1773,6 +1775,8 @@ class Curator(BaseCurator):
                 "Please install spatialdata: pip install spatialdata"
             ) from e
 
+        from ..curators._spatial import SpatialDataCurator
+
         return SpatialDataCurator(
             sdata=sdata,
             var_index=var_index,
@@ -2075,8 +2079,8 @@ def save_artifact(
     Returns:
         The saved Artifact.
     """
-    from lamindb._artifact import data_is_anndata
-    from lamindb.core._data import add_labels
+    from .._artifact import data_is_anndata
+    from ..core._data import add_labels
 
     artifact = None
     if data_is_anndata(data):
@@ -2247,7 +2251,6 @@ def update_registry(
     registry = field.field.model
     filter_kwargs = check_registry_organism(registry, organism)
     filter_kwargs.update({"source": source} if source else {})
-    values = [i for i in values if isinstance(i, str) and i]
     if not values:
         return
 
@@ -2342,7 +2345,7 @@ def log_saved_labels(
     validated_only: bool = True,
 ) -> None:
     """Log the saved labels."""
-    from lamindb._from_values import _format_values
+    from .._from_values import _format_values
 
     model_field = colors.italic(model_field)
     for k, labels in labels_saved.items():
@@ -2432,7 +2435,7 @@ def _save_organism(name: str):
 
 def _ref_is_name(field: FieldAttr) -> bool | None:
     """Check if the reference field is a name field."""
-    from lamindb._can_curate import get_name_field
+    from .._can_curate import get_name_field
 
     name_field = get_name_field(field.field.model)
     return field.field.name == name_field
