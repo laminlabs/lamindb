@@ -34,7 +34,7 @@ jobs:
       - name: Define paths for conditional groups
         run: |
           case "${{ matrix.group }}" in
-            spatial) PATHS_TO_CHECK="lamindb/curators/spatial/** tests/curators/test_spatial.py" ;;
+            spatial) PATHS_TO_CHECK="lamindb/curators/spatial/** tests/curators/test_spatialdata_curator.py" ;;
             *) PATHS_TO_CHECK="**" ;;  # Default: no conditional execution
           esac
           echo "paths_to_check=$PATHS_TO_CHECK" >> $GITHUB_ENV
