@@ -1,5 +1,3 @@
 # `omop`
 
-```{eval-rst}
-.. automodule:: omop
-```
+https://omop.lamin.ai/

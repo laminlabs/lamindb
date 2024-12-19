@@ -55,7 +55,7 @@ def install(session):
         "./sub/bionty",
     ]
     top_deps = [
-        ".[aws,bionty,jupyter]",
+        ".[bionty,jupyter]",
     ]
     cmds = [
         f"uv pip install {'--system' if CI else ''} --no-cache-dir {' '.join(base_deps)}",
@@ -84,7 +84,7 @@ def install(session):
 def install_ci(session, group):
     extras = ""
     if group == "unit-core":
-        extras += "bionty,aws,gcp,zarr,fcs,jupyter"
+        extras += "bionty,gcp,zarr,fcs,jupyter"
         # testing load_to_memory for yaml
         run(session, "uv pip install --system PyYAML")
         run(session, "uv pip install --system huggingface_hub")
@@ -95,28 +95,28 @@ def install_ci(session, group):
             session, "uv pip install --system tiledbsoma==1.15.0rc3"
         )  # test SOMACurator
     elif group == "unit-storage":
-        extras += "aws,zarr,bionty"
+        extras += "zarr,bionty"
         run(session, "uv pip install --system tiledbsoma==1.15.0rc3")
     elif group == "tutorial":
-        extras += "aws,jupyter,bionty"
+        extras += "jupyter,bionty"
         run(session, "uv pip install --system huggingface_hub")
     elif group == "guide":
-        extras += "aws,bionty,zarr,jupyter"
+        extras += "bionty,zarr,jupyter"
         run(session, "uv pip install --system scanpy")
     elif group == "biology":
         extras += "bionty,fcs,jupyter"
         run(session, "uv pip install --system ipywidgets")
     elif group == "faq":
-        extras += "aws,bionty,jupyter"
+        extras += "bionty,jupyter"
         run(
             session,
-            "uv pip install --system --no-deps ./sub/findrefs ./sub/ourprojects",
+            "uv pip install --system --no-deps ./sub/ourprojects",
         )
     elif group == "storage":
-        extras += "aws,zarr,bionty,jupyter"
+        extras += "zarr,bionty,jupyter"
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab ./sub/findrefs ./sub/ourprojects",
+            "uv pip install --system --no-deps ./sub/wetlab ./sub/ourprojects",
         )
         run(session, "uv pip install --system vitessce")
     elif group == "docs":
@@ -124,10 +124,10 @@ def install_ci(session, group):
         run(session, "uv pip install --system mudata")
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab ./sub/findrefs ./sub/clinicore ./sub/omop ./sub/cellregistry ./sub/ourprojects",
+            "uv pip install --system --no-deps ./sub/wetlab ./sub/clinicore ./sub/omop ./sub/cellregistry ./sub/ourprojects",
         )
     elif group == "cli":
-        extras += "jupyter,aws,bionty"
+        extras += "jupyter,bionty"
     run(session, f"uv pip install --system -e .[dev,{extras}]")
     # on the release branch, do not use submodules but run with pypi install
     # only exception is the docs group which should always use the submodule
