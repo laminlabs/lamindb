@@ -24,38 +24,22 @@ jobs:
           - "cli"
           - "spatial"
     timeout-minutes: 15
-
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Define paths for conditional groups
-        run: |
-          case "${{ matrix.group }}" in
-            spatial) PATHS_TO_CHECK="lamindb/curators/** tests/core/test_curator.py" ;;
-            *) PATHS_TO_CHECK="**" ;;  # Default: no conditional execution
-          esac
-          echo "paths_to_check=$PATHS_TO_CHECK" >> $GITHUB_ENV
-
-      - name: Check if relevant files changed for conditional groups
-        id: check-files
-        if: ${{ matrix.group == 'spatial' }} # Extend condition here for other groups
-        run: |
-          git diff --name-only ${{ github.event.before }} ${{ github.sha }} > changed_files.txt
-          if grep -q "$PATHS_TO_CHECK" changed_files.txt; then
-            echo "relevant_changes=true" >> $GITHUB_ENV
-          else
-            echo "relevant_changes=false" >> $GITHUB_ENV
-          fi
-
-      - name: Skip test group if no relevant changes
-        if: ${{ matrix.group == 'spatial' && env.relevant_changes == 'false' }}
-        run: echo "Skipping tests for ${{ matrix.group }} due to no relevant changes."
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            spatial:
+              - 'lamindb/curators/**'
+              - 'tests/core/test_curator.py'
 
       - uses: actions/setup-python@v5
-        if: ${{ matrix.group != 'spatial' || env.relevant_changes == 'true' }}
+        if: ${{ matrix.group != 'spatial' || steps.changes.outputs.spatial == 'true' }}
         with:
           python-version: |
             ${{ matrix.group == 'storage' && '3.9' ||
@@ -91,16 +75,16 @@ jobs:
         run: sudo apt-get -y install graphviz
 
       - run: nox -s lint
-        if: ${{ matrix.group == 'tutorial' }} # choose a fast-running a group
+        if: ${{ matrix.group == 'tutorial' }}
       - run: nox -s "install_ci(group='${{ matrix.group }}')"
-        if: ${{ matrix.group != 'spatial' || env.relevant_changes == 'true' }}
+        if: ${{ matrix.group != 'spatial' || steps.changes.outputs.spatial == 'true' }}
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
       - run: nox -s "build(group='${{ matrix.group }}')"
-        if: ${{ matrix.group != 'spatial' || env.relevant_changes == 'true' }}
+        if: ${{ matrix.group != 'spatial' || steps.changes.outputs.spatial == 'true' }}
 
       - name: upload coverage
         uses: actions/upload-artifact@v4
