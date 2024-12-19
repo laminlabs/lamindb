@@ -361,7 +361,7 @@ class SpatialDataCurator:
             run: The run that creates the artifact.
 
         Returns:
-            A saved artifact record.
+            A saved Artifact record.
         """
         if not self._validated:
             self.validate()
