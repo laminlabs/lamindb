@@ -272,7 +272,7 @@ class SpatialDataCurator:
             key: The key referencing the slot in the table or sample metadata.
             accessor: The accessor key such as 'sample_key' or 'table_key'.
 
-        Inplace modification of the dataset.
+        Modifies the dataset inplace.
         """
         if len(self.non_validated) == 0:
             logger.warning("values are already standardized")
