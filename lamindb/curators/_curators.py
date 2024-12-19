@@ -10,6 +10,9 @@ import lamindb_setup as ln_setup
 import pandas as pd
 import pyarrow as pa
 from lamin_utils import colors, logger
+from lamindb._from_values import _format_values
+from lamindb.core.exceptions import ValidationError
+from lamindb.curators._spatial import SpatialDataCurator
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import UPath
 from lnschema_core import (
@@ -21,14 +24,10 @@ from lnschema_core import (
     ULabel,
 )
 
-from ._from_values import _format_values
-from .core.exceptions import ValidationError
-
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from typing import Any
 
-    from lamin_spatial import SpatialDataCurator
     from lamindb_setup.core.types import UPathStr
     from lnschema_core.types import FieldAttr
     from mudata import MuData
@@ -562,7 +561,7 @@ class AnnDataCurator(DataFrameCurator):
         if isinstance(var_index, str):
             raise TypeError("var_index parameter has to be a bionty field")
 
-        from ._artifact import data_is_anndata
+        from lamindb._artifact import data_is_anndata
 
         if sources is None:
             sources = {}
@@ -1768,10 +1767,10 @@ class Curator(BaseCurator):
             ... )
         """
         try:
-            from lamin_spatial import SpatialDataCurator
+            import spatialdata
         except ImportError as e:
             raise ImportError(
-                "Please install lamin_spatial: pip install lamin_spatial"
+                "Please install spatialdata: pip install spatialdata"
             ) from e
 
         return SpatialDataCurator(
@@ -2076,8 +2075,8 @@ def save_artifact(
     Returns:
         The saved Artifact.
     """
-    from ._artifact import data_is_anndata
-    from .core._data import add_labels
+    from lamindb._artifact import data_is_anndata
+    from lamindb.core._data import add_labels
 
     artifact = None
     if data_is_anndata(data):
@@ -2342,7 +2341,7 @@ def log_saved_labels(
     validated_only: bool = True,
 ) -> None:
     """Log the saved labels."""
-    from ._from_values import _format_values
+    from lamindb._from_values import _format_values
 
     model_field = colors.italic(model_field)
     for k, labels in labels_saved.items():
@@ -2432,7 +2431,7 @@ def _save_organism(name: str):
 
 def _ref_is_name(field: FieldAttr) -> bool | None:
     """Check if the reference field is a name field."""
-    from ._can_curate import get_name_field
+    from lamindb._can_curate import get_name_field
 
     name_field = get_name_field(field.field.model)
     return field.field.name == name_field

@@ -135,7 +135,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system mudata")
         run(
             session,
-            "uv pip install --system ./sub/wetlab ./sub/findrefs ./sub/clinicore ./sub/omop ./sub/cellregistry ./sub/ourprojects",
+            "uv pip install --system ./sub/wetlab ./sub/findrefs ./sub/clinicore ./sub/omop ./sub/cellregistry ./sub/ourprojects ./sub/lamin-spatial",
         )
         run(
             session,

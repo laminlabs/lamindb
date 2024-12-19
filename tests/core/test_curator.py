@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 import tiledbsoma
 import tiledbsoma.io
-from lamindb._curate import CurateLookup, ValidationError
+from lamindb.curators._curators import CurateLookup, ValidationError
 
 
 @pytest.fixture

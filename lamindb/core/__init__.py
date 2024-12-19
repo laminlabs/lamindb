@@ -81,7 +81,11 @@ from lnschema_core.models import (
     ValidateFields,
 )
 
-from lamindb._curate import (
+from lamindb._query_manager import QueryManager
+from lamindb._query_set import QuerySet, RecordList
+from lamindb.core._feature_manager import FeatureManager, ParamManager
+from lamindb.core._label_manager import LabelManager
+from lamindb.curators._curators import (
     AnnDataCurator,
     BaseCurator,
     CurateLookup,
@@ -89,10 +93,6 @@ from lamindb._curate import (
     MuDataCurator,
     SOMACurator,
 )
-from lamindb._query_manager import QueryManager
-from lamindb._query_set import QuerySet, RecordList
-from lamindb.core._feature_manager import FeatureManager, ParamManager
-from lamindb.core._label_manager import LabelManager
 
 from . import _data, datasets, exceptions, fields, loaders, subsettings, types
 from ._context import Context

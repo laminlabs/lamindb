@@ -16,13 +16,13 @@ jobs:
         group:
           - "unit-core"
           - "unit-storage"
-          - "spatial"
           - "tutorial"
           - "guide"
           - "biology"
           - "faq"
           - "storage"
           - "cli"
+          - "spatial"
     timeout-minutes: 15
 
     steps:
@@ -31,20 +31,38 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
-        if: ${{ matrix.group == 'storage' }}
-        with:
-          python-version: "3.9"
+      - name: Define paths for conditional groups
+        run: |
+          case "${{ matrix.group }}" in
+            spatial) PATHS_TO_CHECK="lamindb/curators/spatial/** tests/curators/test_spatial.py" ;;
+            *) PATHS_TO_CHECK="**" ;;  # Default: no conditional execution
+          esac
+          echo "paths_to_check=$PATHS_TO_CHECK" >> $GITHUB_ENV
+
+      - name: Check if relevant files changed for conditional groups
+        id: check-files
+        if: ${{ matrix.group == 'spatial' }} # Extend condition here for other groups
+        run: |
+          git diff --name-only ${{ github.event.before }} ${{ github.sha }} > changed_files.txt
+          for path in $PATHS_TO_CHECK; do
+            if grep -q "$path" changed_files.txt; then
+              echo "relevant_changes=true" >> $GITHUB_ENV
+              exit 0
+            fi
+          done
+          echo "relevant_changes=false" >> $GITHUB_ENV
+
+      - name: Skip test group if no relevant changes
+        if: ${{ matrix.group == 'spatial' && env.relevant_changes == 'false' }}
+        run: echo "Skipping tests for ${{ matrix.group }} due to no relevant changes."
 
       - uses: actions/setup-python@v5
-        if: ${{ matrix.group == 'unit-storage' }}
+        if: ${{ matrix.group != 'spatial' || env.relevant_changes == 'true' }}
         with:
-          python-version: "3.11" # there are problems with installation time with python 3.12
-
-      - uses: actions/setup-python@v5
-        if: ${{ matrix.group != 'storage' && matrix.group != 'unit-storage'}}
-        with:
-          python-version: "3.12"
+          python-version: |
+            ${{ matrix.group == 'storage' && '3.9' ||
+                matrix.group == 'unit-storage' && '3.11' ||
+                '3.12' }}
 
       - name: cache pre-commit
         uses: actions/cache@v4
@@ -77,12 +95,14 @@ jobs:
       - run: nox -s lint
         if: ${{ matrix.group == 'tutorial' }} # choose a fast-running a group
       - run: nox -s "install_ci(group='${{ matrix.group }}')"
+        if: ${{ matrix.group != 'spatial' || env.relevant_changes == 'true' }}
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
       - run: nox -s "build(group='${{ matrix.group }}')"
+        if: ${{ matrix.group != 'spatial' || env.relevant_changes == 'true' }}
 
       - name: upload coverage
         uses: actions/upload-artifact@v4
