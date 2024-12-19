@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
+import pandas as pd
+import pyarrow as pa
 from anndata import AnnData, read_h5ad
 from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
@@ -138,9 +140,17 @@ def save_tiledbsoma_experiment(
     storepath = storepath.as_posix()
 
     add_run_uid = True
+    run_uid_dtype = "category"
     if appending:
         with soma.Experiment.open(storepath, mode="r", context=ctx) as store:
-            add_run_uid = "lamin_run_uid" in store["obs"].schema.names
+            obs_schema = store["obs"].schema
+            add_run_uid = "lamin_run_uid" in obs_schema.names
+            # this is needed to enable backwards compatibility with tiledbsoma stores
+            # created before PR 2300
+            if add_run_uid:
+                column_type = obs_schema.types[obs_schema.names.index("lamin_run_uid")]
+                if not isinstance(column_type, pa.DictionaryType):
+                    run_uid_dtype = None
 
     if add_run_uid and run is None:
         raise ValueError("Pass `run`")
@@ -148,17 +158,16 @@ def save_tiledbsoma_experiment(
     adata_objects = []
     for adata in adatas:
         if isinstance(adata, AnnData):
-            if add_run_uid:
-                if adata.is_view:
-                    raise ValueError(
-                        "Can not write an `AnnData` view, please do `adata.copy()` before passing."
-                    )
-                else:
-                    adata.obs["lamin_run_uid"] = run.uid
+            if add_run_uid and adata.is_view:
+                raise ValueError(
+                    "Can not write an `AnnData` view, please do `adata.copy()` before passing."
+                )
         else:
             adata = _load_h5ad_zarr(create_path(adata))
-            if add_run_uid:
-                adata.obs["lamin_run_uid"] = run.uid
+        if add_run_uid:
+            adata.obs["lamin_run_uid"] = pd.Series(
+                run.uid, index=adata.obs.index, dtype=run_uid_dtype
+            )
         adata_objects.append(adata)
 
     registration_mapping = kwargs.get("registration_mapping", None)
