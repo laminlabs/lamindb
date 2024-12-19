@@ -268,7 +268,10 @@ def test_write_read_tiledbsoma(storage):
         n_obs = len(obs)
         assert "lamin_run_uid" in obs.schema.names
         run_ids = (
-            obs.read(column_names=["lamin_run_uid"]).concat().to_pandas().cat.categories
+            obs.read(column_names=["lamin_run_uid"])
+            .concat()
+            .to_pandas()["lamin_run_uid"]
+            .cat.categories
         )
         assert set(run_ids) == {create_run.uid}
         # test reading X
@@ -339,7 +342,10 @@ def test_write_read_tiledbsoma(storage):
     obs = store["obs"]
     assert len(obs) == n_obs_final == artifact_soma_append.n_observations
     run_ids = (
-        obs.read(column_names=["lamin_run_uid"]).concat().to_pandas().cat.categories
+        obs.read(column_names=["lamin_run_uid"])
+        .concat()
+        .to_pandas()["lamin_run_uid"]
+        .cat.categories
     )
     assert set(run_ids) == {create_run.uid, append_run.uid}
     store.close()
