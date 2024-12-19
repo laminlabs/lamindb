@@ -9,8 +9,6 @@ import lamindb as ln
 import mudata as md
 import pandas as pd
 import pytest
-import tiledbsoma
-import tiledbsoma.io
 from lamindb.curators._curators import CurateLookup, ValidationError
 
 
@@ -474,6 +472,9 @@ def clean_soma_files():
 
 
 def test_soma_curator(adata, categoricals, clean_soma_files):
+    import tiledbsoma
+    import tiledbsoma.io
+
     tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
 
     with pytest.raises(
@@ -607,6 +608,9 @@ def test_soma_curator(adata, categoricals, clean_soma_files):
 
 
 def test_soma_curator_genes_columns(adata, clean_soma_files):
+    import tiledbsoma
+    import tiledbsoma.io
+
     adata.obs = pd.DataFrame(adata.X[:, :3], columns=adata.var_names[:3])
     tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
 
