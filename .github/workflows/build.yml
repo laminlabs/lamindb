@@ -22,28 +22,29 @@ jobs:
           - "faq"
           - "storage"
           - "cli"
+          - "spatial"
     timeout-minutes: 15
-
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
-        if: ${{ matrix.group == 'storage' }}
+      - uses: dorny/paths-filter@v3
+        id: changes
         with:
-          python-version: "3.9"
+          filters: |
+            spatial:
+              - 'lamindb/curators/**'
+              - 'tests/core/test_curator.py'
 
       - uses: actions/setup-python@v5
-        if: ${{ matrix.group == 'unit-storage' }}
+        if: ${{ matrix.group != 'spatial' || steps.changes.outputs.spatial == 'true' }}
         with:
-          python-version: "3.11" # there are problems with installation time with python 3.12
-
-      - uses: actions/setup-python@v5
-        if: ${{ matrix.group != 'storage' && matrix.group != 'unit-storage'}}
-        with:
-          python-version: "3.12"
+          python-version: |
+            ${{ matrix.group == 'storage' && '3.9' ||
+                matrix.group == 'unit-storage' && '3.11' ||
+                '3.12' }}
 
       - name: cache pre-commit
         uses: actions/cache@v4
@@ -76,12 +77,14 @@ jobs:
       - run: nox -s lint
         if: ${{ matrix.group == 'tutorial' }} # choose a fast-running a group
       - run: nox -s "install_ci(group='${{ matrix.group }}')"
+        if: ${{ matrix.group != 'spatial' || steps.changes.outputs.spatial == 'true' }}
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
       - run: nox -s "build(group='${{ matrix.group }}')"
+        if: ${{ matrix.group != 'spatial' || steps.changes.outputs.spatial == 'true' }}
 
       - name: upload coverage
         uses: actions/upload-artifact@v4
@@ -122,7 +125,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.10" # use 3.10 because 3.11+ give issues (ablog lacks 3.12 support)
+          python-version: "3.12"
       - run: pip install "laminci@git+https://x-access-token:${{ secrets.LAMIN_BUILD_DOCS }}@github.com/laminlabs/laminci"
       - run: nox -s "install_ci(group='docs')"
       - uses: actions/download-artifact@v4

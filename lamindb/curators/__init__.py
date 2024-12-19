@@ -21,8 +21,8 @@ from lnschema_core import (
     ULabel,
 )
 
-from ._from_values import _format_values
-from .core.exceptions import ValidationError
+from .._from_values import _format_values
+from ..core.exceptions import ValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -31,6 +31,9 @@ if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
     from lnschema_core.types import FieldAttr
     from mudata import MuData
+    from spatialdata import SpatialData
+
+    from ._spatial import SpatialDataCurator
 
 
 class CurateLookup:
@@ -560,7 +563,7 @@ class AnnDataCurator(DataFrameCurator):
         if isinstance(var_index, str):
             raise TypeError("var_index parameter has to be a bionty field")
 
-        from ._artifact import data_is_anndata
+        from .._artifact import data_is_anndata
 
         if sources is None:
             sources = {}
@@ -1712,6 +1715,80 @@ class Curator(BaseCurator):
             exclude=exclude,
         )
 
+    @classmethod
+    def from_spatialdata(
+        cls,
+        sdata: SpatialData,
+        var_index: dict[str, FieldAttr],
+        categoricals: dict[str, dict[str, FieldAttr]] | None = None,
+        using_key: str | None = None,
+        organism: str | None = None,
+        sources: dict[str, dict[str, Record]] | None = None,
+        exclude: dict[str, dict] | None = None,
+        verbosity: str = "hint",
+        *,
+        sample_metadata_key: str = "sample",
+    ) -> SpatialDataCurator:
+        """Curation flow for a ``Spatialdata`` object.
+
+        See also :class:`~lamindb.Curator`.
+
+        Note that if genes or other measurements are removed from the SpatialData object,
+        the object should be recreated.
+
+        In the following docstring, an accessor refers to either a ``.table`` key or the ``sample_metadata_key``.
+
+        Args:
+            sdata: The SpatialData object to curate.
+            var_index: A dictionary mapping table keys to the ``.var`` indices.
+            categoricals: A nested dictionary mapping an accessor to dictionaries that map columns to a registry field.
+            using_key: A reference LaminDB instance.
+            organism: The organism name.
+            sources: A dictionary mapping an accessor to dictionaries that map columns to Source records.
+            exclude: A dictionary mapping an accessor to dictionaries of column names to values to exclude from validation.
+                When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
+                using the exclude parameter ensures they are not validated.
+            verbosity: The verbosity level of the logger.
+            sample_metadata_key: The key in ``.attrs`` that stores the sample level metadata.
+
+        Examples:
+            >>> import lamindb as ln
+            >>> import bionty as bt
+            >>> curator = ln.Curator.from_spatialdata(
+            ...     sdata,
+            ...     var_index={
+            ...         "table_1": bt.Gene.ensembl_gene_id,
+            ...     },
+            ...     categoricals={
+            ...         "table1":
+            ...             {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name},
+            ...         "sample":
+            ...             {"experimental_factor": bt.ExperimentalFactor.name},
+            ...     },
+            ...     organism="human",
+            ... )
+        """
+        try:
+            import spatialdata
+        except ImportError as e:
+            raise ImportError(
+                "Please install spatialdata: pip install spatialdata"
+            ) from e
+
+        from ._spatial import SpatialDataCurator
+
+        return SpatialDataCurator(
+            sdata=sdata,
+            var_index=var_index,
+            categoricals=categoricals,
+            using_key=using_key,
+            verbosity=verbosity,
+            organism=organism,
+            sources=sources,
+            exclude=exclude,
+            sample_metadata_key=sample_metadata_key,
+        )
+
 
 def get_registry_instance(registry: Record, using_key: str | None = None) -> Record:
     """Get a registry instance using a specific instance."""
@@ -2002,8 +2079,8 @@ def save_artifact(
     Returns:
         The saved Artifact.
     """
-    from ._artifact import data_is_anndata
-    from .core._data import add_labels
+    from .._artifact import data_is_anndata
+    from ..core._data import add_labels
 
     artifact = None
     if data_is_anndata(data):
@@ -2174,7 +2251,6 @@ def update_registry(
     registry = field.field.model
     filter_kwargs = check_registry_organism(registry, organism)
     filter_kwargs.update({"source": source} if source else {})
-    values = [i for i in values if isinstance(i, str) and i]
     if not values:
         return
 
@@ -2269,7 +2345,7 @@ def log_saved_labels(
     validated_only: bool = True,
 ) -> None:
     """Log the saved labels."""
-    from ._from_values import _format_values
+    from .._from_values import _format_values
 
     model_field = colors.italic(model_field)
     for k, labels in labels_saved.items():
@@ -2359,7 +2435,7 @@ def _save_organism(name: str):
 
 def _ref_is_name(field: FieldAttr) -> bool | None:
     """Check if the reference field is a name field."""
-    from ._can_curate import get_name_field
+    from .._can_curate import get_name_field
 
     name_field = get_name_field(field.field.model)
     return field.field.name == name_field

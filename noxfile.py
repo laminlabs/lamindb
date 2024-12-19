@@ -77,6 +77,7 @@ def install(session):
         "biology",
         "faq",
         "storage",
+        "spatial",
         "docs",
         "cli",
     ],
@@ -119,9 +120,22 @@ def install_ci(session, group):
             "uv pip install --system --no-deps ./sub/wetlab ./sub/ourprojects",
         )
         run(session, "uv pip install --system vitessce")
+    elif group == "spatial":
+        extras += "zarr,bionty,jupyter"
+        run(
+            session,
+            "uv pip install --system ./sub/wetlab",
+        )
+        run(
+            session,
+            "uv pip install --system -U git+https://github.com/scverse/spatialdata.git@refs/pull/806/head",
+        )  # Required to access metadata attrs
     elif group == "docs":
         extras += "bionty,zarr"
-        run(session, "uv pip install --system mudata")
+        run(
+            session,
+            "uv pip install --system -U mudata spatialdata",
+        )
         run(
             session,
             "uv pip install --system --no-deps ./sub/wetlab ./sub/clinicore ./sub/cellregistry ./sub/ourprojects",
@@ -150,6 +164,7 @@ def install_ci(session, group):
     [
         "unit-core",
         "unit-storage",
+        "spatial",
         "tutorial",
         "guide",
         "biology",
@@ -166,7 +181,10 @@ def build(session, group):
     run(session, "lamin settings set private-django-api true")
     coverage_args = "--cov=lamindb --cov-config=pyproject.toml --cov-append --cov-report=term-missing"
     if group == "unit-core":
-        run(session, f"pytest {coverage_args} ./tests/core --durations=50")
+        run(
+            session,
+            f"pytest {coverage_args} -k 'not test_spatialdata_curator' ./tests/core --durations=50",
+        )
     elif group == "unit-storage":
         run(session, f"pytest {coverage_args} ./tests/storage --durations=50")
     elif group == "tutorial":
@@ -190,6 +208,11 @@ def build(session, group):
         run(session, f"pytest -s {coverage_args} ./docs/faq")
     elif group == "storage":
         run(session, f"pytest -s {coverage_args} ./docs/storage")
+    elif group == "spatial":
+        run(
+            session,
+            f"pytest {coverage_args} tests/core/test_curator.py -k test_spatialdata_curator --durations=50",
+        )
     elif group == "cli":
         run(session, f"pytest {coverage_args} ./sub/lamin-cli/tests --durations=50")
     # move artifacts into right place

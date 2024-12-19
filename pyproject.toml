@@ -175,7 +175,9 @@ lint.ignore = [
     # subprocess` call: check for execution of untrusted input - https://github.com/PyCQA/bandit/issues/333
     "S603",
     # Starting a process with a partial executable path
-    "S607"
+    "S607",
+    # Prefer absolute imports over relative imports from parent modules
+    "TID252"
 ]
 
 [tool.ruff.lint.pydocstyle]
