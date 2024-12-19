@@ -124,7 +124,7 @@ def install_ci(session, group):
         extras += "aws,zarr,bionty,jupyter"
         run(
             session,
-            "uv pip install --system ./sub/wetlab ./sub/lamin-spatial",
+            "uv pip install --system ./sub/wetlab",
         )
         run(
             session,
@@ -132,15 +132,11 @@ def install_ci(session, group):
         )  # Required to access metadata attrs
     elif group == "docs":
         extras += "bionty,zarr"
-        run(session, "uv pip install --system mudata")
+        run(session, "uv pip install --system mudata spatialdata")
         run(
             session,
-            "uv pip install --system ./sub/wetlab ./sub/findrefs ./sub/clinicore ./sub/omop ./sub/cellregistry ./sub/ourprojects ./sub/lamin-spatial",
+            "uv pip install --system ./sub/wetlab ./sub/findrefs ./sub/clinicore ./sub/omop ./sub/cellregistry ./sub/ourprojects",
         )
-        run(
-            session,
-            "uv pip install --system ./sub/lamin-spatial",
-        )  # need spatialdata and potentially other future dependencies
     elif group == "cli":
         extras += "jupyter,aws,bionty"
     run(session, f"uv pip install --system -e .[dev,{extras}]")
