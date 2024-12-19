@@ -2247,6 +2247,7 @@ def update_registry(
     registry = field.field.model
     filter_kwargs = check_registry_organism(registry, organism)
     filter_kwargs.update({"source": source} if source else {})
+    values = [i for i in values if isinstance(i, str) and i]
     if not values:
         return
 
