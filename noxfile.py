@@ -120,7 +120,7 @@ def install_ci(session, group):
             "uv pip install --system --no-deps ./sub/wetlab ./sub/ourprojects",
         )
         run(session, "uv pip install --system vitessce")
-    elif group == "spatial":
+    elif group == "curator":
         extras += "zarr,bionty,jupyter"
         run(
             session,
@@ -130,6 +130,7 @@ def install_ci(session, group):
             session,
             "uv pip install --system -U git+https://github.com/scverse/spatialdata.git@refs/pull/806/head",
         )  # Required to access metadata attrs
+        run(session, "uv pip install --system tiledbsoma==1.15.0rc3")
     elif group == "docs":
         extras += "bionty,zarr"
         run(
@@ -183,7 +184,7 @@ def build(session, group):
     if group == "unit-core":
         run(
             session,
-            f"pytest {coverage_args} -k 'not test_spatialdata_curator' ./tests/core --durations=50",
+            f"pytest {coverage_args} --ignore=tests/core/test_curator.py ./tests/core --durations=50",
         )
     elif group == "unit-storage":
         run(session, f"pytest {coverage_args} ./tests/storage --durations=50")
@@ -208,10 +209,10 @@ def build(session, group):
         run(session, f"pytest -s {coverage_args} ./docs/faq")
     elif group == "storage":
         run(session, f"pytest -s {coverage_args} ./docs/storage")
-    elif group == "spatial":
+    elif group == "curator":
         run(
             session,
-            f"pytest {coverage_args} tests/core/test_curator.py -k test_spatialdata_curator --durations=50",
+            f"pytest {coverage_args} tests/core/test_curator.py --durations=50",
         )
     elif group == "cli":
         run(session, f"pytest {coverage_args} ./sub/lamin-cli/tests --durations=50")
