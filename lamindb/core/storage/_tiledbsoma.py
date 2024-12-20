@@ -10,6 +10,7 @@ from lamindb_setup import settings as setup_settings
 from lamindb_setup.core._settings_storage import get_storage_region
 from lamindb_setup.core.upath import LocalPathClasses, create_path
 from lnschema_core import Artifact, Run
+from packaging import version
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
@@ -182,14 +183,28 @@ def save_tiledbsoma_experiment(
             context=ctx,
         )
 
+    resize_experiment = False
     if registration_mapping is not None:
-        n_observations = len(registration_mapping.obs_axis.data)
+        if version.parse(soma.__version__) < version.parse("1.15.0rc4"):
+            n_observations = len(registration_mapping.obs_axis.data)
+        else:
+            n_observations = registration_mapping.get_obs_shape()
+            resize_experiment = True
     else:  # happens only if not appending and only one adata passed
         assert len(adata_objects) == 1  # noqa: S101
         n_observations = adata_objects[0].n_obs
 
     logger.important(f"Writing the tiledbsoma store to {storepath}")
     for adata_obj in adata_objects:
+        if resize_experiment and soma.Experiment.exists(storepath, context=ctx):
+            # can only happen if registration_mapping is not None
+            soma_io.resize_experiment(
+                storepath,
+                nobs=n_observations,
+                nvars=registration_mapping.get_var_shapes(),
+                context=ctx,
+            )
+            resize_experiment = False
         soma_io.from_anndata(
             storepath,
             adata_obj,

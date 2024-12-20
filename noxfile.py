@@ -89,15 +89,16 @@ def install_ci(session, group):
         # testing load_to_memory for yaml
         run(session, "uv pip install --system PyYAML")
         run(session, "uv pip install --system huggingface_hub")
-        # pinning 1.15.0rc3 because 1.14.5 is incompatible with anndata>=0.11.0
-        # and >1.15.0rc4 has a different append mode API
-        # wating for a normal release to adapt
-        run(
-            session, "uv pip install --system tiledbsoma==1.15.0rc3"
-        )  # test SOMACurator
+        # tiledbsoma dependency, specifying it here explicitly
+        # otherwise there are problems with uv resolver
+        run(session, "uv pip install --system scanpy")
+        run(session, "uv pip install --system tiledbsoma")  # test SOMACurator
     elif group == "unit-storage":
         extras += "zarr,bionty"
-        run(session, "uv pip install --system tiledbsoma==1.15.0rc3")
+        # tiledbsoma dependency, specifying it here explicitly
+        # otherwise there are problems with uv resolver
+        run(session, "uv pip install --system scanpy")
+        run(session, "uv pip install --system tiledbsoma")
     elif group == "tutorial":
         extras += "jupyter,bionty"
         run(session, "uv pip install --system huggingface_hub")
