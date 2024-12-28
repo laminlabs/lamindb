@@ -10,7 +10,6 @@ from lamindb_setup.core._settings import settings as setup_settings
 from lamindb_setup.core._settings_instance import sanitize_git_repo_url
 
 from .subsettings._creation_settings import CreationSettings, creation_settings
-from .subsettings._transform_settings import TransformSettings, transform_settings
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -79,17 +78,6 @@ class Settings:
         else:
             storage_settings = ln_setup.core.StorageSettings(root=self._using_storage)
         return storage_settings
-
-    @property
-    def transform(self) -> TransformSettings:
-        """Transform settings.
-
-        Is deprecated since version 0.76.1.
-        """
-        logger.warning(
-            "Transform settings are deprecated and will be removed soon, please use ln.track(uid)"
-        )
-        return transform_settings
 
     @property
     def sync_git_repo(self) -> str | None:

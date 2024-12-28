@@ -24,7 +24,6 @@ from .exceptions import (
     TrackNotCalled,
     UpdateContext,
 )
-from .subsettings._transform_settings import transform_settings
 from .versioning import bump_version as bump_version_function
 from .versioning import increment_base62, message_update_key_in_version_family
 
@@ -227,10 +226,6 @@ class Context:
         self._path = None
         if transform is None:
             is_tracked = False
-            transform_settings_are_set = (
-                transform_settings.stem_uid is not None
-                and transform_settings.version is not None
-            )
             transform = None
             stem_uid = None
             # you can set ln.context.uid and then call ln.track() without passing anything
@@ -258,14 +253,6 @@ class Context:
                         raise SystemExit(
                             f"Version '{self.version}' is already taken by Transform(uid='{transform.uid}'); please set another version, e.g., ln.context.version = '{better_version}'"
                         )
-            elif transform_settings_are_set:
-                stem_uid, self.version = (
-                    transform_settings.stem_uid,
-                    transform_settings.version,
-                )
-                transform = Transform.filter(
-                    uid__startswith=stem_uid, version=self.version
-                ).one_or_none()
             if is_run_from_ipython:
                 key, name = self._track_notebook(path=path)
                 transform_type = "notebook"
@@ -278,7 +265,7 @@ class Context:
                 (name, key, transform_type, transform_ref, transform_ref_type) = (
                     self._track_source_code(path=path)
                 )
-            if self.uid is not None or transform_settings_are_set:
+            if self.uid is not None:
                 # overwrite whatever is auto-detected in the notebook or script
                 if self.name is not None:
                     name = self.name
