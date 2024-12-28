@@ -195,7 +195,7 @@ class Context:
         - sets :attr:`~lamindb.core.Context.transform` &
           :attr:`~lamindb.core.Context.run` by creating or loading `Transform` &
           `Run` records
-        - saves compute environment as a `requirements.txt` file: `run.environment`
+        - saves Python environment as a `requirements.txt` file: `run.environment`
 
         If :attr:`~lamindb.core.Settings.sync_git_repo` is set, checks whether a
         script-like transform exists in a git repository and links it.
@@ -221,10 +221,8 @@ class Context:
         """
         self._logging_message_track = ""
         self._logging_message_imports = ""
-        uid = None
         if transform is not None and isinstance(transform, str):
-            uid = transform
-            self.uid = uid
+            self.uid = transform
             transform = None
         self._path = None
         if transform is None:
@@ -235,10 +233,10 @@ class Context:
             )
             transform = None
             stem_uid = None
-            # you can set ln.context.uid and then call ln.track() without passing anythin
+            # you can set ln.context.uid and then call ln.track() without passing anything
             # that has been the preferred syntax for a while; we'll likely
             # deprecate it at some point
-            if uid is not None or self.uid is not None:
+            if self.uid is not None:
                 transform = Transform.filter(uid=self.uid).one_or_none()
                 if self.version is not None:
                     # test inconsistent version passed
@@ -251,17 +249,11 @@ class Context:
                             f"Please pass consistent version: ln.context.version = '{transform.version}'"  # type: ignore
                         )
                     # test whether version was already used for another member of the family
-                    suid, vuid = (
-                        self.uid[: Transform._len_stem_uid],
-                        self.uid[Transform._len_stem_uid :],
-                    )
+                    suid, vuid = (self.uid[:-4], self.uid[-4:])
                     transform = Transform.filter(
                         uid__startswith=suid, version=self.version
                     ).one_or_none()
-                    if (
-                        transform is not None
-                        and vuid != transform.uid[Transform._len_stem_uid :]
-                    ):
+                    if transform is not None and vuid != transform.uid[-4:]:
                         better_version = bump_version_function(self.version)
                         raise SystemExit(
                             f"Version '{self.version}' is already taken by Transform(uid='{transform.uid}'); please set another version, e.g., ln.context.version = '{better_version}'"

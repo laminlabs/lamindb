@@ -86,8 +86,9 @@ class Settings:
 
         Is deprecated since version 0.76.1.
         """
-        # enable warning soon
-        # logger.warning("Transform settings are deprecated, please instead set `ln.context.uid`")
+        logger.warning(
+            "Transform settings are deprecated and will be removed soon, please use ln.track(uid)"
+        )
         return transform_settings
 
     @property
