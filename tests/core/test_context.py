@@ -209,7 +209,7 @@ def test_run_scripts():
     print(result.stdout.decode())
     print(result.stderr.decode())
     assert result.returncode == 0
-    assert "created Transform('PC0eB2QPm0jW0000')" in result.stderr.decode()
+    assert "created Transform('PC0eB2QPm0jW0000')" in result.stdout.decode()
 
 
 def test_run_external_script():
