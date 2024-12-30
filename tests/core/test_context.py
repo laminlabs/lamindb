@@ -92,13 +92,10 @@ def test_invalid_transform_type():
 
 def test_create_or_load_transform():
     title = "title"
-    stem_uid = "NJvdsWWbJlZS"
-    version = "0"
-    uid = "NJvdsWWbJlZS6K79"
-    assert uid == f"{stem_uid}{get_uid_ext(version)}"
+    version = "2.0"
+    uid = "NJvdsWWbJlZS0000"
     context._create_or_load_transform(
-        uid=None,
-        stem_uid=stem_uid,
+        uid=uid,
         version=version,
         name=title,
         key="my-test-transform-create-or-load",
@@ -108,9 +105,8 @@ def test_create_or_load_transform():
     assert context._transform.version == version
     assert context._transform.name == title
     context._create_or_load_transform(
-        uid=None,
+        uid=uid,
         transform=context._transform,
-        stem_uid=stem_uid,
         key="my-test-transform-create-or-load",
         version=version,
         name=title,
@@ -121,9 +117,8 @@ def test_create_or_load_transform():
 
     # now, test an updated transform name
     context._create_or_load_transform(
-        uid=None,
+        uid=uid,
         transform=context._transform,
-        stem_uid=stem_uid,
         version=version,
         name="updated title",
         key="my-test-transform-create-or-load",
@@ -142,7 +137,10 @@ def test_run_scripts_for_versioning():
     )
     # print(result.stdout.decode())
     assert result.returncode == 0
-    assert "created Transform('Ro1gl7n8'), started new Run(" in result.stdout.decode()
+    assert (
+        "created Transform('Ro1gl7n8YrdH0000'), started new Run("
+        in result.stdout.decode()
+    )
 
     # updated key (filename change)
     result = subprocess.run(  # noqa: S602
@@ -163,7 +161,7 @@ def test_run_scripts_for_versioning():
     # print(result.stderr.decode())
     assert result.returncode == 1
     assert (
-        "Version '1' is already taken by Transform(uid='Ro1gl7n8YrdH0000'); please set another version, e.g., ln.context.version = '1.1'"
+        "Version '1' is already taken by Transform('Ro1gl7n8YrdH0000'); please set another version, e.g., ln.context.version = '1.1'"
         in result.stderr.decode()
     )
 
@@ -175,7 +173,10 @@ def test_run_scripts_for_versioning():
     )
     # print(result.stdout.decode())
     assert result.returncode == 0
-    assert "created Transform('Ro1gl7n8'), started new Run(" in result.stdout.decode()
+    assert (
+        "created Transform('Ro1gl7n8YrdH0001'), started new Run("
+        in result.stdout.decode()
+    )
     assert not ln.Transform.get("Ro1gl7n8YrdH0000").is_latest
     assert ln.Transform.get("Ro1gl7n8YrdH0001").is_latest
 

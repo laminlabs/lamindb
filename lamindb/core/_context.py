@@ -77,30 +77,18 @@ def get_notebook_name_colab() -> str:
     return name.rstrip(".ipynb")
 
 
-def raise_missing_context(transform_type: str, key: str) -> bool:
-    transform = Transform.filter(key=key).latest_version().first()
+def assign_transform_uid(key: str) -> str:
+    transform = Transform.filter(key=key, is_latest=True).first()
     if transform is None:
-        new_uid = f"{base62_12()}0000"
-        message = f'to track this {transform_type}, run: ln.track("{new_uid}")'
+        uid = f"{base62_12()}0000"
     else:
-        uid = transform.uid
-        new_uid = f"{uid[:-4]}{increment_base62(uid[-4:])}"
-        message = (
-            f"you already have a transform with key '{key}': Transform('{transform.uid[:8]}')\n"
-            f'  (1) to make a revision, run: ln.track("{new_uid}")\n  (2) to create a new transform, rename your {transform_type} file and re-run: ln.track()'
-        )
-    if is_run_from_ipython:
-        print(f"→ {message}")
-        response = input("→ Ready to re-run? (y/n)")
-        if response == "y":
-            logger.important(
-                "note: restart your notebook if you want consecutive cell execution"
-            )
-            return True
-        raise MissingContextUID("Please follow the instructions.")
-    else:
-        raise MissingContextUID(f"✗ {message}")
-    return False
+        if transform.source_code is None:
+            uid = transform.uid
+        else:
+            uid = f"{transform.uid[:-4]}{increment_base62(transform.uid[-4:])}"
+            message = f"there already is a transform with key '{key}', making revision '{uid}'"
+            logger.important(message)
+    return uid
 
 
 def pretty_pypackages(dependencies: dict) -> str:
@@ -209,13 +197,9 @@ class Context:
 
         Examples:
 
-            To create a transform `uid` for tracking a script or notebook, call:
-
-            >>> ln.track()
-
             To track the run of a notebook or script, call:
 
-            >>> ln.track("FPnfDtJz8qbE0000")  # replace with your uid
+            >>> ln.track()
 
         """
         self._logging_message_track = ""
@@ -225,67 +209,50 @@ class Context:
             transform = None
         self._path = None
         if transform is None:
-            is_tracked = False
-            transform = None
-            stem_uid = None
-            # you can set ln.context.uid and then call ln.track() without passing anything
-            # that has been the preferred syntax for a while; we'll likely
-            # deprecate it at some point
-            if self.uid is not None:
-                transform = Transform.filter(uid=self.uid).one_or_none()
-                if self.version is not None:
-                    # test inconsistent version passed
-                    if (
-                        transform is not None
-                        and transform.version is not None  # type: ignore
-                        and self.version != transform.version  # type: ignore
-                    ):
-                        raise SystemExit(
-                            f"Please pass consistent version: ln.context.version = '{transform.version}'"  # type: ignore
-                        )
-                    # test whether version was already used for another member of the family
-                    suid, vuid = (self.uid[:-4], self.uid[-4:])
-                    transform = Transform.filter(
-                        uid__startswith=suid, version=self.version
-                    ).one_or_none()
-                    if transform is not None and vuid != transform.uid[-4:]:
-                        better_version = bump_version_function(self.version)
-                        raise SystemExit(
-                            f"Version '{self.version}' is already taken by Transform(uid='{transform.uid}'); please set another version, e.g., ln.context.version = '{better_version}'"
-                        )
             if is_run_from_ipython:
                 key, name = self._track_notebook(path=path)
                 transform_type = "notebook"
                 transform_ref = None
                 transform_ref_type = None
             else:
-                # the below function is typically used for `.py` scripts
-                # it is also used for `.Rmd` and `.qmd` files, which we classify
-                # as "notebook" because they typically come with an .html run report
                 (name, key, transform_type, transform_ref, transform_ref_type) = (
                     self._track_source_code(path=path)
                 )
-            if self.uid is not None:
-                # overwrite whatever is auto-detected in the notebook or script
-                if self.name is not None:
-                    name = self.name
-                self._create_or_load_transform(
-                    uid=self.uid,
-                    stem_uid=stem_uid,
-                    version=self.version,
-                    name=name,
-                    transform_ref=transform_ref,
-                    transform_ref_type=transform_ref_type,
-                    transform_type=transform_type,
-                    key=key,
-                    transform=transform,
-                )
-                # if no error is raised, the transform is tracked
-                is_tracked = True
-            if not is_tracked:
-                early_return = raise_missing_context(transform_type, key)
-                if early_return:
-                    return None
+            if self.uid is None:
+                self.uid = assign_transform_uid(key)
+            transform = Transform.filter(uid=self.uid).one_or_none()
+            if self.version is not None:
+                # test inconsistent version passed
+                if (
+                    transform is not None
+                    and transform.version is not None  # type: ignore
+                    and self.version != transform.version  # type: ignore
+                ):
+                    raise SystemExit(
+                        f"Please pass consistent version: ln.context.version = '{transform.version}'"  # type: ignore
+                    )
+                # test whether version was already used for another member of the family
+                suid, vuid = (self.uid[:-4], self.uid[-4:])
+                transform = Transform.filter(
+                    uid__startswith=suid, version=self.version
+                ).one_or_none()
+                if transform is not None and vuid != transform.uid[-4:]:
+                    better_version = bump_version_function(self.version)
+                    raise SystemExit(
+                        f"Version '{self.version}' is already taken by Transform('{transform.uid}'); please set another version, e.g., ln.context.version = '{better_version}'"
+                    )
+            if self.name is not None:
+                name = self.name
+            self._create_or_load_transform(
+                uid=self.uid,
+                version=self.version,
+                name=name,
+                transform_ref=transform_ref,
+                transform_ref_type=transform_ref_type,
+                transform_type=transform_type,
+                key=key,
+                transform=transform,
+            )
         else:
             if transform.type in {"notebook", "script"}:
                 raise ValueError(
@@ -298,14 +265,10 @@ class Context:
                 transform_exists = Transform.filter(id=transform.id).first()
             if transform_exists is None:
                 transform.save()
-                self._logging_message_track += (
-                    f"created Transform('{transform.uid[:8]}')"
-                )
+                self._logging_message_track += f"created Transform('{transform.uid}')"
                 transform_exists = transform
             else:
-                self._logging_message_track += (
-                    f"loaded Transform('{transform.uid[:8]}')"
-                )
+                self._logging_message_track += f"loaded Transform('{transform.uid}')"
             self._transform = transform_exists
 
         if new_run is None:  # for notebooks, default to loading latest runs
@@ -322,7 +285,7 @@ class Context:
             )
             if run is not None:  # loaded latest run
                 run.started_at = datetime.now(timezone.utc)  # update run time
-                self._logging_message_track += f", re-started Run('{run.uid[:8]}') at {format_field_value(run.started_at)}"
+                self._logging_message_track += f", re-started Run('{run.uid[:8]}...') at {format_field_value(run.started_at)}"
 
         if run is None:  # create new run
             run = Run(
@@ -330,7 +293,7 @@ class Context:
                 params=params,
             )
             run.started_at = datetime.now(timezone.utc)
-            self._logging_message_track += f", started new Run('{run.uid[:8]}') at {format_field_value(run.started_at)}"
+            self._logging_message_track += f", started new Run('{run.uid[:8]}...') at {format_field_value(run.started_at)}"
         # can only determine at ln.finish() if run was consecutive in
         # interactive session, otherwise, is consecutive
         run.is_consecutive = True if is_run_from_ipython else None
@@ -352,6 +315,9 @@ class Context:
         *,
         path: UPathStr | None,
     ) -> tuple[str, str, str, str, str]:
+        # for `.py` files, classified as "script"
+        # for `.Rmd` and `.qmd` files, which we classify
+        # as "notebook" because they typically come with an .html run report
         if path is None:
             import inspect
 
@@ -423,8 +389,7 @@ class Context:
     def _create_or_load_transform(
         self,
         *,
-        uid: str | None,
-        stem_uid: str | None,
+        uid: str,
         version: str | None,
         name: str,
         transform_ref: str | None = None,
@@ -433,6 +398,8 @@ class Context:
         transform_type: TransformType = None,
         transform: Transform | None = None,
     ):
+        stem_uid = uid[:-4]
+
         def get_key_clashing_message(transform: Transform, key: str) -> str:
             update_key_note = message_update_key_in_version_family(
                 suid=transform.stem_uid,
@@ -449,15 +416,6 @@ class Context:
         if transform is None:
             if uid is None:
                 uid = f"{stem_uid}{get_uid_ext(version)}"
-            # let's query revises so that we can pass it to the constructor and use it for error handling
-            revises = (
-                Transform.filter(uid__startswith=uid[:-4], is_latest=True)
-                .order_by("-created_at")
-                .first()
-            )
-            # note that here we're not passing revises because we're not querying it
-            # hence, we need to do a revision family lookup based on key
-            # hence, we need key to be not None
             assert key is not None  # noqa: S101
             raise_update_context = False
             try:
@@ -469,13 +427,17 @@ class Context:
                     reference=transform_ref,
                     reference_type=transform_ref_type,
                     type=transform_type,
-                    revises=revises,
                 ).save()
             except InconsistentKey:
                 raise_update_context = True
             if raise_update_context:
+                revises = (
+                    Transform.filter(uid__startswith=uid[:-4], is_latest=True)
+                    .order_by("-created_at")
+                    .first()
+                )
                 raise UpdateContext(get_key_clashing_message(revises, key))
-            self._logging_message_track += f"created Transform('{transform.uid[:8]}')"
+            self._logging_message_track += f"created Transform('{transform.uid}')"
         else:
             uid = transform.uid
             # transform was already saved via `finish()`
@@ -514,7 +476,7 @@ class Context:
                         bump_revision = True
                     else:
                         self._logging_message_track += (
-                            f"loaded Transform('{transform.uid[:8]}')"
+                            f"loaded Transform('{transform.uid}')"
                         )
                 if bump_revision:
                     change_type = (
@@ -527,9 +489,7 @@ class Context:
                         f'ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")'
                     )
             else:
-                self._logging_message_track += (
-                    f"loaded Transform('{transform.uid[:8]}')"
-                )
+                self._logging_message_track += f"loaded Transform('{transform.uid}')"
         self._transform = transform
 
     def finish(self, ignore_non_consecutive: None | bool = None) -> None:
