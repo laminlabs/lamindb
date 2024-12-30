@@ -123,7 +123,7 @@ def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
 
 def save_context_core(
     *,
-    run: Run,
+    run: Run | None,
     transform: Transform,
     filepath: Path,
     finished_at: bool = False,
@@ -225,71 +225,73 @@ def save_context_core(
         transform.hash = hash
 
     # track environment
-    env_path = ln_setup.settings.cache_dir / f"run_env_pip_{run.uid}.txt"
-    if env_path.exists():
-        overwrite_env = True
-        if run.environment_id is not None and from_cli:
-            logger.important("run.environment is already saved")
-            overwrite_env = False
-        if overwrite_env:
-            hash, _ = hash_file(env_path)
-            artifact = ln.Artifact.filter(hash=hash, visibility=0).one_or_none()
-            new_env_artifact = artifact is None
-            if new_env_artifact:
-                artifact = ln.Artifact(
-                    env_path,
-                    description="requirements.txt",
-                    visibility=0,
-                    run=False,
-                )
-                artifact.save(upload=True, print_progress=False)
-            run.environment = artifact
-            if new_env_artifact:
-                logger.debug(f"saved run.environment: {run.environment}")
+    if run is not None:
+        env_path = ln_setup.settings.cache_dir / f"run_env_pip_{run.uid}.txt"
+        if env_path.exists():
+            overwrite_env = True
+            if run.environment_id is not None and from_cli:
+                logger.important("run.environment is already saved")
+                overwrite_env = False
+            if overwrite_env:
+                hash, _ = hash_file(env_path)
+                artifact = ln.Artifact.filter(hash=hash, visibility=0).one_or_none()
+                new_env_artifact = artifact is None
+                if new_env_artifact:
+                    artifact = ln.Artifact(
+                        env_path,
+                        description="requirements.txt",
+                        visibility=0,
+                        run=False,
+                    )
+                    artifact.save(upload=True, print_progress=False)
+                run.environment = artifact
+                if new_env_artifact:
+                    logger.debug(f"saved run.environment: {run.environment}")
 
     # set finished_at
-    if finished_at:
+    if finished_at and run is not None:
         run.finished_at = datetime.now(timezone.utc)
 
     # track report and set is_consecutive
-    if report_path is not None:
-        if is_r_notebook:
-            title_text, report_path = clean_r_notebook_html(report_path)
-            if title_text is not None:
-                transform.name = title_text
-        if run.report_id is not None:
-            hash, _ = hash_file(report_path)  # ignore hash_type for now
-            if hash != run.report.hash:
-                response = input(
-                    f"You are about to overwrite an existing report (hash '{run.report.hash}') for Run('{run.uid}'). Proceed? (y/n)"
-                )
-                if response == "y":
-                    run.report.replace(report_path)
-                    run.report.save(upload=True, print_progress=False)
+    if run is not None:
+        if report_path is not None:
+            if is_r_notebook:
+                title_text, report_path = clean_r_notebook_html(report_path)
+                if title_text is not None:
+                    transform.name = title_text
+            if run.report_id is not None:
+                hash, _ = hash_file(report_path)  # ignore hash_type for now
+                if hash != run.report.hash:
+                    response = input(
+                        f"You are about to overwrite an existing report (hash '{run.report.hash}') for Run('{run.uid}'). Proceed? (y/n)"
+                    )
+                    if response == "y":
+                        run.report.replace(report_path)
+                        run.report.save(upload=True, print_progress=False)
+                    else:
+                        logger.important("keeping old report")
                 else:
-                    logger.important("keeping old report")
+                    logger.important("report is already saved")
             else:
-                logger.important("report is already saved")
-        else:
-            report_file = ln.Artifact(
-                report_path,
-                description=f"Report of run {run.uid}",
-                visibility=0,  # hidden file
-                run=False,
+                report_file = ln.Artifact(
+                    report_path,
+                    description=f"Report of run {run.uid}",
+                    visibility=0,  # hidden file
+                    run=False,
+                )
+                report_file.save(upload=True, print_progress=False)
+                run.report = report_file
+            logger.debug(
+                f"saved transform.latest_run.report: {transform.latest_run.report}"
             )
-            report_file.save(upload=True, print_progress=False)
-            run.report = report_file
-        logger.debug(
-            f"saved transform.latest_run.report: {transform.latest_run.report}"
-        )
-    run.is_consecutive = is_consecutive
+        run.is_consecutive = is_consecutive
 
-    # save both run & transform records if we arrive here
-    run.save()
+        # save both run & transform records if we arrive here
+        run.save()
     transform.save()
 
     # finalize
-    if not from_cli:
+    if not from_cli and run is not None:
         run_time = run.finished_at - run.started_at
         days = run_time.days
         seconds = run_time.seconds
