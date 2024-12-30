@@ -38,7 +38,6 @@ def prepare_notebook(
     nb,
     strip_title: bool = False,
 ) -> str | None:
-    """Strip title from the notebook if requested."""
     title_found = False
     for cell in nb.cells:
         cell.metadata.clear()  # strip cell metadata

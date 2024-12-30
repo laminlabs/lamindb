@@ -348,6 +348,7 @@ class Context:
         if path is None:
             path = get_notebook_path()
         key = Path(path).name
+        name = key.replace(".ipynb", "")
         if isinstance(path, (Path, PurePath)):
             path_str = path.as_posix()  # type: ignore
         else:
@@ -363,15 +364,10 @@ class Context:
             try:
                 nbproject_title = nbproject.meta.live.title
             except IndexError:
-                raise NotebookNotSaved(
-                    "The notebook is not saved, please save the notebook and"
-                    " rerun ``"
-                ) from None
-            if nbproject_title is None:
-                raise NoTitleError(
-                    "Please add a title to your notebook in a markdown cell: # Title"
-                ) from None
-            name = nbproject_title
+                # notebook is not saved
+                pass
+            if nbproject_title is not None:
+                name = nbproject_title
         # log imported python packages
         if not path_str.startswith("/fileId="):
             try:
