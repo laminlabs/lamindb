@@ -45,7 +45,7 @@ def get_uid_ext(version: str) -> str:
     return encodebytes(hashlib.md5(version.encode()).digest())[:4]  # noqa: S324
 
 
-def get_notebook_path():
+def get_notebook_path() -> Path:
     from nbproject.dev._jupyter_communicate import (
         notebook_path as get_notebook_path,
     )
@@ -57,7 +57,7 @@ def get_notebook_path():
         raise RuntimeError(msg_path_failed) from None
     if path is None:
         raise RuntimeError(msg_path_failed) from None
-    return path
+    return Path(path)
 
 
 # from https://stackoverflow.com/questions/61901628
@@ -77,29 +77,34 @@ def get_notebook_name_colab() -> str:
     return name.rstrip(".ipynb")
 
 
-def assign_transform_uid(filename: str) -> str:
-    transforms = Transform.filter(key__endswith=filename, is_latest=True).all()
+def assign_transform_uid_and_key(path: Path) -> tuple[str, str, Transform | None]:
+    transforms = Transform.filter(key__endswith=path.name, is_latest=True).all()
     uid = f"{base62_12()}0000"
+    key = path.name
     if len(transforms) == 0:
-        pass
-    elif len(transforms) == 1:
-        transform = transforms[0]
-        if transform.source_code is None:
-            uid = transform.uid
-        else:
-            uid = f"{transform.uid[:-4]}{increment_base62(transform.uid[-4:])}"
-            message = f"there already is a transform with filename '{filename}', making new version '{uid}'"
-            logger.important(message)
-    else:
+        return uid, key, None
+    message = ""
+    target_transform = None
+    for transform in transforms:
+        if transform.key in path.as_posix():
+            target_transform = transform
+            key = transform.key
+            if target_transform.source_code is None:
+                uid = target_transform.uid
+            else:
+                uid = f"{transform.uid[:-4]}{increment_base62(transform.uid[-4:])}"
+                message = f"there already is a transform with key '{transform.key}', creating new version '{uid}'"
+            target_transform = transform
+            break
+    if target_transform is None:
+        plural_s = "s" if len(transforms) > 1 else ""
         transforms_str = "\n".join(
             [f"    {transform.uid} {transform.key}" for transform in transforms]
         )
-        message = (
-            f"there are already multiple transforms whose keys end with filename '{filename}':\n{transforms_str}\n"
-            f'to disambiguate, run: ln.track("{uid}")'
-        )
-        raise MissingContextUID(f"✗ {message}")
-    return uid
+        message = f"ignoring transform{plural_s}: {transforms_str}\n  creating new transform '{uid}'"
+    if message != "":
+        logger.important(message)
+    return uid, key, target_transform
 
 
 def pretty_pypackages(dependencies: dict) -> str:
@@ -221,17 +226,26 @@ class Context:
         self._path = None
         if transform is None:
             if is_run_from_ipython:
-                key, name = self._track_notebook(path=path)
+                self._path, name = self._track_notebook(path_str=path)
                 transform_type = "notebook"
                 transform_ref = None
                 transform_ref_type = None
             else:
-                (name, key, transform_type, transform_ref, transform_ref_type) = (
-                    self._track_source_code(path=path)
-                )
+                (
+                    self._path,
+                    name,
+                    transform_type,
+                    transform_ref,
+                    transform_ref_type,
+                ) = self._track_source_code(path=path)
             if self.uid is None:
-                self.uid = assign_transform_uid(key)
-            transform = Transform.filter(uid=self.uid).one_or_none()
+                self.uid, key, transform = assign_transform_uid_and_key(self._path)
+            else:
+                transform = Transform.filter(uid=self.uid).one_or_none()
+                if transform is not None:
+                    key = transform.key  # type: ignore
+                else:
+                    key = self._path.name
             if self.version is not None:
                 # test inconsistent version passed
                 if (
@@ -325,7 +339,7 @@ class Context:
         self,
         *,
         path: UPathStr | None,
-    ) -> tuple[str, str, str, str, str]:
+    ) -> tuple[Path, str, str, str, str]:
         # for `.py` files, classified as "script"
         # for `.Rmd` and `.qmd` files, which we classify
         # as "notebook" because they typically come with an .html run report
@@ -341,32 +355,30 @@ class Context:
             "notebook" if self._path.suffix in {".Rmd", ".qmd"} else "script"
         )
         name = self._path.name
-        key = name
         reference = None
         reference_type = None
         if settings.sync_git_repo is not None:
             reference = get_transform_reference_from_git_repo(self._path)
             reference_type = "url"
-        return name, key, transform_type, reference, reference_type
+        return path, name, transform_type, reference, reference_type
 
     def _track_notebook(
         self,
         *,
-        path: str | None,
-    ):
-        if path is None:
+        path_str: str | None,
+    ) -> tuple[Path, str]:
+        if path_str is None:
             path = get_notebook_path()
-        key = Path(path).name
-        name = key.replace(".ipynb", "")
-        if isinstance(path, (Path, PurePath)):
-            path_str = path.as_posix()  # type: ignore
         else:
-            path_str = str(path)
+            path = Path(path_str)
+        name = path.stem
+        path_str = path.as_posix()
         if path_str.endswith("Untitled.ipynb"):
             raise RuntimeError("Please rename your notebook before tracking it")
         if path_str.startswith("/fileId="):
+            logger.warning("tracking on Google Colab is experimental")
             name = get_notebook_name_colab()
-            key = f"{name}.ipynb"
+            path_str = f"{name}.ipynb"
         else:
             import nbproject
 
@@ -377,8 +389,7 @@ class Context:
                 pass
             if nbproject_title is not None:
                 name = nbproject_title
-        # log imported python packages
-        if not path_str.startswith("/fileId="):
+            # log imported python packages
             try:
                 from nbproject.dev._pypackage import infer_pypackages
 
@@ -390,8 +401,7 @@ class Context:
             except Exception:
                 logger.debug("inferring imported packages failed")
                 pass
-        self._path = Path(path_str)
-        return key, name
+        return path, name
 
     def _create_or_load_transform(
         self,
@@ -405,8 +415,6 @@ class Context:
         transform_type: TransformType = None,
         transform: Transform | None = None,
     ):
-        stem_uid = uid[:-4]
-
         def get_key_clashing_message(transform: Transform, key: str) -> str:
             update_key_note = message_update_key_in_version_family(
                 suid=transform.stem_uid,
@@ -421,8 +429,6 @@ class Context:
 
         # make a new transform record
         if transform is None:
-            if uid is None:
-                uid = f"{stem_uid}{get_uid_ext(version)}"
             assert key is not None  # noqa: S101
             raise_update_context = False
             try:
