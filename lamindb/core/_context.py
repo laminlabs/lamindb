@@ -7,6 +7,7 @@ from pathlib import Path, PurePath
 from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
+from django.db.models import F, Func, IntegerField
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_file
 from lnschema_core import Run, Transform, ids
@@ -75,35 +76,6 @@ def get_notebook_name_colab() -> str:
         )
         name = "notebook.ipynb"
     return name.rstrip(".ipynb")
-
-
-def assign_transform_uid_and_key(path: Path) -> tuple[str, str, Transform | None]:
-    transforms = Transform.filter(key__endswith=path.name, is_latest=True).all()
-    uid = f"{base62_12()}0000"
-    key = path.name
-    if len(transforms) == 0:
-        return uid, key, None
-    message = ""
-    target_transform = None
-    for transform in transforms:
-        if transform.key in path.as_posix():
-            key = transform.key
-            if transform.source_code is None:
-                uid = transform.uid
-                target_transform = transform
-            else:
-                uid = f"{transform.uid[:-4]}{increment_base62(transform.uid[-4:])}"
-                message = f"there already is a transform with key '{transform.key}', creating new version '{uid}'"
-            break
-    if target_transform is None:
-        plural_s = "s" if len(transforms) > 1 else ""
-        transforms_str = "\n".join(
-            [f"    {transform.uid} {transform.key}" for transform in transforms]
-        )
-        message = f"ignoring transform{plural_s}: {transforms_str}\n  creating new transform '{uid}'"
-    if message != "":
-        logger.important(message)
-    return uid, key, target_transform
 
 
 def pretty_pypackages(dependencies: dict) -> str:
@@ -237,45 +209,14 @@ class Context:
                     transform_ref,
                     transform_ref_type,
                 ) = self._track_source_code(path=path)
-            if self.uid is None:
-                self.uid, key, transform = assign_transform_uid_and_key(self._path)
-            else:
-                transform = Transform.filter(uid=self.uid).one_or_none()
-                if transform is not None:
-                    key = transform.key  # type: ignore
-                else:
-                    key = self._path.name
-            if self.version is not None:
-                # test inconsistent version passed
-                if (
-                    transform is not None
-                    and transform.version is not None  # type: ignore
-                    and self.version != transform.version  # type: ignore
-                ):
-                    raise SystemExit(
-                        f"Please pass consistent version: ln.context.version = '{transform.version}'"  # type: ignore
-                    )
-                # test whether version was already used for another member of the family
-                suid, vuid = (self.uid[:-4], self.uid[-4:])
-                transform = Transform.filter(
-                    uid__startswith=suid, version=self.version
-                ).one_or_none()
-                if transform is not None and vuid != transform.uid[-4:]:
-                    better_version = bump_version_function(self.version)
-                    raise SystemExit(
-                        f"Version '{self.version}' is already taken by Transform('{transform.uid}'); please set another version, e.g., ln.context.version = '{better_version}'"
-                    )
+            # overwrite the parsed name
             if self.name is not None:
                 name = self.name
             self._create_or_load_transform(
-                uid=self.uid,
-                version=self.version,
                 name=name,
                 transform_ref=transform_ref,
                 transform_ref_type=transform_ref_type,
                 transform_type=transform_type,
-                key=key,
-                transform=transform,
             )
         else:
             if transform.type in {"notebook", "script"}:
@@ -403,14 +344,10 @@ class Context:
     def _create_or_load_transform(
         self,
         *,
-        uid: str,
-        version: str | None,
         name: str,
         transform_ref: str | None = None,
         transform_ref_type: str | None = None,
-        key: str | None = None,
         transform_type: TransformType = None,
-        transform: Transform | None = None,
     ):
         def get_key_clashing_message(transform: Transform, key: str) -> str:
             update_key_note = message_update_key_in_version_family(
@@ -420,18 +357,97 @@ class Context:
                 registry="Transform",
             )
             return (
-                f'Filename "{key}" clashes with the existing key "{transform.key}" for uid "{transform.uid[:-4]}...."\n\nEither init a new transform with a new uid:\n\n'
+                f'Filepath "{key}" clashes with the existing key "{transform.key}" for uid "{transform.uid[:-4]}...."\n\nEither init a new transform with a new uid:\n\n'
                 f'ln.track("{ids.base62_12()}0000")\n\n{update_key_note}'
             )
 
+        # the user did not pass the uid
+        if self.uid is None:
+
+            class SlashCount(Func):
+                template = "LENGTH(%(expressions)s) - LENGTH(REPLACE(%(expressions)s, '/', ''))"
+                output_field = IntegerField()
+
+            # we need to traverse from greater depth to shorter depth so that we match better matches first
+            transforms = (
+                Transform.filter(key__endswith=self._path.name, is_latest=True)
+                .annotate(slash_count=SlashCount("key"))
+                .order_by("-slash_count")
+            )
+            uid = f"{base62_12()}0000"
+            key = self._path.name
+            if len(transforms) != 0:
+                message = ""
+                target_transform = None
+                found_key = False
+                for aux_transform in transforms:
+                    if aux_transform.key in self._path.as_posix():
+                        key = aux_transform.key
+                        if aux_transform.source_code is None:
+                            uid = aux_transform.uid
+                            target_transform = aux_transform
+                        else:
+                            uid = f"{aux_transform.uid[:-4]}{increment_base62(aux_transform.uid[-4:])}"
+                            message = f"there already is a transform with key '{aux_transform.key}', creating new version '{uid}'"
+                        found_key = True
+                        break
+                if not found_key:
+                    plural_s = "s" if len(transforms) > 1 else ""
+                    transforms_str = "\n".join(
+                        [
+                            f"    {transform.uid} → {transform.key}"
+                            for transform in transforms
+                        ]
+                    )
+                    message = f"ignoring transform{plural_s} with same filename:\n{transforms_str}"
+                if message != "":
+                    logger.important(message)
+            self.uid, transform = uid, target_transform
+        # the user did pass the uid
+        else:
+            transform = Transform.filter(uid=self.uid).one_or_none()
+            if transform is not None:
+                if transform.key not in self._path.as_posix():
+                    n_parts = len(Path(transform.key).parts)
+                    last_path_elements = (
+                        Path(*self._path.parts[-n_parts:]).as_posix()
+                        if n_parts > 0
+                        else ""
+                    )
+                    raise UpdateContext(
+                        get_key_clashing_message(transform, last_path_elements)
+                    )
+                key = transform.key  # type: ignore
+            else:
+                key = self._path.name
+        if self.version is not None:
+            # test inconsistent version passed
+            if (
+                transform is not None
+                and transform.version is not None  # type: ignore
+                and self.version != transform.version  # type: ignore
+            ):
+                raise SystemExit(
+                    f"Please pass consistent version: ln.context.version = '{transform.version}'"  # type: ignore
+                )
+            # test whether version was already used for another member of the family
+            suid, vuid = (self.uid[:-4], self.uid[-4:])
+            transform = Transform.filter(
+                uid__startswith=suid, version=self.version
+            ).one_or_none()
+            if transform is not None and vuid != transform.uid[-4:]:
+                better_version = bump_version_function(self.version)
+                raise SystemExit(
+                    f"Version '{self.version}' is already taken by Transform('{transform.uid}'); please set another version, e.g., ln.context.version = '{better_version}'"
+                )
         # make a new transform record
         if transform is None:
             assert key is not None  # noqa: S101
             raise_update_context = False
             try:
                 transform = Transform(
-                    uid=uid,
-                    version=version,
+                    uid=self.uid,
+                    version=self.version,
                     name=name,
                     key=key,
                     reference=transform_ref,
