@@ -361,6 +361,7 @@ class Context:
                 f'ln.track("{ids.base62_12()}0000")\n\n{update_key_note}'
             )
 
+        revises = None
         # the user did not pass the uid
         if self.uid is None:
 
@@ -389,6 +390,7 @@ class Context:
                         else:
                             uid = f"{aux_transform.uid[:-4]}{increment_base62(aux_transform.uid[-4:])}"
                             message = f"there already is a transform with key '{aux_transform.key}', creating new version '{uid}'"
+                            revises = aux_transform
                         found_key = True
                         break
                 if not found_key:
@@ -457,11 +459,12 @@ class Context:
             except InconsistentKey:
                 raise_update_context = True
             if raise_update_context:
-                revises = (
-                    Transform.filter(uid__startswith=uid[:-4], is_latest=True)
-                    .order_by("-created_at")
-                    .first()
-                )
+                if revises is None:
+                    revises = (
+                        Transform.filter(uid__startswith=self.uid[:-4], is_latest=True)
+                        .order_by("-created_at")
+                        .first()
+                    )
                 raise UpdateContext(get_key_clashing_message(revises, key))
             self._logging_message_track += f"created Transform('{transform.uid}')"
         else:
