@@ -77,19 +77,28 @@ def get_notebook_name_colab() -> str:
     return name.rstrip(".ipynb")
 
 
-def assign_transform_uid(key: str) -> str:
-    transform = Transform.filter(key=key, is_latest=True).first()
-    if transform is None:
-        uid = f"{base62_12()}0000"
-    else:
+def assign_transform_uid(filename: str) -> str:
+    transforms = Transform.filter(key__endswith=filename, is_latest=True).all()
+    uid = f"{base62_12()}0000"
+    if len(transforms) == 0:
+        pass
+    elif len(transforms) == 1:
+        transform = transforms[0]
         if transform.source_code is None:
             uid = transform.uid
         else:
             uid = f"{transform.uid[:-4]}{increment_base62(transform.uid[-4:])}"
-            message = (
-                f"there already is a transform with key '{key}', making version '{uid}'"
-            )
+            message = f"there already is a transform with filename '{filename}', making new version '{uid}'"
             logger.important(message)
+    else:
+        transforms_str = "\n".join(
+            [f"    {transform.uid} {transform.key}" for transform in transforms]
+        )
+        message = (
+            f"there are already multiple transforms whose keys end with filename '{filename}':\n{transforms_str}\n"
+            f'to disambiguate, run: ln.track("{uid}")'
+        )
+        raise MissingContextUID(f"✗ {message}")
     return uid
 
 

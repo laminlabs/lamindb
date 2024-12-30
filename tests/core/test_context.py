@@ -128,7 +128,7 @@ def test_create_or_load_transform():
     assert context._transform.name == "updated title"
 
 
-def test_run_scripts_for_versioning():
+def test_run_scripts():
     # regular execution
     result = subprocess.run(  # noqa: S602
         f"python {SCRIPTS_DIR / 'script-to-test-versioning.py'}",
@@ -186,13 +186,30 @@ def test_run_scripts_for_versioning():
         shell=True,
         capture_output=True,
     )
-    print(result.stdout.decode())
-    print(result.stderr.decode())
+    # print(result.stdout.decode())
+    # print(result.stderr.decode())
     assert result.returncode == 1
     assert (
         "Please pass consistent version: ln.context.version = '2'"
         in result.stderr.decode()
     )
+
+    # multiple folders
+    ln.Transform.filter(key__endswith="script-to-test-versioning.py").update(
+        key="teamA/script-to-test-versioning.py"
+    )
+    ln.Transform(
+        name="Dummy title", key="teamB/script-to-test-versioning.py", type="script"
+    ).save()
+    result = subprocess.run(  # noqa: S602
+        f"python {SCRIPTS_DIR / 'duplicate4/script-to-test-versioning.py'}",
+        shell=True,
+        capture_output=True,
+    )
+    print(result.stdout.decode())
+    print(result.stderr.decode())
+    assert result.returncode == 0
+    assert "created Transform('PC0eB2QPm0jW0000')" in result.stderr.decode()
 
 
 def test_run_external_script():
