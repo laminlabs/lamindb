@@ -376,9 +376,9 @@ class Context:
             )
             uid = f"{base62_12()}0000"
             key = self._path.name
+            target_transform = None
             if len(transforms) != 0:
                 message = ""
-                target_transform = None
                 found_key = False
                 for aux_transform in transforms:
                     if aux_transform.key in self._path.as_posix():
