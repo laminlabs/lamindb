@@ -86,7 +86,9 @@ def assign_transform_uid(key: str) -> str:
             uid = transform.uid
         else:
             uid = f"{transform.uid[:-4]}{increment_base62(transform.uid[-4:])}"
-            message = f"there already is a transform with key '{key}', making revision '{uid}'"
+            message = (
+                f"there already is a transform with key '{key}', making version '{uid}'"
+            )
             logger.important(message)
     return uid
 
