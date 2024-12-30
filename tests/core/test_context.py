@@ -67,7 +67,7 @@ Here is how to create a param:
 
 def test_track_notebook_colab():
     notebook_path = "/fileId=1KskciVXleoTeS_OGoJasXZJreDU9La_l"
-    ln.context._track_notebook(path=notebook_path)
+    ln.context._track_notebook(path_str=notebook_path)
 
 
 def test_finish_before_track():
@@ -92,27 +92,19 @@ def test_invalid_transform_type():
 
 def test_create_or_load_transform():
     title = "title"
-    stem_uid = "NJvdsWWbJlZS"
-    version = "0"
-    uid = "NJvdsWWbJlZS6K79"
-    assert uid == f"{stem_uid}{get_uid_ext(version)}"
+    version = "2.0"
+    uid = "NJvdsWWbJlZS0000"
+    context.uid = uid
+    context.version = version
+    context._path = Path("my-test-transform-create-or-load.py")
     context._create_or_load_transform(
-        uid=None,
-        stem_uid=stem_uid,
-        version=version,
         name=title,
-        key="my-test-transform-create-or-load",
         transform_type="notebook",
     )
     assert context._transform.uid == uid
     assert context._transform.version == version
     assert context._transform.name == title
     context._create_or_load_transform(
-        uid=None,
-        transform=context._transform,
-        stem_uid=stem_uid,
-        key="my-test-transform-create-or-load",
-        version=version,
         name=title,
     )
     assert context._transform.uid == uid
@@ -121,28 +113,25 @@ def test_create_or_load_transform():
 
     # now, test an updated transform name
     context._create_or_load_transform(
-        uid=None,
-        transform=context._transform,
-        stem_uid=stem_uid,
-        version=version,
         name="updated title",
-        key="my-test-transform-create-or-load",
     )
     assert context._transform.uid == uid
     assert context._transform.version == version
     assert context._transform.name == "updated title"
 
 
-def test_run_scripts_for_versioning():
+def test_run_scripts():
     # regular execution
     result = subprocess.run(  # noqa: S602
         f"python {SCRIPTS_DIR / 'script-to-test-versioning.py'}",
         shell=True,
         capture_output=True,
     )
-    # print(result.stdout.decode())
     assert result.returncode == 0
-    assert "created Transform('Ro1gl7n8'), started new Run(" in result.stdout.decode()
+    assert (
+        "created Transform('Ro1gl7n8YrdH0000'), started new Run("
+        in result.stdout.decode()
+    )
 
     # updated key (filename change)
     result = subprocess.run(  # noqa: S602
@@ -150,7 +139,6 @@ def test_run_scripts_for_versioning():
         shell=True,
         capture_output=True,
     )
-    # print(result.stderr.decode())
     assert result.returncode == 1
     assert "clashes with the existing key" in result.stderr.decode()
 
@@ -160,10 +148,9 @@ def test_run_scripts_for_versioning():
         shell=True,
         capture_output=True,
     )
-    # print(result.stderr.decode())
     assert result.returncode == 1
     assert (
-        "Version '1' is already taken by Transform(uid='Ro1gl7n8YrdH0000'); please set another version, e.g., ln.context.version = '1.1'"
+        "Version '1' is already taken by Transform('Ro1gl7n8YrdH0000'); please set another version, e.g., ln.context.version = '1.1'"
         in result.stderr.decode()
     )
 
@@ -173,9 +160,11 @@ def test_run_scripts_for_versioning():
         shell=True,
         capture_output=True,
     )
-    # print(result.stdout.decode())
     assert result.returncode == 0
-    assert "created Transform('Ro1gl7n8'), started new Run(" in result.stdout.decode()
+    assert (
+        "created Transform('Ro1gl7n8YrdH0001'), started new Run("
+        in result.stdout.decode()
+    )
     assert not ln.Transform.get("Ro1gl7n8YrdH0000").is_latest
     assert ln.Transform.get("Ro1gl7n8YrdH0001").is_latest
 
@@ -185,13 +174,54 @@ def test_run_scripts_for_versioning():
         shell=True,
         capture_output=True,
     )
-    print(result.stdout.decode())
-    print(result.stderr.decode())
     assert result.returncode == 1
     assert (
         "Please pass consistent version: ln.context.version = '2'"
         in result.stderr.decode()
     )
+
+    # multiple folders, no match
+    ln.Transform.filter(key__endswith="script-to-test-versioning.py").update(
+        key="teamA/script-to-test-versioning.py"
+    )
+    # this test creates a transform with key script-to-test-versioning.py at the root level
+    result = subprocess.run(  # noqa: S602
+        f"python {SCRIPTS_DIR / 'duplicate4/script-to-test-versioning.py'}",
+        shell=True,
+        capture_output=True,
+    )
+    assert result.returncode == 0
+    assert "ignoring transform" in result.stdout.decode()
+
+    # multiple folders, match
+    transform = ln.Transform(
+        name="Dummy title", key="duplicate4/script-to-test-versioning.py", type="script"
+    ).save()
+    result = subprocess.run(  # noqa: S602
+        f"python {SCRIPTS_DIR / 'duplicate4/script-to-test-versioning.py'}",
+        shell=True,
+        capture_output=True,
+    )
+    print(result.stdout.decode())
+    print(result.stderr.decode())
+    assert result.returncode == 0
+    assert f"{transform.stem_uid}" in result.stdout.decode()
+    assert "creating new version" not in result.stdout.decode()
+
+    transform.source_code = "dummy"
+    transform.save()
+
+    # multiple folders, match and transform has saved source code
+    result = subprocess.run(  # noqa: S602
+        f"python {SCRIPTS_DIR / 'duplicate4/script-to-test-versioning.py'}",
+        shell=True,
+        capture_output=True,
+    )
+    print(result.stdout.decode())
+    print(result.stderr.decode())
+    assert result.returncode == 0
+    assert f"{transform.stem_uid}" in result.stdout.decode()
+    assert "creating new version" in result.stdout.decode()
 
 
 def test_run_external_script():
