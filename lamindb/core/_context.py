@@ -87,14 +87,13 @@ def assign_transform_uid_and_key(path: Path) -> tuple[str, str, Transform | None
     target_transform = None
     for transform in transforms:
         if transform.key in path.as_posix():
-            target_transform = transform
             key = transform.key
-            if target_transform.source_code is None:
-                uid = target_transform.uid
+            if transform.source_code is None:
+                uid = transform.uid
+                target_transform = transform
             else:
                 uid = f"{transform.uid[:-4]}{increment_base62(transform.uid[-4:])}"
                 message = f"there already is a transform with key '{transform.key}', creating new version '{uid}'"
-            target_transform = transform
             break
     if target_transform is None:
         plural_s = "s" if len(transforms) > 1 else ""
@@ -348,17 +347,15 @@ class Context:
 
             frame = inspect.stack()[2]
             module = inspect.getmodule(frame[0])
-            self._path = Path(module.__file__)
+            path = Path(module.__file__)
         else:
-            self._path = Path(path)
-        transform_type = (
-            "notebook" if self._path.suffix in {".Rmd", ".qmd"} else "script"
-        )
-        name = self._path.name
+            path = Path(path)
+        transform_type = "notebook" if path.suffix in {".Rmd", ".qmd"} else "script"
+        name = path.name
         reference = None
         reference_type = None
         if settings.sync_git_repo is not None:
-            reference = get_transform_reference_from_git_repo(self._path)
+            reference = get_transform_reference_from_git_repo(path)
             reference_type = "url"
         return path, name, transform_type, reference, reference_type
 
