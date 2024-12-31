@@ -24,7 +24,7 @@ WHERE id IN (
 class Migration(migrations.Migration):
     dependencies = [
         (
-            "lnschema_core",
+            "lamindb",
             "0062_add_is_latest_field",
         ),
     ]
@@ -34,9 +34,9 @@ class Migration(migrations.Migration):
 
 # add data migration
 for table_name, stem_uid_len in [
-    ("lnschema_core_transform", 12),
-    ("lnschema_core_artifact", 16),
-    ("lnschema_core_collection", 16),
+    ("lamindb_transform", 12),
+    ("lamindb_artifact", 16),
+    ("lamindb_collection", 16),
 ]:
     Migration.operations.append(
         migrations.RunSQL(

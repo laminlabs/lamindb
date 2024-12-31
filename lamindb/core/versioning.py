@@ -5,10 +5,11 @@ from typing import TYPE_CHECKING, Literal
 from lamin_utils import logger
 from lamin_utils._base62 import increment_base62
 from lamindb_setup.core.upath import LocalPathClasses, UPath
-from lnschema_core import ids
+
+from lamindb import ids
 
 if TYPE_CHECKING:
-    from lnschema_core.models import IsVersioned
+    from lamindb.models import IsVersioned
 
 
 def message_update_key_in_version_family(

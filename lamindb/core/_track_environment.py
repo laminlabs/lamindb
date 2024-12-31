@@ -7,7 +7,7 @@ import lamindb_setup as ln_setup
 from lamin_utils import logger
 
 if TYPE_CHECKING:
-    from lnschema_core.models import Run
+    from lamindb.models import Run
 
 
 def track_environment(run: Run) -> None:

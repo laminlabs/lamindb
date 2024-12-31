@@ -5,8 +5,6 @@ from typing import Any
 import lamindb_setup as ln_setup
 import pandas as pd
 from lamin_utils import colors, logger
-from lnschema_core.models import Artifact, Collection, Feature, FeatureSet, Record, Run
-from lnschema_core.types import FieldAttr
 from spatialdata import SpatialData
 
 from lamindb.core._data import add_labels
@@ -22,6 +20,8 @@ from lamindb.curators import (
     check_registry_organism,
     get_current_filter_kwargs,
 )
+from lamindb.models import Artifact, Collection, Feature, FeatureSet, Record, Run
+from lamindb.types import FieldAttr
 
 
 class SpatialDataCurator:

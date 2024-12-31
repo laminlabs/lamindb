@@ -12,7 +12,7 @@ docs/guide/bionty.ipynb
 docs/guide/lnschema-core.ipynb
 docs/paradisi05_laminopathic_nuclei.jpg
 bionty_docs/
-lnschema_core_docs/
+lamindb_docs/
 _build
 mydata/
 lamin-intro/

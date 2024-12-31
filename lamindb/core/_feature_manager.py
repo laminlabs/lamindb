@@ -17,22 +17,6 @@ from django.db.models import Aggregate
 from lamin_utils import colors, logger
 from lamindb_setup.core.hashing import hash_set
 from lamindb_setup.core.upath import create_path
-from lnschema_core.models import (
-    Artifact,
-    Collection,
-    Feature,
-    FeatureManager,
-    FeatureValue,
-    LinkORM,
-    Param,
-    ParamManager,
-    ParamManagerArtifact,
-    ParamManagerRun,
-    ParamValue,
-    Record,
-    Run,
-    ULabel,
-)
 from rich.table import Column, Table
 from rich.text import Text
 
@@ -52,6 +36,22 @@ from lamindb._record import (
 from lamindb._save import save
 from lamindb.core.exceptions import DoesNotExist, ValidationError
 from lamindb.core.storage import LocalPathClasses
+from lamindb.models import (
+    Artifact,
+    Collection,
+    Feature,
+    FeatureManager,
+    FeatureValue,
+    LinkORM,
+    Param,
+    ParamManager,
+    ParamManagerArtifact,
+    ParamManagerRun,
+    ParamValue,
+    Record,
+    Run,
+    ULabel,
+)
 
 from ._describe import (
     NAME_WIDTH,
@@ -68,10 +68,10 @@ from .schema import (
 )
 
 if TYPE_CHECKING:
-    from lnschema_core.types import FieldAttr
     from rich.tree import Tree
 
     from lamindb._query_set import QuerySet
+    from lamindb.types import FieldAttr
 
 
 def get_host_id_field(host: Artifact | Collection) -> str:

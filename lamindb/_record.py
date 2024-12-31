@@ -32,7 +32,8 @@ from lamindb_setup._connect_instance import (
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._hub_core import connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
-from lnschema_core.models import (
+
+from lamindb.models import (
     Artifact,
     Collection,
     Feature,
@@ -45,7 +46,7 @@ from lnschema_core.models import (
     ULabel,
     ValidateFields,
 )
-from lnschema_core.validation import FieldValidationError
+from lamindb.validation import FieldValidationError
 
 from ._utils import attach_func_to_class_method
 from .core._settings import settings
@@ -53,7 +54,8 @@ from .core.exceptions import RecordNameChangeIntegrityError, ValidationError
 
 if TYPE_CHECKING:
     import pandas as pd
-    from lnschema_core.types import ListLike, StrField
+
+    from lamindb.types import ListLike, StrField
 
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
@@ -76,7 +78,7 @@ def update_attributes(record: Record, attributes: dict[str, str]):
 
 
 def validate_fields(record: Record, kwargs):
-    from lnschema_core.validation import validate_literal_fields
+    from lamindb.validation import validate_literal_fields
 
     # validate required fields
     # a "required field" is a Django field that has `null=False, default=None`
@@ -744,7 +746,7 @@ def save(self, *args, **kwargs) -> Record:
         if hasattr(self, "labels"):
             from copy import copy
 
-            from lnschema_core.models import FeatureManager
+            from lamindb.models import FeatureManager
 
             # here we go back to original record on the source database
             self_on_db = copy(self)

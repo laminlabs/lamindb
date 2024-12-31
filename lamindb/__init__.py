@@ -60,22 +60,9 @@ def __getattr__(name):
     raise _InstanceNotSetupError()
 
 
-if _check_instance_setup(from_module="lnschema_core"):
+if _check_instance_setup(from_module="lamindb"):
     del _InstanceNotSetupError
     del __getattr__  # delete so that imports work out
-    from lnschema_core.models import (
-        Artifact,
-        Collection,
-        Feature,
-        FeatureSet,
-        Param,
-        Run,
-        Storage,
-        Transform,
-        ULabel,
-        User,
-    )
-
     from . import core  # isort: split
     from . import (
         _artifact,
@@ -97,6 +84,18 @@ if _check_instance_setup(from_module="lnschema_core"):
     from .core._context import context
     from .core._settings import settings
     from .curators import Curator
+    from .models import (
+        Artifact,
+        Collection,
+        Feature,
+        FeatureSet,
+        Param,
+        Run,
+        Storage,
+        Transform,
+        ULabel,
+        User,
+    )
 
     track = context.track  # simple access because these are so common
     finish = context.finish  # simple access because these are so common

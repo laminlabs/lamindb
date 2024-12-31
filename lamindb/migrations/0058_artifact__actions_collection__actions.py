@@ -5,18 +5,18 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lnschema_core", "0057_link_models_latest_report_and_others"),
+        ("lamindb", "0057_link_models_latest_report_and_others"),
     ]
 
     operations = [
         migrations.AddField(
             model_name="artifact",
             name="_actions",
-            field=models.ManyToManyField(related_name="+", to="lnschema_core.artifact"),
+            field=models.ManyToManyField(related_name="+", to="lamindb.artifact"),
         ),
         migrations.AddField(
             model_name="collection",
             name="_actions",
-            field=models.ManyToManyField(related_name="+", to="lnschema_core.artifact"),
+            field=models.ManyToManyField(related_name="+", to="lamindb.artifact"),
         ),
     ]

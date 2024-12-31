@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
     dependencies = [
         (
-            "lnschema_core",
+            "lamindb",
             "0061_alter_collection_meta_artifact_alter_run_environment_and_more",
         ),
     ]

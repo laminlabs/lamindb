@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
     dependencies = [
         (
-            "lnschema_core",
+            "lamindb",
             "0059_alter_artifact__accessor_alter_artifact__hash_type_and_more",
         ),
     ]
@@ -16,7 +16,7 @@ class Migration(migrations.Migration):
             model_name="artifact",
             name="_actions",
             field=models.ManyToManyField(
-                related_name="_action_targets", to="lnschema_core.artifact"
+                related_name="_action_targets", to="lamindb.artifact"
             ),
         ),
     ]

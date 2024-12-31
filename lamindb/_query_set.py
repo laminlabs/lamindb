@@ -12,7 +12,8 @@ from django.db.models import F, ForeignKey, ManyToManyField
 from django.db.models.fields.related import ForeignObjectRel
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
-from lnschema_core.models import (
+
+from lamindb.models import (
     Artifact,
     CanCurate,
     Collection,
@@ -32,7 +33,7 @@ T = TypeVar("T")
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from lnschema_core.types import ListLike, StrField
+    from lamindb.types import ListLike, StrField
 
 
 class MultipleResultsFound(Exception):

@@ -23,8 +23,9 @@ from lamindb_setup.core.upath import (
     get_stat_dir_cloud,
     get_stat_file_cloud,
 )
-from lnschema_core.models import Artifact, FeatureManager, ParamManager, Run, Storage
-from lnschema_core.types import (
+
+from lamindb.models import Artifact, FeatureManager, ParamManager, Run, Storage
+from lamindb.types import (
     VisibilityChoice,
 )
 

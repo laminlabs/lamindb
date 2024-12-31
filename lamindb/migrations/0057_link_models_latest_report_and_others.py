@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
     dependencies = [
         (
-            "lnschema_core",
+            "lamindb",
             "0056_rename_ulabel_ref_is_name_artifactulabel_label_ref_is_name_and_more",
         ),
     ]
@@ -15,15 +15,15 @@ class Migration(migrations.Migration):
     operations = [
         migrations.RunSQL(
             sql="""
-            UPDATE lnschema_core_artifact
+            UPDATE lamindb_artifact
             SET hash = SUBSTR(hash, 1, 22)
             WHERE length(hash) > 22;
 
-            UPDATE lnschema_core_collection
+            UPDATE lamindb_collection
             SET hash = SUBSTR(hash, 1, 22)
             WHERE length(hash) > 22;
 
-            UPDATE lnschema_core_featureset
+            UPDATE lamindb_featureset
             SET hash = SUBSTR(hash, 1, 22)
             WHERE length(hash) > 22;
             """,
@@ -34,7 +34,7 @@ class Migration(migrations.Migration):
             field=models.ForeignKey(
                 on_delete=django.db.models.deletion.CASCADE,
                 related_name="links_feature_set",
-                to="lnschema_core.artifact",
+                to="lamindb.artifact",
             ),
         ),
         migrations.AlterField(
@@ -43,7 +43,7 @@ class Migration(migrations.Migration):
             field=models.ForeignKey(
                 on_delete=django.db.models.deletion.PROTECT,
                 related_name="links_artifact",
-                to="lnschema_core.featureset",
+                to="lamindb.featureset",
             ),
         ),
         migrations.AlterField(
@@ -52,7 +52,7 @@ class Migration(migrations.Migration):
             field=models.ForeignKey(
                 on_delete=django.db.models.deletion.CASCADE,
                 related_name="links_ulabel",
-                to="lnschema_core.artifact",
+                to="lamindb.artifact",
             ),
         ),
         migrations.AlterField(
@@ -63,7 +63,7 @@ class Migration(migrations.Migration):
                 null=True,
                 on_delete=django.db.models.deletion.PROTECT,
                 related_name="links_artifactulabel",
-                to="lnschema_core.feature",
+                to="lamindb.feature",
             ),
         ),
         migrations.AlterField(
@@ -72,7 +72,7 @@ class Migration(migrations.Migration):
             field=models.ForeignKey(
                 on_delete=django.db.models.deletion.PROTECT,
                 related_name="links_artifact",
-                to="lnschema_core.ulabel",
+                to="lamindb.ulabel",
             ),
         ),
         migrations.AlterField(
@@ -81,7 +81,7 @@ class Migration(migrations.Migration):
             field=models.ForeignKey(
                 on_delete=django.db.models.deletion.PROTECT,
                 related_name="links_collection",
-                to="lnschema_core.artifact",
+                to="lamindb.artifact",
             ),
         ),
         migrations.AlterField(
@@ -90,7 +90,7 @@ class Migration(migrations.Migration):
             field=models.ForeignKey(
                 on_delete=django.db.models.deletion.CASCADE,
                 related_name="links_artifact",
-                to="lnschema_core.collection",
+                to="lamindb.collection",
             ),
         ),
         migrations.AlterField(
@@ -99,7 +99,7 @@ class Migration(migrations.Migration):
             field=models.ForeignKey(
                 on_delete=django.db.models.deletion.CASCADE,
                 related_name="links_feature_set",
-                to="lnschema_core.collection",
+                to="lamindb.collection",
             ),
         ),
         migrations.AlterField(
@@ -108,7 +108,7 @@ class Migration(migrations.Migration):
             field=models.ForeignKey(
                 on_delete=django.db.models.deletion.PROTECT,
                 related_name="links_collection",
-                to="lnschema_core.featureset",
+                to="lamindb.featureset",
             ),
         ),
         migrations.AlterField(
@@ -117,7 +117,7 @@ class Migration(migrations.Migration):
             field=models.ForeignKey(
                 on_delete=django.db.models.deletion.CASCADE,
                 related_name="links_ulabel",
-                to="lnschema_core.collection",
+                to="lamindb.collection",
             ),
         ),
         migrations.AlterField(
@@ -128,7 +128,7 @@ class Migration(migrations.Migration):
                 null=True,
                 on_delete=django.db.models.deletion.PROTECT,
                 related_name="links_collectionulabel",
-                to="lnschema_core.feature",
+                to="lamindb.feature",
             ),
         ),
         migrations.AlterField(
@@ -137,7 +137,7 @@ class Migration(migrations.Migration):
             field=models.ForeignKey(
                 on_delete=django.db.models.deletion.PROTECT,
                 related_name="links_collection",
-                to="lnschema_core.ulabel",
+                to="lamindb.ulabel",
             ),
         ),
         migrations.RemoveField(
@@ -211,7 +211,7 @@ class Migration(migrations.Migration):
                 null=True,
                 on_delete=django.db.models.deletion.PROTECT,
                 related_name="_source_code_of",
-                to="lnschema_core.artifact",
+                to="lamindb.artifact",
             ),
         ),
         migrations.AlterField(
@@ -338,7 +338,7 @@ class Migration(migrations.Migration):
                 null=True,
                 on_delete=django.db.models.deletion.CASCADE,
                 related_name="children",
-                to="lnschema_core.run",
+                to="lamindb.run",
             ),
         ),
         migrations.RenameField(
@@ -350,7 +350,7 @@ class Migration(migrations.Migration):
             model_name="transform",
             name="predecessors",
             field=models.ManyToManyField(
-                related_name="successors", to="lnschema_core.transform"
+                related_name="successors", to="lamindb.transform"
             ),
         ),
     ]

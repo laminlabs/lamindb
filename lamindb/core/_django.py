@@ -8,7 +8,8 @@ from django.db.models import F, OuterRef, Q, Subquery
 from django.db.models.fields.related import ForeignKey, ManyToManyField
 from django.db.models.fields.reverse_related import ManyToManyRel, ManyToOneRel
 from django.db.models.functions import JSONObject
-from lnschema_core.models import Artifact, FeatureSet, Record
+
+from lamindb.models import Artifact, FeatureSet, Record
 
 from .schema import dict_related_model_to_related_name, get_schemas_modules
 

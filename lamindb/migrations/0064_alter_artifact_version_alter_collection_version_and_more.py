@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lnschema_core", "0063_populate_latest_field"),
+        ("lamindb", "0063_populate_latest_field"),
     ]
 
     operations = [

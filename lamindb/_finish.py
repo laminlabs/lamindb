@@ -13,7 +13,7 @@ from lamindb.core.exceptions import NotebookNotSaved
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from lnschema_core import Run, Transform
+    from lamindb import Run, Transform
 
     from ._query_set import QuerySet
 
@@ -129,11 +129,10 @@ def save_context_core(
     ignore_non_consecutive: bool | None = None,
     from_cli: bool = False,
 ) -> str | None:
-    from lnschema_core.models import (
+    import lamindb as ln
+    from lamindb.models import (
         format_field_value,  # needs to come after lamindb was imported because of CLI use
     )
-
-    import lamindb as ln
 
     from .core._context import context, is_run_from_ipython
 

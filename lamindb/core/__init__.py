@@ -68,18 +68,6 @@ Modules:
 
 from lamin_utils import logger
 from lamin_utils._inspect import InspectResult
-from lnschema_core.models import (
-    CanCurate,
-    FeatureValue,
-    HasParents,
-    IsVersioned,
-    ParamValue,
-    Record,
-    Registry,
-    TracksRun,
-    TracksUpdates,
-    ValidateFields,
-)
 
 from lamindb._query_manager import QueryManager
 from lamindb._query_set import QuerySet, RecordList
@@ -92,6 +80,18 @@ from lamindb.curators import (
     DataFrameCurator,
     MuDataCurator,
     SOMACurator,
+)
+from lamindb.models import (
+    CanCurate,
+    FeatureValue,
+    HasParents,
+    IsVersioned,
+    ParamValue,
+    Record,
+    Registry,
+    TracksRun,
+    TracksUpdates,
+    ValidateFields,
 )
 
 from . import _data, datasets, exceptions, fields, loaders, subsettings, types

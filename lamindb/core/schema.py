@@ -7,7 +7,8 @@ from lamindb_setup._connect_instance import (
     load_instance_settings,
 )
 from lamindb_setup.core._settings_store import instance_settings_file
-from lnschema_core.models import Feature, FeatureSet, LinkORM, Record
+
+from lamindb.models import Feature, FeatureSet, LinkORM, Record
 
 
 def get_schemas_modules(instance: str | None) -> set[str]:

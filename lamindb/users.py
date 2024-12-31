@@ -6,7 +6,7 @@ user_id_cache = {}
 
 
 def current_user_id() -> int:
-    from lnschema_core.models import User
+    from lamindb.models import User
 
     def query_user_id():
         if ln_setup.core.django.IS_MIGRATING:

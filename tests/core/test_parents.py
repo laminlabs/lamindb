@@ -1,7 +1,7 @@
 import lamindb as ln
 import pytest
 from lamindb._parents import _add_emoji
-from lnschema_core.validation import FieldValidationError
+from lamindb.validation import FieldValidationError
 
 
 def test_view_parents():

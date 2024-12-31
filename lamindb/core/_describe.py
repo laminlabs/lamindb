@@ -8,7 +8,7 @@ from rich.text import Text
 from rich.tree import Tree
 
 if TYPE_CHECKING:
-    from lnschema_core.models import Artifact, Collection, Run
+    from lamindb.models import Artifact, Collection, Run
 
 
 def highlight_time(iso: str):

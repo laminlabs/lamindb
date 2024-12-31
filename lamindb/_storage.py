@@ -1,6 +1,7 @@
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import UPath, create_path
-from lnschema_core import Storage
+
+from lamindb import Storage
 
 
 @property  # type: ignore

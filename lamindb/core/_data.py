@@ -6,7 +6,10 @@ from typing import TYPE_CHECKING, Any
 from django.db import connections
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
-from lnschema_core.models import (
+
+from lamindb._query_set import QuerySet
+from lamindb.core._settings import settings
+from lamindb.models import (
     Artifact,
     Collection,
     Feature,
@@ -17,9 +20,6 @@ from lnschema_core.models import (
     format_field_value,
     record_repr,
 )
-
-from lamindb._query_set import QuerySet
-from lamindb.core._settings import settings
 
 from ._context import context
 from ._django import get_artifact_with_related, get_related_model
@@ -37,7 +37,7 @@ from .schema import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from lnschema_core.types import StrField
+    from lamindb.types import StrField
 
 
 WARNING_RUN_TRANSFORM = "no run & transform got linked, call `ln.track()` & re-run"

@@ -26,7 +26,8 @@ from lamin_utils import colors
 from lamindb_setup import _check_instance_setup
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import HASH_LENGTH
-from lnschema_core.fields import (
+
+from lamindb.fields import (
     BigIntegerField,
     BooleanField,
     CharField,
@@ -36,7 +37,7 @@ from lnschema_core.fields import (
     OneToOneField,
     TextField,
 )
-from lnschema_core.types import (
+from lamindb.types import (
     ArtifactType,
     FeatureDtype,
     FieldAttr,
@@ -58,13 +59,6 @@ if TYPE_CHECKING:
     from anndata import AnnData
     from lamin_utils._inspect import InspectResult
     from lamindb_setup.core.types import UPathStr
-    from lnschema_core.mocks import (
-        AnnDataAccessor,
-        BackedAccessor,
-        MappedCollection,
-        QuerySet,
-        RecordList,
-    )
     from mudata import MuData
     from pyarrow.dataset import Dataset as PyArrowDataset
     from tiledbsoma import Collection as SOMACollection
@@ -72,6 +66,13 @@ if TYPE_CHECKING:
     from upath import UPath
 
     from lamindb.core import LabelManager
+    from lamindb.mocks import (
+        AnnDataAccessor,
+        BackedAccessor,
+        MappedCollection,
+        QuerySet,
+        RecordList,
+    )
 
 
 _TRACKING_READY: bool | None = None
@@ -171,11 +172,11 @@ class TracksRun(models.Model):
     created_at: datetime = DateTimeField(auto_now_add=True, db_index=True)
     """Time of creation of record."""
     created_by: User = ForeignKey(
-        "lnschema_core.User", PROTECT, default=current_user_id, related_name="+"
+        "lamindb.User", PROTECT, default=current_user_id, related_name="+"
     )
     """Creator of record."""
     run: Run | None = ForeignKey(
-        "lnschema_core.Run", PROTECT, null=True, default=current_run, related_name="+"
+        "lamindb.Run", PROTECT, null=True, default=current_run, related_name="+"
     )
     """Last run that created or updated the record."""
 
@@ -206,7 +207,7 @@ class TracksUpdates(models.Model):
     """Time of last update to record."""
     # no default related_name below because it'd clash with the reverse accessor
     # of the .run field
-    _previous_runs: Run = models.ManyToManyField("lnschema_core.Run", related_name="+")
+    _previous_runs: Run = models.ManyToManyField("lamindb.Run", related_name="+")
     """Sequence of runs that created or updated the record."""
 
     @overload
@@ -531,7 +532,7 @@ class HasParents:
 
 RECORD_REGISTRY_EXAMPLE = """Example::
 
-        from lnschema_core import Record, fields
+        from lamindb import Record, fields
 
         # sub-classing `Record` creates a new registry
         class Experiment(Record):
@@ -2174,7 +2175,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     )
     """Actions to attach for the UI."""
     created_by: User = ForeignKey(
-        "lnschema_core.User",
+        "lamindb.User",
         PROTECT,
         default=current_user_id,
         related_name="created_artifacts",
@@ -3079,7 +3080,7 @@ class RegistryInfo:
         external_schema_fields = []
         for field in ordered_relational_fields:
             field_name = repr(field).split(": ")[1][:-1]
-            if field_name.count(".") == 1 and "lnschema_core" not in field_name:
+            if field_name.count(".") == 1 and "lamindb" not in field_name:
                 external_schema_fields.append(field)
             else:
                 core_schema_fields.append(field)

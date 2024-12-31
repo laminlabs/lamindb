@@ -7,10 +7,11 @@ from urllib.request import urlretrieve
 import anndata as ad
 import numpy as np
 import pandas as pd
-from lnschema_core import ids
 from upath import UPath
 
 from lamindb.core._settings import settings
+
+from .. import ids
 
 if TYPE_CHECKING:
     from mudata import MuData
@@ -146,7 +147,7 @@ def dir_iris_images() -> UPath:  # pragma: no cover
     This is why on the UI, the artifact shows up as output of the downstream
     demo notebook rather than the upstream curation notebook. The lineage
     information should still be captured by
-    https://github.com/laminlabs/lnschema-core/blob/a90437e91dfbd6b9002f18c3e978bd0f9c9a632d/lnschema_core/models.py#L2050-L2052
+    https://github.com/laminlabs/lnschema-core/blob/a90437e91dfbd6b9002f18c3e978bd0f9c9a632d/lamindb/models.py#L2050-L2052
     but we don't use this in the UI yet.
     """
     return UPath("s3://lamindata/iris_studies")

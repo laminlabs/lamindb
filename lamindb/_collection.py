@@ -13,12 +13,13 @@ import pandas as pd
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import hash_set
-from lnschema_core.models import (
+
+from lamindb.models import (
     Collection,
     CollectionArtifact,
     FeatureSet,
 )
-from lnschema_core.types import VisibilityChoice
+from lamindb.types import VisibilityChoice
 
 from . import Artifact, Run
 from ._parents import view_lineage

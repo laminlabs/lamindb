@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 from lamin_utils import colors, logger
 from lamindb_setup import settings
 from lamindb_setup._init_instance import get_schema_module_name
-from lnschema_core import Feature, Record
 
+from lamindb import Feature, Record
 from lamindb.core import FeatureValue, ParamValue
 
 from ._feature import convert_pandas_dtype_to_lamin_dtype

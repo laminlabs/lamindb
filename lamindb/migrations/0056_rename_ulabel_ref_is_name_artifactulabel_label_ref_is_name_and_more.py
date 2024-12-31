@@ -5,7 +5,7 @@ from django.db import migrations
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lnschema_core", "0055_artifact_type_artifactparamvalue_and_more"),
+        ("lamindb", "0055_artifact_type_artifactparamvalue_and_more"),
     ]
 
     operations = [
