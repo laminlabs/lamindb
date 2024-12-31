@@ -9,7 +9,7 @@ from django.core.exceptions import FieldDoesNotExist
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 
-from lamindb import CanCurate, Record
+from lamindb.models import CanCurate, Record
 
 from ._from_values import _format_values, _has_organism_field, get_or_create_records
 from ._record import _queryset, get_name_field

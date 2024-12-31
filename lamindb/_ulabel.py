@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import lamindb_setup as ln_setup
 from lamindb_setup.core._docs import doc_args
 
-from lamindb import ULabel
+from lamindb.models import ULabel
 
 from ._utils import attach_func_to_class_method
 

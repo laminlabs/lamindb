@@ -61,8 +61,7 @@ def __getattr__(name):
 
 
 if _check_instance_setup(from_module="lamindb"):
-    del _InstanceNotSetupError
-    del __getattr__  # delete so that imports work out
+    del __getattr__  # so that imports work out
     from . import core  # isort: split
     from . import (
         _artifact,
@@ -97,9 +96,8 @@ if _check_instance_setup(from_module="lamindb"):
         User,
     )
 
-    track = context.track  # simple access because these are so common
-    finish = context.finish  # simple access because these are so common
-    Curate = Curator  # backward compat
+    track = context.track  # simple access
+    finish = context.finish  # simple access
     settings.__doc__ = """Global settings (:class:`~lamindb.core.Settings`)."""
     context.__doc__ = """Global run context (:class:`~lamindb.core.Context`).
 

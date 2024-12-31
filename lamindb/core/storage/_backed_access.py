@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from anndata._io.specs.registry import get_spec
 
-from lamindb import Artifact
+from lamindb.models import Artifact
 
 from ._anndata_accessor import AnnDataAccessor, StorageType, registry
 from ._pyarrow_dataset import _is_pyarrow_dataset, _open_pyarrow_dataset

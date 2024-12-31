@@ -1,7 +1,7 @@
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import UPath, create_path
 
-from lamindb import Storage
+from lamindb.models import Storage
 
 
 @property  # type: ignore

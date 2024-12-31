@@ -10,8 +10,7 @@ import pandas as pd
 from upath import UPath
 
 from lamindb.core._settings import settings
-
-from .. import ids
+from lamindb.ids import base62
 
 if TYPE_CHECKING:
     from mudata import MuData
@@ -482,11 +481,11 @@ def dir_scrnaseq_cellranger(
         fastqdir.mkdir(parents=True, exist_ok=True)
         fastqfile1 = fastqdir / f"{sample_name}_R1_001.fastq.gz"
         with open(fastqfile1, "w") as f:
-            f.write(f"{ids.base62(n_char=6)}")
+            f.write(f"{base62(n_char=6)}")
         fastqfile2 = fastqdir / f"{sample_name}_R2_001.fastq.gz"
         fastqfile2.touch(exist_ok=True)
         with open(fastqfile2, "w") as f:
-            f.write(f"{ids.base62(n_char=6)}")
+            f.write(f"{base62(n_char=6)}")
 
     sampledir = basedir / f"{sample_name}"
     for folder in ["raw_feature_bc_matrix", "filtered_feature_bc_matrix", "analysis"]:
@@ -512,7 +511,7 @@ def dir_scrnaseq_cellranger(
     ]:
         file = sampledir / filename
         with open(file, "w") as f:
-            f.write(f"{ids.base62(n_char=6)}")
+            f.write(f"{base62(n_char=6)}")
 
     return sampledir
 

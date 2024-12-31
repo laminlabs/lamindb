@@ -13,7 +13,7 @@ from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import UPath
 
-from lamindb import (
+from lamindb.models import (
     Artifact,
     Feature,
     FeatureSet,

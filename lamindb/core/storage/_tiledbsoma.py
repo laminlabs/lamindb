@@ -11,7 +11,7 @@ from lamindb_setup.core._settings_storage import get_storage_region
 from lamindb_setup.core.upath import LocalPathClasses, create_path
 from packaging import version
 
-from lamindb import Artifact, Run
+from lamindb.models import Artifact, Run
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr

@@ -11,9 +11,9 @@ from django.db.models import F, Func, IntegerField
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_file
 
-from lamindb import Run, Transform, ids
+from lamindb import ids
 from lamindb.ids import base62_12
-from lamindb.models import format_field_value
+from lamindb.models import Run, Transform, format_field_value
 
 from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo

@@ -8,7 +8,8 @@ from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import hash_set
 
-from lamindb import Feature, FeatureSet, Record, ids
+from lamindb import ids
+from lamindb.models import Feature, FeatureSet, Record
 from lamindb.types import FieldAttr, ListLike
 
 from ._feature import convert_pandas_dtype_to_lamin_dtype

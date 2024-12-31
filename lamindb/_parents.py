@@ -6,8 +6,15 @@ from typing import TYPE_CHECKING, Literal
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 
-from lamindb import Artifact, Collection, Record, Run, Transform
-from lamindb.models import HasParents, format_field_value
+from lamindb.models import (
+    Artifact,
+    Collection,
+    HasParents,
+    Record,
+    Run,
+    Transform,
+    format_field_value,
+)
 
 from ._record import get_name_field
 from ._utils import attach_func_to_class_method
