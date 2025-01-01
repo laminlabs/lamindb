@@ -779,6 +779,8 @@ class Registry(ModelBase):
     def __get_schema_name__(cls) -> str:
         schema_module_name = cls.__module__.split(".")[0]
         schema_name = schema_module_name.replace("lnschema_", "")
+        if schema_name == "lamindb":
+            schema_name = "core"
         return schema_name
 
     def __get_name_with_schema__(cls) -> str:
