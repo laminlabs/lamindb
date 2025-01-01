@@ -45,9 +45,6 @@ Modules and settings.
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
 __version__ = "0.77.3"
 
-import os as _os
-
-import lamindb_setup as _lamindb_setup
 from lamindb_setup._check_setup import InstanceNotSetupError as _InstanceNotSetupError
 from lamindb_setup._check_setup import _check_instance_setup
 from lamindb_setup._connect_instance import connect
