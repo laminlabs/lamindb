@@ -49,7 +49,6 @@ def lint(session: nox.Session) -> None:
 @nox.session
 def install(session):
     base_deps = [
-        "./sub/lnschema-core",
         "./sub/lamin-cli",
         "./sub/lamindb-setup",
         "./sub/bionty",
@@ -151,7 +150,7 @@ def install_ci(session, group):
     # installing this after lamindb to be sure that these packages won't be reinstaled
     # during lamindb installation
     if IS_PR or group == "docs":
-        cmd = "uv pip install --system --no-deps ./sub/lamindb-setup ./sub/lnschema-core ./sub/lamin-cli"
+        cmd = "uv pip install --system --no-deps ./sub/lamindb-setup ./sub/lamin-cli"
         run(session, cmd)
         if "bionty" in extras:
             run(
