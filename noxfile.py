@@ -139,7 +139,7 @@ def install_ci(session, group):
         )
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab ./sub/clinicore ./sub/cellregistry ./sub/ourprojects",
+            "uv pip install --system --no-deps ./sub/wetlab ./sub/clinicore ./sub/ourprojects",
         )
     elif group == "cli":
         extras += "jupyter,bionty"
@@ -238,7 +238,7 @@ def docs(session):
                 path.rename(f"./docs/{path.name}")
     run(
         session,
-        "lamin init --storage ./docsbuild --schema bionty,wetlab,clinicore,ourprojects,cellregistry",
+        "lamin init --storage ./docsbuild --schema bionty,wetlab,clinicore,ourprojects",
     )
 
     def generate_cli_docs():
