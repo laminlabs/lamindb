@@ -52,12 +52,6 @@ def get_or_create_records(
             if from_source:
                 if isinstance(source, Record):
                     source_record = source
-                elif (
-                    len(records) > 0
-                    and hasattr(records[0], "source_id")
-                    and records[0].source_id
-                ):
-                    source_record = records[0].source
             if not source_record and hasattr(registry, "public"):
                 if organism is None:
                     organism = _ensembl_prefix(nonexist_values[0], field, organism)
