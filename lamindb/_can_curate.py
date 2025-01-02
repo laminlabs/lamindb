@@ -18,10 +18,10 @@ from .core.exceptions import ValidationError
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
-    from lamidb.base.types import ListLike, StrField
     from lamin_utils._inspect import InspectResult
 
     from lamindb._query_set import RecordList
+    from lamindb.base.types import ListLike, StrField
 
 
 # from_values doesn't apply for QuerySet or Manager

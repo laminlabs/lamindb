@@ -11,9 +11,6 @@ import lamindb_setup as ln_setup
 import pandas as pd
 from anndata import AnnData
 from django.db.models import Q
-from lamidb.base.types import (
-    VisibilityChoice,
-)
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage_in_instance
@@ -27,6 +24,9 @@ from lamindb_setup.core.upath import (
     get_stat_file_cloud,
 )
 
+from lamindb.base.types import (
+    VisibilityChoice,
+)
 from lamindb.models import Artifact, FeatureManager, ParamManager, Run, Storage
 
 from ._parents import view_lineage

@@ -22,15 +22,6 @@ from django.db.models.fields.related import (
     ManyToManyRel,
     ManyToOneRel,
 )
-from lamidb.base.types import (
-    ArtifactType,
-    FeatureDtype,
-    FieldAttr,
-    ListLike,
-    StrField,
-    TransformType,
-    VisibilityChoice,
-)
 from lamin_utils import colors
 from lamindb_setup import _check_instance_setup
 from lamindb_setup.core._docs import doc_args
@@ -46,6 +37,15 @@ from lamindb.base.fields import (
     OneToOneField,
     TextField,
 )
+from lamindb.base.types import (
+    ArtifactType,
+    FeatureDtype,
+    FieldAttr,
+    ListLike,
+    StrField,
+    TransformType,
+    VisibilityChoice,
+)
 
 from .ids import base62_8, base62_12, base62_20
 from .users import current_user_id
@@ -57,13 +57,6 @@ if TYPE_CHECKING:
     import numpy as np
     import pandas as pd
     from anndata import AnnData
-    from lamidb.base.mocks import (
-        AnnDataAccessor,
-        BackedAccessor,
-        MappedCollection,
-        QuerySet,
-        RecordList,
-    )
     from lamin_utils._inspect import InspectResult
     from lamindb_setup.core.types import UPathStr
     from mudata import MuData
@@ -72,6 +65,13 @@ if TYPE_CHECKING:
     from tiledbsoma import Experiment as SOMAExperiment
     from upath import UPath
 
+    from lamindb.base.mocks import (
+        AnnDataAccessor,
+        BackedAccessor,
+        MappedCollection,
+        QuerySet,
+        RecordList,
+    )
     from lamindb.core import LabelManager
 
 

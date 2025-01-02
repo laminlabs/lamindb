@@ -29,10 +29,11 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from typing import Any
 
-    from lamidb.base.types import FieldAttr
     from lamindb_setup.core.types import UPathStr
     from mudata import MuData
     from spatialdata import SpatialData
+
+    from lamindb.base.types import FieldAttr
 
     from ._spatial import SpatialDataCurator
 

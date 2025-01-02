@@ -33,7 +33,7 @@ T = TypeVar("T")
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from lamidb.base.types import ListLike, StrField
+    from lamindb.base.types import ListLike, StrField
 
 
 class MultipleResultsFound(Exception):

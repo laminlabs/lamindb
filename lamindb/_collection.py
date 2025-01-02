@@ -10,11 +10,11 @@ from typing import (
 import anndata as ad
 import lamindb_setup as ln_setup
 import pandas as pd
-from lamidb.base.types import VisibilityChoice
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import hash_set
 
+from lamindb.base.types import VisibilityChoice
 from lamindb.models import (
     Collection,
     CollectionArtifact,

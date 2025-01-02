@@ -4,10 +4,10 @@ from typing import Any
 
 import lamindb_setup as ln_setup
 import pandas as pd
-from lamidb.base.types import FieldAttr
 from lamin_utils import colors, logger
 from spatialdata import SpatialData
 
+from lamindb.base.types import FieldAttr
 from lamindb.core._data import add_labels
 from lamindb.core._feature_manager import parse_feature_sets_from_anndata
 from lamindb.core._settings import settings

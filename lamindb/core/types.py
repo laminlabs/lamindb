@@ -19,7 +19,9 @@ Basic types.
    ListLike
 """
 
-from lamidb.base.types import (
+from lamindb_setup.core.types import UPathStr
+
+from lamindb.base.types import (
     ArtifactType,
     FeatureDtype,
     FieldAttr,
@@ -27,4 +29,3 @@ from lamidb.base.types import (
     StrField,
     TransformType,
 )
-from lamindb_setup.core.types import UPathStr

@@ -7,9 +7,9 @@ from urllib.request import urlretrieve
 import anndata as ad
 import numpy as np
 import pandas as pd
-from lamidb.base.ids import base62
 from upath import UPath
 
+from lamindb.base.ids import base62
 from lamindb.core._settings import settings
 
 if TYPE_CHECKING:

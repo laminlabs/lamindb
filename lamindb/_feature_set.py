@@ -4,12 +4,12 @@ from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
 import numpy as np
-from lamidb.base.types import FieldAttr, ListLike
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import hash_set
 
 from lamindb.base import ids
+from lamindb.base.types import FieldAttr, ListLike
 from lamindb.models import Feature, FeatureSet, Record
 
 from ._feature import convert_pandas_dtype_to_lamin_dtype

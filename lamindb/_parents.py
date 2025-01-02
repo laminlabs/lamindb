@@ -20,8 +20,7 @@ from ._record import get_name_field
 from ._utils import attach_func_to_class_method
 
 if TYPE_CHECKING:
-    from lamidb.base.types import StrField
-
+    from lamindb.base.types import StrField
     from lamindb.core import QuerySet
 
 LAMIN_GREEN_LIGHTER = "#10b981"

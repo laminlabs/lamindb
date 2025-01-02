@@ -68,10 +68,10 @@ from .schema import (
 )
 
 if TYPE_CHECKING:
-    from lamidb.base.types import FieldAttr
     from rich.tree import Tree
 
     from lamindb._query_set import QuerySet
+    from lamindb.base.types import FieldAttr
 
 
 def get_host_id_field(host: Artifact | Collection) -> str:
