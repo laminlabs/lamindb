@@ -1,11 +1,11 @@
-import lamindb_setup as ln_setup
-from lamindb_setup import settings
-from lamindb_setup._init_instance import register_user
-
 user_id_cache = {}
 
 
 def current_user_id() -> int:
+    import lamindb_setup as ln_setup
+    from lamindb_setup import settings
+    from lamindb_setup._init_instance import register_user
+
     from lamindb.models import User
 
     def query_user_id():

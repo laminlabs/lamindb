@@ -37,8 +37,9 @@ from lamindb.base.fields import (
     OneToOneField,
     TextField,
 )
-from lamindb.base.ids import base62_8, base62_12, base62_20
-from lamindb.base.types import (
+
+from .base.ids import base62_8, base62_12, base62_20
+from .base.types import (
     ArtifactType,
     FeatureDtype,
     FieldAttr,
@@ -47,7 +48,7 @@ from lamindb.base.types import (
     TransformType,
     VisibilityChoice,
 )
-from lamindb.base.users import current_user_id
+from .base.users import current_user_id
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -64,14 +65,8 @@ if TYPE_CHECKING:
     from tiledbsoma import Experiment as SOMAExperiment
     from upath import UPath
 
-    from lamindb.base.mocks import (
-        AnnDataAccessor,
-        BackedAccessor,
-        MappedCollection,
-        QuerySet,
-        RecordList,
-    )
-    from lamindb.core import LabelManager
+    from lamindb.core import LabelManager, MappedCollection, QuerySet, RecordList
+    from lamindb.core.storage import AnnDataAccessor, BackedAccessor
 
 
 _TRACKING_READY: bool | None = None
