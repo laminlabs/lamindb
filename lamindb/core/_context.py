@@ -10,9 +10,10 @@ import lamindb_setup as ln_setup
 from django.db.models import F, Func, IntegerField
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_file
-from lnschema_core import Run, Transform, ids
-from lnschema_core.ids import base62_12
-from lnschema_core.models import format_field_value
+
+from lamindb.base import ids
+from lamindb.base.ids import base62_12
+from lamindb.models import Run, Transform, format_field_value
 
 from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo
@@ -30,7 +31,8 @@ from .versioning import increment_base62, message_update_key_in_version_family
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
-    from lnschema_core.types import TransformType
+
+    from lamindb.base.types import TransformType
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 

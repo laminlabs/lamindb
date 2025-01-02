@@ -5,15 +5,22 @@ from typing import TYPE_CHECKING, Literal
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger
-from lnschema_core import Artifact, Collection, Record, Run, Transform
-from lnschema_core.models import HasParents, format_field_value
+
+from lamindb.models import (
+    Artifact,
+    Collection,
+    HasParents,
+    Record,
+    Run,
+    Transform,
+    format_field_value,
+)
 
 from ._record import get_name_field
 from ._utils import attach_func_to_class_method
 
 if TYPE_CHECKING:
-    from lnschema_core.types import StrField
-
+    from lamindb.base.types import StrField
     from lamindb.core import QuerySet
 
 LAMIN_GREEN_LIGHTER = "#10b981"

@@ -20,7 +20,8 @@ Basic types.
 """
 
 from lamindb_setup.core.types import UPathStr
-from lnschema_core.types import (
+
+from lamindb.base.types import (
     ArtifactType,
     FeatureDtype,
     FieldAttr,

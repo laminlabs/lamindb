@@ -36,7 +36,7 @@ jobs:
           filters: |
             curator:
               - 'lamindb/curators/**'
-              - 'tests/core/test_curator.py'
+              - 'tests/curators/test_curator.py'
 
       - uses: actions/setup-python@v5
         if: ${{ matrix.group != 'curator' || steps.changes.outputs.curator == 'true' }}

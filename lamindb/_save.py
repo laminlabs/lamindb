@@ -13,7 +13,8 @@ from django.db import IntegrityError, transaction
 from django.utils.functional import partition
 from lamin_utils import logger
 from lamindb_setup.core.upath import LocalPathClasses
-from lnschema_core.models import Artifact, Record
+
+from lamindb.models import Artifact, Record
 
 from .core._settings import settings
 from .core.storage.paths import (

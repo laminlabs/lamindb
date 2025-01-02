@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from lnschema_core.models import ParamManager, Run, Transform
+from lamindb.models import ParamManager, Run, Transform
 
 
 def __init__(run: Run, *args, **kwargs):

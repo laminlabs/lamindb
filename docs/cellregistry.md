@@ -1,5 +1,3 @@
 # `cellregistry`
 
-```{eval-rst}
-.. automodule:: cellregistry
-```
+Place holder.

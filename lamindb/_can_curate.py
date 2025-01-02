@@ -8,7 +8,8 @@ import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
-from lnschema_core import CanCurate, Record
+
+from lamindb.models import CanCurate, Record
 
 from ._from_values import _format_values, _has_organism_field, get_or_create_records
 from ._record import _queryset, get_name_field
@@ -18,9 +19,9 @@ from .core.exceptions import ValidationError
 if TYPE_CHECKING:
     from django.db.models import QuerySet
     from lamin_utils._inspect import InspectResult
-    from lnschema_core.types import ListLike, StrField
 
     from lamindb._query_set import RecordList
+    from lamindb.base.types import ListLike, StrField
 
 
 # from_values doesn't apply for QuerySet or Manager

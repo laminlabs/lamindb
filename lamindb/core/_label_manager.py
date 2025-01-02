@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 from django.db import connections
 from lamin_utils import logger
-from lnschema_core.models import CanCurate, Feature
 from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
@@ -19,6 +18,7 @@ from lamindb._record import (
     transfer_to_default_db,
 )
 from lamindb._save import save
+from lamindb.models import CanCurate, Feature
 
 from ._describe import (
     NAME_WIDTH,
@@ -32,9 +32,8 @@ from ._settings import settings
 from .schema import dict_related_model_to_related_name
 
 if TYPE_CHECKING:
-    from lnschema_core.models import Artifact, Collection, Record
-
     from lamindb._query_set import QuerySet
+    from lamindb.models import Artifact, Collection, Record
 
 EXCLUDE_LABELS = {"feature_sets"}
 

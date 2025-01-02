@@ -5,16 +5,16 @@ from typing import TYPE_CHECKING
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from lamin_utils import colors, logger
-from lnschema_core.models import Record
 
 from lamindb._query_set import RecordList
+from lamindb.models import Record
 
 from .core._settings import settings
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from lnschema_core.types import ListLike, StrField
+    from lamindb.base.types import ListLike, StrField
 
 
 # The base function for `from_values`

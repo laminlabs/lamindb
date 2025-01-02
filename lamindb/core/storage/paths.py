@@ -14,9 +14,9 @@ from lamindb_setup.core.upath import (
     create_path,
     infer_filesystem,
 )
-from lnschema_core.models import Artifact, Storage
 
 from lamindb.core._settings import settings
+from lamindb.models import Artifact, Storage
 
 if TYPE_CHECKING:
     from pathlib import Path

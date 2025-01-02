@@ -13,14 +13,14 @@ import pandas as pd
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import hash_set
-from lnschema_core.models import (
+
+from lamindb.base.types import VisibilityChoice
+from lamindb.models import (
     Collection,
     CollectionArtifact,
     FeatureSet,
 )
-from lnschema_core.types import VisibilityChoice
 
-from . import Artifact, Run
 from ._parents import view_lineage
 from ._record import init_self_from_db, update_attributes
 from ._utils import attach_func_to_class_method
@@ -35,6 +35,7 @@ from .core._data import (
 from .core._mapped_collection import MappedCollection
 from .core._settings import settings
 from .core.versioning import process_revises
+from .models import Artifact, Run
 
 if TYPE_CHECKING:
     from collections.abc import Iterable

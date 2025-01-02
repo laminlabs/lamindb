@@ -12,7 +12,8 @@ import pyarrow as pa
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import UPath
-from lnschema_core import (
+
+from lamindb.models import (
     Artifact,
     Feature,
     FeatureSet,
@@ -29,9 +30,10 @@ if TYPE_CHECKING:
     from typing import Any
 
     from lamindb_setup.core.types import UPathStr
-    from lnschema_core.types import FieldAttr
     from mudata import MuData
     from spatialdata import SpatialData
+
+    from lamindb.base.types import FieldAttr
 
     from ._spatial import SpatialDataCurator
 

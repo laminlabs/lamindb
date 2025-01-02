@@ -3,7 +3,8 @@ from __future__ import annotations
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 from lamindb_setup.core.upath import UPath
-from lnschema_core.models import IsVersioned
+
+from lamindb.models import IsVersioned
 
 from ._utils import attach_func_to_class_method
 from .core.versioning import create_uid, get_new_path_from_uid

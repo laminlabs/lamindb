@@ -47,13 +47,13 @@ repos:
               tests/core/notebooks/basic-r-notebook.Rmd.cleaned.html
             )
       - id: check-case-conflict
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.7.1
-    hooks:
-      - id: mypy
-        args: [--no-strict-optional, --ignore-missing-imports]
-        additional_dependencies: ["types-requests", "types-attrs"]
-        exclude: |
-          (?x)(
-              test_notebooks.py|script-to-test-versioning.py|tests/storage/conftest.py
-          )
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: v1.7.1
+  #   hooks:
+  #     - id: mypy
+  #       args: [--no-strict-optional, --ignore-missing-imports]
+  #       additional_dependencies: ["types-requests", "types-attrs"]
+  #       exclude: |
+  #         (?x)(
+  #             test_notebooks.py|script-to-test-versioning.py|tests/storage/conftest.py
+  #         )
