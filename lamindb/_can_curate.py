@@ -149,6 +149,11 @@ def _inspect(
     registry = queryset.model
     model_name = registry._meta.model.__name__
 
+    # do not inspect synonyms if the field is not name field
+    inspect_synonyms = True
+    if hasattr(registry, "_name_field") and field != registry._name_field:
+        inspect_synonyms = False
+
     # inspect in the DB
     result_db = inspect(
         df=_filter_query_based_on_organism(
@@ -157,13 +162,14 @@ def _inspect(
         identifiers=values,
         field=field,
         mute=mute,
+        inspect_synonyms=inspect_synonyms,
     )
     nonval = set(result_db.non_validated).difference(result_db.synonyms_mapper.keys())
 
     if len(nonval) > 0 and registry.__get_schema_name__() == "bionty":
         try:
             bionty_result = registry.public(organism=organism, source=source).inspect(
-                values=nonval, field=field, mute=True
+                values=nonval, field=field, mute=True, inspect_synonyms=inspect_synonyms
             )
             bionty_validated = bionty_result.validated
             bionty_mapper = bionty_result.synonyms_mapper

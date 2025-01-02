@@ -230,7 +230,16 @@ def create_records_from_source(
     bionty_df = filter_bionty_df_columns(model=model, public_ontology=public_ontology)
 
     # standardize in the bionty reference
-    result = public_ontology.inspect(iterable_idx, field=field.field.name, mute=True)
+    # do not inspect synonyms if the field is not name field
+    inspect_synonyms = True
+    if hasattr(model, "_name_field") and field.field.name != model._name_field:
+        inspect_synonyms = False
+    result = public_ontology.inspect(
+        iterable_idx,
+        field=field.field.name,
+        mute=True,
+        inspect_synonyms=inspect_synonyms,
+    )
     syn_mapper = result.synonyms_mapper
 
     msg_syn: str = ""
