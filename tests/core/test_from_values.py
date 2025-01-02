@@ -118,3 +118,16 @@ def test_from_values_synonyms_aware():
     assert isinstance(records[0].source, bt.Source)
     assert records[0].ontology_id == "CL:0000084"
     bt.CellType.filter().all().delete()
+
+
+def test_standardize():
+    # only name field can be standardized
+    results = bt.Gene.from_values(
+        ["HES4", "TNFRSF4"], field=bt.Gene.ensembl_gene_id, organism="human"
+    )
+    assert len(results) == 0
+
+    results = bt.Gene.from_values(
+        ["HES4", "TNFRSF4"], field=bt.Gene.symbol, organism="human"
+    )
+    assert len(results) == 2
