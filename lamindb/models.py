@@ -37,6 +37,7 @@ from lamindb.base.fields import (
     OneToOneField,
     TextField,
 )
+from lamindb.base.ids import base62_8, base62_12, base62_20
 from lamindb.base.types import (
     ArtifactType,
     FeatureDtype,
@@ -46,9 +47,7 @@ from lamindb.base.types import (
     TransformType,
     VisibilityChoice,
 )
-
-from .ids import base62_8, base62_12, base62_20
-from .users import current_user_id
+from lamindb.base.users import current_user_id
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
