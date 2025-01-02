@@ -60,6 +60,20 @@ def test_registry__repr__artifact():
         .input_of_runs: Run
         .feature_sets: FeatureSet
         .collections: Collection
+      Bionty fields
+        .organisms: bionty.Organism
+        .genes: bionty.Gene
+        .proteins: bionty.Protein
+        .cell_markers: bionty.CellMarker
+        .tissues: bionty.Tissue
+        .cell_types: bionty.CellType
+        .diseases: bionty.Disease
+        .cell_lines: bionty.CellLine
+        .phenotypes: bionty.Phenotype
+        .pathways: bionty.Pathway
+        .experimental_factors: bionty.ExperimentalFactor
+        .developmental_stages: bionty.DevelopmentalStage
+        .ethnicities: bionty.Ethnicity
     """).strip()
 
     actual_repr = _strip_ansi(repr(artifact))
