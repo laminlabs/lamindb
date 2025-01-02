@@ -200,7 +200,7 @@ def _inspect(
                     f" {colors.italic('.from_values()')}"
                 )
 
-            nonval = bionty_result.non_validated
+            nonval = [i for i in bionty_result.non_validated if i not in bionty_mapper]
         # no bionty source is found
         except ValueError:
             logger.warning("no Bionty source found, skipping Bionty validation")
