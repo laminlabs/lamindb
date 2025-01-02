@@ -185,13 +185,13 @@ def test_using():
     # cross-database query
     cell_types = bt.CellType.using("laminlabs/lamindata").lookup()
     assert (
-        ln.Artifact.using("laminlabs/cellxgene")
+        ln.Artifact.using("laminlabs/lamindata")
         .filter(cell_types=cell_types.t_cell)
         .first()
         is not None
     )
     assert (
-        ln.Artifact.using("laminlabs/cellxgene")
+        ln.Artifact.using("laminlabs/lamindata")
         .filter(cell_types__in=[cell_types.t_cell])
         .first()
         is not None
