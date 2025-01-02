@@ -10,7 +10,7 @@ from lamindb.models import ULabel
 from ._utils import attach_func_to_class_method
 
 if TYPE_CHECKING:
-    from lamindb.types import ListLike
+    from lamidb.base.types import ListLike
 
 
 def __init__(self, *args, **kwargs):

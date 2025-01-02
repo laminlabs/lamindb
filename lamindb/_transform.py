@@ -13,7 +13,7 @@ from .core.exceptions import InconsistentKey
 from .core.versioning import message_update_key_in_version_family, process_revises
 
 if TYPE_CHECKING:
-    from lamindb.types import TransformType
+    from lamidb.base.types import TransformType
 
 
 def __init__(transform: Transform, *args, **kwargs):

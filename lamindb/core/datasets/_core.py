@@ -7,10 +7,10 @@ from urllib.request import urlretrieve
 import anndata as ad
 import numpy as np
 import pandas as pd
+from lamidb.base.ids import base62
 from upath import UPath
 
 from lamindb.core._settings import settings
-from lamindb.ids import base62
 
 if TYPE_CHECKING:
     from mudata import MuData

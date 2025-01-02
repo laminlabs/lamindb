@@ -4,13 +4,13 @@ from typing import TYPE_CHECKING, Any, Literal, get_args
 
 import lamindb_setup as ln_setup
 import pandas as pd
+from lamidb.base.types import FeatureDtype
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from pandas.api.types import CategoricalDtype, is_string_dtype
 
 from lamindb.core.exceptions import ValidationError
 from lamindb.models import Artifact, Feature, Record
-from lamindb.types import FeatureDtype
 
 from ._query_set import RecordList
 from ._utils import attach_func_to_class_method
@@ -20,9 +20,8 @@ from .core.schema import dict_schema_name_to_model_name
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from lamidb.base.types import FieldAttr
     from pandas.core.dtypes.base import ExtensionDtype
-
-    from lamindb.types import FieldAttr
 
 
 FEATURE_DTYPES = set(get_args(FeatureDtype))

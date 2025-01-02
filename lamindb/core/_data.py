@@ -37,7 +37,7 @@ from .schema import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from lamindb.types import StrField
+    from lamidb.base.types import StrField
 
 
 WARNING_RUN_TRANSFORM = "no run & transform got linked, call `ln.track()` & re-run"

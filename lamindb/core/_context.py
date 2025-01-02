@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
 from django.db.models import F, Func, IntegerField
+from lamidb.base.ids import base62_12
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_file
 
-from lamindb import ids
-from lamindb.ids import base62_12
+from lamindb.base import ids
 from lamindb.models import Run, Transform, format_field_value
 
 from ._settings import settings
@@ -30,9 +30,8 @@ from .versioning import bump_version as bump_version_function
 from .versioning import increment_base62, message_update_key_in_version_family
 
 if TYPE_CHECKING:
+    from lamidb.base.types import TransformType
     from lamindb_setup.core.types import UPathStr
-
-    from lamindb.types import TransformType
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 

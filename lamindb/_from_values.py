@@ -14,7 +14,7 @@ from .core._settings import settings
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from lamindb.types import ListLike, StrField
+    from lamidb.base.types import ListLike, StrField
 
 
 # The base function for `from_values`

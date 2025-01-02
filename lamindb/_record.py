@@ -22,6 +22,7 @@ from django.db.models.lookups import (
     Regex,
     StartsWith,
 )
+from lamidb.base.validation import FieldValidationError
 from lamin_utils import colors, logger
 from lamin_utils._lookup import Lookup
 from lamindb_setup._connect_instance import (
@@ -46,7 +47,6 @@ from lamindb.models import (
     ULabel,
     ValidateFields,
 )
-from lamindb.validation import FieldValidationError
 
 from ._utils import attach_func_to_class_method
 from .core._settings import settings
@@ -54,8 +54,7 @@ from .core.exceptions import RecordNameChangeIntegrityError, ValidationError
 
 if TYPE_CHECKING:
     import pandas as pd
-
-    from lamindb.types import ListLike, StrField
+    from lamidb.base.types import ListLike, StrField
 
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
@@ -78,7 +77,7 @@ def update_attributes(record: Record, attributes: dict[str, str]):
 
 
 def validate_fields(record: Record, kwargs):
-    from lamindb.validation import validate_literal_fields
+    from lamidb.base.validation import validate_literal_fields
 
     # validate required fields
     # a "required field" is a Django field that has `null=False, default=None`

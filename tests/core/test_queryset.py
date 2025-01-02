@@ -3,8 +3,8 @@
 import bionty as bt
 import lamindb as ln
 import pytest
+from lamidb.base.users import current_user_id
 from lamindb._query_set import DoesNotExist
-from lamindb.users import current_user_id
 
 
 # please also see the test_curate_df.py tests

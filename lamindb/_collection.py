@@ -10,6 +10,7 @@ from typing import (
 import anndata as ad
 import lamindb_setup as ln_setup
 import pandas as pd
+from lamidb.base.types import VisibilityChoice
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import hash_set
@@ -19,7 +20,6 @@ from lamindb.models import (
     CollectionArtifact,
     FeatureSet,
 )
-from lamindb.types import VisibilityChoice
 
 from ._parents import view_lineage
 from ._record import init_self_from_db, update_attributes

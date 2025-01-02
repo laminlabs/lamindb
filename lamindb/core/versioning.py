@@ -6,7 +6,7 @@ from lamin_utils import logger
 from lamin_utils._base62 import increment_base62
 from lamindb_setup.core.upath import LocalPathClasses, UPath
 
-from lamindb import ids
+from lamindb.base import ids
 
 if TYPE_CHECKING:
     from lamindb.models import IsVersioned

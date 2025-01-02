@@ -4,6 +4,7 @@ from typing import Any
 
 import lamindb_setup as ln_setup
 import pandas as pd
+from lamidb.base.types import FieldAttr
 from lamin_utils import colors, logger
 from spatialdata import SpatialData
 
@@ -21,7 +22,6 @@ from lamindb.curators import (
     get_current_filter_kwargs,
 )
 from lamindb.models import Artifact, Collection, Feature, FeatureSet, Record, Run
-from lamindb.types import FieldAttr
 
 
 class SpatialDataCurator:
