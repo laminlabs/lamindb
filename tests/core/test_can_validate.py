@@ -121,6 +121,8 @@ def test_validate_int():
 
 def test_synonym_mapping():
     # only name field can be standardized
+    bt.Gene.from_source(symbol="TNFRSF4", organism="human").save()
+
     bt_result = bt.Gene.public().inspect(
         ["ABC1", "TNFRSF4"], field="symbol", organism="human"
     )
@@ -131,10 +133,14 @@ def test_synonym_mapping():
     )
     assert bt_result.synonyms_mapper == {}
 
-    result = bt.Gene.inspect(["SRM", "TNFRSF4"], field=bt.Gene.symbol, organism="human")
-    assert result.synonyms_mapper == {"SRM": "SRMS"}
+    result = bt.Gene.inspect(
+        ["CD134", "TNFRSF4"], field=bt.Gene.symbol, organism="human"
+    )
+    assert result.synonyms_mapper == {"CD134": "TNFRSF4"}
 
     result = bt.Gene.inspect(
-        ["SRM", "TNFRSF4"], field=bt.Gene.ensembl_gene_id, organism="human"
+        ["CD134", "TNFRSF4"], field=bt.Gene.ensembl_gene_id, organism="human"
     )
     assert result.synonyms_mapper == {}
+
+    bt.Gene.filter().delete()
