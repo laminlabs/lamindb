@@ -76,7 +76,7 @@ def install(session):
         "biology",
         "faq",
         "storage",
-        "spatial",
+        "curator",
         "docs",
         "cli",
     ],
