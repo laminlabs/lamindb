@@ -1710,7 +1710,7 @@ class FeatureValue(Record, TracksRun):
     """The JSON-like value."""
 
 
-class FeatureSet(Record, TracksRun):
+class FeatureSet(Record, CanCurate, TracksRun):
     """Feature sets.
 
     Stores references to sets of :class:`~lamindb.Feature` and other registries
@@ -1724,7 +1724,7 @@ class FeatureSet(Record, TracksRun):
            your artifacts against one feature set and only need to store 1M
            instead of 1M x 20k = 20B links.
         2. Interpretation: Model protein panels, gene panels, etc.
-        3. Data integration: Feature sets provide the currency that determines whether two collections can be easily concatenated.
+        3. Data integration: Feature sets provide the information that determines whether two datasets can be meaningfully concatenated.
 
         These reasons do not hold for label sets. Hence, LaminDB does not model label sets.
 
