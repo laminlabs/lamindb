@@ -7,10 +7,17 @@ from typing import TYPE_CHECKING, NamedTuple
 
 import dj_database_url
 import lamindb_setup as ln_setup
-from django.core.exceptions import FieldDoesNotExist
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import connections, transaction
-from django.db.models import F, IntegerField, Manager, Q, QuerySet, TextField, Value
+from django.db.models import (
+    F,
+    IntegerField,
+    Manager,
+    Q,
+    QuerySet,
+    TextField,
+    Value,
+)
 from django.db.models.functions import Cast, Coalesce
 from django.db.models.lookups import (
     Contains,
@@ -36,6 +43,7 @@ from lamindb_setup.core._settings_store import instance_settings_file
 from lamindb.base.validation import FieldValidationError
 from lamindb.models import (
     Artifact,
+    CanCurate,
     Collection,
     Feature,
     FeatureSet,
@@ -155,7 +163,13 @@ def __init__(record: Record, *args, **kwargs):
         has_consciously_provided_uid = False
         if "_has_consciously_provided_uid" in kwargs:
             has_consciously_provided_uid = kwargs.pop("_has_consciously_provided_uid")
-        if settings.creation.search_names and not has_consciously_provided_uid:
+        if (
+            isinstance(
+                record, (CanCurate, Collection, Transform)
+            )  # Collection is only temporary because it'll get a key field
+            and settings.creation.search_names
+            and not has_consciously_provided_uid
+        ):
             name_field = getattr(record, "_name_field", "name")
             match = suggest_records_with_similar_names(record, name_field, kwargs)
             if match:

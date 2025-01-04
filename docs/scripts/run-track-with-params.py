@@ -15,6 +15,8 @@ if __name__ == "__main__":
             "normalization": "the_good_one",
         },
     }
-    ln.track("JjRF4mACd9m00001", params=params)
+    ln.track(params=params)
+
     # your code
+
     ln.finish()

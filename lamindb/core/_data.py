@@ -388,7 +388,7 @@ def add_labels(
 
 def _track_run_input(
     data: Artifact | Collection | Iterable[Artifact] | Iterable[Collection],
-    is_run_input: bool | None = None,
+    is_run_input: bool | Run | None = None,
     run: Run | None = None,
 ):
     # this is an internal hack right now for project-flow, but we can allow this

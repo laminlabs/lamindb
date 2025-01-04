@@ -78,11 +78,11 @@ def test_feature_set_from_values():
             ["weird_name"], field=ln.Feature.name, type="float"
         )
     with pytest.raises(ValidationError):
-        ln.FeatureSet.from_values([1], field=ln.ULabel.name, type="float")
+        ln.FeatureSet.from_values([1], field=ln.Feature.name, type="float")
 
     # return none if no validated features
     with pytest.raises(ValidationError):
-        ln.FeatureSet.from_values(["name"], field=ln.ULabel.name, type="float")
+        ln.FeatureSet.from_values(["name"], field=ln.Feature.name, type="float")
 
 
 def test_feature_set_from_records(df):
