@@ -77,7 +77,7 @@ def test_feature_set_from_values():
         feature_set = ln.FeatureSet.from_values(
             ["weird_name"], field=ln.Feature.name, type="float"
         )
-    with pytest.raises(TypeError):
+    with pytest.raises(ValidationError):
         ln.FeatureSet.from_values([1], field=ln.Feature.name, type="float")
 
     # return none if no validated features
