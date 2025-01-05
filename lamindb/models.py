@@ -786,7 +786,7 @@ class Registry(ModelBase):
         return f"{schema_prefix}{cls.__name__}"
 
 
-class LinkORM(models.Model):
+class RecordNoPage(models.Model, metaclass=Registry):
     """Class to label link ORMs.
 
     It behaves like Record but doesn't have the _page_md field.
@@ -1261,7 +1261,7 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
 # Also, we don't inherit from TracksRun because a ParamValue
 # is typically created before a run is created and we want to
 # avoid delete cycles (for Model params though it might be helpful)
-class ParamValue(LinkORM):
+class ParamValue(RecordNoPage):
     """Parameter values.
 
     Is largely analogous to `FeatureValue`.
@@ -1701,7 +1701,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
 
 # FeatureValue behaves in many ways like a link in a LinkORM
 # in particular, we don't want a _page_md field on it
-class FeatureValue(LinkORM, TracksRun):
+class FeatureValue(RecordNoPage, TracksRun):
     """Non-categorical features values.
 
     Categorical feature values are stored in their respective registries:
@@ -1718,7 +1718,7 @@ class FeatureValue(LinkORM, TracksRun):
     # there does not seem an issue with querying for a dict-like value
     # https://lamin.ai/laminlabs/lamindata/transform/jgTrkoeuxAfs0001
 
-    class Meta(LinkORM.Meta, TracksRun.Meta):
+    class Meta(RecordNoPage.Meta, TracksRun.Meta):
         abstract = False
 
     _name_field: str = "value"
@@ -2856,11 +2856,15 @@ delattr(Collection, "get_visibility_display")
 # Link models
 
 
+class LinkORM:
+    pass
+
+
 class ValidateFields:
     pass
 
 
-class FeatureSetFeature(LinkORM):
+class FeatureSetFeature(RecordNoPage, LinkORM):
     id: int = models.BigAutoField(primary_key=True)
     # we follow the lower() case convention rather than snake case for link models
     featureset: FeatureSet = ForeignKey(FeatureSet, CASCADE, related_name="+")
@@ -2870,7 +2874,7 @@ class FeatureSetFeature(LinkORM):
         unique_together = ("featureset", "feature")
 
 
-class ArtifactFeatureSet(LinkORM, TracksRun):
+class ArtifactFeatureSet(RecordNoPage, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_feature_set")
     # we follow the lower() case convention rather than snake case for link models
@@ -2886,7 +2890,7 @@ class ArtifactFeatureSet(LinkORM, TracksRun):
         unique_together = ("artifact", "featureset")
 
 
-class CollectionArtifact(LinkORM, TracksRun):
+class CollectionArtifact(RecordNoPage, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     collection: Collection = ForeignKey(
         Collection, CASCADE, related_name="links_artifact"
@@ -2897,7 +2901,7 @@ class CollectionArtifact(LinkORM, TracksRun):
         unique_together = ("collection", "artifact")
 
 
-class ArtifactULabel(LinkORM, TracksRun):
+class ArtifactULabel(RecordNoPage, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_ulabel")
     ulabel: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_artifact")
@@ -2913,7 +2917,7 @@ class ArtifactULabel(LinkORM, TracksRun):
         unique_together = ("artifact", "ulabel", "feature")
 
 
-class CollectionULabel(LinkORM, TracksRun):
+class CollectionULabel(RecordNoPage, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     collection: Collection = ForeignKey(
         Collection, CASCADE, related_name="links_ulabel"
@@ -2929,7 +2933,7 @@ class CollectionULabel(LinkORM, TracksRun):
         unique_together = ("collection", "ulabel")
 
 
-class ArtifactFeatureValue(LinkORM, TracksRun):
+class ArtifactFeatureValue(RecordNoPage, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="+")
     # we follow the lower() case convention rather than snake case for link models
@@ -2939,7 +2943,7 @@ class ArtifactFeatureValue(LinkORM, TracksRun):
         unique_together = ("artifact", "featurevalue")
 
 
-class RunParamValue(LinkORM):
+class RunParamValue(RecordNoPage, LinkORM):
     id: int = models.BigAutoField(primary_key=True)
     run: Run = ForeignKey(Run, CASCADE, related_name="+")
     # we follow the lower() case convention rather than snake case for link models
@@ -2949,7 +2953,7 @@ class RunParamValue(LinkORM):
         unique_together = ("run", "paramvalue")
 
 
-class ArtifactParamValue(LinkORM):
+class ArtifactParamValue(RecordNoPage, LinkORM):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="+")
     # we follow the lower() case convention rather than snake case for link models
