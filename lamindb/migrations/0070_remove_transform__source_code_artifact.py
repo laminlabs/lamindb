@@ -34,76 +34,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name="artifact",
-            name="_page_md",
-            field=lamindb.base.fields.TextField(
-                blank=True, db_default=None, default=None, null=True
-            ),
-        ),
-        migrations.AddField(
-            model_name="collection",
-            name="_page_md",
-            field=lamindb.base.fields.TextField(
-                blank=True, db_default=None, default=None, null=True
-            ),
-        ),
-        migrations.AddField(
-            model_name="feature",
-            name="_page_md",
-            field=lamindb.base.fields.TextField(
-                blank=True, db_default=None, default=None, null=True
-            ),
-        ),
-        migrations.AddField(
-            model_name="featureset",
-            name="_page_md",
-            field=lamindb.base.fields.TextField(
-                blank=True, db_default=None, default=None, null=True
-            ),
-        ),
-        migrations.AddField(
-            model_name="param",
-            name="_page_md",
-            field=lamindb.base.fields.TextField(
-                blank=True, db_default=None, default=None, null=True
-            ),
-        ),
-        migrations.AddField(
-            model_name="run",
-            name="_page_md",
-            field=lamindb.base.fields.TextField(
-                blank=True, db_default=None, default=None, null=True
-            ),
-        ),
-        migrations.AddField(
-            model_name="storage",
-            name="_page_md",
-            field=lamindb.base.fields.TextField(
-                blank=True, db_default=None, default=None, null=True
-            ),
-        ),
-        migrations.AddField(
-            model_name="transform",
-            name="_page_md",
-            field=lamindb.base.fields.TextField(
-                blank=True, db_default=None, default=None, null=True
-            ),
-        ),
-        migrations.AddField(
-            model_name="ulabel",
-            name="_page_md",
-            field=lamindb.base.fields.TextField(
-                blank=True, db_default=None, default=None, null=True
-            ),
-        ),
-        migrations.AddField(
-            model_name="user",
-            name="_page_md",
-            field=lamindb.base.fields.TextField(
-                blank=True, db_default=None, default=None, null=True
-            ),
-        ),
         migrations.RunPython(transfer_source_code),
         migrations.RemoveField(
             model_name="transform",
@@ -112,10 +42,10 @@ class Migration(migrations.Migration):
         migrations.RunSQL(
             sql="""
                 UPDATE lamindb_transform
-                SET _page_md = description
+                SET name = name || ' ' || description
                 WHERE description IS NOT NULL
                 AND description != '';
-            """
+            """,
         ),
         migrations.RemoveField(
             model_name="transform",
