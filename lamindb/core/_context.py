@@ -472,10 +472,7 @@ class Context:
         else:
             uid = transform.uid
             # transform was already saved via `finish()`
-            transform_was_saved = (
-                transform._source_code_artifact_id is not None
-                or transform.source_code is not None
-            )
+            transform_was_saved = transform.source_code is not None
             # check whether the transform.key is consistent
             if transform.key != key:
                 raise UpdateContext(get_key_clashing_message(transform, key))

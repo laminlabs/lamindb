@@ -197,10 +197,7 @@ def save_context_core(
     ln.settings.creation.artifact_silence_missing_run_warning = True
     # track source code
     hash, _ = hash_file(source_code_path)  # ignore hash_type for now
-    if (
-        transform._source_code_artifact_id is not None
-        or transform.hash is not None  # .hash is equivalent to .transform
-    ):
+    if transform.hash is not None:
         # check if the hash of the transform source code matches
         # (for scripts, we already run the same logic in track() - we can deduplicate the call at some point)
         ref_hash = (
