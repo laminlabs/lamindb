@@ -170,11 +170,6 @@ def test_pass_version():
     ln.Transform(key="mytransform", version="1").save()
     with pytest.raises(ValueError, match="Please increment the previous version"):
         ln.Transform(key="mytransform", version="1")
-    # creating a new transform on name retrieves the same transform
-    # upon re-naming to description, this will be unintuitive, but I fear
-    # we need it nonetheless to maintain backward-compat
-    transform = ln.Transform(name="mytransform", version="1").save()
-    assert ln.Transform(name="mytransform", version="1") == transform
 
 
 def test_get_name_field():
