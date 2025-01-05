@@ -786,6 +786,16 @@ class Registry(ModelBase):
         return f"{schema_prefix}{cls.__name__}"
 
 
+class BasicRecord(models.Model, metaclass=Registry):
+    """Basic record.
+
+    It behaves like Record but doesn't have the _public field.
+    """
+
+    class Meta:
+        abstract = True
+
+
 @doc_args(RECORD_REGISTRY_EXAMPLE)
 class Record(models.Model, metaclass=Registry):
     """Base class for metadata records.
@@ -804,6 +814,8 @@ class Record(models.Model, metaclass=Registry):
     and not `Model`? The term `Record` can't lead to confusion with statistical,
     machine learning or biological models.
     """
+
+    _public: str = models.BooleanField(default_db=None, null=None)
 
     def save(self, *args, **kwargs) -> Record:
         """Save.
@@ -1245,11 +1257,11 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
 
 
 # FeatureValue behaves in many ways like a link in a LinkORM
-# in particular, we don't want a _page_md field on it
+# in particular, we don't want a _public field on it
 # Also, we don't inherit from TracksRun because a ParamValue
 # is typically created before a run is created and we want to
 # avoid delete cycles (for Model params though it might be helpful)
-class ParamValue(Record):
+class ParamValue(BasicRecord):
     """Parameter values.
 
     Is largely analogous to `FeatureValue`.
@@ -1688,8 +1700,8 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
 
 
 # FeatureValue behaves in many ways like a link in a LinkORM
-# in particular, we don't want a _page_md field on it
-class FeatureValue(Record, TracksRun):
+# in particular, we don't want a _public field on it
+class FeatureValue(BasicRecord, TracksRun):
     """Non-categorical features values.
 
     Categorical feature values are stored in their respective registries:
@@ -1706,7 +1718,7 @@ class FeatureValue(Record, TracksRun):
     # there does not seem an issue with querying for a dict-like value
     # https://lamin.ai/laminlabs/lamindata/transform/jgTrkoeuxAfs0001
 
-    class Meta(Record.Meta, TracksRun.Meta):
+    class Meta(BasicRecord.Meta, TracksRun.Meta):
         abstract = False
 
     _name_field: str = "value"
@@ -2852,7 +2864,7 @@ class ValidateFields:
     pass
 
 
-class FeatureSetFeature(Record, LinkORM):
+class FeatureSetFeature(BasicRecord, LinkORM):
     id: int = models.BigAutoField(primary_key=True)
     # we follow the lower() case convention rather than snake case for link models
     featureset: FeatureSet = ForeignKey(FeatureSet, CASCADE, related_name="+")
@@ -2862,7 +2874,7 @@ class FeatureSetFeature(Record, LinkORM):
         unique_together = ("featureset", "feature")
 
 
-class ArtifactFeatureSet(Record, LinkORM, TracksRun):
+class ArtifactFeatureSet(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_feature_set")
     # we follow the lower() case convention rather than snake case for link models
@@ -2878,7 +2890,7 @@ class ArtifactFeatureSet(Record, LinkORM, TracksRun):
         unique_together = ("artifact", "featureset")
 
 
-class CollectionArtifact(Record, LinkORM, TracksRun):
+class CollectionArtifact(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     collection: Collection = ForeignKey(
         Collection, CASCADE, related_name="links_artifact"
@@ -2889,7 +2901,7 @@ class CollectionArtifact(Record, LinkORM, TracksRun):
         unique_together = ("collection", "artifact")
 
 
-class ArtifactULabel(Record, LinkORM, TracksRun):
+class ArtifactULabel(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_ulabel")
     ulabel: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_artifact")
@@ -2905,7 +2917,7 @@ class ArtifactULabel(Record, LinkORM, TracksRun):
         unique_together = ("artifact", "ulabel", "feature")
 
 
-class CollectionULabel(Record, LinkORM, TracksRun):
+class CollectionULabel(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     collection: Collection = ForeignKey(
         Collection, CASCADE, related_name="links_ulabel"
@@ -2921,7 +2933,7 @@ class CollectionULabel(Record, LinkORM, TracksRun):
         unique_together = ("collection", "ulabel")
 
 
-class ArtifactFeatureValue(Record, LinkORM, TracksRun):
+class ArtifactFeatureValue(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="+")
     # we follow the lower() case convention rather than snake case for link models
@@ -2931,7 +2943,7 @@ class ArtifactFeatureValue(Record, LinkORM, TracksRun):
         unique_together = ("artifact", "featurevalue")
 
 
-class RunParamValue(Record, LinkORM):
+class RunParamValue(BasicRecord, LinkORM):
     id: int = models.BigAutoField(primary_key=True)
     run: Run = ForeignKey(Run, CASCADE, related_name="+")
     # we follow the lower() case convention rather than snake case for link models
@@ -2941,7 +2953,7 @@ class RunParamValue(Record, LinkORM):
         unique_together = ("run", "paramvalue")
 
 
-class ArtifactParamValue(Record, LinkORM):
+class ArtifactParamValue(BasicRecord, LinkORM):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="+")
     # we follow the lower() case convention rather than snake case for link models
