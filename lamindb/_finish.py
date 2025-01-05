@@ -84,8 +84,8 @@ def notebook_to_report(notebook_path: Path, output_path: Path) -> None:
 
 
 def notebook_to_script(
-    transform: Transform, notebook_path: Path, script_path: Path
-) -> None:
+    transform: Transform, notebook_path: Path, script_path: Path | None
+) -> None | str:
     import jupytext
 
     notebook = jupytext.read(notebook_path)
@@ -94,7 +94,10 @@ def notebook_to_script(
     py_content = re.sub(r"^# ---\n.*?# ---\n\n", "", py_content, flags=re.DOTALL)
     # replace title
     py_content = py_content.replace(f"# # {transform.name}", "# # transform.name")
-    script_path.write_text(py_content)
+    if script_path is None:
+        return py_content
+    else:
+        script_path.write_text(py_content)
 
 
 # removes NotebookNotSaved error message from notebook html

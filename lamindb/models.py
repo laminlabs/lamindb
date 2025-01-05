@@ -1135,14 +1135,6 @@ class Transform(Record, IsVersioned):
         default="pipeline",
     )
     """:class:`~lamindb.core.types.TransformType` (default `"pipeline"`)."""
-    _source_code_artifact: Artifact | None = ForeignKey(
-        "Artifact", PROTECT, null=True, related_name="_source_code_of", default=None
-    )
-    """Source code of the transform if stored as artifact within LaminDB.
-
-    .. versionchanged:: 0.75
-       Made private and deprecated for future removal.
-    """
     source_code: str | None = TextField(null=True)
     """Source code of the transform.
 
