@@ -55,11 +55,17 @@ def __init__(transform: Transform, *args, **kwargs):
                 .first()
             )
         elif key is not None:
-            revises = (
+            candidate_for_revises = (
                 Transform.filter(key=key, is_latest=True)
                 .order_by("-created_at")
                 .first()
             )
+            if (
+                candidate_for_revises is not None
+                and candidate_for_revises.source_code is not None
+            ):
+                # we only want to trigger a revision in case source code has been saved
+                revises = candidate_for_revises
     if revises is not None and uid is not None and uid == revises.uid:
         from ._record import init_self_from_db, update_attributes
 

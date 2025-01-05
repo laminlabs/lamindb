@@ -165,9 +165,13 @@ def test_suggest_similar_names():
 
 
 def test_pass_version():
-    # creating a new transform on key bumps the version uid
-    # hence we'll get an error if we don't also increment the semantic version
-    ln.Transform(key="mytransform", version="1").save()
+    # creating a new transform on key retrieves the same transform
+    # for as long as no source_code was saved
+    transform = ln.Transform(key="mytransform", version="1").save()
+    assert ln.Transform(key="mytransform", version="1") == transform
+    # in case source code is saved
+    transform.source_code = "dummy"
+    transform.save()
     with pytest.raises(ValueError, match="Please increment the previous version"):
         ln.Transform(key="mytransform", version="1")
 
