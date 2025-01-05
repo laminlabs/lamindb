@@ -496,11 +496,7 @@ class Context:
                     bump_revision = True
                 else:
                     hash, _ = hash_file(self._path)  # ignore hash_type for now
-                    if transform.hash is not None:
-                        condition = hash != transform.hash
-                    else:
-                        condition = hash != transform._source_code_artifact.hash
-                    if condition:
+                    if hash != transform.hash:
                         bump_revision = True
                     else:
                         self._logging_message_track += (

@@ -21,6 +21,7 @@ def transfer_source_code(apps, schema_editor):
             transform.source_code = notebook_to_script(transform, artifact.path)
         else:
             transform.source_code = artifact.cache().read_text()
+        transform.hash = artifact.hash
 
         transform._source_code_artifact = None
         transform.save()

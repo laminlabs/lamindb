@@ -202,14 +202,9 @@ def save_context_core(
     if transform.hash is not None:
         # check if the hash of the transform source code matches
         # (for scripts, we already run the same logic in track() - we can deduplicate the call at some point)
-        ref_hash = (
-            transform.hash
-            if transform.hash is not None
-            else transform._source_code_artifact.hash
-        )
-        if hash != ref_hash:
+        if hash != transform.hash:
             response = input(
-                f"You are about to overwrite existing source code (hash '{ref_hash}') for Transform('{transform.uid}')."
+                f"You are about to overwrite existing source code (hash '{transform.hash}') for Transform('{transform.uid}')."
                 f" Proceed? (y/n)"
             )
             if response == "y":
