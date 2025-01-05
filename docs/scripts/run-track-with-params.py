@@ -11,7 +11,7 @@ if __name__ == "__main__":
         "input_dir": args.input_dir,
         "learning_rate": args.learning_rate,
         "preprocess_params": {
-            "downsample": args.downsample,
+            "downsample": args.downsample,  # nested parameter names & values in dictionaries are not validated
             "normalization": "the_good_one",
         },
     }
