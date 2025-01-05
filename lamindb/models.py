@@ -786,7 +786,7 @@ class Registry(ModelBase):
         return f"{schema_prefix}{cls.__name__}"
 
 
-class LinkORM(models.Model, metaclass=Registry):
+class LinkORM(models.Model):
     """Class to label link ORMs.
 
     It behaves like Record but doesn't have the _page_md field.
@@ -1262,7 +1262,10 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
 # is typically created before a run is created and we want to
 # avoid delete cycles (for Model params though it might be helpful)
 class ParamValue(LinkORM):
-    """Parameters with values akin to FeatureValue."""
+    """Parameter values.
+
+    Is largely analogous to `FeatureValue`.
+    """
 
     # we do not have a unique constraint on param & value because it leads to hashing errors
     # for large dictionaries: https://lamin.ai/laminlabs/lamindata/transform/jgTrkoeuxAfs0000
@@ -1715,7 +1718,7 @@ class FeatureValue(LinkORM, TracksRun):
     # there does not seem an issue with querying for a dict-like value
     # https://lamin.ai/laminlabs/lamindata/transform/jgTrkoeuxAfs0001
 
-    class Meta(Record.Meta, TracksRun.Meta):
+    class Meta(LinkORM.Meta, TracksRun.Meta):
         abstract = False
 
     _name_field: str = "value"
