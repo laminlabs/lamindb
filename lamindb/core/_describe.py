@@ -131,7 +131,7 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
     if hasattr(self, "transform") and self.transform:
         general.add(
             Text(
-                f".transform = '{self.transform.name}'",
+                f".transform = '{self.transform.description}'",
                 style="cyan3",
             )
         )

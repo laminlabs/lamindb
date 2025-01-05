@@ -349,8 +349,8 @@ def _record_label(record: Record, field: str | None = None):
             rf' FACE="Monospace">uid={record.uid}<BR/>version={record.version}</FONT>>'
         )
     elif isinstance(record, Run):
-        if record.transform.name:
-            name = f'{record.transform.name.replace("&", "&amp;")}'
+        if record.transform.description:
+            name = f'{record.transform.description.replace("&", "&amp;")}'
         elif record.transform.key:
             name = f'{record.transform.key.replace("&", "&amp;")}'
         else:

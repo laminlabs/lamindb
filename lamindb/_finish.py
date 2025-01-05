@@ -93,7 +93,9 @@ def notebook_to_script(
     # remove global metadata header
     py_content = re.sub(r"^# ---\n.*?# ---\n\n", "", py_content, flags=re.DOTALL)
     # replace title
-    py_content = py_content.replace(f"# # {transform.name}", "# # transform.name")
+    py_content = py_content.replace(
+        f"# # {transform.description}", "# # transform.description"
+    )
     if script_path is None:
         return py_content
     else:
@@ -256,7 +258,7 @@ def save_context_core(
             if is_r_notebook:
                 title_text, report_path = clean_r_notebook_html(report_path)
                 if title_text is not None:
-                    transform.name = title_text
+                    transform.description = title_text
             if run.report_id is not None:
                 hash, _ = hash_file(report_path)  # ignore hash_type for now
                 if hash != run.report.hash:

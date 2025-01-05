@@ -476,8 +476,8 @@ class Context:
             # check whether the transform.key is consistent
             if transform.key != key:
                 raise UpdateContext(get_key_clashing_message(transform, key))
-            elif transform.name != name:
-                transform.name = name
+            elif transform.description != name:
+                transform.description = name
                 transform.save()
                 self._logging_message_track += (
                     "updated transform name, "  # white space on purpose
@@ -567,8 +567,10 @@ class Context:
             import nbproject
 
             # it might be that the user modifies the title just before ln.finish()
-            if (nbproject_title := nbproject.meta.live.title) != self.transform.name:
-                self.transform.name = nbproject_title
+            if (
+                nbproject_title := nbproject.meta.live.title
+            ) != self.transform.description:
+                self.transform.description = nbproject_title
                 self.transform.save()
             if get_seconds_since_modified(self._path) > 2 and not ln_setup._TESTING:
                 raise NotebookNotSaved(get_save_notebook_message())
