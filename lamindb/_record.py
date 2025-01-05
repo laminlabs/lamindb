@@ -43,7 +43,6 @@ from lamindb_setup.core._settings_store import instance_settings_file
 from lamindb.base.validation import FieldValidationError
 from lamindb.models import (
     Artifact,
-    BasicRecord,
     CanCurate,
     Collection,
     Feature,
@@ -895,4 +894,3 @@ if ln_setup._TESTING:  # type: ignore
 
 for name in METHOD_NAMES:
     attach_func_to_class_method(name, Record, globals())
-    attach_func_to_class_method(name, BasicRecord, globals())
