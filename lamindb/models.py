@@ -786,6 +786,16 @@ class Registry(ModelBase):
         return f"{schema_prefix}{cls.__name__}"
 
 
+class LinkORM(models.Model, metaclass=Registry):
+    """Class to label link ORMs.
+
+    It behaves like Record but doesn't have the _page_md field.
+    """
+
+    class Meta:
+        abstract = True
+
+
 @doc_args(RECORD_REGISTRY_EXAMPLE)
 class Record(models.Model, metaclass=Registry):
     """Base class for metadata records.
@@ -804,6 +814,8 @@ class Record(models.Model, metaclass=Registry):
     and not `Model`? The term `Record` can't lead to confusion with statistical,
     machine learning or biological models.
     """
+
+    _page_md: str = TextField(null=True, db_default=None)
 
     def save(self, *args, **kwargs) -> Record:
         """Save.
@@ -1051,6 +1063,8 @@ class Storage(Record, TracksRun, TracksUpdates):
         pass
 
 
+# does not inherit from TracksRun because the Transform
+# is needed to define a run
 class Transform(Record, IsVersioned):
     """Data transformations.
 
@@ -1117,18 +1131,19 @@ class Transform(Record, IsVersioned):
 
     _len_stem_uid: int = 12
     _len_full_uid: int = 16
-    _name_field: str = "name"
+    _name_field: str = "key"
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
     uid: str = CharField(unique=True, db_index=True, max_length=_len_full_uid)
     """Universal id."""
-    name: str | None = CharField(max_length=150, db_index=True, null=True)
-    """A name or title. For instance, a pipeline name, notebook title, etc."""
-    key: str | None = CharField(max_length=120, db_index=True, null=True)
-    """A key for concise reference & versioning (optional)."""
-    description: str | None = CharField(max_length=255, null=True)
-    """A description (optional)."""
+    key: str | None = CharField(db_index=True, null=True)
+    """A name or "/"-separated path-like string.
+
+    All transforms with the same key are part of the same version family.
+    """
+    description: str | None = CharField(db_index=True, null=True)
+    """A description."""
     type: TransformType = CharField(
         max_length=20,
         db_index=True,
@@ -1142,9 +1157,11 @@ class Transform(Record, IsVersioned):
        The `source_code` field is no longer an artifact, but a text field.
     """
     hash: str | None = CharField(max_length=HASH_LENGTH, db_index=True, null=True)
+    """Hash of the source code."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
-    """Reference for the transform, e.g..  URL."""
+    """Reference for the transform, e.g., a URL."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
+    """Reference type of the transform, e.g., 'url'."""
     runs: Run
     """Runs of this transform."""
     ulabels: ULabel = models.ManyToManyField("ULabel", related_name="transforms")
@@ -1157,8 +1174,10 @@ class Transform(Record, IsVersioned):
     These are auto-populated whenever an artifact or collection serves as a run
     input, e.g., `artifact.run` and `artifact.transform` get populated & saved.
 
-    The table provides a convenience method to query for the predecessors that
-    bypassed querying the :class:`~lamindb.Run`.
+    The table provides a more convenient method to query for the predecessors that
+    bypasses querying the :class:`~lamindb.Run`.
+
+    It also allows to manually add predecessors whose outputs are not tracked in a run.
     """
     successors: Transform
     """Subsequent transforms.
@@ -1237,7 +1256,12 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
     """Values for this parameter."""
 
 
-class ParamValue(Record):
+# FeatureValue behaves in many ways like a link in a LinkORM
+# in particular, we don't want a _page_md field on it
+# Also, we don't inherit from TracksRun because a ParamValue
+# is typically created before a run is created and we want to
+# avoid delete cycles (for Model params though it might be helpful)
+class ParamValue(LinkORM):
     """Parameters with values akin to FeatureValue."""
 
     # we do not have a unique constraint on param & value because it leads to hashing errors
@@ -1672,7 +1696,9 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         pass
 
 
-class FeatureValue(Record, TracksRun):
+# FeatureValue behaves in many ways like a link in a LinkORM
+# in particular, we don't want a _page_md field on it
+class FeatureValue(LinkORM, TracksRun):
     """Non-categorical features values.
 
     Categorical feature values are stored in their respective registries:
@@ -2828,15 +2854,11 @@ delattr(Collection, "get_visibility_display")
 # Link models
 
 
-class LinkORM:
-    pass
-
-
 class ValidateFields:
     pass
 
 
-class FeatureSetFeature(Record, LinkORM):
+class FeatureSetFeature(LinkORM):
     id: int = models.BigAutoField(primary_key=True)
     # we follow the lower() case convention rather than snake case for link models
     featureset: FeatureSet = ForeignKey(FeatureSet, CASCADE, related_name="+")
@@ -2846,7 +2868,7 @@ class FeatureSetFeature(Record, LinkORM):
         unique_together = ("featureset", "feature")
 
 
-class ArtifactFeatureSet(Record, LinkORM, TracksRun):
+class ArtifactFeatureSet(LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_feature_set")
     # we follow the lower() case convention rather than snake case for link models
@@ -2862,7 +2884,7 @@ class ArtifactFeatureSet(Record, LinkORM, TracksRun):
         unique_together = ("artifact", "featureset")
 
 
-class CollectionArtifact(Record, LinkORM, TracksRun):
+class CollectionArtifact(LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     collection: Collection = ForeignKey(
         Collection, CASCADE, related_name="links_artifact"
@@ -2873,7 +2895,7 @@ class CollectionArtifact(Record, LinkORM, TracksRun):
         unique_together = ("collection", "artifact")
 
 
-class ArtifactULabel(Record, LinkORM, TracksRun):
+class ArtifactULabel(LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_ulabel")
     ulabel: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_artifact")
@@ -2889,7 +2911,7 @@ class ArtifactULabel(Record, LinkORM, TracksRun):
         unique_together = ("artifact", "ulabel", "feature")
 
 
-class CollectionULabel(Record, LinkORM, TracksRun):
+class CollectionULabel(LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     collection: Collection = ForeignKey(
         Collection, CASCADE, related_name="links_ulabel"
@@ -2905,7 +2927,7 @@ class CollectionULabel(Record, LinkORM, TracksRun):
         unique_together = ("collection", "ulabel")
 
 
-class ArtifactFeatureValue(Record, LinkORM, TracksRun):
+class ArtifactFeatureValue(LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="+")
     # we follow the lower() case convention rather than snake case for link models
@@ -2915,7 +2937,7 @@ class ArtifactFeatureValue(Record, LinkORM, TracksRun):
         unique_together = ("artifact", "featurevalue")
 
 
-class RunParamValue(Record, LinkORM):
+class RunParamValue(LinkORM):
     id: int = models.BigAutoField(primary_key=True)
     run: Run = ForeignKey(Run, CASCADE, related_name="+")
     # we follow the lower() case convention rather than snake case for link models
@@ -2925,7 +2947,7 @@ class RunParamValue(Record, LinkORM):
         unique_together = ("run", "paramvalue")
 
 
-class ArtifactParamValue(Record, LinkORM):
+class ArtifactParamValue(LinkORM):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="+")
     # we follow the lower() case convention rather than snake case for link models
