@@ -1131,7 +1131,6 @@ class Transform(Record, IsVersioned):
 
     _len_stem_uid: int = 12
     _len_full_uid: int = 16
-    _name_field: str = "key"
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -2014,7 +2013,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
-    _name_field: str = "description"
 
     params: ParamManager = ParamManagerArtifact  # type: ignore
     """Param manager.
