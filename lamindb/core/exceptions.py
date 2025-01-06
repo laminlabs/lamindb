@@ -7,7 +7,6 @@
    DoesNotExist
    ValidationError
    NotebookNotSaved
-   NoTitleError
    MissingContextUID
    UpdateContext
    IntegrityError
@@ -75,12 +74,6 @@ class IntegrityError(Exception):
     For instance, it's not allowed to delete artifacts outside managed storage
     locations.
     """
-
-    pass
-
-
-class NoTitleError(SystemExit):
-    """Notebook has no title."""
 
     pass
 

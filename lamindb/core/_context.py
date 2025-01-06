@@ -2,27 +2,28 @@ from __future__ import annotations
 
 import builtins
 import hashlib
+import signal
+import sys
+import traceback
 from datetime import datetime, timezone
-from pathlib import Path, PurePath
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
-from django.db.models import F, Func, IntegerField
+from django.db.models import Func, IntegerField
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_file
 
 from lamindb.base import ids
 from lamindb.base.ids import base62_12
-from lamindb.models import Run, Transform, format_field_value
+from lamindb.models import Artifact, Run, Transform, format_field_value
 
 from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_environment
 from .exceptions import (
     InconsistentKey,
-    MissingContextUID,
     NotebookNotSaved,
-    NoTitleError,
     TrackNotCalled,
     UpdateContext,
 )
@@ -91,6 +92,80 @@ def pretty_pypackages(dependencies: dict) -> str:
     return " ".join(deps_list)
 
 
+class LogStreamHandler:
+    def __init__(self, log_stream, file):
+        self.log_stream = log_stream
+        self.file = file
+
+    def write(self, data):
+        self.log_stream.write(data)
+        self.file.write(data)
+        self.file.flush()
+
+    def flush(self):
+        self.log_stream.flush()
+        self.file.flush()
+
+
+class LogStreamTracker:
+    def __init__(self):
+        self.original_stdout = None
+        self.original_stderr = None
+        self.log_file = None
+        self.original_excepthook = sys.excepthook
+        self.is_cleaning_up = False
+
+    def start(self, run: Run):
+        self.original_stdout = sys.stdout
+        self.original_stderr = sys.stderr
+        self.run = run
+        self.log_file_path = (
+            ln_setup.settings.cache_dir / f"run_logs_{self.run.uid}.txt"
+        )
+        self.log_file = open(self.log_file_path, "w")
+        sys.stdout = LogStreamHandler(self.original_stdout, self.log_file)
+        sys.stderr = LogStreamHandler(self.original_stderr, self.log_file)
+        # handle signals
+        signal.signal(signal.SIGTERM, self.cleanup)
+        signal.signal(signal.SIGINT, self.cleanup)
+        # handle exceptions
+        sys.excepthook = self.handle_exception
+
+    def finish(self):
+        if self.original_stdout:
+            sys.stdout = self.original_stdout
+            sys.stderr = self.original_stderr
+            self.log_file.close()
+
+    def cleanup(self, signo=None, frame=None):
+        from lamindb._finish import save_run_logs
+
+        if self.original_stdout and not self.is_cleaning_up:
+            self.is_cleaning_up = True
+            if signo is not None:
+                signal_msg = f"\nProcess terminated by signal {signo} ({signal.Signals(signo).name})\n"
+                if frame:
+                    signal_msg += (
+                        f"Frame info:\n{''.join(traceback.format_stack(frame))}"
+                    )
+                self.log_file.write(signal_msg)
+            sys.stdout = self.original_stdout
+            sys.stderr = self.original_stderr
+            self.log_file.flush()
+            self.log_file.close()
+            save_run_logs(self.run, save_run=True)
+
+    def handle_exception(self, exc_type, exc_value, exc_traceback):
+        if not self.is_cleaning_up:
+            error_msg = f"{''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))}"
+            if self.log_file.closed:
+                self.log_file = open(self.log_file_path, "a")
+            self.log_file.write(error_msg)
+            self.log_file.flush()
+            self.cleanup()
+        self.original_excepthook(exc_type, exc_value, exc_traceback)
+
+
 class Context:
     """Run context.
 
@@ -120,6 +195,7 @@ class Context:
         """A local path to the script that's running."""
         self._logging_message_track: str = ""
         self._logging_message_imports: str = ""
+        self._stream_tracker: LogStreamTracker = LogStreamTracker()
 
     @property
     def transform(self) -> Transform | None:
@@ -273,6 +349,8 @@ class Context:
             )
         self._run = run
         track_environment(run)
+        if self.transform.type != "notebook":
+            self._stream_tracker.start(run)
         logger.important(self._logging_message_track)
         if self._logging_message_imports:
             logger.important(self._logging_message_imports)
@@ -432,7 +510,7 @@ class Context:
                 and self.version != transform.version  # type: ignore
             ):
                 raise SystemExit(
-                    f"Please pass consistent version: ln.context.version = '{transform.version}'"  # type: ignore
+                    f"✗ please pass consistent version: ln.context.version = '{transform.version}'"  # type: ignore
                 )
             # test whether version was already used for another member of the family
             suid, vuid = (self.uid[:-4], self.uid[-4:])
@@ -442,7 +520,7 @@ class Context:
             if transform is not None and vuid != transform.uid[-4:]:
                 better_version = bump_version_function(self.version)
                 raise SystemExit(
-                    f"Version '{self.version}' is already taken by Transform('{transform.uid}'); please set another version, e.g., ln.context.version = '{better_version}'"
+                    f"✗ version '{self.version}' is already taken by Transform('{transform.uid}'); please set another version, e.g., ln.context.version = '{better_version}'"
                 )
         # make a new transform record
         if transform is None:
@@ -511,13 +589,12 @@ class Context:
                         )
                 if bump_revision:
                     change_type = (
-                        "Re-running saved notebook"
+                        "re-running saved notebook"
                         if is_run_from_ipython
-                        else "Source code changed"
+                        else "source code changed"
                     )
                     raise UpdateContext(
-                        f"{change_type}, bump revision by setting:\n\n"
-                        f'ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")'
+                        f'✗ {change_type}, run: ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")'
                     )
             else:
                 self._logging_message_track += f"loaded Transform('{transform.uid}')"
@@ -582,6 +659,8 @@ class Context:
             finished_at=True,
             ignore_non_consecutive=ignore_non_consecutive,
         )
+        if self.transform.type != "notebook":
+            self._stream_tracker.finish()
 
 
 context = Context()

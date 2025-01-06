@@ -9,13 +9,10 @@ from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_file
 
 from lamindb.core.exceptions import NotebookNotSaved
+from lamindb.models import Artifact, Run, Transform
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-    from lamindb import Run, Transform
-
-    from ._query_set import QuerySet
 
 
 def get_save_notebook_message() -> str:
@@ -30,6 +27,23 @@ def get_shortcut() -> str:
 
 def get_seconds_since_modified(filepath) -> float:
     return datetime.now().timestamp() - filepath.stat().st_mtime
+
+
+def save_run_logs(run: Run, save_run: bool = False) -> None:
+    logs_path = ln_setup.settings.cache_dir / f"run_logs_{run.uid}.txt"
+    if logs_path.exists():
+        if run.report is not None:
+            logger.important("overwriting run.report")
+        artifact = Artifact(
+            logs_path,
+            description=f"log streams of run {run.uid}",
+            visibility=0,
+            run=False,
+        )
+        artifact.save(upload=True, print_progress=False)
+        run.report = artifact
+        if save_run:  # defaults to fast because is slow
+            run.save()
 
 
 # this is from the get_title function in nbproject
@@ -228,7 +242,7 @@ def save_context_core(
         if env_path.exists():
             overwrite_env = True
             if run.environment_id is not None and from_cli:
-                logger.important("run.environment is already saved")
+                logger.important("run.environment is already saved, ignoring")
                 overwrite_env = False
             if overwrite_env:
                 hash, _ = hash_file(env_path)
@@ -249,6 +263,10 @@ def save_context_core(
     # set finished_at
     if finished_at and run is not None:
         run.finished_at = datetime.now(timezone.utc)
+
+    # track logs
+    if run is not None and not from_cli and not is_ipynb and not is_r_notebook:
+        save_run_logs(run)
 
     # track report and set is_consecutive
     if run is not None:
