@@ -12,6 +12,7 @@
    UpdateContext
    IntegrityError
    RecordNameChangeIntegrityError
+   RecordKeyChangeIntegrityError
 
 """
 
@@ -60,6 +61,12 @@ class InconsistentKey(Exception):
 
 class RecordNameChangeIntegrityError(SystemExit):
     """Custom exception for name change errors."""
+
+    pass
+
+
+class RecordKeyChangeIntegrityError(SystemExit):
+    """Custom exception for key change errors."""
 
     pass
 

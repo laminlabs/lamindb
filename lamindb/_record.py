@@ -3,6 +3,7 @@ from __future__ import annotations
 import builtins
 import re
 from functools import reduce
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, NamedTuple
 
 import dj_database_url
@@ -39,6 +40,7 @@ from lamindb_setup._connect_instance import (
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._hub_core import connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
+from lamindb_setup.core.upath import extract_suffix_from_path
 
 from lamindb.base.validation import FieldValidationError
 from lamindb.models import (
@@ -58,7 +60,11 @@ from lamindb.models import (
 
 from ._utils import attach_func_to_class_method
 from .core._settings import settings
-from .core.exceptions import RecordNameChangeIntegrityError, ValidationError
+from .core.exceptions import (
+    RecordKeyChangeIntegrityError,
+    RecordNameChangeIntegrityError,
+    ValidationError,
+)
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -217,6 +223,7 @@ def __init__(record: Record, *args, **kwargs):
         # object is loaded from DB (**kwargs could be omitted below, I believe)
         super(Record, record).__init__(*args, **kwargs)
         _store_record_old_name(record)
+        _store_record_old_key(record)
 
 
 def _format_django_validation_error(record: Record, e: DjangoValidationError):
@@ -740,14 +747,18 @@ def save(self, *args, **kwargs) -> Record:
                 revises._revises = None  # ensure we don't start a recursion
                 revises.save()
                 check_name_change(self)
+                check_key_change(self)
                 super(Record, self).save(*args, **kwargs)
                 _store_record_old_name(self)
+                _store_record_old_key(self)
             self._revises = None
         # save unversioned record
         else:
             check_name_change(self)
+            check_key_change(self)
             super(Record, self).save(*args, **kwargs)
             _store_record_old_name(self)
+            _store_record_old_key(self)
     # perform transfer of many-to-many fields
     # only supported for Artifact and Collection records
     if db is not None and db != "default" and using_key is None:
@@ -779,6 +790,12 @@ def _store_record_old_name(record: Record):
     # writes the name to the _name attribute, so we can detect renaming upon save
     if hasattr(record, "_name_field"):
         record._name = getattr(record, record._name_field)
+
+
+def _store_record_old_key(record: Record):
+    # writes the key to the _key attribute, so we can detect key changes upon save
+    if isinstance(record, (Artifact, Transform)):
+        record._key = record.key
 
 
 def check_name_change(record: Record):
@@ -845,6 +862,32 @@ def check_name_change(record: Record):
                     f"   → run `ln.Curator`\n"
                 )
                 raise RecordNameChangeIntegrityError
+
+
+def check_key_change(record: Record):
+    """Errors if a record's key has falsely changed."""
+    if not record.pk or record.key is None or not hasattr(record, "_key"):
+        return
+
+    old_key = record._key
+    new_key = record.key
+
+    old_key_suffix = (
+        record.suffix
+        if hasattr(record, "suffix")
+        else extract_suffix_from_path(PurePosixPath(old_key), arg_name="key")
+    )
+    new_key_suffix = extract_suffix_from_path(PurePosixPath(new_key), arg_name="key")
+
+    if new_key is not None and old_key != new_key:
+        if hasattr(record, "_key_is_virtual") and not record._key_is_virtual:
+            raise RecordKeyChangeIntegrityError(
+                f"Changing a non-virtual key of an artifact is not allowed! Tried to change key from '{old_key}' to '{new_key}'."
+            )
+        elif old_key_suffix != new_key_suffix:
+            raise RecordKeyChangeIntegrityError(
+                f"The suffix '{new_key_suffix}' of the provided key is incorrect, it should be '{old_key_suffix}'."
+            )
 
 
 def delete(self) -> None:
