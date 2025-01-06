@@ -1,10 +1,15 @@
+import os
+import signal
 import subprocess
+import sys
+import time
 from pathlib import Path
 
 import lamindb as ln
+import lamindb_setup as ln_setup
 import pytest
 from lamindb._finish import clean_r_notebook_html, get_shortcut
-from lamindb.core._context import context, get_uid_ext
+from lamindb.core._context import LogStreamTracker, context
 from lamindb.core.exceptions import TrackNotCalled, ValidationError
 
 SCRIPTS_DIR = Path(__file__).parent.resolve() / "scripts"
@@ -278,3 +283,157 @@ def test_clean_r_notebook_html():
     assert title_text == "My exemplary R analysis"
     assert compare == comparison_path.read_text()
     orig_notebook_path.write_text(content.replace(get_shortcut(), "SHORTCUT"))
+
+
+class MockRun:
+    def __init__(self, uid):
+        self.uid = uid
+        self.report = None
+        self.saved = False
+
+    def save(self):
+        self.saved = True
+
+
+def test_logstream_tracker_multiple():
+    tracker1 = LogStreamTracker()
+    tracker2 = LogStreamTracker()
+    tracker3 = LogStreamTracker()
+
+    try:
+        # Start trackers one by one and print messages
+        print("Initial stdout")
+
+        tracker1.start(MockRun("run1"))
+        print("After starting tracker1")
+
+        tracker2.start(MockRun("run2"))
+        print("After starting tracker2")
+
+        tracker3.start(MockRun("run3"))
+        print("After starting tracker3")
+
+        print("Testing stderr", file=sys.stderr)
+
+        time.sleep(0.1)
+
+        # Clean up in reverse order
+        tracker3.finish()
+        tracker2.finish()
+        tracker1.finish()
+
+        # Verify log contents - each log should only contain messages after its start
+        expected_contents = {
+            1: [
+                "After starting tracker1",
+                "After starting tracker2",
+                "After starting tracker3",
+                "Testing stderr",
+            ],
+            2: ["After starting tracker2", "After starting tracker3", "Testing stderr"],
+            3: ["After starting tracker3", "Testing stderr"],
+        }
+
+        for i in range(1, 4):
+            log_path = Path(ln_setup.settings.cache_dir / f"run_logs_run{i}.txt")
+            with open(log_path) as f:
+                content = f.read()
+                print(f"\nContents of run{i} log:")
+                print(content)
+                # Check each expected line is in the content
+                for expected_line in expected_contents[i]:
+                    assert (
+                        expected_line in content
+                    ), f"Expected '{expected_line}' in log {i}"
+
+                # Check earlier messages are NOT in the content
+                if i > 1:
+                    assert "Initial stdout" not in content
+                    assert "After starting tracker" + str(i - 1) not in content
+
+    finally:
+        # Cleanup
+        for i in range(1, 4):
+            log_path = Path(ln_setup.settings.cache_dir / f"run_logs_run{i}.txt")
+            if log_path.exists():
+                log_path.unlink()
+
+
+def test_logstream_tracker_exception_handling():
+    tracker = LogStreamTracker()
+
+    # Store original excepthook before starting tracker
+    original_excepthook = sys.excepthook
+
+    run = MockRun("error")
+    try:
+        # Start tracker (which will register its own exception handler)
+        tracker.start(run)
+        print("Before error")
+
+        # Directly call the tracker's exception handler instead of raising
+        exc_type = ValueError
+        exc_value = ValueError("Test error")
+        exc_traceback = None
+        try:
+            raise exc_value
+        except ValueError:
+            exc_traceback = sys.exc_info()[2]
+
+        tracker.handle_exception(exc_type, exc_value, exc_traceback)
+
+        # Give a moment for writes to complete
+        time.sleep(0.1)
+
+        # Verify the log
+        with open(tracker.log_file_path) as f:
+            content = f.read()
+            print("Log contents:", content)
+            assert "Before error" in content
+            assert "ValueError: Test error" in content
+            assert "Traceback" in content
+        assert run.saved
+        assert run.report is not None
+
+    finally:
+        # Restore original excepthook
+        sys.excepthook = original_excepthook
+        # Cleanup
+        if tracker.log_file_path.exists():
+            tracker.log_file_path.unlink()
+
+
+def test_logstream_tracker_signal_handling():
+    def trigger_signal():
+        time.sleep(0.1)  # Give the main process time to start
+        os.kill(os.getpid(), signal.SIGINT)
+
+    tracker = LogStreamTracker()
+    try:
+        tracker.start(MockRun("signal"))
+        print("Before signal")
+
+        # Start a thread to send the signal
+        import threading
+
+        signal_thread = threading.Thread(target=trigger_signal)
+        signal_thread.start()
+
+        try:
+            time.sleep(1)  # This should be interrupted
+        except KeyboardInterrupt:
+            pass
+
+        # Verify log
+        log_path = Path(ln_setup.settings.cache_dir / "run_logs_signal.txt")
+        with open(log_path) as f:
+            content = f.read()
+            assert "Before signal" in content
+            assert "Process terminated by signal" in content
+            assert "SIGINT" in content
+            assert "Frame info" in content
+    finally:
+        # Cleanup
+        log_path = Path(ln_setup.settings.cache_dir / "run_logs_signal.txt")
+        if log_path.exists():
+            log_path.unlink()
