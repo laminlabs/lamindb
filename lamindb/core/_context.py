@@ -145,10 +145,10 @@ class LogStreamTracker:
             if signo is not None:
                 signal_msg = f"\nProcess terminated by signal {signo} ({signal.Signals(signo).name})\n"
                 if frame:
-                    signal_msg += "Frame info:\n"
-                    signal_msg += "".join(traceback.format_stack(frame))
+                    signal_msg += (
+                        f"Frame info:\n{''.join(traceback.format_stack(frame))}"
+                    )
                 self.log_file.write(signal_msg)
-                self.log_file.flush()
             sys.stdout = self.original_stdout
             sys.stderr = self.original_stderr
             self.log_file.flush()
