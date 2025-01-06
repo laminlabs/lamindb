@@ -4,6 +4,7 @@ import builtins
 import hashlib
 import signal
 import sys
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -112,6 +113,7 @@ class LogStreamTracker:
         self.original_stderr = None
         self.log_file = None
         self.original_excepthook = sys.excepthook
+        self.is_cleaning_up = False
 
     def start(self, run: Run):
         self.original_stdout = sys.stdout
@@ -138,7 +140,15 @@ class LogStreamTracker:
     def cleanup(self, signo=None, frame=None):
         from lamindb._finish import save_run_logs
 
-        if self.original_stdout:
+        if self.original_stdout and not self.is_cleaning_up:
+            self.is_cleaning_up = True
+            if signo is not None:
+                signal_msg = f"\nProcess terminated by signal {signo} ({signal.Signals(signo).name})\n"
+                if frame:
+                    signal_msg += "Frame info:\n"
+                    signal_msg += "".join(traceback.format_stack(frame))
+                self.log_file.write(signal_msg)
+                self.log_file.flush()
             sys.stdout = self.original_stdout
             sys.stderr = self.original_stderr
             self.log_file.flush()
@@ -146,9 +156,11 @@ class LogStreamTracker:
             save_run_logs(self.run, save_run=True)
 
     def handle_exception(self, exc_type, exc_value, exc_traceback):
-        # First clean up our streams
-        self.cleanup()
-        # Then call the original exception handler
+        if not self.is_cleaning_up:
+            error_msg = f"{''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))}"
+            self.log_file.write(error_msg)
+            self.log_file.flush()
+            self.cleanup()
         self.original_excepthook(exc_type, exc_value, exc_traceback)
 
 
