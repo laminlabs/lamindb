@@ -228,7 +228,7 @@ def save_context_core(
         if env_path.exists():
             overwrite_env = True
             if run.environment_id is not None and from_cli:
-                logger.important("run.environment is already saved")
+                logger.important("run.environment is already saved, ignoring")
                 overwrite_env = False
             if overwrite_env:
                 hash, _ = hash_file(env_path)
@@ -249,6 +249,21 @@ def save_context_core(
     # set finished_at
     if finished_at and run is not None:
         run.finished_at = datetime.now(timezone.utc)
+
+    # track logs
+    if run is not None and not from_cli and not is_ipynb and not is_r_notebook:
+        logs_path = ln_setup.settings.cache_dir / f"run_logs_{run.uid}.txt"
+        if logs_path.exists():
+            if run.report is not None:
+                logger.important("run.report is already saved, ignoring")
+            artifact = ln.Artifact(
+                logs_path,
+                description=f"log streams of run {run.uid}",
+                visibility=0,
+                run=False,
+            )
+            artifact.save(upload=True, print_progress=False)
+            run.report = artifact
 
     # track report and set is_consecutive
     if run is not None:

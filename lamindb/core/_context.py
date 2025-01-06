@@ -2,27 +2,26 @@ from __future__ import annotations
 
 import builtins
 import hashlib
+import sys
 from datetime import datetime, timezone
-from pathlib import Path, PurePath
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
-from django.db.models import F, Func, IntegerField
+from django.db.models import Func, IntegerField
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_file
 
 from lamindb.base import ids
 from lamindb.base.ids import base62_12
-from lamindb.models import Run, Transform, format_field_value
+from lamindb.models import Artifact, Run, Transform, format_field_value
 
 from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_environment
 from .exceptions import (
     InconsistentKey,
-    MissingContextUID,
     NotebookNotSaved,
-    NoTitleError,
     TrackNotCalled,
     UpdateContext,
 )
@@ -91,6 +90,41 @@ def pretty_pypackages(dependencies: dict) -> str:
     return " ".join(deps_list)
 
 
+class StdStreamHandler:
+    def __init__(self, stdstream, file):
+        self.stdstream = stdstream
+        self.file = file
+
+    def write(self, data):
+        self.stdstream.write(data)
+        self.file.write(data)
+        self.file.flush()
+
+    def flush(self):
+        self.stdstream.flush()
+        self.file.flush()
+
+
+class StdStreamTracker:
+    def __init__(self):
+        self.original_stdout = None
+        self.original_stderr = None
+        self.log_file = None
+
+    def start(self, filename: str):
+        self.original_stdout = sys.stdout
+        self.original_stderr = sys.stderr
+        self.log_file = open(filename, "w")
+        sys.stdout = StdStreamHandler(self.original_stdout, self.log_file)
+        sys.stderr = StdStreamHandler(self.original_stderr, self.log_file)
+
+    def finish(self):
+        if self.original_stdout:
+            sys.stdout = self.original_stdout
+            sys.stderr = self.original_stderr
+            self.log_file.close()
+
+
 class Context:
     """Run context.
 
@@ -120,6 +154,7 @@ class Context:
         """A local path to the script that's running."""
         self._logging_message_track: str = ""
         self._logging_message_imports: str = ""
+        self._stream_tracker: StdStreamTracker = StdStreamTracker()
 
     @property
     def transform(self) -> Transform | None:
@@ -273,6 +308,9 @@ class Context:
             )
         self._run = run
         track_environment(run)
+        self._stream_tracker.start(
+            ln_setup.settings.cache_dir / f"run_logs_{run.uid}.txt"
+        )
         logger.important(self._logging_message_track)
         if self._logging_message_imports:
             logger.important(self._logging_message_imports)
@@ -582,6 +620,7 @@ class Context:
             finished_at=True,
             ignore_non_consecutive=ignore_non_consecutive,
         )
+        self._stream_tracker.finish()
 
 
 context = Context()
