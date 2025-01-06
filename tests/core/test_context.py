@@ -150,7 +150,7 @@ def test_run_scripts():
     )
     assert result.returncode == 1
     assert (
-        "Version '1' is already taken by Transform('Ro1gl7n8YrdH0000'); please set another version, e.g., ln.context.version = '1.1'"
+        "✗ version '1' is already taken by Transform('Ro1gl7n8YrdH0000'); please set another version, e.g., ln.context.version = '1.1'"
         in result.stderr.decode()
     )
 
@@ -176,7 +176,7 @@ def test_run_scripts():
     )
     assert result.returncode == 1
     assert (
-        "Please pass consistent version: ln.context.version = '2'"
+        "✗ please pass consistent version: ln.context.version = '2'"
         in result.stderr.decode()
     )
 

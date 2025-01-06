@@ -470,7 +470,7 @@ class Context:
                 and self.version != transform.version  # type: ignore
             ):
                 raise SystemExit(
-                    f"Please pass consistent version: ln.context.version = '{transform.version}'"  # type: ignore
+                    f"✗ please pass consistent version: ln.context.version = '{transform.version}'"  # type: ignore
                 )
             # test whether version was already used for another member of the family
             suid, vuid = (self.uid[:-4], self.uid[-4:])
@@ -480,7 +480,7 @@ class Context:
             if transform is not None and vuid != transform.uid[-4:]:
                 better_version = bump_version_function(self.version)
                 raise SystemExit(
-                    f"Version '{self.version}' is already taken by Transform('{transform.uid}'); please set another version, e.g., ln.context.version = '{better_version}'"
+                    f"✗ version '{self.version}' is already taken by Transform('{transform.uid}'); please set another version, e.g., ln.context.version = '{better_version}'"
                 )
         # make a new transform record
         if transform is None:
@@ -549,13 +549,12 @@ class Context:
                         )
                 if bump_revision:
                     change_type = (
-                        "Re-running saved notebook"
+                        "re-running saved notebook"
                         if is_run_from_ipython
-                        else "Source code changed"
+                        else "source code changed"
                     )
                     raise UpdateContext(
-                        f"{change_type}, bump revision by setting:\n\n"
-                        f'ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")'
+                        f'✗ {change_type}, run: ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")'
                     )
             else:
                 self._logging_message_track += f"loaded Transform('{transform.uid}')"
