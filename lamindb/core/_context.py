@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import builtins
 import hashlib
+import signal
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -90,39 +91,65 @@ def pretty_pypackages(dependencies: dict) -> str:
     return " ".join(deps_list)
 
 
-class StdStreamHandler:
-    def __init__(self, stdstream, file):
-        self.stdstream = stdstream
+class LogStreamHandler:
+    def __init__(self, log_stream, file):
+        self.log_stream = log_stream
         self.file = file
 
     def write(self, data):
-        self.stdstream.write(data)
+        self.log_stream.write(data)
         self.file.write(data)
         self.file.flush()
 
     def flush(self):
-        self.stdstream.flush()
+        self.log_stream.flush()
         self.file.flush()
 
 
-class StdStreamTracker:
+class LogStreamTracker:
     def __init__(self):
         self.original_stdout = None
         self.original_stderr = None
         self.log_file = None
+        self.original_excepthook = sys.excepthook
 
-    def start(self, filename: str):
+    def start(self, run: Run):
         self.original_stdout = sys.stdout
         self.original_stderr = sys.stderr
-        self.log_file = open(filename, "w")
-        sys.stdout = StdStreamHandler(self.original_stdout, self.log_file)
-        sys.stderr = StdStreamHandler(self.original_stderr, self.log_file)
+        self.run = run
+        self.log_file_path = (
+            ln_setup.settings.cache_dir / f"run_logs_{self.run.uid}.txt"
+        )
+        self.log_file = open(self.log_file_path, "w")
+        sys.stdout = LogStreamHandler(self.original_stdout, self.log_file)
+        sys.stderr = LogStreamHandler(self.original_stderr, self.log_file)
+        # handle signals
+        signal.signal(signal.SIGTERM, self.cleanup)
+        signal.signal(signal.SIGINT, self.cleanup)
+        # handle exceptions
+        sys.excepthook = self.handle_exception
 
     def finish(self):
         if self.original_stdout:
             sys.stdout = self.original_stdout
             sys.stderr = self.original_stderr
             self.log_file.close()
+
+    def cleanup(self, signo=None, frame=None):
+        from lamindb._finish import save_run_logs
+
+        if self.original_stdout:
+            sys.stdout = self.original_stdout
+            sys.stderr = self.original_stderr
+            self.log_file.flush()
+            self.log_file.close()
+            save_run_logs(self.run, save_run=True)
+
+    def handle_exception(self, exc_type, exc_value, exc_traceback):
+        # First clean up our streams
+        self.cleanup()
+        # Then call the original exception handler
+        self.original_excepthook(exc_type, exc_value, exc_traceback)
 
 
 class Context:
@@ -154,7 +181,7 @@ class Context:
         """A local path to the script that's running."""
         self._logging_message_track: str = ""
         self._logging_message_imports: str = ""
-        self._stream_tracker: StdStreamTracker = StdStreamTracker()
+        self._stream_tracker: LogStreamTracker = LogStreamTracker()
 
     @property
     def transform(self) -> Transform | None:
@@ -308,9 +335,7 @@ class Context:
             )
         self._run = run
         track_environment(run)
-        self._stream_tracker.start(
-            ln_setup.settings.cache_dir / f"run_logs_{run.uid}.txt"
-        )
+        self._stream_tracker.start(run)
         logger.important(self._logging_message_track)
         if self._logging_message_imports:
             logger.important(self._logging_message_imports)
