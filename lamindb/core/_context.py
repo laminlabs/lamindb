@@ -158,6 +158,8 @@ class LogStreamTracker:
     def handle_exception(self, exc_type, exc_value, exc_traceback):
         if not self.is_cleaning_up:
             error_msg = f"{''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))}"
+            if self.log_file.closed:
+                self.log_file = open(self.log_file_path, "a")
             self.log_file.write(error_msg)
             self.log_file.flush()
             self.cleanup()
@@ -347,7 +349,8 @@ class Context:
             )
         self._run = run
         track_environment(run)
-        self._stream_tracker.start(run)
+        if self.transform.type != "notebook":
+            self._stream_tracker.start(run)
         logger.important(self._logging_message_track)
         if self._logging_message_imports:
             logger.important(self._logging_message_imports)
@@ -656,7 +659,8 @@ class Context:
             finished_at=True,
             ignore_non_consecutive=ignore_non_consecutive,
         )
-        self._stream_tracker.finish()
+        if self.transform.type != "notebook":
+            self._stream_tracker.finish()
 
 
 context = Context()

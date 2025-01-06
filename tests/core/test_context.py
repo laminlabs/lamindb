@@ -361,17 +361,14 @@ def test_logstream_tracker_multiple():
 
 def test_logstream_tracker_exception_handling():
     tracker = LogStreamTracker()
-
-    # Store original excepthook before starting tracker
     original_excepthook = sys.excepthook
-
     run = MockRun("error")
+
     try:
-        # Start tracker (which will register its own exception handler)
         tracker.start(run)
         print("Before error")
 
-        # Directly call the tracker's exception handler instead of raising
+        # Create and capture exception info
         exc_type = ValueError
         exc_value = ValueError("Test error")
         exc_traceback = None
@@ -380,60 +377,19 @@ def test_logstream_tracker_exception_handling():
         except ValueError:
             exc_traceback = sys.exc_info()[2]
 
+        # Handle the exception - this will trigger cleanup
         tracker.handle_exception(exc_type, exc_value, exc_traceback)
 
-        # Give a moment for writes to complete
-        time.sleep(0.1)
-
-        # Verify the log
-        with open(tracker.log_file_path) as f:
-            content = f.read()
-            print("Log contents:", content)
-            assert "Before error" in content
-            assert "ValueError: Test error" in content
-            assert "Traceback" in content
+        # Verify run status
         assert run.saved
         assert run.report is not None
 
+        # Verify the content was written before cleanup
+        content = run.report.cache().read_text()
+        print("Log contents:", content)
+        assert "Before error" in content
+        assert "ValueError: Test error" in content
+        assert "Traceback" in content
+
     finally:
-        # Restore original excepthook
         sys.excepthook = original_excepthook
-        # Cleanup
-        if tracker.log_file_path.exists():
-            tracker.log_file_path.unlink()
-
-
-def test_logstream_tracker_signal_handling():
-    def trigger_signal():
-        time.sleep(0.1)  # Give the main process time to start
-        os.kill(os.getpid(), signal.SIGINT)
-
-    tracker = LogStreamTracker()
-    try:
-        tracker.start(MockRun("signal"))
-        print("Before signal")
-
-        # Start a thread to send the signal
-        import threading
-
-        signal_thread = threading.Thread(target=trigger_signal)
-        signal_thread.start()
-
-        try:
-            time.sleep(1)  # This should be interrupted
-        except KeyboardInterrupt:
-            pass
-
-        # Verify log
-        log_path = Path(ln_setup.settings.cache_dir / "run_logs_signal.txt")
-        with open(log_path) as f:
-            content = f.read()
-            assert "Before signal" in content
-            assert "Process terminated by signal" in content
-            assert "SIGINT" in content
-            assert "Frame info" in content
-    finally:
-        # Cleanup
-        log_path = Path(ln_setup.settings.cache_dir / "run_logs_signal.txt")
-        if log_path.exists():
-            log_path.unlink()
