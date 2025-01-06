@@ -266,7 +266,7 @@ def save_context_core(
 
     # track logs
     if run is not None and not from_cli and not is_ipynb and not is_r_notebook:
-        save_run_logs()
+        save_run_logs(run)
 
     # track report and set is_consecutive
     if run is not None:
