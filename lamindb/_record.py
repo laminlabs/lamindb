@@ -892,4 +892,5 @@ if ln_setup._TESTING:  # type: ignore
 
 for name in METHOD_NAMES:
     attach_func_to_class_method(name, Record, globals())
-    attach_func_to_class_method(name, BasicRecord, globals())
+    if name not in {"__init__", "lookup", "delete"}:
+        attach_func_to_class_method(name, BasicRecord, globals())

@@ -788,7 +788,9 @@ class Registry(ModelBase):
 class BasicRecord(models.Model, metaclass=Registry):
     """Basic record.
 
-    It behaves like Record but doesn't have the _public field.
+    It has the same methods as Record, but doesn't have the additional fields.
+
+    It's mainly used for LinkORMs and similar.
     """
 
     class Meta:
