@@ -863,23 +863,21 @@ def test_adata_suffix(adata):
 
 def test_bulk_delete():
     report_path = Path("report.html")
-    with open(report_path, "w") as f:
-        f.write("a")
+    report_path.write_text("a")
     environment_path = Path("environment.txt")
-    with open(environment_path, "w") as f:
-        f.write("c")
-    report = ln.Artifact(report_path, description="Report")
-    report.save()
+    environment_path.write_text("c")
+    report = ln.Artifact(report_path, description="Report").save()
     report_path.unlink()
     report_path = report.path
-    environment = ln.Artifact(environment_path, description="requirement.txt")
-    environment.save()
+    environment = ln.Artifact(environment_path, description="requirement.txt").save()
     environment_path.unlink()
     environment_path = environment.path
 
     ln.Artifact.filter(id__in=[environment.id, report.id]).delete()
 
     assert len(ln.Artifact.filter(id__in=[environment.id, report.id]).all()) == 0
+
+    # the 2 artifacts are in trash now
     assert (
         len(
             ln.Artifact.filter(
@@ -889,12 +887,13 @@ def test_bulk_delete():
             .distinct()
             .all()
         )
-        == 3
+        == 2
     )
 
     ln.Artifact.filter(id__in=[environment.id, report.id], _branch_code=-1).delete(
         permanent=True
     )
+    # now they're gone
     assert (
         len(
             ln.Artifact.filter(
