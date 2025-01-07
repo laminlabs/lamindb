@@ -8,3 +8,5 @@ The field accessor of a :class:`~lamindb.core.Record`:
    FieldAttr
 
 """
+
+from lamindb.base.types import FieldAttr  # noqa: F401
