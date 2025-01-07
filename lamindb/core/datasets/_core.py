@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 from urllib.request import urlretrieve
 
 import anndata as ad
-import numpy as np
 import pandas as pd
 from upath import UPath
 

@@ -1,10 +1,13 @@
 import subprocess
+import sys
+import time
 from pathlib import Path
 
 import lamindb as ln
+import lamindb_setup as ln_setup
 import pytest
 from lamindb._finish import clean_r_notebook_html, get_shortcut
-from lamindb.core._context import context, get_uid_ext
+from lamindb.core._context import LogStreamTracker, context
 from lamindb.core.exceptions import TrackNotCalled, ValidationError
 
 SCRIPTS_DIR = Path(__file__).parent.resolve() / "scripts"
@@ -150,7 +153,7 @@ def test_run_scripts():
     )
     assert result.returncode == 1
     assert (
-        "Version '1' is already taken by Transform('Ro1gl7n8YrdH0000'); please set another version, e.g., ln.context.version = '1.1'"
+        "✗ version '1' is already taken by Transform('Ro1gl7n8YrdH0000'); please set another version, e.g., ln.context.version = '1.1'"
         in result.stderr.decode()
     )
 
@@ -176,7 +179,7 @@ def test_run_scripts():
     )
     assert result.returncode == 1
     assert (
-        "Please pass consistent version: ln.context.version = '2'"
+        "✗ please pass consistent version: ln.context.version = '2'"
         in result.stderr.decode()
     )
 
@@ -277,3 +280,113 @@ def test_clean_r_notebook_html():
     assert title_text == "My exemplary R analysis"
     assert compare == comparison_path.read_text()
     orig_notebook_path.write_text(content.replace(get_shortcut(), "SHORTCUT"))
+
+
+class MockRun:
+    def __init__(self, uid):
+        self.uid = uid
+        self.report = None
+        self.saved = False
+
+    def save(self):
+        self.saved = True
+
+
+def test_logstream_tracker_multiple():
+    tracker1 = LogStreamTracker()
+    tracker2 = LogStreamTracker()
+    tracker3 = LogStreamTracker()
+
+    try:
+        # Start trackers one by one and print messages
+        print("Initial stdout")
+
+        tracker1.start(MockRun("run1"))
+        print("After starting tracker1")
+
+        tracker2.start(MockRun("run2"))
+        print("After starting tracker2")
+
+        tracker3.start(MockRun("run3"))
+        print("After starting tracker3")
+
+        print("Testing stderr", file=sys.stderr)
+
+        time.sleep(0.1)
+
+        # Clean up in reverse order
+        tracker3.finish()
+        tracker2.finish()
+        tracker1.finish()
+
+        # Verify log contents - each log should only contain messages after its start
+        expected_contents = {
+            1: [
+                "After starting tracker1",
+                "After starting tracker2",
+                "After starting tracker3",
+                "Testing stderr",
+            ],
+            2: ["After starting tracker2", "After starting tracker3", "Testing stderr"],
+            3: ["After starting tracker3", "Testing stderr"],
+        }
+
+        for i in range(1, 4):
+            log_path = Path(ln_setup.settings.cache_dir / f"run_logs_run{i}.txt")
+            with open(log_path) as f:
+                content = f.read()
+                print(f"\nContents of run{i} log:")
+                print(content)
+                # Check each expected line is in the content
+                for expected_line in expected_contents[i]:
+                    assert (
+                        expected_line in content
+                    ), f"Expected '{expected_line}' in log {i}"
+
+                # Check earlier messages are NOT in the content
+                if i > 1:
+                    assert "Initial stdout" not in content
+                    assert "After starting tracker" + str(i - 1) not in content
+
+    finally:
+        # Cleanup
+        for i in range(1, 4):
+            log_path = Path(ln_setup.settings.cache_dir / f"run_logs_run{i}.txt")
+            if log_path.exists():
+                log_path.unlink()
+
+
+def test_logstream_tracker_exception_handling():
+    tracker = LogStreamTracker()
+    original_excepthook = sys.excepthook
+    run = MockRun("error")
+
+    try:
+        tracker.start(run)
+        print("Before error")
+
+        # Create and capture exception info
+        exc_type = ValueError
+        exc_value = ValueError("Test error")
+        exc_traceback = None
+        try:
+            raise exc_value
+        except ValueError:
+            exc_traceback = sys.exc_info()[2]
+
+        # Handle the exception - this will trigger cleanup
+        tracker.handle_exception(exc_type, exc_value, exc_traceback)
+
+        # Verify run status
+        assert run.saved
+        assert run.report is not None
+
+        # Verify the content was written before cleanup
+        content = run.report.cache().read_text()
+        print("Log contents:", content)
+        assert "Before error" in content
+        assert "ValueError: Test error" in content
+        assert "Traceback" in content
+
+    finally:
+        sys.excepthook = original_excepthook

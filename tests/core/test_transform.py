@@ -2,7 +2,6 @@ from pathlib import Path
 
 import lamindb as ln
 import pytest
-from django.db.models.deletion import ProtectedError
 
 
 def test_revise_transforms():

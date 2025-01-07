@@ -5,11 +5,9 @@ import shutil
 import traceback
 from collections import defaultdict
 from datetime import datetime
-from functools import partial
-from typing import TYPE_CHECKING, overload
+from typing import TYPE_CHECKING
 
-import lamindb_setup
-from django.db import IntegrityError, transaction
+from django.db import transaction
 from django.utils.functional import partition
 from lamin_utils import logger
 from lamindb_setup.core.upath import LocalPathClasses

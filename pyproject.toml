@@ -165,8 +165,6 @@ lint.ignore = [
     "D413",
     # Missing argument description in the docstring
     "D417",
-    # Imports unused
-    "F401",
     # camcelcase imported as lowercase
     "N813",
     # module import not at top level of file
@@ -178,14 +176,16 @@ lint.ignore = [
     # Starting a process with a partial executable path
     "S607",
     # Prefer absolute imports over relative imports from parent modules
-    "TID252"
+    "TID252",
+    # Standard pseudo-random generators are not suitable for cryptographic purposes
+    "S311"
 ]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
-"docs/*" = ["I"]
+"docs/*" = ["I", "S101"]
 "tests/**/*.py" = [
     "D",  # docstrings are allowed to look a bit off
     "S101", # asserts allowed in tests...
@@ -194,7 +194,9 @@ convention = "google"
     "PLR2004", # Magic value used in comparison, ...
     "S311", # Standard pseudo-random generators are not suitable for cryptographic purposes
 ]
+"tests/**/*.ipynb" = ["S101"]
 "*/__init__.py" = ["F401"]
+"lamindb/core/types.py" = ["F401"]
 
 [tool.pytest.ini_options]
 testpaths = [

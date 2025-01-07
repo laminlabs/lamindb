@@ -10,7 +10,6 @@ import lamindb_setup as ln_setup
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import connections, transaction
 from django.db.models import (
-    F,
     IntegerField,
     Manager,
     Q,
@@ -617,8 +616,6 @@ def transfer_fk_to_default_db_bulk(
 
 
 def get_transfer_run(record) -> Run:
-    from lamindb_setup import settings as setup_settings
-
     from lamindb.core._context import context
     from lamindb.core._data import WARNING_RUN_TRANSFORM
 
