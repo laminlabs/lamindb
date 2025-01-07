@@ -1,5 +1,4 @@
 import shutil
-from pathlib import Path
 from subprocess import DEVNULL, run
 from time import perf_counter
 

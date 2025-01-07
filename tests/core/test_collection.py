@@ -6,7 +6,6 @@ import lamindb as ln
 import numpy as np
 import pandas as pd
 import pytest
-from django.db.models.deletion import ProtectedError
 from lamindb import _collection
 from scipy.sparse import csc_matrix, csr_matrix
 

@@ -18,14 +18,3 @@ Basic types.
    StrField
    ListLike
 """
-
-from lamindb_setup.core.types import UPathStr
-
-from lamindb.base.types import (
-    ArtifactType,
-    FeatureDtype,
-    FieldAttr,
-    ListLike,
-    StrField,
-    TransformType,
-)

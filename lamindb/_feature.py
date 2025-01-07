@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, get_args
+from typing import TYPE_CHECKING, Any, get_args
 
 import lamindb_setup as ln_setup
 import pandas as pd
@@ -14,7 +14,6 @@ from lamindb.models import Artifact, Feature, Record
 
 from ._query_set import RecordList
 from ._utils import attach_func_to_class_method
-from .core._settings import settings
 from .core.schema import dict_schema_name_to_model_name
 
 if TYPE_CHECKING:

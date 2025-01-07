@@ -1,16 +1,10 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import lamindb_setup as ln_setup
-from lamindb_setup.core._docs import doc_args
 
 from lamindb.models import ULabel
 
 from ._utils import attach_func_to_class_method
-
-if TYPE_CHECKING:
-    from lamindb.base.types import ListLike
 
 
 def __init__(self, *args, **kwargs):

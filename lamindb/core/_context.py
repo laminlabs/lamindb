@@ -16,7 +16,7 @@ from lamindb_setup.core.hashing import hash_file
 
 from lamindb.base import ids
 from lamindb.base.ids import base62_12
-from lamindb.models import Artifact, Run, Transform, format_field_value
+from lamindb.models import Run, Transform, format_field_value
 
 from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo

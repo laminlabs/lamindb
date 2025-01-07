@@ -165,8 +165,6 @@ lint.ignore = [
     "D413",
     # Missing argument description in the docstring
     "D417",
-    # Imports unused
-    "F401",
     # camcelcase imported as lowercase
     "N813",
     # module import not at top level of file

@@ -2,12 +2,10 @@ from __future__ import annotations
 
 from collections import Counter
 from functools import reduce
-from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import pandas as pd
-from lamin_utils import logger
 from lamindb_setup.core.upath import UPath
 
 from .storage._anndata_accessor import (

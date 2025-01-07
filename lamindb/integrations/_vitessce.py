@@ -44,8 +44,6 @@ def save_vitessce_config(
     # can only import here because vitessce is not a dependency
     from vitessce import VitessceConfig
 
-    from lamindb.core.storage import VALID_SUFFIXES
-
     assert isinstance(vitessce_config, VitessceConfig)  # noqa: S101
     vc_dict = vitessce_config.to_dict()
     try:
