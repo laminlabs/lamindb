@@ -163,8 +163,6 @@ def test_run_scripts():
         shell=True,
         capture_output=True,
     )
-    print(result.stdout.decode())
-    print(result.stderr.decode())
     assert result.returncode == 0
     assert (
         "created Transform('Ro1gl7n8YrdH0001'), started new Run("
@@ -200,7 +198,9 @@ def test_run_scripts():
 
     # multiple folders, match
     transform = ln.Transform(
-        name="Dummy title", key="duplicate4/script-to-test-versioning.py", type="script"
+        description="Dummy title",
+        key="duplicate4/script-to-test-versioning.py",
+        type="script",
     ).save()
     result = subprocess.run(  # noqa: S602
         f"python {SCRIPTS_DIR / 'duplicate4/script-to-test-versioning.py'}",
