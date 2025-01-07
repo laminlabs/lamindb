@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 def _mudata_is_installed():
     try:
-        import mudata  # noqa: F401
+        import mudata  # noqa: F401c
     except ImportError:
         return False
     return True
