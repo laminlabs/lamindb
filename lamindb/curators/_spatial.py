@@ -375,7 +375,7 @@ class SpatialDataCurator:
 
             # Write the SpatialData object to a random path in tmp directory
             # The Artifact constructor will move it to the cache
-            write_path = f"{settings.cache_dir}/{random.randint(10**7, 10**8 - 1)}.zarr"  # noqa: S311
+            write_path = f"{settings.cache_dir}/{random.randint(10**7, 10**8 - 1)}.zarr"
             self._sdata.write(write_path)
 
             # Create the Artifact and associate Artifact metadata
