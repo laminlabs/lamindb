@@ -46,7 +46,6 @@ from .base.types import (
     ListLike,
     StrField,
     TransformType,
-    VisibilityChoice,
 )
 from .base.users import current_user_id
 
@@ -815,7 +814,19 @@ class Record(models.Model, metaclass=Registry):
     machine learning or biological models.
     """
 
-    _public: str = models.BooleanField(default_db=None, null=None)
+    _branch_code: int = models.SmallIntegerField(db_index=True, default=1)
+    """Whether record is on a branch, in archive or in trash.
+
+    This dictates whether a record appears in queries & searches.
+
+    Coding is as follows:
+
+    - 1: default branch (visible in queries & searches)
+    - 0: archive branch (hidden, meant to be kept)
+    - -1: trash branch (hidden, scheduled for deletion)
+
+    Any integer higher than 1 codes a branch that's involved in a pull request.
+    """
 
     def save(self, *args, **kwargs) -> Record:
         """Save.
@@ -2179,10 +2190,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         ParamValue, through="ArtifactParamValue", related_name="artifacts"
     )
     """Parameter values."""
-    visibility: int = models.SmallIntegerField(
-        db_index=True, choices=VisibilityChoice.choices, default=1
-    )
-    """Visibility of artifact record in queries & searches (1 default, 0 hidden, -1 trash)."""
     _key_is_virtual: bool = BooleanField()
     """Indicates whether `key` is virtual or part of an actual file path."""
     # be mindful that below, passing related_name="+" leads to errors
@@ -2549,10 +2556,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         pass
 
 
-# auto-generated through choices()
-delattr(Artifact, "get_visibility_display")
-
-
 class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
     """Collections of artifacts.
 
@@ -2642,10 +2645,6 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
     collection from the artifact via a private field:
     `artifact._meta_of_collection`.
     """
-    visibility: int = models.SmallIntegerField(
-        db_index=True, choices=VisibilityChoice.choices, default=1
-    )
-    """Visibility of collection record in queries & searches (1 default, 0 hidden, -1 trash)."""
     _actions: Artifact = models.ManyToManyField(Artifact, related_name="+")
     """Actions to attach for the UI."""
 
@@ -2846,10 +2845,6 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             >>> artifact.describe()
         """
         pass
-
-
-# auto-generated through choices()
-delattr(Collection, "get_visibility_display")
 
 
 # -------------------------------------------------------------------------------------
