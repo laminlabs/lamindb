@@ -209,7 +209,6 @@ class Context:
 
     @uid.setter
     def uid(self, value: str | None):
-        logger.warning("pleease do no longer set `context.uid` directly")
         self._uid = value
 
     @property

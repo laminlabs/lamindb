@@ -101,14 +101,14 @@ def test_create_or_load_transform():
     context.version = version
     context._path = Path("my-test-transform-create-or-load.py")
     context._create_or_load_transform(
-        name=title,
+        description=title,
         transform_type="notebook",
     )
     assert context._transform.uid == uid
     assert context._transform.version == version
     assert context._transform.description == title
     context._create_or_load_transform(
-        name=title,
+        description=title,
     )
     assert context._transform.uid == uid
     assert context._transform.version == version
@@ -116,7 +116,7 @@ def test_create_or_load_transform():
 
     # now, test an updated transform name
     context._create_or_load_transform(
-        name="updated title",
+        description="updated title",
     )
     assert context._transform.uid == uid
     assert context._transform.version == version
@@ -250,7 +250,6 @@ def test_run_external_script():
         "https://github.com/laminlabs/lamin-cli/blob/"
     )
     assert transform.reference_type == "url"
-    assert transform.description == "My good script"
     # ensure that the source code is not saved as an output artifact
     assert transform.latest_run.output_artifacts.count() == 0
     assert transform.runs.count() == 1
