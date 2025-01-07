@@ -40,10 +40,11 @@ class Migration(migrations.Migration):
             model_name="transform",
             name="_source_code_artifact",
         ),
+        # prepare removal of legacy description field
         migrations.RunSQL(
             sql="""
                 UPDATE lamindb_transform
-                SET _public = description
+                SET name = name || ' ' || description
                 WHERE description IS NOT NULL
                 AND description != '';
             """
