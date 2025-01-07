@@ -148,7 +148,7 @@ def save_context_core(
         format_field_value,  # needs to come after lamindb was imported because of CLI use
     )
 
-    from .core._context import context, is_run_from_ipython
+    from .core._context import context
 
     ln.settings.verbosity = "success"
 
@@ -161,7 +161,7 @@ def save_context_core(
     # for notebooks, we need more work
     if is_ipynb:
         try:
-            import jupytext
+            import jupytext  # noqa: F401
             from nbproject.dev import (
                 check_consecutiveness,
                 read_notebook,

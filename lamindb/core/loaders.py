@@ -33,7 +33,6 @@ from lamindb_setup.core.upath import (
 from ._settings import settings
 
 if TYPE_CHECKING:
-    import mudata as md
     from lamindb_setup.core.types import UPathStr
 
 try:

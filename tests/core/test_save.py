@@ -31,8 +31,6 @@ def test_prepare_error_message():
 
 
 def test_save_data_object():
-    import anndata as ad
-
     ln.core.datasets.file_mini_csv()
     artifact = ln.Artifact("mini.csv", description="test")
     artifact.save()

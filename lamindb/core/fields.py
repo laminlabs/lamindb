@@ -9,4 +9,4 @@ The field accessor of a :class:`~lamindb.core.Record`:
 
 """
 
-from lamindb.base.types import FieldAttr
+from lamindb.base.types import FieldAttr  # noqa: F401

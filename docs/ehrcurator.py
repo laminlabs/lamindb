@@ -1,7 +1,7 @@
 import bionty as bt
 import pandas as pd
-from lamindb.core import DataFrameCurator, Record, logger
-from lamindb.core.types import UPathStr, FieldAttr
+from lamindb.core import DataFrameCurator, logger
+from lamindb.core.types import UPathStr
 
 __version__ = "0.1.0"
 
