@@ -4,7 +4,6 @@ from typing import Literal, Union
 
 import numpy as np
 import pandas as pd
-from django.db.models import IntegerChoices  # needed elsewhere
 from django.db.models.query_utils import DeferredAttribute as FieldAttr
 
 # need to use Union because __future__.annotations doesn't do the job here <3.10
@@ -25,9 +24,3 @@ FeatureDtype = Literal[
     "datetime",  # datetime variables
     "object",  # this is a pandas type, we're only using it for complicated types, not for strings
 ]
-
-
-class VisibilityChoice(IntegerChoices):
-    default = 1
-    hidden = 0
-    trash = -1

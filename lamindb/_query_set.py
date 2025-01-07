@@ -22,7 +22,6 @@ from lamindb.models import (
     Record,
     Run,
     Transform,
-    VisibilityChoice,
 )
 
 from .core.exceptions import DoesNotExist
@@ -114,9 +113,7 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
         ):
             visibility = "visibility"
             if not any(e.startswith(visibility) for e in expressions):
-                expressions[visibility] = (
-                    VisibilityChoice.default.value
-                )  # default visibility
+                expressions[visibility] = 1  # default visibility
             # if visibility is None, do not apply a filter
             # otherwise, it would mean filtering for NULL values, which doesn't make
             # sense for a non-NULLABLE column

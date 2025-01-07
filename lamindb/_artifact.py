@@ -23,9 +23,6 @@ from lamindb_setup.core.upath import (
     get_stat_file_cloud,
 )
 
-from lamindb.base.types import (
-    VisibilityChoice,
-)
 from lamindb.models import Artifact, FeatureManager, ParamManager, Run, Storage
 
 from ._parents import view_lineage
@@ -534,11 +531,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
     )
     revises: Artifact | None = kwargs.pop("revises") if "revises" in kwargs else None
     version: str | None = kwargs.pop("version") if "version" in kwargs else None
-    visibility: int | None = (
-        kwargs.pop("visibility")
-        if "visibility" in kwargs
-        else VisibilityChoice.default.value
-    )
+    visibility: int | None = kwargs.pop("visibility") if "visibility" in kwargs else 1
     format = kwargs.pop("format") if "format" in kwargs else None
     _is_internal_call = kwargs.pop("_is_internal_call", False)
     skip_check_exists = (
@@ -1037,7 +1030,7 @@ def delete(
                 f"\nThese are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).df()}"
             )
     # by default, we only move artifacts into the trash (visibility = -1)
-    trash_visibility = VisibilityChoice.trash.value
+    trash_visibility = -1
     if self.visibility > trash_visibility and not permanent:
         if storage is not None:
             logger.warning("moving artifact to trash, storage arg is ignored")
@@ -1173,7 +1166,7 @@ def _cache_path(self) -> UPath:
 
 # docstring handled through attach_func_to_class_method
 def restore(self) -> None:
-    self.visibility = VisibilityChoice.default.value
+    self.visibility = 1
     self.save()
 
 

@@ -14,7 +14,6 @@ from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import hash_set
 
-from lamindb.base.types import VisibilityChoice
 from lamindb.models import (
     Collection,
     CollectionArtifact,
@@ -107,11 +106,7 @@ def __init__(
     run: Run | None = kwargs.pop("run") if "run" in kwargs else None
     revises: Collection | None = kwargs.pop("revises") if "revises" in kwargs else None
     version: str | None = kwargs.pop("version") if "version" in kwargs else None
-    visibility: int | None = (
-        kwargs.pop("visibility")
-        if "visibility" in kwargs
-        else VisibilityChoice.default.value
-    )
+    visibility: int | None = kwargs.pop("visibility") if "visibility" in kwargs else 1
     if "is_new_version_of" in kwargs:
         logger.warning("`is_new_version_of` will be removed soon, please use `revises`")
         revises = kwargs.pop("is_new_version_of")
@@ -308,7 +303,7 @@ def load(
 # docstring handled through attach_func_to_class_method
 def delete(self, permanent: bool | None = None) -> None:
     # change visibility to trash
-    trash_visibility = VisibilityChoice.trash.value
+    trash_visibility = -1
     if self.visibility > trash_visibility and permanent is not True:
         self.visibility = trash_visibility
         self.save()
@@ -357,7 +352,7 @@ def save(self, using: str | None = None) -> Collection:
 
 # docstring handled through attach_func_to_class_method
 def restore(self) -> None:
-    self.visibility = VisibilityChoice.default.value
+    self.visibility = 1
     self.save()
 
 
