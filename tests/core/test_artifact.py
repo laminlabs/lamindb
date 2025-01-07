@@ -762,8 +762,9 @@ def test_describe():
     artifact.describe()
 
     # test describing from a remote instance with less schemas
-    artifact = ln.Artifact.using("laminlabs/lamin-site-assets").filter().first()
-    artifact.describe()
+    # TODO: uncomment after migration
+    # artifact = ln.Artifact.using("laminlabs/lamin-site-assets").filter().first()
+    # artifact.describe()
 
 
 def test_zarr_upload_cache(adata):
