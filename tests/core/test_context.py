@@ -163,6 +163,8 @@ def test_run_scripts():
         shell=True,
         capture_output=True,
     )
+    print(result.stdout.decode())
+    print(result.stderr.decode())
     assert result.returncode == 0
     assert (
         "created Transform('Ro1gl7n8YrdH0001'), started new Run("

@@ -133,7 +133,7 @@ def get_new_path_from_uid(old_path: UPath, old_uid: str, new_uid: str):
 def process_revises(
     revises: IsVersioned | None,
     version: str | None,
-    name: str | None,
+    description: str | None,
     type: type[IsVersioned],
 ) -> tuple[str, str, str, IsVersioned | None]:
     if revises is not None and not isinstance(revises, type):
@@ -142,6 +142,6 @@ def process_revises(
         revises=revises, version=version, n_full_id=type._len_full_uid
     )
     if revises is not None:
-        if name is None:
-            name = revises.name
-    return uid, version, name, revises
+        if description is None:
+            description = revises.name
+    return uid, version, description, revises
