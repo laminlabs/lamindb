@@ -33,12 +33,18 @@ def __init__(transform: Transform, *args, **kwargs):
     )
     if "name" in kwargs:
         if key is None:
-            logger.warning("`name` will be removed soon, please use `key` instead")
             key = kwargs.pop("name")
-        else:
-            raise ValueError(
-                "Cannot pass both `name` and `key`, pass `name` as `description`"
+            logger.warning(
+                f"`name` will be removed soon, please pass {key} to `key` instead"
             )
+        else:
+            if description is None:
+                description = kwargs.pop("name")
+                logger.warning(
+                    f"`name` will be removed soon, please pass {description} to `description` instead"
+                )
+            else:
+                raise ValueError("name doesn't exist anymore `description`")
     # below is internal use that we'll hopefully be able to eliminate
     uid: str | None = kwargs.pop("uid") if "uid" in kwargs else None
     if not len(kwargs) == 0:
