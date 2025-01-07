@@ -143,5 +143,5 @@ def process_revises(
     )
     if revises is not None:
         if description is None:
-            description = revises.name
+            description = revises.description
     return uid, version, description, revises
