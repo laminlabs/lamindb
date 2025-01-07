@@ -105,20 +105,20 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
         return key, value
 
     if queryset.model in {Artifact, Collection}:
-        # visibility is set to 0 unless expressions contains id or uid equality
+        # _branch_code is set to 0 unless expressions contains id or uid equality
         if not (
             "id" in expressions
             or "uid" in expressions
             or "uid__startswith" in expressions
         ):
-            visibility = "visibility"
-            if not any(e.startswith(visibility) for e in expressions):
-                expressions[visibility] = 1  # default visibility
-            # if visibility is None, do not apply a filter
+            _branch_code = "_branch_code"
+            if not any(e.startswith(_branch_code) for e in expressions):
+                expressions[_branch_code] = 1  # default _branch_code
+            # if _branch_code is None, do not apply a filter
             # otherwise, it would mean filtering for NULL values, which doesn't make
             # sense for a non-NULLABLE column
-            elif visibility in expressions and expressions[visibility] is None:
-                expressions.pop(visibility)
+            elif _branch_code in expressions and expressions[_branch_code] is None:
+                expressions.pop(_branch_code)
     if queryset._db is not None:
         # only check for database mismatch if there is a defined database on the
         # queryset

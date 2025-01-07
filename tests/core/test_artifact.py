@@ -506,7 +506,7 @@ def test_from_dir_many_artifacts(get_test_filepaths, key):
 def test_delete_artifact(df):
     artifact = ln.Artifact.from_df(df, description="My test file to delete")
     artifact.save()
-    assert artifact.visibility == 1
+    assert artifact._branch_code == 1
     assert artifact.key is None or artifact._key_is_virtual
     storage_path = artifact.path
     # trash behavior
@@ -514,13 +514,13 @@ def test_delete_artifact(df):
     assert storage_path.exists()
     assert ln.Artifact.filter(description="My test file to delete").first() is None
     assert ln.Artifact.filter(
-        description="My test file to delete", visibility=-1
+        description="My test file to delete", _branch_code=-1
     ).first()
     # permanent delete
     artifact.delete(permanent=True)
     assert (
         ln.Artifact.filter(
-            description="My test file to delete", visibility=None
+            description="My test file to delete", _branch_code=None
         ).first()
         is None
     )
@@ -544,7 +544,7 @@ def test_delete_artifact(df):
     assert (
         ln.Artifact.filter(
             description="My test file to delete from non-default storage",
-            visibility=None,
+            _branch_code=None,
         ).first()
         is None
     )
@@ -883,7 +883,7 @@ def test_bulk_delete():
         len(
             ln.Artifact.filter(
                 id__in=[environment.id, report.id],
-                visibility=-1,
+                _branch_code=-1,
             )
             .distinct()
             .all()
@@ -891,14 +891,14 @@ def test_bulk_delete():
         == 3
     )
 
-    ln.Artifact.filter(id__in=[environment.id, report.id], visibility=-1).delete(
+    ln.Artifact.filter(id__in=[environment.id, report.id], _branch_code=-1).delete(
         permanent=True
     )
     assert (
         len(
             ln.Artifact.filter(
                 id__in=[environment.id, report.id],
-                visibility=None,
+                _branch_code=None,
             )
             .distinct()
             .all()

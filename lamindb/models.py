@@ -2507,7 +2507,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     ) -> None:
         """Trash or permanently delete.
 
-        A first call to `.delete()` puts an artifact into the trash (sets `visibility` to `-1`).
+        A first call to `.delete()` puts an artifact into the trash (sets `_branch_code` to `-1`).
         A second call permanently deletes the artifact.
 
         FAQ: :doc:`docs:faq/storage`

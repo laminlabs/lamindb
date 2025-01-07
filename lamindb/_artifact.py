@@ -263,7 +263,7 @@ def get_stat_or_artifact(
             )
             return size, hash, hash_type, n_objects, None
         else:
-            if result[0].visibility == -1:
+            if result[0]._branch_code == -1:
                 raise FileExistsError(
                     f"You're trying to re-create this artifact in trash: {result[0]}"
                     "Either permanently delete it with `artifact.delete(permanent=True)` or restore it with `artifact.restore()`"
@@ -531,7 +531,9 @@ def __init__(artifact: Artifact, *args, **kwargs):
     )
     revises: Artifact | None = kwargs.pop("revises") if "revises" in kwargs else None
     version: str | None = kwargs.pop("version") if "version" in kwargs else None
-    visibility: int | None = kwargs.pop("visibility") if "visibility" in kwargs else 1
+    _branch_code: int | None = (
+        kwargs.pop("_branch_code") if "_branch_code" in kwargs else 1
+    )
     format = kwargs.pop("format") if "format" in kwargs else None
     _is_internal_call = kwargs.pop("_is_internal_call", False)
     skip_check_exists = (
@@ -554,7 +556,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
         revises = kwargs.pop("is_new_version_of")
     if not len(kwargs) == 0:
         raise ValueError(
-            "Only data, key, run, description, version, revises, visibility"
+            "Only data, key, run, description, version, revises, _branch_code"
             f" can be passed, you passed: {kwargs}"
         )
     if revises is not None and key is not None and revises.key != key:
@@ -650,7 +652,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
     kwargs["type"] = type
     kwargs["version"] = version
     kwargs["description"] = description
-    kwargs["visibility"] = visibility
+    kwargs["_branch_code"] = _branch_code
     kwargs["_accessor"] = accessor
     kwargs["revises"] = revises
     # this check needs to come down here because key might be populated from an
@@ -1029,15 +1031,17 @@ def delete(
                 f"\n(2) If you want to delete the artifact in storage, please load the managing lamindb instance (uid={self.storage.instance_uid})."
                 f"\nThese are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).df()}"
             )
-    # by default, we only move artifacts into the trash (visibility = -1)
-    trash_visibility = -1
-    if self.visibility > trash_visibility and not permanent:
+    # by default, we only move artifacts into the trash (_branch_code = -1)
+    trash__branch_code = -1
+    if self._branch_code > trash__branch_code and not permanent:
         if storage is not None:
             logger.warning("moving artifact to trash, storage arg is ignored")
         # move to trash
-        self.visibility = trash_visibility
+        self._branch_code = trash__branch_code
         self.save()
-        logger.important(f"moved artifact to trash (visibility = {trash_visibility})")
+        logger.important(
+            f"moved artifact to trash (_branch_code = {trash__branch_code})"
+        )
         return
 
     # if the artifact is already in the trash
@@ -1166,7 +1170,7 @@ def _cache_path(self) -> UPath:
 
 # docstring handled through attach_func_to_class_method
 def restore(self) -> None:
-    self.visibility = 1
+    self._branch_code = 1
     self.save()
 
 

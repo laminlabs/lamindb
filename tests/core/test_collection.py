@@ -91,7 +91,7 @@ def test_edge_cases(df):
     with pytest.raises(ValueError) as error:
         ln.Collection(df, invalid_param=1)
     assert str(error.exconly()).startswith(
-        "ValueError: Only artifacts, name, run, description, reference, reference_type, visibility can be passed, you passed: "
+        "ValueError: Only artifacts, name, run, description, reference, reference_type, _branch_code can be passed, you passed: "
     )
     with pytest.raises(ValueError) as error:
         ln.Collection(1, name="Invalid")

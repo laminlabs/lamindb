@@ -106,13 +106,15 @@ def __init__(
     run: Run | None = kwargs.pop("run") if "run" in kwargs else None
     revises: Collection | None = kwargs.pop("revises") if "revises" in kwargs else None
     version: str | None = kwargs.pop("version") if "version" in kwargs else None
-    visibility: int | None = kwargs.pop("visibility") if "visibility" in kwargs else 1
+    _branch_code: int | None = (
+        kwargs.pop("_branch_code") if "_branch_code" in kwargs else 1
+    )
     if "is_new_version_of" in kwargs:
         logger.warning("`is_new_version_of` will be removed soon, please use `revises`")
         revises = kwargs.pop("is_new_version_of")
     if not len(kwargs) == 0:
         raise ValueError(
-            f"Only artifacts, name, run, description, reference, reference_type, visibility can be passed, you passed: {kwargs}"
+            f"Only artifacts, name, run, description, reference, reference_type, _branch_code can be passed, you passed: {kwargs}"
         )
     provisional_uid, version, name, revises = process_revises(
         revises, version, name, Collection
@@ -172,7 +174,7 @@ def __init__(
             hash=hash,
             run=run,
             version=version,
-            visibility=visibility,
+            _branch_code=_branch_code,
             revises=revises,
             **kwargs,
         )
@@ -302,12 +304,14 @@ def load(
 
 # docstring handled through attach_func_to_class_method
 def delete(self, permanent: bool | None = None) -> None:
-    # change visibility to trash
-    trash_visibility = -1
-    if self.visibility > trash_visibility and permanent is not True:
-        self.visibility = trash_visibility
+    # change _branch_code to trash
+    trash__branch_code = -1
+    if self._branch_code > trash__branch_code and permanent is not True:
+        self._branch_code = trash__branch_code
         self.save()
-        logger.warning(f"moved collection to trash (visibility = {trash_visibility})")
+        logger.warning(
+            f"moved collection to trash (_branch_code = {trash__branch_code})"
+        )
         return
 
     # permanent delete
@@ -352,7 +356,7 @@ def save(self, using: str | None = None) -> Collection:
 
 # docstring handled through attach_func_to_class_method
 def restore(self) -> None:
-    self.visibility = 1
+    self._branch_code = 1
     self.save()
 
 
