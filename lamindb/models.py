@@ -14,8 +14,8 @@ from typing import (
     overload,
 )
 
-from django.db import models
-from django.db.models import CASCADE, PROTECT, Field
+from django.db import IntegrityError, models
+from django.db.models import CASCADE, PROTECT, Field, Q
 from django.db.models.base import ModelBase
 from django.db.models.fields.related import (
     ManyToManyField,
@@ -25,7 +25,7 @@ from django.db.models.fields.related import (
 from lamin_utils import colors
 from lamindb_setup import _check_instance_setup
 from lamindb_setup.core._docs import doc_args
-from lamindb_setup.core.hashing import HASH_LENGTH
+from lamindb_setup.core.hashing import HASH_LENGTH, hash_dict
 
 from lamindb.base.fields import (
     BigIntegerField,
@@ -1321,6 +1321,44 @@ class ParamValue(BasicRecord):
         User, PROTECT, default=current_user_id, related_name="+"
     )
     """Creator of record."""
+    value_hash: str = CharField(max_length=HASH_LENGTH, null=True, db_index=True)
+
+    class Meta:
+        constraints = [
+            # For simple types, use direct value comparison
+            models.UniqueConstraint(
+                fields=["param", "value"],
+                name="unique_simple_param_value",
+                condition=Q(value_hash__isnull=True),
+            ),
+            # For complex types (dictionaries), use hash
+            models.UniqueConstraint(
+                fields=["param", "value_hash"],
+                name="unique_complex_param_value",
+                condition=Q(value_hash__isnull=False),
+            ),
+        ]
+
+    @classmethod
+    def get_or_create(cls, param, value):
+        # Simple types: int, float, str, bool
+        if isinstance(value, (int, float, str, bool)):
+            try:
+                return cls.objects.create(
+                    param=param, value=value, value_hash=None
+                ), False
+            except IntegrityError:
+                return cls.objects.get(param=param, value=value), True
+
+        # Complex types: dict, list
+        else:
+            value_hash = hash_dict(value)
+            try:
+                return cls.objects.create(
+                    param=param, value=value, value_hash=value_hash
+                ), False
+            except IntegrityError:
+                return cls.objects.get(param=param, value_hash=value_hash), True
 
 
 class Run(Record):
@@ -1760,9 +1798,6 @@ class FeatureValue(BasicRecord, TracksRun):
     # there does not seem an issue with querying for a dict-like value
     # https://lamin.ai/laminlabs/lamindata/transform/jgTrkoeuxAfs0001
 
-    class Meta(BasicRecord.Meta, TracksRun.Meta):
-        abstract = False
-
     _name_field: str = "value"
 
     feature: Feature | None = ForeignKey(
@@ -1771,6 +1806,45 @@ class FeatureValue(BasicRecord, TracksRun):
     """The dimension metadata."""
     value: Any = models.JSONField()
     """The JSON-like value."""
+    value_hash: str = CharField(max_length=HASH_LENGTH, null=True, db_index=True)
+    """Value hash."""
+
+    class Meta(BasicRecord.Meta, TracksRun.Meta):
+        constraints = [
+            # For simple types, use direct value comparison
+            models.UniqueConstraint(
+                fields=["feature", "value"],
+                name="unique_simple_feature_value",
+                condition=Q(value_hash__isnull=True),
+            ),
+            # For complex types (dictionaries), use hash
+            models.UniqueConstraint(
+                fields=["feature", "value_hash"],
+                name="unique_complex_feature_value",
+                condition=Q(value_hash__isnull=False),
+            ),
+        ]
+
+    @classmethod
+    def get_or_create(cls, feature, value):
+        # Simple types: int, float, str, bool
+        if isinstance(value, (int, float, str, bool)):
+            try:
+                return cls.objects.create(
+                    feature=feature, value=value, value_hash=None
+                ), False
+            except IntegrityError:
+                return cls.objects.get(feature=feature, value=value), True
+
+        # Complex types: dict, list
+        else:
+            value_hash = hash_dict(value)
+            try:
+                return cls.objects.create(
+                    feature=feature, value=value, value_hash=value_hash
+                ), False
+            except IntegrityError:
+                return cls.objects.get(feature=feature, value_hash=value_hash), True
 
 
 class FeatureSet(Record, CanCurate, TracksRun):
