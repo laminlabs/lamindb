@@ -483,25 +483,25 @@ def data_is_mudata(data: MuData | UPathStr) -> bool:
     return False
 
 
-def _check_accessor_artifact(data: Any, accessor: str | None = None):
-    if accessor is None:
+def _check_otype_artifact(data: Any, otype: str | None = None):
+    if otype is None:
         if isinstance(data, pd.DataFrame):
             logger.warning("data is a DataFrame, please use .from_df()")
-            accessor = "DataFrame"
-            return accessor
+            otype = "DataFrame"
+            return otype
 
         data_is_path = isinstance(data, (str, Path))
         if data_is_anndata(data):
             if not data_is_path:
                 logger.warning("data is an AnnData, please use .from_anndata()")
-            accessor = "AnnData"
+            otype = "AnnData"
         elif data_is_mudata(data):
             if not data_is_path:
                 logger.warning("data is a MuData, please use .from_mudata()")
-            accessor = "MuData"
+            otype = "MuData"
         elif not data_is_path:  # UPath is a subclass of Path
             raise TypeError("data has to be a string, Path, UPath")
-    return accessor
+    return otype
 
 
 def __init__(artifact: Artifact, *args, **kwargs):
@@ -549,11 +549,8 @@ def __init__(artifact: Artifact, *args, **kwargs):
     using_key = (
         kwargs.pop("using_key") if "using_key" in kwargs else settings._using_key
     )
-    accessor = kwargs.pop("otype") if "otype" in kwargs else None
-    accessor = _check_accessor_artifact(data=data, accessor=accessor)
-    if "is_new_version_of" in kwargs:
-        logger.warning("`is_new_version_of` will be removed soon, please use `revises`")
-        revises = kwargs.pop("is_new_version_of")
+    otype = kwargs.pop("otype") if "otype" in kwargs else None
+    otype = _check_otype_artifact(data=data, otype=otype)
     if not len(kwargs) == 0:
         raise ValueError(
             "Only data, key, run, description, version, revises, _branch_code"
@@ -653,7 +650,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
     kwargs["version"] = version
     kwargs["description"] = description
     kwargs["_branch_code"] = _branch_code
-    kwargs["otype"] = accessor
+    kwargs["otype"] = otype
     kwargs["revises"] = revises
     # this check needs to come down here because key might be populated from an
     # existing file path during get_artifact_kwargs_from_data()
@@ -687,7 +684,7 @@ def from_df(
         run=run,
         description=description,
         revises=revises,
-        _accessor="DataFrame",
+        otype="DataFrame",
         type="dataset",
         **kwargs,
     )
@@ -714,7 +711,7 @@ def from_anndata(
         run=run,
         description=description,
         revises=revises,
-        _accessor="AnnData",
+        otype="AnnData",
         type="dataset",
         **kwargs,
     )
@@ -739,7 +736,7 @@ def from_mudata(
         run=run,
         description=description,
         revises=revises,
-        _accessor="MuData",
+        otype="MuData",
         type="dataset",
         **kwargs,
     )
