@@ -4,6 +4,7 @@ import builtins
 import hashlib
 import signal
 import sys
+import threading
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
@@ -126,8 +127,11 @@ class LogStreamTracker:
         sys.stdout = LogStreamHandler(self.original_stdout, self.log_file)
         sys.stderr = LogStreamHandler(self.original_stderr, self.log_file)
         # handle signals
-        signal.signal(signal.SIGTERM, self.cleanup)
-        signal.signal(signal.SIGINT, self.cleanup)
+        # signal should be used only in the main thread, otherwise
+        # ValueError: signal only works in main thread of the main interpreter
+        if threading.current_thread() == threading.main_thread():
+            signal.signal(signal.SIGTERM, self.cleanup)
+            signal.signal(signal.SIGINT, self.cleanup)
         # handle exceptions
         sys.excepthook = self.handle_exception
 
