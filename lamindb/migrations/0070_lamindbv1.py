@@ -317,4 +317,14 @@ class Migration(migrations.Migration):
             name="_curator",
             field=models.JSONField(db_default=None, null=True),
         ),
+        migrations.AddField(
+            model_name="feature",
+            name="_expect_many",
+            field=models.BooleanField(db_default=True),
+        ),
+        migrations.AddField(
+            model_name="param",
+            name="_expect_many",
+            field=models.BooleanField(db_default=False),
+        ),
     ]
