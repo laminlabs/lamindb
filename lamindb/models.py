@@ -1181,7 +1181,9 @@ class Transform(Record, IsVersioned):
     """Reference type of the transform, e.g., 'url'."""
     runs: Run
     """Runs of this transform."""
-    ulabels: ULabel = models.ManyToManyField("ULabel", related_name="transforms")
+    ulabels: ULabel = models.ManyToManyField(
+        "ULabel", through="TransformULabel", related_name="transforms"
+    )
     """ULabel annotations of this transform."""
     predecessors: Transform = models.ManyToManyField(
         "self", symmetrical=False, related_name="successors"
@@ -3034,6 +3036,15 @@ class ArtifactULabel(BasicRecord, LinkORM, TracksRun):
         unique_together = ("artifact", "ulabel", "feature")
 
 
+class TransformULabel(BasicRecord, LinkORM, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    transform: Transform = ForeignKey(Transform, CASCADE, related_name="links_ulabel")
+    ulabel: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_transform")
+
+    class Meta:
+        unique_together = ("transform", "ulabel")
+
+
 class CollectionULabel(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     collection: Collection = ForeignKey(
@@ -3065,12 +3076,18 @@ class RunParamValue(BasicRecord, LinkORM):
     run: Run = ForeignKey(Run, CASCADE, related_name="+")
     # we follow the lower() case convention rather than snake case for link models
     paramvalue: ParamValue = ForeignKey(ParamValue, PROTECT, related_name="+")
+    created_at: datetime = DateTimeField(auto_now_add=True, db_index=True)
+    """Time of creation of record."""
+    created_by: User = ForeignKey(
+        "lamindb.User", PROTECT, default=current_user_id, related_name="+"
+    )
+    """Creator of record."""
 
     class Meta:
         unique_together = ("run", "paramvalue")
 
 
-class ArtifactParamValue(BasicRecord, LinkORM):
+class ArtifactParamValue(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="+")
     # we follow the lower() case convention rather than snake case for link models

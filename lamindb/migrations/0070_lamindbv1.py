@@ -337,4 +337,129 @@ class Migration(migrations.Migration):
             model_name="collection",
             name="transform",
         ),
+        # richer link tables
+        migrations.CreateModel(
+            name="TransformULabel",
+            fields=[
+                (
+                    "created_at",
+                    lamindb.base.fields.DateTimeField(auto_now_add=True, db_index=True),
+                ),
+                ("id", models.BigAutoField(primary_key=True, serialize=False)),
+                (
+                    "created_by",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        default=lamindb.base.users.current_user_id,
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="+",
+                        to="lamindb.user",
+                    ),
+                ),
+                (
+                    "run",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        default=lamindb.models.current_run,
+                        null=True,
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="+",
+                        to="lamindb.run",
+                    ),
+                ),
+                (
+                    "transform",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="links_ulabel",
+                        to="lamindb.transform",
+                    ),
+                ),
+                (
+                    "ulabel",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="links_transform",
+                        to="lamindb.ulabel",
+                    ),
+                ),
+            ],
+            options={
+                "unique_together": {("transform", "ulabel")},
+            },
+            bases=(lamindb.models.LinkORM, models.Model),
+        ),
+        migrations.RunSQL(
+            # Forward SQL - Copy data from M2M table to new link table
+            sql="""
+            INSERT INTO lamindb_transformulabel (transform_id, ulabel_id)
+            SELECT from_transform_id, ulabel_id
+            FROM lamindb_transform_ulabels;
+            """
+        ),
+        migrations.RemoveField(
+            model_name="transform",
+            name="ulabels",
+        ),
+        migrations.AddField(
+            model_name="transform",
+            name="ulabels",
+            field=models.ManyToManyField(
+                to="lamindb.ulabel",
+                through="lamindb.TransformULabel",
+                related_name="transforms",
+            ),
+        ),
+        migrations.AddField(
+            model_name="artifactparamvalue",
+            name="created_at",
+            field=lamindb.base.fields.DateTimeField(
+                auto_now_add=True, db_index=True, default=django.utils.timezone.now
+            ),
+            preserve_default=False,
+        ),
+        migrations.AddField(
+            model_name="artifactparamvalue",
+            name="created_by",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=lamindb.base.users.current_user_id,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="+",
+                to="lamindb.user",
+            ),
+        ),
+        migrations.AddField(
+            model_name="artifactparamvalue",
+            name="run",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=lamindb.models.current_run,
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="+",
+                to="lamindb.run",
+            ),
+        ),
+        migrations.AddField(
+            model_name="runparamvalue",
+            name="created_at",
+            field=lamindb.base.fields.DateTimeField(
+                auto_now_add=True, db_index=True, default=django.utils.timezone.now
+            ),
+            preserve_default=False,
+        ),
+        migrations.AddField(
+            model_name="runparamvalue",
+            name="created_by",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=lamindb.base.users.current_user_id,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="+",
+                to="lamindb.user",
+            ),
+        ),
     ]
