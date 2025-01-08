@@ -1321,7 +1321,7 @@ class ParamValue(BasicRecord):
         User, PROTECT, default=current_user_id, related_name="+"
     )
     """Creator of record."""
-    value_hash: str = CharField(max_length=HASH_LENGTH, null=True, db_index=True)
+    hash: str = CharField(max_length=HASH_LENGTH, null=True, db_index=True)
 
     class Meta:
         constraints = [
@@ -1329,13 +1329,13 @@ class ParamValue(BasicRecord):
             models.UniqueConstraint(
                 fields=["param", "value"],
                 name="unique_simple_param_value",
-                condition=Q(value_hash__isnull=True),
+                condition=Q(hash__isnull=True),
             ),
             # For complex types (dictionaries), use hash
             models.UniqueConstraint(
-                fields=["param", "value_hash"],
+                fields=["param", "hash"],
                 name="unique_complex_param_value",
-                condition=Q(value_hash__isnull=False),
+                condition=Q(hash__isnull=False),
             ),
         ]
 
@@ -1344,21 +1344,17 @@ class ParamValue(BasicRecord):
         # Simple types: int, float, str, bool
         if isinstance(value, (int, float, str, bool)):
             try:
-                return cls.objects.create(
-                    param=param, value=value, value_hash=None
-                ), False
+                return cls.objects.create(param=param, value=value, hash=None), False
             except IntegrityError:
                 return cls.objects.get(param=param, value=value), True
 
         # Complex types: dict, list
         else:
-            value_hash = hash_dict(value)
+            hash = hash_dict(value)
             try:
-                return cls.objects.create(
-                    param=param, value=value, value_hash=value_hash
-                ), False
+                return cls.objects.create(param=param, value=value, hash=hash), False
             except IntegrityError:
-                return cls.objects.get(param=param, value_hash=value_hash), True
+                return cls.objects.get(param=param, hash=hash), True
 
 
 class Run(Record):
@@ -1806,7 +1802,7 @@ class FeatureValue(BasicRecord, TracksRun):
     """The dimension metadata."""
     value: Any = models.JSONField()
     """The JSON-like value."""
-    value_hash: str = CharField(max_length=HASH_LENGTH, null=True, db_index=True)
+    hash: str = CharField(max_length=HASH_LENGTH, null=True, db_index=True)
     """Value hash."""
 
     class Meta(BasicRecord.Meta, TracksRun.Meta):
@@ -1815,13 +1811,13 @@ class FeatureValue(BasicRecord, TracksRun):
             models.UniqueConstraint(
                 fields=["feature", "value"],
                 name="unique_simple_feature_value",
-                condition=Q(value_hash__isnull=True),
+                condition=Q(hash__isnull=True),
             ),
             # For complex types (dictionaries), use hash
             models.UniqueConstraint(
-                fields=["feature", "value_hash"],
+                fields=["feature", "hash"],
                 name="unique_complex_feature_value",
-                condition=Q(value_hash__isnull=False),
+                condition=Q(hash__isnull=False),
             ),
         ]
 
@@ -1831,20 +1827,20 @@ class FeatureValue(BasicRecord, TracksRun):
         if isinstance(value, (int, float, str, bool)):
             try:
                 return cls.objects.create(
-                    feature=feature, value=value, value_hash=None
+                    feature=feature, value=value, hash=None
                 ), False
             except IntegrityError:
                 return cls.objects.get(feature=feature, value=value), True
 
         # Complex types: dict, list
         else:
-            value_hash = hash_dict(value)
+            hash = hash_dict(value)
             try:
                 return cls.objects.create(
-                    feature=feature, value=value, value_hash=value_hash
+                    feature=feature, value=value, hash=hash
                 ), False
             except IntegrityError:
-                return cls.objects.get(feature=feature, value_hash=value_hash), True
+                return cls.objects.get(feature=feature, hash=hash), True
 
 
 class FeatureSet(Record, CanCurate, TracksRun):

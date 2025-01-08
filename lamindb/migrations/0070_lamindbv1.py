@@ -267,14 +267,14 @@ class Migration(migrations.Migration):
         # unique constraint on hash
         migrations.AddField(
             model_name="featurevalue",
-            name="value_hash",
+            name="hash",
             field=lamindb.base.fields.CharField(
                 blank=True, db_index=True, default=None, max_length=22, null=True
             ),
         ),
         migrations.AddField(
             model_name="paramvalue",
-            name="value_hash",
+            name="hash",
             field=lamindb.base.fields.CharField(
                 blank=True, db_index=True, default=None, max_length=22, null=True
             ),
@@ -282,7 +282,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="featurevalue",
             constraint=models.UniqueConstraint(
-                condition=models.Q(("value_hash__isnull", True)),
+                condition=models.Q(("hash__isnull", True)),
                 fields=("feature", "value"),
                 name="unique_simple_feature_value",
             ),
@@ -290,15 +290,15 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="featurevalue",
             constraint=models.UniqueConstraint(
-                condition=models.Q(("value_hash__isnull", False)),
-                fields=("feature", "value_hash"),
+                condition=models.Q(("hash__isnull", False)),
+                fields=("feature", "hash"),
                 name="unique_complex_feature_value",
             ),
         ),
         migrations.AddConstraint(
             model_name="paramvalue",
             constraint=models.UniqueConstraint(
-                condition=models.Q(("value_hash__isnull", True)),
+                condition=models.Q(("hash__isnull", True)),
                 fields=("param", "value"),
                 name="unique_simple_param_value",
             ),
@@ -306,8 +306,8 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="paramvalue",
             constraint=models.UniqueConstraint(
-                condition=models.Q(("value_hash__isnull", False)),
-                fields=("param", "value_hash"),
+                condition=models.Q(("hash__isnull", False)),
+                fields=("param", "hash"),
                 name="unique_complex_param_value",
             ),
         ),
