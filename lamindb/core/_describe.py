@@ -89,9 +89,7 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
     general = tree.add(Text("General", style="bold bright_cyan"))
     general.add(f".uid = '{self.uid}'")
     if hasattr(self, "key") and self.key:
-        general.add(
-            f".key = '{self.key}'" if self._key_is_virtual else f".key = {self.key}"
-        )
+        general.add(f".key = '{self.key}'")
     if hasattr(self, "size") and self.size:
         general.add(f".size = {self.size}")
     if hasattr(self, "hash") and self.hash:

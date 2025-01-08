@@ -91,7 +91,7 @@ def test_edge_cases(df):
     with pytest.raises(ValueError) as error:
         ln.Collection(df, invalid_param=1)
     assert str(error.exconly()).startswith(
-        "ValueError: Only artifacts, name, run, description, reference, reference_type, _branch_code can be passed, you passed: "
+        "ValueError: Only artifacts, key, run, description, reference, reference_type can be passed, you passed: "
     )
     with pytest.raises(ValueError) as error:
         ln.Collection(1, name="Invalid")
@@ -174,7 +174,7 @@ def test_from_consistent_artifacts(adata, adata2):
     collection2 = ln.Collection([artifact1, artifact2], name="My test 1", run=run)
     assert not collection2._state.adding
     assert collection2.id == collection.id
-    assert collection2.name == "My test 1"
+    assert collection2.key == "My test 1"
 
     collection.delete(permanent=True)
     artifact1.delete(permanent=True)
