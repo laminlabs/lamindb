@@ -2320,6 +2320,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     _curator: dict[str, str] | None = models.JSONField(
         default=None, db_default=None, null=True
     )
+    _overwrite_versions: bool = BooleanField(default=None)
+    """Indicates whether to store or overwrite versions.
+
+    It defaults to False for file-like artifacts and to True for folder-like artifacts.
+    """
 
     @overload
     def __init__(

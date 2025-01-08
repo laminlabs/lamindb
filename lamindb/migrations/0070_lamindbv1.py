@@ -487,4 +487,19 @@ class Migration(migrations.Migration):
                 to="lamindb.run",
             ),
         ),
+        # create and set _overwrite_versions
+        migrations.AddField(
+            model_name="artifact",
+            name="_overwrite_versions",
+            field=lamindb.base.fields.BooleanField(blank=True, default=None),
+        ),
+        migrations.RunSQL(
+            sql="""
+            UPDATE lamindb_artifact
+            SET _overwrite_versions = CASE
+                WHEN n_objects IS NOT NULL THEN TRUE
+                ELSE FALSE
+            END;
+            """
+        ),
     ]
