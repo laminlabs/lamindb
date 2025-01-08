@@ -42,7 +42,7 @@ jobs:
         if: ${{ matrix.group != 'curator' || steps.changes.outputs.curator == 'true' }}
         with:
           python-version: |
-            ${{ matrix.group == 'storage' && '3.9' ||
+            ${{ matrix.group == 'storage' && '3.10' ||
                 matrix.group == 'unit-storage' && '3.11' ||
                 '3.12' }}
 
