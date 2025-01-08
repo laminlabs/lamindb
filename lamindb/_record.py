@@ -737,19 +737,13 @@ def save(self, *args, **kwargs) -> Record:
                 revises._revises = None  # ensure we don't start a recursion
                 revises.save()
                 check_name_change(self)
-                if isinstance(self, BasicRecord):  # TODO refactor
-                    super(BasicRecord, self).save(*args, **kwargs)
-                else:
-                    super(Record, self).save(*args, **kwargs)
+                super(BasicRecord, self).save(*args, **kwargs)
                 _store_record_old_name(self)
             self._revises = None
         # save unversioned record
         else:
             check_name_change(self)
-            if isinstance(self, BasicRecord):
-                super(BasicRecord, self).save(*args, **kwargs)
-            else:
-                super(Record, self).save(*args, **kwargs)
+            super(BasicRecord, self).save(*args, **kwargs)
             _store_record_old_name(self)
     # perform transfer of many-to-many fields
     # only supported for Artifact and Collection records
