@@ -12,7 +12,7 @@ ListLike = Union[list[str], pd.Series, np.array]
 StrField = Union[str, FieldAttr]  # typing.TypeAlias
 
 TransformType = Literal["pipeline", "notebook", "upload", "script", "function", "glue"]
-ArtifactType = Literal["dataset", "model"]
+ArtifactKind = Literal["dataset", "model"]
 FeatureDtype = Literal[
     "cat",  # categorical variables
     "num",  # numerical variables

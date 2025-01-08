@@ -40,7 +40,7 @@ from lamindb.base.fields import (
 
 from .base.ids import base62_8, base62_12, base62_20
 from .base.types import (
-    ArtifactType,
+    ArtifactKind,
     FeatureDtype,
     FieldAttr,
     ListLike,
@@ -2153,12 +2153,12 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     This is either a file suffix (`".csv"`, `".h5ad"`, etc.) or the empty string "".
     """
-    kind: ArtifactType | None = CharField(
+    kind: ArtifactKind | None = CharField(
         max_length=20,
         db_index=True,
         null=True,
     )
-    """:class:`~lamindb.core.types.ArtifactType` (default `None`)."""
+    """:class:`~lamindb.core.types.ArtifactKind` (default `None`)."""
     size: int | None = BigIntegerField(null=True, db_index=True, default=None)
     """Size in bytes.
 
@@ -2243,7 +2243,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         # here; and we might refactor this but we might also keep that internal
         # usage
         data: UPathStr,
-        type: ArtifactType | None = None,
+        type: ArtifactKind | None = None,
         key: str | None = None,
         description: str | None = None,
         revises: Artifact | None = None,

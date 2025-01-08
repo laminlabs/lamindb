@@ -5,7 +5,7 @@ Central object types.
 .. autosummary::
    :toctree: .
 
-   ArtifactType
+   ArtifactKind
    TransformType
    FeatureDtype
 
@@ -22,7 +22,7 @@ Basic types.
 from lamindb_setup.core.types import UPathStr
 
 from lamindb.base.types import (
-    ArtifactType,
+    ArtifactKind,
     FeatureDtype,
     FieldAttr,
     ListLike,
