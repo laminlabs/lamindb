@@ -831,7 +831,7 @@ class Record(BasicRecord, metaclass=Registry):
 
     Any integer higher than >3 codes a branch that's involved in a pull request.
     """
-    aux: dict[str, Any] = models.JSONField(default=None, null=True)
+    aux: dict[str, Any] | None = models.JSONField(db_default=None, null=True)
     """Auxiliary field for dictionary-like metadata."""
 
     def save(self, *args, **kwargs) -> Record:
@@ -2305,6 +2305,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         related_name="created_artifacts",
     )
     """Creator of record."""
+    _curator: dict[str, str] | None = models.JSONField(db_default=None, null=True)
 
     @overload
     def __init__(
