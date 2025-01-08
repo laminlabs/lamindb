@@ -399,6 +399,7 @@ def get_artifact_kwargs_from_data(
         # to make them both available immediately
         # after object creation
         "n_objects": n_objects,
+        "_overwrite_versions": n_objects is not None,  # True for folder, False for file
         "n_observations": None,  # to implement
         "run_id": run.id if run is not None else None,
         "run": run,
