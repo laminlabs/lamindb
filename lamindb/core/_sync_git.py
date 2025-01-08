@@ -53,11 +53,11 @@ def check_local_git_repo() -> bool:
 
 
 def get_git_commit_hash(blob_hash: str, repo_dir: Path | None = None) -> str | None:
-    # Fetch all remote branch names so that we can also search them
+    # Fetch all remote branches so that we can also search them
     fetch_command = ["git", "fetch", "origin", "+refs/heads/*:refs/remotes/origin/*"]
     subprocess.run(fetch_command, cwd=repo_dir, check=True)
 
-    # Find the commit containing the blob hash
+    # Find the commit containing the blob hash in all branches
     command = [
         "git",
         "log",
