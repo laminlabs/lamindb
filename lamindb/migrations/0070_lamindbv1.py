@@ -81,6 +81,19 @@ class Migration(migrations.Migration):
         ),
         # visibility -> _branch_code
         migrations.RenameField(
+            model_name="collection",
+            old_name="name",
+            new_name="key",
+        ),
+        migrations.AlterField(
+            model_name="collection",
+            name="key",
+            field=lamindb.base.fields.CharField(
+                blank=True, db_index=True, default=None, max_length=255
+            ),
+        ),
+        # visibility -> _branch_code
+        migrations.RenameField(
             model_name="artifact",
             old_name="visibility",
             new_name="_branch_code",

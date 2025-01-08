@@ -2593,7 +2593,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
 
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
-    _name_field: str = "name"
+    _name_field: str = "key"
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -2601,10 +2601,10 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         unique=True, db_index=True, max_length=_len_full_uid, default=base62_20
     )
     """Universal id, valid across DB instances."""
-    name: str = CharField(max_length=150, db_index=True)
-    """Name or title of collection (required)."""
+    key: str = CharField(db_index=True)
+    """Name or path-like key."""
     description: str | None = TextField(null=True)
-    """A description."""
+    """A description or title."""
     hash: str | None = CharField(max_length=HASH_LENGTH, db_index=True, null=True)
     """Hash of collection content. 86 base64 chars allow to store 64 bytes, 512 bits."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
