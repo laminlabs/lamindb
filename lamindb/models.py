@@ -1220,7 +1220,7 @@ class Transform(Record, IsVersioned):
     )
     """Creator of record."""
     _template: Transform | None = ForeignKey(
-        "Transform", PROTECT, related_name="_derived_from", default=None
+        "Transform", PROTECT, related_name="_derived_from", default=None, null=True
     )
     """Creating template."""
 

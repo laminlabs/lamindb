@@ -236,6 +236,7 @@ class Migration(migrations.Migration):
             field=lamindb.base.fields.ForeignKey(
                 blank=True,
                 default=None,
+                null=True,
                 on_delete=django.db.models.deletion.PROTECT,
                 related_name="_derived_from",
                 to="lamindb.transform",
