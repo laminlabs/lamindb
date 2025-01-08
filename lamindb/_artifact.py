@@ -556,7 +556,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
         kind = kwargs.pop("type")
     if not len(kwargs) == 0:
         raise ValueError(
-            "Only data, key, run, description, version, revises, _branch_code"
+            "Only data, key, run, description, version, revises"
             f" can be passed, you passed: {kwargs}"
         )
     if revises is not None and key is not None and revises.key != key:
