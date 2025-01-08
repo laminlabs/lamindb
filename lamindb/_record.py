@@ -200,7 +200,7 @@ def __init__(record: Record, *args, **kwargs):
                     )
                     init_self_from_db(record, existing_record)
                     return None
-        super(Record, record).__init__(**kwargs)
+        super(BasicRecord, record).__init__(**kwargs)
         if isinstance(record, ValidateFields):
             # this will trigger validation against django validators
             try:
@@ -215,7 +215,7 @@ def __init__(record: Record, *args, **kwargs):
         raise ValueError("please provide keyword arguments, not plain arguments")
     else:
         # object is loaded from DB (**kwargs could be omitted below, I believe)
-        super(Record, record).__init__(*args, **kwargs)
+        super(BasicRecord, record).__init__(*args, **kwargs)
         _store_record_old_name(record)
 
 
@@ -865,10 +865,10 @@ def delete(self) -> None:
             new_latest.is_latest = True
             with transaction.atomic():
                 new_latest.save()
-                super(Record, self).delete()
+                super(BasicRecord, self).delete()
             logger.warning(f"new latest version is {new_latest}")
             return None
-    super(Record, self).delete()
+    super(BasicRecord, self).delete()
 
 
 METHOD_NAMES = [
@@ -893,6 +893,4 @@ if ln_setup._TESTING:  # type: ignore
     }
 
 for name in METHOD_NAMES:
-    attach_func_to_class_method(name, Record, globals())
-    if name not in {"__init__", "lookup", "delete"}:
-        attach_func_to_class_method(name, BasicRecord, globals())
+    attach_func_to_class_method(name, BasicRecord, globals())
