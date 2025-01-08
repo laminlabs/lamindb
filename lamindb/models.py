@@ -2271,10 +2271,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         ULabel, through="ArtifactULabel", related_name="artifacts"
     )
     """The ulabels measured in the artifact (:class:`~lamindb.ULabel`)."""
-    transform: Transform | None = ForeignKey(
-        Transform, PROTECT, related_name="output_artifacts", null=True, default=None
-    )
-    """Transform whose run created the artifact."""
     run: Run | None = ForeignKey(
         Run, PROTECT, related_name="output_artifacts", null=True, default=None
     )
@@ -2347,6 +2343,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         **kwargs,
     ):
         pass
+
+    @property
+    def transform(self) -> Transform | None:
+        """Transform whose run created the artifact."""
+        return self.run.transform if self.run is not None else None
 
     @property
     def path(self) -> Path:
@@ -2726,10 +2727,6 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         "ULabel", through="CollectionULabel", related_name="collections"
     )
     """ULabels sampled in the collection (see :class:`~lamindb.Feature`)."""
-    transform: Transform | None = ForeignKey(
-        Transform, PROTECT, related_name="output_collections", null=True, default=None
-    )
-    """:class:`~lamindb.Transform` whose run created the collection."""
     run: Run | None = ForeignKey(
         Run, PROTECT, related_name="output_collections", null=True, default=None
     )
@@ -2925,6 +2922,11 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             >>> collection.restore()
         """
         pass
+
+    @property
+    def transform(self) -> Transform | None:
+        """Transform whose run created the collection."""
+        return self.run.transform if self.run is not None else None
 
     @property
     def name(self) -> str:

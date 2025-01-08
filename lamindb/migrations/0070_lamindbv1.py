@@ -317,6 +317,7 @@ class Migration(migrations.Migration):
             name="_curator",
             field=models.JSONField(db_default=None, null=True),
         ),
+        # add _expect_many fields
         migrations.AddField(
             model_name="feature",
             name="_expect_many",
@@ -326,5 +327,14 @@ class Migration(migrations.Migration):
             model_name="param",
             name="_expect_many",
             field=models.BooleanField(db_default=False),
+        ),
+        # remove transform field
+        migrations.RemoveField(
+            model_name="artifact",
+            name="transform",
+        ),
+        migrations.RemoveField(
+            model_name="collection",
+            name="transform",
         ),
     ]

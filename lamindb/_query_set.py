@@ -80,16 +80,18 @@ def one_helper(self):
 
 def get_backward_compat_filter_kwargs(expressions):
     name_mappings = {
-        "name": "key",
-        "visibility": "_branch_code",
+        "name": "key",  # backward compat <1.0
+        "visibility": "_branch_code",  # backward compat <1.0
+        "transform": "run__transform",  # for convenience (and backward compat <1.0)
     }
     mapped = {}
     for field, value in expressions.items():
         parts = field.split("__")
         if parts[0] in name_mappings:
-            logger.warning(
-                f"{name_mappings[parts[0]]} is deprecated, please query for {parts[0]} instead"
-            )
+            if parts[0] != "transform":
+                logger.warning(
+                    f"{name_mappings[parts[0]]} is deprecated, please query for {parts[0]} instead"
+                )
             new_field = name_mappings[parts[0]] + (
                 "__" + "__".join(parts[1:]) if len(parts) > 1 else ""
             )
@@ -125,7 +127,6 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
 
         return key, value
 
-    # backward compat: name to key
     if queryset.model in {Collection, Transform, Artifact}:
         expressions = get_backward_compat_filter_kwargs(expressions)
 
