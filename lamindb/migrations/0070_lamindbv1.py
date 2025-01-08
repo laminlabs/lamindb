@@ -392,10 +392,9 @@ class Migration(migrations.Migration):
             bases=(lamindb.models.LinkORM, models.Model),
         ),
         migrations.RunSQL(
-            # Forward SQL - Copy data from M2M table to new link table
             sql="""
             INSERT INTO lamindb_transformulabel (transform_id, ulabel_id)
-            SELECT from_transform_id, ulabel_id
+            SELECT transform_id, ulabel_id
             FROM lamindb_transform_ulabels;
             """
         ),
