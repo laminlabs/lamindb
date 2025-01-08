@@ -523,7 +523,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
         raise ValueError("Only one non-keyword arg allowed: data")
 
     data: str | Path = kwargs.pop("data") if len(args) == 0 else args[0]
-    type: str = kwargs.pop("type") if "type" in kwargs else None
+    kind: str = kwargs.pop("kind") if "kind" in kwargs else None
     key: str | None = kwargs.pop("key") if "key" in kwargs else None
     run: Run | None = kwargs.pop("run") if "run" in kwargs else None
     description: str | None = (
@@ -551,6 +551,9 @@ def __init__(artifact: Artifact, *args, **kwargs):
     )
     otype = kwargs.pop("otype") if "otype" in kwargs else None
     otype = _check_otype_artifact(data=data, otype=otype)
+    if "type" in kwargs:
+        logger.warning("`type` will be removed soon, please use `kind`")
+        kind = kwargs.pop("type")
     if not len(kwargs) == 0:
         raise ValueError(
             "Only data, key, run, description, version, revises, _branch_code"
@@ -646,7 +649,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
     if revises is not None:
         kwargs["key"] = revises.key
 
-    kwargs["type"] = type
+    kwargs["kind"] = kind
     kwargs["version"] = version
     kwargs["description"] = description
     kwargs["_branch_code"] = _branch_code
@@ -685,7 +688,7 @@ def from_df(
         description=description,
         revises=revises,
         otype="DataFrame",
-        type="dataset",
+        kind="dataset",
         **kwargs,
     )
     return artifact
@@ -712,7 +715,7 @@ def from_anndata(
         description=description,
         revises=revises,
         otype="AnnData",
-        type="dataset",
+        kind="dataset",
         **kwargs,
     )
     return artifact
@@ -737,7 +740,7 @@ def from_mudata(
         description=description,
         revises=revises,
         otype="MuData",
-        type="dataset",
+        kind="dataset",
         **kwargs,
     )
     return artifact

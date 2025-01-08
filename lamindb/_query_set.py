@@ -235,6 +235,7 @@ def get_basic_field_names(
         "created_at",
         "created_by_id",
         "updated_at",
+        "aux",
         "_branch_code",
     ]:
         if field_name in field_names:

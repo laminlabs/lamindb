@@ -832,11 +832,11 @@ def _add_values(
     model_name = "Param" if is_param else "Feature"
     if is_param:
         if self._host.__class__ == Artifact:
-            if self._host.type != "model":
+            if self._host.kind != "model":
                 raise ValidationError("Can only set params for model-like artifacts.")
     else:
         if self._host.__class__ == Artifact:
-            if self._host.type != "dataset" and self._host.type is not None:
+            if self._host.kind != "dataset" and self._host.kind is not None:
                 raise ValidationError(
                     "Can only set features for dataset-like artifacts."
                 )
