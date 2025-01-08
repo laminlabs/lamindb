@@ -959,6 +959,8 @@ def test_http_paths():
         "https://raw.githubusercontent.com/laminlabs/lamindb/refs/heads/main/README.md"
     )
     artifact_readme = ln.Artifact(http_path, description="register http readme").save()
+    # might change
+    assert artifact_readme.hash is not None
     cache_path = artifact_readme.cache()
     assert cache_path.exists()
     assert cache_path.stat().st_size == http_path.stat().st_size
@@ -968,6 +970,7 @@ def test_http_paths():
         "https://raw.githubusercontent.com/laminlabs/lamindb/refs/heads/main/LICENSE",
         description="register http license",
     ).save()
+    assert artifact_license.hash == "IQxRSNjvb7w2OLFeWqYlsg"
 
     artifact_readme.delete(permanent=True, storage=False)
     artifact_license.delete(permanent=True, storage=False)

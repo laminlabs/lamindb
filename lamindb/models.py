@@ -3219,7 +3219,7 @@ def record_repr(
         field_names.insert(0, "uid")
     fields_str = {}
     for k in field_names:
-        if hasattr(self, k):
+        if not k.startswith("_") and hasattr(self, k):
             value = getattr(self, k)
             # Force strip the time component of the version
             if k == "version" and value:
