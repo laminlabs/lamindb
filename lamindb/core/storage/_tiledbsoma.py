@@ -226,6 +226,6 @@ def save_tiledbsoma_experiment(
         _is_internal_call=True,
     )
     artifact.n_observations = n_observations
-    artifact._accessor = "tiledbsoma"
+    artifact.otype = "tiledbsoma"
 
     return artifact.save()

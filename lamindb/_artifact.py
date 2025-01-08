@@ -549,7 +549,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
     using_key = (
         kwargs.pop("using_key") if "using_key" in kwargs else settings._using_key
     )
-    accessor = kwargs.pop("_accessor") if "_accessor" in kwargs else None
+    accessor = kwargs.pop("otype") if "otype" in kwargs else None
     accessor = _check_accessor_artifact(data=data, accessor=accessor)
     if "is_new_version_of" in kwargs:
         logger.warning("`is_new_version_of` will be removed soon, please use `revises`")
@@ -653,7 +653,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
     kwargs["version"] = version
     kwargs["description"] = description
     kwargs["_branch_code"] = _branch_code
-    kwargs["_accessor"] = accessor
+    kwargs["otype"] = accessor
     kwargs["revises"] = revises
     # this check needs to come down here because key might be populated from an
     # existing file path during get_artifact_kwargs_from_data()

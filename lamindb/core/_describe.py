@@ -67,7 +67,7 @@ def describe_header(self: Artifact | Collection | Run) -> Tree:
             logger.warning("This artifact is the trash.")
     # initialize tree
     suffix = self.suffix if hasattr(self, "suffix") and self.suffix else ""
-    accessor = self._accessor if hasattr(self, "_accessor") and self._accessor else ""
+    accessor = self.otype if hasattr(self, "otype") and self.otype else ""
     suffix_accessor = (
         f"{suffix}/{accessor}" if suffix and accessor else suffix or accessor or ""
     )
