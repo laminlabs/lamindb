@@ -178,9 +178,13 @@ lint.ignore = [
     # Prefer absolute imports over relative imports from parent modules
     "TID252",
     # Standard pseudo-random generators are not suitable for cryptographic purposes
-    "S311"
-    # TODO 3.10 refactor, temporarily disable
+    "S311",
+    # All of the below TODO 3.10 refactor, temporarily disable
     "UP007",
+    "UP038",
+    "B905",
+    "UP035",
+    "RUF100",
 ]
 
 [tool.ruff.lint.pydocstyle]
