@@ -78,6 +78,24 @@ def one_helper(self):
         return self[0]
 
 
+def get_backward_compat_filter_kwargs(expressions):
+    name_mappings = {
+        "name": "key",
+        "visibility": "_branch_code",
+    }
+    mapped = {}
+    for field, value in expressions.items():
+        parts = field.split("__")
+        if parts[0] in name_mappings:
+            new_field = name_mappings[parts[0]] + (
+                "__" + "__".join(parts[1:]) if len(parts) > 1 else ""
+            )
+            mapped[new_field] = value
+        else:
+            mapped[field] = value
+    return mapped
+
+
 def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
     def _map_databases(value: Any, key: str, target_db: str) -> tuple[str, Any]:
         if isinstance(value, Record):
@@ -104,8 +122,12 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
 
         return key, value
 
-    if queryset.model in {Artifact, Collection}:
-        # _branch_code is set to 0 unless expressions contains id or uid equality
+    # backward compat: name to key
+    if queryset.model in {Collection, Transform, Artifact}:
+        expressions = get_backward_compat_filter_kwargs(expressions)
+
+    if issubclass(queryset.model, Record):
+        # _branch_code is set to 0 unless expressions contains id or uid
         if not (
             "id" in expressions
             or "uid" in expressions
