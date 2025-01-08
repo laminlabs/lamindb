@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from django.db import connections
 from lamin_utils import colors, logger
@@ -54,11 +54,6 @@ def get_run(run: Run | None) -> Run | None:
     elif not run:
         run = None
     return run
-
-
-def add_transform_to_kwargs(kwargs: dict[str, Any], run: Run):
-    if run is not None:
-        kwargs["transform"] = run.transform
 
 
 def save_feature_sets(self: Artifact | Collection) -> None:

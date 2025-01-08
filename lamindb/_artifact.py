@@ -29,7 +29,6 @@ from ._parents import view_lineage
 from ._utils import attach_func_to_class_method
 from .core._data import (
     _track_run_input,
-    add_transform_to_kwargs,
     describe,
     get_run,
     save_feature_set_links,
@@ -663,8 +662,6 @@ def __init__(artifact: Artifact, *args, **kwargs):
         and kwargs["run"] is None
     ):
         raise ValueError("Pass one of key, run or description as a parameter")
-
-    add_transform_to_kwargs(kwargs, kwargs["run"])
 
     super(Artifact, artifact).__init__(**kwargs)
 

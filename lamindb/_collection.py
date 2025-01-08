@@ -25,7 +25,6 @@ from ._record import init_self_from_db, update_attributes
 from ._utils import attach_func_to_class_method
 from .core._data import (
     _track_run_input,
-    add_transform_to_kwargs,
     describe,
     get_run,
     save_feature_set_links,
@@ -162,7 +161,6 @@ def __init__(
         update_attributes(collection, {"description": description, "key": key})
     else:
         kwargs = {}
-        add_transform_to_kwargs(kwargs, run)
         search_names_setting = settings.creation.search_names
         if revises is not None and key == revises.key:
             settings.creation.search_names = False
