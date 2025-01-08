@@ -1472,8 +1472,8 @@ class Run(Record):
         User, CASCADE, default=current_user_id, related_name="created_runs"
     )
     """Creator of run."""
-    parent: Run | None = ForeignKey(
-        "Run", CASCADE, null=True, related_name="children", default=None
+    initiated_by_run: Run | None = ForeignKey(
+        "Run", CASCADE, null=True, related_name="initiated_runs", default=None
     )
     """The run that triggered the current run.
 

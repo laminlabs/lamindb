@@ -470,4 +470,21 @@ class Migration(migrations.Migration):
                 db_default=False,
             ),
         ),
+        migrations.RenameField(
+            model_name="run",
+            old_name="parent",
+            new_name="initiated_by_run",
+        ),
+        migrations.AlterField(
+            model_name="run",
+            name="initiated_by_run",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=None,
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="initiated_runs",
+                to="lamindb.run",
+            ),
+        ),
     ]
