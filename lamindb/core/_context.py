@@ -4,6 +4,7 @@ import builtins
 import hashlib
 import signal
 import sys
+import threading
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
@@ -127,8 +128,11 @@ class LogStreamTracker:
         sys.stdout = LogStreamHandler(self.original_stdout, self.log_file)
         sys.stderr = LogStreamHandler(self.original_stderr, self.log_file)
         # handle signals
-        signal.signal(signal.SIGTERM, self.cleanup)
-        signal.signal(signal.SIGINT, self.cleanup)
+        # signal should be used only in the main thread, otherwise
+        # ValueError: signal only works in main thread of the main interpreter
+        if threading.current_thread() == threading.main_thread():
+            signal.signal(signal.SIGTERM, self.cleanup)
+            signal.signal(signal.SIGINT, self.cleanup)
         # handle exceptions
         sys.excepthook = self.handle_exception
 
@@ -251,6 +255,7 @@ class Context:
         params: dict | None = None,
         new_run: bool | None = None,
         path: str | None = None,
+        log_to_file: bool | None = None,
     ) -> None:
         """Initiate a run with tracked data lineage.
 
@@ -265,10 +270,13 @@ class Context:
         Args:
             transform: A transform `uid` or record. If `None`, creates a `uid`.
             params: A dictionary of parameters to track for the run.
-            new_run: If `False`, loads latest run of transform
-                (default notebook), if `True`, creates new run (default pipeline).
+            new_run: If `False`, loads the latest run of transform
+                (default notebook), if `True`, creates new run (default non-notebook).
             path: Filepath of notebook or script. Only needed if it can't be
                 automatically detected.
+            log_to_file: If `True`, logs stdout and stderr to a file and
+                saves the file within the current run (default non-notebook),
+                if `False`, does not log the output (default notebook).
 
         Examples:
 
@@ -358,7 +366,9 @@ class Context:
             )
         self._run = run
         track_environment(run)
-        if self.transform.type != "notebook":
+        if log_to_file is None:
+            log_to_file = self.transform.type != "notebook"
+        if log_to_file:
             self._stream_tracker.start(run)
         logger.important(self._logging_message_track)
         if self._logging_message_imports:

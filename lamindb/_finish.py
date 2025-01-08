@@ -42,7 +42,7 @@ def save_run_logs(run: Run, save_run: bool = False) -> None:
         )
         artifact.save(upload=True, print_progress=False)
         run.report = artifact
-        if save_run:  # defaults to fast because is slow
+        if save_run:  # defaults to false because is slow
             run.save()
 
 

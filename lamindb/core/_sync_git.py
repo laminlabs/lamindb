@@ -53,22 +53,69 @@ def check_local_git_repo() -> bool:
 
 
 def get_git_commit_hash(blob_hash: str, repo_dir: Path | None = None) -> str | None:
-    command = ["git", "log", f"--find-object={blob_hash}", "--pretty=format:%H"]
+    # Fetch all remote branches so that we can also search them
+    fetch_command = ["git", "fetch", "origin", "+refs/heads/*:refs/remotes/origin/*"]
+    subprocess.run(fetch_command, cwd=repo_dir, check=True)
+
+    # Find the commit containing the blob hash in all branches
+    command = [
+        "git",
+        "log",
+        "--all",
+        f"--find-object={blob_hash}",
+        "--pretty=format:%H",
+    ]
     result = subprocess.run(
         command,
         capture_output=True,
         cwd=repo_dir,
     )
-    # we just care to find one commit
-    # hence, we split by new line ("\n") and use the first one
+    # We just care to find one commit
+    # Hence, we split by new line ("\n") and use the first one
     commit_hash = result.stdout.decode().split("\n")[0]
-    if commit_hash == "" or result.returncode == 1:
+
+    if not commit_hash or result.returncode == 1:
         return None
-    else:
-        assert (  # noqa: S101
-            len(commit_hash) == 40
-        ), f"commit hash |{commit_hash}| is not 40 characters long"
-        return commit_hash
+
+    default_branch = (
+        subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "origin/HEAD"],
+            capture_output=True,
+            cwd=repo_dir,
+            text=True,
+        )
+        .stdout.strip()
+        .split("/")[-1]
+    )
+
+    # Find all branches containing the commit
+    commit_containing_branches = subprocess.run(
+        ["git", "branch", "--all", "--contains", commit_hash],
+        capture_output=True,
+        cwd=repo_dir,
+        text=True,
+    ).stdout.split("\n")
+
+    # Clean up branch names and filter out the default branch
+    commit_containing_branches = [
+        branch.strip().replace("remotes/", "")
+        for branch in commit_containing_branches
+        if branch.strip()
+    ]
+    non_default_branches = [
+        branch for branch in commit_containing_branches if default_branch not in branch
+    ]
+
+    if non_default_branches:
+        logger.warning(
+            f"code blob hash {blob_hash} was found in non-default branch(es): {', '.join(non_default_branches)}"
+        )
+
+    assert (  # noqa: S101
+        len(commit_hash) == 40
+    ), f"commit hash |{commit_hash}| is not 40 characters long"
+
+    return commit_hash
 
 
 def get_filepath_within_git_repo(
