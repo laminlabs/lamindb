@@ -188,6 +188,7 @@ class Context:
 
     def __init__(self):
         self._uid: str | None = None
+        self._description: str | None = None
         self._version: str | None = None
         self._transform: Transform | None = None
         self._run: Run | None = None
@@ -201,6 +202,24 @@ class Context:
     def transform(self) -> Transform | None:
         """Managed transform of context."""
         return self._transform
+
+    @property
+    def description(self) -> str | None:
+        """`description` argument for `context.transform`."""
+        return self._description
+
+    @description.setter
+    def description(self, value: str | None):
+        self._description = value
+
+    @property
+    def name(self) -> str | None:
+        """Deprecated. Populates `description` argument for `context.transform`."""
+        return self._description
+
+    @name.setter
+    def name(self, value: str | None):
+        self._description = value
 
     @property
     def uid(self) -> str | None:
@@ -278,6 +297,8 @@ class Context:
                     transform_ref,
                     transform_ref_type,
                 ) = self._track_source_code(path=path)
+            if description is None:
+                description = self._description
             self._create_or_load_transform(
                 description=description,
                 transform_ref=transform_ref,
