@@ -1390,6 +1390,10 @@ class Run(Record):
         "Artifact", PROTECT, null=True, related_name="_report_of", default=None
     )
     """Report of run, e.g.. n html file."""
+    _logfile: Artifact | None = ForeignKey(
+        "Artifact", PROTECT, null=True, related_name="_logfile_of", default=None
+    )
+    """Report of run, e.g.. n html file."""
     environment: Artifact | None = ForeignKey(
         "Artifact", PROTECT, null=True, related_name="_environment_of", default=None
     )

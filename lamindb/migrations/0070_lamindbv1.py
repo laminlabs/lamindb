@@ -251,4 +251,16 @@ class Migration(migrations.Migration):
             old_name="_accessor",
             new_name="otype",
         ),
+        migrations.AddField(
+            model_name="run",
+            name="_logfile",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=None,
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="_logfile_of",
+                to="lamindb.artifact",
+            ),
+        ),
     ]
