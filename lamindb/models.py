@@ -786,7 +786,7 @@ class Registry(ModelBase):
 
 
 class BasicRecord(models.Model, metaclass=Registry):
-    """Basic record.
+    """Basic metadata record.
 
     It has the same methods as Record, but doesn't have the additional fields.
 
@@ -798,8 +798,8 @@ class BasicRecord(models.Model, metaclass=Registry):
 
 
 @doc_args(RECORD_REGISTRY_EXAMPLE)
-class Record(models.Model, metaclass=Registry):
-    """Base class for metadata records.
+class Record(BasicRecord, metaclass=Registry):
+    """Metadata record.
 
     Every `Record` is a data model that comes with a registry in form of a SQL
     table in your database.
