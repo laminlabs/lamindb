@@ -83,7 +83,7 @@ dev = [
     "pytest-cov",
     "mudata",
     # others
-    "nbproject_test>=0.5.1",
+    "nbproject_test>=0.6.0",
     # biology
     "faker-biology",
 ]
