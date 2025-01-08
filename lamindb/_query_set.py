@@ -87,6 +87,9 @@ def get_backward_compat_filter_kwargs(expressions):
     for field, value in expressions.items():
         parts = field.split("__")
         if parts[0] in name_mappings:
+            logger.warning(
+                f"{name_mappings[parts[0]]} is deprecated, please query for {parts[0]} instead"
+            )
             new_field = name_mappings[parts[0]] + (
                 "__" + "__".join(parts[1:]) if len(parts) > 1 else ""
             )
