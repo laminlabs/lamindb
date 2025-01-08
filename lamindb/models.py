@@ -829,6 +829,8 @@ class Record(BasicRecord, metaclass=Registry):
 
     Any integer higher than 1 codes a branch that's involved in a pull request.
     """
+    aux: dict[str, Any] = models.JSONField(default=None, null=True)
+    """Auxiliary field for dictionary-like metadata."""
 
     def save(self, *args, **kwargs) -> Record:
         """Save.

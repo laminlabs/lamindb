@@ -168,4 +168,55 @@ class Migration(migrations.Migration):
                 WHERE dtype = 'number'
             """
         ),
+        # an aux field on Record
+        migrations.AddField(
+            model_name="artifact",
+            name="aux",
+            field=models.JSONField(default=None, null=True),
+        ),
+        migrations.AddField(
+            model_name="collection",
+            name="aux",
+            field=models.JSONField(default=None, null=True),
+        ),
+        migrations.AddField(
+            model_name="feature",
+            name="aux",
+            field=models.JSONField(default=None, null=True),
+        ),
+        migrations.AddField(
+            model_name="featureset",
+            name="aux",
+            field=models.JSONField(default=None, null=True),
+        ),
+        migrations.AddField(
+            model_name="param",
+            name="aux",
+            field=models.JSONField(default=None, null=True),
+        ),
+        migrations.AddField(
+            model_name="run",
+            name="aux",
+            field=models.JSONField(default=None, null=True),
+        ),
+        migrations.AddField(
+            model_name="storage",
+            name="aux",
+            field=models.JSONField(default=None, null=True),
+        ),
+        migrations.AddField(
+            model_name="transform",
+            name="aux",
+            field=models.JSONField(default=None, null=True),
+        ),
+        migrations.AddField(
+            model_name="ulabel",
+            name="aux",
+            field=models.JSONField(default=None, null=True),
+        ),
+        migrations.AddField(
+            model_name="user",
+            name="aux",
+            field=models.JSONField(default=None, null=True),
+        ),
     ]
