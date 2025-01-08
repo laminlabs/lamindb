@@ -816,7 +816,7 @@ class Record(BasicRecord, metaclass=Registry):
     machine learning or biological models.
     """
 
-    _branch_code: int = models.SmallIntegerField(db_index=True, default=1)
+    _branch_code: int = models.SmallIntegerField(db_index=True, db_default=1)
     """Whether record is on a branch, in archive or in trash.
 
     This dictates whether a record appears in queries & searches.

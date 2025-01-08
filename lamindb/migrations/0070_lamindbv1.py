@@ -107,52 +107,52 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="artifact",
             name="_branch_code",
-            field=models.SmallIntegerField(db_index=True, default=1),
+            field=models.SmallIntegerField(db_index=True, db_default=1),
         ),
         migrations.AlterField(
             model_name="collection",
             name="_branch_code",
-            field=models.SmallIntegerField(db_index=True, default=1),
+            field=models.SmallIntegerField(db_index=True, db_default=1),
         ),
         migrations.AddField(
             model_name="feature",
             name="_branch_code",
-            field=models.SmallIntegerField(db_index=True, default=1),
+            field=models.SmallIntegerField(db_index=True, db_default=1),
         ),
         migrations.AddField(
             model_name="featureset",
             name="_branch_code",
-            field=models.SmallIntegerField(db_index=True, default=1),
+            field=models.SmallIntegerField(db_index=True, db_default=1),
         ),
         migrations.AddField(
             model_name="param",
             name="_branch_code",
-            field=models.SmallIntegerField(db_index=True, default=1),
+            field=models.SmallIntegerField(db_index=True, db_default=1),
         ),
         migrations.AddField(
             model_name="run",
             name="_branch_code",
-            field=models.SmallIntegerField(db_index=True, default=1),
+            field=models.SmallIntegerField(db_index=True, db_default=1),
         ),
         migrations.AddField(
             model_name="storage",
             name="_branch_code",
-            field=models.SmallIntegerField(db_index=True, default=1),
+            field=models.SmallIntegerField(db_index=True, db_default=1),
         ),
         migrations.AddField(
             model_name="transform",
             name="_branch_code",
-            field=models.SmallIntegerField(db_index=True, default=1),
+            field=models.SmallIntegerField(db_index=True, db_default=1),
         ),
         migrations.AddField(
             model_name="ulabel",
             name="_branch_code",
-            field=models.SmallIntegerField(db_index=True, default=1),
+            field=models.SmallIntegerField(db_index=True, db_default=1),
         ),
         migrations.AddField(
             model_name="user",
             name="_branch_code",
-            field=models.SmallIntegerField(db_index=True, default=1),
+            field=models.SmallIntegerField(db_index=True, db_default=1),
         ),
         # fix dtype values
         migrations.RunSQL(
