@@ -179,6 +179,8 @@ lint.ignore = [
     "TID252",
     # Standard pseudo-random generators are not suitable for cryptographic purposes
     "S311"
+    # TODO 3.10 refactor, temporarily disable
+    "UP007",
 ]
 
 [tool.ruff.lint.pydocstyle]
