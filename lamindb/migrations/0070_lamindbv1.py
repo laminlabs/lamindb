@@ -461,4 +461,11 @@ class Migration(migrations.Migration):
                 to="lamindb.user",
             ),
         ),
+        migrations.AddField(
+            model_name="ulabel",
+            name="_is_type",
+            field=lamindb.base.fields.BooleanField(
+                blank=True, db_default=False, default=None
+            ),
+        ),
     ]

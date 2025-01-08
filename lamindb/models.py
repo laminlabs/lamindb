@@ -1604,6 +1604,8 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Artifacts annotated with this ulabel."""
     collections: Collection
     """Collections annotated with this ulabel."""
+    _is_type: bool = BooleanField(db_default=False)
+    """Distinguish mere ontological parents from labels that are meant to be used for labeling; for instance, you would never want to label an artifact with a ulabel Project, you'll only want to label with actual project values Project 1, Project 2, etc."""
 
     @overload
     def __init__(
