@@ -153,4 +153,19 @@ class Migration(migrations.Migration):
             name="_branch_code",
             field=models.SmallIntegerField(db_index=True, default=1),
         ),
+        # fix dtype values
+        migrations.RunSQL(
+            sql="""
+                UPDATE lamindb_feature
+                SET dtype = 'num'
+                WHERE dtype = 'number'
+            """
+        ),
+        migrations.RunSQL(
+            sql="""
+                UPDATE lamindb_featureset
+                SET dtype = 'num'
+                WHERE dtype = 'number'
+            """
+        ),
     ]
