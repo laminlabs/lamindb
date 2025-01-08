@@ -635,18 +635,20 @@ def get_transfer_run(record) -> Run:
             uid=uid, name=f"Transfer from `{slug}`", key=key, type="function"
         ).save()
         settings.creation.search_names = search_names
-    # use the global run context to get the parent run id
+    # use the global run context to get the initiated_by_run run id
     if context.run is not None:
-        parent = context.run
+        initiated_by_run = context.run
     else:
         if not settings.creation.artifact_silence_missing_run_warning:
             logger.warning(WARNING_RUN_TRANSFORM)
-        parent = None
+        initiated_by_run = None
     # it doesn't seem to make sense to create new runs for every transfer
-    run = Run.filter(transform=transform, parent=parent).one_or_none()
+    run = Run.filter(
+        transform=transform, initiated_by_run=initiated_by_run
+    ).one_or_none()
     if run is None:
-        run = Run(transform=transform, parent=parent).save()
-        run.parent = parent  # so that it's available in memory
+        run = Run(transform=transform, initiated_by_run=initiated_by_run).save()
+        run.initiated_by_run = initiated_by_run  # so that it's available in memory
     return run
 
 
