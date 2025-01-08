@@ -19,6 +19,7 @@ def test_registry__repr__param():
         .dtype: CharField
         .created_at: DateTimeField
         .updated_at: DateTimeField
+        .aux: JSONField
       Relational fields
         .created_by: User
         .run: Run
@@ -41,7 +42,8 @@ def test_registry__repr__artifact():
         .key: CharField
         .description: CharField
         .suffix: CharField
-        .type: CharField
+        .kind: CharField
+        .otype: CharField
         .size: BigIntegerField
         .hash: CharField
         .n_objects: BigIntegerField
@@ -50,6 +52,7 @@ def test_registry__repr__artifact():
         .is_latest: BooleanField
         .created_at: DateTimeField
         .updated_at: DateTimeField
+        .aux: JSONField
       Relational fields
         .storage: Storage
         .transform: Transform

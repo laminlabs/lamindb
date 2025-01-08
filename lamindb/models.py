@@ -2163,6 +2163,8 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         null=True,
     )
     """:class:`~lamindb.core.types.ArtifactKind` (default `None`)."""
+    otype: str | None = CharField(max_length=64, db_index=True, null=True)
+    """Default Python object type, e.g., DataFrame, AnnData."""
     size: int | None = BigIntegerField(null=True, db_index=True, default=None)
     """Size in bytes.
 
@@ -2185,8 +2187,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     """
     _hash_type: str | None = CharField(max_length=30, db_index=True, null=True)
     """Type of hash."""
-    otype: str | None = CharField(max_length=64, db_index=True, null=True)
-    """Default Python object type, e.g., DataFrame, AnnData."""
     ulabels: ULabel = models.ManyToManyField(
         ULabel, through="ArtifactULabel", related_name="artifacts"
     )
