@@ -9,6 +9,4 @@ def test_notebooks():
     nbdir = Path(__file__).parent
     ln.setup.login("testuser1")
     # TODO
-    test.execute_notebooks(
-        nbdir, write=True, skip_nbs=["transfer-local-to-cloud.ipynb"]
-    )
+    test.execute_notebooks(nbdir, write=True, skip_nbs=["transfer-local-to-cloud"])
