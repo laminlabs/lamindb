@@ -894,3 +894,4 @@ if ln_setup._TESTING:  # type: ignore
 
 for name in METHOD_NAMES:
     attach_func_to_class_method(name, BasicRecord, globals())
+    attach_func_to_class_method(name, Record, globals())
