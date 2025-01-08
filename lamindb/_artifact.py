@@ -342,7 +342,6 @@ def get_artifact_kwargs_from_data(
                 artifact.run._output_artifacts_with_later_updates.add(artifact)
             # update the run of the artifact with the latest run
             stat_or_artifact.run = run
-            stat_or_artifact.transform = run.transform
         return artifact, None
     else:
         size, hash, hash_type, n_objects, revises = stat_or_artifact
