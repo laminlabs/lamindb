@@ -118,8 +118,8 @@ def __init__(
         raise ValueError(
             f"Only artifacts, key, run, description, reference, reference_type can be passed, you passed: {kwargs}"
         )
-    provisional_uid, version, description, revises = process_revises(
-        revises, version, description, Collection
+    provisional_uid, version, key, description, revises = process_revises(
+        revises, version, key, description, Collection
     )
     run = get_run(run)
     if isinstance(artifacts, Artifact):

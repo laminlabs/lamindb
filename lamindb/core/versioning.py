@@ -133,9 +133,10 @@ def get_new_path_from_uid(old_path: UPath, old_uid: str, new_uid: str):
 def process_revises(
     revises: IsVersioned | None,
     version: str | None,
+    key: str | None,
     description: str | None,
     type: type[IsVersioned],
-) -> tuple[str, str, str, IsVersioned | None]:
+) -> tuple[str, str, str, str, IsVersioned | None]:
     if revises is not None and not isinstance(revises, type):
         raise TypeError(f"`revises` has to be of type `{type.__name__}`")
     uid, revises = create_uid(
@@ -144,4 +145,6 @@ def process_revises(
     if revises is not None:
         if description is None:
             description = revises.description
-    return uid, version, description, revises
+        if key is None:
+            key = revises.key
+    return uid, version, key, description, revises

@@ -88,8 +88,8 @@ def __init__(transform: Transform, *args, **kwargs):
         raise InconsistentKey(
             f"`key` is {key}, but `revises.key` is '{revises.key}'\n\nEither do *not* pass `key`.\n\n{note}"
         )
-    new_uid, version, description, revises = process_revises(
-        revises, version, description, Transform
+    new_uid, version, key, description, revises = process_revises(
+        revises, version, key, description, Transform
     )
     # this is only because the user-facing constructor allows passing a uid
     # most others don't

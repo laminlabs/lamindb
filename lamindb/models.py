@@ -1239,6 +1239,14 @@ class Transform(Record, IsVersioned):
         super().__init__(*args, **kwargs)
 
     @property
+    def name(self) -> str:
+        """Name of the transform.
+
+        Splits `key` on `/` and returns the last element.
+        """
+        return self.key.split("/")[-1]
+
+    @property
     def latest_run(self) -> Run:
         """The latest run of this transform."""
         pass
@@ -2815,6 +2823,14 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             >>> collection.restore()
         """
         pass
+
+    @property
+    def name(self) -> str:
+        """Name of the collection.
+
+        Splits `key` on `/` and returns the last element.
+        """
+        return self.key.split("/")[-1]
 
     @property
     def ordered_artifacts(self) -> QuerySet:
