@@ -275,7 +275,7 @@ def test_create_from_dataframe(df):
     assert artifact.description == "test1"
     assert artifact.key is None
     assert artifact.otype == "DataFrame"
-    assert artifact.type == "dataset"
+    assert artifact.kind == "dataset"
     assert hasattr(artifact, "_local_filepath")
     artifact.save()
     # can do backed now, tested in test_storage.py
