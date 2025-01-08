@@ -156,7 +156,6 @@ def __init__(
                 )
             # update the run of the collection with the latest run
             existing_collection.run = run
-            existing_collection.transform = run.transform
         init_self_from_db(collection, existing_collection)
         update_attributes(collection, {"description": description, "key": key})
     else:
