@@ -74,11 +74,9 @@ def get_git_commit_hash(blob_hash: str, repo_dir: Path | None = None) -> str | N
     # Hence, we split by new line ("\n") and use the first one
     commit_hash = result.stdout.decode().split("\n")[0]
 
-    # Return None if no commit was found or if the log command failed
     if not commit_hash or result.returncode == 1:
         return None
 
-    # Get the default branch
     default_branch = (
         subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "origin/HEAD"],
@@ -91,7 +89,7 @@ def get_git_commit_hash(blob_hash: str, repo_dir: Path | None = None) -> str | N
     )
 
     # Find all branches containing the commit
-    branches = subprocess.run(
+    commit_containing_branches = subprocess.run(
         ["git", "branch", "--all", "--contains", commit_hash],
         capture_output=True,
         cwd=repo_dir,
@@ -99,11 +97,13 @@ def get_git_commit_hash(blob_hash: str, repo_dir: Path | None = None) -> str | N
     ).stdout.split("\n")
 
     # Clean up branch names and filter out the default branch
-    branches = [
-        branch.strip().replace("remotes/", "") for branch in branches if branch.strip()
+    commit_containing_branches = [
+        branch.strip().replace("remotes/", "")
+        for branch in commit_containing_branches
+        if branch.strip()
     ]
     non_default_branches = [
-        branch for branch in branches if default_branch not in branch
+        branch for branch in commit_containing_branches if default_branch not in branch
     ]
 
     if non_default_branches:
