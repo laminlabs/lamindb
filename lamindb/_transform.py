@@ -35,13 +35,13 @@ def __init__(transform: Transform, *args, **kwargs):
         if key is None:
             key = kwargs.pop("name")
             logger.warning(
-                f"`name` will be removed soon, please pass {key} to `key` instead"
+                f"`name` will be removed soon, please pass '{key}' to `key` instead"
             )
         else:
             if description is None:
                 description = kwargs.pop("name")
                 logger.warning(
-                    f"`name` will be removed soon, please pass {description} to `description` instead"
+                    f"`name` will be removed soon, please pass '{description}' to `description` instead"
                 )
             else:
                 raise ValueError("name doesn't exist anymore `description`")
@@ -66,15 +66,16 @@ def __init__(transform: Transform, *args, **kwargs):
                 .order_by("-created_at")
                 .first()
             )
-            if (
-                candidate_for_revises is not None
-                and candidate_for_revises.source_code is not None
-            ):
-                # we only want to trigger a revision in case source code has been saved
+            if candidate_for_revises is not None:
                 revises = candidate_for_revises
+                if candidate_for_revises.source_code is None:
+                    # no source code was yet saved, return the same transform
+                    uid = revises.uid
     if revises is not None and uid is not None and uid == revises.uid:
         from ._record import init_self_from_db, update_attributes
 
+        if revises.key != key:
+            logger.warning("ignoring inconsistent key")
         init_self_from_db(transform, revises)
         update_attributes(transform, {"description": description})
         return None
@@ -83,10 +84,10 @@ def __init__(transform: Transform, *args, **kwargs):
             suid=revises.stem_uid,
             existing_key=revises.key,
             new_key=key,
-            registry="Artifact",
+            registry="Transform",
         )
         raise InconsistentKey(
-            f"`key` is {key}, but `revises.key` is '{revises.key}'\n\nEither do *not* pass `key`.\n\n{note}"
+            f"`key` is '{key}', but `revises.key` is '{revises.key}'\n\nEither do *not* pass `key`.\n\n{note}"
         )
     new_uid, version, key, description, revises = process_revises(
         revises, version, key, description, Transform
