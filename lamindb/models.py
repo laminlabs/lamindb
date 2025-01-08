@@ -816,7 +816,7 @@ class Record(BasicRecord, metaclass=Registry):
     machine learning or biological models.
     """
 
-    _branch_code: int = models.SmallIntegerField(db_index=True, db_default=1)
+    _branch_code: int = models.SmallIntegerField(db_index=True, default=1, db_default=1)
     """Whether record is on a branch, in archive or in trash.
 
     This dictates whether a record appears in queries & searches.
@@ -831,7 +831,9 @@ class Record(BasicRecord, metaclass=Registry):
 
     Any integer higher than >3 codes a branch that's involved in a pull request.
     """
-    aux: dict[str, Any] | None = models.JSONField(db_default=None, null=True)
+    aux: dict[str, Any] | None = models.JSONField(
+        default=None, db_default=None, null=True
+    )
     """Auxiliary field for dictionary-like metadata."""
 
     def save(self, *args, **kwargs) -> Record:
@@ -1281,7 +1283,7 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
     For categorical types, can define from which registry values are
     sampled, e.g., `cat[ULabel]` or `cat[bionty.CellType]`.
     """
-    _expect_many: bool = models.BooleanField(db_default=False)
+    _expect_many: bool = models.BooleanField(default=False, db_default=False)
     """Indicates whether values for this param are expected to occur a single or multiple times for an artifact/run (default `False`).
 
     - if it's `False` (default), the values mean artifact/run-level values and a dtype of `datetime` means `datetime`
@@ -1604,7 +1606,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Artifacts annotated with this ulabel."""
     collections: Collection
     """Collections annotated with this ulabel."""
-    _is_type: bool = BooleanField(db_default=False)
+    _is_type: bool = BooleanField(default=False, db_default=False)
     """Distinguish mere ontological parents from labels that are meant to be used for labeling; for instance, you would never want to label an artifact with a ulabel Project, you'll only want to label with actual project values Project 1, Project 2, etc."""
 
     @overload
@@ -1746,7 +1748,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         "FeatureSet", through="FeatureSetFeature", related_name="features"
     )
     """Feature sets linked to this feature."""
-    _expect_many: bool = models.BooleanField(db_default=True)
+    _expect_many: bool = models.BooleanField(default=True, db_default=True)
     """Indicates whether values for this feature are expected to occur a single or multiple times for an artifact (default `True`).
 
     - if it's `True` (default), the values come from an observation-level aggregation and a dtype of `datetime` on the observation-level mean `set[datetime]` on the artifact-level
@@ -2315,7 +2317,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         related_name="created_artifacts",
     )
     """Creator of record."""
-    _curator: dict[str, str] | None = models.JSONField(db_default=None, null=True)
+    _curator: dict[str, str] | None = models.JSONField(
+        default=None, db_default=None, null=True
+    )
 
     @overload
     def __init__(

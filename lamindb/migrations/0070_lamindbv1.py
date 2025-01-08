@@ -107,52 +107,52 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="artifact",
             name="_branch_code",
-            field=models.SmallIntegerField(db_index=True, db_default=1),
+            field=models.SmallIntegerField(db_index=True, default=1, db_default=1),
         ),
         migrations.AlterField(
             model_name="collection",
             name="_branch_code",
-            field=models.SmallIntegerField(db_index=True, db_default=1),
+            field=models.SmallIntegerField(db_index=True, default=1, db_default=1),
         ),
         migrations.AddField(
             model_name="feature",
             name="_branch_code",
-            field=models.SmallIntegerField(db_index=True, db_default=1),
+            field=models.SmallIntegerField(db_index=True, default=1, db_default=1),
         ),
         migrations.AddField(
             model_name="featureset",
             name="_branch_code",
-            field=models.SmallIntegerField(db_index=True, db_default=1),
+            field=models.SmallIntegerField(db_index=True, default=1, db_default=1),
         ),
         migrations.AddField(
             model_name="param",
             name="_branch_code",
-            field=models.SmallIntegerField(db_index=True, db_default=1),
+            field=models.SmallIntegerField(db_index=True, default=1, db_default=1),
         ),
         migrations.AddField(
             model_name="run",
             name="_branch_code",
-            field=models.SmallIntegerField(db_index=True, db_default=1),
+            field=models.SmallIntegerField(db_index=True, default=1, db_default=1),
         ),
         migrations.AddField(
             model_name="storage",
             name="_branch_code",
-            field=models.SmallIntegerField(db_index=True, db_default=1),
+            field=models.SmallIntegerField(db_index=True, default=1, db_default=1),
         ),
         migrations.AddField(
             model_name="transform",
             name="_branch_code",
-            field=models.SmallIntegerField(db_index=True, db_default=1),
+            field=models.SmallIntegerField(db_index=True, default=1, db_default=1),
         ),
         migrations.AddField(
             model_name="ulabel",
             name="_branch_code",
-            field=models.SmallIntegerField(db_index=True, db_default=1),
+            field=models.SmallIntegerField(db_index=True, default=1, db_default=1),
         ),
         migrations.AddField(
             model_name="user",
             name="_branch_code",
-            field=models.SmallIntegerField(db_index=True, db_default=1),
+            field=models.SmallIntegerField(db_index=True, default=1, db_default=1),
         ),
         # fix dtype values
         migrations.RunSQL(
@@ -173,52 +173,52 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="artifact",
             name="aux",
-            field=models.JSONField(db_default=None, null=True),
+            field=models.JSONField(default=None, db_default=None, null=True),
         ),
         migrations.AddField(
             model_name="collection",
             name="aux",
-            field=models.JSONField(db_default=None, null=True),
+            field=models.JSONField(default=None, db_default=None, null=True),
         ),
         migrations.AddField(
             model_name="feature",
             name="aux",
-            field=models.JSONField(db_default=None, null=True),
+            field=models.JSONField(default=None, db_default=None, null=True),
         ),
         migrations.AddField(
             model_name="featureset",
             name="aux",
-            field=models.JSONField(db_default=None, null=True),
+            field=models.JSONField(default=None, db_default=None, null=True),
         ),
         migrations.AddField(
             model_name="param",
             name="aux",
-            field=models.JSONField(db_default=None, null=True),
+            field=models.JSONField(default=None, db_default=None, null=True),
         ),
         migrations.AddField(
             model_name="run",
             name="aux",
-            field=models.JSONField(db_default=None, null=True),
+            field=models.JSONField(default=None, db_default=None, null=True),
         ),
         migrations.AddField(
             model_name="storage",
             name="aux",
-            field=models.JSONField(db_default=None, null=True),
+            field=models.JSONField(default=None, db_default=None, null=True),
         ),
         migrations.AddField(
             model_name="transform",
             name="aux",
-            field=models.JSONField(db_default=None, null=True),
+            field=models.JSONField(default=None, db_default=None, null=True),
         ),
         migrations.AddField(
             model_name="ulabel",
             name="aux",
-            field=models.JSONField(db_default=None, null=True),
+            field=models.JSONField(default=None, db_default=None, null=True),
         ),
         migrations.AddField(
             model_name="user",
             name="aux",
-            field=models.JSONField(db_default=None, null=True),
+            field=models.JSONField(default=None, db_default=None, null=True),
         ),
         migrations.RenameField(
             model_name="run",
@@ -315,18 +315,18 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="artifact",
             name="_curator",
-            field=models.JSONField(db_default=None, null=True),
+            field=models.JSONField(default=None, db_default=None, null=True),
         ),
         # add _expect_many fields
         migrations.AddField(
             model_name="feature",
             name="_expect_many",
-            field=models.BooleanField(db_default=True),
+            field=models.BooleanField(default=True, db_default=True),
         ),
         migrations.AddField(
             model_name="param",
             name="_expect_many",
-            field=models.BooleanField(db_default=False),
+            field=models.BooleanField(default=False, db_default=False),
         ),
         # remove transform field
         migrations.RemoveField(
@@ -465,7 +465,9 @@ class Migration(migrations.Migration):
             model_name="ulabel",
             name="_is_type",
             field=lamindb.base.fields.BooleanField(
-                blank=True, db_default=False, default=None
+                blank=True,
+                default=False,
+                db_default=False,
             ),
         ),
     ]
