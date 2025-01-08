@@ -55,7 +55,6 @@ def test_registry__repr__artifact():
         .aux: JSONField
       Relational fields
         .storage: Storage
-        .transform: Transform
         .run: Run
         .created_by: User
         .ulabels: ULabel
