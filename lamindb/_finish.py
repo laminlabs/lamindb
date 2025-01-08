@@ -107,9 +107,7 @@ def notebook_to_script(
     # remove global metadata header
     py_content = re.sub(r"^# ---\n.*?# ---\n\n", "", py_content, flags=re.DOTALL)
     # replace title
-    py_content = py_content.replace(
-        f"# # {transform.description}", "# # transform.description"
-    )
+    py_content = py_content.replace(f"# # {transform.description}", "#")
     if script_path is None:
         return py_content
     else:
