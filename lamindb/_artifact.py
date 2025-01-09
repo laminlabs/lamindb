@@ -894,6 +894,7 @@ def replace(
             if self.key is not None:
                 new_key_path = PurePosixPath(self.key).with_suffix(kwargs["suffix"])
                 self.key = str(new_key_path)
+                self._key = self.key
 
     self.suffix = kwargs["suffix"]
     self.size = kwargs["size"]
