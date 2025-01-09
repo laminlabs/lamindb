@@ -864,11 +864,11 @@ def check_name_change(record: Record):
 def check_key_change(record: Artifact | Transform):
     """Errors if a record's key has falsely changed."""
     if isinstance(record, Artifact):
-        if not hasattr(record, "_key") or not record._key or not record.key:
+        if not hasattr(record, "_key"):
             return
 
-        old_key = record._key
-        new_key = record.key
+        old_key = record._key or ""
+        new_key = record.key or ""
 
         old_key_suffix = (
             record.suffix
