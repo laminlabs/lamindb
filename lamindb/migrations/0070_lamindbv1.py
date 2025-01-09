@@ -502,4 +502,10 @@ class Migration(migrations.Migration):
             END;
             """
         ),
+        # rename n_files to n_objects
+        migrations.RenameField(
+            model_name="artifact",
+            old_name="n_objects",
+            new_name="n_files",
+        ),
     ]

@@ -420,7 +420,7 @@ def test_create_from_local_filepath(
         else artifact.description == description
     )
     assert artifact.suffix == suffix
-    assert artifact.n_objects is None
+    assert artifact.n_files is None
     artifact.save()
     assert artifact.path.exists()
 
@@ -777,7 +777,7 @@ def test_zarr_upload_cache(adata):
 
     artifact = ln.Artifact(zarr_path, key="test_adata.zarr")
     assert artifact.otype == "AnnData"
-    assert artifact.n_objects >= 1
+    assert artifact.n_files >= 1
     artifact.save()
 
     assert isinstance(artifact.path, CloudPath)
@@ -803,7 +803,7 @@ def test_zarr_upload_cache(adata):
     assert artifact._local_filepath.is_dir()
     assert artifact.otype == "AnnData"
     assert artifact.suffix == ".anndata.zarr"
-    assert artifact.n_objects >= 1
+    assert artifact.n_files >= 1
 
     artifact.save()
     assert isinstance(artifact.path, CloudPath)
@@ -937,7 +937,7 @@ def test_gcp_paths():
         "gs://rxrx1-europe-west4/images/test/HEPG2-08", description="Test GCP folder"
     ).save()
     assert artifact_folder.hash == "6r5Hkce0UTy7X6gLeaqzBA"
-    assert artifact_folder.n_objects == 14772
+    assert artifact_folder.n_files == 14772
 
     artifact_file = ln.Artifact(
         "gs://rxrx1-europe-west4/images/test/HEPG2-08/Plate1/B02_s1_w1.png",

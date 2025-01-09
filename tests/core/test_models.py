@@ -46,7 +46,7 @@ def test_registry__repr__artifact():
         .otype: CharField
         .size: BigIntegerField
         .hash: CharField
-        .n_objects: BigIntegerField
+        .n_files: BigIntegerField
         .n_observations: BigIntegerField
         .version: CharField
         .is_latest: BooleanField

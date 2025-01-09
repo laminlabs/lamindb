@@ -94,8 +94,8 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
         general.add(f".size = {self.size}")
     if hasattr(self, "hash") and self.hash:
         general.add(f".hash = '{self.hash}'")
-    if hasattr(self, "n_objects") and self.n_objects:
-        general.add(f".n_objects = {self.n_objects}")
+    if hasattr(self, "n_files") and self.n_files:
+        general.add(f".n_files = {self.n_files}")
     if hasattr(self, "n_observations") and self.n_observations:
         general.add(Text(f".n_observations = {self.n_observations}"))
     if hasattr(self, "version") and self.version:

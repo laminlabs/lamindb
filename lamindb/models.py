@@ -2261,10 +2261,10 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     Useful to ascertain integrity and avoid duplication.
     """
-    n_objects: int | None = BigIntegerField(null=True, db_index=True, default=None)
-    """Number of objects.
+    n_files: int | None = BigIntegerField(null=True, db_index=True, default=None)
+    """Number of files for folder-like artifacts, `None` for file-like artifacts.
 
-    Typically, this denotes the number of files in an artifact.
+    Note that some arrays are also stored as folders, e.g., `.zarr` or `.tiledbsoma`.
     """
     n_observations: int | None = BigIntegerField(null=True, db_index=True, default=None)
     """Number of observations.

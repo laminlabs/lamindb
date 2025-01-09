@@ -205,9 +205,9 @@ def get_stat_or_artifact(
     is_replace: bool = False,
     instance: str | None = None,
 ) -> tuple[int, str | None, str | None, int | None, Artifact | None] | Artifact:
-    n_objects = None
+    n_files = None
     if settings.creation.artifact_skip_size_hash:
-        return None, None, None, n_objects, None
+        return None, None, None, n_files, None
     stat = path.stat()  # one network request
     if not isinstance(path, LocalPathClasses):
         size, hash, hash_type = None, None, None
@@ -217,18 +217,18 @@ def get_stat_or_artifact(
             if (store_type := stat["type"]) == "file":
                 size, hash, hash_type = get_stat_file_cloud(stat)
             elif store_type == "directory":
-                size, hash, hash_type, n_objects = get_stat_dir_cloud(path)
+                size, hash, hash_type, n_files = get_stat_dir_cloud(path)
         if hash is None:
             logger.warning(f"did not add hash for {path}")
-            return size, hash, hash_type, n_objects, None
+            return size, hash, hash_type, n_files, None
     else:
         if path.is_dir():
-            size, hash, hash_type, n_objects = hash_dir(path)
+            size, hash, hash_type, n_files = hash_dir(path)
         else:
             hash, hash_type = hash_file(path)
             size = stat.st_size
     if not check_hash:
-        return size, hash, hash_type, n_objects, None
+        return size, hash, hash_type, n_files, None
     previous_artifact_version = None
     if key is None or is_replace:
         result = Artifact.objects.using(instance).filter(hash=hash).all()
@@ -260,7 +260,7 @@ def get_stat_or_artifact(
                 "creating new Artifact object despite existing artifact with same hash:"
                 f" {result[0]}"
             )
-            return size, hash, hash_type, n_objects, None
+            return size, hash, hash_type, n_files, None
         else:
             if result[0]._branch_code == -1:
                 raise FileExistsError(
@@ -270,7 +270,7 @@ def get_stat_or_artifact(
             logger.important(f"returning existing artifact with same hash: {result[0]}")
             return result[0]
     else:
-        return size, hash, hash_type, n_objects, previous_artifact_version
+        return size, hash, hash_type, n_files, previous_artifact_version
 
 
 def check_path_in_existing_storage(
@@ -344,7 +344,7 @@ def get_artifact_kwargs_from_data(
             stat_or_artifact.run = run
         return artifact, None
     else:
-        size, hash, hash_type, n_objects, revises = stat_or_artifact
+        size, hash, hash_type, n_files, revises = stat_or_artifact
 
     if revises is not None:  # update provisional_uid
         provisional_uid, revises = create_uid(revises=revises, version=version)
@@ -376,7 +376,7 @@ def get_artifact_kwargs_from_data(
         key=key,
         uid=provisional_uid,
         suffix=suffix,
-        is_dir=n_objects is not None,
+        is_dir=n_files is not None,
     )
 
     # do we use a virtual or an actual storage key?
@@ -398,8 +398,8 @@ def get_artifact_kwargs_from_data(
         # passing both the id and the object
         # to make them both available immediately
         # after object creation
-        "n_objects": n_objects,
-        "_overwrite_versions": n_objects is not None,  # True for folder, False for file
+        "n_files": n_files,
+        "_overwrite_versions": n_files is not None,  # True for folder, False for file
         "n_observations": None,  # to implement
         "run_id": run.id if run is not None else None,
         "run": run,
@@ -877,7 +877,7 @@ def replace(
             )
     else:
         old_storage = auto_storage_key_from_artifact(self)
-        is_dir = self.n_objects is not None
+        is_dir = self.n_files is not None
         new_storage = auto_storage_key_from_artifact_uid(
             self.uid, kwargs["suffix"], is_dir
         )
