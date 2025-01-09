@@ -7,7 +7,6 @@ import pytest
 from lamindb import _feature
 from lamindb._feature import convert_pandas_dtype_to_lamin_dtype
 from lamindb.core.exceptions import ValidationError
-from lamindb.models import ArtifactULabel
 from pandas.api.types import is_categorical_dtype, is_string_dtype
 
 

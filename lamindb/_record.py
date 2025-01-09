@@ -11,7 +11,6 @@ import lamindb_setup as ln_setup
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import connections, transaction
 from django.db.models import (
-    F,
     IntegerField,
     Manager,
     Q,
@@ -69,7 +68,7 @@ from .core.exceptions import (
 if TYPE_CHECKING:
     import pandas as pd
 
-    from lamindb.base.types import ListLike, StrField
+    from lamindb.base.types import StrField
 
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
@@ -624,8 +623,6 @@ def transfer_fk_to_default_db_bulk(
 
 
 def get_transfer_run(record) -> Run:
-    from lamindb_setup import settings as setup_settings
-
     from lamindb.core._context import context
     from lamindb.core._data import WARNING_RUN_TRANSFORM
 

@@ -3,16 +3,12 @@ from __future__ import annotations
 import shutil
 from typing import TYPE_CHECKING
 
-import anndata as ad
 import fsspec
-import pandas as pd
 from lamin_utils import logger
 from lamindb_setup.core import StorageSettings
 from lamindb_setup.core.upath import (
     LocalPathClasses,
     UPath,
-    create_path,
-    infer_filesystem,
 )
 
 from lamindb.core._settings import settings

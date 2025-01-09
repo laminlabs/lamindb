@@ -1,4 +1,3 @@
-import anndata as ad
 import bionty as bt
 import lamindb as ln
 import numpy as np

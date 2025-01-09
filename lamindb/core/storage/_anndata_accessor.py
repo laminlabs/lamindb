@@ -17,12 +17,11 @@ from anndata._io.specs.registry import get_spec, read_elem, read_elem_partial
 from anndata.compat import _read_attr
 from fsspec.implementations.local import LocalFileSystem
 from lamin_utils import logger
-from lamindb_setup.core.upath import UPath, create_mapper, infer_filesystem
+from lamindb_setup.core.upath import create_mapper, infer_filesystem
 from packaging import version
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
-    from pathlib import Path
 
     from fsspec.core import OpenFile
     from lamindb_setup.core.types import UPathStr

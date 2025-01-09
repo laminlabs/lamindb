@@ -20,7 +20,6 @@ from lamindb.models import (
     Feature,
     IsVersioned,
     Record,
-    Registry,
     Run,
     Transform,
     VisibilityChoice,

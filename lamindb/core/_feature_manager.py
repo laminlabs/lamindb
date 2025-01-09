@@ -14,14 +14,13 @@ from anndata import AnnData
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connections
 from django.db.models import Aggregate
-from lamin_utils import colors, logger
+from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_set
 from lamindb_setup.core.upath import create_path
 from rich.table import Column, Table
 from rich.text import Text
 
 from lamindb._feature import (
-    FEATURE_DTYPES,
     convert_pandas_dtype_to_lamin_dtype,
     suggest_categorical_for_str_iterable,
 )
