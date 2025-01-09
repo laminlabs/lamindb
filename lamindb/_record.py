@@ -60,7 +60,7 @@ from lamindb.models import (
 from ._utils import attach_func_to_class_method
 from .core._settings import settings
 from .core.exceptions import (
-    RecordKeyChangeIntegrityError,
+    InvalidArgument,
     RecordNameChangeIntegrityError,
     ValidationError,
 )
@@ -861,30 +861,33 @@ def check_name_change(record: Record):
                 raise RecordNameChangeIntegrityError
 
 
-def check_key_change(record: Record):
+def check_key_change(record: Artifact | Transform):
     """Errors if a record's key has falsely changed."""
-    if not record.pk or record.key is None or not hasattr(record, "_key"):
+    if not hasattr(record, "_key"):
         return
 
     old_key = record._key
     new_key = record.key
 
-    old_key_suffix = (
-        record.suffix
-        if hasattr(record, "suffix")
-        else extract_suffix_from_path(PurePosixPath(old_key), arg_name="key")
-    )
-    new_key_suffix = extract_suffix_from_path(PurePosixPath(new_key), arg_name="key")
+    if isinstance(record, Artifact):
+        old_key_suffix = (
+            record.suffix
+            if record.suffix
+            else extract_suffix_from_path(PurePosixPath(old_key), arg_name="key")
+        )
+        new_key_suffix = extract_suffix_from_path(
+            PurePosixPath(new_key), arg_name="key"
+        )
 
-    if new_key is not None and old_key != new_key:
-        if hasattr(record, "_key_is_virtual") and not record._key_is_virtual:
-            raise RecordKeyChangeIntegrityError(
-                f"Changing a non-virtual key of an artifact is not allowed! Tried to change key from '{old_key}' to '{new_key}'."
-            )
-        elif old_key_suffix != new_key_suffix:
-            raise RecordKeyChangeIntegrityError(
-                f"The suffix '{new_key_suffix}' of the provided key is incorrect, it should be '{old_key_suffix}'."
-            )
+        if old_key != new_key:
+            if not record._key_is_virtual:
+                raise InvalidArgument(
+                    f"Changing a non-virtual key of an artifact is not allowed! Tried to change key from '{old_key}' to '{new_key}'."
+                )
+            elif old_key_suffix != new_key_suffix:
+                raise InvalidArgument(
+                    f"The suffix '{new_key_suffix}' of the provided key is incorrect, it should be '{old_key_suffix}'."
+                )
 
 
 def delete(self) -> None:
