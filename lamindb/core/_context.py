@@ -378,6 +378,11 @@ class Context:
 
             frame = inspect.stack()[2]
             module = inspect.getmodule(frame[0])
+            # None for interactive session
+            if module is None:
+                raise NotImplementedError(
+                    "Interactive sessions are not yet supported to be tracked."
+                )
             path = Path(module.__file__)
         else:
             path = Path(path)
