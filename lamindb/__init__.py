@@ -46,13 +46,12 @@ Modules and settings.
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
 __version__ = "1.0a1"
 
-from lamindb_setup._check_setup import InstanceNotSetupError as _InstanceNotSetupError  # noqa: I001
+from lamindb_setup._check_setup import InstanceNotSetupError as _InstanceNotSetupError
 from lamindb_setup._check_setup import _check_instance_setup
 from lamindb_setup._connect_instance import connect
 from lamindb_setup.core.upath import UPath
 
-from . import setup
-from . import base
+from . import base, setup
 
 
 def __getattr__(name):
