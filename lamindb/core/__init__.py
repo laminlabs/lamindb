@@ -59,7 +59,6 @@ Modules:
    loaders
    datasets
    storage
-   types
    exceptions
    subsettings
    logger
