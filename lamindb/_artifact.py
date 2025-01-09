@@ -879,6 +879,7 @@ def replace(
         if key_path.name != new_filename:
             self._clear_storagekey = self.key
             self.key = str(key_path.with_name(new_filename))
+            self._key = self.key
             logger.warning(
                 f"replacing the file will replace key '{key_path}' with '{self.key}'"
                 f" and delete '{key_path}' upon `save()`"
