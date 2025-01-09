@@ -6,6 +6,7 @@ Registries:
    :toctree: .
 
    Record
+   BasicRecord
    Registry
    QuerySet
    QueryManager
@@ -81,6 +82,7 @@ from lamindb.curators import (
     SOMACurator,
 )
 from lamindb.models import (
+    BasicRecord,
     CanCurate,
     FeatureValue,
     HasParents,

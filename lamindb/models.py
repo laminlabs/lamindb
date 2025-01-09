@@ -1114,7 +1114,7 @@ class Transform(Record, IsVersioned):
     Args:
         name: `str` A name or title.
         key: `str | None = None` A short name or path-like semantic key.
-        type: `TransformType | None = "pipeline"` See :class:`~lamindb.core.types.TransformType`.
+        type: `TransformType | None = "pipeline"` See :class:`~lamindb.base.types.TransformType`.
         revises: `Transform | None = None` An old version of the transform.
 
     See Also:
@@ -1168,7 +1168,7 @@ class Transform(Record, IsVersioned):
         db_index=True,
         default="pipeline",
     )
-    """:class:`~lamindb.core.types.TransformType` (default `"pipeline"`)."""
+    """:class:`~lamindb.base.types.TransformType` (default `"pipeline"`)."""
     source_code: str | None = TextField(null=True)
     """Source code of the transform.
 
@@ -1651,7 +1651,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
 
     Args:
         name: `str` Name of the feature, typically.  column name.
-        dtype: `FeatureDtype | Registry | list[Registry]` See :class:`~lamindb.core.types.FeatureDtype`.
+        dtype: `FeatureDtype | Registry | list[Registry]` See :class:`~lamindb.base.types.FeatureDtype`.
             For categorical types, can define from which registry values are
             sampled, e.g., `ULabel` or `[ULabel, bionty.CellType]`.
         unit: `str | None = None` Unit of measure, ideally SI (`"m"`, `"s"`, `"kg"`, etc.) or `"normalized"` etc.
@@ -1729,7 +1729,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     name: str = CharField(max_length=150, db_index=True, unique=True)
     """Name of feature (`unique=True`)."""
     dtype: FeatureDtype = CharField(max_length=64, db_index=True)
-    """Data type (:class:`~lamindb.core.types.FeatureDtype`).
+    """Data type (:class:`~lamindb.base.types.FeatureDtype`).
 
     For categorical types, can define from which registry values are
     sampled, e.g., `'cat[ULabel]'` or `'cat[bionty.CellType]'`. Unions are also
@@ -2248,7 +2248,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         db_index=True,
         null=True,
     )
-    """:class:`~lamindb.core.types.ArtifactKind` (default `None`)."""
+    """:class:`~lamindb.base.types.ArtifactKind` (default `None`)."""
     otype: str | None = CharField(max_length=64, db_index=True, null=True)
     """Default Python object type, e.g., DataFrame, AnnData."""
     size: int | None = BigIntegerField(null=True, db_index=True, default=None)

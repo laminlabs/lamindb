@@ -17,6 +17,7 @@ Basic types.
    UPathStr
    StrField
    ListLike
+   FieldAttr
 """
 
 from __future__ import annotations
