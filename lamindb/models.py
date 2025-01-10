@@ -797,6 +797,23 @@ class BasicRecord(models.Model, metaclass=Registry):
         abstract = True
 
 
+class Space(BasicRecord):
+    """Spaces."""
+
+    id: int = models.SmallAutoField(primary_key=True)
+    """Internal id, valid only in one DB instance."""
+    name: str = models.CharField(max_length=100, db_index=True)
+    """Name of space."""
+    description: str | None = models.CharField(null=True)
+    """Description of space."""
+    created_at: datetime = DateTimeField(auto_now_add=True, db_index=True)
+    """Time of creation of record."""
+    created_by: User = ForeignKey(
+        "User", CASCADE, default=current_user_id, related_name="+"
+    )
+    """Creator of run."""
+
+
 @doc_args(RECORD_REGISTRY_EXAMPLE)
 class Record(BasicRecord, metaclass=Registry):
     """Metadata record.
@@ -831,6 +848,8 @@ class Record(BasicRecord, metaclass=Registry):
 
     Any integer higher than >3 codes a branch that's involved in a pull request.
     """
+    space: Space = ForeignKey(Space, PROTECT, default=1)
+    """The space in which the record lives."""
     aux: dict[str, Any] | None = models.JSONField(
         default=None, db_default=None, null=True
     )
@@ -1299,7 +1318,7 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
 # Also, we don't inherit from TracksRun because a ParamValue
 # is typically created before a run is created and we want to
 # avoid delete cycles (for Model params though it might be helpful)
-class ParamValue(BasicRecord):
+class ParamValue(Record):
     """Parameter values.
 
     Is largely analogous to `FeatureValue`.
@@ -1791,9 +1810,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         pass
 
 
-# FeatureValue behaves in many ways like a link in a LinkORM
-# in particular, we don't want a _public field on it
-class FeatureValue(BasicRecord, TracksRun):
+class FeatureValue(Record, TracksRun):
     """Non-categorical features values.
 
     Categorical feature values are stored in their respective registries:

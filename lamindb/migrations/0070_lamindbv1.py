@@ -29,6 +29,14 @@ def transfer_source_code(apps, schema_editor):
         artifact.delete(permanent=True)
 
 
+def create_default_space(apps, schema_editor):
+    Space = apps.get_model("lamindb", "Space")
+    Space.objects.get_or_create(
+        name="All",
+        description="Every team & user with access to the instance has access.",
+    )
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("lamindb", "0069_squashed"),
@@ -507,5 +515,180 @@ class Migration(migrations.Migration):
             model_name="artifact",
             old_name="n_objects",
             new_name="n_files",
+        ),
+        # let feature value and paramvalue inherit from Record
+        migrations.AddField(
+            model_name="featurevalue",
+            name="_branch_code",
+            field=models.SmallIntegerField(db_default=1, db_index=True, default=1),
+        ),
+        migrations.AddField(
+            model_name="featurevalue",
+            name="aux",
+            field=models.JSONField(db_default=None, default=None, null=True),
+        ),
+        migrations.AddField(
+            model_name="paramvalue",
+            name="_branch_code",
+            field=models.SmallIntegerField(db_default=1, db_index=True, default=1),
+        ),
+        migrations.AddField(
+            model_name="paramvalue",
+            name="aux",
+            field=models.JSONField(db_default=None, default=None, null=True),
+        ),
+        # create Space model
+        migrations.CreateModel(
+            name="Space",
+            fields=[
+                ("id", models.SmallAutoField(primary_key=True, serialize=False)),
+                ("name", models.CharField(db_index=True, max_length=100)),
+                ("description", models.CharField(null=True)),
+            ],
+            options={
+                "abstract": False,
+            },
+        ),
+        migrations.AddField(
+            model_name="space",
+            name="created_at",
+            field=lamindb.base.fields.DateTimeField(
+                auto_now_add=True, db_index=True, default=django.utils.timezone.now
+            ),
+            preserve_default=False,
+        ),
+        migrations.AddField(
+            model_name="space",
+            name="created_by",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=lamindb.base.users.current_user_id,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="+",
+                to="lamindb.user",
+            ),
+        ),
+        # populate the default space
+        migrations.RunPython(create_default_space),
+        # add space field to all models
+        migrations.AddField(
+            model_name="artifact",
+            name="space",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=1,
+                on_delete=django.db.models.deletion.PROTECT,
+                to="lamindb.space",
+            ),
+        ),
+        migrations.AddField(
+            model_name="collection",
+            name="space",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=1,
+                on_delete=django.db.models.deletion.PROTECT,
+                to="lamindb.space",
+            ),
+        ),
+        migrations.AddField(
+            model_name="feature",
+            name="space",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=1,
+                on_delete=django.db.models.deletion.PROTECT,
+                to="lamindb.space",
+            ),
+        ),
+        migrations.AddField(
+            model_name="featureset",
+            name="space",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=1,
+                on_delete=django.db.models.deletion.PROTECT,
+                to="lamindb.space",
+            ),
+        ),
+        migrations.AddField(
+            model_name="featurevalue",
+            name="space",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=1,
+                on_delete=django.db.models.deletion.PROTECT,
+                to="lamindb.space",
+            ),
+        ),
+        migrations.AddField(
+            model_name="param",
+            name="space",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=1,
+                on_delete=django.db.models.deletion.PROTECT,
+                to="lamindb.space",
+            ),
+        ),
+        migrations.AddField(
+            model_name="paramvalue",
+            name="space",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=1,
+                on_delete=django.db.models.deletion.PROTECT,
+                to="lamindb.space",
+            ),
+        ),
+        migrations.AddField(
+            model_name="run",
+            name="space",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=1,
+                on_delete=django.db.models.deletion.PROTECT,
+                to="lamindb.space",
+            ),
+        ),
+        migrations.AddField(
+            model_name="storage",
+            name="space",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=1,
+                on_delete=django.db.models.deletion.PROTECT,
+                to="lamindb.space",
+            ),
+        ),
+        migrations.AddField(
+            model_name="transform",
+            name="space",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=1,
+                on_delete=django.db.models.deletion.PROTECT,
+                to="lamindb.space",
+            ),
+        ),
+        migrations.AddField(
+            model_name="ulabel",
+            name="space",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=1,
+                on_delete=django.db.models.deletion.PROTECT,
+                to="lamindb.space",
+            ),
+        ),
+        migrations.AddField(
+            model_name="user",
+            name="space",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=1,
+                on_delete=django.db.models.deletion.PROTECT,
+                to="lamindb.space",
+            ),
         ),
     ]
