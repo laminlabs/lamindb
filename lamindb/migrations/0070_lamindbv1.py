@@ -543,30 +543,35 @@ class Migration(migrations.Migration):
             fields=[
                 ("id", models.SmallAutoField(primary_key=True, serialize=False)),
                 ("name", models.CharField(db_index=True, max_length=100)),
-                ("description", models.CharField(null=True)),
+                (
+                    "description",
+                    lamindb.base.fields.CharField(
+                        blank=True, default=None, max_length=255, null=True
+                    ),
+                ),
+                (
+                    "created_at",
+                    lamindb.base.fields.DateTimeField(
+                        auto_now_add=True,
+                        db_index=True,
+                        default=django.utils.timezone.now,
+                    ),
+                ),
+                (
+                    "created_by",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        default=None,
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="+",
+                        to="lamindb.user",
+                    ),
+                ),
             ],
             options={
                 "abstract": False,
             },
-        ),
-        migrations.AddField(
-            model_name="space",
-            name="created_at",
-            field=lamindb.base.fields.DateTimeField(
-                auto_now_add=True, db_index=True, default=django.utils.timezone.now
-            ),
-            preserve_default=False,
-        ),
-        migrations.AddField(
-            model_name="space",
-            name="created_by",
-            field=lamindb.base.fields.ForeignKey(
-                blank=True,
-                default=lamindb.base.users.current_user_id,
-                on_delete=django.db.models.deletion.CASCADE,
-                related_name="+",
-                to="lamindb.user",
-            ),
         ),
         # populate the default space
         migrations.RunPython(create_default_space),
@@ -697,5 +702,10 @@ class Migration(migrations.Migration):
             field=lamindb.base.fields.CharField(
                 blank=True, default=None, max_length=150, null=True
             ),
+        ),
+        migrations.AlterField(
+            model_name="space",
+            name="created_at",
+            field=lamindb.base.fields.DateTimeField(auto_now_add=True, db_index=True),
         ),
     ]

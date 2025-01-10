@@ -804,12 +804,12 @@ class Space(BasicRecord):
     """Internal id, valid only in one DB instance."""
     name: str = models.CharField(max_length=100, db_index=True)
     """Name of space."""
-    description: str | None = models.CharField(null=True)
+    description: str | None = CharField(null=True)
     """Description of space."""
     created_at: datetime = DateTimeField(auto_now_add=True, db_index=True)
     """Time of creation of record."""
     created_by: User = ForeignKey(
-        "User", CASCADE, default=current_user_id, related_name="+"
+        "User", CASCADE, default=None, related_name="+", null=True
     )
     """Creator of run."""
 
