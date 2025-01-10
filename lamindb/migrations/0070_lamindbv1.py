@@ -471,7 +471,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AddField(
             model_name="ulabel",
-            name="_is_type",
+            name="is_concept",
             field=lamindb.base.fields.BooleanField(
                 blank=True,
                 default=False,
@@ -721,5 +721,21 @@ class Migration(migrations.Migration):
             field=lamindb.base.fields.CharField(
                 blank=True, db_index=True, default=None, max_length=100, null=True
             ),
+        ),
+        migrations.RemoveField(
+            model_name="feature",
+            name="_previous_runs",
+        ),
+        migrations.RemoveField(
+            model_name="param",
+            name="_previous_runs",
+        ),
+        migrations.RemoveField(
+            model_name="storage",
+            name="_previous_runs",
+        ),
+        migrations.RemoveField(
+            model_name="ulabel",
+            name="_previous_runs",
         ),
     ]

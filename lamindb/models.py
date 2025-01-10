@@ -198,10 +198,6 @@ class TracksUpdates(models.Model):
 
     updated_at: datetime = DateTimeField(auto_now=True, db_index=True)
     """Time of last update to record."""
-    # no default related_name below because it'd clash with the reverse accessor
-    # of the .run field
-    _previous_runs: Run = models.ManyToManyField("lamindb.Run", related_name="+")
-    """Sequence of runs that created or updated the record."""
 
     @overload
     def __init__(self): ...
@@ -1611,6 +1607,8 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     """A universal random id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True, unique=True)
     """Name or title of ulabel (`unique=True`)."""
+    is_concept: bool = BooleanField(default=False, db_default=False)
+    """Distinguish mere ontological parents from labels that are meant to be used for labeling; for instance, you would never want to label an artifact with a ulabel Project, you'll only want to label with actual project values Project 1, Project 2, etc."""
     description: str | None = TextField(null=True)
     """A description (optional)."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
@@ -1629,8 +1627,6 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Artifacts annotated with this ulabel."""
     collections: Collection
     """Collections annotated with this ulabel."""
-    _is_type: bool = BooleanField(default=False, db_default=False)
-    """Distinguish mere ontological parents from labels that are meant to be used for labeling; for instance, you would never want to label an artifact with a ulabel Project, you'll only want to label with actual project values Project 1, Project 2, etc."""
 
     @overload
     def __init__(
