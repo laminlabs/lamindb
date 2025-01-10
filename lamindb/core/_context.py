@@ -352,8 +352,8 @@ class Context:
         run.save()
         if params is not None:
             run.params.add_values(params)
-            self._logging_message_track += "\n→ params: " + " ".join(
-                f"{key}='{value}'" for key, value in params.items()
+            self._logging_message_track += "\n→ params: " + ", ".join(
+                f"{key}={value}" for key, value in params.items()
             )
         self._run = run
         track_environment(run)
@@ -473,13 +473,17 @@ class Context:
             uid = f"{base62_12()}0000"
             key = self._path.name
             target_transform = None
+            hash, _ = hash_file(self._path)
             if len(transforms) != 0:
                 message = ""
                 found_key = False
                 for aux_transform in transforms:
                     if aux_transform.key in self._path.as_posix():
                         key = aux_transform.key
-                        if aux_transform.source_code is None:
+                        if (
+                            aux_transform.source_code is None
+                            or aux_transform.hash == hash
+                        ):
                             uid = aux_transform.uid
                             target_transform = aux_transform
                         else:
