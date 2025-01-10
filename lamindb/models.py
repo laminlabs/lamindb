@@ -1302,6 +1302,8 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
     For categorical types, can define from which registry values are
     sampled, e.g., `cat[ULabel]` or `cat[bionty.CellType]`.
     """
+    type = CharField(max_length=100, null=True, blank=True, db_index=True)
+    """Param type - a free form type (e.g., 'pipeline', 'model_training', 'post_processing')."""
     _expect_many: bool = models.BooleanField(default=False, db_default=False)
     """Indicates whether values for this param are expected to occur a single or multiple times for an artifact/run (default `False`).
 
@@ -1756,6 +1758,8 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     sampled, e.g., `'cat[ULabel]'` or `'cat[bionty.CellType]'`. Unions are also
     allowed if the feature samples from two registries, e.g., `'cat[ULabel|bionty.CellType]'`
     """
+    type = CharField(max_length=100, null=True, blank=True, db_index=True)
+    """Feature type - a free form type (e.g., 'readout', 'metric', 'metadata', 'expert_annotation', 'model_prediction')."""
     unit: str | None = CharField(max_length=30, db_index=True, null=True)
     """Unit of measure, ideally SI (`m`, `s`, `kg`, etc.) or 'normalized' etc. (optional)."""
     description: str | None = TextField(db_index=True, null=True)
@@ -1968,7 +1972,7 @@ class FeatureSet(Record, CanCurate, TracksRun):
     For :class:`~lamindb.Feature`, types are expected to be heterogeneous and defined on a per-feature level.
     """
     registry: str = CharField(max_length=120, db_index=True)
-    """The registry that stores the feature identifiers, e.g., `'core.Feature'` or `'bionty.Gene'`.
+    """The registry that stores the feature identifiers, e.g., `'Feature'` or `'bionty.Gene'`.
 
     Depending on the registry, `.members` stores, e.g. `Feature` or `Gene` records.
     """

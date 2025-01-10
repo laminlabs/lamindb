@@ -708,4 +708,18 @@ class Migration(migrations.Migration):
             name="created_at",
             field=lamindb.base.fields.DateTimeField(auto_now_add=True, db_index=True),
         ),
+        migrations.AddField(
+            model_name="param",
+            name="type",
+            field=lamindb.base.fields.CharField(
+                blank=True, db_index=True, default=None, max_length=100, null=True
+            ),
+        ),
+        migrations.AddField(
+            model_name="feature",
+            name="type",
+            field=lamindb.base.fields.CharField(
+                blank=True, db_index=True, default=None, max_length=100, null=True
+            ),
+        ),
     ]
