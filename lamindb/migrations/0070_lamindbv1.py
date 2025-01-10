@@ -691,4 +691,11 @@ class Migration(migrations.Migration):
                 to="lamindb.space",
             ),
         ),
+        migrations.AddField(
+            model_name="run",
+            name="name",
+            field=lamindb.base.fields.CharField(
+                blank=True, default=None, max_length=150, null=True
+            ),
+        ),
     ]

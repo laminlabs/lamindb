@@ -1440,6 +1440,8 @@ class Run(Record):
     """Internal id, valid only in one DB instance."""
     uid: str = CharField(unique=True, db_index=True, max_length=20, default=base62_20)
     """Universal id, valid across DB instances."""
+    name: str | None = CharField(max_length=150, null=True)
+    """A name."""
     transform = ForeignKey(Transform, CASCADE, related_name="runs")
     """The transform :class:`~lamindb.Transform` that is being run."""
     started_at: datetime = DateTimeField(auto_now_add=True, db_index=True)
@@ -1957,7 +1959,7 @@ class FeatureSet(Record, CanCurate, TracksRun):
     uid: str = CharField(unique=True, db_index=True, max_length=20)
     """A universal id (hash of the set of feature values)."""
     name: str | None = CharField(max_length=150, null=True)
-    """A name (optional)."""
+    """A name."""
     n = IntegerField()
     """Number of features in the set."""
     dtype: str | None = CharField(max_length=64, null=True)
