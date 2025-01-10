@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING
+from warnings import FutureWarning
 
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
@@ -34,14 +36,18 @@ def __init__(transform: Transform, *args, **kwargs):
     if "name" in kwargs:
         if key is None:
             key = kwargs.pop("name")
-            logger.warning(
-                f"`name` will be removed soon, please pass '{key}' to `key` instead"
+            warnings.warn(
+                f"`name` will be removed soon, please pass '{key}' to `key` instead",
+                FutureWarning,
+                stacklevel=2,
             )
         else:
             if description is None:
                 description = kwargs.pop("name")
-                logger.warning(
-                    f"`name` will be removed soon, please pass '{description}' to `description` instead"
+                warnings.warn(
+                    f"`name` will be removed soon, please pass '{description}' to `description` instead",
+                    FutureWarning,
+                    stacklevel=2,
                 )
             else:
                 raise ValueError("name doesn't exist anymore `description`")

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from collections import defaultdict
 from typing import (
     TYPE_CHECKING,
@@ -110,8 +111,10 @@ def __init__(
     )
     if "name" in kwargs:
         key = kwargs.pop("name")
-        logger.warning(
-            f"argument `name` will be removed, please pass {key} to `key` instead"
+        warnings.warn(
+            f"argument `name` will be removed, please pass {key} to `key` instead",
+            warnings.FutureWarning,
+            stacklevel=2,
         )
     if not len(kwargs) == 0:
         raise ValueError(
