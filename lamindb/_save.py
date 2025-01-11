@@ -63,7 +63,7 @@ def save(records: Iterable[Record], ignore_conflicts: bool | None = False) -> No
         Update a single existing record:
 
         >>> transform = ln.Transform.get("0Cb86EZj")
-        >>> transform.name = "New name"
+        >>> transform.description = "New description"
         >>> transform.save()
 
     """

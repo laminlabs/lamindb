@@ -23,16 +23,12 @@ from lamindb_setup.core.upath import (
     get_stat_file_cloud,
 )
 
-from lamindb.base.types import (
-    VisibilityChoice,
-)
 from lamindb.models import Artifact, FeatureManager, ParamManager, Run, Storage
 
 from ._parents import view_lineage
 from ._utils import attach_func_to_class_method
 from .core._data import (
     _track_run_input,
-    add_transform_to_kwargs,
     describe,
     get_run,
     save_feature_set_links,
@@ -209,9 +205,9 @@ def get_stat_or_artifact(
     is_replace: bool = False,
     instance: str | None = None,
 ) -> tuple[int, str | None, str | None, int | None, Artifact | None] | Artifact:
-    n_objects = None
+    n_files = None
     if settings.creation.artifact_skip_size_hash:
-        return None, None, None, n_objects, None
+        return None, None, None, n_files, None
     stat = path.stat()  # one network request
     if not isinstance(path, LocalPathClasses):
         size, hash, hash_type = None, None, None
@@ -221,18 +217,18 @@ def get_stat_or_artifact(
             if (store_type := stat["type"]) == "file":
                 size, hash, hash_type = get_stat_file_cloud(stat)
             elif store_type == "directory":
-                size, hash, hash_type, n_objects = get_stat_dir_cloud(path)
+                size, hash, hash_type, n_files = get_stat_dir_cloud(path)
         if hash is None:
             logger.warning(f"did not add hash for {path}")
-            return size, hash, hash_type, n_objects, None
+            return size, hash, hash_type, n_files, None
     else:
         if path.is_dir():
-            size, hash, hash_type, n_objects = hash_dir(path)
+            size, hash, hash_type, n_files = hash_dir(path)
         else:
             hash, hash_type = hash_file(path)
             size = stat.st_size
     if not check_hash:
-        return size, hash, hash_type, n_objects, None
+        return size, hash, hash_type, n_files, None
     previous_artifact_version = None
     if key is None or is_replace:
         result = Artifact.objects.using(instance).filter(hash=hash).all()
@@ -264,9 +260,9 @@ def get_stat_or_artifact(
                 "creating new Artifact object despite existing artifact with same hash:"
                 f" {result[0]}"
             )
-            return size, hash, hash_type, n_objects, None
+            return size, hash, hash_type, n_files, None
         else:
-            if result[0].visibility == -1:
+            if result[0]._branch_code == -1:
                 raise FileExistsError(
                     f"You're trying to re-create this artifact in trash: {result[0]}"
                     "Either permanently delete it with `artifact.delete(permanent=True)` or restore it with `artifact.restore()`"
@@ -274,7 +270,7 @@ def get_stat_or_artifact(
             logger.important(f"returning existing artifact with same hash: {result[0]}")
             return result[0]
     else:
-        return size, hash, hash_type, n_objects, previous_artifact_version
+        return size, hash, hash_type, n_files, previous_artifact_version
 
 
 def check_path_in_existing_storage(
@@ -346,10 +342,9 @@ def get_artifact_kwargs_from_data(
                 artifact.run._output_artifacts_with_later_updates.add(artifact)
             # update the run of the artifact with the latest run
             stat_or_artifact.run = run
-            stat_or_artifact.transform = run.transform
         return artifact, None
     else:
-        size, hash, hash_type, n_objects, revises = stat_or_artifact
+        size, hash, hash_type, n_files, revises = stat_or_artifact
 
     if revises is not None:  # update provisional_uid
         provisional_uid, revises = create_uid(revises=revises, version=version)
@@ -381,7 +376,7 @@ def get_artifact_kwargs_from_data(
         key=key,
         uid=provisional_uid,
         suffix=suffix,
-        is_dir=n_objects is not None,
+        is_dir=n_files is not None,
     )
 
     # do we use a virtual or an actual storage key?
@@ -403,7 +398,8 @@ def get_artifact_kwargs_from_data(
         # passing both the id and the object
         # to make them both available immediately
         # after object creation
-        "n_objects": n_objects,
+        "n_files": n_files,
+        "_overwrite_versions": n_files is not None,  # True for folder, False for file
         "n_observations": None,  # to implement
         "run_id": run.id if run is not None else None,
         "run": run,
@@ -486,25 +482,25 @@ def data_is_mudata(data: MuData | UPathStr) -> bool:
     return False
 
 
-def _check_accessor_artifact(data: Any, accessor: str | None = None):
-    if accessor is None:
+def _check_otype_artifact(data: Any, otype: str | None = None):
+    if otype is None:
         if isinstance(data, pd.DataFrame):
             logger.warning("data is a DataFrame, please use .from_df()")
-            accessor = "DataFrame"
-            return accessor
+            otype = "DataFrame"
+            return otype
 
         data_is_path = isinstance(data, (str, Path))
         if data_is_anndata(data):
             if not data_is_path:
                 logger.warning("data is an AnnData, please use .from_anndata()")
-            accessor = "AnnData"
+            otype = "AnnData"
         elif data_is_mudata(data):
             if not data_is_path:
                 logger.warning("data is a MuData, please use .from_mudata()")
-            accessor = "MuData"
+            otype = "MuData"
         elif not data_is_path:  # UPath is a subclass of Path
             raise TypeError("data has to be a string, Path, UPath")
-    return accessor
+    return otype
 
 
 def __init__(artifact: Artifact, *args, **kwargs):
@@ -526,7 +522,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
         raise ValueError("Only one non-keyword arg allowed: data")
 
     data: str | Path = kwargs.pop("data") if len(args) == 0 else args[0]
-    type: str = kwargs.pop("type") if "type" in kwargs else None
+    kind: str = kwargs.pop("kind") if "kind" in kwargs else None
     key: str | None = kwargs.pop("key") if "key" in kwargs else None
     run: Run | None = kwargs.pop("run") if "run" in kwargs else None
     description: str | None = (
@@ -534,10 +530,8 @@ def __init__(artifact: Artifact, *args, **kwargs):
     )
     revises: Artifact | None = kwargs.pop("revises") if "revises" in kwargs else None
     version: str | None = kwargs.pop("version") if "version" in kwargs else None
-    visibility: int | None = (
-        kwargs.pop("visibility")
-        if "visibility" in kwargs
-        else VisibilityChoice.default.value
+    _branch_code: int | None = (
+        kwargs.pop("_branch_code") if "_branch_code" in kwargs else 1
     )
     format = kwargs.pop("format") if "format" in kwargs else None
     _is_internal_call = kwargs.pop("_is_internal_call", False)
@@ -554,14 +548,14 @@ def __init__(artifact: Artifact, *args, **kwargs):
     using_key = (
         kwargs.pop("using_key") if "using_key" in kwargs else settings._using_key
     )
-    accessor = kwargs.pop("_accessor") if "_accessor" in kwargs else None
-    accessor = _check_accessor_artifact(data=data, accessor=accessor)
-    if "is_new_version_of" in kwargs:
-        logger.warning("`is_new_version_of` will be removed soon, please use `revises`")
-        revises = kwargs.pop("is_new_version_of")
+    otype = kwargs.pop("otype") if "otype" in kwargs else None
+    otype = _check_otype_artifact(data=data, otype=otype)
+    if "type" in kwargs:
+        logger.warning("`type` will be removed soon, please use `kind`")
+        kind = kwargs.pop("type")
     if not len(kwargs) == 0:
         raise ValueError(
-            "Only data, key, run, description, version, revises, visibility"
+            "Only data, key, run, description, version, revises"
             f" can be passed, you passed: {kwargs}"
         )
     if revises is not None and key is not None and revises.key != key:
@@ -654,11 +648,11 @@ def __init__(artifact: Artifact, *args, **kwargs):
     if revises is not None:
         kwargs["key"] = revises.key
 
-    kwargs["type"] = type
+    kwargs["kind"] = kind
     kwargs["version"] = version
     kwargs["description"] = description
-    kwargs["visibility"] = visibility
-    kwargs["_accessor"] = accessor
+    kwargs["_branch_code"] = _branch_code
+    kwargs["otype"] = otype
     kwargs["revises"] = revises
     # this check needs to come down here because key might be populated from an
     # existing file path during get_artifact_kwargs_from_data()
@@ -668,8 +662,6 @@ def __init__(artifact: Artifact, *args, **kwargs):
         and kwargs["run"] is None
     ):
         raise ValueError("Pass one of key, run or description as a parameter")
-
-    add_transform_to_kwargs(kwargs, kwargs["run"])
 
     super(Artifact, artifact).__init__(**kwargs)
 
@@ -692,8 +684,8 @@ def from_df(
         run=run,
         description=description,
         revises=revises,
-        _accessor="DataFrame",
-        type="dataset",
+        otype="DataFrame",
+        kind="dataset",
         **kwargs,
     )
     return artifact
@@ -719,8 +711,8 @@ def from_anndata(
         run=run,
         description=description,
         revises=revises,
-        _accessor="AnnData",
-        type="dataset",
+        otype="AnnData",
+        kind="dataset",
         **kwargs,
     )
     return artifact
@@ -744,8 +736,8 @@ def from_mudata(
         run=run,
         description=description,
         revises=revises,
-        _accessor="MuData",
-        type="dataset",
+        otype="MuData",
+        kind="dataset",
         **kwargs,
     )
     return artifact
@@ -885,7 +877,7 @@ def replace(
             )
     else:
         old_storage = auto_storage_key_from_artifact(self)
-        is_dir = self.n_objects is not None
+        is_dir = self.n_files is not None
         new_storage = auto_storage_key_from_artifact_uid(
             self.uid, kwargs["suffix"], is_dir
         )
@@ -1036,15 +1028,17 @@ def delete(
                 f"\n(2) If you want to delete the artifact in storage, please load the managing lamindb instance (uid={self.storage.instance_uid})."
                 f"\nThese are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).df()}"
             )
-    # by default, we only move artifacts into the trash (visibility = -1)
-    trash_visibility = VisibilityChoice.trash.value
-    if self.visibility > trash_visibility and not permanent:
+    # by default, we only move artifacts into the trash (_branch_code = -1)
+    trash__branch_code = -1
+    if self._branch_code > trash__branch_code and not permanent:
         if storage is not None:
             logger.warning("moving artifact to trash, storage arg is ignored")
         # move to trash
-        self.visibility = trash_visibility
+        self._branch_code = trash__branch_code
         self.save()
-        logger.important(f"moved artifact to trash (visibility = {trash_visibility})")
+        logger.important(
+            f"moved artifact to trash (_branch_code = {trash__branch_code})"
+        )
         return
 
     # if the artifact is already in the trash
@@ -1173,7 +1167,7 @@ def _cache_path(self) -> UPath:
 
 # docstring handled through attach_func_to_class_method
 def restore(self) -> None:
-    self.visibility = VisibilityChoice.default.value
+    self._branch_code = 1
     self.save()
 
 

@@ -60,14 +60,14 @@ def describe_header(self: Artifact | Collection | Run) -> Tree:
         logger.warning(
             f"This is not the latest version of the {self.__class__.__name__}."
         )
-    if hasattr(self, "visibility"):
-        if self.visibility == 0:
+    if hasattr(self, "_branch_code"):
+        if self._branch_code == 0:
             logger.warning("This artifact is hidden.")
-        elif self.visibility == -1:
+        elif self._branch_code == -1:
             logger.warning("This artifact is the trash.")
     # initialize tree
     suffix = self.suffix if hasattr(self, "suffix") and self.suffix else ""
-    accessor = self._accessor if hasattr(self, "_accessor") and self._accessor else ""
+    accessor = self.otype if hasattr(self, "otype") and self.otype else ""
     suffix_accessor = (
         f"{suffix}/{accessor}" if suffix and accessor else suffix or accessor or ""
     )
@@ -89,15 +89,13 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
     general = tree.add(Text("General", style="bold bright_cyan"))
     general.add(f".uid = '{self.uid}'")
     if hasattr(self, "key") and self.key:
-        general.add(
-            f".key = '{self.key}'" if self._key_is_virtual else f".key = {self.key}"
-        )
+        general.add(f".key = '{self.key}'")
     if hasattr(self, "size") and self.size:
         general.add(f".size = {self.size}")
     if hasattr(self, "hash") and self.hash:
         general.add(f".hash = '{self.hash}'")
-    if hasattr(self, "n_objects") and self.n_objects:
-        general.add(f".n_objects = {self.n_objects}")
+    if hasattr(self, "n_files") and self.n_files:
+        general.add(f".n_files = {self.n_files}")
     if hasattr(self, "n_observations") and self.n_observations:
         general.add(Text(f".n_observations = {self.n_observations}"))
     if hasattr(self, "version") and self.version:
@@ -131,7 +129,7 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
     if hasattr(self, "transform") and self.transform:
         general.add(
             Text(
-                f".transform = '{self.transform.name}'",
+                f".transform = '{self.transform.description}'",
                 style="cyan3",
             )
         )

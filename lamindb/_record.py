@@ -42,6 +42,7 @@ from lamindb_setup.core._settings_store import instance_settings_file
 from lamindb.base.validation import FieldValidationError
 from lamindb.models import (
     Artifact,
+    BasicRecord,
     CanCurate,
     Collection,
     Feature,
@@ -199,7 +200,7 @@ def __init__(record: Record, *args, **kwargs):
                     )
                     init_self_from_db(record, existing_record)
                     return None
-        super(Record, record).__init__(**kwargs)
+        super(BasicRecord, record).__init__(**kwargs)
         if isinstance(record, ValidateFields):
             # this will trigger validation against django validators
             try:
@@ -214,7 +215,7 @@ def __init__(record: Record, *args, **kwargs):
         raise ValueError("please provide keyword arguments, not plain arguments")
     else:
         # object is loaded from DB (**kwargs could be omitted below, I believe)
-        super(Record, record).__init__(*args, **kwargs)
+        super(BasicRecord, record).__init__(*args, **kwargs)
         _store_record_old_name(record)
 
 
@@ -568,6 +569,7 @@ REGISTRY_UNIQUE_FIELD = {
     "storage": "root",
     "feature": "name",
     "ulabel": "name",
+    "space": "name",  # TODO: this should be updated with the currently used space instead during transfer
 }
 
 
@@ -603,7 +605,6 @@ def update_fk_to_default_db(
 FKBULK = [
     "organism",
     "source",
-    "_source_code_artifact",  # Transform
     "report",  # Run
 ]
 
@@ -635,18 +636,20 @@ def get_transfer_run(record) -> Run:
             uid=uid, name=f"Transfer from `{slug}`", key=key, type="function"
         ).save()
         settings.creation.search_names = search_names
-    # use the global run context to get the parent run id
+    # use the global run context to get the initiated_by_run run id
     if context.run is not None:
-        parent = context.run
+        initiated_by_run = context.run
     else:
         if not settings.creation.artifact_silence_missing_run_warning:
             logger.warning(WARNING_RUN_TRANSFORM)
-        parent = None
+        initiated_by_run = None
     # it doesn't seem to make sense to create new runs for every transfer
-    run = Run.filter(transform=transform, parent=parent).one_or_none()
+    run = Run.filter(
+        transform=transform, initiated_by_run=initiated_by_run
+    ).one_or_none()
     if run is None:
-        run = Run(transform=transform, parent=parent).save()
-        run.parent = parent  # so that it's available in memory
+        run = Run(transform=transform, initiated_by_run=initiated_by_run).save()
+        run.initiated_by_run = initiated_by_run  # so that it's available in memory
     return run
 
 
@@ -737,13 +740,13 @@ def save(self, *args, **kwargs) -> Record:
                 revises._revises = None  # ensure we don't start a recursion
                 revises.save()
                 check_name_change(self)
-                super(Record, self).save(*args, **kwargs)
+                super(BasicRecord, self).save(*args, **kwargs)
                 _store_record_old_name(self)
             self._revises = None
         # save unversioned record
         else:
             check_name_change(self)
-            super(Record, self).save(*args, **kwargs)
+            super(BasicRecord, self).save(*args, **kwargs)
             _store_record_old_name(self)
     # perform transfer of many-to-many fields
     # only supported for Artifact and Collection records
@@ -863,10 +866,10 @@ def delete(self) -> None:
             new_latest.is_latest = True
             with transaction.atomic():
                 new_latest.save()
-                super(Record, self).delete()
+                super(BasicRecord, self).delete()
             logger.warning(f"new latest version is {new_latest}")
             return None
-    super(Record, self).delete()
+    super(BasicRecord, self).delete()
 
 
 METHOD_NAMES = [
@@ -891,4 +894,5 @@ if ln_setup._TESTING:  # type: ignore
     }
 
 for name in METHOD_NAMES:
+    attach_func_to_class_method(name, BasicRecord, globals())
     attach_func_to_class_method(name, Record, globals())

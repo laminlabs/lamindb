@@ -1,3 +1,4 @@
+import bionty as bt
 import lamindb as ln
 import pytest
 from lamindb.core._django import get_artifact_with_related
@@ -5,7 +6,6 @@ from lamindb.core._django import get_artifact_with_related
 
 def test_transfer_from_remote_to_local():
     """Test transfer from remote to local instance."""
-    import bionty as bt
 
     bt.Gene.filter().delete()
     bt.Organism.filter().delete()

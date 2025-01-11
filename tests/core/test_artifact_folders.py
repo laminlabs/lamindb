@@ -26,7 +26,7 @@ def test_folder_like_artifact(get_test_filepaths, key):
         )
         return None
     artifact1 = ln.Artifact(test_dirpath, key=key)
-    assert artifact1.n_objects == 3
+    assert artifact1.n_files == 3
     assert artifact1.hash == hash_test_dir
     assert artifact1._state.adding
     assert artifact1.description is None
@@ -48,7 +48,7 @@ def test_folder_like_artifact(get_test_filepaths, key):
     test_filepath_added = test_dirpath / "my_file_added.txt"
     test_filepath_added.write_text("2")
     artifact3 = ln.Artifact(test_dirpath, key=key, revises=artifact1)
-    assert artifact3.n_objects == 4
+    assert artifact3.n_files == 4
     assert artifact3.hash != hash_test_dir
     assert artifact3._state.adding
     assert artifact3.description is None
@@ -70,5 +70,5 @@ def test_folder_like_artifact_s3():
     study0_data = ln.Artifact("s3://lamindata/iris_studies/study0_raw_images")
     assert study0_data.hash == "IVKGMfNwi8zKvnpaD_gG7w"
     assert study0_data._hash_type == "md5-d"
-    assert study0_data.n_objects == 51
+    assert study0_data.n_files == 51
     assert study0_data.size == 658465

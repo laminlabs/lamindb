@@ -37,7 +37,7 @@ def save_run_logs(run: Run, save_run: bool = False) -> None:
         artifact = Artifact(
             logs_path,
             description=f"log streams of run {run.uid}",
-            visibility=0,
+            _branch_code=0,
             run=False,
         )
         artifact.save(upload=True, print_progress=False)
@@ -98,8 +98,8 @@ def notebook_to_report(notebook_path: Path, output_path: Path) -> None:
 
 
 def notebook_to_script(
-    transform: Transform, notebook_path: Path, script_path: Path
-) -> None:
+    transform: Transform, notebook_path: Path, script_path: Path | None = None
+) -> None | str:
     import jupytext
 
     notebook = jupytext.read(notebook_path)
@@ -107,8 +107,11 @@ def notebook_to_script(
     # remove global metadata header
     py_content = re.sub(r"^# ---\n.*?# ---\n\n", "", py_content, flags=re.DOTALL)
     # replace title
-    py_content = py_content.replace(f"# # {transform.name}", "# # transform.name")
-    script_path.write_text(py_content)
+    py_content = py_content.replace(f"# # {transform.description}", "#")
+    if script_path is None:
+        return py_content
+    else:
+        script_path.write_text(py_content)
 
 
 # removes NotebookNotSaved error message from notebook html
@@ -208,20 +211,12 @@ def save_context_core(
     ln.settings.creation.artifact_silence_missing_run_warning = True
     # track source code
     hash, _ = hash_file(source_code_path)  # ignore hash_type for now
-    if (
-        transform._source_code_artifact_id is not None
-        or transform.hash is not None  # .hash is equivalent to .transform
-    ):
+    if transform.hash is not None:
         # check if the hash of the transform source code matches
         # (for scripts, we already run the same logic in track() - we can deduplicate the call at some point)
-        ref_hash = (
-            transform.hash
-            if transform.hash is not None
-            else transform._source_code_artifact.hash
-        )
-        if hash != ref_hash:
+        if hash != transform.hash:
             response = input(
-                f"You are about to overwrite existing source code (hash '{ref_hash}') for Transform('{transform.uid}')."
+                f"You are about to overwrite existing source code (hash '{transform.hash}') for Transform('{transform.uid}')."
                 f" Proceed? (y/n)"
             )
             if response == "y":
@@ -246,13 +241,13 @@ def save_context_core(
                 overwrite_env = False
             if overwrite_env:
                 hash, _ = hash_file(env_path)
-                artifact = ln.Artifact.filter(hash=hash, visibility=0).one_or_none()
+                artifact = ln.Artifact.filter(hash=hash, _branch_code=0).one_or_none()
                 new_env_artifact = artifact is None
                 if new_env_artifact:
                     artifact = ln.Artifact(
                         env_path,
                         description="requirements.txt",
-                        visibility=0,
+                        _branch_code=0,
                         run=False,
                     )
                     artifact.save(upload=True, print_progress=False)
@@ -274,7 +269,7 @@ def save_context_core(
             if is_r_notebook:
                 title_text, report_path = clean_r_notebook_html(report_path)
                 if title_text is not None:
-                    transform.name = title_text
+                    transform.description = title_text
             if run.report_id is not None:
                 hash, _ = hash_file(report_path)  # ignore hash_type for now
                 if hash != run.report.hash:
@@ -292,7 +287,7 @@ def save_context_core(
                 report_file = ln.Artifact(
                     report_path,
                     description=f"Report of run {run.uid}",
-                    visibility=0,  # hidden file
+                    _branch_code=0,  # hidden file
                     run=False,
                 )
                 report_file.save(upload=True, print_progress=False)

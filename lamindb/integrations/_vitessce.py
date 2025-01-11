@@ -60,7 +60,7 @@ def save_vitessce_config(
     # the below will be replaced with a `ln.tracked()` decorator soon
     transform = Transform(
         uid="kup03MJBsIVa0002",
-        name="save_vitessce_config",
+        key="save_vitessce_config",
         type="function",
         version="3",
     ).save()

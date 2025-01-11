@@ -4,12 +4,11 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "lamindb"
-requires-python = ">=3.9,<3.13"
+requires-python = ">=3.10,<3.13"
 authors = [{name = "Lamin Labs", email = "open-source@lamin.ai"}]
 readme = "README.md"
 dynamic = ["version", "description"]
 classifiers = [
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -17,9 +16,9 @@ classifiers = [
 dependencies = [
     # Lamin PINNED packages
     "lamin_utils==0.13.10",
-    "lamin_cli==0.22.0",
-    "lamindb_setup[aws]==0.81.4",
-    "ourprojects==0.1.0",
+    "lamin_cli==1.0a1",
+    "lamindb_setup[aws]==1.0a1",
+    "ourprojects==1.0a1",
     # others
     "pyarrow",
     "typing_extensions!=4.6.0",
@@ -37,7 +36,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "bionty==0.53.2",
+    "bionty==1.0a1",
 ]
 gcp = [
     "lamindb_setup[gcp]",
@@ -58,10 +57,7 @@ erdiagram = [
     "django-schema-graph",
 ]
 wetlab = [
-    "wetlab"
-]
-findrefs = [
-    "findrefs"
+    "wetlab==1.0a1"
 ]
 clinicore = [
     "clinicore"
@@ -83,7 +79,7 @@ dev = [
     "pytest-cov",
     "mudata",
     # others
-    "nbproject_test>=0.5.1",
+    "nbproject_test>=0.6.0",
     # biology
     "faker-biology",
 ]
@@ -178,7 +174,13 @@ lint.ignore = [
     # Prefer absolute imports over relative imports from parent modules
     "TID252",
     # Standard pseudo-random generators are not suitable for cryptographic purposes
-    "S311"
+    "S311",
+    # All of the below TODO 3.10 refactor, temporarily disable
+    "UP007",
+    "UP038",
+    "B905",
+    "UP035",
+    "RUF100",
 ]
 
 [tool.ruff.lint.pydocstyle]

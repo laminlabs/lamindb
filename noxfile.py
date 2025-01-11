@@ -150,8 +150,11 @@ def install_ci(session, group):
     # installing this after lamindb to be sure that these packages won't be reinstaled
     # during lamindb installation
     if IS_PR or group == "docs":
-        cmd = "uv pip install --system --no-deps ./sub/lamindb-setup ./sub/lamin-cli"
-        run(session, cmd)
+        run(
+            session,
+            "uv pip install --system --no-deps ./sub/lamindb-setup ./sub/lamin-cli ./sub/ourprojects",
+        )
+        run(session, "uv pip uninstall --system lnschema-core")
         if "bionty" in extras:
             run(
                 session,

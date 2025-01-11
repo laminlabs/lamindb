@@ -17,11 +17,14 @@ def test_registry__repr__param():
       Simple fields
         .name: CharField
         .dtype: CharField
+        .type: CharField
         .created_at: DateTimeField
         .updated_at: DateTimeField
+        .aux: JSONField
       Relational fields
         .created_by: User
         .run: Run
+        .space: Space
         .values: ParamValue
     """).strip()
 
@@ -41,19 +44,20 @@ def test_registry__repr__artifact():
         .key: CharField
         .description: CharField
         .suffix: CharField
-        .type: CharField
+        .kind: CharField
+        .otype: CharField
         .size: BigIntegerField
         .hash: CharField
-        .n_objects: BigIntegerField
+        .n_files: BigIntegerField
         .n_observations: BigIntegerField
-        .visibility: SmallIntegerField
         .version: CharField
         .is_latest: BooleanField
         .created_at: DateTimeField
         .updated_at: DateTimeField
+        .aux: JSONField
       Relational fields
+        .space: Space
         .storage: Storage
-        .transform: Transform
         .run: Run
         .created_by: User
         .ulabels: ULabel

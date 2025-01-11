@@ -6,6 +6,7 @@ Registries:
    :toctree: .
 
    Record
+   BasicRecord
    Registry
    QuerySet
    QueryManager
@@ -59,7 +60,6 @@ Modules:
    loaders
    datasets
    storage
-   types
    exceptions
    subsettings
    logger
@@ -82,6 +82,7 @@ from lamindb.curators import (
     SOMACurator,
 )
 from lamindb.models import (
+    BasicRecord,
     CanCurate,
     FeatureValue,
     HasParents,

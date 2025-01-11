@@ -1539,7 +1539,7 @@ class SOMACurator(BaseCurator):
                 run=run,
             )
             artifact.n_observations = self._n_obs
-            artifact._accessor = "tiledbsoma"
+            artifact.otype = "tiledbsoma"
             artifact.save()
         else:
             artifact = self._artifact
@@ -2125,13 +2125,13 @@ def save_artifact(
         organism,
     )
 
-    if artifact._accessor == "DataFrame":
+    if artifact.otype == "DataFrame":
         artifact.features._add_set_from_df(field=columns_field, **feature_kwargs)
-    elif artifact._accessor == "AnnData":
+    elif artifact.otype == "AnnData":
         artifact.features._add_set_from_anndata(
             var_field=columns_field, **feature_kwargs
         )
-    elif artifact._accessor == "MuData":
+    elif artifact.otype == "MuData":
         artifact.features._add_set_from_mudata(
             var_fields=columns_field, **feature_kwargs
         )
@@ -2170,7 +2170,7 @@ def save_artifact(
                 from_curator=True,
             )
 
-    if artifact._accessor == "MuData":
+    if artifact.otype == "MuData":
         for modality, modality_fields in fields.items():
             column_field_modality = columns_field.get(modality)
             if modality == "obs":
