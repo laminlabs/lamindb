@@ -41,15 +41,13 @@ def __init__(transform: Transform, *args, **kwargs):
                 stacklevel=2,
             )
         else:
-            if description is None:
-                description = kwargs.pop("name")
-                warnings.warn(
-                    f"`name` will be removed soon, please pass '{description}' to `description` instead",
-                    FutureWarning,
-                    stacklevel=2,
-                )
-            else:
-                raise ValueError("name doesn't exist anymore `description`")
+            # description wasn't exist, so no check necessary
+            description = kwargs.pop("name")
+            warnings.warn(
+                f"`name` will be removed soon, please pass '{description}' to `description` instead",
+                FutureWarning,
+                stacklevel=2,
+            )
     # below is internal use that we'll hopefully be able to eliminate
     uid: str | None = kwargs.pop("uid") if "uid" in kwargs else None
     if not len(kwargs) == 0:
