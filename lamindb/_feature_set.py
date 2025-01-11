@@ -16,7 +16,7 @@ from ._feature import convert_pandas_dtype_to_lamin_dtype
 from ._record import init_self_from_db
 from ._utils import attach_func_to_class_method
 from .core.exceptions import ValidationError
-from .core.modules import (
+from .core.relations import (
     dict_related_model_to_related_name,
     get_related_name,
 )

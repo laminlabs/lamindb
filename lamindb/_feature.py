@@ -14,7 +14,7 @@ from lamindb.models import Artifact, Feature, Record
 
 from ._query_set import RecordList
 from ._utils import attach_func_to_class_method
-from .core.modules import dict_module_name_to_model_name
+from .core.relations import dict_module_name_to_model_name
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
