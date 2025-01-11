@@ -17,6 +17,7 @@ def test_registry__repr__param():
       Simple fields
         .name: CharField
         .dtype: CharField
+        .type: CharField
         .created_at: DateTimeField
         .updated_at: DateTimeField
         .aux: JSONField
