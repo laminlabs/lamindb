@@ -24,6 +24,7 @@ from django.db.models.fields.related import (
 )
 from lamin_utils import colors
 from lamindb_setup import _check_instance_setup
+from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dict
 
@@ -2380,6 +2381,12 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     def transform(self) -> Transform | None:
         """Transform whose run created the artifact."""
         return self.run.transform if self.run is not None else None
+
+    @property
+    @deprecated("n_files")
+    def n_objects(self) -> int:
+        """Deprecated version of `n_files`."""
+        return self.n_files
 
     @property
     def path(self) -> Path:
