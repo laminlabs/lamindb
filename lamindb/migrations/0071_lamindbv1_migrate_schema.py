@@ -536,8 +536,12 @@ class Migration(migrations.Migration):
         ),
         migrations.RunSQL(
             sql="""
-            INSERT INTO lamindb_transformulabel (transform_id, ulabel_id)
-            SELECT transform_id, ulabel_id
+            INSERT INTO lamindb_transformulabel (transform_id, ulabel_id, created_at, created_by_id)
+            SELECT
+                transform_id,
+                ulabel_id,
+                CURRENT_TIMESTAMP,  -- Sets current timestamp for created_at
+                1  -- Sets default user ID 1 for created_by_id
             FROM lamindb_transform_ulabels;
             """
         ),

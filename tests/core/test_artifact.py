@@ -363,7 +363,6 @@ def test_create_from_anndata_in_storage(data):
         previous_storage = ln.setup.settings.storage.root_as_str
         ln.settings.storage = "s3://lamindb-test/core"
         filepath = data
-        # TODO: automatically add accessor based on file suffix
         artifact = ln.Artifact(filepath)
     artifact.save()
     # check that the local filepath has been cleared
@@ -760,9 +759,8 @@ def test_describe():
     artifact.describe()
 
     # test describing from a remote instance with less schemas
-    # TODO: uncomment after migration
-    # artifact = ln.Artifact.using("laminlabs/lamin-site-assets").filter().first()
-    # artifact.describe()
+    artifact = ln.Artifact.using("laminlabs/lamin-site-assets").filter().first()
+    artifact.describe()
 
 
 def test_zarr_upload_cache(adata):
