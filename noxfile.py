@@ -154,7 +154,7 @@ def install_ci(session, group):
             session,
             "uv pip install --system --no-deps ./sub/lamindb-setup ./sub/lamin-cli",
         )
-        run(session, "uv pip uninstall lnschema-core")
+        run(session, "uv pip uninstall --system lnschema-core")
         if "bionty" in extras:
             run(
                 session,
