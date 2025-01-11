@@ -29,7 +29,7 @@ from ._describe import (
 )
 from ._django import get_artifact_with_related, get_related_model
 from ._settings import settings
-from .modules import dict_related_model_to_related_name
+from .relations import dict_related_model_to_related_name
 
 if TYPE_CHECKING:
     from lamindb._query_set import QuerySet

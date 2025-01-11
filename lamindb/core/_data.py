@@ -29,7 +29,7 @@ from ._feature_manager import (
     get_label_links,
 )
 from .exceptions import ValidationError
-from .modules import (
+from .relations import (
     dict_module_name_to_model_name,
     dict_related_model_to_related_name,
 )

@@ -62,7 +62,7 @@ from ._describe import (
 from ._django import get_artifact_with_related
 from ._label_manager import _get_labels, describe_labels
 from ._settings import settings
-from .modules import (
+from .relations import (
     dict_related_model_to_related_name,
 )
 

@@ -11,7 +11,7 @@ from django.db.models.functions import JSONObject
 
 from lamindb.models import Artifact, FeatureSet, Record
 
-from .modules import dict_related_model_to_related_name, get_schema_modules
+from .relations import dict_related_model_to_related_name, get_schema_modules
 
 
 def get_related_model(model, field_name):
