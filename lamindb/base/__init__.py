@@ -9,6 +9,16 @@ Modules:
 
    types
 
+Utils:
+
+.. autosummary::
+   :toctree: .
+
+   doc_args
+   deprecated
+
 """
+
+from lamindb_setup.core import deprecated, doc_args
 
 from . import types
