@@ -82,14 +82,14 @@ def one_helper(self):
 def get_backward_compat_filter_kwargs(expressions):
     name_mappings = {
         "name": "key",  # backward compat <1.0
-        "visibility": "_branch_code",  # backward compat <1.0
+        "visibility": "_branch_code",  # for convenience (and backward compat <1.0)
         "transform": "run__transform",  # for convenience (and backward compat <1.0)
     }
     mapped = {}
     for field, value in expressions.items():
         parts = field.split("__")
         if parts[0] in name_mappings:
-            if parts[0] != "transform":
+            if parts[0] not in {"transform", "visibility"}:
                 warnings.warn(
                     f"{name_mappings[parts[0]]} is deprecated, please query for {parts[0]} instead",
                     DeprecationWarning,
