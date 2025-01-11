@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import warnings
 from typing import TYPE_CHECKING
-from warnings import FutureWarning
 
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args

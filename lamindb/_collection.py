@@ -113,7 +113,7 @@ def __init__(
         key = kwargs.pop("name")
         warnings.warn(
             f"argument `name` will be removed, please pass {key} to `key` instead",
-            warnings.FutureWarning,
+            FutureWarning,
             stacklevel=2,
         )
     if not len(kwargs) == 0:
