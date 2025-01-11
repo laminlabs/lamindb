@@ -23,6 +23,7 @@ def test_registry__repr__param():
       Relational fields
         .created_by: User
         .run: Run
+        .space: Space
         .values: ParamValue
     """).strip()
 
@@ -54,6 +55,7 @@ def test_registry__repr__artifact():
         .updated_at: DateTimeField
         .aux: JSONField
       Relational fields
+        .space: Space
         .storage: Storage
         .run: Run
         .created_by: User
