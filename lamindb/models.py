@@ -844,7 +844,7 @@ class Record(BasicRecord, metaclass=Registry):
 
     Any integer higher than >3 codes a branch that's involved in a pull request.
     """
-    space: Space = ForeignKey(Space, PROTECT, default=1)
+    space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1)
     """The space in which the record lives."""
     aux: dict[str, Any] | None = models.JSONField(
         default=None, db_default=None, null=True
@@ -932,7 +932,7 @@ class ParamManagerRun(ParamManager):
 # This is a good maximal length for a description field.
 
 
-class User(Record, CanCurate):
+class User(BasicRecord, CanCurate):
     """Users.
 
     All data in this registry is synched from `lamin.ai` to ensure a universal
