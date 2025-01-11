@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import warnings
 from collections import UserList
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
@@ -89,8 +90,10 @@ def get_backward_compat_filter_kwargs(expressions):
         parts = field.split("__")
         if parts[0] in name_mappings:
             if parts[0] != "transform":
-                logger.warning(
-                    f"{name_mappings[parts[0]]} is deprecated, please query for {parts[0]} instead"
+                warnings.warn(
+                    f"{name_mappings[parts[0]]} is deprecated, please query for {parts[0]} instead",
+                    DeprecationWarning,
+                    stacklevel=2,
                 )
             new_field = name_mappings[parts[0]] + (
                 "__" + "__".join(parts[1:]) if len(parts) > 1 else ""
