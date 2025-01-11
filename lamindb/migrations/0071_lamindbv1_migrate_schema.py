@@ -2,6 +2,7 @@
 
 import django.db.models.deletion
 from django.db import migrations, models
+from lamindb_setup.core.hashing import hash_dict
 
 import lamindb.base.fields
 
@@ -12,6 +13,19 @@ def create_default_space(apps, schema_editor):
         name="All",
         description="Every team & user with access to the instance has access.",
     )
+
+
+def populate_hashes(apps, schema_editor):
+    ParamValue = apps.get_model("lamindb", "ParamValue")
+
+    # Process all existing records
+    for param_value in ParamValue.objects.all():
+        value = param_value.value
+        # Check if value is a dict or list (complex JSON)
+        if isinstance(value, dict):
+            value_hash = hash_dict(value)
+            param_value.hash = value_hash
+            param_value.save()
 
 
 class Migration(migrations.Migration):
@@ -422,6 +436,7 @@ class Migration(migrations.Migration):
                 blank=True, db_index=True, default=None, max_length=22, null=True
             ),
         ),
+        migrations.RunPython(populate_hashes),
         migrations.AddConstraint(
             model_name="featurevalue",
             constraint=models.UniqueConstraint(
