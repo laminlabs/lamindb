@@ -6,29 +6,6 @@ from django.db import migrations, models
 import lamindb.base.fields
 
 
-def transfer_source_code(apps, schema_editor):
-    from lamindb._finish import notebook_to_script
-
-    Transform = apps.get_model("lamindb", "Transform")
-    transforms = Transform.objects.filter(
-        _source_code_artifact__isnull=False,
-    ).select_related("_source_code_artifact")
-
-    for transform in transforms:
-        print(f"migrating source code of transform {transform}")
-        artifact = transform._source_code_artifact
-
-        if artifact.suffix == ".ipynb":
-            transform.source_code = notebook_to_script(transform, artifact.path)
-        else:
-            transform.source_code = artifact.cache().read_text()
-        transform.hash = artifact.hash
-
-        transform._source_code_artifact = None
-        transform.save()
-        artifact.delete(permanent=True)
-
-
 def create_default_space(apps, schema_editor):
     Space = apps.get_model("lamindb", "Space")
     Space.objects.get_or_create(
@@ -39,12 +16,11 @@ def create_default_space(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lamindb", "0069_squashed"),
+        ("lamindb", "0070_lamindbv1_migrate_data"),
     ]
 
     operations = [
         # changes to transform
-        migrations.RunPython(transfer_source_code),
         migrations.RemoveField(
             model_name="transform",
             name="_source_code_artifact",

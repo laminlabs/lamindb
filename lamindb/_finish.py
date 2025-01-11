@@ -98,7 +98,7 @@ def notebook_to_report(notebook_path: Path, output_path: Path) -> None:
 
 
 def notebook_to_script(
-    transform: Transform, notebook_path: Path, script_path: Path | None
+    transform: Transform, notebook_path: Path, script_path: Path | None = None
 ) -> None | str:
     import jupytext
 
