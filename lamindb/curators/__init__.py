@@ -1179,7 +1179,7 @@ class SOMACurator(BaseCurator):
         with _open_tiledbsoma(self._experiment_uri, mode="r") as experiment:
             experiment_obs = experiment.obs
             self._n_obs = len(experiment_obs)
-            self._obs_pa_schema = experiment_obs.modules
+            self._obs_pa_schema = experiment_obs.schema
             valid_obs_keys = [
                 k for k in self._obs_pa_schema.names if k != "soma_joinid"
             ]
