@@ -138,7 +138,7 @@ def view_lineage(self, with_successors: bool = False, distance: int = 5):
         field="key",
         with_children=with_successors,
         distance=distance,
-        attr_description="predecessors",
+        attr_name="predecessors",
     )
 
 
