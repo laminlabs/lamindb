@@ -145,7 +145,7 @@ def save_tiledbsoma_experiment(
     run_uid_dtype = "category"
     if appending:
         with soma.Experiment.open(storepath, mode="r", context=ctx) as store:
-            obs_schema = store["obs"].schema
+            obs_schema = store["obs"].modules
             add_run_uid = "lamin_run_uid" in obs_schema.names
             # this is needed to enable backwards compatibility with tiledbsoma stores
             # created before PR 2300

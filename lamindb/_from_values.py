@@ -97,7 +97,7 @@ def get_or_create_records(
                         f"{colors.red('did not create')} {name} record{s} for "
                         f"{n_nonval} {colors.italic(f'{field.field.name}{s}')}: {print_values}"
                     )
-        # if registry.__get_schema_name__() == "bionty" or registry == ULabel:
+        # if registry.__get_module_name__() == "bionty" or registry == ULabel:
         #     if isinstance(iterable, pd.Series):
         #         feature = iterable.name
         #     feature_name = None

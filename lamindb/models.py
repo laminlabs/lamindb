@@ -765,20 +765,28 @@ class Registry(ModelBase):
         """
         pass
 
-    def __get_schema_name__(cls) -> str:
+    def __get_module_name__(cls) -> str:
         schema_module_name = cls.__module__.split(".")[0]
-        schema_name = schema_module_name.replace("lnschema_", "")
-        if schema_name == "lamindb":
-            schema_name = "core"
-        return schema_name
+        module_name = schema_module_name.replace("lnschema_", "")
+        if module_name == "lamindb":
+            module_name = "core"
+        return module_name
 
-    def __get_name_with_schema__(cls) -> str:
-        schema_name = cls.__get_schema_name__()
-        if schema_name == "core":
-            schema_prefix = ""
+    @deprecated("__get_module_name__")
+    def __get_schema_name__(cls) -> str:
+        return cls.__get_module_name__()
+
+    def __get_name_with_module__(cls) -> str:
+        module_name = cls.__get_module_name__()
+        if module_name == "core":
+            module_prefix = ""
         else:
-            schema_prefix = f"{schema_name}."
-        return f"{schema_prefix}{cls.__name__}"
+            module_prefix = f"{module_name}."
+        return f"{module_prefix}{cls.__name__}"
+
+    @deprecated("__get_name_with_module__")
+    def __get_name_with_schema__(cls) -> str:
+        return cls.__get_name_with_module__()
 
 
 class BasicRecord(models.Model, metaclass=Registry):
@@ -3264,18 +3272,18 @@ class RegistryInfo:
             class_specific_relational_fields + filtered_non_class_specific
         )
 
-        core_schema_fields = []
-        external_schema_fields = []
+        core_module_fields = []
+        external_modules_fields = []
         for field in ordered_relational_fields:
             field_name = repr(field).split(": ")[1][:-1]
             if field_name.count(".") == 1 and "lamindb" not in field_name:
-                external_schema_fields.append(field)
+                external_modules_fields.append(field)
             else:
-                core_schema_fields.append(field)
+                core_module_fields.append(field)
 
         def _get_related_field_type(field) -> str:
             field_type = (
-                field.related_model.__get_name_with_schema__()
+                field.related_model.__get_name_with_module__()
                 .replace(
                     "Artifact", ""
                 )  # some fields have an unnecessary 'Artifact' in their name
@@ -3289,57 +3297,57 @@ class RegistryInfo:
                 else field_type
             )
 
-        core_schema_fields_formatted = [
+        core_module_fields_formatted = [
             f"    .{field.name}: {_get_related_field_type(field)}\n"
-            for field in core_schema_fields
+            for field in core_module_fields
         ]
-        external_schema_fields_formatted = [
+        external_modules_fields_formatted = [
             f"    .{field.name}: {_get_related_field_type(field)}\n"
-            for field in external_schema_fields
+            for field in external_modules_fields
         ]
 
         if not return_str:
-            external_schemas_fields_by_schema = defaultdict(list)
+            external_modules_fields_by_modules = defaultdict(list)
             for field_str, field in zip(
-                external_schema_fields_formatted, external_schema_fields
+                external_modules_fields_formatted, external_modules_fields
             ):
                 field_type = field_str.split(":")[1].split()[0]
-                schema_name = field_type.split(".")[0]
-                external_schemas_fields_by_schema[schema_name].append(field)
-            return core_schema_fields, external_schemas_fields_by_schema
+                module_name = field_type.split(".")[0]
+                external_modules_fields_by_modules[module_name].append(field)
+            return core_module_fields, external_modules_fields_by_modules
         else:
             repr_str = ""
 
             # Non-external relational fields
-            if core_schema_fields:
+            if core_module_fields:
                 repr_str += f"  {colors.italic('Relational fields')}\n"
-                repr_str += "".join(core_schema_fields_formatted)
+                repr_str += "".join(core_module_fields_formatted)
 
             # External relational fields
-            external_schemas = set()
-            for field in external_schema_fields_formatted:
+            external_modules = set()
+            for field in external_modules_fields_formatted:
                 field_type = field.split(":")[1].split()[0]
-                external_schemas.add(field_type.split(".")[0])
+                external_modules.add(field_type.split(".")[0])
 
-            if external_schemas:
-                # We want Bionty to show up before other schemas
-                external_schemas = (
-                    ["bionty"] + sorted(external_schemas - {"bionty"})  # type: ignore
-                    if "bionty" in external_schemas
-                    else sorted(external_schemas)
+            if external_modules:
+                # We want Bionty to show up before other modules
+                external_modules = (
+                    ["bionty"] + sorted(external_modules - {"bionty"})  # type: ignore
+                    if "bionty" in external_modules
+                    else sorted(external_modules)
                 )
-                for ext_schema in external_schemas:
-                    ext_schema_fields = [
+                for ext_module in external_modules:
+                    ext_module_fields = [
                         field
-                        for field in external_schema_fields_formatted
-                        if ext_schema in field
+                        for field in external_modules_fields_formatted
+                        if ext_module in field
                     ]
 
-                    if ext_schema_fields:
+                    if ext_module_fields:
                         repr_str += (
-                            f"  {colors.italic(f'{ext_schema.capitalize()} fields')}\n"
+                            f"  {colors.italic(f'{ext_module.capitalize()} fields')}\n"
                         )
-                        repr_str += "".join(ext_schema_fields)
+                        repr_str += "".join(ext_module_fields)
 
             return repr_str
 

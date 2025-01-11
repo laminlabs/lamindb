@@ -166,7 +166,7 @@ def _inspect(
     )
     nonval = set(result_db.non_validated).difference(result_db.synonyms_mapper.keys())
 
-    if len(nonval) > 0 and registry.__get_schema_name__() == "bionty":
+    if len(nonval) > 0 and registry.__get_module_name__() == "bionty":
         try:
             bionty_result = registry.public(organism=organism, source=source).inspect(
                 values=nonval, field=field, mute=True, inspect_synonyms=inspect_synonyms
@@ -438,7 +438,7 @@ def _standardize(
             return result
 
     # map synonyms in Bionty
-    if registry.__get_schema_name__() == "bionty" and public_aware:
+    if registry.__get_module_name__() == "bionty" and public_aware:
         mapper = {}
         if return_mapper:
             mapper = std_names_db

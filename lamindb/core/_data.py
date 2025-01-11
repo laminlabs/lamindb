@@ -29,9 +29,9 @@ from ._feature_manager import (
     get_label_links,
 )
 from .exceptions import ValidationError
-from .schema import (
+from .modules import (
+    dict_module_name_to_model_name,
     dict_related_model_to_related_name,
-    dict_schema_name_to_model_name,
 )
 
 if TYPE_CHECKING:
@@ -215,7 +215,7 @@ def validate_feature(feature: Feature, records: list[Record]) -> None:
     if not isinstance(feature, Feature):
         raise TypeError("feature has to be of type Feature")
     if feature._state.adding:
-        registries = {record.__class__.__get_name_with_schema__() for record in records}
+        registries = {record.__class__.__get_name_with_module__() for record in records}
         registries_str = "|".join(registries)
         msg = f"ln.Feature(name='{feature.name}', type='cat[{registries_str}]').save()"
         raise ValidationError(f"Feature not validated. If it looks correct: {msg}")
@@ -298,7 +298,7 @@ def add_labels(
                 " feature=ln.Feature(name='my_feature'))"
             )
         if feature.dtype.startswith("cat["):
-            orm_dict = dict_schema_name_to_model_name(Artifact)
+            orm_dict = dict_module_name_to_model_name(Artifact)
             for reg in feature.dtype.replace("cat[", "").rstrip("]").split("|"):
                 registry = orm_dict.get(reg)
                 records_validated += registry.from_values(records, field=field)
@@ -324,7 +324,7 @@ def add_labels(
         # strategy: group records by registry to reduce number of transactions
         records_by_related_name: dict = {}
         for record in records:
-            related_name = d.get(record.__class__.__get_name_with_schema__())
+            related_name = d.get(record.__class__.__get_name_with_module__())
             if related_name is None:
                 raise ValueError(f"Can't add labels to {record.__class__} record!")
             if related_name not in records_by_related_name:
@@ -343,7 +343,7 @@ def add_labels(
                     set(feature_set.members.values_list("name", flat=True))
                 )  # type: ignore
         for record in records:
-            records_by_registry[record.__class__.__get_name_with_schema__()].append(
+            records_by_registry[record.__class__.__get_name_with_module__()].append(
                 record
             )
         for registry_name, records in records_by_registry.items():

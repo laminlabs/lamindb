@@ -34,7 +34,7 @@ GROUPS["guide"] = [
     "curate-df.ipynb",
     "curate-any.ipynb",
     "curate-subclass.ipynb",
-    "schemas.ipynb",
+    "modules.ipynb",
 ]
 GROUPS["biology"] = [
     "bio-registries.ipynb",
@@ -241,7 +241,7 @@ def docs(session):
                 path.rename(f"./docs/{path.name}")
     run(
         session,
-        "lamin init --storage ./docsbuild --schema bionty,wetlab,clinicore,ourprojects",
+        "lamin init --storage ./docsbuild --modules bionty,wetlab,clinicore,ourprojects",
     )
 
     def generate_cli_docs():

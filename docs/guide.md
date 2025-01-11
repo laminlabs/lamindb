@@ -9,7 +9,7 @@ query-search
 track
 curate
 bio-registries
-schemas
+modules
 transfer
 ```
 

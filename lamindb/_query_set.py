@@ -271,17 +271,17 @@ def get_feature_annotate_kwargs(show_features: bool | list[str]) -> dict[str, An
     link_models_on_models = {
         getattr(
             Artifact, obj.related_name
-        ).through.__get_name_with_schema__(): obj.related_model.__get_name_with_schema__()
+        ).through.__get_name_with_module__(): obj.related_model.__get_name_with_module__()
         for obj in Artifact._meta.related_objects
-        if obj.related_model.__get_name_with_schema__() in cat_feature_types
+        if obj.related_model.__get_name_with_module__() in cat_feature_types
     }
     link_models_on_models["ArtifactULabel"] = "ULabel"
     link_attributes_on_models = {
         obj.related_name: link_models_on_models[
-            obj.related_model.__get_name_with_schema__()
+            obj.related_model.__get_name_with_module__()
         ]
         for obj in Artifact._meta.related_objects
-        if obj.related_model.__get_name_with_schema__() in link_models_on_models
+        if obj.related_model.__get_name_with_module__() in link_models_on_models
     }
     # Prepare Django's annotate for features
     annotate_kwargs = {}

@@ -545,14 +545,14 @@ def using(
                 f"Failed to load instance {instance}, please check your permissions!"
             )
         iresult, _ = result
-        source_schema = {
-            schema for schema in iresult["schema_str"].split(",") if schema != ""
+        source_module = {
+            modules for modules in iresult["schema_str"].split(",") if modules != ""
         }  # type: ignore
-        target_schema = ln_setup.settings.instance.schema
-        if not source_schema.issubset(target_schema):
-            missing_members = source_schema - target_schema
+        target_module = ln_setup.settings.instance.modules
+        if not source_module.issubset(target_module):
+            missing_members = source_module - target_module
             logger.warning(
-                f"source schema has additional modules: {missing_members}\nconsider mounting these schema modules to transfer all metadata"
+                f"source modules has additional modules: {missing_members}\nconsider mounting these registry modules to transfer all metadata"
             )
         cache_filepath.write_text(f"{iresult['lnid']}\n{iresult['schema_str']}")  # type: ignore
         settings_file = instance_settings_file(name, owner)
@@ -560,7 +560,7 @@ def using(
     else:
         isettings = load_instance_settings(settings_file)
         db = isettings.db
-        cache_filepath.write_text(f"{isettings.uid}\n{','.join(isettings.schema)}")  # type: ignore
+        cache_filepath.write_text(f"{isettings.uid}\n{','.join(isettings.modules)}")  # type: ignore
     add_db_connection(db, instance)
     return QuerySet(model=cls, using=instance)
 

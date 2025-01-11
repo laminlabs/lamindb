@@ -7,7 +7,7 @@ faq/idempotency
 faq/acid
 faq/track-run-inputs
 faq/setup
-faq/import-schema
+faq/import-modules
 faq/reference-field
 faq/key
 faq/visibility

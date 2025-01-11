@@ -22,7 +22,7 @@ rest
 
 ```{toctree}
 :maxdepth: 1
-:caption: Schema modules
+:caption: Modules
 :hidden:
 
 bionty
