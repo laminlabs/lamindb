@@ -152,7 +152,7 @@ def install_ci(session, group):
     if IS_PR or group == "docs":
         run(
             session,
-            "uv pip install --system --no-deps ./sub/lamindb-setup ./sub/lamin-cli",
+            "uv pip install --system --no-deps ./sub/lamindb-setup ./sub/lamin-cli ./sub/ourprojects",
         )
         run(session, "uv pip uninstall --system lnschema-core")
         if "bionty" in extras:
