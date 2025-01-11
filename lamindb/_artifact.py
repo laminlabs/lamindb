@@ -530,9 +530,12 @@ def __init__(artifact: Artifact, *args, **kwargs):
     )
     revises: Artifact | None = kwargs.pop("revises") if "revises" in kwargs else None
     version: str | None = kwargs.pop("version") if "version" in kwargs else None
-    _branch_code: int | None = (
-        kwargs.pop("_branch_code") if "_branch_code" in kwargs else 1
-    )
+    if "visibility" in kwargs:
+        _branch_code = kwargs.pop("visibility")
+    elif "_branch_code" in kwargs:
+        _branch_code = kwargs.pop("_branch_code")
+    else:
+        _branch_code = 1
     format = kwargs.pop("format") if "format" in kwargs else None
     _is_internal_call = kwargs.pop("_is_internal_call", False)
     skip_check_exists = (

@@ -82,6 +82,7 @@ def one_helper(self):
 def get_backward_compat_filter_kwargs(expressions):
     name_mappings = {
         "name": "key",  # backward compat <1.0
+        "n_objects": "n_files",
         "visibility": "_branch_code",  # for convenience (and backward compat <1.0)
         "transform": "run__transform",  # for convenience (and backward compat <1.0)
     }

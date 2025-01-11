@@ -24,9 +24,9 @@ from django.db.models.fields.related import (
 )
 from lamin_utils import colors
 from lamindb_setup import _check_instance_setup
-from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dict
 
+from lamindb.base import deprecated, doc_args
 from lamindb.base.fields import (
     BigIntegerField,
     BooleanField,
@@ -2284,6 +2284,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     """Number of files for folder-like artifacts, `None` for file-like artifacts.
 
     Note that some arrays are also stored as folders, e.g., `.zarr` or `.tiledbsoma`.
+
+    .. versionchanged:: 1.0
+        Renamed from `n_objects` to `n_files`.
     """
     n_observations: int | None = BigIntegerField(null=True, db_index=True, default=None)
     """Number of observations.
@@ -2380,6 +2383,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     def transform(self) -> Transform | None:
         """Transform whose run created the artifact."""
         return self.run.transform if self.run is not None else None
+
+    @property
+    @deprecated("n_files")
+    def n_objects(self) -> int:
+        return self.n_files
 
     @property
     def path(self) -> Path:
