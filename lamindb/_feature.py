@@ -14,7 +14,7 @@ from lamindb.models import Artifact, Feature, Record
 
 from ._query_set import RecordList
 from ._utils import attach_func_to_class_method
-from .core.schema import dict_schema_name_to_model_name
+from .core.relations import dict_module_name_to_model_name
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -38,9 +38,9 @@ def get_dtype_str_from_dtype(dtype: Any) -> str:
             raise ValueError(error_message)
         registries_str = ""
         for registry in dtype:
-            if not hasattr(registry, "__get_name_with_schema__"):
+            if not hasattr(registry, "__get_name_with_module__"):
                 raise ValueError(error_message)
-            registries_str += registry.__get_name_with_schema__() + "|"
+            registries_str += registry.__get_name_with_module__() + "|"
         dtype_str = f'cat[{registries_str.rstrip("|")}]'
     return dtype_str
 
@@ -89,7 +89,7 @@ def __init__(self, *args, **kwargs):
                 if registries_str != "":
                     registry_str_list = registries_str.split("|")
                     for registry_str in registry_str_list:
-                        if registry_str not in dict_schema_name_to_model_name(Artifact):
+                        if registry_str not in dict_module_name_to_model_name(Artifact):
                             raise ValueError(
                                 f"'{registry_str}' is an invalid dtype, pass, e.g. `[ln.ULabel, bt.CellType]` or similar"
                             )

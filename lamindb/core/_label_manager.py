@@ -29,7 +29,7 @@ from ._describe import (
 )
 from ._django import get_artifact_with_related, get_related_model
 from ._settings import settings
-from .schema import dict_related_model_to_related_name
+from .relations import dict_related_model_to_related_name
 
 if TYPE_CHECKING:
     from lamindb._query_set import QuerySet
@@ -117,7 +117,7 @@ def describe_labels(
             )
         if print_values:
             related_model = get_related_model(self, related_name)
-            type_str = related_model.__get_name_with_schema__()
+            type_str = related_model.__get_name_with_module__()
             labels_table.add_row(
                 f".{related_name}", Text(type_str, style="dim"), print_values
             )
@@ -310,7 +310,7 @@ class LabelManager:
         """
         d = dict_related_model_to_related_name(self._host)
         registry = label.__class__
-        related_name = d.get(registry.__get_name_with_schema__())
+        related_name = d.get(registry.__get_name_with_module__())
         link_model = getattr(self._host, related_name).through
         link_records = link_model.filter(
             artifact_id=self._host.id, **{f"{registry.__name__.lower()}_id": label.id}

@@ -758,7 +758,7 @@ def test_describe():
     artifact = ln.Artifact("mini.csv", description="test")
     artifact.describe()
 
-    # test describing from a remote instance with less schemas
+    # test describing from a remote instance with less modules
     artifact = ln.Artifact.using("laminlabs/lamin-site-assets").filter().first()
     artifact.describe()
 

@@ -3,7 +3,7 @@ import pytest
 
 
 def pytest_sessionstart():
-    ln_setup.init(storage="./testdb", schema="bionty")
+    ln_setup.init(storage="./testdb", modules="bionty")
 
 
 def pytest_sessionfinish(session: pytest.Session):
