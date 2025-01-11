@@ -68,14 +68,6 @@ def transfer_source_code(apps, schema_editor):
         artifact.delete()
 
 
-def create_default_space(apps, schema_editor):
-    Space = apps.get_model("lamindb", "Space")
-    Space.objects.get_or_create(
-        name="All",
-        description="Every team & user with access to the instance has access.",
-    )
-
-
 class Migration(migrations.Migration):
     dependencies = [
         ("lamindb", "0069_squashed"),
