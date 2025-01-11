@@ -569,6 +569,7 @@ REGISTRY_UNIQUE_FIELD = {
     "storage": "root",
     "feature": "name",
     "ulabel": "name",
+    "space": "name",  # TODO: this should be updated with the currently used space instead during transfer
 }
 
 

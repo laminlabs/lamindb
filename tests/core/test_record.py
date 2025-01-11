@@ -186,19 +186,24 @@ def test_get_name_field():
 
 
 def test_using():
+    # the two below calls error if the records aren't found
     ln.Artifact.using("laminlabs/lamin-site-assets").get(1)
     ln.Artifact.using("laminlabs/lamin-site-assets").get(uid="MqEaGU7fXvxNy61R0000")
     # cross-database query
-    cell_types = bt.CellType.using("laminlabs/lamin-dev").lookup()
-    assert (
+    hemangioblast = bt.CellType.from_source(name="hemangioblast").save()
+    artifact = (
         ln.Artifact.using("laminlabs/lamin-dev")
-        .filter(cell_types=cell_types.t_cell)
+        .filter(cell_types=hemangioblast)
         .first()
-        is not None
     )
-    assert (
+    assert artifact is not None
+    hemangioblast_dev = artifact.cell_types.get(name="hemangioblast")
+    assert hemangioblast_dev.uid == hemangioblast.uid
+    assert hemangioblast_dev.id != hemangioblast.id
+    # query via list
+    artifact_ref = (
         ln.Artifact.using("laminlabs/lamin-dev")
-        .filter(cell_types__in=[cell_types.t_cell])
+        .filter(cell_types__in=[hemangioblast])
         .first()
-        is not None
     )
+    assert artifact == artifact_ref
