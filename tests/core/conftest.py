@@ -21,7 +21,7 @@ def pytest_sessionstart():
     pgurl = setup_local_test_postgres()
     ln.setup.init(
         storage="./default_storage_unit_core",
-        schema="bionty",
+        modules="bionty",
         name="lamindb-unit-tests-core",
         db=pgurl,
     )

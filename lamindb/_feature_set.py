@@ -16,7 +16,7 @@ from ._feature import convert_pandas_dtype_to_lamin_dtype
 from ._record import init_self_from_db
 from ._utils import attach_func_to_class_method
 from .core.exceptions import ValidationError
-from .core.schema import (
+from .core.relations import (
     dict_related_model_to_related_name,
     get_related_name,
 )
@@ -88,7 +88,7 @@ def __init__(self, *args, **kwargs):
         name=name,
         dtype=get_type_str(dtype),
         n=n_features,
-        registry=features_registry.__get_name_with_schema__(),
+        registry=features_registry.__get_name_with_module__(),
         hash=hash,
     )
 

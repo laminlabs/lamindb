@@ -34,7 +34,7 @@ GROUPS["guide"] = [
     "curate-df.ipynb",
     "curate-any.ipynb",
     "curate-subclass.ipynb",
-    "schemas.ipynb",
+    "modules.ipynb",
 ]
 GROUPS["biology"] = [
     "bio-registries.ipynb",
@@ -150,8 +150,11 @@ def install_ci(session, group):
     # installing this after lamindb to be sure that these packages won't be reinstaled
     # during lamindb installation
     if IS_PR or group == "docs":
-        cmd = "uv pip install --system --no-deps ./sub/lamindb-setup ./sub/lamin-cli"
-        run(session, cmd)
+        run(
+            session,
+            "uv pip install --system --no-deps ./sub/lamindb-setup ./sub/lamin-cli ./sub/ourprojects",
+        )
+        run(session, "uv pip uninstall --system lnschema-core")
         if "bionty" in extras:
             run(
                 session,
@@ -238,7 +241,7 @@ def docs(session):
                 path.rename(f"./docs/{path.name}")
     run(
         session,
-        "lamin init --storage ./docsbuild --schema bionty,wetlab,clinicore,ourprojects",
+        "lamin init --storage ./docsbuild --modules bionty,wetlab,clinicore,ourprojects",
     )
 
     def generate_cli_docs():

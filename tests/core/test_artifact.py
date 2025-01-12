@@ -196,9 +196,7 @@ def test_revise_artifact(df, adata):
     assert error.exconly() == "ValueError: Please increment the previous version: '1'"
 
     # create new file from old file
-    artifact_r2 = ln.Artifact.from_anndata(
-        adata, is_new_version_of=artifact
-    )  # backward compat
+    artifact_r2 = ln.Artifact.from_anndata(adata, revises=artifact)
     assert artifact_r2.stem_uid == artifact.stem_uid
     assert artifact_r2.uid.endswith("0001")
     artifact_r2 = ln.Artifact.from_anndata(adata, revises=artifact)
@@ -284,8 +282,8 @@ def test_create_from_dataframe(df):
     artifact = ln.Artifact.from_df(df, description="test1")
     assert artifact.description == "test1"
     assert artifact.key is None
-    assert artifact._accessor == "DataFrame"
-    assert artifact.type == "dataset"
+    assert artifact.otype == "DataFrame"
+    assert artifact.kind == "dataset"
     assert hasattr(artifact, "_local_filepath")
     artifact.save()
     # can do backed now, tested in test_storage.py
@@ -307,7 +305,7 @@ def test_create_from_dataframe_using_from_df_and_link_features(df):
     # backward compatibility for ln.Artifact to take a DataFrame
     artifact = ln.Artifact(df, key="folder/hello.parquet", description=description)
     assert artifact.description == description
-    assert artifact._accessor == "DataFrame"
+    assert artifact.otype == "DataFrame"
     assert artifact.key == "folder/hello.parquet"
     assert artifact._key_is_virtual
     assert artifact.uid in artifact.path.as_posix()
@@ -334,7 +332,7 @@ def test_create_from_anndata_in_memory_and_link_features(adata):
     )
     ln.save(ln.Feature.from_df(adata.obs))
     artifact = ln.Artifact.from_anndata(adata, description="test")
-    assert artifact._accessor == "AnnData"
+    assert artifact.otype == "AnnData"
     assert hasattr(artifact, "_local_filepath")
     artifact.save()
     # check that the local filepath has been cleared
@@ -355,7 +353,7 @@ def test_create_from_anndata_in_memory_and_link_features(adata):
 def test_create_from_anndata_strpath(adata_file):
     artifact = ln.Artifact.from_anndata(adata_file, description="test adata file")
     artifact.save()
-    assert artifact._accessor == "AnnData"
+    assert artifact.otype == "AnnData"
     artifact.delete(permanent=True, storage=True)
 
 
@@ -369,13 +367,12 @@ def test_create_from_anndata_in_storage(data):
         artifact = ln.Artifact.from_anndata(
             data, description="test_create_from_anndata"
         )
-        assert artifact._accessor == "AnnData"
+        assert artifact.otype == "AnnData"
         assert hasattr(artifact, "_local_filepath")
     else:
         previous_storage = ln.setup.settings.storage.root_as_str
         ln.settings.storage = "s3://lamindb-test/core"
         filepath = data
-        # TODO: automatically add accessor based on file suffix
         artifact = ln.Artifact(filepath)
     artifact.save()
     # check that the local filepath has been cleared
@@ -432,7 +429,7 @@ def test_create_from_local_filepath(
         else artifact.description == description
     )
     assert artifact.suffix == suffix
-    assert artifact.n_objects is None
+    assert artifact.n_files is None
     artifact.save()
     assert artifact.path.exists()
 
@@ -523,7 +520,7 @@ def test_from_dir_many_artifacts(get_test_filepaths, key):
 def test_delete_artifact(df):
     artifact = ln.Artifact.from_df(df, description="My test file to delete")
     artifact.save()
-    assert artifact.visibility == 1
+    assert artifact._branch_code == 1
     assert artifact.key is None or artifact._key_is_virtual
     storage_path = artifact.path
     # trash behavior
@@ -531,13 +528,13 @@ def test_delete_artifact(df):
     assert storage_path.exists()
     assert ln.Artifact.filter(description="My test file to delete").first() is None
     assert ln.Artifact.filter(
-        description="My test file to delete", visibility=-1
+        description="My test file to delete", _branch_code=-1
     ).first()
     # permanent delete
     artifact.delete(permanent=True)
     assert (
         ln.Artifact.filter(
-            description="My test file to delete", visibility=None
+            description="My test file to delete", _branch_code=None
         ).first()
         is None
     )
@@ -561,7 +558,7 @@ def test_delete_artifact(df):
     assert (
         ln.Artifact.filter(
             description="My test file to delete from non-default storage",
-            visibility=None,
+            _branch_code=None,
         ).first()
         is None
     )
@@ -778,7 +775,7 @@ def test_describe():
     artifact = ln.Artifact("mini.csv", description="test")
     artifact.describe()
 
-    # test describing from a remote instance with less schemas
+    # test describing from a remote instance with less modules
     artifact = ln.Artifact.using("laminlabs/lamin-site-assets").filter().first()
     artifact.describe()
 
@@ -794,8 +791,8 @@ def test_zarr_upload_cache(adata):
     write_adata_zarr(adata, zarr_path, callback)
 
     artifact = ln.Artifact(zarr_path, key="test_adata.zarr")
-    assert artifact._accessor == "AnnData"
-    assert artifact.n_objects >= 1
+    assert artifact.otype == "AnnData"
+    assert artifact.n_files >= 1
     artifact.save()
 
     assert isinstance(artifact.path, CloudPath)
@@ -819,9 +816,9 @@ def test_zarr_upload_cache(adata):
     # test zarr from memory
     artifact = ln.Artifact(adata, key="test_adata.anndata.zarr")
     assert artifact._local_filepath.is_dir()
-    assert artifact._accessor == "AnnData"
+    assert artifact.otype == "AnnData"
     assert artifact.suffix == ".anndata.zarr"
-    assert artifact.n_objects >= 1
+    assert artifact.n_files >= 1
 
     artifact.save()
     assert isinstance(artifact.path, CloudPath)
@@ -879,61 +876,42 @@ def test_adata_suffix(adata):
 
 def test_bulk_delete():
     report_path = Path("report.html")
-    with open(report_path, "w") as f:
-        f.write("a")
-    _source_code_artifact_path = Path("code.py")
-    with open(_source_code_artifact_path, "w") as f:
-        f.write("b")
+    report_path.write_text("a")
     environment_path = Path("environment.txt")
-    with open(environment_path, "w") as f:
-        f.write("c")
-    report = ln.Artifact(report_path, description="Report")
-    report.save()
+    environment_path.write_text("c")
+    report = ln.Artifact(report_path, description="Report").save()
     report_path.unlink()
     report_path = report.path
-    _source_code_artifact = ln.Artifact(
-        _source_code_artifact_path, description="Source"
-    )
-    _source_code_artifact.save()
-    _source_code_artifact_path.unlink()
-    _source_code_artifact_path = _source_code_artifact.path
-    environment = ln.Artifact(environment_path, description="requirement.txt")
-    environment.save()
+    environment = ln.Artifact(environment_path, description="requirement.txt").save()
     environment_path.unlink()
     environment_path = environment.path
 
-    ln.Artifact.filter(
-        id__in=[_source_code_artifact.id, environment.id, report.id]
-    ).delete()
+    ln.Artifact.filter(id__in=[environment.id, report.id]).delete()
 
+    assert len(ln.Artifact.filter(id__in=[environment.id, report.id]).all()) == 0
+
+    # the 2 artifacts are in trash now
     assert (
         len(
             ln.Artifact.filter(
-                id__in=[_source_code_artifact.id, environment.id, report.id]
-            ).all()
-        )
-        == 0
-    )
-    assert (
-        len(
-            ln.Artifact.filter(
-                id__in=[_source_code_artifact.id, environment.id, report.id],
-                visibility=-1,
+                id__in=[environment.id, report.id],
+                _branch_code=-1,
             )
             .distinct()
             .all()
         )
-        == 3
+        == 2
     )
 
-    ln.Artifact.filter(
-        id__in=[_source_code_artifact.id, environment.id, report.id], visibility=-1
-    ).delete(permanent=True)
+    ln.Artifact.filter(id__in=[environment.id, report.id], _branch_code=-1).delete(
+        permanent=True
+    )
+    # now they're gone
     assert (
         len(
             ln.Artifact.filter(
-                id__in=[_source_code_artifact.id, environment.id, report.id],
-                visibility=None,
+                id__in=[environment.id, report.id],
+                _branch_code=None,
             )
             .distinct()
             .all()
@@ -942,7 +920,6 @@ def test_bulk_delete():
     )
 
     assert not report_path.exists()
-    assert not _source_code_artifact_path.exists()
     assert not environment_path.exists()
 
 
@@ -975,7 +952,7 @@ def test_gcp_paths():
         "gs://rxrx1-europe-west4/images/test/HEPG2-08", description="Test GCP folder"
     ).save()
     assert artifact_folder.hash == "6r5Hkce0UTy7X6gLeaqzBA"
-    assert artifact_folder.n_objects == 14772
+    assert artifact_folder.n_files == 14772
 
     artifact_file = ln.Artifact(
         "gs://rxrx1-europe-west4/images/test/HEPG2-08/Plate1/B02_s1_w1.png",

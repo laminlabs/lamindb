@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import warnings
 from collections import UserList
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
@@ -22,7 +23,6 @@ from lamindb.models import (
     Record,
     Run,
     Transform,
-    VisibilityChoice,
 )
 
 from .core.exceptions import DoesNotExist
@@ -79,6 +79,32 @@ def one_helper(self):
         return self[0]
 
 
+def get_backward_compat_filter_kwargs(expressions):
+    name_mappings = {
+        "name": "key",  # backward compat <1.0
+        "n_objects": "n_files",
+        "visibility": "_branch_code",  # for convenience (and backward compat <1.0)
+        "transform": "run__transform",  # for convenience (and backward compat <1.0)
+    }
+    mapped = {}
+    for field, value in expressions.items():
+        parts = field.split("__")
+        if parts[0] in name_mappings:
+            if parts[0] not in {"transform", "visibility"}:
+                warnings.warn(
+                    f"{name_mappings[parts[0]]} is deprecated, please query for {parts[0]} instead",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+            new_field = name_mappings[parts[0]] + (
+                "__" + "__".join(parts[1:]) if len(parts) > 1 else ""
+            )
+            mapped[new_field] = value
+        else:
+            mapped[field] = value
+    return mapped
+
+
 def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
     def _map_databases(value: Any, key: str, target_db: str) -> tuple[str, Any]:
         if isinstance(value, Record):
@@ -105,23 +131,24 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
 
         return key, value
 
-    if queryset.model in {Artifact, Collection}:
-        # visibility is set to 0 unless expressions contains id or uid equality
+    if queryset.model in {Collection, Transform, Artifact}:
+        expressions = get_backward_compat_filter_kwargs(expressions)
+
+    if issubclass(queryset.model, Record):
+        # _branch_code is set to 0 unless expressions contains id or uid
         if not (
             "id" in expressions
             or "uid" in expressions
             or "uid__startswith" in expressions
         ):
-            visibility = "visibility"
-            if not any(e.startswith(visibility) for e in expressions):
-                expressions[visibility] = (
-                    VisibilityChoice.default.value
-                )  # default visibility
-            # if visibility is None, do not apply a filter
+            _branch_code = "_branch_code"
+            if not any(e.startswith(_branch_code) for e in expressions):
+                expressions[_branch_code] = 1  # default _branch_code
+            # if _branch_code is None, do not apply a filter
             # otherwise, it would mean filtering for NULL values, which doesn't make
             # sense for a non-NULLABLE column
-            elif visibility in expressions and expressions[visibility] is None:
-                expressions.pop(visibility)
+            elif _branch_code in expressions and expressions[_branch_code] is None:
+                expressions.pop(_branch_code)
     if queryset._db is not None:
         # only check for database mismatch if there is a defined database on the
         # queryset
@@ -213,6 +240,8 @@ def get_basic_field_names(
         "created_at",
         "created_by_id",
         "updated_at",
+        "aux",
+        "_branch_code",
     ]:
         if field_name in field_names:
             field_names.remove(field_name)
@@ -242,17 +271,17 @@ def get_feature_annotate_kwargs(show_features: bool | list[str]) -> dict[str, An
     link_models_on_models = {
         getattr(
             Artifact, obj.related_name
-        ).through.__get_name_with_schema__(): obj.related_model.__get_name_with_schema__()
+        ).through.__get_name_with_module__(): obj.related_model.__get_name_with_module__()
         for obj in Artifact._meta.related_objects
-        if obj.related_model.__get_name_with_schema__() in cat_feature_types
+        if obj.related_model.__get_name_with_module__() in cat_feature_types
     }
     link_models_on_models["ArtifactULabel"] = "ULabel"
     link_attributes_on_models = {
         obj.related_name: link_models_on_models[
-            obj.related_model.__get_name_with_schema__()
+            obj.related_model.__get_name_with_module__()
         ]
         for obj in Artifact._meta.related_objects
-        if obj.related_model.__get_name_with_schema__() in link_models_on_models
+        if obj.related_model.__get_name_with_module__() in link_models_on_models
     }
     # Prepare Django's annotate for features
     annotate_kwargs = {}

@@ -44,6 +44,7 @@ from lamindb_setup.core.upath import extract_suffix_from_path
 from lamindb.base.validation import FieldValidationError
 from lamindb.models import (
     Artifact,
+    BasicRecord,
     CanCurate,
     Collection,
     Feature,
@@ -205,7 +206,7 @@ def __init__(record: Record, *args, **kwargs):
                     )
                     init_self_from_db(record, existing_record)
                     return None
-        super(Record, record).__init__(**kwargs)
+        super(BasicRecord, record).__init__(**kwargs)
         if isinstance(record, ValidateFields):
             # this will trigger validation against django validators
             try:
@@ -220,7 +221,7 @@ def __init__(record: Record, *args, **kwargs):
         raise ValueError("please provide keyword arguments, not plain arguments")
     else:
         # object is loaded from DB (**kwargs could be omitted below, I believe)
-        super(Record, record).__init__(*args, **kwargs)
+        super(BasicRecord, record).__init__(*args, **kwargs)
         _store_record_old_name(record)
         _store_record_old_key(record)
 
@@ -551,14 +552,14 @@ def using(
                 f"Failed to load instance {instance}, please check your permissions!"
             )
         iresult, _ = result
-        source_schema = {
-            schema for schema in iresult["schema_str"].split(",") if schema != ""
+        source_module = {
+            modules for modules in iresult["schema_str"].split(",") if modules != ""
         }  # type: ignore
-        target_schema = ln_setup.settings.instance.schema
-        if not source_schema.issubset(target_schema):
-            missing_members = source_schema - target_schema
+        target_module = ln_setup.settings.instance.modules
+        if not source_module.issubset(target_module):
+            missing_members = source_module - target_module
             logger.warning(
-                f"source schema has additional modules: {missing_members}\nconsider mounting these schema modules to transfer all metadata"
+                f"source modules has additional modules: {missing_members}\nconsider mounting these registry modules to transfer all metadata"
             )
         cache_filepath.write_text(f"{iresult['lnid']}\n{iresult['schema_str']}")  # type: ignore
         settings_file = instance_settings_file(name, owner)
@@ -566,7 +567,7 @@ def using(
     else:
         isettings = load_instance_settings(settings_file)
         db = isettings.db
-        cache_filepath.write_text(f"{isettings.uid}\n{','.join(isettings.schema)}")  # type: ignore
+        cache_filepath.write_text(f"{isettings.uid}\n{','.join(isettings.modules)}")  # type: ignore
     add_db_connection(db, instance)
     return QuerySet(model=cls, using=instance)
 
@@ -575,6 +576,7 @@ REGISTRY_UNIQUE_FIELD = {
     "storage": "root",
     "feature": "name",
     "ulabel": "name",
+    "space": "name",  # TODO: this should be updated with the currently used space instead during transfer
 }
 
 
@@ -610,7 +612,6 @@ def update_fk_to_default_db(
 FKBULK = [
     "organism",
     "source",
-    "_source_code_artifact",  # Transform
     "report",  # Run
 ]
 
@@ -642,18 +643,20 @@ def get_transfer_run(record) -> Run:
             uid=uid, name=f"Transfer from `{slug}`", key=key, type="function"
         ).save()
         settings.creation.search_names = search_names
-    # use the global run context to get the parent run id
+    # use the global run context to get the initiated_by_run run id
     if context.run is not None:
-        parent = context.run
+        initiated_by_run = context.run
     else:
         if not settings.creation.artifact_silence_missing_run_warning:
             logger.warning(WARNING_RUN_TRANSFORM)
-        parent = None
+        initiated_by_run = None
     # it doesn't seem to make sense to create new runs for every transfer
-    run = Run.filter(transform=transform, parent=parent).one_or_none()
+    run = Run.filter(
+        transform=transform, initiated_by_run=initiated_by_run
+    ).one_or_none()
     if run is None:
-        run = Run(transform=transform, parent=parent).save()
-        run.parent = parent  # so that it's available in memory
+        run = Run(transform=transform, initiated_by_run=initiated_by_run).save()
+        run.initiated_by_run = initiated_by_run  # so that it's available in memory
     return run
 
 
@@ -745,7 +748,7 @@ def save(self, *args, **kwargs) -> Record:
                 revises.save()
                 check_name_change(self)
                 check_key_change(self)
-                super(Record, self).save(*args, **kwargs)
+                super(BasicRecord, self).save(*args, **kwargs)
                 _store_record_old_name(self)
                 _store_record_old_key(self)
             self._revises = None
@@ -753,7 +756,7 @@ def save(self, *args, **kwargs) -> Record:
         else:
             check_name_change(self)
             check_key_change(self)
-            super(Record, self).save(*args, **kwargs)
+            super(BasicRecord, self).save(*args, **kwargs)
             _store_record_old_name(self)
             _store_record_old_key(self)
     # perform transfer of many-to-many fields
@@ -909,10 +912,10 @@ def delete(self) -> None:
             new_latest.is_latest = True
             with transaction.atomic():
                 new_latest.save()
-                super(Record, self).delete()
+                super(BasicRecord, self).delete()
             logger.warning(f"new latest version is {new_latest}")
             return None
-    super(Record, self).delete()
+    super(BasicRecord, self).delete()
 
 
 METHOD_NAMES = [
@@ -937,4 +940,5 @@ if ln_setup._TESTING:  # type: ignore
     }
 
 for name in METHOD_NAMES:
+    attach_func_to_class_method(name, BasicRecord, globals())
     attach_func_to_class_method(name, Record, globals())

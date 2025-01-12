@@ -100,6 +100,7 @@ def test_curate_df():
         .df(include=["feature_sets__hash", "feature_sets__name"])
         .drop(["uid"], axis=1)
     )
+    print(df)
     expected_data = {
         "key": ["example_datasets/dataset2.h5ad", "example_datasets/dataset1.h5ad"],
         "description": [None, None],

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING
 
 from lamin_utils import logger
@@ -20,8 +21,10 @@ def __init__(transform: Transform, *args, **kwargs):
     if len(args) == len(transform._meta.concrete_fields):
         super(Transform, transform).__init__(*args, **kwargs)
         return None
-    name: str | None = kwargs.pop("name") if "name" in kwargs else None
     key: str | None = kwargs.pop("key") if "key" in kwargs else None
+    description: str | None = (
+        kwargs.pop("description") if "description" in kwargs else None
+    )
     revises: Transform | None = kwargs.pop("revises") if "revises" in kwargs else None
     version: str | None = kwargs.pop("version") if "version" in kwargs else None
     type: TransformType | None = kwargs.pop("type") if "type" in kwargs else "pipeline"
@@ -29,14 +32,27 @@ def __init__(transform: Transform, *args, **kwargs):
     reference_type: str | None = (
         kwargs.pop("reference_type") if "reference_type" in kwargs else None
     )
-    if "is_new_version_of" in kwargs:
-        logger.warning("`is_new_version_of` will be removed soon, please use `revises`")
-        revises = kwargs.pop("is_new_version_of")
+    if "name" in kwargs:
+        if key is None:
+            key = kwargs.pop("name")
+            warnings.warn(
+                f"`name` will be removed soon, please pass '{key}' to `key` instead",
+                FutureWarning,
+                stacklevel=2,
+            )
+        else:
+            # description wasn't exist, so no check necessary
+            description = kwargs.pop("name")
+            warnings.warn(
+                f"`name` will be removed soon, please pass '{description}' to `description` instead",
+                FutureWarning,
+                stacklevel=2,
+            )
     # below is internal use that we'll hopefully be able to eliminate
     uid: str | None = kwargs.pop("uid") if "uid" in kwargs else None
     if not len(kwargs) == 0:
         raise ValueError(
-            "Only name, key, version, type, revises, reference, "
+            "Only key, description, version, type, revises, reference, "
             f"reference_type can be passed, but you passed: {kwargs}"
         )
     if revises is None:
@@ -48,28 +64,37 @@ def __init__(transform: Transform, *args, **kwargs):
                 .first()
             )
         elif key is not None:
-            revises = (
+            candidate_for_revises = (
                 Transform.filter(key=key, is_latest=True)
                 .order_by("-created_at")
                 .first()
             )
+            if candidate_for_revises is not None:
+                revises = candidate_for_revises
+                if candidate_for_revises.source_code is None:
+                    # no source code was yet saved, return the same transform
+                    uid = revises.uid
     if revises is not None and uid is not None and uid == revises.uid:
         from ._record import init_self_from_db, update_attributes
 
+        if revises.key != key:
+            logger.warning("ignoring inconsistent key")
         init_self_from_db(transform, revises)
-        update_attributes(transform, {"name": name})
+        update_attributes(transform, {"description": description})
         return None
     if revises is not None and key is not None and revises.key != key:
         note = message_update_key_in_version_family(
             suid=revises.stem_uid,
             existing_key=revises.key,
             new_key=key,
-            registry="Artifact",
+            registry="Transform",
         )
         raise InconsistentKey(
-            f"`key` is {key}, but `revises.key` is '{revises.key}'\n\nEither do *not* pass `key`.\n\n{note}"
+            f"`key` is '{key}', but `revises.key` is '{revises.key}'\n\nEither do *not* pass `key`.\n\n{note}"
         )
-    new_uid, version, name, revises = process_revises(revises, version, name, Transform)
+    new_uid, version, key, description, revises = process_revises(
+        revises, version, key, description, Transform
+    )
     # this is only because the user-facing constructor allows passing a uid
     # most others don't
     if uid is None:
@@ -79,7 +104,7 @@ def __init__(transform: Transform, *args, **kwargs):
         has_consciously_provided_uid = True
     super(Transform, transform).__init__(
         uid=uid,
-        name=name,
+        description=description,
         key=key,
         type=type,
         version=version,
@@ -91,13 +116,6 @@ def __init__(transform: Transform, *args, **kwargs):
 
 
 def delete(self) -> None:
-    _source_code_artifact = None
-    if self._source_code_artifact is not None:
-        _source_code_artifact = self._source_code_artifact
-        self._source_code_artifact = None
-        self.save()
-    if _source_code_artifact is not None:
-        _source_code_artifact.delete(permanent=True)
     # query all runs and delete their artifacts
     runs = Run.filter(transform=self)
     for run in runs:
@@ -117,7 +135,7 @@ def latest_run(self) -> Run:
 def view_lineage(self, with_successors: bool = False, distance: int = 5):
     return _view_parents(
         record=self,
-        field="name",
+        field="key",
         with_children=with_successors,
         distance=distance,
         attr_name="predecessors",

@@ -388,7 +388,7 @@ class SpatialDataCurator:
             )
             # According to Tim it is not easy to calculate the number of observations.
             # We would have to write custom code to iterate over labels (which might not even exist at that point)
-            self._artifact._accessor = "spatialdata"
+            self._artifact.otype = "spatialdata"
             self._artifact.save()
 
             # Link featuresets
@@ -407,7 +407,7 @@ class SpatialDataCurator:
                 """Add FeatureSets from SpatialData."""
                 if obs_fields is None:
                     obs_fields = {}
-                assert host._accessor == "spatialdata"  # noqa: S101
+                assert host.otype == "spatialdata"  # noqa: S101
 
                 feature_sets = {}
 

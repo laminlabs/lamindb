@@ -165,16 +165,15 @@ def test_suggest_similar_names():
 
 
 def test_pass_version():
-    # creating a new transform on key bumps the version uid
-    # hence we'll get an error if we don't also increment the semantic version
-    ln.Transform(key="mytransform", version="1").save()
+    # creating a new transform on key retrieves the same transform
+    # for as long as no source_code was saved
+    transform = ln.Transform(key="mytransform", version="1").save()
+    assert ln.Transform(key="mytransform", version="1") == transform
+    # in case source code is saved
+    transform.source_code = "dummy"
+    transform.save()
     with pytest.raises(ValueError, match="Please increment the previous version"):
         ln.Transform(key="mytransform", version="1")
-    # creating a new transform on name retrieves the same transform
-    # upon re-naming to description, this will be unintuitive, but I fear
-    # we need it nonetheless to maintain backward-compat
-    transform = ln.Transform(name="mytransform", version="1").save()
-    assert ln.Transform(name="mytransform", version="1") == transform
 
 
 def test_get_name_field():
@@ -187,19 +186,24 @@ def test_get_name_field():
 
 
 def test_using():
+    # the two below calls error if the records aren't found
     ln.Artifact.using("laminlabs/lamin-site-assets").get(1)
     ln.Artifact.using("laminlabs/lamin-site-assets").get(uid="MqEaGU7fXvxNy61R0000")
     # cross-database query
-    cell_types = bt.CellType.using("laminlabs/lamindata").lookup()
-    assert (
-        ln.Artifact.using("laminlabs/lamindata")
-        .filter(cell_types=cell_types.t_cell)
+    hemangioblast = bt.CellType.from_source(name="hemangioblast").save()
+    artifact = (
+        ln.Artifact.using("laminlabs/lamin-dev")
+        .filter(cell_types=hemangioblast)
         .first()
-        is not None
     )
-    assert (
-        ln.Artifact.using("laminlabs/lamindata")
-        .filter(cell_types__in=[cell_types.t_cell])
+    assert artifact is not None
+    hemangioblast_dev = artifact.cell_types.get(name="hemangioblast")
+    assert hemangioblast_dev.uid == hemangioblast.uid
+    assert hemangioblast_dev.id != hemangioblast.id
+    # query via list
+    artifact_ref = (
+        ln.Artifact.using("laminlabs/lamin-dev")
+        .filter(cell_types__in=[hemangioblast])
         .first()
-        is not None
     )
+    assert artifact == artifact_ref

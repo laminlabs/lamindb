@@ -66,20 +66,21 @@ def get_notebook_path() -> Path:
 
 
 # from https://stackoverflow.com/questions/61901628
-def get_notebook_name_colab() -> str:
+def get_notebook_key_colab() -> str:
     from socket import gethostbyname, gethostname  # type: ignore
 
     from requests import get  # type: ignore
 
     ip = gethostbyname(gethostname())  # 172.28.0.12
     try:
-        name = get(f"http://{ip}:9000/api/sessions").json()[0]["name"]  # noqa: S113
+        key = get(f"http://{ip}:9000/api/sessions").json()[0]["name"]  # noqa: S113
+        key = f"colab/{key}"
     except Exception:
         logger.warning(
-            "could not get notebook name from Google Colab, using: notebook.ipynb"
+            "could not get notebook key from Google Colab, using: colab/notebook.ipynb"
         )
-        name = "notebook.ipynb"
-    return name.rstrip(".ipynb")
+        key = "colab/notebook.ipynb"
+    return key
 
 
 def pretty_pypackages(dependencies: dict) -> str:
@@ -191,7 +192,7 @@ class Context:
 
     def __init__(self):
         self._uid: str | None = None
-        self._name: str | None = None
+        self._description: str | None = None
         self._version: str | None = None
         self._transform: Transform | None = None
         self._run: Run | None = None
@@ -207,6 +208,24 @@ class Context:
         return self._transform
 
     @property
+    def description(self) -> str | None:
+        """`description` argument for `context.transform`."""
+        return self._description
+
+    @description.setter
+    def description(self, value: str | None):
+        self._description = value
+
+    @property
+    def name(self) -> str | None:
+        """Deprecated. Populates `description` argument for `context.transform`."""
+        return self._description
+
+    @name.setter
+    def name(self, value: str | None):
+        self._description = value
+
+    @property
     def uid(self) -> str | None:
         """`uid` argument for `context.transform`."""
         return self._uid
@@ -214,15 +233,6 @@ class Context:
     @uid.setter
     def uid(self, value: str | None):
         self._uid = value
-
-    @property
-    def name(self) -> str | None:
-        """`name argument for `context.transform`."""
-        return self._name
-
-    @name.setter
-    def name(self, value: str | None):
-        self._name = value
 
     @property
     def version(self) -> str | None:
@@ -282,24 +292,23 @@ class Context:
             transform = None
         self._path = None
         if transform is None:
+            description = None
             if is_run_from_ipython:
-                self._path, name = self._track_notebook(path_str=path)
+                self._path, description = self._track_notebook(path_str=path)
                 transform_type = "notebook"
                 transform_ref = None
                 transform_ref_type = None
             else:
                 (
                     self._path,
-                    name,
                     transform_type,
                     transform_ref,
                     transform_ref_type,
                 ) = self._track_source_code(path=path)
-            # overwrite the parsed name
-            if self.name is not None:
-                name = self.name
+            if description is None:
+                description = self._description
             self._create_or_load_transform(
-                name=name,
+                description=description,
                 transform_ref=transform_ref,
                 transform_ref_type=transform_ref_type,
                 transform_type=transform_type,
@@ -352,8 +361,8 @@ class Context:
         run.save()
         if params is not None:
             run.params.add_values(params)
-            self._logging_message_track += "\n→ params: " + " ".join(
-                f"{key}='{value}'" for key, value in params.items()
+            self._logging_message_track += "\n→ params: " + ", ".join(
+                f"{key}={value}" for key, value in params.items()
             )
         self._run = run
         track_environment(run)
@@ -369,7 +378,7 @@ class Context:
         self,
         *,
         path: UPathStr | None,
-    ) -> tuple[Path, str, str, str, str]:
+    ) -> tuple[Path, str, str, str]:
         # for `.py` files, classified as "script"
         # for `.Rmd` and `.qmd` files, which we classify
         # as "notebook" because they typically come with an .html run report
@@ -378,35 +387,39 @@ class Context:
 
             frame = inspect.stack()[2]
             module = inspect.getmodule(frame[0])
+            # None for interactive session
+            if module is None:
+                raise NotImplementedError(
+                    "Interactive sessions are not yet supported to be tracked."
+                )
             path = Path(module.__file__)
         else:
             path = Path(path)
         transform_type = "notebook" if path.suffix in {".Rmd", ".qmd"} else "script"
-        name = path.name
         reference = None
         reference_type = None
         if settings.sync_git_repo is not None:
             reference = get_transform_reference_from_git_repo(path)
             reference_type = "url"
-        return path, name, transform_type, reference, reference_type
+        return path, transform_type, reference, reference_type
 
     def _track_notebook(
         self,
         *,
         path_str: str | None,
-    ) -> tuple[Path, str]:
+    ) -> tuple[Path, str | None]:
         if path_str is None:
             path = get_notebook_path()
         else:
             path = Path(path_str)
-        name = path.stem
+        description = None
         path_str = path.as_posix()
         if path_str.endswith("Untitled.ipynb"):
             raise RuntimeError("Please rename your notebook before tracking it")
         if path_str.startswith("/fileId="):
             logger.warning("tracking on Google Colab is experimental")
-            name = get_notebook_name_colab()
-            path_str = f"{name}.ipynb"
+            path_str = get_notebook_key_colab()
+            path = Path(path_str)
         else:
             import nbproject
 
@@ -416,7 +429,7 @@ class Context:
                 # notebook is not saved
                 pass
             if nbproject_title is not None:
-                name = nbproject_title
+                description = nbproject_title
             # log imported python packages
             try:
                 from nbproject.dev._pypackage import infer_pypackages
@@ -429,12 +442,12 @@ class Context:
             except Exception:
                 logger.debug("inferring imported packages failed")
                 pass
-        return path, name
+        return path, description
 
     def _create_or_load_transform(
         self,
         *,
-        name: str,
+        description: str,
         transform_ref: str | None = None,
         transform_ref_type: str | None = None,
         transform_type: TransformType = None,
@@ -468,13 +481,17 @@ class Context:
             uid = f"{base62_12()}0000"
             key = self._path.name
             target_transform = None
+            hash, _ = hash_file(self._path)
             if len(transforms) != 0:
                 message = ""
                 found_key = False
                 for aux_transform in transforms:
                     if aux_transform.key in self._path.as_posix():
                         key = aux_transform.key
-                        if aux_transform.source_code is None:
+                        if (
+                            aux_transform.source_code is None
+                            or aux_transform.hash == hash
+                        ):
                             uid = aux_transform.uid
                             target_transform = aux_transform
                         else:
@@ -491,7 +508,7 @@ class Context:
                             for transform in transforms
                         ]
                     )
-                    message = f"ignoring transform{plural_s} with same filename:\n{transforms_str}"
+                    message = f"ignoring transform{plural_s} with same filedescription:\n{transforms_str}"
                 if message != "":
                     logger.important(message)
             self.uid, transform = uid, target_transform
@@ -540,7 +557,7 @@ class Context:
                 transform = Transform(
                     uid=self.uid,
                     version=self.version,
-                    name=name,
+                    description=description,
                     key=key,
                     reference=transform_ref,
                     reference_type=transform_ref_type,
@@ -560,25 +577,22 @@ class Context:
         else:
             uid = transform.uid
             # transform was already saved via `finish()`
-            transform_was_saved = (
-                transform._source_code_artifact_id is not None
-                or transform.source_code is not None
-            )
+            transform_was_saved = transform.source_code is not None
             # check whether the transform.key is consistent
             if transform.key != key:
                 raise UpdateContext(get_key_clashing_message(transform, key))
-            elif transform.name != name:
-                transform.name = name
+            elif transform.description != description:
+                transform.description = description
                 transform.save()
                 self._logging_message_track += (
-                    "updated transform name, "  # white space on purpose
+                    "updated transform description, "  # white space on purpose
                 )
             elif (
                 transform.created_by_id != ln_setup.settings.user.id
                 and not transform_was_saved
             ):
                 raise UpdateContext(
-                    f'{transform.created_by.name} ({transform.created_by.handle}) already works on this draft {transform.type}.\n\nPlease create a revision via `ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")` or a new transform with a *different* filename and `ln.track("{ids.base62_12()}0000")`.'
+                    f'{transform.created_by.description} ({transform.created_by.handle}) already works on this draft {transform.type}.\n\nPlease create a revision via `ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")` or a new transform with a *different* filedescription and `ln.track("{ids.base62_12()}0000")`.'
                 )
             # check whether transform source code was already saved
             if transform_was_saved:
@@ -587,11 +601,7 @@ class Context:
                     bump_revision = True
                 else:
                     hash, _ = hash_file(self._path)  # ignore hash_type for now
-                    if transform.hash is not None:
-                        condition = hash != transform.hash
-                    else:
-                        condition = hash != transform._source_code_artifact.hash
-                    if condition:
+                    if hash != transform.hash:
                         bump_revision = True
                     else:
                         self._logging_message_track += (
@@ -657,8 +667,10 @@ class Context:
             import nbproject
 
             # it might be that the user modifies the title just before ln.finish()
-            if (nbproject_title := nbproject.meta.live.title) != self.transform.name:
-                self.transform.name = nbproject_title
+            if (
+                nbproject_title := nbproject.meta.live.title
+            ) != self.transform.description:
+                self.transform.description = nbproject_title
                 self.transform.save()
             if get_seconds_since_modified(self._path) > 2 and not ln_setup._TESTING:
                 raise NotebookNotSaved(get_save_notebook_message())

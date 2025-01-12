@@ -18,7 +18,7 @@ def __init__(run: Run, *args, **kwargs):
     reference_type: str | None = (
         kwargs.pop("reference_type") if "reference_type" in kwargs else None
     )
-    parent: Run | None = kwargs.pop("parent", None)
+    initiated_by_run: Run | None = kwargs.pop("initiated_by_run", None)
     if transform is None:
         raise TypeError("Pass transform parameter")
     if transform._state.adding:
@@ -27,7 +27,7 @@ def __init__(run: Run, *args, **kwargs):
     super(Run, run).__init__(
         transform=transform,
         reference=reference,
-        parent=parent,
+        initiated_by_run=initiated_by_run,
         reference_type=reference_type,
     )
 

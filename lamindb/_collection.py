@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from collections import defaultdict
 from typing import (
     TYPE_CHECKING,
@@ -14,7 +15,6 @@ from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import hash_set
 
-from lamindb.base.types import VisibilityChoice
 from lamindb.models import (
     Collection,
     CollectionArtifact,
@@ -26,7 +26,6 @@ from ._record import init_self_from_db, update_attributes
 from ._utils import attach_func_to_class_method
 from .core._data import (
     _track_run_input,
-    add_transform_to_kwargs,
     describe,
     get_run,
     save_feature_set_links,
@@ -96,7 +95,7 @@ def __init__(
     meta_artifact: Artifact | None = (
         kwargs.pop("meta_artifact") if "meta_artifact" in kwargs else None
     )
-    name: str | None = kwargs.pop("name") if "name" in kwargs else None
+    key: str | None = kwargs.pop("key") if "key" in kwargs else None
     description: str | None = (
         kwargs.pop("description") if "description" in kwargs else None
     )
@@ -107,27 +106,29 @@ def __init__(
     run: Run | None = kwargs.pop("run") if "run" in kwargs else None
     revises: Collection | None = kwargs.pop("revises") if "revises" in kwargs else None
     version: str | None = kwargs.pop("version") if "version" in kwargs else None
-    visibility: int | None = (
-        kwargs.pop("visibility")
-        if "visibility" in kwargs
-        else VisibilityChoice.default.value
+    _branch_code: int | None = (
+        kwargs.pop("_branch_code") if "_branch_code" in kwargs else 1
     )
-    if "is_new_version_of" in kwargs:
-        logger.warning("`is_new_version_of` will be removed soon, please use `revises`")
-        revises = kwargs.pop("is_new_version_of")
+    if "name" in kwargs:
+        key = kwargs.pop("name")
+        warnings.warn(
+            f"argument `name` will be removed, please pass {key} to `key` instead",
+            FutureWarning,
+            stacklevel=2,
+        )
     if not len(kwargs) == 0:
         raise ValueError(
-            f"Only artifacts, name, run, description, reference, reference_type, visibility can be passed, you passed: {kwargs}"
+            f"Only artifacts, key, run, description, reference, reference_type can be passed, you passed: {kwargs}"
         )
-    provisional_uid, version, name, revises = process_revises(
-        revises, version, name, Collection
+    provisional_uid, version, key, description, revises = process_revises(
+        revises, version, key, description, Collection
     )
     run = get_run(run)
     if isinstance(artifacts, Artifact):
         artifacts = [artifacts]
     else:
         if not hasattr(artifacts, "__getitem__"):
-            raise ValueError("Artifact or List[Artifact] is allowed.")
+            raise ValueError("Artifact or list[Artifact] is allowed.")
         assert isinstance(artifacts[0], Artifact)  # type: ignore  # noqa: S101
     hash = from_artifacts(artifacts)  # type: ignore
     if meta_artifact is not None:
@@ -158,18 +159,16 @@ def __init__(
                 )
             # update the run of the collection with the latest run
             existing_collection.run = run
-            existing_collection.transform = run.transform
         init_self_from_db(collection, existing_collection)
-        update_attributes(collection, {"description": description, "name": name})
+        update_attributes(collection, {"description": description, "key": key})
     else:
         kwargs = {}
-        add_transform_to_kwargs(kwargs, run)
         search_names_setting = settings.creation.search_names
-        if revises is not None and name == revises.name:
+        if revises is not None and key == revises.key:
             settings.creation.search_names = False
         super(Collection, collection).__init__(
             uid=provisional_uid,
-            name=name,
+            key=key,
             description=description,
             reference=reference,
             reference_type=reference_type,
@@ -177,7 +176,7 @@ def __init__(
             hash=hash,
             run=run,
             version=version,
-            visibility=visibility,
+            _branch_code=_branch_code,
             revises=revises,
             **kwargs,
         )
@@ -307,12 +306,14 @@ def load(
 
 # docstring handled through attach_func_to_class_method
 def delete(self, permanent: bool | None = None) -> None:
-    # change visibility to trash
-    trash_visibility = VisibilityChoice.trash.value
-    if self.visibility > trash_visibility and permanent is not True:
-        self.visibility = trash_visibility
+    # change _branch_code to trash
+    trash__branch_code = -1
+    if self._branch_code > trash__branch_code and permanent is not True:
+        self._branch_code = trash__branch_code
         self.save()
-        logger.warning(f"moved collection to trash (visibility = {trash_visibility})")
+        logger.warning(
+            f"moved collection to trash (_branch_code = {trash__branch_code})"
+        )
         return
 
     # permanent delete
@@ -357,7 +358,7 @@ def save(self, using: str | None = None) -> Collection:
 
 # docstring handled through attach_func_to_class_method
 def restore(self) -> None:
-    self.visibility = VisibilityChoice.default.value
+    self._branch_code = 1
     self.save()
 
 

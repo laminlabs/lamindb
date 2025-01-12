@@ -349,8 +349,8 @@ def _record_label(record: Record, field: str | None = None):
             rf' FACE="Monospace">uid={record.uid}<BR/>version={record.version}</FONT>>'
         )
     elif isinstance(record, Run):
-        if record.transform.name:
-            name = f'{record.transform.name.replace("&", "&amp;")}'
+        if record.transform.description:
+            name = f'{record.transform.description.replace("&", "&amp;")}'
         elif record.transform.key:
             name = f'{record.transform.key.replace("&", "&amp;")}'
         else:
@@ -402,22 +402,22 @@ def _get_all_parent_runs(data: Artifact | Collection) -> list:
             inputs_run = (
                 r.__getattribute__(f"input_{name}s")
                 .all()
-                .filter(visibility__in=[0, 1])
+                .filter(_branch_code__in=[0, 1])
                 .list()
             )
             if name == "artifact":
                 inputs_run += (
-                    r.input_collections.all().filter(visibility__in=[0, 1]).list()
+                    r.input_collections.all().filter(_branch_code__in=[0, 1]).list()
                 )
             outputs_run = (
                 r.__getattribute__(f"output_{name}s")
                 .all()
-                .filter(visibility__in=[0, 1])
+                .filter(_branch_code__in=[0, 1])
                 .list()
             )
             if name == "artifact":
                 outputs_run += (
-                    r.output_collections.all().filter(visibility__in=[0, 1]).list()
+                    r.output_collections.all().filter(_branch_code__in=[0, 1]).list()
                 )
             # if inputs are outputs artifacts are the same, will result infinite loop
             # so only show as outputs
@@ -451,7 +451,7 @@ def _get_all_child_runs(data: Artifact | Collection) -> list:
             {
                 f.run
                 for f in data.run.output_collections.all()
-                .filter(visibility__in=[0, 1])
+                .filter(_branch_code__in=[0, 1])
                 .all()
             }
         )
@@ -462,24 +462,24 @@ def _get_all_child_runs(data: Artifact | Collection) -> list:
             inputs_run = (
                 r.__getattribute__(f"input_{name}s")
                 .all()
-                .filter(visibility__in=[0, 1])
+                .filter(_branch_code__in=[0, 1])
                 .list()
             )
             if name == "artifact":
                 inputs_run += (
-                    r.input_collections.all().filter(visibility__in=[0, 1]).list()
+                    r.input_collections.all().filter(_branch_code__in=[0, 1]).list()
                 )
             run_inputs_outputs += [(inputs_run, r)]
 
             outputs_run = (
                 r.__getattribute__(f"output_{name}s")
                 .all()
-                .filter(visibility__in=[0, 1])
+                .filter(_branch_code__in=[0, 1])
                 .list()
             )
             if name == "artifact":
                 outputs_run += (
-                    r.output_collections.all().filter(visibility__in=[0, 1]).list()
+                    r.output_collections.all().filter(_branch_code__in=[0, 1]).list()
                 )
             run_inputs_outputs += [(r, outputs_run)]
 

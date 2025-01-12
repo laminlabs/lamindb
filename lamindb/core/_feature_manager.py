@@ -62,7 +62,7 @@ from ._describe import (
 from ._django import get_artifact_with_related
 from ._label_manager import _get_labels, describe_labels
 from ._settings import settings
-from .schema import (
+from .relations import (
     dict_related_model_to_related_name,
 )
 
@@ -83,7 +83,7 @@ def get_host_id_field(host: Artifact | Collection) -> str:
 
 def get_accessor_by_registry_(host: Artifact | Collection) -> dict:
     dictionary = {
-        field.related_model.__get_name_with_schema__(): field.name
+        field.related_model.__get_name_with_module__(): field.name
         for field in host._meta.related_objects
     }
     dictionary["Feature"] = "features"
@@ -620,12 +620,12 @@ def infer_feature_type_convert_json(
                     return ("list[cat ? str]", value, message)
                 elif first_element_type == Record:
                     return (
-                        f"list[cat[{first_element_type.__get_name_with_schema__()}]]",
+                        f"list[cat[{first_element_type.__get_name_with_module__()}]]",
                         value,
                         message,
                     )
     elif isinstance(value, Record):
-        return (f"cat[{value.__class__.__get_name_with_schema__()}]", value, message)
+        return (f"cat[{value.__class__.__get_name_with_module__()}]", value, message)
     if not mute:
         logger.warning(f"cannot infer feature type of: {value}, returning '?")
     return "?", value, message
@@ -832,11 +832,11 @@ def _add_values(
     model_name = "Param" if is_param else "Feature"
     if is_param:
         if self._host.__class__ == Artifact:
-            if self._host.type != "model":
+            if self._host.kind != "model":
                 raise ValidationError("Can only set params for model-like artifacts.")
     else:
         if self._host.__class__ == Artifact:
-            if self._host.type != "dataset" and self._host.type is not None:
+            if self._host.kind != "dataset" and self._host.kind is not None:
                 raise ValidationError(
                     "Can only set features for dataset-like artifacts."
                 )
@@ -912,7 +912,7 @@ def _add_values(
                         raise ValidationError(
                             f"Please save {record} before annotation."
                         )
-                    features_labels[record.__class__.__get_name_with_schema__()].append(
+                    features_labels[record.__class__.__get_name_with_module__()].append(
                         (feature, record)
                     )
             else:
@@ -956,7 +956,7 @@ def _add_values(
         links = [
             LinkORM(
                 **{
-                    f"{self._host.__class__.__get_name_with_schema__().lower()}_id": self._host.id,
+                    f"{self._host.__class__.__get_name_with_module__().lower()}_id": self._host.id,
                     valuefield_id: feature_value.id,
                 }
             )
@@ -1029,14 +1029,14 @@ def remove_values(
             link_models_on_models = {
                 getattr(
                     Artifact, obj.related_name
-                ).through.__get_name_with_schema__(): obj.related_model.__get_name_with_schema__()
+                ).through.__get_name_with_module__(): obj.related_model.__get_name_with_module__()
                 for obj in Artifact._meta.related_objects
-                if obj.related_model.__get_name_with_schema__() == feature_registry
+                if obj.related_model.__get_name_with_module__() == feature_registry
             }
             link_attribute = {
                 obj.related_name
                 for obj in Artifact._meta.related_objects
-                if obj.related_model.__get_name_with_schema__() in link_models_on_models
+                if obj.related_model.__get_name_with_module__() in link_models_on_models
             }.pop()
         getattr(self._host, link_attribute).filter(**filter_kwargs).all().delete()
     else:
@@ -1089,10 +1089,10 @@ def _add_set_from_df(
 ):
     """Add feature set corresponding to column names of DataFrame."""
     if isinstance(self._host, Artifact):
-        assert self._host._accessor == "DataFrame"  # noqa: S101
+        assert self._host.otype == "DataFrame"  # noqa: S101
     else:
         # Collection
-        assert self._host.artifact._accessor == "DataFrame"  # noqa: S101
+        assert self._host.artifact.otype == "DataFrame"  # noqa: S101
     df = self._host.load()
     feature_set = FeatureSet.from_df(
         df=df,
@@ -1113,7 +1113,7 @@ def _add_set_from_anndata(
 ):
     """Add features from AnnData."""
     if isinstance(self._host, Artifact):
-        assert self._host._accessor == "AnnData"  # noqa: S101
+        assert self._host.otype == "AnnData"  # noqa: S101
     else:
         raise NotImplementedError()
 
@@ -1143,7 +1143,7 @@ def _add_set_from_mudata(
     if obs_fields is None:
         obs_fields = {}
     if isinstance(self._host, Artifact):
-        assert self._host._accessor == "MuData"  # noqa: S101
+        assert self._host.otype == "MuData"  # noqa: S101
     else:
         raise NotImplementedError()
 

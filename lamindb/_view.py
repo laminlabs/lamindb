@@ -97,7 +97,7 @@ def display_df_with_descriptions(
 def view(
     df: pd.DataFrame | None = None,
     limit: int = 7,
-    schema: str | None = None,
+    modules: str | None = None,
     registries: list[str] | None = None,
 ) -> None:
     """View metadata.
@@ -105,8 +105,8 @@ def view(
     Args:
         df: A DataFrame to display.
         limit: Display the latest `n` records
-        schema: Schema module to view. Default's to
-            `None` and displays all schema modules.
+        modules: schema module to view. Default's to
+            `None` and displays all registry modules.
         registries: List of Record names. Defaults to
             `None` and lists all registries.
 
@@ -128,13 +128,13 @@ def view(
     else:
         show = logger.print
 
-    if schema is not None:
-        schema_names = [schema]
+    if modules is not None:
+        module_names = [modules]
     else:
-        schema_names = ["core"] + list(settings.instance.schema)
+        module_names = ["core"] + list(settings.instance.modules)
 
-    for schema_name in schema_names:
-        schema_module = importlib.import_module(get_schema_module_name(schema_name))
+    for module_name in module_names:
+        schema_module = importlib.import_module(get_schema_module_name(module_name))
         # the below is necessary because a schema module might not have been
         # explicitly accessed
         importlib.reload(schema_module)
@@ -146,7 +146,7 @@ def view(
             and issubclass(registry, Record)
             and registry is not Record
         }
-        if schema_name == "core":
+        if module_name == "core":
             all_registries.update({FeatureValue, ParamValue})
         if registries is not None:
             filtered_registries = {
@@ -156,9 +156,9 @@ def view(
             }
         else:
             filtered_registries = all_registries
-        if len(schema_names) > 1:
-            section = f"* module: {colors.green(colors.bold(schema_name))} *"
-            section_no_color = f"* module: {schema_name} *"
+        if len(module_names) > 1:
+            section = f"* module: {colors.green(colors.bold(module_name))} *"
+            section_no_color = f"* module: {module_name} *"
             logger.print("*" * len(section_no_color))
             logger.print(section)
             logger.print("*" * len(section_no_color))
