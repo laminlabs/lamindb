@@ -24,7 +24,7 @@ dependencies = [
     "python-dateutil",
     "scipy<1.15.0", # backed sparse is incompatible with 1.15.0 for anndata 1.11.1
     "pandas>=2.0.0", # for .infer_objects(copy=False) in lamin-utils
-    "anndata>=0.8.0,<=0.11.1",  # will upgrade to new anndata releases
+    "anndata>=0.8.0,<=0.11.2",  # will upgrade to new anndata releases
     "fsspec",
     "graphviz",
     "psycopg2-binary",
