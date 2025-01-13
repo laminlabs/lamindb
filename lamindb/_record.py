@@ -757,6 +757,7 @@ def save(self, *args, **kwargs) -> Record:
             check_name_change(self)
             check_key_change(self)
             super(BasicRecord, self).save(*args, **kwargs)
+            # update _old_name and _old_key after saving
             _store_record_old_name(self)
             _store_record_old_key(self)
     # perform transfer of many-to-many fields
@@ -830,8 +831,8 @@ def check_name_change(record: Record):
             )
             artifact_ids = linked_records.list("artifact__uid")
             n = len(artifact_ids)
-            s = "s" if n > 1 else ""
             if n > 0:
+                s = "s" if n > 1 else ""
                 logger.error(
                     f"You are trying to {colors.red('rename label')} from '{old_name}' to '{new_name}'!\n"
                     f"   → The following {n} artifact{s} {colors.red('will no longer be validated')}: {artifact_ids}\n\n"
@@ -850,8 +851,8 @@ def check_name_change(record: Record):
                 "uid"
             )
             n = len(linked_artifacts)
-            s = "s" if n > 1 else ""
             if n > 0:
+                s = "s" if n > 1 else ""
                 logger.error(
                     f"You are trying to {colors.red('rename feature')} from '{old_name}' to '{new_name}'!\n"
                     f"   → The following {n} artifact{s} {colors.red('will no longer be validated')}: {linked_artifacts}\n\n"
@@ -866,10 +867,7 @@ def check_name_change(record: Record):
 
 def check_key_change(record: Artifact | Transform):
     """Errors if a record's key has falsely changed."""
-    if not isinstance(record, Artifact):
-        return
-
-    if not hasattr(record, "_old_key"):
+    if not isinstance(record, Artifact) or not hasattr(record, "_old_key"):
         return
 
     old_key = record._old_key or ""
