@@ -1072,7 +1072,11 @@ def delete(
         # only delete in storage if DB delete is successful
         # DB delete might error because of a foreign key constraint violated etc.
         self._delete_skip_storage()
-        if self.key is None or self._key_is_virtual:
+        # by default do not delete storage if deleting only one version of multiple
+        # and the underlying store is mutable
+        if self._overwrite_versions and self.versions.count() > 1:
+            delete_in_storage = False if storage is None else storage
+        elif self.key is None or self._key_is_virtual:
             # do not ask for confirmation also if storage is None
             delete_in_storage = storage is None or storage
         else:
