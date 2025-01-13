@@ -28,8 +28,8 @@ from .core._data import (
     _track_run_input,
     describe,
     get_run,
-    save__schemas_m2m,
     save_schema_links,
+    save_staged__schemas_m2m,
 )
 from .core._mapped_collection import MappedCollection
 from .core._settings import settings
@@ -50,7 +50,7 @@ class CollectionFeatureManager:
     def __init__(self, collection: Collection):
         self._collection = collection
 
-    def _get__schemas_m2m_union(self) -> dict[str, Schema]:
+    def _get_staged__schemas_m2m_union(self) -> dict[str, Schema]:
         links_schema_artifact = Artifact._schemas_m2m.through.objects.filter(
             artifact_id__in=self._collection.artifacts.values_list("id", flat=True)
         )
@@ -335,7 +335,7 @@ def save(self, using: str | None = None) -> Collection:
     if self.meta_artifact is not None:
         self.meta_artifact.save()
     # we don't need to save feature sets again
-    save__schemas_m2m(self)
+    save_staged__schemas_m2m(self)
     super(Collection, self).save()
     # we don't allow updating the collection of artifacts
     # if users want to update the set of artifacts, they

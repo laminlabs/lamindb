@@ -1571,7 +1571,7 @@ class SOMACurator(BaseCurator):
                 organism=organism,
                 raise_validation_error=False,
             )
-        artifact.__schemas_m2m = _schemas_m2m
+        artifact._staged__schemas_m2m = _schemas_m2m
 
         feature_ref_is_name = _ref_is_name(self._columns_field)
         features = Feature.lookup().dict()

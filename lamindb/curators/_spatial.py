@@ -9,7 +9,7 @@ from spatialdata import SpatialData
 
 from lamindb.base.types import FieldAttr
 from lamindb.core._data import add_labels
-from lamindb.core._feature_manager import parse__schemas_m2m_from_anndata
+from lamindb.core._feature_manager import parse_staged__schemas_m2m_from_anndata
 from lamindb.core._settings import settings
 from lamindb.core.exceptions import ValidationError
 from lamindb.curators import (
@@ -420,7 +420,7 @@ class SpatialDataCurator:
 
                 # table features
                 for table, field in var_fields.items():
-                    table_fs = parse__schemas_m2m_from_anndata(
+                    table_fs = parse_staged__schemas_m2m_from_anndata(
                         self._sdata[table],
                         var_field=field,
                         obs_field=obs_fields.get(table, Feature.name),
@@ -430,7 +430,7 @@ class SpatialDataCurator:
                     for k, v in table_fs.items():
                         _schemas_m2m[f"['{table}'].{k}"] = v
 
-                def _unify__schemas_m2m_by_hash(
+                def _unify_staged__schemas_m2m_by_hash(
                     _schemas_m2m: MutableMapping[str, Schema],
                 ):
                     unique_values: dict[str, Any] = {}
@@ -447,7 +447,9 @@ class SpatialDataCurator:
                     return _schemas_m2m
 
                 # link feature sets
-                host.__schemas_m2m = _unify__schemas_m2m_by_hash(_schemas_m2m)
+                host._staged__schemas_m2m = _unify_staged__schemas_m2m_by_hash(
+                    _schemas_m2m
+                )
                 host.save()
 
             _add_set_from_spatialdata(
