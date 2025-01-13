@@ -25,15 +25,15 @@ def test_df():
     feature_names = [f"Feature {i}" for i in range(3)]
     features = [ln.Feature(name=name, dtype=int) for name in feature_names]
     ln.save(features)
-    feature_set = ln.Schema(features, name="my feature_set").save()
-    feature_set.features.set(features)
+    schema = ln.Schema(features, name="my schema").save()
+    schema.features.set(features)
 
-    df = ln.Schema.filter(name="my feature_set").df(include="features__name")
+    df = ln.Schema.filter(name="my schema").df(include="features__name")
     assert df.columns[3] == "features__name"
     # order is not conserved
     assert set(df["features__name"].iloc[0]) == set(feature_names)
     # pass a list
-    df = ln.Schema.filter(name="my feature_set").df(
+    df = ln.Schema.filter(name="my schema").df(
         include=["features__name", "features__created_by_id"]
     )
     assert df.columns[4] == "features__created_by_id"
@@ -66,7 +66,7 @@ def test_df():
     for label in labels:
         label.delete()
 
-    feature_set.delete()
+    schema.delete()
     for feature in features:
         feature.delete()
 

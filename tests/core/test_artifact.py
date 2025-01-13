@@ -317,12 +317,12 @@ def test_create_from_dataframe_using_from_df_and_link_features(df):
     artifact.features._add_set_from_df()
     # mere access test right now
     artifact.features["columns"]
-    feature_set_queried = artifact._schemas_m2m.get()  # exactly one
-    feature_list_queried = ln.Feature.filter(_schemas_m2m=feature_set_queried).list()
+    schema_queried = artifact._schemas_m2m.get()  # exactly one
+    feature_list_queried = ln.Feature.filter(_schemas_m2m=schema_queried).list()
     feature_list_queried = [feature.name for feature in feature_list_queried]
     assert set(feature_list_queried) == set(df.columns)
     artifact.delete(permanent=True, storage=True)
-    feature_set_queried.delete()
+    schema_queried.delete()
     ln.Feature.filter(name__in=["feat1", "feat2"]).delete()
 
 

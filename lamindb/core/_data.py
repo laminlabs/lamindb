@@ -58,39 +58,39 @@ def get_run(run: Run | None) -> Run | None:
 
 def save__schemas_m2m(self: Artifact | Collection) -> None:
     if hasattr(self, "__schemas_m2m"):
-        from lamindb.core._feature_manager import get_feature_set_by_slot_
+        from lamindb.core._feature_manager import get_schema_by_slot_
 
-        existing__schemas_m2m = get_feature_set_by_slot_(self)
+        existing__schemas_m2m = get_schema_by_slot_(self)
         saved__schemas_m2m = {}
-        for key, feature_set in self.__schemas_m2m.items():
-            if isinstance(feature_set, Schema) and feature_set._state.adding:
-                feature_set.save()
-                saved__schemas_m2m[key] = feature_set
+        for key, schema in self.__schemas_m2m.items():
+            if isinstance(schema, Schema) and schema._state.adding:
+                schema.save()
+                saved__schemas_m2m[key] = schema
             if key in existing__schemas_m2m:
                 # remove existing feature set on the same slot
                 self._schemas_m2m.remove(existing__schemas_m2m[key])
         if len(saved__schemas_m2m) > 0:
             s = "s" if len(saved__schemas_m2m) > 1 else ""
-            display_feature_set_keys = ",".join(
+            display_schema_keys = ",".join(
                 f"'{key}'" for key in saved__schemas_m2m.keys()
             )
             logger.save(
                 f"saved {len(saved__schemas_m2m)} feature set{s} for slot{s}:"
-                f" {display_feature_set_keys}"
+                f" {display_schema_keys}"
             )
 
 
-def save_feature_set_links(self: Artifact | Collection) -> None:
+def save_schema_links(self: Artifact | Collection) -> None:
     from lamindb._save import bulk_create
 
     Data = self.__class__
     if hasattr(self, "__schemas_m2m"):
         links = []
         host_id_field = get_host_id_field(self)
-        for slot, feature_set in self.__schemas_m2m.items():
+        for slot, schema in self.__schemas_m2m.items():
             kwargs = {
                 host_id_field: self.id,
-                "schema_id": feature_set.id,
+                "schema_id": schema.id,
                 "slot": slot,
             }
             links.append(Data._schemas_m2m.through(**kwargs))
@@ -338,9 +338,9 @@ def add_labels(
         _schemas_m2m = self._schemas_m2m.filter(registry="Feature").all()
         internal_features = set()  # type: ignore
         if len(_schemas_m2m) > 0:
-            for feature_set in _schemas_m2m:
+            for schema in _schemas_m2m:
                 internal_features = internal_features.union(
-                    set(feature_set.members.values_list("name", flat=True))
+                    set(schema.members.values_list("name", flat=True))
                 )  # type: ignore
         for record in records:
             records_by_registry[record.__class__.__get_name_with_module__()].append(

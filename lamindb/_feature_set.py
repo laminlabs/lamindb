@@ -49,7 +49,7 @@ def validate_features(features: list[Record]) -> Record:
         )
     feature_types = {feature.__class__ for feature in features}
     if len(feature_types) > 1:
-        raise TypeError("feature_set can only contain a single type")
+        raise TypeError("schema can only contain a single type")
     for feature in features:
         if feature._state.adding:
             raise ValueError("Can only construct feature sets from validated features")
@@ -74,10 +74,10 @@ def __init__(self, *args, **kwargs):
         dtype = None if features_registry == Feature else NUMBER_TYPE
     n_features = len(features)
     features_hash = hash_set({feature.uid for feature in features})
-    feature_set = Schema.filter(hash=features_hash).one_or_none()
-    if feature_set is not None:
-        logger.debug(f"loaded: {feature_set}")
-        init_self_from_db(self, feature_set)
+    schema = Schema.filter(hash=features_hash).one_or_none()
+    if schema is not None:
+        logger.debug(f"loaded: {schema}")
+        init_self_from_db(self, schema)
         return None
     else:
         hash = features_hash
@@ -154,12 +154,12 @@ def from_values(
         organism=organism,
         source=source,
     )
-    feature_set = Schema(
+    schema = Schema(
         features=validated_features,
         name=name,
         dtype=get_type_str(type),
     )
-    return feature_set
+    return schema
 
 
 @classmethod  # type:ignore
@@ -184,7 +184,7 @@ def from_df(
         validated_features = Feature.from_values(
             df.columns, field=field, organism=organism
         )
-        feature_set = Schema(validated_features, name=name, dtype=None)
+        schema = Schema(validated_features, name=name, dtype=None)
     else:
         dtypes = [col.dtype for (_, col) in df.loc[:, validated].items()]
         if len(set(dtypes)) != 1:
@@ -196,12 +196,12 @@ def from_df(
             organism=organism,
             source=source,
         )
-        feature_set = Schema(
+        schema = Schema(
             features=validated_features,
             name=name,
             dtype=get_type_str(dtype),
         )
-    return feature_set
+    return schema
 
 
 @property  # type: ignore
