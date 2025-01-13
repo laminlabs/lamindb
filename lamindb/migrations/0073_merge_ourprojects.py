@@ -43,51 +43,99 @@ def migrate_data(apps, schema_editor):
     # Begin transaction
     cursor.execute("BEGIN")
     try:
-        # Copy core tables
+        # Copy core tables, adding empty JSON for aux field
         cursor.execute("""
-            INSERT INTO lamindb_reference
-            SELECT * FROM ourprojects_reference
+            INSERT INTO lamindb_reference(
+                id, created_at, updated_at, created_by_id, uid, name, abbr, url,
+                pubmed_id, doi, preprint, public, journal, description, text,
+                published_at
+            )
+            SELECT
+                id, created_at, updated_at, created_by_id, uid, name, abbr, url,
+                pubmed_id, doi, preprint, public, journal, description, text,
+                published_at
+            FROM ourprojects_reference
         """)
 
         cursor.execute("""
-            INSERT INTO lamindb_person
-            SELECT * FROM ourprojects_person
+            INSERT INTO lamindb_person(
+                id, created_at, updated_at, created_by_id, uid, name, email,
+                external
+            )
+            SELECT
+                id, created_at, updated_at, created_by_id, uid, name, email,
+                external
+            FROM ourprojects_person
         """)
 
         cursor.execute("""
-            INSERT INTO lamindb_project
-            SELECT * FROM ourprojects_project
+            INSERT INTO lamindb_project(
+                id, created_at, updated_at, created_by_id, uid, name, abbr,
+                url
+            )
+            SELECT
+                id, created_at, updated_at, created_by_id, uid, name, abbr,
+                url
+            FROM ourprojects_project
         """)
 
-        # Copy many-to-many relationships
+        # Copy many-to-many relationships with aux field
         cursor.execute("""
-            INSERT INTO lamindb_artifactreference
-            SELECT * FROM ourprojects_artifactreference
-        """)
-
-        cursor.execute("""
-            INSERT INTO lamindb_transformreference
-            SELECT * FROM ourprojects_transformreference
-        """)
-
-        cursor.execute("""
-            INSERT INTO lamindb_collectionreference
-            SELECT * FROM ourprojects_collectionreference
-        """)
-
-        cursor.execute("""
-            INSERT INTO lamindb_artifactproject
-            SELECT * FROM ourprojects_artifactproject
+            INSERT INTO lamindb_artifactreference(
+                id, created_at, created_by_id, artifact_id, reference_id,
+                feature_id, label_ref_is_name, feature_ref_is_name
+            )
+            SELECT
+                id, created_at, created_by_id, artifact_id, reference_id,
+                feature_id, label_ref_is_name, feature_ref_is_name
+            FROM ourprojects_artifactreference
         """)
 
         cursor.execute("""
-            INSERT INTO lamindb_transformproject
-            SELECT * FROM ourprojects_transformproject
+            INSERT INTO lamindb_transformreference(
+                id, created_at, created_by_id, transform_id, reference_id
+            )
+            SELECT
+                id, created_at, created_by_id, transform_id, reference_id
+            FROM ourprojects_transformreference
         """)
 
         cursor.execute("""
-            INSERT INTO lamindb_collectionproject
-            SELECT * FROM ourprojects_collectionproject
+            INSERT INTO lamindb_collectionreference(
+                id, created_at, created_by_id, collection_id, reference_id
+            )
+            SELECT
+                id, created_at, created_by_id, collection_id, reference_id
+            FROM ourprojects_collectionreference
+        """)
+
+        cursor.execute("""
+            INSERT INTO lamindb_artifactproject(
+                id, created_at, created_by_id, artifact_id, project_id,
+                feature_id, label_ref_is_name, feature_ref_is_name
+            )
+            SELECT
+                id, created_at, created_by_id, artifact_id, project_id,
+                feature_id, label_ref_is_name, feature_ref_is_name
+            FROM ourprojects_artifactproject
+        """)
+
+        cursor.execute("""
+            INSERT INTO lamindb_transformproject(
+                id, created_at, created_by_id, transform_id, project_id
+            )
+            SELECT
+                id, created_at, created_by_id, transform_id, project_id
+            FROM ourprojects_transformproject
+        """)
+
+        cursor.execute("""
+            INSERT INTO lamindb_collectionproject(
+                id, created_at, created_by_id, collection_id, project_id
+            )
+            SELECT
+                id, created_at, created_by_id, collection_id, project_id
+            FROM ourprojects_collectionproject
         """)
 
         # Verify migration
@@ -119,6 +167,9 @@ def migrate_data(apps, schema_editor):
                     cursor.execute(f"DROP TABLE IF EXISTS {table} CASCADE")
 
             cursor.execute("COMMIT")
+            print(
+                "Data migration from ourprojects to lamindb successful, you can now access ourprojects data through lamindb"
+            )
         else:
             cursor.execute("ROLLBACK")
             raise Exception("Migration failed: Record count mismatch")
