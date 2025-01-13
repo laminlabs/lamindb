@@ -3122,14 +3122,21 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Universal id, valid across DB instances."""
     name: str = CharField(db_index=True)
     """Title or name of the Project."""
-    abbr: str | None = CharField(max_length=32, db_index=True, unique=True, null=True)
-    """A unique abbreviation."""
+    type: str | None = CharField(max_length=64, db_index=True, null=True)
+    """A free-form type."""
+    abbr: str | None = CharField(max_length=32, db_index=True, null=True)
+    """An abbreviation."""
     url: str | None = URLField(max_length=255, null=True, default=None)
-    """A URL to view."""
-    contributors: Person = models.ManyToManyField(Person, related_name="projects")
-    """Contributors associated with this project."""
-    references: Reference = models.ManyToManyField("Reference", related_name="projects")
-    """References associated with this project."""
+    """A URL."""
+    parents: Project = models.ManyToManyField(
+        "self", symmetrical=False, related_name="children"
+    )
+    """Parent projects."""
+    children: Project
+    """Child projects.
+
+    Reverse accessor for parents.
+    """
     artifacts: Artifact = models.ManyToManyField(
         Artifact, through="ArtifactProject", related_name="projects"
     )
@@ -3142,6 +3149,10 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         Collection, through="CollectionProject", related_name="projects"
     )
     """Collections labeled with this project."""
+    persons: Person = models.ManyToManyField(Person, related_name="projects")
+    """Persons associated with this project."""
+    references: Reference = models.ManyToManyField("Reference", related_name="projects")
+    """References associated with this project."""
 
 
 class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
@@ -3174,10 +3185,9 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     abbr: str | None = CharField(
         max_length=32,
         db_index=True,
-        unique=True,
         null=True,
     )
-    """A unique abbreviation for the reference."""
+    """An abbreviation for the reference."""
     type: Param | None = ForeignKey("self", PROTECT, null=True, related_name="records")
     """Type of reference (e.g., 'Study', 'Paper', 'Preprint').
 
