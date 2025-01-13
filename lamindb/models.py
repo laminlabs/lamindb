@@ -2378,8 +2378,12 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     """Sequence of runs that created or updated the record."""
     collections: Collection
     """The collections that this artifact is part of."""
-    schemas: Schema = models.ManyToManyField(
-        Schema, related_name="artifacts", through="ArtifactSchema"
+    schema: Schema | None = ForeignKey(
+        Schema, PROTECT, null=True, default=None, related_name="artifacts"
+    )
+    """The schema of the artifact."""
+    _schemas_m2m: Schema = models.ManyToManyField(
+        Schema, related_name="_artifacts_m2m", through="ArtifactSchema"
     )
     """The feature sets measured in the artifact."""
     _feature_values: FeatureValue = models.ManyToManyField(
@@ -2453,6 +2457,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     @deprecated("n_files")
     def n_objects(self) -> int:
         return self.n_files
+
+    @property
+    @deprecated("feature_sets")
+    def feature_sets(self) -> QuerySet[Schema]:
+        return self._schemas
 
     @property
     def path(self) -> Path:
@@ -3260,9 +3269,9 @@ class SchemaFeature(BasicRecord, LinkORM):
 
 class ArtifactSchema(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
-    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_schema")
+    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="_links_schema")
     # we follow the lower() case convention rather than snake case for link models
-    schema: Schema = ForeignKey(Schema, PROTECT, related_name="links_artifact")
+    schema: Schema = ForeignKey(Schema, PROTECT, related_name="_links_artifact")
     slot: str | None = CharField(max_length=40, null=True)
     feature_ref_is_semantic: bool | None = BooleanField(
         null=True
