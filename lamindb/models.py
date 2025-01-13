@@ -2370,7 +2370,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     """Run that created the artifact."""
     input_of_runs: Run = models.ManyToManyField(Run, related_name="input_artifacts")
     """Runs that use this artifact as an input."""
-    # if the artifact is replicated or update in a new run, we link the previous
+    # if the artifact is replicated or updated in a new run, we link the previous
     # run in previous_runs
     _previous_runs: Run = models.ManyToManyField(
         "Run", related_name="_output_artifacts_with_later_updates"
@@ -2475,8 +2475,8 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         File in local storage:
 
-        >>> ln.Artifact("./myfile.csv", description="myfile").save()
-        >>> artifact = ln.Artifact.get(description="myfile")
+        >>> ln.Artifact("./myfile.csv", key="myfile").save()
+        >>> artifact = ln.Artifact.get(key="myfile")
         >>> artifact.path
         PosixPath('/home/runner/work/lamindb/lamindb/docs/guide/mydata/myfile.csv')
         """

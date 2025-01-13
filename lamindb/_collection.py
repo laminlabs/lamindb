@@ -50,7 +50,7 @@ class CollectionFeatureManager:
     def __init__(self, collection: Collection):
         self._collection = collection
 
-    def get__schemas_m2m_union(self) -> dict[str, Schema]:
+    def _get__schemas_m2m_union(self) -> dict[str, Schema]:
         links_schema_artifact = Artifact._schemas_m2m.through.objects.filter(
             artifact_id__in=self._collection.artifacts.values_list("id", flat=True)
         )
@@ -66,7 +66,7 @@ class CollectionFeatureManager:
             # evaluated on a link table with 16M entries connecting 500 feature sets with
             # 60k genes
             feature_ids = (
-                features_registry._schemas_m2m.through.objects.filter(
+                features_registry.schemas.through.objects.filter(
                     schema_id__in=schema_ids_slot
                 )
                 .values(f"{features_registry.__name__.lower()}_id")
