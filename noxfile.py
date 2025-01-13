@@ -109,15 +109,11 @@ def install_ci(session, group):
         run(session, "uv pip install --system ipywidgets")
     elif group == "faq":
         extras += "bionty,jupyter"
-        run(
-            session,
-            "uv pip install --system --no-deps ./sub/ourprojects",
-        )
     elif group == "storage":
         extras += "zarr,bionty,jupyter"
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab ./sub/ourprojects",
+            "uv pip install --system --no-deps ./sub/wetlab",
         )
         run(session, "uv pip install --system vitessce")
     elif group == "curator":
@@ -139,7 +135,7 @@ def install_ci(session, group):
         )
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab ./sub/clinicore ./sub/ourprojects",
+            "uv pip install --system --no-deps ./sub/wetlab ./sub/clinicore",
         )
     elif group == "cli":
         extras += "jupyter,bionty"
@@ -152,9 +148,8 @@ def install_ci(session, group):
     if IS_PR or group == "docs":
         run(
             session,
-            "uv pip install --system --no-deps ./sub/lamindb-setup ./sub/lamin-cli ./sub/ourprojects",
+            "uv pip install --system --no-deps ./sub/lamindb-setup ./sub/lamin-cli",
         )
-        run(session, "uv pip uninstall --system lnschema-core")
         if "bionty" in extras:
             run(
                 session,
@@ -241,7 +236,7 @@ def docs(session):
                 path.rename(f"./docs/{path.name}")
     run(
         session,
-        "lamin init --storage ./docsbuild --modules bionty,wetlab,clinicore,ourprojects",
+        "lamin init --storage ./docsbuild --modules bionty,wetlab,clinicore",
     )
 
     def generate_cli_docs():

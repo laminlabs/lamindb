@@ -18,7 +18,6 @@ dependencies = [
     "lamin_utils==0.13.10",
     "lamin_cli==1.0a1",
     "lamindb_setup[aws]==1.0a1",
-    "ourprojects==1.0a1",
     # others
     "pyarrow",
     "typing_extensions!=4.6.0",
