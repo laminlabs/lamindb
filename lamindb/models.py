@@ -1594,12 +1594,12 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
 
         Create a new label:
 
-        >>> my_project = ln.ULabel(name="My project").save()
+        >>> train_split = ln.ULabel(name="train").save()
 
         Organize labels in a hierarchy:
 
-        >>> is_project = ln.ULabel(name="is_project").save()
-        >>> my_project.parents.add(is_project)
+        >>> split_type = ln.ULabel(name="Split", is_type=True).save()
+        >>> train_split = ln.ULabel(name="train", type="split_type").save()
 
         Label an artifact:
 
@@ -1607,7 +1607,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
 
         Query by `ULabel`:
 
-        >>> ln.Artifact.filter(ulabels=project)
+        >>> ln.Artifact.filter(ulabels=train_split)
     """
 
     class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
@@ -1619,10 +1619,17 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Internal id, valid only in one DB instance."""
     uid: str = CharField(unique=True, db_index=True, max_length=8, default=base62_8)
     """A universal random id, valid across DB instances."""
-    name: str = CharField(max_length=150, db_index=True, unique=True)
+    name: str = CharField(max_length=150, db_index=True)
     """Name or title of ulabel (`unique=True`)."""
-    is_concept: bool = BooleanField(default=False, db_default=False)
-    """Distinguish mere ontological parents from labels that are meant to be used for labeling; for instance, you would never want to label an artifact with a ulabel Project, you'll only want to label with actual project values Project 1, Project 2, etc."""
+    type: ULabel | None = ForeignKey("self", PROTECT, null=True, related_name="records")
+    """Type of ulabel, e.g., `"donor"`, `"split"`, etc.
+
+    Allows to group ulabels by type, e.g., all donors, all split ulabels, etc.
+    """
+    records: ULabel
+    """Records of this type."""
+    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    """Distinguish types (meta-labels) from labels that are meant for labeling datasets; for instance, a ulabel "Project" would be a type, and the actual projects "Project 1", "Project 2", would be records of that `type`."""
     description: str | None = TextField(null=True)
     """A description (optional)."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
@@ -1632,9 +1639,17 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     parents: ULabel = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
-    """Parent entities of this ulabel."""
+    """Parent entities of this ulabel.
+
+    For advanced use cases, you can build an ontology under a given `type`.
+
+    Say, if you modeled `CellType` as a `ULabel`, you would introduce a type `CellType` and model the hiearchy of cell types under it.
+    """
     children: ULabel
-    """Child entities of this ulabel."""
+    """Child entities of this ulabel.
+
+    Reverse accessor for parents.
+    """
     transforms: Transform
     """Transforms annotated with this ulabel."""
     artifacts: Artifact

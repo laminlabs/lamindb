@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import lamindb_setup as ln_setup
+from lamin_utils import logger
 
 from lamindb.models import ULabel
 
@@ -14,7 +15,9 @@ def __init__(self, *args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) > 0:
         raise ValueError("Only one non-keyword arg allowed")
-    name: str | None = kwargs.pop("name") if "name" in kwargs else None
+    name: str = kwargs.pop("name") if "name" in kwargs else None
+    type: str | None = kwargs.pop("type") if "type" in kwargs else None
+    is_type: str | None = kwargs.pop("is_type") if "is_type" in kwargs else None
     description: str | None = (
         kwargs.pop("description") if "description" in kwargs else None
     )
@@ -26,8 +29,19 @@ def __init__(self, *args, **kwargs):
         raise ValueError(
             "Only name, description, reference, reference_type are valid keyword arguments"
         )
+    if is_type:
+        if name.endswith("s"):
+            logger.warning(
+                "`name` ends with 's', in case you're naming with plural, consider the singular for a type name"
+            )
+        if name[0].islower():
+            logger.warning(
+                "`name` starts with lowercase, in case you're naming a type, consider starting with uppercase"
+            )
     super(ULabel, self).__init__(
         name=name,
+        type=type,
+        is_type=is_type,
         description=description,
         reference=reference,
         reference_type=reference_type,
