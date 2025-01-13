@@ -466,7 +466,7 @@ def data_is_anndata(data: AnnData | UPathStr) -> bool:
             if fsspec.utils.get_protocol(data_path.as_posix()) == "file":
                 return zarr_is_adata(data_path)
             else:
-                logger.warning("We do not check if cloud zarr is AnnData or not.")
+                logger.warning("We do not check if cloud zarr is AnnData or not")
                 return False
     return False
 
@@ -1080,7 +1080,11 @@ def delete(
         # by default do not delete storage if deleting only a previous version
         # and the underlying store is mutable
         if self._overwrite_versions and not self.is_latest:
-            delete_in_storage = False if storage is None else storage
+            delete_in_storage = False
+            if storage:
+                logger.warning(
+                    "Storage argument is ignored; can't delete storage on an previous version"
+                )
         elif self.key is None or self._key_is_virtual:
             # do not ask for confirmation also if storage is None
             delete_in_storage = storage is None or storage
