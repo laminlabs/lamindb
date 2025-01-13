@@ -88,6 +88,173 @@ class Migration(migrations.Migration):
                 to="lamindb.schema",
             ),
         ),
+        migrations.RemoveField(
+            model_name="artifact",
+            name="_curator",
+        ),
+        migrations.AddField(
+            model_name="feature",
+            name="_curation",
+            field=lamindb.base.fields.JSONField(
+                blank=True, db_default=None, default=None, null=True
+            ),
+        ),
+        migrations.AddField(
+            model_name="feature",
+            name="array_size",
+            field=models.IntegerField(db_index=True, default=0),
+        ),
+        migrations.AddField(
+            model_name="feature",
+            name="proxy_dtype",
+            field=lamindb.base.fields.CharField(
+                blank=True, null=True, default=None, max_length=255
+            ),
+        ),
+        migrations.AddField(
+            model_name="feature",
+            name="array_rank",
+            field=models.SmallIntegerField(db_index=True, default=0),
+        ),
+        migrations.AddField(
+            model_name="feature",
+            name="array_shape",
+            field=lamindb.base.fields.JSONField(
+                blank=True, db_default=None, default=None, null=True
+            ),
+        ),
+        migrations.AddField(
+            model_name="project",
+            name="_status_code",
+            field=models.SmallIntegerField(db_index=True, default=0),
+        ),
+        migrations.AddField(
+            model_name="project",
+            name="end_date",
+            field=lamindb.base.fields.DateField(blank=True, default=None, null=True),
+        ),
+        migrations.AddField(
+            model_name="project",
+            name="start_date",
+            field=lamindb.base.fields.DateField(blank=True, default=None, null=True),
+        ),
+        migrations.AddField(
+            model_name="schema",
+            name="_curation",
+            field=lamindb.base.fields.JSONField(
+                blank=True, db_default=None, default=None, null=True
+            ),
+        ),
+        migrations.AddField(
+            model_name="schema",
+            name="composite",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=None,
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="components",
+                to="lamindb.schema",
+            ),
+        ),
+        migrations.AddField(
+            model_name="schema",
+            name="maximal_set",
+            field=lamindb.base.fields.BooleanField(
+                blank=True, db_index=True, default=True
+            ),
+        ),
+        migrations.AddField(
+            model_name="schema",
+            name="minimal_set",
+            field=lamindb.base.fields.BooleanField(
+                blank=True, db_index=True, default=False
+            ),
+        ),
+        migrations.AddField(
+            model_name="schema",
+            name="ordered_set",
+            field=lamindb.base.fields.BooleanField(
+                blank=True, db_index=True, default=False
+            ),
+        ),
+        migrations.AddField(
+            model_name="schema",
+            name="otype",
+            field=lamindb.base.fields.CharField(
+                blank=True, db_index=True, default=None, max_length=64, null=True
+            ),
+        ),
+        migrations.AddField(
+            model_name="schema",
+            name="slot",
+            field=lamindb.base.fields.CharField(
+                blank=True, db_index=True, default=None, max_length=100, null=True
+            ),
+        ),
+        migrations.AddField(
+            model_name="schema",
+            name="validated_by",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=None,
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="validated_schemas",
+                to="lamindb.schema",
+            ),
+        ),
+        migrations.AlterField(
+            model_name="feature",
+            name="dtype",
+            field=lamindb.base.fields.CharField(
+                blank=True, db_index=True, default=None, max_length=255
+            ),
+        ),
+        migrations.AlterField(
+            model_name="schema",
+            name="hash",
+            field=lamindb.base.fields.CharField(
+                blank=True, db_index=True, default=None, max_length=22, null=True
+            ),
+        ),
+        migrations.CreateModel(
+            name="SchemaParam",
+            fields=[
+                ("id", models.BigAutoField(primary_key=True, serialize=False)),
+                (
+                    "param",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="+",
+                        to="lamindb.param",
+                    ),
+                ),
+                (
+                    "schema",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="+",
+                        to="lamindb.schema",
+                    ),
+                ),
+            ],
+            options={
+                "unique_together": {("schema", "param")},
+            },
+            bases=(models.Model, lamindb.models.LinkORM),
+        ),
+        migrations.AddField(
+            model_name="param",
+            name="schemas",
+            field=models.ManyToManyField(
+                related_name="params",
+                through="lamindb.SchemaParam",
+                to="lamindb.schema",
+            ),
+        ),
     ]
 
 

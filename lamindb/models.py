@@ -1334,6 +1334,10 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
     - if it's `False` (default), the values mean artifact/run-level values and a dtype of `datetime` means `datetime`
     - if it's `True`, the values are from an aggregation, which this seems like an edge case but when characterizing a model ensemble trained with different parameters it could be relevant
     """
+    schemas: Schema = models.ManyToManyField(
+        "Schema", through="SchemaParam", related_name="params"
+    )
+    """Feature sets linked to this feature."""
     # backward fields
     values: ParamValue
     """Values for this parameter."""
@@ -1793,7 +1797,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     """Universal id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True, unique=True)
     """Name of feature (`unique=True`)."""
-    dtype: FeatureDtype = CharField(max_length=64, db_index=True)
+    dtype: FeatureDtype = CharField(db_index=True)
     """Data type (:class:`~lamindb.base.types.FeatureDtype`).
 
     For categorical types, can define from which registry values are
@@ -1815,6 +1819,38 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     """Unit of measure, ideally SI (`m`, `s`, `kg`, etc.) or 'normalized' etc. (optional)."""
     description: str | None = TextField(db_index=True, null=True)
     """A description."""
+    array_rank: int = models.SmallIntegerField(default=0, db_index=True)
+    """Rank of feature.
+
+    Number of indices of the array: 0 for scalar, 1 for vector, 2 for matrix.
+
+    Is called `.ndim` in `numpy` and `pytorch` but shouldn't be confused with
+    the dimension of the feature space.
+    """
+    array_size: int = models.IntegerField(default=0, db_index=True)
+    """Number of elements of the feature.
+
+    Total number of elements (product of shape components) of the array.
+
+    - A number or string (a scalar): 1
+    - A 50-dimensional embedding: 50
+    - A 25 x 25 image: 625
+    """
+    array_shape: list[int] | None = JSONField(default=None, db_default=None, null=True)
+    """Shape of the feature.
+
+    - A number or string (a scalar): [1]
+    - A 50-dimensional embedding: [50]
+    - A 25 x 25 image: [25, 25]
+
+    Is stored as a list rather than a tuple because it's serialized as JSON.
+    """
+    proxy_dtype: FeatureDtype | None = CharField(default=None, null=True)
+    """Proxy data type.
+
+    If the feature is an image it's often stored via a path to the image file. Hence, while the dtype might be
+    image with a certain shape, the proxy dtype would be str.
+    """
     synonyms: str | None = TextField(null=True)
     """Bar-separated (|) synonyms (optional)."""
     # we define the below ManyToMany on the feature model because it parallels
@@ -1830,6 +1866,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     - if it's `True` (default), the values come from an observation-level aggregation and a dtype of `datetime` on the observation-level mean `set[datetime]` on the artifact-level
     - if it's `False` it's an artifact-level value and datetime means datetime; this is an edge case because an arbitrary artifact would always be a set of arbitrary measurements that would need to be aggregated ("one just happens to measure a single cell line in that artifact")
     """
+    _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
     # backward fields
     values: FeatureValue
     """Values for this feature."""
@@ -2032,19 +2069,58 @@ class Schema(Record, CanCurate, TracksRun):
     """Records of this type."""
     is_type: bool = BooleanField(default=None, db_index=True, null=True)
     """Distinguish types from instances of the type."""
+    otype: str | None = CharField(max_length=64, db_index=True, null=True)
+    """Default Python object type, e.g., DataFrame, AnnData."""
     registry: str = CharField(max_length=120, db_index=True)
     """The registry that stores the feature identifiers, e.g., `'Feature'` or `'bionty.Gene'`.
 
     Depending on the registry, `.members` stores, e.g. `Feature` or `Gene` records.
     """
-    hash: str | None = CharField(
-        max_length=HASH_LENGTH, db_index=True, null=True, unique=True
+    hash: str | None = CharField(max_length=HASH_LENGTH, db_index=True, null=True)
+    """A hash of the set of feature identifiers.
+
+    For a composite schema, the hash of hashes.
+    """
+    minimal_set: bool = BooleanField(default=False, db_index=True)
+    """In validation, whether the linked features are to be interpreted as a minimal set.
+
+    If `True` then beyond having valid feature identifiers, a data object needs to minimally
+    contain the linked set of features.
+    """
+    ordered_set: bool = BooleanField(default=False, db_index=True)
+    """In validation, if `minimal_set` is `True`, whether the linked features need to be ordered."""
+    maximal_set: bool = BooleanField(default=True, db_index=True)
+    """In validation, if `minimal_set` is `True`, whether additional features are allowed.
+
+    For instance, if additional columns in a DataFrame are allowed.
+    """
+    composite: Schema | None = ForeignKey(
+        "self", PROTECT, related_name="components", default=None, null=True
     )
-    """The hash of the set."""
+    """The composite schema that contains this schema as a component.
+
+    The composite schema composes multiple simpler schemas into one object.
+
+    For example, an AnnData composes multiple schemas: `var[DataFrameT]`, `obs[DataFrame]`, `obsm[Array]`, `uns[dict]`, etc.
+    """
+    slot: str | None = CharField(max_length=100, db_index=True, null=True)
+    """The slot in which the schema is stored in the composite schema."""
+    validated_by: Schema | None = ForeignKey(
+        "self", PROTECT, related_name="validated_schemas", default=None, null=True
+    )
+    """The schema that validated this schema.
+
+    When performing validation, the schema that enforced validation might have been stricter than the schema that was validated.
+
+    In particular, the set of measured features might be a superset of the minimally required set of features.
+    """
     features: Feature
-    """The features related to a `Schema` record."""
+    """The features contained in the schema."""
+    params: Param
+    """The params contained in the schema."""
     artifacts: Artifact
-    """The artifacts related to a `Schema` record."""
+    """The artifacts that observe this schema."""
+    _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
 
     @overload
     def __init__(
@@ -2408,9 +2484,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         related_name="created_artifacts",
     )
     """Creator of record."""
-    _curator: dict[str, str] | None = JSONField(
-        default=None, db_default=None, null=True
-    )
     _overwrite_versions: bool = BooleanField(default=None)
     """Indicates whether to store or overwrite versions.
 
@@ -3143,6 +3216,10 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """An abbreviation."""
     url: str | None = URLField(max_length=255, null=True, default=None)
     """A URL."""
+    start_date: date | None = DateField(null=True, default=None)
+    """Date of start of the project."""
+    end_date: date | None = DateField(null=True, default=None)
+    """Date of start of the project."""
     parents: Project = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
@@ -3168,6 +3245,8 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Persons associated with this project."""
     references: Reference = models.ManyToManyField("Reference", related_name="projects")
     """References associated with this project."""
+    _status_code: int = models.SmallIntegerField(default=0, db_index=True)
+    """Status code."""
 
 
 class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
@@ -3259,12 +3338,20 @@ class LinkORM:
 
 class SchemaFeature(BasicRecord, LinkORM):
     id: int = models.BigAutoField(primary_key=True)
-    # we follow the lower() case convention rather than snake case for link models
     schema: Schema = ForeignKey(Schema, CASCADE, related_name="+")
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="+")
 
     class Meta:
         unique_together = ("schema", "feature")
+
+
+class SchemaParam(BasicRecord, LinkORM):
+    id: int = models.BigAutoField(primary_key=True)
+    schema: Schema = ForeignKey(Schema, CASCADE, related_name="+")
+    param: Param = ForeignKey(Param, PROTECT, related_name="+")
+
+    class Meta:
+        unique_together = ("schema", "param")
 
 
 class ArtifactSchema(BasicRecord, LinkORM, TracksRun):
