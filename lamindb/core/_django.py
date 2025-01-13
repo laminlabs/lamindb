@@ -35,7 +35,7 @@ def get_artifact_with_related(
     include_fk: bool = False,
     include_m2m: bool = False,
     include_feature_link: bool = False,
-    include_featureset: bool = False,
+    include_schema: bool = False,
 ) -> dict:
     """Fetch an artifact with its related data."""
     from lamindb._can_curate import get_name_field
@@ -103,14 +103,14 @@ def get_artifact_with_related(
             .values("json_agg")
         )
 
-    if include_featureset:
-        annotations["featuresets"] = Subquery(
+    if include_schema:
+        annotations["schemas"] = Subquery(
             model.feature_sets.through.objects.filter(artifact=OuterRef("pk"))
             .annotate(
                 data=JSONObject(
                     id=F("id"),
                     slot=F("slot"),
-                    featureset=F("featureset"),
+                    schema=F("schema"),
                 )
             )
             .values("artifact")
@@ -129,16 +129,16 @@ def get_artifact_with_related(
     if not artifact_meta:
         return None
 
-    related_data: dict = {"m2m": {}, "fk": {}, "link": {}, "featuresets": {}}
+    related_data: dict = {"m2m": {}, "fk": {}, "link": {}, "schemas": {}}
     for k, v in artifact_meta.items():
         if k.startswith("fkfield_"):
             related_data["fk"][k[8:]] = v
         elif k.startswith("linkfield_"):
             related_data["link"][k[10:]] = v
-        elif k == "featuresets":
+        elif k == "schemas":
             if v:
-                related_data["featuresets"] = get_featureset_m2m_relations(
-                    artifact, {i["featureset"]: i["slot"] for i in v}
+                related_data["schemas"] = get_schema_m2m_relations(
+                    artifact, {i["schema"]: i["slot"] for i in v}
                 )
 
     if len(m2m_relations) == 0:
@@ -175,9 +175,7 @@ def get_artifact_with_related(
     }
 
 
-def get_featureset_m2m_relations(
-    artifact: Artifact, slot_featureset: dict, limit: int = 20
-):
+def get_schema_m2m_relations(artifact: Artifact, slot_schema: dict, limit: int = 20):
     """Fetch all many-to-many relationships for given feature sets."""
     from lamindb._can_curate import get_name_field
 
@@ -201,7 +199,7 @@ def get_featureset_m2m_relations(
 
         # Subquery to get limited related records
         limited_related = Subquery(
-            through_model.objects.filter(featureset=OuterRef("pk")).values(
+            through_model.objects.filter(schema=OuterRef("pk")).values(
                 related_model.__name__.lower()
             )[:limit]
         )
@@ -217,16 +215,16 @@ def get_featureset_m2m_relations(
         )
         related_names[name] = related_model.__get_name_with_module__()
 
-    featureset_m2m = (
+    schema_m2m = (
         FeatureSet.objects.using(artifact._state.db)
-        .filter(id__in=slot_featureset.keys())
+        .filter(id__in=slot_schema.keys())
         .annotate(**annotations)
         .values("id", *annotations.keys())
     )
 
     result = {}
-    for fs in featureset_m2m:
-        slot = slot_featureset.get(fs["id"])
+    for fs in schema_m2m:
+        slot = slot_schema.get(fs["id"])
         result[fs["id"]] = (
             slot,
             {

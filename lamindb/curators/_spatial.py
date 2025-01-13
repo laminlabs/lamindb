@@ -391,7 +391,7 @@ class SpatialDataCurator:
             self._artifact.otype = "spatialdata"
             self._artifact.save()
 
-            # Link featuresets
+            # Link schemas
             feature_kwargs = check_registry_organism(
                 (list(self._var_fields.values())[0].field.model),
                 self._kwargs.get("organism"),

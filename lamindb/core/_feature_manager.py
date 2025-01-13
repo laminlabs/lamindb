@@ -107,9 +107,9 @@ def get_feature_set_by_slot_(host: Artifact | Collection) -> dict:
     links_feature_set = (
         host.feature_sets.through.objects.using(host_db)
         .filter(**kwargs)
-        .select_related("featureset")
+        .select_related("schema")
     )
-    return {fsl.slot: fsl.featureset for fsl in links_feature_set}
+    return {fsl.slot: fsl.schema for fsl in links_feature_set}
 
 
 def get_label_links(
@@ -269,15 +269,15 @@ def _get_non_categoricals(
     return non_categoricals
 
 
-def _get_featuresets_postgres(
+def _get_schemas_postgres(
     self: Artifact | Collection,
     related_data: dict | None = None,
 ) -> dict:
     if not related_data:
-        artifact_meta = get_artifact_with_related(self, include_featureset=True)
+        artifact_meta = get_artifact_with_related(self, include_schema=True)
         related_data = artifact_meta.get("related_data", {})
 
-    fs_data = related_data.get("featuresets", {}) if related_data else {}
+    fs_data = related_data.get("schemas", {}) if related_data else {}
     return fs_data
 
 
@@ -329,7 +329,7 @@ def describe_features(
     feature_data: dict[str, tuple[str, list[str]]] = {}
     if not print_params and not to_dict:
         if self.id is not None and connections[self._state.db].vendor == "postgresql":
-            fs_data = _get_featuresets_postgres(self, related_data=related_data)
+            fs_data = _get_schemas_postgres(self, related_data=related_data)
             for fs_id, (slot, data) in fs_data.items():
                 for registry_str, feature_names in data.items():
                     feature_set = FeatureSet.objects.using(self._state.db).get(id=fs_id)
@@ -1066,7 +1066,7 @@ def add_feature_set(self, feature_set: FeatureSet, slot: str) -> None:
     host_id_field = get_host_id_field(self._host)
     kwargs = {
         host_id_field: self._host.id,
-        "featureset": feature_set,
+        "schema": feature_set,
         "slot": slot,
     }
     link_record = (
@@ -1233,10 +1233,10 @@ def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
                     f"FeatureSet is not transferred, check if organism is set correctly: {feature_set}"
                 )
             continue
-        # make sure the uid matches if featureset is composed of same features
+        # make sure the uid matches if schema is composed of same features
         if feature_set_self.hash == feature_set.hash:
             feature_set_self.uid = feature_set.uid
-        logger.info(f"saving {slot} featureset: {feature_set_self}")
+        logger.info(f"saving {slot} schema: {feature_set_self}")
         self._host.features.add_feature_set(feature_set_self, slot)
 
 
@@ -1261,9 +1261,9 @@ def make_external(self, feature: Feature) -> None:
             fs.save()
         # delete the link between the feature and the feature set
         FeatureSet.features.through.objects.filter(
-            feature_id=feature.id, featureset_id=fs.id
+            feature_id=feature.id, schema_id=fs.id
         ).delete()
-        # if no members are left in the featureset, delete it
+        # if no members are left in the schema, delete it
         if len(features_updated) == 0:
             logger.warning(f"deleting empty feature set: {fs}")
             fs.artifacts.set([])

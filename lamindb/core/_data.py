@@ -90,7 +90,7 @@ def save_feature_set_links(self: Artifact | Collection) -> None:
         for slot, feature_set in self._feature_sets.items():
             kwargs = {
                 host_id_field: self.id,
-                "featureset_id": feature_set.id,
+                "schema_id": feature_set.id,
                 "slot": slot,
             }
             links.append(Data.feature_sets.through(**kwargs))
@@ -135,7 +135,7 @@ def _describe_postgres(self: Artifact | Collection, print_types: bool = False):
             include_feature_link=True,
             include_fk=True,
             include_m2m=True,
-            include_featureset=True,
+            include_schema=True,
         )
     else:
         result = get_artifact_with_related(self, include_fk=True, include_m2m=True)

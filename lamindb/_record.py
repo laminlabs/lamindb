@@ -825,7 +825,7 @@ def check_name_change(record: Record):
                 .exclude(feature_id=None)  # must have a feature
                 .exclude(
                     feature_ref_is_name=None
-                )  # must be linked via Curator and therefore part of a featureset
+                )  # must be linked via Curator and therefore part of a schema
                 .distinct()
             )
             artifact_ids = linked_records.list("artifact__uid")
@@ -845,7 +845,7 @@ def check_name_change(record: Record):
 
         # when a feature is renamed
         elif isinstance(record, Feature):
-            # only internal features are associated with featuresets
+            # only internal features are associated with schemas
             linked_artifacts = Artifact.filter(feature_sets__features=record).list(
                 "uid"
             )

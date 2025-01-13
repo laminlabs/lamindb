@@ -56,7 +56,7 @@ class CollectionFeatureManager:
         )
         feature_sets_by_slots = defaultdict(list)
         for link in links_feature_set_artifact:
-            feature_sets_by_slots[link.slot].append(link.featureset_id)
+            feature_sets_by_slots[link.slot].append(link.schema_id)
         feature_sets_union = {}
         for slot, feature_set_ids_slot in feature_sets_by_slots.items():
             feature_set_1 = FeatureSet.get(id=feature_set_ids_slot[0])
@@ -67,7 +67,7 @@ class CollectionFeatureManager:
             # 60k genes
             feature_ids = (
                 features_registry.feature_sets.through.objects.filter(
-                    featureset_id__in=feature_set_ids_slot
+                    schema_id__in=feature_set_ids_slot
                 )
                 .values(f"{features_registry.__name__.lower()}_id")
                 .distinct()
