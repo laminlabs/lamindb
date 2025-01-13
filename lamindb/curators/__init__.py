@@ -2151,8 +2151,13 @@ def save_artifact(
             filter_kwargs = check_registry_organism(registry, organism)
             filter_kwargs_current = get_current_filter_kwargs(registry, filter_kwargs)
             df = data if isinstance(data, pd.DataFrame) else data.obs
+            # multi-value columns are separated by "|"
+            if df[key].str.contains("|").any():
+                values = df[key].str.split("|").explode().unique()
+            else:
+                values = df[key].unique()
             labels = registry.from_values(
-                df[key],
+                values,
                 field=field,
                 **filter_kwargs_current,
             )
