@@ -3028,7 +3028,11 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
 
 
 class Person(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
-    """Internal and external people that can be a part of projects or references.
+    """Persons.
+
+    This registry is distinct from `User` and purely exists for project management.
+
+    You'll soon be able to conveniently create persons from users.
 
     Example:
         >>> person = Person(
@@ -3054,7 +3058,7 @@ class Person(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
 
 
 class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
-    """Projects with associated people and references.
+    """Projects.
 
     Example:
         >>> project = Project(
@@ -3096,7 +3100,7 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
 
 
 class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
-    """References such as a publication or document, with unique identifiers and metadata.
+    """References such as internal studies, papers, documents, or URLs.
 
     Example:
         >>> reference = Reference(
