@@ -1,28 +1,37 @@
 """A data framework for biology.
 
-Core registries.
-
-.. autosummary::
-   :toctree: .
-
-   Artifact
-   Collection
-   Transform
-   Run
-   User
-   Storage
-   ULabel
-   Feature
-   FeatureSet
-   Param
-
-Key functionality.
+Tracking notebooks & scripts.
 
 .. autosummary::
    :toctree: .
 
    track
    finish
+
+Registries.
+
+.. autosummary::
+   :toctree: .
+
+   Artifact
+   Transform
+   ULabel
+   Run
+   User
+   Storage
+   Feature
+   FeatureSet
+   Param
+   Collection
+   Project
+   Reference
+   Person
+
+Key functionality.
+
+.. autosummary::
+   :toctree: .
+
    connect
    Curator
    view
