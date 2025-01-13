@@ -874,7 +874,8 @@ def replace(
         if key_path.name != new_filename:
             self._clear_storagekey = self.key
             self.key = str(key_path.with_name(new_filename))
-            self._key = self.key
+            # update old key with the new one so that checks in record pass
+            self._old_key = self.key
             logger.warning(
                 f"replacing the file will replace key '{key_path}' with '{self.key}'"
                 f" and delete '{key_path}' upon `save()`"
@@ -890,7 +891,8 @@ def replace(
             if self.key is not None:
                 new_key_path = PurePosixPath(self.key).with_suffix(kwargs["suffix"])
                 self.key = str(new_key_path)
-                self._key = self.key
+                # update old key with the new one so that checks in record pass
+                self._old_key = self.key
 
     self.suffix = kwargs["suffix"]
     self.size = kwargs["size"]
