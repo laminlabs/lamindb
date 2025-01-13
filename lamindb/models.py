@@ -3172,9 +3172,9 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         ...     url="https://doi.org/10.1000/xyz123",
         ...     pubmed_id=12345678,
         ...     doi="10.1000/xyz123",
-        ...     description="A groundbreaking research paper.",
-        ...     text="A really informative abstract.",
-        ...     published_at=date(2023, 11, 21),
+        ...     description="Good paper.",
+        ...     text="Some text I want to be searchable.",
+        ...     date=date(2023, 11, 21),
         ... ).save()
     """
 
