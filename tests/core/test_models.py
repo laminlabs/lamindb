@@ -17,13 +17,15 @@ def test_registry__repr__param():
       Simple fields
         .name: CharField
         .dtype: CharField
-        .type: CharField
+        .is_type: BooleanField
         .created_at: DateTimeField
         .updated_at: DateTimeField
       Relational fields
         .created_by: User
         .run: Run
         .space: Space
+        .type: Param
+        .records: Param
         .values: ParamValue
     """).strip()
 
