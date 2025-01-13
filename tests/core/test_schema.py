@@ -77,7 +77,7 @@ def test_schema_from_values():
         schema = ln.Schema.from_values(
             ["weird_name"], field=ln.Feature.name, type="float"
         )
-    with pytest.raises(ValidationError):
+    with pytest.raises(TypeError):  # used to raise a ValidationError
         ln.Schema.from_values([1], field=ln.Feature.name, type="float")
 
     # return none if no validated features
@@ -129,8 +129,7 @@ def test_schema_from_df(df):
     # now for the features registry
     features = ln.Feature.from_df(df)
     ln.save(features)
-    schema = ln.Schema.from_df(df)
-    schema.save()
+    schema = ln.Schema.from_df(df).save()
     assert schema.dtype is None
     ln.Schema.filter().all().delete()
     ln.Feature.filter().all().delete()

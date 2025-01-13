@@ -59,10 +59,10 @@ def test_registry__repr__artifact():
         .space: Space
         .storage: Storage
         .run: Run
+        .schema: Schema
         .created_by: User
         .ulabels: ULabel
         .input_of_runs: Run
-        ._schemas_m2m: Schema
         .collections: Collection
         .projects: Project
         .references: Reference
