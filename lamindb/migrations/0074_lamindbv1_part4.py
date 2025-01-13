@@ -2,28 +2,26 @@
 
 import django.db.models.deletion
 from django.db import migrations, models
-from django.db.models import F
-from django.db.models.functions import Coalesce
 
 import lamindb.base.fields
 
 
 def migrate_refs_to_aux(apps, schema_editor):
-    Reference = apps.get_model("your_app_name", "Reference")
+    Reference = apps.get_model("lamindb", "Reference")
 
-    # Update all records, handling NULL values appropriately
-    Reference.objects.all().update(
-        _aux=Coalesce(
-            models.functions.JSONObject(
-                adhoc=models.functions.JSONObject(
-                    preprint=F("preprint"),
-                    public=F("public"),
-                    journal=F("journal"),
-                )
-            ),
-            models.Value({"adhoc": {}}),
-        )
-    )
+    for ref in Reference.objects.all():
+        # Get existing _aux or initialize new dict
+        aux_data = ref._aux or {}
+
+        # Create or update the adhoc section
+        aux_data["adhoc"] = {
+            "preprint": ref.preprint,
+            "public": ref.public,
+            "journal": ref.journal,
+        }
+
+        ref._aux = aux_data
+        ref.save(update_fields=["_aux"])
 
 
 class Migration(migrations.Migration):
