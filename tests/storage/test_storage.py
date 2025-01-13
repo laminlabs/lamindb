@@ -355,8 +355,12 @@ def test_write_read_tiledbsoma(storage):
     # test correctness of deletion for _overwrite_versions=True
     soma_path = artifact_soma_append.path
     assert soma_path.exists()
-    # select middle version and delete
+    # select specific versions and delete
     # check that the store is stil there
+    artifact_soma_append.versions.filter(uid__endswith="0000").one().delete(
+        permanent=True
+    )
+    assert soma_path.exists()
     artifact_soma_append.versions.filter(uid__endswith="0001").one().delete(
         permanent=True
     )
