@@ -28,8 +28,8 @@ from .core._data import (
     _track_run_input,
     describe,
     get_run,
+    save__schemas_m2m,
     save_feature_set_links,
-    save_feature_sets,
 )
 from .core._mapped_collection import MappedCollection
 from .core._settings import settings
@@ -50,15 +50,15 @@ class CollectionFeatureManager:
     def __init__(self, collection: Collection):
         self._collection = collection
 
-    def get_feature_sets_union(self) -> dict[str, Schema]:
-        links_feature_set_artifact = Artifact.feature_sets.through.objects.filter(
+    def get__schemas_m2m_union(self) -> dict[str, Schema]:
+        links_feature_set_artifact = Artifact._schemas_m2m.through.objects.filter(
             artifact_id__in=self._collection.artifacts.values_list("id", flat=True)
         )
-        feature_sets_by_slots = defaultdict(list)
+        _schemas_m2m_by_slots = defaultdict(list)
         for link in links_feature_set_artifact:
-            feature_sets_by_slots[link.slot].append(link.schema_id)
-        feature_sets_union = {}
-        for slot, feature_set_ids_slot in feature_sets_by_slots.items():
+            _schemas_m2m_by_slots[link.slot].append(link.schema_id)
+        _schemas_m2m_union = {}
+        for slot, feature_set_ids_slot in _schemas_m2m_by_slots.items():
             feature_set_1 = Schema.get(id=feature_set_ids_slot[0])
             related_name = feature_set_1._get_related_name()
             features_registry = getattr(Schema, related_name).field.model
@@ -66,15 +66,15 @@ class CollectionFeatureManager:
             # evaluated on a link table with 16M entries connecting 500 feature sets with
             # 60k genes
             feature_ids = (
-                features_registry.feature_sets.through.objects.filter(
+                features_registry._schemas_m2m.through.objects.filter(
                     schema_id__in=feature_set_ids_slot
                 )
                 .values(f"{features_registry.__name__.lower()}_id")
                 .distinct()
             )
             features = features_registry.filter(id__in=feature_ids)
-            feature_sets_union[slot] = Schema(features, dtype=feature_set_1.dtype)
-        return feature_sets_union
+            _schemas_m2m_union[slot] = Schema(features, dtype=feature_set_1.dtype)
+        return _schemas_m2m_union
 
 
 def __init__(
@@ -335,7 +335,7 @@ def save(self, using: str | None = None) -> Collection:
     if self.meta_artifact is not None:
         self.meta_artifact.save()
     # we don't need to save feature sets again
-    save_feature_sets(self)
+    save__schemas_m2m(self)
     super(Collection, self).save()
     # we don't allow updating the collection of artifacts
     # if users want to update the set of artifacts, they

@@ -56,26 +56,26 @@ def get_run(run: Run | None) -> Run | None:
     return run
 
 
-def save_feature_sets(self: Artifact | Collection) -> None:
-    if hasattr(self, "_feature_sets"):
+def save__schemas_m2m(self: Artifact | Collection) -> None:
+    if hasattr(self, "__schemas_m2m"):
         from lamindb.core._feature_manager import get_feature_set_by_slot_
 
-        existing_feature_sets = get_feature_set_by_slot_(self)
-        saved_feature_sets = {}
-        for key, feature_set in self._feature_sets.items():
+        existing__schemas_m2m = get_feature_set_by_slot_(self)
+        saved__schemas_m2m = {}
+        for key, feature_set in self.__schemas_m2m.items():
             if isinstance(feature_set, Schema) and feature_set._state.adding:
                 feature_set.save()
-                saved_feature_sets[key] = feature_set
-            if key in existing_feature_sets:
+                saved__schemas_m2m[key] = feature_set
+            if key in existing__schemas_m2m:
                 # remove existing feature set on the same slot
-                self.feature_sets.remove(existing_feature_sets[key])
-        if len(saved_feature_sets) > 0:
-            s = "s" if len(saved_feature_sets) > 1 else ""
+                self._schemas_m2m.remove(existing__schemas_m2m[key])
+        if len(saved__schemas_m2m) > 0:
+            s = "s" if len(saved__schemas_m2m) > 1 else ""
             display_feature_set_keys = ",".join(
-                f"'{key}'" for key in saved_feature_sets.keys()
+                f"'{key}'" for key in saved__schemas_m2m.keys()
             )
             logger.save(
-                f"saved {len(saved_feature_sets)} feature set{s} for slot{s}:"
+                f"saved {len(saved__schemas_m2m)} feature set{s} for slot{s}:"
                 f" {display_feature_set_keys}"
             )
 
@@ -84,16 +84,16 @@ def save_feature_set_links(self: Artifact | Collection) -> None:
     from lamindb._save import bulk_create
 
     Data = self.__class__
-    if hasattr(self, "_feature_sets"):
+    if hasattr(self, "__schemas_m2m"):
         links = []
         host_id_field = get_host_id_field(self)
-        for slot, feature_set in self._feature_sets.items():
+        for slot, feature_set in self.__schemas_m2m.items():
             kwargs = {
                 host_id_field: self.id,
                 "schema_id": feature_set.id,
                 "slot": slot,
             }
-            links.append(Data.feature_sets.through(**kwargs))
+            links.append(Data._schemas_m2m.through(**kwargs))
         bulk_create(links, ignore_conflicts=True)
 
 
@@ -182,7 +182,7 @@ def _describe_sqlite(self: Artifact | Collection, print_types: bool = False):
         if isinstance(self, (Collection, Artifact)):
             many_to_many_fields.append("input_of_runs")
         if isinstance(self, Artifact):
-            many_to_many_fields.append("feature_sets")
+            many_to_many_fields.append("_schemas_m2m")
         self = (
             self.__class__.objects.using(self._state.db)
             .prefetch_related(*many_to_many_fields)
@@ -335,10 +335,10 @@ def add_labels(
     else:
         validate_feature(feature, records)  # type:ignore
         records_by_registry = defaultdict(list)
-        feature_sets = self.feature_sets.filter(registry="Feature").all()
+        _schemas_m2m = self._schemas_m2m.filter(registry="Feature").all()
         internal_features = set()  # type: ignore
-        if len(feature_sets) > 0:
-            for feature_set in feature_sets:
+        if len(_schemas_m2m) > 0:
+            for feature_set in _schemas_m2m:
                 internal_features = internal_features.union(
                     set(feature_set.members.values_list("name", flat=True))
                 )  # type: ignore

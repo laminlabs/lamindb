@@ -9,7 +9,7 @@ from spatialdata import SpatialData
 
 from lamindb.base.types import FieldAttr
 from lamindb.core._data import add_labels
-from lamindb.core._feature_manager import parse_feature_sets_from_anndata
+from lamindb.core._feature_manager import parse__schemas_m2m_from_anndata
 from lamindb.core._settings import settings
 from lamindb.core.exceptions import ValidationError
 from lamindb.curators import (
@@ -409,18 +409,18 @@ class SpatialDataCurator:
                     obs_fields = {}
                 assert host.otype == "spatialdata"  # noqa: S101
 
-                feature_sets = {}
+                _schemas_m2m = {}
 
                 # sample features
                 sample_features = Feature.from_values(self._sample_metadata.columns)
                 if len(sample_features) > 0:
-                    feature_sets[self._sample_metadata_key] = Schema(
+                    _schemas_m2m[self._sample_metadata_key] = Schema(
                         features=sample_features
                     )
 
                 # table features
                 for table, field in var_fields.items():
-                    table_fs = parse_feature_sets_from_anndata(
+                    table_fs = parse__schemas_m2m_from_anndata(
                         self._sdata[table],
                         var_field=field,
                         obs_field=obs_fields.get(table, Feature.name),
@@ -428,26 +428,26 @@ class SpatialDataCurator:
                         organism=organism,
                     )
                     for k, v in table_fs.items():
-                        feature_sets[f"['{table}'].{k}"] = v
+                        _schemas_m2m[f"['{table}'].{k}"] = v
 
-                def _unify_feature_sets_by_hash(
-                    feature_sets: MutableMapping[str, Schema],
+                def _unify__schemas_m2m_by_hash(
+                    _schemas_m2m: MutableMapping[str, Schema],
                 ):
                     unique_values: dict[str, Any] = {}
 
-                    for key, value in feature_sets.items():
+                    for key, value in _schemas_m2m.items():
                         value_hash = (
                             value.hash
                         )  # Assuming each value has a .hash attribute
                         if value_hash in unique_values:
-                            feature_sets[key] = unique_values[value_hash]
+                            _schemas_m2m[key] = unique_values[value_hash]
                         else:
                             unique_values[value_hash] = value
 
-                    return feature_sets
+                    return _schemas_m2m
 
                 # link feature sets
-                host._feature_sets = _unify_feature_sets_by_hash(feature_sets)
+                host.__schemas_m2m = _unify__schemas_m2m_by_hash(_schemas_m2m)
                 host.save()
 
             _add_set_from_spatialdata(

@@ -159,13 +159,13 @@ def test_from_consistent_artifacts(adata, adata2):
     assert "artifact_uid" in adata_joined.obs.columns
     assert artifact1.uid in adata_joined.obs.artifact_uid.cat.categories
 
-    feature_sets = collection.features.get_feature_sets_union()
-    assert set(feature_sets["var"].members.values_list("symbol", flat=True)) == {
+    _schemas_m2m = collection.features.get__schemas_m2m_union()
+    assert set(_schemas_m2m["var"].members.values_list("symbol", flat=True)) == {
         "MYC",
         "TCF7",
         "GATA1",
     }
-    assert set(feature_sets["obs"].members.values_list("name", flat=True)) == {"feat1"}
+    assert set(_schemas_m2m["obs"].members.values_list("name", flat=True)) == {"feat1"}
 
     # re-run with hash-based lookup
     collection2 = ln.Collection([artifact1, artifact2], name="My test 1", run=run)

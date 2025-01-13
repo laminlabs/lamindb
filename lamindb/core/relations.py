@@ -92,7 +92,7 @@ def get_related_name(features_type: type[Record]) -> str:
             f"Can't create feature sets from {features_type.__name__} because it's not"
             " related to it!\nYou need to create a link model between Schema and"
             " your Record in your custom module.\nTo do so, add a"
-            " line:\nfeature_sets = models.ManyToMany(Schema,"
+            " line:\n_schemas_m2m = models.ManyToMany(Schema,"
             " related_name='mythings')\n"
         )
     return candidates[0]

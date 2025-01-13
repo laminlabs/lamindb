@@ -62,7 +62,7 @@ def test_registry__repr__artifact():
         .created_by: User
         .ulabels: ULabel
         .input_of_runs: Run
-        .feature_sets: Schema
+        ._schemas_m2m: Schema
         .collections: Collection
         .projects: Project
         .references: Reference

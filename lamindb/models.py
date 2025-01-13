@@ -2459,8 +2459,8 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         return self.n_files
 
     @property
-    @deprecated("feature_sets")
-    def feature_sets(self) -> QuerySet[Schema]:
+    @deprecated("_schemas_m2m")
+    def _schemas_m2m(self) -> QuerySet[Schema]:
         return self._schemas_m2m
 
     @property

@@ -317,8 +317,8 @@ def test_create_from_dataframe_using_from_df_and_link_features(df):
     artifact.features._add_set_from_df()
     # mere access test right now
     artifact.features["columns"]
-    feature_set_queried = artifact.feature_sets.get()  # exactly one
-    feature_list_queried = ln.Feature.filter(feature_sets=feature_set_queried).list()
+    feature_set_queried = artifact._schemas_m2m.get()  # exactly one
+    feature_list_queried = ln.Feature.filter(_schemas_m2m=feature_set_queried).list()
     feature_list_queried = [feature.name for feature in feature_list_queried]
     assert set(feature_list_queried) == set(df.columns)
     artifact.delete(permanent=True, storage=True)
@@ -339,13 +339,13 @@ def test_create_from_anndata_in_memory_and_link_features(adata):
     assert not hasattr(artifact, "_local_filepath")
     # link features
     artifact.features._add_set_from_anndata(var_field=bt.Gene.symbol, organism="human")
-    feature_sets_queried = artifact.feature_sets.all()
-    features_queried = ln.Feature.filter(feature_sets__in=feature_sets_queried).all()
+    _schemas_m2m_queried = artifact._schemas_m2m.all()
+    features_queried = ln.Feature.filter(_schemas_m2m__in=_schemas_m2m_queried).all()
     assert set(features_queried.list("name")) == set(adata.obs.columns)
-    genes_queried = bt.Gene.filter(feature_sets__in=feature_sets_queried).all()
+    genes_queried = bt.Gene.filter(_schemas_m2m__in=_schemas_m2m_queried).all()
     assert set(genes_queried.list("symbol")) == set(adata.var.index)
     artifact.delete(permanent=True, storage=True)
-    feature_sets_queried.delete()
+    _schemas_m2m_queried.delete()
     features_queried.delete()
     genes_queried.delete()
 
