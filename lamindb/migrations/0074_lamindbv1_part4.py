@@ -2,8 +2,28 @@
 
 import django.db.models.deletion
 from django.db import migrations, models
+from django.db.models import F
+from django.db.models.functions import Coalesce
 
 import lamindb.base.fields
+
+
+def migrate_refs_to_aux(apps, schema_editor):
+    Reference = apps.get_model("your_app_name", "Reference")
+
+    # Update all records, handling NULL values appropriately
+    Reference.objects.all().update(
+        _aux=Coalesce(
+            models.functions.JSONObject(
+                adhoc=models.functions.JSONObject(
+                    preprint=F("preprint"),
+                    public=F("public"),
+                    journal=F("journal"),
+                )
+            ),
+            models.Value({"adhoc": {}}),
+        )
+    )
 
 
 class Migration(migrations.Migration):
@@ -224,6 +244,128 @@ class Migration(migrations.Migration):
                 default="00000000",
                 max_length=12,
                 unique=True,
+            ),
+        ),
+        # migrate references
+        migrations.RunPython(
+            migrate_refs_to_aux,
+        ),
+        # Then remove the old fields
+        migrations.RemoveField(
+            model_name="reference",
+            name="preprint",
+        ),
+        migrations.RemoveField(
+            model_name="reference",
+            name="public",
+        ),
+        migrations.RemoveField(
+            model_name="reference",
+            name="journal",
+        ),
+        migrations.AlterField(
+            model_name="artifact",
+            name="_aux",
+            field=lamindb.base.fields.JSONField(
+                blank=True, db_default=None, default=None, null=True
+            ),
+        ),
+        migrations.AlterField(
+            model_name="artifact",
+            name="_curator",
+            field=lamindb.base.fields.JSONField(
+                blank=True, db_default=None, default=None, null=True
+            ),
+        ),
+        migrations.AlterField(
+            model_name="collection",
+            name="_aux",
+            field=lamindb.base.fields.JSONField(
+                blank=True, db_default=None, default=None, null=True
+            ),
+        ),
+        migrations.AlterField(
+            model_name="feature",
+            name="_aux",
+            field=lamindb.base.fields.JSONField(
+                blank=True, db_default=None, default=None, null=True
+            ),
+        ),
+        migrations.AlterField(
+            model_name="featureset",
+            name="_aux",
+            field=lamindb.base.fields.JSONField(
+                blank=True, db_default=None, default=None, null=True
+            ),
+        ),
+        migrations.AlterField(
+            model_name="featurevalue",
+            name="_aux",
+            field=lamindb.base.fields.JSONField(
+                blank=True, db_default=None, default=None, null=True
+            ),
+        ),
+        migrations.AlterField(
+            model_name="param",
+            name="_aux",
+            field=lamindb.base.fields.JSONField(
+                blank=True, db_default=None, default=None, null=True
+            ),
+        ),
+        migrations.AlterField(
+            model_name="paramvalue",
+            name="_aux",
+            field=lamindb.base.fields.JSONField(
+                blank=True, db_default=None, default=None, null=True
+            ),
+        ),
+        migrations.AlterField(
+            model_name="person",
+            name="_aux",
+            field=lamindb.base.fields.JSONField(
+                blank=True, db_default=None, default=None, null=True
+            ),
+        ),
+        migrations.AlterField(
+            model_name="project",
+            name="_aux",
+            field=lamindb.base.fields.JSONField(
+                blank=True, db_default=None, default=None, null=True
+            ),
+        ),
+        migrations.AlterField(
+            model_name="reference",
+            name="_aux",
+            field=lamindb.base.fields.JSONField(
+                blank=True, db_default=None, default=None, null=True
+            ),
+        ),
+        migrations.AlterField(
+            model_name="run",
+            name="_aux",
+            field=lamindb.base.fields.JSONField(
+                blank=True, db_default=None, default=None, null=True
+            ),
+        ),
+        migrations.AlterField(
+            model_name="storage",
+            name="_aux",
+            field=lamindb.base.fields.JSONField(
+                blank=True, db_default=None, default=None, null=True
+            ),
+        ),
+        migrations.AlterField(
+            model_name="transform",
+            name="_aux",
+            field=lamindb.base.fields.JSONField(
+                blank=True, db_default=None, default=None, null=True
+            ),
+        ),
+        migrations.AlterField(
+            model_name="ulabel",
+            name="_aux",
+            field=lamindb.base.fields.JSONField(
+                blank=True, db_default=None, default=None, null=True
             ),
         ),
     ]

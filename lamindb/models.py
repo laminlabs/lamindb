@@ -35,6 +35,7 @@ from lamindb.base.fields import (
     EmailField,
     ForeignKey,
     IntegerField,
+    JSONField,
     OneToOneField,
     TextField,
     URLField,
@@ -868,9 +869,7 @@ class Record(BasicRecord, metaclass=Registry):
     """
     space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1)
     """The space in which the record lives."""
-    _aux: dict[str, Any] | None = models.JSONField(
-        default=None, db_default=None, null=True
-    )
+    _aux: dict[str, Any] | None = JSONField(default=None, db_default=None, null=True)
     """Auxiliary field for dictionary-like metadata."""
 
     def save(self, *args, **kwargs) -> Record:
@@ -2406,7 +2405,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         related_name="created_artifacts",
     )
     """Creator of record."""
-    _curator: dict[str, str] | None = models.JSONField(
+    _curator: dict[str, str] | None = JSONField(
         default=None, db_default=None, null=True
     )
     _overwrite_versions: bool = BooleanField(default=None)
@@ -3196,12 +3195,14 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         null=True,
     )
     """An abbreviation for the reference."""
-    type: Param | None = ForeignKey("self", PROTECT, null=True, related_name="records")
+    type: Reference | None = ForeignKey(
+        "self", PROTECT, null=True, related_name="records"
+    )
     """Type of reference (e.g., 'Study', 'Paper', 'Preprint').
 
     Allows to group reference by type, e.g., internal studies vs. all papers etc.
     """
-    records: Param
+    records: Reference
     """Records of this type."""
     is_type: bool = BooleanField(default=None, db_index=True, null=True)
     """Distinguish types from instances of the type."""
@@ -3220,16 +3221,10 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         ],
     )
     """Digital Object Identifier (DOI) for the reference."""
-    preprint: bool = BooleanField(default=False, db_index=True)
-    """Whether the reference is from a preprint."""
-    public: bool = BooleanField(default=True, db_index=True)
-    """Whether the reference is public."""
-    journal: str | None = TextField(null=True)
-    """Name of the journal."""
     description: str | None = TextField(null=True)
     """Description of the reference."""
     text: str | None = TextField(null=True)
-    """Abstract or full text of the reference."""
+    """Abstract or full text of the reference to make it searchable."""
     published_at: date | None = DateField(null=True, default=None)
     """Publication date."""
     authors: Person = models.ManyToManyField(Person, related_name="references")
