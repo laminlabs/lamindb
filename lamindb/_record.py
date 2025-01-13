@@ -808,6 +808,10 @@ def check_name_change(record: Record):
     ):
         return
 
+    # checked in check_key_change or not checked at all
+    if isinstance(record, (Artifact, Collection, Transform)):
+        return
+
     # renaming feature sets is not checked
     if isinstance(record, FeatureSet):
         return
