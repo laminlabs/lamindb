@@ -24,7 +24,10 @@ from lamindb._artifact import (
     process_data,
 )
 from lamindb.core._settings import settings
-from lamindb.core.exceptions import IntegrityError, InvalidArgument
+from lamindb.core.exceptions import (
+    IntegrityError,
+    InvalidArgument,
+)
 from lamindb.core.loaders import load_fcs, load_to_memory, load_tsv
 from lamindb.core.storage._zarr import write_adata_zarr, zarr_is_adata
 from lamindb.core.storage.paths import (
@@ -207,6 +210,11 @@ def test_revise_artifact(df, adata):
     assert artifact_r2.path.exists()
     assert artifact_r2._revises is None
 
+    # modify key to have a different suffix is not allowed
+    with pytest.raises(InvalidArgument) as error:
+        artifact_r2.key = "my-test-dataset.suffix"
+        artifact_r2.save()
+
     # create new file from newly versioned file
     df.iloc[0, 0] = 0  # mutate dataframe so that hash lookup doesn't trigger
     artifact_r3 = ln.Artifact.from_df(
@@ -218,9 +226,11 @@ def test_revise_artifact(df, adata):
     assert artifact_r3.description == "test1"
 
     # revise by matching on `key`
+    artifact_r2.suffix = ".parquet"  # this has to be .parquet
     key = "my-test-dataset.parquet"
     artifact_r2.key = key
     artifact_r2.save()
+
     artifact_r3 = ln.Artifact.from_df(df, description="test1", key=key, version="2")
     assert artifact_r3.uid.endswith("0002")
     assert artifact_r3.stem_uid == artifact.stem_uid
@@ -442,6 +452,13 @@ def test_create_from_local_filepath(
     else:
         assert artifact.key == key
         assert artifact._key_is_virtual == key_is_virtual
+        # changing non-virtual key is not allowed
+        if not key_is_virtual:
+            with pytest.raises(InvalidArgument) as error:
+                artifact.key = "new_key"
+                artifact.save()
+            # need to change the key back to the original key
+            artifact.key = key
         if is_in_registered_storage:
             # this would only hit if the key matches the correct key
             assert artifact.storage.root == root_dir.resolve().as_posix()
