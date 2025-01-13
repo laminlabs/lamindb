@@ -26,7 +26,6 @@ rest
 :hidden:
 
 bionty
-ourprojects
 wetlab
 clinicore
 cellregistry

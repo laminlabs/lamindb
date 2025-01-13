@@ -13,6 +13,3 @@
 [submodule "sub/clinicore"]
 	path = sub/clinicore
 	url = https://github.com/laminlabs/clinicore
-[submodule "sub/ourprojects"]
-	path = sub/ourprojects
-	url = https://github.com/laminlabs/ourprojects

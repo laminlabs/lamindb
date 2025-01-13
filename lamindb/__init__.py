@@ -1,28 +1,37 @@
 """A data framework for biology.
 
-Core registries.
-
-.. autosummary::
-   :toctree: .
-
-   Artifact
-   Collection
-   Transform
-   Run
-   User
-   Storage
-   ULabel
-   Feature
-   FeatureSet
-   Param
-
-Key functionality.
+Tracking notebooks & scripts.
 
 .. autosummary::
    :toctree: .
 
    track
    finish
+
+Registries.
+
+.. autosummary::
+   :toctree: .
+
+   Artifact
+   Transform
+   ULabel
+   Run
+   User
+   Storage
+   Feature
+   FeatureSet
+   Param
+   Collection
+   Project
+   Reference
+   Person
+
+Key functionality.
+
+.. autosummary::
+   :toctree: .
+
    connect
    Curator
    view
@@ -44,7 +53,7 @@ Modules and settings.
 """
 
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
-__version__ = "1.0a2"
+__version__ = "1.0a3"
 
 from lamindb_setup._check_setup import InstanceNotSetupError as _InstanceNotSetupError
 from lamindb_setup._check_setup import _check_instance_setup
@@ -87,6 +96,9 @@ if _check_instance_setup(from_module="lamindb"):
         Feature,
         FeatureSet,
         Param,
+        Person,
+        Project,
+        Reference,
         Run,
         Storage,
         Transform,

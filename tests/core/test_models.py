@@ -64,6 +64,8 @@ def test_registry__repr__artifact():
         .input_of_runs: Run
         .feature_sets: FeatureSet
         .collections: Collection
+        .projects: Project
+        .references: Reference
       Bionty fields
         .organisms: bionty.Organism
         .genes: bionty.Gene
