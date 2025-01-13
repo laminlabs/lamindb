@@ -41,4 +41,76 @@ class Migration(migrations.Migration):
                 blank=True, db_index=True, default=None, max_length=150
             ),
         ),
+        migrations.AddField(
+            model_name="feature",
+            name="is_type",
+            field=lamindb.base.fields.BooleanField(
+                blank=True, db_index=True, default=None, null=True
+            ),
+        ),
+        migrations.AddField(
+            model_name="featureset",
+            name="is_type",
+            field=lamindb.base.fields.BooleanField(
+                blank=True, db_index=True, default=None, null=True
+            ),
+        ),
+        migrations.AddField(
+            model_name="featureset",
+            name="type",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="records",
+                to="lamindb.featureset",
+            ),
+        ),
+        migrations.AddField(
+            model_name="param",
+            name="is_type",
+            field=lamindb.base.fields.BooleanField(
+                blank=True, db_index=True, default=None, null=True
+            ),
+        ),
+        migrations.AddField(
+            model_name="reference",
+            name="is_type",
+            field=lamindb.base.fields.BooleanField(
+                blank=True, db_index=True, default=None, null=True
+            ),
+        ),
+        migrations.AddField(
+            model_name="reference",
+            name="type",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="records",
+                to="lamindb.reference",
+            ),
+        ),
+        migrations.AlterField(
+            model_name="feature",
+            name="type",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="records",
+                to="lamindb.feature",
+            ),
+        ),
+        migrations.AlterField(
+            model_name="param",
+            name="type",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="records",
+                to="lamindb.param",
+            ),
+        ),
     ]

@@ -1312,8 +1312,15 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
     For categorical types, can define from which registry values are
     sampled, e.g., `cat[ULabel]` or `cat[bionty.CellType]`.
     """
-    type = CharField(max_length=100, null=True, blank=True, db_index=True)
-    """Param type - a free form type (e.g., 'pipeline', 'model_training', 'post_processing')."""
+    type: Param | None = ForeignKey("self", PROTECT, null=True, related_name="records")
+    """Type of param (e.g., 'Pipeline', 'ModelTraining', 'PostProcessing').
+
+    Allows to group features by type, e.g., all read outs, all metrics, etc.
+    """
+    records: Param
+    """Records of this type."""
+    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    """Distinguish types from instances of the type."""
     _expect_many: bool = models.BooleanField(default=False, db_default=False)
     """Indicates whether values for this param are expected to occur a single or multiple times for an artifact/run (default `False`).
 
@@ -1629,7 +1636,10 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     records: ULabel
     """Records of this type."""
     is_type: bool = BooleanField(default=None, db_index=True, null=True)
-    """Distinguish types (meta-labels) from labels that are meant for labeling datasets; for instance, a ulabel "Project" would be a type, and the actual projects "Project 1", "Project 2", would be records of that `type`."""
+    """Distinguish types from instances of the type.
+
+    For example, a ulabel "Project" would be a type, and the actual projects "Project 1", "Project 2", would be records of that `type`.
+    """
     description: str | None = TextField(null=True)
     """A description (optional)."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
@@ -1783,8 +1793,17 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     sampled, e.g., `'cat[ULabel]'` or `'cat[bionty.CellType]'`. Unions are also
     allowed if the feature samples from two registries, e.g., `'cat[ULabel|bionty.CellType]'`
     """
-    type = CharField(max_length=100, null=True, blank=True, db_index=True)
-    """Feature type - a free form type (e.g., 'readout', 'metric', 'metadata', 'expert_annotation', 'model_prediction')."""
+    type: Feature | None = ForeignKey(
+        "self", PROTECT, null=True, related_name="records"
+    )
+    """Type of feature (e.g., 'Readout', 'Metric', 'Metadata', 'ExpertAnnotation', 'ModelPrediction').
+
+    Allows to group features by type, e.g., all read outs, all metrics, etc.
+    """
+    records: Feature
+    """Records of this type."""
+    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    """Distinguish types from instances of the type."""
     unit: str | None = CharField(max_length=30, db_index=True, null=True)
     """Unit of measure, ideally SI (`m`, `s`, `kg`, etc.) or 'normalized' etc. (optional)."""
     description: str | None = TextField(db_index=True, null=True)
@@ -1996,6 +2015,17 @@ class FeatureSet(Record, CanCurate, TracksRun):
 
     For :class:`~lamindb.Feature`, types are expected to be heterogeneous and defined on a per-feature level.
     """
+    type: Feature | None = ForeignKey(
+        "self", PROTECT, null=True, related_name="records"
+    )
+    """Type of feature set (e.g., 'ExpressionPanel', 'ProteinPanel', 'Multimodal', 'Metadata', 'Embedding').
+
+    Allows to group feature sets by type, e.g., all meassurements evaluating gene expression vs. protein expression vs. multi modal.
+    """
+    records: Feature
+    """Records of this type."""
+    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    """Distinguish types from instances of the type."""
     registry: str = CharField(max_length=120, db_index=True)
     """The registry that stores the feature identifiers, e.g., `'Feature'` or `'bionty.Gene'`.
 
@@ -3148,6 +3178,15 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         null=True,
     )
     """A unique abbreviation for the reference."""
+    type: Param | None = ForeignKey("self", PROTECT, null=True, related_name="records")
+    """Type of reference (e.g., 'Study', 'Paper', 'Preprint').
+
+    Allows to group reference by type, e.g., internal studies vs. all papers etc.
+    """
+    records: Param
+    """Records of this type."""
+    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    """Distinguish types from instances of the type."""
     url: str | None = URLField(null=True)
     """URL linking to the reference."""
     pubmed_id: int | None = BigIntegerField(null=True, db_index=True)
