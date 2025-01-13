@@ -814,6 +814,14 @@ class Space(BasicRecord):
     """Internal id, valid only in one DB instance."""
     name: str = models.CharField(max_length=100, db_index=True)
     """Name of space."""
+    uid: str = CharField(
+        unique=True,
+        max_length=12,
+        default="00000000",
+        db_default="00000000",
+        db_index=True,
+    )
+    """Universal id."""
     description: str | None = CharField(null=True)
     """Description of space."""
     created_at: datetime = DateTimeField(auto_now_add=True, db_index=True)
@@ -860,7 +868,7 @@ class Record(BasicRecord, metaclass=Registry):
     """
     space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1)
     """The space in which the record lives."""
-    aux: dict[str, Any] | None = models.JSONField(
+    _aux: dict[str, Any] | None = models.JSONField(
         default=None, db_default=None, null=True
     )
     """Auxiliary field for dictionary-like metadata."""
