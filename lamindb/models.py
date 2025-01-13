@@ -3172,8 +3172,6 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         ...     url="https://doi.org/10.1000/xyz123",
         ...     pubmed_id=12345678,
         ...     doi="10.1000/xyz123",
-        ...     preprint=False,
-        ...     journal="Nature Biotechnology",
         ...     description="A groundbreaking research paper.",
         ...     text="A really informative abstract.",
         ...     published_at=date(2023, 11, 21),
@@ -3225,8 +3223,8 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Description of the reference."""
     text: str | None = TextField(null=True)
     """Abstract or full text of the reference to make it searchable."""
-    published_at: date | None = DateField(null=True, default=None)
-    """Publication date."""
+    date: date | None = DateField(null=True, default=None)
+    """Date of creation or publication of the reference."""
     authors: Person = models.ManyToManyField(Person, related_name="references")
     """All people associated with this reference."""
     artifacts: Artifact = models.ManyToManyField(

@@ -368,4 +368,9 @@ class Migration(migrations.Migration):
                 blank=True, db_default=None, default=None, null=True
             ),
         ),
+        migrations.RenameField(
+            model_name="reference",
+            old_name="published_at",
+            new_name="date",
+        ),
     ]
