@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from collections import defaultdict
+from datetime import date, datetime  # noqa: TC003
 from itertools import chain
 from typing import (
     TYPE_CHECKING,
@@ -52,10 +53,6 @@ from .base.users import current_user_id
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-    from datetime import (  # noqa: F401  otherwise type-hint-based validation fails
-        date,
-        datetime,
-    )
     from pathlib import Path
 
     import numpy as np
