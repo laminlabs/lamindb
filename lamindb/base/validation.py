@@ -21,9 +21,12 @@ def validate_literal_fields(record: "Record", kwargs) -> None:
     Raises:
         ValidationError: If any field value is not in its Literal's allowed values
     """
+    # check is based on string to avoid circular imports
     if record.__class__.__name__ == "Feature":
         # the FeatureDtype is more complicated than a simple literal
         # because it allows constructs like cat[ULabel] etc.
+        # the User model is used at startup and throws a datetime-related error otherwise
+        # simmilar for Storage & Source
         return None
     try:
         type_hints = get_type_hints(record.__class__)

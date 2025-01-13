@@ -52,7 +52,10 @@ from .base.users import current_user_id
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-    from datetime import date, datetime
+    from datetime import (  # noqa: F401  otherwise type-hint-based validation fails
+        date,
+        datetime,
+    )
     from pathlib import Path
 
     import numpy as np

@@ -10,6 +10,124 @@ import lamindb.base.users
 import lamindb.models
 
 
+def migrate_data(apps, schema_editor):
+    """Check if source table exists and run migration if it does."""
+    db = schema_editor.connection
+    cursor = db.cursor()
+
+    # Check if table exists - works in both SQLite and PostgreSQL
+    if db.vendor == "sqlite":
+        cursor.execute("""
+            SELECT count(*)
+            FROM sqlite_master
+            WHERE type='table' AND name='ourprojects_reference';
+        """)
+    else:  # postgresql
+        cursor.execute("""
+            SELECT count(*)
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
+            AND table_name = 'ourprojects_reference';
+        """)
+
+    table_exists = cursor.fetchone()[0] > 0
+    if not table_exists:
+        return
+
+    # Get initial counts
+    cursor.execute("SELECT COUNT(*) FROM ourprojects_reference")
+    old_count = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM lamindb_reference")
+    initial_target_count = cursor.fetchone()[0]
+
+    # Begin transaction
+    cursor.execute("BEGIN")
+    try:
+        # Copy core tables
+        cursor.execute("""
+            INSERT INTO lamindb_reference
+            SELECT * FROM ourprojects_reference
+        """)
+
+        cursor.execute("""
+            INSERT INTO lamindb_person
+            SELECT * FROM ourprojects_person
+        """)
+
+        cursor.execute("""
+            INSERT INTO lamindb_project
+            SELECT * FROM ourprojects_project
+        """)
+
+        # Copy many-to-many relationships
+        cursor.execute("""
+            INSERT INTO lamindb_artifactreference
+            SELECT * FROM ourprojects_artifactreference
+        """)
+
+        cursor.execute("""
+            INSERT INTO lamindb_transformreference
+            SELECT * FROM ourprojects_transformreference
+        """)
+
+        cursor.execute("""
+            INSERT INTO lamindb_collectionreference
+            SELECT * FROM ourprojects_collectionreference
+        """)
+
+        cursor.execute("""
+            INSERT INTO lamindb_artifactproject
+            SELECT * FROM ourprojects_artifactproject
+        """)
+
+        cursor.execute("""
+            INSERT INTO lamindb_transformproject
+            SELECT * FROM ourprojects_transformproject
+        """)
+
+        cursor.execute("""
+            INSERT INTO lamindb_collectionproject
+            SELECT * FROM ourprojects_collectionproject
+        """)
+
+        # Verify migration
+        cursor.execute("SELECT COUNT(*) FROM lamindb_reference")
+        final_count = cursor.fetchone()[0]
+        expected_count = initial_target_count + old_count
+
+        if final_count == expected_count:
+            # Clean up ourprojects content
+            cursor.execute("DELETE FROM django_migrations WHERE app = 'ourprojects'")
+
+            # Drop tables - using standard SQL
+            tables = [
+                "ourprojects_reference",
+                "ourprojects_person",
+                "ourprojects_project",
+                "ourprojects_artifactreference",
+                "ourprojects_transformreference",
+                "ourprojects_collectionreference",
+                "ourprojects_artifactproject",
+                "ourprojects_transformproject",
+                "ourprojects_collectionproject",
+            ]
+
+            for table in tables:
+                if db.vendor == "sqlite":
+                    cursor.execute(f"DROP TABLE IF EXISTS {table}")
+                else:  # postgresql
+                    cursor.execute(f"DROP TABLE IF EXISTS {table} CASCADE")
+
+            cursor.execute("COMMIT")
+        else:
+            cursor.execute("ROLLBACK")
+            raise Exception("Migration failed: Record count mismatch")
+
+    except Exception as e:
+        cursor.execute("ROLLBACK")
+        raise e
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("lamindb", "0072_remove_user__branch_code_remove_user_aux_and_more"),
@@ -769,5 +887,8 @@ class Migration(migrations.Migration):
         migrations.AlterUniqueTogether(
             name="artifactreference",
             unique_together={("artifact", "reference", "feature")},
+        ),
+        migrations.RunPython(
+            migrate_data,
         ),
     ]
