@@ -191,6 +191,9 @@ def get_featureset_m2m_relations(
     related_names = {}
     for name in m2m_relations:
         related_model = get_related_model(FeatureSet, name)
+        if related_model is FeatureSet:
+            # this is for the `type` field
+            continue
         name_field = get_name_field(related_model)
 
         # Get the correct field names for the through table

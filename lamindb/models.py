@@ -35,6 +35,7 @@ from lamindb.base.fields import (
     EmailField,
     ForeignKey,
     IntegerField,
+    JSONField,
     OneToOneField,
     TextField,
     URLField,
@@ -814,6 +815,14 @@ class Space(BasicRecord):
     """Internal id, valid only in one DB instance."""
     name: str = models.CharField(max_length=100, db_index=True)
     """Name of space."""
+    uid: str = CharField(
+        unique=True,
+        max_length=12,
+        default="00000000",
+        db_default="00000000",
+        db_index=True,
+    )
+    """Universal id."""
     description: str | None = CharField(null=True)
     """Description of space."""
     created_at: datetime = DateTimeField(auto_now_add=True, db_index=True)
@@ -860,9 +869,7 @@ class Record(BasicRecord, metaclass=Registry):
     """
     space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1)
     """The space in which the record lives."""
-    aux: dict[str, Any] | None = models.JSONField(
-        default=None, db_default=None, null=True
-    )
+    _aux: dict[str, Any] | None = JSONField(default=None, db_default=None, null=True)
     """Auxiliary field for dictionary-like metadata."""
 
     def save(self, *args, **kwargs) -> Record:
@@ -1312,8 +1319,15 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
     For categorical types, can define from which registry values are
     sampled, e.g., `cat[ULabel]` or `cat[bionty.CellType]`.
     """
-    type = CharField(max_length=100, null=True, blank=True, db_index=True)
-    """Param type - a free form type (e.g., 'pipeline', 'model_training', 'post_processing')."""
+    type: Param | None = ForeignKey("self", PROTECT, null=True, related_name="records")
+    """Type of param (e.g., 'Pipeline', 'ModelTraining', 'PostProcessing').
+
+    Allows to group features by type, e.g., all read outs, all metrics, etc.
+    """
+    records: Param
+    """Records of this type."""
+    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    """Distinguish types from instances of the type."""
     _expect_many: bool = models.BooleanField(default=False, db_default=False)
     """Indicates whether values for this param are expected to occur a single or multiple times for an artifact/run (default `False`).
 
@@ -1594,12 +1608,12 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
 
         Create a new label:
 
-        >>> my_project = ln.ULabel(name="My project").save()
+        >>> train_split = ln.ULabel(name="train").save()
 
         Organize labels in a hierarchy:
 
-        >>> is_project = ln.ULabel(name="is_project").save()
-        >>> my_project.parents.add(is_project)
+        >>> split_type = ln.ULabel(name="Split", is_type=True).save()
+        >>> train_split = ln.ULabel(name="train", type="split_type").save()
 
         Label an artifact:
 
@@ -1607,7 +1621,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
 
         Query by `ULabel`:
 
-        >>> ln.Artifact.filter(ulabels=project)
+        >>> ln.Artifact.filter(ulabels=train_split)
     """
 
     class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
@@ -1619,10 +1633,20 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Internal id, valid only in one DB instance."""
     uid: str = CharField(unique=True, db_index=True, max_length=8, default=base62_8)
     """A universal random id, valid across DB instances."""
-    name: str = CharField(max_length=150, db_index=True, unique=True)
+    name: str = CharField(max_length=150, db_index=True)
     """Name or title of ulabel (`unique=True`)."""
-    is_concept: bool = BooleanField(default=False, db_default=False)
-    """Distinguish mere ontological parents from labels that are meant to be used for labeling; for instance, you would never want to label an artifact with a ulabel Project, you'll only want to label with actual project values Project 1, Project 2, etc."""
+    type: ULabel | None = ForeignKey("self", PROTECT, null=True, related_name="records")
+    """Type of ulabel, e.g., `"donor"`, `"split"`, etc.
+
+    Allows to group ulabels by type, e.g., all donors, all split ulabels, etc.
+    """
+    records: ULabel
+    """Records of this type."""
+    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    """Distinguish types from instances of the type.
+
+    For example, a ulabel "Project" would be a type, and the actual projects "Project 1", "Project 2", would be records of that `type`.
+    """
     description: str | None = TextField(null=True)
     """A description (optional)."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
@@ -1632,9 +1656,17 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     parents: ULabel = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
-    """Parent entities of this ulabel."""
+    """Parent entities of this ulabel.
+
+    For advanced use cases, you can build an ontology under a given `type`.
+
+    Say, if you modeled `CellType` as a `ULabel`, you would introduce a type `CellType` and model the hiearchy of cell types under it.
+    """
     children: ULabel
-    """Child entities of this ulabel."""
+    """Child entities of this ulabel.
+
+    Reverse accessor for parents.
+    """
     transforms: Transform
     """Transforms annotated with this ulabel."""
     artifacts: Artifact
@@ -1768,8 +1800,17 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     sampled, e.g., `'cat[ULabel]'` or `'cat[bionty.CellType]'`. Unions are also
     allowed if the feature samples from two registries, e.g., `'cat[ULabel|bionty.CellType]'`
     """
-    type = CharField(max_length=100, null=True, blank=True, db_index=True)
-    """Feature type - a free form type (e.g., 'readout', 'metric', 'metadata', 'expert_annotation', 'model_prediction')."""
+    type: Feature | None = ForeignKey(
+        "self", PROTECT, null=True, related_name="records"
+    )
+    """Type of feature (e.g., 'Readout', 'Metric', 'Metadata', 'ExpertAnnotation', 'ModelPrediction').
+
+    Allows to group features by type, e.g., all read outs, all metrics, etc.
+    """
+    records: Feature
+    """Records of this type."""
+    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    """Distinguish types from instances of the type."""
     unit: str | None = CharField(max_length=30, db_index=True, null=True)
     """Unit of measure, ideally SI (`m`, `s`, `kg`, etc.) or 'normalized' etc. (optional)."""
     description: str | None = TextField(db_index=True, null=True)
@@ -1981,6 +2022,17 @@ class FeatureSet(Record, CanCurate, TracksRun):
 
     For :class:`~lamindb.Feature`, types are expected to be heterogeneous and defined on a per-feature level.
     """
+    type: Feature | None = ForeignKey(
+        "self", PROTECT, null=True, related_name="records"
+    )
+    """Type of feature set (e.g., 'ExpressionPanel', 'ProteinPanel', 'Multimodal', 'Metadata', 'Embedding').
+
+    Allows to group feature sets by type, e.g., all meassurements evaluating gene expression vs. protein expression vs. multi modal.
+    """
+    records: Feature
+    """Records of this type."""
+    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    """Distinguish types from instances of the type."""
     registry: str = CharField(max_length=120, db_index=True)
     """The registry that stores the feature identifiers, e.g., `'Feature'` or `'bionty.Gene'`.
 
@@ -2353,7 +2405,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         related_name="created_artifacts",
     )
     """Creator of record."""
-    _curator: dict[str, str] | None = models.JSONField(
+    _curator: dict[str, str] | None = JSONField(
         default=None, db_default=None, null=True
     )
     _overwrite_versions: bool = BooleanField(default=None)
@@ -3077,14 +3129,21 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Universal id, valid across DB instances."""
     name: str = CharField(db_index=True)
     """Title or name of the Project."""
-    abbr: str | None = CharField(max_length=32, db_index=True, unique=True, null=True)
-    """A unique abbreviation."""
+    type: str | None = CharField(max_length=64, db_index=True, null=True)
+    """A free-form type."""
+    abbr: str | None = CharField(max_length=32, db_index=True, null=True)
+    """An abbreviation."""
     url: str | None = URLField(max_length=255, null=True, default=None)
-    """A URL to view."""
-    contributors: Person = models.ManyToManyField(Person, related_name="projects")
-    """Contributors associated with this project."""
-    references: Reference = models.ManyToManyField("Reference", related_name="projects")
-    """References associated with this project."""
+    """A URL."""
+    parents: Project = models.ManyToManyField(
+        "self", symmetrical=False, related_name="children"
+    )
+    """Parent projects."""
+    children: Project
+    """Child projects.
+
+    Reverse accessor for parents.
+    """
     artifacts: Artifact = models.ManyToManyField(
         Artifact, through="ArtifactProject", related_name="projects"
     )
@@ -3097,6 +3156,10 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         Collection, through="CollectionProject", related_name="projects"
     )
     """Collections labeled with this project."""
+    persons: Person = models.ManyToManyField(Person, related_name="projects")
+    """Persons associated with this project."""
+    references: Reference = models.ManyToManyField("Reference", related_name="projects")
+    """References associated with this project."""
 
 
 class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
@@ -3109,11 +3172,9 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         ...     url="https://doi.org/10.1000/xyz123",
         ...     pubmed_id=12345678,
         ...     doi="10.1000/xyz123",
-        ...     preprint=False,
-        ...     journal="Nature Biotechnology",
-        ...     description="A groundbreaking research paper.",
-        ...     text="A really informative abstract.",
-        ...     published_at=date(2023, 11, 21),
+        ...     description="Good paper.",
+        ...     text="Some text I want to be searchable.",
+        ...     date=date(2023, 11, 21),
         ... ).save()
     """
 
@@ -3129,10 +3190,20 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     abbr: str | None = CharField(
         max_length=32,
         db_index=True,
-        unique=True,
         null=True,
     )
-    """A unique abbreviation for the reference."""
+    """An abbreviation for the reference."""
+    type: Reference | None = ForeignKey(
+        "self", PROTECT, null=True, related_name="records"
+    )
+    """Type of reference (e.g., 'Study', 'Paper', 'Preprint').
+
+    Allows to group reference by type, e.g., internal studies vs. all papers etc.
+    """
+    records: Reference
+    """Records of this type."""
+    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    """Distinguish types from instances of the type."""
     url: str | None = URLField(null=True)
     """URL linking to the reference."""
     pubmed_id: int | None = BigIntegerField(null=True, db_index=True)
@@ -3148,18 +3219,12 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         ],
     )
     """Digital Object Identifier (DOI) for the reference."""
-    preprint: bool = BooleanField(default=False, db_index=True)
-    """Whether the reference is from a preprint."""
-    public: bool = BooleanField(default=True, db_index=True)
-    """Whether the reference is public."""
-    journal: str | None = TextField(null=True)
-    """Name of the journal."""
     description: str | None = TextField(null=True)
     """Description of the reference."""
     text: str | None = TextField(null=True)
-    """Abstract or full text of the reference."""
-    published_at: date | None = DateField(null=True, default=None)
-    """Publication date."""
+    """Abstract or full text of the reference to make it searchable."""
+    date: date | None = DateField(null=True, default=None)
+    """Date of creation or publication of the reference."""
     authors: Person = models.ManyToManyField(Person, related_name="references")
     """All people associated with this reference."""
     artifacts: Artifact = models.ManyToManyField(

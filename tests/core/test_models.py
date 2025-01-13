@@ -17,14 +17,15 @@ def test_registry__repr__param():
       Simple fields
         .name: CharField
         .dtype: CharField
-        .type: CharField
+        .is_type: BooleanField
         .created_at: DateTimeField
         .updated_at: DateTimeField
-        .aux: JSONField
       Relational fields
         .created_by: User
         .run: Run
         .space: Space
+        .type: Param
+        .records: Param
         .values: ParamValue
     """).strip()
 
@@ -54,7 +55,6 @@ def test_registry__repr__artifact():
         .is_latest: BooleanField
         .created_at: DateTimeField
         .updated_at: DateTimeField
-        .aux: JSONField
       Relational fields
         .space: Space
         .storage: Storage
