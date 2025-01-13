@@ -1736,7 +1736,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
             Feature manager of an artifact or collection.
         :class:`~lamindb.ULabel`
             Universal labels.
-        :class:`~lamindb.FeatureSet`
+        :class:`~lamindb.Schema`
             Feature sets.
 
     Example:
@@ -1818,10 +1818,10 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     synonyms: str | None = TextField(null=True)
     """Bar-separated (|) synonyms (optional)."""
     # we define the below ManyToMany on the feature model because it parallels
-    # how other registries (like Gene, Protein, etc.) relate to FeatureSet
+    # how other registries (like Gene, Protein, etc.) relate to Schema
     # it makes the API more consistent
-    feature_sets: FeatureSet = models.ManyToManyField(
-        "FeatureSet", through="FeatureSetFeature", related_name="features"
+    schemas: Schema = models.ManyToManyField(
+        "Schema", through="SchemaFeature", related_name="features"
     )
     """Feature sets linked to this feature."""
     _expect_many: bool = models.BooleanField(default=True, db_default=True)
@@ -1933,7 +1933,7 @@ class FeatureValue(Record, TracksRun):
                 return cls.objects.get(feature=feature, hash=hash), True
 
 
-class FeatureSet(Record, CanCurate, TracksRun):
+class Schema(Record, CanCurate, TracksRun):
     """Feature sets.
 
     Stores references to sets of :class:`~lamindb.Feature` and other registries
@@ -1955,8 +1955,8 @@ class FeatureSet(Record, CanCurate, TracksRun):
         features: `Iterable[Record]` An iterable of :class:`~lamindb.Feature`
             records to hash, e.g., `[Feature(...), Feature(...)]`. Is turned into
             a set upon instantiation. If you'd like to pass values, use
-            :meth:`~lamindb.FeatureSet.from_values` or
-            :meth:`~lamindb.FeatureSet.from_df`.
+            :meth:`~lamindb.Schema.from_values` or
+            :meth:`~lamindb.Schema.from_df`.
         dtype: `str | None = None` The simple type. Defaults to
             `None` for sets of :class:`~lamindb.Feature` records.
             Otherwise defaults to `"num"` (e.g., for sets of :class:`~bionty.Gene`).
@@ -1972,34 +1972,33 @@ class FeatureSet(Record, CanCurate, TracksRun):
 
 
     See Also:
-        :meth:`~lamindb.FeatureSet.from_values`
+        :meth:`~lamindb.Schema.from_values`
             Create from values.
-        :meth:`~lamindb.FeatureSet.from_df`
+        :meth:`~lamindb.Schema.from_df`
             Create from dataframe columns.
 
     Examples:
 
-        Create a featureset from df with types:
+        Create a schema from df with types:
 
         >>> df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
-        >>> feature_set = ln.FeatureSet.from_df(df)
+        >>> schema = ln.Schema.from_df(df)
 
-        Create a featureset from features:
+        Create a schema from features:
 
         >>> features = [ln.Feature(name=feat, dtype="float").save() for feat in ["feat1", "feat2"]]
-        >>> feature_set = ln.FeatureSet(features)
+        >>> schema = ln.Schema(features)
 
-        Create a featureset from feature values:
+        Create a schema from feature values:
 
         >>> import bionty as bt
-        >>> feature_set = ln.FeatureSet.from_values(adata.var["ensemble_id"], Gene.ensembl_gene_id, organism="mouse")
-        >>> feature_set.save()
+        >>> schema = ln.Schema.from_values(adata.var["ensemble_id"], Gene.ensembl_gene_id, organism="mouse").save()
 
         Link a feature set to an artifact:
 
-        >>> artifact.features.add_feature_set(feature_set, slot="var")
+        >>> artifact.features.add_schema(schema, slot="var")
 
-        Link features to an artifact (will create a featureset under the hood):
+        Link features to an artifact (will create a schema under the hood):
 
         >>> artifact.features.add_values(features)
     """
@@ -2043,9 +2042,9 @@ class FeatureSet(Record, CanCurate, TracksRun):
     )
     """The hash of the set."""
     features: Feature
-    """The features related to a `FeatureSet` record."""
+    """The features related to a `Schema` record."""
     artifacts: Artifact
-    """The artifacts related to a `FeatureSet` record."""
+    """The artifacts related to a `Schema` record."""
 
     @overload
     def __init__(
@@ -2079,7 +2078,7 @@ class FeatureSet(Record, CanCurate, TracksRun):
         organism: Record | str | None = None,
         source: Record | None = None,
         raise_validation_error: bool = True,
-    ) -> FeatureSet:
+    ) -> Schema:
         """Create feature set for validated features.
 
         Args:
@@ -2099,10 +2098,10 @@ class FeatureSet(Record, CanCurate, TracksRun):
         Examples:
 
             >>> features = [ln.Feature(name=feat, dtype="str").save() for feat in ["feat11", "feat21"]]
-            >>> feature_set = ln.FeatureSet.from_values(features)
+            >>> schema = ln.Schema.from_values(features)
 
             >>> genes = ["ENSG00000139618", "ENSG00000198786"]
-            >>> feature_set = ln.FeatureSet.from_values(features, bt.Gene.ensembl_gene_id, "float")
+            >>> schema = ln.Schema.from_values(features, bt.Gene.ensembl_gene_id, "float")
         """
         pass
 
@@ -2115,11 +2114,11 @@ class FeatureSet(Record, CanCurate, TracksRun):
         mute: bool = False,
         organism: Record | str | None = None,
         source: Record | None = None,
-    ) -> FeatureSet | None:
+    ) -> Schema | None:
         """Create feature set for validated features."""
         pass
 
-    def save(self, *args, **kwargs) -> FeatureSet:
+    def save(self, *args, **kwargs) -> Schema:
         """Save."""
         pass
 
@@ -2379,8 +2378,8 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     """Sequence of runs that created or updated the record."""
     collections: Collection
     """The collections that this artifact is part of."""
-    feature_sets: FeatureSet = models.ManyToManyField(
-        FeatureSet, related_name="artifacts", through="ArtifactFeatureSet"
+    schemas: Schema = models.ManyToManyField(
+        Schema, related_name="artifacts", through="ArtifactSchema"
     )
     """The feature sets measured in the artifact."""
     _feature_values: FeatureValue = models.ManyToManyField(
@@ -3249,30 +3248,28 @@ class LinkORM:
     pass
 
 
-class FeatureSetFeature(BasicRecord, LinkORM):
+class SchemaFeature(BasicRecord, LinkORM):
     id: int = models.BigAutoField(primary_key=True)
     # we follow the lower() case convention rather than snake case for link models
-    featureset: FeatureSet = ForeignKey(FeatureSet, CASCADE, related_name="+")
+    schema: Schema = ForeignKey(Schema, CASCADE, related_name="+")
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="+")
 
     class Meta:
-        unique_together = ("featureset", "feature")
+        unique_together = ("schema", "feature")
 
 
-class ArtifactFeatureSet(BasicRecord, LinkORM, TracksRun):
+class ArtifactSchema(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
-    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_feature_set")
+    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_schema")
     # we follow the lower() case convention rather than snake case for link models
-    featureset: FeatureSet = ForeignKey(
-        FeatureSet, PROTECT, related_name="links_artifact"
-    )
+    schema: Schema = ForeignKey(Schema, PROTECT, related_name="links_artifact")
     slot: str | None = CharField(max_length=40, null=True)
     feature_ref_is_semantic: bool | None = BooleanField(
         null=True
     )  # like Feature name or Gene symbol or CellMarker name
 
     class Meta:
-        unique_together = ("artifact", "featureset")
+        unique_together = ("artifact", "schema")
 
 
 class CollectionArtifact(BasicRecord, LinkORM, TracksRun):
@@ -3733,3 +3730,4 @@ def deferred_attribute__repr__(self):
 FieldAttr.__repr__ = deferred_attribute__repr__  # type: ignore
 # backward compatibility
 CanValidate = CanCurate
+FeatureSet = Schema
