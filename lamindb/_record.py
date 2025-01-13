@@ -789,20 +789,20 @@ def save(self, *args, **kwargs) -> Record:
 def _store_record_old_name(record: Record):
     # writes the name to the _name attribute, so we can detect renaming upon save
     if hasattr(record, "_name_field"):
-        record._name = getattr(record, record._name_field)
+        record._old_name = getattr(record, record._name_field)
 
 
 def _store_record_old_key(record: Record):
-    # writes the key to the _key attribute, so we can detect key changes upon save
+    # writes the key to the _old_key attribute, so we can detect key changes upon save
     if isinstance(record, (Artifact, Transform)):
-        record._key = record.key
+        record._old_key = record.key
 
 
 def check_name_change(record: Record):
     """Warns if a record's name has changed."""
     if (
         not record.pk
-        or not hasattr(record, "_name")
+        or not hasattr(record, "_old_name")
         or not hasattr(record, "_name_field")
     ):
         return
@@ -811,7 +811,7 @@ def check_name_change(record: Record):
     if isinstance(record, FeatureSet):
         return
 
-    old_name = record._name
+    old_name = record._old_name
     new_name = getattr(record, record._name_field)
     registry = record.__class__.__name__
 
@@ -866,13 +866,20 @@ def check_name_change(record: Record):
 
 def check_key_change(record: Artifact | Transform):
     """Errors if a record's key has falsely changed."""
-    if isinstance(record, Artifact):
-        if not hasattr(record, "_key"):
-            return
+    if not isinstance(record, Artifact):
+        return
 
-        old_key = record._key or ""
-        new_key = record.key or ""
+    if not hasattr(record, "_old_key"):
+        return
 
+    old_key = record._old_key or ""
+    new_key = record.key or ""
+
+    if old_key != new_key:
+        if not record._key_is_virtual:
+            raise InvalidArgument(
+                f"Changing a non-virtual key of an artifact is not allowed! Tried to change key from '{old_key}' to '{new_key}'."
+            )
         old_key_suffix = (
             record.suffix
             if record.suffix
@@ -881,16 +888,10 @@ def check_key_change(record: Artifact | Transform):
         new_key_suffix = extract_suffix_from_path(
             PurePosixPath(new_key), arg_name="key"
         )
-
-        if old_key != new_key:
-            if not record._key_is_virtual:
-                raise InvalidArgument(
-                    f"Changing a non-virtual key of an artifact is not allowed! Tried to change key from '{old_key}' to '{new_key}'."
-                )
-            elif old_key_suffix != new_key_suffix:
-                raise InvalidArgument(
-                    f"The suffix '{new_key_suffix}' of the provided key is incorrect, it should be '{old_key_suffix}'."
-                )
+        if old_key_suffix != new_key_suffix:
+            raise InvalidArgument(
+                f"The suffix '{new_key_suffix}' of the provided key is incorrect, it should be '{old_key_suffix}'."
+            )
 
 
 def delete(self) -> None:
