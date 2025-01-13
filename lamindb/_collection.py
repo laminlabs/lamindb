@@ -18,7 +18,7 @@ from lamindb_setup.core.hashing import hash_set
 from lamindb.models import (
     Collection,
     CollectionArtifact,
-    FeatureSet,
+    Schema,
 )
 
 from ._parents import view_lineage
@@ -50,7 +50,7 @@ class CollectionFeatureManager:
     def __init__(self, collection: Collection):
         self._collection = collection
 
-    def get_feature_sets_union(self) -> dict[str, FeatureSet]:
+    def get_feature_sets_union(self) -> dict[str, Schema]:
         links_feature_set_artifact = Artifact.feature_sets.through.objects.filter(
             artifact_id__in=self._collection.artifacts.values_list("id", flat=True)
         )
@@ -59,9 +59,9 @@ class CollectionFeatureManager:
             feature_sets_by_slots[link.slot].append(link.schema_id)
         feature_sets_union = {}
         for slot, feature_set_ids_slot in feature_sets_by_slots.items():
-            feature_set_1 = FeatureSet.get(id=feature_set_ids_slot[0])
+            feature_set_1 = Schema.get(id=feature_set_ids_slot[0])
             related_name = feature_set_1._get_related_name()
-            features_registry = getattr(FeatureSet, related_name).field.model
+            features_registry = getattr(Schema, related_name).field.model
             # this way of writing the __in statement turned out to be the fastest
             # evaluated on a link table with 16M entries connecting 500 feature sets with
             # 60k genes
@@ -73,7 +73,7 @@ class CollectionFeatureManager:
                 .distinct()
             )
             features = features_registry.filter(id__in=feature_ids)
-            feature_sets_union[slot] = FeatureSet(features, dtype=feature_set_1.dtype)
+            feature_sets_union[slot] = Schema(features, dtype=feature_set_1.dtype)
         return feature_sets_union
 
 

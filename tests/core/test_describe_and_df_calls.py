@@ -243,7 +243,7 @@ def test_curate_df():
 
     artifact.delete(permanent=True)
     artifact2.delete(permanent=True)
-    ln.FeatureSet.filter().delete()
+    ln.Schema.filter().delete()
     ln.Feature.filter().delete()
     bt.Gene.filter().delete()
     ln.ULabel.filter().delete()

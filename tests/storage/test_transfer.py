@@ -108,7 +108,7 @@ def test_transfer_from_remote_to_local():
     artifact3.load()
 
     ln.Artifact.filter().delete(permanent=True, storage=False)
-    ln.FeatureSet.filter().delete()
+    ln.Schema.filter().delete()
     bt.Gene.filter().delete()
     bt.Organism.filter().delete()
     ln.ULabel.filter().delete()

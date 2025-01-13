@@ -20,7 +20,7 @@ Registries.
    User
    Storage
    Feature
-   FeatureSet
+   Schema
    Param
    Collection
    Project
@@ -94,12 +94,12 @@ if _check_instance_setup(from_module="lamindb"):
         Artifact,
         Collection,
         Feature,
-        FeatureSet,
         Param,
         Person,
         Project,
         Reference,
         Run,
+        Schema,
         Storage,
         Transform,
         ULabel,

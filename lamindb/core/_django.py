@@ -9,7 +9,7 @@ from django.db.models.fields.related import ForeignKey, ManyToManyField
 from django.db.models.fields.reverse_related import ManyToManyRel, ManyToOneRel
 from django.db.models.functions import JSONObject
 
-from lamindb.models import Artifact, FeatureSet, Record
+from lamindb.models import Artifact, Record, Schema
 
 from .relations import dict_related_model_to_related_name, get_schema_modules
 
@@ -181,21 +181,21 @@ def get_schema_m2m_relations(artifact: Artifact, slot_schema: dict, limit: int =
 
     m2m_relations = [
         v
-        for v in dict_related_model_to_related_name(FeatureSet).values()
+        for v in dict_related_model_to_related_name(Schema).values()
         if not v.startswith("_") and v != "artifacts"
     ]
 
     annotations = {}
     related_names = {}
     for name in m2m_relations:
-        related_model = get_related_model(FeatureSet, name)
-        if related_model is FeatureSet:
+        related_model = get_related_model(Schema, name)
+        if related_model is Schema:
             # this is for the `type` field
             continue
         name_field = get_name_field(related_model)
 
         # Get the correct field names for the through table
-        through_model = getattr(FeatureSet, name).through
+        through_model = getattr(Schema, name).through
 
         # Subquery to get limited related records
         limited_related = Subquery(
@@ -216,7 +216,7 @@ def get_schema_m2m_relations(artifact: Artifact, slot_schema: dict, limit: int =
         related_names[name] = related_model.__get_name_with_module__()
 
     schema_m2m = (
-        FeatureSet.objects.using(artifact._state.db)
+        Schema.objects.using(artifact._state.db)
         .filter(id__in=slot_schema.keys())
         .annotate(**annotations)
         .values("id", *annotations.keys())

@@ -3739,4 +3739,4 @@ def deferred_attribute__repr__(self):
 FieldAttr.__repr__ = deferred_attribute__repr__  # type: ignore
 # backward compatibility
 CanValidate = CanCurate
-FeatureSet = Schema
+Schema = Schema

@@ -48,11 +48,11 @@ from lamindb.models import (
     CanCurate,
     Collection,
     Feature,
-    FeatureSet,
     IsVersioned,
     Param,
     Record,
     Run,
+    Schema,
     Transform,
     ULabel,
     ValidateFields,
@@ -114,7 +114,7 @@ def validate_fields(record: Record, kwargs):
         Run,
         ULabel,
         Feature,
-        FeatureSet,
+        Schema,
         Param,
     }:
         uid_max_length = record.__class__._meta.get_field(
@@ -808,7 +808,7 @@ def check_name_change(record: Record):
         return
 
     # renaming feature sets is not checked
-    if isinstance(record, FeatureSet):
+    if isinstance(record, Schema):
         return
 
     old_name = record._name

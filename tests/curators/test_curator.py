@@ -186,7 +186,7 @@ def test_df_curator(df, categoricals):
     ln.ULabel.filter().delete()
     bt.ExperimentalFactor.filter().delete()
     bt.CellType.filter().delete()
-    ln.FeatureSet.filter().delete()
+    ln.Schema.filter().delete()
 
 
 def test_custom_using_invalid_field_lookup(curate_lookup):
@@ -322,7 +322,7 @@ def test_anndata_curator(adata, categoricals, to_add):
     ln.ULabel.filter().delete()
     bt.ExperimentalFactor.filter().delete()
     bt.CellType.filter().delete()
-    ln.FeatureSet.filter().delete()
+    ln.Schema.filter().delete()
     bt.Gene.filter().delete()
 
 
@@ -456,7 +456,7 @@ def test_mudata_curator(mdata):
     ln.ULabel.filter().delete()
     bt.ExperimentalFactor.filter().delete()
     bt.CellType.filter().delete()
-    ln.FeatureSet.filter().delete()
+    ln.Schema.filter().delete()
     bt.Gene.filter().delete()
 
 
@@ -602,7 +602,7 @@ def test_soma_curator(adata, categoricals, clean_soma_files):
     ln.ULabel.filter().delete()
     bt.ExperimentalFactor.filter().delete()
     bt.CellType.filter().delete()
-    ln.FeatureSet.filter().delete()
+    ln.Schema.filter().delete()
     ln.Feature.filter().delete()
     bt.Gene.filter().delete()
 
@@ -636,7 +636,7 @@ def test_soma_curator_genes_columns(adata, clean_soma_files):
     ln.ULabel.filter().delete()
     bt.ExperimentalFactor.filter().delete()
     bt.CellType.filter().delete()
-    ln.FeatureSet.filter().delete()
+    ln.Schema.filter().delete()
     ln.Feature.filter().delete()
     bt.Gene.filter().delete()
 
@@ -762,6 +762,6 @@ def test_spatialdata_curator():
     bt.ExperimentalFactor.filter().delete()
     bt.Disease.filter().delete()
     bt.DevelopmentalStage.filter().delete()
-    ln.FeatureSet.filter().delete()
+    ln.Schema.filter().delete()
     bt.Gene.filter().delete()
     ln.Feature.filter().delete()

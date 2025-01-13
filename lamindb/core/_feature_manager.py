@@ -24,7 +24,7 @@ from lamindb._feature import (
     convert_pandas_dtype_to_lamin_dtype,
     suggest_categorical_for_str_iterable,
 )
-from lamindb._feature_set import DICT_KEYS_TYPE, FeatureSet
+from lamindb._feature_set import DICT_KEYS_TYPE, Schema
 from lamindb._from_values import _format_values
 from lamindb._record import (
     REGISTRY_UNIQUE_FIELD,
@@ -332,7 +332,7 @@ def describe_features(
             fs_data = _get_schemas_postgres(self, related_data=related_data)
             for fs_id, (slot, data) in fs_data.items():
                 for registry_str, feature_names in data.items():
-                    feature_set = FeatureSet.objects.using(self._state.db).get(id=fs_id)
+                    feature_set = Schema.objects.using(self._state.db).get(id=fs_id)
                     feature_set_data[slot] = (feature_set, feature_names)
                     for feature_name in feature_names:
                         feature_data[feature_name] = (slot, registry_str)
@@ -528,7 +528,7 @@ def parse_feature_sets_from_anndata(
     if var_field is not None:
         logger.info("parsing feature names of X stored in slot 'var'")
         logger.indent = "   "
-        feature_set_var = FeatureSet.from_values(
+        feature_set_var = Schema.from_values(
             data_parse.var.index,
             var_field,
             type=type,
@@ -545,7 +545,7 @@ def parse_feature_sets_from_anndata(
     if len(data_parse.obs.columns) > 0:
         logger.info("parsing feature names of slot 'obs'")
         logger.indent = "   "
-        feature_set_obs = FeatureSet.from_df(
+        feature_set_obs = Schema.from_df(
             df=data_parse.obs,
             field=obs_field,
             mute=mute,
@@ -1049,11 +1049,11 @@ def remove_values(
         # we can clean the FeatureValue registry periodically if we want to
 
 
-def add_feature_set(self, feature_set: FeatureSet, slot: str) -> None:
+def add_feature_set(self, feature_set: Schema, slot: str) -> None:
     """Curate artifact with a feature set.
 
     Args:
-        feature_set: `FeatureSet` A feature set record.
+        feature_set: `Schema` A feature set record.
         slot: `str` The slot that marks where the feature set is stored in
             the artifact.
     """
@@ -1094,7 +1094,7 @@ def _add_set_from_df(
         # Collection
         assert self._host.artifact.otype == "DataFrame"  # noqa: S101
     df = self._host.load()
-    feature_set = FeatureSet.from_df(
+    feature_set = Schema.from_df(
         df=df,
         field=field,
         mute=mute,
@@ -1152,7 +1152,7 @@ def _add_set_from_mudata(
     feature_sets = {}
     obs_features = Feature.from_values(mdata.obs.columns)
     if len(obs_features) > 0:
-        feature_sets["obs"] = FeatureSet(features=obs_features)
+        feature_sets["obs"] = Schema(features=obs_features)
     for modality, field in var_fields.items():
         modality_fs = parse_feature_sets_from_anndata(
             mdata[modality],
@@ -1224,13 +1224,13 @@ def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
             save(new_members)
 
         # create a new feature set from feature values using the same uid
-        feature_set_self = FeatureSet.from_values(
+        feature_set_self = Schema.from_values(
             member_uids, field=getattr(registry, field)
         )
         if feature_set_self is None:
             if hasattr(registry, "organism_id"):
                 logger.warning(
-                    f"FeatureSet is not transferred, check if organism is set correctly: {feature_set}"
+                    f"Schema is not transferred, check if organism is set correctly: {feature_set}"
                 )
             continue
         # make sure the uid matches if schema is composed of same features
@@ -1249,7 +1249,7 @@ def make_external(self, feature: Feature) -> None:
     """
     if not isinstance(feature, Feature):
         raise TypeError("feature must be a Feature record!")
-    feature_sets = FeatureSet.filter(features=feature).all()
+    feature_sets = Schema.filter(features=feature).all()
     for fs in feature_sets:
         f = Feature.filter(uid=feature.uid).all()
         features_updated = fs.members.difference(f)
@@ -1260,7 +1260,7 @@ def make_external(self, feature: Feature) -> None:
             fs.n = len(features_updated)
             fs.save()
         # delete the link between the feature and the feature set
-        FeatureSet.features.through.objects.filter(
+        Schema.features.through.objects.filter(
             feature_id=feature.id, schema_id=fs.id
         ).delete()
         # if no members are left in the schema, delete it

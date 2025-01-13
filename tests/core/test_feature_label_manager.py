@@ -311,7 +311,7 @@ Here is how to create ulabels for them:
     # delete everything we created
     artifact.delete(permanent=True)
     ln.ULabel.filter().all().delete()
-    ln.FeatureSet.filter().all().delete()
+    ln.Schema.filter().all().delete()
     ln.Feature.filter().all().delete()
     bt.Gene.filter().all().delete()
     bt.Organism.filter().all().delete()
@@ -440,7 +440,7 @@ def test_labels_add(adata):
 
     artifact2.delete(permanent=True)
     artifact.delete(permanent=True)
-    ln.FeatureSet.filter().all().delete()
+    ln.Schema.filter().all().delete()
     ln.Feature.filter().all().delete()
     ln.ULabel.filter().all().delete()
 
@@ -468,7 +468,7 @@ def test_add_labels_using_anndata(adata):
     artifact = ln.Artifact.filter(description="Mini adata").one_or_none()
     if artifact is not None:
         artifact.delete(permanent=True, storage=True)
-    ln.FeatureSet.filter().all().delete()
+    ln.Schema.filter().all().delete()
 
     # try to construct without registering metadata features
     artifact = ln.Artifact.from_anndata(adata, description="Mini adata")
@@ -478,7 +478,7 @@ def test_add_labels_using_anndata(adata):
     # add feature set without saving file
     feature_name_feature = ln.Feature(name="feature name", dtype="cat[ULabel]")
     feature_name_feature.save()
-    feature_set = ln.FeatureSet(features=[feature_name_feature])
+    feature_set = ln.Schema(features=[feature_name_feature])
     with pytest.raises(ValueError) as error:
         artifact.features.add_feature_set(feature_set, slot="random")
     assert (
@@ -639,7 +639,7 @@ def test_add_labels_using_anndata(adata):
     artifact.delete(permanent=True)
     bt.Gene.filter().all().delete()
     bt.Organism.filter().all().delete()
-    ln.FeatureSet.filter().all().delete()
+    ln.Schema.filter().all().delete()
     ln.Feature.filter().all().delete()
     bt.CellType.filter().all().delete()
     bt.Tissue.filter().all().delete()
@@ -656,7 +656,7 @@ def test_labels_get():
     # no linked labels
     feature_name_feature = ln.Feature(name="feature name", dtype="cat")
     feature_name_feature.save()
-    feature_set = ln.FeatureSet(features=[feature_name_feature])
+    feature_set = ln.Schema(features=[feature_name_feature])
     feature_set.save()
     artifact.save()
     assert str(artifact.features) == "no linked features"

@@ -13,9 +13,9 @@ from lamindb.models import (
     Artifact,
     Collection,
     Feature,
-    FeatureSet,
     Record,
     Run,
+    Schema,
     ULabel,
     format_field_value,
     record_repr,
@@ -63,7 +63,7 @@ def save_feature_sets(self: Artifact | Collection) -> None:
         existing_feature_sets = get_feature_set_by_slot_(self)
         saved_feature_sets = {}
         for key, feature_set in self._feature_sets.items():
-            if isinstance(feature_set, FeatureSet) and feature_set._state.adding:
+            if isinstance(feature_set, Schema) and feature_set._state.adding:
                 feature_set.save()
                 saved_feature_sets[key] = feature_set
             if key in existing_feature_sets:

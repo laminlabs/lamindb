@@ -10,7 +10,7 @@ from lamindb_setup.core.hashing import hash_set
 
 from lamindb.base import ids
 from lamindb.base.types import FieldAttr, ListLike
-from lamindb.models import Feature, FeatureSet, Record
+from lamindb.models import Feature, Record, Schema
 
 from ._feature import convert_pandas_dtype_to_lamin_dtype
 from ._record import init_self_from_db
@@ -58,7 +58,7 @@ def validate_features(features: list[Record]) -> Record:
 
 def __init__(self, *args, **kwargs):
     if len(args) == len(self._meta.concrete_fields):
-        super(FeatureSet, self).__init__(*args, **kwargs)
+        super(Schema, self).__init__(*args, **kwargs)
         return None
     # now we proceed with the user-facing constructor
     if len(args) > 1:
@@ -74,7 +74,7 @@ def __init__(self, *args, **kwargs):
         dtype = None if features_registry == Feature else NUMBER_TYPE
     n_features = len(features)
     features_hash = hash_set({feature.uid for feature in features})
-    feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
+    feature_set = Schema.filter(hash=features_hash).one_or_none()
     if feature_set is not None:
         logger.debug(f"loaded: {feature_set}")
         init_self_from_db(self, feature_set)
@@ -83,7 +83,7 @@ def __init__(self, *args, **kwargs):
         hash = features_hash
     self._features = (get_related_name(features_registry), features)
 
-    super(FeatureSet, self).__init__(
+    super(Schema, self).__init__(
         uid=ids.base62_20(),
         name=name,
         dtype=get_type_str(dtype),
@@ -93,10 +93,10 @@ def __init__(self, *args, **kwargs):
     )
 
 
-@doc_args(FeatureSet.save.__doc__)
-def save(self, *args, **kwargs) -> FeatureSet:
+@doc_args(Schema.save.__doc__)
+def save(self, *args, **kwargs) -> Schema:
     """{}"""  # noqa: D415
-    super(FeatureSet, self).save(*args, **kwargs)
+    super(Schema, self).save(*args, **kwargs)
     if hasattr(self, "_features"):
         related_name, records = self._features
         getattr(self, related_name).set(records)
@@ -112,7 +112,7 @@ def get_type_str(dtype: str | None) -> str | None:
 
 
 @classmethod  # type:ignore
-@doc_args(FeatureSet.from_values.__doc__)
+@doc_args(Schema.from_values.__doc__)
 def from_values(
     cls,
     values: ListLike,
@@ -123,7 +123,7 @@ def from_values(
     organism: Record | str | None = None,
     source: Record | None = None,
     raise_validation_error: bool = True,
-) -> FeatureSet:
+) -> Schema:
     """{}"""  # noqa: D415
     if not isinstance(field, FieldAttr):
         raise TypeError("Argument `field` must be a Record field, e.g., `Feature.name`")
@@ -154,7 +154,7 @@ def from_values(
         organism=organism,
         source=source,
     )
-    feature_set = FeatureSet(
+    feature_set = Schema(
         features=validated_features,
         name=name,
         dtype=get_type_str(type),
@@ -163,7 +163,7 @@ def from_values(
 
 
 @classmethod  # type:ignore
-@doc_args(FeatureSet.from_df.__doc__)
+@doc_args(Schema.from_df.__doc__)
 def from_df(
     cls,
     df: pd.DataFrame,
@@ -172,7 +172,7 @@ def from_df(
     mute: bool = False,
     organism: Record | str | None = None,
     source: Record | None = None,
-) -> FeatureSet | None:
+) -> Schema | None:
     """{}"""  # noqa: D415
     registry = field.field.model
     validated = registry.validate(df.columns, field=field, mute=mute, organism=organism)
@@ -184,7 +184,7 @@ def from_df(
         validated_features = Feature.from_values(
             df.columns, field=field, organism=organism
         )
-        feature_set = FeatureSet(validated_features, name=name, dtype=None)
+        feature_set = Schema(validated_features, name=name, dtype=None)
     else:
         dtypes = [col.dtype for (_, col) in df.loc[:, validated].items()]
         if len(set(dtypes)) != 1:
@@ -196,7 +196,7 @@ def from_df(
             organism=organism,
             source=source,
         )
-        feature_set = FeatureSet(
+        feature_set = Schema(
             features=validated_features,
             name=name,
             dtype=get_type_str(dtype),
@@ -205,7 +205,7 @@ def from_df(
 
 
 @property  # type: ignore
-@doc_args(FeatureSet.members.__doc__)
+@doc_args(Schema.members.__doc__)
 def members(self) -> QuerySet:
     """{}"""  # noqa: D415
     if self._state.adding:
@@ -218,7 +218,7 @@ def members(self) -> QuerySet:
     return self.__getattribute__(related_name).all()
 
 
-def _get_related_name(self: FeatureSet) -> str:
+def _get_related_name(self: Schema) -> str:
     feature_sets_related_models = dict_related_model_to_related_name(
         self, instance=self._state.db
     )
@@ -237,13 +237,13 @@ if ln_setup._TESTING:
     from inspect import signature
 
     SIGS = {
-        name: signature(getattr(FeatureSet, name))
+        name: signature(getattr(Schema, name))
         for name in METHOD_NAMES
         if name != "__init__"
     }
 
 for name in METHOD_NAMES:
-    attach_func_to_class_method(name, FeatureSet, globals())
+    attach_func_to_class_method(name, Schema, globals())
 
-FeatureSet.members = members
-FeatureSet._get_related_name = _get_related_name
+Schema.members = members
+Schema._get_related_name = _get_related_name

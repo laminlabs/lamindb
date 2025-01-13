@@ -21,7 +21,7 @@ from lamindb.curators import (
     check_registry_organism,
     get_current_filter_kwargs,
 )
-from lamindb.models import Artifact, Collection, Feature, FeatureSet, Record, Run
+from lamindb.models import Artifact, Collection, Feature, Record, Run, Schema
 
 
 class SpatialDataCurator:
@@ -404,7 +404,7 @@ class SpatialDataCurator:
                 mute: bool = False,
                 organism: str | Record | None = None,
             ):
-                """Add FeatureSets from SpatialData."""
+                """Add Schemas from SpatialData."""
                 if obs_fields is None:
                     obs_fields = {}
                 assert host.otype == "spatialdata"  # noqa: S101
@@ -414,7 +414,7 @@ class SpatialDataCurator:
                 # sample features
                 sample_features = Feature.from_values(self._sample_metadata.columns)
                 if len(sample_features) > 0:
-                    feature_sets[self._sample_metadata_key] = FeatureSet(
+                    feature_sets[self._sample_metadata_key] = Schema(
                         features=sample_features
                     )
 
@@ -431,7 +431,7 @@ class SpatialDataCurator:
                         feature_sets[f"['{table}'].{k}"] = v
 
                 def _unify_feature_sets_by_hash(
-                    feature_sets: MutableMapping[str, FeatureSet],
+                    feature_sets: MutableMapping[str, Schema],
                 ):
                     unique_values: dict[str, Any] = {}
 

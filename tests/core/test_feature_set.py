@@ -44,16 +44,16 @@ def test_feature_set_from_values():
     bt.settings.organism = "human"
     bt.Gene.filter(symbol__in=gene_symbols).all().delete()
     with pytest.raises(ValidationError) as error:
-        feature_set = ln.FeatureSet.from_values(gene_symbols, bt.Gene.symbol, type=int)
+        feature_set = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, type=int)
     assert error.exconly().startswith(
         "lamindb.core.exceptions.ValidationError: These values could not be validated:"
     )
     ln.save(bt.Gene.from_values(gene_symbols, "symbol"))
-    feature_set = ln.FeatureSet.from_values(gene_symbols, bt.Gene.symbol)
+    feature_set = ln.Schema.from_values(gene_symbols, bt.Gene.symbol)
     # below should be a queryset and not a list
     assert set(feature_set.members) == set(bt.Gene.from_values(gene_symbols, "symbol"))
     assert feature_set.dtype == "num"  # this is NUMBER_TYPE
-    feature_set = ln.FeatureSet.from_values(gene_symbols, bt.Gene.symbol, type=int)
+    feature_set = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, type=int)
     assert feature_set._state.adding
     assert feature_set.dtype == "int"
     assert feature_set.registry == "bionty.Gene"
@@ -62,40 +62,40 @@ def test_feature_set_from_values():
     id = feature_set.id
     # test that the feature_set is retrieved from the database
     # in case it already exists
-    feature_set = ln.FeatureSet.from_values(gene_symbols, bt.Gene.symbol, type=int)
+    feature_set = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, type=int)
     assert not feature_set._state.adding
     assert id == feature_set.id
     feature_set.delete()
 
     # edge cases
     with pytest.raises(ValueError):
-        feature_set = ln.FeatureSet.from_values([])
+        feature_set = ln.Schema.from_values([])
 
     with pytest.raises(TypeError):
-        ln.FeatureSet.from_values(["a"], field="name")
+        ln.Schema.from_values(["a"], field="name")
     with pytest.raises(ValidationError):
-        feature_set = ln.FeatureSet.from_values(
+        feature_set = ln.Schema.from_values(
             ["weird_name"], field=ln.Feature.name, type="float"
         )
     with pytest.raises(ValidationError):
-        ln.FeatureSet.from_values([1], field=ln.Feature.name, type="float")
+        ln.Schema.from_values([1], field=ln.Feature.name, type="float")
 
     # return none if no validated features
     with pytest.raises(ValidationError):
-        ln.FeatureSet.from_values(["name"], field=ln.Feature.name, type="float")
+        ln.Schema.from_values(["name"], field=ln.Feature.name, type="float")
 
 
 def test_feature_set_from_records(df):
     features = ln.Feature.from_df(df)
     with pytest.raises(ValueError) as error:
-        feature_set = ln.FeatureSet(features)
+        feature_set = ln.Schema(features)
     assert (
         error.exconly()
         == "ValueError: Can only construct feature sets from validated features"
     )
 
     ln.save(features)
-    feature_set = ln.FeatureSet(features)
+    feature_set = ln.Schema(features)
     assert feature_set.id is None
     assert feature_set._state.adding
     assert feature_set.dtype is None
@@ -103,7 +103,7 @@ def test_feature_set_from_records(df):
     feature_set.save()
     # test that the feature_set is retrieved from the database
     # in case it already exists
-    feature_set = ln.FeatureSet(features)
+    feature_set = ln.Schema(features)
     assert not feature_set._state.adding
     assert feature_set.id is not None
     feature_set.delete()
@@ -111,7 +111,7 @@ def test_feature_set_from_records(df):
     # edge case
     with pytest.raises(ValueError):
         positional_arg = 1
-        ln.FeatureSet(features, positional_arg)
+        ln.Schema(features, positional_arg)
 
 
 def test_feature_set_from_df(df):
@@ -120,19 +120,19 @@ def test_feature_set_from_df(df):
     genes = [bt.Gene(symbol=name) for name in df.columns]
     ln.save(genes)
     with pytest.raises(ValueError) as error:
-        ln.FeatureSet.from_df(df, field=bt.Gene.symbol)
+        ln.Schema.from_df(df, field=bt.Gene.symbol)
     assert error.exconly().startswith("ValueError: data types are heterogeneous:")
-    feature_set = ln.FeatureSet.from_df(df[["feat1", "feat2"]], field=bt.Gene.symbol)
+    feature_set = ln.Schema.from_df(df[["feat1", "feat2"]], field=bt.Gene.symbol)
     for gene in genes:
         gene.delete()
 
     # now for the features registry
     features = ln.Feature.from_df(df)
     ln.save(features)
-    feature_set = ln.FeatureSet.from_df(df)
+    feature_set = ln.Schema.from_df(df)
     feature_set.save()
     assert feature_set.dtype is None
-    ln.FeatureSet.filter().all().delete()
+    ln.Schema.filter().all().delete()
     ln.Feature.filter().all().delete()
 
 
@@ -159,14 +159,14 @@ def test_validate_features():
 
 def test_kwargs():
     with pytest.raises(ValueError):
-        ln.FeatureSet(x="1", features=[])
+        ln.Schema(x="1", features=[])
 
 
 def test_edge_cases():
     feature = ln.Feature(name="rna", dtype="float")
     ln.save([feature])
     with pytest.raises(ValueError) as error:
-        ln.FeatureSet(feature)
+        ln.Schema(feature)
     assert (
         error.exconly()
         == "ValueError: Please pass a ListLike of features, not a single feature"

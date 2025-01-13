@@ -72,6 +72,6 @@ def test_rename():
 
     # clean up
     artifact.delete(permanent=True)
-    ln.FeatureSet.filter().delete()
+    ln.Schema.filter().delete()
     ln.ULabel.filter().delete()
     ln.Feature.filter().delete()
