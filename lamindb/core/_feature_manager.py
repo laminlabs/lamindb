@@ -1050,13 +1050,14 @@ def remove_values(
 
 
 def add_schema(self, schema: Schema, slot: str) -> None:
-    """Curate artifact with a feature set.
+    """Annotate artifact with a schema.
 
     Args:
-        schema: `Schema` A feature set record.
-        slot: `str` The slot that marks where the feature set is stored in
+        schema: `Schema` A schema record.
+        slot: `str` The slot that marks where the schema is stored in
             the artifact.
     """
+    # TODO: deprecate as soon as we have the Schema-based curators
     if self._host._state.adding:
         raise ValueError(
             "Please save the artifact or collection before adding a feature set!"

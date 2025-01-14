@@ -420,7 +420,7 @@ def test_labels_add(adata):
     experiments = artifact.labels.get(experiment)
     assert experiments.get().name == "Experiment 2"
 
-    # now, try adding a new label for a new feature, extending the feature set
+    # now, try adding a new label
     project = ln.ULabel(name="project 1").save()
     ln.Feature(name="project", dtype="cat").save()
     features = ln.Feature.lookup()
@@ -476,8 +476,7 @@ def test_add_labels_using_anndata(adata):
         artifact.delete(permanent=True)  # make sure we get a fresh one
         artifact = ln.Artifact.from_anndata(adata, description="Mini adata")
     # add feature set without saving file
-    feature_name_feature = ln.Feature(name="feature name", dtype="cat[ULabel]")
-    feature_name_feature.save()
+    feature_name_feature = ln.Feature(name="feature name", dtype="cat[ULabel]").save()
     schema = ln.Schema(features=[feature_name_feature])
     with pytest.raises(ValueError) as error:
         artifact.features.add_schema(schema, slot="random")

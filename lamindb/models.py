@@ -2464,7 +2464,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     _schemas_m2m: Schema = models.ManyToManyField(
         Schema, related_name="_artifacts_m2m", through="ArtifactSchema"
     )
-    """The feature sets measured in the artifact."""
+    """[For backward compatibility] The feature sets measured in the artifact."""
     _feature_values: FeatureValue = models.ManyToManyField(
         FeatureValue, through="ArtifactFeatureValue", related_name="artifacts"
     )
@@ -2537,6 +2537,16 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     @property
     @deprecated("schema")
     def feature_sets(self) -> QuerySet[Schema]:
+        return self._schemas_m2m
+
+    # add the below because this is what people will have in their code
+    # if they implement the recommended migration strategy
+    # - FeatureSet -> Schema
+    # - featureset -> schema
+    # - feature_set -> schema
+    @property
+    @deprecated("schema")
+    def schemas(self) -> QuerySet[Schema]:
         return self._schemas_m2m
 
     @property
