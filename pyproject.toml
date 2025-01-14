@@ -16,7 +16,7 @@ classifiers = [
 dependencies = [
     # Lamin PINNED packages
     "lamin_utils==0.13.10",
-    "lamin_cli==1.0a1",
+    "lamin_cli==1.0a5",
     "lamindb_setup[aws]==1.0a5",
     # others
     "pyarrow",
@@ -56,10 +56,10 @@ erdiagram = [
     "django-schema-graph",
 ]
 wetlab = [
-    "wetlab==1.0a1"
+    "wetlab==1.0a5"
 ]
 clinicore = [
-    "clinicore"
+    "clinicore==1.0a5"
 ]
 cellregistry = [
     "cellregistry"
