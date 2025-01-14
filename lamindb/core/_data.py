@@ -335,7 +335,7 @@ def add_labels(
     else:
         validate_feature(feature, records)  # type:ignore
         records_by_registry = defaultdict(list)
-        _schemas_m2m = self._schemas_m2m.filter(registry="Feature").all()
+        _schemas_m2m = self._schemas_m2m.filter(itype="Feature").all()
         internal_features = set()  # type: ignore
         if len(_schemas_m2m) > 0:
             for schema in _schemas_m2m:

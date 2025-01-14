@@ -2213,6 +2213,10 @@ class Schema(Record, CanCurate, TracksRun):
     def registry(self) -> str:
         return self.itype
 
+    @registry.setter
+    def registry(self, value) -> None:
+        self.itype = value
+
 
 class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     """Datasets & models stored as files, folders, or arrays.

@@ -344,11 +344,11 @@ def describe_features(
                 feature_names = list(features.values_list(name_field, flat=True)[:20])
                 schema_data[slot] = (schema, feature_names)
                 for feature_name in feature_names:
-                    feature_data[feature_name] = (slot, schema.registry)
+                    feature_data[feature_name] = (slot, schema.itype)
 
     internal_feature_names: dict[str, str] = {}
     if isinstance(self, Artifact):
-        _schemas_m2m = self._schemas_m2m.filter(registry="Feature").all()
+        _schemas_m2m = self._schemas_m2m.filter(itype="Feature").all()
         internal_feature_names = {}
         if len(_schemas_m2m) > 0:
             for schema in _schemas_m2m:
@@ -455,7 +455,7 @@ def describe_features(
                     (" • ", "dim"),
                     (str(schema.n), "pink1"),
                 ),
-                Text.assemble((f"[{schema.registry}]", "pink1")),
+                Text.assemble((f"[{schema.itype}]", "pink1")),
                 feature_rows,
                 show_header=True,
             )
@@ -657,7 +657,7 @@ def __getitem__(self, slot) -> QuerySet:
             " and linked."
         )
     schema = self._schema_by_slot[slot]
-    orm_name = schema.registry
+    orm_name = schema.itype
     return getattr(schema, self._accessor_by_registry[orm_name]).all()
 
 
