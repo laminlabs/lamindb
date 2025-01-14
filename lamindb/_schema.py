@@ -222,7 +222,7 @@ def _get_related_name(self: Schema) -> str:
     _schemas_m2m_related_models = dict_related_model_to_related_name(
         self, instance=self._state.db
     )
-    related_name = _schemas_m2m_related_models.get(self.registry)
+    related_name = _schemas_m2m_related_models.get(self.itype)
     return related_name
 
 
