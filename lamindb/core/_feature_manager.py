@@ -1280,6 +1280,7 @@ FeatureManager._schema_by_slot = _schema_by_slot
 FeatureManager._accessor_by_registry = _accessor_by_registry
 FeatureManager.add_values = add_values_features
 FeatureManager.add_schema = add_schema
+FeatureManager.add_feature_set = add_schema  # backward compat, will raise warning soon
 FeatureManager._add_set_from_df = _add_set_from_df
 FeatureManager._add_set_from_anndata = _add_set_from_anndata
 FeatureManager._add_set_from_mudata = _add_set_from_mudata
