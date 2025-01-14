@@ -2058,6 +2058,11 @@ class Schema(Record, CanCurate, TracksRun):
 
     For :class:`~lamindb.Feature`, types are expected to be heterogeneous and defined on a per-feature level.
     """
+    registry: str = CharField(max_length=120, db_index=True)
+    """The registry that stores the feature identifiers, e.g., `'Feature'` or `'bionty.Gene'`.
+
+    Depending on the registry, `.members` stores, e.g. `Feature` or `Gene` records.
+    """
     type: Feature | None = ForeignKey(
         "self", PROTECT, null=True, related_name="records"
     )
@@ -2071,28 +2076,24 @@ class Schema(Record, CanCurate, TracksRun):
     """Distinguish types from instances of the type."""
     otype: str | None = CharField(max_length=64, db_index=True, null=True)
     """Default Python object type, e.g., DataFrame, AnnData."""
-    registry: str = CharField(max_length=120, db_index=True)
-    """The registry that stores the feature identifiers, e.g., `'Feature'` or `'bionty.Gene'`.
-
-    Depending on the registry, `.members` stores, e.g. `Feature` or `Gene` records.
-    """
     hash: str | None = CharField(max_length=HASH_LENGTH, db_index=True, null=True)
     """A hash of the set of feature identifiers.
 
     For a composite schema, the hash of hashes.
     """
-    minimal_set: bool = BooleanField(default=False, db_index=True)
-    """In validation, whether the linked features are to be interpreted as a minimal set.
+    minimal_set: bool = BooleanField(default=True, db_index=True)
+    """Whether the schema contains a minimal set of linked features (default `True`).
 
-    If `True` then beyond having valid feature identifiers, a data object needs to minimally
-    contain the linked set of features.
+    If `False`, no features are linked to this schema.
+
+    If `True`, features are linked and considered as a minimally required set in validation.
     """
     ordered_set: bool = BooleanField(default=False, db_index=True)
-    """In validation, if `minimal_set` is `True`, whether the linked features need to be ordered."""
-    maximal_set: bool = BooleanField(default=True, db_index=True)
-    """In validation, if `minimal_set` is `True`, whether additional features are allowed.
+    """Whether the linked features are ordered (default `False`)."""
+    maximal_set: bool = BooleanField(default=False, db_index=True)
+    """If `False`, additional features are allowed (default `False`).
 
-    For instance, if additional columns in a DataFrame are allowed.
+    If `True`, the the minimal set is a maximal set and no additional features are allowed.
     """
     composite: Schema | None = ForeignKey(
         "self", PROTECT, related_name="components", default=None, null=True
@@ -2108,11 +2109,13 @@ class Schema(Record, CanCurate, TracksRun):
     validated_by: Schema | None = ForeignKey(
         "self", PROTECT, related_name="validated_schemas", default=None, null=True
     )
-    """The schema that validated this schema.
+    """The schema that validated this schema during curation.
 
-    When performing validation, the schema that enforced validation might have been stricter than the schema that was validated.
+    When performing validation, the schema that enforced validation is often less concrete than what is validated.
 
-    In particular, the set of measured features might be a superset of the minimally required set of features.
+    For instance, the set of measured features might be a superset of the minimally required set of features.
+
+    Often, the curating schema does not specficy any concrete features at all
     """
     features: Feature
     """The features contained in the schema."""

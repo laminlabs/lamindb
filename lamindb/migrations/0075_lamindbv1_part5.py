@@ -161,14 +161,14 @@ class Migration(migrations.Migration):
             model_name="schema",
             name="maximal_set",
             field=lamindb.base.fields.BooleanField(
-                blank=True, db_index=True, default=True
+                blank=True, db_index=True, default=False
             ),
         ),
         migrations.AddField(
             model_name="schema",
             name="minimal_set",
             field=lamindb.base.fields.BooleanField(
-                blank=True, db_index=True, default=False
+                blank=True, db_index=True, default=True
             ),
         ),
         migrations.AddField(
