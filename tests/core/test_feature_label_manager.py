@@ -509,7 +509,7 @@ def test_add_labels_using_anndata(adata):
 
     # check the basic construction of the feature set based on obs
     schema_obs = artifact._schemas_m2m.filter(
-        registry="Feature", _links_artifact__slot="obs"
+        itype="Feature", _links_artifact__slot="obs"
     ).one()
     assert schema_obs.n == 4
     assert "organism" not in schema_obs.features.list("name")
@@ -526,7 +526,7 @@ def test_add_labels_using_anndata(adata):
     feature = ln.Feature.get(name="organism")
     assert feature.dtype == "cat[bionty.Organism]"
     schema_obs = artifact._schemas_m2m.filter(
-        registry="Feature", _links_artifact__slot="obs"
+        itype="Feature", _links_artifact__slot="obs"
     ).one()
     assert schema_obs.n == 4
     # TODO, write a test that queries the organism feature
