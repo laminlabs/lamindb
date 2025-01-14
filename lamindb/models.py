@@ -2214,7 +2214,7 @@ class Schema(Record, CanCurate, TracksRun):
         pass
 
     @property
-    @deprecated
+    @deprecated("itype")
     def registry(self) -> str:
         return self.itype
 
