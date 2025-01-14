@@ -5,9 +5,10 @@ Registries:
 .. autosummary::
    :toctree: .
 
-   Record
    BasicRecord
+   Record
    Registry
+   RegistryIndex
    QuerySet
    QueryManager
    RecordList
@@ -90,6 +91,7 @@ from lamindb.models import (
     ParamValue,
     Record,
     Registry,
+    RegistryIndex,
     TracksRun,
     TracksUpdates,
     ValidateFields,

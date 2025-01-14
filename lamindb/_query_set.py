@@ -22,6 +22,7 @@ from lamindb.models import (
     IsVersioned,
     Record,
     Run,
+    Schema,
     Transform,
 )
 
@@ -79,13 +80,20 @@ def one_helper(self):
         return self[0]
 
 
-def get_backward_compat_filter_kwargs(expressions):
-    name_mappings = {
+def get_backward_compat_filter_kwargs(expressions, which: str):
+    artifactcollectiontransform_name_mappings = {
         "name": "key",  # backward compat <1.0
-        "n_objects": "n_files",
+        "n_objects": "n_files",  # on Artifact
         "visibility": "_branch_code",  # for convenience (and backward compat <1.0)
         "transform": "run__transform",  # for convenience (and backward compat <1.0)
     }
+    schema_name_mappings = {
+        "registry": "itype",
+    }
+    if which == "artifactcollectiontransform":
+        name_mappings = artifactcollectiontransform_name_mappings
+    else:
+        name_mappings = schema_name_mappings
     mapped = {}
     for field, value in expressions.items():
         parts = field.split("__")
@@ -131,8 +139,12 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
 
         return key, value
 
-    if queryset.model in {Collection, Transform, Artifact}:
-        expressions = get_backward_compat_filter_kwargs(expressions)
+    if queryset.model in {Artifact, Collection, Transform}:
+        expressions = get_backward_compat_filter_kwargs(
+            expressions, "artifactcollectiontransform"
+        )
+    elif queryset.model in {Schema}:
+        expressions = get_backward_compat_filter_kwargs(expressions, "schema")
 
     if issubclass(queryset.model, Record):
         # _branch_code is set to 0 unless expressions contains id or uid

@@ -255,6 +255,18 @@ class Migration(migrations.Migration):
                 to="lamindb.schema",
             ),
         ),
+        migrations.RenameField(
+            model_name="schema",
+            old_name="registry",
+            new_name="itype",
+        ),
+        migrations.AlterField(
+            model_name="schema",
+            name="itype",
+            field=lamindb.base.fields.CharField(
+                blank=True, db_index=True, default=None, max_length=120, null=True
+            ),
+        ),
     ]
 
 

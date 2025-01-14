@@ -2058,10 +2058,12 @@ class Schema(Record, CanCurate, TracksRun):
 
     For :class:`~lamindb.Feature`, types are expected to be heterogeneous and defined on a per-feature level.
     """
-    registry: str = CharField(max_length=120, db_index=True)
-    """The registry that stores the feature identifiers, e.g., `'Feature'` or `'bionty.Gene'`.
+    # _itype: ContentType = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    # ""Index of the registry that stores the feature identifiers, e.g., `Feature` or `Gene`."""
+    itype: str | None = CharField(max_length=120, db_index=True, null=True)
+    """A registry that stores feature identifiers used in this schema, e.g., `'Feature'` or `'bionty.Gene'`.
 
-    Depending on the registry, `.members` stores, e.g. `Feature` or `Gene` records.
+    Depending on the registry, `.members` stores, e.g., `Feature` or `bionty.Gene` records.
     """
     type: Feature | None = ForeignKey(
         "self", PROTECT, null=True, related_name="records"
@@ -2205,6 +2207,11 @@ class Schema(Record, CanCurate, TracksRun):
     def members(self) -> QuerySet:
         """A queryset for the individual records of the set."""
         pass
+
+    @property
+    @deprecated
+    def registry(self) -> str:
+        return self.itype
 
 
 class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
