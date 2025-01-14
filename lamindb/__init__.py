@@ -94,6 +94,7 @@ if _check_instance_setup(from_module="lamindb"):
         Artifact,
         Collection,
         Feature,
+        FeatureSet,  # backward compat
         Param,
         Person,
         Project,
