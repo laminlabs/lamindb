@@ -352,7 +352,22 @@ def test_write_read_tiledbsoma(storage):
     assert set(run_ids) == {create_run.uid, append_run.uid}
     store.close()
 
-    artifact_soma_append.versions.delete(permanent=True, storage=True)
+    # test correctness of deletion for _overwrite_versions=True
+    soma_path = artifact_soma_append.path
+    assert soma_path.exists()
+    # select specific version and delete
+    # check that the store is stil there
+    assert soma_path.exists()
+    assert ln.Artifact.filter(description="test tiledbsoma").count() == 3
+    artifact_soma_append.versions.filter(uid__endswith="0001").one().delete(
+        permanent=True
+    )
+    assert soma_path.exists()
+    assert ln.Artifact.filter(description="test tiledbsoma").count() == 2
+    # make sure it the store is actually deleted
+    artifact_soma_append.delete(permanent=True)
+    assert not soma_path.exists()
+    assert not ln.Artifact.filter(description="test tiledbsoma").exists()
 
     if storage is not None:
         ln.settings.storage = previous_storage

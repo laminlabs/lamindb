@@ -466,7 +466,7 @@ def data_is_anndata(data: AnnData | UPathStr) -> bool:
             if fsspec.utils.get_protocol(data_path.as_posix()) == "file":
                 return zarr_is_adata(data_path)
             else:
-                logger.warning("We do not check if cloud zarr is AnnData or not.")
+                logger.warning("We do not check if cloud zarr is AnnData or not")
                 return False
     return False
 
@@ -908,12 +908,21 @@ def replace(
     self._to_store = not check_path_in_storage
 
 
+inconsistent_state_msg = (
+    "Trying to read a folder artifact from an outdated version, "
+    "this can result in an incosistent state.\n"
+    "Read from the latest version: artifact.versions.filter(is_latest=True).one()"
+)
+
+
 # docstring handled through attach_func_to_class_method
 def open(
     self, mode: str = "r", is_run_input: bool | None = None
 ) -> (
     AnnDataAccessor | BackedAccessor | SOMACollection | SOMAExperiment | PyArrowDataset
 ):
+    if self._overwrite_versions and not self.is_latest:
+        raise ValueError(inconsistent_state_msg)
     # ignore empty suffix for now
     suffixes = ("", ".h5", ".hdf5", ".h5ad", ".zarr", ".tiledbsoma") + PYARROW_SUFFIXES
     if self.suffix not in suffixes:
@@ -992,6 +1001,9 @@ def _synchronize_cleanup_on_error(
 
 # docstring handled through attach_func_to_class_method
 def load(self, is_run_input: bool | None = None, **kwargs) -> Any:
+    if self._overwrite_versions and not self.is_latest:
+        raise ValueError(inconsistent_state_msg)
+
     if hasattr(self, "_memory_rep") and self._memory_rep is not None:
         access_memory = self._memory_rep
     else:
@@ -1008,6 +1020,9 @@ def load(self, is_run_input: bool | None = None, **kwargs) -> Any:
 
 # docstring handled through attach_func_to_class_method
 def cache(self, is_run_input: bool | None = None) -> Path:
+    if self._overwrite_versions and not self.is_latest:
+        raise ValueError(inconsistent_state_msg)
+
     filepath, cache_key = filepath_cache_key_from_artifact(
         self, using_key=settings._using_key
     )
@@ -1071,8 +1086,21 @@ def delete(
             storage = False
         # only delete in storage if DB delete is successful
         # DB delete might error because of a foreign key constraint violated etc.
-        self._delete_skip_storage()
-        if self.key is None or self._key_is_virtual:
+        if self._overwrite_versions and self.is_latest:
+            # includes self
+            for version in self.versions.all():
+                _delete_skip_storage(version)
+        else:
+            self._delete_skip_storage()
+        # by default do not delete storage if deleting only a previous version
+        # and the underlying store is mutable
+        if self._overwrite_versions and not self.is_latest:
+            delete_in_storage = False
+            if storage:
+                logger.warning(
+                    "Storage argument is ignored; can't delete storage on an previous version"
+                )
+        elif self.key is None or self._key_is_virtual:
             # do not ask for confirmation also if storage is None
             delete_in_storage = storage is None or storage
         else:

@@ -2728,6 +2728,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         A first call to `.delete()` puts an artifact into the trash (sets `_branch_code` to `-1`).
         A second call permanently deletes the artifact.
+        If it is a folder artifact with multiple versions, deleting a non-latest version
+        will not delete the underlying storage by default (if `storage=True` is not specified).
+        Deleting the latest version will delete all the versions for folder artifacts.
 
         FAQ: :doc:`docs:faq/storage`
 
@@ -2739,7 +2742,14 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             For an `Artifact` object `artifact`, call:
 
-            >>> artifact.delete()
+            >>> artifact = ln.Artifact.filter(key="some.csv").one()
+            >>> artifact.delete() # delete a single file artifact
+
+            >>> artifact = ln.Artifact.filter(key="some.tiledbsoma". is_latest=False).first()
+            >>> artiact.delete() # delete an old version, the data will not be deleted
+
+            >>> artifact = ln.Artifact.filter(key="some.tiledbsoma". is_latest=True).one()
+            >>> artiact.delete() # delete all versions, the data will be deleted or prompted for deletion.
         """
         pass
 
