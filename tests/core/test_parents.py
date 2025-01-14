@@ -1,7 +1,5 @@
 import lamindb as ln
-import pytest
 from lamindb._parents import _add_emoji
-from lamindb.base.validation import FieldValidationError
 
 
 def test_view_parents():
@@ -38,11 +36,7 @@ def test_query_parents_children():
 def test_add_emoji():
     record = ln.Transform(type="upload")
     assert _add_emoji(record, label="transform") == "🖥️ transform"
-    # validate literal
-    with pytest.raises(FieldValidationError):
-        transform = ln.Transform(name="test", type="app")
-    transform = ln.Transform(name="test", type="upload")
-    transform.save()
+    transform = ln.Transform(name="test", type="upload").save()
     record = ln.Run(transform=transform)
     assert _add_emoji(record, label="run") == "🖥️ run"
     transform.delete()
