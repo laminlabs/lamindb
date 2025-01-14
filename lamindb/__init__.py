@@ -20,7 +20,7 @@ Registries.
    User
    Storage
    Feature
-   FeatureSet
+   Schema
    Param
    Collection
    Project
@@ -53,7 +53,7 @@ Modules and settings.
 """
 
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
-__version__ = "1.0a4"
+__version__ = "1.0a5"
 
 from lamindb_setup._check_setup import InstanceNotSetupError as _InstanceNotSetupError
 from lamindb_setup._check_setup import _check_instance_setup
@@ -75,11 +75,11 @@ if _check_instance_setup(from_module="lamindb"):
         _can_curate,
         _collection,
         _feature,
-        _feature_set,
         _is_versioned,
         _parents,
         _record,
         _run,
+        _schema,
         _storage,
         _transform,
         _ulabel,
@@ -94,12 +94,13 @@ if _check_instance_setup(from_module="lamindb"):
         Artifact,
         Collection,
         Feature,
-        FeatureSet,
+        FeatureSet,  # backward compat
         Param,
         Person,
         Project,
         Reference,
         Run,
+        Schema,
         Storage,
         Transform,
         ULabel,

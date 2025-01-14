@@ -311,7 +311,7 @@ Here is how to create ulabels for them:
     # delete everything we created
     artifact.delete(permanent=True)
     ln.ULabel.filter().all().delete()
-    ln.FeatureSet.filter().all().delete()
+    ln.Schema.filter().all().delete()
     ln.Feature.filter().all().delete()
     bt.Gene.filter().all().delete()
     bt.Organism.filter().all().delete()
@@ -420,7 +420,7 @@ def test_labels_add(adata):
     experiments = artifact.labels.get(experiment)
     assert experiments.get().name == "Experiment 2"
 
-    # now, try adding a new label for a new feature, extending the feature set
+    # now, try adding a new label
     project = ln.ULabel(name="project 1").save()
     ln.Feature(name="project", dtype="cat").save()
     features = ln.Feature.lookup()
@@ -440,7 +440,7 @@ def test_labels_add(adata):
 
     artifact2.delete(permanent=True)
     artifact.delete(permanent=True)
-    ln.FeatureSet.filter().all().delete()
+    ln.Schema.filter().all().delete()
     ln.Feature.filter().all().delete()
     ln.ULabel.filter().all().delete()
 
@@ -468,7 +468,7 @@ def test_add_labels_using_anndata(adata):
     artifact = ln.Artifact.filter(description="Mini adata").one_or_none()
     if artifact is not None:
         artifact.delete(permanent=True, storage=True)
-    ln.FeatureSet.filter().all().delete()
+    ln.Schema.filter().all().delete()
 
     # try to construct without registering metadata features
     artifact = ln.Artifact.from_anndata(adata, description="Mini adata")
@@ -476,11 +476,10 @@ def test_add_labels_using_anndata(adata):
         artifact.delete(permanent=True)  # make sure we get a fresh one
         artifact = ln.Artifact.from_anndata(adata, description="Mini adata")
     # add feature set without saving file
-    feature_name_feature = ln.Feature(name="feature name", dtype="cat[ULabel]")
-    feature_name_feature.save()
-    feature_set = ln.FeatureSet(features=[feature_name_feature])
+    feature_name_feature = ln.Feature(name="feature name", dtype="cat[ULabel]").save()
+    schema = ln.Schema(features=[feature_name_feature])
     with pytest.raises(ValueError) as error:
-        artifact.features.add_feature_set(feature_set, slot="random")
+        artifact.features.add_schema(schema, slot="random")
     assert (
         error.exconly()
         == "ValueError: Please save the artifact or collection before adding a feature"
@@ -509,11 +508,11 @@ def test_add_labels_using_anndata(adata):
     artifact.features._add_set_from_anndata(var_field=bt.Gene.ensembl_gene_id)
 
     # check the basic construction of the feature set based on obs
-    feature_set_obs = artifact.feature_sets.filter(
-        registry="Feature", links_artifact__slot="obs"
+    schema_obs = artifact._schemas_m2m.filter(
+        itype="Feature", _links_artifact__slot="obs"
     ).one()
-    assert feature_set_obs.n == 4
-    assert "organism" not in feature_set_obs.features.list("name")
+    assert schema_obs.n == 4
+    assert "organism" not in schema_obs.features.list("name")
 
     # now, we add organism and run checks
     features = ln.Feature.lookup()
@@ -526,12 +525,12 @@ def test_add_labels_using_anndata(adata):
     assert organism_link.feature.name == "organism"
     feature = ln.Feature.get(name="organism")
     assert feature.dtype == "cat[bionty.Organism]"
-    feature_set_obs = artifact.feature_sets.filter(
-        registry="Feature", links_artifact__slot="obs"
+    schema_obs = artifact._schemas_m2m.filter(
+        itype="Feature", _links_artifact__slot="obs"
     ).one()
-    assert feature_set_obs.n == 4
+    assert schema_obs.n == 4
     # TODO, write a test that queries the organism feature
-    # assert "organism" in feature_set_ext.features.list("name")
+    # assert "organism" in schema_ext.features.list("name")
 
     # now we add cell types & tissues and run checks
     ln.Feature(name="cell_type", dtype="cat").save()
@@ -639,7 +638,7 @@ def test_add_labels_using_anndata(adata):
     artifact.delete(permanent=True)
     bt.Gene.filter().all().delete()
     bt.Organism.filter().all().delete()
-    ln.FeatureSet.filter().all().delete()
+    ln.Schema.filter().all().delete()
     ln.Feature.filter().all().delete()
     bt.CellType.filter().all().delete()
     bt.Tissue.filter().all().delete()
@@ -656,14 +655,14 @@ def test_labels_get():
     # no linked labels
     feature_name_feature = ln.Feature(name="feature name", dtype="cat")
     feature_name_feature.save()
-    feature_set = ln.FeatureSet(features=[feature_name_feature])
-    feature_set.save()
+    schema = ln.Schema(features=[feature_name_feature])
+    schema.save()
     artifact.save()
     assert str(artifact.features) == "no linked features"
-    artifact.features.add_feature_set(feature_set, slot="random")
-    assert artifact.feature_sets.first() == feature_set
+    artifact.features.add_schema(schema, slot="random")
+    assert artifact._schemas_m2m.first() == schema
     artifact.delete(permanent=True, storage=True)
-    feature_set.delete()
+    schema.delete()
     feature_name_feature.delete()
 
 

@@ -1334,6 +1334,10 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
     - if it's `False` (default), the values mean artifact/run-level values and a dtype of `datetime` means `datetime`
     - if it's `True`, the values are from an aggregation, which this seems like an edge case but when characterizing a model ensemble trained with different parameters it could be relevant
     """
+    schemas: Schema = models.ManyToManyField(
+        "Schema", through="SchemaParam", related_name="params"
+    )
+    """Feature sets linked to this feature."""
     # backward fields
     values: ParamValue
     """Values for this parameter."""
@@ -1736,7 +1740,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
             Feature manager of an artifact or collection.
         :class:`~lamindb.ULabel`
             Universal labels.
-        :class:`~lamindb.FeatureSet`
+        :class:`~lamindb.Schema`
             Feature sets.
 
     Example:
@@ -1793,7 +1797,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     """Universal id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True, unique=True)
     """Name of feature (`unique=True`)."""
-    dtype: FeatureDtype = CharField(max_length=64, db_index=True)
+    dtype: FeatureDtype = CharField(db_index=True)
     """Data type (:class:`~lamindb.base.types.FeatureDtype`).
 
     For categorical types, can define from which registry values are
@@ -1815,13 +1819,45 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     """Unit of measure, ideally SI (`m`, `s`, `kg`, etc.) or 'normalized' etc. (optional)."""
     description: str | None = TextField(db_index=True, null=True)
     """A description."""
+    array_rank: int = models.SmallIntegerField(default=0, db_index=True)
+    """Rank of feature.
+
+    Number of indices of the array: 0 for scalar, 1 for vector, 2 for matrix.
+
+    Is called `.ndim` in `numpy` and `pytorch` but shouldn't be confused with
+    the dimension of the feature space.
+    """
+    array_size: int = models.IntegerField(default=0, db_index=True)
+    """Number of elements of the feature.
+
+    Total number of elements (product of shape components) of the array.
+
+    - A number or string (a scalar): 1
+    - A 50-dimensional embedding: 50
+    - A 25 x 25 image: 625
+    """
+    array_shape: list[int] | None = JSONField(default=None, db_default=None, null=True)
+    """Shape of the feature.
+
+    - A number or string (a scalar): [1]
+    - A 50-dimensional embedding: [50]
+    - A 25 x 25 image: [25, 25]
+
+    Is stored as a list rather than a tuple because it's serialized as JSON.
+    """
+    proxy_dtype: FeatureDtype | None = CharField(default=None, null=True)
+    """Proxy data type.
+
+    If the feature is an image it's often stored via a path to the image file. Hence, while the dtype might be
+    image with a certain shape, the proxy dtype would be str.
+    """
     synonyms: str | None = TextField(null=True)
     """Bar-separated (|) synonyms (optional)."""
     # we define the below ManyToMany on the feature model because it parallels
-    # how other registries (like Gene, Protein, etc.) relate to FeatureSet
+    # how other registries (like Gene, Protein, etc.) relate to Schema
     # it makes the API more consistent
-    feature_sets: FeatureSet = models.ManyToManyField(
-        "FeatureSet", through="FeatureSetFeature", related_name="features"
+    schemas: Schema = models.ManyToManyField(
+        "Schema", through="SchemaFeature", related_name="features"
     )
     """Feature sets linked to this feature."""
     _expect_many: bool = models.BooleanField(default=True, db_default=True)
@@ -1830,6 +1866,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     - if it's `True` (default), the values come from an observation-level aggregation and a dtype of `datetime` on the observation-level mean `set[datetime]` on the artifact-level
     - if it's `False` it's an artifact-level value and datetime means datetime; this is an edge case because an arbitrary artifact would always be a set of arbitrary measurements that would need to be aggregated ("one just happens to measure a single cell line in that artifact")
     """
+    _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
     # backward fields
     values: FeatureValue
     """Values for this feature."""
@@ -1933,7 +1970,7 @@ class FeatureValue(Record, TracksRun):
                 return cls.objects.get(feature=feature, hash=hash), True
 
 
-class FeatureSet(Record, CanCurate, TracksRun):
+class Schema(Record, CanCurate, TracksRun):
     """Feature sets.
 
     Stores references to sets of :class:`~lamindb.Feature` and other registries
@@ -1955,8 +1992,8 @@ class FeatureSet(Record, CanCurate, TracksRun):
         features: `Iterable[Record]` An iterable of :class:`~lamindb.Feature`
             records to hash, e.g., `[Feature(...), Feature(...)]`. Is turned into
             a set upon instantiation. If you'd like to pass values, use
-            :meth:`~lamindb.FeatureSet.from_values` or
-            :meth:`~lamindb.FeatureSet.from_df`.
+            :meth:`~lamindb.Schema.from_values` or
+            :meth:`~lamindb.Schema.from_df`.
         dtype: `str | None = None` The simple type. Defaults to
             `None` for sets of :class:`~lamindb.Feature` records.
             Otherwise defaults to `"num"` (e.g., for sets of :class:`~bionty.Gene`).
@@ -1970,36 +2007,37 @@ class FeatureSet(Record, CanCurate, TracksRun):
         A `slot` provides a string key to access feature sets.
         It's typically the accessor within the registered data object, here `pd.DataFrame.columns`.
 
+    .. versionchanged:: 1.0.0
+        Was called `FeatureSet` before.
 
     See Also:
-        :meth:`~lamindb.FeatureSet.from_values`
+        :meth:`~lamindb.Schema.from_values`
             Create from values.
-        :meth:`~lamindb.FeatureSet.from_df`
+        :meth:`~lamindb.Schema.from_df`
             Create from dataframe columns.
 
     Examples:
 
-        Create a featureset from df with types:
+        Create a schema from df with types:
 
         >>> df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
-        >>> feature_set = ln.FeatureSet.from_df(df)
+        >>> schema = ln.Schema.from_df(df)
 
-        Create a featureset from features:
+        Create a schema from features:
 
         >>> features = [ln.Feature(name=feat, dtype="float").save() for feat in ["feat1", "feat2"]]
-        >>> feature_set = ln.FeatureSet(features)
+        >>> schema = ln.Schema(features)
 
-        Create a featureset from feature values:
+        Create a schema from feature values:
 
         >>> import bionty as bt
-        >>> feature_set = ln.FeatureSet.from_values(adata.var["ensemble_id"], Gene.ensembl_gene_id, organism="mouse")
-        >>> feature_set.save()
+        >>> schema = ln.Schema.from_values(adata.var["ensemble_id"], Gene.ensembl_gene_id, organism="mouse").save()
 
         Link a feature set to an artifact:
 
-        >>> artifact.features.add_feature_set(feature_set, slot="var")
+        >>> artifact.features.add_schema(schema, slot="var")
 
-        Link features to an artifact (will create a featureset under the hood):
+        Link features to an artifact (will create a schema under the hood):
 
         >>> artifact.features.add_values(features)
     """
@@ -2022,6 +2060,16 @@ class FeatureSet(Record, CanCurate, TracksRun):
 
     For :class:`~lamindb.Feature`, types are expected to be heterogeneous and defined on a per-feature level.
     """
+    # _itype: ContentType = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    # ""Index of the registry that stores the feature identifiers, e.g., `Feature` or `Gene`."""
+    itype: str | None = CharField(max_length=120, db_index=True, null=True)
+    """A registry that stores feature identifiers used in this schema, e.g., `'Feature'` or `'bionty.Gene'`.
+
+    Depending on the registry, `.members` stores, e.g., `Feature` or `bionty.Gene` records.
+
+    .. versionchanged:: 1.0.0
+        Was called `itype` before.
+    """
     type: Feature | None = ForeignKey(
         "self", PROTECT, null=True, related_name="records"
     )
@@ -2033,19 +2081,56 @@ class FeatureSet(Record, CanCurate, TracksRun):
     """Records of this type."""
     is_type: bool = BooleanField(default=None, db_index=True, null=True)
     """Distinguish types from instances of the type."""
-    registry: str = CharField(max_length=120, db_index=True)
-    """The registry that stores the feature identifiers, e.g., `'Feature'` or `'bionty.Gene'`.
+    otype: str | None = CharField(max_length=64, db_index=True, null=True)
+    """Default Python object type, e.g., DataFrame, AnnData."""
+    hash: str | None = CharField(max_length=HASH_LENGTH, db_index=True, null=True)
+    """A hash of the set of feature identifiers.
 
-    Depending on the registry, `.members` stores, e.g. `Feature` or `Gene` records.
+    For a composite schema, the hash of hashes.
     """
-    hash: str | None = CharField(
-        max_length=HASH_LENGTH, db_index=True, null=True, unique=True
+    minimal_set: bool = BooleanField(default=True, db_index=True)
+    """Whether the schema contains a minimal set of linked features (default `True`).
+
+    If `False`, no features are linked to this schema.
+
+    If `True`, features are linked and considered as a minimally required set in validation.
+    """
+    ordered_set: bool = BooleanField(default=False, db_index=True)
+    """Whether the linked features are ordered (default `False`)."""
+    maximal_set: bool = BooleanField(default=False, db_index=True)
+    """If `False`, additional features are allowed (default `False`).
+
+    If `True`, the the minimal set is a maximal set and no additional features are allowed.
+    """
+    composite: Schema | None = ForeignKey(
+        "self", PROTECT, related_name="components", default=None, null=True
     )
-    """The hash of the set."""
+    """The composite schema that contains this schema as a component.
+
+    The composite schema composes multiple simpler schemas into one object.
+
+    For example, an AnnData composes multiple schemas: `var[DataFrameT]`, `obs[DataFrame]`, `obsm[Array]`, `uns[dict]`, etc.
+    """
+    slot: str | None = CharField(max_length=100, db_index=True, null=True)
+    """The slot in which the schema is stored in the composite schema."""
+    validated_by: Schema | None = ForeignKey(
+        "self", PROTECT, related_name="validated_schemas", default=None, null=True
+    )
+    """The schema that validated this schema during curation.
+
+    When performing validation, the schema that enforced validation is often less concrete than what is validated.
+
+    For instance, the set of measured features might be a superset of the minimally required set of features.
+
+    Often, the curating schema does not specficy any concrete features at all
+    """
     features: Feature
-    """The features related to a `FeatureSet` record."""
+    """The features contained in the schema."""
+    params: Param
+    """The params contained in the schema."""
     artifacts: Artifact
-    """The artifacts related to a `FeatureSet` record."""
+    """The artifacts that observe this schema."""
+    _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
 
     @overload
     def __init__(
@@ -2079,7 +2164,7 @@ class FeatureSet(Record, CanCurate, TracksRun):
         organism: Record | str | None = None,
         source: Record | None = None,
         raise_validation_error: bool = True,
-    ) -> FeatureSet:
+    ) -> Schema:
         """Create feature set for validated features.
 
         Args:
@@ -2099,10 +2184,10 @@ class FeatureSet(Record, CanCurate, TracksRun):
         Examples:
 
             >>> features = [ln.Feature(name=feat, dtype="str").save() for feat in ["feat11", "feat21"]]
-            >>> feature_set = ln.FeatureSet.from_values(features)
+            >>> schema = ln.Schema.from_values(features)
 
             >>> genes = ["ENSG00000139618", "ENSG00000198786"]
-            >>> feature_set = ln.FeatureSet.from_values(features, bt.Gene.ensembl_gene_id, "float")
+            >>> schema = ln.Schema.from_values(features, bt.Gene.ensembl_gene_id, "float")
         """
         pass
 
@@ -2115,11 +2200,11 @@ class FeatureSet(Record, CanCurate, TracksRun):
         mute: bool = False,
         organism: Record | str | None = None,
         source: Record | None = None,
-    ) -> FeatureSet | None:
+    ) -> Schema | None:
         """Create feature set for validated features."""
         pass
 
-    def save(self, *args, **kwargs) -> FeatureSet:
+    def save(self, *args, **kwargs) -> Schema:
         """Save."""
         pass
 
@@ -2127,6 +2212,15 @@ class FeatureSet(Record, CanCurate, TracksRun):
     def members(self) -> QuerySet:
         """A queryset for the individual records of the set."""
         pass
+
+    @property
+    @deprecated("itype")
+    def registry(self) -> str:
+        return self.itype
+
+    @registry.setter
+    def registry(self, value) -> None:
+        self.itype = value
 
 
 class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
@@ -2371,7 +2465,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     """Run that created the artifact."""
     input_of_runs: Run = models.ManyToManyField(Run, related_name="input_artifacts")
     """Runs that use this artifact as an input."""
-    # if the artifact is replicated or update in a new run, we link the previous
+    # if the artifact is replicated or updated in a new run, we link the previous
     # run in previous_runs
     _previous_runs: Run = models.ManyToManyField(
         "Run", related_name="_output_artifacts_with_later_updates"
@@ -2379,10 +2473,14 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     """Sequence of runs that created or updated the record."""
     collections: Collection
     """The collections that this artifact is part of."""
-    feature_sets: FeatureSet = models.ManyToManyField(
-        FeatureSet, related_name="artifacts", through="ArtifactFeatureSet"
+    schema: Schema | None = ForeignKey(
+        Schema, PROTECT, null=True, default=None, related_name="artifacts"
     )
-    """The feature sets measured in the artifact."""
+    """The schema of the artifact."""
+    _schemas_m2m: Schema = models.ManyToManyField(
+        Schema, related_name="_artifacts_m2m", through="ArtifactSchema"
+    )
+    """[For backward compatibility] The feature sets measured in the artifact."""
     _feature_values: FeatureValue = models.ManyToManyField(
         FeatureValue, through="ArtifactFeatureValue", related_name="artifacts"
     )
@@ -2405,9 +2503,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         related_name="created_artifacts",
     )
     """Creator of record."""
-    _curator: dict[str, str] | None = JSONField(
-        default=None, db_default=None, null=True
-    )
     _overwrite_versions: bool = BooleanField(default=None)
     """Indicates whether to store or overwrite versions.
 
@@ -2456,6 +2551,21 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         return self.n_files
 
     @property
+    @deprecated("schema")
+    def feature_sets(self) -> QuerySet[Schema]:
+        return self._schemas_m2m
+
+    # add the below because this is what people will have in their code
+    # if they implement the recommended migration strategy
+    # - FeatureSet -> Schema
+    # - featureset -> schema
+    # - feature_set -> schema
+    @property
+    @deprecated("schema")
+    def schemas(self) -> QuerySet[Schema]:
+        return self._schemas_m2m
+
+    @property
     def path(self) -> Path:
         """Path.
 
@@ -2467,8 +2577,8 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         File in local storage:
 
-        >>> ln.Artifact("./myfile.csv", description="myfile").save()
-        >>> artifact = ln.Artifact.get(description="myfile")
+        >>> ln.Artifact("./myfile.csv", key="myfile").save()
+        >>> artifact = ln.Artifact.get(key="myfile")
         >>> artifact.path
         PosixPath('/home/runner/work/lamindb/lamindb/docs/guide/mydata/myfile.csv')
         """
@@ -3145,6 +3255,10 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """An abbreviation."""
     url: str | None = URLField(max_length=255, null=True, default=None)
     """A URL."""
+    start_date: date | None = DateField(null=True, default=None)
+    """Date of start of the project."""
+    end_date: date | None = DateField(null=True, default=None)
+    """Date of start of the project."""
     parents: Project = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
@@ -3170,6 +3284,8 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Persons associated with this project."""
     references: Reference = models.ManyToManyField("Reference", related_name="projects")
     """References associated with this project."""
+    _status_code: int = models.SmallIntegerField(default=0, db_index=True)
+    """Status code."""
 
 
 class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
@@ -3259,30 +3375,36 @@ class LinkORM:
     pass
 
 
-class FeatureSetFeature(BasicRecord, LinkORM):
+class SchemaFeature(BasicRecord, LinkORM):
     id: int = models.BigAutoField(primary_key=True)
-    # we follow the lower() case convention rather than snake case for link models
-    featureset: FeatureSet = ForeignKey(FeatureSet, CASCADE, related_name="+")
+    schema: Schema = ForeignKey(Schema, CASCADE, related_name="+")
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="+")
 
     class Meta:
-        unique_together = ("featureset", "feature")
+        unique_together = ("schema", "feature")
 
 
-class ArtifactFeatureSet(BasicRecord, LinkORM, TracksRun):
+class SchemaParam(BasicRecord, LinkORM):
     id: int = models.BigAutoField(primary_key=True)
-    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_feature_set")
+    schema: Schema = ForeignKey(Schema, CASCADE, related_name="+")
+    param: Param = ForeignKey(Param, PROTECT, related_name="+")
+
+    class Meta:
+        unique_together = ("schema", "param")
+
+
+class ArtifactSchema(BasicRecord, LinkORM, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="_links_schema")
     # we follow the lower() case convention rather than snake case for link models
-    featureset: FeatureSet = ForeignKey(
-        FeatureSet, PROTECT, related_name="links_artifact"
-    )
+    schema: Schema = ForeignKey(Schema, PROTECT, related_name="_links_artifact")
     slot: str | None = CharField(max_length=40, null=True)
     feature_ref_is_semantic: bool | None = BooleanField(
         null=True
     )  # like Feature name or Gene symbol or CellMarker name
 
     class Meta:
-        unique_together = ("artifact", "featureset")
+        unique_together = ("artifact", "schema")
 
 
 class CollectionArtifact(BasicRecord, LinkORM, TracksRun):
@@ -3743,3 +3865,4 @@ def deferred_attribute__repr__(self):
 FieldAttr.__repr__ = deferred_attribute__repr__  # type: ignore
 # backward compatibility
 CanValidate = CanCurate
+FeatureSet = Schema

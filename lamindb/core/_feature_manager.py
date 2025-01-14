@@ -24,7 +24,6 @@ from lamindb._feature import (
     convert_pandas_dtype_to_lamin_dtype,
     suggest_categorical_for_str_iterable,
 )
-from lamindb._feature_set import DICT_KEYS_TYPE, FeatureSet
 from lamindb._from_values import _format_values
 from lamindb._record import (
     REGISTRY_UNIQUE_FIELD,
@@ -33,6 +32,7 @@ from lamindb._record import (
     transfer_to_default_db,
 )
 from lamindb._save import save
+from lamindb._schema import DICT_KEYS_TYPE, Schema
 from lamindb.core.exceptions import DoesNotExist, ValidationError
 from lamindb.core.storage import LocalPathClasses
 from lamindb.models import (
@@ -91,25 +91,25 @@ def get_accessor_by_registry_(host: Artifact | Collection) -> dict:
     return dictionary
 
 
-def get_feature_set_by_slot_(host: Artifact | Collection) -> dict:
+def get_schema_by_slot_(host: Artifact | Collection) -> dict:
     if isinstance(host, Collection):
         return {}
     # if the host is not yet saved
     if host._state.adding:
-        if hasattr(host, "_feature_sets"):
-            return host._feature_sets
+        if hasattr(host, "_staged__schemas_m2m"):
+            return host._staged__schemas_m2m
         else:
             return {}
     host_db = host._state.db
     host_id_field = get_host_id_field(host)
     kwargs = {host_id_field: host.id}
     # otherwise, we need a query
-    links_feature_set = (
-        host.feature_sets.through.objects.using(host_db)
+    links_schema = (
+        host._schemas_m2m.through.objects.using(host_db)
         .filter(**kwargs)
-        .select_related("featureset")
+        .select_related("schema")
     )
-    return {fsl.slot: fsl.featureset for fsl in links_feature_set}
+    return {fsl.slot: fsl.schema for fsl in links_schema}
 
 
 def get_label_links(
@@ -125,11 +125,11 @@ def get_label_links(
     return link_records
 
 
-def get_feature_set_links(host: Artifact | Collection) -> QuerySet:
+def get_schema_links(host: Artifact | Collection) -> QuerySet:
     host_id_field = get_host_id_field(host)
     kwargs = {host_id_field: host.id}
-    links_feature_set = host.feature_sets.through.objects.filter(**kwargs)
-    return links_feature_set
+    links_schema = host._schemas_m2m.through.objects.filter(**kwargs)
+    return links_schema
 
 
 def get_link_attr(link: LinkORM | type[LinkORM], data: Artifact | Collection) -> str:
@@ -269,15 +269,15 @@ def _get_non_categoricals(
     return non_categoricals
 
 
-def _get_featuresets_postgres(
+def _get_schemas_postgres(
     self: Artifact | Collection,
     related_data: dict | None = None,
 ) -> dict:
     if not related_data:
-        artifact_meta = get_artifact_with_related(self, include_featureset=True)
+        artifact_meta = get_artifact_with_related(self, include_schema=True)
         related_data = artifact_meta.get("related_data", {})
 
-    fs_data = related_data.get("featuresets", {}) if related_data else {}
+    fs_data = related_data.get("schemas", {}) if related_data else {}
     return fs_data
 
 
@@ -325,35 +325,35 @@ def describe_features(
         return dictionary if to_dict else tree
 
     # feature sets
-    feature_set_data: dict[str, tuple[str, list[str]]] = {}
+    schema_data: dict[str, tuple[str, list[str]]] = {}
     feature_data: dict[str, tuple[str, list[str]]] = {}
     if not print_params and not to_dict:
         if self.id is not None and connections[self._state.db].vendor == "postgresql":
-            fs_data = _get_featuresets_postgres(self, related_data=related_data)
+            fs_data = _get_schemas_postgres(self, related_data=related_data)
             for fs_id, (slot, data) in fs_data.items():
                 for registry_str, feature_names in data.items():
-                    feature_set = FeatureSet.objects.using(self._state.db).get(id=fs_id)
-                    feature_set_data[slot] = (feature_set, feature_names)
+                    schema = Schema.objects.using(self._state.db).get(id=fs_id)
+                    schema_data[slot] = (schema, feature_names)
                     for feature_name in feature_names:
                         feature_data[feature_name] = (slot, registry_str)
         else:
-            for slot, feature_set in get_feature_set_by_slot_(self).items():
-                features = feature_set.members
+            for slot, schema in get_schema_by_slot_(self).items():
+                features = schema.members
                 # features.first() is a lot slower than features[0] here
                 name_field = get_name_field(features[0])
                 feature_names = list(features.values_list(name_field, flat=True)[:20])
-                feature_set_data[slot] = (feature_set, feature_names)
+                schema_data[slot] = (schema, feature_names)
                 for feature_name in feature_names:
-                    feature_data[feature_name] = (slot, feature_set.registry)
+                    feature_data[feature_name] = (slot, schema.itype)
 
     internal_feature_names: dict[str, str] = {}
     if isinstance(self, Artifact):
-        feature_sets = self.feature_sets.filter(registry="Feature").all()
+        _schemas_m2m = self._schemas_m2m.filter(itype="Feature").all()
         internal_feature_names = {}
-        if len(feature_sets) > 0:
-            for feature_set in feature_sets:
+        if len(_schemas_m2m) > 0:
+            for schema in _schemas_m2m:
                 internal_feature_names.update(
-                    dict(feature_set.members.values_list("name", "dtype"))
+                    dict(schema.members.values_list("name", "dtype"))
                 )
 
     # categorical feature values
@@ -416,7 +416,7 @@ def describe_features(
         internal_feature_labels_slot.setdefault(slot, []).append(feature_row)
 
     int_features_tree_children = []
-    for slot, (feature_set, feature_names) in feature_set_data.items():
+    for slot, (schema, feature_names) in schema_data.items():
         if slot in internal_feature_labels_slot:
             # add internal Feature features with labels
             feature_rows = internal_feature_labels_slot[slot]
@@ -439,7 +439,7 @@ def describe_features(
                         str(
                             internal_feature_names.get(feature_name)
                             if feature_name in internal_feature_names
-                            else feature_set.dtype
+                            else schema.dtype
                         ),
                         style="dim",
                     ),
@@ -453,9 +453,9 @@ def describe_features(
                 Text.assemble(
                     (slot, "violet"),
                     (" • ", "dim"),
-                    (str(feature_set.n), "pink1"),
+                    (str(schema.n), "pink1"),
                 ),
-                Text.assemble((f"[{feature_set.registry}]", "pink1")),
+                Text.assemble((f"[{schema.itype}]", "pink1")),
                 feature_rows,
                 show_header=True,
             )
@@ -466,7 +466,7 @@ def describe_features(
             Text.assemble(
                 ("Dataset features", "bold bright_magenta"),
                 ("/", "dim"),
-                (".feature_sets", "dim bold"),
+                ("._schemas_m2m", "dim bold"),
             )
         )
         for child in int_features_tree_children:
@@ -500,7 +500,7 @@ def describe_features(
     return tree
 
 
-def parse_feature_sets_from_anndata(
+def parse_staged__schemas_m2m_from_anndata(
     adata: AnnData,
     var_field: FieldAttr | None = None,
     obs_field: FieldAttr = Feature.name,
@@ -524,11 +524,11 @@ def parse_feature_sets_from_anndata(
             if adata.X is None
             else convert_pandas_dtype_to_lamin_dtype(adata.X.dtype)
         )
-    feature_sets = {}
+    _schemas_m2m = {}
     if var_field is not None:
         logger.info("parsing feature names of X stored in slot 'var'")
         logger.indent = "   "
-        feature_set_var = FeatureSet.from_values(
+        schema_var = Schema.from_values(
             data_parse.var.index,
             var_field,
             type=type,
@@ -536,28 +536,28 @@ def parse_feature_sets_from_anndata(
             organism=organism,
             raise_validation_error=False,
         )
-        if feature_set_var is not None:
-            feature_sets["var"] = feature_set_var
-            logger.save(f"linked: {feature_set_var}")
+        if schema_var is not None:
+            _schemas_m2m["var"] = schema_var
+            logger.save(f"linked: {schema_var}")
         logger.indent = ""
-        if feature_set_var is None:
+        if schema_var is None:
             logger.warning("skip linking features to artifact in slot 'var'")
     if len(data_parse.obs.columns) > 0:
         logger.info("parsing feature names of slot 'obs'")
         logger.indent = "   "
-        feature_set_obs = FeatureSet.from_df(
+        schema_obs = Schema.from_df(
             df=data_parse.obs,
             field=obs_field,
             mute=mute,
             organism=organism,
         )
-        if feature_set_obs is not None:
-            feature_sets["obs"] = feature_set_obs
-            logger.save(f"linked: {feature_set_obs}")
+        if schema_obs is not None:
+            _schemas_m2m["obs"] = schema_obs
+            logger.save(f"linked: {schema_obs}")
         logger.indent = ""
-        if feature_set_obs is None:
+        if schema_obs is None:
             logger.warning("skip linking features to artifact in slot 'obs'")
-    return feature_sets
+    return _schemas_m2m
 
 
 def is_valid_datetime_str(date_string: str) -> bool | str:
@@ -633,7 +633,7 @@ def infer_feature_type_convert_json(
 
 def __init__(self, host: Artifact | Collection | Run):
     self._host = host
-    self._feature_set_by_slot_ = None
+    self._schema_by_slot_ = None
     self._accessor_by_registry_ = None
 
 
@@ -650,15 +650,15 @@ def get_values(self) -> dict[str, Any]:
 
 
 def __getitem__(self, slot) -> QuerySet:
-    if slot not in self._feature_set_by_slot:
+    if slot not in self._schema_by_slot:
         raise ValueError(
             f"No linked feature set for slot: {slot}\nDid you get validation"
             " warnings? Only features that match registered features get validated"
             " and linked."
         )
-    feature_set = self._feature_set_by_slot[slot]
-    orm_name = feature_set.registry
-    return getattr(feature_set, self._accessor_by_registry[orm_name]).all()
+    schema = self._schema_by_slot[slot]
+    orm_name = schema.itype
+    return getattr(schema, self._accessor_by_registry[orm_name]).all()
 
 
 def filter_base(cls, **expression):
@@ -748,11 +748,11 @@ def get(cls, **expression) -> Record:
 
 
 @property  # type: ignore
-def _feature_set_by_slot(self):
+def _schema_by_slot(self):
     """Feature sets by slot."""
-    if self._feature_set_by_slot_ is None:
-        self._feature_set_by_slot_ = get_feature_set_by_slot_(self._host)
-    return self._feature_set_by_slot_
+    if self._schema_by_slot_ is None:
+        self._schema_by_slot_ = get_schema_by_slot_(self._host)
+    return self._schema_by_slot_
 
 
 @property  # type: ignore
@@ -1049,36 +1049,37 @@ def remove_values(
         # we can clean the FeatureValue registry periodically if we want to
 
 
-def add_feature_set(self, feature_set: FeatureSet, slot: str) -> None:
-    """Curate artifact with a feature set.
+def add_schema(self, schema: Schema, slot: str) -> None:
+    """Annotate artifact with a schema.
 
     Args:
-        feature_set: `FeatureSet` A feature set record.
-        slot: `str` The slot that marks where the feature set is stored in
+        schema: `Schema` A schema record.
+        slot: `str` The slot that marks where the schema is stored in
             the artifact.
     """
+    # TODO: deprecate as soon as we have the Schema-based curators
     if self._host._state.adding:
         raise ValueError(
             "Please save the artifact or collection before adding a feature set!"
         )
     host_db = self._host._state.db
-    feature_set.save(using=host_db)
+    schema.save(using=host_db)
     host_id_field = get_host_id_field(self._host)
     kwargs = {
         host_id_field: self._host.id,
-        "featureset": feature_set,
+        "schema": schema,
         "slot": slot,
     }
     link_record = (
-        self._host.feature_sets.through.objects.using(host_db)
+        self._host._schemas_m2m.through.objects.using(host_db)
         .filter(**kwargs)
         .one_or_none()
     )
     if link_record is None:
-        self._host.feature_sets.through(**kwargs).save(using=host_db)
-        if slot in self._feature_set_by_slot:
+        self._host._schemas_m2m.through(**kwargs).save(using=host_db)
+        if slot in self._schema_by_slot:
             logger.debug(f"replaced existing {slot} feature set")
-        self._feature_set_by_slot_[slot] = feature_set  # type: ignore
+        self._schema_by_slot_[slot] = schema  # type: ignore
 
 
 def _add_set_from_df(
@@ -1094,13 +1095,13 @@ def _add_set_from_df(
         # Collection
         assert self._host.artifact.otype == "DataFrame"  # noqa: S101
     df = self._host.load()
-    feature_set = FeatureSet.from_df(
+    schema = Schema.from_df(
         df=df,
         field=field,
         mute=mute,
         organism=organism,
     )
-    self._host._feature_sets = {"columns": feature_set}
+    self._host._staged__schemas_m2m = {"columns": schema}
     self._host.save()
 
 
@@ -1119,7 +1120,7 @@ def _add_set_from_anndata(
 
     # parse and register features
     adata = self._host.load()
-    feature_sets = parse_feature_sets_from_anndata(
+    _schemas_m2m = parse_staged__schemas_m2m_from_anndata(
         adata,
         var_field=var_field,
         obs_field=obs_field,
@@ -1128,7 +1129,7 @@ def _add_set_from_anndata(
     )
 
     # link feature sets
-    self._host._feature_sets = feature_sets
+    self._host._staged__schemas_m2m = _schemas_m2m
     self._host.save()
 
 
@@ -1149,12 +1150,12 @@ def _add_set_from_mudata(
 
     # parse and register features
     mdata = self._host.load()
-    feature_sets = {}
+    _schemas_m2m = {}
     obs_features = Feature.from_values(mdata.obs.columns)
     if len(obs_features) > 0:
-        feature_sets["obs"] = FeatureSet(features=obs_features)
+        _schemas_m2m["obs"] = Schema(features=obs_features)
     for modality, field in var_fields.items():
-        modality_fs = parse_feature_sets_from_anndata(
+        modality_fs = parse_staged__schemas_m2m_from_anndata(
             mdata[modality],
             var_field=field,
             obs_field=obs_fields.get(modality, Feature.name),
@@ -1162,22 +1163,22 @@ def _add_set_from_mudata(
             organism=organism,
         )
         for k, v in modality_fs.items():
-            feature_sets[f"['{modality}'].{k}"] = v
+            _schemas_m2m[f"['{modality}'].{k}"] = v
 
-    def unify_feature_sets_by_hash(feature_sets):
+    def unify_staged__schemas_m2m_by_hash(_schemas_m2m):
         unique_values = {}
 
-        for key, value in feature_sets.items():
+        for key, value in _schemas_m2m.items():
             value_hash = value.hash  # Assuming each value has a .hash attribute
             if value_hash in unique_values:
-                feature_sets[key] = unique_values[value_hash]
+                _schemas_m2m[key] = unique_values[value_hash]
             else:
                 unique_values[value_hash] = value
 
-        return feature_sets
+        return _schemas_m2m
 
     # link feature sets
-    self._host._feature_sets = unify_feature_sets_by_hash(feature_sets)
+    self._host._staged__schemas_m2m = unify_staged__schemas_m2m_by_hash(_schemas_m2m)
     self._host.save()
 
 
@@ -1187,8 +1188,8 @@ def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
     if transfer_logs is None:
         transfer_logs = {"mapped": [], "transferred": [], "run": None}
     using_key = settings._using_key
-    for slot, feature_set in data.features._feature_set_by_slot.items():
-        members = feature_set.members
+    for slot, schema in data.features._schema_by_slot.items():
+        members = schema.members
         if len(members) == 0:
             continue
         registry = members[0].__class__
@@ -1224,20 +1225,18 @@ def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
             save(new_members)
 
         # create a new feature set from feature values using the same uid
-        feature_set_self = FeatureSet.from_values(
-            member_uids, field=getattr(registry, field)
-        )
-        if feature_set_self is None:
+        schema_self = Schema.from_values(member_uids, field=getattr(registry, field))
+        if schema_self is None:
             if hasattr(registry, "organism_id"):
                 logger.warning(
-                    f"FeatureSet is not transferred, check if organism is set correctly: {feature_set}"
+                    f"Schema is not transferred, check if organism is set correctly: {schema}"
                 )
             continue
-        # make sure the uid matches if featureset is composed of same features
-        if feature_set_self.hash == feature_set.hash:
-            feature_set_self.uid = feature_set.uid
-        logger.info(f"saving {slot} featureset: {feature_set_self}")
-        self._host.features.add_feature_set(feature_set_self, slot)
+        # make sure the uid matches if schema is composed of same features
+        if schema_self.hash == schema.hash:
+            schema_self.uid = schema.uid
+        logger.info(f"saving {slot} schema: {schema_self}")
+        self._host.features.add_schema(schema_self, slot)
 
 
 def make_external(self, feature: Feature) -> None:
@@ -1249,8 +1248,8 @@ def make_external(self, feature: Feature) -> None:
     """
     if not isinstance(feature, Feature):
         raise TypeError("feature must be a Feature record!")
-    feature_sets = FeatureSet.filter(features=feature).all()
-    for fs in feature_sets:
+    _schemas_m2m = Schema.filter(features=feature).all()
+    for fs in _schemas_m2m:
         f = Feature.filter(uid=feature.uid).all()
         features_updated = fs.members.difference(f)
         if len(features_updated) > 0:
@@ -1260,13 +1259,14 @@ def make_external(self, feature: Feature) -> None:
             fs.n = len(features_updated)
             fs.save()
         # delete the link between the feature and the feature set
-        FeatureSet.features.through.objects.filter(
-            feature_id=feature.id, featureset_id=fs.id
+        Schema.features.through.objects.filter(
+            feature_id=feature.id, schema_id=fs.id
         ).delete()
-        # if no members are left in the featureset, delete it
+        # if no members are left in the schema, delete it
         if len(features_updated) == 0:
             logger.warning(f"deleting empty feature set: {fs}")
             fs.artifacts.set([])
+            fs._artifacts_m2m.set([])
             fs.delete()
 
 
@@ -1276,10 +1276,10 @@ FeatureManager.__repr__ = __repr__
 ParamManager.__repr__ = __repr__
 FeatureManager.__getitem__ = __getitem__
 FeatureManager.get_values = get_values
-FeatureManager._feature_set_by_slot = _feature_set_by_slot
+FeatureManager._schema_by_slot = _schema_by_slot
 FeatureManager._accessor_by_registry = _accessor_by_registry
 FeatureManager.add_values = add_values_features
-FeatureManager.add_feature_set = add_feature_set
+FeatureManager.add_schema = add_schema
 FeatureManager._add_set_from_df = _add_set_from_df
 FeatureManager._add_set_from_anndata = _add_set_from_anndata
 FeatureManager._add_set_from_mudata = _add_set_from_mudata

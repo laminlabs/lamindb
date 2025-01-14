@@ -8,7 +8,7 @@ from lamindb_setup._connect_instance import (
 )
 from lamindb_setup.core._settings_store import instance_settings_file
 
-from lamindb.models import FeatureSet, LinkORM, Record
+from lamindb.models import LinkORM, Record, Schema
 
 
 def get_schema_modules(instance: str | None) -> set[str]:
@@ -84,15 +84,15 @@ def dict_related_model_to_related_name(
 def get_related_name(features_type: type[Record]) -> str:
     candidates = [
         field.related_name
-        for field in FeatureSet._meta.related_objects
+        for field in Schema._meta.related_objects
         if field.related_model == features_type
     ]
     if not candidates:
         raise ValueError(
             f"Can't create feature sets from {features_type.__name__} because it's not"
-            " related to it!\nYou need to create a link model between FeatureSet and"
+            " related to it!\nYou need to create a link model between Schema and"
             " your Record in your custom module.\nTo do so, add a"
-            " line:\nfeature_sets = models.ManyToMany(FeatureSet,"
+            " line:\n_schemas_m2m = models.ManyToMany(Schema,"
             " related_name='mythings')\n"
         )
     return candidates[0]

@@ -22,6 +22,7 @@ from lamindb.models import (
     IsVersioned,
     Record,
     Run,
+    Schema,
     Transform,
 )
 
@@ -79,18 +80,32 @@ def one_helper(self):
         return self[0]
 
 
-def get_backward_compat_filter_kwargs(expressions):
-    name_mappings = {
-        "name": "key",  # backward compat <1.0
-        "n_objects": "n_files",
-        "visibility": "_branch_code",  # for convenience (and backward compat <1.0)
-        "transform": "run__transform",  # for convenience (and backward compat <1.0)
-    }
+def get_backward_compat_filter_kwargs(queryset, expressions):
+    if queryset.model in {Artifact, Collection, Transform}:
+        name_mappings = {
+            "name": "key",
+            "n_objects": "n_files",  # only on Artifact
+            "visibility": "_branch_code",  # for convenience (and backward compat <1.0)
+            "transform": "run__transform",  # for convenience (and backward compat <1.0)
+            "feature_sets": "_schemas_m2m",  # only on Artifact
+            "schemas": "_schemas_m2m",  # only on Artifact
+        }
+    elif queryset.model == Schema:
+        name_mappings = {
+            "registry": "itype",
+        }
+    else:
+        return expressions
+    was_list = False
+    if isinstance(expressions, list):
+        # make a dummy dictionary
+        was_list = True
+        expressions = {field: True for field in expressions}
     mapped = {}
     for field, value in expressions.items():
         parts = field.split("__")
         if parts[0] in name_mappings:
-            if parts[0] not in {"transform", "visibility"}:
+            if parts[0] not in {"transform", "visibility", "feature_sets", "schemas"}:
                 warnings.warn(
                     f"{name_mappings[parts[0]]} is deprecated, please query for {parts[0]} instead",
                     DeprecationWarning,
@@ -102,7 +117,7 @@ def get_backward_compat_filter_kwargs(expressions):
             mapped[new_field] = value
         else:
             mapped[field] = value
-    return mapped
+    return list(mapped.keys()) if was_list else mapped
 
 
 def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
@@ -131,8 +146,10 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
 
         return key, value
 
-    if queryset.model in {Collection, Transform, Artifact}:
-        expressions = get_backward_compat_filter_kwargs(expressions)
+    expressions = get_backward_compat_filter_kwargs(
+        queryset,
+        expressions,
+    )
 
     if issubclass(queryset.model, Record):
         # _branch_code is set to 0 unless expressions contains id or uid
@@ -507,6 +524,7 @@ class QuerySet(models.QuerySet):
             include = []
         elif isinstance(include, str):
             include = [include]
+        include = get_backward_compat_filter_kwargs(self, include)
         field_names = get_basic_field_names(self, include, features)
         annotate_kwargs = {}
         if features:

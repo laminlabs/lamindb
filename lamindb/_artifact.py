@@ -31,8 +31,8 @@ from .core._data import (
     _track_run_input,
     describe,
     get_run,
-    save_feature_set_links,
-    save_feature_sets,
+    save_schema_links,
+    save_staged__schemas_m2m,
 )
 from .core._settings import settings
 from .core.exceptions import IntegrityError, InvalidArgument
@@ -1175,9 +1175,9 @@ def save(self, upload: bool | None = None, **kwargs) -> Artifact:
 
 
 def _save_skip_storage(file, **kwargs) -> None:
-    save_feature_sets(file)
+    save_staged__schemas_m2m(file)
     super(Artifact, file).save(**kwargs)
-    save_feature_set_links(file)
+    save_schema_links(file)
 
 
 @property  # type: ignore

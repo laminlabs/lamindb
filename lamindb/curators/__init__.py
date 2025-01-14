@@ -16,9 +16,9 @@ from lamindb_setup.core.upath import UPath
 from lamindb.models import (
     Artifact,
     Feature,
-    FeatureSet,
     Record,
     Run,
+    Schema,
     ULabel,
 )
 
@@ -1544,7 +1544,7 @@ class SOMACurator(BaseCurator):
         else:
             artifact = self._artifact
 
-        feature_sets = {}
+        _schemas_m2m = {}
         if len(self._obs_fields) > 0:
             organism = check_registry_organism(
                 self._columns_field.field.model, self._organism
@@ -1554,7 +1554,7 @@ class SOMACurator(BaseCurator):
                 empty_dict, schema=self._obs_pa_schema
             ).to_pandas()
             # in parallel to https://github.com/laminlabs/lamindb/blob/2a1709990b5736b480c6de49c0ada47fafc8b18d/lamindb/core/_feature_manager.py#L549-L554
-            feature_sets["obs"] = FeatureSet.from_df(
+            _schemas_m2m["obs"] = Schema.from_df(
                 df=mock_df,
                 field=self._columns_field,
                 mute=True,
@@ -1565,13 +1565,13 @@ class SOMACurator(BaseCurator):
             organism = check_registry_organism(
                 var_field.field.model, self._organism
             ).get("organism")
-            feature_sets[f"{ms}__var"] = FeatureSet.from_values(
+            _schemas_m2m[f"{ms}__var"] = Schema.from_values(
                 values=self._validated_values[f"{ms}__{var_key}"],
                 field=var_field,
                 organism=organism,
                 raise_validation_error=False,
             )
-        artifact._feature_sets = feature_sets
+        artifact._staged__schemas_m2m = _schemas_m2m
 
         feature_ref_is_name = _ref_is_name(self._columns_field)
         features = Feature.lookup().dict()

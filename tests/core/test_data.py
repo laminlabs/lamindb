@@ -34,7 +34,7 @@ def test_rename():
     assert artifact.ulabels.through.objects.filter(
         feature__name="feature_to_rename", ulabel__name="label-to-rename"
     ).exists()
-    assert ln.Artifact.filter(feature_sets__features__name="feature_to_rename").exists()
+    assert ln.Artifact.filter(_schemas_m2m__features__name="feature_to_rename").exists()
 
     # rename label
     ulabel = ln.ULabel.get(name="label-to-rename")
@@ -57,21 +57,21 @@ def test_rename():
 
     artifact.features.make_external(feature)
     assert not ln.Artifact.filter(
-        feature_sets__features__name="feature_to_rename"
+        _schemas_m2m__features__name="feature_to_rename"
     ).exists()
     assert ln.Artifact.filter(
-        feature_sets__features__name="feature_to_rename2"
+        _schemas_m2m__features__name="feature_to_rename2"
     ).exists()
     feature.name = "feature_renamed"
     feature.save()
 
-    # rename the other feature, automatically deletes no-member featureset
+    # rename the other feature, automatically deletes no-member schema
     feature2 = ln.Feature.get(name="feature_to_rename2")
     artifact.features.make_external(feature2)
-    assert artifact.feature_sets.count() == 0
+    assert artifact._schemas_m2m.count() == 0
 
     # clean up
     artifact.delete(permanent=True)
-    ln.FeatureSet.filter().delete()
+    ln.Schema.filter().delete()
     ln.ULabel.filter().delete()
     ln.Feature.filter().delete()

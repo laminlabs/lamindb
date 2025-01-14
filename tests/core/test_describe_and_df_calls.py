@@ -97,18 +97,18 @@ def test_curate_df():
     df = (
         ln.Artifact.filter(key__startswith="example_datasets/dataset", suffix=".h5ad")
         .order_by("-key")
-        .df(include=["feature_sets__hash", "feature_sets__name"])
+        .df(include=["_schemas_m2m__hash", "_schemas_m2m__name"])
         .drop(["uid"], axis=1)
     )
     print(df)
     expected_data = {
         "key": ["example_datasets/dataset2.h5ad", "example_datasets/dataset1.h5ad"],
         "description": [None, None],
-        "feature_sets__hash": [
-            set(artifact2.feature_sets.all().values_list("hash", flat=True)),
-            set(artifact.feature_sets.all().values_list("hash", flat=True)),
+        "_schemas_m2m__hash": [
+            set(artifact2._schemas_m2m.all().values_list("hash", flat=True)),
+            set(artifact._schemas_m2m.all().values_list("hash", flat=True)),
         ],
-        "feature_sets__name": [{None}, {None}],
+        "_schemas_m2m__name": [{None}, {None}],
     }
     expected_df = pd.DataFrame(expected_data)
     check_df_equality(df, expected_df)
@@ -160,7 +160,7 @@ def test_curate_df():
 
     # dataset section
     int_features_node = description_tree.children[1]
-    assert int_features_node.label.plain == "Dataset features/.feature_sets"
+    assert int_features_node.label.plain == "Dataset features/._schemas_m2m"
     assert len(int_features_node.children) == 2
     assert len(int_features_node.children[0].label.rows) == 3
     assert len(int_features_node.children[0].label.columns) == 3
@@ -243,7 +243,7 @@ def test_curate_df():
 
     artifact.delete(permanent=True)
     artifact2.delete(permanent=True)
-    ln.FeatureSet.filter().delete()
+    ln.Schema.filter().delete()
     ln.Feature.filter().delete()
     bt.Gene.filter().delete()
     ln.ULabel.filter().delete()

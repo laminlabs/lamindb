@@ -48,11 +48,11 @@ from lamindb.models import (
     CanCurate,
     Collection,
     Feature,
-    FeatureSet,
     IsVersioned,
     Param,
     Record,
     Run,
+    Schema,
     Transform,
     ULabel,
     ValidateFields,
@@ -114,7 +114,7 @@ def validate_fields(record: Record, kwargs):
         Run,
         ULabel,
         Feature,
-        FeatureSet,
+        Schema,
         Param,
     }:
         uid_max_length = record.__class__._meta.get_field(
@@ -813,7 +813,7 @@ def check_name_change(record: Record):
         return
 
     # renaming feature sets is not checked
-    if isinstance(record, FeatureSet):
+    if isinstance(record, Schema):
         return
 
     old_name = record._old_name
@@ -830,7 +830,7 @@ def check_name_change(record: Record):
                 .exclude(feature_id=None)  # must have a feature
                 .exclude(
                     feature_ref_is_name=None
-                )  # must be linked via Curator and therefore part of a featureset
+                )  # must be linked via Curator and therefore part of a schema
                 .distinct()
             )
             artifact_ids = linked_records.list("artifact__uid")
@@ -850,8 +850,8 @@ def check_name_change(record: Record):
 
         # when a feature is renamed
         elif isinstance(record, Feature):
-            # only internal features are associated with featuresets
-            linked_artifacts = Artifact.filter(feature_sets__features=record).list(
+            # only internal features are associated with schemas
+            linked_artifacts = Artifact.filter(_schemas_m2m__features=record).list(
                 "uid"
             )
             n = len(linked_artifacts)

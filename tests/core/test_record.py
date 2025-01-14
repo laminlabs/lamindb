@@ -7,6 +7,7 @@ import lamindb as ln
 import pytest
 from lamindb import _record
 from lamindb._record import _search, suggest_records_with_similar_names
+from lamindb.base.validation import FieldValidationError
 
 
 def test_signatures():
@@ -25,6 +26,12 @@ def test_signatures():
     # methods
     for name, sig in _record.SIGS.items():
         assert signature(getattr(_record, name)) == sig
+
+
+def test_validate_literal_fields():
+    # validate literal
+    with pytest.raises(FieldValidationError):
+        ln.Transform(name="new-name-not-existing-123", type="invalid")
 
 
 def test_init_with_args():

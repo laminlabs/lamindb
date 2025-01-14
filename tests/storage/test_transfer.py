@@ -26,15 +26,15 @@ def test_transfer_from_remote_to_local():
         include_m2m=True,
         include_fk=True,
         include_feature_link=True,
-        include_featureset=True,
+        include_schema=True,
     )
     assert result["related_data"]["m2m"]["tissues"] == {2: "cortex of kidney"}
     assert result["related_data"]["link"]["links_ulabel"] == [
         {"id": 7, "ulabel": 15, "feature": 1},
         {"id": 8, "ulabel": 10, "feature": 10},
     ]
-    assert result["related_data"]["featuresets"][615][0] == "obs"
-    assert result["related_data"]["featuresets"][615][1] == {
+    assert result["related_data"]["schemas"][615][0] == "obs"
+    assert result["related_data"]["schemas"][615][1] == {
         "Feature": [
             "donor_id",
             "development_stage",
@@ -108,7 +108,7 @@ def test_transfer_from_remote_to_local():
     artifact3.load()
 
     ln.Artifact.filter().delete(permanent=True, storage=False)
-    ln.FeatureSet.filter().delete()
+    ln.Schema.filter().delete()
     bt.Gene.filter().delete()
     bt.Organism.filter().delete()
     ln.ULabel.filter().delete()

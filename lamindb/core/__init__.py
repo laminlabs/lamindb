@@ -5,8 +5,8 @@ Registries:
 .. autosummary::
    :toctree: .
 
-   Record
    BasicRecord
+   Record
    Registry
    QuerySet
    QueryManager

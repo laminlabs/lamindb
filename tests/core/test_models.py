@@ -25,6 +25,7 @@ def test_registry__repr__param():
         .run: Run
         .space: Space
         .type: Param
+        .schemas: Schema
         .records: Param
         .values: ParamValue
     """).strip()
@@ -59,10 +60,10 @@ def test_registry__repr__artifact():
         .space: Space
         .storage: Storage
         .run: Run
+        .schema: Schema
         .created_by: User
         .ulabels: ULabel
         .input_of_runs: Run
-        .feature_sets: FeatureSet
         .collections: Collection
         .projects: Project
         .references: Reference
