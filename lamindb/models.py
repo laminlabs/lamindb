@@ -2007,6 +2007,8 @@ class Schema(Record, CanCurate, TracksRun):
         A `slot` provides a string key to access feature sets.
         It's typically the accessor within the registered data object, here `pd.DataFrame.columns`.
 
+    .. versionchanged:: 1.0.0
+        Was called `FeatureSet` before.
 
     See Also:
         :meth:`~lamindb.Schema.from_values`
@@ -2064,6 +2066,9 @@ class Schema(Record, CanCurate, TracksRun):
     """A registry that stores feature identifiers used in this schema, e.g., `'Feature'` or `'bionty.Gene'`.
 
     Depending on the registry, `.members` stores, e.g., `Feature` or `bionty.Gene` records.
+
+    .. versionchanged:: 1.0.0
+        Was called `itype` before.
     """
     type: Feature | None = ForeignKey(
         "self", PROTECT, null=True, related_name="records"
