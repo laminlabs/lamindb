@@ -25,6 +25,7 @@ def test_registry__repr__param():
         .run: Run
         .space: Space
         .type: Param
+        .schemas: Schema
         .records: Param
         .values: ParamValue
     """).strip()
