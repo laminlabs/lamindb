@@ -14,12 +14,9 @@ def test_view_parents():
 
 
 def test_query_parents_children():
-    label1 = ln.ULabel(name="label1")
-    label2 = ln.ULabel(name="label2")
-    label3 = ln.ULabel(name="label3")
-    label1.save()
-    label2.save()
-    label3.save()
+    label1 = ln.ULabel(name="label1").save()
+    label2 = ln.ULabel(name="label2").save()
+    label3 = ln.ULabel(name="label3").save()
     label1.children.add(label2)
     label2.children.add(label3)
     parents = label3.query_parents()
@@ -34,11 +31,11 @@ def test_query_parents_children():
 
 
 def test_add_emoji():
-    record = ln.Transform(type="upload")
-    assert _add_emoji(record, label="transform") == "🖥️ transform"
-    transform = ln.Transform(name="test", type="upload").save()
-    record = ln.Run(transform=transform)
-    assert _add_emoji(record, label="run") == "🖥️ run"
+    transform = ln.Transform(name="test-12345", type="upload")
+    assert _add_emoji(transform, label="transform") == "🖥️ transform"
+    transform.save()
+    run = ln.Run(transform=transform)
+    assert _add_emoji(run, label="run") == "🖥️ run"
     transform.delete()
 
 
