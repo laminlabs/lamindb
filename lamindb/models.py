@@ -2746,6 +2746,34 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         """
         pass
 
+    @classmethod
+    def get(
+        cls,
+        idlike: int | str | None = None,
+        **expressions,
+    ) -> Artifact:
+        """Get a single artifact.
+
+        Args:
+            idlike: Either a uid stub, uid or an integer id.
+            expressions: Fields and values passed as Django query expressions.
+
+        Returns:
+            An artifact.
+
+        Raises:
+            :exc:`docs:lamindb.core.exceptions.DoesNotExist`: In case no matching record is found.
+
+        See Also:
+            - Guide: :doc:`docs:registries`
+            - Django documentation: `Queries <https://docs.djangoproject.com/en/stable/topics/db/queries/>`__
+
+        Examples:
+            >>> artifact = ln.Artifact.get("FvtpPJLJFvtpPJLJ0000")
+            >>> artifact = ln.Artifact.get(key="my-folder/myfile.txt")
+        """
+        pass
+
     def replace(
         self,
         data: UPathStr,

@@ -267,7 +267,9 @@ def get_stat_or_artifact(
                     f"You're trying to re-create this artifact in trash: {result[0]}"
                     "Either permanently delete it with `artifact.delete(permanent=True)` or restore it with `artifact.restore()`"
                 )
-            logger.important(f"returning existing artifact with same hash: {result[0]}")
+            logger.important(
+                f"returning existing artifact with same hash: {result[0]}; if you intended to query to track this artifact as an input, use: ln.Artifact.get()"
+            )
             return result[0]
     else:
         return size, hash, hash_type, n_files, previous_artifact_version
