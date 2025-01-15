@@ -165,10 +165,16 @@ class TracksRun(models.Model):
     class Meta:
         abstract = True
 
-    created_at: datetime = DateTimeField(auto_now_add=True, db_index=True)
+    created_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
     """Time of creation of record."""
     created_by: User = ForeignKey(
-        "lamindb.User", PROTECT, default=current_user_id, related_name="+"
+        "lamindb.User",
+        PROTECT,
+        editable=False,
+        default=current_user_id,
+        related_name="+",
     )
     """Creator of record."""
     run: Run | None = ForeignKey(
@@ -199,7 +205,9 @@ class TracksUpdates(models.Model):
     class Meta:
         abstract = True
 
-    updated_at: datetime = DateTimeField(auto_now=True, db_index=True)
+    updated_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
     """Time of last update to record."""
 
     @overload
