@@ -7,18 +7,25 @@ from lamin_utils import logger
 from rich.text import Text
 from rich.tree import Tree
 
+from ._context import is_run_from_ipython
+
 if TYPE_CHECKING:
     from lamindb.models import Artifact, Collection, Run
 
 
 def highlight_time(iso: str):
-    tz = datetime.datetime.now().astimezone().tzinfo
-    res = (
-        datetime.datetime.fromisoformat(iso)
-        .replace(tzinfo=datetime.timezone.utc)
-        .astimezone(tz)
-        .strftime("%Y-%m-%d %H:%M:%S")
-    )
+    try:
+        tz = datetime.datetime.now().astimezone().tzinfo
+        res = (
+            datetime.datetime.fromisoformat(iso)
+            .replace(tzinfo=datetime.timezone.utc)
+            .astimezone(tz)
+            .strftime("%Y-%m-%d %H:%M:%S")
+        )
+    except ValueError:
+        # raises ValueError: Invalid isoformat string: '<django.db.models.expressions.DatabaseDefault object at 0x1128ac440>'
+        # but can't be caught with `isinstance(iso, DatabaseDefault)` for unkown reasons
+        return Text("timestamp of unsaved record not available", style="dim")
     return Text(res, style="dim")
 
 
@@ -31,28 +38,33 @@ VALUES_WIDTH = 40
 def print_rich_tree(tree: Tree, fallback=str):
     from rich.console import Console
 
-    console = Console(force_terminal=True)
+    # If tree has no children, return fallback
+    if not tree.children:
+        return fallback(tree)
 
-    if tree.children:
-        try:
+    console = Console(force_terminal=True)
+    printed = False
+
+    try:
+        if not is_run_from_ipython:
             from IPython import get_ipython
             from IPython.core.interactiveshell import InteractiveShell
             from IPython.display import display
 
             shell = get_ipython()
-            if isinstance(shell, InteractiveShell):  # Covers all interactive shells
+            if isinstance(shell, InteractiveShell):
                 display(tree)
+                printed = True
                 return ""
-            else:
-                with console.capture() as capture:
-                    console.print(tree)
-                return capture.get()
-        except (ImportError, NameError):
-            with console.capture() as capture:
-                console.print(tree)
-            return capture.get()
-    else:
-        return fallback
+    except (NameError, ImportError):
+        pass
+
+    # If not printed through IPython
+    if not printed:
+        # be careful to test this on a terminal
+        console = Console(force_terminal=True)
+        console.print(tree)
+        return ""
 
 
 def describe_header(self: Artifact | Collection | Run) -> Tree:
