@@ -345,10 +345,7 @@ def test_collection_mapped(adata, adata2):
         collection_csc.mapped(layers_keys="layer1")
 
     # test with obs_filter
-    # wrong obs_vilter value
-    with pytest.raises(ValueError):
-        collection.mapped(obs_filter=("feat1", "A", "B"))
-
+    # tuple as obs_filter is deprecated, test anyways for now
     with collection.mapped(obs_filter=("feat1", ("A", "B"))) as ls_ds:
         assert ls_ds.shape == (4, 3)
         assert np.array_equal(ls_ds[1]["X"], np.array([4, 5, 6]))
@@ -356,8 +353,16 @@ def test_collection_mapped(adata, adata2):
         weights = ls_ds.get_label_weights("feat1")
         assert len(weights) == 4
         assert all(weights == 0.5)
-
+    # tuple as obs_filter is deprecated, test anyways for now
     with collection.mapped(obs_filter=("feat1", "B")) as ls_ds:
+        assert ls_ds.shape == (2, 3)
+        assert np.array_equal(ls_ds[0]["X"], np.array([4, 5, 6]))
+        assert np.array_equal(ls_ds[1]["X"], np.array([4, 5, 8]))
+        weights = ls_ds.get_label_weights("feat2")
+        assert len(weights) == 2
+        assert all(weights == 0.5)
+
+    with collection.mapped(obs_filter={"feat1": "B", "feat2": ("A", "B")}) as ls_ds:
         assert ls_ds.shape == (2, 3)
         assert np.array_equal(ls_ds[0]["X"], np.array([4, 5, 6]))
         assert np.array_equal(ls_ds[1]["X"], np.array([4, 5, 8]))
