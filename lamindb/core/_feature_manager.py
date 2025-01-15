@@ -1277,6 +1277,7 @@ ParamManager.__repr__ = __repr__
 FeatureManager.__getitem__ = __getitem__
 FeatureManager.get_values = get_values
 FeatureManager._schema_by_slot = _schema_by_slot
+FeatureManager._feature_set_by_slot = _schema_by_slot
 FeatureManager._accessor_by_registry = _accessor_by_registry
 FeatureManager.add_values = add_values_features
 FeatureManager.add_schema = add_schema
