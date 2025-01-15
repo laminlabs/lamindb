@@ -10,6 +10,7 @@ from lamindb.models import Run, Transform
 
 from ._parents import _view_parents
 from ._run import delete_run_artifacts
+from .core._settings import settings
 from .core.exceptions import InconsistentKey
 from .core.versioning import message_update_key_in_version_family, process_revises
 
@@ -31,6 +32,9 @@ def __init__(transform: Transform, *args, **kwargs):
     reference: str | None = kwargs.pop("reference") if "reference" in kwargs else None
     reference_type: str | None = (
         kwargs.pop("reference_type") if "reference_type" in kwargs else None
+    )
+    using_key = (
+        kwargs.pop("using_key") if "using_key" in kwargs else settings._using_key
     )
     if "name" in kwargs:
         if key is None:
@@ -59,13 +63,15 @@ def __init__(transform: Transform, *args, **kwargs):
         # need to check uid before checking key
         if uid is not None:
             revises = (
-                Transform.filter(uid__startswith=uid[:-4], is_latest=True)
+                Transform.objects.using(using_key)
+                .filter(uid__startswith=uid[:-4], is_latest=True)
                 .order_by("-created_at")
                 .first()
             )
         elif key is not None:
             candidate_for_revises = (
-                Transform.filter(key=key, is_latest=True)
+                Transform.objects.using(using_key)
+                .filter(key=key, is_latest=True)
                 .order_by("-created_at")
                 .first()
             )
@@ -73,6 +79,9 @@ def __init__(transform: Transform, *args, **kwargs):
                 revises = candidate_for_revises
                 if candidate_for_revises.source_code is None:
                     # no source code was yet saved, return the same transform
+                    logger.important(
+                        "no source code was yet saved, returning existing transform with same key"
+                    )
                     uid = revises.uid
     if revises is not None and uid is not None and uid == revises.uid:
         from ._record import init_self_from_db, update_attributes
