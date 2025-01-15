@@ -3494,7 +3494,7 @@ class DataMixin(models.Model):
             raise ValidationError("Exactly one value field must be set")
 
 
-class RunData(DataMixin):
+class RunData(BasicRecord, DataMixin):
     run = models.ForeignKey("Run", on_delete=models.CASCADE, related_name="data")
 
     class Meta:
@@ -3506,7 +3506,9 @@ class RunData(DataMixin):
                 ),
                 name="run_data_feature_param_mutex",
             ),
-            models.UniqueConstraint(fields=["run", "row"], name="run_data_unique_row"),
+            models.UniqueConstraint(
+                fields=["run", "row", "feature", "param"], name="run_data_unique"
+            ),
         ]
         indexes = [
             models.Index(fields=["run", "row"]),
@@ -3535,7 +3537,7 @@ class TidyTable(Record, TracksRun, TracksUpdates):
         indexes = [models.Index(fields=["uid"]), models.Index(fields=["name"])]
 
 
-class TidyTableData(DataMixin):
+class TidyTableData(BasicRecord, DataMixin):
     tidytable = models.ForeignKey(
         TidyTable, on_delete=models.CASCADE, related_name="data"
     )
@@ -3550,7 +3552,8 @@ class TidyTableData(DataMixin):
                 name="tidy_table_data_feature_param_mutex",
             ),
             models.UniqueConstraint(
-                fields=["tidytable", "row"], name="tidy_table_data_unique_row"
+                fields=["tidytable", "row", "feature", "param"],
+                name="tidy_table_data_unique",
             ),
         ]
         indexes = [

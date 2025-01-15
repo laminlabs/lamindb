@@ -21,11 +21,9 @@ def pytest_sessionstart():
     pgurl = setup_local_test_postgres()
     ln.setup.init(
         storage="./default_storage_unit_core",
-        modules="bionty",
         name="lamindb-unit-tests-core",
         db=pgurl,
     )
-    ln.setup.register()  # temporarily
     ln.setup.settings.auto_connect = True
     ln.settings.creation.artifact_silence_missing_run_warning = True
 
