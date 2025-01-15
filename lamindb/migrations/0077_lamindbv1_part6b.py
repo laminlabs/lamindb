@@ -9,12 +9,18 @@ import lamindb.base.users
 import lamindb.models
 
 
+def update_type_values(apps, schema_editor):
+    Transform = apps.get_model("lamindb", "Transform")
+    Transform.objects.filter(type="glue").update(type="linker")
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("lamindb", "0076_lamindbv1_part6"),
     ]
 
     operations = [
+        migrations.RunPython(update_type_values),
         migrations.CreateModel(
             name="FeatureProject",
             fields=[
