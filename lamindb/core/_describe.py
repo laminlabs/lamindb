@@ -40,7 +40,7 @@ def print_rich_tree(tree: Tree, fallback=str):
 
     # If tree has no children, return fallback
     if not tree.children:
-        return fallback(tree)
+        return fallback
 
     console = Console(force_terminal=True)
     printed = False
