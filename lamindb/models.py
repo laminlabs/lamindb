@@ -3292,15 +3292,27 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     artifacts: Artifact = models.ManyToManyField(
         Artifact, through="ArtifactProject", related_name="projects"
     )
-    """Artifacts labeled with this Project."""
+    """Artifacts associated with this Project."""
     transforms: Transform = models.ManyToManyField(
         Transform, through="TransformProject", related_name="projects"
     )
-    """Transforms labeled with this project."""
+    """Transforms associated with this project."""
+    ulabels: ULabel = models.ManyToManyField(
+        ULabel, through="ULabelProject", related_name="projects"
+    )
+    """Transforms associated with this project."""
+    features: ULabel = models.ManyToManyField(
+        Feature, through="FeatureProject", related_name="projects"
+    )
+    """Transforms associated with this project."""
+    schemas: ULabel = models.ManyToManyField(
+        Schema, through="SchemaProject", related_name="projects"
+    )
+    """Schemas associated with this project."""
     collections: Collection = models.ManyToManyField(
         Collection, through="CollectionProject", related_name="projects"
     )
-    """Collections labeled with this project."""
+    """Collections associated with this project."""
     persons: Person = models.ManyToManyField(Person, related_name="projects")
     """Persons associated with this project."""
     references: Reference = models.ManyToManyField("Reference", related_name="projects")
@@ -3377,15 +3389,15 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     artifacts: Artifact = models.ManyToManyField(
         Artifact, through="ArtifactReference", related_name="references"
     )
-    """Artifacts labeled with this reference."""
+    """Artifacts associated with this reference."""
     transforms: Artifact = models.ManyToManyField(
         Transform, through="TransformReference", related_name="references"
     )
-    """Transforms labeled with this reference."""
+    """Transforms associated with this reference."""
     collections: Artifact = models.ManyToManyField(
         Collection, through="CollectionReference", related_name="references"
     )
-    """Collections labeled with this reference."""
+    """Collections associated with this reference."""
 
 
 # -------------------------------------------------------------------------------------
@@ -3557,6 +3569,33 @@ class CollectionProject(BasicRecord, LinkORM, TracksRun):
 
     class Meta:
         unique_together = ("collection", "project")
+
+
+class ULabelProject(BasicRecord, LinkORM, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    ulabel: Transform = ForeignKey(ULabel, CASCADE, related_name="links_project")
+    project: Project = ForeignKey(Project, PROTECT, related_name="links_ulabel")
+
+    class Meta:
+        unique_together = ("ulabel", "project")
+
+
+class FeatureProject(BasicRecord, LinkORM, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_project")
+    project: Project = ForeignKey(Project, PROTECT, related_name="links_feature")
+
+    class Meta:
+        unique_together = ("feature", "project")
+
+
+class SchemaProject(BasicRecord, LinkORM, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    schema: Schema = ForeignKey(Schema, CASCADE, related_name="links_project")
+    project: Project = ForeignKey(Project, PROTECT, related_name="links_schema")
+
+    class Meta:
+        unique_together = ("schema", "project")
 
 
 class ArtifactReference(BasicRecord, LinkORM, TracksRun):
