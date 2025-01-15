@@ -351,7 +351,7 @@ class MappedCollection:
 
     @property
     def original_shapes(self) -> list[tuple[int, int]]:
-        """Shapes of the underlying AnnData objects."""
+        """Shapes of the underlying AnnData objects (with `obs_filter` applied)."""
         if self.n_vars_list is None:
             n_vars_list = [None] * len(self.n_obs_list)
         else:

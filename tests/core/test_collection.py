@@ -364,6 +364,7 @@ def test_collection_mapped(adata, adata2):
 
     with collection.mapped(obs_filter={"feat1": "B", "feat2": ("A", "B")}) as ls_ds:
         assert ls_ds.shape == (2, 3)
+        assert ls_ds.original_shapes == [(1, 3), (1, 3)]
         assert np.array_equal(ls_ds[0]["X"], np.array([4, 5, 6]))
         assert np.array_equal(ls_ds[1]["X"], np.array([4, 5, 8]))
         weights = ls_ds.get_label_weights("feat2")
