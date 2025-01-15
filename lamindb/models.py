@@ -3429,6 +3429,138 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
 
 
 # -------------------------------------------------------------------------------------
+# Data models
+
+from django.contrib.postgres.fields import JSONField
+from django.core.exceptions import ValidationError
+from django.db import models
+
+
+class DataMixin(models.Model):
+    space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1)
+    feature = ForeignKey(
+        Feature, null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
+    param = ForeignKey(
+        Param, null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
+    row = IntegerField(help_text="Use -1 for result data")
+
+    # Value fields
+    value_int = models.BigIntegerField(null=True, blank=True)
+    value_float = models.FloatField(null=True, blank=True)
+    value_str = models.TextField(null=True, blank=True)
+    value_upath = models.CharField(max_length=255, null=True, blank=True)
+    value_datetime = models.DateTimeField(null=True, blank=True)
+    value_ulabel = models.ForeignKey(
+        ULabel, null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
+    value_person = models.ForeignKey(
+        Person, null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
+    value_artifact = models.ForeignKey(
+        Artifact, null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
+    value_collection = models.ForeignKey(
+        Collection, null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
+    value_project = models.ForeignKey(
+        Project, null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
+    value_json = JSONField(null=True, blank=True)
+
+    class Meta:
+        abstract = True
+
+    def clean(self):
+        # Validate feature/param mutual exclusivity
+        if (self.feature is not None) == (self.param is not None):
+            raise ValidationError("Exactly one of feature or param must be set")
+
+        # Validate value fields
+        values = [
+            self.value_int,
+            self.value_float,
+            self.value_str,
+            self.value_upath,
+            self.value_datetime,
+            self.value_ulabel,
+            self.value_artifact,
+            self.value_json,
+        ]
+        non_null_count = sum(1 for v in values if v is not None)
+
+        if non_null_count != 1:
+            raise ValidationError("Exactly one value field must be set")
+
+
+class RunData(DataMixin):
+    run = models.ForeignKey("Run", on_delete=models.CASCADE, related_name="data")
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(feature__isnull=False, param__isnull=True)
+                    | models.Q(feature__isnull=True, param__isnull=False)
+                ),
+                name="run_data_feature_param_mutex",
+            ),
+            models.UniqueConstraint(fields=["run", "row"], name="run_data_unique_row"),
+        ]
+        indexes = [
+            models.Index(fields=["run", "row"]),
+            models.Index(fields=["feature"]),
+            models.Index(fields=["param"]),
+        ]
+
+
+class TidyTable(Record, TracksRun, TracksUpdates):
+    uid: str = CharField(unique=True, max_length=12, db_index=True, default=base62_12)
+    name = CharField()
+    schema: Schema | None = ForeignKey(Schema, null=True, on_delete=models.SET_NULL)
+    type: TidyTable | None = ForeignKey(
+        "self", PROTECT, null=True, related_name="records"
+    )
+    """Type of tidy table, e.g., `Cell`, `SampleSheet`, etc."""
+    records: ULabel
+    """Records of this type."""
+    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    """Distinguish types from instances of the type."""
+    description: str = TextField()
+    projects: Project = ManyToManyField(Project, related_name="_tidytables")
+    ulabels: Project = ManyToManyField(ULabel, related_name="_tidytables")
+
+    class Meta:
+        indexes = [models.Index(fields=["uid"]), models.Index(fields=["name"])]
+
+
+class TidyTableData(DataMixin):
+    tidytable = models.ForeignKey(
+        TidyTable, on_delete=models.CASCADE, related_name="data"
+    )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(feature__isnull=False, param__isnull=True)
+                    | models.Q(feature__isnull=True, param__isnull=False)
+                ),
+                name="tidy_table_data_feature_param_mutex",
+            ),
+            models.UniqueConstraint(
+                fields=["tidytable", "row"], name="tidy_table_data_unique_row"
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["tidytable", "row"]),
+            models.Index(fields=["feature"]),
+            models.Index(fields=["param"]),
+        ]
+
+
+# -------------------------------------------------------------------------------------
 # Link models
 
 
