@@ -93,6 +93,7 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
     elif queryset.model == Schema:
         name_mappings = {
             "registry": "itype",
+            "artifacts": "_artifacts_m2m",  # will raise warning when we start to migrate over
         }
     else:
         return expressions
@@ -105,7 +106,13 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
     for field, value in expressions.items():
         parts = field.split("__")
         if parts[0] in name_mappings:
-            if parts[0] not in {"transform", "visibility", "feature_sets", "schemas"}:
+            if parts[0] not in {
+                "transform",
+                "visibility",
+                "feature_sets",
+                "schemas",
+                "artifacts",
+            }:
                 warnings.warn(
                     f"{name_mappings[parts[0]]} is deprecated, please query for {parts[0]} instead",
                     DeprecationWarning,

@@ -2137,7 +2137,12 @@ class Schema(Record, CanCurate, TracksRun):
     params: Param
     """The params contained in the schema."""
     artifacts: Artifact
-    """The artifacts that observe this schema."""
+    """The artifacts that observe this schema.
+
+    During a transition phase, this is based on the `Artifact._schemas_m2m` relationship.
+
+    After introducing improved schema management, it will point to the `Artifact.schema` relationship.
+    """
     _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
 
     @overload
@@ -2559,8 +2564,8 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         return self.n_files
 
     @property
-    @deprecated("schema")
     def feature_sets(self) -> QuerySet[Schema]:
+        """Previous name for `.schemas`."""
         return self._schemas_m2m
 
     # add the below because this is what people will have in their code
@@ -2569,8 +2574,16 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     # - featureset -> schema
     # - feature_set -> schema
     @property
-    @deprecated("schema")
     def schemas(self) -> QuerySet[Schema]:
+        """Schemas linked to artifact via many-to-many relationship.
+
+        Is now mediating the private `._schemas_m2m` relationship during
+        a transition period to better schema management.
+
+        .. versionchanged: 1.0
+           Was previously called `.feature_sets`.
+
+        """
         return self._schemas_m2m
 
     @property
