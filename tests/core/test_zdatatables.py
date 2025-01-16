@@ -89,4 +89,4 @@ def test_feature_param_mutual_exclusivity(run, feature, param):
     # Test with both feature and param
     with pytest.raises(ValidationError):
         data = RunData(run=run, feature=feature, param=param, row=3, value_int=44)
-        data.full_clean() if hasattr(data, "full_clean") else data._full_clean()
+        data.full_clean() if hasattr(data, "full_clean") else data._full__clean()
