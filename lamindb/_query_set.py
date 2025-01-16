@@ -92,7 +92,6 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
             "visibility": "_branch_code",  # for convenience (and backward compat <1.0)
             "transform": "run__transform",  # for convenience (and backward compat <1.0)
             "feature_sets": "_schemas_m2m",
-            "schemas": "_schemas_m2m",
             "type": "kind",
             "_accessor": "otype",
         }
