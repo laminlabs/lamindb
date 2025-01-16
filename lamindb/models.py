@@ -3439,7 +3439,7 @@ class DataMixin(models.Model):
     value_project = models.ForeignKey(
         Project, null=True, blank=True, on_delete=models.CASCADE, related_name="+"
     )
-    value_json = JSONField(null=True, blank=True)
+    value_json = models.JSONField(null=True, blank=True)
 
     class Meta:
         abstract = True
