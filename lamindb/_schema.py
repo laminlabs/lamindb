@@ -247,3 +247,4 @@ for name in METHOD_NAMES:
 
 Schema.members = members
 Schema._get_related_name = _get_related_name
+Schema.artifacts = Schema._artifacts_m2m  # backward compat

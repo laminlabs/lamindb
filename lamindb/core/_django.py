@@ -182,7 +182,7 @@ def get_schema_m2m_relations(artifact: Artifact, slot_schema: dict, limit: int =
     m2m_relations = [
         v
         for v in dict_related_model_to_related_name(Schema).values()
-        if not v.startswith("_") and v != "artifacts"
+        if v is not None and not v.startswith("_") and v != "artifacts"
     ]
 
     annotations = {}

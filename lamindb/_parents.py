@@ -32,7 +32,7 @@ TRANSFORM_EMOJIS = {
     "pipeline": "🧩",
     "script": "📝",
     "function": "🔧",
-    "glue": "🧲",
+    "linker": "🧲",
 }
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 

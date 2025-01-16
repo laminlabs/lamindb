@@ -165,10 +165,16 @@ class TracksRun(models.Model):
     class Meta:
         abstract = True
 
-    created_at: datetime = DateTimeField(auto_now_add=True, db_index=True)
+    created_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
     """Time of creation of record."""
     created_by: User = ForeignKey(
-        "lamindb.User", PROTECT, default=current_user_id, related_name="+"
+        "lamindb.User",
+        PROTECT,
+        editable=False,
+        default=current_user_id,
+        related_name="+",
     )
     """Creator of record."""
     run: Run | None = ForeignKey(
@@ -199,7 +205,9 @@ class TracksUpdates(models.Model):
     class Meta:
         abstract = True
 
-    updated_at: datetime = DateTimeField(auto_now=True, db_index=True)
+    updated_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
     """Time of last update to record."""
 
     @overload
@@ -2129,7 +2137,12 @@ class Schema(Record, CanCurate, TracksRun):
     params: Param
     """The params contained in the schema."""
     artifacts: Artifact
-    """The artifacts that observe this schema."""
+    """The artifacts that observe this schema.
+
+    During a transition phase, this is based on the `Artifact._schemas_m2m` relationship.
+
+    After introducing improved schema management, it will point to the `Artifact.schema` relationship.
+    """
     _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
 
     @overload
@@ -2551,8 +2564,8 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         return self.n_files
 
     @property
-    @deprecated("schema")
     def feature_sets(self) -> QuerySet[Schema]:
+        """Previous name for `.schemas`."""
         return self._schemas_m2m
 
     # add the below because this is what people will have in their code
@@ -2561,8 +2574,16 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     # - featureset -> schema
     # - feature_set -> schema
     @property
-    @deprecated("schema")
     def schemas(self) -> QuerySet[Schema]:
+        """Schemas linked to artifact via many-to-many relationship.
+
+        Is now mediating the private `._schemas_m2m` relationship during
+        a transition period to better schema management.
+
+        .. versionchanged: 1.0
+           Was previously called `.feature_sets`.
+
+        """
         return self._schemas_m2m
 
     @property
@@ -3271,15 +3292,27 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     artifacts: Artifact = models.ManyToManyField(
         Artifact, through="ArtifactProject", related_name="projects"
     )
-    """Artifacts labeled with this Project."""
+    """Artifacts associated with this Project."""
     transforms: Transform = models.ManyToManyField(
         Transform, through="TransformProject", related_name="projects"
     )
-    """Transforms labeled with this project."""
+    """Transforms associated with this project."""
+    ulabels: ULabel = models.ManyToManyField(
+        ULabel, through="ULabelProject", related_name="projects"
+    )
+    """Transforms associated with this project."""
+    features: ULabel = models.ManyToManyField(
+        Feature, through="FeatureProject", related_name="projects"
+    )
+    """Transforms associated with this project."""
+    schemas: ULabel = models.ManyToManyField(
+        Schema, through="SchemaProject", related_name="projects"
+    )
+    """Schemas associated with this project."""
     collections: Collection = models.ManyToManyField(
         Collection, through="CollectionProject", related_name="projects"
     )
-    """Collections labeled with this project."""
+    """Collections associated with this project."""
     persons: Person = models.ManyToManyField(Person, related_name="projects")
     """Persons associated with this project."""
     references: Reference = models.ManyToManyField("Reference", related_name="projects")
@@ -3356,15 +3389,152 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     artifacts: Artifact = models.ManyToManyField(
         Artifact, through="ArtifactReference", related_name="references"
     )
-    """Artifacts labeled with this reference."""
+    """Artifacts associated with this reference."""
     transforms: Artifact = models.ManyToManyField(
         Transform, through="TransformReference", related_name="references"
     )
-    """Transforms labeled with this reference."""
+    """Transforms associated with this reference."""
     collections: Artifact = models.ManyToManyField(
         Collection, through="CollectionReference", related_name="references"
     )
-    """Collections labeled with this reference."""
+    """Collections associated with this reference."""
+
+
+# -------------------------------------------------------------------------------------
+# Data models
+
+from django.contrib.postgres.fields import JSONField
+from django.core.exceptions import ValidationError
+from django.db import models
+
+
+class DataMixin(models.Model):
+    space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1)
+    feature = ForeignKey(
+        Feature, null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
+    param = ForeignKey(
+        Param, null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
+    row = IntegerField(help_text="Use -1 for result data")
+
+    # Value fields
+    value_int = models.BigIntegerField(null=True, blank=True)
+    value_float = models.FloatField(null=True, blank=True)
+    value_str = models.TextField(null=True, blank=True)
+    value_upath = models.CharField(max_length=255, null=True, blank=True)
+    value_datetime = models.DateTimeField(null=True, blank=True)
+    value_ulabel = models.ForeignKey(
+        ULabel, null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
+    value_person = models.ForeignKey(
+        Person, null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
+    value_artifact = models.ForeignKey(
+        Artifact, null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
+    value_collection = models.ForeignKey(
+        Collection, null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
+    value_project = models.ForeignKey(
+        Project, null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
+    value_json = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        abstract = True
+
+    def clean(self):
+        # Validate feature/param mutual exclusivity
+        if (self.feature is not None) == (self.param is not None):
+            raise ValidationError("Exactly one of feature or param must be set")
+
+        # Validate value fields
+        values = [
+            self.value_int,
+            self.value_float,
+            self.value_str,
+            self.value_upath,
+            self.value_datetime,
+            self.value_ulabel,
+            self.value_artifact,
+            self.value_json,
+        ]
+        non_null_count = sum(1 for v in values if v is not None)
+
+        if non_null_count != 1:
+            raise ValidationError("Exactly one value field must be set")
+
+
+class RunData(BasicRecord, DataMixin):
+    run = models.ForeignKey("Run", on_delete=models.CASCADE, related_name="data")
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(feature__isnull=False, param__isnull=True)
+                    | models.Q(feature__isnull=True, param__isnull=False)
+                ),
+                name="run_data_feature_param_mutex",
+            ),
+            models.UniqueConstraint(
+                fields=["run", "row", "feature", "param"], name="run_data_unique"
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["run", "row"]),
+            models.Index(fields=["feature"]),
+            models.Index(fields=["param"]),
+        ]
+
+
+class TidyTable(Record, TracksRun, TracksUpdates):
+    uid: str = CharField(unique=True, max_length=12, db_index=True, default=base62_12)
+    name = CharField()
+    schema: Schema | None = ForeignKey(
+        Schema, null=True, on_delete=models.SET_NULL, related_name="_tidytables"
+    )
+    type: TidyTable | None = ForeignKey(
+        "self", PROTECT, null=True, related_name="records"
+    )
+    """Type of tidy table, e.g., `Cell`, `SampleSheet`, etc."""
+    records: ULabel
+    """Records of this type."""
+    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    """Distinguish types from instances of the type."""
+    description: str = TextField()
+    projects: Project = ManyToManyField(Project, related_name="_tidytables")
+    ulabels: Project = ManyToManyField(ULabel, related_name="_tidytables")
+
+    class Meta:
+        indexes = [models.Index(fields=["uid"]), models.Index(fields=["name"])]
+
+
+class TidyTableData(BasicRecord, DataMixin):
+    tidytable = models.ForeignKey(
+        TidyTable, on_delete=models.CASCADE, related_name="data"
+    )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(feature__isnull=False, param__isnull=True)
+                    | models.Q(feature__isnull=True, param__isnull=False)
+                ),
+                name="tidy_table_data_feature_param_mutex",
+            ),
+            models.UniqueConstraint(
+                fields=["tidytable", "row", "feature", "param"],
+                name="tidy_table_data_unique",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["tidytable", "row"]),
+            models.Index(fields=["feature"]),
+            models.Index(fields=["param"]),
+        ]
 
 
 # -------------------------------------------------------------------------------------
@@ -3536,6 +3706,33 @@ class CollectionProject(BasicRecord, LinkORM, TracksRun):
 
     class Meta:
         unique_together = ("collection", "project")
+
+
+class ULabelProject(BasicRecord, LinkORM, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    ulabel: Transform = ForeignKey(ULabel, CASCADE, related_name="links_project")
+    project: Project = ForeignKey(Project, PROTECT, related_name="links_ulabel")
+
+    class Meta:
+        unique_together = ("ulabel", "project")
+
+
+class FeatureProject(BasicRecord, LinkORM, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_project")
+    project: Project = ForeignKey(Project, PROTECT, related_name="links_feature")
+
+    class Meta:
+        unique_together = ("feature", "project")
+
+
+class SchemaProject(BasicRecord, LinkORM, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    schema: Schema = ForeignKey(Schema, CASCADE, related_name="links_project")
+    project: Project = ForeignKey(Project, PROTECT, related_name="links_schema")
+
+    class Meta:
+        unique_together = ("schema", "project")
 
 
 class ArtifactReference(BasicRecord, LinkORM, TracksRun):
