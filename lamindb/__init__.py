@@ -20,7 +20,7 @@ Registries.
    User
    Storage
    Feature
-   Schema
+   FeatureSet
    Param
    Collection
    Project
@@ -100,7 +100,7 @@ if _check_instance_setup(from_module="lamindb"):
         Project,
         Reference,
         Run,
-        Schema,
+        Schema,  # forward compat
         Storage,
         Transform,
         ULabel,

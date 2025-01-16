@@ -1979,11 +1979,11 @@ class FeatureValue(Record, TracksRun):
 
 
 class Schema(Record, CanCurate, TracksRun):
-    """Feature sets.
+    """Feature sets (dataset schemas).
 
-    Stores references to sets of :class:`~lamindb.Feature` and other registries
-    that may be used to identify features (e.g., :class:`~bionty.Gene` or
-    :class:`~bionty.Protein`).
+    Stores references to dataset schemas: these are the sets of columns in a dataset
+    that correspond to :class:`~lamindb.Feature`, :class:`~bionty.Gene`, :class:`~bionty.Protein` or other
+    entities.
 
     .. dropdown:: Why does LaminDB model feature sets, not just features?
 
@@ -2015,9 +2015,6 @@ class Schema(Record, CanCurate, TracksRun):
         A `slot` provides a string key to access feature sets.
         It's typically the accessor within the registered data object, here `pd.DataFrame.columns`.
 
-    .. versionchanged:: 1.0.0
-        Was called `FeatureSet` before.
-
     See Also:
         :meth:`~lamindb.Schema.from_values`
             Create from values.
@@ -2026,28 +2023,25 @@ class Schema(Record, CanCurate, TracksRun):
 
     Examples:
 
-        Create a schema from df with types:
+        Create a feature set / schema from df with types:
 
         >>> df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
-        >>> schema = ln.Schema.from_df(df)
+        >>> feature_set = ln.FeatureSet.from_df(df)
 
-        Create a schema from features:
+        Create a feature set / schema from features:
 
         >>> features = [ln.Feature(name=feat, dtype="float").save() for feat in ["feat1", "feat2"]]
-        >>> schema = ln.Schema(features)
+        >>> feature_set = ln.FeatureSet(features)
 
-        Create a schema from feature values:
+        Create a feature set / schema from feature values:
 
         >>> import bionty as bt
-        >>> schema = ln.Schema.from_values(adata.var["ensemble_id"], Gene.ensembl_gene_id, organism="mouse").save()
+        >>> feature_set = ln.FeatureSet.from_values(adata.var["ensemble_id"], Gene.ensembl_gene_id, organism="mouse").save()
 
         Link a feature set to an artifact:
 
-        >>> artifact.features.add_schema(schema, slot="var")
+        >>> artifact.features.add_feature_set(feature_set, slot="var")
 
-        Link features to an artifact (will create a schema under the hood):
-
-        >>> artifact.features.add_values(features)
     """
 
     class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
@@ -2137,12 +2131,7 @@ class Schema(Record, CanCurate, TracksRun):
     params: Param
     """The params contained in the schema."""
     artifacts: Artifact
-    """The artifacts that observe this schema.
-
-    During a transition phase, this is based on the `Artifact._schemas_m2m` relationship.
-
-    After introducing improved schema management, it will point to the `Artifact.schema` relationship.
-    """
+    """The artifacts that observe this schema."""
     _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
 
     @overload
@@ -2489,7 +2478,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     schema: Schema | None = ForeignKey(
         Schema, PROTECT, null=True, default=None, related_name="artifacts"
     )
-    """The schema of the artifact."""
+    """The schema of the artifact (to be populated in lamindb 1.1)."""
     _schemas_m2m: Schema = models.ManyToManyField(
         Schema, related_name="_artifacts_m2m", through="ArtifactSchema"
     )
@@ -2565,7 +2554,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     @property
     def feature_sets(self) -> QuerySet[Schema]:
-        """Previous name for `.schemas`."""
+        """Feature sets linked to this artifact."""
         return self._schemas_m2m
 
     # add the below because this is what people will have in their code
@@ -2573,18 +2562,18 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     # - FeatureSet -> Schema
     # - featureset -> schema
     # - feature_set -> schema
-    @property
-    def schemas(self) -> QuerySet[Schema]:
-        """Schemas linked to artifact via many-to-many relationship.
+    # @property
+    # def schemas(self) -> QuerySet[Schema]:
+    #     """Schemas linked to artifact via many-to-many relationship.
 
-        Is now mediating the private `._schemas_m2m` relationship during
-        a transition period to better schema management.
+    #     Is now mediating the private `._schemas_m2m` relationship during
+    #     a transition period to better schema management.
 
-        .. versionchanged: 1.0
-           Was previously called `.feature_sets`.
+    #     .. versionchanged: 1.0
+    #        Was previously called `.feature_sets`.
 
-        """
-        return self._schemas_m2m
+    #     """
+    #     return self._schemas_m2m
 
     @property
     def path(self) -> Path:

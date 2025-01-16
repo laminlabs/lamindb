@@ -10,6 +10,7 @@ Registries:
    Registry
    QuerySet
    QueryManager
+   Schema
    RecordList
    FeatureManager
    ParamManager
@@ -90,6 +91,7 @@ from lamindb.models import (
     ParamValue,
     Record,
     Registry,
+    Schema,
     TracksRun,
     TracksUpdates,
     ValidateFields,
