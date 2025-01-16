@@ -2489,7 +2489,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     schema: Schema | None = ForeignKey(
         Schema, PROTECT, null=True, default=None, related_name="artifacts"
     )
-    """The schema of the artifact."""
+    """The schema of the artifact (to be populated in lamindb 1.1)."""
     _schemas_m2m: Schema = models.ManyToManyField(
         Schema, related_name="_artifacts_m2m", through="ArtifactSchema"
     )
@@ -2565,7 +2565,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     @property
     def feature_sets(self) -> QuerySet[Schema]:
-        """Previous name for `.schemas`."""
+        """Feature sets linked to this artifact."""
         return self._schemas_m2m
 
     # add the below because this is what people will have in their code
@@ -2573,18 +2573,18 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     # - FeatureSet -> Schema
     # - featureset -> schema
     # - feature_set -> schema
-    @property
-    def schemas(self) -> QuerySet[Schema]:
-        """Schemas linked to artifact via many-to-many relationship.
+    # @property
+    # def schemas(self) -> QuerySet[Schema]:
+    #     """Schemas linked to artifact via many-to-many relationship.
 
-        Is now mediating the private `._schemas_m2m` relationship during
-        a transition period to better schema management.
+    #     Is now mediating the private `._schemas_m2m` relationship during
+    #     a transition period to better schema management.
 
-        .. versionchanged: 1.0
-           Was previously called `.feature_sets`.
+    #     .. versionchanged: 1.0
+    #        Was previously called `.feature_sets`.
 
-        """
-        return self._schemas_m2m
+    #     """
+    #     return self._schemas_m2m
 
     @property
     def path(self) -> Path:
