@@ -100,15 +100,14 @@ def test_curate_df():
         .df(include=["_schemas_m2m__hash", "_schemas_m2m__name"])
         .drop(["uid"], axis=1)
     )
-    print(df)
     expected_data = {
         "key": ["example_datasets/dataset2.h5ad", "example_datasets/dataset1.h5ad"],
         "description": [None, None],
-        "_schemas_m2m__hash": [
+        "feature_sets__hash": [
             set(artifact2._schemas_m2m.all().values_list("hash", flat=True)),
             set(artifact._schemas_m2m.all().values_list("hash", flat=True)),
         ],
-        "_schemas_m2m__name": [{None}, {None}],
+        "feature_sets__name": [{None}, {None}],
     }
     expected_df = pd.DataFrame(expected_data)
     check_df_equality(df, expected_df)
