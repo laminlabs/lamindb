@@ -16,8 +16,8 @@ classifiers = [
 dependencies = [
     # Lamin PINNED packages
     "lamin_utils==0.13.10",
-    "lamin_cli==1.0a5",
-    "lamindb_setup[aws]==1.0a5",
+    "lamin_cli==1.0.0",
+    "lamindb_setup[aws]==1.0.0",
     # others
     "pyarrow",
     "typing_extensions!=4.6.0",
@@ -35,7 +35,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "bionty==1.0a5",
+    "bionty==1.0.0",
 ]
 gcp = [
     "lamindb_setup[gcp]",
@@ -56,10 +56,10 @@ erdiagram = [
     "django-schema-graph",
 ]
 wetlab = [
-    "wetlab==1.0a5"
+    "wetlab==1.0.1"
 ]
 clinicore = [
-    "clinicore==1.0a5"
+    "clinicore==1.0.0"
 ]
 cellregistry = [
     "cellregistry"

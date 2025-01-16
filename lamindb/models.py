@@ -3492,7 +3492,9 @@ class RunData(BasicRecord, DataMixin):
 class TidyTable(Record, TracksRun, TracksUpdates):
     uid: str = CharField(unique=True, max_length=12, db_index=True, default=base62_12)
     name = CharField()
-    schema: Schema | None = ForeignKey(Schema, null=True, on_delete=models.SET_NULL)
+    schema: Schema | None = ForeignKey(
+        Schema, null=True, on_delete=models.SET_NULL, related_name="_tidytables"
+    )
     type: TidyTable | None = ForeignKey(
         "self", PROTECT, null=True, related_name="records"
     )
