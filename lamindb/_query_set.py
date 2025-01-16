@@ -81,14 +81,20 @@ def one_helper(self):
 
 
 def get_backward_compat_filter_kwargs(queryset, expressions):
-    if queryset.model in {Artifact, Collection, Transform}:
+    if queryset.model in {Collection, Transform}:
         name_mappings = {
             "name": "key",
-            "n_objects": "n_files",  # only on Artifact
+            "visibility": "_branch_code",  # for convenience (and backward compat <1.0)
+        }
+    elif queryset.model == Artifact:
+        name_mappings = {
+            "n_objects": "n_files",
             "visibility": "_branch_code",  # for convenience (and backward compat <1.0)
             "transform": "run__transform",  # for convenience (and backward compat <1.0)
-            "feature_sets": "_schemas_m2m",  # only on Artifact
-            "schemas": "_schemas_m2m",  # only on Artifact
+            "feature_sets": "_schemas_m2m",
+            "schemas": "_schemas_m2m",
+            "type": "kind",
+            "_accessor": "otype",
         }
     elif queryset.model == Schema:
         name_mappings = {
