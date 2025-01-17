@@ -41,6 +41,7 @@ jobs:
 
       - name: Skip curator
         id: should-skip
+        continue-on-error: true
         run: |
           if [[ "${{ github.event_name }}" == "push" ]]; then
             echo "skip=true" >> $GITHUB_OUTPUT
