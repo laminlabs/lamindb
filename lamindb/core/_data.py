@@ -193,7 +193,7 @@ def _describe_sqlite(self: Artifact | Collection, print_types: bool = False):
         self,
         tree=tree,
         with_labels=True,
-        print_params=hasattr(self, "kind") and self.type == "kind",
+        print_params=hasattr(self, "kind") and self.kind == "kind",
     )
 
 
