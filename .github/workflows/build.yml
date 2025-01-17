@@ -6,28 +6,13 @@ on:
   pull_request:
 
 jobs:
-  test:
+  pre-filter:
     runs-on: ubuntu-latest
-    env:
-      GITHUB_EVENT_NAME: ${{ github.event_name }}
-    strategy:
-      fail-fast: false
-      matrix:
-        group:
-          - "unit-core"
-          - "unit-storage"
-          - "tutorial"
-          - "guide"
-          - "biology"
-          - "faq"
-          - "storage"
-          - "cli"
-          - "curator"
-    timeout-minutes: 15
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
           fetch-depth: 0
 
       - uses: dorny/paths-filter@v3
@@ -39,22 +24,33 @@ jobs:
               - 'lamindb/curators/**'
               - 'tests/curators/test_curator.py'
 
-      - name: Skip curator
-        id: should-skip
-        continue-on-error: true
+      - id: set-matrix
         run: |
           if [[ "${{ github.event_name }}" == "push" ]]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-            exit 78
-          elif [[ "${{ matrix.group }}" == "curator" && "${{ steps.changes.outputs.curator }}" != "true" ]]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-            exit 78
+            # On push, run all
+            echo "matrix={\"group\":[\"unit-core\",\"unit-storage\",\"tutorial\",\"guide\",\"biology\",\"faq\",\"storage\",\"cli\",\"curator\"]}" >> $GITHUB_OUTPUT
+          elif [[ "${{ steps.changes.outputs.curator }}" == "true" ]]; then
+            # If curator paths changed, include curator
+            echo "matrix={\"group\":[\"unit-core\",\"unit-storage\",\"tutorial\",\"guide\",\"biology\",\"faq\",\"storage\",\"cli\",\"curator\"]}" >> $GITHUB_OUTPUT
           else
-            echo "skip=false" >> $GITHUB_OUTPUT
+            # Otherwise, run all except curator
+            echo "matrix={\"group\":[\"unit-core\",\"unit-storage\",\"tutorial\",\"guide\",\"biology\",\"faq\",\"storage\",\"cli\"]}" >> $GITHUB_OUTPUT
           fi
 
+  test:
+    needs: pre-filter
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.pre-filter.outputs.matrix)}}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
       - uses: actions/setup-python@v5
-        if: steps.should-skip.outputs.skip != 'true'
         with:
           python-version: |
             ${{ matrix.group == 'storage' && '3.10' ||
@@ -62,14 +58,13 @@ jobs:
                 '3.12' }}
 
       - name: cache pre-commit
-        if: steps.should-skip.outputs.skip != 'true'
         uses: actions/cache@v4
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: cache postgres
-        if: steps.should-skip.outputs.skip != 'true' && (matrix.group == 'faq' || matrix.group == 'unit-core' || matrix.group == 'unit-storage')
+        if: ${{ matrix.group == 'faq' || matrix.group == 'unit-core' || matrix.group == 'unit-storage' }}
         id: cache-postgres
         uses: actions/cache@v4
         with:
@@ -77,50 +72,45 @@ jobs:
           key: cache-postgres-0
 
       - name: cache postgres miss
-        if: steps.should-skip.outputs.skip != 'true' && steps.cache-postgres.outputs.cache-hit != 'true'
+        if: ${{ steps.cache-postgres.outputs.cache-hit != 'true' }}
         run: docker pull postgres:latest && docker image save postgres:latest --output ~/postgres.tar
 
       - name: cache postgres use
-        if: steps.should-skip.outputs.skip != 'true' && steps.cache-postgres.outputs.cache-hit == 'true'
+        if: ${{ steps.cache-postgres.outputs.cache-hit == 'true' }}
         run: docker image load --input ~/postgres.tar
 
       - run: pip install "laminci@git+https://x-access-token:${{ secrets.LAMIN_BUILD_DOCS }}@github.com/laminlabs/laminci"
-        if: steps.should-skip.outputs.skip != 'true'
 
       - name: install postgres
-        if: steps.should-skip.outputs.skip != 'true' && matrix.group == 'faq'
+        if: ${{ matrix.group == 'faq' }}
         run: sudo apt-get install libpq-dev
 
       - name: install graphviz
-        if: steps.should-skip.outputs.skip != 'true' && (matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology')
+        if: ${{ matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology' }}
         run: sudo apt-get -y install graphviz
 
       - run: nox -s lint
-        if: steps.should-skip.outputs.skip != 'true' && matrix.group == 'tutorial'
+        if: ${{ matrix.group == 'tutorial' }}
 
       - run: nox -s "install_ci(group='${{ matrix.group }}')"
-        if: steps.should-skip.outputs.skip != 'true'
 
       - uses: aws-actions/configure-aws-credentials@v4
-        if: steps.should-skip.outputs.skip != 'true'
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
       - run: nox -s "build(group='${{ matrix.group }}')"
-        if: steps.should-skip.outputs.skip != 'true'
 
       - name: upload coverage
         uses: actions/upload-artifact@v4
-        if: steps.should-skip.outputs.skip != 'true'
         with:
           name: coverage--${{ matrix.group }}
           path: .coverage
           include-hidden-files: true
 
       - name: upload docs
-        if: steps.should-skip.outputs.skip != 'true' && (${{ matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology' || matrix.group == 'faq' || matrix.group == 'storage' }})
+        if: ${{ matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology' || matrix.group == 'faq' || matrix.group == 'storage' }}
         uses: actions/upload-artifact@v4
         with:
           name: docs-${{ matrix.group }}
