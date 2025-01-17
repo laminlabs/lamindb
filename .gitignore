@@ -1,6 +1,7 @@
 __MACOSX/
 
 # LaminDB
+.coveragerc
 *.db
 *.lndb
 *.jpg
