@@ -215,5 +215,6 @@ exclude_lines = [
 
 [tool.coverage.run]
 omit = [
-    "**/core/datasets/*",  # Datasets don't perform any logic
+    "**/core/datasets/*",
+    "**/migrations/*",
 ]

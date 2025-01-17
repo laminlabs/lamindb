@@ -186,24 +186,15 @@ jobs:
 
       - uses: actions/download-artifact@v4
 
-      - name: Setup coverage configuration
-        run: |
-          # Check if curator was included in the matrix
-          MATRIX='${{ needs.pre-filter.outputs.matrix }}'
-          if echo "$MATRIX" | grep -q "curator"; then
-            echo "Curator group was run, including all paths"
-          else
-            echo "Curator group was not run, excluding curator paths"
-            echo "[run]
-          omit =
-            lamindb/curators/*
-            tests/curators/*" >> .coveragerc
-          fi
-
       - name: run coverage
         run: |
-          # Combine all coverage files that were generated
-          coverage combine coverage--*/.coverage*
+          if echo '${{ needs.pre-filter.outputs.matrix }}' | grep -q "curator"; then
+            # Combine all coverage files
+            coverage combine coverage--*/.coverage*
+          else
+            # Add curator paths to omit if curator group wasn't run
+            coverage combine --omit="**/curators/*" coverage--*/.coverage*
+          fi
           coverage report --fail-under=0
           coverage xml
 
