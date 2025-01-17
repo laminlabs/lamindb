@@ -6,23 +6,43 @@ on:
   pull_request:
 
 jobs:
-  test:
+  pre-filter:
     runs-on: ubuntu-latest
-    env:
-      GITHUB_EVENT_NAME: ${{ github.event_name }}
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v3
+        id: changes
+        if: github.event_name != 'push'
+        with:
+          filters: |
+            curator:
+              - 'lamindb/curators/**'
+              - 'tests/curators/test_curator.py'
+
+      - id: set-matrix
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            # On push, run all
+            echo "matrix={\"group\":[\"unit-core\",\"unit-storage\",\"tutorial\",\"guide\",\"biology\",\"faq\",\"storage\",\"cli\",\"curator\"]}" >> $GITHUB_OUTPUT
+          elif [[ "${{ steps.changes.outputs.curator }}" == "true" ]]; then
+            # If curator paths changed, include curator
+            echo "matrix={\"group\":[\"unit-core\",\"unit-storage\",\"tutorial\",\"guide\",\"biology\",\"faq\",\"storage\",\"cli\",\"curator\"]}" >> $GITHUB_OUTPUT
+          else
+            # Otherwise, run all except curator
+            echo "matrix={\"group\":[\"unit-core\",\"unit-storage\",\"tutorial\",\"guide\",\"biology\",\"faq\",\"storage\",\"cli\"]}" >> $GITHUB_OUTPUT
+          fi
+
+  test:
+    needs: pre-filter
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        group:
-          - "unit-core"
-          - "unit-storage"
-          - "tutorial"
-          - "guide"
-          - "biology"
-          - "faq"
-          - "storage"
-          - "cli"
-          - "curator"
+      matrix: ${{fromJson(needs.pre-filter.outputs.matrix)}}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -30,16 +50,7 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - uses: dorny/paths-filter@v3
-        id: changes
-        with:
-          filters: |
-            curator:
-              - 'lamindb/curators/**'
-              - 'tests/curators/test_curator.py'
-
       - uses: actions/setup-python@v5
-        if: ${{ matrix.group != 'curator' || steps.changes.outputs.curator == 'true' }}
         with:
           python-version: |
             ${{ matrix.group == 'storage' && '3.10' ||
@@ -59,13 +70,17 @@ jobs:
         with:
           path: ~/postgres.tar
           key: cache-postgres-0
+
       - name: cache postgres miss
         if: ${{ steps.cache-postgres.outputs.cache-hit != 'true' }}
         run: docker pull postgres:latest && docker image save postgres:latest --output ~/postgres.tar
+
       - name: cache postgres use
         if: ${{ steps.cache-postgres.outputs.cache-hit == 'true' }}
         run: docker image load --input ~/postgres.tar
+
       - run: pip install "laminci@git+https://x-access-token:${{ secrets.LAMIN_BUILD_DOCS }}@github.com/laminlabs/laminci"
+
       - name: install postgres
         if: ${{ matrix.group == 'faq' }}
         run: sudo apt-get install libpq-dev
@@ -75,16 +90,17 @@ jobs:
         run: sudo apt-get -y install graphviz
 
       - run: nox -s lint
-        if: ${{ matrix.group == 'tutorial' }} # choose a fast-running a group
+        if: ${{ matrix.group == 'tutorial' }}
+
       - run: nox -s "install_ci(group='${{ matrix.group }}')"
-        if: ${{ matrix.group != 'curator' || steps.changes.outputs.curator == 'true' }}
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
+
       - run: nox -s "build(group='${{ matrix.group }}')"
-        if: ${{ matrix.group != 'curator' || steps.changes.outputs.curator == 'true' }}
 
       - name: upload coverage
         uses: actions/upload-artifact@v4
