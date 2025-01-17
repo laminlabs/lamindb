@@ -26,16 +26,16 @@ jobs:
 
       - id: set-matrix
         run: |
-          if [[ "${{ github.event_name }}" == "push" ]]; then
-            # On push, run all
-            echo "matrix={\"group\":[\"unit-core\",\"unit-storage\",\"tutorial\",\"guide\",\"biology\",\"faq\",\"storage\",\"cli\",\"curator\"]}" >> $GITHUB_OUTPUT
-          elif [[ "${{ steps.changes.outputs.curator }}" == "true" ]]; then
-            # If curator paths changed, include curator
-            echo "matrix={\"group\":[\"unit-core\",\"unit-storage\",\"tutorial\",\"guide\",\"biology\",\"faq\",\"storage\",\"cli\",\"curator\"]}" >> $GITHUB_OUTPUT
+          BASE_GROUPS='["unit-core", "unit-storage", "tutorial", "guide", "biology", "faq", "storage", "cli"'
+
+          if [[ "${{ github.event_name }}" == "push" || "${{ steps.changes.outputs.curator }}" == "true" ]]; then
+            GROUPS="$BASE_GROUPS, \"curator\"]"
           else
-            # Otherwise, run all except curator
-            echo "matrix={\"group\":[\"unit-core\",\"unit-storage\",\"tutorial\",\"guide\",\"biology\",\"faq\",\"storage\",\"cli\"]}" >> $GITHUB_OUTPUT
+            # Otherwise only run base groups
+            GROUPS="$BASE_GROUPS]"
           fi
+
+          echo "matrix={\"group\":$GROUPS}" >> $GITHUB_OUTPUT
 
   test:
     needs: pre-filter
