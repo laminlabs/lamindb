@@ -81,14 +81,19 @@ def one_helper(self):
 
 
 def get_backward_compat_filter_kwargs(queryset, expressions):
-    if queryset.model in {Artifact, Collection, Transform}:
+    if queryset.model in {Collection, Transform}:
         name_mappings = {
             "name": "key",
-            "n_objects": "n_files",  # only on Artifact
+            "visibility": "_branch_code",  # for convenience (and backward compat <1.0)
+        }
+    elif queryset.model == Artifact:
+        name_mappings = {
+            "n_objects": "n_files",
             "visibility": "_branch_code",  # for convenience (and backward compat <1.0)
             "transform": "run__transform",  # for convenience (and backward compat <1.0)
-            "feature_sets": "_schemas_m2m",  # only on Artifact
-            "schemas": "_schemas_m2m",  # only on Artifact
+            "feature_sets": "_schemas_m2m",
+            "type": "kind",
+            "_accessor": "otype",
         }
     elif queryset.model == Schema:
         name_mappings = {
@@ -533,6 +538,7 @@ class QuerySet(models.QuerySet):
             include = [include]
         include = get_backward_compat_filter_kwargs(self, include)
         field_names = get_basic_field_names(self, include, features)
+
         annotate_kwargs = {}
         if features:
             annotate_kwargs.update(get_feature_annotate_kwargs(features))
@@ -544,6 +550,7 @@ class QuerySet(models.QuerySet):
             queryset = self.annotate(**annotate_kwargs)
         else:
             queryset = self
+
         df = pd.DataFrame(queryset.values(*field_names, *list(annotate_kwargs.keys())))
         if len(df) == 0:
             df = pd.DataFrame({}, columns=field_names)
@@ -554,6 +561,12 @@ class QuerySet(models.QuerySet):
         pk_column_name = pk_name if pk_name in df.columns else f"{pk_name}_id"
         if pk_column_name in df_reshaped.columns:
             df_reshaped = df_reshaped.set_index(pk_column_name)
+
+        # Compatibility code
+        df_reshaped.columns = df_reshaped.columns.str.replace(
+            r"_schemas_m2m", "feature_sets", regex=True
+        )
+
         return df_reshaped
 
     def delete(self, *args, **kwargs):

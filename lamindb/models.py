@@ -2543,6 +2543,16 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         pass
 
     @property
+    @deprecated("kind")
+    def type(self) -> str:
+        return self.kind
+
+    @property
+    @deprecated("otype")
+    def _accessor(self) -> str:
+        return self.otype
+
+    @property
     def transform(self) -> Transform | None:
         """Transform whose run created the artifact."""
         return self.run.transform if self.run is not None else None
