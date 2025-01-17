@@ -43,9 +43,11 @@ jobs:
         id: should-skip
         run: |
           if [[ "${{ github.event_name }}" == "push" ]]; then
-            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 78
           elif [[ "${{ matrix.group }}" == "curator" && "${{ steps.changes.outputs.curator }}" != "true" ]]; then
             echo "skip=true" >> $GITHUB_OUTPUT
+            exit 78
           else
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
