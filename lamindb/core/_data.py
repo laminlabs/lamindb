@@ -148,7 +148,7 @@ def _describe_postgres(self: Artifact | Collection, print_types: bool = False):
         tree=tree,
         related_data=related_data,
         with_labels=True,
-        print_params=hasattr(self, "type") and self.type == "model",
+        print_params=hasattr(self, "kind") and self.kind == "model",
     )
 
 
@@ -193,7 +193,7 @@ def _describe_sqlite(self: Artifact | Collection, print_types: bool = False):
         self,
         tree=tree,
         with_labels=True,
-        print_params=hasattr(self, "type") and self.type == "model",
+        print_params=hasattr(self, "kind") and self.type == "kind",
     )
 
 
