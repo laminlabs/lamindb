@@ -32,14 +32,26 @@ jobs:
 
       - uses: dorny/paths-filter@v3
         id: changes
+        if: github.event_name != 'push'
         with:
           filters: |
             curator:
               - 'lamindb/curators/**'
               - 'tests/curators/test_curator.py'
 
+      - name: Skip curator
+        id: should-skip
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            echo "skip=false" >> $GITHUB_OUTPUT
+          elif [[ "${{ matrix.group }}" == "curator" && "${{ steps.changes.outputs.curator }}" != "true" ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - uses: actions/setup-python@v5
-        if: ${{ matrix.group != 'curator' || steps.changes.outputs.curator == 'true' }}
+        if: steps.should-skip.outputs.skip != 'true'
         with:
           python-version: |
             ${{ matrix.group == 'storage' && '3.10' ||
@@ -47,54 +59,65 @@ jobs:
                 '3.12' }}
 
       - name: cache pre-commit
+        if: steps.should-skip.outputs.skip != 'true'
         uses: actions/cache@v4
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: cache postgres
-        if: ${{ matrix.group == 'faq' || matrix.group == 'unit-core' || matrix.group == 'unit-storage' }}
+        if: steps.should-skip.outputs.skip != 'true' && (matrix.group == 'faq' || matrix.group == 'unit-core' || matrix.group == 'unit-storage')
         id: cache-postgres
         uses: actions/cache@v4
         with:
           path: ~/postgres.tar
           key: cache-postgres-0
+
       - name: cache postgres miss
-        if: ${{ steps.cache-postgres.outputs.cache-hit != 'true' }}
+        if: steps.should-skip.outputs.skip != 'true' && steps.cache-postgres.outputs.cache-hit != 'true'
         run: docker pull postgres:latest && docker image save postgres:latest --output ~/postgres.tar
+
       - name: cache postgres use
-        if: ${{ steps.cache-postgres.outputs.cache-hit == 'true' }}
+        if: steps.should-skip.outputs.skip != 'true' && steps.cache-postgres.outputs.cache-hit == 'true'
         run: docker image load --input ~/postgres.tar
+
       - run: pip install "laminci@git+https://x-access-token:${{ secrets.LAMIN_BUILD_DOCS }}@github.com/laminlabs/laminci"
+        if: steps.should-skip.outputs.skip != 'true'
+
       - name: install postgres
-        if: ${{ matrix.group == 'faq' }}
+        if: steps.should-skip.outputs.skip != 'true' && matrix.group == 'faq'
         run: sudo apt-get install libpq-dev
 
       - name: install graphviz
-        if: ${{ matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology' }}
+        if: steps.should-skip.outputs.skip != 'true' && (matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology')
         run: sudo apt-get -y install graphviz
 
       - run: nox -s lint
-        if: ${{ matrix.group == 'tutorial' }} # choose a fast-running a group
+        if: steps.should-skip.outputs.skip != 'true' && matrix.group == 'tutorial'
+
       - run: nox -s "install_ci(group='${{ matrix.group }}')"
-        if: ${{ matrix.group != 'curator' || steps.changes.outputs.curator == 'true' }}
+        if: steps.should-skip.outputs.skip != 'true'
+
       - uses: aws-actions/configure-aws-credentials@v4
+        if: steps.should-skip.outputs.skip != 'true'
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
+
       - run: nox -s "build(group='${{ matrix.group }}')"
-        if: ${{ matrix.group != 'curator' || steps.changes.outputs.curator == 'true' }}
+        if: steps.should-skip.outputs.skip != 'true'
 
       - name: upload coverage
         uses: actions/upload-artifact@v4
+        if: steps.should-skip.outputs.skip != 'true'
         with:
           name: coverage--${{ matrix.group }}
           path: .coverage
           include-hidden-files: true
 
       - name: upload docs
-        if: ${{ matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology' || matrix.group == 'faq' || matrix.group == 'storage' }}
+        if: steps.should-skip.outputs.skip != 'true' && (${{ matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology' || matrix.group == 'faq' || matrix.group == 'storage' }})
         uses: actions/upload-artifact@v4
         with:
           name: docs-${{ matrix.group }}
