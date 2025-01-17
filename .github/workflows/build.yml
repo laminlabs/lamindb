@@ -26,25 +26,23 @@ jobs:
 
       - id: set-matrix
         run: |
-          BASE_GROUPS='["unit-core", "unit-storage", "tutorial", "guide", "biology", "faq", "storage", "cli"'
+          BASE_GROUPS=$(cat << 'EOF'
+          ["unit-core", "unit-storage", "tutorial", "guide", "biology", "faq", "storage", "cli"]
+          EOF
+          )
 
           if [[ "${{ github.event_name }}" == "push" || "${{ steps.changes.outputs.curator }}" == "true" ]]; then
-            GROUPS="$BASE_GROUPS, \"curator\"]"
+            # Run everything on push or when curator paths change
+            GROUPS=$(echo "$BASE_GROUPS" | jq '. + ["curator"]')
           else
             # Otherwise only run base groups
-            GROUPS="$BASE_GROUPS]"
+            GROUPS="$BASE_GROUPS"
           fi
 
-          # Construct and validate the JSON
-          MATRIX="{\"group\":$GROUPS}"
-          echo "$MATRIX" | jq . > /dev/null # Validate JSON
+          echo "matrix={\"group\":$GROUPS}" >> $GITHUB_OUTPUT
 
-          # Output the matrix
-          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
-
-          # Debug output
           echo "Generated matrix:"
-          echo "$MATRIX" | jq .
+          echo "{\"group\":$GROUPS}" | jq .
 
   test:
     needs: pre-filter
