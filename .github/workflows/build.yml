@@ -25,6 +25,7 @@ jobs:
               - 'tests/curators/test_curator.py'
 
       - id: set-matrix
+        shell: bash
         run: |
           BASE_GROUPS=$(cat << 'EOF'
           ["unit-core", "unit-storage", "tutorial", "guide", "biology", "faq", "storage", "cli"]
@@ -41,6 +42,7 @@ jobs:
 
           echo "matrix={\"group\":$GROUPS}" >> $GITHUB_OUTPUT
 
+          # Debug output
           echo "Generated matrix:"
           echo "{\"group\":$GROUPS}" | jq .
 
