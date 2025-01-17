@@ -27,19 +27,20 @@ jobs:
       - id: set-matrix
         shell: bash
         run: |
-          BASE_GROUPS=$(jq -n '["unit-core", "unit-storage", "tutorial", "guide", "biology", "faq", "storage", "cli"]')
+          BASE_GROUPS=$(jq -n -c '["unit-core", "unit-storage", "tutorial", "guide", "biology", "faq", "storage", "cli"]')
 
           if [[ "${{ github.event_name }}" == "push" || "${{ steps.changes.outputs.curator }}" == "true" ]]; then
             # Run everything on push or when curator paths change
-            MATRIX=$(jq -n --argjson groups "$BASE_GROUPS" '{group: ($groups + ["curator"])}')
+            MATRIX=$(jq -n -c --argjson groups "$BASE_GROUPS" '{group: ($groups + ["curator"])}')
           else
             # Otherwise only run base groups
-            MATRIX=$(jq -n --argjson groups "$BASE_GROUPS" '{group: $groups}')
+            MATRIX=$(jq -n -c --argjson groups "$BASE_GROUPS" '{group: $groups}')
           fi
 
-          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+          # Output as single line for GitHub Actions
+          echo "matrix=$(echo "$MATRIX" | jq -c .)" >> $GITHUB_OUTPUT
 
-          # Debug output
+          # Pretty print for debugging
           echo "Generated matrix:"
           echo "$MATRIX" | jq .
 
