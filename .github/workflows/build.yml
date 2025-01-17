@@ -35,7 +35,16 @@ jobs:
             GROUPS="$BASE_GROUPS]"
           fi
 
-          echo "matrix={\"group\":$GROUPS}" >> $GITHUB_OUTPUT
+          # Construct and validate the JSON
+          MATRIX="{\"group\":$GROUPS}"
+          echo "$MATRIX" | jq . > /dev/null # Validate JSON
+
+          # Output the matrix
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+
+          # Debug output
+          echo "Generated matrix:"
+          echo "$MATRIX" | jq .
 
   test:
     needs: pre-filter
