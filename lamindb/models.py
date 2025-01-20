@@ -824,6 +824,7 @@ class Space(BasicRecord):
     name: str = models.CharField(max_length=100, db_index=True)
     """Name of space."""
     uid: str = CharField(
+        editable=False,
         unique=True,
         max_length=12,
         default="00000000",
@@ -833,7 +834,9 @@ class Space(BasicRecord):
     """Universal id."""
     description: str | None = CharField(null=True)
     """Description of space."""
-    created_at: datetime = DateTimeField(auto_now_add=True, db_index=True)
+    created_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
     """Time of creation of record."""
     created_by: User = ForeignKey(
         "User", CASCADE, default=None, related_name="+", null=True
@@ -979,7 +982,7 @@ class User(BasicRecord, CanCurate):
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
-    uid: str = CharField(unique=True, db_index=True, max_length=8)
+    uid: str = CharField(editable=False, unique=True, db_index=True, max_length=8)
     """Universal id, valid across DB instances."""
     handle: str = CharField(max_length=30, unique=True, db_index=True)
     """Universal handle, valid across DB instances (required)."""
@@ -991,9 +994,13 @@ class User(BasicRecord, CanCurate):
     """Transforms created by user."""
     created_runs: Run
     """Runs created by user."""
-    created_at: datetime = DateTimeField(auto_now_add=True, db_index=True)
+    created_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
     """Time of creation of record."""
-    updated_at: datetime = DateTimeField(auto_now=True, db_index=True)
+    updated_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
     """Time of last update to record."""
 
     @overload
@@ -1070,12 +1077,14 @@ class Storage(Record, TracksRun, TracksUpdates):
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
-    uid: str = CharField(unique=True, max_length=12, default=base62_12, db_index=True)
+    uid: str = CharField(
+        editable=False, unique=True, max_length=12, default=base62_12, db_index=True
+    )
     """Universal id, valid across DB instances."""
     # we are very conservative here with 255 characters
-    root: str = CharField(max_length=255, db_index=True, unique=True)
+    root: str = CharField(db_index=True, unique=True)
     """Root path of storage. n s3 path.  local path, etc. (required)."""
-    description: str | None = CharField(max_length=255, db_index=True, null=True)
+    description: str | None = CharField(db_index=True, null=True)
     """A description of what the storage location is used for (optional)."""
     type: str = CharField(max_length=30, db_index=True)
     """Can be "local" vs. "s3" vs. "gs"."""
@@ -1198,7 +1207,9 @@ class Transform(Record, IsVersioned):
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
-    uid: str = CharField(unique=True, db_index=True, max_length=_len_full_uid)
+    uid: str = CharField(
+        editable=False, unique=True, db_index=True, max_length=_len_full_uid
+    )
     """Universal id."""
     key: str | None = CharField(db_index=True, null=True)
     """A name or "/"-separated path-like string.
@@ -1259,9 +1270,17 @@ class Transform(Record, IsVersioned):
 
     If you're looking for the outputs of a single run, see :attr:`lamindb.Run.output_collections`.
     """
-    created_at: datetime = DateTimeField(auto_now_add=True, db_index=True)
+    projects: Project
+    """Associated projects."""
+    references: Reference
+    """Associated references."""
+    created_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
     """Time of creation of record."""
-    updated_at: datetime = DateTimeField(auto_now=True, db_index=True)
+    updated_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
     """Time of last update to record."""
     created_by: User = ForeignKey(
         User, PROTECT, default=current_user_id, related_name="created_transforms"
@@ -1381,7 +1400,9 @@ class ParamValue(Record):
     # hence, ParamValue does _not_ inherit from TracksRun but manually
     # adds created_at & created_by
     # because ParamValue cannot be updated, we don't need updated_at
-    created_at: datetime = DateTimeField(auto_now_add=True, db_index=True)
+    created_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
     """Time of creation of record."""
     created_by: User = ForeignKey(
         User, PROTECT, default=current_user_id, related_name="+"
@@ -1476,13 +1497,17 @@ class Run(Record):
 
     id: int = models.BigAutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
-    uid: str = CharField(unique=True, db_index=True, max_length=20, default=base62_20)
+    uid: str = CharField(
+        editable=False, unique=True, db_index=True, max_length=20, default=base62_20
+    )
     """Universal id, valid across DB instances."""
     name: str | None = CharField(max_length=150, null=True)
     """A name."""
     transform = ForeignKey(Transform, CASCADE, related_name="runs")
     """The transform :class:`~lamindb.Transform` that is being run."""
-    started_at: datetime = DateTimeField(auto_now_add=True, db_index=True)
+    started_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
     """Start time of run."""
     finished_at: datetime | None = DateTimeField(db_index=True, null=True, default=None)
     """Finished time of run."""
@@ -1525,12 +1550,18 @@ class Run(Record):
     """A reference like a URL or external ID (such as from a workflow manager)."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Type of reference such as a workflow manager execution ID."""
-    created_at: datetime = DateTimeField(auto_now_add=True, db_index=True)
+    created_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
     """Time of first creation. Mismatches ``started_at`` if the run is re-run."""
     created_by: User = ForeignKey(
         User, CASCADE, default=current_user_id, related_name="created_runs"
     )
     """Creator of run."""
+    ulabels: ULabel = models.ManyToManyField(
+        "ULabel", through="RunULabel", related_name="runs"
+    )
+    """ULabel annotations of this transform."""
     initiated_by_run: Run | None = ForeignKey(
         "Run", CASCADE, null=True, related_name="initiated_runs", default=None
     )
@@ -1542,8 +1573,8 @@ class Run(Record):
 
     Be careful with using this field at this point.
     """
-    children: Run
-    """The runs that are triggered by this run."""
+    initiated_runs: Run
+    """Runs that were initiated by this run."""
     _is_consecutive: bool | None = BooleanField(null=True)
     """Indicates whether code was consecutively executed. Is relevant for notebooks."""
     _status_code: int = models.SmallIntegerField(default=0, db_index=True)
@@ -1643,7 +1674,9 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
-    uid: str = CharField(unique=True, db_index=True, max_length=8, default=base62_8)
+    uid: str = CharField(
+        editable=False, unique=True, db_index=True, max_length=8, default=base62_8
+    )
     """A universal random id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True)
     """Name or title of ulabel (`unique=True`)."""
@@ -1659,7 +1692,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
 
     For example, a ulabel "Project" would be a type, and the actual projects "Project 1", "Project 2", would be records of that `type`.
     """
-    description: str | None = TextField(null=True)
+    description: str | None = CharField(null=True, db_index=True)
     """A description (optional)."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
     """A reference like URL or external ID."""
@@ -1681,10 +1714,14 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     """
     transforms: Transform
     """Transforms annotated with this ulabel."""
+    runs: Transform
+    """Runs annotated with this ulabel."""
     artifacts: Artifact
     """Artifacts annotated with this ulabel."""
     collections: Collection
     """Collections annotated with this ulabel."""
+    projects: Project
+    """Associated projects."""
 
     @overload
     def __init__(
@@ -1801,7 +1838,9 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
-    uid: str = CharField(unique=True, db_index=True, max_length=12, default=base62_12)
+    uid: str = CharField(
+        editable=False, unique=True, db_index=True, max_length=12, default=base62_12
+    )
     """Universal id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True, unique=True)
     """Name of feature (`unique=True`)."""
@@ -1825,7 +1864,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     """Distinguish types from instances of the type."""
     unit: str | None = CharField(max_length=30, db_index=True, null=True)
     """Unit of measure, ideally SI (`m`, `s`, `kg`, etc.) or 'normalized' etc. (optional)."""
-    description: str | None = TextField(db_index=True, null=True)
+    description: str | None = CharField(db_index=True, null=True)
     """A description."""
     array_rank: int = models.SmallIntegerField(default=0, db_index=True)
     """Rank of feature.
@@ -2051,10 +2090,12 @@ class Schema(Record, CanCurate, TracksRun):
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
-    uid: str = CharField(unique=True, db_index=True, max_length=20)
+    uid: str = CharField(editable=False, unique=True, db_index=True, max_length=20)
     """A universal id (hash of the set of feature values)."""
-    name: str | None = CharField(max_length=150, null=True)
+    name: str | None = CharField(max_length=150, null=True, db_index=True)
     """A name."""
+    description: str | None = CharField(null=True, db_index=True)
+    """A description."""
     n = IntegerField()
     """Number of features in the set."""
     dtype: str | None = CharField(max_length=64, null=True)
@@ -2398,7 +2439,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
-    uid: str = CharField(unique=True, db_index=True, max_length=_len_full_uid)
+    uid: str = CharField(
+        editable=False, unique=True, db_index=True, max_length=_len_full_uid
+    )
     """A universal random id."""
     key: str | None = CharField(db_index=True, null=True)
     """A (virtual) relative file path within the artifact's storage location.
@@ -2411,10 +2454,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     actual filepath on the underyling filesytem or object store.
     """
     description: str | None = CharField(db_index=True, null=True)
-    """A description.
-
-    LaminDB doesn't require you to pass a key, you can
-    """
+    """A description."""
     storage: Storage = ForeignKey(Storage, PROTECT, related_name="artifacts")
     """Storage location, e.g. an S3 or GCP bucket or a local directory."""
     suffix: str = CharField(max_length=30, db_index=True)
@@ -2510,6 +2550,10 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     It defaults to False for file-like artifacts and to True for folder-like artifacts.
     """
+    projects: Project
+    """Associated projects."""
+    references: Reference
+    """Associated references."""
 
     @overload
     def __init__(
@@ -2955,12 +2999,16 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
     uid: str = CharField(
-        unique=True, db_index=True, max_length=_len_full_uid, default=base62_20
+        editable=False,
+        unique=True,
+        db_index=True,
+        max_length=_len_full_uid,
+        default=base62_20,
     )
     """Universal id, valid across DB instances."""
     key: str = CharField(db_index=True)
     """Name or path-like key."""
-    description: str | None = TextField(null=True)
+    description: str | None = CharField(null=True, db_index=True)
     """A description or title."""
     hash: str | None = CharField(max_length=HASH_LENGTH, db_index=True, null=True)
     """Hash of collection content. 86 base64 chars allow to store 64 bytes, 512 bits."""
@@ -3239,7 +3287,9 @@ class Person(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
-    uid: str = CharField(unique=True, max_length=8, db_index=True, default=base62_8)
+    uid: str = CharField(
+        editable=False, unique=True, max_length=8, db_index=True, default=base62_8
+    )
     """Universal id, valid across DB instances."""
     name: str = CharField(db_index=True)
     """Name of the person (forename(s) lastname)."""
@@ -3265,12 +3315,20 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
-    uid: str = CharField(unique=True, max_length=12, db_index=True, default=base62_12)
+    uid: str = CharField(
+        editable=False, unique=True, max_length=12, db_index=True, default=base62_12
+    )
     """Universal id, valid across DB instances."""
     name: str = CharField(db_index=True)
     """Title or name of the Project."""
-    type: str | None = CharField(max_length=64, db_index=True, null=True)
-    """A free-form type."""
+    type: Project | None = ForeignKey(
+        "self", PROTECT, null=True, related_name="records"
+    )
+    """Type of project (e.g., 'Program', 'Project', 'GithubIssue', 'Task')."""
+    records: Project
+    """Records of this type."""
+    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    """Distinguish types from instances of the type."""
     abbr: str | None = CharField(max_length=32, db_index=True, null=True)
     """An abbreviation."""
     url: str | None = URLField(max_length=255, null=True, default=None)
@@ -3282,12 +3340,25 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     parents: Project = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
-    """Parent projects."""
+    """Parent projects, the super-projects owning this project."""
     children: Project
-    """Child projects.
+    """Child projects, the sub-projects owned by this project.
 
-    Reverse accessor for parents.
+    Reverse accessor for `.parents`.
     """
+    predecessors: Project = models.ManyToManyField(
+        "self", symmetrical=False, related_name="successors"
+    )
+    """The preceding projects required by this project."""
+    successors: Project
+    """The succeeding projects requiring this project.
+
+    Reverse accessor for `.predecessors`.
+    """
+    people: Person = models.ManyToManyField(
+        Person, through="PersonProject", related_name="projects"
+    )
+    """People associated with this project."""
     artifacts: Artifact = models.ManyToManyField(
         Artifact, through="ArtifactProject", related_name="projects"
     )
@@ -3312,8 +3383,6 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         Collection, through="CollectionProject", related_name="projects"
     )
     """Collections associated with this project."""
-    persons: Person = models.ManyToManyField(Person, related_name="projects")
-    """Persons associated with this project."""
     references: Reference = models.ManyToManyField("Reference", related_name="projects")
     """References associated with this project."""
     _status_code: int = models.SmallIntegerField(default=0, db_index=True)
@@ -3341,7 +3410,9 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
-    uid: str = CharField(unique=True, max_length=12, db_index=True, default=base62_12)
+    uid: str = CharField(
+        editable=False, unique=True, max_length=12, db_index=True, default=base62_12
+    )
     """Universal id, valid across DB instances."""
     name: str = CharField(db_index=True)
     """Title or name of the reference document."""
@@ -3377,7 +3448,7 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         ],
     )
     """Digital Object Identifier (DOI) for the reference."""
-    description: str | None = TextField(null=True)
+    description: str | None = CharField(null=True, db_index=True)
     """Description of the reference."""
     text: str | None = TextField(null=True)
     """Abstract or full text of the reference to make it searchable."""
@@ -3421,7 +3492,6 @@ class DataMixin(models.Model):
     value_int = models.BigIntegerField(null=True, blank=True)
     value_float = models.FloatField(null=True, blank=True)
     value_str = models.TextField(null=True, blank=True)
-    value_upath = models.CharField(max_length=255, null=True, blank=True)
     value_datetime = models.DateTimeField(null=True, blank=True)
     value_ulabel = models.ForeignKey(
         ULabel, null=True, blank=True, on_delete=models.CASCADE, related_name="+"
@@ -3453,7 +3523,6 @@ class DataMixin(models.Model):
             self.value_int,
             self.value_float,
             self.value_str,
-            self.value_upath,
             self.value_datetime,
             self.value_ulabel,
             self.value_artifact,
@@ -3466,7 +3535,7 @@ class DataMixin(models.Model):
 
 
 class RunData(BasicRecord, DataMixin):
-    run = models.ForeignKey("Run", on_delete=models.CASCADE, related_name="data")
+    run = models.ForeignKey("Run", on_delete=models.CASCADE, related_name="_rundata")
 
     class Meta:
         constraints = [
@@ -3488,13 +3557,15 @@ class RunData(BasicRecord, DataMixin):
         ]
 
 
-class TidyTable(Record, TracksRun, TracksUpdates):
-    uid: str = CharField(unique=True, max_length=12, db_index=True, default=base62_12)
+class FlexTable(Record, TracksRun, TracksUpdates):
+    uid: str = CharField(
+        editable=False, unique=True, max_length=12, db_index=True, default=base62_12
+    )
     name = CharField()
     schema: Schema | None = ForeignKey(
         Schema, null=True, on_delete=models.SET_NULL, related_name="_tidytables"
     )
-    type: TidyTable | None = ForeignKey(
+    type: FlexTable | None = ForeignKey(
         "self", PROTECT, null=True, related_name="records"
     )
     """Type of tidy table, e.g., `Cell`, `SampleSheet`, etc."""
@@ -3502,7 +3573,8 @@ class TidyTable(Record, TracksRun, TracksUpdates):
     """Records of this type."""
     is_type: bool = BooleanField(default=None, db_index=True, null=True)
     """Distinguish types from instances of the type."""
-    description: str = TextField()
+    description: str = CharField(null=True, db_index=True)
+    """A description."""
     projects: Project = ManyToManyField(Project, related_name="_tidytables")
     ulabels: Project = ManyToManyField(ULabel, related_name="_tidytables")
 
@@ -3510,9 +3582,9 @@ class TidyTable(Record, TracksRun, TracksUpdates):
         indexes = [models.Index(fields=["uid"]), models.Index(fields=["name"])]
 
 
-class TidyTableData(BasicRecord, DataMixin):
+class FlexTableData(BasicRecord, DataMixin):
     tidytable = models.ForeignKey(
-        TidyTable, on_delete=models.CASCADE, related_name="data"
+        FlexTable, on_delete=models.CASCADE, related_name="data"
     )
 
     class Meta:
@@ -3612,6 +3684,23 @@ class TransformULabel(BasicRecord, LinkORM, TracksRun):
         unique_together = ("transform", "ulabel")
 
 
+class RunULabel(BasicRecord, LinkORM):
+    id: int = models.BigAutoField(primary_key=True)
+    run: Run = ForeignKey(Run, CASCADE, related_name="links_ulabel")
+    ulabel: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_run")
+    created_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
+    """Time of creation of record."""
+    created_by: User = ForeignKey(
+        "lamindb.User", PROTECT, default=current_user_id, related_name="+"
+    )
+    """Creator of record."""
+
+    class Meta:
+        unique_together = ("run", "ulabel")
+
+
 class CollectionULabel(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     collection: Collection = ForeignKey(
@@ -3643,7 +3732,9 @@ class RunParamValue(BasicRecord, LinkORM):
     run: Run = ForeignKey(Run, CASCADE, related_name="+")
     # we follow the lower() case convention rather than snake case for link models
     paramvalue: ParamValue = ForeignKey(ParamValue, PROTECT, related_name="+")
-    created_at: datetime = DateTimeField(auto_now_add=True, db_index=True)
+    created_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
     """Time of creation of record."""
     created_by: User = ForeignKey(
         "lamindb.User", PROTECT, default=current_user_id, related_name="+"
@@ -3714,6 +3805,16 @@ class ULabelProject(BasicRecord, LinkORM, TracksRun):
 
     class Meta:
         unique_together = ("ulabel", "project")
+
+
+class PersonProject(BasicRecord, LinkORM, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    person: Transform = ForeignKey(Person, CASCADE, related_name="links_project")
+    project: Project = ForeignKey(Project, PROTECT, related_name="links_person")
+    role: str | None = CharField(null=True, default=None)
+
+    class Meta:
+        unique_together = ("person", "project")
 
 
 class FeatureProject(BasicRecord, LinkORM, TracksRun):

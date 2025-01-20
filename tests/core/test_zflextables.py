@@ -6,10 +6,10 @@ from django.core.exceptions import ValidationError
 # Assuming these models exist in your project
 from lamindb.models import (
     Feature,
+    FlexTable,
     Param,
     Run,
     RunData,
-    TidyTable,
     Transform,
 )
 
@@ -37,7 +37,7 @@ def run():
 
 @pytest.fixture
 def tidy_table():
-    return TidyTable(
+    return FlexTable(
         uid="test-table",
         name="Test Table",
         description="Test Description",
