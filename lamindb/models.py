@@ -1573,8 +1573,8 @@ class Run(Record):
 
     Be careful with using this field at this point.
     """
-    children: Run
-    """The runs that are triggered by this run."""
+    initiated_runs: Run
+    """Runs that were initiated by this run."""
     _is_consecutive: bool | None = BooleanField(null=True)
     """Indicates whether code was consecutively executed. Is relevant for notebooks."""
     _status_code: int = models.SmallIntegerField(default=0, db_index=True)
