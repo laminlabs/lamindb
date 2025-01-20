@@ -261,5 +261,5 @@ def docs(session):
         Path("./docs/cli.md").write_text(page)
 
     generate_cli_docs()
-    build_docs(session, strip_prefix=True, strict=False)
+    build_docs(session, strip_prefix=True, strict=True)
     upload_docs_artifact(aws=True)

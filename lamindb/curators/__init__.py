@@ -13,6 +13,7 @@ from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import UPath
 
+from lamindb.base.types import FieldAttr  # noqa
 from lamindb.models import (
     Artifact,
     Feature,
@@ -31,8 +32,6 @@ if TYPE_CHECKING:
 
     from lamindb_setup.core.types import UPathStr
     from mudata import MuData
-
-    from lamindb.base.types import FieldAttr
 
 
 class CurateLookup:
