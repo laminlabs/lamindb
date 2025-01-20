@@ -100,14 +100,14 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      # - run: nox -s "build(group='${{ matrix.group }}')"
+      - run: nox -s "build(group='${{ matrix.group }}')"
 
-      # - name: upload coverage
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: coverage--${{ matrix.group }}
-      #     path: .coverage
-      #     include-hidden-files: true
+      - name: upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage--${{ matrix.group }}
+          path: .coverage
+          include-hidden-files: true
 
       - name: upload docs
         if: ${{ matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology' || matrix.group == 'faq' || matrix.group == 'storage' }}

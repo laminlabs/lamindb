@@ -31,11 +31,8 @@ if TYPE_CHECKING:
 
     from lamindb_setup.core.types import UPathStr
     from mudata import MuData
-    from spatialdata import SpatialData
 
     from lamindb.base.types import FieldAttr
-
-    from ._spatial import SpatialDataCurator
 
 
 class CurateLookup:
@@ -1720,7 +1717,7 @@ class Curator(BaseCurator):
     @classmethod
     def from_spatialdata(
         cls,
-        sdata: SpatialData,
+        sdata,
         var_index: dict[str, FieldAttr],
         categoricals: dict[str, dict[str, FieldAttr]] | None = None,
         using_key: str | None = None,
@@ -1730,7 +1727,7 @@ class Curator(BaseCurator):
         verbosity: str = "hint",
         *,
         sample_metadata_key: str = "sample",
-    ) -> SpatialDataCurator:
+    ):
         """Curation flow for a ``Spatialdata`` object.
 
         See also :class:`~lamindb.Curator`.
