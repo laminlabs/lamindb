@@ -479,7 +479,7 @@ class Migration(migrations.Migration):
                 ),
             ],
             options={
-                "unique_together": {("transform", "ulabel")},
+                "unique_together": {("run", "ulabel")},
             },
             bases=(models.Model, lamindb.models.LinkORM),
         ),

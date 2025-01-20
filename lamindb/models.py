@@ -3325,7 +3325,7 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         "self", PROTECT, null=True, related_name="records"
     )
     """Type of project (e.g., 'Program', 'Project', 'GithubIssue', 'Task')."""
-    records: Reference
+    records: Project
     """Records of this type."""
     is_type: bool = BooleanField(default=None, db_index=True, null=True)
     """Distinguish types from instances of the type."""
@@ -3698,7 +3698,7 @@ class RunULabel(BasicRecord, LinkORM):
     """Creator of record."""
 
     class Meta:
-        unique_together = ("transform", "ulabel")
+        unique_together = ("run", "ulabel")
 
 
 class CollectionULabel(BasicRecord, LinkORM, TracksRun):
