@@ -16,7 +16,7 @@ classifiers = [
 dependencies = [
     # Lamin PINNED packages
     "lamin_utils==0.13.10",
-    "lamin_cli==1.0.3",
+    "lamin_cli==1.0.4",
     "lamindb_setup[aws]==1.0.3",
     # others
     "pyarrow",
