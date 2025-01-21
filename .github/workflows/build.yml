@@ -55,7 +55,7 @@ jobs:
           python-version: |
             ${{ matrix.group == 'storage' && '3.10' ||
                 matrix.group == 'unit-storage' && '3.11' ||
-                '3.12' }}
+                '3.13' }}
 
       - name: cache pre-commit
         uses: actions/cache@v4
@@ -141,7 +141,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
       - run: pip install "laminci@git+https://x-access-token:${{ secrets.LAMIN_BUILD_DOCS }}@github.com/laminlabs/laminci"
       - run: nox -s "install_ci(group='docs')"
       - uses: actions/download-artifact@v4
@@ -170,7 +170,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
       - run: |
           python -m pip install -U uv
           uv pip install --system coverage[toml]
