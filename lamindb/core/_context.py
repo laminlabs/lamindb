@@ -632,12 +632,12 @@ class Context:
                         )
                 if bump_revision:
                     change_type = (
-                        "re-running saved notebook"
+                        "re-running notebook with already-saved source code"
                         if transform.type == "notebook"
                         else "source code changed"
                     )
                     raise UpdateContext(
-                        f'✗ {change_type}, update `uid` in `track()` to "{uid[:-4]}{increment_base62(uid[-4:])}"'
+                        f'✗ {change_type}, please update the `uid` argument in `track()` to "{uid[:-4]}{increment_base62(uid[-4:])}"'
                     )
             else:
                 self._logging_message_track += f"loaded Transform('{transform.uid}')"
