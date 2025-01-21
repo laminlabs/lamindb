@@ -395,6 +395,11 @@ class Context:
             path = Path(module.__file__)
         else:
             path = Path(path)
+        # for Rmd and qmd, we could also extract the title
+        # we don't do this for now as we're setting the title upon `ln.finish()` or `lamin save`
+        # by extracting it from the html while cleaning it: see clean_r_notebook_html()
+        # also see the script_to_notebook() in the CLI _load.py where the title is extracted
+        # from the source code YAML and updated with the transform description
         transform_type = "notebook" if path.suffix in {".Rmd", ".qmd"} else "script"
         reference = None
         reference_type = None
@@ -489,14 +494,30 @@ class Context:
                     if aux_transform.key in self._path.as_posix():
                         key = aux_transform.key
                         if (
+                            # if the transform source code wasn't yet saved
                             aux_transform.source_code is None
-                            or aux_transform.hash == hash
+                            # if the transform source code is unchanged
+                            # if aux_transform.type == "notebook", we anticipate the user makes changes to the notebook source code
+                            # in an interactive session, hence we *pro-actively bump* the version number by setting `revises`
+                            # in the second part of the if condition even though the source code is unchanged at point of running track()
+                            or (
+                                aux_transform.hash == hash
+                                and aux_transform.type != "notebook"
+                            )
                         ):
                             uid = aux_transform.uid
                             target_transform = aux_transform
                         else:
                             uid = f"{aux_transform.uid[:-4]}{increment_base62(aux_transform.uid[-4:])}"
-                            message = f"there already is a transform with key '{aux_transform.key}', creating new version '{uid}'"
+                            message = f"there already is a {aux_transform.type} with `key` '{aux_transform.key}'"
+                            if (
+                                aux_transform.hash == hash
+                                and aux_transform.type == "notebook"
+                            ):
+                                message += "-- notebook source code is unchanged, but anticipating changes during this run, hence"
+                            elif aux_transform.hash != hash:
+                                message += "-- source code changed, hence"
+                            message += f", creating new version '{uid}'"
                             revises = aux_transform
                         found_key = True
                         break
@@ -508,7 +529,7 @@ class Context:
                             for transform in transforms
                         ]
                     )
-                    message = f"ignoring transform{plural_s} with same filedescription:\n{transforms_str}"
+                    message = f"ignoring transform{plural_s} with same filename:\n{transforms_str}"
                 if message != "":
                     logger.important(message)
             self.uid, transform = uid, target_transform
@@ -581,7 +602,7 @@ class Context:
             # check whether the transform.key is consistent
             if transform.key != key:
                 raise UpdateContext(get_key_clashing_message(transform, key))
-            elif transform.description != description:
+            elif transform.description != description and description is not None:
                 transform.description = description
                 transform.save()
                 self._logging_message_track += (
@@ -597,7 +618,9 @@ class Context:
             # check whether transform source code was already saved
             if transform_was_saved:
                 bump_revision = False
-                if is_run_from_ipython:
+                if transform.type == "notebook":
+                    # we anticipate the user makes changes to the notebook source code
+                    # in an interactive session, hence we pro-actively bump the version number
                     bump_revision = True
                 else:
                     hash, _ = hash_file(self._path)  # ignore hash_type for now
@@ -609,12 +632,12 @@ class Context:
                         )
                 if bump_revision:
                     change_type = (
-                        "re-running saved notebook"
-                        if is_run_from_ipython
+                        "re-running notebook with already-saved source code"
+                        if transform.type == "notebook"
                         else "source code changed"
                     )
                     raise UpdateContext(
-                        f'✗ {change_type}, run: ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")'
+                        f'✗ {change_type}, please update the `uid` argument in `track()` to "{uid[:-4]}{increment_base62(uid[-4:])}"'
                     )
             else:
                 self._logging_message_track += f"loaded Transform('{transform.uid}')"
@@ -683,6 +706,13 @@ class Context:
         )
         if self.transform.type != "notebook":
             self._stream_tracker.finish()
+        # reset the context attributes so that somebody who runs `track()` after finish
+        # starts fresh
+        self._uid = None
+        self._run = None
+        self._transform = None
+        self._version = None
+        self._description = None
 
 
 context = Context()
