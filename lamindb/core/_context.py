@@ -508,7 +508,7 @@ class Context:
                             for transform in transforms
                         ]
                     )
-                    message = f"ignoring transform{plural_s} with same filedescription:\n{transforms_str}"
+                    message = f"ignoring transform{plural_s} with same filename:\n{transforms_str}"
                 if message != "":
                     logger.important(message)
             self.uid, transform = uid, target_transform
@@ -581,7 +581,7 @@ class Context:
             # check whether the transform.key is consistent
             if transform.key != key:
                 raise UpdateContext(get_key_clashing_message(transform, key))
-            elif transform.description != description:
+            elif transform.description != description and description is not None:
                 transform.description = description
                 transform.save()
                 self._logging_message_track += (
