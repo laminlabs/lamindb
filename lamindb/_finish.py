@@ -208,7 +208,7 @@ def save_context_core(
             report_path = filepath.with_suffix(".html")
         else:
             logger.warning(
-                f"no {filepath.with_suffix('.nb.html')} found, save your manually rendered .html report via the CLI: lamin save {filepath}"
+                f"no html report found; to attach one, render an .html report for your {filepath.suffix} file and then run: lamin save {filepath}"
             )
     if report_path is not None and not from_cli:
         if get_seconds_since_modified(report_path) > 2 and not ln_setup._TESTING:
