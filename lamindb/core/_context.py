@@ -514,9 +514,9 @@ class Context:
                                 aux_transform.hash == hash
                                 and aux_transform.type == "notebook"
                             ):
-                                message += "-- notebook source code is unchanged, but anticipating changes during this run, hence"
+                                message += " -- notebook source code is unchanged, but anticipating changes during this run"
                             elif aux_transform.hash != hash:
-                                message += "-- source code changed, hence"
+                                message += " -- source code changed"
                             message += f", creating new version '{uid}'"
                             revises = aux_transform
                         found_key = True
