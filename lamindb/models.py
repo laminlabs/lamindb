@@ -3008,7 +3008,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
     """Universal id, valid across DB instances."""
     key: str = CharField(db_index=True)
     """Name or path-like key."""
-    description: str | None = CharField(null=True, db_index=True)
+    description: str | None = TextField(null=True, db_index=True)
     """A description or title."""
     hash: str | None = CharField(max_length=HASH_LENGTH, db_index=True, null=True)
     """Hash of collection content. 86 base64 chars allow to store 64 bytes, 512 bits."""
