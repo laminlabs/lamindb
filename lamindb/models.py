@@ -3008,6 +3008,9 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
     """Universal id, valid across DB instances."""
     key: str = CharField(db_index=True)
     """Name or path-like key."""
+    # these here is the only case in which we use a TextField
+    # for description; we do so because users had descriptions exceeding 255 chars
+    # in their instances
     description: str | None = TextField(null=True, db_index=True)
     """A description or title."""
     hash: str | None = CharField(max_length=HASH_LENGTH, db_index=True, null=True)
