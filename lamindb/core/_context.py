@@ -395,6 +395,9 @@ class Context:
             path = Path(module.__file__)
         else:
             path = Path(path)
+        # for Rmd and qmd, we could also extract the title
+        # we don't do this for now as we're setting the title upon `ln.finish()` or `lamin save`
+        # by extracting it from the html while cleaning it: see clean_r_notebook_html()
         transform_type = "notebook" if path.suffix in {".Rmd", ".qmd"} else "script"
         reference = None
         reference_type = None

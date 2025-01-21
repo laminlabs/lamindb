@@ -292,10 +292,13 @@ def save_context_core(
                 )
                 report_file.save(upload=True, print_progress=False)
                 run.report = report_file
+            if is_r_notebook:
+                # this is the "cleaned" report
+                report_path.unlink()
             logger.debug(
                 f"saved transform.latest_run.report: {transform.latest_run.report}"
             )
-        run.is_consecutive = is_consecutive
+        run._is_consecutive = is_consecutive
 
         # save both run & transform records if we arrive here
         run.save()
