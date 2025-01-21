@@ -5,15 +5,6 @@ from django.db import migrations, models
 
 import lamindb.base.fields
 
-# Functions from the following migrations need manual copying.
-# Move them and any dependencies into this file, then update the
-# RunPython operations to refer to the local versions:
-# lamindb.migrations.0070_lamindbv1_migrate_data
-# lamindb.migrations.0071_lamindbv1_migrate_schema
-# lamindb.migrations.0073_merge_ourprojects
-# lamindb.migrations.0074_lamindbv1_part4
-# lamindb.migrations.0077_lamindbv1_part6b
-
 
 class Migration(migrations.Migration):
     replaces = [
