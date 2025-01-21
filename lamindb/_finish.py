@@ -159,8 +159,6 @@ def save_context_core(
         format_field_value,  # needs to come after lamindb was imported because of CLI use
     )
 
-    from .core._context import context
-
     ln.settings.verbosity = "success"
 
     # for scripts, things are easy
@@ -335,7 +333,4 @@ def save_context_core(
             logger.important(
                 f"if you want to update your {thing} without re-running it, use `lamin save {filepath}`"
             )
-    # because run & transform changed, update the global context
-    context._run = run
-    context._transform = transform
     return None

@@ -492,8 +492,16 @@ class Context:
                     if aux_transform.key in self._path.as_posix():
                         key = aux_transform.key
                         if (
+                            # if the transform source code wasn't yet saved
                             aux_transform.source_code is None
-                            or aux_transform.hash == hash
+                            # if the transform source code is unchanged
+                            # if aux_transform.type == "notebook", we anticipate the user makes changes to the notebook source code
+                            # in an interactive session, hence we *pro-actively bump* the version number by setting `revises`
+                            # in the second part of the if condition even though the source code is unchanged at point of running track()
+                            or (
+                                aux_transform.hash == hash
+                                and aux_transform.type != "notebook"
+                            )
                         ):
                             uid = aux_transform.uid
                             target_transform = aux_transform
@@ -600,7 +608,9 @@ class Context:
             # check whether transform source code was already saved
             if transform_was_saved:
                 bump_revision = False
-                if is_run_from_ipython:
+                if transform.type == "notebook":
+                    # we anticipate the user makes changes to the notebook source code
+                    # in an interactive session, hence we pro-actively bump the version number
                     bump_revision = True
                 else:
                     hash, _ = hash_file(self._path)  # ignore hash_type for now
@@ -613,7 +623,7 @@ class Context:
                 if bump_revision:
                     change_type = (
                         "re-running saved notebook"
-                        if is_run_from_ipython
+                        if transform.type == "notebook"
                         else "source code changed"
                     )
                     raise UpdateContext(
@@ -686,6 +696,13 @@ class Context:
         )
         if self.transform.type != "notebook":
             self._stream_tracker.finish()
+        # reset the context attributes so that somebody who runs `track()` after finish
+        # starts fresh
+        self._uid = None
+        self._run = None
+        self._transform = None
+        self._version = None
+        self._description = None
 
 
 context = Context()
