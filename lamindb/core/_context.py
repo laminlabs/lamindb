@@ -398,6 +398,8 @@ class Context:
         # for Rmd and qmd, we could also extract the title
         # we don't do this for now as we're setting the title upon `ln.finish()` or `lamin save`
         # by extracting it from the html while cleaning it: see clean_r_notebook_html()
+        # also see the script_to_notebook() in the CLI _load.py where the title is extracted
+        # from the source code YAML and updated with the transform description
         transform_type = "notebook" if path.suffix in {".Rmd", ".qmd"} else "script"
         reference = None
         reference_type = None
@@ -507,7 +509,15 @@ class Context:
                             target_transform = aux_transform
                         else:
                             uid = f"{aux_transform.uid[:-4]}{increment_base62(aux_transform.uid[-4:])}"
-                            message = f"there already is a transform with key '{aux_transform.key}', creating new version '{uid}'"
+                            message = f"there already is a {aux_transform.type} with `key` '{aux_transform.key}'"
+                            if (
+                                aux_transform.hash == hash
+                                and aux_transform.type == "notebook"
+                            ):
+                                message += "-- notebook source code is unchanged, but anticipating changes during this run, hence"
+                            elif aux_transform.hash != hash:
+                                message += "-- source code changed, hence"
+                            message += f", creating new version '{uid}'"
                             revises = aux_transform
                         found_key = True
                         break
@@ -627,7 +637,7 @@ class Context:
                         else "source code changed"
                     )
                     raise UpdateContext(
-                        f'✗ {change_type}, run: ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")'
+                        f'✗ {change_type}, update `uid` in `track()` to "{uid[:-4]}{increment_base62(uid[-4:])}"'
                     )
             else:
                 self._logging_message_track += f"loaded Transform('{transform.uid}')"
