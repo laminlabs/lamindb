@@ -754,7 +754,7 @@ def test_load_to_memory(tsv_file, zip_file, fcs_file, yaml_file):
     df = load_tsv(tsv_file)
     assert isinstance(df, pd.DataFrame)
     # fcs
-    adata = load_fcs(fcs_file, ignore_offset_error=True)
+    adata = load_fcs(fcs_file)
     assert isinstance(adata, ad.AnnData)
     # none
     load_to_memory(zip_file)
