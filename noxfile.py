@@ -158,17 +158,14 @@ def install_ci(session, group):
 
 
 @nox.session
-@nox.parametrize(
-    "exclude_group",
-    [
-        "curator",
-    ],
-)
-def configure_coverage(exclude_group: str) -> None:
+@nox.parametrize("groups", ["all"])
+def configure_coverage(session, groups: str) -> None:
     """Write a coverage config file, adding extra patterns to omit."""
     import tomlkit
 
-    if exclude_group == "curator":
+    print(groups)
+
+    if "curator" not in groups:
         extra_omit_patterns = ["**/curators/*"]
     else:
         extra_omit_patterns = []

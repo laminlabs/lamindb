@@ -32,13 +32,9 @@ jobs:
           if [[ "${{ github.event_name }}" == "push" || "${{ steps.changes.outputs.curator }}" == "true" ]]; then
             # Run everything on push or when curator paths change
             MATRIX=$(jq -n -c --argjson groups "$BASE_GROUPS" '{group: ($groups + ["curator"])}')
-            # Exclude curator group from coverage calculation
-            nox -s "configure_coverage(exclude_group=None)"
           else
             # Otherwise only run base groups
             MATRIX=$(jq -n -c --argjson groups "$BASE_GROUPS" '{group: $groups}')
-            # Exclude curator group from coverage calculation
-            nox -s "configure_coverage(exclude_group='curator')"
           fi
 
           # Output as single line for GitHub Actions
@@ -99,6 +95,8 @@ jobs:
         run: docker image load --input ~/postgres.tar
 
       - run: pip install "laminci@git+https://x-access-token:${{ secrets.LAMIN_BUILD_DOCS }}@github.com/laminlabs/laminci"
+
+      - run: nox -s "configure_coverage(groups=${{needs.pre-filter.outputs.matrix}})"
 
       - name: install postgres
         if: ${{ matrix.group == 'faq' }}
