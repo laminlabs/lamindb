@@ -157,17 +157,18 @@ def install_ci(session, group):
             )
 
 
-def write_coverage_config(group: str) -> None:
-    """Write a coverage config file, adding extra patterns to omit.
-
-    Args:
-        base_config_path: Path to the base config file (e.g. pyproject.toml)
-        output_path: Where to write the new config file (.coveragerc)
-        extra_omit_patterns: Additional patterns to add to the omit list
-    """
+@nox.session
+@nox.parametrize(
+    "exclude_group",
+    [
+        "curator",
+    ],
+)
+def configure_coverage(exclude_group: str) -> None:
+    """Write a coverage config file, adding extra patterns to omit."""
     import tomlkit
 
-    if group == "curator":
+    if exclude_group == "curator":
         extra_omit_patterns = ["**/curators/*"]
     else:
         extra_omit_patterns = []
@@ -188,9 +189,6 @@ def write_coverage_config(group: str) -> None:
 
     print(base_config_path.read_text())
 
-    coverage_args = "--cov=lamindb --cov-config=pyproject.toml --cov-append --cov-report=term-missing"
-    return coverage_args
-
 
 @nox.session
 @nox.parametrize(
@@ -207,13 +205,13 @@ def write_coverage_config(group: str) -> None:
         "cli",
     ],
 )
-def build(session, group):
+def test(session, group):
     import lamindb as ln
 
     login_testuser2(session)
     login_testuser1(session)
     run(session, "lamin settings set private-django-api true")
-    coverage_args = write_coverage_config(group)
+    coverage_args = "--cov=lamindb --cov-config=pyproject.toml --cov-append --cov-report=term-missing"
     if group == "unit-core":
         run(
             session,
