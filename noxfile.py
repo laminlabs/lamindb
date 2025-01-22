@@ -162,9 +162,10 @@ def configure_coverage(session) -> None:
     """Write a coverage config file, adding extra patterns to omit."""
     import tomlkit
 
-    groups_str = session.posargs
+    groups_str = session.posargs[0]  # first positional argument
 
-    print(groups_str)
+    print(groups_str)  # for debugging
+    assert isinstance(groups_str, str)  # noqa: S101 so that we don't change this away from string
 
     if "curator" not in groups_str:
         extra_omit_patterns = ["**/curators/*"]
