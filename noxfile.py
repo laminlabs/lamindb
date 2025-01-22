@@ -173,7 +173,7 @@ def write_coverage_config(group: str) -> None:
         extra_omit_patterns = []
 
     # Read patterns from pyproject.toml
-    base_config_path = "pyproject.toml"
+    base_config_path = Path("pyproject.toml")
     with open(base_config_path) as f:
         config = tomlkit.load(f)
 
