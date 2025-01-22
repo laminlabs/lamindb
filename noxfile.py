@@ -165,9 +165,7 @@ def write_coverage_config(group: str) -> None:
         output_path: Where to write the new config file (.coveragerc)
         extra_omit_patterns: Additional patterns to add to the omit list
     """
-    import configparser
-
-    import tomli
+    import tomlkit
 
     if group == "curator":
         extra_omit_patterns = ["**/curators/*"]
@@ -176,21 +174,21 @@ def write_coverage_config(group: str) -> None:
 
     # Read patterns from pyproject.toml
     base_config_path = "pyproject.toml"
-    output_path = ".coveragerc"
-    with open(base_config_path, "rb") as f:
-        config = tomli.load(f)
+    with open(base_config_path) as f:
+        config = tomlkit.load(f)
 
+    # Update the omit patterns
     base_patterns = config["tool"]["coverage"]["run"]["omit"]
     all_patterns = base_patterns + extra_omit_patterns
+    config["tool"]["coverage"]["run"]["omit"] = all_patterns
 
-    # Write .coveragerc
-    coverage_config = configparser.ConfigParser()
-    coverage_config["run"] = {"omit": "\n" + "\n".join(all_patterns)}
+    # Write back to pyproject.toml
+    with open(base_config_path, "w") as f:
+        tomlkit.dump(config, f)
 
-    with open(output_path, "w") as f:
-        coverage_config.write(f)
+    print(base_config_path.read_text())
 
-    coverage_args = f"--cov=lamindb --cov-config={output_path} --cov-append --cov-report=term-missing"
+    coverage_args = "--cov=lamindb --cov-config=pyproject.toml --cov-append --cov-report=term-missing"
     return coverage_args
 
 

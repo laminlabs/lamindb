@@ -69,7 +69,7 @@ omop = [
 ]
 dev = [
     # basic test
-    "tomli",
+    "tomlkit",
     "line_profiler",
     "pre-commit",
     "nox",
