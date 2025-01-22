@@ -18,7 +18,8 @@ if TYPE_CHECKING:
 def file_fcs() -> Path:
     """Example FCS artifact."""
     filepath, _ = urlretrieve(
-        "https://lamindb-test.s3.amazonaws.com/example.fcs", "example.fcs"
+        "https://lamindb-dev-datasets.s3.amazonaws.com/.lamindb/DBNEczSgBui0bbzBXMGH.fcs",
+        "example.fcs",
     )
     return Path(filepath)
 
