@@ -44,12 +44,6 @@ jobs:
           echo "Generated matrix:"
           echo "$MATRIX" | jq .
 
-      - name: upload pyproject.toml
-        uses: actions/upload-artifact@v4
-        with:
-          name: pyproject.toml
-          path: pyproject.toml
-
   test:
     needs: pre-filter
     runs-on: ubuntu-latest
@@ -62,8 +56,6 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
-
-      - uses: actions/download-artifact@v4
 
       - uses: actions/setup-python@v5
         with:
