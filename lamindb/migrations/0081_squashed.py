@@ -93,6 +93,7 @@ class Migration(migrations.Migration):
         ("lamindb", "0078_lamindbv1_part6c"),
         ("lamindb", "0079_alter_rundata_value_json_and_more"),
         ("lamindb", "0080_polish_lamindbv1"),
+        ("lamindb", "0081_revert_textfield_collection"),
     ]
 
     operations = [
@@ -492,11 +493,10 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "description",
-                    lamindb.base.fields.CharField(
+                    lamindb.base.fields.TextField(
                         blank=True,
                         db_index=True,
                         default=None,
-                        max_length=255,
                         null=True,
                     ),
                 ),
