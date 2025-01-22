@@ -69,6 +69,7 @@ omop = [
 ]
 dev = [
     # basic test
+    "tomlkit",
     "line_profiler",
     "pre-commit",
     "nox",
@@ -214,6 +215,4 @@ exclude_lines = [
 ]
 
 [tool.coverage.run]
-omit = [
-    "**/core/datasets/*",  # Datasets don't perform any logic
-]
+omit = ["**/core/datasets/*", "**/migrations/*"]
