@@ -51,7 +51,7 @@ zarr = [
     "zarr>=2.16.0,<3.0.0a0", # not yet compatible with 3.0.*
 ]
 fcs = [
-    "readfcs>=1.1.9",
+    "readfcs>=2.0.0",
 ]
 erdiagram = [
     "django-schema-graph",
