@@ -141,13 +141,6 @@ def install_ci(session, group):
         extras += "jupyter,bionty"
     run(session, f"uv pip install --system -e .[dev,{extras}]")
 
-    # TEMPORARILY GET READFCS
-    if group == "unit-core":
-        run(
-            session,
-            "uv pip install --system -U git+https://github.com/laminlabs/readfcs",
-        )
-
     # on the release branch, do not use submodules but run with pypi install
     # only exception is the docs group which should always use the submodule
     # to push docs fixes fast
