@@ -214,7 +214,7 @@ def test(session, group):
     if group == "unit-core":
         run(
             session,
-            f"pytest {coverage_args} --ignore=tests/core/test_curator.py ./tests/core --durations=50",
+            f"pytest {coverage_args} ./tests/core --durations=50",
         )
     elif group == "unit-storage":
         run(session, f"pytest {coverage_args} ./tests/storage --durations=50")
@@ -242,7 +242,7 @@ def test(session, group):
     elif group == "curator":
         run(
             session,
-            f"pytest {coverage_args} tests/curators/test_curator.py --durations=50",
+            f"pytest {coverage_args} tests/curators --durations=50",
         )
     elif group == "cli":
         run(session, f"pytest {coverage_args} ./sub/lamin-cli/tests --durations=50")
