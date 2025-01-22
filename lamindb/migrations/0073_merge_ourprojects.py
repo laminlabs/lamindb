@@ -2,6 +2,7 @@
 
 import django.core.validators
 import django.db.models.deletion
+import lamindb_setup
 from django.db import migrations, models
 
 import lamindb.base.fields
@@ -942,4 +943,10 @@ class Migration(migrations.Migration):
         migrations.RunPython(
             migrate_data,
         ),
+    ]
+
+
+if "ourprojects" in lamindb_setup.settings.instance.modules:
+    Migration.dependencies += [
+        ("ourprojects", "0003_alter_person_space_alter_project_space_and_more"),
     ]
