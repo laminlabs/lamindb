@@ -208,23 +208,28 @@ def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
 
 
 def check_filepath_recently_saved(filepath: Path, is_retry: bool) -> bool:
-    recently_saved_time = 2.5 if not is_retry else 10
+    base_time = 2.5 if not is_retry else 15
+    file_size_mb = filepath.stat().st_size / (1024 * 1024)
+    # Scale wait time: add 5 seconds per 10MB, cap at 60 seconds
+    size_adjustment = min(file_size_mb / 10 * 5, 45)
+    recently_saved_time = base_time + size_adjustment
+
+    wait_message = "waiting for notebook to be saved"
     for retry in range(10):
         if get_seconds_since_modified(filepath) > recently_saved_time:
             if retry == 0:
                 prefix = f"{LEVEL_TO_COLORS[20]}{LEVEL_TO_ICONS[20]}{RESET_COLOR}"
-                print(f"{prefix} {get_save_notebook_message()}", end=" ")
-            elif retry == 9:
-                print(".", end="\n")
-            else:
-                print(".", end="")
+                print(f"\r{prefix}{wait_message}", end="")
+            print(".", end="")
             sleep(1)
         else:
             if retry > 0:
-                prefix = f"{LEVEL_TO_COLORS[25]}{LEVEL_TO_ICONS[25]}{RESET_COLOR}"
-                print(f" {prefix}")
-            # filepath was recently saved, return True
+                print(
+                    "\r" + " " * (len(prefix) + len(wait_message) + retry + 1), end="\r"
+                )
             return True
+        # filepath was recently saved, return True
+    print("\r" + " " * (len(wait_message) + 10), end="\r")
     # if we arrive here, no save event occured, return False
     return False
 
