@@ -902,6 +902,7 @@ def replace(
     self._hash_type = kwargs["_hash_type"]
     self.run_id = kwargs["run_id"]
     self.run = kwargs["run"]
+    self.n_files = kwargs["n_files"]
 
     self._local_filepath = privates["local_filepath"]
     self._cloud_filepath = privates["cloud_filepath"]
