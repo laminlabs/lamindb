@@ -25,17 +25,24 @@ jobs:
               - 'tests/curators/test_curator.py'
 
       - id: set-matrix
+        shell: bash
         run: |
-          if [[ "${{ github.event_name }}" == "push" ]]; then
-            # On push, run all
-            echo "matrix={\"group\":[\"unit-core\",\"unit-storage\",\"tutorial\",\"guide\",\"biology\",\"faq\",\"storage\",\"cli\",\"curator\"]}" >> $GITHUB_OUTPUT
-          elif [[ "${{ steps.changes.outputs.curator }}" == "true" ]]; then
-            # If curator paths changed, include curator
-            echo "matrix={\"group\":[\"unit-core\",\"unit-storage\",\"tutorial\",\"guide\",\"biology\",\"faq\",\"storage\",\"cli\",\"curator\"]}" >> $GITHUB_OUTPUT
+          BASE_GROUPS=$(jq -n -c '["unit-core", "unit-storage", "tutorial", "guide", "biology", "faq", "storage", "cli"]')
+
+          if [[ "${{ github.event_name }}" == "push" || "${{ steps.changes.outputs.curator }}" == "true" ]]; then
+            # Run everything on push or when curator paths change
+            MATRIX=$(jq -n -c --argjson groups "$BASE_GROUPS" '{group: ($groups + ["curator"])}')
           else
-            # Otherwise, run all except curator
-            echo "matrix={\"group\":[\"unit-core\",\"unit-storage\",\"tutorial\",\"guide\",\"biology\",\"faq\",\"storage\",\"cli\"]}" >> $GITHUB_OUTPUT
+            # Otherwise only run base groups
+            MATRIX=$(jq -n -c --argjson groups "$BASE_GROUPS" '{group: $groups}')
           fi
+
+          # Output as single line for GitHub Actions
+          echo "matrix=$(echo "$MATRIX" | jq -c .)" >> $GITHUB_OUTPUT
+
+          # Pretty print for debugging
+          echo "Generated matrix:"
+          echo "$MATRIX" | jq .
 
   test:
     needs: pre-filter
@@ -55,7 +62,7 @@ jobs:
           python-version: |
             ${{ matrix.group == 'storage' && '3.10' ||
                 matrix.group == 'unit-storage' && '3.11' ||
-                '3.12' }}
+                '3.13' }}
 
       - name: cache pre-commit
         uses: actions/cache@v4
@@ -81,6 +88,8 @@ jobs:
 
       - run: pip install "laminci@git+https://x-access-token:${{ secrets.LAMIN_BUILD_DOCS }}@github.com/laminlabs/laminci"
 
+      - run: nox -s configure_coverage -- '${{needs.pre-filter.outputs.matrix}}'
+
       - name: install postgres
         if: ${{ matrix.group == 'faq' }}
         run: sudo apt-get install libpq-dev
@@ -100,7 +109,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - run: nox -s "build(group='${{ matrix.group }}')"
+      - run: nox -s "test(group='${{ matrix.group }}')"
 
       - name: upload coverage
         uses: actions/upload-artifact@v4
@@ -170,7 +179,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
       - run: |
           python -m pip install -U uv
           uv pip install --system coverage[toml]
