@@ -24,35 +24,27 @@ def test_inspect():
 
 # if a record was added to the DB via a different source
 # it will still be validated because it's in the DB
-# we might want to introduce a strict mode in the future
 def test_inspect_source():
-    bt.CellType.from_source(["T cell"], source=bt.Source.get(name="1Lhf")).save()
-    assert bt.CellType.inspect(
-        "T-cell", source=bt.Source.get(name="2dfU"), mute=True
-    ).synonyms_mapper == {"T-cell": "T cell"}
+    source1 = bt.Source.get(name="1Lhf")
+    source2 = bt.Source.get(name="2dfU")
+    bt.CellType.from_source(["T cell"], source=source1).save()
+    assert bt.CellType.inspect("T-cell", source=source2, mute=True).synonyms_mapper == {
+        "T-cell": "T cell"
+    }
     assert (
         bt.CellType.inspect(
-            "T-cell", source=bt.Source.get(name="2dfU"), mute=True, strict=True
+            "T-cell", source=source2, mute=True, strict=True
         ).synonyms_mapper
         == {}
     )
+    assert bt.CellType.validate("T cell", source=source2, mute=True).sum() == 1
     assert (
-        bt.CellType.validate(
-            "T cell", source=bt.Source.get(name="2dfU"), mute=True
-        ).sum()
+        bt.CellType.validate("T cell", source=source2, mute=True, strict=True).sum()
         == 1
     )
-    assert (
-        bt.CellType.validate(
-            "T cell", source=bt.Source.get(name="2dfU"), mute=True, strict=True
-        ).sum()
-        == 1
-    )
+    assert bt.CellType.standardize("T-cell", source=source2, mute=True) == ["T cell"]
     assert bt.CellType.standardize(
-        "T-cell", source=bt.Source.get(name="2dfU"), mute=True
-    ) == ["T cell"]
-    assert bt.CellType.standardize(
-        "T-cell", source=bt.Source.get(name="2dfU"), mute=True, strict=True
+        "T-cell", source=source2, mute=True, strict=True
     ) == ["T-cell"]
     bt.CellType.filter().delete()
 
