@@ -64,7 +64,7 @@ try:
 except ImportError:
 
     def zarr_is_adata(storepath):  # type: ignore
-        raise ImportError("Please install zarr: pip install zarr")
+        raise ImportError("Please install zarr: pip install zarr<=2.18.4")
 
 
 if TYPE_CHECKING:
