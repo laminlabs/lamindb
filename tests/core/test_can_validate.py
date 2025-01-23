@@ -43,9 +43,10 @@ def test_inspect_source():
         == 0
     )
     assert bt.CellType.standardize("T-cell", source=source2, mute=True) == "T cell"
+    # here still standardized because of bionty
     assert (
         bt.CellType.standardize("T-cell", source=source2, mute=True, strict=True)
-        == "T-cell"
+        == "T cell"
     )
     bt.CellType.filter().delete()
 
