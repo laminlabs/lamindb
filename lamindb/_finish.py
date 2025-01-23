@@ -25,7 +25,7 @@ def get_save_notebook_message() -> str:
     return f"please save the notebook in your editor (shortcut {get_shortcut()})"
 
 
-def get_save_notebook_message_r() -> str:
+def get_save_notebook_message_retry() -> str:
     return f"{get_save_notebook_message()} and re-run finish()"
 
 
@@ -192,7 +192,7 @@ def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
         cleaned_content = re.sub(pattern_h1, "", cleaned_content)
     # remove error message from content
     if "! please save the notebook in your editor" in cleaned_content:
-        orig_error_message = f"! {get_save_notebook_message_r()}"
+        orig_error_message = f"! {get_save_notebook_message_retry()}"
         # coming up with the regex for this is a bit tricky due to all the
         # escape characters we'd need to insert into the message; hence,
         # we do this with a replace() instead
@@ -207,9 +207,10 @@ def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
     return title_text, cleaned_path
 
 
-def check_filepath_recently_saved(filepath: Path) -> bool:
+def check_filepath_recently_saved(filepath: Path, is_retry: bool) -> bool:
+    recently_saved_time = 2.5 if not is_retry else 10
     for retry in range(10):
-        if get_seconds_since_modified(filepath) > 2.5:
+        if get_seconds_since_modified(filepath) > recently_saved_time:
             if retry == 0:
                 prefix = f"{LEVEL_TO_COLORS[20]}{LEVEL_TO_ICONS[20]}{RESET_COLOR}"
                 print(f"{prefix} {get_save_notebook_message()}", end=" ")
@@ -260,7 +261,16 @@ def save_context_core(
             transform.description = nbproject_title
             transform.save()
         if not ln_setup._TESTING:
-            save_source_code_and_report = check_filepath_recently_saved(filepath)
+            save_source_code_and_report = check_filepath_recently_saved(
+                filepath, is_retry=is_retry
+            )
+            if not save_source_code_and_report and not is_retry:
+                logger.warning(get_save_notebook_message_retry())
+                return "retry"
+            elif not save_source_code_and_report:
+                logger.warning(
+                    "the notebook on disk wasn't saved within the last 10 sec"
+                )
     if is_ipynb:  # could be from CLI outside interactive session
         try:
             import jupytext  # noqa: F401
@@ -310,7 +320,7 @@ def save_context_core(
             # the automated retry solution of Jupyter notebooks does not work in RStudio because the execution of the notebook cell
             # seems to block the event loop of the frontend
             if not is_retry:
-                logger.warning(get_save_notebook_message_r())
+                logger.warning(get_save_notebook_message_retry())
                 return "retry"
             else:
                 logger.warning(
