@@ -59,6 +59,7 @@ def inspect(
     field: str | StrField | None = None,
     *,
     mute: bool = False,
+    strict: bool = False,
     organism: str | Record | None = None,
     source: Record | None = None,
 ) -> InspectResult:
@@ -68,6 +69,7 @@ def inspect(
         values=values,
         field=field,
         mute=mute,
+        strict=strict,
         organism=organism,
         source=source,
     )
@@ -81,12 +83,19 @@ def validate(
     field: str | StrField | None = None,
     *,
     mute: bool = False,
+    strict: bool = False,
     organism: str | Record | None = None,
     source: Record | None = None,
 ) -> np.ndarray:
     """{}"""  # noqa: D415
     return _validate(
-        cls=cls, values=values, field=field, mute=mute, organism=organism, source=source
+        cls=cls,
+        values=values,
+        field=field,
+        mute=mute,
+        strict=strict,
+        organism=organism,
+        source=source,
     )
 
 
@@ -128,6 +137,7 @@ def _inspect(
     field: str | StrField | None = None,
     *,
     mute: bool = False,
+    strict: bool = False,
     using_key: str | None = None,
     organism: str | Record | None = None,
     source: Record | None = None,
@@ -144,8 +154,9 @@ def _inspect(
     using_key = queryset.db
     if isinstance(source, Record):
         _check_source_db(source, using_key)
-        # do not filter by source here because we want to inspect all records in the DB first
-        # queryset = queryset.filter(source=source).all()
+        # if not strict mode, do not filter by source here because we want to inspect all records in the DB first
+        if strict:
+            queryset = queryset.filter(source=source).all()
     _check_organism_db(organism, using_key)
     registry = queryset.model
     model_name = registry._meta.model.__name__
@@ -225,6 +236,7 @@ def _validate(
     field: str | StrField | None = None,
     *,
     mute: bool = False,
+    strict: bool = False,
     using_key: str | None = None,
     organism: str | Record | None = None,
     source: Record | None = None,
@@ -243,7 +255,8 @@ def _validate(
     using_key = queryset.db
     if isinstance(source, Record):
         _check_source_db(source, using_key)
-        # queryset = queryset.filter(source=source).all()
+        if strict:
+            queryset = queryset.filter(source=source).all()
     _check_organism_db(organism, using_key)
     field_values = pd.Series(
         _filter_query_based_on_organism(
@@ -288,6 +301,7 @@ def standardize(
     return_mapper: bool = False,
     case_sensitive: bool = False,
     mute: bool = False,
+    strict: bool = False,
     public_aware: bool = True,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
@@ -303,6 +317,7 @@ def standardize(
         return_mapper=return_mapper,
         case_sensitive=case_sensitive,
         mute=mute,
+        strict=strict,
         public_aware=public_aware,
         keep=keep,
         synonyms_field=synonyms_field,
@@ -354,6 +369,7 @@ def _standardize(
     return_mapper: bool = False,
     case_sensitive: bool = False,
     mute: bool = False,
+    strict: bool = False,
     public_aware: bool = True,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
@@ -377,7 +393,8 @@ def _standardize(
     using_key = queryset.db
     if isinstance(source, Record):
         _check_source_db(source, using_key)
-        # queryset = queryset.filter(source=source).all()
+        if strict:
+            queryset = queryset.filter(source=source).all()
     _check_organism_db(organism, using_key)
     registry = queryset.model
 

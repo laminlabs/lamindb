@@ -27,8 +27,33 @@ def test_inspect():
 # we might want to introduce a strict mode in the future
 def test_inspect_source():
     bt.CellType.from_source(["T cell"], source=bt.Source.get(name="1Lhf")).save()
-    result = bt.CellType.inspect("T-cell", source=bt.Source.get(name="2dfU"), mute=True)
-    assert result.synonyms_mapper == {"T-cell": "T cell"}
+    assert bt.CellType.inspect(
+        "T-cell", source=bt.Source.get(name="2dfU"), mute=True
+    ).synonyms_mapper == {"T-cell": "T cell"}
+    assert (
+        bt.CellType.inspect(
+            "T-cell", source=bt.Source.get(name="2dfU"), mute=True, strict=True
+        ).synonyms_mapper
+        == {}
+    )
+    assert (
+        bt.CellType.validate(
+            "T cell", source=bt.Source.get(name="2dfU"), mute=True
+        ).sum()
+        == 1
+    )
+    assert (
+        bt.CellType.validate(
+            "T cell", source=bt.Source.get(name="2dfU"), mute=True, strict=True
+        ).sum()
+        == 1
+    )
+    assert bt.CellType.standardize(
+        "T-cell", source=bt.Source.get(name="2dfU"), mute=True
+    ) == ["T cell"]
+    assert bt.CellType.standardize(
+        "T-cell", source=bt.Source.get(name="2dfU"), mute=True, strict=True
+    ) == ["T-cell"]
     bt.CellType.filter().delete()
 
 
