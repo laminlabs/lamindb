@@ -494,15 +494,19 @@ class Context:
                     if aux_transform.key in self._path.as_posix():
                         key = aux_transform.key
                         if (
-                            # if the transform source code wasn't yet saved
-                            aux_transform.source_code is None
-                            # if the transform source code is unchanged
-                            # if aux_transform.type == "notebook", we anticipate the user makes changes to the notebook source code
-                            # in an interactive session, hence we *pro-actively bump* the version number by setting `revises`
-                            # in the second part of the if condition even though the source code is unchanged at point of running track()
-                            or (
-                                aux_transform.hash == hash
-                                and aux_transform.type != "notebook"
+                            # has to be the same user
+                            aux_transform.created_by_id == ln_setup.settings.user.id
+                            and (
+                                # if the transform source code wasn't yet saved
+                                aux_transform.source_code is None
+                                # if the transform source code is unchanged
+                                # if aux_transform.type == "notebook", we anticipate the user makes changes to the notebook source code
+                                # in an interactive session, hence we *pro-actively bump* the version number by setting `revises`
+                                # in the second part of the if condition even though the source code is unchanged at point of running track()
+                                or (
+                                    aux_transform.hash == hash
+                                    and aux_transform.type != "notebook"
+                                )
                             )
                         ):
                             uid = aux_transform.uid
@@ -514,9 +518,13 @@ class Context:
                                 aux_transform.hash == hash
                                 and aux_transform.type == "notebook"
                             ):
-                                message += " -- notebook source code is unchanged, but anticipating changes during this run"
+                                message += " -- anticipating changes"
                             elif aux_transform.hash != hash:
-                                message += " -- source code changed"
+                                message += ""  # could log "source code changed", but this seems too much
+                            elif (
+                                aux_transform.created_by_id != ln_setup.settings.user.id
+                            ):
+                                message += f" -- {aux_transform.created_by.handle} already works on this draft"
                             message += f", creating new version '{uid}'"
                             revises = aux_transform
                         found_key = True
@@ -613,7 +621,7 @@ class Context:
                 and not transform_was_saved
             ):
                 raise UpdateContext(
-                    f'{transform.created_by.description} ({transform.created_by.handle}) already works on this draft {transform.type}.\n\nPlease create a revision via `ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")` or a new transform with a *different* filedescription and `ln.track("{ids.base62_12()}0000")`.'
+                    f'{transform.created_by.name} ({transform.created_by.handle}) already works on this draft {transform.type}.\n\nPlease create a revision via `ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")` or a new transform with a *different* filedescription and `ln.track("{ids.base62_12()}0000")`.'
                 )
             # check whether transform source code was already saved
             if transform_was_saved:
