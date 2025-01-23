@@ -845,7 +845,7 @@ def from_dir(
 # docstring handled through attach_func_to_class_method
 def replace(
     self,
-    data: UPathStr,
+    data: UPathStr | pd.DataFrame | AnnData | MuData,
     run: Run | None = None,
     format: str | None = None,
 ) -> None:
