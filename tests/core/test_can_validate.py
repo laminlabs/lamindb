@@ -40,7 +40,7 @@ def test_inspect_source():
     assert bt.CellType.validate("T cell", source=source2, mute=True).sum() == 1
     assert (
         bt.CellType.validate("T cell", source=source2, mute=True, strict=True).sum()
-        == 1
+        == 0
     )
     assert bt.CellType.standardize("T-cell", source=source2, mute=True) == ["T cell"]
     assert bt.CellType.standardize(

@@ -59,9 +59,9 @@ def inspect(
     field: str | StrField | None = None,
     *,
     mute: bool = False,
-    strict: bool = False,
     organism: str | Record | None = None,
     source: Record | None = None,
+    strict: bool = False,
 ) -> InspectResult:
     """{}"""  # noqa: D415
     return _inspect(
@@ -83,9 +83,9 @@ def validate(
     field: str | StrField | None = None,
     *,
     mute: bool = False,
-    strict: bool = False,
     organism: str | Record | None = None,
     source: Record | None = None,
+    strict: bool = False,
 ) -> np.ndarray:
     """{}"""  # noqa: D415
     return _validate(
@@ -137,10 +137,10 @@ def _inspect(
     field: str | StrField | None = None,
     *,
     mute: bool = False,
-    strict: bool = False,
     using_key: str | None = None,
     organism: str | Record | None = None,
     source: Record | None = None,
+    strict: bool = False,
 ) -> pd.DataFrame | dict[str, list[str]]:
     """{}"""  # noqa: D415
     from lamin_utils._inspect import inspect
@@ -237,10 +237,10 @@ def _validate(
     field: str | StrField | None = None,
     *,
     mute: bool = False,
-    strict: bool = False,
     using_key: str | None = None,
     organism: str | Record | None = None,
     source: Record | None = None,
+    strict: bool = False,
 ) -> np.ndarray:
     """{}"""  # noqa: D415
     from lamin_utils._inspect import validate
@@ -302,12 +302,12 @@ def standardize(
     return_mapper: bool = False,
     case_sensitive: bool = False,
     mute: bool = False,
-    strict: bool = False,
     public_aware: bool = True,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
     organism: str | Record | None = None,
     source: Record | None = None,
+    strict: bool = False,
 ) -> list[str] | dict[str, str]:
     """{}"""  # noqa: D415
     return _standardize(
@@ -370,13 +370,13 @@ def _standardize(
     return_mapper: bool = False,
     case_sensitive: bool = False,
     mute: bool = False,
-    strict: bool = False,
     public_aware: bool = True,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
     using_key: str | None = None,
     organism: str | Record | None = None,
     source: Record | None = None,
+    strict: bool = False,
 ) -> list[str] | dict[str, str]:
     """{}"""  # noqa: D415
     from lamin_utils._standardize import standardize as map_synonyms
