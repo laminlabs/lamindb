@@ -24,7 +24,6 @@ from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_environment
 from .exceptions import (
     InconsistentKey,
-    NotebookNotSaved,
     TrackNotCalled,
     UpdateContext,
 )
@@ -201,6 +200,7 @@ class Context:
         self._logging_message_track: str = ""
         self._logging_message_imports: str = ""
         self._stream_tracker: LogStreamTracker = LogStreamTracker()
+        self._is_finish_retry: bool = False
 
     @property
     def transform(self) -> Transform | None:
@@ -648,12 +648,12 @@ class Context:
 
         - writes a timestamp: `run.finished_at`
         - saves the source code: `transform.source_code`
+        - saves a run report: `run.report`
 
         When called in the last cell of a notebook:
 
+        - prompts to save the notebook in your editor right before
         - prompts for user input if not consecutively executed
-        - requires to save the notebook in your editor right before
-        - saves a run report: `run.report`
 
         Args:
             ignore_non_consecutive: Whether to ignore if a notebook was non-consecutively executed.
@@ -670,8 +670,6 @@ class Context:
 
         """
         from lamindb._finish import (
-            get_save_notebook_message,
-            get_seconds_since_modified,
             save_context_core,
         )
 
@@ -686,24 +684,17 @@ class Context:
             self.run.save()
             # nothing else to do
             return None
-        if is_run_from_ipython:  # notebooks
-            import nbproject
-
-            # it might be that the user modifies the title just before ln.finish()
-            if (
-                nbproject_title := nbproject.meta.live.title
-            ) != self.transform.description:
-                self.transform.description = nbproject_title
-                self.transform.save()
-            if get_seconds_since_modified(self._path) > 2 and not ln_setup._TESTING:
-                raise NotebookNotSaved(get_save_notebook_message())
-        save_context_core(
+        return_code = save_context_core(
             run=self.run,
             transform=self.run.transform,
             filepath=self._path,
             finished_at=True,
             ignore_non_consecutive=ignore_non_consecutive,
+            is_retry=self._is_finish_retry,
         )
+        if return_code == "retry":
+            self._is_finish_retry = True
+            return None
         if self.transform.type != "notebook":
             self._stream_tracker.finish()
         # reset the context attributes so that somebody who runs `track()` after finish
