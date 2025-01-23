@@ -139,7 +139,23 @@ def store_file_or_folder(
     local_path = UPath(local_path)
     if not isinstance(storage_path, LocalPathClasses):
         # this uploads files and directories
-        create_folder = False if local_path.is_dir() else None
+        if local_path.is_dir():
+            create_folder = False
+            try:
+                # if storage_path already exists we need to delete it
+                # if local_path is a directory
+                # to replace storage_path correctly
+                is_dir_storage_path = (
+                    storage_path.stat().as_info()["type"] == "directory"
+                )
+                if is_dir_storage_path:
+                    storage_path.rmdir()
+                else:
+                    storage_path.unlink()
+            except (FileNotFoundError, PermissionError):
+                pass
+        else:
+            create_folder = None
         storage_path.upload_from(
             local_path, create_folder=create_folder, print_progress=print_progress
         )
