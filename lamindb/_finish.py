@@ -24,7 +24,7 @@ def get_save_notebook_message() -> str:
 
 
 def get_save_notebook_message_r() -> str:
-    return f"{get_save_notebook_message()} and re-run db$finish()"
+    return f"{get_save_notebook_message()} and re-run finish()"
 
 
 # this code was originally in nbproject by the same authors
@@ -189,15 +189,15 @@ def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
         cleaned_content = re.sub(pattern_title, "", cleaned_content)
         cleaned_content = re.sub(pattern_h1, "", cleaned_content)
     # remove error message from content
-    if "NotebookNotSaved" in cleaned_content:
-        orig_error_message = f"NotebookNotSaved: {get_save_notebook_message_r()}"
+    if "! please save the notebook in your editor" in cleaned_content:
+        orig_error_message = f"! {get_save_notebook_message_r()}"
         # coming up with the regex for this is a bit tricky due to all the
         # escape characters we'd need to insert into the message; hence,
         # we do this with a replace() instead
         cleaned_content = cleaned_content.replace(orig_error_message, "")
-        if "NotebookNotSaved" in cleaned_content:
+        if "! please save the notebook in your editor" in cleaned_content:
             orig_error_message = orig_error_message.replace(
-                " `finish()`", "\n`finish()`"
+                " finish()", "\nfinish()"
             )  # RStudio might insert a newline
             cleaned_content = cleaned_content.replace(orig_error_message, "")
     cleaned_path = file_path.parent / (f"{file_path.stem}.cleaned{file_path.suffix}")

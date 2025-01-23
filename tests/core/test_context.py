@@ -278,7 +278,7 @@ def test_clean_r_notebook_html():
     title_text, cleaned_path = clean_r_notebook_html(orig_notebook_path)
     assert comparison_path == cleaned_path
     assert title_text == "My exemplary R analysis"
-    assert compare == comparison_path.read_text()
+    assert compare == cleaned_path.read_text()  # check that things have been stripped
     orig_notebook_path.write_text(content.replace(get_shortcut(), "SHORTCUT"))
 
 
