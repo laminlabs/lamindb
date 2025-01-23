@@ -6,8 +6,8 @@ from lamindb.core.exceptions import ValidationError
 
 # some validate tests are in test_queryset
 def test_inspect():
-    ln.Schema.filter().all().delete()
-    bt.Gene.filter().all().delete()
+    ln.Schema.filter().delete()
+    bt.Gene.filter().delete()
     bt.settings.organism = "human"
     result = bt.Gene.inspect("TCF7", "symbol")
     assert result.validated == []
@@ -19,7 +19,17 @@ def test_inspect():
     assert result.validated == ["TCF7"]
 
     # clean up
-    bt.Gene.filter().all().delete()
+    bt.Gene.filter().delete()
+
+
+# if a record was added to the DB via a different source
+# it will still be validated because it's in the DB
+# we might want to introduce a strict mode in the future
+def test_inspect_source():
+    bt.CellType.from_source(["T cell"], source=bt.Source.get(name="1Lhf")).save()
+    result = bt.CellType.inspect("T-cell", source=bt.Source.get(name="2dfU"), mute=True)
+    assert result.synonyms_mapper == {"T-cell": "T cell"}
+    bt.CellType.filter().delete()
 
 
 def test_standardize():
@@ -50,7 +60,7 @@ def test_standardize_public_aware():
 
 
 def test_add_remove_synonym():
-    bt.CellType.filter().all().delete()
+    bt.CellType.filter().delete()
 
     # a registry that doesn't have a synonyms column
     user = ln.User.get(handle="testuser1")
@@ -88,11 +98,11 @@ def test_add_remove_synonym():
     tcell.remove_synonym("my cell type")
 
     # clean up
-    bt.CellType.filter().all().delete()
+    bt.CellType.filter().delete()
 
 
 def test_set_abbr():
-    bt.CellType.filter().all().delete()
+    bt.CellType.filter().delete()
     bt.CellType(name="my cell type").save()
     record = bt.CellType.get(name="my cell type")
     # if abbr is name, do not add to synonyms

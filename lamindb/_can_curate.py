@@ -144,7 +144,8 @@ def _inspect(
     using_key = queryset.db
     if isinstance(source, Record):
         _check_source_db(source, using_key)
-        queryset = queryset.filter(source=source).all()
+        # do not filter by source here because we want to inspect all records in the DB first
+        # queryset = queryset.filter(source=source).all()
     _check_organism_db(organism, using_key)
     registry = queryset.model
     model_name = registry._meta.model.__name__
@@ -242,7 +243,7 @@ def _validate(
     using_key = queryset.db
     if isinstance(source, Record):
         _check_source_db(source, using_key)
-        queryset = queryset.filter(source=source).all()
+        # queryset = queryset.filter(source=source).all()
     _check_organism_db(organism, using_key)
     field_values = pd.Series(
         _filter_query_based_on_organism(
@@ -376,7 +377,7 @@ def _standardize(
     using_key = queryset.db
     if isinstance(source, Record):
         _check_source_db(source, using_key)
-        queryset = queryset.filter(source=source).all()
+        # queryset = queryset.filter(source=source).all()
     _check_organism_db(organism, using_key)
     registry = queryset.model
 
