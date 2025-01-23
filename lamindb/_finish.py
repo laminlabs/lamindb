@@ -7,7 +7,7 @@ from time import sleep
 from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
-from lamin_utils import logger
+from lamin_utils import colors, logger
 from lamin_utils._logger import LEVEL_TO_COLORS, LEVEL_TO_ICONS, RESET_COLOR
 from lamindb_setup.core.hashing import hash_file
 
@@ -20,7 +20,11 @@ if TYPE_CHECKING:
 
 
 def get_save_notebook_message() -> str:
-    return f"please save the notebook in your editor (shortcut `{get_shortcut()}`)"
+    return f"please save the notebook in your editor (shortcut {colors.bold(get_shortcut())})"
+
+
+def get_save_notebook_message_r() -> str:
+    return f"{get_save_notebook_message()} and re-run db$finish()"
 
 
 # this code was originally in nbproject by the same authors
@@ -186,7 +190,7 @@ def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
         cleaned_content = re.sub(pattern_h1, "", cleaned_content)
     # remove error message from content
     if "NotebookNotSaved" in cleaned_content:
-        orig_error_message = f"NotebookNotSaved: {get_save_notebook_message()}"
+        orig_error_message = f"NotebookNotSaved: {get_save_notebook_message_r()}"
         # coming up with the regex for this is a bit tricky due to all the
         # escape characters we'd need to insert into the message; hence,
         # we do this with a replace() instead
@@ -202,12 +206,12 @@ def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
 
 
 def check_filepath_recently_saved(filepath: Path) -> bool:
-    for retry in range(8):
+    for retry in range(10):
         if get_seconds_since_modified(filepath) > 2.5:
             if retry == 0:
                 prefix = f"{LEVEL_TO_COLORS[20]}{LEVEL_TO_ICONS[20]}{RESET_COLOR}"
                 print(f"{prefix} {get_save_notebook_message()}", end=" ")
-            elif retry == 7:
+            elif retry == 9:
                 print(".", end="\n")
             else:
                 print(".", end="")
@@ -230,6 +234,7 @@ def save_context_core(
     finished_at: bool = False,
     ignore_non_consecutive: bool | None = None,
     from_cli: bool = False,
+    is_retry: bool = False,
 ) -> str | None:
     import lamindb as ln
     from lamindb.models import (
@@ -297,8 +302,19 @@ def save_context_core(
             logger.warning(
                 f"no html report found; to attach one, create an .html export for your {filepath.suffix} file and then run: lamin save {filepath}"
             )
-    if report_path is not None and not from_cli:  # R notebooks
-        save_source_code_and_report = check_filepath_recently_saved(report_path)
+    if report_path is not None and is_r_notebook and not from_cli:  # R notebooks
+        recently_saved_time = 2.5 if not is_retry else 10
+        if get_seconds_since_modified(report_path) > recently_saved_time:
+            # the automated retry solution of Jupyter notebooks does not work in RStudio because the execution of the notebook cell
+            # seems to block the event loop of the frontend
+            if not is_retry:
+                logger.warning(get_save_notebook_message_r())
+                return "retry"
+            else:
+                logger.warning(
+                    "the notebook on disk wasn't saved within the last 10 sec"
+                )
+            save_source_code_and_report = False
     ln.settings.creation.artifact_silence_missing_run_warning = True
     # save source code
     if save_source_code_and_report:
@@ -349,7 +365,12 @@ def save_context_core(
 
     # set finished_at
     if finished_at and run is not None:
-        run.finished_at = datetime.now(timezone.utc)
+        if not from_cli:
+            update_finished_at = True
+        else:
+            update_finished_at = run.finished_at is None
+        if update_finished_at:
+            run.finished_at = datetime.now(timezone.utc)
 
     # track logs
     if run is not None and not from_cli and not is_ipynb and not is_r_notebook:
@@ -421,16 +442,17 @@ def save_context_core(
         )
     if ln_setup.settings.instance.is_on_hub:
         instance_slug = ln_setup.settings.instance.slug
-        logger.important(
-            f"go to: https://lamin.ai/{instance_slug}/transform/{transform.uid}"
-        )
+        if save_source_code_and_report:
+            logger.important(
+                f"go to: https://lamin.ai/{instance_slug}/transform/{transform.uid}"
+            )
         if not from_cli and save_source_code_and_report:
             thing = "notebook" if (is_ipynb or is_r_notebook) else "script"
             logger.important(
-                f"if you want to update your {thing} from the CLI, run: lamin save {filepath}"
+                f"to update your {thing} from the CLI, run: lamin save {filepath}"
             )
     if not save_source_code_and_report:
         logger.warning(
-            f"did not save source code and report, to do so, run: lamin save {filepath}"
+            f"did *not* save source code and report -- to do so, run: lamin save {filepath}"
         )
     return None

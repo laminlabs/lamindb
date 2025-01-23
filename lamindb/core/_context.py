@@ -200,6 +200,7 @@ class Context:
         self._logging_message_track: str = ""
         self._logging_message_imports: str = ""
         self._stream_tracker: LogStreamTracker = LogStreamTracker()
+        self._is_finish_retry: bool = False
 
     @property
     def transform(self) -> Transform | None:
@@ -683,13 +684,17 @@ class Context:
             self.run.save()
             # nothing else to do
             return None
-        save_context_core(
+        return_code = save_context_core(
             run=self.run,
             transform=self.run.transform,
             filepath=self._path,
             finished_at=True,
             ignore_non_consecutive=ignore_non_consecutive,
+            is_retry=self._is_finish_retry,
         )
+        if return_code == "retry":
+            self._is_finish_retry = True
+            return None
         if self.transform.type != "notebook":
             self._stream_tracker.finish()
         # reset the context attributes so that somebody who runs `track()` after finish
