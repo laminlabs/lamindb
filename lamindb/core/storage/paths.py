@@ -145,10 +145,7 @@ def store_file_or_folder(
                 # if storage_path already exists we need to delete it
                 # if local_path is a directory
                 # to replace storage_path correctly
-                is_dir_storage_path = (
-                    storage_path.stat().as_info()["type"] == "directory"
-                )
-                if is_dir_storage_path:
+                if storage_path.stat().as_info()["type"] == "directory":
                     storage_path.rmdir()
                 else:
                     storage_path.unlink()
