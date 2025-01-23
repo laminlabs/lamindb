@@ -42,10 +42,11 @@ def test_inspect_source():
         bt.CellType.validate("T cell", source=source2, mute=True, strict=True).sum()
         == 0
     )
-    assert bt.CellType.standardize("T-cell", source=source2, mute=True) == ["T cell"]
-    assert bt.CellType.standardize(
-        "T-cell", source=source2, mute=True, strict=True
-    ) == ["T-cell"]
+    assert bt.CellType.standardize("T-cell", source=source2, mute=True) == "T cell"
+    assert (
+        bt.CellType.standardize("T-cell", source=source2, mute=True, strict=True)
+        == "T-cell"
+    )
     bt.CellType.filter().delete()
 
 
