@@ -867,7 +867,11 @@ def replace(
 
     check_path_in_storage = privates["check_path_in_storage"]
     if check_path_in_storage:
-        raise ValueError("Can only replace with a local path not in any Storage.")
+        err_msg = (
+            "Can only replace with a local path not in any Storage. "
+            f"This data is in {Storage.objects.get(id=kwargs['storage_id'])}."
+        )
+        raise ValueError(err_msg)
 
     _overwrite_versions = kwargs["_overwrite_versions"]
     if self._overwrite_versions != _overwrite_versions:
