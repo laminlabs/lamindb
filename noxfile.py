@@ -159,6 +159,38 @@ def install_ci(session, group):
 
 
 @nox.session
+def configure_coverage(session) -> None:
+    """Write a coverage config file, adding extra patterns to omit."""
+    import tomlkit
+
+    groups_str = session.posargs[0]  # first positional argument
+
+    print(groups_str)  # for debugging
+    assert isinstance(groups_str, str)  # noqa: S101 so that we don't change this away from string
+
+    if "curator" not in groups_str:
+        extra_omit_patterns = ["**/curators/*"]
+    else:
+        extra_omit_patterns = []
+
+    # Read patterns from pyproject.toml
+    base_config_path = Path("pyproject.toml")
+    with open(base_config_path) as f:
+        config = tomlkit.load(f)
+
+    # Update the omit patterns
+    base_patterns = config["tool"]["coverage"]["run"]["omit"]
+    all_patterns = base_patterns + extra_omit_patterns
+    config["tool"]["coverage"]["run"]["omit"] = all_patterns
+
+    # Write back to pyproject.toml
+    with open(base_config_path, "w") as f:
+        tomlkit.dump(config, f)
+
+    print(base_config_path.read_text())
+
+
+@nox.session
 @nox.parametrize(
     "group",
     [
@@ -173,7 +205,7 @@ def install_ci(session, group):
         "cli",
     ],
 )
-def build(session, group):
+def test(session, group):
     import lamindb as ln
 
     login_testuser2(session)
@@ -183,7 +215,7 @@ def build(session, group):
     if group == "unit-core":
         run(
             session,
-            f"pytest {coverage_args} --ignore=tests/core/test_curator.py ./tests/core --durations=50",
+            f"pytest {coverage_args} ./tests/core --durations=50",
         )
     elif group == "unit-storage":
         run(session, f"pytest {coverage_args} ./tests/storage --durations=50")
@@ -211,7 +243,7 @@ def build(session, group):
     elif group == "curator":
         run(
             session,
-            f"pytest {coverage_args} tests/curators/test_curator.py --durations=50",
+            f"pytest {coverage_args} tests/curators --durations=50",
         )
     elif group == "cli":
         run(session, f"pytest {coverage_args} ./sub/lamin-cli/tests --durations=50")

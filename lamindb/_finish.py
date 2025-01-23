@@ -118,9 +118,8 @@ def notebook_to_script(
 def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
     import re
 
-    cleaned_content = (
-        file_path.read_text()
-    )  # at this point cleaned_content is still raw
+    cleaned_content = file_path.read_text()
+    # remove title from content
     pattern_title = r"<title>(.*?)</title>"
     title_match = re.search(pattern_title, cleaned_content)
     title_text = None
@@ -129,9 +128,18 @@ def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
         pattern_h1 = f"<h1[^>]*>{re.escape(title_text)}</h1>"
         cleaned_content = re.sub(pattern_title, "", cleaned_content)
         cleaned_content = re.sub(pattern_h1, "", cleaned_content)
-    cleaned_content = cleaned_content.replace(
-        f"NotebookNotSaved: {get_save_notebook_message()}", ""
-    )
+    # remove error message from content
+    if "NotebookNotSaved" in cleaned_content:
+        orig_error_message = f"NotebookNotSaved: {get_save_notebook_message()}"
+        # coming up with the regex for this is a bit tricky due to all the
+        # escape characters we'd need to insert into the message; hence,
+        # we do this with a replace() instead
+        cleaned_content = cleaned_content.replace(orig_error_message, "")
+        if "NotebookNotSaved" in cleaned_content:
+            orig_error_message = orig_error_message.replace(
+                " `finish()`", "\n`finish()`"
+            )  # RStudio might insert a newline
+            cleaned_content = cleaned_content.replace(orig_error_message, "")
     cleaned_path = file_path.parent / (f"{file_path.stem}.cleaned{file_path.suffix}")
     cleaned_path.write_text(cleaned_content)
     return title_text, cleaned_path
@@ -150,8 +158,6 @@ def save_context_core(
     from lamindb.models import (
         format_field_value,  # needs to come after lamindb was imported because of CLI use
     )
-
-    from .core._context import context
 
     ln.settings.verbosity = "success"
 
@@ -202,7 +208,7 @@ def save_context_core(
             report_path = filepath.with_suffix(".html")
         else:
             logger.warning(
-                f"no {filepath.with_suffix('.nb.html')} found, save your manually rendered .html report via the CLI: lamin save {filepath}"
+                f"no html report found; to attach one, create an .html export for your {filepath.suffix} file and then run: lamin save {filepath}"
             )
     if report_path is not None and not from_cli:
         if get_seconds_since_modified(report_path) > 2 and not ln_setup._TESTING:
@@ -292,10 +298,13 @@ def save_context_core(
                 )
                 report_file.save(upload=True, print_progress=False)
                 run.report = report_file
+            if is_r_notebook:
+                # this is the "cleaned" report
+                report_path.unlink()
             logger.debug(
                 f"saved transform.latest_run.report: {transform.latest_run.report}"
             )
-        run.is_consecutive = is_consecutive
+        run._is_consecutive = is_consecutive
 
         # save both run & transform records if we arrive here
         run.save()
@@ -324,7 +333,4 @@ def save_context_core(
             logger.important(
                 f"if you want to update your {thing} without re-running it, use `lamin save {filepath}`"
             )
-    # because run & transform changed, update the global context
-    context._run = run
-    context._transform = transform
     return None
