@@ -88,7 +88,7 @@ def backed_access(
         return _open_tiledbsoma(objectpath, mode=mode)  # type: ignore
     elif suffix in {".h5", ".hdf5", ".h5ad"}:
         conn, storage = registry.open("h5py", objectpath, mode=mode)
-    elif suffix == ".zarr":
+    elif suffix in {".zarr", ".anndata.zarr"}:
         conn, storage = registry.open("zarr", objectpath, mode=mode)
     elif _is_pyarrow_dataset(objectpath):
         return _open_pyarrow_dataset(objectpath)

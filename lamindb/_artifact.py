@@ -938,7 +938,15 @@ def open(
     if self._overwrite_versions and not self.is_latest:
         raise ValueError(inconsistent_state_msg)
     # ignore empty suffix for now
-    suffixes = ("", ".h5", ".hdf5", ".h5ad", ".zarr", ".tiledbsoma") + PYARROW_SUFFIXES
+    suffixes = (
+        "",
+        ".h5",
+        ".hdf5",
+        ".h5ad",
+        ".zarr",
+        ".anndata.zarr",
+        ".tiledbsoma",
+    ) + PYARROW_SUFFIXES
     if self.suffix not in suffixes:
         raise ValueError(
             "Artifact should have a zarr, h5, tiledbsoma object"
