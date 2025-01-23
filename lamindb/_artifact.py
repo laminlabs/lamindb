@@ -867,7 +867,14 @@ def replace(
 
     check_path_in_storage = privates["check_path_in_storage"]
     if check_path_in_storage:
-        raise ValueError("Can only replace with a local file not in any Storage.")
+        raise ValueError("Can only replace with a local path not in any Storage.")
+
+    _overwrite_versions = kwargs["_overwrite_versions"]
+    if self._overwrite_versions != _overwrite_versions:
+        err_msg = "It is not allowed to replace "
+        err_msg += "a folder" if self._overwrite_versions else "a file"
+        err_msg += " with " + ("a folder." if _overwrite_versions else "a file.")
+        raise ValueError(err_msg)
 
     if self.key is not None and not self._key_is_virtual:
         key_path = PurePosixPath(self.key)
