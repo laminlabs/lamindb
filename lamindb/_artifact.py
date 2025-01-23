@@ -845,7 +845,7 @@ def from_dir(
 # docstring handled through attach_func_to_class_method
 def replace(
     self,
-    data: UPathStr,
+    data: UPathStr | pd.DataFrame | AnnData | MuData,
     run: Run | None = None,
     format: str | None = None,
 ) -> None:
@@ -867,7 +867,14 @@ def replace(
 
     check_path_in_storage = privates["check_path_in_storage"]
     if check_path_in_storage:
-        raise ValueError("Can only replace with a local file not in any Storage.")
+        raise ValueError("Can only replace with a local path not in any Storage.")
+
+    _overwrite_versions = kwargs["_overwrite_versions"]
+    if self._overwrite_versions != _overwrite_versions:
+        err_msg = "It is not allowed to replace "
+        err_msg += "a folder" if self._overwrite_versions else "a file"
+        err_msg += " with " + ("a folder." if _overwrite_versions else "a file.")
+        raise ValueError(err_msg)
 
     if self.key is not None and not self._key_is_virtual:
         key_path = PurePosixPath(self.key)
@@ -902,6 +909,7 @@ def replace(
     self._hash_type = kwargs["_hash_type"]
     self.run_id = kwargs["run_id"]
     self.run = kwargs["run"]
+    self.n_files = kwargs["n_files"]
 
     self._local_filepath = privates["local_filepath"]
     self._cloud_filepath = privates["cloud_filepath"]
