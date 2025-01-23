@@ -24,7 +24,6 @@ from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_environment
 from .exceptions import (
     InconsistentKey,
-    NotebookNotSaved,
     TrackNotCalled,
     UpdateContext,
 )
@@ -648,12 +647,12 @@ class Context:
 
         - writes a timestamp: `run.finished_at`
         - saves the source code: `transform.source_code`
+        - saves a run report: `run.report`
 
         When called in the last cell of a notebook:
 
+        - prompts to save the notebook in your editor right before
         - prompts for user input if not consecutively executed
-        - requires to save the notebook in your editor right before
-        - saves a run report: `run.report`
 
         Args:
             ignore_non_consecutive: Whether to ignore if a notebook was non-consecutively executed.
@@ -670,8 +669,6 @@ class Context:
 
         """
         from lamindb._finish import (
-            get_save_notebook_message,
-            get_seconds_since_modified,
             save_context_core,
         )
 
@@ -686,17 +683,6 @@ class Context:
             self.run.save()
             # nothing else to do
             return None
-        if is_run_from_ipython:  # notebooks
-            import nbproject
-
-            # it might be that the user modifies the title just before ln.finish()
-            if (
-                nbproject_title := nbproject.meta.live.title
-            ) != self.transform.description:
-                self.transform.description = nbproject_title
-                self.transform.save()
-            if get_seconds_since_modified(self._path) > 2 and not ln_setup._TESTING:
-                raise NotebookNotSaved(get_save_notebook_message())
         save_context_core(
             run=self.run,
             transform=self.run.transform,

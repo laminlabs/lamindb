@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 import re
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
@@ -10,6 +11,8 @@ from lamindb_setup.core.hashing import hash_file
 
 from lamindb.core.exceptions import NotebookNotSaved
 from lamindb.models import Artifact, Run, Transform
+
+is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -210,7 +213,16 @@ def save_context_core(
             logger.warning(
                 f"no html report found; to attach one, create an .html export for your {filepath.suffix} file and then run: lamin save {filepath}"
             )
-    if report_path is not None and not from_cli:
+    if is_run_from_ipython:  # python notebooks
+        import nbproject
+
+        # it might be that the user modifies the title just before ln.finish()
+        if (nbproject_title := nbproject.meta.live.title) != transform.description:
+            transform.description = nbproject_title
+            transform.save()
+        if get_seconds_since_modified(filepath) > 2 and not ln_setup._TESTING:
+            raise NotebookNotSaved(get_save_notebook_message())
+    if report_path is not None and not from_cli:  # R notebooks
         if get_seconds_since_modified(report_path) > 2 and not ln_setup._TESTING:
             # this can happen when auto-knitting an html with RStudio
             raise NotebookNotSaved(get_save_notebook_message())
