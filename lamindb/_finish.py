@@ -11,7 +11,6 @@ from lamin_utils import logger
 from lamin_utils._logger import LEVEL_TO_COLORS, LEVEL_TO_ICONS, RESET_COLOR
 from lamindb_setup.core.hashing import hash_file
 
-from lamindb.core.exceptions import NotebookNotSaved
 from lamindb.models import Artifact, Run, Transform
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
@@ -202,6 +201,27 @@ def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
     return title_text, cleaned_path
 
 
+def check_filepath_recently_saved(filepath: Path) -> bool:
+    for retry in range(8):
+        if get_seconds_since_modified(filepath) > 2.5:
+            if retry == 0:
+                prefix = f"{LEVEL_TO_COLORS[20]}{LEVEL_TO_ICONS[20]}{RESET_COLOR}"
+                print(f"{prefix} {get_save_notebook_message()}", end=" ")
+            elif retry == 7:
+                print(".", end="\n")
+            else:
+                print(".", end="")
+            sleep(1)
+        else:
+            if retry > 0:
+                prefix = f"{LEVEL_TO_COLORS[25]}{LEVEL_TO_ICONS[25]}{RESET_COLOR}"
+                print(f" {prefix}")
+            # filepath was recently saved, return True
+            return True
+    # if we arrive here, no save event occured, return False
+    return False
+
+
 def save_context_core(
     *,
     run: Run | None,
@@ -233,27 +253,7 @@ def save_context_core(
             transform.description = nbproject_title
             transform.save()
         if not ln_setup._TESTING:
-            save_source_code_and_report = False  # init to False
-            for repeat in range(8):
-                if get_seconds_since_modified(filepath) > 2.5:
-                    if repeat == 0:
-                        prefix = (
-                            f"{LEVEL_TO_COLORS[20]}{LEVEL_TO_ICONS[20]}{RESET_COLOR}"
-                        )
-                        print(f"{prefix} {get_save_notebook_message()}", end=" ")
-                    elif repeat == 7:
-                        print(".", end="\n")
-                    else:
-                        print(".", end="")
-                    sleep(1)
-                else:
-                    if repeat > 0:
-                        prefix = (
-                            f"{LEVEL_TO_COLORS[25]}{LEVEL_TO_ICONS[25]}{RESET_COLOR}"
-                        )
-                        print(f" {prefix}")
-                    save_source_code_and_report = True
-                    break
+            save_source_code_and_report = check_filepath_recently_saved(filepath)
     if is_ipynb:  # could be from CLI outside interactive session
         try:
             import jupytext  # noqa: F401
@@ -298,9 +298,7 @@ def save_context_core(
                 f"no html report found; to attach one, create an .html export for your {filepath.suffix} file and then run: lamin save {filepath}"
             )
     if report_path is not None and not from_cli:  # R notebooks
-        if get_seconds_since_modified(report_path) > 2 and not ln_setup._TESTING:
-            # this can happen when auto-knitting an html with RStudio
-            raise NotebookNotSaved(get_save_notebook_message())
+        save_source_code_and_report = check_filepath_recently_saved(report_path)
     ln.settings.creation.artifact_silence_missing_run_warning = True
     # save source code
     if save_source_code_and_report:
