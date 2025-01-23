@@ -7,7 +7,7 @@ from time import sleep
 from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
-from lamin_utils import colors, logger
+from lamin_utils import logger
 from lamin_utils._logger import LEVEL_TO_COLORS, LEVEL_TO_ICONS, RESET_COLOR
 from lamindb_setup.core.hashing import hash_file
 
@@ -20,7 +20,9 @@ if TYPE_CHECKING:
 
 
 def get_save_notebook_message() -> str:
-    return f"please save the notebook in your editor (shortcut {colors.bold(get_shortcut())})"
+    # do not add bold() or any other complicated characters as then we can't match this
+    # easily anymore in an html to strip it out
+    return f"please save the notebook in your editor (shortcut {get_shortcut()})"
 
 
 def get_save_notebook_message_r() -> str:
