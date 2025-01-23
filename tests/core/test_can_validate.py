@@ -27,7 +27,7 @@ def test_inspect():
 def test_inspect_source():
     source1 = bt.Source.get("1Lhf")
     source2 = bt.Source.get("2dfU")
-    bt.CellType.from_source(["T cell"], source=source1).save()
+    bt.CellType.from_source(name="T cell", source=source1).save()
     assert bt.CellType.inspect("T-cell", source=source2, mute=True).synonyms_mapper == {
         "T-cell": "T cell"
     }
