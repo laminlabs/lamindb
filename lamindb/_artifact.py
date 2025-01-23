@@ -64,7 +64,7 @@ try:
 except ImportError:
 
     def zarr_is_adata(storepath):  # type: ignore
-        raise ImportError("Please install zarr: pip install zarr")
+        raise ImportError("Please install zarr: pip install zarr<=2.18.4")
 
 
 if TYPE_CHECKING:
@@ -867,7 +867,11 @@ def replace(
 
     check_path_in_storage = privates["check_path_in_storage"]
     if check_path_in_storage:
-        raise ValueError("Can only replace with a local path not in any Storage.")
+        err_msg = (
+            "Can only replace with a local path not in any Storage. "
+            f"This data is in {Storage.objects.get(id=kwargs['storage_id'])}."
+        )
+        raise ValueError(err_msg)
 
     _overwrite_versions = kwargs["_overwrite_versions"]
     if self._overwrite_versions != _overwrite_versions:
@@ -934,7 +938,15 @@ def open(
     if self._overwrite_versions and not self.is_latest:
         raise ValueError(inconsistent_state_msg)
     # ignore empty suffix for now
-    suffixes = ("", ".h5", ".hdf5", ".h5ad", ".zarr", ".tiledbsoma") + PYARROW_SUFFIXES
+    suffixes = (
+        "",
+        ".h5",
+        ".hdf5",
+        ".h5ad",
+        ".zarr",
+        ".anndata.zarr",
+        ".tiledbsoma",
+    ) + PYARROW_SUFFIXES
     if self.suffix not in suffixes:
         raise ValueError(
             "Artifact should have a zarr, h5, tiledbsoma object"
