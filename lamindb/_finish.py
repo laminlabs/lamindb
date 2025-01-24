@@ -176,7 +176,6 @@ def notebook_to_script(
         script_path.write_text(py_content)
 
 
-# removes NotebookNotSaved error message from notebook html
 def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
     import re
 
