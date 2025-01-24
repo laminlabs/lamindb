@@ -221,8 +221,14 @@ def test_corrupted_cache_cloud(switch_storage):
     artifact = ln.Artifact.from_anndata(filepath, key="test_corrupt_cache_cloud.h5ad")
     artifact.save()
     # corrupt cache
+    # sleep not to reset cache mtime to a smaller value
+    # it is increased artificially on cache copying in save
+    # so due to lower granularity of cloud mtimes and fast code execution
+    # after the change cache mtime can become smaller than cloud mtime
+    sleep(1)
     with open(artifact._cache_path, "r+b") as f:
         f.write(b"corruption")
+    assert artifact._cache_path.stat().st_mtime > artifact.path.stat().st_mtime
     # check that it is indeed corrupted
     with pytest.raises(OSError):
         load_h5ad(artifact.cache())
