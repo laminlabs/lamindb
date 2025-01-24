@@ -61,7 +61,6 @@ jobs:
         with:
           python-version: |
             ${{ matrix.group == 'storage' && '3.10' ||
-             github.ref == 'refs/heads/release' && '3.13' ||
                 '3.12'
                 }}
 
@@ -180,7 +179,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.12"
       - run: |
           python -m pip install -U uv
           uv pip install --system coverage[toml]
