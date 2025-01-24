@@ -197,3 +197,21 @@ def test_cloud_cache_versions(switch_storage):
     assert cache_path_v1.name == f"{artifact.uid}.h5ad"
 
     artifact_v2.versions.delete(permanent=True)
+
+
+def test_corrupted_cache_cloud(switch_storage):
+    filepath = ln.core.datasets.anndata_file_pbmc68k_test()
+
+    artifact = ln.Artifact.from_anndata(filepath, key="test_corrupted_cache.h5ad")
+    artifact.save()
+
+    # corrupt cache
+    with open(artifact._cache_path, "r+b") as f:
+        f.write(b"corruption")
+
+    with pytest.raises(OSError):
+        load_h5ad(artifact._cache_path)
+    # should load successfully
+    artifact.load()
+
+    artifact.delete(permanent=True)
