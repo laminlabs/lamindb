@@ -1044,7 +1044,7 @@ def load(self, is_run_input: bool | None = None, **kwargs) -> Any:
                 f"The cache might be corrupted: {e}. Retrying to synchronize."
             )
             # delete the existing cache
-            if cache_path.isdir():
+            if cache_path.is_dir():
                 shutil.rmtree(cache_path)
             else:
                 cache_path.unlink(missing_ok=True)
