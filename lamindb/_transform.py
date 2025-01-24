@@ -111,7 +111,7 @@ def __init__(transform: Transform, *args, **kwargs):
         uid = new_uid
     else:
         has_consciously_provided_uid = True
-    super(Transform, transform).__init__(
+    super(Transform, transform).__init__(  # type: ignore
         uid=uid,
         description=description,
         key=key,
@@ -151,7 +151,7 @@ def view_lineage(self, with_successors: bool = False, distance: int = 5):
     )
 
 
-Transform.__init__ = __init__
-Transform.delete = delete
-Transform.latest_run = latest_run
-Transform.view_lineage = view_lineage
+Transform.__init__ = __init__  # type: ignore
+Transform.delete = delete  # type: ignore
+Transform.latest_run = latest_run  # type: ignore
+Transform.view_lineage = view_lineage  # type: ignore

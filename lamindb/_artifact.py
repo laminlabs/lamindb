@@ -441,7 +441,7 @@ def log_storage_hint(
             root_path = Path(storage.root)  # type: ignore
             if check_path_is_child_of_root(root_path, Path.cwd()):
                 # only display the relative path, not the fully resolved path
-                display_root = root_path.relative_to(Path.cwd())
+                display_root = root_path.relative_to(Path.cwd())  # type: ignore
         hint += f"path in storage '{display_root}'"  # type: ignore
     else:
         hint += "path content will be copied to default storage upon `save()`"
@@ -506,8 +506,8 @@ def _check_otype_artifact(data: Any, otype: str | None = None):
 
 
 def __init__(artifact: Artifact, *args, **kwargs):
-    artifact.features = FeatureManager(artifact)
-    artifact.params = ParamManager(artifact)
+    artifact.features = FeatureManager(artifact)  # type: ignore
+    artifact.params = ParamManager(artifact)  # type: ignore
     # Below checks for the Django-internal call in from_db()
     # it'd be better if we could avoid this, but not being able to create a Artifact
     # from data with the default constructor renders the central class of the API
@@ -683,7 +683,7 @@ def from_df(
     **kwargs,
 ) -> Artifact:
     """{}"""  # noqa: D415
-    artifact = Artifact(
+    artifact = Artifact(  # type: ignore
         data=df,
         key=key,
         run=run,
@@ -710,7 +710,7 @@ def from_anndata(
     """{}"""  # noqa: D415
     if not data_is_anndata(adata):
         raise ValueError("data has to be an AnnData object or a path to AnnData-like")
-    artifact = Artifact(
+    artifact = Artifact(  # type: ignore
         data=adata,
         key=key,
         run=run,
@@ -735,7 +735,7 @@ def from_mudata(
     **kwargs,
 ) -> Artifact:
     """{}"""  # noqa: D415
-    artifact = Artifact(
+    artifact = Artifact(  # type: ignore
         data=mdata,
         key=key,
         run=run,
@@ -1256,6 +1256,7 @@ for name in METHOD_NAMES:
     attach_func_to_class_method(name, Artifact, globals())
 
 # privates currently dealt with separately
+# mypy: ignore-errors
 Artifact._delete_skip_storage = _delete_skip_storage
 Artifact._save_skip_storage = _save_skip_storage
 Artifact._cache_path = _cache_path

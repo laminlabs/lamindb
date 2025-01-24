@@ -340,9 +340,9 @@ def test_logstream_tracker_multiple():
                 print(content)
                 # Check each expected line is in the content
                 for expected_line in expected_contents[i]:
-                    assert (
-                        expected_line in content
-                    ), f"Expected '{expected_line}' in log {i}"
+                    assert expected_line in content, (
+                        f"Expected '{expected_line}' in log {i}"
+                    )
 
                 # Check earlier messages are NOT in the content
                 if i > 1:

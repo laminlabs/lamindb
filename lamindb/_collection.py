@@ -166,7 +166,7 @@ def __init__(
         search_names_setting = settings.creation.search_names
         if revises is not None and key == revises.key:
             settings.creation.search_names = False
-        super(Collection, collection).__init__(
+        super(Collection, collection).__init__(  # type: ignore
             uid=provisional_uid,
             key=key,
             description=description,
@@ -190,7 +190,7 @@ def __init__(
 
 # docstring handled through attach_func_to_class_method
 def append(self, artifact: Artifact, run: Run | None = None) -> Collection:
-    return Collection(
+    return Collection(  # type: ignore
         self.artifacts.all().list() + [artifact],
         description=self.description,
         revises=self,
@@ -342,7 +342,7 @@ def save(self, using: str | None = None) -> Collection:
     # have to create a new collection
     if hasattr(self, "_artifacts"):
         links = [
-            CollectionArtifact(collection_id=self.id, artifact_id=artifact.id)
+            CollectionArtifact(collection_id=self.id, artifact_id=artifact.id)  # type: ignore
             for artifact in self._artifacts
         ]
         # the below seems to preserve the order of the list in the
@@ -400,6 +400,7 @@ if ln_setup._TESTING:
 for name in METHOD_NAMES:
     attach_func_to_class_method(name, Collection, globals())
 
+# mypy: ignore-errors
 Collection.ordered_artifacts = ordered_artifacts
 Collection.data_artifact = data_artifact
 Collection.describe = describe

@@ -58,7 +58,7 @@ def save_vitessce_config(
     assert len(dataset_artifacts) > 0  # noqa: S101
 
     # the below will be replaced with a `ln.tracked()` decorator soon
-    transform = Transform(
+    transform = Transform(  # type: ignore
         uid="kup03MJBsIVa0002",
         key="save_vitessce_config",
         type="function",

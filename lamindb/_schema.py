@@ -181,7 +181,7 @@ def from_df(
             logger.warning("no validated features, skip creating feature set")
         return None
     if registry == Feature:
-        validated_features = Feature.from_values(
+        validated_features = Feature.from_values(  # type: ignore
             df.columns, field=field, organism=organism
         )
         schema = Schema(validated_features, name=name, dtype=None)
@@ -245,6 +245,6 @@ if ln_setup._TESTING:
 for name in METHOD_NAMES:
     attach_func_to_class_method(name, Schema, globals())
 
-Schema.members = members
+Schema.members = members  # type: ignore
 Schema._get_related_name = _get_related_name
 Schema.feature_sets = Schema._artifacts_m2m  # backward compat

@@ -41,7 +41,7 @@ def get_dtype_str_from_dtype(dtype: Any) -> str:
             if not hasattr(registry, "__get_name_with_module__"):
                 raise ValueError(error_message)
             registries_str += registry.__get_name_with_module__() + "|"
-        dtype_str = f'cat[{registries_str.rstrip("|")}]'
+        dtype_str = f"cat[{registries_str.rstrip('|')}]"
     return dtype_str
 
 
@@ -138,7 +138,7 @@ def categoricals_from_df(df: pd.DataFrame) -> dict:
 def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordList:
     """{}"""  # noqa: D415
     field = Feature.name if field is None else field
-    registry = field.field.model
+    registry = field.field.model  # type: ignore
     if registry != Feature:
         raise ValueError("field must be a Feature FieldAttr!")
     categoricals = categoricals_from_df(df)
@@ -149,7 +149,7 @@ def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordList
         else:
             dtypes[name] = convert_pandas_dtype_to_lamin_dtype(col.dtype)
     with logger.mute():  # silence the warning "loaded record with exact same name "
-        features = [Feature(name=name, dtype=dtype) for name, dtype in dtypes.items()]
+        features = [Feature(name=name, dtype=dtype) for name, dtype in dtypes.items()]  # type: ignore
     assert len(features) == len(df.columns)  # noqa: S101
     return RecordList(features)
 

@@ -315,7 +315,7 @@ class Context:
                 description=description,
                 transform_ref=transform_ref,
                 transform_ref_type=transform_ref_type,
-                transform_type=transform_type,
+                transform_type=transform_type,  # type: ignore
             )
         else:
             if transform.type in {"notebook", "script"}:
@@ -352,7 +352,7 @@ class Context:
                 self._logging_message_track += f", re-started Run('{run.uid[:8]}...') at {format_field_value(run.started_at)}"
 
         if run is None:  # create new run
-            run = Run(
+            run = Run(  # type: ignore
                 transform=self._transform,
                 params=params,
             )
@@ -587,7 +587,7 @@ class Context:
             assert key is not None  # noqa: S101
             raise_update_context = False
             try:
-                transform = Transform(
+                transform = Transform(  # type: ignore
                     uid=self.uid,
                     version=self.version,
                     description=description,

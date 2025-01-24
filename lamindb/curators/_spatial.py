@@ -412,7 +412,7 @@ class SpatialDataCurator:
                 _schemas_m2m = {}
 
                 # sample features
-                sample_features = Feature.from_values(self._sample_metadata.columns)
+                sample_features = Feature.from_values(self._sample_metadata.columns)  # type: ignore
                 if len(sample_features) > 0:
                     _schemas_m2m[self._sample_metadata_key] = Schema(
                         features=sample_features
