@@ -122,7 +122,7 @@ def validate_fields(record: Record, kwargs):
         ).max_length  # triggers FieldDoesNotExist
         if len(kwargs["uid"]) != uid_max_length:  # triggers KeyError
             raise ValidationError(
-                f'`uid` must be exactly {uid_max_length} characters long, got {len(kwargs["uid"])}.'
+                f"`uid` must be exactly {uid_max_length} characters long, got {len(kwargs['uid'])}."
             )
     # validate literals
     validate_literal_fields(record, kwargs)

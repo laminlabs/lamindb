@@ -41,7 +41,7 @@ def get_dtype_str_from_dtype(dtype: Any) -> str:
             if not hasattr(registry, "__get_name_with_module__"):
                 raise ValueError(error_message)
             registries_str += registry.__get_name_with_module__() + "|"
-        dtype_str = f'cat[{registries_str.rstrip("|")}]'
+        dtype_str = f"cat[{registries_str.rstrip('|')}]"
     return dtype_str
 
 
