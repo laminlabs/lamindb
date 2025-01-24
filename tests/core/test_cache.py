@@ -214,6 +214,9 @@ def test_corrupted_cache_local():
 
 
 def test_corrupted_cache_cloud(switch_storage):
+    # check that we have cloud storage
+    assert ln.setup.settings.storage.root_as_str == switch_storage
+
     filepath = ln.core.datasets.anndata_file_pbmc68k_test()
     artifact = ln.Artifact.from_anndata(filepath, key="test_corrupt_cache_cloud.h5ad")
     artifact.save()
@@ -222,7 +225,7 @@ def test_corrupted_cache_cloud(switch_storage):
         f.write(b"corruption")
     # check that it is indeed corrupted
     with pytest.raises(OSError):
-        load_h5ad(artifact._cache_path)
+        load_h5ad(artifact.cache())
     # should load successfully
     artifact.load()
 
