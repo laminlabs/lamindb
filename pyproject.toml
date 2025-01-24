@@ -17,7 +17,7 @@ classifiers = [
 dependencies = [
     # Lamin PINNED packages
     "lamin_utils==0.13.10",
-    "lamin_cli==1.0.2",
+    "lamin_cli==1.0.6",
     "lamindb_setup[aws]==1.0.3",
     # others
     "pyarrow",
@@ -70,6 +70,7 @@ omop = [
 ]
 dev = [
     # basic test
+    "tomlkit",
     "line_profiler",
     "pre-commit",
     "nox",
@@ -215,6 +216,4 @@ exclude_lines = [
 ]
 
 [tool.coverage.run]
-omit = [
-    "**/core/datasets/*",  # Datasets don't perform any logic
-]
+omit = ["**/core/datasets/*", "**/migrations/*"]

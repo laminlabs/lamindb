@@ -159,7 +159,7 @@ def test_curate_df():
 
     # dataset section
     int_features_node = description_tree.children[1]
-    assert int_features_node.label.plain == "Dataset features/._schemas_m2m"
+    assert int_features_node.label.plain == "Dataset features/schema"
     assert len(int_features_node.children) == 2
     assert len(int_features_node.children[0].label.rows) == 3
     assert len(int_features_node.children[0].label.columns) == 3

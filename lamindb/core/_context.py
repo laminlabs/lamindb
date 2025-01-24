@@ -24,7 +24,6 @@ from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_environment
 from .exceptions import (
     InconsistentKey,
-    NotebookNotSaved,
     TrackNotCalled,
     UpdateContext,
 )
@@ -201,6 +200,7 @@ class Context:
         self._logging_message_track: str = ""
         self._logging_message_imports: str = ""
         self._stream_tracker: LogStreamTracker = LogStreamTracker()
+        self._is_finish_retry: bool = False
 
     @property
     def transform(self) -> Transform | None:
@@ -307,6 +307,10 @@ class Context:
                 ) = self._track_source_code(path=path)
             if description is None:
                 description = self._description
+            # temporarily until the hub displays the key by default
+            # populate the description with the filename again
+            if description is None:
+                description = self._path.name
             self._create_or_load_transform(
                 description=description,
                 transform_ref=transform_ref,
@@ -395,6 +399,11 @@ class Context:
             path = Path(module.__file__)
         else:
             path = Path(path)
+        # for Rmd and qmd, we could also extract the title
+        # we don't do this for now as we're setting the title upon `ln.finish()` or `lamin save`
+        # by extracting it from the html while cleaning it: see clean_r_notebook_html()
+        # also see the script_to_notebook() in the CLI _load.py where the title is extracted
+        # from the source code YAML and updated with the transform description
         transform_type = "notebook" if path.suffix in {".Rmd", ".qmd"} else "script"
         reference = None
         reference_type = None
@@ -489,14 +498,38 @@ class Context:
                     if aux_transform.key in self._path.as_posix():
                         key = aux_transform.key
                         if (
-                            aux_transform.source_code is None
-                            or aux_transform.hash == hash
+                            # has to be the same user
+                            aux_transform.created_by_id == ln_setup.settings.user.id
+                            and (
+                                # if the transform source code wasn't yet saved
+                                aux_transform.source_code is None
+                                # if the transform source code is unchanged
+                                # if aux_transform.type == "notebook", we anticipate the user makes changes to the notebook source code
+                                # in an interactive session, hence we *pro-actively bump* the version number by setting `revises`
+                                # in the second part of the if condition even though the source code is unchanged at point of running track()
+                                or (
+                                    aux_transform.hash == hash
+                                    and aux_transform.type != "notebook"
+                                )
+                            )
                         ):
                             uid = aux_transform.uid
                             target_transform = aux_transform
                         else:
                             uid = f"{aux_transform.uid[:-4]}{increment_base62(aux_transform.uid[-4:])}"
-                            message = f"there already is a transform with key '{aux_transform.key}', creating new version '{uid}'"
+                            message = f"there already is a {aux_transform.type} with `key` '{aux_transform.key}'"
+                            if (
+                                aux_transform.hash == hash
+                                and aux_transform.type == "notebook"
+                            ):
+                                message += " -- anticipating changes"
+                            elif aux_transform.hash != hash:
+                                message += ""  # could log "source code changed", but this seems too much
+                            elif (
+                                aux_transform.created_by_id != ln_setup.settings.user.id
+                            ):
+                                message += f" -- {aux_transform.created_by.handle} already works on this draft"
+                            message += f", creating new version '{uid}'"
                             revises = aux_transform
                         found_key = True
                         break
@@ -508,7 +541,7 @@ class Context:
                             for transform in transforms
                         ]
                     )
-                    message = f"ignoring transform{plural_s} with same filedescription:\n{transforms_str}"
+                    message = f"ignoring transform{plural_s} with same filename:\n{transforms_str}"
                 if message != "":
                     logger.important(message)
             self.uid, transform = uid, target_transform
@@ -581,7 +614,7 @@ class Context:
             # check whether the transform.key is consistent
             if transform.key != key:
                 raise UpdateContext(get_key_clashing_message(transform, key))
-            elif transform.description != description:
+            elif transform.description != description and description is not None:
                 transform.description = description
                 transform.save()
                 self._logging_message_track += (
@@ -592,12 +625,14 @@ class Context:
                 and not transform_was_saved
             ):
                 raise UpdateContext(
-                    f'{transform.created_by.description} ({transform.created_by.handle}) already works on this draft {transform.type}.\n\nPlease create a revision via `ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")` or a new transform with a *different* filedescription and `ln.track("{ids.base62_12()}0000")`.'
+                    f'{transform.created_by.name} ({transform.created_by.handle}) already works on this draft {transform.type}.\n\nPlease create a revision via `ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")` or a new transform with a *different* filedescription and `ln.track("{ids.base62_12()}0000")`.'
                 )
             # check whether transform source code was already saved
             if transform_was_saved:
                 bump_revision = False
-                if is_run_from_ipython:
+                if transform.type == "notebook":
+                    # we anticipate the user makes changes to the notebook source code
+                    # in an interactive session, hence we pro-actively bump the version number
                     bump_revision = True
                 else:
                     hash, _ = hash_file(self._path)  # ignore hash_type for now
@@ -609,12 +644,12 @@ class Context:
                         )
                 if bump_revision:
                     change_type = (
-                        "re-running saved notebook"
-                        if is_run_from_ipython
+                        "re-running notebook with already-saved source code"
+                        if transform.type == "notebook"
                         else "source code changed"
                     )
                     raise UpdateContext(
-                        f'✗ {change_type}, run: ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")'
+                        f'✗ {change_type}, please update the `uid` argument in `track()` to "{uid[:-4]}{increment_base62(uid[-4:])}"'
                     )
             else:
                 self._logging_message_track += f"loaded Transform('{transform.uid}')"
@@ -625,12 +660,12 @@ class Context:
 
         - writes a timestamp: `run.finished_at`
         - saves the source code: `transform.source_code`
+        - saves a run report: `run.report`
 
         When called in the last cell of a notebook:
 
+        - prompts to save the notebook in your editor right before
         - prompts for user input if not consecutively executed
-        - requires to save the notebook in your editor right before
-        - saves a run report: `run.report`
 
         Args:
             ignore_non_consecutive: Whether to ignore if a notebook was non-consecutively executed.
@@ -647,8 +682,6 @@ class Context:
 
         """
         from lamindb._finish import (
-            get_save_notebook_message,
-            get_seconds_since_modified,
             save_context_core,
         )
 
@@ -663,26 +696,26 @@ class Context:
             self.run.save()
             # nothing else to do
             return None
-        if is_run_from_ipython:  # notebooks
-            import nbproject
-
-            # it might be that the user modifies the title just before ln.finish()
-            if (
-                nbproject_title := nbproject.meta.live.title
-            ) != self.transform.description:
-                self.transform.description = nbproject_title
-                self.transform.save()
-            if get_seconds_since_modified(self._path) > 2 and not ln_setup._TESTING:
-                raise NotebookNotSaved(get_save_notebook_message())
-        save_context_core(
+        return_code = save_context_core(
             run=self.run,
             transform=self.run.transform,
             filepath=self._path,
             finished_at=True,
             ignore_non_consecutive=ignore_non_consecutive,
+            is_retry=self._is_finish_retry,
         )
+        if return_code == "retry":
+            self._is_finish_retry = True
+            return None
         if self.transform.type != "notebook":
             self._stream_tracker.finish()
+        # reset the context attributes so that somebody who runs `track()` after finish
+        # starts fresh
+        self._uid = None
+        self._run = None
+        self._transform = None
+        self._version = None
+        self._description = None
 
 
 context = Context()
