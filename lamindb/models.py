@@ -1843,7 +1843,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     )
     """Universal id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True, unique=True)
-    """Name of feature (hard unique constraint: `unique=True`)."""
+    """Name of feature (hard unique constraint `unique=True`)."""
     dtype: FeatureDtype = CharField(db_index=True)
     """Data type (:class:`~lamindb.base.types.FeatureDtype`).
 
@@ -2607,7 +2607,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         return self.n_files
 
     @property
-    def feature_sets(self) -> QuerySet[Schema]:
+    def feature_sets(self) -> QuerySet[Schema]:  # type: ignore
         """Feature sets linked to this artifact."""
         return self._schemas_m2m
 
@@ -3476,7 +3476,7 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
 # -------------------------------------------------------------------------------------
 # Data models
 
-from django.contrib.postgres.fields import JSONField
+from django.contrib.postgres.fields import JSONField  # type: ignore
 from django.core.exceptions import ValidationError
 from django.db import models
 

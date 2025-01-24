@@ -12,4 +12,4 @@ def path(self) -> UPath:
     return create_path(self.root, access_token=access_token)
 
 
-Storage.path = path
+Storage.path = path  # type: ignore

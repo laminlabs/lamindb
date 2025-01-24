@@ -357,7 +357,7 @@ def add_labels(
                         f"Feature {feature.name} needs dtype='cat' for label annotation, currently has dtype='{feature.dtype}'"
                     )
                 if feature.dtype == "cat":
-                    feature.dtype = f"cat[{registry_name}]"
+                    feature.dtype = f"cat[{registry_name}]"  # type: ignore
                     feature.save()
                 elif registry_name not in feature.dtype:
                     new_dtype = feature.dtype.rstrip("]") + f"|{registry_name}]"
