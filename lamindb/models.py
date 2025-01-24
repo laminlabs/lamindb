@@ -1843,7 +1843,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     )
     """Universal id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True, unique=True)
-    """Name of feature (hard unique constraint: `unique=True`)."""
+    """Name of feature (hard unique constraint `unique=True`)."""
     dtype: FeatureDtype = CharField(db_index=True)
     """Data type (:class:`~lamindb.base.types.FeatureDtype`).
 
