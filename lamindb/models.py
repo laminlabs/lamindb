@@ -1679,7 +1679,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     )
     """A universal random id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True)
-    """Name or title of ulabel (`unique=True`)."""
+    """Name or title of ulabel."""
     type: ULabel | None = ForeignKey("self", PROTECT, null=True, related_name="records")
     """Type of ulabel, e.g., `"donor"`, `"split"`, etc.
 
@@ -1843,7 +1843,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     )
     """Universal id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True, unique=True)
-    """Name of feature (`unique=True`)."""
+    """Name of feature (hard unique constraint: `unique=True`)."""
     dtype: FeatureDtype = CharField(db_index=True)
     """Data type (:class:`~lamindb.base.types.FeatureDtype`).
 
