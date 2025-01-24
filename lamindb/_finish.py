@@ -263,7 +263,7 @@ def save_context_core(
             transform.save()
         if not ln_setup._TESTING:
             save_source_code_and_report = check_filepath_recently_saved(
-                filepath, is_retry=is_retry
+                filepath, is_retry
             )
             if not save_source_code_and_report and not is_retry:
                 logger.warning(get_save_notebook_message_retry())
