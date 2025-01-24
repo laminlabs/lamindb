@@ -55,7 +55,8 @@ repos:
         additional_dependencies: ["types-requests", "types-attrs"]
         exclude: |
           (?x)(
-              test_notebooks.py|script-to-test-versioning.py|
+              test_notebooks.py|
+              script-to-test-versioning.py|
               tests/storage/conftest.py|
               tests/curators/conftest.py
           )
