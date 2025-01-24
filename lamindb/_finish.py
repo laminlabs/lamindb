@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 def get_save_notebook_message() -> str:
     # do not add bold() or any other complicated characters as then we can't match this
     # easily anymore in an html to strip it out
-    return f"please save the notebook in your editor (shortcut {get_shortcut()})"
+    return f"please hit {get_shortcut()} to save the notebook in your editor"
 
 
 def get_save_notebook_message_retry() -> str:
@@ -130,7 +130,7 @@ def prepare_notebook(
         # this is normally the last cell
         if cell["cell_type"] == "code" and ".finish(" in cell["source"]:
             for output in cell["outputs"]:
-                if "please save the notebook in your editor" in output.get("text", ""):
+                if "to save the notebook in your editor" in output.get("text", ""):
                     cell["outputs"] = []
                     break
     return None
@@ -191,13 +191,13 @@ def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
         cleaned_content = re.sub(pattern_title, "", cleaned_content)
         cleaned_content = re.sub(pattern_h1, "", cleaned_content)
     # remove error message from content
-    if "! please save the notebook in your editor" in cleaned_content:
+    if "to save the notebook in your editor" in cleaned_content:
         orig_error_message = f"! {get_save_notebook_message_retry()}"
         # coming up with the regex for this is a bit tricky due to all the
         # escape characters we'd need to insert into the message; hence,
         # we do this with a replace() instead
         cleaned_content = cleaned_content.replace(orig_error_message, "")
-        if "! please save the notebook in your editor" in cleaned_content:
+        if "to save the notebook in your editor" in cleaned_content:
             orig_error_message = orig_error_message.replace(
                 " finish()", "\nfinish()"
             )  # RStudio might insert a newline
@@ -207,15 +207,17 @@ def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
     return title_text, cleaned_path
 
 
-def check_filepath_recently_saved(filepath: Path, is_retry: bool) -> bool:
-    recently_saved_time = 2.5 if not is_retry else 10
-    for retry in range(10):
+def check_filepath_recently_saved(filepath: Path, is_finish_retry: bool) -> bool:
+    recently_saved_time = 3 if not is_finish_retry else 20
+    for retry in range(30):
         if get_seconds_since_modified(filepath) > recently_saved_time:
             if retry == 0:
                 prefix = f"{LEVEL_TO_COLORS[20]}{LEVEL_TO_ICONS[20]}{RESET_COLOR}"
                 print(f"{prefix} {get_save_notebook_message()}", end=" ")
             elif retry == 9:
                 print(".", end="\n")
+            elif retry == 4:
+                print(". still waiting ", end="")
             else:
                 print(".", end="")
             sleep(1)
@@ -315,7 +317,7 @@ def save_context_core(
                 f"no html report found; to attach one, create an .html export for your {filepath.suffix} file and then run: lamin save {filepath}"
             )
     if report_path is not None and is_r_notebook and not from_cli:  # R notebooks
-        recently_saved_time = 2.5 if not is_retry else 10
+        recently_saved_time = 3 if not is_retry else 20
         if get_seconds_since_modified(report_path) > recently_saved_time:
             # the automated retry solution of Jupyter notebooks does not work in RStudio because the execution of the notebook cell
             # seems to block the event loop of the frontend
@@ -324,7 +326,7 @@ def save_context_core(
                 return "retry"
             else:
                 logger.warning(
-                    "the notebook on disk wasn't saved within the last 10 sec"
+                    "the notebook on disk hasn't been saved within the last 20 sec"
                 )
             save_source_code_and_report = False
     ln.settings.creation.artifact_silence_missing_run_warning = True
