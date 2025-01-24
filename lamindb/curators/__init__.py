@@ -1775,7 +1775,7 @@ class Curator(BaseCurator):
                 "Please install spatialdata: pip install spatialdata"
             ) from e
 
-        from ._spatial import SpatialDataCurator
+        from lamindb.curators._spatial import SpatialDataCurator
 
         return SpatialDataCurator(
             sdata=sdata,
