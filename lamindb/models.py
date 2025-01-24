@@ -2808,7 +2808,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     def replace(
         self,
-        data: UPathStr,
+        data: UPathStr | pd.DataFrame | AnnData | MuData,
         run: Run | None = None,
         format: str | None = None,
     ) -> None:
