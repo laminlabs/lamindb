@@ -307,6 +307,10 @@ class Context:
                 ) = self._track_source_code(path=path)
             if description is None:
                 description = self._description
+            # temporarily until the hub displays the key by default
+            # populate the description with the filename again
+            if description is None:
+                description = self._path.name
             self._create_or_load_transform(
                 description=description,
                 transform_ref=transform_ref,
