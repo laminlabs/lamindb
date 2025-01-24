@@ -199,16 +199,28 @@ def test_cloud_cache_versions(switch_storage):
     artifact_v2.versions.delete(permanent=True)
 
 
-def test_corrupted_cache_cloud(switch_storage):
+def test_corrupted_cache_local():
     filepath = ln.core.datasets.anndata_file_pbmc68k_test()
-
-    artifact = ln.Artifact.from_anndata(filepath, key="test_corrupted_cache.h5ad")
+    artifact = ln.Artifact.from_anndata(filepath, key="test_corrupt_cache_local.h5ad")
     artifact.save()
-
     # corrupt cache
     with open(artifact._cache_path, "r+b") as f:
         f.write(b"corruption")
+    # just raises an exception, nothing to re-sync on local
+    with pytest.raises(OSError):
+        artifact.load()
 
+    artifact.delete(permanent=True)
+
+
+def test_corrupted_cache_cloud(switch_storage):
+    filepath = ln.core.datasets.anndata_file_pbmc68k_test()
+    artifact = ln.Artifact.from_anndata(filepath, key="test_corrupt_cache_cloud.h5ad")
+    artifact.save()
+    # corrupt cache
+    with open(artifact._cache_path, "r+b") as f:
+        f.write(b"corruption")
+    # check that it is indeed corrupted
     with pytest.raises(OSError):
         load_h5ad(artifact._cache_path)
     # should load successfully
