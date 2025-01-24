@@ -1033,8 +1033,21 @@ def load(self, is_run_input: bool | None = None, **kwargs) -> Any:
             self, using_key=settings._using_key
         )
         cache_path = _synchronize_cleanup_on_error(filepath, cache_key=cache_key)
-        # cache_path is local so doesn't trigger any sync in load_to_memory
-        access_memory = load_to_memory(cache_path, **kwargs)
+        try:
+            # cache_path is local so doesn't trigger any sync in load_to_memory
+            access_memory = load_to_memory(cache_path, **kwargs)
+        except Exception as e:
+            logger.warning(
+                f"The cache might be corrupted: {e}. Retrying to synchronize."
+            )
+            # delete the existing cache
+            if cache_path.isdir():
+                shutil.rmtree(cache_path)
+            else:
+                cache_path.unlink(missing_ok=True)
+            # download again and try to load into memory
+            cache_path = _synchronize_cleanup_on_error(filepath, cache_key=cache_key)
+            access_memory = load_to_memory(cache_path, **kwargs)
     # only call if load is successfull
     _track_run_input(self, is_run_input)
     return access_memory
