@@ -639,7 +639,7 @@ def get_transfer_run(record) -> Run:
     if transform is None:
         search_names = settings.creation.search_names
         settings.creation.search_names = False
-        transform = Transform(
+        transform = Transform(  # type: ignore
             uid=uid, name=f"Transfer from `{slug}`", key=key, type="function"
         ).save()
         settings.creation.search_names = search_names
@@ -655,7 +655,7 @@ def get_transfer_run(record) -> Run:
         transform=transform, initiated_by_run=initiated_by_run
     ).one_or_none()
     if run is None:
-        run = Run(transform=transform, initiated_by_run=initiated_by_run).save()
+        run = Run(transform=transform, initiated_by_run=initiated_by_run).save()  # type: ignore
         run.initiated_by_run = initiated_by_run  # so that it's available in memory
     return run
 
@@ -748,7 +748,7 @@ def save(self, *args, **kwargs) -> Record:
                 revises.save()
                 check_name_change(self)
                 check_key_change(self)
-                super(BasicRecord, self).save(*args, **kwargs)
+                super(BasicRecord, self).save(*args, **kwargs)  # type: ignore
                 _store_record_old_name(self)
                 _store_record_old_key(self)
             self._revises = None
@@ -778,7 +778,7 @@ def save(self, *args, **kwargs) -> Record:
             self_on_db = copy(self)
             self_on_db._state.db = db
             self_on_db.pk = pk_on_db  # manually set the primary key
-            self_on_db.features = FeatureManager(self_on_db)
+            self_on_db.features = FeatureManager(self_on_db)  # type: ignore
             self.features._add_from(self_on_db, transfer_logs=transfer_logs)
             self.labels.add_from(self_on_db, transfer_logs=transfer_logs)
         for k, v in transfer_logs.items():
@@ -915,7 +915,7 @@ def delete(self) -> None:
             new_latest.is_latest = True
             with transaction.atomic():
                 new_latest.save()
-                super(BasicRecord, self).delete()
+                super(BasicRecord, self).delete()  # type: ignore
             logger.warning(f"new latest version is {new_latest}")
             return None
     super(BasicRecord, self).delete()

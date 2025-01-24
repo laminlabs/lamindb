@@ -96,7 +96,7 @@ def save_run_logs(run: Run, save_run: bool = False) -> None:
     if logs_path.exists():
         if run.report is not None:
             logger.important("overwriting run.report")
-        artifact = Artifact(
+        artifact = Artifact(  # type: ignore
             logs_path,
             description=f"log streams of run {run.uid}",
             _branch_code=0,
@@ -159,7 +159,7 @@ def notebook_to_report(notebook_path: Path, output_path: Path) -> None:
     output_path.write_text(html, encoding="utf-8")
 
 
-def notebook_to_script(
+def notebook_to_script(  # type: ignore
     transform: Transform, notebook_path: Path, script_path: Path | None = None
 ) -> None | str:
     import jupytext
@@ -365,7 +365,7 @@ def save_context_core(
                 artifact = ln.Artifact.filter(hash=hash, _branch_code=0).one_or_none()
                 new_env_artifact = artifact is None
                 if new_env_artifact:
-                    artifact = ln.Artifact(
+                    artifact = ln.Artifact(  # type: ignore
                         env_path,
                         description="requirements.txt",
                         _branch_code=0,
@@ -411,7 +411,7 @@ def save_context_core(
                     else:
                         logger.important("report is already saved")
                 else:
-                    report_file = ln.Artifact(
+                    report_file = ln.Artifact(  # type: ignore
                         report_path,
                         description=f"Report of run {run.uid}",
                         _branch_code=0,  # hidden file

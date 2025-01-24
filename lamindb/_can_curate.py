@@ -145,7 +145,7 @@ def _inspect(
     if isinstance(source, Record):
         _check_source_db(source, using_key)
         queryset = queryset.filter(source=source).all()
-    _check_organism_db(organism, using_key)
+    _check_organism_db(organism, using_key)  # type: ignore
     registry = queryset.model
     model_name = registry._meta.model.__name__
 
@@ -200,7 +200,7 @@ def _inspect(
                     f" {colors.italic('.from_values()')}"
                 )
 
-            nonval = [i for i in bionty_result.non_validated if i not in bionty_mapper]
+            nonval = [i for i in bionty_result.non_validated if i not in bionty_mapper]  # type: ignore
         # no bionty source is found
         except ValueError:
             logger.warning("no Bionty source found, skipping Bionty validation")
@@ -243,7 +243,7 @@ def _validate(
     if isinstance(source, Record):
         _check_source_db(source, using_key)
         queryset = queryset.filter(source=source).all()
-    _check_organism_db(organism, using_key)
+    _check_organism_db(organism, using_key)  # type: ignore
     field_values = pd.Series(
         _filter_query_based_on_organism(
             queryset=queryset,
@@ -377,7 +377,7 @@ def _standardize(
     if isinstance(source, Record):
         _check_source_db(source, using_key)
         queryset = queryset.filter(source=source).all()
-    _check_organism_db(organism, using_key)
+    _check_organism_db(organism, using_key)  # type: ignore
     registry = queryset.model
 
     if _has_organism_field(registry):

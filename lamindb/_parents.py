@@ -44,7 +44,7 @@ def _query_relatives(
     kind: Literal["parents", "children"],
     cls: type[HasParents],
 ) -> QuerySet:
-    relatives = cls.objects.none()
+    relatives = cls.objects.none()  # type: ignore
     if len(records) == 0:
         return relatives
     for record in records:

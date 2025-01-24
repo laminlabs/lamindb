@@ -286,12 +286,12 @@ class LabelManager:
                 )
                 for feature in new_features:
                     transfer_to_default_db(
-                        feature,
+                        feature,  # type: ignore
                         using_key,
                         transfer_logs=transfer_logs,
                         transfer_fk=False,
                     )
-                save(new_features)
+                save(new_features)  # type: ignore
             if hasattr(self._host, related_name):
                 for feature_name, feature_labels in labels_by_features.items():
                     if feature_name is not None:

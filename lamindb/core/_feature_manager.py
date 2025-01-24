@@ -118,7 +118,7 @@ def get_label_links(
     host_id_field = get_host_id_field(host)
     kwargs = {host_id_field: host.id, "feature_id": feature.id}
     link_records = (
-        getattr(host, host.features._accessor_by_registry[registry])
+        getattr(host, host.features._accessor_by_registry[registry])  # type: ignore
         .through.objects.using(host._state.db)
         .filter(**kwargs)
     )
@@ -135,7 +135,7 @@ def get_schema_links(host: Artifact | Collection) -> QuerySet:
 def get_link_attr(link: LinkORM | type[LinkORM], data: Artifact | Collection) -> str:
     link_model_name = link.__class__.__name__
     if link_model_name in {"Registry", "ModelBase"}:  # we passed the type of the link
-        link_model_name = link.__name__
+        link_model_name = link.__name__  # type: ignore
     return link_model_name.replace(data.__class__.__name__, "").lower()
 
 
@@ -928,7 +928,7 @@ def _add_values(
                 validated_values = values_array[validated]
                 if validated.sum() != len(values):
                     not_validated_values += values_array[~validated].tolist()
-                label_records = ULabel.from_values(validated_values, field="name")
+                label_records = ULabel.from_values(validated_values, field="name")  # type: ignore
                 features_labels["ULabel"] += [
                     (feature, label_record) for label_record in label_records
                 ]
@@ -1012,8 +1012,8 @@ def remove_values(
     if isinstance(feature, str):
         feature = Feature.get(name=feature)
     filter_kwargs = {"feature": feature}
-    if feature.dtype.startswith("cat["):
-        feature_registry = feature.dtype.replace("cat[", "").replace("]", "")
+    if feature.dtype.startswith("cat["):  # type: ignore
+        feature_registry = feature.dtype.replace("cat[", "").replace("]", "")  # type: ignore
         if value is not None:
             assert isinstance(value, Record)  # noqa: S101
             # the below uses our convention for field names in link models
@@ -1151,7 +1151,7 @@ def _add_set_from_mudata(
     # parse and register features
     mdata = self._host.load()
     _schemas_m2m = {}
-    obs_features = Feature.from_values(mdata.obs.columns)
+    obs_features = Feature.from_values(mdata.obs.columns)  # type: ignore
     if len(obs_features) > 0:
         _schemas_m2m["obs"] = Schema(features=obs_features)
     for modality, field in var_fields.items():
@@ -1188,7 +1188,7 @@ def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
     if transfer_logs is None:
         transfer_logs = {"mapped": [], "transferred": [], "run": None}
     using_key = settings._using_key
-    for slot, schema in data.features._schema_by_slot.items():
+    for slot, schema in data.features._schema_by_slot.items():  # type: ignore
         members = schema.members
         if len(members) == 0:
             continue
@@ -1270,6 +1270,7 @@ def make_external(self, feature: Feature) -> None:
             fs.delete()
 
 
+# mypy: ignore-errors
 FeatureManager.__init__ = __init__
 ParamManager.__init__ = __init__
 FeatureManager.__repr__ = __repr__

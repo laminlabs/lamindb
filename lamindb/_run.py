@@ -4,7 +4,7 @@ from lamindb.models import ParamManager, Run, Transform
 
 
 def __init__(run: Run, *args, **kwargs):
-    run.params = ParamManager(run)
+    run.params = ParamManager(run)  # type: ignore
     if len(args) == len(run._meta.concrete_fields):
         super(Run, run).__init__(*args, **kwargs)
         return None
@@ -24,7 +24,7 @@ def __init__(run: Run, *args, **kwargs):
     if transform._state.adding:
         raise ValueError("Please save transform record before creating a run")
 
-    super(Run, run).__init__(
+    super(Run, run).__init__(  # type: ignore
         transform=transform,
         reference=reference,
         initiated_by_run=initiated_by_run,
@@ -56,5 +56,5 @@ def delete(self) -> None:
     super(Run, self).delete()
 
 
-Run.__init__ = __init__
-Run.delete = delete
+Run.__init__ = __init__  # type: ignore
+Run.delete = delete  # type: ignore

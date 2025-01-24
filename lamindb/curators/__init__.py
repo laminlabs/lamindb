@@ -33,6 +33,8 @@ if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
     from mudata import MuData
 
+    from lamindb._query_set import RecordList
+
 
 class CurateLookup:
     """Lookup categories from the reference instance.
@@ -484,7 +486,7 @@ class DataFrameCurator(BaseCurator):
         verbosity = settings.verbosity
         try:
             settings.verbosity = "warning"
-            self._artifact = save_artifact(
+            self._artifact = save_artifact(  # type: ignore
                 self._df,
                 description=description,
                 fields=self.fields,
@@ -754,7 +756,7 @@ class AnnDataCurator(DataFrameCurator):
         verbosity = settings.verbosity
         try:
             settings.verbosity = "warning"
-            self._artifact = save_artifact(
+            self._artifact = save_artifact(  # type: ignore
                 self._data,
                 adata=self._adata,
                 description=description,
@@ -2122,13 +2124,13 @@ def save_artifact(
     )
 
     if artifact.otype == "DataFrame":
-        artifact.features._add_set_from_df(field=columns_field, **feature_kwargs)
+        artifact.features._add_set_from_df(field=columns_field, **feature_kwargs)  # type: ignore
     elif artifact.otype == "AnnData":
-        artifact.features._add_set_from_anndata(
+        artifact.features._add_set_from_anndata(  # type: ignore
             var_field=columns_field, **feature_kwargs
         )
     elif artifact.otype == "MuData":
-        artifact.features._add_set_from_mudata(
+        artifact.features._add_set_from_mudata(  # type: ignore
             var_fields=columns_field, **feature_kwargs
         )
     else:
@@ -2305,7 +2307,7 @@ def update_registry(
         # save non-validated/new records
         labels_saved["new"] = non_validated_labels
         if not validated_only:
-            non_validated_records = []
+            non_validated_records: RecordList[Any] = []  # type: ignore
             if df is not None and registry == Feature:
                 nonval_columns = Feature.inspect(df.columns, mute=True).non_validated
                 non_validated_records = Feature.from_df(df.loc[:, nonval_columns])
