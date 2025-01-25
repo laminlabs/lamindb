@@ -128,13 +128,18 @@ def validate_fields(record: Record, kwargs):
     validate_literal_fields(record, kwargs)
 
 
-def suggest_records_with_similar_names(record: Record, name_field: str, kwargs) -> bool:
+def suggest_records_with_similar_names(
+    record: Record, name_field: str, kwargs
+) -> Record | None:
     """Returns True if found exact match, otherwise False.
 
     Logs similar matches if found.
     """
     if kwargs.get(name_field) is None or not isinstance(kwargs.get(name_field), str):
-        return False
+        return None
+    exact_match = record.__class__.filter(name=kwargs[name_field]).one_or_none()
+    if exact_match is not None:
+        return exact_match
     queryset = _search(
         record.__class__,
         kwargs[name_field],
@@ -143,10 +148,7 @@ def suggest_records_with_similar_names(record: Record, name_field: str, kwargs) 
         limit=3,
     )
     if not queryset.exists():  # empty queryset
-        return False
-    for alternative_record in queryset:
-        if getattr(alternative_record, name_field) == kwargs[name_field]:
-            return True
+        return None
     s, it, nots = ("", "it", "s") if len(queryset) == 1 else ("s", "one of them", "")
     msg = f"record{s} with similar {name_field}{s} exist{nots}! did you mean to load {it}?"
     if IPYTHON:
@@ -157,7 +159,7 @@ def suggest_records_with_similar_names(record: Record, name_field: str, kwargs) 
             display(queryset.df())
     else:
         logger.warning(f"{msg}\n{queryset}")
-    return False
+    return None
 
 
 def __init__(record: Record, *args, **kwargs):
@@ -177,8 +179,8 @@ def __init__(record: Record, *args, **kwargs):
             and not has_consciously_provided_uid
         ):
             name_field = getattr(record, "_name_field", "name")
-            match = suggest_records_with_similar_names(record, name_field, kwargs)
-            if match:
+            exact_match = suggest_records_with_similar_names(record, name_field, kwargs)
+            if exact_match is not None:
                 if "version" in kwargs:
                     if kwargs["version"] is not None:
                         version_comment = " and version"
@@ -196,9 +198,7 @@ def __init__(record: Record, *args, **kwargs):
                         existing_record = None
                 else:
                     version_comment = ""
-                    existing_record = record.__class__.filter(
-                        **{name_field: kwargs[name_field]}
-                    ).one_or_none()
+                    existing_record = exact_match
                 if existing_record is not None:
                     logger.important(
                         f"returning existing {record.__class__.__name__} record with same"
