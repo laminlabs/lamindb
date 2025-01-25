@@ -3,6 +3,7 @@ from __future__ import annotations
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 
+from lamindb.core.exceptions import ValidationError
 from lamindb.models import ULabel
 
 from ._utils import attach_func_to_class_method
@@ -35,7 +36,7 @@ def __init__(self, *args, **kwargs):
                 "`name` ends with 's', in case you're naming with plural, consider the singular for a type name"
             )
         if name[0].islower():
-            logger.warning(
+            raise ValidationError(
                 "`name` starts with lowercase, in case you're naming a type, consider starting with uppercase"
             )
     super(ULabel, self).__init__(
