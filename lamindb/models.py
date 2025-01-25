@@ -1353,7 +1353,7 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
     """
     records: Param
     """Records of this type."""
-    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    is_type: bool = BooleanField(default=False, db_index=True)
     """Distinguish types from instances of the type."""
     _expect_many: bool = models.BooleanField(default=False, db_default=False)
     """Indicates whether values for this param are expected to occur a single or multiple times for an artifact/run (default `False`).
@@ -1687,7 +1687,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     """
     records: ULabel
     """Records of this type."""
-    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    is_type: bool = BooleanField(default=False, db_index=True)
     """Distinguish types from instances of the type.
 
     For example, a ulabel "Project" would be a type, and the actual projects "Project 1", "Project 2", would be records of that `type`.
@@ -1860,7 +1860,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     """
     records: Feature
     """Records of this type."""
-    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    is_type: bool = BooleanField(default=False, db_index=True)
     """Distinguish types from instances of the type."""
     unit: str | None = CharField(max_length=30, db_index=True, null=True)
     """Unit of measure, ideally SI (`m`, `s`, `kg`, etc.) or 'normalized' etc. (optional)."""
@@ -2122,7 +2122,7 @@ class Schema(Record, CanCurate, TracksRun):
     """
     records: Feature
     """Records of this type."""
-    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    is_type: bool = BooleanField(default=False, db_index=True)
     """Distinguish types from instances of the type."""
     otype: str | None = CharField(max_length=64, db_index=True, null=True)
     """Default Python object type, e.g., DataFrame, AnnData."""
@@ -3330,7 +3330,7 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Type of project (e.g., 'Program', 'Project', 'GithubIssue', 'Task')."""
     records: Project
     """Records of this type."""
-    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    is_type: bool = BooleanField(default=False, db_index=True)
     """Distinguish types from instances of the type."""
     abbr: str | None = CharField(max_length=32, db_index=True, null=True)
     """An abbreviation."""
@@ -3434,7 +3434,7 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """
     records: Reference
     """Records of this type."""
-    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    is_type: bool = BooleanField(default=False, db_index=True)
     """Distinguish types from instances of the type."""
     url: str | None = URLField(null=True)
     """URL linking to the reference."""
@@ -3574,7 +3574,7 @@ class FlexTable(Record, TracksRun, TracksUpdates):
     """Type of tidy table, e.g., `Cell`, `SampleSheet`, etc."""
     records: ULabel
     """Records of this type."""
-    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    is_type: bool = BooleanField(default=False, db_index=True)
     """Distinguish types from instances of the type."""
     description: str = CharField(null=True, db_index=True)
     """A description."""

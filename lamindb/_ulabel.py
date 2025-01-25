@@ -22,7 +22,7 @@ def __init__(self, *args, **kwargs):
         raise ValueError("Only one non-keyword arg allowed")
     name: str = kwargs.pop("name") if "name" in kwargs else None
     type: str | None = kwargs.pop("type") if "type" in kwargs else None
-    is_type: str | None = kwargs.pop("is_type") if "is_type" in kwargs else None
+    is_type: bool = kwargs.pop("is_type") if "is_type" in kwargs else False
     description: str | None = (
         kwargs.pop("description") if "description" in kwargs else None
     )

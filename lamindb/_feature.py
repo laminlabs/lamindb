@@ -72,11 +72,12 @@ def __init__(self, *args, **kwargs):
         raise ValueError("Only keyword args allowed")
     name: str = kwargs.pop("name") if "name" in kwargs else None
     dtype: type | str | None = kwargs.pop("dtype") if "dtype" in kwargs else None
-    is_type: bool = kwargs.pop("is_type") if "is_type" in kwargs else None
-    kwargs.pop("type") if "type" in kwargs else None
+    is_type: bool = kwargs.pop("is_type") if "is_type" in kwargs else False
+    type_: Feature | str | None = kwargs.pop("type") if "type" in kwargs else None
     if kwargs:
         raise ValidationError("Only name, dtype, is_type are valid keyword arguments")
     kwargs["name"] = name
+    kwargs["type"] = type_
     if is_type:
         if name.endswith("s"):
             logger.warning(
@@ -104,7 +105,8 @@ def __init__(self, *args, **kwargs):
                     f"dtype is {dtype_str} but has to be one of {FEATURE_DTYPES}!"
                 )
             if dtype_str != "cat" and dtype_str.startswith("cat"):
-                registries_str = dtype_str.replace("cat[", "").rstrip("]")
+                assert dtype_str.endswith("]")  # noqa: S101
+                registries_str = dtype_str.replace("cat[", "")[:-1]  # strip last ]
                 if registries_str != "":
                     registry_str_list = registries_str.split("|")
                     for cat_single_dtype_str in registry_str_list:
