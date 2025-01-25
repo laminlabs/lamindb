@@ -70,11 +70,30 @@ def __init__(self, *args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) != 0:
         raise ValueError("Only keyword args allowed")
-    dtype: type | str = kwargs.pop("dtype") if "dtype" in kwargs else None
-    # cast type
-    if dtype is None:
-        raise ValueError(f"Please pass dtype, one of {FEATURE_DTYPES}")
-    elif dtype is not None:
+    name: str = kwargs.pop("name") if "name" in kwargs else None
+    dtype: type | str | None = kwargs.pop("dtype") if "dtype" in kwargs else None
+    is_type: bool = kwargs.pop("is_type") if "is_type" in kwargs else None
+    kwargs.pop("type") if "type" in kwargs else None
+    if kwargs:
+        raise ValidationError("Only name, dtype, is_type are valid keyword arguments")
+    kwargs["name"] = name
+    if is_type:
+        if name.endswith("s"):
+            logger.warning(
+                "`name` ends with 's', in case you're naming with plural, consider the singular for a type name"
+            )
+        if name[0].islower():
+            raise ValidationError(
+                "`name` starts with lowercase, name your types with upper-case letters"
+            )
+        kwargs["is_type"] = is_type
+    # cast dtype
+    if dtype is None and not is_type:
+        raise ValidationError(
+            f"Please pass dtype, one of {FEATURE_DTYPES} or a composed categorical dtype"
+        )
+    dtype_str = None
+    if dtype is not None:
         if not isinstance(dtype, str):
             dtype_str = get_dtype_str_from_dtype(dtype)
         else:
@@ -122,14 +141,14 @@ def __init__(self, *args, **kwargs):
                         if sub_type_str != "":
                             pass
                             # validate that the subtype is a record in the registry with is_type = True
-    kwargs["dtype"] = dtype_str
+        kwargs["dtype"] = dtype_str
     super(Feature, self).__init__(*args, **kwargs)
     if not self._state.adding:
         if not (
-            self.dtype.startswith("cat") if dtype == "cat" else self.dtype == dtype
+            self.dtype.startswith("cat") if dtype == "cat" else self.dtype == dtype_str
         ):
             raise ValidationError(
-                f"Feature {self.name} already exists with dtype {self.dtype}, you passed {dtype}"
+                f"Feature {self.name} already exists with dtype {self.dtype}, you passed {dtype_str}"
             )
 
 

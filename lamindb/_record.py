@@ -205,6 +205,10 @@ def __init__(record: Record, *args, **kwargs):
                         f" {name_field}{version_comment}: '{kwargs[name_field]}'"
                     )
                     init_self_from_db(record, existing_record)
+                    for key, value in kwargs.items():
+                        if key != name_field and value != getattr(record, key):
+                            logger.important(f"updating field '{key}' to: {value}")
+                            setattr(record, key, value)
                     return None
         super(BasicRecord, record).__init__(**kwargs)
         if isinstance(record, ValidateFields):

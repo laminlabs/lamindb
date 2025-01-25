@@ -8,6 +8,10 @@ from lamindb.models import ULabel
 
 from ._utils import attach_func_to_class_method
 
+UPPERCASE_TYPE_NAMES_MESSAGE = (
+    "`name` starts with lowercase, name your types with upper-case letters"
+)
+
 
 def __init__(self, *args, **kwargs):
     if len(args) == len(self._meta.concrete_fields):
@@ -36,9 +40,7 @@ def __init__(self, *args, **kwargs):
                 "`name` ends with 's', in case you're naming with plural, consider the singular for a type name"
             )
         if name[0].islower():
-            raise ValidationError(
-                "`name` starts with lowercase, in case you're naming a type, consider starting with uppercase"
-            )
+            raise ValidationError(UPPERCASE_TYPE_NAMES_MESSAGE)
     super(ULabel, self).__init__(
         name=name,
         type=type,
