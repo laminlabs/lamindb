@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import anndata as ad
 import lamindb_setup as ln_setup
 import pandas as pd
+import pandera as pra
 import pyarrow as pa
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
@@ -165,6 +166,45 @@ class BaseCurator:
             A saved artifact record.
         """
         pass  # pragma: no cover
+
+
+class DataFrameCurator(BaseCurator):
+    """Curation flow for a DataFrame object.
+
+    See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
+
+    Args:
+        df: The DataFrame object to curate.
+        schema: The field attribute for the feature column.
+
+    Returns:
+        A curator object.
+
+    Examples:
+        >>> curator = ln.Curator(
+        ...     df,
+        ...     schema,
+        ... )
+    """
+
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        schema: Schema,
+    ) -> None:
+        self._df: pd.DataFrame = df
+        columns = {}
+        for feature in schema.features:
+            columns[feature.name] = pra.Column(feature.dtype)
+        self._pra_schema = pra.DataFrameSchema(columns)
+
+    def validate(self) -> bool:
+        try:
+            self._pra_schema.validate(self._df)
+            return True
+        except pra.errors.SchemaError as exc:
+            logger.warning(exc)
+            return False
 
 
 class DataFrameCuratorOld(BaseCurator):

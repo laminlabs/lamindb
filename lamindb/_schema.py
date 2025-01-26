@@ -63,11 +63,33 @@ def __init__(self, *args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: features")
+
+    # Extract primary constructor arguments
     features: Iterable[Record] = kwargs.pop("features") if len(args) == 0 else args[0]
-    dtype: str | None = kwargs.pop("dtype") if "dtype" in kwargs else None
-    name: str | None = kwargs.pop("name") if "name" in kwargs else None
-    if len(kwargs) > 0:
-        raise ValueError("Only features, dtype, name are valid keyword arguments")
+
+    # Extract all possible field values with their defaults
+    description: str | None = kwargs.pop("description", None)
+    dtype: str | None = kwargs.pop("dtype", None)
+    itype: str | None = kwargs.pop("itype", None)
+    type: Feature | None = kwargs.pop("type", None)
+    is_type: bool = kwargs.pop("is_type", False)
+    otype: str | None = kwargs.pop("otype", None)
+    minimal_set: bool = kwargs.pop("minimal_set", True)
+    ordered_set: bool = kwargs.pop("ordered_set", False)
+    maximal_set: bool = kwargs.pop("maximal_set", False)
+    composite: Schema | None = kwargs.pop("composite", None)
+    slot: str | None = kwargs.pop("slot", None)
+    validated_by: Schema | None = kwargs.pop("validated_by", None)
+
+    # Check for unexpected keyword arguments
+    if kwargs:
+        raise ValueError(
+            f"Unexpected keyword arguments: {', '.join(kwargs.keys())}\n"
+            "Valid arguments are: features, description, dtype, itype, type, "
+            "is_type, otype, minimal_set, ordered_set, maximal_set, composite, "
+            "slot, validated_by"
+        )
+
     # now code
     features_registry = validate_features(features)
     if dtype is None:
@@ -86,10 +108,20 @@ def __init__(self, *args, **kwargs):
     super(Schema, self).__init__(
         uid=ids.base62_20(),
         name=name,
+        description=description,
+        type=type,
         dtype=get_type_str(dtype),
+        is_type=is_type,
+        otype=otype,
         n=n_features,
-        registry=features_registry.__get_name_with_module__(),
+        itype=features_registry.__get_name_with_module__() if itype is None else itype,
         hash=hash,
+        minimal_set=minimal_set,
+        ordered_set=ordered_set,
+        maximal_set=maximal_set,
+        composite=composite,
+        slot=slot,
+        validated_by=validated_by,
     )
 
 
