@@ -246,7 +246,7 @@ class SpatialDataCurator:
 
         if table in self.non_validated.keys():
             if len(self.non_validated[table].values()) == 0:
-                self._non_validated.pop(table)
+                self.non_validated.pop(table)
 
     def add_new_from(
         self,
