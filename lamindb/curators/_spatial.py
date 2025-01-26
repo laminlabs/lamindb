@@ -235,16 +235,18 @@ class SpatialDataCurator:
             organism: The organism name.
             **kwargs: Additional keyword arguments to pass to create new records.
         """
-        if self._non_validated is None:
+        if self.non_validated is None:
             raise ValidationError("Run .validate() first.")
         self._kwargs.update({"organism": organism} if organism else {})
         self._table_adata_curators[table].add_new_from_var_index(
             **self._kwargs, **kwargs
         )
-        self._non_validated[table].pop("var_index")
+        if "var_index" in self.non_validated.keys():
+            self.non_validated[table].pop("var_index")
 
-        if len(self.non_validated[table].values()) == 0:
-            self.non_validated.pop(table)
+        if table in self.non_validated.keys():
+            if len(self.non_validated[table].values()) == 0:
+                self.non_validated.pop(table)
 
     def add_new_from(
         self,
@@ -267,6 +269,11 @@ class SpatialDataCurator:
         if len(kwargs) > 0 and key == "all":
             raise ValueError("Cannot pass additional arguments to 'all' key!")
 
+        if accessor not in self.categoricals:
+            raise ValueError(
+                f"Accessor {accessor} is not in 'categoricals'. Include it when creating the SpatialDataCurator."
+            )
+
         self._kwargs.update({"organism": organism} if organism else {})
         if accessor in self._table_adata_curators:
             adata_curator = self._table_adata_curators[accessor]
@@ -274,8 +281,9 @@ class SpatialDataCurator:
         if accessor == self._sample_metadata_key:
             self._sample_df_curator.add_new_from(key=key, **self._kwargs, **kwargs)
 
-        if len(self.non_validated[accessor].values()) == 0:
-            self.non_validated.pop(accessor)
+        if accessor in self.non_validated.keys():
+            if len(self.non_validated[accessor].values()) == 0:
+                self.non_validated.pop(accessor)
 
     def standardize(self, key: str, accessor: str | None = None) -> None:
         """Replace synonyms with canonical values.
@@ -342,7 +350,7 @@ class SpatialDataCurator:
             logger.info(f"validating categoricals of '{self._sample_metadata_key}' ...")
             sample_validated &= self._sample_df_curator.validate(**self._kwargs)
             if len(self._sample_df_curator.non_validated) > 0:
-                self._non_validated["sample"] = self._sample_df_curator.non_validated  # type: ignore
+                self.non_validated["sample"] = self._sample_df_curator.non_validated  # type: ignore
             logger.print("")
 
         mods_validated = True
@@ -350,7 +358,7 @@ class SpatialDataCurator:
             logger.info(f"validating categoricals of table '{table}' ...")
             mods_validated &= adata_curator.validate(**self._kwargs)
             if len(adata_curator.non_validated) > 0:
-                self._non_validated[table] = adata_curator.non_validated  # type: ignore
+                self.non_validated[table] = adata_curator.non_validated  # type: ignore
             logger.print("")
 
         self._validated = sample_validated & mods_validated
