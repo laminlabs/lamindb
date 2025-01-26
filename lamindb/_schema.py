@@ -105,9 +105,9 @@ def __init__(self, *args, **kwargs):
         "is_type": is_type,
         "otype": otype,
         "n": n_features,
-        "itype": features_registry.__get_name_with_module__()
-        if itype is None
-        else itype,
+        "itype": (
+            features_registry.__get_name_with_module__() if itype is None else itype
+        ),
         "hash": hash,
         "minimal_set": minimal_set,
         "ordered_set": ordered_set,
@@ -126,7 +126,7 @@ def __init__(self, *args, **kwargs):
     else:
         self._features = (get_related_name(features_registry), features)
         validated_kwargs["uid"] = ids.base62_20()
-        super(Schema, self).__init__(validated_kwargs)
+        super(Schema, self).__init__(**validated_kwargs)
 
 
 @doc_args(Schema.save.__doc__)
@@ -135,7 +135,14 @@ def save(self, *args, **kwargs) -> Schema:
     super(Schema, self).save(*args, **kwargs)
     if hasattr(self, "_features"):
         related_name, records = self._features
-        getattr(self, related_name).set(records)
+        # only the following method preserves the order
+        # .set() does not preserve the order but orders by
+        # the feature primary key
+        through_model = getattr(self, related_name).through
+        links = [
+            through_model(schema_id=self.id, feature_id=record.id) for record in records
+        ]
+        through_model.objects.bulk_create(links)
     return self
 
 
@@ -251,14 +258,12 @@ def members(self) -> QuerySet:
     related_name = self._get_related_name()
     if related_name is None:
         related_name = "features"
-    return self.__getattribute__(related_name).all()
+    return self.__getattribute__(related_name).order_by("links_schema__id")
 
 
 def _get_related_name(self: Schema) -> str:
-    _schemas_m2m_related_models = dict_related_model_to_related_name(
-        self, instance=self._state.db
-    )
-    related_name = _schemas_m2m_related_models.get(self.itype)
+    related_models = dict_related_model_to_related_name(self, instance=self._state.db)
+    related_name = related_models.get(self.itype)
     return related_name
 
 

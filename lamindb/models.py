@@ -3621,8 +3621,8 @@ class LinkORM:
 
 class SchemaFeature(BasicRecord, LinkORM):
     id: int = models.BigAutoField(primary_key=True)
-    schema: Schema = ForeignKey(Schema, CASCADE, related_name="+")
-    feature: Feature = ForeignKey(Feature, PROTECT, related_name="+")
+    schema: Schema = ForeignKey(Schema, CASCADE, related_name="links_feature")
+    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_schema")
 
     class Meta:
         unique_together = ("schema", "feature")
