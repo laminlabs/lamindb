@@ -347,8 +347,9 @@ class SpatialDataCurator:
 
     def save_artifact(
         self,
-        description: str | None = None,
+        *,
         key: str | None = None,
+        description: str | None = None,
         revises: Artifact | None = None,
         run: Run | None = None,
     ) -> Artifact:

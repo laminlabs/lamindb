@@ -13,7 +13,7 @@ from lamindb.base.types import FieldAttr, ListLike
 from lamindb.models import Feature, Record, Schema
 
 from ._feature import convert_pandas_dtype_to_lamin_dtype
-from ._record import init_self_from_db
+from ._record import init_self_from_db, update_attributes
 from ._utils import attach_func_to_class_method
 from .core.exceptions import ValidationError
 from .core.relations import (
@@ -68,6 +68,7 @@ def __init__(self, *args, **kwargs):
     features: Iterable[Record] = kwargs.pop("features") if len(args) == 0 else args[0]
 
     # Extract all possible field values with their defaults
+    name: str | None = kwargs.pop("name", None)
     description: str | None = kwargs.pop("description", None)
     dtype: str | None = kwargs.pop("dtype", None)
     itype: str | None = kwargs.pop("itype", None)
@@ -95,34 +96,37 @@ def __init__(self, *args, **kwargs):
     if dtype is None:
         dtype = None if features_registry == Feature else NUMBER_TYPE
     n_features = len(features)
-    features_hash = hash_set({feature.uid for feature in features})
-    schema = Schema.filter(hash=features_hash).one_or_none()
+    hash = hash_set({feature.uid for feature in features})
+    validated_kwargs = {
+        "name": name,
+        "description": description,
+        "type": type,
+        "dtype": get_type_str(dtype),
+        "is_type": is_type,
+        "otype": otype,
+        "n": n_features,
+        "itype": features_registry.__get_name_with_module__()
+        if itype is None
+        else itype,
+        "hash": hash,
+        "minimal_set": minimal_set,
+        "ordered_set": ordered_set,
+        "maximal_set": maximal_set,
+        "composite": composite,
+        "slot": slot,
+        "validated_by": validated_by,
+    }
+    # compute hash
+    schema = Schema.filter(hash=hash).one_or_none()
     if schema is not None:
-        logger.debug(f"loaded: {schema}")
+        logger.important(f"returning existing artifact with same hash: {schema}")
         init_self_from_db(self, schema)
+        update_attributes(self, validated_kwargs)
         return None
     else:
-        hash = features_hash
-    self._features = (get_related_name(features_registry), features)
-
-    super(Schema, self).__init__(
-        uid=ids.base62_20(),
-        name=name,
-        description=description,
-        type=type,
-        dtype=get_type_str(dtype),
-        is_type=is_type,
-        otype=otype,
-        n=n_features,
-        itype=features_registry.__get_name_with_module__() if itype is None else itype,
-        hash=hash,
-        minimal_set=minimal_set,
-        ordered_set=ordered_set,
-        maximal_set=maximal_set,
-        composite=composite,
-        slot=slot,
-        validated_by=validated_by,
-    )
+        self._features = (get_related_name(features_registry), features)
+        validated_kwargs["uid"] = ids.base62_20()
+        super(Schema, self).__init__(validated_kwargs)
 
 
 @doc_args(Schema.save.__doc__)

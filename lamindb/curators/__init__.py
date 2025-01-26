@@ -149,8 +149,9 @@ class BaseCurator:
 
     def save_artifact(
         self,
-        description: str | None = None,
+        *,
         key: str | None = None,
+        description: str | None = None,
         revises: Artifact | None = None,
         run: Run | None = None,
     ) -> Artifact:
@@ -194,17 +195,47 @@ class DataFrameCurator(BaseCurator):
     ) -> None:
         self._df: pd.DataFrame = df
         columns = {}
-        for feature in schema.features:
+        for feature in schema.features.all():
             columns[feature.name] = pra.Column(feature.dtype)
-        self._pra_schema = pra.DataFrameSchema(columns)
+        self._pra_schema = pra.DataFrameSchema(columns, coerce=True)
+        self._fields: dict[str, Any] = {}
+        self._columns_field = Feature.name
+        self._validated = False
 
     def validate(self) -> bool:
         try:
             self._pra_schema.validate(self._df)
+            self._validated = True
             return True
         except pra.errors.SchemaError as exc:
             logger.warning(exc)
+            self._validated = False
             return False
+
+    def save_artifact(
+        self,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ) -> Artifact:
+        if not self._validated:
+            self.validate()
+            if not self._validated:
+                raise ValidationError("Dataset does not validate. Please curate.")
+
+        self._artifact = save_artifact(
+            self._df,
+            description=description,
+            fields=self._fields,
+            columns_field=self._columns_field,
+            key=key,
+            revises=revises,
+            run=run,
+        )
+
+        return self._artifact
 
 
 class DataFrameCuratorOld(BaseCurator):
@@ -498,8 +529,9 @@ class DataFrameCuratorOld(BaseCurator):
 
     def save_artifact(
         self,
-        description: str | None = None,
+        *,
         key: str | None = None,
+        description: str | None = None,
         revises: Artifact | None = None,
         run: Run | None = None,
     ) -> Artifact:
@@ -770,8 +802,9 @@ class AnnDataCurator(DataFrameCuratorOld):
 
     def save_artifact(
         self,
-        description: str | None = None,
+        *,
         key: str | None = None,
+        description: str | None = None,
         revises: Artifact | None = None,
         run: Run | None = None,
     ) -> Artifact:
@@ -1090,8 +1123,9 @@ class MuDataCurator:
 
     def save_artifact(
         self,
-        description: str | None = None,
+        *,
         key: str | None = None,
+        description: str | None = None,
         revises: Artifact | None = None,
         run: Run | None = None,
     ) -> Artifact:
@@ -1544,8 +1578,9 @@ class SOMACurator(BaseCurator):
 
     def save_artifact(
         self,
-        description: str | None = None,
+        *,
         key: str | None = None,
+        description: str | None = None,
         revises: Artifact | None = None,
         run: Run | None = None,
     ) -> Artifact:
