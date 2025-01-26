@@ -235,18 +235,18 @@ class SpatialDataCurator:
             organism: The organism name.
             **kwargs: Additional keyword arguments to pass to create new records.
         """
-        if self.non_validated is None:
+        if self._non_validated is None:
             raise ValidationError("Run .validate() first.")
         self._kwargs.update({"organism": organism} if organism else {})
         self._table_adata_curators[table].add_new_from_var_index(
             **self._kwargs, **kwargs
         )
         if "var_index" in self.non_validated.keys():
-            self.non_validated[table].pop("var_index")
+            self._non_validated[table].pop("var_index")
 
         if table in self.non_validated.keys():
             if len(self.non_validated[table].values()) == 0:
-                self.non_validated.pop(table)
+                self._non_validated.pop(table)
 
     def add_new_from(
         self,
@@ -350,7 +350,7 @@ class SpatialDataCurator:
             logger.info(f"validating categoricals of '{self._sample_metadata_key}' ...")
             sample_validated &= self._sample_df_curator.validate(**self._kwargs)
             if len(self._sample_df_curator.non_validated) > 0:
-                self.non_validated["sample"] = self._sample_df_curator.non_validated  # type: ignore
+                self._non_validated["sample"] = self._sample_df_curator.non_validated  # type: ignore
             logger.print("")
 
         mods_validated = True
@@ -358,7 +358,7 @@ class SpatialDataCurator:
             logger.info(f"validating categoricals of table '{table}' ...")
             mods_validated &= adata_curator.validate(**self._kwargs)
             if len(adata_curator.non_validated) > 0:
-                self.non_validated[table] = adata_curator.non_validated  # type: ignore
+                self._non_validated[table] = adata_curator.non_validated  # type: ignore
             logger.print("")
 
         self._validated = sample_validated & mods_validated
