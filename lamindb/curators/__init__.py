@@ -167,7 +167,7 @@ class BaseCurator:
         pass  # pragma: no cover
 
 
-class DataFrameCurator(BaseCurator):
+class DataFrameCuratorOld(BaseCurator):
     """Curation flow for a DataFrame object.
 
     See also :class:`~lamindb.Curator`.
@@ -511,7 +511,7 @@ class DataFrameCurator(BaseCurator):
             ).delete()
 
 
-class AnnDataCurator(DataFrameCurator):
+class AnnDataCurator(DataFrameCuratorOld):
     """Curation flow for ``AnnData``.
 
     See also :class:`~lamindb.Curator`.
@@ -838,7 +838,7 @@ class MuDataCurator:
         self._verbosity = verbosity
         self._obs_df_curator = None
         if "obs" in self._modalities:
-            self._obs_df_curator = DataFrameCurator(
+            self._obs_df_curator = DataFrameCuratorOld(
                 df=mdata.obs,
                 columns=Feature.name,
                 categoricals=self._obs_fields.get("obs", {}),
@@ -1619,12 +1619,12 @@ class Curator(BaseCurator):
 
     If you find non-validated values, you have several options:
 
-    - new values found in the data can be registered using :meth:`~lamindb.core.DataFrameCurator.add_new_from`
-    - non-validated values can be accessed using :meth:`~lamindb.core.DataFrameCurator.non_validated` and addressed manually
+    - new values found in the data can be registered using :meth:`~lamindb.core.DataFrameCuratorOld.add_new_from`
+    - non-validated values can be accessed using :meth:`~lamindb.core.DataFrameCuratorOld.non_validated` and addressed manually
     """
 
     @classmethod
-    @doc_args(DataFrameCurator.__doc__)
+    @doc_args(DataFrameCuratorOld.__doc__)
     def from_df(
         cls,
         df: pd.DataFrame,
@@ -1633,9 +1633,9 @@ class Curator(BaseCurator):
         using_key: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
-    ) -> DataFrameCurator:
+    ) -> DataFrameCuratorOld:
         """{}"""  # noqa: D415
-        return DataFrameCurator(
+        return DataFrameCuratorOld(
             df=df,
             categoricals=categoricals,
             columns=columns,
