@@ -76,7 +76,7 @@ class SpatialDataCurator:
         sources: dict[str, dict[str, Record]] | None = None,
         exclude: dict[str, dict] | None = None,
         *,
-        sample_metadata_key: str = "sample",
+        sample_metadata_key: str | None = "sample",
     ) -> None:
         if sources is None:
             sources = {}
@@ -96,15 +96,19 @@ class SpatialDataCurator:
         self._using_key = using_key
         self._verbosity = verbosity
         self._sample_df_curator = None
-        self._sample_metadata = self._sdata.get_attrs(
-            key=self._sample_metadata_key, return_as="df", flatten=True
-        )
+        if self._sample_metadata_key is not None:
+            self._sample_metadata = self._sdata.get_attrs(
+                key=self._sample_metadata_key, return_as="df", flatten=True
+            )
         self._validated = False
 
         # Check validity of keys in categoricals
         nonval_keys = []
         for accessor, accessor_categoricals in self._categoricals.items():
-            if accessor == self._sample_metadata_key:
+            if (
+                accessor == self._sample_metadata_key
+                and self._sample_metadata is not None
+            ):
                 for key in accessor_categoricals.keys():
                     if key not in self._sample_metadata.columns:
                         nonval_keys.append(key)
@@ -119,18 +123,25 @@ class SpatialDataCurator:
         for name, dct in (("sources", self._sources), ("exclude", self._exclude)):
             nonval_keys = []
             for accessor, accessor_sources in dct.items():
-                columns = (
-                    self._sample_metadata.columns
-                    if accessor == self._sample_metadata_key
-                    else self._sdata[accessor].obs.columns
-                )
+                if (
+                    accessor == self._sample_metadata_key
+                    and self._sample_metadata is not None
+                ):
+                    columns = self._sample_metadata.columns
+                elif accessor != self._sample_metadata_key:
+                    columns = self._sdata[accessor].obs.columns
+                else:
+                    continue
                 for key in accessor_sources:
                     if key not in columns:
                         nonval_keys.append(key)
             _maybe_curation_keys_not_present(nonval_keys, name)
 
         # Set up sample level metadata and table Curator objects
-        if self._sample_metadata_key in self._categoricals.keys():
+        if (
+            self._sample_metadata_key is not None
+            and self._sample_metadata_key in self._categoricals
+        ):
             self._sample_df_curator = DataFrameCurator(
                 df=self._sample_metadata,
                 columns=Feature.name,
