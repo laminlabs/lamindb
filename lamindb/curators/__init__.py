@@ -195,6 +195,7 @@ class DataFrameCurator(BaseCurator):
     ) -> None:
         self._df: pd.DataFrame = df
         columns = {}
+        self._schema = schema
         for feature in schema.features.all():
             columns[feature.name] = pra.Column(feature.dtype)
         self._pra_schema = pra.DataFrameSchema(columns, coerce=True)
@@ -233,6 +234,7 @@ class DataFrameCurator(BaseCurator):
             key=key,
             revises=revises,
             run=run,
+            schema=self._schema,
         )
 
         return self._artifact
@@ -566,6 +568,7 @@ class DataFrameCuratorOld(BaseCurator):
                 key=key,
                 revises=revises,
                 run=run,
+                schema=None,
                 **self._kwargs,
             )
         finally:
@@ -838,6 +841,7 @@ class AnnDataCurator(DataFrameCuratorOld):
                 key=key,
                 revises=revises,
                 run=run,
+                schema=None,
                 **self._kwargs,
             )
         finally:
@@ -1157,6 +1161,7 @@ class MuDataCurator:
                 key=key,
                 revises=revises,
                 run=run,
+                schema=None,
                 **self._kwargs,
             )
         finally:
@@ -2136,6 +2141,7 @@ def save_artifact(
     key: str | None = None,
     revises: Artifact | None = None,
     run: Run | None = None,
+    schema: Schema | None = None,
 ) -> Artifact:
     """Save all metadata with an Artifact.
 
@@ -2199,7 +2205,10 @@ def save_artifact(
     )
 
     if artifact.otype == "DataFrame":
+        # old style
         artifact.features._add_set_from_df(field=columns_field, **feature_kwargs)  # type: ignore
+        # new style (doing both for the time being)
+        artifact.schema = schema
     elif artifact.otype == "AnnData":
         artifact.features._add_set_from_anndata(  # type: ignore
             var_field=columns_field, **feature_kwargs

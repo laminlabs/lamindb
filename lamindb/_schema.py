@@ -119,7 +119,7 @@ def __init__(self, *args, **kwargs):
     # compute hash
     schema = Schema.filter(hash=hash).one_or_none()
     if schema is not None:
-        logger.important(f"returning existing artifact with same hash: {schema}")
+        logger.important(f"returning existing schema with same hash: {schema}")
         init_self_from_db(self, schema)
         update_attributes(self, validated_kwargs)
         return None
