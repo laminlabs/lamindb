@@ -125,12 +125,25 @@ def __init__(self, *args, **kwargs):
                                 field_str = sub_type_field_split[1]
                         elif len(split_result) == 1:
                             registry_field_split = split_result[0].split(".")
-                            registry_str = registry_field_split[0]
-                            field_str = (
-                                ""
-                                if len(registry_field_split) == 1
-                                else registry_field_split[1]
-                            )
+                            if (
+                                len(registry_field_split) == 2
+                                and registry_field_split[1][0].isupper()
+                            ) or len(registry_field_split) == 3:
+                                # bionty.CellType or bionty.CellType.name
+                                registry_str = f"{registry_field_split[0]}.{registry_field_split[1]}"
+                                field_str = (
+                                    ""
+                                    if len(registry_field_split) == 2
+                                    else registry_field_split[2]
+                                )
+                            else:
+                                # ULabel or ULabel.name
+                                registry_str = registry_field_split[0]
+                                field_str = (
+                                    ""
+                                    if len(registry_field_split) == 1
+                                    else registry_field_split[1]
+                                )
                         if registry_str not in dict_module_name_to_model_name(Artifact):
                             raise ValidationError(
                                 f"'{registry_str}' is an invalid dtype, has to be registry, e.g. ULabel or bionty.CellType"

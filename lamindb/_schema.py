@@ -139,8 +139,15 @@ def save(self, *args, **kwargs) -> Schema:
         # .set() does not preserve the order but orders by
         # the feature primary key
         through_model = getattr(self, related_name).through
+        related_model_split = self.itype.split(".")
+        if len(related_model_split) == 1:
+            related_field = related_model_split[0].lower()
+        else:
+            related_field = related_model_split[1].lower()
+        related_field_id = f"{related_field}_id"
         links = [
-            through_model(schema_id=self.id, feature_id=record.id) for record in records
+            through_model(**{"schema_id": self.id, related_field_id: record.id})
+            for record in records
         ]
         through_model.objects.bulk_create(links)
     return self
