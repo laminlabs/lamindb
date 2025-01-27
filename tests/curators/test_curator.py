@@ -709,6 +709,11 @@ def test_spatialdata_curator():
     ):
         curator.save_artifact(description="test spatialdata curation")
 
+    with pytest.raises(
+        ValueError, match=re.escape("Accessor notexist is not in 'categoricals'")
+    ):
+        curator.add_new_from(key="region", accessor="notexist")
+
     assert not curator.validate()
 
     assert curator.non_validated == {
