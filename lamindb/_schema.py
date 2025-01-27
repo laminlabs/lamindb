@@ -149,7 +149,7 @@ def save(self, *args, **kwargs) -> Schema:
             through_model(**{"schema_id": self.id, related_field_id: record.id})
             for record in records
         ]
-        through_model.objects.bulk_create(links)
+        through_model.objects.bulk_create(links, ignore_conflicts=True)
     return self
 
 
