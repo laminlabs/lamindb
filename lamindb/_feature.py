@@ -31,16 +31,18 @@ def parse_dtype(dtype_str: str):
     """Helper function to extract the tested logic into a testable function."""
     result = []
 
+    # add validation that a registry actually exists
+    if dtype_str not in FEATURE_DTYPES and not dtype_str.startswith("cat"):
+        raise ValueError(f"dtype is {dtype_str} but has to be one of {FEATURE_DTYPES}!")
     if dtype_str != "cat" and dtype_str.startswith("cat"):
         assert dtype_str.endswith("]")  # noqa: S101
-        registries_str = dtype_str.replace("cat[", "")[:-1]
-
+        registries_str = dtype_str.replace("cat[", "")[:-1]  # strip last ]
         if registries_str != "":
             registry_str_list = registries_str.split("|")
             for cat_single_dtype_str in registry_str_list:
                 split_result = cat_single_dtype_str.split("[")
+                # has sub type
                 sub_type_str = ""
-
                 if len(split_result) == 2:
                     registry_str = split_result[0]
                     assert "]" in split_result[1]  # noqa: S101
@@ -57,6 +59,7 @@ def parse_dtype(dtype_str: str):
                         len(registry_field_split) == 2
                         and registry_field_split[1][0].isupper()
                     ) or len(registry_field_split) == 3:
+                        # bionty.CellType or bionty.CellType.name
                         registry_str = (
                             f"{registry_field_split[0]}.{registry_field_split[1]}"
                         )
@@ -66,17 +69,23 @@ def parse_dtype(dtype_str: str):
                             else registry_field_split[2]
                         )
                     else:
+                        # ULabel or ULabel.name
                         registry_str = registry_field_split[0]
                         field_str = (
                             ""
                             if len(registry_field_split) == 1
                             else registry_field_split[1]
                         )
-
                 if registry_str not in dict_module_name_to_model_name(Artifact):
                     raise ValidationError(
                         f"'{registry_str}' is an invalid dtype, has to be registry, e.g. ULabel or bionty.CellType"
                     )
+                if field_str != "":
+                    pass
+                    # validate that field_str is an actual field of the module
+                if sub_type_str != "":
+                    pass
+                    # validate that the subtype is a record in the registry with is_type = True
 
                 result.append(
                     {
@@ -161,63 +170,7 @@ def __init__(self, *args, **kwargs):
             dtype_str = get_dtype_str_from_dtype(dtype)
         else:
             dtype_str = dtype
-            # add validation that a registry actually exists
-            if dtype_str not in FEATURE_DTYPES and not dtype_str.startswith("cat"):
-                raise ValueError(
-                    f"dtype is {dtype_str} but has to be one of {FEATURE_DTYPES}!"
-                )
-            if dtype_str != "cat" and dtype_str.startswith("cat"):
-                assert dtype_str.endswith("]")  # noqa: S101
-                registries_str = dtype_str.replace("cat[", "")[:-1]  # strip last ]
-                if registries_str != "":
-                    registry_str_list = registries_str.split("|")
-                    for cat_single_dtype_str in registry_str_list:
-                        split_result = cat_single_dtype_str.split("[")
-                        # has sub type
-                        sub_type_str = ""
-                        if len(split_result) == 2:
-                            registry_str = split_result[0]
-                            assert "]" in split_result[1]  # noqa: S101
-                            sub_type_field_split = split_result[1].split("].")
-                            if len(sub_type_field_split) == 1:
-                                sub_type_str = sub_type_field_split[0].strip("]")
-                                field_str = ""
-                            else:
-                                sub_type_str = sub_type_field_split[0]
-                                field_str = sub_type_field_split[1]
-                        elif len(split_result) == 1:
-                            registry_field_split = split_result[0].split(".")
-                            if (
-                                len(registry_field_split) == 2
-                                and registry_field_split[1][0].isupper()
-                            ) or len(registry_field_split) == 3:
-                                # bionty.CellType or bionty.CellType.name
-                                registry_str = f"{registry_field_split[0]}.{registry_field_split[1]}"
-                                field_str = (
-                                    ""
-                                    if len(registry_field_split) == 2
-                                    else registry_field_split[2]
-                                )
-                            else:
-                                # ULabel or ULabel.name
-                                registry_str = registry_field_split[0]
-                                field_str = (
-                                    ""
-                                    if len(registry_field_split) == 1
-                                    else registry_field_split[1]
-                                )
-                        if registry_str not in dict_module_name_to_model_name(Artifact):
-                            raise ValidationError(
-                                f"'{registry_str}' is an invalid dtype, has to be registry, e.g. ULabel or bionty.CellType"
-                            )
-                        if field_str == "":
-                            field_str = "name"
-                        else:
-                            pass
-                            # validate that field_str is an actual field of the module
-                        if sub_type_str != "":
-                            pass
-                            # validate that the subtype is a record in the registry with is_type = True
+            parse_dtype(dtype_str)
         kwargs["dtype"] = dtype_str
     super(Feature, self).__init__(*args, **kwargs)
     if not self._state.adding:

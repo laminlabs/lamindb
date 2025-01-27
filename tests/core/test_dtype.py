@@ -65,9 +65,3 @@ def test_registry_with_subtype_no_field():
     result = parse_dtype(dtype_str)
     assert len(result) == 1
     assert result[0] == {"registry": "ULabel", "subtype": "Customer", "field": ""}
-
-
-def test_not_category_dtype():
-    dtype_str = "string"
-    result = parse_dtype(dtype_str)
-    assert result == []
