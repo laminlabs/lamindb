@@ -20,6 +20,7 @@ dependencies = [
     "lamindb_setup[aws]==1.0.3",
     # others
     "pyarrow",
+    "pandera",
     "typing_extensions!=4.6.0",
     "python-dateutil",
     "scipy<1.15.0", # backed sparse is incompatible with 1.15.0 for anndata 1.11.1
