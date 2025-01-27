@@ -971,7 +971,21 @@ def open(
         filepath, cache_key=cache_key
     )
     if not is_tiledbsoma_w and localpath.exists():
-        access = backed_access(localpath, mode, using_key)
+        try:
+            access = backed_access(localpath, mode, using_key)
+        except Exception as e:
+            if isinstance(filepath, LocalPathClasses):
+                raise e
+            logger.warning(
+                f"The cache might be corrupted: {e}. Trying to open directly."
+            )
+            access = backed_access(filepath, mode, using_key)
+            # happens only if backed_access has been successful
+            # delete the corrupted cache
+            if localpath.is_dir():
+                shutil.rmtree(localpath)
+            else:
+                localpath.unlink(missing_ok=True)
     else:
         access = backed_access(filepath, mode, using_key)
         if is_tiledbsoma_w:
@@ -1013,10 +1027,10 @@ def _synchronize_cleanup_on_error(
             cache_path = setup_settings.paths.cloud_to_local_no_update(
                 filepath, cache_key=cache_key
             )
-            if cache_path.is_file():
-                cache_path.unlink(missing_ok=True)
-            elif cache_path.is_dir():
+            if cache_path.is_dir():
                 shutil.rmtree(cache_path)
+            else:
+                cache_path.unlink(missing_ok=True)
         raise e
     return cache_path
 
