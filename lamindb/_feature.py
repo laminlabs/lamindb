@@ -141,7 +141,7 @@ def __init__(self, *args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) != 0:
         raise ValueError("Only keyword args allowed")
-    name: str = kwargs.pop("name") if "name" in kwargs else None
+    name: str = kwargs.pop("name", None)
     dtype: type | str | None = kwargs.pop("dtype") if "dtype" in kwargs else None
     is_type: bool = kwargs.pop("is_type") if "is_type" in kwargs else False
     type_: Feature | str | None = kwargs.pop("type") if "type" in kwargs else None
