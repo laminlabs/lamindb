@@ -209,6 +209,8 @@ def test_corrupted_cache_local():
     # just raises an exception, nothing to re-sync on local
     with pytest.raises(OSError):
         artifact.load()
+    with pytest.raises(OSError):
+        artifact.open()
 
     artifact.delete(permanent=True)
 
