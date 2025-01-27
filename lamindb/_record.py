@@ -137,6 +137,9 @@ def suggest_records_with_similar_names(
     """
     if kwargs.get(name_field) is None or not isinstance(kwargs.get(name_field), str):
         return None
+    # need to perform an additional request to find the exact match
+    # previously, this was inferred from the truncated/fuzzy search below
+    # but this isn't reliable: https://laminlabs.slack.com/archives/C04FPE8V01W/p1737812808563409
     exact_match = record.__class__.filter(name=kwargs[name_field]).one_or_none()
     if exact_match is not None:
         return exact_match
