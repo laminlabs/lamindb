@@ -140,7 +140,9 @@ def suggest_records_with_similar_names(
     # need to perform an additional request to find the exact match
     # previously, this was inferred from the truncated/fuzzy search below
     # but this isn't reliable: https://laminlabs.slack.com/archives/C04FPE8V01W/p1737812808563409
-    exact_match = record.__class__.filter(name=kwargs[name_field]).one_or_none()
+    # the below needs to be .first() because there might be multiple records with the same
+    # name field in case the record is versioned (e.g. for Transform key)
+    exact_match = record.__class__.filter(**{name_field: kwargs[name_field]}).first()
     if exact_match is not None:
         return exact_match
     queryset = _search(
