@@ -27,6 +27,68 @@ if TYPE_CHECKING:
 FEATURE_DTYPES = set(get_args(FeatureDtype))
 
 
+def parse_dtype(dtype_str: str):
+    """Helper function to extract the tested logic into a testable function."""
+    result = []
+
+    if dtype_str != "cat" and dtype_str.startswith("cat"):
+        assert dtype_str.endswith("]")  # noqa: S101
+        registries_str = dtype_str.replace("cat[", "")[:-1]
+
+        if registries_str != "":
+            registry_str_list = registries_str.split("|")
+            for cat_single_dtype_str in registry_str_list:
+                split_result = cat_single_dtype_str.split("[")
+                sub_type_str = ""
+
+                if len(split_result) == 2:
+                    registry_str = split_result[0]
+                    assert "]" in split_result[1]  # noqa: S101
+                    sub_type_field_split = split_result[1].split("].")
+                    if len(sub_type_field_split) == 1:
+                        sub_type_str = sub_type_field_split[0].strip("]")
+                        field_str = ""
+                    else:
+                        sub_type_str = sub_type_field_split[0]
+                        field_str = sub_type_field_split[1]
+                elif len(split_result) == 1:
+                    registry_field_split = split_result[0].split(".")
+                    if (
+                        len(registry_field_split) == 2
+                        and registry_field_split[1][0].isupper()
+                    ) or len(registry_field_split) == 3:
+                        registry_str = (
+                            f"{registry_field_split[0]}.{registry_field_split[1]}"
+                        )
+                        field_str = (
+                            ""
+                            if len(registry_field_split) == 2
+                            else registry_field_split[2]
+                        )
+                    else:
+                        registry_str = registry_field_split[0]
+                        field_str = (
+                            ""
+                            if len(registry_field_split) == 1
+                            else registry_field_split[1]
+                        )
+
+                if registry_str not in dict_module_name_to_model_name(Artifact):
+                    raise ValidationError(
+                        f"'{registry_str}' is an invalid dtype, has to be registry, e.g. ULabel or bionty.CellType"
+                    )
+
+                result.append(
+                    {
+                        "registry": registry_str,
+                        "subtype": sub_type_str,
+                        "field": field_str,
+                    }
+                )
+
+    return result
+
+
 def get_dtype_str_from_dtype(dtype: Any) -> str:
     if not isinstance(dtype, list) and dtype.__name__ in FEATURE_DTYPES:
         dtype_str = dtype.__name__
