@@ -27,13 +27,12 @@ if TYPE_CHECKING:
 FEATURE_DTYPES = set(get_args(FeatureDtype))
 
 
-def parse_dtype(dtype_str: str):
-    """Helper function to extract the tested logic into a testable function."""
-    result = []
-
-    # add validation that a registry actually exists
+def parse_dtype(dtype_str: str) -> None:
+    # simple dtypes are in FEATURE_DTYPES, composed dtypes are in the form `cat...`
+    # if we don't have any of these, throw an error
     if dtype_str not in FEATURE_DTYPES and not dtype_str.startswith("cat"):
         raise ValueError(f"dtype is {dtype_str} but has to be one of {FEATURE_DTYPES}!")
+    # now deal with composed categorical dtypes
     if dtype_str != "cat" and dtype_str.startswith("cat"):
         assert dtype_str.endswith("]")  # noqa: S101
         registries_str = dtype_str.replace("cat[", "")[:-1]  # strip last ]
@@ -86,16 +85,6 @@ def parse_dtype(dtype_str: str):
                 if sub_type_str != "":
                     pass
                     # validate that the subtype is a record in the registry with is_type = True
-
-                result.append(
-                    {
-                        "registry": registry_str,
-                        "subtype": sub_type_str,
-                        "field": field_str,
-                    }
-                )
-
-    return result
 
 
 def get_dtype_str_from_dtype(dtype: Any) -> str:
