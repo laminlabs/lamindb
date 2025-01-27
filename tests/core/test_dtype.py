@@ -3,7 +3,6 @@ from lamindb._feature import parse_dtype
 from lamindb.core.exceptions import ValidationError
 
 
-# Test cases
 def test_simple_ulabel_with_subtype_and_field():
     dtype_str = "cat[ULabel[Customer].name]"
     result = parse_dtype(dtype_str)
