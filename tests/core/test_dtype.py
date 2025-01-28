@@ -1,4 +1,6 @@
+import bionty
 import pytest
+from lamindb import ULabel
 from lamindb._feature import parse_dtype
 from lamindb.core.exceptions import ValidationError
 
@@ -11,6 +13,8 @@ def test_simple_ulabel_with_subtype_and_field():
         "registry_str": "ULabel",
         "subtype_str": "Customer",
         "field_str": "name",
+        "registry": ULabel,
+        "field": ULabel.name,
     }
 
 
@@ -22,22 +26,28 @@ def test_multiple_ulabels_with_subtypes_and_fields():
         "registry_str": "ULabel",
         "subtype_str": "Customer",
         "field_str": "name",
+        "registry": ULabel,
+        "field": ULabel.name,
     }
     assert result[1] == {
         "registry_str": "ULabel",
         "subtype_str": "Supplier",
         "field_str": "name",
+        "registry": ULabel,
+        "field": ULabel.name,
     }
 
 
 def test_bionty_celltype_with_field():
-    dtype_str = "cat[bionty.CellType.name]"
+    dtype_str = "cat[bionty.CellType.ontology_id]"
     result = parse_dtype(dtype_str)
     assert len(result) == 1
     assert result[0] == {
         "registry_str": "bionty.CellType",
         "subtype_str": "",
-        "field_str": "name",
+        "field_str": "ontology_id",
+        "registry": bionty.CellType,
+        "field": bionty.CellType.ontology_id,
     }
 
 
@@ -49,11 +59,15 @@ def test_bionty_perturbations_with_field():
         "registry_str": "bionty.CellType",
         "subtype_str": "",
         "field_str": "uid",
+        "registry": bionty.CellType,
+        "field": bionty.CellType.uid,
     }
     assert result[1] == {
         "registry_str": "bionty.CellLine",
         "subtype_str": "",
         "field_str": "uid",
+        "registry": bionty.CellLine,
+        "field": bionty.CellLine.uid,
     }
 
 
@@ -84,6 +98,8 @@ def test_simple_registry_without_field():
         "registry_str": "ULabel",
         "subtype_str": "",
         "field_str": "name",
+        "registry": ULabel,
+        "field": ULabel.name,
     }
 
 
@@ -95,4 +111,6 @@ def test_registry_with_subtype_no_field():
         "registry_str": "ULabel",
         "subtype_str": "Customer",
         "field_str": "name",
+        "registry": ULabel,
+        "field": ULabel.name,
     }
