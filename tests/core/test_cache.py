@@ -209,6 +209,8 @@ def test_corrupted_cache_local():
     # just raises an exception, nothing to re-sync on local
     with pytest.raises(OSError):
         artifact.load()
+    with pytest.raises(OSError):
+        artifact.open()
 
     artifact.delete(permanent=True)
 
@@ -234,5 +236,14 @@ def test_corrupted_cache_cloud(switch_storage):
         load_h5ad(artifact.cache())
     # should load successfully
     artifact.load()
+    # check open also
+    assert artifact._cache_path.exists()
+    with open(artifact._cache_path, "r+b") as f:
+        f.write(b"corruption")
+    # should open successfully
+    with artifact.open():
+        pass
+    # corrupted cache has been deleted
+    assert not artifact._cache_path.exists()
 
     artifact.delete(permanent=True)
