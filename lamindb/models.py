@@ -2276,7 +2276,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     Args:
         data: `UPathStr` A path to a local or remote folder or file.
-        type: `Literal["dataset", "model"] | None = None` The artifact type.
+        kind: `Literal["dataset", "model"] | None = None` Distinguish models from datasets from other files & folders.
         key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
         description: `str | None = None` A description.
         revises: `Artifact | None = None` Previous version of the artifact. Triggers a revision.
@@ -2566,7 +2566,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         # here; and we might refactor this but we might also keep that internal
         # usage
         data: UPathStr,
-        type: ArtifactKind | None = None,
+        kind: ArtifactKind | None = None,
         key: str | None = None,
         description: str | None = None,
         revises: Artifact | None = None,
