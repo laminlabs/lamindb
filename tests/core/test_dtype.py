@@ -80,7 +80,11 @@ def test_simple_registry_without_field():
     dtype_str = "cat[ULabel]"
     result = parse_dtype(dtype_str)
     assert len(result) == 1
-    assert result[0] == {"registry_str": "ULabel", "subtype_str": "", "field_str": ""}
+    assert result[0] == {
+        "registry_str": "ULabel",
+        "subtype_str": "",
+        "field_str": "name",
+    }
 
 
 def test_registry_with_subtype_no_field():
@@ -90,5 +94,5 @@ def test_registry_with_subtype_no_field():
     assert result[0] == {
         "registry_str": "ULabel",
         "subtype_str": "Customer",
-        "field_str": "",
+        "field_str": "name",
     }

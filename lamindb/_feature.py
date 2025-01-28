@@ -81,13 +81,19 @@ def parse_dtype(dtype_str: str) -> list[dict[str, str]]:
                     raise ValidationError(
                         f"'{registry_str}' is an invalid dtype, has to be registry, e.g. ULabel or bionty.CellType"
                     )
-                if field_str != "":
-                    pass
-                    # validate that field_str is an actual field of the module
                 if sub_type_str != "":
                     pass
                     # validate that the subtype is a record in the registry with is_type = True
                 registry = related_registries[registry_str]
+                if field_str != "":
+                    pass
+                    # validate that field_str is an actual field of the module
+                else:
+                    field_str = (
+                        registry._name_field
+                        if hasattr(registry, "_name_field")
+                        else "name"
+                    )
                 result.append(
                     {
                         "registry": registry,
