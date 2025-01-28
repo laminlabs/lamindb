@@ -15,7 +15,7 @@ from lamindb.core.exceptions import ValidationError
 from lamindb.curators import (
     AnnDataCurator,
     CurateLookup,
-    DataFrameCuratorOld,
+    DataFrameCatCurator,
     _maybe_curation_keys_not_present,
     _ref_is_name,
     check_registry_organism,
@@ -142,7 +142,7 @@ class SpatialDataCurator:
             self._sample_metadata_key is not None
             and self._sample_metadata_key in self._categoricals
         ):
-            self._sample_df_curator = DataFrameCuratorOld(
+            self._sample_df_curator = DataFrameCatCurator(
                 df=self._sample_metadata,
                 columns=Feature.name,
                 categoricals=self._categoricals.get(self._sample_metadata_key, {}),

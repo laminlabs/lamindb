@@ -223,7 +223,7 @@ class DataFrameCurator(BaseCurator):
                 categoricals[feature.name] = parse_dtype(feature.dtype)[0]["field"]
         self._pda_schema = pda.DataFrameSchema(non_categoricals, coerce=True)
         # now deal with categorical features using the old-style curator
-        self._cat_curator = DataFrameCuratorOld(
+        self._cat_curator = DataFrameCatCurator(
             df,
             categoricals=categoricals,
         )
@@ -258,7 +258,7 @@ class DataFrameCurator(BaseCurator):
         )
 
 
-class DataFrameCuratorOld(BaseCurator):
+class DataFrameCatCurator(BaseCurator):
     """Curation flow for a DataFrame object.
 
     See also :class:`~lamindb.Curator`.
@@ -605,7 +605,7 @@ class DataFrameCuratorOld(BaseCurator):
             ).delete()
 
 
-class AnnDataCurator(DataFrameCuratorOld):
+class AnnDataCurator(DataFrameCatCurator):
     """Curation flow for ``AnnData``.
 
     See also :class:`~lamindb.Curator`.
@@ -935,7 +935,7 @@ class MuDataCurator:
         self._verbosity = verbosity
         self._obs_df_curator = None
         if "obs" in self._modalities:
-            self._obs_df_curator = DataFrameCuratorOld(
+            self._obs_df_curator = DataFrameCatCurator(
                 df=mdata.obs,
                 columns=Feature.name,
                 categoricals=self._obs_fields.get("obs", {}),
@@ -1719,12 +1719,12 @@ class Curator(BaseCurator):
 
     If you find non-validated values, you have several options:
 
-    - new values found in the data can be registered using :meth:`~lamindb.core.DataFrameCuratorOld.add_new_from`
-    - non-validated values can be accessed using :meth:`~lamindb.core.DataFrameCuratorOld.non_validated` and addressed manually
+    - new values found in the data can be registered using :meth:`~lamindb.core.DataFrameCatCurator.add_new_from`
+    - non-validated values can be accessed using :meth:`~lamindb.core.DataFrameCatCurator.non_validated` and addressed manually
     """
 
     @classmethod
-    @doc_args(DataFrameCuratorOld.__doc__)
+    @doc_args(DataFrameCatCurator.__doc__)
     def from_df(
         cls,
         df: pd.DataFrame,
@@ -1733,9 +1733,9 @@ class Curator(BaseCurator):
         using_key: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
-    ) -> DataFrameCuratorOld:
+    ) -> DataFrameCatCurator:
         """{}"""  # noqa: D415
-        return DataFrameCuratorOld(
+        return DataFrameCatCurator(
             df=df,
             categoricals=categoricals,
             columns=columns,

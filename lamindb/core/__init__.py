@@ -32,7 +32,7 @@ Curators:
    :toctree: .
 
    BaseCurator
-   DataFrameCuratorOld
+   DataFrameCatCurator
    AnnDataCurator
    MuDataCurator
    SOMACurator
@@ -78,7 +78,7 @@ from lamindb.curators import (
     AnnDataCurator,
     BaseCurator,
     CurateLookup,
-    DataFrameCuratorOld,
+    DataFrameCatCurator,
     MuDataCurator,
     SOMACurator,
 )
