@@ -7,30 +7,54 @@ def test_simple_ulabel_with_subtype_and_field():
     dtype_str = "cat[ULabel[Customer].name]"
     result = parse_dtype(dtype_str)
     assert len(result) == 1
-    assert result[0] == {"registry": "ULabel", "subtype": "Customer", "field": "name"}
+    assert result[0] == {
+        "registry_str": "ULabel",
+        "subtype_str": "Customer",
+        "field_str": "name",
+    }
 
 
 def test_multiple_ulabels_with_subtypes_and_fields():
     dtype_str = "cat[ULabel[Customer].name|ULabel[Supplier].name]"
     result = parse_dtype(dtype_str)
     assert len(result) == 2
-    assert result[0] == {"registry": "ULabel", "subtype": "Customer", "field": "name"}
-    assert result[1] == {"registry": "ULabel", "subtype": "Supplier", "field": "name"}
+    assert result[0] == {
+        "registry_str": "ULabel",
+        "subtype_str": "Customer",
+        "field_str": "name",
+    }
+    assert result[1] == {
+        "registry_str": "ULabel",
+        "subtype_str": "Supplier",
+        "field_str": "name",
+    }
 
 
 def test_bionty_celltype_with_field():
     dtype_str = "cat[bionty.CellType.name]"
     result = parse_dtype(dtype_str)
     assert len(result) == 1
-    assert result[0] == {"registry": "bionty.CellType", "subtype": "", "field": "name"}
+    assert result[0] == {
+        "registry_str": "bionty.CellType",
+        "subtype_str": "",
+        "field_str": "name",
+    }
 
 
 def test_bionty_perturbations_with_field():
     dtype_str = "cat[bionty.CellType.uid|bionty.CellLine.uid]"
     result = parse_dtype(dtype_str)
     assert len(result) == 2
-    assert result[0] == {"registry": "bionty.CellType", "subtype": "", "field": "uid"}
-    assert result[1] == {"registry": "bionty.CellLine", "subtype": "", "field": "uid"}
+    assert result[0] == {
+        "registry_str": "bionty.CellType",
+        "subtype_str": "",
+        "field_str": "uid",
+    }
+    assert result[1] == {
+        "registry_str": "bionty.CellLine",
+        "subtype_str": "",
+        "field_str": "uid",
+    }
 
 
 def test_invalid_registry():
@@ -56,11 +80,15 @@ def test_simple_registry_without_field():
     dtype_str = "cat[ULabel]"
     result = parse_dtype(dtype_str)
     assert len(result) == 1
-    assert result[0] == {"registry": "ULabel", "subtype": "", "field": ""}
+    assert result[0] == {"registry_str": "ULabel", "subtype_str": "", "field_str": ""}
 
 
 def test_registry_with_subtype_no_field():
     dtype_str = "cat[ULabel[Customer]]"
     result = parse_dtype(dtype_str)
     assert len(result) == 1
-    assert result[0] == {"registry": "ULabel", "subtype": "Customer", "field": ""}
+    assert result[0] == {
+        "registry_str": "ULabel",
+        "subtype_str": "Customer",
+        "field_str": "",
+    }

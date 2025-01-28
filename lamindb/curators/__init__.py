@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import copy
+import re
 import warnings
 from itertools import chain
 from typing import TYPE_CHECKING
@@ -23,6 +24,7 @@ from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import UPath
 
+from lamindb._feature import parse_dtype
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.models import (
     Artifact,
@@ -44,6 +46,12 @@ if TYPE_CHECKING:
     from mudata import MuData
 
     from lamindb._query_set import RecordList
+
+
+def strip_ansi_codes(text):
+    # This pattern matches ANSI escape sequences
+    ansi_pattern = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_pattern.sub("", text)
 
 
 class CurateLookup:
@@ -124,6 +132,9 @@ class CurateLookup:
 class BaseCurator:
     """Curate a dataset."""
 
+    def __init__(self):
+        self._validate_category_error_messages: str = ""
+
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         import sys
@@ -133,13 +144,13 @@ class BaseCurator:
             if hasattr(cls, "_add_new_from_columns"):
                 cls.add_new_from_columns = cls._add_new_from_columns
 
-    def validate(self) -> bool:
+    def validate(self) -> bool | str:
         """Validate dataset.
 
         This method also registers the validated records in the current instance.
 
         Returns:
-            Boolean indicating whether the dataset is validated.
+            The boolean `True` if the dataset is validated. Otherwise, a string with the error message.
         """
         pass  # pdagma: no cover
 
@@ -200,24 +211,39 @@ class DataFrameCurator(BaseCurator):
         schema: Schema,
     ) -> None:
         self._df: pd.DataFrame = df
-        columns = {}
+        non_categoricals = {}
+        categoricals = {}
         self._schema = schema
         for feature in schema.features.all():
-            columns[feature.name] = pda.Column(feature.dtype)
-        self._pda_schema = pda.DataFrameSchema(columns, coerce=True)
-        self._fields: dict[str, Any] = {}
-        self._columns_field = Feature.name
-        self._validated = False
+            pda_dtype = (
+                feature.dtype if not feature.dtype.startswith("cat") else "category"
+            )
+            non_categoricals[feature.name] = pda.Column(pda_dtype)
+            if feature.dtype.startswith("cat"):
+                categoricals[feature.name] = parse_dtype(feature.dtype)[0]["field"]
+        self._pda_schema = pda.DataFrameSchema(non_categoricals, coerce=True)
+        # now deal with categorical features using the old-style curator
+        self._cat_curator = DataFrameCuratorOld(
+            df,
+            categoricals=categoricals,
+        )
 
-    def validate(self) -> bool:
+    def validate(self) -> bool | str:
+        self._cat_curator.validate()
         try:
             self._pda_schema.validate(self._df)
-            self._validated = True
-            return True
-        except pda.errors.SchemaError as exc:
-            logger.warning(exc)
-            self._validated = False
-            return False
+            if self._cat_curator._validated:
+                return True
+            else:
+                return self._cat_curator._validate_category_error_messages
+        except pda.errors.SchemaError as err:
+            # .exconly() doesn't seem to exist on SchemaError
+            str_message = str(err)
+            logger.warning(str_message)
+            # need to set the cat curator to False
+            self._cat_curator._validated = False
+            # return the error message so that we can test for it
+            return str_message
 
     def save_artifact(
         self,
@@ -227,23 +253,9 @@ class DataFrameCurator(BaseCurator):
         revises: Artifact | None = None,
         run: Run | None = None,
     ) -> Artifact:
-        if not self._validated:
-            self.validate()
-            if not self._validated:
-                raise ValidationError("Dataset does not validate. Please curate.")
-
-        self._artifact = save_artifact(
-            self._df,
-            description=description,
-            fields=self._fields,
-            columns_field=self._columns_field,
-            key=key,
-            revises=revises,
-            run=run,
-            schema=self._schema,
+        return self._cat_curator.save_artifact(
+            key=key, description=description, revises=revises, run=run
         )
-
-        return self._artifact
 
 
 class DataFrameCuratorOld(BaseCurator):
@@ -524,13 +536,14 @@ class DataFrameCuratorOld(BaseCurator):
 
         # add all validated records to the current instance
         self._update_registry_all()
-
+        self._validate_category_error_messages = ""  # reset the error messages
         self._validated, self._non_validated = validate_categories_in_df(  # type: ignore
             self._df,
             fields=self.fields,
             using_key=self._using_key,
             sources=self._sources,
             exclude=self._exclude,
+            curator=self,
             **self._kwargs,
         )
         return self._validated
@@ -773,6 +786,7 @@ class AnnDataCurator(DataFrameCuratorOld):
             using_key=self._using_key,
             sources=self._sources,
             exclude=self._exclude,
+            curator=self,
             **self._kwargs,
         )
         self._non_validated = non_validated_obs  # type: ignore
@@ -1964,6 +1978,7 @@ def validate_categories(
     source: Record | None = None,
     exclude: str | list | None = None,
     hint_print: str | None = None,
+    curator: BaseCurator | None = None,
 ) -> tuple[bool, list]:
     """Validate ontology terms in a pandas series using LaminDB registries.
 
@@ -2063,6 +2078,10 @@ def validate_categories(
         if logger.indent == "":
             _log_mapping_info()
         logger.warning(warning_message)
+        if curator is not None:
+            curator._validate_category_error_messages = strip_ansi_codes(
+                warning_message
+            )
         logger.indent = ""
         return False, non_validated
 
@@ -2111,6 +2130,7 @@ def validate_categories_in_df(
     using_key: str | None = None,
     sources: dict[str, Record] = None,
     exclude: dict | None = None,
+    curator: BaseCurator | None = None,
     **kwargs,
 ) -> tuple[bool, dict]:
     """Validate categories in DataFrame columns using LaminDB registries."""
@@ -2129,6 +2149,7 @@ def validate_categories_in_df(
             using_key=using_key,
             source=sources.get(key),
             exclude=exclude.get(key) if exclude else None,
+            curator=curator,
             **kwargs,
         )
         validated &= is_val

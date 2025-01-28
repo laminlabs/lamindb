@@ -27,13 +27,15 @@ if TYPE_CHECKING:
 FEATURE_DTYPES = set(get_args(FeatureDtype))
 
 
-def parse_dtype(dtype_str: str) -> None:
+def parse_dtype(dtype_str: str) -> list[dict[str, str]]:
+    result = []
     # simple dtypes are in FEATURE_DTYPES, composed dtypes are in the form `cat...`
     # if we don't have any of these, throw an error
     if dtype_str not in FEATURE_DTYPES and not dtype_str.startswith("cat"):
         raise ValueError(f"dtype is {dtype_str} but has to be one of {FEATURE_DTYPES}!")
     # now deal with composed categorical dtypes
     if dtype_str != "cat" and dtype_str.startswith("cat"):
+        related_registries = dict_module_name_to_model_name(Artifact)
         assert dtype_str.endswith("]")  # noqa: S101
         registries_str = dtype_str.replace("cat[", "")[:-1]  # strip last ]
         if registries_str != "":
@@ -75,7 +77,7 @@ def parse_dtype(dtype_str: str) -> None:
                             if len(registry_field_split) == 1
                             else registry_field_split[1]
                         )
-                if registry_str not in dict_module_name_to_model_name(Artifact):
+                if registry_str not in related_registries:
                     raise ValidationError(
                         f"'{registry_str}' is an invalid dtype, has to be registry, e.g. ULabel or bionty.CellType"
                     )
@@ -85,6 +87,17 @@ def parse_dtype(dtype_str: str) -> None:
                 if sub_type_str != "":
                     pass
                     # validate that the subtype is a record in the registry with is_type = True
+                registry = related_registries[registry_str]
+                result.append(
+                    {
+                        "registry": registry,
+                        "registry_str": registry_str,
+                        "subtype_str": sub_type_str,
+                        "field_str": field_str,
+                        "field": getattr(registry, field_str),
+                    }
+                )
+    return result
 
 
 def get_dtype_str_from_dtype(dtype: Any) -> str:
