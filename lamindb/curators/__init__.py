@@ -1,3 +1,12 @@
+"""Curators.
+
+.. autosummary::
+   :toctree: .
+
+   DataFrameCurator
+
+"""
+
 from __future__ import annotations
 
 import copy
@@ -8,7 +17,7 @@ from typing import TYPE_CHECKING
 import anndata as ad
 import lamindb_setup as ln_setup
 import pandas as pd
-import pandera as pra
+import pandera as pda
 import pyarrow as pa
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
@@ -108,7 +117,7 @@ class CurateLookup:
                 "    → categories.alveolar_type_1_fibroblast_cell\n\n"
                 "To look up public ontologies, use .lookup(public=True)"
             )
-        else:  # pragma: no cover
+        else:  # pdagma: no cover
             return colors.warning("No fields are found!")
 
 
@@ -132,7 +141,7 @@ class BaseCurator:
         Returns:
             Boolean indicating whether the dataset is validated.
         """
-        pass  # pragma: no cover
+        pass  # pdagma: no cover
 
     def standardize(self, key: str) -> None:
         """Replace synonyms with standardized values.
@@ -145,7 +154,7 @@ class BaseCurator:
         Returns:
             None
         """
-        pass  # pragma: no cover
+        pass  # pdagma: no cover
 
     def save_artifact(
         self,
@@ -166,23 +175,20 @@ class BaseCurator:
         Returns:
             A saved artifact record.
         """
-        pass  # pragma: no cover
+        pass  # pdagma: no cover
 
 
 class DataFrameCurator(BaseCurator):
-    """Curation flow for a DataFrame object.
+    """Curator for a DataFrame object.
 
     See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
 
     Args:
-        df: The DataFrame object to curate.
-        schema: The field attribute for the feature column.
-
-    Returns:
-        A curator object.
+        df: The DataFrame-like object to validate & annotate.
+        schema: A `Schema` object that defines the validation constraints.
 
     Examples:
-        >>> curator = ln.Curator(
+        >>> curator = ln.curators.DataFrameCurator(
         ...     df,
         ...     schema,
         ... )
@@ -197,18 +203,18 @@ class DataFrameCurator(BaseCurator):
         columns = {}
         self._schema = schema
         for feature in schema.features.all():
-            columns[feature.name] = pra.Column(feature.dtype)
-        self._pra_schema = pra.DataFrameSchema(columns, coerce=True)
+            columns[feature.name] = pda.Column(feature.dtype)
+        self._pda_schema = pda.DataFrameSchema(columns, coerce=True)
         self._fields: dict[str, Any] = {}
         self._columns_field = Feature.name
         self._validated = False
 
     def validate(self) -> bool:
         try:
-            self._pra_schema.validate(self._df)
+            self._pda_schema.validate(self._df)
             self._validated = True
             return True
-        except pra.errors.SchemaError as exc:
+        except pda.errors.SchemaError as exc:
             logger.warning(exc)
             self._validated = False
             return False
@@ -648,7 +654,7 @@ class AnnDataCurator(DataFrameCuratorOld):
             )
         if isinstance(data, ad.AnnData):
             self._adata = data
-        else:  # pragma: no cover
+        else:  # pdagma: no cover
             from lamindb.core.storage._backed_access import backed_access
 
             self._adata = backed_access(upath.create_path(data))
@@ -2288,7 +2294,7 @@ def save_artifact(
         )
 
     slug = ln_setup.settings.instance.slug
-    if ln_setup.settings.instance.is_remote:  # pragma: no cover
+    if ln_setup.settings.instance.is_remote:  # pdagma: no cover
         logger.important(f"go to https://lamin.ai/{slug}/artifact/{artifact.uid}")
     return artifact
 
