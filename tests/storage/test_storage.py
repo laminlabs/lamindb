@@ -431,7 +431,7 @@ def test_anndata_n_observations(bad_adata_path):
 
     corrupted_path = Path("./corrupted.h5ad")
     shutil.copy(bad_adata_path, corrupted_path)
-    with h5py.File(corrupted_path, mode="w") as f:
+    with h5py.File(corrupted_path, mode="r+") as f:
         del f["obs"]
         assert "obs" not in f
     assert _anndata_n_observations(corrupted_path) is None
