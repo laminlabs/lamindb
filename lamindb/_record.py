@@ -228,11 +228,21 @@ def __init__(record: Record, *args, **kwargs):
             f.name
             for f in record._meta.concrete_fields
             if not f.name.startswith("_")
-            and f.name not in ("created_at", "updated_at", "id")
+            and f.name
+            not in (
+                "id",
+                "uid",
+                "created_at",
+                "updated_at",
+                "created_by",
+                "run",
+                "space",
+                "synonyms",
+            )
         ]
         raise ValueError(
             f"Please provide keyword arguments. Valid fields: {valid_field_names}"
-        )
+        ) from None
     else:
         # object is loaded from DB (**kwargs could be omitted below, I believe)
         super(BasicRecord, record).__init__(*args, **kwargs)
