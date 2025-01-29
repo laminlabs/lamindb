@@ -1353,7 +1353,7 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
     """
     records: Param
     """Records of this type."""
-    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     _expect_many: bool = models.BooleanField(default=False, db_default=False)
     """Indicates whether values for this param are expected to occur a single or multiple times for an artifact/run (default `False`).
@@ -1687,7 +1687,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     """
     records: ULabel
     """Records of this type."""
-    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type.
 
     For example, a ulabel "Project" would be a type, and the actual projects "Project 1", "Project 2", would be records of that `type`.
@@ -1844,7 +1844,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     """Universal id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True, unique=True)
     """Name of feature (hard unique constraint `unique=True`)."""
-    dtype: FeatureDtype = CharField(db_index=True)
+    dtype: FeatureDtype | None = CharField(db_index=True, null=True)
     """Data type (:class:`~lamindb.base.types.FeatureDtype`).
 
     For categorical types, can define from which registry values are
@@ -1860,7 +1860,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     """
     records: Feature
     """Records of this type."""
-    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     unit: str | None = CharField(max_length=30, db_index=True, null=True)
     """Unit of measure, ideally SI (`m`, `s`, `kg`, etc.) or 'normalized' etc. (optional)."""
@@ -2122,7 +2122,7 @@ class Schema(Record, CanCurate, TracksRun):
     """
     records: Feature
     """Records of this type."""
-    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     otype: str | None = CharField(max_length=64, db_index=True, null=True)
     """Default Python object type, e.g., DataFrame, AnnData."""
@@ -2276,7 +2276,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     Args:
         data: `UPathStr` A path to a local or remote folder or file.
-        type: `Literal["dataset", "model"] | None = None` The artifact type.
+        kind: `Literal["dataset", "model"] | None = None` Distinguish models from datasets from other files & folders.
         key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
         description: `str | None = None` A description.
         revises: `Artifact | None = None` Previous version of the artifact. Triggers a revision.
@@ -2566,7 +2566,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         # here; and we might refactor this but we might also keep that internal
         # usage
         data: UPathStr,
-        type: ArtifactKind | None = None,
+        kind: ArtifactKind | None = None,
         key: str | None = None,
         description: str | None = None,
         revises: Artifact | None = None,
@@ -3333,7 +3333,7 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Type of project (e.g., 'Program', 'Project', 'GithubIssue', 'Task')."""
     records: Project
     """Records of this type."""
-    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     abbr: str | None = CharField(max_length=32, db_index=True, null=True)
     """An abbreviation."""
@@ -3437,7 +3437,7 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """
     records: Reference
     """Records of this type."""
-    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     url: str | None = URLField(null=True)
     """URL linking to the reference."""
@@ -3577,7 +3577,7 @@ class FlexTable(Record, TracksRun, TracksUpdates):
     """Type of tidy table, e.g., `Cell`, `SampleSheet`, etc."""
     records: ULabel
     """Records of this type."""
-    is_type: bool = BooleanField(default=None, db_index=True, null=True)
+    is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     description: str = CharField(null=True, db_index=True)
     """A description."""
@@ -3624,8 +3624,8 @@ class LinkORM:
 
 class SchemaFeature(BasicRecord, LinkORM):
     id: int = models.BigAutoField(primary_key=True)
-    schema: Schema = ForeignKey(Schema, CASCADE, related_name="+")
-    feature: Feature = ForeignKey(Feature, PROTECT, related_name="+")
+    schema: Schema = ForeignKey(Schema, CASCADE, related_name="links_feature")
+    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_schema")
 
     class Meta:
         unique_together = ("schema", "feature")

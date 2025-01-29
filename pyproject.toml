@@ -20,6 +20,7 @@ dependencies = [
     "lamindb_setup[aws]==1.0.3",
     # others
     "pyarrow",
+    "pandera",
     "typing_extensions!=4.6.0",
     "python-dateutil",
     "scipy<1.15.0", # backed sparse is incompatible with 1.15.0 for anndata 1.11.1
@@ -28,6 +29,7 @@ dependencies = [
     "fsspec",
     "graphviz",
     "psycopg2-binary",
+    "storage3<=0.11.1; python_version < '3.11'", # 0.11.2 breaks python 3.10 through usage of new types
 ]
 
 [project.urls]
