@@ -714,10 +714,7 @@ def from_anndata(
     """{}"""  # noqa: D415
     if not data_is_anndata(adata):
         raise ValueError("data has to be an AnnData object or a path to AnnData-like")
-    if "n_observations" not in kwargs:
-        n_observations = _anndata_n_observations(adata)
-    else:
-        n_observations = kwargs.pop("n_observations")
+    n_observations = _anndata_n_observations(adata)
     artifact = Artifact(  # type: ignore
         data=adata,
         key=key,
@@ -729,6 +726,7 @@ def from_anndata(
         n_observations=n_observations,
         **kwargs,
     )
+    artifact.n_observations = n_observations
     return artifact
 
 
