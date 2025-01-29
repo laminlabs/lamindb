@@ -6,8 +6,8 @@ from lamindb.core.exceptions import ValidationError
 
 # some validate tests are in test_queryset
 def test_inspect():
-    ln.Schema.filter().all().delete()
-    bt.Gene.filter().all().delete()
+    ln.Schema.filter().delete()
+    bt.Gene.filter().delete()
     bt.settings.organism = "human"
     result = bt.Gene.inspect("TCF7", "symbol")
     assert result.validated == []
@@ -19,7 +19,38 @@ def test_inspect():
     assert result.validated == ["TCF7"]
 
     # clean up
-    bt.Gene.filter().all().delete()
+    bt.Gene.filter().delete()
+
+
+# if a record was added to the DB via a different source
+# it will still be validated because it's in the DB
+def test_inspect_source():
+    source1 = bt.Source.get("1Lhf")
+    source2 = bt.Source.get("2dfU")
+    bt.CellType.from_source(name="T cell", source=source1).save()
+    assert bt.CellType.inspect("T-cell", source=source2, mute=True).synonyms_mapper == {
+        "T-cell": "T cell"
+    }
+    assert (
+        bt.CellType.inspect(
+            "T-cell", source=source2, mute=True, strict_source=True
+        ).synonyms_mapper
+        == {}
+    )
+    assert bt.CellType.validate("T cell", source=source2, mute=True).sum() == 1
+    assert (
+        bt.CellType.validate(
+            "T cell", source=source2, mute=True, strict_source=True
+        ).sum()
+        == 0
+    )
+    assert bt.CellType.standardize("T-cell", source=source2, mute=True) == "T cell"
+    # here still standardized because of bionty
+    assert (
+        bt.CellType.standardize("T-cell", source=source2, mute=True, strict_source=True)
+        == "T cell"
+    )
+    bt.CellType.filter().delete()
 
 
 def test_standardize():
@@ -50,7 +81,7 @@ def test_standardize_public_aware():
 
 
 def test_add_remove_synonym():
-    bt.CellType.filter().all().delete()
+    bt.CellType.filter().delete()
 
     # a registry that doesn't have a synonyms column
     user = ln.User.get(handle="testuser1")
@@ -88,11 +119,11 @@ def test_add_remove_synonym():
     tcell.remove_synonym("my cell type")
 
     # clean up
-    bt.CellType.filter().all().delete()
+    bt.CellType.filter().delete()
 
 
 def test_set_abbr():
-    bt.CellType.filter().all().delete()
+    bt.CellType.filter().delete()
     bt.CellType(name="my cell type").save()
     record = bt.CellType.get(name="my cell type")
     # if abbr is name, do not add to synonyms
