@@ -8,7 +8,7 @@ from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from pandas.api.types import CategoricalDtype, is_string_dtype
 
-from lamindb._record import _get_record_params
+from lamindb._record import _get_model_params
 from lamindb.base.types import FeatureDtype
 from lamindb.core.exceptions import ValidationError
 from lamindb.models import Artifact, Feature, Record
@@ -155,7 +155,7 @@ def __init__(self, *args, **kwargs):
     is_type: bool = kwargs.pop("is_type") if "is_type" in kwargs else False
     type_: Feature | str | None = kwargs.pop("type") if "type" in kwargs else None
     if kwargs:
-        valid_keywords = ", ".join([val[0] for val in _get_record_params(Feature)])
+        valid_keywords = ", ".join([val[0] for val in _get_model_params(Feature)])
         raise ValidationError(f"Only {valid_keywords} are valid keyword arguments")
     kwargs["name"] = name
     kwargs["type"] = type_

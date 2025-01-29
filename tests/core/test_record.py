@@ -8,7 +8,7 @@ import lamindb as ln
 import pytest
 from lamindb import _record
 from lamindb._record import (
-    _get_record_params,
+    _get_model_params,
     _search,
     suggest_records_with_similar_names,
 )
@@ -224,7 +224,7 @@ def test_using():
 
 
 def test_get_record_params():
-    assert _get_record_params(ln.Feature) == [
+    assert _get_model_params(ln.Feature) == [
         ("name", "str"),
         ("dtype", "FeatureDtype | Registry | list[Registry]"),
         ("unit", "str | None"),

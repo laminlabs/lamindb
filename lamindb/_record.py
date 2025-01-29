@@ -280,7 +280,7 @@ def _format_django_validation_error(record: Record, e: DjangoValidationError):
         return message
 
 
-def _get_record_params(record_class) -> list[tuple[str, str]]:
+def _get_model_params(record_class) -> list[tuple[str, str]]:
     """Gets the parameters of a Record from the overloaded signature.
 
     Example:
