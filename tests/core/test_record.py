@@ -7,7 +7,11 @@ import bionty as bt
 import lamindb as ln
 import pytest
 from lamindb import _record
-from lamindb._record import _search, suggest_records_with_similar_names
+from lamindb._record import (
+    _get_record_params,
+    _search,
+    suggest_records_with_similar_names,
+)
 from lamindb.base.validation import FieldValidationError
 
 
@@ -38,7 +42,10 @@ def test_validate_literal_fields():
 def test_init_with_args():
     with pytest.raises(
         SystemExit,
-        match=re.escape("Don't pass a string directly. Use: User(name='...')") + r".*",
+        match=re.escape(
+            "Use keyword arguments instead of positional arguments, e.g.: User(name='...')"
+        )
+        + r".*",
     ):
         # can't use ULabel here because it raises "Only one non-keyword arg allowed"
         ln.User("an arg")
@@ -214,3 +221,13 @@ def test_using():
         .first()
     )
     assert artifact == artifact_ref
+
+
+def test_get_record_params():
+    assert _get_record_params(ln.Feature) == [
+        ("name", "str"),
+        ("dtype", "FeatureDtype | Registry | list[Registry]"),
+        ("unit", "str | None"),
+        ("description", "str | None"),
+        ("synonyms", "str | None"),
+    ]
