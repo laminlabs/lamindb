@@ -1728,7 +1728,6 @@ class SpatialDataCurator:
         sample_metadata_key: The key in ``.attrs`` that stores the sample level metadata.
 
     Examples:
-        >>> from lnschema_spatial import SpatialDataCurator
         >>> import bionty as bt
         >>> curator = SpatialDataCurator(
         ...     sdata,
@@ -2403,8 +2402,6 @@ class Curator(BaseCurator):
             raise ImportError(
                 "Please install spatialdata: pip install spatialdata"
             ) from e
-
-        from lamindb.curators._spatial import SpatialDataCurator
 
         return SpatialDataCurator(
             sdata=sdata,
