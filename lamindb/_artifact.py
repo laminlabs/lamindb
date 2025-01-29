@@ -44,6 +44,7 @@ from .core.storage import (
     infer_suffix,
     write_to_disk,
 )
+from .core.storage._anndata_accessor import _anndata_n_observations
 from .core.storage._pyarrow_dataset import PYARROW_SUFFIXES
 from .core.storage.objects import _mudata_is_installed
 from .core.storage.paths import (
@@ -713,6 +714,10 @@ def from_anndata(
     """{}"""  # noqa: D415
     if not data_is_anndata(adata):
         raise ValueError("data has to be an AnnData object or a path to AnnData-like")
+    if "n_observations" not in kwargs:
+        n_observations = _anndata_n_observations(adata)
+    else:
+        n_observations = kwargs.pop("n_observations")
     artifact = Artifact(  # type: ignore
         data=adata,
         key=key,
@@ -721,6 +726,7 @@ def from_anndata(
         revises=revises,
         otype="AnnData",
         kind="dataset",
+        n_observations=n_observations,
         **kwargs,
     )
     return artifact

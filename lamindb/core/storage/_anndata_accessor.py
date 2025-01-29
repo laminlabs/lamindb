@@ -19,6 +19,7 @@ from fsspec.implementations.local import LocalFileSystem
 from lamin_utils import logger
 from lamindb_setup.core.upath import create_mapper, infer_filesystem
 from packaging import version
+from upath import UPath
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -741,3 +742,42 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         return AnnDataRawAccessor(
             self.storage["raw"], None, None, self._obs_names, None, self.shape[0]
         )
+
+
+def _anndata_n_observations(object: UPathStr | AnnData) -> int | None:
+    if isinstance(object, AnnData):
+        return object.n_obs
+
+    try:
+        objectpath = UPath(object)
+        suffix = objectpath.suffix
+        conn_module = {".h5ad": "h5py", ".zarr": "zarr"}.get(suffix, suffix[1:])
+        conn, storage = registry.open(conn_module, objectpath, mode="r")
+    except Exception as e:
+        logger.warning(f"Could not open {object} to read n_observations: {e}")
+        return None
+
+    n_observations: int | None = None
+    try:
+        obs = storage["obs"]
+        if isinstance(obs, GroupTypes):  # type: ignore
+            if "_index" in obs.attrs:
+                elem_key = _read_attr(obs.attrs, "_index")
+            else:
+                elem_key = next(iter(obs))
+            elem = obs[elem_key]
+            if isinstance(elem, ArrayTypes):  # type: ignore
+                n_observations = elem.shape[0]
+            else:
+                # assume standard obs group
+                n_observations = elem["codes"].shape[0]
+        else:
+            n_observations = obs.shape[0]
+    except Exception as e:
+        logger.warning(f"Could not read n_observations from anndata {object}: {e}")
+    finally:
+        if hasattr(storage, "close"):
+            storage.close()
+        if hasattr(conn, "close"):
+            conn.close()
+    return n_observations
