@@ -744,6 +744,7 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         )
 
 
+# get the number of observations in an anndata object or file fast and safely
 def _anndata_n_observations(object: UPathStr | AnnData) -> int | None:
     if isinstance(object, AnnData):
         return object.n_obs

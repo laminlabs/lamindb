@@ -334,6 +334,7 @@ def test_create_from_anndata_in_memory_and_link_features(adata):
     artifact = ln.Artifact.from_anndata(adata, description="test")
     assert artifact.otype == "AnnData"
     assert hasattr(artifact, "_local_filepath")
+    assert artifact.n_observations == adata.n_obs
     artifact.save()
     # check that the local filepath has been cleared
     assert not hasattr(artifact, "_local_filepath")
@@ -352,6 +353,7 @@ def test_create_from_anndata_in_memory_and_link_features(adata):
 
 def test_create_from_anndata_strpath(adata_file):
     artifact = ln.Artifact.from_anndata(adata_file, description="test adata file")
+    assert artifact.n_observations == 2
     artifact.save()
     assert artifact.otype == "AnnData"
     artifact.delete(permanent=True, storage=True)
@@ -365,15 +367,19 @@ def test_create_from_anndata_strpath(adata_file):
 def test_create_from_anndata_in_storage(data):
     if isinstance(data, ad.AnnData):
         artifact = ln.Artifact.from_anndata(
-            data, description="test_create_from_anndata"
+            data, description="test_create_from_anndata_memory"
         )
+        assert artifact.n_observations == data.n_obs
         assert artifact.otype == "AnnData"
         assert hasattr(artifact, "_local_filepath")
     else:
         previous_storage = ln.setup.settings.storage.root_as_str
         ln.settings.storage = "s3://lamindb-test/core"
         filepath = data
-        artifact = ln.Artifact(filepath)
+        artifact = ln.Artifact.from_anndata(
+            filepath, description="test_create_from_anndata_cloudpath"
+        )
+        assert artifact.n_observations == 70
     artifact.save()
     # check that the local filepath has been cleared
     assert not hasattr(artifact, "_local_filepath")
