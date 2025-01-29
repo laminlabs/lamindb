@@ -33,19 +33,21 @@ def test_inspect_source():
     }
     assert (
         bt.CellType.inspect(
-            "T-cell", source=source2, mute=True, strict=True
+            "T-cell", source=source2, mute=True, strict_source=True
         ).synonyms_mapper
         == {}
     )
     assert bt.CellType.validate("T cell", source=source2, mute=True).sum() == 1
     assert (
-        bt.CellType.validate("T cell", source=source2, mute=True, strict=True).sum()
+        bt.CellType.validate(
+            "T cell", source=source2, mute=True, strict_source=True
+        ).sum()
         == 0
     )
     assert bt.CellType.standardize("T-cell", source=source2, mute=True) == "T cell"
     # here still standardized because of bionty
     assert (
-        bt.CellType.standardize("T-cell", source=source2, mute=True, strict=True)
+        bt.CellType.standardize("T-cell", source=source2, mute=True, strict_source=True)
         == "T cell"
     )
     bt.CellType.filter().delete()

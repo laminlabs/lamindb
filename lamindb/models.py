@@ -239,7 +239,7 @@ class CanCurate:
         mute: bool = False,
         organism: str | Record | None = None,
         source: Record | None = None,
-        strict: bool = False,
+        strict_source: bool = False,
     ) -> InspectResult:
         """Inspect if values are mappable to a field.
 
@@ -253,7 +253,7 @@ class CanCurate:
             mute: Whether to mute logging.
             organism: An Organism name or record.
             source: A `bionty.Source` record that specifies the version to inspect against.
-            strict: Determines the validation behavior against records in the registry.
+            strict_source: Determines the validation behavior against records in the registry.
                 - If `False`, validation will include all records in the registry, ignoring the specified source.
                 - If `True`, validation will only include records in the registry  that are linked to the specified source.
                 Note: this parameter won't affect validation against bionty/public sources.
@@ -283,11 +283,11 @@ class CanCurate:
         mute: bool = False,
         organism: str | Record | None = None,
         source: Record | None = None,
-        strict: bool = False,
+        strict_source: bool = False,
     ) -> np.ndarray:
         """Validate values against existing values of a string field.
 
-        Note this is strict validation, only asserts exact matches.
+        Note this is strict_source validation, only asserts exact matches.
 
         Args:
             values: Values that will be validated against the field.
@@ -297,7 +297,7 @@ class CanCurate:
             mute: Whether to mute logging.
             organism: An Organism name or record.
             source: A `bionty.Source` record that specifies the version to validate against.
-            strict: Determines the validation behavior against records in the registry.
+            strict_source: Determines the validation behavior against records in the registry.
                 - If `False`, validation will include all records in the registry, ignoring the specified source.
                 - If `True`, validation will only include records in the registry  that are linked to the specified source.
                 Note: this parameter won't affect validation against bionty/public sources.
@@ -380,7 +380,7 @@ class CanCurate:
         synonyms_field: str = "synonyms",
         organism: str | Record | None = None,
         source: Record | None = None,
-        strict: bool = False,
+        strict_source: bool = False,
     ) -> list[str] | dict[str, str]:
         """Maps input synonyms to standardized names.
 
@@ -403,7 +403,7 @@ class CanCurate:
             synonyms_field: A field containing the concatenated synonyms.
             organism: An Organism name or record.
             source: A `bionty.Source` record that specifies the version to validate against.
-            strict: Determines the validation behavior against records in the registry.
+            strict_source: Determines the validation behavior against records in the registry.
                 - If `False`, validation will include all records in the registry, ignoring the specified source.
                 - If `True`, validation will only include records in the registry  that are linked to the specified source.
                 Note: this parameter won't affect validation against bionty/public sources.
