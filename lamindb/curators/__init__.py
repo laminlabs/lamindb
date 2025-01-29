@@ -1,6 +1,16 @@
+"""Curators.
+
+.. autosummary::
+   :toctree: .
+
+   DataFrameCurator
+
+"""
+
 from __future__ import annotations
 
 import copy
+import re
 import warnings
 from itertools import chain
 from typing import TYPE_CHECKING
@@ -8,11 +18,13 @@ from typing import TYPE_CHECKING
 import anndata as ad
 import lamindb_setup as ln_setup
 import pandas as pd
+import pandera as pda
 import pyarrow as pa
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import UPath
 
+from lamindb._feature import parse_dtype
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.models import (
     Artifact,
@@ -32,6 +44,14 @@ if TYPE_CHECKING:
 
     from lamindb_setup.core.types import UPathStr
     from mudata import MuData
+
+    from lamindb._query_set import RecordList
+
+
+def strip_ansi_codes(text):
+    # This pattern matches ANSI escape sequences
+    ansi_pattern = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_pattern.sub("", text)
 
 
 class CurateLookup:
@@ -105,12 +125,15 @@ class CurateLookup:
                 "    → categories.alveolar_type_1_fibroblast_cell\n\n"
                 "To look up public ontologies, use .lookup(public=True)"
             )
-        else:  # pragma: no cover
+        else:  # pdagma: no cover
             return colors.warning("No fields are found!")
 
 
 class BaseCurator:
     """Curate a dataset."""
+
+    def __init__(self):
+        self._validate_category_error_messages: str = ""
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -121,15 +144,15 @@ class BaseCurator:
             if hasattr(cls, "_add_new_from_columns"):
                 cls.add_new_from_columns = cls._add_new_from_columns
 
-    def validate(self) -> bool:
+    def validate(self) -> bool | str:
         """Validate dataset.
 
         This method also registers the validated records in the current instance.
 
         Returns:
-            Boolean indicating whether the dataset is validated.
+            The boolean `True` if the dataset is validated. Otherwise, a string with the error message.
         """
-        pass  # pragma: no cover
+        pass  # pdagma: no cover
 
     def standardize(self, key: str) -> None:
         """Replace synonyms with standardized values.
@@ -142,12 +165,13 @@ class BaseCurator:
         Returns:
             None
         """
-        pass  # pragma: no cover
+        pass  # pdagma: no cover
 
     def save_artifact(
         self,
-        description: str | None = None,
+        *,
         key: str | None = None,
+        description: str | None = None,
         revises: Artifact | None = None,
         run: Run | None = None,
     ) -> Artifact:
@@ -162,10 +186,79 @@ class BaseCurator:
         Returns:
             A saved artifact record.
         """
-        pass  # pragma: no cover
+        pass  # pdagma: no cover
 
 
 class DataFrameCurator(BaseCurator):
+    """Curator for a DataFrame object.
+
+    See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
+
+    Args:
+        df: The DataFrame-like object to validate & annotate.
+        schema: A `Schema` object that defines the validation constraints.
+
+    Examples:
+        >>> curator = ln.curators.DataFrameCurator(
+        ...     df,
+        ...     schema,
+        ... )
+    """
+
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        schema: Schema,
+    ) -> None:
+        self._df: pd.DataFrame = df
+        non_categoricals = {}
+        categoricals = {}
+        self._schema = schema
+        for feature in schema.features.all():
+            pda_dtype = (
+                feature.dtype if not feature.dtype.startswith("cat") else "category"
+            )
+            non_categoricals[feature.name] = pda.Column(pda_dtype)
+            if feature.dtype.startswith("cat"):
+                categoricals[feature.name] = parse_dtype(feature.dtype)[0]["field"]
+        self._pda_schema = pda.DataFrameSchema(non_categoricals, coerce=True)
+        # now deal with categorical features using the old-style curator
+        self._cat_curator = DataFrameCatCurator(
+            df,
+            categoricals=categoricals,
+        )
+
+    def validate(self) -> bool | str:
+        self._cat_curator.validate()
+        try:
+            self._pda_schema.validate(self._df)
+            if self._cat_curator._validated:
+                return True
+            else:
+                return self._cat_curator._validate_category_error_messages
+        except pda.errors.SchemaError as err:
+            # .exconly() doesn't seem to exist on SchemaError
+            str_message = str(err)
+            logger.warning(str_message)
+            # need to set the cat curator to False
+            self._cat_curator._validated = False
+            # return the error message so that we can test for it
+            return str_message
+
+    def save_artifact(
+        self,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ) -> Artifact:
+        return self._cat_curator.save_artifact(
+            key=key, description=description, revises=revises, run=run
+        )
+
+
+class DataFrameCatCurator(BaseCurator):
     """Curation flow for a DataFrame object.
 
     See also :class:`~lamindb.Curator`.
@@ -443,21 +536,23 @@ class DataFrameCurator(BaseCurator):
 
         # add all validated records to the current instance
         self._update_registry_all()
-
+        self._validate_category_error_messages = ""  # reset the error messages
         self._validated, self._non_validated = validate_categories_in_df(  # type: ignore
             self._df,
             fields=self.fields,
             using_key=self._using_key,
             sources=self._sources,
             exclude=self._exclude,
+            curator=self,
             **self._kwargs,
         )
         return self._validated
 
     def save_artifact(
         self,
-        description: str | None = None,
+        *,
         key: str | None = None,
+        description: str | None = None,
         revises: Artifact | None = None,
         run: Run | None = None,
     ) -> Artifact:
@@ -484,7 +579,7 @@ class DataFrameCurator(BaseCurator):
         verbosity = settings.verbosity
         try:
             settings.verbosity = "warning"
-            self._artifact = save_artifact(
+            self._artifact = save_artifact(  # type: ignore
                 self._df,
                 description=description,
                 fields=self.fields,
@@ -492,6 +587,7 @@ class DataFrameCurator(BaseCurator):
                 key=key,
                 revises=revises,
                 run=run,
+                schema=None,
                 **self._kwargs,
             )
         finally:
@@ -509,7 +605,7 @@ class DataFrameCurator(BaseCurator):
             ).delete()
 
 
-class AnnDataCurator(DataFrameCurator):
+class AnnDataCurator(DataFrameCatCurator):
     """Curation flow for ``AnnData``.
 
     See also :class:`~lamindb.Curator`.
@@ -571,7 +667,7 @@ class AnnDataCurator(DataFrameCurator):
             )
         if isinstance(data, ad.AnnData):
             self._adata = data
-        else:  # pragma: no cover
+        else:  # pdagma: no cover
             from lamindb.core.storage._backed_access import backed_access
 
             self._adata = backed_access(upath.create_path(data))
@@ -690,6 +786,7 @@ class AnnDataCurator(DataFrameCurator):
             using_key=self._using_key,
             sources=self._sources,
             exclude=self._exclude,
+            curator=self,
             **self._kwargs,
         )
         self._non_validated = non_validated_obs  # type: ignore
@@ -728,8 +825,9 @@ class AnnDataCurator(DataFrameCurator):
 
     def save_artifact(
         self,
-        description: str | None = None,
+        *,
         key: str | None = None,
+        description: str | None = None,
         revises: Artifact | None = None,
         run: Run | None = None,
     ) -> Artifact:
@@ -754,7 +852,7 @@ class AnnDataCurator(DataFrameCurator):
         verbosity = settings.verbosity
         try:
             settings.verbosity = "warning"
-            self._artifact = save_artifact(
+            self._artifact = save_artifact(  # type: ignore
                 self._data,
                 adata=self._adata,
                 description=description,
@@ -763,6 +861,7 @@ class AnnDataCurator(DataFrameCurator):
                 key=key,
                 revises=revises,
                 run=run,
+                schema=None,
                 **self._kwargs,
             )
         finally:
@@ -836,7 +935,7 @@ class MuDataCurator:
         self._verbosity = verbosity
         self._obs_df_curator = None
         if "obs" in self._modalities:
-            self._obs_df_curator = DataFrameCurator(
+            self._obs_df_curator = DataFrameCatCurator(
                 df=mdata.obs,
                 columns=Feature.name,
                 categoricals=self._obs_fields.get("obs", {}),
@@ -1048,8 +1147,9 @@ class MuDataCurator:
 
     def save_artifact(
         self,
-        description: str | None = None,
+        *,
         key: str | None = None,
+        description: str | None = None,
         revises: Artifact | None = None,
         run: Run | None = None,
     ) -> Artifact:
@@ -1081,6 +1181,7 @@ class MuDataCurator:
                 key=key,
                 revises=revises,
                 run=run,
+                schema=None,
                 **self._kwargs,
             )
         finally:
@@ -1502,8 +1603,9 @@ class SOMACurator(BaseCurator):
 
     def save_artifact(
         self,
-        description: str | None = None,
+        *,
         key: str | None = None,
+        description: str | None = None,
         revises: Artifact | None = None,
         run: Run | None = None,
     ) -> Artifact:
@@ -1617,12 +1719,12 @@ class Curator(BaseCurator):
 
     If you find non-validated values, you have several options:
 
-    - new values found in the data can be registered using :meth:`~lamindb.core.DataFrameCurator.add_new_from`
-    - non-validated values can be accessed using :meth:`~lamindb.core.DataFrameCurator.non_validated` and addressed manually
+    - new values found in the data can be registered using :meth:`~lamindb.core.DataFrameCatCurator.add_new_from`
+    - non-validated values can be accessed using :meth:`~lamindb.core.DataFrameCatCurator.non_validated` and addressed manually
     """
 
     @classmethod
-    @doc_args(DataFrameCurator.__doc__)
+    @doc_args(DataFrameCatCurator.__doc__)
     def from_df(
         cls,
         df: pd.DataFrame,
@@ -1631,9 +1733,9 @@ class Curator(BaseCurator):
         using_key: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
-    ) -> DataFrameCurator:
+    ) -> DataFrameCatCurator:
         """{}"""  # noqa: D415
-        return DataFrameCurator(
+        return DataFrameCatCurator(
             df=df,
             categoricals=categoricals,
             columns=columns,
@@ -1773,7 +1875,7 @@ class Curator(BaseCurator):
                 "Please install spatialdata: pip install spatialdata"
             ) from e
 
-        from ._spatial import SpatialDataCurator
+        from lamindb.curators._spatial import SpatialDataCurator
 
         return SpatialDataCurator(
             sdata=sdata,
@@ -1876,6 +1978,7 @@ def validate_categories(
     source: Record | None = None,
     exclude: str | list | None = None,
     hint_print: str | None = None,
+    curator: BaseCurator | None = None,
 ) -> tuple[bool, list]:
     """Validate ontology terms in a pandas series using LaminDB registries.
 
@@ -1975,6 +2078,10 @@ def validate_categories(
         if logger.indent == "":
             _log_mapping_info()
         logger.warning(warning_message)
+        if curator is not None:
+            curator._validate_category_error_messages = strip_ansi_codes(
+                warning_message
+            )
         logger.indent = ""
         return False, non_validated
 
@@ -2023,6 +2130,7 @@ def validate_categories_in_df(
     using_key: str | None = None,
     sources: dict[str, Record] = None,
     exclude: dict | None = None,
+    curator: BaseCurator | None = None,
     **kwargs,
 ) -> tuple[bool, dict]:
     """Validate categories in DataFrame columns using LaminDB registries."""
@@ -2041,6 +2149,7 @@ def validate_categories_in_df(
             using_key=using_key,
             source=sources.get(key),
             exclude=exclude.get(key) if exclude else None,
+            curator=curator,
             **kwargs,
         )
         validated &= is_val
@@ -2059,6 +2168,7 @@ def save_artifact(
     key: str | None = None,
     revises: Artifact | None = None,
     run: Run | None = None,
+    schema: Schema | None = None,
 ) -> Artifact:
     """Save all metadata with an Artifact.
 
@@ -2122,13 +2232,16 @@ def save_artifact(
     )
 
     if artifact.otype == "DataFrame":
-        artifact.features._add_set_from_df(field=columns_field, **feature_kwargs)
+        # old style
+        artifact.features._add_set_from_df(field=columns_field, **feature_kwargs)  # type: ignore
+        # new style (doing both for the time being)
+        artifact.schema = schema
     elif artifact.otype == "AnnData":
-        artifact.features._add_set_from_anndata(
+        artifact.features._add_set_from_anndata(  # type: ignore
             var_field=columns_field, **feature_kwargs
         )
     elif artifact.otype == "MuData":
-        artifact.features._add_set_from_mudata(
+        artifact.features._add_set_from_mudata(  # type: ignore
             var_fields=columns_field, **feature_kwargs
         )
     else:
@@ -2202,7 +2315,7 @@ def save_artifact(
         )
 
     slug = ln_setup.settings.instance.slug
-    if ln_setup.settings.instance.is_remote:  # pragma: no cover
+    if ln_setup.settings.instance.is_remote:  # pdagma: no cover
         logger.important(f"go to https://lamin.ai/{slug}/artifact/{artifact.uid}")
     return artifact
 
@@ -2305,7 +2418,7 @@ def update_registry(
         # save non-validated/new records
         labels_saved["new"] = non_validated_labels
         if not validated_only:
-            non_validated_records = []
+            non_validated_records: RecordList[Any] = []  # type: ignore
             if df is not None and registry == Feature:
                 nonval_columns = Feature.inspect(df.columns, mute=True).non_validated
                 non_validated_records = Feature.from_df(df.loc[:, nonval_columns])

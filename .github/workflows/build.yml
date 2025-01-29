@@ -50,7 +50,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{fromJson(needs.pre-filter.outputs.matrix)}}
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -61,8 +61,8 @@ jobs:
         with:
           python-version: |
             ${{ matrix.group == 'storage' && '3.10' ||
-                matrix.group == 'unit-storage' && '3.11' ||
-                '3.12' }}
+                '3.12'
+                }}
 
       - name: cache pre-commit
         uses: actions/cache@v4

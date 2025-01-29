@@ -296,7 +296,7 @@ class MappedCollection:
             self.var_joint = reduce(pd.Index.intersection, self.var_list)
             if len(self.var_joint) == 0:
                 raise ValueError(
-                    "The provided AnnData objects don't have shared varibales.\n"
+                    "The provided AnnData objects don't have shared variables.\n"
                     "Use join='outer'."
                 )
             self.var_indices = [

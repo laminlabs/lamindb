@@ -15,9 +15,9 @@ NOTEBOOKS_DIR = Path(__file__).parent.resolve() / "notebooks"
 
 
 def test_track_with_multi_parents():
-    parent1 = ln.Transform(name="parent 1").save()
-    parent2 = ln.Transform(name="parent 2").save()
-    child = ln.Transform(name="Child").save()
+    parent1 = ln.Transform(key="parent 1").save()
+    parent2 = ln.Transform(key="parent 2").save()
+    child = ln.Transform(key="Child").save()
     child.predecessors.set([parent1, parent2])
 
     # first invocation
@@ -81,7 +81,7 @@ def test_finish_before_track():
 
 
 def test_invalid_transform_type():
-    transform = ln.Transform(name="test transform")
+    transform = ln.Transform(key="test transform")
     ln.context.track(transform=transform)
     ln.context._path = None
     ln.context.run.transform.type = "script"
@@ -259,7 +259,7 @@ def test_run_external_script():
 
 @pytest.mark.parametrize("type", ["notebook", "script"])
 def test_track_notebook_or_script_manually(type):
-    transform = ln.Transform(name="My notebook", type=type)
+    transform = ln.Transform(key="My notebook", type=type)
     with pytest.raises(ValueError) as error:
         ln.context.track(transform=transform)
     assert (
@@ -340,9 +340,9 @@ def test_logstream_tracker_multiple():
                 print(content)
                 # Check each expected line is in the content
                 for expected_line in expected_contents[i]:
-                    assert (
-                        expected_line in content
-                    ), f"Expected '{expected_line}' in log {i}"
+                    assert expected_line in content, (
+                        f"Expected '{expected_line}' in log {i}"
+                    )
 
                 # Check earlier messages are NOT in the content
                 if i > 1:

@@ -35,6 +35,8 @@ def get_schema_modules(instance: str | None) -> set[str]:
     return shared_schema_modules
 
 
+# this function here should likely be renamed
+# it maps the __get_name_with_module__() onto the actual model
 def dict_module_name_to_model_name(
     registry: type[Record], instance: str | None = None
 ) -> dict[str, Record]:
