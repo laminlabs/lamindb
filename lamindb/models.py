@@ -2652,6 +2652,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     def from_df(
         cls,
         df: pd.DataFrame,
+        *,
         key: str | None = None,
         description: str | None = None,
         run: Run | None = None,
@@ -2692,6 +2693,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     def from_anndata(
         cls,
         adata: AnnData | UPathStr,
+        *,
         key: str | None = None,
         description: str | None = None,
         run: Run | None = None,
@@ -2728,6 +2730,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     def from_mudata(
         cls,
         mdata: MuData,
+        *,
         key: str | None = None,
         description: str | None = None,
         run: Run | None = None,
@@ -2763,8 +2766,8 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     def from_dir(
         cls,
         path: UPathStr,
-        key: str | None = None,
         *,
+        key: str | None = None,
         run: Run | None = None,
     ) -> list[Artifact]:
         """Create a list of artifact objects from a directory.

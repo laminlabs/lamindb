@@ -78,7 +78,7 @@ def test_add_ontology_from_values():
 def test_view_lineage_circular():
     import pandas as pd
 
-    transform = ln.Transform(name="test").save()
+    transform = ln.Transform(key="test").save()
     run = ln.Run(transform=transform).save()
     artifact = ln.Artifact.from_df(
         pd.DataFrame({"a": [1, 2, 3]}), description="test artifact", run=run

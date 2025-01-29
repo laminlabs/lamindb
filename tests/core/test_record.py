@@ -184,7 +184,7 @@ def test_pass_version():
 
 
 def test_get_name_field():
-    transform = ln.Transform(name="test")
+    transform = ln.Transform(key="test")
     transform.save()
     assert _record.get_name_field(ln.Run(transform)) == "started_at"
     with pytest.raises(ValueError):
