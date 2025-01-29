@@ -229,9 +229,8 @@ def _init_with_potential_errors(record: Record, *args, **kwargs):
                 message = _format_django_validation_error(record, e)
                 raise FieldValidationError(message) from e
     elif len(args) != len(record._meta.concrete_fields):
-        example = record.__class__.__name__
         sys.exit(
-            f"Use keyword arguments instead of positional arguments, e.g.: {example}(name='...'). See model documentation for valid fields."
+            f"Use keyword arguments instead of positional arguments, e.g.: {record.__class__.__name__}(name='...'). See model documentation for valid fields."
         )
     else:
         # object is loaded from DB (**kwargs could be omitted below, I believe)
