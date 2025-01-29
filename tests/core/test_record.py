@@ -1,3 +1,4 @@
+import re
 import shutil
 from inspect import signature
 from pathlib import Path
@@ -35,13 +36,12 @@ def test_validate_literal_fields():
 
 
 def test_init_with_args():
-    with pytest.raises(ValueError) as error:
+    with pytest.raises(
+        SystemExit,
+        match=re.escape("Don't pass a string directly. Use User(name='...')"),
+    ):
         # can't use ULabel here because it raises "Only one non-keyword arg allowed"
         ln.User("an arg")
-    assert (
-        error.exconly()
-        == "ValueError: please provide keyword arguments, not plain arguments"
-    )
 
 
 def test_validate_required_fields():
