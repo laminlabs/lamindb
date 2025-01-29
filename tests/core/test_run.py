@@ -3,7 +3,7 @@ import pytest
 
 
 def test_run():
-    transform = ln.Transform(name="My transform")
+    transform = ln.Transform(key="My transform")
     with pytest.raises(ValueError) as error:
         ln.Run(transform)
     assert (

@@ -98,7 +98,7 @@ def mock_registry():
 
 @pytest.fixture
 def mock_transform():
-    mock_transform = ln.Transform(name="mock", version="0.0.0", type="notebook")
+    mock_transform = ln.Transform(key="mock", version="0.0.0", type="notebook")
     mock_transform.save()
     return mock_transform
 

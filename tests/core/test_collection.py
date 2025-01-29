@@ -75,11 +75,11 @@ def test_from_single_artifact(adata):
     assert str(error.exconly()).startswith(
         "ValueError: Only one non-keyword arg allowed: artifacts"
     )
-    transform = ln.Transform(name="My test transform")
+    transform = ln.Transform(key="My test transform")
     transform.save()
     run = ln.Run(transform)
     run.save()
-    collection = ln.Collection(artifact, name="My new collection", run=run)
+    collection = ln.Collection(artifact, key="My new collection", run=run)
     collection.save()
     assert collection.run.input_artifacts.get() == artifact
     collection.delete(permanent=True)
@@ -122,7 +122,7 @@ def test_from_inconsistent_artifacts(df, adata):
     # test idempotency of .save()
     collection.save()
     # create a run context
-    ln.context.track(transform=ln.Transform(name="My test transform"))
+    ln.context.track(transform=ln.Transform(key="My test transform"))
     # can iterate over them
     collection.cache()
     assert set(ln.context.run.input_collections.all()) == {collection}
@@ -149,7 +149,7 @@ def test_from_consistent_artifacts(adata, adata2):
         adata2, var_index=bt.Gene.symbol, organism="human"
     )
     artifact2 = curator.save_artifact(description="My test2").save()
-    transform = ln.Transform(name="My test transform").save()
+    transform = ln.Transform(key="My test transform").save()
     run = ln.Run(transform).save()
     collection = ln.Collection([artifact1, artifact2], name="My test", run=run)
     assert collection._state.adding

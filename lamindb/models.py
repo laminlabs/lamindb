@@ -1187,7 +1187,7 @@ class Transform(Record, IsVersioned):
 
         Create a transform for a pipeline:
 
-        >>> transform = ln.Transform(name="Cell Ranger", version="7.2.0", type="pipeline").save()
+        >>> transform = ln.Transform(key="Cell Ranger", version="7.2.0", type="pipeline").save()
 
         Create a transform from a notebook:
 
@@ -1460,8 +1460,8 @@ class Run(Record):
 
         Create a run record:
 
-        >>> ln.Transform(name="Cell Ranger", version="7.2.0", type="pipeline").save()
-        >>> transform = ln.Transform.get(name="Cell Ranger", version="7.2.0")
+        >>> ln.Transform(key="Cell Ranger", version="7.2.0", type="pipeline").save()
+        >>> transform = ln.Transform.get(key="Cell Ranger", version="7.2.0")
         >>> run = ln.Run(transform)
 
         Create a global run context for a custom transform:

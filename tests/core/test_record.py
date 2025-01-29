@@ -31,7 +31,7 @@ def test_signatures():
 def test_validate_literal_fields():
     # validate literal
     with pytest.raises(FieldValidationError):
-        ln.Transform(name="new-name-not-existing-123", type="invalid")
+        ln.Transform(key="new-name-not-existing-123", type="invalid")
 
 
 def test_init_with_args():
