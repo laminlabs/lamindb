@@ -10,6 +10,7 @@ import tiledbsoma
 import tiledbsoma.io
 import zarr
 from lamindb.core.loaders import load_h5ad
+from lamindb.core.storage._anndata_accessor import _anndata_n_observations
 from lamindb.core.storage._backed_access import (
     AnnDataAccessor,
     BackedAccessor,
@@ -420,3 +421,10 @@ def test_backed_wrong_suffix():
         artifact.open()
 
     fp.unlink()
+
+
+def test_anndata_n_observations(bad_adata_path):
+    assert _anndata_n_observations(bad_adata_path) == 10
+
+    assert _anndata_n_observations("./path_does_not_exist.h5ad") is None
+    assert _anndata_n_observations("./path_does_not_exist.zarr") is None
