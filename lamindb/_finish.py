@@ -207,7 +207,11 @@ def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
 
 
 def check_filepath_recently_saved(filepath: Path, is_finish_retry: bool) -> bool:
-    recently_saved_time = 3 if not is_finish_retry else 20
+    # the recently_saved_time needs to be very low for the first check
+    # because an accidental save (e.g. via auto-save) might otherwise lead
+    # to upload of an outdated notebook
+    # also see implementation for R notebooks below
+    recently_saved_time = 0.3 if not is_finish_retry else 20
     for retry in range(30):
         if get_seconds_since_modified(filepath) > recently_saved_time:
             if retry == 0:
@@ -316,7 +320,8 @@ def save_context_core(
                 f"no html report found; to attach one, create an .html export for your {filepath.suffix} file and then run: lamin save {filepath}"
             )
     if report_path is not None and is_r_notebook and not from_cli:  # R notebooks
-        recently_saved_time = 3 if not is_retry else 20
+        # see comment above in check_filepath_recently_saved
+        recently_saved_time = 0.3 if not is_retry else 20
         if get_seconds_since_modified(report_path) > recently_saved_time:
             # the automated retry solution of Jupyter notebooks does not work in RStudio because the execution of the notebook cell
             # seems to block the event loop of the frontend
