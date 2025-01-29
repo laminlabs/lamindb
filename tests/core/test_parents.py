@@ -31,7 +31,7 @@ def test_query_parents_children():
 
 
 def test_add_emoji():
-    transform = ln.Transform(name="test-12345", type="upload")
+    transform = ln.Transform(key="test-12345", type="upload")
     assert _add_emoji(transform, label="transform") == "🖥️ transform"
     transform.save()
     run = ln.Run(transform=transform)
@@ -78,7 +78,7 @@ def test_add_ontology_from_values():
 def test_view_lineage_circular():
     import pandas as pd
 
-    transform = ln.Transform(name="test").save()
+    transform = ln.Transform(key="test").save()
     run = ln.Run(transform=transform).save()
     artifact = ln.Artifact.from_df(
         pd.DataFrame({"a": [1, 2, 3]}), description="test artifact", run=run

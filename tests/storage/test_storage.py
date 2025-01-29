@@ -242,7 +242,7 @@ def test_write_read_tiledbsoma(storage):
     else:
         adata.write_h5ad(test_file)
 
-    create_transform = ln.Transform(name="test create tiledbsoma store").save()
+    create_transform = ln.Transform(key="test create tiledbsoma store").save()
     create_run = ln.Run(create_transform).save()
 
     # fails with a view
@@ -309,7 +309,7 @@ def test_write_read_tiledbsoma(storage):
     adata_to_append_2.var["var_id"] = adata_to_append_2.var.index
     adata_to_append_2.write_h5ad("adata_to_append_2.h5ad")
 
-    append_transform = ln.Transform(name="test append tiledbsoma store").save()
+    append_transform = ln.Transform(key="test append tiledbsoma store").save()
     append_run = ln.Run(append_transform).save()
 
     # here run should be passed
