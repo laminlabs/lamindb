@@ -134,12 +134,12 @@ def save_tiledbsoma_experiment(
         )
         storepath = setup_settings.storage.root / storage_key
 
-    if storepath.protocol == "s3":
+    if storepath.protocol == "s3":  # type: ignore
         ctx = soma.SOMATileDBContext(tiledb_config=_tiledb_config_s3(storepath))
     else:
         ctx = None
 
-    storepath = storepath.as_posix()
+    storepath = storepath.as_posix()  # type: ignore
 
     add_run_uid = True
     run_uid_dtype = "category"
@@ -217,7 +217,7 @@ def save_tiledbsoma_experiment(
             **kwargs,
         )
 
-    artifact = Artifact(
+    artifact = Artifact(  # type: ignore
         storepath,
         key=key,
         description=description,

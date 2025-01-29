@@ -86,7 +86,7 @@ def init_self_from_db(self: Record, existing_record: Record):
 
 def update_attributes(record: Record, attributes: dict[str, str]):
     for key, value in attributes.items():
-        if getattr(record, key) != value:
+        if getattr(record, key) != value and value is not None and key != "dtype":
             logger.warning(f"updated {key} from {getattr(record, key)} to {value}")
             setattr(record, key, value)
 
@@ -122,19 +122,29 @@ def validate_fields(record: Record, kwargs):
         ).max_length  # triggers FieldDoesNotExist
         if len(kwargs["uid"]) != uid_max_length:  # triggers KeyError
             raise ValidationError(
-                f'`uid` must be exactly {uid_max_length} characters long, got {len(kwargs["uid"])}.'
+                f"`uid` must be exactly {uid_max_length} characters long, got {len(kwargs['uid'])}."
             )
     # validate literals
     validate_literal_fields(record, kwargs)
 
 
-def suggest_records_with_similar_names(record: Record, name_field: str, kwargs) -> bool:
+def suggest_records_with_similar_names(
+    record: Record, name_field: str, kwargs
+) -> Record | None:
     """Returns True if found exact match, otherwise False.
 
     Logs similar matches if found.
     """
     if kwargs.get(name_field) is None or not isinstance(kwargs.get(name_field), str):
-        return False
+        return None
+    # need to perform an additional request to find the exact match
+    # previously, this was inferred from the truncated/fuzzy search below
+    # but this isn't reliable: https://laminlabs.slack.com/archives/C04FPE8V01W/p1737812808563409
+    # the below needs to be .first() because there might be multiple records with the same
+    # name field in case the record is versioned (e.g. for Transform key)
+    exact_match = record.__class__.filter(**{name_field: kwargs[name_field]}).first()
+    if exact_match is not None:
+        return exact_match
     queryset = _search(
         record.__class__,
         kwargs[name_field],
@@ -143,10 +153,7 @@ def suggest_records_with_similar_names(record: Record, name_field: str, kwargs) 
         limit=3,
     )
     if not queryset.exists():  # empty queryset
-        return False
-    for alternative_record in queryset:
-        if getattr(alternative_record, name_field) == kwargs[name_field]:
-            return True
+        return None
     s, it, nots = ("", "it", "s") if len(queryset) == 1 else ("s", "one of them", "")
     msg = f"record{s} with similar {name_field}{s} exist{nots}! did you mean to load {it}?"
     if IPYTHON:
@@ -157,7 +164,7 @@ def suggest_records_with_similar_names(record: Record, name_field: str, kwargs) 
             display(queryset.df())
     else:
         logger.warning(f"{msg}\n{queryset}")
-    return False
+    return None
 
 
 def __init__(record: Record, *args, **kwargs):
@@ -177,8 +184,8 @@ def __init__(record: Record, *args, **kwargs):
             and not has_consciously_provided_uid
         ):
             name_field = getattr(record, "_name_field", "name")
-            match = suggest_records_with_similar_names(record, name_field, kwargs)
-            if match:
+            exact_match = suggest_records_with_similar_names(record, name_field, kwargs)
+            if exact_match is not None:
                 if "version" in kwargs:
                     if kwargs["version"] is not None:
                         version_comment = " and version"
@@ -196,15 +203,14 @@ def __init__(record: Record, *args, **kwargs):
                         existing_record = None
                 else:
                     version_comment = ""
-                    existing_record = record.__class__.filter(
-                        **{name_field: kwargs[name_field]}
-                    ).one_or_none()
+                    existing_record = exact_match
                 if existing_record is not None:
                     logger.important(
                         f"returning existing {record.__class__.__name__} record with same"
                         f" {name_field}{version_comment}: '{kwargs[name_field]}'"
                     )
                     init_self_from_db(record, existing_record)
+                    update_attributes(record, kwargs)
                     return None
         super(BasicRecord, record).__init__(**kwargs)
         if isinstance(record, ValidateFields):
@@ -639,7 +645,7 @@ def get_transfer_run(record) -> Run:
     if transform is None:
         search_names = settings.creation.search_names
         settings.creation.search_names = False
-        transform = Transform(
+        transform = Transform(  # type: ignore
             uid=uid, name=f"Transfer from `{slug}`", key=key, type="function"
         ).save()
         settings.creation.search_names = search_names
@@ -655,7 +661,7 @@ def get_transfer_run(record) -> Run:
         transform=transform, initiated_by_run=initiated_by_run
     ).one_or_none()
     if run is None:
-        run = Run(transform=transform, initiated_by_run=initiated_by_run).save()
+        run = Run(transform=transform, initiated_by_run=initiated_by_run).save()  # type: ignore
         run.initiated_by_run = initiated_by_run  # so that it's available in memory
     return run
 
@@ -748,7 +754,7 @@ def save(self, *args, **kwargs) -> Record:
                 revises.save()
                 check_name_change(self)
                 check_key_change(self)
-                super(BasicRecord, self).save(*args, **kwargs)
+                super(BasicRecord, self).save(*args, **kwargs)  # type: ignore
                 _store_record_old_name(self)
                 _store_record_old_key(self)
             self._revises = None
@@ -778,7 +784,7 @@ def save(self, *args, **kwargs) -> Record:
             self_on_db = copy(self)
             self_on_db._state.db = db
             self_on_db.pk = pk_on_db  # manually set the primary key
-            self_on_db.features = FeatureManager(self_on_db)
+            self_on_db.features = FeatureManager(self_on_db)  # type: ignore
             self.features._add_from(self_on_db, transfer_logs=transfer_logs)
             self.labels.add_from(self_on_db, transfer_logs=transfer_logs)
         for k, v in transfer_logs.items():
@@ -915,7 +921,7 @@ def delete(self) -> None:
             new_latest.is_latest = True
             with transaction.atomic():
                 new_latest.save()
-                super(BasicRecord, self).delete()
+                super(BasicRecord, self).delete()  # type: ignore
             logger.warning(f"new latest version is {new_latest}")
             return None
     super(BasicRecord, self).delete()

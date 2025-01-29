@@ -27,6 +27,85 @@ if TYPE_CHECKING:
 FEATURE_DTYPES = set(get_args(FeatureDtype))
 
 
+def parse_dtype(dtype_str: str) -> list[dict[str, str]]:
+    result = []
+    # simple dtypes are in FEATURE_DTYPES, composed dtypes are in the form `cat...`
+    # if we don't have any of these, throw an error
+    if dtype_str not in FEATURE_DTYPES and not dtype_str.startswith("cat"):
+        raise ValueError(f"dtype is {dtype_str} but has to be one of {FEATURE_DTYPES}!")
+    # now deal with composed categorical dtypes
+    if dtype_str != "cat" and dtype_str.startswith("cat"):
+        related_registries = dict_module_name_to_model_name(Artifact)
+        assert dtype_str.endswith("]")  # noqa: S101
+        registries_str = dtype_str.replace("cat[", "")[:-1]  # strip last ]
+        if registries_str != "":
+            registry_str_list = registries_str.split("|")
+            for cat_single_dtype_str in registry_str_list:
+                split_result = cat_single_dtype_str.split("[")
+                # has sub type
+                sub_type_str = ""
+                if len(split_result) == 2:
+                    registry_str = split_result[0]
+                    assert "]" in split_result[1]  # noqa: S101
+                    sub_type_field_split = split_result[1].split("].")
+                    if len(sub_type_field_split) == 1:
+                        sub_type_str = sub_type_field_split[0].strip("]")
+                        field_str = ""
+                    else:
+                        sub_type_str = sub_type_field_split[0]
+                        field_str = sub_type_field_split[1]
+                elif len(split_result) == 1:
+                    registry_field_split = split_result[0].split(".")
+                    if (
+                        len(registry_field_split) == 2
+                        and registry_field_split[1][0].isupper()
+                    ) or len(registry_field_split) == 3:
+                        # bionty.CellType or bionty.CellType.name
+                        registry_str = (
+                            f"{registry_field_split[0]}.{registry_field_split[1]}"
+                        )
+                        field_str = (
+                            ""
+                            if len(registry_field_split) == 2
+                            else registry_field_split[2]
+                        )
+                    else:
+                        # ULabel or ULabel.name
+                        registry_str = registry_field_split[0]
+                        field_str = (
+                            ""
+                            if len(registry_field_split) == 1
+                            else registry_field_split[1]
+                        )
+                if registry_str not in related_registries:
+                    raise ValidationError(
+                        f"'{registry_str}' is an invalid dtype, has to be registry, e.g. ULabel or bionty.CellType"
+                    )
+                if sub_type_str != "":
+                    pass
+                    # validate that the subtype is a record in the registry with is_type = True
+                registry = related_registries[registry_str]
+                if field_str != "":
+                    pass
+                    # validate that field_str is an actual field of the module
+                else:
+                    field_str = (
+                        registry._name_field
+                        if hasattr(registry, "_name_field")
+                        else "name"
+                    )
+                result.append(
+                    {
+                        "registry": registry,
+                        "registry_str": registry_str,
+                        "subtype_str": sub_type_str,
+                        "field_str": field_str,
+                        "field": getattr(registry, field_str),
+                    }
+                )
+    return result
+
+
 def get_dtype_str_from_dtype(dtype: Any) -> str:
     if not isinstance(dtype, list) and dtype.__name__ in FEATURE_DTYPES:
         dtype_str = dtype.__name__
@@ -41,7 +120,7 @@ def get_dtype_str_from_dtype(dtype: Any) -> str:
             if not hasattr(registry, "__get_name_with_module__"):
                 raise ValueError(error_message)
             registries_str += registry.__get_name_with_module__() + "|"
-        dtype_str = f'cat[{registries_str.rstrip("|")}]'
+        dtype_str = f"cat[{registries_str.rstrip('|')}]"
     return dtype_str
 
 
@@ -70,37 +149,44 @@ def __init__(self, *args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) != 0:
         raise ValueError("Only keyword args allowed")
-    dtype: type | str = kwargs.pop("dtype") if "dtype" in kwargs else None
-    # cast type
-    if dtype is None:
-        raise ValueError(f"Please pass dtype, one of {FEATURE_DTYPES}")
-    elif dtype is not None:
+    name: str = kwargs.pop("name", None)
+    dtype: type | str | None = kwargs.pop("dtype") if "dtype" in kwargs else None
+    is_type: bool = kwargs.pop("is_type") if "is_type" in kwargs else False
+    type_: Feature | str | None = kwargs.pop("type") if "type" in kwargs else None
+    if kwargs:
+        raise ValidationError("Only name, dtype, is_type are valid keyword arguments")
+    kwargs["name"] = name
+    kwargs["type"] = type_
+    if is_type:
+        if name.endswith("s"):
+            logger.warning(
+                "`name` ends with 's', in case you're naming with plural, consider the singular for a type name"
+            )
+        if name[0].islower():
+            raise ValidationError(
+                "`name` starts with lowercase, name your types with upper-case letters"
+            )
+        kwargs["is_type"] = is_type
+    # cast dtype
+    if dtype is None and not is_type:
+        raise ValidationError(
+            f"Please pass dtype, one of {FEATURE_DTYPES} or a composed categorical dtype"
+        )
+    dtype_str = None
+    if dtype is not None:
         if not isinstance(dtype, str):
             dtype_str = get_dtype_str_from_dtype(dtype)
         else:
             dtype_str = dtype
-            # add validation that a registry actually exists
-            if dtype_str not in FEATURE_DTYPES and not dtype_str.startswith("cat"):
-                raise ValueError(
-                    f"dtype is {dtype_str} but has to be one of {FEATURE_DTYPES}!"
-                )
-            if dtype_str != "cat" and dtype_str.startswith("cat"):
-                registries_str = dtype_str.replace("cat[", "").rstrip("]")
-                if registries_str != "":
-                    registry_str_list = registries_str.split("|")
-                    for registry_str in registry_str_list:
-                        if registry_str not in dict_module_name_to_model_name(Artifact):
-                            raise ValueError(
-                                f"'{registry_str}' is an invalid dtype, pass, e.g. `[ln.ULabel, bt.CellType]` or similar"
-                            )
-    kwargs["dtype"] = dtype_str
+            parse_dtype(dtype_str)
+        kwargs["dtype"] = dtype_str
     super(Feature, self).__init__(*args, **kwargs)
     if not self._state.adding:
         if not (
-            self.dtype.startswith("cat") if dtype == "cat" else self.dtype == dtype
+            self.dtype.startswith("cat") if dtype == "cat" else self.dtype == dtype_str
         ):
             raise ValidationError(
-                f"Feature {self.name} already exists with dtype {self.dtype}, you passed {dtype}"
+                f"Feature {self.name} already exists with dtype {self.dtype}, you passed {dtype_str}"
             )
 
 
@@ -138,7 +224,7 @@ def categoricals_from_df(df: pd.DataFrame) -> dict:
 def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordList:
     """{}"""  # noqa: D415
     field = Feature.name if field is None else field
-    registry = field.field.model
+    registry = field.field.model  # type: ignore
     if registry != Feature:
         raise ValueError("field must be a Feature FieldAttr!")
     categoricals = categoricals_from_df(df)
@@ -149,7 +235,7 @@ def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordList
         else:
             dtypes[name] = convert_pandas_dtype_to_lamin_dtype(col.dtype)
     with logger.mute():  # silence the warning "loaded record with exact same name "
-        features = [Feature(name=name, dtype=dtype) for name, dtype in dtypes.items()]
+        features = [Feature(name=name, dtype=dtype) for name, dtype in dtypes.items()]  # type: ignore
     assert len(features) == len(df.columns)  # noqa: S101
     return RecordList(features)
 

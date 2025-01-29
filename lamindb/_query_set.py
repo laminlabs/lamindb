@@ -203,7 +203,7 @@ def get(
         qs = QuerySet(model=registry_or_queryset)
         registry = registry_or_queryset
     if isinstance(idlike, int):
-        return super(QuerySet, qs).get(id=idlike)
+        return super(QuerySet, qs).get(id=idlike)  # type: ignore
     elif isinstance(idlike, str):
         qs = qs.filter(uid__startswith=idlike)
         if issubclass(registry, IsVersioned):
@@ -537,13 +537,13 @@ class QuerySet(models.QuerySet):
         elif isinstance(include, str):
             include = [include]
         include = get_backward_compat_filter_kwargs(self, include)
-        field_names = get_basic_field_names(self, include, features)
+        field_names = get_basic_field_names(self, include, features)  # type: ignore
 
         annotate_kwargs = {}
         if features:
             annotate_kwargs.update(get_feature_annotate_kwargs(features))
         if include:
-            include = include.copy()[::-1]
+            include = include.copy()[::-1]  # type: ignore
             include_kwargs = {s: F(s) for s in include if s not in field_names}
             annotate_kwargs.update(include_kwargs)
         if annotate_kwargs:

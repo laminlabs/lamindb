@@ -45,14 +45,16 @@ def test_feature_init():
     # no args allowed
     with pytest.raises(ValueError):
         ln.Feature("x")
-    # no type passed
-    with pytest.raises(ValueError):
+    # no dtype passed
+    with pytest.raises(ValidationError):
         ln.Feature(name="feat")
+    # is OK if also is_type is passed
+    ln.Feature(name="Feat", is_type=True)
     # wrong type
     with pytest.raises(ValueError):
         ln.Feature(name="feat", dtype="x")
     # type has to be a list of Record types
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
         ln.Feature(name="feat", dtype="cat[1]")
     # ensure feat1 does not exist
     if feat1 := ln.Feature.filter(name="feat1").one_or_none() is not None:

@@ -61,6 +61,7 @@ def inspect(
     mute: bool = False,
     organism: str | Record | None = None,
     source: Record | None = None,
+    strict_source: bool = False,
 ) -> InspectResult:
     """{}"""  # noqa: D415
     return _inspect(
@@ -68,6 +69,7 @@ def inspect(
         values=values,
         field=field,
         mute=mute,
+        strict_source=strict_source,
         organism=organism,
         source=source,
     )
@@ -83,10 +85,17 @@ def validate(
     mute: bool = False,
     organism: str | Record | None = None,
     source: Record | None = None,
+    strict_source: bool = False,
 ) -> np.ndarray:
     """{}"""  # noqa: D415
     return _validate(
-        cls=cls, values=values, field=field, mute=mute, organism=organism, source=source
+        cls=cls,
+        values=values,
+        field=field,
+        mute=mute,
+        strict_source=strict_source,
+        organism=organism,
+        source=source,
     )
 
 
@@ -99,7 +108,7 @@ def _check_source_db(source: Record, using_key: str | None):
             )
 
 
-def _check_organism_db(organism: Record, using_key: str | None):
+def _check_organism_db(organism: str | Record | None, using_key: str | None):
     """Check if the organism is from the DB."""
     if isinstance(organism, Record):
         if using_key is not None and using_key != "default":
@@ -131,6 +140,7 @@ def _inspect(
     using_key: str | None = None,
     organism: str | Record | None = None,
     source: Record | None = None,
+    strict_source: bool = False,
 ) -> pd.DataFrame | dict[str, list[str]]:
     """{}"""  # noqa: D415
     from lamin_utils._inspect import inspect
@@ -144,7 +154,10 @@ def _inspect(
     using_key = queryset.db
     if isinstance(source, Record):
         _check_source_db(source, using_key)
-        queryset = queryset.filter(source=source).all()
+        # if strict_source mode, restrict the query to the passed ontology source
+        # otherwise, inspect across records present in the DB from all ontology sources and no-source
+        if strict_source:
+            queryset = queryset.filter(source=source)
     _check_organism_db(organism, using_key)
     registry = queryset.model
     model_name = registry._meta.model.__name__
@@ -200,7 +213,7 @@ def _inspect(
                     f" {colors.italic('.from_values()')}"
                 )
 
-            nonval = [i for i in bionty_result.non_validated if i not in bionty_mapper]
+            nonval = [i for i in bionty_result.non_validated if i not in bionty_mapper]  # type: ignore
         # no bionty source is found
         except ValueError:
             logger.warning("no Bionty source found, skipping Bionty validation")
@@ -227,6 +240,7 @@ def _validate(
     using_key: str | None = None,
     organism: str | Record | None = None,
     source: Record | None = None,
+    strict_source: bool = False,
 ) -> np.ndarray:
     """{}"""  # noqa: D415
     from lamin_utils._inspect import validate
@@ -242,7 +256,8 @@ def _validate(
     using_key = queryset.db
     if isinstance(source, Record):
         _check_source_db(source, using_key)
-        queryset = queryset.filter(source=source).all()
+        if strict_source:
+            queryset = queryset.filter(source=source)
     _check_organism_db(organism, using_key)
     field_values = pd.Series(
         _filter_query_based_on_organism(
@@ -292,6 +307,7 @@ def standardize(
     synonyms_field: str = "synonyms",
     organism: str | Record | None = None,
     source: Record | None = None,
+    strict_source: bool = False,
 ) -> list[str] | dict[str, str]:
     """{}"""  # noqa: D415
     return _standardize(
@@ -302,6 +318,7 @@ def standardize(
         return_mapper=return_mapper,
         case_sensitive=case_sensitive,
         mute=mute,
+        strict_source=strict_source,
         public_aware=public_aware,
         keep=keep,
         synonyms_field=synonyms_field,
@@ -359,6 +376,7 @@ def _standardize(
     using_key: str | None = None,
     organism: str | Record | None = None,
     source: Record | None = None,
+    strict_source: bool = False,
 ) -> list[str] | dict[str, str]:
     """{}"""  # noqa: D415
     from lamin_utils._standardize import standardize as map_synonyms
@@ -376,7 +394,8 @@ def _standardize(
     using_key = queryset.db
     if isinstance(source, Record):
         _check_source_db(source, using_key)
-        queryset = queryset.filter(source=source).all()
+        if strict_source:
+            queryset = queryset.filter(source=source)
     _check_organism_db(organism, using_key)
     registry = queryset.model
 

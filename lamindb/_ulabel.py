@@ -3,9 +3,14 @@ from __future__ import annotations
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 
+from lamindb.core.exceptions import ValidationError
 from lamindb.models import ULabel
 
 from ._utils import attach_func_to_class_method
+
+UPPERCASE_TYPE_NAMES_MESSAGE = (
+    "`name` starts with lowercase, name your types with upper-case letters"
+)
 
 
 def __init__(self, *args, **kwargs):
@@ -17,7 +22,7 @@ def __init__(self, *args, **kwargs):
         raise ValueError("Only one non-keyword arg allowed")
     name: str = kwargs.pop("name") if "name" in kwargs else None
     type: str | None = kwargs.pop("type") if "type" in kwargs else None
-    is_type: str | None = kwargs.pop("is_type") if "is_type" in kwargs else None
+    is_type: bool = kwargs.pop("is_type") if "is_type" in kwargs else False
     description: str | None = (
         kwargs.pop("description") if "description" in kwargs else None
     )
@@ -35,9 +40,7 @@ def __init__(self, *args, **kwargs):
                 "`name` ends with 's', in case you're naming with plural, consider the singular for a type name"
             )
         if name[0].islower():
-            logger.warning(
-                "`name` starts with lowercase, in case you're naming a type, consider starting with uppercase"
-            )
+            raise ValidationError(UPPERCASE_TYPE_NAMES_MESSAGE)
     super(ULabel, self).__init__(
         name=name,
         type=type,

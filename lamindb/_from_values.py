@@ -29,9 +29,9 @@ def get_or_create_records(
     mute: bool = False,
 ) -> RecordList:
     """Get or create records from iterables."""
-    registry = field.field.model
+    registry = field.field.model  # type: ignore
     if create:
-        return RecordList([registry(**{field.field.name: value}) for value in iterable])
+        return RecordList([registry(**{field.field.name: value}) for value in iterable])  # type: ignore
     creation_search_names = settings.creation.search_names
     organism = _get_organism_record(field, organism)
     settings.creation.search_names = False
@@ -95,7 +95,7 @@ def get_or_create_records(
                 if not mute:
                     logger.warning(
                         f"{colors.red('did not create')} {name} record{s} for "
-                        f"{n_nonval} {colors.italic(f'{field.field.name}{s}')}: {print_values}"
+                        f"{n_nonval} {colors.italic(f'{field.field.name}{s}')}: {print_values}"  # type: ignore
                     )
         # if registry.__get_module_name__() == "bionty" or registry == ULabel:
         #     if isinstance(iterable, pd.Series):
@@ -120,10 +120,10 @@ def get_existing_records(
     mute: bool = False,
 ):
     # NOTE: existing records matching is agnostic to the source
-    model = field.field.model
-    if organism is None and field.field.name == "ensembl_gene_id":
+    model = field.field.model  # type: ignore
+    if organism is None and field.field.name == "ensembl_gene_id":  # type: ignore
         if len(iterable_idx) > 0:
-            organism = _ensembl_prefix(iterable_idx[0], field, organism)
+            organism = _ensembl_prefix(iterable_idx[0], field, organism)  # type: ignore
             organism = _get_organism_record(field, organism, force=True)
 
     # standardize based on the DB reference
@@ -165,7 +165,7 @@ def get_existing_records(
             msg = (
                 "loaded"
                 f" {colors.green(f'{len(validated)} {model.__name__} record{s}')}"
-                f" matching {colors.italic(f'{field.field.name}')}: {print_values}"
+                f" matching {colors.italic(f'{field.field.name}')}: {print_values}"  # type: ignore
             )
         if len(syn_mapper) > 0:
             s = "" if len(syn_mapper) == 1 else "s"
@@ -189,7 +189,7 @@ def get_existing_records(
     # get all existing records in the db
     # if necessary, create records for the values in kwargs
     # k:v -> k:v_record
-    query = {f"{field.field.name}__in": iterable_idx.values}
+    query = {f"{field.field.name}__in": iterable_idx.values}  # type: ignore
     if organism is not None:
         query["organism"] = organism
     records = model.filter(**query).list()
@@ -209,7 +209,7 @@ def create_records_from_source(
     msg: str = "",
     mute: bool = False,
 ):
-    model = field.field.model
+    model = field.field.model  # type: ignore
     records: list = []
     # populate additional fields from bionty
     from bionty._bionty import get_source_record
@@ -232,11 +232,11 @@ def create_records_from_source(
     # standardize in the bionty reference
     # do not inspect synonyms if the field is not name field
     inspect_synonyms = True
-    if hasattr(model, "_name_field") and field.field.name != model._name_field:
+    if hasattr(model, "_name_field") and field.field.name != model._name_field:  # type: ignore
         inspect_synonyms = False
     result = public_ontology.inspect(
         iterable_idx,
-        field=field.field.name,
+        field=field.field.name,  # type: ignore
         mute=True,
         inspect_synonyms=inspect_synonyms,
     )
@@ -257,12 +257,14 @@ def create_records_from_source(
 
     # create records for values that are found in the bionty reference
     # matching either field or synonyms
-    mapped_values = iterable_idx.intersection(bionty_df[field.field.name])
+    mapped_values = iterable_idx.intersection(bionty_df[field.field.name])  # type: ignore
 
     multi_msg = ""
     if len(mapped_values) > 0:
         bionty_kwargs, multi_msg = _bulk_create_dicts_from_df(
-            keys=mapped_values, column_name=field.field.name, df=bionty_df
+            keys=mapped_values,
+            column_name=field.field.name,  # type: ignore
+            df=bionty_df,
         )
 
         if hasattr(model, "organism_id") and organism is None:
@@ -288,7 +290,7 @@ def create_records_from_source(
                 logger.success(
                     "created"
                     f" {colors.purple(f'{len(validated)} {model.__name__} record{s} from Bionty')}"
-                    f" matching {colors.italic(f'{field.field.name}')}: {print_values}"
+                    f" matching {colors.italic(f'{field.field.name}')}: {print_values}"  # type: ignore
                 )
 
     # make sure that synonyms logging appears after the field logging
@@ -365,7 +367,7 @@ def _has_organism_field(registry: type[Record]) -> bool:
         return False
 
 
-def _get_organism_record(
+def _get_organism_record(  # type: ignore
     field: StrField, organism: str | Record, force: bool = False
 ) -> Record:
     """Get organism record.
@@ -375,10 +377,10 @@ def _get_organism_record(
         organism: the organism to get the record for
         force: whether to force fetching the organism record
     """
-    registry = field.field.model
+    registry = field.field.model  # type: ignore
     check = True
     if not force and hasattr(registry, "_ontology_id_field"):
-        check = field.field.name != registry._ontology_id_field
+        check = field.field.name != registry._ontology_id_field  # type: ignore
         # e.g. bionty.CellMarker has "name" as _ontology_id_field
         if not registry._ontology_id_field.endswith("id"):
             check = True
@@ -397,10 +399,10 @@ def _get_organism_record(
 
 
 def _ensembl_prefix(id: str, field: StrField, organism: Record | None) -> str | None:
-    if field.field.name == "ensembl_gene_id" and organism is None:
+    if field.field.name == "ensembl_gene_id" and organism is None:  # type: ignore
         if id.startswith("ENSG"):
-            organism = "human"
+            organism = "human"  # type: ignore
         elif id.startswith("ENSMUSG"):
-            organism = "mouse"
+            organism = "mouse"  # type: ignore
 
     return organism
