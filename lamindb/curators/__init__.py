@@ -83,7 +83,7 @@ class CurateLookup:
         public: Whether to lookup from the public instance. Defaults to False.
 
     Example:
-        >>> curator = Curator.from_df(...)
+        >>> curator = ln.Curator.from_df(...)
         >>> curator.lookup()["cell_type"].alveolar_type_1_fibroblast_cell
         <Category: alveolar_type_1_fibroblast_cell>
 
@@ -298,7 +298,7 @@ class DataFrameCatCurator(BaseCurator):
 
     Examples:
         >>> import bionty as bt
-        >>> curator = Curator.from_df(
+        >>> curator = ln.Curator.from_df(
         ...     df,
         ...     categoricals={
         ...         "cell_type_ontology_id": bt.CellType.ontology_id,
@@ -647,7 +647,7 @@ class AnnDataCurator(DataFrameCatCurator):
 
     Examples:
         >>> import bionty as bt
-        >>> curator = Curator.from_anndata(
+        >>> curator = ln.Curator.from_anndata(
         ...     adata,
         ...     var_index=bt.Gene.ensembl_gene_id,
         ...     categoricals={
@@ -912,7 +912,7 @@ class MuDataCurator:
 
     Examples:
         >>> import bionty as bt
-        >>> curator = Curator.from_mudata(
+        >>> curator = ln.Curator.from_mudata(
         ...     mdata,
         ...     var_index={
         ...         "rna": bt.Gene.ensembl_gene_id,
@@ -1237,7 +1237,7 @@ class SOMACurator(BaseCurator):
 
     Examples:
         >>> import bionty as bt
-        >>> curator = Curator.from_tiledbsoma(
+        >>> curator = ln.Curator.from_tiledbsoma(
         ...     "./my_array_store.tiledbsoma",
         ...     var_index={"RNA": ("var_id", bt.Gene.symbol)},
         ...     categoricals={
@@ -2606,7 +2606,7 @@ class Curator(BaseCurator):
 
     Example:
 
-    >>> curator = Curator.from_df(
+    >>> curator = ln.Curator.from_df(
     >>>     df,
     >>>     # define validation criteria as mappings
     >>>     columns=Feature.name,  # map column names
@@ -2755,7 +2755,7 @@ class Curator(BaseCurator):
         Examples:
             >>> import lamindb as ln
             >>> import bionty as bt
-            >>> curator = Curator.from_spatialdata(
+            >>> curator = ln.Curator.from_spatialdata(
             ...     sdata,
             ...     var_index={
             ...         "table_1": bt.Gene.ensembl_gene_id,
