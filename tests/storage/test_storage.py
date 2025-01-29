@@ -424,7 +424,15 @@ def test_backed_wrong_suffix():
 
 
 def test_anndata_n_observations(bad_adata_path):
-    assert _anndata_n_observations(bad_adata_path) == 10
+    assert _anndata_n_observations(bad_adata_path) == 30
 
     assert _anndata_n_observations("./path_does_not_exist.h5ad") is None
     assert _anndata_n_observations("./path_does_not_exist.zarr") is None
+
+    corrupted_path = Path("./corrupted.h5ad")
+    shutil.copy(bad_adata_path, corrupted_path)
+    with h5py.File(corrupted_path, mode="w") as f:
+        del f["obs"]
+        assert "obs" not in f
+    assert _anndata_n_observations(corrupted_path) is None
+    corrupted_path.unlink()
