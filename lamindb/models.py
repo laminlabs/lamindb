@@ -1187,7 +1187,7 @@ class Transform(Record, IsVersioned):
 
         Create a transform for a pipeline:
 
-        >>> transform = ln.Transform(name="Cell Ranger", version="7.2.0", type="pipeline").save()
+        >>> transform = ln.Transform(key="Cell Ranger", version="7.2.0", type="pipeline").save()
 
         Create a transform from a notebook:
 
@@ -1460,8 +1460,8 @@ class Run(Record):
 
         Create a run record:
 
-        >>> ln.Transform(name="Cell Ranger", version="7.2.0", type="pipeline").save()
-        >>> transform = ln.Transform.get(name="Cell Ranger", version="7.2.0")
+        >>> ln.Transform(key="Cell Ranger", version="7.2.0", type="pipeline").save()
+        >>> transform = ln.Transform.get(key="Cell Ranger", version="7.2.0")
         >>> run = ln.Run(transform)
 
         Create a global run context for a custom transform:
@@ -2652,6 +2652,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     def from_df(
         cls,
         df: pd.DataFrame,
+        *,
         key: str | None = None,
         description: str | None = None,
         run: Run | None = None,
@@ -2692,6 +2693,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     def from_anndata(
         cls,
         adata: AnnData | UPathStr,
+        *,
         key: str | None = None,
         description: str | None = None,
         run: Run | None = None,
@@ -2728,6 +2730,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     def from_mudata(
         cls,
         mdata: MuData,
+        *,
         key: str | None = None,
         description: str | None = None,
         run: Run | None = None,
@@ -2763,8 +2766,8 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     def from_dir(
         cls,
         path: UPathStr,
-        key: str | None = None,
         *,
+        key: str | None = None,
         run: Run | None = None,
     ) -> list[Artifact]:
         """Create a list of artifact objects from a directory.

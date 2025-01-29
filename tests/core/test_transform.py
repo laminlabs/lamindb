@@ -7,7 +7,7 @@ import pytest
 def test_revise_transforms():
     # attempt to create a transform with an invalid version
     with pytest.raises(ValueError) as error:
-        transform = ln.Transform(name="My transform", version=0)
+        transform = ln.Transform(key="My transform", version=0)
     assert (
         error.exconly()
         == "ValueError: `version` parameter must be `None` or `str`, e.g., '0.1', '1',"
@@ -15,7 +15,7 @@ def test_revise_transforms():
     )
 
     # create a versioned transform
-    transform = ln.Transform(name="My transform", version="1")
+    transform = ln.Transform(key="My transform", version="1")
     assert transform.version == "1"
     assert len(transform.uid) == ln.Transform._len_full_uid == 16
     assert len(transform.stem_uid) == ln.Transform._len_stem_uid == 12
@@ -106,7 +106,7 @@ def test_revise_transforms():
     transform.delete()
 
     # unversioned transform
-    transform = ln.Transform(name="My transform")
+    transform = ln.Transform(key="My transform")
     assert transform.version is None
 
     # what happens if we don't save the old transform?
@@ -125,7 +125,7 @@ def test_revise_transforms():
 
 def test_delete():
     # prepare the creation of a transform with its artifacts
-    transform = ln.Transform(name="My transform").save()
+    transform = ln.Transform(key="My transform").save()
     run = ln.Run(transform)
     report_path = Path("report.html")
     with open(report_path, "w") as f:

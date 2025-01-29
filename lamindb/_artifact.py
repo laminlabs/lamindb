@@ -83,6 +83,7 @@ def process_pathlike(
     using_key: str | None,
     skip_existence_check: bool = False,
 ) -> tuple[Storage, bool]:
+    """Determines the appropriate storage for a given path and whether to use an existing storage key."""
     if not skip_existence_check:
         try:  # check if file exists
             if not filepath.exists():
@@ -192,8 +193,7 @@ def process_data(
         use_existing_storage_key = False
     else:
         raise NotImplementedError(
-            f"Do not know how to create a artifact object from {data}, pass a path"
-            " instead!"
+            f"Do not know how to create a artifact object from {data}, pass a path instead!"
         )
     return memory_rep, path, suffix, storage, use_existing_storage_key
 
@@ -205,6 +205,7 @@ def get_stat_or_artifact(
     is_replace: bool = False,
     instance: str | None = None,
 ) -> tuple[int, str | None, str | None, int | None, Artifact | None] | Artifact:
+    """Retrieves file statistics or an existing artifact based on the path, hash, and key."""
     n_files = None
     if settings.creation.artifact_skip_size_hash:
         return None, None, None, n_files, None
@@ -676,6 +677,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
 def from_df(
     cls,
     df: pd.DataFrame,
+    *,
     key: str | None = None,
     description: str | None = None,
     run: Run | None = None,
@@ -701,6 +703,7 @@ def from_df(
 def from_anndata(
     cls,
     adata: AnnData | UPathStr,
+    *,
     key: str | None = None,
     description: str | None = None,
     run: Run | None = None,
@@ -728,6 +731,7 @@ def from_anndata(
 def from_mudata(
     cls,
     mdata: MuData,
+    *,
     key: str | None = None,
     description: str | None = None,
     run: Run | None = None,
@@ -753,8 +757,8 @@ def from_mudata(
 def from_dir(
     cls,
     path: UPathStr,
-    key: str | None = None,
     *,
+    key: str | None = None,
     run: Run | None = None,
 ) -> list[Artifact]:
     """{}"""  # noqa: D415

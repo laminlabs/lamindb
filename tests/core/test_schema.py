@@ -147,7 +147,7 @@ def test_validate_features():
         validate_features(["feature"])
     with pytest.raises(TypeError):
         validate_features({"feature"})
-    transform = ln.Transform(name="test")
+    transform = ln.Transform(key="test")
     transform.save()
     # This is just a type check
     with pytest.raises(TypeError) as error:
