@@ -94,6 +94,10 @@ class Migration(migrations.Migration):
         ("lamindb", "0079_alter_rundata_value_json_and_more"),
         ("lamindb", "0080_polish_lamindbv1"),
         ("lamindb", "0081_revert_textfield_collection"),
+        ("lamindb", "0082_alter_feature_dtype"),
+        ("lamindb", "0083_alter_feature_is_type_alter_flextable_is_type_and_more"),
+        ("lamindb", "0084_alter_schemafeature_feature_and_more"),
+        ("lamindb", "0085_alter_feature_is_type_alter_flextable_is_type_and_more"),
     ]
 
     operations = [
