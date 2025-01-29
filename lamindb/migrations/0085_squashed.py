@@ -498,10 +498,7 @@ class Migration(migrations.Migration):
                 (
                     "description",
                     lamindb.base.fields.TextField(
-                        blank=True,
-                        db_index=True,
-                        default=None,
-                        null=True,
+                        blank=True, db_index=True, default=None, null=True
                     ),
                 ),
                 (
@@ -702,13 +699,17 @@ class Migration(migrations.Migration):
                 (
                     "dtype",
                     lamindb.base.fields.CharField(
-                        blank=True, db_index=True, default=None, max_length=255
+                        blank=True,
+                        db_index=True,
+                        default=None,
+                        max_length=255,
+                        null=True,
                     ),
                 ),
                 (
                     "is_type",
                     lamindb.base.fields.BooleanField(
-                        blank=True, db_index=True, default=None, null=True
+                        blank=True, db_index=True, default=False, null=True
                     ),
                 ),
                 (
@@ -1049,7 +1050,7 @@ class Migration(migrations.Migration):
                 (
                     "is_type",
                     lamindb.base.fields.BooleanField(
-                        blank=True, db_index=True, default=None, null=True
+                        blank=True, db_index=True, default=False, null=True
                     ),
                 ),
                 ("_expect_many", models.BooleanField(db_default=False, default=False)),
@@ -1268,7 +1269,7 @@ class Migration(migrations.Migration):
                 (
                     "is_type",
                     lamindb.base.fields.BooleanField(
-                        blank=True, db_index=True, default=None, null=True
+                        blank=True, db_index=True, default=False, null=True
                     ),
                 ),
                 (
@@ -1462,7 +1463,7 @@ class Migration(migrations.Migration):
                 (
                     "is_type",
                     lamindb.base.fields.BooleanField(
-                        blank=True, db_index=True, default=None, null=True
+                        blank=True, db_index=True, default=False, null=True
                     ),
                 ),
                 ("url", lamindb.base.fields.URLField(blank=True, null=True)),
@@ -2068,7 +2069,7 @@ class Migration(migrations.Migration):
                 (
                     "is_type",
                     lamindb.base.fields.BooleanField(
-                        blank=True, db_index=True, default=None, null=True
+                        blank=True, db_index=True, default=False, null=True
                     ),
                 ),
                 (
@@ -2293,7 +2294,7 @@ class Migration(migrations.Migration):
                     lamindb.base.fields.ForeignKey(
                         blank=True,
                         on_delete=django.db.models.deletion.PROTECT,
-                        related_name="+",
+                        related_name="links_schema",
                         to="lamindb.feature",
                     ),
                 ),
@@ -2302,7 +2303,7 @@ class Migration(migrations.Migration):
                     lamindb.base.fields.ForeignKey(
                         blank=True,
                         on_delete=django.db.models.deletion.CASCADE,
-                        related_name="+",
+                        related_name="links_feature",
                         to="lamindb.schema",
                     ),
                 ),
@@ -3010,7 +3011,7 @@ class Migration(migrations.Migration):
                 (
                     "is_type",
                     lamindb.base.fields.BooleanField(
-                        blank=True, db_index=True, default=None, null=True
+                        blank=True, db_index=True, default=False, null=True
                     ),
                 ),
                 (
@@ -3617,7 +3618,7 @@ class Migration(migrations.Migration):
                 (
                     "is_type",
                     lamindb.base.fields.BooleanField(
-                        blank=True, db_index=True, default=None, null=True
+                        blank=True, db_index=True, default=False, null=True
                     ),
                 ),
                 (
