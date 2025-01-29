@@ -38,7 +38,7 @@ def test_validate_literal_fields():
 def test_init_with_args():
     with pytest.raises(
         SystemExit,
-        match=re.escape("Don't pass a string directly. Use User(name='...')"),
+        match=re.escape("Don't pass a string directly. Use: User(name='...')") + r".*",
     ):
         # can't use ULabel here because it raises "Only one non-keyword arg allowed"
         ln.User("an arg")
