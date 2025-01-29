@@ -218,7 +218,15 @@ def __init__(record: Record, *args, **kwargs):
                 message = _format_django_validation_error(record, e)
                 raise FieldValidationError(message) from e
     elif len(args) != len(record._meta.concrete_fields):
-        raise ValueError("please provide keyword arguments, not plain arguments")
+        valid_field_names = [
+            f.name
+            for f in record._meta.concrete_fields
+            if not f.name.startswith("_")
+            and f.name not in ("created_at", "updated_at", "id")
+        ]
+        raise ValueError(
+            f"Please provide keyword arguments. Valid fields: {valid_field_names}"
+        )
     else:
         # object is loaded from DB (**kwargs could be omitted below, I believe)
         super(BasicRecord, record).__init__(*args, **kwargs)
