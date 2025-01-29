@@ -443,7 +443,7 @@ def test_anndata_n_observations(bad_adata_path):
     adata.write_zarr(zarr_path)
     assert _anndata_n_observations(zarr_path) == adata.n_obs
 
-    del zarr.open(zarr_path, mode="w")["obs"].attrs["_index"]
+    del zarr.open(zarr_path, mode="r+")["obs"].attrs["_index"]
     assert _anndata_n_observations(zarr_path) == adata.n_obs
 
     shutil.rmtree(zarr_path)
