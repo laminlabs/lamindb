@@ -31,9 +31,9 @@ def check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame):
                 if pd.isna(actual_val) != pd.isna(expected_val):
                     raise AssertionError(f"NaN mismatch at index {idx} in column {col}")
                 # If neither is NaN, compare the sets
-                assert (
-                    actual_val == expected_val
-                ), f"Set mismatch at index {idx} in column {col}"
+                assert actual_val == expected_val, (
+                    f"Set mismatch at index {idx} in column {col}"
+                )
         else:
             pd.testing.assert_series_equal(
                 actual_df[col],
@@ -159,7 +159,7 @@ def test_curate_df():
 
     # dataset section
     int_features_node = description_tree.children[1]
-    assert int_features_node.label.plain == "Dataset features/._schemas_m2m"
+    assert int_features_node.label.plain == "Dataset features/schema"
     assert len(int_features_node.children) == 2
     assert len(int_features_node.children[0].label.rows) == 3
     assert len(int_features_node.children[0].label.columns) == 3

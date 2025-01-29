@@ -40,7 +40,7 @@ try:
 except ImportError:
 
     def load_anndata_zarr(storepath):  # type: ignore
-        raise ImportError("Please install zarr: pip install zarr")
+        raise ImportError("Please install zarr: pip install zarr<=2.18.4")
 
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)

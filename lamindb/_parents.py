@@ -44,7 +44,7 @@ def _query_relatives(
     kind: Literal["parents", "children"],
     cls: type[HasParents],
 ) -> QuerySet:
-    relatives = cls.objects.none()
+    relatives = cls.objects.none()  # type: ignore
     if len(records) == 0:
         return relatives
     for record in records:
@@ -350,9 +350,9 @@ def _record_label(record: Record, field: str | None = None):
         )
     elif isinstance(record, Run):
         if record.transform.description:
-            name = f'{record.transform.description.replace("&", "&amp;")}'
+            name = f"{record.transform.description.replace('&', '&amp;')}"
         elif record.transform.key:
-            name = f'{record.transform.key.replace("&", "&amp;")}'
+            name = f"{record.transform.key.replace('&', '&amp;')}"
         else:
             name = f"{record.transform.uid}"
         user_display = (
@@ -366,7 +366,7 @@ def _record_label(record: Record, field: str | None = None):
             rf" user={user_display}<BR/>run={format_field_value(record.started_at)}</FONT>>"
         )
     elif isinstance(record, Transform):
-        name = f'{record.name.replace("&", "&amp;")}'
+        name = f"{record.name.replace('&', '&amp;')}"
         return (
             rf'<{TRANSFORM_EMOJIS.get(str(record.type), "💫")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
             rf' FACE="Monospace">uid={record.uid}<BR/>type={record.type},'

@@ -64,7 +64,7 @@ try:
 except ImportError:
 
     def zarr_is_adata(storepath):  # type: ignore
-        raise ImportError("Please install zarr: pip install zarr")
+        raise ImportError("Please install zarr: pip install zarr<=2.18.4")
 
 
 if TYPE_CHECKING:
@@ -83,6 +83,7 @@ def process_pathlike(
     using_key: str | None,
     skip_existence_check: bool = False,
 ) -> tuple[Storage, bool]:
+    """Determines the appropriate storage for a given path and whether to use an existing storage key."""
     if not skip_existence_check:
         try:  # check if file exists
             if not filepath.exists():
@@ -192,8 +193,7 @@ def process_data(
         use_existing_storage_key = False
     else:
         raise NotImplementedError(
-            f"Do not know how to create a artifact object from {data}, pass a path"
-            " instead!"
+            f"Do not know how to create a artifact object from {data}, pass a path instead!"
         )
     return memory_rep, path, suffix, storage, use_existing_storage_key
 
@@ -205,6 +205,7 @@ def get_stat_or_artifact(
     is_replace: bool = False,
     instance: str | None = None,
 ) -> tuple[int, str | None, str | None, int | None, Artifact | None] | Artifact:
+    """Retrieves file statistics or an existing artifact based on the path, hash, and key."""
     n_files = None
     if settings.creation.artifact_skip_size_hash:
         return None, None, None, n_files, None
@@ -441,7 +442,7 @@ def log_storage_hint(
             root_path = Path(storage.root)  # type: ignore
             if check_path_is_child_of_root(root_path, Path.cwd()):
                 # only display the relative path, not the fully resolved path
-                display_root = root_path.relative_to(Path.cwd())
+                display_root = root_path.relative_to(Path.cwd())  # type: ignore
         hint += f"path in storage '{display_root}'"  # type: ignore
     else:
         hint += "path content will be copied to default storage upon `save()`"
@@ -506,8 +507,8 @@ def _check_otype_artifact(data: Any, otype: str | None = None):
 
 
 def __init__(artifact: Artifact, *args, **kwargs):
-    artifact.features = FeatureManager(artifact)
-    artifact.params = ParamManager(artifact)
+    artifact.features = FeatureManager(artifact)  # type: ignore
+    artifact.params = ParamManager(artifact)  # type: ignore
     # Below checks for the Django-internal call in from_db()
     # it'd be better if we could avoid this, but not being able to create a Artifact
     # from data with the default constructor renders the central class of the API
@@ -676,6 +677,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
 def from_df(
     cls,
     df: pd.DataFrame,
+    *,
     key: str | None = None,
     description: str | None = None,
     run: Run | None = None,
@@ -683,7 +685,7 @@ def from_df(
     **kwargs,
 ) -> Artifact:
     """{}"""  # noqa: D415
-    artifact = Artifact(
+    artifact = Artifact(  # type: ignore
         data=df,
         key=key,
         run=run,
@@ -701,6 +703,7 @@ def from_df(
 def from_anndata(
     cls,
     adata: AnnData | UPathStr,
+    *,
     key: str | None = None,
     description: str | None = None,
     run: Run | None = None,
@@ -710,7 +713,7 @@ def from_anndata(
     """{}"""  # noqa: D415
     if not data_is_anndata(adata):
         raise ValueError("data has to be an AnnData object or a path to AnnData-like")
-    artifact = Artifact(
+    artifact = Artifact(  # type: ignore
         data=adata,
         key=key,
         run=run,
@@ -728,6 +731,7 @@ def from_anndata(
 def from_mudata(
     cls,
     mdata: MuData,
+    *,
     key: str | None = None,
     description: str | None = None,
     run: Run | None = None,
@@ -735,7 +739,7 @@ def from_mudata(
     **kwargs,
 ) -> Artifact:
     """{}"""  # noqa: D415
-    artifact = Artifact(
+    artifact = Artifact(  # type: ignore
         data=mdata,
         key=key,
         run=run,
@@ -753,8 +757,8 @@ def from_mudata(
 def from_dir(
     cls,
     path: UPathStr,
-    key: str | None = None,
     *,
+    key: str | None = None,
     run: Run | None = None,
 ) -> list[Artifact]:
     """{}"""  # noqa: D415
@@ -845,7 +849,7 @@ def from_dir(
 # docstring handled through attach_func_to_class_method
 def replace(
     self,
-    data: UPathStr,
+    data: UPathStr | pd.DataFrame | AnnData | MuData,
     run: Run | None = None,
     format: str | None = None,
 ) -> None:
@@ -867,7 +871,18 @@ def replace(
 
     check_path_in_storage = privates["check_path_in_storage"]
     if check_path_in_storage:
-        raise ValueError("Can only replace with a local file not in any Storage.")
+        err_msg = (
+            "Can only replace with a local path not in any Storage. "
+            f"This data is in {Storage.objects.get(id=kwargs['storage_id'])}."
+        )
+        raise ValueError(err_msg)
+
+    _overwrite_versions = kwargs["_overwrite_versions"]
+    if self._overwrite_versions != _overwrite_versions:
+        err_msg = "It is not allowed to replace "
+        err_msg += "a folder" if self._overwrite_versions else "a file"
+        err_msg += " with " + ("a folder." if _overwrite_versions else "a file.")
+        raise ValueError(err_msg)
 
     if self.key is not None and not self._key_is_virtual:
         key_path = PurePosixPath(self.key)
@@ -902,6 +917,7 @@ def replace(
     self._hash_type = kwargs["_hash_type"]
     self.run_id = kwargs["run_id"]
     self.run = kwargs["run"]
+    self.n_files = kwargs["n_files"]
 
     self._local_filepath = privates["local_filepath"]
     self._cloud_filepath = privates["cloud_filepath"]
@@ -926,7 +942,15 @@ def open(
     if self._overwrite_versions and not self.is_latest:
         raise ValueError(inconsistent_state_msg)
     # ignore empty suffix for now
-    suffixes = ("", ".h5", ".hdf5", ".h5ad", ".zarr", ".tiledbsoma") + PYARROW_SUFFIXES
+    suffixes = (
+        "",
+        ".h5",
+        ".hdf5",
+        ".h5ad",
+        ".zarr",
+        ".anndata.zarr",
+        ".tiledbsoma",
+    ) + PYARROW_SUFFIXES
     if self.suffix not in suffixes:
         raise ValueError(
             "Artifact should have a zarr, h5, tiledbsoma object"
@@ -951,7 +975,21 @@ def open(
         filepath, cache_key=cache_key
     )
     if not is_tiledbsoma_w and localpath.exists():
-        access = backed_access(localpath, mode, using_key)
+        try:
+            access = backed_access(localpath, mode, using_key)
+        except Exception as e:
+            if isinstance(filepath, LocalPathClasses):
+                raise e
+            logger.warning(
+                f"The cache might be corrupted: {e}. Trying to open directly."
+            )
+            access = backed_access(filepath, mode, using_key)
+            # happens only if backed_access has been successful
+            # delete the corrupted cache
+            if localpath.is_dir():
+                shutil.rmtree(localpath)
+            else:
+                localpath.unlink(missing_ok=True)
     else:
         access = backed_access(filepath, mode, using_key)
         if is_tiledbsoma_w:
@@ -993,10 +1031,10 @@ def _synchronize_cleanup_on_error(
             cache_path = setup_settings.paths.cloud_to_local_no_update(
                 filepath, cache_key=cache_key
             )
-            if cache_path.is_file():
-                cache_path.unlink(missing_ok=True)
-            elif cache_path.is_dir():
+            if cache_path.is_dir():
                 shutil.rmtree(cache_path)
+            else:
+                cache_path.unlink(missing_ok=True)
         raise e
     return cache_path
 
@@ -1013,8 +1051,24 @@ def load(self, is_run_input: bool | None = None, **kwargs) -> Any:
             self, using_key=settings._using_key
         )
         cache_path = _synchronize_cleanup_on_error(filepath, cache_key=cache_key)
-        # cache_path is local so doesn't trigger any sync in load_to_memory
-        access_memory = load_to_memory(cache_path, **kwargs)
+        try:
+            # cache_path is local so doesn't trigger any sync in load_to_memory
+            access_memory = load_to_memory(cache_path, **kwargs)
+        except Exception as e:
+            # just raise the exception if the original path is local
+            if isinstance(filepath, LocalPathClasses):
+                raise e
+            logger.warning(
+                f"The cache might be corrupted: {e}. Retrying to synchronize."
+            )
+            # delete the existing cache
+            if cache_path.is_dir():
+                shutil.rmtree(cache_path)
+            else:
+                cache_path.unlink(missing_ok=True)
+            # download again and try to load into memory
+            cache_path = _synchronize_cleanup_on_error(filepath, cache_key=cache_key)
+            access_memory = load_to_memory(cache_path, **kwargs)
     # only call if load is successfull
     _track_run_input(self, is_run_input)
     return access_memory
@@ -1236,6 +1290,7 @@ for name in METHOD_NAMES:
     attach_func_to_class_method(name, Artifact, globals())
 
 # privates currently dealt with separately
+# mypy: ignore-errors
 Artifact._delete_skip_storage = _delete_skip_storage
 Artifact._save_skip_storage = _save_skip_storage
 Artifact._cache_path = _cache_path

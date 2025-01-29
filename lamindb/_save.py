@@ -57,7 +57,7 @@ def save(records: Iterable[Record], ignore_conflicts: bool | None = False) -> No
 
         For a single record, use ``record.save()``:
 
-        >>> transform = ln.Transform(name="My pipeline")
+        >>> transform = ln.Transform(key="My pipeline")
         >>> transform.save()
 
         Update a single existing record:

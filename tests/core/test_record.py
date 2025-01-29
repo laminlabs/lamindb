@@ -31,7 +31,7 @@ def test_signatures():
 def test_validate_literal_fields():
     # validate literal
     with pytest.raises(FieldValidationError):
-        ln.Transform(name="new-name-not-existing-123", type="invalid")
+        ln.Transform(key="new-name-not-existing-123", type="invalid")
 
 
 def test_init_with_args():
@@ -184,7 +184,7 @@ def test_pass_version():
 
 
 def test_get_name_field():
-    transform = ln.Transform(name="test")
+    transform = ln.Transform(key="test")
     transform.save()
     assert _record.get_name_field(ln.Run(transform)) == "started_at"
     with pytest.raises(ValueError):
