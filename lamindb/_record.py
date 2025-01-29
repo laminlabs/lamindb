@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import builtins
 import re
+import sys
 from functools import reduce
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, NamedTuple
@@ -168,86 +169,98 @@ def suggest_records_with_similar_names(
 
 
 def __init__(record: Record, *args, **kwargs):
-    if not args:
-        validate_fields(record, kwargs)
+    try:
+        if not args:
+            validate_fields(record, kwargs)
 
-        # do not search for names if an id is passed; this is important
-        # e.g. when synching ids from the notebook store to lamindb
-        has_consciously_provided_uid = False
-        if "_has_consciously_provided_uid" in kwargs:
-            has_consciously_provided_uid = kwargs.pop("_has_consciously_provided_uid")
-        if (
-            isinstance(
-                record, (CanCurate, Collection, Transform)
-            )  # Collection is only temporary because it'll get a key field
-            and settings.creation.search_names
-            and not has_consciously_provided_uid
-        ):
-            name_field = getattr(record, "_name_field", "name")
-            exact_match = suggest_records_with_similar_names(record, name_field, kwargs)
-            if exact_match is not None:
-                if "version" in kwargs:
-                    if kwargs["version"] is not None:
-                        version_comment = " and version"
-                        existing_record = record.__class__.filter(
-                            **{
-                                name_field: kwargs[name_field],
-                                "version": kwargs["version"],
-                            }
-                        ).one_or_none()
+            # do not search for names if an id is passed; this is important
+            # e.g. when synching ids from the notebook store to lamindb
+            has_consciously_provided_uid = False
+            if "_has_consciously_provided_uid" in kwargs:
+                has_consciously_provided_uid = kwargs.pop(
+                    "_has_consciously_provided_uid"
+                )
+            if (
+                isinstance(
+                    record, (CanCurate, Collection, Transform)
+                )  # Collection is only temporary because it'll get a key field
+                and settings.creation.search_names
+                and not has_consciously_provided_uid
+            ):
+                name_field = getattr(record, "_name_field", "name")
+                exact_match = suggest_records_with_similar_names(
+                    record, name_field, kwargs
+                )
+                if exact_match is not None:
+                    if "version" in kwargs:
+                        if kwargs["version"] is not None:
+                            version_comment = " and version"
+                            existing_record = record.__class__.filter(
+                                **{
+                                    name_field: kwargs[name_field],
+                                    "version": kwargs["version"],
+                                }
+                            ).one_or_none()
+                        else:
+                            # for a versioned record, an exact name match is not a
+                            # criterion for retrieving a record in case `version`
+                            # isn't passed - we'd always pull out many records with exactly the
+                            # same name
+                            existing_record = None
                     else:
-                        # for a versioned record, an exact name match is not a
-                        # criterion for retrieving a record in case `version`
-                        # isn't passed - we'd always pull out many records with exactly the
-                        # same name
-                        existing_record = None
-                else:
-                    version_comment = ""
-                    existing_record = exact_match
-                if existing_record is not None:
-                    logger.important(
-                        f"returning existing {record.__class__.__name__} record with same"
-                        f" {name_field}{version_comment}: '{kwargs[name_field]}'"
-                    )
-                    init_self_from_db(record, existing_record)
-                    update_attributes(record, kwargs)
-                    return None
-        super(BasicRecord, record).__init__(**kwargs)
-        if isinstance(record, ValidateFields):
-            # this will trigger validation against django validators
-            try:
-                if hasattr(record, "clean_fields"):
-                    record.clean_fields()
-                else:
-                    record._Model__clean_fields()
-            except DjangoValidationError as e:
-                message = _format_django_validation_error(record, e)
-                raise FieldValidationError(message) from e
-    elif len(args) != len(record._meta.concrete_fields):
-        valid_field_names = [
-            f.name
-            for f in record._meta.concrete_fields
-            if not f.name.startswith("_")
-            and f.name
-            not in (
-                "id",
-                "uid",
-                "created_at",
-                "updated_at",
-                "created_by",
-                "run",
-                "space",
-                "synonyms",
+                        version_comment = ""
+                        existing_record = exact_match
+                    if existing_record is not None:
+                        logger.important(
+                            f"returning existing {record.__class__.__name__} record with same"
+                            f" {name_field}{version_comment}: '{kwargs[name_field]}'"
+                        )
+                        init_self_from_db(record, existing_record)
+                        update_attributes(record, kwargs)
+                        return None
+            super(BasicRecord, record).__init__(**kwargs)
+            if isinstance(record, ValidateFields):
+                # this will trigger validation against django validators
+                try:
+                    if hasattr(record, "clean_fields"):
+                        record.clean_fields()
+                    else:
+                        record._Model__clean_fields()
+                except DjangoValidationError as e:
+                    message = _format_django_validation_error(record, e)
+                    raise FieldValidationError(message) from e
+        elif len(args) != len(record._meta.concrete_fields):
+            valid_field_names = [
+                f.name
+                for f in record._meta.concrete_fields
+                if not f.name.startswith("_")
+                and f.name
+                not in (
+                    "id",
+                    "uid",
+                    "created_at",
+                    "updated_at",
+                    "created_by",
+                    "run",
+                    "space",
+                    "synonyms",
+                )
+            ]
+            example = record.__class__.__name__
+            sys.exit(
+                f"Don't pass a string directly. Use: {example}(name='...')\nValid fields: {valid_field_names}"
             )
-        ]
-        raise ValueError(
-            f"Please provide keyword arguments. Valid fields: {valid_field_names}"
-        ) from None
-    else:
-        # object is loaded from DB (**kwargs could be omitted below, I believe)
-        super(BasicRecord, record).__init__(*args, **kwargs)
-        _store_record_old_name(record)
-        _store_record_old_key(record)
+        else:
+            # object is loaded from DB (**kwargs could be omitted below, I believe)
+            super(BasicRecord, record).__init__(*args, **kwargs)
+            _store_record_old_name(record)
+            _store_record_old_key(record)
+    except (TypeError, AttributeError) as e:
+        if "missing required argument" in str(
+            e
+        ) or "missing a required argument" in str(e):
+            sys.exit(str(e))
+        raise
 
 
 def _format_django_validation_error(record: Record, e: DjangoValidationError):
