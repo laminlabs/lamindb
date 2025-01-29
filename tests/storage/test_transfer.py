@@ -146,7 +146,7 @@ def test_using_record_organism():
         ["ENSMUSG00000102862", "ENSMUSG00000084826"],
         field=bt.Gene.ensembl_gene_id,
         source=release_112_cxg,
-        strict=True,
+        strict_source=True,
     )
     assert len(inspector.validated) == 0
 
@@ -155,7 +155,7 @@ def test_using_record_organism():
         ["ENSMUSG00000102862", "ENSMUSG00000084826"],
         field=bt.Gene.ensembl_gene_id,
         source=release_110_cxg,
-        strict=True,
+        strict_source=True,
     )
     assert len(inspector.validated) == 2
 
