@@ -723,7 +723,6 @@ def from_anndata(
         revises=revises,
         otype="AnnData",
         kind="dataset",
-        n_observations=n_observations,
         **kwargs,
     )
     artifact.n_observations = n_observations
