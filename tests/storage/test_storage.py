@@ -436,3 +436,11 @@ def test_anndata_n_observations(bad_adata_path):
         assert "obs" not in f
     assert _anndata_n_observations(corrupted_path) is None
     corrupted_path.unlink()
+
+    adata = ln.core.datasets.anndata_pbmc68k_reduced()
+    assert _anndata_n_observations(adata) == adata.n_obs
+    zarr_path = "./test_adata_n_obs.zarr"
+    adata.write_zarr(zarr_path)
+    assert _anndata_n_observations(zarr_path) == adata.n_obs
+
+    shutil.rmtree(zarr_path)
