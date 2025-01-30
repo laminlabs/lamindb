@@ -88,3 +88,9 @@ class UpdateContext(SystemExit):
     """Transform settings require update."""
 
     pass
+
+
+class FieldValidationError(SystemExit):
+    """Field validation error."""
+
+    pass

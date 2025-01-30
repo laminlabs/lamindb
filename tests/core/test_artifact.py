@@ -25,6 +25,7 @@ from lamindb._artifact import (
 )
 from lamindb.core._settings import settings
 from lamindb.core.exceptions import (
+    FieldValidationError,
     IntegrityError,
     InvalidArgument,
 )
@@ -147,7 +148,7 @@ def test_data_is_anndata_paths():
 
 def test_basic_validation():
     # extra kwargs
-    with pytest.raises(ValueError):
+    with pytest.raises(FieldValidationError):
         ln.Artifact("testpath.csv", description="test1b", extra_kwarg="extra")
 
     # > 1 args

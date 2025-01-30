@@ -12,7 +12,7 @@ def local_filepath():
 
 @pytest.fixture(scope="module")
 def adata(local_filepath):
-    return ad.read(local_filepath)
+    return ad.read_h5ad(local_filepath)
 
 
 @pytest.fixture(scope="module")

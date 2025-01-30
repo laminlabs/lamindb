@@ -1,3 +1,4 @@
+import re
 import shutil
 from inspect import signature
 from pathlib import Path
@@ -6,8 +7,12 @@ import bionty as bt
 import lamindb as ln
 import pytest
 from lamindb import _record
-from lamindb._record import _search, suggest_records_with_similar_names
-from lamindb.base.validation import FieldValidationError
+from lamindb._record import (
+    _get_record_kwargs,
+    _search,
+    suggest_records_with_similar_names,
+)
+from lamindb.core.exceptions import FieldValidationError
 
 
 def test_signatures():
@@ -35,21 +40,23 @@ def test_validate_literal_fields():
 
 
 def test_init_with_args():
-    with pytest.raises(ValueError) as error:
+    with pytest.raises(
+        SystemExit,
+        match=re.escape(
+            "Use keyword arguments instead of positional arguments, e.g.: User(name='...')"
+        )
+        + r".*",
+    ):
         # can't use ULabel here because it raises "Only one non-keyword arg allowed"
         ln.User("an arg")
-    assert (
-        error.exconly()
-        == "ValueError: please provide keyword arguments, not plain arguments"
-    )
 
 
 def test_validate_required_fields():
     # label has a required name
-    with pytest.raises(TypeError):
+    with pytest.raises(FieldValidationError):
         ln.ULabel()
     # label has a required name
-    with pytest.raises(TypeError):
+    with pytest.raises(FieldValidationError):
         ln.ULabel(description="test")
 
 
@@ -214,3 +221,26 @@ def test_using():
         .first()
     )
     assert artifact == artifact_ref
+
+
+def test_get_record_params():
+    assert _get_record_kwargs(ln.Feature) == [
+        ("name", "str"),
+        ("dtype", "FeatureDtype | Registry | list[Registry]"),
+        ("unit", "str | None"),
+        ("description", "str | None"),
+        ("synonyms", "str | None"),
+    ]
+
+
+def test_get_record_kwargs_empty():
+    class EmptyRecord:
+        pass
+
+    assert _get_record_kwargs(EmptyRecord) == []
+
+    class NoInitRecord:
+        def method(self):
+            pass
+
+    assert _get_record_kwargs(NoInitRecord) == []
