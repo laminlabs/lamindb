@@ -29,7 +29,6 @@ dependencies = [
     "fsspec",
     "graphviz",
     "psycopg2-binary",
-    "storage3<=0.11.1; python_version < '3.11'", # 0.11.2 breaks python 3.10 through usage of new types
 ]
 
 [project.urls]
