@@ -2369,7 +2369,7 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
         self.schema_version = schema_version
         self.schema_reference = f"https://github.com/chanzuckerberg/single-cell-curation/blob/main/schema/{schema_version}/schema.md"
         with resources.path(
-            "lamindb._cellxgene_schemas", "schema_versions.yml"
+            "lamindb.curators._cellxgene_schemas", "schema_versions.yml"
         ) as schema_versions_path:
             self._pinned_ontologies = _read_schema_versions(schema_versions_path)[
                 self.schema_version
