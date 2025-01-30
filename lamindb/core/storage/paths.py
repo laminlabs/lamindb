@@ -42,25 +42,22 @@ def auto_storage_key_from_artifact_uid(uid: str, suffix: str, is_dir: bool) -> s
     return storage_key
 
 
-def check_path_is_child_of_root(path: UPathStr, root: UPathStr) -> bool:
-    # str is needed to eliminate UPath storage_options
-    # from the equality checks below
-    # and for fsspec.utils.get_protocol
-    path_str = str(path)
-    root_str = str(root)
-    root_protocol = fsspec.utils.get_protocol(root_str)
-    # check that the protocols are the same first
-    if fsspec.utils.get_protocol(path_str) != root_protocol:
-        return False
-    if root_protocol in {"http", "https"}:
-        # in this case it is a base url, not a file
-        # so formally does not exist
+def _safely_resolve(upath: UPath) -> UPath:
+    if upath.protocol in {"http", "https"}:
         resolve_kwargs = {"follow_redirects": False}
     else:
         resolve_kwargs = {}
-    return (
-        UPath(root_str).resolve(**resolve_kwargs) in UPath(path_str).resolve().parents
-    )
+    return upath.resolve(**resolve_kwargs)
+
+
+def check_path_is_child_of_root(path: UPathStr, root: UPathStr) -> bool:
+    if fsspec.utils.get_protocol(str(path)) != fsspec.utils.get_protocol(str(root)):
+        return False
+    path_upath = _safely_resolve(UPath(path))
+    root_upath = _safely_resolve(UPath(root))
+    # str is needed to eliminate UPath storage_options
+    # which affect equality checks
+    return UPath(str(root_upath)) in UPath(str(path_upath)).parents
 
 
 # returns filepath and root of the storage
