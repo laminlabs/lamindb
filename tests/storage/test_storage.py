@@ -10,6 +10,7 @@ import tiledbsoma
 import tiledbsoma.io
 import zarr
 from lamindb.core.loaders import load_h5ad
+from lamindb.core.storage._anndata_accessor import _anndata_n_observations
 from lamindb.core.storage._backed_access import (
     AnnDataAccessor,
     BackedAccessor,
@@ -420,3 +421,29 @@ def test_backed_wrong_suffix():
         artifact.open()
 
     fp.unlink()
+
+
+def test_anndata_n_observations(bad_adata_path):
+    assert _anndata_n_observations(bad_adata_path) == 30
+
+    assert _anndata_n_observations("./path_does_not_exist.h5ad") is None
+    assert _anndata_n_observations("./path_does_not_exist.zarr") is None
+
+    corrupted_path = Path("./corrupted.h5ad")
+    shutil.copy(bad_adata_path, corrupted_path)
+    with h5py.File(corrupted_path, mode="r+") as f:
+        del f["obs"]
+        assert "obs" not in f
+    assert _anndata_n_observations(corrupted_path) is None
+    corrupted_path.unlink()
+
+    adata = ln.core.datasets.anndata_pbmc68k_reduced()
+    assert _anndata_n_observations(adata) == adata.n_obs
+    zarr_path = "./test_adata_n_obs.zarr"
+    adata.write_zarr(zarr_path)
+    assert _anndata_n_observations(zarr_path) == adata.n_obs
+
+    del zarr.open(zarr_path, mode="r+")["obs"].attrs["_index"]
+    assert _anndata_n_observations(zarr_path) == adata.n_obs
+
+    shutil.rmtree(zarr_path)

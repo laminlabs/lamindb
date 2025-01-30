@@ -44,6 +44,7 @@ from .core.storage import (
     infer_suffix,
     write_to_disk,
 )
+from .core.storage._anndata_accessor import _anndata_n_observations
 from .core.storage._pyarrow_dataset import PYARROW_SUFFIXES
 from .core.storage.objects import _mudata_is_installed
 from .core.storage.paths import (
@@ -713,6 +714,7 @@ def from_anndata(
     """{}"""  # noqa: D415
     if not data_is_anndata(adata):
         raise ValueError("data has to be an AnnData object or a path to AnnData-like")
+    _anndata_n_observations(adata)
     artifact = Artifact(  # type: ignore
         data=adata,
         key=key,
@@ -723,6 +725,17 @@ def from_anndata(
         kind="dataset",
         **kwargs,
     )
+    # this is done instead of _anndata_n_observations(adata)
+    # because we need a proper path through create_path for cloud paths
+    # for additional upath options etc that create_path adds
+    obj_for_obs: AnnData | UPath
+    if hasattr(artifact, "_memory_rep") and artifact._memory_rep is not None:
+        obj_for_obs = artifact._memory_rep
+    else:
+        # returns ._local_filepath for local files
+        # and the proper path through create_path for cloud paths
+        obj_for_obs = artifact.path
+    artifact.n_observations = _anndata_n_observations(obj_for_obs)
     return artifact
 
 
