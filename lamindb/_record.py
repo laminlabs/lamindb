@@ -225,7 +225,7 @@ def __init__(record: Record, *args, **kwargs):
                 raise FieldValidationError(message) from e
     elif len(args) != len(record._meta.concrete_fields):
         raise FieldValidationError(
-            f"Use keyword arguments instead of positional arguments, e.g.: {record.__class__.__name__}(name='...'). See model documentation for valid fields."
+            f"Use keyword arguments instead of positional arguments, e.g.: {record.__class__.__name__}(name='...')."
         )
     else:
         # object is loaded from DB (**kwargs could be omitted below, I believe)
