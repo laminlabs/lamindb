@@ -76,7 +76,7 @@ def describe_header(self: Artifact | Collection | Run) -> Tree:
         if self._branch_code == 0:
             logger.warning("This artifact is hidden.")
         elif self._branch_code == -1:
-            logger.warning("This artifact is the trash.")
+            logger.warning("This artifact is in the trash.")
     # initialize tree
     suffix = self.suffix if hasattr(self, "suffix") and self.suffix else ""
     accessor = self.otype if hasattr(self, "otype") and self.otype else ""

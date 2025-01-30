@@ -1,0 +1,104 @@
+schema-version:
+  4.0.0:
+    CellType:
+      cl:
+        all: "2023-08-24"
+    ExperimentalFactor:
+      efo:
+        all: "3.57.0"
+    Ethnicity:
+      hancestro:
+        human: "3.0"
+    DevelopmentalStage:
+      hsapdv:
+        human: "2020-03-10"
+      mmusdv:
+        mouse: "2020-03-10"
+    Disease:
+      mondo:
+        all: "2023-08-02"
+    Organism:
+      ncbitaxon:
+        all: "2023-06-20"
+    Phenotype:
+      pato:
+        all: "2023-05-18"
+    Tissue:
+      uberon:
+        all: "2023-09-05"
+    Gene:
+      genecode:
+        human: "v38"
+        mouse: "vM27"
+  5.0.0:
+    CellType:
+      cl:
+        all: "2024-01-04"
+    ExperimentalFactor:
+      efo:
+        all: "3.62.0"
+    Ethnicity:
+      hancestro:
+        human: "3.0"
+    DevelopmentalStage:
+      hsapdv:
+        human: "2020-03-10"
+      mmusdv:
+        mouse: "2020-03-10"
+    Disease:
+      mondo:
+        all: "2024-01-03"
+    Organism:
+      ncbitaxon:
+        all: "2023-06-20"
+      ensembl:
+        vertebrates: "release-110"
+    Phenotype:
+      pato:
+        all: "2023-05-18"
+    Tissue:
+      uberon:
+        all: "2024-01-18"
+    Gene:
+      genecode:
+        human: "v44"
+        mouse: "vM33"
+      ensembl:
+        human: "release-110"
+        mouse: "release-110"
+  5.1.0:
+    CellType:
+      cl:
+        all: "2024-04-05"
+    ExperimentalFactor:
+      efo:
+        all: "3.65.0"
+    Ethnicity:
+      hancestro:
+        human: "3.0"
+    DevelopmentalStage:
+      hsapdv:
+        human: "2020-03-10"
+      mmusdv:
+        mouse: "2020-03-10"
+    Disease:
+      mondo:
+        all: "2024-05-08"
+    Organism:
+      ncbitaxon:
+        all: "2023-06-20"
+      ensembl:
+        vertebrates: "release-110"
+    Phenotype:
+      pato:
+        all: "2023-05-18"
+    Tissue:
+      uberon:
+        all: "2024-03-22"
+    Gene:
+      genecode:
+        human: "v44"
+        mouse: "vM33"
+      ensembl:
+        human: "release-110"
+        mouse: "release-110"
