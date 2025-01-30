@@ -10,10 +10,12 @@
 from __future__ import annotations
 
 import copy
+import random
 import re
 import warnings
+from importlib import resources
 from itertools import chain
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal
 
 import anndata as ad
 import lamindb_setup as ln_setup
@@ -21,13 +23,28 @@ import pandas as pd
 import pandera as pda
 import pyarrow as pa
 from lamin_utils import colors, logger
+from lamindb_setup.core import upath
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import UPath
 
+from lamindb.core.storage._backed_access import backed_access
+
+from ._cellxgene_schemas import _read_schema_versions
+
+if TYPE_CHECKING:
+    from anndata import AnnData
+    from lamindb_setup.core.types import UPathStr
+
+    from lamindb.base.types import FieldAttr
+    from lamindb.models import Record
 from lamindb._feature import parse_dtype
 from lamindb.base.types import FieldAttr  # noqa
+from lamindb.core._data import add_labels
+from lamindb.core._feature_manager import parse_staged__schemas_m2m_from_anndata
+from lamindb.core._settings import settings
 from lamindb.models import (
     Artifact,
+    Collection,
     Feature,
     Record,
     Run,
@@ -39,11 +56,12 @@ from .._from_values import _format_values
 from ..core.exceptions import ValidationError
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, MutableMapping
     from typing import Any
 
     from lamindb_setup.core.types import UPathStr
     from mudata import MuData
+    from spatialdata import SpatialData
 
     from lamindb._query_set import RecordList
 
@@ -199,7 +217,7 @@ class DataFrameCurator(BaseCurator):
         schema: A `Schema` object that defines the validation constraints.
 
     Examples:
-        >>> curator = ln.curators.DataFrameCurator(
+        >>> curator = curators.DataFrameCurator(
         ...     df,
         ...     schema,
         ... )
@@ -284,7 +302,7 @@ class DataFrameCatCurator(BaseCurator):
         ...     df,
         ...     categoricals={
         ...         "cell_type_ontology_id": bt.CellType.ontology_id,
-        ...         "donor_id": ln.ULabel.name
+        ...         "donor_id": ULabel.name
         ...     }
         ... )
     """
@@ -634,7 +652,7 @@ class AnnDataCurator(DataFrameCatCurator):
         ...     var_index=bt.Gene.ensembl_gene_id,
         ...     categoricals={
         ...         "cell_type_ontology_id": bt.CellType.ontology_id,
-        ...         "donor_id": ln.ULabel.name
+        ...         "donor_id": ULabel.name
         ...     },
         ...     organism="human",
         ... )
@@ -881,7 +899,7 @@ class MuDataCurator:
         mdata: The MuData object to curate.
         var_index: The registry field for mapping the ``.var`` index for each modality.
             For example:
-            ``{"modality_1": bt.Gene.ensembl_gene_id, "modality_2": ln.CellMarker.name}``
+            ``{"modality_1": bt.Gene.ensembl_gene_id, "modality_2": CellMarker.name}``
         categoricals: A dictionary mapping ``.obs.columns`` to a registry field.
             Use modality keys to specify categoricals for MuData slots such as `"rna:cell_type": bt.CellType.name"`.
         using_key: A reference LaminDB instance.
@@ -898,11 +916,11 @@ class MuDataCurator:
         ...     mdata,
         ...     var_index={
         ...         "rna": bt.Gene.ensembl_gene_id,
-        ...         "adt": ln.CellMarker.name
+        ...         "adt": CellMarker.name
         ...     },
         ...     categoricals={
         ...         "cell_type_ontology_id": bt.CellType.ontology_id,
-        ...         "donor_id": ln.ULabel.name
+        ...         "donor_id": ULabel.name
         ...     },
         ...     organism="human",
         ... )
@@ -1224,7 +1242,7 @@ class SOMACurator(BaseCurator):
         ...     var_index={"RNA": ("var_id", bt.Gene.symbol)},
         ...     categoricals={
         ...         "cell_type_ontology_id": bt.CellType.ontology_id,
-        ...         "donor_id": ln.ULabel.name
+        ...         "donor_id": ULabel.name
         ...     },
         ...     organism="human",
         ... )
@@ -1698,6 +1716,892 @@ class SOMACurator(BaseCurator):
         return artifact.save()
 
 
+class SpatialDataCurator:
+    """Curation flow for a ``Spatialdata`` object.
+
+    See also :class:`~lamindb.Curator`.
+
+    Note that if genes or other measurements are removed from the SpatialData object,
+    the object should be recreated.
+
+    In the following docstring, an accessor refers to either a ``.table`` key or the ``sample_metadata_key``.
+
+    Args:
+        sdata: The SpatialData object to curate.
+        var_index: A dictionary mapping table keys to the ``.var`` indices.
+        categoricals: A nested dictionary mapping an accessor to dictionaries that map columns to a registry field.
+        using_key: A reference LaminDB instance.
+        organism: The organism name.
+        sources: A dictionary mapping an accessor to dictionaries that map columns to Source records.
+        exclude: A dictionary mapping an accessor to dictionaries of column names to values to exclude from validation.
+            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
+            using the exclude parameter ensures they are not validated.
+        verbosity: The verbosity level of the logger.
+        sample_metadata_key: The key in ``.attrs`` that stores the sample level metadata.
+
+    Examples:
+        >>> import bionty as bt
+        >>> curator = SpatialDataCurator(
+        ...     sdata,
+        ...     var_index={
+        ...         "table_1": bt.Gene.ensembl_gene_id,
+        ...     },
+        ...     categoricals={
+        ...         "table1":
+        ...             {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ULabel.name},
+        ...         "sample":
+        ...             {"experimental_factor": bt.ExperimentalFactor.name},
+        ...     },
+        ...     organism="human",
+        ... )
+    """
+
+    def __init__(
+        self,
+        sdata,
+        var_index: dict[str, FieldAttr],
+        categoricals: dict[str, dict[str, FieldAttr]] | None = None,
+        using_key: str | None = None,
+        verbosity: str = "hint",
+        organism: str | None = None,
+        sources: dict[str, dict[str, Record]] | None = None,
+        exclude: dict[str, dict] | None = None,
+        *,
+        sample_metadata_key: str | None = "sample",
+    ) -> None:
+        if sources is None:
+            sources = {}
+        self._sources = sources
+        if exclude is None:
+            exclude = {}
+        self._exclude = exclude
+        self._sdata: SpatialData = sdata
+        self._sample_metadata_key = sample_metadata_key
+        self._kwargs = {"organism": organism} if organism else {}
+        self._var_fields = var_index
+        self._verify_accessor_exists(self._var_fields.keys())
+        self._categoricals = categoricals
+        self._table_keys = set(self._var_fields.keys()) | set(
+            self._categoricals.keys() - {self._sample_metadata_key}
+        )
+        self._using_key = using_key
+        self._verbosity = verbosity
+        self._sample_df_curator = None
+        if self._sample_metadata_key is not None:
+            self._sample_metadata = self._sdata.get_attrs(
+                key=self._sample_metadata_key, return_as="df", flatten=True
+            )
+        self._validated = False
+
+        # Check validity of keys in categoricals
+        nonval_keys = []
+        for accessor, accessor_categoricals in self._categoricals.items():
+            if (
+                accessor == self._sample_metadata_key
+                and self._sample_metadata is not None
+            ):
+                for key in accessor_categoricals.keys():
+                    if key not in self._sample_metadata.columns:
+                        nonval_keys.append(key)
+            else:
+                for key in accessor_categoricals.keys():
+                    if key not in self._sdata[accessor].obs.columns:
+                        nonval_keys.append(key)
+
+        _maybe_curation_keys_not_present(nonval_keys, "categoricals")
+
+        # check validity of keys in sources and exclude
+        for name, dct in (("sources", self._sources), ("exclude", self._exclude)):
+            nonval_keys = []
+            for accessor, accessor_sources in dct.items():
+                if (
+                    accessor == self._sample_metadata_key
+                    and self._sample_metadata is not None
+                ):
+                    columns = self._sample_metadata.columns
+                elif accessor != self._sample_metadata_key:
+                    columns = self._sdata[accessor].obs.columns
+                else:
+                    continue
+                for key in accessor_sources:
+                    if key not in columns:
+                        nonval_keys.append(key)
+            _maybe_curation_keys_not_present(nonval_keys, name)
+
+        # Set up sample level metadata and table Curator objects
+        if (
+            self._sample_metadata_key is not None
+            and self._sample_metadata_key in self._categoricals
+        ):
+            self._sample_df_curator = DataFrameCatCurator(
+                df=self._sample_metadata,
+                columns=Feature.name,
+                categoricals=self._categoricals.get(self._sample_metadata_key, {}),
+                using_key=using_key,
+                verbosity=verbosity,
+                sources=self._sources.get(self._sample_metadata_key),
+                exclude=self._exclude.get(self._sample_metadata_key),
+                check_valid_keys=False,
+                **self._kwargs,
+            )
+        self._table_adata_curators = {
+            table: AnnDataCurator(
+                data=sdata[table],
+                var_index=var_index.get(table),
+                categoricals=self._categoricals.get(table),
+                using_key=using_key,
+                verbosity=verbosity,
+                sources=self._sources.get(table),
+                exclude=self._exclude.get(table),
+                **self._kwargs,
+            )
+            for table in self._table_keys
+        }
+
+        self._non_validated = None
+
+    @property
+    def var_index(self) -> FieldAttr:
+        """Return the registry fields to validate variables indices against."""
+        return self._var_fields
+
+    @property
+    def categoricals(self) -> dict[str, dict[str, FieldAttr]]:
+        """Return the categorical keys and fields to validate against."""
+        return self._categoricals
+
+    @property
+    def non_validated(self) -> dict[str, dict[str, list[str]]]:
+        """Return the non-validated features and labels."""
+        if self._non_validated is None:
+            raise ValidationError("Please run validate() first!")
+        return self._non_validated
+
+    def _verify_accessor_exists(self, accessors: Iterable[str]) -> None:
+        """Verify that the accessors exist (either a valid table or in attrs)."""
+        for acc in accessors:
+            is_present = False
+            try:
+                self._sdata.get_attrs(key=acc)
+                is_present = True
+            except KeyError:
+                if acc in self._sdata.tables.keys():
+                    is_present = True
+            if not is_present:
+                raise ValidationError(f"Accessor '{acc}' does not exist!")
+
+    def lookup(
+        self, using_key: str | None = None, public: bool = False
+    ) -> CurateLookup:
+        """Look up categories.
+
+        Args:
+            using_key: The instance where the lookup is performed.
+            public: Whether the lookup is performed on the public reference.
+        """
+        cat_values_dict = list(self.categoricals.values())[0]
+        return CurateLookup(
+            categoricals=cat_values_dict,
+            slots={"accessors": cat_values_dict.keys()},
+            using_key=using_key or self._using_key,
+            public=public,
+        )
+
+    def _update_registry_all(self) -> None:
+        """Saves labels of all features for sample and table metadata."""
+        if self._sample_df_curator is not None:
+            self._sample_df_curator._update_registry_all(
+                validated_only=True, **self._kwargs
+            )
+        for _, adata_curator in self._table_adata_curators.items():
+            adata_curator._update_registry_all(validated_only=True, **self._kwargs)
+
+    def add_new_from_var_index(
+        self, table: str, organism: str | None = None, **kwargs
+    ) -> None:
+        """Save new values from ``.var.index`` of table.
+
+        Args:
+            table: The table key.
+            organism: The organism name.
+            **kwargs: Additional keyword arguments to pass to create new records.
+        """
+        if self._non_validated is None:
+            raise ValidationError("Run .validate() first.")
+        self._kwargs.update({"organism": organism} if organism else {})
+        self._table_adata_curators[table].add_new_from_var_index(
+            **self._kwargs, **kwargs
+        )
+        if table in self.non_validated.keys():
+            self._non_validated[table].pop("var_index")
+
+            if len(self.non_validated[table].values()) == 0:
+                self.non_validated.pop(table)
+
+    def add_new_from(
+        self,
+        key: str,
+        accessor: str | None = None,
+        organism: str | None = None,
+        **kwargs,
+    ) -> None:
+        """Save new values of categorical from sample level metadata or table.
+
+        Args:
+            key: The key referencing the slot in the DataFrame.
+            accessor: The accessor key such as 'sample' or 'table x'.
+            organism: The organism name.
+            **kwargs: Additional keyword arguments to pass to create new records.
+        """
+        if self._non_validated is None:
+            raise ValidationError("Run .validate() first.")
+
+        if len(kwargs) > 0 and key == "all":
+            raise ValueError("Cannot pass additional arguments to 'all' key!")
+
+        if accessor not in self.categoricals:
+            raise ValueError(
+                f"Accessor {accessor} is not in 'categoricals'. Include it when creating the SpatialDataCurator."
+            )
+
+        self._kwargs.update({"organism": organism} if organism else {})
+        if accessor in self._table_adata_curators:
+            adata_curator = self._table_adata_curators[accessor]
+            adata_curator.add_new_from(key=key, **self._kwargs, **kwargs)
+        if accessor == self._sample_metadata_key:
+            self._sample_df_curator.add_new_from(key=key, **self._kwargs, **kwargs)
+
+        if accessor in self.non_validated.keys():
+            if len(self.non_validated[accessor].values()) == 0:
+                self.non_validated.pop(accessor)
+
+    def standardize(self, key: str, accessor: str | None = None) -> None:
+        """Replace synonyms with canonical values.
+
+        Modifies the dataset inplace.
+
+        Args:
+            key: The key referencing the slot in the table or sample metadata.
+            accessor: The accessor key such as 'sample_key' or 'table_key'.
+        """
+        if len(self.non_validated) == 0:
+            logger.warning("values are already standardized")
+            return
+
+        if accessor == self._sample_metadata_key:
+            if key not in self._sample_metadata.columns:
+                raise ValueError(f"key '{key}' not present in '{accessor}'!")
+        else:
+            if key not in self._sdata.tables[accessor].obs.columns:
+                raise ValueError(f"key '{key}' not present in '{accessor}'!")
+
+        if accessor in self._table_adata_curators.keys():
+            adata_curator = self._table_adata_curators[accessor]
+            adata_curator.standardize(key)
+        if accessor == self._sample_metadata_key:
+            self._sample_df_curator.standardize(key)
+
+        if len(self.non_validated[accessor].values()) == 0:
+            self.non_validated.pop(accessor)
+
+    def validate(self, organism: str | None = None) -> bool:
+        """Validate variables and categorical observations.
+
+        This method also registers the validated records in the current instance:
+        - from public sources
+        - from the using_key instance
+
+        Args:
+            organism: The organism name.
+
+        Returns:
+            Whether the SpatialData object is validated.
+        """
+        from lamindb.core._settings import settings
+
+        self._kwargs.update({"organism": organism} if organism else {})
+        if self._using_key is not None and self._using_key != "default":
+            logger.important(
+                f"validating using registries of instance {colors.italic(self._using_key)}"
+            )
+
+        # add all validated records to the current instance
+        verbosity = settings.verbosity
+        try:
+            settings.verbosity = "error"
+            self._update_registry_all()
+        finally:
+            settings.verbosity = verbosity
+
+        self._non_validated = {}  # type: ignore
+
+        sample_validated = True
+        if self._sample_df_curator:
+            logger.info(f"validating categoricals of '{self._sample_metadata_key}' ...")
+            sample_validated &= self._sample_df_curator.validate(**self._kwargs)
+            if len(self._sample_df_curator.non_validated) > 0:
+                self._non_validated["sample"] = self._sample_df_curator.non_validated  # type: ignore
+            logger.print("")
+
+        mods_validated = True
+        for table, adata_curator in self._table_adata_curators.items():
+            logger.info(f"validating categoricals of table '{table}' ...")
+            mods_validated &= adata_curator.validate(**self._kwargs)
+            if len(adata_curator.non_validated) > 0:
+                self._non_validated[table] = adata_curator.non_validated  # type: ignore
+            logger.print("")
+
+        self._validated = sample_validated & mods_validated
+        return self._validated
+
+    def save_artifact(
+        self,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ) -> Artifact:
+        """Save the validated ``SpatialData`` object and metadata.
+
+        Args:
+            description: A description of the ``SpatialData`` object.
+            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.zarr"`.
+                Artifacts with the same key form a revision family.
+            revises: Previous version of the artifact. Triggers a revision.
+            run: The Run that creates the artifact.
+
+        Returns:
+            A saved Artifact record.
+        """
+        if not self._validated:
+            self.validate()
+            if not self._validated:
+                raise ValidationError("Dataset does not validate. Please curate.")
+
+        verbosity = settings.verbosity
+        try:
+            settings.verbosity = "warning"
+
+            # Write the SpatialData object to a random path in tmp directory
+            # The Artifact constructor will move it to the cache
+            write_path = f"{settings.cache_dir}/{random.randint(10**7, 10**8 - 1)}.zarr"
+            self._sdata.write(write_path)
+
+            # Create the Artifact and associate Artifact metadata
+            self._artifact = Artifact(
+                write_path,
+                description=description,
+                key=key,
+                revises=revises,
+                run=run,
+            )
+            # According to Tim it is not easy to calculate the number of observations.
+            # We would have to write custom code to iterate over labels (which might not even exist at that point)
+            self._artifact.otype = "spatialdata"
+            self._artifact.save()
+
+            # Link schemas
+            feature_kwargs = check_registry_organism(
+                (list(self._var_fields.values())[0].field.model),
+                self._kwargs.get("organism"),
+            )
+
+            def _add_set_from_spatialdata(
+                host: Artifact | Collection | Run,
+                var_fields: dict[str, FieldAttr],
+                obs_fields: dict[str, FieldAttr] = None,
+                mute: bool = False,
+                organism: str | Record | None = None,
+            ):
+                """Add Schemas from SpatialData."""
+                if obs_fields is None:
+                    obs_fields = {}
+                assert host.otype == "spatialdata"  # noqa: S101
+
+                _schemas_m2m = {}
+
+                # sample features
+                sample_features = Feature.from_values(self._sample_metadata.columns)  # type: ignore
+                if len(sample_features) > 0:
+                    _schemas_m2m[self._sample_metadata_key] = Schema(
+                        features=sample_features
+                    )
+
+                # table features
+                for table, field in var_fields.items():
+                    table_fs = parse_staged__schemas_m2m_from_anndata(
+                        self._sdata[table],
+                        var_field=field,
+                        obs_field=obs_fields.get(table, Feature.name),
+                        mute=mute,
+                        organism=organism,
+                    )
+                    for k, v in table_fs.items():
+                        _schemas_m2m[f"['{table}'].{k}"] = v
+
+                def _unify_staged__schemas_m2m_by_hash(
+                    _schemas_m2m: MutableMapping[str, Schema],
+                ):
+                    unique_values: dict[str, Any] = {}
+
+                    for key, value in _schemas_m2m.items():
+                        value_hash = (
+                            value.hash
+                        )  # Assuming each value has a .hash attribute
+                        if value_hash in unique_values:
+                            _schemas_m2m[key] = unique_values[value_hash]
+                        else:
+                            unique_values[value_hash] = value
+
+                    return _schemas_m2m
+
+                # link feature sets
+                host._staged__schemas_m2m = _unify_staged__schemas_m2m_by_hash(
+                    _schemas_m2m
+                )
+                host.save()
+
+            _add_set_from_spatialdata(
+                self._artifact, var_fields=self._var_fields, **feature_kwargs
+            )
+
+            # Link labels
+            def _add_labels_from_spatialdata(
+                data,
+                artifact: Artifact,
+                fields: dict[str, FieldAttr],
+                feature_ref_is_name: bool | None = None,
+            ):
+                """Add Labels from SpatialData."""
+                features = Feature.lookup().dict()
+                for key, field in fields.items():
+                    feature = features.get(key)
+                    registry = field.field.model
+                    filter_kwargs = check_registry_organism(
+                        registry, self._kwargs.get("organism")
+                    )
+                    filter_kwargs_current = get_current_filter_kwargs(
+                        registry, filter_kwargs
+                    )
+                    df = data if isinstance(data, pd.DataFrame) else data.obs
+                    labels = registry.from_values(
+                        df[key],
+                        field=field,
+                        **filter_kwargs_current,
+                    )
+                    if len(labels) == 0:
+                        continue
+
+                    label_ref_is_name = None
+                    if hasattr(registry, "_name_field"):
+                        label_ref_is_name = field.field.name == registry._name_field
+                    add_labels(
+                        artifact,
+                        records=labels,
+                        feature=feature,
+                        feature_ref_is_name=feature_ref_is_name,
+                        label_ref_is_name=label_ref_is_name,
+                        from_curator=True,
+                    )
+
+            for accessor, accessor_fields in self._categoricals.items():
+                column_field = self._var_fields.get(accessor)
+                if accessor == self._sample_metadata_key:
+                    _add_labels_from_spatialdata(
+                        self._sample_metadata,
+                        self._artifact,
+                        accessor_fields,
+                        feature_ref_is_name=(
+                            None if column_field is None else _ref_is_name(column_field)
+                        ),
+                    )
+                else:
+                    _add_labels_from_spatialdata(
+                        self._sdata.tables[accessor],
+                        self._artifact,
+                        accessor_fields,
+                        feature_ref_is_name=(
+                            None if column_field is None else _ref_is_name(column_field)
+                        ),
+                    )
+
+        finally:
+            settings.verbosity = verbosity
+
+        slug = ln_setup.settings.instance.slug
+        if ln_setup.settings.instance.is_remote:  # pragma: no cover
+            logger.important(
+                f"go to https://lamin.ai/{slug}/artifact/{self._artifact.uid}"
+            )
+
+        return self._artifact
+
+
+def _restrict_obs_fields(
+    obs: pd.DataFrame, obs_fields: dict[str, FieldAttr]
+) -> dict[str, str]:
+    """Restrict the obs fields to name return only available obs fields.
+
+    To simplify the curation, we only validate against either name or ontology_id.
+    If both are available, we validate against ontology_id.
+    If none are available, we validate against name.
+    """
+    obs_fields_unique = {k: v for k, v in obs_fields.items() if k in obs.columns}
+    for name, field in obs_fields.items():
+        if name.endswith("_ontology_term_id"):
+            continue
+        # if both the ontology id and the name are present, only validate on the ontology_id
+        if name in obs.columns and f"{name}_ontology_term_id" in obs.columns:
+            obs_fields_unique.pop(name)
+        # if the neither name nor ontology id are present, validate on the name
+        # this will raise error downstream, we just use name to be more readable
+        if name not in obs.columns and f"{name}_ontology_term_id" not in obs.columns:
+            obs_fields_unique[name] = field
+
+    # Only retain obs_fields_unique that have keys in adata.obs.columns
+    available_obs_fields = {
+        k: v for k, v in obs_fields_unique.items() if k in obs.columns
+    }
+
+    return available_obs_fields
+
+
+def _add_defaults_to_obs(
+    obs: pd.DataFrame,
+    defaults: dict[str, str],
+) -> None:
+    """Add default columns and values to obs DataFrame."""
+    added_defaults: dict = {}
+    for name, default in defaults.items():
+        if name not in obs.columns and f"{name}_ontology_term_id" not in obs.columns:
+            obs[name] = default
+            added_defaults[name] = default
+            logger.important(
+                f"added default value '{default}' to the adata.obs['{name}']"
+            )
+
+
+class CellxGeneFields:
+    """CELLxGENE fields."""
+
+    OBS_FIELD_DEFAULTS = {
+        "cell_type": "unknown",
+        "development_stage": "unknown",
+        "disease": "normal",
+        "donor_id": "unknown",
+        "self_reported_ethnicity": "unknown",
+        "sex": "unknown",
+        # Setting these defaults to 'unknown' will lead the validator to fail because it expects a specified set of values that does not include 'unknown'.
+        # 'unknown' is registered as a ULabel and is therefore validated.
+        "suspension_type": "cell",
+        "tissue_type": "tissue",
+    }
+
+
+class CellxGeneAnnDataCurator(AnnDataCurator):
+    """Annotation flow of AnnData based on CELLxGENE schema."""
+
+    def __init__(
+        self,
+        adata: ad.AnnData | UPathStr,
+        organism: Literal["human", "mouse"] = "human",
+        *,
+        defaults: dict[str, str] = None,
+        extra_sources: dict[str, Record] = None,
+        schema_version: Literal["4.0.0", "5.0.0", "5.1.0"] = "5.1.0",
+        verbosity: str = "hint",
+        using_key: str = "laminlabs/cellxgene",
+    ) -> None:
+        """CELLxGENE schema curator.
+
+        Args:
+            adata: Path to or AnnData object to curate against the CELLxGENE schema.
+            var_index: The registry field for mapping the ``.var`` index.
+            categoricals: A dictionary mapping ``.obs.columns`` to a registry field.
+                The CELLxGENE Curator maps against the required CELLxGENE fields by default.
+            organism: The organism name. CELLxGENE restricts it to 'human' and 'mouse'.
+            defaults: Default values that are set if columns or column values are missing.
+            extra_sources: A dictionary mapping ``.obs.columns`` to Source records.
+                These extra sources are joined with the CELLxGENE fixed sources.
+                Use this parameter when subclassing.
+            exclude: A dictionary mapping column names to values to exclude.
+            schema_version: The CELLxGENE schema version to curate against.
+            verbosity: The verbosity level.
+            using_key: A reference LaminDB instance.
+        """
+        import bionty as bt
+
+        var_index: FieldAttr = bt.Gene.ensembl_gene_id
+
+        categoricals = {
+            "assay": bt.ExperimentalFactor.name,
+            "assay_ontology_term_id": bt.ExperimentalFactor.ontology_id,
+            "cell_type": bt.CellType.name,
+            "cell_type_ontology_term_id": bt.CellType.ontology_id,
+            "development_stage": bt.DevelopmentalStage.name,
+            "development_stage_ontology_term_id": bt.DevelopmentalStage.ontology_id,
+            "disease": bt.Disease.name,
+            "disease_ontology_term_id": bt.Disease.ontology_id,
+            "donor_id": ULabel.name,
+            "self_reported_ethnicity": bt.Ethnicity.name,
+            "self_reported_ethnicity_ontology_term_id": bt.Ethnicity.ontology_id,
+            "sex": bt.Phenotype.name,
+            "sex_ontology_term_id": bt.Phenotype.ontology_id,
+            "suspension_type": ULabel.name,
+            "tissue": bt.Tissue.name,
+            "tissue_ontology_term_id": bt.Tissue.ontology_id,
+            "tissue_type": ULabel.name,
+            "organism": bt.Organism.name,
+            "organism_ontology_term_id": bt.Organism.ontology_id,
+        }
+
+        self.organism = organism
+        self.using_key = using_key
+
+        VALID_SCHEMA_VERSIONS = {"4.0.0", "5.0.0", "5.1.0"}
+        if schema_version not in VALID_SCHEMA_VERSIONS:
+            valid_versions = ", ".join(sorted(VALID_SCHEMA_VERSIONS))
+            raise ValueError(
+                f"Invalid schema_version: {schema_version}. "
+                f"Valid versions are: {valid_versions}"
+            )
+        self.schema_version = schema_version
+        self.schema_reference = f"https://github.com/chanzuckerberg/single-cell-curation/blob/main/schema/{schema_version}/schema.md"
+        with resources.path(
+            "lamindb.curators._cellxgene_schemas", "schema_versions.yml"
+        ) as schema_versions_path:
+            self._pinned_ontologies = _read_schema_versions(schema_versions_path)[
+                self.schema_version
+            ]
+
+        # Fetch AnnData obs to be able to set defaults and get sources
+        if isinstance(adata, ad.AnnData):
+            self._adata_obs = adata.obs
+        else:
+            self._adata_obs = backed_access(upath.create_path(adata)).obs  # type: ignore
+
+        # Add defaults first to ensure that we fetch valid sources
+        if defaults:
+            _add_defaults_to_obs(self._adata_obs, defaults)
+
+        self.sources = self._create_sources(self._adata_obs)
+        self.sources = {
+            entity: source
+            for entity, source in self.sources.items()
+            if source is not None
+        }
+
+        # These sources are not a part of the cellxgene schema but rather passed through.
+        # This is useful when other Curators extend the CELLxGENE curator
+        if extra_sources:
+            self.sources = self.sources | extra_sources
+
+        # Exclude default values from validation because they are not available in the pinned sources
+        exclude_keys = {
+            entity: default
+            for entity, default in CellxGeneFields.OBS_FIELD_DEFAULTS.items()
+            if entity in self._adata_obs.columns  # type: ignore
+        }
+
+        super().__init__(
+            data=adata,
+            var_index=var_index,
+            categoricals=_restrict_obs_fields(self._adata_obs, categoricals),
+            using_key=using_key,
+            verbosity=verbosity,
+            organism=organism,
+            sources=self.sources,
+            exclude=exclude_keys,
+        )
+
+    @property
+    def pinned_ontologies(self) -> pd.DataFrame:
+        return self._pinned_ontologies
+
+    @property
+    def adata(self) -> AnnData:
+        return self._adata
+
+    def _create_sources(self, obs: pd.DataFrame) -> dict[str, Record]:
+        """Creates a sources dictionary that can be passed to AnnDataCurator."""
+        import bionty as bt
+
+        # fmt: off
+        def _fetch_bionty_source(
+            entity: str, organism: str, source: str
+        ) -> bt.Source | None:
+            """Fetch the Bionty source of the pinned ontology.
+
+            Returns None if the source does not exist.
+            """
+            version = self._pinned_ontologies.loc[(self._pinned_ontologies.index == entity) &
+                                                  (self._pinned_ontologies["organism"] == organism) &
+                                                  (self._pinned_ontologies["source"] == source), "version"].iloc[0]
+            return bt.Source.using(self.using_key).filter(organism=organism, entity=f"bionty.{entity}", version=version).first()
+
+        entity_mapping = {
+             "var_index": ("Gene", self.organism, "ensembl"),
+             "cell_type": ("CellType", "all", "cl"),
+             "assay": ("ExperimentalFactor", "all", "efo"),
+             "self_reported_ethnicity": ("Ethnicity", self.organism, "hancestro"),
+             "development_stage": ("DevelopmentalStage", self.organism, "hsapdv" if self.organism == "human" else "mmusdv"),
+             "disease": ("Disease", "all", "mondo"),
+             # "organism": ("Organism", "vertebrates", "ensembl"),
+             "sex": ("Phenotype", "all", "pato"),
+             "tissue": ("Tissue", "all", "uberon"),
+        }
+        # fmt: on
+
+        # Retain var_index and one of 'entity'/'entity_ontology_term_id' that is present in obs
+        entity_to_sources = {
+            entity: _fetch_bionty_source(*params)
+            for entity, params in entity_mapping.items()
+            if entity in obs.columns
+            or (f"{entity}_ontology_term_id" in obs.columns and entity != "var_index")
+            or entity == "var_index"
+        }
+
+        return entity_to_sources
+
+    def _convert_name_to_ontology_id(self, values: pd.Series, field: FieldAttr):
+        """Converts a column that stores a name into a column that stores the ontology id.
+
+        cellxgene expects the obs columns to be {entity}_ontology_id columns and disallows {entity} columns.
+        """
+        field_name = field.field.name
+        assert field_name == "name"  # noqa: S101
+        cols = ["name", "ontology_id"]
+        registry = field.field.model
+
+        if hasattr(registry, "ontology_id"):
+            validated_records = registry.using(self.using_key).filter(
+                **{f"{field_name}__in": values}
+            )
+            mapper = (
+                pd.DataFrame(validated_records.values_list(*cols))
+                .set_index(0)
+                .to_dict()[1]
+            )
+            return values.map(mapper)
+
+    def validate(self) -> bool:  # type: ignore
+        """Validates the AnnData object against most cellxgene requirements."""
+        # Verify that all required obs columns are present
+        missing_obs_fields = [
+            name
+            for name in CellxGeneFields.OBS_FIELD_DEFAULTS.keys()
+            if name not in self._adata.obs.columns
+            and f"{name}_ontology_term_id" not in self._adata.obs.columns
+        ]
+        if len(missing_obs_fields) > 0:
+            missing_obs_fields_str = ", ".join(list(missing_obs_fields))
+            logger.error(f"missing required obs columns {missing_obs_fields_str}")
+            logger.info(
+                "consider initializing a Curate object like 'Curate(adata, defaults=cxg.CellxGeneFields.OBS_FIELD_DEFAULTS)'"
+                "to automatically add these columns with default values."
+            )
+            return False
+
+        # Verify that no cellxgene reserved names are present
+        reserved_names = {
+            "ethnicity",
+            "ethnicity_ontology_term_id",
+            "X_normalization",
+            "default_field",
+            "layer_descriptions",
+            "tags",
+            "versions",
+            "contributors",
+            "preprint_doi",
+            "project_description",
+            "project_links",
+            "project_name",
+            "publication_doi",
+        }
+        matched_columns = [
+            column for column in self._adata.obs.columns if column in reserved_names
+        ]
+        if len(matched_columns) > 0:
+            raise ValueError(
+                f"AnnData object must not contain obs columns {matched_columns} which are"
+                " reserved from previous schema versions."
+            )
+
+        return super().validate(organism=self.organism)
+
+    def to_cellxgene_anndata(
+        self, is_primary_data: bool, title: str | None = None
+    ) -> ad.AnnData:
+        """Converts the AnnData object to the cellxgene-schema input format.
+
+        cellxgene expects the obs fields to be {entity}_ontology_id fields and has many further requirements which are
+        documented here: https://github.com/chanzuckerberg/single-cell-curation/tree/main/schema.
+        This function checks for most but not all requirements of the CELLxGENE schema.
+        If you want to ensure that it fully adheres to the CELLxGENE schema, run `cellxgene-schema` on the AnnData object.
+
+        Args:
+            is_primary_data: Whether the measured data is primary data or not.
+            title: Title of the AnnData object. Commonly the name of the publication.
+
+        Returns:
+            An AnnData object which adheres to the cellxgene-schema.
+        """
+        # Create a copy since we modify the AnnData object extensively
+        adata_cxg = self._adata.copy()
+
+        # cellxgene requires an embedding
+        embedding_pattern = r"^[a-zA-Z][a-zA-Z0-9_.-]*$"
+        exclude_key = "spatial"
+        matching_keys = [
+            key
+            for key in adata_cxg.obsm.keys()
+            if re.match(embedding_pattern, key) and key != exclude_key
+        ]
+        if len(matching_keys) == 0:
+            raise ValueError(
+                "Unable to find an embedding key. Please calculate an embedding."
+            )
+
+        # convert name column to ontology_term_id column
+        for column in adata_cxg.obs.columns:
+            if column in self.categoricals and not column.endswith("_ontology_term_id"):
+                mapped_column = self._convert_name_to_ontology_id(
+                    adata_cxg.obs[column], field=self.categoricals.get(column)
+                )
+                if mapped_column is not None:
+                    adata_cxg.obs[f"{column}_ontology_term_id"] = mapped_column
+
+        # drop the name columns for ontologies. cellxgene does not allow them.
+        drop_columns = [
+            i
+            for i in adata_cxg.obs.columns
+            if f"{i}_ontology_term_id" in adata_cxg.obs.columns
+        ]
+        adata_cxg.obs.drop(columns=drop_columns, inplace=True)
+
+        # Add cellxgene metadata to AnnData object
+        if "is_primary_data" not in adata_cxg.obs.columns:
+            adata_cxg.obs["is_primary_data"] = is_primary_data
+        if "feature_is_filtered" not in adata_cxg.var.columns:
+            logger.warn(
+                "column 'feature_is_filtered' not present in var. Setting to default"
+                " value of False."
+            )
+            adata_cxg.var["feature_is_filtered"] = False
+        if self._collection is None:
+            if title is None:
+                raise ValueError("please pass a title!")
+            else:
+                adata_cxg.uns["title"] = title
+        else:
+            adata_cxg.uns["title"] = self._collection.name
+        adata_cxg.uns["cxg_lamin_schema_reference"] = self.schema_reference
+        adata_cxg.uns["cxg_lamin_schema_version"] = self.schema_version
+
+        return adata_cxg
+
+
 class Curator(BaseCurator):
     """Dataset curator.
 
@@ -1708,8 +2612,8 @@ class Curator(BaseCurator):
     >>> curator = ln.Curator.from_df(
     >>>     df,
     >>>     # define validation criteria as mappings
-    >>>     columns=ln.Feature.name,  # map column names
-    >>>     categoricals={"perturbation": ln.ULabel.name},  # map categories
+    >>>     columns=Feature.name,  # map column names
+    >>>     categoricals={"perturbation": ULabel.name},  # map categories
     >>> )
     >>> curator.validate()  # validate the data in df
     >>> artifact = curator.save_artifact(description="my RNA-seq")
@@ -1861,7 +2765,7 @@ class Curator(BaseCurator):
             ...     },
             ...     categoricals={
             ...         "table1":
-            ...             {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name},
+            ...             {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ULabel.name},
             ...         "sample":
             ...             {"experimental_factor": bt.ExperimentalFactor.name},
             ...     },
@@ -1874,8 +2778,6 @@ class Curator(BaseCurator):
             raise ImportError(
                 "Please install spatialdata: pip install spatialdata"
             ) from e
-
-        from lamindb.curators._spatial import SpatialDataCurator
 
         return SpatialDataCurator(
             sdata=sdata,
@@ -2556,6 +3458,3 @@ def _ref_is_name(field: FieldAttr) -> bool | None:
 
     name_field = get_name_field(field.field.model)
     return field.field.name == name_field
-
-
-Curate = Curator  # backward compat
