@@ -15,6 +15,7 @@ from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import hash_set
 
+from lamindb._record import _get_record_kwargs
 from lamindb.models import (
     Collection,
     CollectionArtifact,
@@ -117,9 +118,8 @@ def __init__(
             stacklevel=2,
         )
     if not len(kwargs) == 0:
-        raise ValueError(
-            f"Only artifacts, key, run, description, reference, reference_type can be passed, you passed: {kwargs}"
-        )
+        valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Collection)])
+        raise ValueError(f"Only {valid_keywords} can be passed, you passed: {kwargs}")
     provisional_uid, version, key, description, revises = process_revises(
         revises, version, key, description, Collection
     )

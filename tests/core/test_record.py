@@ -8,11 +8,11 @@ import lamindb as ln
 import pytest
 from lamindb import _record
 from lamindb._record import (
-    _get_model_params,
+    _get_record_kwargs,
     _search,
     suggest_records_with_similar_names,
 )
-from lamindb.base.validation import FieldValidationError
+from lamindb.core.exceptions import FieldValidationError
 
 
 def test_signatures():
@@ -224,10 +224,23 @@ def test_using():
 
 
 def test_get_record_params():
-    assert _get_model_params(ln.Feature) == [
+    assert _get_record_kwargs(ln.Feature) == [
         ("name", "str"),
         ("dtype", "FeatureDtype | Registry | list[Registry]"),
         ("unit", "str | None"),
         ("description", "str | None"),
         ("synonyms", "str | None"),
     ]
+
+
+def test_get_record_kwargs_empty():
+    class EmptyRecord:
+        pass
+
+    assert _get_record_kwargs(EmptyRecord) == []
+
+    class NoInitRecord:
+        def method(self):
+            pass
+
+    assert _get_record_kwargs(NoInitRecord) == []

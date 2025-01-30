@@ -3,7 +3,6 @@ from __future__ import annotations
 import builtins
 import inspect
 import re
-import sys
 from functools import reduce
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, NamedTuple
@@ -43,7 +42,7 @@ from lamindb_setup.core._hub_core import connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
 from lamindb_setup.core.upath import extract_suffix_from_path
 
-from lamindb.base.validation import FieldValidationError
+from lamindb.core.exceptions import FieldValidationError
 from lamindb.models import (
     Artifact,
     BasicRecord,
@@ -107,7 +106,7 @@ def validate_fields(record: Record, kwargs):
         k for k, v in kwargs.items() if v is None and k in required_fields
     ]
     if missing_fields:
-        raise TypeError(f"{missing_fields} are required.")
+        raise FieldValidationError(f"{missing_fields} are required.")
     # ensure the exact length of the internal uid for core entities
     if "uid" in kwargs and record.__class__ in {
         Artifact,
@@ -169,11 +168,7 @@ def suggest_records_with_similar_names(
     return None
 
 
-def _init_with_potential_errors(record: Record, *args, **kwargs):
-    """Initialize record with passed arguments.
-
-    This function may error if non-keyword arguments are passed.
-    """
+def __init__(record: Record, *args, **kwargs):
     if not args:
         validate_fields(record, kwargs)
 
@@ -229,7 +224,7 @@ def _init_with_potential_errors(record: Record, *args, **kwargs):
                 message = _format_django_validation_error(record, e)
                 raise FieldValidationError(message) from e
     elif len(args) != len(record._meta.concrete_fields):
-        sys.exit(
+        raise FieldValidationError(
             f"Use keyword arguments instead of positional arguments, e.g.: {record.__class__.__name__}(name='...'). See model documentation for valid fields."
         )
     else:
@@ -237,15 +232,6 @@ def _init_with_potential_errors(record: Record, *args, **kwargs):
         super(BasicRecord, record).__init__(*args, **kwargs)
         _store_record_old_name(record)
         _store_record_old_key(record)
-
-
-def __init__(record: Record, *args, **kwargs):
-    try:
-        _init_with_potential_errors(record, *args, **kwargs)
-    except ValueError as e:
-        if "missing required argument" in str(e):
-            sys.exit(str(e))
-        raise
 
 
 def _format_django_validation_error(record: Record, e: DjangoValidationError):
@@ -279,7 +265,7 @@ def _format_django_validation_error(record: Record, e: DjangoValidationError):
         return message
 
 
-def _get_model_params(record_class) -> list[tuple[str, str]]:
+def _get_record_kwargs(record_class) -> list[tuple[str, str]]:
     """Gets the parameters of a Record from the overloaded signature.
 
     Example:
@@ -294,6 +280,8 @@ def _get_model_params(record_class) -> list[tuple[str, str]]:
 
     for overload in overloads:
         params_block = overload.group(1)
+        # This is an additional safety measure if the overloaded signature that we're
+        # looking for is not at the top but a "db_args" constructor
         if "*db_args" in params_block:
             continue
 
@@ -304,9 +292,24 @@ def _get_model_params(record_class) -> list[tuple[str, str]]:
                 continue
 
             # Extract name and type annotation
-            param_pattern = (
-                r"(\w+)\s*:\s*((?:[^=,]|(?<=\[)[^[\]]*(?=\]))+)(?:\s*=\s*([^,]+))?"
-            )
+            # The regex pattern finds parameter definitions like:
+            # Simple: name: str
+            # With default: age: int = 0
+            # With complex types: items: List[str] = []
+            param_pattern = r"""
+                (\w+)                  # Group 1: Parameter name (word characters)
+                \s*:\s*                # Colon with optional whitespace
+                (                      # Group 2: Type annotation
+                    (?:[^=,]|          # Either non-equals/comma characters
+                    (?<=\[)[^[\]]*     # Or contents within square brackets,
+                    (?=\]))            # looking ahead for closing bracket
+                )+                     # One or more of these
+                )
+                (?:                    # Non-capturing group for optional default
+                    \s*=\s*            # Equals with optional whitespace
+                    ([^,]+)            # Group 3: Default value (anything but comma)
+                )?                     # The entire default value part is optional
+                """
             match = re.match(param_pattern, line)
             if not match:
                 continue
