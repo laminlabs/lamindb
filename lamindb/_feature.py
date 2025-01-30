@@ -10,7 +10,7 @@ from pandas.api.types import CategoricalDtype, is_string_dtype
 
 from lamindb._record import _get_record_kwargs
 from lamindb.base.types import FeatureDtype
-from lamindb.core.exceptions import ValidationError
+from lamindb.core.exceptions import FieldValidationError, ValidationError
 from lamindb.models import Artifact, Feature, Record
 
 from ._query_set import RecordList
@@ -156,7 +156,7 @@ def __init__(self, *args, **kwargs):
     type_: Feature | str | None = kwargs.pop("type") if "type" in kwargs else None
     if kwargs:
         valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Feature)])
-        raise ValidationError(f"Only {valid_keywords} are valid keyword arguments")
+        raise FieldValidationError(f"Only {valid_keywords} are valid keyword arguments")
     kwargs["name"] = name
     kwargs["type"] = type_
     if is_type:
