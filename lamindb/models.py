@@ -3115,7 +3115,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             >>> collection = ln.Collection(artifact, key="new collection")
             >>> collecton.save()
             >>> collection = collection.append(another_artifact) # returns a new version
-            >>> collection.save() # save a new version
+            >>> collection.save() # save the new version
 
         .. versionadded:: 0.76.14
         """
