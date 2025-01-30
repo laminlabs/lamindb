@@ -3104,10 +3104,18 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         """Add an artifact to the collection.
 
         Creates a new version of the collection.
+        This does not modify the original collection in-place, but returns a new version
+        of the original collection with the added artifact.
 
         Args:
             artifact: An artifact to add to the collection.
             run: The run that creates the new version of the collection.
+
+        Examples:
+            >>> collection = ln.Collection(artifact, key="new collection")
+            >>> collecton.save()
+            >>> collection = collection.append(another_artifact) # returns a new version
+            >>> collection.save() # save a new version
 
         .. versionadded:: 0.76.14
         """
