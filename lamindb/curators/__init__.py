@@ -2332,7 +2332,7 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
         """
         import bionty as bt
 
-        var_index: FieldAttr = (bt.Gene.ensembl_gene_id,)
+        var_index: FieldAttr = bt.Gene.ensembl_gene_id
 
         categoricals = {
             "assay": bt.ExperimentalFactor.name,
