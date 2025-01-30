@@ -34,8 +34,9 @@ from ._cellxgene_schemas import _read_schema_versions
 if TYPE_CHECKING:
     from anndata import AnnData
     from lamindb_setup.core.types import UPathStr
-    from lnschema_core import Record
-    from lnschema_core.types import FieldAttr
+
+    from lamindb.base.types import FieldAttr
+    from lamindb.models import Record
 from lamindb._feature import parse_dtype
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.core._data import add_labels
