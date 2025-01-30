@@ -18,7 +18,6 @@ from itertools import chain
 from typing import TYPE_CHECKING, Any, Literal
 
 import anndata as ad
-import bionty as bt
 import lamindb_setup as ln_setup
 import pandas as pd
 import pandera as pda
@@ -2285,28 +2284,6 @@ def _add_defaults_to_obs(
 class CellxGeneFields:
     """CELLxGENE fields."""
 
-    OBS_FIELDS = {
-        "assay": bt.ExperimentalFactor.name,
-        "assay_ontology_term_id": bt.ExperimentalFactor.ontology_id,
-        "cell_type": bt.CellType.name,
-        "cell_type_ontology_term_id": bt.CellType.ontology_id,
-        "development_stage": bt.DevelopmentalStage.name,
-        "development_stage_ontology_term_id": bt.DevelopmentalStage.ontology_id,
-        "disease": bt.Disease.name,
-        "disease_ontology_term_id": bt.Disease.ontology_id,
-        "donor_id": ULabel.name,
-        "self_reported_ethnicity": bt.Ethnicity.name,
-        "self_reported_ethnicity_ontology_term_id": bt.Ethnicity.ontology_id,
-        "sex": bt.Phenotype.name,
-        "sex_ontology_term_id": bt.Phenotype.ontology_id,
-        "suspension_type": ULabel.name,
-        "tissue": bt.Tissue.name,
-        "tissue_ontology_term_id": bt.Tissue.ontology_id,
-        "tissue_type": ULabel.name,
-        "organism": bt.Organism.name,
-        "organism_ontology_term_id": bt.Organism.ontology_id,
-    }
-
     OBS_FIELD_DEFAULTS = {
         "cell_type": "unknown",
         "development_stage": "unknown",
@@ -2327,8 +2304,6 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
     def __init__(
         self,
         adata: ad.AnnData | UPathStr,
-        var_index: FieldAttr = bt.Gene.ensembl_gene_id,
-        categoricals: dict[str, FieldAttr] = CellxGeneFields.OBS_FIELDS,
         organism: Literal["human", "mouse"] = "human",
         *,
         defaults: dict[str, str] = None,
@@ -2354,6 +2329,32 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
             verbosity: The verbosity level.
             using_key: A reference LaminDB instance.
         """
+        import bionty as bt
+
+        var_index: FieldAttr = (bt.Gene.ensembl_gene_id,)
+
+        categoricals = {
+            "assay": bt.ExperimentalFactor.name,
+            "assay_ontology_term_id": bt.ExperimentalFactor.ontology_id,
+            "cell_type": bt.CellType.name,
+            "cell_type_ontology_term_id": bt.CellType.ontology_id,
+            "development_stage": bt.DevelopmentalStage.name,
+            "development_stage_ontology_term_id": bt.DevelopmentalStage.ontology_id,
+            "disease": bt.Disease.name,
+            "disease_ontology_term_id": bt.Disease.ontology_id,
+            "donor_id": ULabel.name,
+            "self_reported_ethnicity": bt.Ethnicity.name,
+            "self_reported_ethnicity_ontology_term_id": bt.Ethnicity.ontology_id,
+            "sex": bt.Phenotype.name,
+            "sex_ontology_term_id": bt.Phenotype.ontology_id,
+            "suspension_type": ULabel.name,
+            "tissue": bt.Tissue.name,
+            "tissue_ontology_term_id": bt.Tissue.ontology_id,
+            "tissue_type": ULabel.name,
+            "organism": bt.Organism.name,
+            "organism_ontology_term_id": bt.Organism.ontology_id,
+        }
+
         self.organism = organism
         self.using_key = using_key
 
@@ -2423,6 +2424,7 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
 
     def _create_sources(self, obs: pd.DataFrame) -> dict[str, Record]:
         """Creates a sources dictionary that can be passed to AnnDataCurator."""
+        import bionty as bt
 
         # fmt: off
         def _fetch_bionty_source(
