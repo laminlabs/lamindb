@@ -53,10 +53,10 @@ def test_init_with_args():
 
 def test_validate_required_fields():
     # label has a required name
-    with pytest.raises(TypeError):
+    with pytest.raises(FieldValidationError):
         ln.ULabel()
     # label has a required name
-    with pytest.raises(TypeError):
+    with pytest.raises(FieldValidationError):
         ln.ULabel(description="test")
 
 

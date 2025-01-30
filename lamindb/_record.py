@@ -296,20 +296,15 @@ def _get_record_kwargs(record_class) -> list[tuple[str, str]]:
             # Simple: name: str
             # With default: age: int = 0
             # With complex types: items: List[str] = []
-            param_pattern = r"""
-                (\w+)                  # Group 1: Parameter name (word characters)
-                \s*:\s*                # Colon with optional whitespace
-                (                      # Group 2: Type annotation
-                    (?:[^=,]|          # Either non-equals/comma characters
-                    (?<=\[)[^[\]]*     # Or contents within square brackets,
-                    (?=\]))            # looking ahead for closing bracket
-                )+                     # One or more of these
-                )
-                (?:                    # Non-capturing group for optional default
-                    \s*=\s*            # Equals with optional whitespace
-                    ([^,]+)            # Group 3: Default value (anything but comma)
-                )?                     # The entire default value part is optional
-                """
+            param_pattern = (
+                r"(\w+)"  # Parameter name
+                r"\s*:\s*"  # Colon with optional whitespace
+                r"((?:[^=,]|"  # Type hint: either non-equals/comma chars
+                r"(?<=\[)[^[\]]*"  # or contents within square brackets
+                r"(?=\]))+)"  # looking ahead for closing bracket
+                r"(?:\s*=\s*"  # Optional default value part
+                r"([^,]+))?"  # Default value: anything but comma
+            )
             match = re.match(param_pattern, line)
             if not match:
                 continue
