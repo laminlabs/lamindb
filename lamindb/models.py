@@ -3911,14 +3911,14 @@ class CollectionReference(BasicRecord, LinkORM, TracksRun):
         unique_together = ("collection", "reference")
 
 
-class Migration(BasicRecord):
-    app = CharField(max_length=255)
-    name = CharField(max_length=255)
-    applied: datetime = DateTimeField()
+# class Migration(BasicRecord):
+#     app = CharField(max_length=255)
+#     name = CharField(max_length=255)
+#     applied: datetime = DateTimeField()
 
-    class Meta:
-        db_table = "django_migrations"
-        managed = False
+#     class Meta:
+#         db_table = "django_migrations"
+#         managed = False
 
 
 # -------------------------------------------------------------------------------------
