@@ -453,6 +453,8 @@ class MappedCollection:
                 label = labels[idx]
             else:
                 label = labels["codes"][idx]
+                if label == -1:
+                    return np.nan
         if categories is not None:
             cats = categories
         else:
@@ -589,7 +591,13 @@ class MappedCollection:
             cats = self._get_categories(storage, label_key)
         if cats is not None:
             cats = _decode(cats) if isinstance(cats[0], bytes) else cats
+            # NaN is coded as -1
+            nans = labels == -1
             labels = cats[labels]
+            # detect and replace nans
+            if nans.any():
+                labels[nans] = np.nan
+
         return labels
 
     def close(self):
