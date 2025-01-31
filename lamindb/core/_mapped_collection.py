@@ -389,7 +389,7 @@ class MappedCollection:
                     else:
                         cats = None
                     label_idx = self._get_obs_idx(store, obs_idx, label, cats)
-                    if label in self.encoders:
+                    if label in self.encoders and label_idx is not np.nan:
                         label_idx = self.encoders[label][label_idx]
                     out[label] = label_idx
         return out
