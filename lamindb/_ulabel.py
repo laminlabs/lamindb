@@ -3,7 +3,8 @@ from __future__ import annotations
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 
-from lamindb.core.exceptions import ValidationError
+from lamindb._record import _get_record_kwargs
+from lamindb.core.exceptions import FieldValidationError, ValidationError
 from lamindb.models import ULabel
 
 from ._utils import attach_func_to_class_method
@@ -31,9 +32,8 @@ def __init__(self, *args, **kwargs):
         kwargs.pop("reference_type") if "reference_type" in kwargs else None
     )
     if len(kwargs) > 0:
-        raise ValueError(
-            "Only name, description, reference, reference_type are valid keyword arguments"
-        )
+        valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(ULabel)])
+        raise FieldValidationError(f"Only {valid_keywords} are valid keyword arguments")
     if is_type:
         if name.endswith("s"):
             logger.warning(

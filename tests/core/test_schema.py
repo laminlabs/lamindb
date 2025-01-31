@@ -56,7 +56,7 @@ def test_schema_from_values():
     schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, type=int)
     assert schema._state.adding
     assert schema.dtype == "int"
-    assert schema.registry == "bionty.Gene"
+    assert schema.itype == "bionty.Gene"
     schema.save()
     assert set(schema.members) == set(schema.genes.all())
     id = schema.id
@@ -99,7 +99,7 @@ def test_schema_from_records(df):
     assert schema.id is None
     assert schema._state.adding
     assert schema.dtype is None
-    assert schema.registry == "Feature"
+    assert schema.itype == "Feature"
     schema.save()
     # test that the schema is retrieved from the database
     # in case it already exists

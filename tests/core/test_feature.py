@@ -7,7 +7,7 @@ import pytest
 from lamindb import _feature
 from lamindb._feature import convert_pandas_dtype_to_lamin_dtype
 from lamindb.core.exceptions import ValidationError
-from pandas.api.types import is_categorical_dtype, is_string_dtype
+from pandas.api.types import is_string_dtype
 
 
 @pytest.fixture(scope="module")
@@ -83,7 +83,9 @@ def test_feature_from_df(df):
     features = artifact.features["columns"]
     assert len(features) == len(df.columns[:4])
     [col for col in df.columns if is_string_dtype(df[col])]
-    categoricals = {col: df[col] for col in df.columns if is_categorical_dtype(df[col])}
+    categoricals = {
+        col: df[col] for col in df.columns if isinstance(df[col], pd.CategoricalDtype)
+    }
     for feature in features:
         if feature.name in categoricals:
             assert feature.dtype == "cat"

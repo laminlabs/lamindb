@@ -23,6 +23,8 @@ from lamindb_setup.core.upath import (
     get_stat_file_cloud,
 )
 
+from lamindb._record import _get_record_kwargs
+from lamindb.core.exceptions import FieldValidationError
 from lamindb.models import Artifact, FeatureManager, ParamManager, Run, Storage
 
 from ._parents import view_lineage
@@ -561,9 +563,9 @@ def __init__(artifact: Artifact, *args, **kwargs):
         logger.warning("`type` will be removed soon, please use `kind`")
         kind = kwargs.pop("type")
     if not len(kwargs) == 0:
-        raise ValueError(
-            "Only data, key, run, description, version, revises"
-            f" can be passed, you passed: {kwargs}"
+        valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Artifact)])
+        raise FieldValidationError(
+            f"Only {valid_keywords} can be passed, you passed: {kwargs}"
         )
     if revises is not None and key is not None and revises.key != key:
         note = message_update_key_in_version_family(

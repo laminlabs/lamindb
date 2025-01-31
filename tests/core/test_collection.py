@@ -1,3 +1,4 @@
+import re
 from inspect import signature
 
 import anndata as ad
@@ -7,6 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from lamindb import _collection
+from lamindb.core.exceptions import FieldValidationError
 from scipy.sparse import csc_matrix, csr_matrix
 
 
@@ -88,16 +90,20 @@ def test_from_single_artifact(adata):
 
 
 def test_edge_cases(df):
-    with pytest.raises(ValueError) as error:
+    with pytest.raises(
+        FieldValidationError,
+        match=re.escape(
+            "Only artifacts, name, description, meta, reference, reference_type, run, revises can be passed"
+        ),
+    ) as error:
         ln.Collection(df, invalid_param=1)
-    assert str(error.exconly()).startswith(
-        "ValueError: Only artifacts, key, run, description, reference, reference_type can be passed, you passed: "
-    )
+
     with pytest.raises(ValueError) as error:
         ln.Collection(1, name="Invalid")
     assert str(error.exconly()).startswith(
         "ValueError: Artifact or list[Artifact] is allowed."
     )
+
     artifact = ln.Artifact.from_df(df, description="Test artifact")
     assert artifact._state.adding
     with pytest.raises(ValueError) as error:
