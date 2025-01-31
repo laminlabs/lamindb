@@ -200,6 +200,7 @@ def test_collection_mapped(adata, adata2):
     artifact2.save()
     adata3 = adata2.copy()
     adata3.var_names = ["A", "B", "C"]
+    adata3.obs.loc["0", "feat1"] = np.nan
     artifact3 = ln.Artifact.from_anndata(adata3, description="Other vars")
     artifact3.save()
     adata4 = adata.copy()
@@ -334,13 +335,16 @@ def test_collection_mapped(adata, adata2):
         assert np.array_equal(ls_ds[1]["X"], np.array([0, 0, 0, 6, 4, 5]))
         assert np.array_equal(ls_ds[2]["X"], np.array([0, 0, 0, 5, 1, 2]))
         assert np.array_equal(ls_ds[3]["X"], np.array([0, 0, 0, 8, 4, 5]))
-        assert np.array_equal(ls_ds[4]["X"], np.array([1, 2, 5, 0, 0, 0]))
+        ls_ds_idx = ls_ds[4]
+        assert np.array_equal(ls_ds_idx["X"], np.array([1, 2, 5, 0, 0, 0]))
+        assert ls_ds_idx["feat1"] is np.nan
         assert np.array_equal(ls_ds[5]["X"], np.array([4, 5, 8, 0, 0, 0]))
         assert np.issubdtype(ls_ds[2]["X"].dtype, np.integer)
         assert np.issubdtype(ls_ds[4]["X"].dtype, np.integer)
         assert np.array_equal(ls_ds[3]["obsm_X_pca"], np.array([3, 4]))
         assert ls_ds.check_vars_non_aligned(["MYC", "TCF7", "GATA1"]) == [2]
         assert not ls_ds.check_vars_sorted()
+        assert len(ls_ds.get_label_weights("feat1")) == 6
 
     with collection_outer.mapped(layers_keys="layer1", join="outer") as ls_ds:
         assert np.array_equal(ls_ds[0]["layer1"], np.array([0, 0, 0, 3, 0, 2]))
