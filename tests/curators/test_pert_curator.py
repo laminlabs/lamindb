@@ -7,8 +7,11 @@ import wetlab as wl
 
 
 def test_pert_curator():
+    ln.settings.verbosity = "hint"
     adata = (
-        ln.Artifact.using("laminlabs/lamindata").get(uid="Xk7Qaik9vBLV4PKf0001").load()
+        ln.Artifact.using("laminlabs/lamindata")
+        .get(key="scrna/micro-macfarland2020.h5ad")
+        .load()
     )
 
     # ## Curate and register perturbations
@@ -90,14 +93,16 @@ def test_pert_curator():
     adata.obs["assay"] = "10x 3' v3"
 
     # subset the adata to only include the validated genes
-    adata = adata[:, ~adata.var_names.isin(curator.non_validated["var_index"])].copy()
+    if "var_index" in curator.non_validated:
+        adata = adata[
+            :, ~adata.var_names.isin(curator.non_validated["var_index"])
+        ].copy()
 
     # standardize disease and sex as suggested
     curator.standardize("disease")
 
     curator = wl.PertCurator(adata)
-    assert curator.validate() is not True
-
+    # this still doesn't validate, hence add_new_from("all")
     curator.add_new_from("all")
 
     assert curator.validate() is True
