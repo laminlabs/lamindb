@@ -136,27 +136,6 @@ def test_cxg_curator():
     # %% tags=["hide-output"]
     assert curator.validate() is True
 
-    # %% tags=["hide-output"]
-    adata.obs.head()
-
-    # %% [markdown]
-    # ## Save artifact
-
-    # %% tags=["hide-output"]
-    artifact = curator.save_artifact(
-        description=f"dataset curated against cellxgene schema {curator.schema_version}"
-    )
-
-    # %% tags=["hide-output"]
-    artifact.describe()
-
-    # %% [markdown]
-    # ## Return an input h5ad file for cellxgene-schema
-
-    # %% tags=["hide-output"]
-    title = "Cross-tissue immune cell analysis reveals tissue-specific features in humans (for test demo only)"
-    curator.to_cellxgene_anndata(is_primary_data=True, title=title)
-
     # %% [markdown]
     # Now it passes:
     # cellxgene-schema validate anndata_human_immune_cells_cxg.h5ad
@@ -165,6 +144,3 @@ def test_cxg_curator():
     # The Curate class is designed to validate all metadata for adherence to ontologies.
     # It does not reimplement all rules of the cellxgene schema and we therefore recommend running the [cellxgene-schema](https://github.com/chanzuckerberg/single-cell-curation) if full adherence beyond metadata is a necessity.
     # ```
-
-
-test_cxg_curator()
