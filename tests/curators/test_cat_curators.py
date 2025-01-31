@@ -104,89 +104,92 @@ def mock_transform():
 
 
 def test_df_curator(df, categoricals):
-    curator = ln.Curator.from_df(df, categoricals=categoricals)
-    with pytest.raises(ValidationError):
-        _ = curator.non_validated
-    validated = curator.validate()
-    assert curator.non_validated == {
-        "cell_type": ["cerebral pyramidal neuron", "astrocytic glia"],
-        "donor": ["D0001", "D0002", "DOOO3"],
-    }
-    assert validated is False
+    try:
+        curator = ln.Curator.from_df(df, categoricals=categoricals)
+        with pytest.raises(ValidationError):
+            _ = curator.non_validated
+        validated = curator.validate()
+        assert curator.non_validated == {
+            "cell_type": ["cerebral pyramidal neuron", "astrocytic glia"],
+            "donor": ["D0001", "D0002", "DOOO3"],
+        }
+        assert validated is False
 
-    # deprecated method
-    curator.add_new_from_columns()
+        # deprecated method
+        curator.add_new_from_columns()
 
-    # standardize
-    with pytest.raises(KeyError):
-        curator.standardize("nonexistent-key")
-    curator.standardize("all")
-    assert curator.non_validated == {
-        "cell_type": ["cerebral pyramidal neuron"],
-        "donor": ["D0001", "D0002", "DOOO3"],
-    }
-    assert "astrocyte" in df["cell_type"].values
+        # standardize
+        with pytest.raises(KeyError):
+            curator.standardize("nonexistent-key")
+        curator.standardize("all")
+        assert curator.non_validated == {
+            "cell_type": ["cerebral pyramidal neuron"],
+            "donor": ["D0001", "D0002", "DOOO3"],
+        }
+        assert "astrocyte" in df["cell_type"].values
 
-    # add new
-    curator.add_new_from("donor")
-    assert curator.non_validated == {"cell_type": ["cerebral pyramidal neuron"]}
+        # add new
+        curator.add_new_from("donor")
+        assert curator.non_validated == {"cell_type": ["cerebral pyramidal neuron"]}
 
-    # lookup
-    cell_types = curator.lookup(public=True)["cell_type"]
-    df["cell_type"] = df["cell_type"].replace(
-        {"cerebral pyramidal neuron": cell_types.cerebral_cortex_pyramidal_neuron.name}
-    )
-    validated = curator.validate()
-    assert validated is True
-    assert curator.non_validated == {}
+        # lookup
+        cell_types = curator.lookup(public=True)["cell_type"]
+        df["cell_type"] = df["cell_type"].replace(
+            {
+                "cerebral pyramidal neuron": cell_types.cerebral_cortex_pyramidal_neuron.name
+            }
+        )
+        validated = curator.validate()
+        assert validated is True
+        assert curator.non_validated == {}
 
-    # no need to standardize
-    curator.standardize("cell_type")
+        # no need to standardize
+        curator.standardize("cell_type")
 
-    artifact = curator.save_artifact(description="test-curate-df")
+        artifact = curator.save_artifact(description="test-curate-df")
 
-    assert (
-        artifact.cell_types.through.filter(artifact_id=artifact.id)
-        .df()["label_ref_is_name"]
-        .values.sum()
-        == 5
-    )
-    assert (
-        artifact.cell_types.through.filter(artifact_id=artifact.id)
-        .df()["feature_ref_is_name"]
-        .values.sum()
-        == 5
-    )
+        assert (
+            artifact.cell_types.through.filter(artifact_id=artifact.id)
+            .df()["label_ref_is_name"]
+            .values.sum()
+            == 5
+        )
+        assert (
+            artifact.cell_types.through.filter(artifact_id=artifact.id)
+            .df()["feature_ref_is_name"]
+            .values.sum()
+            == 5
+        )
 
-    assert (
-        artifact.experimental_factors.through.filter(artifact_id=artifact.id)
-        .df()["label_ref_is_name"]
-        .values.sum()
-        == 0
-    )
-    assert (
-        artifact.experimental_factors.through.filter(artifact_id=artifact.id)
-        .df()["feature_ref_is_name"]
-        .values.sum()
-        == 1
-    )
+        assert (
+            artifact.experimental_factors.through.filter(artifact_id=artifact.id)
+            .df()["label_ref_is_name"]
+            .values.sum()
+            == 0
+        )
+        assert (
+            artifact.experimental_factors.through.filter(artifact_id=artifact.id)
+            .df()["feature_ref_is_name"]
+            .values.sum()
+            == 1
+        )
 
-    assert set(artifact.features.get_values()["cell_type"]) == {
-        "cerebral cortex pyramidal neuron",
-        "astrocyte",
-        "oligodendrocyte",
-    }
-    assert set(artifact.features.get_values()["cell_type_2"]) == {
-        "oligodendrocyte",
-        "astrocyte",
-    }
-
-    # clean up
-    artifact.delete(permanent=True)
-    ln.ULabel.filter().delete()
-    bt.ExperimentalFactor.filter().delete()
-    bt.CellType.filter().delete()
-    ln.Schema.filter().delete()
+        assert set(artifact.features.get_values()["cell_type"]) == {
+            "cerebral cortex pyramidal neuron",
+            "astrocyte",
+            "oligodendrocyte",
+        }
+        assert set(artifact.features.get_values()["cell_type_2"]) == {
+            "oligodendrocyte",
+            "astrocyte",
+        }
+    finally:
+        # clean up
+        artifact.delete(permanent=True)
+        ln.ULabel.filter().delete()
+        bt.ExperimentalFactor.filter().delete()
+        bt.CellType.filter().delete()
+        ln.Schema.filter().delete()
 
 
 def test_custom_using_invalid_field_lookup(curate_lookup):
@@ -260,70 +263,71 @@ def test_clean_up_failed_runs():
 
 @pytest.mark.parametrize("to_add", ["donor", "all"])
 def test_anndata_curator(adata, categoricals, to_add):
-    # must pass an organism
-    with pytest.raises(ValidationError):
-        bt.settings._organism = None  # make sure organism is not set globally
-        ln.Curator.from_anndata(
+    try:
+        # must pass an organism
+        with pytest.raises(ValidationError):
+            bt.settings._organism = None  # make sure organism is not set globally
+            ln.Curator.from_anndata(
+                adata,
+                categoricals=categoricals,
+                var_index=bt.Gene.symbol,
+            ).validate()
+
+        curator = ln.Curator.from_anndata(
             adata,
             categoricals=categoricals,
             var_index=bt.Gene.symbol,
-        ).validate()
+            organism="human",
+        )
+        validated = curator.validate()
+        assert validated is False
+        assert curator.non_validated == {
+            "cell_type": ["astrocytic glia"],
+            "donor": ["D0001", "D0002", "DOOO3"],
+            "var_index": ["TCF-1"],
+        }
 
-    curator = ln.Curator.from_anndata(
-        adata,
-        categoricals=categoricals,
-        var_index=bt.Gene.symbol,
-        organism="human",
-    )
-    validated = curator.validate()
-    assert validated is False
-    assert curator.non_validated == {
-        "cell_type": ["astrocytic glia"],
-        "donor": ["D0001", "D0002", "DOOO3"],
-        "var_index": ["TCF-1"],
-    }
+        # standardize var_index
+        curator.standardize("var_index")
+        assert "TCF7" in adata.var.index
+        assert curator.non_validated == {
+            "cell_type": ["astrocytic glia"],
+            "donor": ["D0001", "D0002", "DOOO3"],
+        }
+        curator.standardize("all")
+        assert curator.non_validated == {"donor": ["D0001", "D0002", "DOOO3"]}
 
-    # standardize var_index
-    curator.standardize("var_index")
-    assert "TCF7" in adata.var.index
-    assert curator.non_validated == {
-        "cell_type": ["astrocytic glia"],
-        "donor": ["D0001", "D0002", "DOOO3"],
-    }
-    curator.standardize("all")
-    assert curator.non_validated == {"donor": ["D0001", "D0002", "DOOO3"]}
+        # lookup
+        lookup = curator.lookup()
+        assert lookup.cell_type.oligodendrocyte.name == "oligodendrocyte"
 
-    # lookup
-    lookup = curator.lookup()
-    assert lookup.cell_type.oligodendrocyte.name == "oligodendrocyte"
+        # add new
+        curator.add_new_from(to_add)
+        assert curator.non_validated == {}
+        # just for coverage, doesn't do anything
+        curator.add_new_from_var_index()
+        validated = curator.validate()
+        assert validated
 
-    # add new
-    curator.add_new_from(to_add)
-    assert curator.non_validated == {}
-    # just for coverage, doesn't do anything
-    curator.add_new_from_var_index()
-    validated = curator.validate()
-    assert validated
+        artifact = curator.save_artifact(description="test AnnData")
 
-    artifact = curator.save_artifact(description="test AnnData")
-
-    assert set(artifact.features.get_values()["cell_type"]) == {
-        "cerebral cortex pyramidal neuron",
-        "astrocyte",
-        "oligodendrocyte",
-    }
-    assert set(artifact.features.get_values()["cell_type_2"]) == {
-        "oligodendrocyte",
-        "astrocyte",
-    }
-
-    # clean up
-    artifact.delete(permanent=True)
-    ln.ULabel.filter().delete()
-    bt.ExperimentalFactor.filter().delete()
-    bt.CellType.filter().delete()
-    ln.Schema.filter().delete()
-    bt.Gene.filter().delete()
+        assert set(artifact.features.get_values()["cell_type"]) == {
+            "cerebral cortex pyramidal neuron",
+            "astrocyte",
+            "oligodendrocyte",
+        }
+        assert set(artifact.features.get_values()["cell_type_2"]) == {
+            "oligodendrocyte",
+            "astrocyte",
+        }
+    finally:
+        # clean up
+        artifact.delete(permanent=True)
+        ln.ULabel.filter().delete()
+        bt.ExperimentalFactor.filter().delete()
+        bt.CellType.filter().delete()
+        ln.Schema.filter().delete()
+        bt.Gene.filter().delete()
 
 
 def test_str_var_index(adata):
@@ -405,59 +409,60 @@ def test_mudata_curator(mdata):
         "donor": ln.ULabel.name,
     }
 
-    curator = ln.Curator.from_mudata(
-        mdata,
-        categoricals=categoricals,
-        var_index={"rna": bt.Gene.symbol, "rna_2": bt.Gene.symbol},
-        organism="human",
-    )
-    with pytest.raises(ValidationError):
-        _ = curator.non_validated
-    assert curator._modalities == {"obs", "rna", "rna_2"}
+    try:
+        curator = ln.Curator.from_mudata(
+            mdata,
+            categoricals=categoricals,
+            var_index={"rna": bt.Gene.symbol, "rna_2": bt.Gene.symbol},
+            organism="human",
+        )
+        with pytest.raises(ValidationError):
+            _ = curator.non_validated
+        assert curator._modalities == {"obs", "rna", "rna_2"}
 
-    # validate
-    validated = curator.validate()
-    assert curator.non_validated == {
-        "obs": {"donor": ["D0001", "D0002", "DOOO3"]},
-        "rna_2": {
-            "cell_type": ["astrocytic glia"],
-            "donor": ["D0001", "D0002", "DOOO3"],
-            "var_index": ["TCF-1"],
-        },
-        "rna": {
-            "cell_type": ["astrocytic glia"],
-            "donor": ["D0001", "D0002", "DOOO3"],
-            "var_index": ["TCF-1"],
-        },
-    }
+        # validate
+        validated = curator.validate()
+        assert curator.non_validated == {
+            "obs": {"donor": ["D0001", "D0002", "DOOO3"]},
+            "rna_2": {
+                "cell_type": ["astrocytic glia"],
+                "donor": ["D0001", "D0002", "DOOO3"],
+                "var_index": ["TCF-1"],
+            },
+            "rna": {
+                "cell_type": ["astrocytic glia"],
+                "donor": ["D0001", "D0002", "DOOO3"],
+                "var_index": ["TCF-1"],
+            },
+        }
 
-    # lookup
-    lookup = curator.lookup()
-    assert lookup["obs:donor"].donor.name == "donor"
+        # lookup
+        lookup = curator.lookup()
+        assert lookup["obs:donor"].donor.name == "donor"
 
-    # standardize
-    curator.standardize("all", modality="rna")
-    curator.standardize("all", modality="rna_2")
-    assert curator._mod_adata_curators["rna_2"].non_validated == {
-        "donor": ["D0001", "D0002", "DOOO3"]
-    }
+        # standardize
+        curator.standardize("all", modality="rna")
+        curator.standardize("all", modality="rna_2")
+        assert curator._mod_adata_curators["rna_2"].non_validated == {
+            "donor": ["D0001", "D0002", "DOOO3"]
+        }
 
-    # add new
-    curator.add_new_from_columns("rna")  # deprecated, doesn't do anything
-    curator.add_new_from_var_index("rna")  # doesn't do anything
-    curator.add_new_from("donor")
+        # add new
+        curator.add_new_from_columns("rna")  # deprecated, doesn't do anything
+        curator.add_new_from_var_index("rna")  # doesn't do anything
+        curator.add_new_from("donor")
 
-    validated = curator.validate()
-    assert validated
-    artifact = curator.save_artifact(description="test MuData")
-
-    # clean up
-    artifact.delete(permanent=True)
-    ln.ULabel.filter().delete()
-    bt.ExperimentalFactor.filter().delete()
-    bt.CellType.filter().delete()
-    ln.Schema.filter().delete()
-    bt.Gene.filter().delete()
+        validated = curator.validate()
+        assert validated
+        artifact = curator.save_artifact(description="test MuData")
+    finally:
+        # clean up
+        artifact.delete(permanent=True)
+        ln.ULabel.filter().delete()
+        bt.ExperimentalFactor.filter().delete()
+        bt.CellType.filter().delete()
+        ln.Schema.filter().delete()
+        bt.Gene.filter().delete()
 
 
 @pytest.fixture()
@@ -501,110 +506,111 @@ def test_soma_curator(adata, categoricals, clean_soma_files):
             sources={"invalid_key": None},
         )
 
-    curator = ln.Curator.from_tiledbsoma(
-        "curate.tiledbsoma",
-        {"RNA": ("var_id", bt.Gene.symbol)},
-        categoricals=categoricals,
-        organism="human",
-    )
-    assert curator.categoricals == categoricals
-    var_keys = list(curator.var_index.keys())
-    assert len(var_keys) == 1
-    assert var_keys[0] == "RNA__var_id"
-
-    with pytest.raises(ValidationError) as error:
-        curator.add_new_from("donor")
-    assert "Run .validate() first." in str(error.value)
-
-    with pytest.raises(ValidationError) as error:
-        curator.save_artifact(description="test tiledbsoma curation")
-    assert "Dataset does not validate. Please curate." in str(error.value)
-
-    assert curator.non_validated == {
-        "cell_type": ["astrocytic glia"],
-        "donor": ["D0001", "D0002", "DOOO3"],
-        "RNA__var_id": ["TCF-1"],
-    }
-
-    curator.standardize("RNA__var_id")
-    with tiledbsoma.open("curate.tiledbsoma", mode="r") as experiment:
-        var_idx = (
-            experiment.ms["RNA"]
-            .var.read(column_names=["var_id"])
-            .concat()["var_id"]
-            .to_pylist()
+    try:
+        curator = ln.Curator.from_tiledbsoma(
+            "curate.tiledbsoma",
+            {"RNA": ("var_id", bt.Gene.symbol)},
+            categoricals=categoricals,
+            organism="human",
         )
-    assert "TCF7" in var_idx
-    assert curator.non_validated == {
-        "cell_type": ["astrocytic glia"],
-        "donor": ["D0001", "D0002", "DOOO3"],
-    }
+        assert curator.categoricals == categoricals
+        var_keys = list(curator.var_index.keys())
+        assert len(var_keys) == 1
+        assert var_keys[0] == "RNA__var_id"
 
-    # test invalid key in standardize
-    with pytest.raises(KeyError):
-        curator.standardize("invalid_key")
+        with pytest.raises(ValidationError) as error:
+            curator.add_new_from("donor")
+        assert "Run .validate() first." in str(error.value)
 
-    curator.standardize("donor")
-    assert curator.non_validated == {
-        "cell_type": ["astrocytic glia"],
-        "donor": ["D0001", "D0002", "DOOO3"],
-    }
+        with pytest.raises(ValidationError) as error:
+            curator.save_artifact(description="test tiledbsoma curation")
+        assert "Dataset does not validate. Please curate." in str(error.value)
 
-    curator.standardize("all")
-    assert curator.non_validated == {"donor": ["D0001", "D0002", "DOOO3"]}
+        assert curator.non_validated == {
+            "cell_type": ["astrocytic glia"],
+            "donor": ["D0001", "D0002", "DOOO3"],
+            "RNA__var_id": ["TCF-1"],
+        }
 
-    curator.add_new_from("all")
-    assert curator.non_validated == {}
-    # test already added
-    curator.add_new_from("donor")
-    # test invalid key
-    with pytest.raises(KeyError):
-        curator.add_new_from("invalid_key")
+        curator.standardize("RNA__var_id")
+        with tiledbsoma.open("curate.tiledbsoma", mode="r") as experiment:
+            var_idx = (
+                experiment.ms["RNA"]
+                .var.read(column_names=["var_id"])
+                .concat()["var_id"]
+                .to_pylist()
+            )
+        assert "TCF7" in var_idx
+        assert curator.non_validated == {
+            "cell_type": ["astrocytic glia"],
+            "donor": ["D0001", "D0002", "DOOO3"],
+        }
 
-    # cover no keys to standardize
-    curator.standardize("donor")
+        # test invalid key in standardize
+        with pytest.raises(KeyError):
+            curator.standardize("invalid_key")
 
-    # lookup
-    lookup = curator.lookup()
-    assert lookup.cell_type.oligodendrocyte.name == "oligodendrocyte"
-    assert lookup.RNA__var_id.cd4.symbol == "CD4"
+        curator.standardize("donor")
+        assert curator.non_validated == {
+            "cell_type": ["astrocytic glia"],
+            "donor": ["D0001", "D0002", "DOOO3"],
+        }
 
-    # define non-categorical features
-    ln.Feature(name="temperature", dtype="float").save()
-    ln.Feature(name="sample_note", dtype="str").save()
+        curator.standardize("all")
+        assert curator.non_validated == {"donor": ["D0001", "D0002", "DOOO3"]}
 
-    # test the internal key error
-    with pytest.raises(KeyError):
-        curator._non_validated_values_field("invalid_key")
+        curator.add_new_from("all")
+        assert curator.non_validated == {}
+        # test already added
+        curator.add_new_from("donor")
+        # test invalid key
+        with pytest.raises(KeyError):
+            curator.add_new_from("invalid_key")
 
-    # save and check
-    artifact = curator.save_artifact(description="test tiledbsoma curation")
-    assert set(artifact.features["obs"].values_list("name", "dtype")) == {
-        ("cell_type", "cat[bionty.CellType]"),
-        ("cell_type_2", "cat[bionty.CellType]"),
-        ("assay_ontology_id", "cat[bionty.ExperimentalFactor]"),
-        ("donor", "cat[ULabel]"),
-        ("sample_note", "str"),
-        ("temperature", "float"),
-    }
-    assert set(artifact.features.get_values()["cell_type"]) == {
-        "cerebral cortex pyramidal neuron",
-        "astrocyte",
-        "oligodendrocyte",
-    }
-    assert set(artifact.features.get_values()["cell_type_2"]) == {
-        "oligodendrocyte",
-        "astrocyte",
-    }
+        # cover no keys to standardize
+        curator.standardize("donor")
 
-    # clean up
-    artifact.delete(permanent=True)
-    ln.ULabel.filter().delete()
-    bt.ExperimentalFactor.filter().delete()
-    bt.CellType.filter().delete()
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
-    bt.Gene.filter().delete()
+        # lookup
+        lookup = curator.lookup()
+        assert lookup.cell_type.oligodendrocyte.name == "oligodendrocyte"
+        assert lookup.RNA__var_id.cd4.symbol == "CD4"
+
+        # define non-categorical features
+        ln.Feature(name="temperature", dtype="float").save()
+        ln.Feature(name="sample_note", dtype="str").save()
+
+        # test the internal key error
+        with pytest.raises(KeyError):
+            curator._non_validated_values_field("invalid_key")
+
+        # save and check
+        artifact = curator.save_artifact(description="test tiledbsoma curation")
+        assert set(artifact.features["obs"].values_list("name", "dtype")) == {
+            ("cell_type", "cat[bionty.CellType]"),
+            ("cell_type_2", "cat[bionty.CellType]"),
+            ("assay_ontology_id", "cat[bionty.ExperimentalFactor]"),
+            ("donor", "cat[ULabel]"),
+            ("sample_note", "str"),
+            ("temperature", "float"),
+        }
+        assert set(artifact.features.get_values()["cell_type"]) == {
+            "cerebral cortex pyramidal neuron",
+            "astrocyte",
+            "oligodendrocyte",
+        }
+        assert set(artifact.features.get_values()["cell_type_2"]) == {
+            "oligodendrocyte",
+            "astrocyte",
+        }
+    finally:
+        # clean up
+        artifact.delete(permanent=True)
+        ln.ULabel.filter().delete()
+        bt.ExperimentalFactor.filter().delete()
+        bt.CellType.filter().delete()
+        ln.Schema.filter().delete()
+        ln.Feature.filter().delete()
+        bt.Gene.filter().delete()
 
 
 def test_soma_curator_genes_columns(adata, clean_soma_files):
@@ -614,31 +620,32 @@ def test_soma_curator_genes_columns(adata, clean_soma_files):
     adata.obs = pd.DataFrame(adata.X[:, :3], columns=adata.var_names[:3])
     tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
 
-    curator = ln.Curator.from_tiledbsoma(
-        "curate.tiledbsoma",
-        {"RNA": ("var_id", bt.Gene.symbol)},
-        obs_columns=bt.Gene.symbol,
-        organism="human",
-    )
+    try:
+        curator = ln.Curator.from_tiledbsoma(
+            "curate.tiledbsoma",
+            {"RNA": ("var_id", bt.Gene.symbol)},
+            obs_columns=bt.Gene.symbol,
+            organism="human",
+        )
 
-    assert not curator.validate()
-    curator.standardize("all")
-    # test 2 subsequent .validate calls()
-    assert curator.validate()
-    assert curator.validate()
+        assert not curator.validate()
+        curator.standardize("all")
+        # test 2 subsequent .validate calls()
+        assert curator.validate()
+        assert curator.validate()
 
-    artifact = curator.save_artifact(
-        description="test tiledbsoma curation genes in obs"
-    )
-
-    # clean up
-    artifact.delete(permanent=True)
-    ln.ULabel.filter().delete()
-    bt.ExperimentalFactor.filter().delete()
-    bt.CellType.filter().delete()
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
-    bt.Gene.filter().delete()
+        artifact = curator.save_artifact(
+            description="test tiledbsoma curation genes in obs"
+        )
+    finally:
+        # clean up
+        artifact.delete(permanent=True)
+        ln.ULabel.filter().delete()
+        bt.ExperimentalFactor.filter().delete()
+        bt.CellType.filter().delete()
+        ln.Schema.filter().delete()
+        ln.Feature.filter().delete()
+        bt.Gene.filter().delete()
 
 
 def test_spatialdata_curator():
@@ -687,86 +694,99 @@ def test_spatialdata_curator():
             organism="human",
         )
 
-    curator = ln.Curator.from_spatialdata(
-        blobs_data,
-        var_index={"table": bt.Gene.ensembl_gene_id},
-        categoricals={
-            "sample": {
-                "assay": bt.ExperimentalFactor.name,
-                "disease": bt.Disease.name,
-                "developmental_stage": bt.DevelopmentalStage.name,
+    try:
+        curator = ln.Curator.from_spatialdata(
+            blobs_data,
+            var_index={"table": bt.Gene.ensembl_gene_id},
+            categoricals={
+                "sample": {
+                    "assay": bt.ExperimentalFactor.name,
+                    "disease": bt.Disease.name,
+                    "developmental_stage": bt.DevelopmentalStage.name,
+                },
+                "table": {"region": ln.ULabel.name},
             },
-            "table": {"region": ln.ULabel.name},
-        },
-        organism="human",
-    )
+            organism="human",
+        )
 
-    with pytest.raises(ValidationError, match=re.escape("Run .validate() first.")):
+        with pytest.raises(ValidationError, match=re.escape("Run .validate() first.")):
+            curator.add_new_from(key="region", accessor="table")
+
+        with pytest.raises(
+            ValidationError,
+            match=re.escape("Dataset does not validate. Please curate."),
+        ):
+            curator.save_artifact(description="test spatialdata curation")
+
+        with pytest.raises(
+            ValueError, match=re.escape("Accessor notexist is not in 'categoricals'")
+        ):
+            curator.add_new_from(key="region", accessor="notexist")
+
+        assert not curator.validate()
+
+        assert curator.non_validated == {
+            "sample": {
+                "disease": ["Alzheimer's dementia"],
+                "developmental_stage": ["very early"],
+            },
+            "table": {
+                "region": ["region 1", "region 2"],
+                "var_index": ["ENSG00000999999"],
+            },
+        }
+
+        curator.add_new_from_var_index("table")
+
+        assert curator.non_validated == {
+            "sample": {
+                "disease": ["Alzheimer's dementia"],
+                "developmental_stage": ["very early"],
+            },
+            "table": {"region": ["region 1", "region 2"]},
+        }
+
+        curator.add_new_from(key="developmental_stage", accessor="sample")
         curator.add_new_from(key="region", accessor="table")
 
-    with pytest.raises(
-        ValidationError, match=re.escape("Dataset does not validate. Please curate.")
-    ):
-        curator.save_artifact(description="test spatialdata curation")
+        assert curator.non_validated == {
+            "sample": {"disease": ["Alzheimer's dementia"]}
+        }
 
-    with pytest.raises(
-        ValueError, match=re.escape("Accessor notexist is not in 'categoricals'")
-    ):
-        curator.add_new_from(key="region", accessor="notexist")
+        # test invalid key in standardize
+        with pytest.raises(
+            ValueError, match="key 'invalid_key' not present in 'table'!"
+        ):
+            curator.standardize(key="invalid_key", accessor="table")
 
-    assert not curator.validate()
+        # standardize
+        assert curator.non_validated == {
+            "sample": {"disease": ["Alzheimer's dementia"]}
+        }
+        curator.standardize(key="disease", accessor="sample")
+        assert curator._sample_metadata["disease"].values[0] == "Alzheimer disease"
+        assert curator.non_validated == {}
 
-    assert curator.non_validated == {
-        "sample": {
-            "disease": ["Alzheimer's dementia"],
-            "developmental_stage": ["very early"],
-        },
-        "table": {"region": ["region 1", "region 2"], "var_index": ["ENSG00000999999"]},
-    }
+        # validation should finally pass
+        assert curator.validate() is True
 
-    curator.add_new_from_var_index("table")
+        # lookup
+        lookup = curator.lookup()
+        assert lookup.disease[0].name == "Alzheimer disease"
 
-    assert curator.non_validated == {
-        "sample": {
-            "disease": ["Alzheimer's dementia"],
-            "developmental_stage": ["very early"],
-        },
-        "table": {"region": ["region 1", "region 2"]},
-    }
+        # save & associated features
+        artifact = curator.save_artifact(description="blob spatialdata")
+        assert (
+            artifact.features.get_values()["assay"] == "Visium Spatial Gene Expression"
+        )
+        assert set(artifact.features.get_values()["region"]) == {"region 1", "region 2"}
 
-    curator.add_new_from(key="developmental_stage", accessor="sample")
-    curator.add_new_from(key="region", accessor="table")
-
-    assert curator.non_validated == {"sample": {"disease": ["Alzheimer's dementia"]}}
-
-    # test invalid key in standardize
-    with pytest.raises(ValueError, match="key 'invalid_key' not present in 'table'!"):
-        curator.standardize(key="invalid_key", accessor="table")
-
-    # standardize
-    assert curator.non_validated == {"sample": {"disease": ["Alzheimer's dementia"]}}
-    curator.standardize(key="disease", accessor="sample")
-    assert curator._sample_metadata["disease"].values[0] == "Alzheimer disease"
-    assert curator.non_validated == {}
-
-    # validation should finally pass
-    assert curator.validate() is True
-
-    # lookup
-    lookup = curator.lookup()
-    assert lookup.disease[0].name == "Alzheimer disease"
-
-    # save & associated features
-    artifact = curator.save_artifact(description="blob spatialdata")
-    assert artifact.features.get_values()["assay"] == "Visium Spatial Gene Expression"
-    assert set(artifact.features.get_values()["region"]) == {"region 1", "region 2"}
-
-    # clean up
-    artifact.delete(permanent=True)
-    ln.ULabel.filter().delete()
-    bt.ExperimentalFactor.filter().delete()
-    bt.Disease.filter().delete()
-    bt.DevelopmentalStage.filter().delete()
-    ln.Schema.filter().delete()
-    bt.Gene.filter().delete()
-    ln.Feature.filter().delete()
+    finally:
+        artifact.delete(permanent=True)
+        ln.ULabel.filter().delete()
+        bt.ExperimentalFactor.filter().delete()
+        bt.Disease.filter().delete()
+        bt.DevelopmentalStage.filter().delete()
+        ln.Schema.filter().delete()
+        bt.Gene.filter().delete()
+        ln.Feature.filter().delete()
