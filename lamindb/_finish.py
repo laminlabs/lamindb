@@ -211,8 +211,9 @@ def check_filepath_recently_saved(filepath: Path, is_finish_retry: bool) -> bool
     # because an accidental save (e.g. via auto-save) might otherwise lead
     # to upload of an outdated notebook
     # also see implementation for R notebooks below
-    recently_saved_time = 0.3 if not is_finish_retry else 20
+    offset_saved_time = 0.3 if not is_finish_retry else 20
     for retry in range(30):
+        recently_saved_time = offset_saved_time + retry  # sleep time is 1 sec
         if get_seconds_since_modified(filepath) > recently_saved_time:
             if retry == 0:
                 prefix = f"{LEVEL_TO_COLORS[20]}{LEVEL_TO_ICONS[20]}{RESET_COLOR}"
