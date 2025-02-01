@@ -85,8 +85,7 @@ def small_dataset3_cellxgene(
         var_ids[2]: [4, 2, 3],
         "disease_ontology_term_id": ["MONDO:0004975", "MONDO:0004980", "MONDO:0004980"],
         "organism": ["human", "human", "human"],
-        "sex_ontology_term_id": ["PATO:0000384", "PATO:0000384", "PATO:0000384"],
-        "sex": ["unkown", "unkown", "unkown"],
+        "sex": ["female", "male", "unknown"],
         "tissue": ["lungg", "lungg", "heart"],
         "donor": ["-1", "1", "2"],
     }
@@ -99,7 +98,7 @@ def small_dataset3_cellxgene(
         dataset_df[var_ids],
         obs=dataset_df[[key for key in dataset_dict if key not in var_ids]],
     )
-    if format == "df":
+    if otype == "DataFrame":
         return dataset_df
     else:
         dataset_ad = ad.AnnData(dataset_df.iloc[:, :3], obs=dataset_df.iloc[:, 3:])

@@ -9,7 +9,7 @@ def test_cxg_curator():
     adata.obs.rename(columns={"donor": "donor_id"}, inplace=True)
     curator = ln.curators.CellxGeneAnnDataCurator(
         adata,
-        defaults=ln.curators.CellxGeneFields.OBS_FIELD_DEFAULTS,
+        defaults=ln.curators.CellxGeneAnnDataCurator._get_categoricals_defaults(),
         organism="human",
         schema_version="5.1.0",
     )

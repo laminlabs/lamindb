@@ -359,32 +359,6 @@ def test_anndata_curator_wrong_type(df, categoricals):
         )
 
 
-def test_categorical_key_not_present(df):
-    with pytest.raises(
-        ValidationError,
-        match="key passed to categoricals is not present in columns",
-    ):
-        ln.Curator.from_df(
-            df,
-            categoricals={"not present": None},
-            organism="human",
-        )
-
-
-def test_source_key_not_present(adata, categoricals):
-    with pytest.raises(
-        ValidationError,
-        match="key passed to sources is not present in columns",
-    ):
-        ln.Curator.from_anndata(
-            adata,
-            categoricals=categoricals,
-            var_index=bt.Gene.symbol,
-            sources={"not_present": None},
-            organism="human",
-        )
-
-
 def test_unvalidated_adata_object(adata, categoricals):
     curator = ln.Curator.from_anndata(
         adata,

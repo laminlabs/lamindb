@@ -317,7 +317,6 @@ class DataFrameCatCurator(BaseCurator):
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
         exclude: dict | None = None,
-        check_valid_keys: bool = True,
     ) -> None:
         from lamindb.core._settings import settings
 
@@ -337,8 +336,6 @@ class DataFrameCatCurator(BaseCurator):
         self._sources = sources or {}
         self._exclude = exclude or {}
         self._non_validated = None
-        if check_valid_keys:
-            self._check_valid_keys()
         self._save_columns()
 
     @property
@@ -368,25 +365,6 @@ class DataFrameCatCurator(BaseCurator):
             using_key=using_key or self._using_key,
             public=public,
         )
-
-    def _check_valid_keys(self, extra: set | None = None) -> None:
-        extra = extra or set()
-        for name, d in {
-            "categoricals": self._fields,
-            "sources": self._sources,
-            "exclude": self._exclude,
-        }.items():
-            if not isinstance(d, dict):
-                raise TypeError(f"{name} must be a dictionary!")
-            valid_keys = set(self._df.columns) | {"columns"} | extra
-            nonval_keys = [key for key in d.keys() if key not in valid_keys]
-            n = len(nonval_keys)
-            s = "s" if n > 1 else ""
-            are = "are" if n > 1 else "is"
-            if len(nonval_keys) > 0:
-                raise ValidationError(
-                    f"key{s} passed to {name} {are} not present in columns: {colors.yellow(_format_values(nonval_keys))}"
-                )
 
     def _save_columns(self, validated_only: bool = True) -> None:
         """Save column name records."""
@@ -706,10 +684,8 @@ class AnnDataCurator(DataFrameCatCurator):
             organism=organism,
             sources=sources,
             exclude=exclude,
-            check_valid_keys=False,
         )
         self._obs_fields = categoricals or {}
-        self._check_valid_keys(extra={"var_index"})
 
     @property
     def var_index(self) -> FieldAttr:
@@ -962,7 +938,6 @@ class MuDataCurator:
                 verbosity=verbosity,
                 sources=self._sources.get("obs"),
                 exclude=self._exclude.get("obs"),
-                check_valid_keys=False,
                 **self._kwargs,
             )
         self._mod_adata_curators = {
@@ -1842,7 +1817,6 @@ class SpatialDataCurator:
                 verbosity=verbosity,
                 sources=self._sources.get(self._sample_metadata_key),
                 exclude=self._exclude.get(self._sample_metadata_key),
-                check_valid_keys=False,
                 **self._kwargs,
             )
         self._table_adata_curators = {
@@ -2286,22 +2260,11 @@ def _add_defaults_to_obs(
 class CellxGeneFields:
     """CELLxGENE fields."""
 
-    OBS_FIELD_DEFAULTS = {
-        "cell_type": "unknown",
-        "development_stage": "unknown",
-        "disease": "normal",
-        "donor_id": "unknown",
-        "self_reported_ethnicity": "unknown",
-        "sex": "unknown",
-        # Setting these defaults to 'unknown' will lead the validator to fail because it expects a specified set of values that does not include 'unknown'.
-        # 'unknown' is registered as a ULabel and is therefore validated.
-        "suspension_type": "cell",
-        "tissue_type": "tissue",
-    }
-
 
 class CellxGeneAnnDataCurator(AnnDataCurator):
     """Annotation flow of AnnData based on CELLxGENE schema."""
+
+    _controls_were_created: bool | None = None
 
     def __init__(
         self,
@@ -2313,7 +2276,7 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
         extra_sources: dict[str, Record] = None,
         schema_version: Literal["4.0.0", "5.0.0", "5.1.0"] = "5.1.0",
         verbosity: str = "hint",
-        using_key: str = "laminlabs/cellxgene",
+        using_key: str = None,
     ) -> None:
         """CELLxGENE schema curator.
 
@@ -2332,6 +2295,8 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
             using_key: A reference LaminDB instance.
         """
         import bionty as bt
+
+        CellxGeneAnnDataCurator._init_categoricals_additional_values()
 
         var_index: FieldAttr = bt.Gene.ensembl_gene_id
 
@@ -2382,7 +2347,7 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
         # Exclude default values from validation because they are not available in the pinned sources
         exclude_keys = {
             entity: default
-            for entity, default in CellxGeneFields.OBS_FIELD_DEFAULTS.items()
+            for entity, default in CellxGeneAnnDataCurator._get_categoricals_defaults().items()
             if entity in self._adata_obs.columns  # type: ignore
         }
 
@@ -2396,6 +2361,86 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
             sources=self.sources,
             exclude=exclude_keys,
         )
+
+    @classmethod
+    def _init_categoricals_additional_values(cls) -> None:
+        import bionty as bt
+
+        import lamindb as ln
+
+        # Note: if you add another control below, be mindful to change the if condition that
+        # triggers whether creating these records is re-considered
+        if cls._controls_were_created is None:
+            cls._controls_were_created = (
+                ln.ULabel.filter(name="SuspensionType", is_type=True).one_or_none()
+                is not None
+            )
+        if not cls._controls_were_created:
+            logger.important("Creating control labels in the CellxGene schema.")
+            bt.CellType(
+                ontology_id="unknown",
+                name="unknown",
+                description="From CellxGene schema.",
+            ).save()
+            pato = bt.Source.filter(name="pato", version="2024-03-28").one()
+            normal = bt.Phenotype.from_source(ontology_id="PATO:0000461", source=pato)
+            bt.Disease(
+                uid=normal.uid,
+                name=normal.name,
+                ontology_id=normal.ontology_id,
+                description=normal.description,
+                source=normal.source,
+            ).save()
+            bt.Ethnicity(
+                ontology_id="na", name="na", description="From CellxGene schema."
+            ).save()
+            bt.Ethnicity(
+                ontology_id="unknown",
+                name="unknown",
+                description="From CellxGene schema.",
+            ).save()
+            bt.DevelopmentalStage(
+                ontology_id="unknown",
+                name="unknown",
+                description="From CellxGene schema.",
+            ).save()
+            bt.Phenotype(
+                ontology_id="unknown",
+                name="unknown",
+                description="From CellxGene schema.",
+            ).save()
+
+            tissue_type = ln.ULabel(
+                name="TissueType",
+                is_type=True,
+                description='From CellxGene schema. Is "tissue", "organoid", or "cell culture".',
+            ).save()
+            ln.ULabel(
+                name="tissue", type=tissue_type, description="From CellxGene schema."
+            ).save()
+            ln.ULabel(
+                name="organoid", type=tissue_type, description="From CellxGene schema."
+            ).save()
+            ln.ULabel(
+                name="cell culture",
+                type=tissue_type,
+                description="From CellxGene schema.",
+            ).save()
+
+            suspension_type = ln.ULabel(
+                name="SuspensionType",
+                is_type=True,
+                description='From CellxGene schema. This MUST be "cell", "nucleus", or "na".',
+            ).save()
+            ln.ULabel(
+                name="cell", type=suspension_type, description="From CellxGene schema."
+            ).save()
+            ln.ULabel(
+                name="nucleus",
+                type=suspension_type,
+                description="From CellxGene schema.",
+            ).save()
+            ln.ULabel(name="na", type=suspension_type).save()
 
     @classmethod
     def _get_categoricals(cls) -> dict[str, FieldAttr]:
@@ -2421,6 +2466,19 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
             "tissue_type": ULabel.name,
             "organism": bt.Organism.name,
             "organism_ontology_term_id": bt.Organism.ontology_id,
+        }
+
+    @classmethod
+    def _get_categoricals_defaults(cls) -> dict[str, str]:
+        return {
+            "cell_type": "unknown",
+            "development_stage": "unknown",
+            "disease": "normal",
+            "donor_id": "unknown",
+            "self_reported_ethnicity": "unknown",
+            "sex": "unknown",
+            "suspension_type": "cell",
+            "tissue_type": "tissue",
         }
 
     @property
@@ -2498,7 +2556,7 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
         # Verify that all required obs columns are present
         missing_obs_fields = [
             name
-            for name in CellxGeneFields.OBS_FIELD_DEFAULTS.keys()
+            for name in CellxGeneAnnDataCurator._get_categoricals_defaults().keys()
             if name not in self._adata.obs.columns
             and f"{name}_ontology_term_id" not in self._adata.obs.columns
         ]
@@ -2506,7 +2564,7 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
             missing_obs_fields_str = ", ".join(list(missing_obs_fields))
             logger.error(f"missing required obs columns {missing_obs_fields_str}")
             logger.info(
-                "consider initializing a Curate object like 'Curate(adata, defaults=cxg.CellxGeneFields.OBS_FIELD_DEFAULTS)'"
+                "consider initializing a Curate object like 'Curate(adata, defaults=cxg.CellxGeneAnnDataCurator._get_categoricals_defaults())'"
                 "to automatically add these columns with default values."
             )
             return False
@@ -2792,10 +2850,13 @@ class PertAnnDataCurator(CellxGeneAnnDataCurator):
         import bionty as bt
         import wetlab as wl
 
-        self.PT_DEFAULT_VALUES = CellxGeneFields.OBS_FIELD_DEFAULTS | {
-            "cell_line": "unknown",
-            "pert_target": "unknown",
-        }
+        self.PT_DEFAULT_VALUES = (
+            CellxGeneAnnDataCurator._get_categoricals_defaults()
+            | {
+                "cell_line": "unknown",
+                "pert_target": "unknown",
+            }
+        )
 
         self.PT_CATEGORICALS = CellxGeneAnnDataCurator._get_categoricals() | {
             k: v

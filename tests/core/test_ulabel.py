@@ -9,7 +9,7 @@ def test_ulabel():
     with pytest.raises(
         FieldValidationError,
         match=re.escape(
-            "Only name, description, reference, reference_type are valid keyword arguments"
+            "Only name, type, is_type, description, reference, reference_type are valid keyword arguments"
         ),
     ):
         ln.ULabel(x=1)

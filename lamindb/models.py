@@ -1742,6 +1742,8 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     def __init__(
         self,
         name: str,
+        type: ULabel | None = None,
+        is_type: bool = False,
         description: str | None = None,
         reference: str | None = None,
         reference_type: str | None = None,
@@ -1938,9 +1940,11 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         self,
         name: str,
         dtype: FeatureDtype | Registry | list[Registry],
-        unit: str | None,
-        description: str | None,
-        synonyms: str | None,
+        type: Feature | None = None,
+        is_type: bool = False,
+        unit: str | None = None,
+        description: str | None = None,
+        synonyms: str | None = None,
     ): ...
 
     @overload
@@ -2198,6 +2202,8 @@ class Schema(Record, CanCurate, TracksRun):
         features: Iterable[Record],
         dtype: str | None = None,
         name: str | None = None,
+        type: ULabel | None = None,
+        is_type: bool = False,
     ): ...
 
     @overload
