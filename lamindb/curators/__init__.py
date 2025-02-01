@@ -23,7 +23,7 @@ import pandas as pd
 import pandera as pda
 import pyarrow as pa
 from lamin_utils import colors, logger
-from lamindb_setup.core import upath
+from lamindb_setup.core import deprecated, upath
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import UPath
 
@@ -152,15 +152,6 @@ class BaseCurator:
 
     def __init__(self):
         self._validate_category_error_messages: str = ""
-
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        import sys
-
-        # Deprecated methods
-        if "sphinx" not in sys.modules:
-            if hasattr(cls, "_add_new_from_columns"):
-                cls.add_new_from_columns = cls._add_new_from_columns
 
     def validate(self) -> bool | str:
         """Validate dataset.
@@ -408,13 +399,8 @@ class DataFrameCatCurator(BaseCurator):
         self._kwargs.update({"organism": organism} if organism else {})
         self._update_registry(key, validated_only=False, **self._kwargs, **kwargs)
 
-    def _add_new_from_columns(self, organism: str | None = None, **kwargs):
-        """Deprecated to run by default during init."""
-        warnings.warn(
-            "`.add_new_from_columns()` is deprecated and will be removed in a future version. It's run by default during initialization.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+    @deprecated(new_name="is run by default")
+    def add_new_from_columns(self, organism: str | None = None, **kwargs):
         pass
 
     def _replace_synonyms(
@@ -601,14 +587,8 @@ class DataFrameCatCurator(BaseCurator):
             ).delete()
 
 
-class AnnDataCurator(DataFrameCatCurator):
-    """Curation flow for ``AnnData``.
-
-    See also :class:`~lamindb.Curator`.
-
-    Note that if genes are removed from the AnnData object, the object should be recreated using :meth:`~lamindb.Curator.from_anndata`.
-
-    See :doc:`docs:cellxgene-curate` for instructions on how to curate against a specific cellxgene schema version.
+class AnnDataCatCurator(DataFrameCatCurator):
+    """Manage categorical curation.
 
     Args:
         data: The AnnData object or an AnnData-like path.
@@ -864,7 +844,7 @@ class AnnDataCurator(DataFrameCatCurator):
         return self._artifact
 
 
-class MuDataCurator:
+class MuDataCatCurator:
     """Curation flow for a ``MuData`` object.
 
     See also :class:`~lamindb.Curator`.
@@ -941,7 +921,7 @@ class MuDataCurator:
                 **self._kwargs,
             )
         self._mod_adata_curators = {
-            modality: AnnDataCurator(
+            modality: AnnDataCatCurator(
                 data=mdata[modality],
                 var_index=var_index.get(modality),
                 categoricals=self._obs_fields.get(modality),
@@ -1192,8 +1172,8 @@ def _maybe_curation_keys_not_present(nonval_keys: list[str], name: str):
         )
 
 
-class SOMACurator(BaseCurator):
-    """Curation flow for ``tiledbsoma``.
+class TiledbsomaCatCurator(BaseCurator):
+    """Curation flow for `tiledbsoma.Experiment`.
 
     See also :class:`~lamindb.Curator`.
 
@@ -1692,7 +1672,7 @@ class SOMACurator(BaseCurator):
         return artifact.save()
 
 
-class SpatialDataCurator:
+class SpatialDataCatCurator:
     """Curation flow for a ``Spatialdata`` object.
 
     See also :class:`~lamindb.Curator`.
@@ -1717,7 +1697,7 @@ class SpatialDataCurator:
 
     Examples:
         >>> import bionty as bt
-        >>> curator = SpatialDataCurator(
+        >>> curator = SpatialDataCatCurator(
         ...     sdata,
         ...     var_index={
         ...         "table_1": bt.Gene.ensembl_gene_id,
@@ -1820,7 +1800,7 @@ class SpatialDataCurator:
                 **self._kwargs,
             )
         self._table_adata_curators = {
-            table: AnnDataCurator(
+            table: AnnDataCatCurator(
                 data=sdata[table],
                 var_index=var_index.get(table),
                 categoricals=self._categoricals.get(table),
@@ -1936,7 +1916,7 @@ class SpatialDataCurator:
 
         if accessor not in self.categoricals:
             raise ValueError(
-                f"Accessor {accessor} is not in 'categoricals'. Include it when creating the SpatialDataCurator."
+                f"Accessor {accessor} is not in 'categoricals'. Include it when creating the SpatialDataCatCurator."
             )
 
         self._kwargs.update({"organism": organism} if organism else {})
@@ -2257,11 +2237,7 @@ def _add_defaults_to_obs(
             )
 
 
-class CellxGeneFields:
-    """CELLxGENE fields."""
-
-
-class CellxGeneAnnDataCurator(AnnDataCurator):
+class CellxGeneAnnDataCatCurator(AnnDataCatCurator):
     """Annotation flow of AnnData based on CELLxGENE schema."""
 
     _controls_were_created: bool | None = None
@@ -2296,12 +2272,12 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
         """
         import bionty as bt
 
-        CellxGeneAnnDataCurator._init_categoricals_additional_values()
+        CellxGeneAnnDataCatCurator._init_categoricals_additional_values()
 
         var_index: FieldAttr = bt.Gene.ensembl_gene_id
 
         if categoricals is None:
-            categoricals = CellxGeneAnnDataCurator._get_categoricals()
+            categoricals = CellxGeneAnnDataCatCurator._get_categoricals()
 
         self.organism = organism
         self.using_key = using_key
@@ -2347,7 +2323,7 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
         # Exclude default values from validation because they are not available in the pinned sources
         exclude_keys = {
             entity: default
-            for entity, default in CellxGeneAnnDataCurator._get_categoricals_defaults().items()
+            for entity, default in CellxGeneAnnDataCatCurator._get_categoricals_defaults().items()
             if entity in self._adata_obs.columns  # type: ignore
         }
 
@@ -2490,7 +2466,7 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
         return self._adata
 
     def _create_sources(self, obs: pd.DataFrame) -> dict[str, Record]:
-        """Creates a sources dictionary that can be passed to AnnDataCurator."""
+        """Creates a sources dictionary that can be passed to AnnDataCatCurator."""
         import bionty as bt
 
         # fmt: off
@@ -2556,7 +2532,7 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
         # Verify that all required obs columns are present
         missing_obs_fields = [
             name
-            for name in CellxGeneAnnDataCurator._get_categoricals_defaults().keys()
+            for name in CellxGeneAnnDataCatCurator._get_categoricals_defaults().keys()
             if name not in self._adata.obs.columns
             and f"{name}_ontology_term_id" not in self._adata.obs.columns
         ]
@@ -2564,7 +2540,7 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
             missing_obs_fields_str = ", ".join(list(missing_obs_fields))
             logger.error(f"missing required obs columns {missing_obs_fields_str}")
             logger.info(
-                "consider initializing a Curate object like 'Curate(adata, defaults=cxg.CellxGeneAnnDataCurator._get_categoricals_defaults())'"
+                "consider initializing a Curate object like 'Curate(adata, defaults=cxg.CellxGeneAnnDataCatCurator._get_categoricals_defaults())'"
                 "to automatically add these columns with default values."
             )
             return False
@@ -2806,7 +2782,7 @@ class TimeHandler:
         return errors
 
 
-class PertAnnDataCurator(CellxGeneAnnDataCurator):
+class PertAnnDataCatCurator(CellxGeneAnnDataCatCurator):
     """Curator flow for Perturbation data."""
 
     PERT_COLUMNS = {"compound", "genetic", "biologic", "physical"}
@@ -2851,14 +2827,14 @@ class PertAnnDataCurator(CellxGeneAnnDataCurator):
         import wetlab as wl
 
         self.PT_DEFAULT_VALUES = (
-            CellxGeneAnnDataCurator._get_categoricals_defaults()
+            CellxGeneAnnDataCatCurator._get_categoricals_defaults()
             | {
                 "cell_line": "unknown",
                 "pert_target": "unknown",
             }
         )
 
-        self.PT_CATEGORICALS = CellxGeneAnnDataCurator._get_categoricals() | {
+        self.PT_CATEGORICALS = CellxGeneAnnDataCatCurator._get_categoricals() | {
             k: v
             for k, v in {
                 "cell_line": bt.CellLine.name,
@@ -3111,7 +3087,7 @@ class Curator(BaseCurator):
         )
 
     @classmethod
-    @doc_args(AnnDataCurator.__doc__)
+    @doc_args(AnnDataCatCurator.__doc__)
     def from_anndata(
         cls,
         data: ad.AnnData | UPathStr,
@@ -3122,9 +3098,9 @@ class Curator(BaseCurator):
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
-    ) -> AnnDataCurator:
+    ) -> AnnDataCatCurator:
         """{}"""  # noqa: D415
-        return AnnDataCurator(
+        return AnnDataCatCurator(
             data=data,
             var_index=var_index,
             categoricals=categoricals,
@@ -3136,7 +3112,7 @@ class Curator(BaseCurator):
         )
 
     @classmethod
-    @doc_args(MuDataCurator.__doc__)
+    @doc_args(MuDataCatCurator.__doc__)
     def from_mudata(
         cls,
         mdata: MuData,
@@ -3145,9 +3121,9 @@ class Curator(BaseCurator):
         using_key: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
-    ) -> MuDataCurator:
+    ) -> MuDataCatCurator:
         """{}"""  # noqa: D415
-        return MuDataCurator(
+        return MuDataCatCurator(
             mdata=mdata,
             var_index=var_index,
             categoricals=categoricals,
@@ -3157,7 +3133,7 @@ class Curator(BaseCurator):
         )
 
     @classmethod
-    @doc_args(SOMACurator.__doc__)
+    @doc_args(TiledbsomaCatCurator.__doc__)
     def from_tiledbsoma(
         cls,
         experiment_uri: UPathStr,
@@ -3168,9 +3144,9 @@ class Curator(BaseCurator):
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
         exclude: dict[str, str | list[str]] | None = None,
-    ) -> SOMACurator:
+    ) -> TiledbsomaCatCurator:
         """{}"""  # noqa: D415
-        return SOMACurator(
+        return TiledbsomaCatCurator(
             experiment_uri=experiment_uri,
             var_index=var_index,
             categoricals=categoricals,
@@ -3241,7 +3217,7 @@ class Curator(BaseCurator):
                 "Please install spatialdata: pip install spatialdata"
             ) from e
 
-        return SpatialDataCurator(
+        return SpatialDataCatCurator(
             sdata=sdata,
             var_index=var_index,
             categoricals=categoricals,
