@@ -33,9 +33,9 @@ Curators:
 
    BaseCurator
    DataFrameCatCurator
-   AnnDataCurator
-   MuDataCurator
-   SOMACurator
+   AnnDataCatCurator
+   MuDataCatCurator
+   TiledbsomaCatCurator
    CurateLookup
 
 Settings & context:
@@ -75,12 +75,12 @@ from lamindb._query_set import QuerySet, RecordList
 from lamindb.core._feature_manager import FeatureManager, ParamManager
 from lamindb.core._label_manager import LabelManager
 from lamindb.curators import (
-    AnnDataCurator,
+    AnnDataCatCurator,
     BaseCurator,
     CurateLookup,
     DataFrameCatCurator,
-    MuDataCurator,
-    SOMACurator,
+    MuDataCatCurator,
+    TiledbsomaCatCurator,
 )
 from lamindb.models import (
     BasicRecord,
