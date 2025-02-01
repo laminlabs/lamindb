@@ -779,6 +779,7 @@ class AnnDataCurator(DataFrameCatCurator):
         Returns:
             Whether the AnnData object is validated.
         """
+        self._validate_category_error_messages = ""  # reset the error messages
         self._kwargs.update({"organism": organism} if organism else {})
         if self._using_key is not None and self._using_key != "default":
             logger.important(
@@ -2409,7 +2410,7 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
             "development_stage_ontology_term_id": bt.DevelopmentalStage.ontology_id,
             "disease": bt.Disease.name,
             "disease_ontology_term_id": bt.Disease.ontology_id,
-            "donor_id": ULabel.name,
+            # "donor_id": "str",  via pandera
             "self_reported_ethnicity": bt.Ethnicity.name,
             "self_reported_ethnicity_ontology_term_id": bt.Ethnicity.ontology_id,
             "sex": bt.Phenotype.name,
