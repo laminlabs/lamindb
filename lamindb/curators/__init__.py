@@ -2260,19 +2260,6 @@ def _add_defaults_to_obs(
 class CellxGeneFields:
     """CELLxGENE fields."""
 
-    OBS_FIELD_DEFAULTS = {
-        "cell_type": "unknown",
-        "development_stage": "unknown",
-        "disease": "normal",
-        "donor_id": "unknown",
-        "self_reported_ethnicity": "unknown",
-        "sex": "unknown",
-        # Setting these defaults to 'unknown' will lead the validator to fail because it expects a specified set of values that does not include 'unknown'.
-        # 'unknown' is registered as a ULabel and is therefore validated.
-        "suspension_type": "cell",
-        "tissue_type": "tissue",
-    }
-
 
 class CellxGeneAnnDataCurator(AnnDataCurator):
     """Annotation flow of AnnData based on CELLxGENE schema."""
@@ -2309,7 +2296,7 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
         """
         import bionty as bt
 
-        CellxGeneAnnDataCurator._init_registries_cellxgene_schema()
+        CellxGeneAnnDataCurator._init_categoricals_additional_values()
 
         var_index: FieldAttr = bt.Gene.ensembl_gene_id
 
@@ -2360,7 +2347,7 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
         # Exclude default values from validation because they are not available in the pinned sources
         exclude_keys = {
             entity: default
-            for entity, default in CellxGeneFields.OBS_FIELD_DEFAULTS.items()
+            for entity, default in CellxGeneAnnDataCurator._get_categoricals_defaults().items()
             if entity in self._adata_obs.columns  # type: ignore
         }
 
@@ -2376,7 +2363,7 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
         )
 
     @classmethod
-    def _init_registries_cellxgene_schema(cls) -> None:
+    def _init_categoricals_additional_values(cls) -> None:
         import bionty as bt
 
         import lamindb as ln
@@ -2481,6 +2468,19 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
             "organism_ontology_term_id": bt.Organism.ontology_id,
         }
 
+    @classmethod
+    def _get_categoricals_defaults(cls) -> dict[str, str]:
+        return {
+            "cell_type": "unknown",
+            "development_stage": "unknown",
+            "disease": "normal",
+            "donor_id": "unknown",
+            "self_reported_ethnicity": "unknown",
+            "sex": "unknown",
+            "suspension_type": "cell",
+            "tissue_type": "tissue",
+        }
+
     @property
     def pinned_ontologies(self) -> pd.DataFrame:
         return self._pinned_ontologies
@@ -2556,7 +2556,7 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
         # Verify that all required obs columns are present
         missing_obs_fields = [
             name
-            for name in CellxGeneFields.OBS_FIELD_DEFAULTS.keys()
+            for name in CellxGeneAnnDataCurator._get_categoricals_defaults().keys()
             if name not in self._adata.obs.columns
             and f"{name}_ontology_term_id" not in self._adata.obs.columns
         ]
@@ -2564,7 +2564,7 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
             missing_obs_fields_str = ", ".join(list(missing_obs_fields))
             logger.error(f"missing required obs columns {missing_obs_fields_str}")
             logger.info(
-                "consider initializing a Curate object like 'Curate(adata, defaults=cxg.CellxGeneFields.OBS_FIELD_DEFAULTS)'"
+                "consider initializing a Curate object like 'Curate(adata, defaults=cxg.CellxGeneAnnDataCurator._get_categoricals_defaults())'"
                 "to automatically add these columns with default values."
             )
             return False
@@ -2850,10 +2850,13 @@ class PertAnnDataCurator(CellxGeneAnnDataCurator):
         import bionty as bt
         import wetlab as wl
 
-        self.PT_DEFAULT_VALUES = CellxGeneFields.OBS_FIELD_DEFAULTS | {
-            "cell_line": "unknown",
-            "pert_target": "unknown",
-        }
+        self.PT_DEFAULT_VALUES = (
+            CellxGeneAnnDataCurator._get_categoricals_defaults()
+            | {
+                "cell_line": "unknown",
+                "pert_target": "unknown",
+            }
+        )
 
         self.PT_CATEGORICALS = CellxGeneAnnDataCurator._get_categoricals() | {
             k: v
