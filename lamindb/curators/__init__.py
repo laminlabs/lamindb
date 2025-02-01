@@ -380,13 +380,13 @@ class DataFrameCatCurator(BaseCurator):
                 raise TypeError(f"{name} must be a dictionary!")
             valid_keys = set(self._df.columns) | {"columns"} | extra
             nonval_keys = [key for key in d.keys() if key not in valid_keys]
-            n = len(nonval_keys)
-            s = "s" if n > 1 else ""
-            are = "are" if n > 1 else "is"
-            if len(nonval_keys) > 0:
-                raise ValidationError(
-                    f"key{s} passed to {name} {are} not present in columns: {colors.yellow(_format_values(nonval_keys))}"
-                )
+            len(nonval_keys)
+            # throwing an error here is problematic because my dataset might have missing columns
+            # and I still want to define sources mappings on the Curator level
+            # if len(nonval_keys) > 0:
+            #     raise ValidationError(
+            #         f"key{s} passed to {name} {are} not present in columns: {colors.yellow(_format_values(nonval_keys))}"
+            #     )
 
     def _save_columns(self, validated_only: bool = True) -> None:
         """Save column name records."""
@@ -2303,6 +2303,8 @@ class CellxGeneFields:
 class CellxGeneAnnDataCurator(AnnDataCurator):
     """Annotation flow of AnnData based on CELLxGENE schema."""
 
+    _controls_were_created: bool | None = None
+
     def __init__(
         self,
         adata: ad.AnnData | UPathStr,
@@ -2313,7 +2315,7 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
         extra_sources: dict[str, Record] = None,
         schema_version: Literal["4.0.0", "5.0.0", "5.1.0"] = "5.1.0",
         verbosity: str = "hint",
-        using_key: str = "laminlabs/cellxgene",
+        using_key: str = None,
     ) -> None:
         """CELLxGENE schema curator.
 
@@ -2332,6 +2334,8 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
             using_key: A reference LaminDB instance.
         """
         import bionty as bt
+
+        CellxGeneAnnDataCurator._init_registries_cellxgene_schema()
 
         var_index: FieldAttr = bt.Gene.ensembl_gene_id
 
@@ -2396,6 +2400,86 @@ class CellxGeneAnnDataCurator(AnnDataCurator):
             sources=self.sources,
             exclude=exclude_keys,
         )
+
+    @classmethod
+    def _init_registries_cellxgene_schema(cls) -> None:
+        import bionty as bt
+
+        import lamindb as ln
+
+        # Note: if you add another control below, be mindful to change the if condition that
+        # triggers whether creating these records is re-considered
+        if cls._controls_were_created is None:
+            cls._controls_were_created = (
+                ln.ULabel.filter(name="SuspensionType", is_type=True).one_or_none()
+                is not None
+            )
+        if not cls._controls_were_created:
+            logger.important("Creating control labels in the CellxGene schema.")
+            bt.CellType(
+                ontology_id="unknown",
+                name="unknown",
+                description="From CellxGene schema.",
+            ).save()
+            pato = bt.Source.filter(name="pato", version="2024-03-28").one()
+            normal = bt.Phenotype.from_source(ontology_id="PATO:0000461", source=pato)
+            bt.Disease(
+                uid=normal.uid,
+                name=normal.name,
+                ontology_id=normal.ontology_id,
+                description=normal.description,
+                source=normal.source,
+            ).save()
+            bt.Ethnicity(
+                ontology_id="na", name="na", description="From CellxGene schema."
+            ).save()
+            bt.Ethnicity(
+                ontology_id="unknown",
+                name="unknown",
+                description="From CellxGene schema.",
+            ).save()
+            bt.DevelopmentalStage(
+                ontology_id="unknown",
+                name="unknown",
+                description="From CellxGene schema.",
+            ).save()
+            bt.Phenotype(
+                ontology_id="unknown",
+                name="unknown",
+                description="From CellxGene schema.",
+            ).save()
+
+            tissue_type = ln.ULabel(
+                name="TissueType",
+                is_type=True,
+                description='From CellxGene schema. Is "tissue", "organoid", or "cell culture".',
+            ).save()
+            ln.ULabel(
+                name="tissue", type=tissue_type, description="From CellxGene schema."
+            ).save()
+            ln.ULabel(
+                name="organoid", type=tissue_type, description="From CellxGene schema."
+            ).save()
+            ln.ULabel(
+                name="cell culture",
+                type=tissue_type,
+                description="From CellxGene schema.",
+            ).save()
+
+            suspension_type = ln.ULabel(
+                name="SuspensionType",
+                is_type=True,
+                description='From CellxGene schema. This MUST be "cell", "nucleus", or "na".',
+            ).save()
+            ln.ULabel(
+                name="cell", type=suspension_type, description="From CellxGene schema."
+            ).save()
+            ln.ULabel(
+                name="nucleus",
+                type=suspension_type,
+                description="From CellxGene schema.",
+            ).save()
+            ln.ULabel(name="na", type=suspension_type).save()
 
     @classmethod
     def _get_categoricals(cls) -> dict[str, FieldAttr]:
