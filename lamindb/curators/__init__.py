@@ -2257,10 +2257,6 @@ def _add_defaults_to_obs(
             )
 
 
-class CellxGeneFields:
-    """CELLxGENE fields."""
-
-
 class CellxGeneAnnDataCurator(AnnDataCurator):
     """Annotation flow of AnnData based on CELLxGENE schema."""
 
