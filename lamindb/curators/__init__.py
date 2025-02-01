@@ -23,7 +23,7 @@ import pandas as pd
 import pandera as pda
 import pyarrow as pa
 from lamin_utils import colors, logger
-from lamindb_setup.core import upath
+from lamindb_setup.core import deprecated, upath
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import UPath
 
@@ -152,15 +152,6 @@ class BaseCurator:
 
     def __init__(self):
         self._validate_category_error_messages: str = ""
-
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        import sys
-
-        # Deprecated methods
-        if "sphinx" not in sys.modules:
-            if hasattr(cls, "_add_new_from_columns"):
-                cls.add_new_from_columns = cls._add_new_from_columns
 
     def validate(self) -> bool | str:
         """Validate dataset.
@@ -408,13 +399,8 @@ class DataFrameCatCurator(BaseCurator):
         self._kwargs.update({"organism": organism} if organism else {})
         self._update_registry(key, validated_only=False, **self._kwargs, **kwargs)
 
-    def _add_new_from_columns(self, organism: str | None = None, **kwargs):
-        """Deprecated to run by default during init."""
-        warnings.warn(
-            "`.add_new_from_columns()` is deprecated and will be removed in a future version. It's run by default during initialization.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+    @deprecated(new_name="is run by default")
+    def add_new_from_columns(self, organism: str | None = None, **kwargs):
         pass
 
     def _replace_synonyms(
