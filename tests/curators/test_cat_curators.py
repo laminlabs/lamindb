@@ -86,7 +86,7 @@ def categoricals():
 
 @pytest.fixture
 def curate_lookup(categoricals):
-    return CurateLookup(categoricals=categoricals, using_key="undefined")
+    return CurateLookup(categoricals=categoricals)
 
 
 @pytest.fixture
