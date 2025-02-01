@@ -223,10 +223,12 @@ def test_using():
     assert artifact == artifact_ref
 
 
-def test_get_record_params():
+def test_get_record_kwargs():
     assert _get_record_kwargs(ln.Feature) == [
         ("name", "str"),
         ("dtype", "FeatureDtype | Registry | list[Registry]"),
+        ("type", "Feature | None"),
+        ("is_type", "bool"),
         ("unit", "str | None"),
         ("description", "str | None"),
         ("synonyms", "str | None"),
