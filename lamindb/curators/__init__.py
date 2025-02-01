@@ -78,8 +78,6 @@ class CurateLookup:
     Args:
         categoricals: A dictionary of categorical fields to lookup.
         slots: A dictionary of slot fields to lookup.
-        using_key: The key of the instance to lookup from. Defaults to the
-            current instance if not specified.
         public: Whether to lookup from the public instance. Defaults to False.
 
     Example:
@@ -93,16 +91,11 @@ class CurateLookup:
         self,
         categoricals: dict[str, FieldAttr],
         slots: dict[str, FieldAttr] = None,
-        using_key: str | None = None,
         public: bool = False,
     ) -> None:
         slots = slots or {}
         self._fields = {**categoricals, **slots}
-        self._using_key = None if using_key == "default" else using_key
-        self._using_key_name = self._using_key or ln_setup.settings.instance.slug
         self._public = public
-        debug_message = f"Lookup objects from {colors.italic(self._using_key_name)}"
-        logger.debug(debug_message)
 
     def __getattr__(self, name):
         if name in self._fields:
@@ -110,7 +103,7 @@ class CurateLookup:
             if self._public and hasattr(registry, "public"):
                 return registry.public().lookup()
             else:
-                return get_registry_instance(registry, self._using_key).lookup()
+                return registry.lookup()
         raise AttributeError(
             f'"{self.__class__.__name__}" object has no attribute "{name}"'
         )
@@ -121,7 +114,7 @@ class CurateLookup:
             if self._public and hasattr(registry, "public"):
                 return registry.public().lookup()
             else:
-                return get_registry_instance(registry, self._using_key).lookup()
+                return registry.lookup()
         raise AttributeError(
             f'"{self.__class__.__name__}" object has no attribute "{name}"'
         )
@@ -134,7 +127,7 @@ class CurateLookup:
             getitem_keys = "\n ".join(
                 [str([key]) for key in self._fields if not key.isidentifier()]
             )
-            ref = "public" if self._public else self._using_key_name
+            ref = "public" if self._public else "registries"
             return (
                 f"Lookup objects from the {colors.italic(ref)}:\n "
                 f"{colors.green(getattr_keys)}\n "
@@ -276,7 +269,6 @@ class DataFrameCatCurator(BaseCurator):
         df: The DataFrame object to curate.
         columns: The field attribute for the feature column.
         categoricals: A dictionary mapping column names to registry_field.
-        using_key: The reference instance containing registries to validate against.
         verbosity: The verbosity level.
         organism: The organism name.
         sources: A dictionary mapping column names to Source records.
@@ -303,7 +295,6 @@ class DataFrameCatCurator(BaseCurator):
         df: pd.DataFrame,
         columns: FieldAttr = Feature.name,
         categoricals: dict[str, FieldAttr] | None = None,
-        using_key: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
@@ -317,7 +308,6 @@ class DataFrameCatCurator(BaseCurator):
         self._df = df
         self._fields = categoricals or {}
         self._columns_field = columns
-        self._using_key = using_key
         # TODO: change verbosity back
         settings.verbosity = verbosity
         self._artifact = None
@@ -341,19 +331,15 @@ class DataFrameCatCurator(BaseCurator):
         """Return the columns fields to validate against."""
         return self._fields
 
-    def lookup(
-        self, using_key: str | None = None, public: bool = False
-    ) -> CurateLookup:
+    def lookup(self, public: bool = False) -> CurateLookup:
         """Lookup categories.
 
         Args:
-            using_key: The instance where the lookup is performed.
-                if "public", the lookup is performed on the public reference.
+            public: If "public", the lookup is performed on the public reference.
         """
         return CurateLookup(
             categoricals=self._fields,
             slots={"columns": self._columns_field},
-            using_key=using_key or self._using_key,
             public=public,
         )
 
@@ -364,7 +350,6 @@ class DataFrameCatCurator(BaseCurator):
             values=list(self.fields.keys()),
             field=self._columns_field,
             key="columns",
-            using_key=self._using_key,
             validated_only=False,
             source=self._sources.get("columns"),
             exclude=self._exclude.get("columns"),
@@ -378,7 +363,6 @@ class DataFrameCatCurator(BaseCurator):
                 values=list(additional_columns),
                 field=self._columns_field,
                 key="columns",
-                using_key=self._using_key,
                 validated_only=validated_only,
                 df=self._df,  # Get the Feature type from df
                 source=self._sources.get("columns"),
@@ -446,7 +430,6 @@ class DataFrameCatCurator(BaseCurator):
                     syn_mapper = standardize_categories(
                         self.non_validated[k],
                         field=self._fields[k],
-                        using_key=self._using_key,
                         source=self._sources.get(k),
                         **self._kwargs,
                     )
@@ -464,7 +447,6 @@ class DataFrameCatCurator(BaseCurator):
                     syn_mapper = standardize_categories(
                         self.non_validated[key],
                         field=self._fields[key],
-                        using_key=self._using_key,
                         source=self._sources.get(key),
                         **self._kwargs,
                     )
@@ -486,7 +468,6 @@ class DataFrameCatCurator(BaseCurator):
                 values=_flatten_unique(self._df[categorical]),
                 field=self.fields[categorical],
                 key=categorical,
-                using_key=self._using_key,
                 validated_only=validated_only,
                 source=self._sources.get(categorical),
                 exclude=self._exclude.get(categorical),
@@ -506,7 +487,6 @@ class DataFrameCatCurator(BaseCurator):
 
         This method also registers the validated records in the current instance:
         - from public sources
-        - from the using_key instance
 
         Args:
             organism: The organism name.
@@ -522,7 +502,6 @@ class DataFrameCatCurator(BaseCurator):
         self._validated, self._non_validated = validate_categories_in_df(  # type: ignore
             self._df,
             fields=self.fields,
-            using_key=self._using_key,
             sources=self._sources,
             exclude=self._exclude,
             curator=self,
@@ -595,7 +574,6 @@ class AnnDataCatCurator(DataFrameCatCurator):
         var_index: The registry field for mapping the ``.var`` index.
         categoricals: A dictionary mapping ``.obs.columns`` to a registry field.
         obs_columns: The registry field for mapping the ``.obs.columns``.
-        using_key: A reference LaminDB instance.
         verbosity: The verbosity level.
         organism: The organism name.
         sources: A dictionary mapping ``.obs.columns`` to Source records.
@@ -622,7 +600,6 @@ class AnnDataCatCurator(DataFrameCatCurator):
         var_index: FieldAttr,
         categoricals: dict[str, FieldAttr] | None = None,
         obs_columns: FieldAttr = Feature.name,
-        using_key: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
@@ -659,7 +636,6 @@ class AnnDataCatCurator(DataFrameCatCurator):
             df=self._adata.obs,
             categoricals=categoricals,
             columns=obs_columns,
-            using_key=using_key,
             verbosity=verbosity,
             organism=organism,
             sources=sources,
@@ -677,19 +653,15 @@ class AnnDataCatCurator(DataFrameCatCurator):
         """Return the obs fields to validate against."""
         return self._obs_fields
 
-    def lookup(
-        self, using_key: str | None = None, public: bool = False
-    ) -> CurateLookup:
+    def lookup(self, public: bool = False) -> CurateLookup:
         """Lookup categories.
 
         Args:
-            using_key: The instance where the lookup is performed.
-                if "public", the lookup is performed on the public reference.
+            public: If "public", the lookup is performed on the public reference.
         """
         return CurateLookup(
             categoricals=self._obs_fields,
             slots={"columns": self._columns_field, "var_index": self._var_field},
-            using_key=using_key or self._using_key,
             public=public,
         )
 
@@ -701,7 +673,6 @@ class AnnDataCatCurator(DataFrameCatCurator):
             values=list(self._adata.var.index),
             field=self.var_index,
             key="var_index",
-            using_key=self._using_key,
             validated_only=validated_only,
             organism=organism,
             source=self._sources.get("var_index"),
@@ -737,10 +708,6 @@ class AnnDataCatCurator(DataFrameCatCurator):
         """
         self._validate_category_error_messages = ""  # reset the error messages
         self._kwargs.update({"organism": organism} if organism else {})
-        if self._using_key is not None and self._using_key != "default":
-            logger.important(
-                f"validating metadata using registries of instance {colors.italic(self._using_key)}"
-            )
 
         # add all validated records to the current instance
         self._update_registry_all()
@@ -749,7 +716,6 @@ class AnnDataCatCurator(DataFrameCatCurator):
             self._adata.var.index,
             field=self._var_field,
             key="var_index",
-            using_key=self._using_key,
             source=self._sources.get("var_index"),
             hint_print=".add_new_from_var_index()",
             exclude=self._exclude.get("var_index"),
@@ -758,7 +724,6 @@ class AnnDataCatCurator(DataFrameCatCurator):
         validated_obs, non_validated_obs = validate_categories_in_df(
             self._adata.obs,
             fields=self.categoricals,
-            using_key=self._using_key,
             sources=self._sources,
             exclude=self._exclude,
             curator=self,
@@ -789,7 +754,6 @@ class AnnDataCatCurator(DataFrameCatCurator):
             syn_mapper = standardize_categories(
                 self._adata.var.index,
                 field=self.var_index,
-                using_key=self._using_key,
                 source=self._sources.get("var_index"),
                 **self._kwargs,
             )
@@ -859,7 +823,6 @@ class MuDataCatCurator:
             ``{"modality_1": bt.Gene.ensembl_gene_id, "modality_2": CellMarker.name}``
         categoricals: A dictionary mapping ``.obs.columns`` to a registry field.
             Use modality keys to specify categoricals for MuData slots such as `"rna:cell_type": bt.CellType.name"`.
-        using_key: A reference LaminDB instance.
         verbosity: The verbosity level.
         organism: The organism name.
         sources: A dictionary mapping ``.obs.columns`` to Source records.
@@ -888,7 +851,6 @@ class MuDataCatCurator:
         mdata: MuData,
         var_index: dict[str, FieldAttr],
         categoricals: dict[str, FieldAttr] | None = None,
-        using_key: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
@@ -906,7 +868,6 @@ class MuDataCatCurator:
         self._verify_modality(self._var_fields.keys())
         self._obs_fields = self._parse_categoricals(categoricals)
         self._modalities = set(self._var_fields.keys()) | set(self._obs_fields.keys())
-        self._using_key = using_key
         self._verbosity = verbosity
         self._obs_df_curator = None
         if "obs" in self._modalities:
@@ -914,7 +875,6 @@ class MuDataCatCurator:
                 df=mdata.obs,
                 columns=Feature.name,
                 categoricals=self._obs_fields.get("obs", {}),
-                using_key=using_key,
                 verbosity=verbosity,
                 sources=self._sources.get("obs"),
                 exclude=self._exclude.get("obs"),
@@ -925,7 +885,6 @@ class MuDataCatCurator:
                 data=mdata[modality],
                 var_index=var_index.get(modality),
                 categoricals=self._obs_fields.get(modality),
-                using_key=using_key,
                 verbosity=verbosity,
                 sources=self._sources.get(modality),
                 exclude=self._exclude.get(modality),
@@ -977,14 +936,11 @@ class MuDataCatCurator:
                 obs_fields["obs"][k] = v
         return obs_fields
 
-    def lookup(
-        self, using_key: str | None = None, public: bool = False
-    ) -> CurateLookup:
+    def lookup(self, public: bool = False) -> CurateLookup:
         """Lookup categories.
 
         Args:
-            using_key: The instance where the lookup is performed.
-                if "public", the lookup is performed on the public reference.
+            public: Perform lookup on public source ontologies.
         """
         obs_fields = {}
         for mod, fields in self._obs_fields.items():
@@ -998,7 +954,6 @@ class MuDataCatCurator:
             slots={
                 **{f"{k}_var_index": v for k, v in self._var_fields.items()},
             },
-            using_key=using_key or self._using_key,
             public=public,
         )
 
@@ -1070,10 +1025,6 @@ class MuDataCatCurator:
         from lamindb.core._settings import settings
 
         self._kwargs.update({"organism": organism} if organism else {})
-        if self._using_key is not None and self._using_key != "default":
-            logger.important(
-                f"validating using registries of instance {colors.italic(self._using_key)}"
-            )
 
         # add all validated records to the current instance
         verbosity = settings.verbosity
@@ -1213,7 +1164,6 @@ class TiledbsomaCatCurator(BaseCurator):
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
         exclude: dict[str, str | list[str]] | None = None,
-        using_key: str | None = None,
     ):
         self._obs_fields = categoricals or {}
         self._var_fields = var_index
@@ -1225,7 +1175,6 @@ class TiledbsomaCatCurator(BaseCurator):
             self._experiment_uri = UPath(experiment_uri)
             self._artifact = None
         self._organism = organism
-        self._using_key = using_key
         self._sources = sources or {}
         self._exclude = exclude or {}
 
@@ -1303,7 +1252,6 @@ class TiledbsomaCatCurator(BaseCurator):
             values=register_columns,
             field=self._columns_field,
             key="columns",
-            using_key=self._using_key,
             validated_only=False,
             organism=organism,
             source=self._sources.get("columns"),
@@ -1319,7 +1267,6 @@ class TiledbsomaCatCurator(BaseCurator):
                 values=additional_columns,
                 field=self._columns_field,
                 key="columns",
-                using_key=self._using_key,
                 validated_only=True,
                 organism=organism,
                 source=self._sources.get("columns"),
@@ -1349,7 +1296,6 @@ class TiledbsomaCatCurator(BaseCurator):
                     values=var_ms_values,
                     field=field,
                     key=var_ms_key,
-                    using_key=self._using_key,
                     validated_only=True,
                     organism=organism,
                     source=self._sources.get(var_ms_key),
@@ -1359,7 +1305,6 @@ class TiledbsomaCatCurator(BaseCurator):
                     values=var_ms_values,
                     field=field,
                     key=var_ms_key,
-                    using_key=self._using_key,
                     organism=organism,
                     source=self._sources.get(var_ms_key),
                     exclude=self._exclude.get(var_ms_key),
@@ -1385,7 +1330,6 @@ class TiledbsomaCatCurator(BaseCurator):
                     values=values,
                     field=field,
                     key=key,
-                    using_key=self._using_key,
                     validated_only=True,
                     organism=organism,
                     source=self._sources.get(key),
@@ -1395,7 +1339,6 @@ class TiledbsomaCatCurator(BaseCurator):
                     values=values,
                     field=field,
                     key=key,
-                    using_key=self._using_key,
                     organism=organism,
                     source=self._sources.get(key),
                     exclude=self._exclude.get(key),
@@ -1453,7 +1396,6 @@ class TiledbsomaCatCurator(BaseCurator):
                 values=values,
                 field=field,
                 key=k,
-                using_key=self._using_key,
                 validated_only=False,
                 organism=organism,
                 source=self._sources.get(k),
@@ -1480,19 +1422,15 @@ class TiledbsomaCatCurator(BaseCurator):
         """Return the obs fields to validate against."""
         return self._obs_fields
 
-    def lookup(
-        self, using_key: str | None = None, public: bool = False
-    ) -> CurateLookup:
+    def lookup(self, public: bool = False) -> CurateLookup:
         """Lookup categories.
 
         Args:
-            using_key: The instance where the lookup is performed.
-                if "public", the lookup is performed on the public reference.
+            public: If "public", the lookup is performed on the public reference.
         """
         return CurateLookup(
             categoricals=self._obs_fields,
             slots={"columns": self._columns_field, **self._var_fields_flat},
-            using_key=using_key or self._using_key,
             public=public,
         )
 
@@ -1537,7 +1475,6 @@ class TiledbsomaCatCurator(BaseCurator):
             syn_mapper = standardize_categories(
                 values=values,
                 field=field,
-                using_key=self._using_key,
                 source=self._sources.get(k),
                 organism=organism,
             )
@@ -1686,7 +1623,7 @@ class SpatialDataCatCurator:
         sdata: The SpatialData object to curate.
         var_index: A dictionary mapping table keys to the ``.var`` indices.
         categoricals: A nested dictionary mapping an accessor to dictionaries that map columns to a registry field.
-        using_key: A reference LaminDB instance.
+
         organism: The organism name.
         sources: A dictionary mapping an accessor to dictionaries that map columns to Source records.
         exclude: A dictionary mapping an accessor to dictionaries of column names to values to exclude from validation.
@@ -1717,7 +1654,6 @@ class SpatialDataCatCurator:
         sdata,
         var_index: dict[str, FieldAttr],
         categoricals: dict[str, dict[str, FieldAttr]] | None = None,
-        using_key: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, dict[str, Record]] | None = None,
@@ -1740,7 +1676,6 @@ class SpatialDataCatCurator:
         self._table_keys = set(self._var_fields.keys()) | set(
             self._categoricals.keys() - {self._sample_metadata_key}
         )
-        self._using_key = using_key
         self._verbosity = verbosity
         self._sample_df_curator = None
         if self._sample_metadata_key is not None:
@@ -1793,7 +1728,6 @@ class SpatialDataCatCurator:
                 df=self._sample_metadata,
                 columns=Feature.name,
                 categoricals=self._categoricals.get(self._sample_metadata_key, {}),
-                using_key=using_key,
                 verbosity=verbosity,
                 sources=self._sources.get(self._sample_metadata_key),
                 exclude=self._exclude.get(self._sample_metadata_key),
@@ -1804,7 +1738,6 @@ class SpatialDataCatCurator:
                 data=sdata[table],
                 var_index=var_index.get(table),
                 categoricals=self._categoricals.get(table),
-                using_key=using_key,
                 verbosity=verbosity,
                 sources=self._sources.get(table),
                 exclude=self._exclude.get(table),
@@ -1845,20 +1778,16 @@ class SpatialDataCatCurator:
             if not is_present:
                 raise ValidationError(f"Accessor '{acc}' does not exist!")
 
-    def lookup(
-        self, using_key: str | None = None, public: bool = False
-    ) -> CurateLookup:
+    def lookup(self, public: bool = False) -> CurateLookup:
         """Look up categories.
 
         Args:
-            using_key: The instance where the lookup is performed.
             public: Whether the lookup is performed on the public reference.
         """
         cat_values_dict = list(self.categoricals.values())[0]
         return CurateLookup(
             categoricals=cat_values_dict,
             slots={"accessors": cat_values_dict.keys()},
-            using_key=using_key or self._using_key,
             public=public,
         )
 
@@ -1964,7 +1893,6 @@ class SpatialDataCatCurator:
 
         This method also registers the validated records in the current instance:
         - from public sources
-        - from the using_key instance
 
         Args:
             organism: The organism name.
@@ -1975,10 +1903,6 @@ class SpatialDataCatCurator:
         from lamindb.core._settings import settings
 
         self._kwargs.update({"organism": organism} if organism else {})
-        if self._using_key is not None and self._using_key != "default":
-            logger.important(
-                f"validating using registries of instance {colors.italic(self._using_key)}"
-            )
 
         # add all validated records to the current instance
         verbosity = settings.verbosity
@@ -2252,7 +2176,6 @@ class CellxGeneAnnDataCatCurator(AnnDataCatCurator):
         extra_sources: dict[str, Record] = None,
         schema_version: Literal["4.0.0", "5.0.0", "5.1.0"] = "5.1.0",
         verbosity: str = "hint",
-        using_key: str = None,
     ) -> None:
         """CELLxGENE schema curator.
 
@@ -2268,7 +2191,7 @@ class CellxGeneAnnDataCatCurator(AnnDataCatCurator):
             exclude: A dictionary mapping column names to values to exclude.
             schema_version: The CELLxGENE schema version to curate against.
             verbosity: The verbosity level.
-            using_key: A reference LaminDB instance.
+
         """
         import bionty as bt
 
@@ -2280,7 +2203,6 @@ class CellxGeneAnnDataCatCurator(AnnDataCatCurator):
             categoricals = CellxGeneAnnDataCatCurator._get_categoricals()
 
         self.organism = organism
-        self.using_key = using_key
 
         VALID_SCHEMA_VERSIONS = {"4.0.0", "5.0.0", "5.1.0"}
         if schema_version not in VALID_SCHEMA_VERSIONS:
@@ -2331,7 +2253,6 @@ class CellxGeneAnnDataCatCurator(AnnDataCatCurator):
             data=adata,
             var_index=var_index,
             categoricals=_restrict_obs_fields(self._adata_obs, categoricals),
-            using_key=using_key,
             verbosity=verbosity,
             organism=organism,
             sources=self.sources,
@@ -2480,7 +2401,7 @@ class CellxGeneAnnDataCatCurator(AnnDataCatCurator):
             version = self._pinned_ontologies.loc[(self._pinned_ontologies.index == entity) &
                                                   (self._pinned_ontologies["organism"] == organism) &
                                                   (self._pinned_ontologies["source"] == source), "version"].iloc[0]
-            return bt.Source.using(self.using_key).filter(organism=organism, entity=f"bionty.{entity}", version=version).first()
+            return bt.Source.filter(organism=organism, entity=f"bionty.{entity}", version=version).first()
 
         entity_mapping = {
              "var_index": ("Gene", self.organism, "ensembl"),
@@ -2517,9 +2438,7 @@ class CellxGeneAnnDataCatCurator(AnnDataCatCurator):
         registry = field.field.model
 
         if hasattr(registry, "ontology_id"):
-            validated_records = registry.using(self.using_key).filter(
-                **{f"{field_name}__in": values}
-            )
+            validated_records = registry.filter(**{f"{field_name}__in": values})
             mapper = (
                 pd.DataFrame(validated_records.values_list(*cols))
                 .set_index(0)
@@ -2796,7 +2715,6 @@ class PertAnnDataCatCurator(CellxGeneAnnDataCatCurator):
         *,
         verbosity: str = "hint",
         cxg_schema_version: Literal["5.0.0", "5.1.0"] = "5.1.0",
-        using_key: str | None = None,
     ):
         """Initialize the curator with configuration and validation settings."""
         import bionty as bt
@@ -2807,13 +2725,12 @@ class PertAnnDataCatCurator(CellxGeneAnnDataCatCurator):
         self._validate_initial_data(adata)
         self._setup_configuration(adata)
 
-        self._setup_sources(adata, using_key)
+        self._setup_sources(adata)
         self._setup_compound_source()
 
         super().__init__(
             adata=adata,
             categoricals=self.PT_CATEGORICALS,
-            using_key=using_key,
             defaults=self.PT_DEFAULT_VALUES,
             verbosity=verbosity,
             organism=organism,
@@ -2849,21 +2766,19 @@ class PertAnnDataCatCurator(CellxGeneAnnDataCatCurator):
         # if "donor_id" in self.PT_CATEGORICALS:
         #     self.PT_CATEGORICALS["donor_id"] = Donor.name
 
-    def _setup_sources(self, adata: ad.AnnData, using_key: str):
+    def _setup_sources(self, adata: ad.AnnData):
         """Set up data sources."""
         self.PT_SOURCES = {}
         # if "cell_line" in adata.obs.columns:
         #     self.PT_SOURCES["cell_line"] = (
-        #         bt.Source.using(using_key).filter(name="depmap").first()
+        #         bt.Source.filter(name="depmap").first()
         #     )
         if "pert_compound" in adata.obs.columns:
             import bionty as bt
 
-            self.PT_SOURCES["pert_compound"] = (
-                bt.Source.using(using_key)
-                .filter(entity="wetlab.Compound", name="chebi")
-                .first()
-            )
+            self.PT_SOURCES["pert_compound"] = bt.Source.filter(
+                entity="wetlab.Compound", name="chebi"
+            ).first()
 
     def _validate_initial_data(self, adata: ad.AnnData):
         """Validate the initial data structure."""
@@ -3072,7 +2987,6 @@ class Curator(BaseCurator):
         df: pd.DataFrame,
         categoricals: dict[str, FieldAttr] | None = None,
         columns: FieldAttr = Feature.name,
-        using_key: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
     ) -> DataFrameCatCurator:
@@ -3081,7 +2995,6 @@ class Curator(BaseCurator):
             df=df,
             categoricals=categoricals,
             columns=columns,
-            using_key=using_key,
             verbosity=verbosity,
             organism=organism,
         )
@@ -3094,7 +3007,6 @@ class Curator(BaseCurator):
         var_index: FieldAttr,
         categoricals: dict[str, FieldAttr] | None = None,
         obs_columns: FieldAttr = Feature.name,
-        using_key: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
@@ -3105,7 +3017,6 @@ class Curator(BaseCurator):
             var_index=var_index,
             categoricals=categoricals,
             obs_columns=obs_columns,
-            using_key=using_key,
             verbosity=verbosity,
             organism=organism,
             sources=sources,
@@ -3118,7 +3029,6 @@ class Curator(BaseCurator):
         mdata: MuData,
         var_index: dict[str, dict[str, FieldAttr]],
         categoricals: dict[str, FieldAttr] | None = None,
-        using_key: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
     ) -> MuDataCatCurator:
@@ -3127,7 +3037,6 @@ class Curator(BaseCurator):
             mdata=mdata,
             var_index=var_index,
             categoricals=categoricals,
-            using_key=using_key,
             verbosity=verbosity,
             organism=organism,
         )
@@ -3140,7 +3049,6 @@ class Curator(BaseCurator):
         var_index: dict[str, tuple[str, FieldAttr]],
         categoricals: dict[str, FieldAttr] | None = None,
         obs_columns: FieldAttr = Feature.name,
-        using_key: str | None = None,
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
         exclude: dict[str, str | list[str]] | None = None,
@@ -3151,7 +3059,6 @@ class Curator(BaseCurator):
             var_index=var_index,
             categoricals=categoricals,
             obs_columns=obs_columns,
-            using_key=using_key,
             organism=organism,
             sources=sources,
             exclude=exclude,
@@ -3163,7 +3070,6 @@ class Curator(BaseCurator):
         sdata,
         var_index: dict[str, FieldAttr],
         categoricals: dict[str, dict[str, FieldAttr]] | None = None,
-        using_key: str | None = None,
         organism: str | None = None,
         sources: dict[str, dict[str, Record]] | None = None,
         exclude: dict[str, dict] | None = None,
@@ -3184,7 +3090,7 @@ class Curator(BaseCurator):
             sdata: The SpatialData object to curate.
             var_index: A dictionary mapping table keys to the ``.var`` indices.
             categoricals: A nested dictionary mapping an accessor to dictionaries that map columns to a registry field.
-            using_key: A reference LaminDB instance.
+
             organism: The organism name.
             sources: A dictionary mapping an accessor to dictionaries that map columns to Source records.
             exclude: A dictionary mapping an accessor to dictionaries of column names to values to exclude from validation.
@@ -3221,20 +3127,12 @@ class Curator(BaseCurator):
             sdata=sdata,
             var_index=var_index,
             categoricals=categoricals,
-            using_key=using_key,
             verbosity=verbosity,
             organism=organism,
             sources=sources,
             exclude=exclude,
             sample_metadata_key=sample_metadata_key,
         )
-
-
-def get_registry_instance(registry: Record, using_key: str | None = None) -> Record:
-    """Get a registry instance using a specific instance."""
-    if using_key is not None and using_key != "default":
-        return registry.using(using_key)
-    return registry
 
 
 def get_current_filter_kwargs(registry: type[Record], kwargs: dict) -> dict:
@@ -3313,7 +3211,6 @@ def validate_categories(
     values: Iterable[str],
     field: FieldAttr,
     key: str,
-    using_key: str | None = None,
     organism: str | None = None,
     source: Record | None = None,
     exclude: str | list | None = None,
@@ -3326,7 +3223,6 @@ def validate_categories(
         values: The values to validate.
         field: The field attribute.
         key: The key referencing the slot in the DataFrame.
-        using_key: A reference LaminDB instance.
         organism: The organism name.
         source: The source record.
         exclude: Exclude specific values from validation.
@@ -3361,22 +3257,8 @@ def validate_categories(
     non_validated = inspect_result.non_validated
     syn_mapper = inspect_result.synonyms_mapper
 
-    # inspect the non-validated values from the using_key instance
-    values_validated = []
-    if using_key is not None and using_key != "default" and non_validated:
-        registry_using = get_registry_instance(registry, using_key)
-        inspect_result = inspect_instance(
-            values=non_validated,
-            field=field,
-            registry=registry_using,
-            exclude=exclude,
-            **kwargs,
-        )
-        non_validated = inspect_result.non_validated
-        values_validated += inspect_result.validated
-        syn_mapper.update(inspect_result.synonyms_mapper)
-
     # inspect the non-validated values from public (bionty only)
+    values_validated = []
     if hasattr(registry, "public"):
         verbosity = settings.verbosity
         try:
@@ -3429,7 +3311,6 @@ def validate_categories(
 def standardize_categories(
     values: Iterable[str],
     field: FieldAttr,
-    using_key: str | None = None,
     organism: str | None = None,
     source: Record | None = None,
 ) -> dict:
@@ -3446,28 +3327,12 @@ def standardize_categories(
         mute=True,
         return_mapper=True,
     )
-
-    if len(values) > len(syn_mapper):  # type: ignore
-        # standardize values using the using_key instance
-        if using_key is not None and using_key != "default":
-            registry_using = get_registry_instance(registry, using_key)
-            syn_mapper.update(
-                registry_using.standardize(
-                    [v for v in values if v not in syn_mapper],
-                    field=field.field.name,
-                    organism=organism,
-                    source=source,
-                    mute=True,
-                    return_mapper=True,
-                )
-            )
     return syn_mapper
 
 
 def validate_categories_in_df(
     df: pd.DataFrame,
     fields: dict[str, FieldAttr],
-    using_key: str | None = None,
     sources: dict[str, Record] = None,
     exclude: dict | None = None,
     curator: BaseCurator | None = None,
@@ -3486,7 +3351,6 @@ def validate_categories_in_df(
             df[key],
             field=field,
             key=key,
-            using_key=using_key,
             source=sources.get(key),
             exclude=exclude.get(key) if exclude else None,
             curator=curator,
@@ -3677,7 +3541,6 @@ def update_registry(
     values: list[str],
     field: FieldAttr,
     key: str,
-    using_key: str | None = None,
     validated_only: bool = True,
     df: pd.DataFrame | None = None,
     organism: str | None = None,
@@ -3686,13 +3549,12 @@ def update_registry(
     exclude: str | list | None = None,
     **kwargs,
 ) -> None:
-    """Save features or labels records in the default instance from the using_key instance.
+    """Save features or labels records in the default instance..
 
     Args:
         values: A list of values to be saved as labels.
         field: The FieldAttr object representing the field for which labels are being saved.
         key: The name of the feature to save.
-        using_key: The name of the instance from which to transfer labels (if applicable).
         validated_only: If True, only save validated labels.
         df: A DataFrame to save labels from.
         organism: The organism name.
@@ -3742,18 +3604,6 @@ def update_registry(
         non_validated_labels = [
             i for i in values if i not in existing_and_public_labels
         ]
-
-        # inspect and save validated records the using_key instance
-        (
-            labels_saved[f"from {using_key}"],
-            non_validated_labels,
-        ) = update_registry_from_using_instance(
-            non_validated_labels,
-            field=field,
-            using_key=using_key,
-            exclude=exclude,
-            **filter_kwargs,
-        )
 
         # save non-validated/new records
         labels_saved["new"] = non_validated_labels
@@ -3830,48 +3680,6 @@ def save_ulabels_parent(values: list[str], field: FieldAttr, key: str) -> None:
         is_feature = registry(name=f"{key}").save()
         logger.important(f"Created a parent ULabel: {is_feature}")
     is_feature.children.add(*all_records)
-
-
-def update_registry_from_using_instance(
-    values: list[str],
-    field: FieldAttr,
-    using_key: str | None = None,
-    exclude: str | list | None = None,
-    **kwargs,
-) -> tuple[list[str], list[str]]:
-    """Save features or labels records from the using_key instance.
-
-    Args:
-        values: A list of values to be saved as labels.
-        field: The FieldAttr object representing the field for which labels are being saved.
-        using_key: The name of the instance from which to transfer labels (if applicable).
-        kwargs: Additional keyword arguments to pass to the registry model.
-
-    Returns:
-        A tuple containing the list of saved labels and the list of non-saved labels.
-    """
-    labels_saved = []
-    not_saved = values
-
-    if using_key is not None and using_key != "default":
-        registry_using = get_registry_instance(field.field.model, using_key)
-
-        inspect_result_using = inspect_instance(
-            values=values,
-            field=field,
-            registry=registry_using,
-            exclude=exclude,
-            **kwargs,
-        )
-        labels_using = registry_using.filter(
-            **{f"{field.field.name}__in": inspect_result_using.validated}
-        ).all()
-        for label_using in labels_using:
-            label_using.save()
-            labels_saved.append(getattr(label_using, field.field.name))
-        not_saved = inspect_result_using.non_validated
-
-    return labels_saved, not_saved
 
 
 def _save_organism(name: str):
