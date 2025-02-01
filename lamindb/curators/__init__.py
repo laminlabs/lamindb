@@ -313,7 +313,7 @@ class DataFrameCatCurator(BaseCurator):
         self._artifact = None
         self._collection = None
         self._validated = False
-        self._kwargs = {"organism": organism} if organism else {}
+        self._organism = organism
         self._sources = sources or {}
         self._exclude = exclude or {}
         self._non_validated = None
@@ -353,7 +353,6 @@ class DataFrameCatCurator(BaseCurator):
             validated_only=False,
             source=self._sources.get("columns"),
             exclude=self._exclude.get("columns"),
-            **self._kwargs,  # type: ignore
         )
 
         # Save the rest of the columns based on validated_only
@@ -367,10 +366,9 @@ class DataFrameCatCurator(BaseCurator):
                 df=self._df,  # Get the Feature type from df
                 source=self._sources.get("columns"),
                 exclude=self._exclude.get("columns"),
-                **self._kwargs,  # type: ignore
             )
 
-    def add_new_from(self, key: str, organism: str | None = None, **kwargs):
+    def add_new_from(self, key: str, **kwargs):
         """Add validated & new categories.
 
         Args:
@@ -380,8 +378,7 @@ class DataFrameCatCurator(BaseCurator):
         """
         if len(kwargs) > 0 and key == "all":
             raise ValueError("Cannot pass additional arguments to 'all' key!")
-        self._kwargs.update({"organism": organism} if organism else {})
-        self._update_registry(key, validated_only=False, **self._kwargs, **kwargs)
+        self._update_registry(key, validated_only=False, **kwargs)
 
     @deprecated(new_name="is run by default")
     def add_new_from_columns(self, organism: str | None = None, **kwargs):
@@ -431,7 +428,6 @@ class DataFrameCatCurator(BaseCurator):
                         self.non_validated[k],
                         field=self._fields[k],
                         source=self._sources.get(k),
-                        **self._kwargs,
                     )
                     self._df[k] = self._replace_synonyms(k, syn_mapper, self._df[k])
         else:
@@ -448,7 +444,7 @@ class DataFrameCatCurator(BaseCurator):
                         self.non_validated[key],
                         field=self._fields[key],
                         source=self._sources.get(key),
-                        **self._kwargs,
+                        organism=self._organism,
                     )
                     self._df[key] = self._replace_synonyms(
                         key, syn_mapper, self._df[key]
@@ -471,7 +467,7 @@ class DataFrameCatCurator(BaseCurator):
                 validated_only=validated_only,
                 source=self._sources.get(categorical),
                 exclude=self._exclude.get(categorical),
-                **kwargs,
+                organism=self._organism,
             )
             # adding new records removes them from non_validated
             if not validated_only and self._non_validated:
@@ -482,7 +478,7 @@ class DataFrameCatCurator(BaseCurator):
         for name in self.fields.keys():
             self._update_registry(name, validated_only=validated_only, **kwargs)
 
-    def validate(self, organism: str | None = None) -> bool:
+    def validate(self) -> bool:
         """Validate variables and categorical observations.
 
         This method also registers the validated records in the current instance:
@@ -494,8 +490,6 @@ class DataFrameCatCurator(BaseCurator):
         Returns:
             Whether the DataFrame is validated.
         """
-        self._kwargs.update({"organism": organism} if organism else {})
-
         # add all validated records to the current instance
         self._update_registry_all()
         self._validate_category_error_messages = ""  # reset the error messages
@@ -505,7 +499,7 @@ class DataFrameCatCurator(BaseCurator):
             sources=self._sources,
             exclude=self._exclude,
             curator=self,
-            **self._kwargs,
+            organism=self._organism,
         )
         return self._validated
 
@@ -549,7 +543,7 @@ class DataFrameCatCurator(BaseCurator):
                 revises=revises,
                 run=run,
                 schema=None,
-                **self._kwargs,
+                organism=self._organism,
             )
         finally:
             settings.verbosity = verbosity
@@ -666,7 +660,8 @@ class AnnDataCatCurator(DataFrameCatCurator):
         )
 
     def _save_from_var_index(
-        self, validated_only: bool = True, organism: str | None = None
+        self,
+        validated_only: bool = True,
     ):
         """Save variable records."""
         update_registry(
@@ -674,28 +669,27 @@ class AnnDataCatCurator(DataFrameCatCurator):
             field=self.var_index,
             key="var_index",
             validated_only=validated_only,
-            organism=organism,
+            organism=self._organism,
             source=self._sources.get("var_index"),
             exclude=self._exclude.get("var_index"),
         )
 
     def _update_registry_all(self, validated_only: bool = True, **kwargs):
         """Save labels for all features."""
-        self._save_from_var_index(validated_only=validated_only, **self._kwargs)
+        self._save_from_var_index(validated_only=validated_only)
         for name in self._obs_fields.keys():
-            self._update_registry(name, validated_only=validated_only, **self._kwargs)
+            self._update_registry(name, validated_only=validated_only)
 
-    def add_new_from_var_index(self, organism: str | None = None, **kwargs):
+    def add_new_from_var_index(self, **kwargs):
         """Update variable records.
 
         Args:
             organism: The organism name.
             **kwargs: Additional keyword arguments to pass to create new records.
         """
-        self._kwargs.update({"organism": organism} if organism else {})
-        self._save_from_var_index(validated_only=False, **self._kwargs, **kwargs)
+        self._save_from_var_index(validated_only=False, **kwargs)
 
-    def validate(self, organism: str | None = None) -> bool:
+    def validate(self) -> bool:
         """Validate categories.
 
         This method also registers the validated records in the current instance.
@@ -707,7 +701,6 @@ class AnnDataCatCurator(DataFrameCatCurator):
             Whether the AnnData object is validated.
         """
         self._validate_category_error_messages = ""  # reset the error messages
-        self._kwargs.update({"organism": organism} if organism else {})
 
         # add all validated records to the current instance
         self._update_registry_all()
@@ -719,7 +712,7 @@ class AnnDataCatCurator(DataFrameCatCurator):
             source=self._sources.get("var_index"),
             hint_print=".add_new_from_var_index()",
             exclude=self._exclude.get("var_index"),
-            **self._kwargs,  # type: ignore
+            organism=self._organism,  # type: ignore
         )
         validated_obs, non_validated_obs = validate_categories_in_df(
             self._adata.obs,
@@ -727,7 +720,7 @@ class AnnDataCatCurator(DataFrameCatCurator):
             sources=self._sources,
             exclude=self._exclude,
             curator=self,
-            **self._kwargs,
+            organism=self._organism,
         )
         self._non_validated = non_validated_obs  # type: ignore
         if len(non_validated_var) > 0:
@@ -755,7 +748,7 @@ class AnnDataCatCurator(DataFrameCatCurator):
                 self._adata.var.index,
                 field=self.var_index,
                 source=self._sources.get("var_index"),
-                **self._kwargs,
+                organism=self._organism,
             )
             if "var_index" in self._non_validated:  # type: ignore
                 self._adata.var.index = self._replace_synonyms(
@@ -801,7 +794,7 @@ class AnnDataCatCurator(DataFrameCatCurator):
                 revises=revises,
                 run=run,
                 schema=None,
-                **self._kwargs,
+                organism=self._organism,
             )
         finally:
             settings.verbosity = verbosity
@@ -878,7 +871,7 @@ class MuDataCatCurator:
                 verbosity=verbosity,
                 sources=self._sources.get("obs"),
                 exclude=self._exclude.get("obs"),
-                **self._kwargs,
+                organism=organism,
             )
         self._mod_adata_curators = {
             modality: AnnDataCatCurator(
@@ -888,7 +881,7 @@ class MuDataCatCurator:
                 verbosity=verbosity,
                 sources=self._sources.get(modality),
                 exclude=self._exclude.get(modality),
-                **self._kwargs,
+                organism=organism,
             )
             for modality in self._modalities
             if modality != "obs"
@@ -961,7 +954,6 @@ class MuDataCatCurator:
         self,
         modality: str,
         column_names: list[str] | None = None,
-        organism: str | None = None,
         **kwargs,
     ):
         """Update columns records."""
@@ -971,9 +963,7 @@ class MuDataCatCurator:
             stacklevel=2,
         )
 
-    def add_new_from_var_index(
-        self, modality: str, organism: str | None = None, **kwargs
-    ):
+    def add_new_from_var_index(self, modality: str, **kwargs):
         """Update variable records.
 
         Args:
@@ -981,25 +971,23 @@ class MuDataCatCurator:
             organism: The organism name.
             **kwargs: Additional keyword arguments to pass to create new records.
         """
-        self._kwargs.update({"organism": organism} if organism else {})
-        self._mod_adata_curators[modality].add_new_from_var_index(
-            **self._kwargs, **kwargs
-        )
+        self._mod_adata_curators[modality].add_new_from_var_index(**kwargs)
 
     def _update_registry_all(self):
         """Update all registries."""
         if self._obs_df_curator is not None:
             self._obs_df_curator._update_registry_all(
-                validated_only=True, **self._kwargs
+                validated_only=True, organism=self._organism
             )
         for _, adata_curator in self._mod_adata_curators.items():
-            adata_curator._update_registry_all(validated_only=True, **self._kwargs)
+            adata_curator._update_registry_all(
+                validated_only=True, organism=self._organism
+            )
 
     def add_new_from(
         self,
         key: str,
         modality: str | None = None,
-        organism: str | None = None,
         **kwargs,
     ):
         """Add validated & new categories.
@@ -1012,19 +1000,16 @@ class MuDataCatCurator:
         """
         if len(kwargs) > 0 and key == "all":
             raise ValueError("Cannot pass additional arguments to 'all' key!")
-        self._kwargs.update({"organism": organism} if organism else {})
         modality = modality or "obs"
         if modality in self._mod_adata_curators:
             adata_curator = self._mod_adata_curators[modality]
-            adata_curator.add_new_from(key=key, **self._kwargs, **kwargs)
+            adata_curator.add_new_from(key=key, **kwargs)
         if modality == "obs":
-            self._obs_df_curator.add_new_from(key=key, **self._kwargs, **kwargs)
+            self._obs_df_curator.add_new_from(key=key, **kwargs)
 
-    def validate(self, organism: str | None = None) -> bool:
+    def validate(self) -> bool:
         """Validate categories."""
         from lamindb.core._settings import settings
-
-        self._kwargs.update({"organism": organism} if organism else {})
 
         # add all validated records to the current instance
         verbosity = settings.verbosity
@@ -1039,14 +1024,14 @@ class MuDataCatCurator:
         obs_validated = True
         if "obs" in self._modalities:
             logger.info('validating categoricals in "obs"...')
-            obs_validated &= self._obs_df_curator.validate(**self._kwargs)
+            obs_validated &= self._obs_df_curator.validate()
             self._non_validated["obs"] = self._obs_df_curator.non_validated  # type: ignore
             logger.print("")
 
         mods_validated = True
         for modality, adata_curator in self._mod_adata_curators.items():
             logger.info(f'validating categoricals in modality "{modality}"...')
-            mods_validated &= adata_curator.validate(**self._kwargs)
+            mods_validated &= adata_curator.validate()
             if len(adata_curator.non_validated) > 0:
                 self._non_validated[modality] = adata_curator.non_validated  # type: ignore
             logger.print("")
@@ -1107,7 +1092,6 @@ class MuDataCatCurator:
                 revises=revises,
                 run=run,
                 schema=None,
-                **self._kwargs,
             )
         finally:
             settings.verbosity = verbosity
@@ -1731,7 +1715,7 @@ class SpatialDataCatCurator:
                 verbosity=verbosity,
                 sources=self._sources.get(self._sample_metadata_key),
                 exclude=self._exclude.get(self._sample_metadata_key),
-                **self._kwargs,
+                organism=organism,
             )
         self._table_adata_curators = {
             table: AnnDataCatCurator(
@@ -1741,7 +1725,7 @@ class SpatialDataCatCurator:
                 verbosity=verbosity,
                 sources=self._sources.get(table),
                 exclude=self._exclude.get(table),
-                **self._kwargs,
+                organism=organism,
             )
             for table in self._table_keys
         }
@@ -1795,14 +1779,14 @@ class SpatialDataCatCurator:
         """Saves labels of all features for sample and table metadata."""
         if self._sample_df_curator is not None:
             self._sample_df_curator._update_registry_all(
-                validated_only=True, **self._kwargs
+                validated_only=True,
             )
         for _, adata_curator in self._table_adata_curators.items():
-            adata_curator._update_registry_all(validated_only=True, **self._kwargs)
+            adata_curator._update_registry_all(
+                validated_only=True,
+            )
 
-    def add_new_from_var_index(
-        self, table: str, organism: str | None = None, **kwargs
-    ) -> None:
+    def add_new_from_var_index(self, table: str, **kwargs) -> None:
         """Save new values from ``.var.index`` of table.
 
         Args:
@@ -1812,10 +1796,7 @@ class SpatialDataCatCurator:
         """
         if self._non_validated is None:
             raise ValidationError("Run .validate() first.")
-        self._kwargs.update({"organism": organism} if organism else {})
-        self._table_adata_curators[table].add_new_from_var_index(
-            **self._kwargs, **kwargs
-        )
+        self._table_adata_curators[table].add_new_from_var_index(**kwargs)
         if table in self.non_validated.keys():
             self._non_validated[table].pop("var_index")
 
@@ -1826,7 +1807,6 @@ class SpatialDataCatCurator:
         self,
         key: str,
         accessor: str | None = None,
-        organism: str | None = None,
         **kwargs,
     ) -> None:
         """Save new values of categorical from sample level metadata or table.
@@ -1848,12 +1828,11 @@ class SpatialDataCatCurator:
                 f"Accessor {accessor} is not in 'categoricals'. Include it when creating the SpatialDataCatCurator."
             )
 
-        self._kwargs.update({"organism": organism} if organism else {})
         if accessor in self._table_adata_curators:
             adata_curator = self._table_adata_curators[accessor]
-            adata_curator.add_new_from(key=key, **self._kwargs, **kwargs)
+            adata_curator.add_new_from(key=key, **kwargs)
         if accessor == self._sample_metadata_key:
-            self._sample_df_curator.add_new_from(key=key, **self._kwargs, **kwargs)
+            self._sample_df_curator.add_new_from(key=key, **kwargs)
 
         if accessor in self.non_validated.keys():
             if len(self.non_validated[accessor].values()) == 0:
@@ -1888,7 +1867,7 @@ class SpatialDataCatCurator:
         if len(self.non_validated[accessor].values()) == 0:
             self.non_validated.pop(accessor)
 
-    def validate(self, organism: str | None = None) -> bool:
+    def validate(self) -> bool:
         """Validate variables and categorical observations.
 
         This method also registers the validated records in the current instance:
@@ -1901,8 +1880,6 @@ class SpatialDataCatCurator:
             Whether the SpatialData object is validated.
         """
         from lamindb.core._settings import settings
-
-        self._kwargs.update({"organism": organism} if organism else {})
 
         # add all validated records to the current instance
         verbosity = settings.verbosity
@@ -1917,7 +1894,7 @@ class SpatialDataCatCurator:
         sample_validated = True
         if self._sample_df_curator:
             logger.info(f"validating categoricals of '{self._sample_metadata_key}' ...")
-            sample_validated &= self._sample_df_curator.validate(**self._kwargs)
+            sample_validated &= self._sample_df_curator.validate()
             if len(self._sample_df_curator.non_validated) > 0:
                 self._non_validated["sample"] = self._sample_df_curator.non_validated  # type: ignore
             logger.print("")
@@ -1925,7 +1902,7 @@ class SpatialDataCatCurator:
         mods_validated = True
         for table, adata_curator in self._table_adata_curators.items():
             logger.info(f"validating categoricals of table '{table}' ...")
-            mods_validated &= adata_curator.validate(**self._kwargs)
+            mods_validated &= adata_curator.validate()
             if len(adata_curator.non_validated) > 0:
                 self._non_validated[table] = adata_curator.non_validated  # type: ignore
             logger.print("")
@@ -2489,7 +2466,7 @@ class CellxGeneAnnDataCatCurator(AnnDataCatCurator):
                 " reserved from previous schema versions."
             )
 
-        return super().validate(organism=self.organism)
+        return super().validate()
 
     def to_cellxgene_anndata(
         self, is_primary_data: bool, title: str | None = None
