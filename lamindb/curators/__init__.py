@@ -317,7 +317,6 @@ class DataFrameCatCurator(BaseCurator):
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
         exclude: dict | None = None,
-        check_valid_keys: bool = True,
     ) -> None:
         from lamindb.core._settings import settings
 
@@ -337,8 +336,6 @@ class DataFrameCatCurator(BaseCurator):
         self._sources = sources or {}
         self._exclude = exclude or {}
         self._non_validated = None
-        if check_valid_keys:
-            self._check_valid_keys()
         self._save_columns()
 
     @property
@@ -368,25 +365,6 @@ class DataFrameCatCurator(BaseCurator):
             using_key=using_key or self._using_key,
             public=public,
         )
-
-    def _check_valid_keys(self, extra: set | None = None) -> None:
-        extra = extra or set()
-        for name, d in {
-            "categoricals": self._fields,
-            "sources": self._sources,
-            "exclude": self._exclude,
-        }.items():
-            if not isinstance(d, dict):
-                raise TypeError(f"{name} must be a dictionary!")
-            valid_keys = set(self._df.columns) | {"columns"} | extra
-            nonval_keys = [key for key in d.keys() if key not in valid_keys]
-            len(nonval_keys)
-            # throwing an error here is problematic because my dataset might have missing columns
-            # and I still want to define sources mappings on the Curator level
-            # if len(nonval_keys) > 0:
-            #     raise ValidationError(
-            #         f"key{s} passed to {name} {are} not present in columns: {colors.yellow(_format_values(nonval_keys))}"
-            #     )
 
     def _save_columns(self, validated_only: bool = True) -> None:
         """Save column name records."""
@@ -706,10 +684,8 @@ class AnnDataCurator(DataFrameCatCurator):
             organism=organism,
             sources=sources,
             exclude=exclude,
-            check_valid_keys=False,
         )
         self._obs_fields = categoricals or {}
-        self._check_valid_keys(extra={"var_index"})
 
     @property
     def var_index(self) -> FieldAttr:
@@ -962,7 +938,6 @@ class MuDataCurator:
                 verbosity=verbosity,
                 sources=self._sources.get("obs"),
                 exclude=self._exclude.get("obs"),
-                check_valid_keys=False,
                 **self._kwargs,
             )
         self._mod_adata_curators = {
@@ -1842,7 +1817,6 @@ class SpatialDataCurator:
                 verbosity=verbosity,
                 sources=self._sources.get(self._sample_metadata_key),
                 exclude=self._exclude.get(self._sample_metadata_key),
-                check_valid_keys=False,
                 **self._kwargs,
             )
         self._table_adata_curators = {
