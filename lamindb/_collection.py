@@ -16,7 +16,7 @@ from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import hash_set
 
 from lamindb._record import _get_record_kwargs
-from lamindb.core.exceptions import FieldValidationError
+from lamindb.errors import FieldValidationError
 from lamindb.models import (
     Collection,
     CollectionArtifact,

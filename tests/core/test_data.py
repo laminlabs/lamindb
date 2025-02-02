@@ -4,7 +4,7 @@ import pytest
 
 def test_rename():
     import pandas as pd
-    from lamindb.core.exceptions import RecordNameChangeIntegrityError
+    from lamindb.errors import RecordNameChangeIntegrityError
 
     df = pd.DataFrame(
         {

@@ -641,7 +641,7 @@ def test_spatialdata_curator():
         "developmental_stage": "very early",  # does not exist - to test add_new_from
     }
 
-    from lamindb.core.exceptions import ValidationError
+    from lamindb.errors import ValidationError
 
     with pytest.raises(
         ValidationError, match="key passed to categoricals is not present"

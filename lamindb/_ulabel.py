@@ -4,7 +4,7 @@ import lamindb_setup as ln_setup
 from lamin_utils import logger
 
 from lamindb._record import _get_record_kwargs
-from lamindb.core.exceptions import FieldValidationError, ValidationError
+from lamindb.errors import FieldValidationError, ValidationError
 from lamindb.models import ULabel
 
 from ._utils import attach_func_to_class_method

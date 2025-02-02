@@ -11,8 +11,8 @@ from lamindb.models import Run, Transform
 from ._parents import _view_parents
 from ._run import delete_run_artifacts
 from .core._settings import settings
-from .core.exceptions import InconsistentKey
 from .core.versioning import message_update_key_in_version_family, process_revises
+from .errors import InconsistentKey
 
 if TYPE_CHECKING:
     from lamindb.base.types import TransformType

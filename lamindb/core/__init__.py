@@ -61,7 +61,6 @@ Modules:
    loaders
    datasets
    storage
-   exceptions
    subsettings
    logger
 
@@ -98,7 +97,7 @@ from lamindb.models import (
     ValidateFields,
 )
 
-from . import _data, datasets, exceptions, fields, loaders, subsettings, types
+from . import _data, datasets, fields, loaders, subsettings, types
 from ._context import Context
 from ._mapped_collection import MappedCollection
 from ._settings import Settings

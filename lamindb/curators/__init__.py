@@ -52,7 +52,7 @@ from lamindb.models import (
 )
 
 from .._from_values import _format_values
-from ..core.exceptions import ValidationError
+from ..errors import ValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, MutableMapping
@@ -344,25 +344,21 @@ class DataFrameCurator(Curator):
             categoricals=categoricals,
         )
 
-    def validate(self) -> bool | str:
+    def validate(self) -> None:
         self._cat_curator.validate()
         try:
             self._pda_schema.validate(self._dataset)
             if self._cat_curator._is_validated:
                 self._is_validated = True
-                return True
             else:
                 self._is_validated = False
-                return self._cat_curator._validate_category_error_messages
+                raise ValidationError(
+                    self._cat_curator._validate_category_error_messages
+                )
         except pda.errors.SchemaError as err:
-            # .exconly() doesn't seem to exist on SchemaError
-            str_message = str(err)
-            logger.warning(str_message)
-            # need to set the cat curator to False
             self._is_validated = False
-            self._cat_curator._is_validated = False
-            # return the error message so that we can test for it
-            return str_message
+            # .exconly() doesn't exist on SchemaError
+            raise ValidationError(str(err)) from err
 
 
 class DataFrameCatCurator(CatCurator):
