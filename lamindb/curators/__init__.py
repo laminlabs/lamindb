@@ -1098,7 +1098,7 @@ class TiledbsomaCatCurator(CatCurator):
 
         self._is_validated: bool | None = False
         self._non_validated_values: dict[str, list] | None = None
-        self._is_validated_values: dict[str, list] = {}
+        self._validated_values: dict[str, list] = {}
         # filled by _check_save_keys
         self._n_obs: int | None = None
         self._valid_obs_keys: list[str] | None = None
@@ -1202,7 +1202,7 @@ class TiledbsomaCatCurator(CatCurator):
                 var_ms = experiment.ms[ms].var
                 var_ms_key = f"{ms}__{key}"
                 # it was already validated and cached
-                if var_ms_key in self._is_validated_values:
+                if var_ms_key in self._validated_values:
                     continue
                 var_ms_values = (
                     var_ms.read(column_names=[key]).concat()[key].to_pylist()
@@ -1231,12 +1231,12 @@ class TiledbsomaCatCurator(CatCurator):
                     validated = False
                     self._non_validated_values[var_ms_key] = non_val
                 else:
-                    self._is_validated_values[var_ms_key] = var_ms_values
+                    self._validated_values[var_ms_key] = var_ms_values
 
             obs = experiment.obs
             for key, field in self._obs_fields.items():
                 # already validated and cached
-                if key in self._is_validated_values:
+                if key in self._validated_values:
                     continue
                 values = pa.compute.unique(
                     obs.read(column_names=[key]).concat()[key]
@@ -1265,7 +1265,7 @@ class TiledbsomaCatCurator(CatCurator):
                     validated = False
                     self._non_validated_values[key] = non_val
                 else:
-                    self._is_validated_values[key] = values
+                    self._validated_values[key] = values
         self._is_validated = validated
         return self._is_validated
 
@@ -1296,9 +1296,7 @@ class TiledbsomaCatCurator(CatCurator):
             keys = list(self._non_validated_values.keys())
         else:
             avail_keys = list(
-                chain(
-                    self._non_validated_values.keys(), self._is_validated_values.keys()
-                )
+                chain(self._non_validated_values.keys(), self._validated_values.keys())
             )
             if key not in avail_keys:
                 raise KeyError(
@@ -1496,7 +1494,7 @@ class TiledbsomaCatCurator(CatCurator):
                 var_field.field.model, self._organism
             ).get("organism")
             _schemas_m2m[f"{ms}__var"] = Schema.from_values(
-                values=self._is_validated_values[f"{ms}__{var_key}"],
+                values=self._validated_values[f"{ms}__{var_key}"],
                 field=var_field,
                 organism=organism,
                 raise_validation_error=False,
@@ -1512,7 +1510,7 @@ class TiledbsomaCatCurator(CatCurator):
                 "organism"
             )
             labels = registry.from_values(
-                values=self._is_validated_values[key], field=field, organism=organism
+                values=self._validated_values[key], field=field, organism=organism
             )
             if len(labels) == 0:
                 continue
