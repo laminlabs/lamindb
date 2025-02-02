@@ -3601,45 +3601,6 @@ def from_spatialdata(
     *,
     sample_metadata_key: str = "sample",
 ):
-    """Curation flow for a ``Spatialdata`` object.
-
-    See also :class:`~lamindb.Curator`.
-
-    Note that if genes or other measurements are removed from the SpatialData object,
-    the object should be recreated.
-
-    In the following docstring, an accessor refers to either a ``.table`` key or the ``sample_metadata_key``.
-
-    Args:
-        sdata: The SpatialData object to curate.
-        var_index: A dictionary mapping table keys to the ``.var`` indices.
-        categoricals: A nested dictionary mapping an accessor to dictionaries that map columns to a registry field.
-
-        organism: The organism name.
-        sources: A dictionary mapping an accessor to dictionaries that map columns to Source records.
-        exclude: A dictionary mapping an accessor to dictionaries of column names to values to exclude from validation.
-            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
-            using the exclude parameter ensures they are not validated.
-        verbosity: The verbosity level of the logger.
-        sample_metadata_key: The key in ``.attrs`` that stores the sample level metadata.
-
-    Examples:
-        >>> import lamindb as ln
-        >>> import bionty as bt
-        >>> curator = ln.Curator.from_spatialdata(
-        ...     sdata,
-        ...     var_index={
-        ...         "table_1": bt.Gene.ensembl_gene_id,
-        ...     },
-        ...     categoricals={
-        ...         "table1":
-        ...             {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ULabel.name},
-        ...         "sample":
-        ...             {"experimental_factor": bt.ExperimentalFactor.name},
-        ...     },
-        ...     organism="human",
-        ... )
-    """
     try:
         import spatialdata
     except ImportError as e:
