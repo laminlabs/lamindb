@@ -31,6 +31,7 @@ Curators:
 .. autosummary::
    :toctree: .
 
+   CatCurator
    DataFrameCatCurator
    AnnDataCatCurator
    MuDataCatCurator
@@ -75,6 +76,7 @@ from lamindb.core._feature_manager import FeatureManager, ParamManager
 from lamindb.core._label_manager import LabelManager
 from lamindb.curators import (
     AnnDataCatCurator,
+    CatCurator,
     CurateLookup,
     Curator,
     DataFrameCatCurator,
