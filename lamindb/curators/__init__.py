@@ -1589,7 +1589,7 @@ class SpatialDataCatCurator:
         self._exclude = exclude
         self._sdata: SpatialData = sdata
         self._sample_metadata_key = sample_metadata_key
-        self._kwargs = {"organism": organism} if organism else {}
+        self._organism = organism
         self._var_fields = var_index
         self._verify_accessor_exists(self._var_fields.keys())
         self._categoricals = categoricals
@@ -1884,7 +1884,7 @@ class SpatialDataCatCurator:
             # Link schemas
             feature_kwargs = check_registry_organism(
                 (list(self._var_fields.values())[0].field.model),
-                self._kwargs.get("organism"),
+                self._organism,
             )
 
             def _add_set_from_spatialdata(
@@ -1958,9 +1958,7 @@ class SpatialDataCatCurator:
                 for key, field in fields.items():
                     feature = features.get(key)
                     registry = field.field.model
-                    filter_kwargs = check_registry_organism(
-                        registry, self._kwargs.get("organism")
-                    )
+                    filter_kwargs = check_registry_organism(registry, self._organism)
                     filter_kwargs_current = get_current_filter_kwargs(
                         registry, filter_kwargs
                     )
