@@ -55,7 +55,7 @@ class EHRCurator(DataFrameCatCurator):
             organism="human",
         )
 
-    def validate(self, organism: str | None = None) -> bool:
+    def validate(self) -> bool:
         """Validates the internal EHR standard."""
         missing_columns = {"disease", "phenotype", "developmental_stage", "age"} - set(
             self.data.columns
@@ -66,4 +66,4 @@ class EHRCurator(DataFrameCatCurator):
             )
             return False
 
-        return DataFrameCatCurator.validate(self, organism)
+        return DataFrameCatCurator.validate(self)
