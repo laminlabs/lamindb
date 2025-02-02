@@ -65,7 +65,7 @@ def test_curate_df():
     bt.CellType.from_values(["B cell", "T cell"], create=True).save()
 
     ## Ingest dataset1
-    adata = datasets.small_dataset1(format="anndata")
+    adata = datasets.small_dataset1(otype="AnnData")
     curator = ln.Curator.from_anndata(
         adata,
         var_index=bt.Gene.symbol,

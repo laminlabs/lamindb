@@ -21,7 +21,7 @@ def adata():
 
 
 def test_features_add():
-    df, metadata = small_dataset1(format="df")
+    df, metadata = small_dataset1(otype="DataFrame")
     artifact = ln.Artifact.from_df(df, description="test dataset").save()
     with pytest.raises(ValidationError) as err:
         artifact.features.add_values({"cell_medium": df.cell_medium.unique()})
