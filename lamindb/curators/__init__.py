@@ -166,7 +166,8 @@ class Curator:
 
     def __init__(self):
         self._validate_category_error_messages: str = ""
-        self._dataset: Any = None
+        self._dataset: Any = None  # pass the dataset as a UPathStr or data object
+        self._artifact: Artifact = None  # pass the dataset as a non-curated artifact
         self._cat_curator: CatCurator = None
         self._validated: bool = False
 
@@ -1076,10 +1077,10 @@ class TiledbsomaCatCurator(CatCurator):
         self._var_fields = var_index
         self._columns_field = obs_columns
         if isinstance(experiment_uri, Artifact):
-            self._experiment_uri = experiment_uri.path
+            self._dataset = experiment_uri.path
             self._artifact = experiment_uri
         else:
-            self._experiment_uri = UPath(experiment_uri)
+            self._dataset = UPath(experiment_uri)
             self._artifact = None
         self._organism = organism
         self._sources = sources or {}
@@ -1103,7 +1104,7 @@ class TiledbsomaCatCurator(CatCurator):
     def _check_save_keys(self):
         from lamindb.core.storage._tiledbsoma import _open_tiledbsoma
 
-        with _open_tiledbsoma(self._experiment_uri, mode="r") as experiment:
+        with _open_tiledbsoma(self._dataset, mode="r") as experiment:
             experiment_obs = experiment.obs
             self._n_obs = len(experiment_obs)
             self._obs_pa_schema = experiment_obs.schema
@@ -1186,7 +1187,7 @@ class TiledbsomaCatCurator(CatCurator):
 
         validated = True
         self._non_validated_values = {}
-        with _open_tiledbsoma(self._experiment_uri, mode="r") as experiment:
+        with _open_tiledbsoma(self._dataset, mode="r") as experiment:
             for ms, (key, field) in self._var_fields.items():
                 var_ms = experiment.ms[ms].var
                 var_ms_key = f"{ms}__{key}"
@@ -1390,7 +1391,7 @@ class TiledbsomaCatCurator(CatCurator):
 
             from lamindb.core.storage._tiledbsoma import _open_tiledbsoma
 
-            with _open_tiledbsoma(self._experiment_uri, mode="r") as experiment:
+            with _open_tiledbsoma(self._dataset, mode="r") as experiment:
                 value_filter = f"{slot_key} in {list(syn_mapper.keys())}"
                 table = slot(experiment).read(value_filter=value_filter).concat()
 
@@ -1403,7 +1404,7 @@ class TiledbsomaCatCurator(CatCurator):
                 lambda val: syn_mapper.get(val, val)  # noqa
             )
             # write the mapped values
-            with _open_tiledbsoma(self._experiment_uri, mode="w") as experiment:
+            with _open_tiledbsoma(self._dataset, mode="w") as experiment:
                 slot(experiment).write(pa.Table.from_pandas(df, schema=table.schema))
             # update non_validated dict
             non_val_k = [
@@ -1448,7 +1449,7 @@ class TiledbsomaCatCurator(CatCurator):
 
         if self._artifact is None:
             artifact = Artifact(
-                self._experiment_uri,
+                self._dataset,
                 description=description,
                 key=key,
                 revises=revises,
@@ -3083,7 +3084,6 @@ def save_artifact(
         columns_field: The registry field to validate variables index against.
         description: A description of the artifact.
         organism: The organism name.
-        adata: The AnnData object to save and get n_observations, must be provided if data is a path.
         type: The artifact type.
         key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
         revises: Previous version of the artifact. Triggers a revision.
