@@ -2290,6 +2290,7 @@ class Schema(Record, CanCurate, TracksRun):
 
 
 class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
+    # Note that this docstring has to be consistent with Curator.save_artifact()
     """Datasets & models stored as files, folders, or arrays.
 
     Artifacts manage data in local or remote storage.

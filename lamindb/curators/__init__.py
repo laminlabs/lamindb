@@ -65,19 +65,6 @@ if TYPE_CHECKING:
     from lamindb._query_set import RecordList
 
 
-SAVE_ARTIFACT_DOCSTRING = """Save an annotated artifact.
-
-Args:
-    key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
-    description: A description.
-    revises: Previous version of the artifact. Is an alternative way to passing `key` to trigger a revision.
-    run: The run that creates the artifact.
-
-Returns:
-    A saved artifact record.
-"""
-
-
 def strip_ansi_codes(text):
     # This pattern matches ANSI escape sequences
     ansi_pattern = re.compile(r"\x1b\[[0-9;]*m")
@@ -179,6 +166,7 @@ class Curator:
 
     def __init__(self):
         self._validate_category_error_messages: str = ""
+        self._cat_curator = None
 
     def validate(self) -> bool | str:
         """Validate dataset.
@@ -203,7 +191,6 @@ class Curator:
         """
         pass  # pdagma: no cover
 
-    @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
         self,
         *,
@@ -212,8 +199,175 @@ class Curator:
         revises: Artifact | None = None,
         run: Run | None = None,
     ) -> Artifact:
-        """{}"""  # noqa: D415
-        pass  # pdagma: no cover
+        # Note that this docstring has to be consistent with the Artifact()
+        # constructor signature
+        """Save an annotated artifact.
+
+        Args:
+            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+            description: A description.
+            revises: Previous version of the artifact. Is an alternative way to passing `key` to trigger a revision.
+            run: The run that creates the artifact.
+
+        Returns:
+            A saved artifact record.
+        """
+        return self._cat_curator.save_artifact(
+            key=key, description=description, revises=revises, run=run
+        )
+
+        # backward compat constructors ------------------
+
+        @deprecated(new_name="use Curator(data, schema)")  # type: ignore
+        @classmethod  # type: ignore
+        def from_df(
+            cls,
+            df: pd.DataFrame,
+            categoricals: dict[str, FieldAttr] | None = None,
+            columns: FieldAttr = Feature.name,
+            verbosity: str = "hint",
+            organism: str | None = None,
+        ) -> DataFrameCatCurator:
+            return DataFrameCatCurator(
+                df=df,
+                categoricals=categoricals,
+                columns=columns,
+                verbosity=verbosity,
+                organism=organism,
+            )
+
+        @deprecated(new_name="use Curator(data, schema)")  # type: ignore
+        @classmethod  # type: ignore
+        def from_anndata(
+            cls,
+            data: ad.AnnData | UPathStr,
+            var_index: FieldAttr,
+            categoricals: dict[str, FieldAttr] | None = None,
+            obs_columns: FieldAttr = Feature.name,
+            verbosity: str = "hint",
+            organism: str | None = None,
+            sources: dict[str, Record] | None = None,
+        ) -> AnnDataCatCurator:
+            return AnnDataCatCurator(
+                data=data,
+                var_index=var_index,
+                categoricals=categoricals,
+                obs_columns=obs_columns,
+                verbosity=verbosity,
+                organism=organism,
+                sources=sources,
+            )
+
+        @deprecated(new_name="use Curator(data, schema)")  # type: ignore
+        @classmethod  # type: ignore
+        def from_mudata(
+            cls,
+            mdata: MuData,
+            var_index: dict[str, dict[str, FieldAttr]],
+            categoricals: dict[str, FieldAttr] | None = None,
+            verbosity: str = "hint",
+            organism: str | None = None,
+        ) -> MuDataCatCurator:
+            return MuDataCatCurator(
+                mdata=mdata,
+                var_index=var_index,
+                categoricals=categoricals,
+                verbosity=verbosity,
+                organism=organism,
+            )
+
+        @deprecated(new_name="use Curator(data, schema)")  # type: ignore
+        @classmethod  # type: ignore
+        def from_tiledbsoma(
+            cls,
+            experiment_uri: UPathStr,
+            var_index: dict[str, tuple[str, FieldAttr]],
+            categoricals: dict[str, FieldAttr] | None = None,
+            obs_columns: FieldAttr = Feature.name,
+            organism: str | None = None,
+            sources: dict[str, Record] | None = None,
+            exclude: dict[str, str | list[str]] | None = None,
+        ) -> TiledbsomaCatCurator:
+            return TiledbsomaCatCurator(
+                experiment_uri=experiment_uri,
+                var_index=var_index,
+                categoricals=categoricals,
+                obs_columns=obs_columns,
+                organism=organism,
+                sources=sources,
+                exclude=exclude,
+            )
+
+        @deprecated(new_name="use Curator(data, schema)")  # type: ignore
+        @classmethod  # type: ignore
+        def from_spatialdata(
+            cls,
+            sdata,
+            var_index: dict[str, FieldAttr],
+            categoricals: dict[str, dict[str, FieldAttr]] | None = None,
+            organism: str | None = None,
+            sources: dict[str, dict[str, Record]] | None = None,
+            exclude: dict[str, dict] | None = None,
+            verbosity: str = "hint",
+            *,
+            sample_metadata_key: str = "sample",
+        ):
+            """Curation flow for a ``Spatialdata`` object.
+
+            See also :class:`~lamindb.Curator`.
+
+            Note that if genes or other measurements are removed from the SpatialData object,
+            the object should be recreated.
+
+            In the following docstring, an accessor refers to either a ``.table`` key or the ``sample_metadata_key``.
+
+            Args:
+                sdata: The SpatialData object to curate.
+                var_index: A dictionary mapping table keys to the ``.var`` indices.
+                categoricals: A nested dictionary mapping an accessor to dictionaries that map columns to a registry field.
+
+                organism: The organism name.
+                sources: A dictionary mapping an accessor to dictionaries that map columns to Source records.
+                exclude: A dictionary mapping an accessor to dictionaries of column names to values to exclude from validation.
+                    When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
+                    using the exclude parameter ensures they are not validated.
+                verbosity: The verbosity level of the logger.
+                sample_metadata_key: The key in ``.attrs`` that stores the sample level metadata.
+
+            Examples:
+                >>> import lamindb as ln
+                >>> import bionty as bt
+                >>> curator = ln.Curator.from_spatialdata(
+                ...     sdata,
+                ...     var_index={
+                ...         "table_1": bt.Gene.ensembl_gene_id,
+                ...     },
+                ...     categoricals={
+                ...         "table1":
+                ...             {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ULabel.name},
+                ...         "sample":
+                ...             {"experimental_factor": bt.ExperimentalFactor.name},
+                ...     },
+                ...     organism="human",
+                ... )
+            """
+            try:
+                import spatialdata
+            except ImportError as e:
+                raise ImportError(
+                    "Please install spatialdata: pip install spatialdata"
+                ) from e
+
+            return SpatialDataCatCurator(
+                sdata=sdata,
+                var_index=var_index,
+                categoricals=categoricals,
+                verbosity=verbosity,
+                organism=organism,
+                sources=sources,
+                exclude=exclude,
+                sample_metadata_key=sample_metadata_key,
+            )
 
 
 class DataFrameCurator(Curator):
@@ -271,19 +425,6 @@ class DataFrameCurator(Curator):
             self._cat_curator._validated = False
             # return the error message so that we can test for it
             return str_message
-
-    @doc_args(SAVE_ARTIFACT_DOCSTRING)
-    def save_artifact(
-        self,
-        *,
-        key: str | None = None,
-        description: str | None = None,
-        revises: Artifact | None = None,
-        run: Run | None = None,
-    ) -> Artifact:
-        return self._cat_curator.save_artifact(
-            key=key, description=description, revises=revises, run=run
-        )
 
 
 class DataFrameCatCurator(Curator):
@@ -3515,168 +3656,3 @@ def _ref_is_name(field: FieldAttr) -> bool | None:
 
     name_field = get_name_field(field.field.model)
     return field.field.name == name_field
-
-
-# backward compat constructors ------------------
-
-
-@classmethod  # type: ignore
-@deprecated(new_name="use Curator(data, schema)")
-def from_df(
-    cls,
-    df: pd.DataFrame,
-    categoricals: dict[str, FieldAttr] | None = None,
-    columns: FieldAttr = Feature.name,
-    verbosity: str = "hint",
-    organism: str | None = None,
-) -> DataFrameCatCurator:
-    """{}"""  # noqa: D415
-    return DataFrameCatCurator(
-        df=df,
-        categoricals=categoricals,
-        columns=columns,
-        verbosity=verbosity,
-        organism=organism,
-    )
-
-
-@classmethod  # type: ignore
-@deprecated(new_name="use Curator(data, schema)")
-def from_anndata(
-    cls,
-    data: ad.AnnData | UPathStr,
-    var_index: FieldAttr,
-    categoricals: dict[str, FieldAttr] | None = None,
-    obs_columns: FieldAttr = Feature.name,
-    verbosity: str = "hint",
-    organism: str | None = None,
-    sources: dict[str, Record] | None = None,
-) -> AnnDataCatCurator:
-    return AnnDataCatCurator(
-        data=data,
-        var_index=var_index,
-        categoricals=categoricals,
-        obs_columns=obs_columns,
-        verbosity=verbosity,
-        organism=organism,
-        sources=sources,
-    )
-
-
-@classmethod  # type: ignore
-@deprecated(new_name="use Curator(data, schema)")
-def from_mudata(
-    cls,
-    mdata: MuData,
-    var_index: dict[str, dict[str, FieldAttr]],
-    categoricals: dict[str, FieldAttr] | None = None,
-    verbosity: str = "hint",
-    organism: str | None = None,
-) -> MuDataCatCurator:
-    return MuDataCatCurator(
-        mdata=mdata,
-        var_index=var_index,
-        categoricals=categoricals,
-        verbosity=verbosity,
-        organism=organism,
-    )
-
-
-@classmethod  # type: ignore
-@deprecated(new_name="use Curator(data, schema)")
-def from_tiledbsoma(
-    cls,
-    experiment_uri: UPathStr,
-    var_index: dict[str, tuple[str, FieldAttr]],
-    categoricals: dict[str, FieldAttr] | None = None,
-    obs_columns: FieldAttr = Feature.name,
-    organism: str | None = None,
-    sources: dict[str, Record] | None = None,
-    exclude: dict[str, str | list[str]] | None = None,
-) -> TiledbsomaCatCurator:
-    return TiledbsomaCatCurator(
-        experiment_uri=experiment_uri,
-        var_index=var_index,
-        categoricals=categoricals,
-        obs_columns=obs_columns,
-        organism=organism,
-        sources=sources,
-        exclude=exclude,
-    )
-
-
-@classmethod  # type: ignore
-@deprecated(new_name="use Curator(data, schema)")
-def from_spatialdata(
-    cls,
-    sdata,
-    var_index: dict[str, FieldAttr],
-    categoricals: dict[str, dict[str, FieldAttr]] | None = None,
-    organism: str | None = None,
-    sources: dict[str, dict[str, Record]] | None = None,
-    exclude: dict[str, dict] | None = None,
-    verbosity: str = "hint",
-    *,
-    sample_metadata_key: str = "sample",
-):
-    """Curation flow for a ``Spatialdata`` object.
-
-    See also :class:`~lamindb.Curator`.
-
-    Note that if genes or other measurements are removed from the SpatialData object,
-    the object should be recreated.
-
-    In the following docstring, an accessor refers to either a ``.table`` key or the ``sample_metadata_key``.
-
-    Args:
-        sdata: The SpatialData object to curate.
-        var_index: A dictionary mapping table keys to the ``.var`` indices.
-        categoricals: A nested dictionary mapping an accessor to dictionaries that map columns to a registry field.
-
-        organism: The organism name.
-        sources: A dictionary mapping an accessor to dictionaries that map columns to Source records.
-        exclude: A dictionary mapping an accessor to dictionaries of column names to values to exclude from validation.
-            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
-            using the exclude parameter ensures they are not validated.
-        verbosity: The verbosity level of the logger.
-        sample_metadata_key: The key in ``.attrs`` that stores the sample level metadata.
-
-    Examples:
-        >>> import lamindb as ln
-        >>> import bionty as bt
-        >>> curator = ln.Curator.from_spatialdata(
-        ...     sdata,
-        ...     var_index={
-        ...         "table_1": bt.Gene.ensembl_gene_id,
-        ...     },
-        ...     categoricals={
-        ...         "table1":
-        ...             {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ULabel.name},
-        ...         "sample":
-        ...             {"experimental_factor": bt.ExperimentalFactor.name},
-        ...     },
-        ...     organism="human",
-        ... )
-    """
-    try:
-        import spatialdata
-    except ImportError as e:
-        raise ImportError("Please install spatialdata: pip install spatialdata") from e
-
-    return SpatialDataCatCurator(
-        sdata=sdata,
-        var_index=var_index,
-        categoricals=categoricals,
-        verbosity=verbosity,
-        organism=organism,
-        sources=sources,
-        exclude=exclude,
-        sample_metadata_key=sample_metadata_key,
-    )
-
-
-Curator.from_df = from_df  # type: ignore
-Curator.from_anndata = from_anndata  # type: ignore
-Curator.from_mutadata = from_mudata  # type: ignore
-Curator.from_spatialdata = from_spatialdata  # type: ignore
-Curator.from_tiledbsoma = from_tiledbsoma  # type: ignore
