@@ -165,7 +165,6 @@ class Curator:
     """
 
     def __init__(self, dataset: Any):
-        self._validate_category_error_messages: str = ""
         self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
         self._artifact: Artifact = None  # pass the dataset as a non-curated artifact
         self._validated: bool = False
@@ -232,6 +231,7 @@ class CatCurator(Curator):
         self._categoricals = categoricals or {}
         self._sources = sources or {}
         self._exclude = exclude or {}
+        self._validate_category_error_messages: str = ""
         super().__init__(dataset=dataset)
 
     @property
@@ -2924,7 +2924,7 @@ def validate_categories(
     source: Record | None = None,
     exclude: str | list | None = None,
     hint_print: str | None = None,
-    curator: Curator | None = None,
+    curator: CatCurator | None = None,
 ) -> tuple[bool, list]:
     """Validate ontology terms in a pandas series using LaminDB registries.
 
@@ -3044,7 +3044,7 @@ def validate_categories_in_df(
     fields: dict[str, FieldAttr],
     sources: dict[str, Record] = None,
     exclude: dict | None = None,
-    curator: Curator | None = None,
+    curator: CatCurator | None = None,
     **kwargs,
 ) -> tuple[bool, dict]:
     """Validate categories in DataFrame columns using LaminDB registries."""
