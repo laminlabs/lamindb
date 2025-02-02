@@ -514,7 +514,7 @@ def test_add_labels_using_anndata(adata):
 
     # now, we add organism and run checks
     features = ln.Feature.lookup()
-    with pytest.raises(ln.core.exceptions.ValidationError):
+    with pytest.raises(ln.errors.ValidationError):
         artifact.labels.add(organism, feature=features.organism)
     organism.save()
     artifact.labels.add(organism, feature=features.organism)
