@@ -162,4 +162,6 @@ def test_invalid_label(transactions_schema):
 
     with pytest.raises(ln.errors.ValidationError) as err:
         curator.validate()
-    assert "1 term is not validated: 'GBP'" in err.exconly()
+    exconly = """lamindb.errors.ValidationError: 1 term is not validated: 'GBP'
+    → fix typos, remove non-existent values, or save terms via .add_new_from("currency_name")"""
+    assert err.exconly() == exconly
