@@ -93,12 +93,12 @@ class CurateLookup:
         public: bool = False,
     ) -> None:
         slots = slots or {}
-        self._fields = {**categoricals, **slots}
+        self._categoricals = {**categoricals, **slots}
         self._public = public
 
     def __getattr__(self, name):
-        if name in self._fields:
-            registry = self._fields[name].field.model
+        if name in self._categoricals:
+            registry = self._categoricals[name].field.model
             if self._public and hasattr(registry, "public"):
                 return registry.public().lookup()
             else:
@@ -108,8 +108,8 @@ class CurateLookup:
         )
 
     def __getitem__(self, name):
-        if name in self._fields:
-            registry = self._fields[name].field.model
+        if name in self._categoricals:
+            registry = self._categoricals[name].field.model
             if self._public and hasattr(registry, "public"):
                 return registry.public().lookup()
             else:
@@ -119,12 +119,12 @@ class CurateLookup:
         )
 
     def __repr__(self) -> str:
-        if len(self._fields) > 0:
+        if len(self._categoricals) > 0:
             getattr_keys = "\n ".join(
-                [f".{key}" for key in self._fields if key.isidentifier()]
+                [f".{key}" for key in self._categoricals if key.isidentifier()]
             )
             getitem_keys = "\n ".join(
-                [str([key]) for key in self._fields if not key.isidentifier()]
+                [str([key]) for key in self._categoricals if not key.isidentifier()]
             )
             ref = "public" if self._public else "registries"
             return (
@@ -166,7 +166,9 @@ class Curator:
 
     def __init__(self):
         self._validate_category_error_messages: str = ""
-        self._cat_curator = None
+        self._dataset: Any = None
+        self._cat_curator: CatCurator = None
+        self._validated: bool = False
 
     def validate(self) -> bool | str:
         """Validate dataset.
@@ -212,9 +214,66 @@ class Curator:
         Returns:
             A saved artifact record.
         """
+        if not self._validated:
+            self.validate()  # raises ValidationError if doesn't validate
         return self._cat_curator.save_artifact(
             key=key, description=description, revises=revises, run=run
         )
+
+
+class CatCurator(Curator):
+    def __init__(self):
+        self._non_validated = None
+        self._categoricals = None
+        self._organism = None
+        self._columns_field = None
+
+    @property
+    def non_validated(self) -> dict[str, list[str]]:
+        """Return the non-validated features and labels."""
+        if self._non_validated is None:
+            raise ValidationError("Please run validate() first!")
+        return self._non_validated
+
+    @property
+    def categoricals(self) -> dict:
+        """Return the columns fields to validate against."""
+        return self._categoricals
+
+    def save_artifact(
+        self,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ) -> Artifact:
+        from lamindb.core._settings import settings
+
+        if not self._validated:
+            self.validate()  # returns True or False
+            if not self._validated:  # need to raise error manually
+                raise ValidationError("Dataset does not validate. Please curate.")
+
+        # Make sure all labels are saved in the current instance
+        verbosity = settings.verbosity
+        try:
+            settings.verbosity = "warning"
+            self._artifact = save_artifact(  # type: ignore
+                self._dataset,
+                description=description,
+                fields=self.categoricals,
+                columns_field=self._columns_field,
+                key=key,
+                revises=revises,
+                run=run,
+                schema=None,
+                organism=self._organism,
+            )
+        finally:
+            settings.verbosity = verbosity
+
+        return self._artifact
 
 
 class DataFrameCurator(Curator):
@@ -235,10 +294,10 @@ class DataFrameCurator(Curator):
 
     def __init__(
         self,
-        df: pd.DataFrame,
+        dataset: pd.DataFrame,
         schema: Schema,
     ) -> None:
-        self._df: pd.DataFrame = df
+        self._dataset: pd.DataFrame = dataset
         non_categoricals = {}
         categoricals = {}
         self._schema = schema
@@ -252,14 +311,14 @@ class DataFrameCurator(Curator):
         self._pda_schema = pda.DataFrameSchema(non_categoricals, coerce=True)
         # now deal with categorical features using the old-style curator
         self._cat_curator = DataFrameCatCurator(
-            df,
+            dataset,
             categoricals=categoricals,
         )
 
     def validate(self) -> bool | str:
         self._cat_curator.validate()
         try:
-            self._pda_schema.validate(self._df)
+            self._pda_schema.validate(self._dataset)
             if self._cat_curator._validated:
                 return True
             else:
@@ -274,7 +333,7 @@ class DataFrameCurator(Curator):
             return str_message
 
 
-class DataFrameCatCurator(Curator):
+class DataFrameCatCurator(CatCurator):
     """Curation flow for a DataFrame object.
 
     See also :class:`~lamindb.Curator`.
@@ -319,8 +378,8 @@ class DataFrameCatCurator(Curator):
         if organism is not None and not isinstance(organism, str):
             raise ValueError("organism must be a string such as 'human' or 'mouse'!")
 
-        self._df = df
-        self._fields = categoricals or {}
+        self._dataset = df
+        self._categoricals = categoricals or {}
         self._columns_field = columns
         # TODO: change verbosity back
         settings.verbosity = verbosity
@@ -333,18 +392,6 @@ class DataFrameCatCurator(Curator):
         self._non_validated = None
         self._save_columns()
 
-    @property
-    def non_validated(self) -> dict[str, list[str]]:
-        """Return the non-validated features and labels."""
-        if self._non_validated is None:
-            raise ValidationError("Please run validate() first!")
-        return self._non_validated
-
-    @property
-    def fields(self) -> dict:
-        """Return the columns fields to validate against."""
-        return self._fields
-
     def lookup(self, public: bool = False) -> CurateLookup:
         """Lookup categories.
 
@@ -352,7 +399,7 @@ class DataFrameCatCurator(Curator):
             public: If "public", the lookup is performed on the public reference.
         """
         return CurateLookup(
-            categoricals=self._fields,
+            categoricals=self._categoricals,
             slots={"columns": self._columns_field},
             public=public,
         )
@@ -361,7 +408,7 @@ class DataFrameCatCurator(Curator):
         """Save column name records."""
         # Always save features specified as the fields keys
         update_registry(
-            values=list(self.fields.keys()),
+            values=list(self.categoricals.keys()),
             field=self._columns_field,
             key="columns",
             validated_only=False,
@@ -370,14 +417,14 @@ class DataFrameCatCurator(Curator):
         )
 
         # Save the rest of the columns based on validated_only
-        additional_columns = set(self._df.columns) - set(self.fields.keys())
+        additional_columns = set(self._dataset.columns) - set(self.categoricals.keys())
         if additional_columns:
             update_registry(
                 values=list(additional_columns),
                 field=self._columns_field,
                 key="columns",
                 validated_only=validated_only,
-                df=self._df,  # Get the Feature type from df
+                df=self._dataset,  # Get the Feature type from df
                 source=self._sources.get("columns"),
                 exclude=self._exclude.get("columns"),
             )
@@ -437,31 +484,33 @@ class DataFrameCatCurator(Curator):
 
         if key == "all":
             for k in avail_keys:
-                if k in self._fields:  # needed to exclude var_index
+                if k in self._categoricals:  # needed to exclude var_index
                     syn_mapper = standardize_categories(
                         self.non_validated[k],
-                        field=self._fields[k],
+                        field=self._categoricals[k],
                         source=self._sources.get(k),
                     )
-                    self._df[k] = self._replace_synonyms(k, syn_mapper, self._df[k])
+                    self._dataset[k] = self._replace_synonyms(
+                        k, syn_mapper, self._dataset[k]
+                    )
         else:
             if key not in avail_keys:
-                if key in self._fields:
+                if key in self._categoricals:
                     logger.info(f"No unstandardized values found for {key!r}")
                 else:
                     raise KeyError(
                         f"{key!r} is not a valid key, available keys are: {_format_values(avail_keys)}!"
                     )
             else:
-                if key in self._fields:  # needed to exclude var_index
+                if key in self._categoricals:  # needed to exclude var_index
                     syn_mapper = standardize_categories(
                         self.non_validated[key],
-                        field=self._fields[key],
+                        field=self._categoricals[key],
                         source=self._sources.get(key),
                         organism=self._organism,
                     )
-                    self._df[key] = self._replace_synonyms(
-                        key, syn_mapper, self._df[key]
+                    self._dataset[key] = self._replace_synonyms(
+                        key, syn_mapper, self._dataset[key]
                     )
 
     def _update_registry(
@@ -470,13 +519,13 @@ class DataFrameCatCurator(Curator):
         if categorical == "all":
             self._update_registry_all(validated_only=validated_only, **kwargs)
         else:
-            if categorical not in self.fields:
+            if categorical not in self.categoricals:
                 raise ValidationError(
                     f"Feature {categorical} is not part of the fields!"
                 )
             update_registry(
-                values=_flatten_unique(self._df[categorical]),
-                field=self.fields[categorical],
+                values=_flatten_unique(self._dataset[categorical]),
+                field=self.categoricals[categorical],
                 key=categorical,
                 validated_only=validated_only,
                 source=self._sources.get(categorical),
@@ -489,7 +538,7 @@ class DataFrameCatCurator(Curator):
 
     def _update_registry_all(self, validated_only: bool = True, **kwargs):
         """Save labels for all features."""
-        for name in self.fields.keys():
+        for name in self.categoricals.keys():
             self._update_registry(name, validated_only=validated_only, **kwargs)
 
     def validate(self) -> bool:
@@ -508,8 +557,8 @@ class DataFrameCatCurator(Curator):
         self._update_registry_all()
         self._validate_category_error_messages = ""  # reset the error messages
         self._validated, self._non_validated = validate_categories_in_df(  # type: ignore
-            self._df,
-            fields=self.fields,
+            self._dataset,
+            fields=self.categoricals,
             sources=self._sources,
             exclude=self._exclude,
             curator=self,
@@ -517,53 +566,7 @@ class DataFrameCatCurator(Curator):
         )
         return self._validated
 
-    def save_artifact(
-        self,
-        *,
-        key: str | None = None,
-        description: str | None = None,
-        revises: Artifact | None = None,
-        run: Run | None = None,
-    ) -> Artifact:
-        """Save the validated DataFrame and metadata.
-
-        Args:
-            description: Description of the DataFrame object.
-            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`.
-                Artifacts with the same key form a revision family.
-            revises: Previous version of the artifact. Triggers a revision.
-            run: The run that creates the artifact.
-
-        Returns:
-            A saved artifact record.
-        """
-        from lamindb.core._settings import settings
-
-        if not self._validated:
-            self.validate()
-            if not self._validated:
-                raise ValidationError("Dataset does not validate. Please curate.")
-
-        # Make sure all labels are saved in the current instance
-        verbosity = settings.verbosity
-        try:
-            settings.verbosity = "warning"
-            self._artifact = save_artifact(  # type: ignore
-                self._df,
-                description=description,
-                fields=self.fields,
-                columns_field=self._columns_field,
-                key=key,
-                revises=revises,
-                run=run,
-                schema=None,
-                organism=self._organism,
-            )
-        finally:
-            settings.verbosity = verbosity
-
-        return self._artifact
-
+    @deprecated(new_name="manage manually")
     def clean_up_failed_runs(self):
         """Clean up previous failed runs that don't save any outputs."""
         from lamindb.core._context import context
@@ -639,6 +642,7 @@ class AnnDataCatCurator(DataFrameCatCurator):
             )
 
         self._data = data
+        self._obs_fields = categoricals or {}
         self._var_field = var_index
         super().__init__(
             df=self._adata.obs,
@@ -649,7 +653,6 @@ class AnnDataCatCurator(DataFrameCatCurator):
             sources=sources,
             exclude=exclude,
         )
-        self._obs_fields = categoricals or {}
 
     @property
     def var_index(self) -> FieldAttr:
@@ -768,51 +771,6 @@ class AnnDataCatCurator(DataFrameCatCurator):
                 self._adata.var.index = self._replace_synonyms(
                     "var_index", syn_mapper, self._adata.var.index
                 )
-
-    def save_artifact(
-        self,
-        *,
-        key: str | None = None,
-        description: str | None = None,
-        revises: Artifact | None = None,
-        run: Run | None = None,
-    ) -> Artifact:
-        """Save the validated ``AnnData`` and metadata.
-
-        Args:
-            description: A description of the ``AnnData`` object.
-            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`.
-                Artifacts with the same key form a revision family.
-            revises: Previous version of the artifact. Triggers a revision.
-            run: The run that creates the artifact.
-
-        Returns:
-            A saved artifact record.
-        """
-        from lamindb.core._settings import settings
-
-        if not self._validated:
-            self.validate()
-            if not self._validated:
-                raise ValidationError("Dataset does not validate. Please curate.")
-        verbosity = settings.verbosity
-        try:
-            settings.verbosity = "warning"
-            self._artifact = save_artifact(  # type: ignore
-                self._data,
-                adata=self._adata,
-                description=description,
-                columns_field=self.var_index,
-                fields=self.categoricals,
-                key=key,
-                revises=revises,
-                run=run,
-                schema=None,
-                organism=self._organism,
-            )
-        finally:
-            settings.verbosity = verbosity
-        return self._artifact
 
 
 class MuDataCatCurator:
@@ -1061,49 +1019,6 @@ class MuDataCatCurator:
             adata_curator.standardize(key=key)
         if modality == "obs":
             self._obs_df_curator.standardize(key=key)
-
-    def save_artifact(
-        self,
-        *,
-        key: str | None = None,
-        description: str | None = None,
-        revises: Artifact | None = None,
-        run: Run | None = None,
-    ) -> Artifact:
-        """Save the validated ``MuData`` and metadata.
-
-        Args:
-            description: A description of the ``MuData`` object.
-            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
-            revises: Previous version of the artifact. Triggers a revision.
-            run: The run that creates the artifact.
-
-        Returns:
-            A saved artifact record.
-        """
-        from lamindb.core._settings import settings
-
-        if not self._validated:
-            self.validate()
-            if not self._validated:
-                raise ValidationError("Dataset does not validate. Please curate.")
-        verbosity = settings.verbosity
-        try:
-            settings.verbosity = "warning"
-            self._artifact = save_artifact(
-                self._mdata,
-                description=description,
-                columns_field=self.var_index,
-                fields=self.categoricals,
-                key=key,
-                revises=revises,
-                run=run,
-                schema=None,
-                organism=self._organism,
-            )
-        finally:
-            settings.verbosity = verbosity
-        return self._artifact
 
 
 def _maybe_curation_keys_not_present(nonval_keys: list[str], name: str):
@@ -1926,18 +1841,6 @@ class SpatialDataCatCurator:
         revises: Artifact | None = None,
         run: Run | None = None,
     ) -> Artifact:
-        """Save the validated ``SpatialData`` object and metadata.
-
-        Args:
-            description: A description of the ``SpatialData`` object.
-            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.zarr"`.
-                Artifacts with the same key form a revision family.
-            revises: Previous version of the artifact. Triggers a revision.
-            run: The Run that creates the artifact.
-
-        Returns:
-            A saved Artifact record.
-        """
         if not self._validated:
             self.validate()
             if not self._validated:
@@ -2858,14 +2761,14 @@ class PertAnnDataCatCurator(CellxGeneAnnDataCatCurator):
             col for col in first_columns if col in self._adata.obs.columns
         ] + [col for col in self._adata.obs.columns if col not in first_columns]
         # must assign to self._df to ensure .standardize works correctly
-        self._df = self._adata.obs[sorted_columns]
-        self._adata.obs = self._df
+        self._obs_df = self._adata.obs[sorted_columns]
+        self._adata.obs = self._obs_df
         return validated
 
     def standardize(self, key: str) -> pd.DataFrame:
         """Standardize the AnnData object."""
         super().standardize(key)
-        self._adata.obs = self._df
+        self._adata.obs = self._obs_df
 
     def _validate_dose_column(self) -> bool:
         """Validate the dose column."""
@@ -3167,7 +3070,6 @@ def save_artifact(
     columns_field: FieldAttr | dict[str, FieldAttr],
     description: str | None = None,
     organism: str | None = None,
-    adata: ad.AnnData | None = None,
     key: str | None = None,
     revises: Artifact | None = None,
     run: Run | None = None,
@@ -3176,7 +3078,7 @@ def save_artifact(
     """Save all metadata with an Artifact.
 
     Args:
-        data: The DataFrame or AnnData object to save.
+        data: The DataFrame/AnnData/MuData object to save.
         fields: A dictionary mapping obs_column to registry_field.
         columns_field: The registry field to validate variables index against.
         description: A description of the artifact.
@@ -3190,39 +3092,25 @@ def save_artifact(
     Returns:
         The saved Artifact.
     """
-    from .._artifact import data_is_anndata
+    from .._artifact import data_is_anndata, data_is_mudata
     from ..core._data import add_labels
 
-    artifact = None
     if data_is_anndata(data):
-        assert adata is not None  # noqa: S101
         artifact = Artifact.from_anndata(
             data, description=description, key=key, revises=revises, run=run
         )
-        artifact.n_observations = adata.shape[0]
-        data = adata
-
     elif isinstance(data, pd.DataFrame):
         artifact = Artifact.from_df(
             data, description=description, key=key, revises=revises, run=run
         )
-    else:
-        try:
-            from mudata import MuData
-
-            if isinstance(data, MuData):
-                artifact = Artifact.from_mudata(
-                    data,
-                    description=description,
-                    key=key,
-                    revises=revises,
-                    run=run,
-                )
-                artifact.n_observations = data.n_obs
-        except ImportError:
-            pass
-    if artifact is None:
-        raise ValueError("data must be a DataFrame, AnnData or MuData object.")
+    elif data_is_mudata(data):
+        artifact = Artifact.from_mudata(
+            data,
+            description=description,
+            key=key,
+            revises=revises,
+            run=run,
+        )
     artifact.save()
 
     feature_kwargs = check_registry_organism(
