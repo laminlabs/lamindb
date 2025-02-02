@@ -168,8 +168,8 @@ class Curator:
         self._validate_category_error_messages: str = ""
         self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
         self._artifact: Artifact = None  # pass the dataset as a non-curated artifact
-        self._cat_curator: CatCurator = None
         self._validated: bool = False
+        self._cat_curator: CatCurator = None  # is None for CatCurator curators
 
     def validate(self) -> bool | str:
         """Validate dataset.
@@ -245,46 +245,6 @@ class CatCurator(Curator):
     def categoricals(self) -> dict:
         """Return the columns fields to validate against."""
         return self._categoricals
-
-    def _update_registry_all(self, validated_only: bool = True, **kwargs):
-        """Save labels for all features."""
-        for name in self.categoricals.keys():
-            self._update_registry(name, validated_only=validated_only, **kwargs)
-
-    def _update_registry(
-        self, categorical: str, validated_only: bool = True, **kwargs
-    ) -> None:
-        if categorical == "all":
-            self._update_registry_all(validated_only=validated_only, **kwargs)
-        else:
-            if categorical not in self.categoricals:
-                raise ValidationError(
-                    f"Feature {categorical} is not part of the fields!"
-                )
-            update_registry(
-                values=_flatten_unique(self._dataset[categorical]),
-                field=self.categoricals[categorical],
-                key=categorical,
-                validated_only=validated_only,
-                source=self._sources.get(categorical),
-                exclude=self._exclude.get(categorical),
-                organism=self._organism,
-            )
-            # adding new records removes them from non_validated
-            if not validated_only and self._non_validated:
-                self._non_validated.pop(categorical, None)  # type: ignore
-
-    def add_new_from(self, key: str, **kwargs):
-        """Add validated & new categories.
-
-        Args:
-            key: The key referencing the slot in the DataFrame from which to draw terms.
-            organism: The organism name.
-            **kwargs: Additional keyword arguments to pass to create new records
-        """
-        if len(kwargs) > 0 and key == "all":
-            raise ValueError("Cannot pass additional arguments to 'all' key!")
-        self._update_registry(key, validated_only=False, **kwargs)
 
     def _replace_synonyms(
         self, key: str, syn_mapper: dict, values: pd.Series | pd.Index
@@ -504,6 +464,31 @@ class DataFrameCatCurator(CatCurator):
     def add_new_from_columns(self, organism: str | None = None, **kwargs):
         pass
 
+    def validate(self) -> bool:
+        """Validate variables and categorical observations.
+
+        This method also registers the validated records in the current instance:
+        - from public sources
+
+        Args:
+            organism: The organism name.
+
+        Returns:
+            Whether the DataFrame is validated.
+        """
+        # add all validated records to the current instance
+        self._update_registry_all()
+        self._validate_category_error_messages = ""  # reset the error messages
+        self._validated, self._non_validated = validate_categories_in_df(  # type: ignore
+            self._dataset,
+            fields=self.categoricals,
+            sources=self._sources,
+            exclude=self._exclude,
+            curator=self,
+            organism=self._organism,
+        )
+        return self._validated
+
     def standardize(self, key: str) -> None:
         """Replace synonyms with standardized values.
 
@@ -549,30 +534,45 @@ class DataFrameCatCurator(CatCurator):
                         key, syn_mapper, self._dataset[key]
                     )
 
-    def validate(self) -> bool:
-        """Validate variables and categorical observations.
+    def _update_registry_all(self, validated_only: bool = True, **kwargs):
+        """Save labels for all features."""
+        for name in self.categoricals.keys():
+            self._update_registry(name, validated_only=validated_only, **kwargs)
 
-        This method also registers the validated records in the current instance:
-        - from public sources
+    def _update_registry(
+        self, categorical: str, validated_only: bool = True, **kwargs
+    ) -> None:
+        if categorical == "all":
+            self._update_registry_all(validated_only=validated_only, **kwargs)
+        else:
+            if categorical not in self.categoricals:
+                raise ValidationError(
+                    f"Feature {categorical} is not part of the fields!"
+                )
+            update_registry(
+                values=_flatten_unique(self._dataset[categorical]),
+                field=self.categoricals[categorical],
+                key=categorical,
+                validated_only=validated_only,
+                source=self._sources.get(categorical),
+                exclude=self._exclude.get(categorical),
+                organism=self._organism,
+            )
+            # adding new records removes them from non_validated
+            if not validated_only and self._non_validated:
+                self._non_validated.pop(categorical, None)  # type: ignore
+
+    def add_new_from(self, key: str, **kwargs):
+        """Add validated & new categories.
 
         Args:
+            key: The key referencing the slot in the DataFrame from which to draw terms.
             organism: The organism name.
-
-        Returns:
-            Whether the DataFrame is validated.
+            **kwargs: Additional keyword arguments to pass to create new records
         """
-        # add all validated records to the current instance
-        self._update_registry_all()
-        self._validate_category_error_messages = ""  # reset the error messages
-        self._validated, self._non_validated = validate_categories_in_df(  # type: ignore
-            self._dataset,
-            fields=self.categoricals,
-            sources=self._sources,
-            exclude=self._exclude,
-            curator=self,
-            organism=self._organism,
-        )
-        return self._validated
+        if len(kwargs) > 0 and key == "all":
+            raise ValueError("Cannot pass additional arguments to 'all' key!")
+        self._update_registry(key, validated_only=False, **kwargs)
 
     def clean_up_failed_runs(self):
         """Clean up previous failed runs that don't save any outputs."""
@@ -706,6 +706,16 @@ class AnnDataCatCurator(CatCurator):
             exclude=self._exclude.get("var_index"),
         )
 
+    def add_new_from(self, key: str, **kwargs):
+        """Add validated & new categories.
+
+        Args:
+            key: The key referencing the slot in the DataFrame from which to draw terms.
+            organism: The organism name.
+            **kwargs: Additional keyword arguments to pass to create new records
+        """
+        self._obs_df_curator.add_new_from(key, **kwargs)
+
     def add_new_from_var_index(self, **kwargs):
         """Update variable records.
 
@@ -759,7 +769,7 @@ class AnnDataCatCurator(CatCurator):
         """
         if key in self._adata.obs.columns or key == "all":
             # standardize obs columns
-            super().standardize(key)
+            self._obs_df_curator.standardize(key)
         # in addition to the obs columns, standardize the var.index
         if key == "var_index" or key == "all":
             syn_mapper = standardize_categories(
@@ -1708,7 +1718,7 @@ class SpatialDataCatCurator:
                 validated_only=True,
             )
         for _, adata_curator in self._table_adata_curators.items():
-            adata_curator._update_registry_all(
+            adata_curator._obs_df_curator._update_registry_all(
                 validated_only=True,
             )
 
