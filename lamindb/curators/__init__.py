@@ -12,7 +12,6 @@ from __future__ import annotations
 import copy
 import random
 import re
-import warnings
 from importlib import resources
 from itertools import chain
 from typing import TYPE_CHECKING, Any, Literal
@@ -64,6 +63,19 @@ if TYPE_CHECKING:
     from spatialdata import SpatialData
 
     from lamindb._query_set import RecordList
+
+
+SAVE_ARTIFACT_DOCSTRING = """Save an annotated artifact.
+
+Args:
+    key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+    description: A description.
+    revises: Previous version of the artifact. Is an alternative way to passing `key` to trigger a revision.
+    run: The run that creates the artifact.
+
+Returns:
+    A saved artifact record.
+"""
 
 
 def strip_ansi_codes(text):
@@ -169,6 +181,7 @@ class BaseCurator:
         """
         pass  # pdagma: no cover
 
+    @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
         self,
         *,
@@ -177,17 +190,7 @@ class BaseCurator:
         revises: Artifact | None = None,
         run: Run | None = None,
     ) -> Artifact:
-        """Save the dataset as artifact.
-
-        Args:
-            description: A description of the DataFrame object.
-            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
-            revises: Previous version of the artifact. Triggers a revision.
-            run: The run that creates the artifact.
-
-        Returns:
-            A saved artifact record.
-        """
+        """{}"""  # noqa: D415
         pass  # pdagma: no cover
 
 
@@ -247,6 +250,7 @@ class DataFrameCurator(BaseCurator):
             # return the error message so that we can test for it
             return str_message
 
+    @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
         self,
         *,
@@ -951,18 +955,14 @@ class MuDataCatCurator:
             public=public,
         )
 
+    @deprecated(new_name="is run by default")
     def add_new_from_columns(
         self,
         modality: str,
         column_names: list[str] | None = None,
         **kwargs,
     ):
-        """Update columns records."""
-        warnings.warn(
-            "`.add_new_from_columns()` is deprecated and will be removed in a future version. It's run by default during initialization.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+        pass
 
     def add_new_from_var_index(self, modality: str, **kwargs):
         """Update variable records.
@@ -2538,12 +2538,6 @@ class CellxGeneAnnDataCatCurator(AnnDataCatCurator):
         return adata_cxg
 
 
-class PertValidatorUnavailable(SystemExit):
-    """Curator for perturbation data when dependencies are unavailable."""
-
-    pass
-
-
 class ValueUnit:
     """Base class for handling value-unit combinations."""
 
@@ -2933,7 +2927,7 @@ class PertAnnDataCatCurator(CellxGeneAnnDataCatCurator):
 class Curator(BaseCurator):
     """Dataset curator.
 
-    A `Curator` object makes it easy to save validated & annotated artifacts.
+    A `Curator` object makes it easy to validate, standardize & annotate datasets.
 
     Example:
 
