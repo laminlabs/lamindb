@@ -8,7 +8,7 @@ import lamindb_setup as ln_setup
 import pytest
 from lamindb._finish import clean_r_notebook_html, get_shortcut
 from lamindb.core._context import LogStreamTracker, context
-from lamindb.core.exceptions import TrackNotCalled, ValidationError
+from lamindb.errors import TrackNotCalled, ValidationError
 
 SCRIPTS_DIR = Path(__file__).parent.resolve() / "scripts"
 NOTEBOOKS_DIR = Path(__file__).parent.resolve() / "notebooks"
@@ -26,7 +26,7 @@ def test_track_with_multi_parents():
         ln.context.track(transform=child, params=params)
     assert (
         error.exconly()
-        == """lamindb.core.exceptions.ValidationError: These keys could not be validated: ['param1', 'param2', 'param3']
+        == """lamindb.errors.ValidationError: These keys could not be validated: ['param1', 'param2', 'param3']
 Here is how to create a param:
 
   ln.Param(name='param1', dtype='int').save()
@@ -46,7 +46,7 @@ Here is how to create a param:
         ln.context.track(transform=child, params=params)
     assert (
         error.exconly()
-        == """lamindb.core.exceptions.ValidationError: Expected dtype for 'param4' is 'int', got 'list[int]'"""
+        == """lamindb.errors.ValidationError: Expected dtype for 'param4' is 'int', got 'list[int]'"""
     )
     # fix param4 dtype
     param4.dtype = "list[int]"

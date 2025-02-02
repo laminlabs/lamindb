@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 from lamindb import _feature
 from lamindb._feature import convert_pandas_dtype_to_lamin_dtype
-from lamindb.core.exceptions import ValidationError
+from lamindb.errors import ValidationError
 from pandas.api.types import is_string_dtype
 
 
@@ -64,7 +64,7 @@ def test_feature_init():
         ln.Feature(name="feat", dtype="cat")
     assert (
         error.exconly()
-        == "lamindb.core.exceptions.ValidationError: Feature feat already exists with dtype str, you passed cat"
+        == "lamindb.errors.ValidationError: Feature feat already exists with dtype str, you passed cat"
     )
     feat1.delete()
     # check that this works
@@ -103,14 +103,14 @@ def test_feature_from_df(df):
         artifact.labels.add(labels, feature=feature)
     assert (
         err.exconly()
-        == "lamindb.core.exceptions.ValidationError: Cannot manually annotate internal feature with label. Please use ln.Curator"
+        == "lamindb.errors.ValidationError: Cannot manually annotate internal feature with label. Please use ln.Curator"
     )
     extfeature = ln.Feature(name="extfeat", dtype="str").save()
     with pytest.raises(ValidationError) as err:
         artifact.labels.add(labels, feature=extfeature)
     assert (
         err.exconly()
-        == f"lamindb.core.exceptions.ValidationError: Feature {extfeature.name} needs dtype='cat' for label annotation, currently has dtype='str'"
+        == f"lamindb.errors.ValidationError: Feature {extfeature.name} needs dtype='cat' for label annotation, currently has dtype='str'"
     )
 
     # clean up

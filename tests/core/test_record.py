@@ -12,7 +12,7 @@ from lamindb._record import (
     _search,
     suggest_records_with_similar_names,
 )
-from lamindb.core.exceptions import FieldValidationError
+from lamindb.errors import FieldValidationError
 
 
 def test_signatures():

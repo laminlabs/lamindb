@@ -24,17 +24,17 @@ from lamindb._artifact import (
     process_data,
 )
 from lamindb.core._settings import settings
-from lamindb.core.exceptions import (
-    FieldValidationError,
-    IntegrityError,
-    InvalidArgument,
-)
 from lamindb.core.loaders import load_fcs, load_to_memory, load_tsv
 from lamindb.core.storage._zarr import write_adata_zarr, zarr_is_adata
 from lamindb.core.storage.paths import (
     AUTO_KEY_PREFIX,
     auto_storage_key_from_artifact_uid,
     delete_storage,
+)
+from lamindb.errors import (
+    FieldValidationError,
+    IntegrityError,
+    InvalidArgument,
 )
 from lamindb_setup.core.upath import (
     CloudPath,
@@ -420,7 +420,7 @@ def test_create_from_local_filepath(
             artifact = ln.Artifact(test_filepath, key=key, description=description)
         assert (
             error.exconly()
-            == f"lamindb.core.exceptions.InvalidArgument: The path '{test_filepath}' is already in registered"
+            == f"lamindb.errors.InvalidArgument: The path '{test_filepath}' is already in registered"
             " storage"
             f" '{root_dir.resolve().as_posix()}' with key '{inferred_key}'\nYou"
             f" passed conflicting key '{key}': please move the file before"
@@ -503,7 +503,7 @@ def test_from_dir_many_artifacts(get_test_filepaths, key):
         with pytest.raises(InvalidArgument) as error:
             ln.Artifact.from_dir(test_dirpath, key=key)
         assert error.exconly().startswith(
-            "lamindb.core.exceptions.InvalidArgument: The path"  # The path {data} is already in registered storage
+            "lamindb.errors.InvalidArgument: The path"  # The path {data} is already in registered storage
         )
         return None
     else:
@@ -559,7 +559,7 @@ def test_delete_artifact(df):
     with pytest.raises(IntegrityError) as e:
         artifact.delete()
     assert e.exconly().startswith(
-        "lamindb.core.exceptions.IntegrityError: Cannot simply delete artifacts"
+        "lamindb.errors.IntegrityError: Cannot simply delete artifacts"
     )
     artifact.delete(storage=False, permanent=True)
     assert (
@@ -854,7 +854,7 @@ def test_df_suffix(df):
         artifact = ln.Artifact.from_df(df, key="test_.def")
     assert (
         error.exconly().partition(",")[0]
-        == "lamindb.core.exceptions.InvalidArgument: The suffix '.def' of the provided key is incorrect"
+        == "lamindb.errors.InvalidArgument: The suffix '.def' of the provided key is incorrect"
     )
 
 
@@ -877,7 +877,7 @@ def test_adata_suffix(adata):
         artifact = ln.Artifact.from_anndata(adata, key="test_")
     assert (
         error.exconly().partition(",")[0]
-        == "lamindb.core.exceptions.InvalidArgument: The suffix '' of the provided key is incorrect"
+        == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect"
     )
 
 

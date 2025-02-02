@@ -1,7 +1,7 @@
 import bionty as bt
 import lamindb as ln
 import pytest
-from lamindb.core.exceptions import ValidationError
+from lamindb.errors import ValidationError
 
 
 # some validate tests are in test_queryset

@@ -2,7 +2,7 @@ import re
 
 import lamindb as ln
 import pytest
-from lamindb.core.exceptions import FieldValidationError
+from lamindb.errors import FieldValidationError
 
 
 def test_ulabel():

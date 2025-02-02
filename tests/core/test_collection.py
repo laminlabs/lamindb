@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from lamindb import _collection
-from lamindb.core.exceptions import FieldValidationError
+from lamindb.errors import FieldValidationError
 from scipy.sparse import csc_matrix, csr_matrix
 
 

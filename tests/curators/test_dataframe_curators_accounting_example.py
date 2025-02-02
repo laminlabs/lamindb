@@ -122,7 +122,7 @@ def test_currency_labels(currency_labels):
 def test_data_curation(transactions_schema, transactions_dataframe):
     """Test if data curation works properly"""
     curator = ln.curators.DataFrameCurator(transactions_dataframe, transactions_schema)
-    assert curator.validate() is True
+    assert curator.validate() is None
     artifact = curator.save_artifact(key="test_transaction_dataset.parquet")
     artifact.delete(permanent=True)
 
@@ -139,11 +139,11 @@ def test_missing_required_feature(transactions_schema):
     schema = ln.Schema.get(name="transaction_dataframe")
     curator = ln.curators.DataFrameCurator(invalid_df, schema)
 
-    failure_code = curator.validate()
-    assert (
-        failure_code
-        == "column 'transaction_amount_eur_cent' not in dataframe. Columns in dataframe: ['date', 'transaction_amount_usd_cent', 'currency_name']"
-    )
+    with pytest.raises(ln.errors.ValidationError) as err:
+        curator.validate()
+        message = "column 'transaction_amount_eur_cent' not in dataframe. Columns in dataframe: ['date', 'transaction_amount_usd_cent', 'currency_name']"
+        assert str(err) == message
+        assert err.exconly() == f"lamindb.errors.ValidationError: {message}"
 
 
 def test_invalid_label(transactions_schema):
@@ -160,5 +160,6 @@ def test_invalid_label(transactions_schema):
     schema = ln.Schema.get(name="transaction_dataframe")
     curator = ln.curators.DataFrameCurator(invalid_df, schema)
 
-    failure_code = curator.validate()
-    assert "1 term is not validated: 'GBP'" in failure_code
+    with pytest.raises(ln.errors.ValidationError) as err:
+        curator.validate()
+    assert "1 term is not validated: 'GBP'" in err.exconly()

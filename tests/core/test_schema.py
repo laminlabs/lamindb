@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 from lamindb import _schema
 from lamindb._schema import get_related_name, validate_features
-from lamindb.core.exceptions import ValidationError
+from lamindb.errors import ValidationError
 
 
 @pytest.fixture(scope="module")
@@ -46,7 +46,7 @@ def test_schema_from_values():
     with pytest.raises(ValidationError) as error:
         schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, type=int)
     assert error.exconly().startswith(
-        "lamindb.core.exceptions.ValidationError: These values could not be validated:"
+        "lamindb.errors.ValidationError: These values could not be validated:"
     )
     ln.save(bt.Gene.from_values(gene_symbols, "symbol"))
     schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol)
