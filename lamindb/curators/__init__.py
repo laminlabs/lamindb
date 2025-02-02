@@ -225,14 +225,14 @@ class CatCurator(Curator):
     def __init__(
         self, *, dataset, categoricals, sources, organism, exclude, columns_field=None
     ):
+        super().__init__(dataset=dataset)
+        self._categoricals = categoricals or {}
         self._non_validated = None
         self._organism = organism
-        self._columns_field = columns_field
-        self._categoricals = categoricals or {}
         self._sources = sources or {}
         self._exclude = exclude or {}
+        self._columns_field = columns_field
         self._validate_category_error_messages: str = ""
-        super().__init__(dataset=dataset)
 
     @property
     def non_validated(self) -> dict[str, list[str]]:
