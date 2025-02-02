@@ -167,7 +167,7 @@ class Curator:
     def __init__(self, dataset: Any):
         self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
         self._artifact: Artifact = None  # pass the dataset as a non-curated artifact
-        self._validated: bool = False
+        self._is_validated: bool = False
         self._cat_curator: CatCurator = None  # is None for CatCurator curators
 
     def validate(self) -> bool | str:
@@ -214,7 +214,7 @@ class Curator:
         Returns:
             A saved artifact record.
         """
-        if not self._validated:
+        if not self._is_validated:
             self.validate()  # raises ValidationError if doesn't validate
         return self._cat_curator.save_artifact(
             key=key, description=description, revises=revises, run=run
@@ -279,9 +279,9 @@ class CatCurator(Curator):
     ) -> Artifact:
         from lamindb.core._settings import settings
 
-        if not self._validated:
+        if not self._is_validated:
             self.validate()  # returns True or False
-            if not self._validated:  # need to raise error manually
+            if not self._is_validated:  # need to raise error manually
                 raise ValidationError("Dataset does not validate. Please curate.")
 
         # Make sure all labels are saved in the current instance
@@ -348,19 +348,19 @@ class DataFrameCurator(Curator):
         self._cat_curator.validate()
         try:
             self._pda_schema.validate(self._dataset)
-            if self._cat_curator._validated:
-                self._validated = True
+            if self._cat_curator._is_validated:
+                self._is_validated = True
                 return True
             else:
-                self._validated = False
+                self._is_validated = False
                 return self._cat_curator._validate_category_error_messages
         except pda.errors.SchemaError as err:
             # .exconly() doesn't seem to exist on SchemaError
             str_message = str(err)
             logger.warning(str_message)
             # need to set the cat curator to False
-            self._validated = False
-            self._cat_curator._validated = False
+            self._is_validated = False
+            self._cat_curator._is_validated = False
             # return the error message so that we can test for it
             return str_message
 
@@ -478,7 +478,7 @@ class DataFrameCatCurator(CatCurator):
         # add all validated records to the current instance
         self._update_registry_all()
         self._validate_category_error_messages = ""  # reset the error messages
-        self._validated, self._non_validated = validate_categories_in_df(  # type: ignore
+        self._is_validated, self._non_validated = validate_categories_in_df(  # type: ignore
             self._dataset,
             fields=self.categoricals,
             sources=self._sources,
@@ -486,7 +486,7 @@ class DataFrameCatCurator(CatCurator):
             curator=self,
             organism=self._organism,
         )
-        return self._validated
+        return self._is_validated
 
     def standardize(self, key: str) -> None:
         """Replace synonyms with standardized values.
@@ -752,8 +752,8 @@ class AnnDataCatCurator(CatCurator):
         self._non_validated = self._obs_df_curator._non_validated  # type: ignore
         if len(non_validated_var) > 0:
             self._non_validated["var_index"] = non_validated_var  # type: ignore
-        self._validated = validated_var and validated_obs
-        return self._validated
+        self._is_validated = validated_var and validated_obs
+        return self._is_validated
 
     def standardize(self, key: str):
         """Replace synonyms with standardized values.
@@ -1012,8 +1012,8 @@ class MuDataCatCurator(CatCurator):
                 self._non_validated[modality] = adata_curator.non_validated  # type: ignore
             logger.print("")
 
-        self._validated = obs_validated & mods_validated
-        return self._validated
+        self._is_validated = obs_validated & mods_validated
+        return self._is_validated
 
     def standardize(self, key: str, modality: str | None = None):
         """Replace synonyms with standardized values.
@@ -1096,9 +1096,9 @@ class TiledbsomaCatCurator(CatCurator):
         self._sources = sources or {}
         self._exclude = exclude or {}
 
-        self._validated: bool | None = False
+        self._is_validated: bool | None = False
         self._non_validated_values: dict[str, list] | None = None
-        self._validated_values: dict[str, list] = {}
+        self._is_validated_values: dict[str, list] = {}
         # filled by _check_save_keys
         self._n_obs: int | None = None
         self._valid_obs_keys: list[str] | None = None
@@ -1202,7 +1202,7 @@ class TiledbsomaCatCurator(CatCurator):
                 var_ms = experiment.ms[ms].var
                 var_ms_key = f"{ms}__{key}"
                 # it was already validated and cached
-                if var_ms_key in self._validated_values:
+                if var_ms_key in self._is_validated_values:
                     continue
                 var_ms_values = (
                     var_ms.read(column_names=[key]).concat()[key].to_pylist()
@@ -1231,12 +1231,12 @@ class TiledbsomaCatCurator(CatCurator):
                     validated = False
                     self._non_validated_values[var_ms_key] = non_val
                 else:
-                    self._validated_values[var_ms_key] = var_ms_values
+                    self._is_validated_values[var_ms_key] = var_ms_values
 
             obs = experiment.obs
             for key, field in self._obs_fields.items():
                 # already validated and cached
-                if key in self._validated_values:
+                if key in self._is_validated_values:
                     continue
                 values = pa.compute.unique(
                     obs.read(column_names=[key]).concat()[key]
@@ -1265,9 +1265,9 @@ class TiledbsomaCatCurator(CatCurator):
                     validated = False
                     self._non_validated_values[key] = non_val
                 else:
-                    self._validated_values[key] = values
-        self._validated = validated
-        return self._validated
+                    self._is_validated_values[key] = values
+        self._is_validated = validated
+        return self._is_validated
 
     def _non_validated_values_field(self, key: str) -> tuple[list, FieldAttr]:
         assert self._non_validated_values is not None  # noqa: S101
@@ -1296,7 +1296,9 @@ class TiledbsomaCatCurator(CatCurator):
             keys = list(self._non_validated_values.keys())
         else:
             avail_keys = list(
-                chain(self._non_validated_values.keys(), self._validated_values.keys())
+                chain(
+                    self._non_validated_values.keys(), self._is_validated_values.keys()
+                )
             )
             if key not in avail_keys:
                 raise KeyError(
@@ -1453,9 +1455,9 @@ class TiledbsomaCatCurator(CatCurator):
         """
         from lamindb.core._data import add_labels
 
-        if not self._validated:
+        if not self._is_validated:
             self.validate()
-            if not self._validated:
+            if not self._is_validated:
                 raise ValidationError("Dataset does not validate. Please curate.")
 
         if self._artifact is None:
@@ -1494,7 +1496,7 @@ class TiledbsomaCatCurator(CatCurator):
                 var_field.field.model, self._organism
             ).get("organism")
             _schemas_m2m[f"{ms}__var"] = Schema.from_values(
-                values=self._validated_values[f"{ms}__{var_key}"],
+                values=self._is_validated_values[f"{ms}__{var_key}"],
                 field=var_field,
                 organism=organism,
                 raise_validation_error=False,
@@ -1510,7 +1512,7 @@ class TiledbsomaCatCurator(CatCurator):
                 "organism"
             )
             labels = registry.from_values(
-                values=self._validated_values[key], field=field, organism=organism
+                values=self._is_validated_values[key], field=field, organism=organism
             )
             if len(labels) == 0:
                 continue
@@ -1601,7 +1603,7 @@ class SpatialDataCatCurator:
             self._sample_metadata = self._sdata.get_attrs(
                 key=self._sample_metadata_key, return_as="df", flatten=True
             )
-        self._validated = False
+        self._is_validated = False
 
         # Check validity of keys in categoricals
         nonval_keys = []
@@ -1842,8 +1844,8 @@ class SpatialDataCatCurator:
                 self._non_validated[table] = adata_curator.non_validated  # type: ignore
             logger.print("")
 
-        self._validated = sample_validated & mods_validated
-        return self._validated
+        self._is_validated = sample_validated & mods_validated
+        return self._is_validated
 
     def save_artifact(
         self,
@@ -1853,9 +1855,9 @@ class SpatialDataCatCurator:
         revises: Artifact | None = None,
         run: Run | None = None,
     ) -> Artifact:
-        if not self._validated:
+        if not self._is_validated:
             self.validate()
-            if not self._validated:
+            if not self._is_validated:
                 raise ValidationError("Dataset does not validate. Please curate.")
 
         verbosity = settings.verbosity
@@ -2738,7 +2740,7 @@ class PertAnnDataCatCurator(CellxGeneAnnDataCatCurator):
         if self._pert_time:
             validated &= self._validate_time_column()
 
-        self._validated = validated
+        self._is_validated = validated
 
         # sort columns
         first_columns = [
