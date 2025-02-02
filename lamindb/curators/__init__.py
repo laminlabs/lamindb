@@ -863,6 +863,7 @@ class MuDataCatCurator:
         self._modalities = set(self._var_fields.keys()) | set(self._obs_fields.keys())
         self._verbosity = verbosity
         self._obs_df_curator = None
+        self._organism = organism
         if "obs" in self._modalities:
             self._obs_df_curator = DataFrameCatCurator(
                 df=mdata.obs,
@@ -1088,6 +1089,7 @@ class MuDataCatCurator:
                 revises=revises,
                 run=run,
                 schema=None,
+                organism=self._organism,
             )
         finally:
             settings.verbosity = verbosity
