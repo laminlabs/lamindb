@@ -976,13 +976,9 @@ class MuDataCatCurator:
     def _update_registry_all(self):
         """Update all registries."""
         if self._obs_df_curator is not None:
-            self._obs_df_curator._update_registry_all(
-                validated_only=True, organism=self._organism
-            )
+            self._obs_df_curator._update_registry_all(validated_only=True)
         for _, adata_curator in self._mod_adata_curators.items():
-            adata_curator._update_registry_all(
-                validated_only=True, organism=self._organism
-            )
+            adata_curator._update_registry_all(validated_only=True)
 
     def add_new_from(
         self,
