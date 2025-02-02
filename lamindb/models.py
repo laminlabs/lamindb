@@ -2108,6 +2108,7 @@ class Schema(Record, CanCurate, TracksRun):
         abstract = False
 
     _name_field: str = "name"
+    _aux_fields: dict[str, tuple[str, type]] = {"0": ("coerce_dtype", bool)}
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -2204,6 +2205,7 @@ class Schema(Record, CanCurate, TracksRun):
         name: str | None = None,
         type: ULabel | None = None,
         is_type: bool = False,
+        coerce_dtype: bool = False,
     ): ...
 
     @overload
@@ -2278,6 +2280,22 @@ class Schema(Record, CanCurate, TracksRun):
     def members(self) -> QuerySet:
         """A queryset for the individual records of the set."""
         pass
+
+    @property
+    def coerce_dtype(self) -> bool:
+        """Whether dtypes should be coerced during validation."""
+        if self._aux is not None and "af" in self._aux and "0" in self._aux["af"]:
+            return self._aux["af"]["0"]
+        else:
+            return False
+
+    @coerce_dtype.setter
+    def coerce_dtype(self, value: bool) -> None:
+        if self._aux is None:
+            self._aux = {}
+        if "af" not in self._aux["af"]:
+            self._aux["af"] = {}
+        self._aux["af"]["0"] = value
 
     @property
     @deprecated("itype")

@@ -81,6 +81,7 @@ def __init__(self, *args, **kwargs):
     composite: Schema | None = kwargs.pop("composite", None)
     slot: str | None = kwargs.pop("slot", None)
     validated_by: Schema | None = kwargs.pop("validated_by", None)
+    coerce_dtype: bool | None = kwargs.pop("coerce_dtype", None)
 
     # Check for unexpected keyword arguments
     if kwargs:
@@ -88,7 +89,7 @@ def __init__(self, *args, **kwargs):
             f"Unexpected keyword arguments: {', '.join(kwargs.keys())}\n"
             "Valid arguments are: features, description, dtype, itype, type, "
             "is_type, otype, minimal_set, ordered_set, maximal_set, composite, "
-            "slot, validated_by"
+            "slot, validated_by, coerce_dtype"
         )
 
     # now code
@@ -116,6 +117,8 @@ def __init__(self, *args, **kwargs):
         "slot": slot,
         "validated_by": validated_by,
     }
+    if coerce_dtype:
+        validated_kwargs["_aux"] = {"af": {"0": coerce_dtype}}
     # compute hash
     schema = Schema.filter(hash=hash).one_or_none()
     if schema is not None:
