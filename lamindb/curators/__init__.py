@@ -411,7 +411,6 @@ class DataFrameCatCurator(CatCurator):
             raise ValueError("organism must be a string such as 'human' or 'mouse'!")
 
         settings.verbosity = verbosity
-        self._artifact = None
         self._non_validated = None
         super().__init__(
             dataset=df,
