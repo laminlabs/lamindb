@@ -9,26 +9,24 @@ import pytest
 
 @pytest.fixture(scope="module")
 def currency_labels():
-    # Create currency type and labels
     currency_type = ln.ULabel(name="Currency", is_type=True).save()
     usd = ln.ULabel(name="USD", type=currency_type).save()
     eur = ln.ULabel(name="EUR", type=currency_type).save()
 
+    assert usd.type == currency_type
+    assert eur.type == currency_type
+
     yield currency_type, usd, eur
 
-    # Cleanup
     eur.delete()
     usd.delete()
     currency_type.delete()
 
 
 @pytest.fixture(scope="module")
-def transactions_features():
-    # Create features
-    currency_feature = ln.Feature(
-        name="currency_name", dtype="cat[ULabel[Currency].name]"
-    ).save()
-    date_feature = ln.Feature(name="date", dtype="date").save()
+def transactions_features(currency_labels):
+    currency = ln.Feature(name="currency_name", dtype="cat[ULabel[Currency]]").save()
+    date = ln.Feature(name="date", dtype="date").save()
 
     transaction_type = ln.Feature(name="Transaction", is_type=True).save()
     amount_usd = ln.Feature(
@@ -38,21 +36,18 @@ def transactions_features():
         name="transaction_amount_eur_cent", dtype=int, type=transaction_type
     ).save()
 
-    yield currency_feature, date_feature, transaction_type, amount_usd, amount_eur
+    yield currency, date, amount_usd, amount_eur
 
-    # Cleanup
     amount_eur.delete()
     amount_usd.delete()
     transaction_type.delete()
-    date_feature.delete()
-    currency_feature.delete()
+    date.delete()
+    currency.delete()
 
 
 @pytest.fixture(scope="module")
 def transactions_schema(transactions_features):
-    # Create schema
-    _, date_feature, _, amount_usd, amount_eur = transactions_features
-    currency_feature = ln.Feature.get(name="currency_name")
+    currency_feature, date_feature, amount_usd, amount_eur = transactions_features
 
     schema = ln.Schema(
         name="transaction_dataframe",
@@ -67,7 +62,6 @@ def transactions_schema(transactions_features):
 
     yield schema
 
-    # Cleanup
     schema.delete()
 
 
@@ -101,22 +95,6 @@ def test_schema_creation(transactions_schema):
         "transaction_amount_eur_cent",
         "currency_name",
     ]
-
-
-def test_currency_labels(currency_labels):
-    """Test if currency labels were created properly"""
-    currency_type, usd, eur = currency_labels
-
-    # Test currency type
-    assert ln.ULabel.get(name="Currency", is_type=True) is not None
-
-    # Test currency labels
-    assert ln.ULabel.get(name="USD") is not None
-    assert ln.ULabel.get(name="EUR") is not None
-
-    # Test relationships
-    assert usd.type == currency_type
-    assert eur.type == currency_type
 
 
 def test_data_curation(transactions_schema, transactions_dataframe):

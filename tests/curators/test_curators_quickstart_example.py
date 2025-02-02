@@ -52,6 +52,25 @@ def curator_params():
     }
 
 
+def test_dataframe_curator(small_dataset1_features, curator_params):
+    """Test DataFrame curator implementation."""
+    df, metadata = datasets.small_dataset1(format="df")
+    curator = ln.Curator.from_df(df, **curator_params)
+    artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
+    artifact.features.add_values(metadata)
+
+    assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
+        "T cell",
+        "B cell",
+    }
+    assert set(artifact.features.get_values()["cell_type_by_model"]) == {
+        "T cell",
+        "B cell",
+    }
+
+    artifact.delete(permanent=True)
+
+
 def test_anndata_curator(small_dataset1_features, curator_params):
     """Test AnnData curator implementation."""
     adata = datasets.small_dataset1(format="anndata")
@@ -98,22 +117,3 @@ def test_soma_curator(small_dataset1_features, curator_params):
     assert artifact._key_is_virtual
     artifact.delete(permanent=True)
     shutil.rmtree("./small_dataset1.tiledbsoma")
-
-
-def test_dataframe_curator(small_dataset1_features, curator_params):
-    """Test DataFrame curator implementation."""
-    df, metadata = datasets.small_dataset1(format="df")
-    curator = ln.Curator.from_df(df, **curator_params)
-    artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
-    artifact.features.add_values(metadata)
-
-    assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
-        "T cell",
-        "B cell",
-    }
-    assert set(artifact.features.get_values()["cell_type_by_model"]) == {
-        "T cell",
-        "B cell",
-    }
-
-    artifact.delete(permanent=True)
