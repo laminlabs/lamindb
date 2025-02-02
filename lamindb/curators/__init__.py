@@ -773,7 +773,7 @@ class AnnDataCatCurator(DataFrameCatCurator):
                 )
 
 
-class MuDataCatCurator:
+class MuDataCatCurator(CatCurator):
     """Curation flow for a ``MuData`` object.
 
     See also :class:`~lamindb.Curator`.
@@ -827,7 +827,7 @@ class MuDataCatCurator:
         if exclude is None:
             exclude = {}
         self._exclude = exclude
-        self._mdata = mdata
+        self._dataset = mdata
         self._kwargs = {"organism": organism} if organism else {}
         self._var_fields = var_index
         self._verify_modality(self._var_fields.keys())
@@ -872,7 +872,7 @@ class MuDataCatCurator:
         return self._obs_fields
 
     @property
-    def non_validated(self) -> dict[str, dict[str, list[str]]]:
+    def non_validated(self) -> dict[str, dict[str, list[str]]]:  # type: ignore
         """Return the non-validated features and labels."""
         if self._non_validated is None:
             raise ValidationError("Please run validate() first!")
@@ -881,15 +881,15 @@ class MuDataCatCurator:
     def _verify_modality(self, modalities: Iterable[str]):
         """Verify the modality exists."""
         for modality in modalities:
-            if modality not in self._mdata.mod.keys():
+            if modality not in self._dataset.mod.keys():
                 raise ValidationError(f"modality '{modality}' does not exist!")
 
     def _parse_categoricals(self, categoricals: dict[str, FieldAttr]) -> dict:
         """Parse the categorical fields."""
-        prefixes = {f"{k}:" for k in self._mdata.mod.keys()}
+        prefixes = {f"{k}:" for k in self._dataset.mod.keys()}
         obs_fields: dict[str, dict[str, FieldAttr]] = {}
         for k, v in categoricals.items():
-            if k not in self._mdata.obs.columns:
+            if k not in self._dataset.obs.columns:
                 raise ValidationError(f"column '{k}' does not exist in mdata.obs!")
             if any(k.startswith(prefix) for prefix in prefixes):
                 modality, col = k.split(":")[0], k.split(":")[1]
@@ -1030,7 +1030,7 @@ def _maybe_curation_keys_not_present(nonval_keys: list[str], name: str):
         )
 
 
-class TiledbsomaCatCurator(Curator):
+class TiledbsomaCatCurator(CatCurator):
     """Curation flow for `tiledbsoma.Experiment`.
 
     See also :class:`~lamindb.Curator`.
