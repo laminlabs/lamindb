@@ -45,6 +45,7 @@ Modules and settings.
    integrations
    context
    settings
+   errors
    setup
    UPath
    base
@@ -60,7 +61,7 @@ from lamindb_setup._check_setup import _check_instance_setup
 from lamindb_setup._connect_instance import connect
 from lamindb_setup.core.upath import UPath
 
-from . import base, setup
+from . import base, errors, setup
 
 
 def __getattr__(name):
