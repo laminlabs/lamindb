@@ -828,7 +828,7 @@ class MuDataCatCurator(CatCurator):
             exclude = {}
         self._exclude = exclude
         self._dataset = mdata
-        self._kwargs = {"organism": organism} if organism else {}
+        self._organism = organism
         self._var_fields = var_index
         self._verify_modality(self._var_fields.keys())
         self._obs_fields = self._parse_categoricals(categoricals)
