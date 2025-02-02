@@ -164,9 +164,10 @@ class Curator:
     - non-validated values can be accessed using :meth:`~lamindb.core.DataFrameCatCurator.non_validated` and addressed manually
     """
 
-    def __init__(self, dataset: Any):
+    def __init__(self, dataset: Any, schema: Schema | None = None):
         self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
         self._artifact: Artifact = None  # pass the dataset as a non-curated artifact
+        self._schema: Schema | None = schema
         self._is_validated: bool = False
         self._cat_curator: CatCurator = None  # is None for CatCurator curators
 
@@ -326,10 +327,10 @@ class DataFrameCurator(Curator):
         dataset: pd.DataFrame,
         schema: Schema,
     ) -> None:
-        self._dataset: pd.DataFrame = dataset
+        super().__init__(dataset=dataset, schema=schema)
+        # populate features
         non_categoricals = {}
         categoricals = {}
-        self._schema = schema
         for feature in schema.features.all():
             pda_dtype = (
                 feature.dtype if not feature.dtype.startswith("cat") else "category"
@@ -337,7 +338,9 @@ class DataFrameCurator(Curator):
             non_categoricals[feature.name] = pda.Column(pda_dtype)
             if feature.dtype.startswith("cat"):
                 categoricals[feature.name] = parse_dtype(feature.dtype)[0]["field"]
-        self._pda_schema = pda.DataFrameSchema(non_categoricals, coerce=True)
+        self._pda_schema = pda.DataFrameSchema(
+            non_categoricals, coerce=schema.coerce_dtype
+        )
         # now deal with categorical features using the old-style curator
         self._cat_curator = DataFrameCatCurator(
             dataset,

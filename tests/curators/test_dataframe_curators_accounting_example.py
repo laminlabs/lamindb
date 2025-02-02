@@ -8,7 +8,8 @@ import pytest
 
 
 @pytest.fixture(scope="module")
-def currency_labels():
+def transactions_schema():
+    # Labels
     currency_type = ln.ULabel(name="Currency", is_type=True).save()
     usd = ln.ULabel(name="USD", type=currency_type).save()
     eur = ln.ULabel(name="EUR", type=currency_type).save()
@@ -16,15 +17,7 @@ def currency_labels():
     assert usd.type == currency_type
     assert eur.type == currency_type
 
-    yield currency_type, usd, eur
-
-    eur.delete()
-    usd.delete()
-    currency_type.delete()
-
-
-@pytest.fixture(scope="module")
-def transactions_features(currency_labels):
+    # Features
     currency = ln.Feature(name="currency_name", dtype="cat[ULabel[Currency]]").save()
     date = ln.Feature(name="date", dtype="date").save()
 
@@ -36,33 +29,30 @@ def transactions_features(currency_labels):
         name="transaction_amount_eur_cent", dtype=int, type=transaction_type
     ).save()
 
-    yield currency, date, amount_usd, amount_eur
-
-    amount_eur.delete()
-    amount_usd.delete()
-    transaction_type.delete()
-    date.delete()
-    currency.delete()
-
-
-@pytest.fixture(scope="module")
-def transactions_schema(transactions_features):
-    currency_feature, date_feature, amount_usd, amount_eur = transactions_features
-
+    # Schema
     schema = ln.Schema(
         name="transaction_dataframe",
         otype="DataFrame",
         features=[
-            date_feature,
+            date,
             amount_usd,
             amount_eur,
-            currency_feature,
+            currency,
         ],
+        coerce_dtype=True,
     ).save()
 
     yield schema
 
     schema.delete()
+    amount_eur.delete()
+    amount_usd.delete()
+    transaction_type.delete()
+    date.delete()
+    currency.delete()
+    eur.delete()
+    usd.delete()
+    currency_type.delete()
 
 
 @pytest.fixture
