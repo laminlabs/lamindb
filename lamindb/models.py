@@ -2290,6 +2290,7 @@ class Schema(Record, CanCurate, TracksRun):
 
 
 class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
+    # Note that this docstring has to be consistent with Curator.save_artifact()
     """Datasets & models stored as files, folders, or arrays.
 
     Artifacts manage data in local or remote storage.
@@ -2302,7 +2303,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         kind: `Literal["dataset", "model"] | None = None` Distinguish models from datasets from other files & folders.
         key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
         description: `str | None = None` A description.
-        revises: `Artifact | None = None` Previous version of the artifact. Triggers a revision.
+        revises: `Artifact | None = None` Previous version of the artifact. Is an alternative way to passing `key` to trigger a revision.
         run: `Run | None = None` The run that creates the artifact.
 
     .. dropdown:: Typical storage formats & their API accessors

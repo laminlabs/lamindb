@@ -764,6 +764,7 @@ def from_mudata(
         kind="dataset",
         **kwargs,
     )
+    artifact.n_observations = mdata.n_obs
     return artifact
 
 
