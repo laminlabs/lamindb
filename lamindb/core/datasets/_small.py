@@ -8,16 +8,21 @@ import pandas as pd
 
 
 def small_dataset1(
-    format: Literal["df", "anndata"],
+    otype: Literal["DataFrame", "AnnData"],
+    gene_symbols_in_index: bool = False,
     with_typo: bool = False,
 ) -> tuple[pd.DataFrame, dict[str, Any]] | ad.AnnData:
     # define the data in the dataset
     # it's a mix of numerical measurements and observation-level metadata
     ifng = "IFNJ" if with_typo else "IFNG"
+    if gene_symbols_in_index:
+        var_ids = ["CD8A", "CD4", "CD14"]
+    else:
+        var_ids = ["ENSG00000153563", "ENSG00000010610", "ENSG00000170458"]
     dataset_dict = {
-        "CD8A": [1, 2, 3],
-        "CD4": [3, 4, 5],
-        "CD14": [5, 6, 7],
+        var_ids[0]: [1, 2, 3],
+        var_ids[1]: [3, 4, 5],
+        var_ids[2]: [5, 6, 7],
         "cell_medium": ["DMSO", ifng, "DMSO"],
         "sample_note": ["was ok", "looks naah", "pretty! 🤩"],
         "cell_type_by_expert": ["B cell", "T cell", "T cell"],
@@ -42,12 +47,17 @@ def small_dataset1(
 
 
 def small_dataset2(
-    format: Literal["df", "anndata"],
+    otype: Literal["DataFrame", "AnnData"],
+    gene_symbols_in_index: bool = False,
 ) -> tuple[pd.DataFrame, dict[str, Any]] | ad.AnnData:
+    if gene_symbols_in_index:
+        var_ids = ["CD8A", "CD4", "CD38"]
+    else:
+        var_ids = ["ENSG00000153563", "ENSG00000010610", "ENSG00000004468"]
     dataset_dict = {
-        "CD8A": [2, 3, 3],
-        "CD4": [3, 4, 5],
-        "CD38": [4, 2, 3],
+        var_ids[0]: [2, 3, 3],
+        var_ids[1]: [3, 4, 5],
+        var_ids[2]: [4, 2, 3],
         "cell_medium": ["DMSO", "IFNG", "IFNG"],
         "cell_type_by_model": ["B cell", "T cell", "T cell"],
     }

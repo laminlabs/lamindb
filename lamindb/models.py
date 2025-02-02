@@ -2057,19 +2057,19 @@ class Schema(Record, CanCurate, TracksRun):
         These reasons do not hold for label sets. Hence, LaminDB does not model label sets.
 
     Args:
-        features: `Iterable[Record]` An iterable of :class:`~lamindb.Feature`
+        features: `Iterable[Record] | None = None` An iterable of :class:`~lamindb.Feature`
             records to hash, e.g., `[Feature(...), Feature(...)]`. Is turned into
             a set upon instantiation. If you'd like to pass values, use
             :meth:`~lamindb.Schema.from_values` or
             :meth:`~lamindb.Schema.from_df`.
+        name: `str | None = None` A name.
         dtype: `str | None = None` The simple type. Defaults to
             `None` for sets of :class:`~lamindb.Feature` records.
             Otherwise defaults to `"num"` (e.g., for sets of :class:`~bionty.Gene`).
-        name: `str | None = None` A name.
 
     Note:
 
-        A feature set can be identified by the `hash` its feature uids.
+        A feature set can be identified by the `hash` of its feature uids.
         It's stored in the `.hash` field.
 
         A `slot` provides a string key to access feature sets.
@@ -2083,24 +2083,20 @@ class Schema(Record, CanCurate, TracksRun):
 
     Examples:
 
-        Create a feature set / schema from df with types:
+        Create a schema (feature set) from df with types:
 
         >>> df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
-        >>> feature_set = ln.FeatureSet.from_df(df)
+        >>> schema = ln.Schema.from_df(df)
 
-        Create a feature set / schema from features:
+        Create a schema (feature set) from features:
 
         >>> features = [ln.Feature(name=feat, dtype="float").save() for feat in ["feat1", "feat2"]]
-        >>> feature_set = ln.FeatureSet(features)
+        >>> schema = ln.Schema(features)
 
-        Create a feature set / schema from feature values:
+        Create a schema (feature set) from identifier values:
 
         >>> import bionty as bt
-        >>> feature_set = ln.FeatureSet.from_values(adata.var["ensemble_id"], Gene.ensembl_gene_id, organism="mouse").save()
-
-        Link a feature set to an artifact:
-
-        >>> artifact.features.add_feature_set(feature_set, slot="var")
+        >>> schema = ln.Schema.from_values(adata.var["ensemble_id"], Gene.ensembl_gene_id, organism="mouse").save()
 
     """
 
@@ -2200,11 +2196,20 @@ class Schema(Record, CanCurate, TracksRun):
     @overload
     def __init__(
         self,
-        features: Iterable[Record],
-        dtype: str | None = None,
+        features: Iterable[Record] | None = None,
         name: str | None = None,
+        description: str | None = None,
+        dtype: str | None = None,
+        itype: str | None = None,
         type: ULabel | None = None,
         is_type: bool = False,
+        otype: str | None = None,
+        minimal_set: bool = True,
+        ordered_set: bool = False,
+        maximal_set: bool = False,
+        composite: Schema | None = None,
+        slot: str | None = None,
+        validated_by: Schema | None = None,
         coerce_dtype: bool = False,
     ): ...
 
@@ -2305,6 +2310,18 @@ class Schema(Record, CanCurate, TracksRun):
     @registry.setter
     def registry(self, value) -> None:
         self.itype = value
+
+    def describe(self, return_str=False) -> None | str:
+        """Describe schema."""
+        components = Schema.filter(composite=self).all()
+        message = str(self) + "\ncomponents:"
+        for component in components:
+            message += "\n    " + str(component)
+        if return_str:
+            return message
+        else:
+            print(message)
+            return None
 
 
 class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):

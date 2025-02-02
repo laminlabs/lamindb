@@ -10,6 +10,7 @@ from lamindb_setup.core.hashing import hash_set
 
 from lamindb.base import ids
 from lamindb.base.types import FieldAttr, ListLike
+from lamindb.errors import InvalidArgument
 from lamindb.models import Feature, Record, Schema
 
 from ._feature import convert_pandas_dtype_to_lamin_dtype
@@ -60,14 +61,10 @@ def __init__(self, *args, **kwargs):
     if len(args) == len(self._meta.concrete_fields):
         super(Schema, self).__init__(*args, **kwargs)
         return None
-    # now we proceed with the user-facing constructor
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: features")
 
-    # Extract primary constructor arguments
-    features: Iterable[Record] = kwargs.pop("features") if len(args) == 0 else args[0]
-
-    # Extract all possible field values with their defaults
+    features: Iterable[Record] | None = args[0] if args else kwargs.pop("features", [])
     name: str | None = kwargs.pop("name", None)
     description: str | None = kwargs.pop("description", None)
     dtype: str | None = kwargs.pop("dtype", None)
@@ -83,7 +80,6 @@ def __init__(self, *args, **kwargs):
     validated_by: Schema | None = kwargs.pop("validated_by", None)
     coerce_dtype: bool | None = kwargs.pop("coerce_dtype", None)
 
-    # Check for unexpected keyword arguments
     if kwargs:
         raise ValueError(
             f"Unexpected keyword arguments: {', '.join(kwargs.keys())}\n"
@@ -92,12 +88,21 @@ def __init__(self, *args, **kwargs):
             "slot, validated_by, coerce_dtype"
         )
 
-    # now code
-    features_registry = validate_features(features)
+    if features:
+        features_registry = validate_features(features)
+        itype_compare = features_registry.__get_name_with_module__()
+        if itype is not None:
+            assert itype == itype_compare, str(itype_compare)  # noqa: S101
+        else:
+            itype = itype_compare
+        n_features = len(features)
+    else:
+        n_features = -1
     if dtype is None:
-        dtype = None if features_registry == Feature else NUMBER_TYPE
-    n_features = len(features)
-    hash = hash_set({feature.uid for feature in features})
+        dtype = None if itype is not None and itype == "Feature" else NUMBER_TYPE
+    if composite is not None and composite._state.adding:
+        raise InvalidArgument(f"composite schema {composite} must be saved before use")
+
     validated_kwargs = {
         "name": name,
         "description": description,
@@ -106,10 +111,7 @@ def __init__(self, *args, **kwargs):
         "is_type": is_type,
         "otype": otype,
         "n": n_features,
-        "itype": (
-            features_registry.__get_name_with_module__() if itype is None else itype
-        ),
-        "hash": hash,
+        "itype": itype,
         "minimal_set": minimal_set,
         "ordered_set": ordered_set,
         "maximal_set": maximal_set,
@@ -119,7 +121,11 @@ def __init__(self, *args, **kwargs):
     }
     if coerce_dtype:
         validated_kwargs["_aux"] = {"af": {"0": coerce_dtype}}
-    # compute hash
+    if features:
+        hash = hash_set({feature.uid for feature in features})
+    else:
+        hash = hash_set({str(value) for value in validated_kwargs.values()})
+    validated_kwargs["hash"] = hash
     schema = Schema.filter(hash=hash).one_or_none()
     if schema is not None:
         logger.important(f"returning existing schema with same hash: {schema}")
@@ -127,7 +133,8 @@ def __init__(self, *args, **kwargs):
         update_attributes(self, validated_kwargs)
         return None
     else:
-        self._features = (get_related_name(features_registry), features)
+        if features:
+            self._features = (get_related_name(features_registry), features)
         validated_kwargs["uid"] = ids.base62_20()
         super(Schema, self).__init__(**validated_kwargs)
 
