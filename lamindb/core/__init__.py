@@ -31,7 +31,6 @@ Curators:
 .. autosummary::
    :toctree: .
 
-   Curator
    DataFrameCatCurator
    AnnDataCatCurator
    MuDataCatCurator
