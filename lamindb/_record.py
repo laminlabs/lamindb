@@ -42,7 +42,7 @@ from lamindb_setup.core._hub_core import connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
 from lamindb_setup.core.upath import extract_suffix_from_path
 
-from lamindb.core.exceptions import FieldValidationError
+from lamindb.errors import FieldValidationError
 from lamindb.models import (
     Artifact,
     BasicRecord,
@@ -61,7 +61,7 @@ from lamindb.models import (
 
 from ._utils import attach_func_to_class_method
 from .core._settings import settings
-from .core.exceptions import (
+from .errors import (
     InvalidArgument,
     RecordNameChangeIntegrityError,
     ValidationError,

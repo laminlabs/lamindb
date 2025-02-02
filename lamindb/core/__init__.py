@@ -97,7 +97,6 @@ from lamindb.models import (
     ValidateFields,
 )
 
-from .. import errors as exceptions  # backward compat
 from . import _data, datasets, fields, loaders, subsettings, types
 from ._context import Context
 from ._mapped_collection import MappedCollection

@@ -10,7 +10,7 @@ from pandas.api.types import CategoricalDtype, is_string_dtype
 
 from lamindb._record import _get_record_kwargs
 from lamindb.base.types import FeatureDtype
-from lamindb.core.exceptions import FieldValidationError, ValidationError
+from lamindb.errors import FieldValidationError, ValidationError
 from lamindb.models import Artifact, Feature, Record
 
 from ._query_set import RecordList

@@ -26,7 +26,7 @@ from lamindb.models import (
     Transform,
 )
 
-from .core.exceptions import DoesNotExist
+from .errors import DoesNotExist
 
 T = TypeVar("T")
 

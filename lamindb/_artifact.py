@@ -24,7 +24,7 @@ from lamindb_setup.core.upath import (
 )
 
 from lamindb._record import _get_record_kwargs
-from lamindb.core.exceptions import FieldValidationError
+from lamindb.errors import FieldValidationError
 from lamindb.models import Artifact, FeatureManager, ParamManager, Run, Storage
 
 from ._parents import view_lineage
@@ -37,7 +37,6 @@ from .core._data import (
     save_staged__schemas_m2m,
 )
 from .core._settings import settings
-from .core.exceptions import IntegrityError, InvalidArgument
 from .core.loaders import load_to_memory
 from .core.storage import (
     LocalPathClasses,
@@ -61,6 +60,7 @@ from .core.versioning import (
     create_uid,
     message_update_key_in_version_family,
 )
+from .errors import IntegrityError, InvalidArgument
 
 try:
     from .core.storage._zarr import zarr_is_adata

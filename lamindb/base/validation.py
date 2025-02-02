@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING, Literal, Union, get_args, get_origin, get_type
 
 from lamin_utils import colors
 
-from lamindb.core.exceptions import FieldValidationError
+from lamindb.errors import FieldValidationError
 
 if TYPE_CHECKING:
     from .models import Record

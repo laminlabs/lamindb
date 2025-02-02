@@ -52,7 +52,7 @@ from lamindb.models import (
 )
 
 from .._from_values import _format_values
-from ..core.exceptions import ValidationError
+from ..errors import ValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, MutableMapping

@@ -14,7 +14,7 @@ from lamindb.models import CanCurate, Record
 from ._from_values import _format_values, _has_organism_field, get_or_create_records
 from ._record import _queryset, get_name_field
 from ._utils import attach_func_to_class_method
-from .core.exceptions import ValidationError
+from .errors import ValidationError
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet

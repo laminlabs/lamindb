@@ -33,8 +33,8 @@ from lamindb._record import (
 )
 from lamindb._save import save
 from lamindb._schema import DICT_KEYS_TYPE, Schema
-from lamindb.core.exceptions import DoesNotExist, ValidationError
 from lamindb.core.storage import LocalPathClasses
+from lamindb.errors import DoesNotExist, ValidationError
 from lamindb.models import (
     Artifact,
     Collection,

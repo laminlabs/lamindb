@@ -21,6 +21,7 @@ from lamindb.models import (
     record_repr,
 )
 
+from ..errors import ValidationError
 from ._context import context
 from ._django import get_artifact_with_related, get_related_model
 from ._feature_manager import (
@@ -28,7 +29,6 @@ from ._feature_manager import (
     get_host_id_field,
     get_label_links,
 )
-from .exceptions import ValidationError
 from .relations import (
     dict_module_name_to_model_name,
     dict_related_model_to_related_name,
