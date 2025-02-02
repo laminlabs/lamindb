@@ -566,7 +566,6 @@ class DataFrameCatCurator(CatCurator):
         )
         return self._validated
 
-    @deprecated(new_name="manage manually")
     def clean_up_failed_runs(self):
         """Clean up previous failed runs that don't save any outputs."""
         from lamindb.core._context import context
@@ -830,6 +829,7 @@ class MuDataCatCurator(CatCurator):
         self._dataset = mdata
         self._organism = organism
         self._var_fields = var_index
+        self._columns_field = var_index  # this is for consistency with BaseCatCurator
         self._verify_modality(self._var_fields.keys())
         self._obs_fields = self._parse_categoricals(categoricals)
         self._modalities = set(self._var_fields.keys()) | set(self._obs_fields.keys())
