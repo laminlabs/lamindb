@@ -34,7 +34,7 @@ from .core._data import (
     describe,
     get_run,
     save_schema_links,
-    save_staged__schemas_m2m,
+    save_staged_schemas_m2m,
 )
 from .core._settings import settings
 from .core.loaders import load_to_memory
@@ -1247,7 +1247,7 @@ def save(self, upload: bool | None = None, **kwargs) -> Artifact:
 
 
 def _save_skip_storage(file, **kwargs) -> None:
-    save_staged__schemas_m2m(file)
+    save_staged_schemas_m2m(file)
     super(Artifact, file).save(**kwargs)
     save_schema_links(file)
 

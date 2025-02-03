@@ -89,12 +89,7 @@ def test_dataframe_curator(small_dataset1_schema):
 def test_anndata_curator(small_dataset1_schema: ln.Schema, curator_params):
     """Test AnnData curator implementation."""
 
-    adata_schema = ln.Schema(
-        name="small_dataset1_anndata_schema",
-        otype="AnnData",
-    ).save()
     obs_schema = small_dataset1_schema
-    obs_schema.composite = adata_schema
     obs_schema.slot = "obs"
     obs_schema.save()
     var_schema = ln.Schema(
@@ -103,8 +98,15 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema, curator_params):
         itype="bionty.Gene.ensembl_gene_id",
         dtype="num",
         slot="var",
-        composite=adata_schema,
     ).save()
+    adata_schema = ln.Schema(
+        name="small_dataset1_anndata_schema",
+        otype="AnnData",
+        components=[obs_schema, var_schema],
+    ).save()
+
+    assert adata_schema.components.get(slot="obs").composite == adata_schema
+    assert adata_schema.components.get(slot="var").composite == adata_schema
 
     describe_output = adata_schema.describe(return_str=True)
     assert "small_dataset1_anndata_schema" in describe_output
@@ -114,6 +116,7 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema, curator_params):
     adata = datasets.small_dataset1(otype="AnnData")
     curator = ln.curators.AnnDataCurator(adata, adata_schema)
     artifact = curator.save_artifact(key="example_datasets/dataset1.h5ad")
+    assert artifact.schema == adata_schema
 
     assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
         "T cell",

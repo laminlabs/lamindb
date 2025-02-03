@@ -65,6 +65,11 @@ def __init__(self, *args, **kwargs):
         raise ValueError("Only one non-keyword arg allowed: features")
 
     features: Iterable[Record] | None = args[0] if args else kwargs.pop("features", [])
+    # second typing argument below is for internal use
+    # due to legacy schema linking mechanism via _schemas_m2m
+    components: Iterable[Schema] | dict[str, Schema] | None = kwargs.pop(
+        "components", {}
+    )
     name: str | None = kwargs.pop("name", None)
     description: str | None = kwargs.pop("description", None)
     dtype: str | None = kwargs.pop("dtype", None)
@@ -100,14 +105,25 @@ def __init__(self, *args, **kwargs):
         n_features = -1
     if dtype is None:
         dtype = None if itype is not None and itype == "Feature" else NUMBER_TYPE
+    else:
+        dtype = get_type_str(dtype)
     if composite is not None and composite._state.adding:
         raise InvalidArgument(f"composite schema {composite} must be saved before use")
-
+    components_dict: dict[str, Schema]
+    if not isinstance(components, dict):
+        for component in components:
+            if component.slot is None:
+                raise InvalidArgument(f"`.slot` cannot be None in {component}")
+        components_dict = {component.slot: component for component in components}
+    else:
+        components_dict = components
+    if components_dict:
+        itype = "Composite"
     validated_kwargs = {
         "name": name,
         "description": description,
         "type": type,
-        "dtype": get_type_str(dtype),
+        "dtype": dtype,
         "is_type": is_type,
         "otype": otype,
         "n": n_features,
@@ -116,37 +132,57 @@ def __init__(self, *args, **kwargs):
         "ordered_set": ordered_set,
         "maximal_set": maximal_set,
         "composite": composite,
-        "slot": slot,
         "validated_by": validated_by,
     }
     if coerce_dtype:
         validated_kwargs["_aux"] = {"af": {"0": coerce_dtype}}
     if features:
         hash = hash_set({feature.uid for feature in features})
+    elif components:
+        hash = hash_set({component.hash for component in components_dict.values()})
     else:
         hash = hash_set({str(value) for value in validated_kwargs.values()})
     validated_kwargs["hash"] = hash
+    validated_kwargs["slot"] = slot
     schema = Schema.filter(hash=hash).one_or_none()
     if schema is not None:
         logger.important(f"returning existing schema with same hash: {schema}")
         init_self_from_db(self, schema)
         update_attributes(self, validated_kwargs)
         return None
-    else:
-        if features:
-            self._features = (get_related_name(features_registry), features)
-        validated_kwargs["uid"] = ids.base62_20()
-        super(Schema, self).__init__(**validated_kwargs)
+    if features:
+        self._features = (get_related_name(features_registry), features)
+    elif components:
+        for slot, component in components_dict.items():
+            if component._state.adding:
+                raise InvalidArgument(
+                    f"component schema {component} must be saved before use"
+                )
+            if component.slot is None:
+                component.slot = slot
+            else:
+                assert component.slot == slot, (  # noqa: S101
+                    f"slot mismatch: {component.slot} != {slot}"
+                )
+            assert component.composite is None, (  # noqa: S101
+                f"component already used by {component.composite}"
+            )
+        self._components = components_dict
+    validated_kwargs["uid"] = ids.base62_20()
+    super(Schema, self).__init__(**validated_kwargs)
 
 
 @doc_args(Schema.save.__doc__)
 def save(self, *args, **kwargs) -> Schema:
     """{}"""  # noqa: D415
-    if self.slot is not None:
-        assert self.composite is not None, "pass `composite` schema"  # noqa: S101
     if self.composite is not None:
         assert self.slot is not None, "pass `slot`, e.g., to 'var', 'obs', etc."  # noqa: S101
     super(Schema, self).save(*args, **kwargs)
+    if hasattr(self, "_components"):
+        # we need to update the components because we set the slot and the composite
+        for component in self._components.values():
+            component.composite = self
+            component.save()
     if hasattr(self, "_features"):
         assert self.n > 0  # noqa: S101
         related_name, records = self._features
@@ -249,7 +285,7 @@ def from_df(
         validated_features = Feature.from_values(  # type: ignore
             df.columns, field=field, organism=organism
         )
-        schema = Schema(validated_features, name=name, dtype=None)
+        schema = Schema(validated_features, name=name, dtype=None, otype="DataFrame")
     else:
         dtypes = [col.dtype for (_, col) in df.loc[:, validated].items()]
         if len(set(dtypes)) != 1:
@@ -265,6 +301,7 @@ def from_df(
             features=validated_features,
             name=name,
             dtype=get_type_str(dtype),
+            otype="DataFrame",
         )
     return schema
 

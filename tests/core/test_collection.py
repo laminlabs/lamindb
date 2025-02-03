@@ -165,7 +165,7 @@ def test_from_consistent_artifacts(adata, adata2):
     assert "artifact_uid" in adata_joined.obs.columns
     assert artifact1.uid in adata_joined.obs.artifact_uid.cat.categories
 
-    _schemas_m2m = collection.features._get_staged__schemas_m2m_union()
+    _schemas_m2m = collection.features._get_staged_schemas_m2m_union()
     assert set(_schemas_m2m["var"].members.values_list("symbol", flat=True)) == {
         "MYC",
         "TCF7",

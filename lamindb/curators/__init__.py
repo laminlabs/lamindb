@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 from lamindb._feature import parse_dtype, parse_dtype_single_cat
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.core._data import add_labels
-from lamindb.core._feature_manager import parse_staged__schemas_m2m_from_anndata
+from lamindb.core._feature_manager import parse_staged_schemas_m2m_from_anndata
 from lamindb.core._settings import settings
 from lamindb.models import (
     Artifact,
@@ -217,11 +217,7 @@ class Curator:
         Returns:
             A saved artifact record.
         """
-        if not self._is_validated:
-            self.validate()  # raises ValidationError if doesn't validate
-        return self._cat_curator.save_artifact(
-            key=key, description=description, revises=revises, run=run
-        )
+        pass
 
 
 class DataFrameCurator(Curator):
@@ -288,13 +284,46 @@ class DataFrameCurator(Curator):
             result = parse_dtype_single_cat(self._schema.itype)
             registry: CanCurate = result["registry"]
             inspector = registry.inspect(
-                self._dataset.columns, result["field"], mute=True
+                self._dataset.columns,
+                result["field"],
+                mute=True,
             )
-            if len(inspector.non_validated):
-                self._is_validated = False
-                raise ValidationError(
-                    f"Invalid column identifiers found: {inspector.non_validated}"
-                )
+            if len(inspector.non_validated) > 0:
+                # also check public ontology
+                if hasattr(registry, "public"):
+                    registry.from_values(
+                        inspector.non_validated, result["field"], mute=True
+                    ).save()
+                    inspector = registry.inspect(
+                        inspector.non_validated, result["field"], mute=True
+                    )
+                if len(inspector.non_validated) > 0:
+                    self._is_validated = False
+                    raise ValidationError(
+                        f"Invalid identifiers for {self._schema.itype}: {inspector.non_validated}"
+                    )
+
+    def save_artifact(
+        self,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ):
+        if not self._is_validated:
+            self.validate()  # raises ValidationError if doesn't validate
+        result = parse_dtype_single_cat(self._schema.itype)
+        return save_artifact(  # type: ignore
+            self._dataset,
+            description=description,
+            fields=self._cat_curator.categoricals,
+            columns_field=result["field"],
+            key=key,
+            revises=revises,
+            run=run,
+            schema=self._schema,
+        )
 
 
 class AnnDataCurator(Curator):
@@ -334,6 +363,8 @@ class AnnDataCurator(Curator):
         self._is_validated = True
 
     def save_artifact(self, *, key=None, description=None, revises=None, run=None):
+        if not self._is_validated:
+            self.validate()  # raises ValidationError if doesn't validate
         result = parse_dtype_single_cat(self._var_curator._schema.itype)
         return save_artifact(  # type: ignore
             self._dataset,
@@ -343,7 +374,7 @@ class AnnDataCurator(Curator):
             key=key,
             revises=revises,
             run=run,
-            schema=self,
+            schema=self._schema,
         )
 
 
@@ -1563,7 +1594,7 @@ class TiledbsomaCatCurator(CatCurator):
                 organism=organism,
                 raise_validation_error=False,
             )
-        artifact._staged__schemas_m2m = _schemas_m2m
+        artifact._staged_schemas_m2m = _schemas_m2m
 
         feature_ref_is_name = _ref_is_name(self._columns_field)
         features = Feature.lookup().dict()
@@ -1973,7 +2004,7 @@ class SpatialDataCatCurator:
 
                 # table features
                 for table, field in var_fields.items():
-                    table_fs = parse_staged__schemas_m2m_from_anndata(
+                    table_fs = parse_staged_schemas_m2m_from_anndata(
                         self._sdata[table],
                         var_field=field,
                         obs_field=obs_fields.get(table, Feature.name),
@@ -1983,7 +2014,7 @@ class SpatialDataCatCurator:
                     for k, v in table_fs.items():
                         _schemas_m2m[f"['{table}'].{k}"] = v
 
-                def _unify_staged__schemas_m2m_by_hash(
+                def _unify_staged_schemas_m2m_by_hash(
                     _schemas_m2m: MutableMapping[str, Schema],
                 ):
                     unique_values: dict[str, Any] = {}
@@ -2000,7 +2031,7 @@ class SpatialDataCatCurator:
                     return _schemas_m2m
 
                 # link feature sets
-                host._staged__schemas_m2m = _unify_staged__schemas_m2m_by_hash(
+                host._staged_schemas_m2m = _unify_staged_schemas_m2m_by_hash(
                     _schemas_m2m
                 )
                 host.save()
@@ -3197,14 +3228,23 @@ def save_artifact(
         feature_kwargs = {}
 
     if artifact.otype == "DataFrame":
-        # old style
         artifact.features._add_set_from_df(field=columns_field, **feature_kwargs)  # type: ignore
-        # new style (doing both for the time being)
+        # lamindb v2
+        # inferred_schema = artifact._staged_schemas_m2m["columns"]
+        # inferred_schema.validated_by = schema
+        # inferred_schema.save()
         artifact.schema = schema
     elif artifact.otype == "AnnData":
         artifact.features._add_set_from_anndata(  # type: ignore
             var_field=columns_field, **feature_kwargs
         )
+        # lamindb v2
+        # inferred_schema = Schema(
+        #     components=artifact._staged_schemas_m2m,
+        #     otype="AnnData",
+        #     validated_by=schema,
+        # ).save()
+        artifact.schema = schema
     elif artifact.otype == "MuData":
         artifact.features._add_set_from_mudata(  # type: ignore
             var_fields=columns_field, **feature_kwargs

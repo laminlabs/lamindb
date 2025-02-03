@@ -2129,7 +2129,7 @@ class Schema(Record, CanCurate, TracksRun):
     Depending on the registry, `.members` stores, e.g., `Feature` or `bionty.Gene` records.
 
     .. versionchanged:: 1.0.0
-        Was called `itype` before.
+        Was called `registry` before.
     """
     type: Feature | None = ForeignKey(
         "self", PROTECT, null=True, related_name="records"
@@ -2163,6 +2163,11 @@ class Schema(Record, CanCurate, TracksRun):
 
     If `True`, the the minimal set is a maximal set and no additional features are allowed.
     """
+    components: Schema
+    """Components of this schema.
+
+    A schema can be composed of sub-schemas.
+    """
     composite: Schema | None = ForeignKey(
         "self", PROTECT, related_name="components", default=None, null=True
     )
@@ -2177,14 +2182,15 @@ class Schema(Record, CanCurate, TracksRun):
     validated_by: Schema | None = ForeignKey(
         "self", PROTECT, related_name="validated_schemas", default=None, null=True
     )
-    """The schema that validated this schema during curation.
+    # for lamindb v2
+    # """The schema that validated this schema during curation.
 
-    When performing validation, the schema that enforced validation is often less concrete than what is validated.
+    # When performing validation, the schema that enforced validation is often less concrete than what is validated.
 
-    For instance, the set of measured features might be a superset of the minimally required set of features.
+    # For instance, the set of measured features might be a superset of the minimally required set of features.
 
-    Often, the curating schema does not specficy any concrete features at all
-    """
+    # Often, the curating schema does not specficy any concrete features at all
+    # """
     features: Feature
     """The features contained in the schema."""
     params: Param
@@ -2197,6 +2203,7 @@ class Schema(Record, CanCurate, TracksRun):
     def __init__(
         self,
         features: Iterable[Record] | None = None,
+        components: Iterable[Schema] | None = None,
         name: str | None = None,
         description: str | None = None,
         dtype: str | None = None,
@@ -2581,7 +2588,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     schema: Schema | None = ForeignKey(
         Schema, PROTECT, null=True, default=None, related_name="artifacts"
     )
-    """The schema of the artifact (to be populated in lamindb 1.1)."""
+    """The validating schema of the artifact (to be populated in lamindb 1.1)."""
     _schemas_m2m: Schema = models.ManyToManyField(
         Schema, related_name="_artifacts_m2m", through="ArtifactSchema"
     )
