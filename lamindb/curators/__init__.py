@@ -336,11 +336,49 @@ class AnnDataCurator(Curator):
         dataset: The AnnData-like object to validate & annotate.
         schema: A `Schema` object that defines the validation constraints.
 
-    Examples:
-        >>> curator = curators.DataFrameCurator(
-        ...     df,
-        ...     schema,
-        ... )
+    Example::
+
+        import lamindb as ln
+
+        # define features
+        cell_medium = ln.Feature(name="cell_medium", dtype="cat[ULabel]").save()
+        sample_note = ln.Feature(name="sample_note", dtype="str").save()
+        cell_type_by_expert = ln.Feature(name="cell_type_by_expert", dtype="cat[bionty.CellType]").save()
+        cell_type_by_model = ln.Feature(name="cell_type_by_model", dtype="cat[bionty.CellType]").save()
+
+        # define obs schema
+        obs_schema = ln.Schema(
+            name="small_dataset1_obs_level_metadata",
+            otype="DataFrame",
+            features=[
+                cell_medium,
+                sample_note,
+                cell_type_by_expert,
+                cell_type_by_model,
+            ],
+            coerce_dtype=True,
+        ).save()
+
+        # define var schema
+        var_schema = ln.Schema(
+            name="small_dataset1_var_schema",
+            otype="DataFrame",
+            itype="bionty.Gene.ensembl_gene_id",
+            dtype="num",
+        ).save()
+
+        # define composite schema
+        anndata_schema = ln.Schema(
+            name="small_dataset1_anndata_schema",
+            otype="AnnData",
+            components={"obs": obs_schema, "var": var_schema},
+        ).save()
+
+        # curate an AnnData
+        adata = datasets.small_dataset1(otype="AnnData")
+        curator = ln.curators.AnnDataCurator(adata, anndata_schema)
+        artifact = curator.save_artifact(key="example_datasets/dataset1.h5ad")
+        assert artifact.schema == anndata_schema
     """
 
     def __init__(
@@ -3621,8 +3659,8 @@ def from_spatialdata(
     )
 
 
-Curator.from_df = from_df  # type: ignore
-Curator.from_anndata = from_anndata  # type: ignore
-Curator.from_mudata = from_mudata  # type: ignore
-Curator.from_spatialdata = from_spatialdata  # type: ignore
-Curator.from_tiledbsoma = from_tiledbsoma  # type: ignore
+CatCurator.from_df = from_df  # type: ignore
+CatCurator.from_anndata = from_anndata  # type: ignore
+CatCurator.from_mudata = from_mudata  # type: ignore
+CatCurator.from_spatialdata = from_spatialdata  # type: ignore
+CatCurator.from_tiledbsoma = from_tiledbsoma  # type: ignore

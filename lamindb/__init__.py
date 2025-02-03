@@ -91,7 +91,7 @@ if _check_instance_setup(from_module="lamindb"):
     from ._view import view
     from .core._context import context
     from .core._settings import settings
-    from .curators import Curator
+    from .curators import CatCurator as Curator
     from .models import (
         Artifact,
         Collection,
