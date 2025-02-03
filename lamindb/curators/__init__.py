@@ -365,7 +365,7 @@ class AnnDataCurator(Curator):
     def save_artifact(self, *, key=None, description=None, revises=None, run=None):
         if not self._is_validated:
             self.validate()  # raises ValidationError if doesn't validate
-        result = parse_dtype_single_cat(self._var_curator._schema.itype)
+        result = parse_dtype_single_cat(self._var_curator._schema.itype, is_itype=True)
         return save_artifact(  # type: ignore
             self._dataset,
             description=description,
