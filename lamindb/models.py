@@ -2039,7 +2039,7 @@ class FeatureValue(Record, TracksRun):
 
 
 class Schema(Record, CanCurate, TracksRun):
-    """Feature sets (dataset schemas).
+    """Schemas / feature sets.
 
     Stores references to dataset schemas: these are the sets of columns in a dataset
     that correspond to :class:`~lamindb.Feature`, :class:`~bionty.Gene`, :class:`~bionty.Protein` or other
