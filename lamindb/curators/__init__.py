@@ -230,11 +230,37 @@ class DataFrameCurator(Curator):
         dataset: The DataFrame-like object to validate & annotate.
         schema: A `Schema` object that defines the validation constraints.
 
-    Examples:
-        >>> curator = curators.DataFrameCurator(
-        ...     df,
-        ...     schema,
-        ... )
+    Example::
+
+        # Labels
+        ln.ULabel.from_values(["DMSO", "IFNG"], create=True).save()
+        bt.CellType.from_values(["B cell", "T cell"], create=True).save()
+
+        # Features
+        # observation-level
+        cell_medium = ln.Feature(name="cell_medium", dtype="cat[ULabel]").save()
+        sample_note = ln.Feature(name="sample_note", dtype="str").save()
+        cell_type_by_expert = ln.Feature(name="cell_type_by_expert", dtype="cat[bionty.CellType]").save()
+        cell_type_by_model = ln.Feature(name="cell_type_by_model", dtype="cat[bionty.CellType]").save()
+
+        # Schema
+        schema = ln.Schema(
+            name="small_dataset1_obs_level_metadata",
+            otype="DataFrame",
+            features=[
+                cell_medium,
+                sample_note,
+                cell_type_by_expert,
+                cell_type_by_model,
+            ],
+            coerce_dtype=True,
+        ).save()
+
+        # curate a DataFrame
+        df = datasets.small_dataset1(otype="DataFrame")
+        curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
+        artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
+        assert artifact.schema == anndata_schema
     """
 
     def __init__(
@@ -339,6 +365,10 @@ class AnnDataCurator(Curator):
     Example::
 
         import lamindb as ln
+
+        # Labels
+        ln.ULabel.from_values(["DMSO", "IFNG"], create=True).save()
+        bt.CellType.from_values(["B cell", "T cell"], create=True).save()
 
         # define features
         cell_medium = ln.Feature(name="cell_medium", dtype="cat[ULabel]").save()

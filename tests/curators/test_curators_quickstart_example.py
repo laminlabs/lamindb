@@ -71,7 +71,7 @@ def curator_params():
 def test_dataframe_curator(small_dataset1_schema):
     """Test DataFrame curator implementation."""
 
-    df, _ = datasets.small_dataset1(otype="DataFrame")
+    df = datasets.small_dataset1(otype="DataFrame")
     curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
     artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
 

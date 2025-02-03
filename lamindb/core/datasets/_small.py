@@ -11,7 +11,7 @@ def small_dataset1(
     otype: Literal["DataFrame", "AnnData"],
     gene_symbols_in_index: bool = False,
     with_typo: bool = False,
-) -> tuple[pd.DataFrame, dict[str, Any]] | ad.AnnData:
+) -> pd.DataFrame | ad.AnnData:
     # define the data in the dataset
     # it's a mix of numerical measurements and observation-level metadata
     ifng = "IFNJ" if with_typo else "IFNG"
@@ -38,7 +38,9 @@ def small_dataset1(
     # the dataset as DataFrame
     dataset_df = pd.DataFrame(dataset_dict, index=["sample1", "sample2", "sample3"])
     if otype == "DataFrame":
-        return dataset_df, metadata
+        for key, value in metadata.items():
+            dataset_df.attrs[key] = value
+        return dataset_df
     else:
         dataset_ad = ad.AnnData(
             dataset_df.iloc[:, :3], obs=dataset_df.iloc[:, 3:], uns=metadata
@@ -49,7 +51,7 @@ def small_dataset1(
 def small_dataset2(
     otype: Literal["DataFrame", "AnnData"],
     gene_symbols_in_index: bool = False,
-) -> tuple[pd.DataFrame, dict[str, Any]] | ad.AnnData:
+) -> pd.DataFrame | ad.AnnData:
     if gene_symbols_in_index:
         var_ids = ["CD8A", "CD4", "CD38"]
     else:
@@ -75,7 +77,9 @@ def small_dataset2(
         obs=dataset_df[["cell_medium", "cell_type_by_model"]],
     )
     if otype == "DataFrame":
-        return dataset_df, metadata
+        for key, value in metadata.items():
+            dataset_df.attrs[key] = value
+        return dataset_df
     else:
         dataset_ad = ad.AnnData(
             dataset_df.iloc[:, :3], obs=dataset_df.iloc[:, 3:], uns=metadata
