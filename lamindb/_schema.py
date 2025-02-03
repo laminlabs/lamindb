@@ -339,4 +339,3 @@ for name in METHOD_NAMES:
 
 Schema.members = members  # type: ignore
 Schema._get_related_name = _get_related_name
-Schema.feature_sets = Schema._artifacts_m2m  # backward compat
