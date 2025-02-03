@@ -68,7 +68,7 @@ def test_curate_df():
     adata = datasets.small_dataset1(otype="AnnData")
     curator = ln.Curator.from_anndata(
         adata,
-        var_index=bt.Gene.symbol,
+        var_index=bt.Gene.ensembl_gene_id,
         categoricals={
             "cell_medium": ln.ULabel.name,
             "cell_type_by_expert": bt.CellType.name,
@@ -83,7 +83,7 @@ def test_curate_df():
     adata2 = datasets.small_dataset2(format="anndata")
     curator = ln.Curator.from_anndata(
         adata2,
-        var_index=bt.Gene.symbol,
+        var_index=bt.Gene.ensembl_gene_id,
         categoricals={
             "cell_medium": ln.ULabel.name,
             "cell_type_by_model": bt.CellType.name,
