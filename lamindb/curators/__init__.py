@@ -233,6 +233,9 @@ class DataFrameCurator(Curator):
 
     Example::
 
+        import lamindb as ln
+        import bionty as bt
+
         # define valid labels
         cell_medium = ln.ULabel(name="CellMedium", is_type=True).save()
         ln.ULabel(name="DMSO", type=cell_medium).save()
@@ -363,6 +366,7 @@ class AnnDataCurator(Curator):
     Example::
 
         import lamindb as ln
+        import bionty as bt
 
         # define valid labels
         cell_medium = ln.ULabel(name="CellMedium", is_type=True).save()
