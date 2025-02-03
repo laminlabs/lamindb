@@ -56,26 +56,26 @@ def get_run(run: Run | None) -> Run | None:
     return run
 
 
-def save_staged__schemas_m2m(self: Artifact | Collection) -> None:
-    if hasattr(self, "_staged__schemas_m2m"):
+def save_staged_schemas_m2m(self: Artifact | Collection) -> None:
+    if hasattr(self, "_staged_schemas_m2m"):
         from lamindb.core._feature_manager import get_schema_by_slot_
 
-        existing_staged__schemas_m2m = get_schema_by_slot_(self)
-        saved_staged__schemas_m2m = {}
-        for key, schema in self._staged__schemas_m2m.items():
+        existing_staged_schemas_m2m = get_schema_by_slot_(self)
+        saved_staged_schemas_m2m = {}
+        for key, schema in self._staged_schemas_m2m.items():
             if isinstance(schema, Schema) and schema._state.adding:
                 schema.save()
-                saved_staged__schemas_m2m[key] = schema
-            if key in existing_staged__schemas_m2m:
+                saved_staged_schemas_m2m[key] = schema
+            if key in existing_staged_schemas_m2m:
                 # remove existing feature set on the same slot
-                self._schemas_m2m.remove(existing_staged__schemas_m2m[key])
-        if len(saved_staged__schemas_m2m) > 0:
-            s = "s" if len(saved_staged__schemas_m2m) > 1 else ""
+                self._schemas_m2m.remove(existing_staged_schemas_m2m[key])
+        if len(saved_staged_schemas_m2m) > 0:
+            s = "s" if len(saved_staged_schemas_m2m) > 1 else ""
             display_schema_keys = ",".join(
-                f"'{key}'" for key in saved_staged__schemas_m2m.keys()
+                f"'{key}'" for key in saved_staged_schemas_m2m.keys()
             )
             logger.save(
-                f"saved {len(saved_staged__schemas_m2m)} feature set{s} for slot{s}:"
+                f"saved {len(saved_staged_schemas_m2m)} feature set{s} for slot{s}:"
                 f" {display_schema_keys}"
             )
 
@@ -84,10 +84,10 @@ def save_schema_links(self: Artifact | Collection) -> None:
     from lamindb._save import bulk_create
 
     Data = self.__class__
-    if hasattr(self, "_staged__schemas_m2m"):
+    if hasattr(self, "_staged_schemas_m2m"):
         links = []
         host_id_field = get_host_id_field(self)
-        for slot, schema in self._staged__schemas_m2m.items():
+        for slot, schema in self._staged_schemas_m2m.items():
             kwargs = {
                 host_id_field: self.id,
                 "schema_id": schema.id,
