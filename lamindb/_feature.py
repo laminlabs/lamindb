@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import importlib
 from typing import TYPE_CHECKING, Any, get_args
 
 import lamindb_setup as ln_setup
 import pandas as pd
 from lamin_utils import logger
+from lamindb_setup._init_instance import get_schema_module_name
 from lamindb_setup.core._docs import doc_args
 from pandas.api.types import CategoricalDtype, is_string_dtype
 
@@ -28,6 +30,75 @@ if TYPE_CHECKING:
 FEATURE_DTYPES = set(get_args(FeatureDtype))
 
 
+def parse_dtype_single_cat(
+    dtype_str: str,
+    related_registries: dict[str, Record] | None = None,
+    is_itype: bool = False,
+) -> dict:
+    if related_registries is None:
+        related_registries = dict_module_name_to_model_name(Artifact)
+    split_result = dtype_str.split("[")
+    # has sub type
+    sub_type_str = ""
+    if len(split_result) == 2:
+        registry_str = split_result[0]
+        assert "]" in split_result[1]  # noqa: S101
+        sub_type_field_split = split_result[1].split("].")
+        if len(sub_type_field_split) == 1:
+            sub_type_str = sub_type_field_split[0].strip("]")
+            field_str = ""
+        else:
+            sub_type_str = sub_type_field_split[0]
+            field_str = sub_type_field_split[1]
+    elif len(split_result) == 1:
+        registry_field_split = split_result[0].split(".")
+        if (
+            len(registry_field_split) == 2 and registry_field_split[1][0].isupper()
+        ) or len(registry_field_split) == 3:
+            # bionty.CellType or bionty.CellType.name
+            registry_str = f"{registry_field_split[0]}.{registry_field_split[1]}"
+            field_str = (
+                "" if len(registry_field_split) == 2 else registry_field_split[2]
+            )
+        else:
+            # ULabel or ULabel.name
+            registry_str = registry_field_split[0]
+            field_str = (
+                "" if len(registry_field_split) == 1 else registry_field_split[1]
+            )
+    if not is_itype:
+        if registry_str not in related_registries:
+            raise ValidationError(
+                f"'{registry_str}' is an invalid dtype, has to be registry, e.g. ULabel or bionty.CellType"
+            )
+        registry = related_registries[registry_str]
+    else:
+        if "." in registry_str:
+            registry_str_split = registry_str.split(".")
+            assert len(registry_str_split) == 2, registry_str  # noqa: S101
+            module_name, class_name = registry_str_split
+            module_name = get_schema_module_name(module_name)
+        else:
+            module_name, class_name = "lamindb", registry_str
+        module = importlib.import_module(module_name)
+        registry = getattr(module, class_name)
+    if sub_type_str != "":
+        pass
+        # validate that the subtype is a record in the registry with is_type = True
+    if field_str != "":
+        pass
+        # validate that field_str is an actual field of the module
+    else:
+        field_str = registry._name_field if hasattr(registry, "_name_field") else "name"
+    return {
+        "registry": registry,  # should be typed as CanCurate
+        "registry_str": registry_str,
+        "subtype_str": sub_type_str,
+        "field_str": field_str,
+        "field": getattr(registry, field_str),
+    }
+
+
 def parse_dtype(dtype_str: str) -> list[dict[str, str]]:
     result = []
     # simple dtypes are in FEATURE_DTYPES, composed dtypes are in the form `cat...`
@@ -42,68 +113,10 @@ def parse_dtype(dtype_str: str) -> list[dict[str, str]]:
         if registries_str != "":
             registry_str_list = registries_str.split("|")
             for cat_single_dtype_str in registry_str_list:
-                split_result = cat_single_dtype_str.split("[")
-                # has sub type
-                sub_type_str = ""
-                if len(split_result) == 2:
-                    registry_str = split_result[0]
-                    assert "]" in split_result[1]  # noqa: S101
-                    sub_type_field_split = split_result[1].split("].")
-                    if len(sub_type_field_split) == 1:
-                        sub_type_str = sub_type_field_split[0].strip("]")
-                        field_str = ""
-                    else:
-                        sub_type_str = sub_type_field_split[0]
-                        field_str = sub_type_field_split[1]
-                elif len(split_result) == 1:
-                    registry_field_split = split_result[0].split(".")
-                    if (
-                        len(registry_field_split) == 2
-                        and registry_field_split[1][0].isupper()
-                    ) or len(registry_field_split) == 3:
-                        # bionty.CellType or bionty.CellType.name
-                        registry_str = (
-                            f"{registry_field_split[0]}.{registry_field_split[1]}"
-                        )
-                        field_str = (
-                            ""
-                            if len(registry_field_split) == 2
-                            else registry_field_split[2]
-                        )
-                    else:
-                        # ULabel or ULabel.name
-                        registry_str = registry_field_split[0]
-                        field_str = (
-                            ""
-                            if len(registry_field_split) == 1
-                            else registry_field_split[1]
-                        )
-                if registry_str not in related_registries:
-                    raise ValidationError(
-                        f"'{registry_str}' is an invalid dtype, has to be registry, e.g. ULabel or bionty.CellType"
-                    )
-                if sub_type_str != "":
-                    pass
-                    # validate that the subtype is a record in the registry with is_type = True
-                registry = related_registries[registry_str]
-                if field_str != "":
-                    pass
-                    # validate that field_str is an actual field of the module
-                else:
-                    field_str = (
-                        registry._name_field
-                        if hasattr(registry, "_name_field")
-                        else "name"
-                    )
-                result.append(
-                    {
-                        "registry": registry,
-                        "registry_str": registry_str,
-                        "subtype_str": sub_type_str,
-                        "field_str": field_str,
-                        "field": getattr(registry, field_str),
-                    }
+                single_result = parse_dtype_single_cat(
+                    cat_single_dtype_str, related_registries
                 )
+                result.append(single_result)
     return result
 
 

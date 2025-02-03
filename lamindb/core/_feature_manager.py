@@ -96,8 +96,8 @@ def get_schema_by_slot_(host: Artifact | Collection) -> dict:
         return {}
     # if the host is not yet saved
     if host._state.adding:
-        if hasattr(host, "_staged__schemas_m2m"):
-            return host._staged__schemas_m2m
+        if hasattr(host, "_staged_schemas_m2m"):
+            return host._staged_schemas_m2m
         else:
             return {}
     host_db = host._state.db
@@ -500,7 +500,7 @@ def describe_features(
     return tree
 
 
-def parse_staged__schemas_m2m_from_anndata(
+def parse_staged_schemas_m2m_from_anndata(
     adata: AnnData,
     var_field: FieldAttr | None = None,
     obs_field: FieldAttr = Feature.name,
@@ -1101,7 +1101,7 @@ def _add_set_from_df(
         mute=mute,
         organism=organism,
     )
-    self._host._staged__schemas_m2m = {"columns": schema}
+    self._host._staged_schemas_m2m = {"columns": schema}
     self._host.save()
 
 
@@ -1120,7 +1120,7 @@ def _add_set_from_anndata(
 
     # parse and register features
     adata = self._host.load()
-    _schemas_m2m = parse_staged__schemas_m2m_from_anndata(
+    _schemas_m2m = parse_staged_schemas_m2m_from_anndata(
         adata,
         var_field=var_field,
         obs_field=obs_field,
@@ -1129,7 +1129,7 @@ def _add_set_from_anndata(
     )
 
     # link feature sets
-    self._host._staged__schemas_m2m = _schemas_m2m
+    self._host._staged_schemas_m2m = _schemas_m2m
     self._host.save()
 
 
@@ -1155,7 +1155,7 @@ def _add_set_from_mudata(
     if len(obs_features) > 0:
         _schemas_m2m["obs"] = Schema(features=obs_features)
     for modality, field in var_fields.items():
-        modality_fs = parse_staged__schemas_m2m_from_anndata(
+        modality_fs = parse_staged_schemas_m2m_from_anndata(
             mdata[modality],
             var_field=field,
             obs_field=obs_fields.get(modality, Feature.name),
@@ -1165,7 +1165,7 @@ def _add_set_from_mudata(
         for k, v in modality_fs.items():
             _schemas_m2m[f"['{modality}'].{k}"] = v
 
-    def unify_staged__schemas_m2m_by_hash(_schemas_m2m):
+    def unify_staged_schemas_m2m_by_hash(_schemas_m2m):
         unique_values = {}
 
         for key, value in _schemas_m2m.items():
@@ -1178,7 +1178,7 @@ def _add_set_from_mudata(
         return _schemas_m2m
 
     # link feature sets
-    self._host._staged__schemas_m2m = unify_staged__schemas_m2m_by_hash(_schemas_m2m)
+    self._host._staged_schemas_m2m = unify_staged_schemas_m2m_by_hash(_schemas_m2m)
     self._host.save()
 
 

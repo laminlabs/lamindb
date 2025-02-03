@@ -65,10 +65,11 @@ def test_curate_df():
     bt.CellType.from_values(["B cell", "T cell"], create=True).save()
 
     ## Ingest dataset1
-    adata = datasets.small_dataset1(format="anndata")
+    adata = datasets.small_dataset1(otype="AnnData")
+    print(adata.var)
     curator = ln.Curator.from_anndata(
         adata,
-        var_index=bt.Gene.symbol,
+        var_index=bt.Gene.ensembl_gene_id,
         categoricals={
             "cell_medium": ln.ULabel.name,
             "cell_type_by_expert": bt.CellType.name,
@@ -80,10 +81,11 @@ def test_curate_df():
     artifact.features.add_values(adata.uns)
 
     # Ingest dataset2
-    adata2 = datasets.small_dataset2(format="anndata")
+    adata2 = datasets.small_dataset2(otype="AnnData")
+    print(adata2.var)
     curator = ln.Curator.from_anndata(
         adata2,
-        var_index=bt.Gene.symbol,
+        var_index=bt.Gene.ensembl_gene_id,
         categoricals={
             "cell_medium": ln.ULabel.name,
             "cell_type_by_model": bt.CellType.name,

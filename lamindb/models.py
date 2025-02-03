@@ -2039,7 +2039,7 @@ class FeatureValue(Record, TracksRun):
 
 
 class Schema(Record, CanCurate, TracksRun):
-    """Feature sets (dataset schemas).
+    """Schemas / feature sets.
 
     Stores references to dataset schemas: these are the sets of columns in a dataset
     that correspond to :class:`~lamindb.Feature`, :class:`~bionty.Gene`, :class:`~bionty.Protein` or other
@@ -2057,19 +2057,19 @@ class Schema(Record, CanCurate, TracksRun):
         These reasons do not hold for label sets. Hence, LaminDB does not model label sets.
 
     Args:
-        features: `Iterable[Record]` An iterable of :class:`~lamindb.Feature`
+        features: `Iterable[Record] | None = None` An iterable of :class:`~lamindb.Feature`
             records to hash, e.g., `[Feature(...), Feature(...)]`. Is turned into
             a set upon instantiation. If you'd like to pass values, use
             :meth:`~lamindb.Schema.from_values` or
             :meth:`~lamindb.Schema.from_df`.
+        name: `str | None = None` A name.
         dtype: `str | None = None` The simple type. Defaults to
             `None` for sets of :class:`~lamindb.Feature` records.
             Otherwise defaults to `"num"` (e.g., for sets of :class:`~bionty.Gene`).
-        name: `str | None = None` A name.
 
     Note:
 
-        A feature set can be identified by the `hash` its feature uids.
+        A feature set can be identified by the `hash` of its feature uids.
         It's stored in the `.hash` field.
 
         A `slot` provides a string key to access feature sets.
@@ -2083,24 +2083,20 @@ class Schema(Record, CanCurate, TracksRun):
 
     Examples:
 
-        Create a feature set / schema from df with types:
+        Create a schema (feature set) from df with types:
 
         >>> df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
-        >>> feature_set = ln.FeatureSet.from_df(df)
+        >>> schema = ln.Schema.from_df(df)
 
-        Create a feature set / schema from features:
+        Create a schema (feature set) from features:
 
         >>> features = [ln.Feature(name=feat, dtype="float").save() for feat in ["feat1", "feat2"]]
-        >>> feature_set = ln.FeatureSet(features)
+        >>> schema = ln.Schema(features)
 
-        Create a feature set / schema from feature values:
+        Create a schema (feature set) from identifier values:
 
         >>> import bionty as bt
-        >>> feature_set = ln.FeatureSet.from_values(adata.var["ensemble_id"], Gene.ensembl_gene_id, organism="mouse").save()
-
-        Link a feature set to an artifact:
-
-        >>> artifact.features.add_feature_set(feature_set, slot="var")
+        >>> schema = ln.Schema.from_values(adata.var["ensemble_id"], Gene.ensembl_gene_id, organism="mouse").save()
 
     """
 
@@ -2108,6 +2104,7 @@ class Schema(Record, CanCurate, TracksRun):
         abstract = False
 
     _name_field: str = "name"
+    _aux_fields: dict[str, tuple[str, type]] = {"0": ("coerce_dtype", bool)}
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -2132,7 +2129,7 @@ class Schema(Record, CanCurate, TracksRun):
     Depending on the registry, `.members` stores, e.g., `Feature` or `bionty.Gene` records.
 
     .. versionchanged:: 1.0.0
-        Was called `itype` before.
+        Was called `registry` before.
     """
     type: Feature | None = ForeignKey(
         "self", PROTECT, null=True, related_name="records"
@@ -2166,6 +2163,13 @@ class Schema(Record, CanCurate, TracksRun):
 
     If `True`, the the minimal set is a maximal set and no additional features are allowed.
     """
+    components: Schema
+    """Components of this schema.
+
+    A schema can be composed of sub-schemas.
+    """
+    # in lamindb v2, the below will be a M2M to enable re-using a component
+    # across composites
     composite: Schema | None = ForeignKey(
         "self", PROTECT, related_name="components", default=None, null=True
     )
@@ -2180,14 +2184,15 @@ class Schema(Record, CanCurate, TracksRun):
     validated_by: Schema | None = ForeignKey(
         "self", PROTECT, related_name="validated_schemas", default=None, null=True
     )
-    """The schema that validated this schema during curation.
+    # for lamindb v2
+    # """The schema that validated this schema during curation.
 
-    When performing validation, the schema that enforced validation is often less concrete than what is validated.
+    # When performing validation, the schema that enforced validation is often less concrete than what is validated.
 
-    For instance, the set of measured features might be a superset of the minimally required set of features.
+    # For instance, the set of measured features might be a superset of the minimally required set of features.
 
-    Often, the curating schema does not specficy any concrete features at all
-    """
+    # Often, the curating schema does not specficy any concrete features at all
+    # """
     features: Feature
     """The features contained in the schema."""
     params: Param
@@ -2199,11 +2204,22 @@ class Schema(Record, CanCurate, TracksRun):
     @overload
     def __init__(
         self,
-        features: Iterable[Record],
-        dtype: str | None = None,
+        features: Iterable[Record] | None = None,
+        components: dict[str, Schema] | None = None,
         name: str | None = None,
+        description: str | None = None,
+        dtype: str | None = None,
+        itype: str | None = None,
         type: ULabel | None = None,
         is_type: bool = False,
+        otype: str | None = None,
+        minimal_set: bool = True,
+        ordered_set: bool = False,
+        maximal_set: bool = False,
+        composite: Schema | None = None,
+        slot: str | None = None,
+        validated_by: Schema | None = None,
+        coerce_dtype: bool = False,
     ): ...
 
     @overload
@@ -2280,6 +2296,22 @@ class Schema(Record, CanCurate, TracksRun):
         pass
 
     @property
+    def coerce_dtype(self) -> bool:
+        """Whether dtypes should be coerced during validation."""
+        if self._aux is not None and "af" in self._aux and "0" in self._aux["af"]:
+            return self._aux["af"]["0"]
+        else:
+            return False
+
+    @coerce_dtype.setter
+    def coerce_dtype(self, value: bool) -> None:
+        if self._aux is None:
+            self._aux = {}
+        if "af" not in self._aux["af"]:
+            self._aux["af"] = {}
+        self._aux["af"]["0"] = value
+
+    @property
     @deprecated("itype")
     def registry(self) -> str:
         return self.itype
@@ -2287,6 +2319,22 @@ class Schema(Record, CanCurate, TracksRun):
     @registry.setter
     def registry(self, value) -> None:
         self.itype = value
+
+    def describe(self, return_str=False) -> None | str:
+        """Describe schema."""
+        components = Schema.filter(composite=self).all()
+        message = str(self) + "\ncomponents:"
+        for component in components:
+            message += "\n    " + str(component)
+        if return_str:
+            return message
+        else:
+            print(message)
+            return None
+
+    def _get_component(self, slot: str) -> Schema:
+        components = Schema.filter(composite=self).all()
+        return components.get(slot=slot)
 
 
 class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
@@ -2542,11 +2590,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     schema: Schema | None = ForeignKey(
         Schema, PROTECT, null=True, default=None, related_name="artifacts"
     )
-    """The schema of the artifact (to be populated in lamindb 1.1)."""
+    """The validating schema of the artifact (to be populated in lamindb 1.1)."""
     _schemas_m2m: Schema = models.ManyToManyField(
         Schema, related_name="_artifacts_m2m", through="ArtifactSchema"
     )
-    """[For backward compatibility] The feature sets measured in the artifact."""
+    """The inferred schemas / feature sets measured by the artifact."""
     _feature_values: FeatureValue = models.ManyToManyField(
         FeatureValue, through="ArtifactFeatureValue", related_name="artifacts"
     )

@@ -3,7 +3,9 @@
 .. autosummary::
    :toctree: .
 
+   Curator
    DataFrameCurator
+   AnnDataCurator
 
 """
 
@@ -36,13 +38,14 @@ if TYPE_CHECKING:
 
     from lamindb.base.types import FieldAttr
     from lamindb.models import Record
-from lamindb._feature import parse_dtype
+from lamindb._feature import parse_dtype, parse_dtype_single_cat
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.core._data import add_labels
-from lamindb.core._feature_manager import parse_staged__schemas_m2m_from_anndata
+from lamindb.core._feature_manager import parse_staged_schemas_m2m_from_anndata
 from lamindb.core._settings import settings
 from lamindb.models import (
     Artifact,
+    CanCurate,
     Collection,
     Feature,
     Record,
@@ -51,8 +54,9 @@ from lamindb.models import (
     ULabel,
 )
 
+from .._artifact import data_is_anndata
 from .._from_values import _format_values
-from ..errors import ValidationError
+from ..errors import InvalidArgument, ValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, MutableMapping
@@ -139,10 +143,298 @@ class CurateLookup:
             return colors.warning("No fields are found!")
 
 
+VALIDATE_DOCSTRING = """Validate dataset.
+
+Raises:
+    lamindb.errors.ValidationError: If validation fails.
+"""
+
+SAVE_ARTIFACT_DOCSTRING = """Save an annotated artifact.
+
+Args:
+    key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+    description: A description.
+    revises: Previous version of the artifact. Is an alternative way to passing `key` to trigger a revision.
+    run: The run that creates the artifact.
+
+Returns:
+    A saved artifact record.
+"""
+
+
 class Curator:
     """Dataset curator.
 
     A `Curator` object makes it easy to validate, standardize & annotate datasets.
+
+    See:
+        - :class:`~lamindb.curators.DataFrameCurator`
+        - :class:`~lamindb.curators.AnnDataCurator`
+    """
+
+    def __init__(self, dataset: Any, schema: Schema | None = None):
+        self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
+        self._artifact: Artifact = None  # pass the dataset as a non-curated artifact
+        self._schema: Schema | None = schema
+        self._is_validated: bool = False
+        self._cat_curator: CatCurator = None  # is None for CatCurator curators
+
+    @doc_args(VALIDATE_DOCSTRING)
+    def validate(self) -> bool | str:
+        """{}"""  # noqa: D415
+        pass  # pdagma: no cover
+
+    @doc_args(SAVE_ARTIFACT_DOCSTRING)
+    def save_artifact(
+        self,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ) -> Artifact:
+        """{}"""  # noqa: D415
+        # Note that this docstring has to be consistent with the Artifact()
+        # constructor signature
+        pass
+
+
+class DataFrameCurator(Curator):
+    # the example in the docstring is tested in test_curators_quickstart_example
+    """Curator for a DataFrame object.
+
+    See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
+
+    Args:
+        dataset: The DataFrame-like object to validate & annotate.
+        schema: A `Schema` object that defines the validation constraints.
+
+    Example::
+
+        import lamindb as ln
+        import bionty as bt
+
+        # define valid labels
+        cell_medium = ln.ULabel(name="CellMedium", is_type=True).save()
+        ln.ULabel(name="DMSO", type=cell_medium).save()
+        ln.ULabel(name="IFNG", type=cell_medium).save()
+        bt.CellType.from_source(name="B cell").save()
+        bt.CellType.from_source(name="T cell").save()
+
+        # define schema
+        schema = ln.Schema(
+            name="small_dataset1_obs_level_metadata",
+            otype="DataFrame",
+            features=[
+                ln.Feature(name="cell_medium", dtype="cat[ULabel[CellMedium]]").save(),
+                ln.Feature(name="sample_note", dtype="str").save(),
+                ln.Feature(name="cell_type_by_expert", dtype="cat[bionty.CellType]").save(),
+                ln.Feature(name="cell_type_by_model", dtype="cat[bionty.CellType]").save(),
+            ],
+            coerce_dtype=True,
+        ).save()
+
+        # curate a DataFrame
+        df = datasets.small_dataset1(otype="DataFrame")
+        curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)        artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
+        assert artifact.schema == anndata_schema
+    """
+
+    def __init__(
+        self,
+        dataset: pd.DataFrame,
+        schema: Schema,
+    ) -> None:
+        super().__init__(dataset=dataset, schema=schema)
+        if schema.n > 0:
+            # populate features
+            non_categoricals = {}
+            categoricals = {}
+            for feature in schema.features.all():
+                pda_dtype = (
+                    feature.dtype if not feature.dtype.startswith("cat") else "category"
+                )
+                non_categoricals[feature.name] = pda.Column(pda_dtype)
+                if feature.dtype.startswith("cat"):
+                    categoricals[feature.name] = parse_dtype(feature.dtype)[0]["field"]
+            self._pda_schema = pda.DataFrameSchema(
+                non_categoricals, coerce=schema.coerce_dtype
+            )
+            # now deal with categorical features using the old-style curator
+            self._cat_curator = DataFrameCatCurator(
+                dataset,
+                categoricals=categoricals,
+            )
+        else:
+            assert schema.itype is not None  # noqa: S101
+
+    @doc_args(VALIDATE_DOCSTRING)
+    def validate(self) -> None:
+        """{}"""  # noqa: D415
+        if self._schema.n > 0:
+            self._cat_curator.validate()
+            try:
+                self._pda_schema.validate(self._dataset)
+                if self._cat_curator._is_validated:
+                    self._is_validated = True
+                else:
+                    self._is_validated = False
+                    raise ValidationError(
+                        self._cat_curator._validate_category_error_messages
+                    )
+            except pda.errors.SchemaError as err:
+                self._is_validated = False
+                # .exconly() doesn't exist on SchemaError
+                raise ValidationError(str(err)) from err
+        else:
+            result = parse_dtype_single_cat(self._schema.itype, is_itype=True)
+            registry: CanCurate = result["registry"]
+            inspector = registry.inspect(
+                self._dataset.columns,
+                result["field"],
+                mute=True,
+            )
+            if len(inspector.non_validated) > 0:
+                # also check public ontology
+                if hasattr(registry, "public"):
+                    registry.from_values(
+                        inspector.non_validated, result["field"], mute=True
+                    ).save()
+                    inspector = registry.inspect(
+                        inspector.non_validated, result["field"], mute=True
+                    )
+                if len(inspector.non_validated) > 0:
+                    self._is_validated = False
+                    raise ValidationError(
+                        f"Invalid identifiers for {self._schema.itype}: {inspector.non_validated}"
+                    )
+
+    @doc_args(SAVE_ARTIFACT_DOCSTRING)
+    def save_artifact(
+        self,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ):
+        """{}"""  # noqa: D415
+        if not self._is_validated:
+            self.validate()  # raises ValidationError if doesn't validate
+        result = parse_dtype_single_cat(self._schema.itype, is_itype=True)
+        return save_artifact(  # type: ignore
+            self._dataset,
+            description=description,
+            fields=self._cat_curator.categoricals,
+            columns_field=result["field"],
+            key=key,
+            revises=revises,
+            run=run,
+            schema=self._schema,
+        )
+
+
+class AnnDataCurator(Curator):
+    # the example in the docstring is tested in test_curators_quickstart_example
+    """Curator for a DataFrame object.
+
+    See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
+
+    Args:
+        dataset: The AnnData-like object to validate & annotate.
+        schema: A `Schema` object that defines the validation constraints.
+
+    Example::
+
+        import lamindb as ln
+        import bionty as bt
+
+        # define valid labels
+        cell_medium = ln.ULabel(name="CellMedium", is_type=True).save()
+        ln.ULabel(name="DMSO", type=cell_medium).save()
+        ln.ULabel(name="IFNG", type=cell_medium).save()
+        bt.CellType.from_source(name="B cell").save()
+        bt.CellType.from_source(name="T cell").save()
+
+        # define obs schema
+        obs_schema = ln.Schema(
+            name="small_dataset1_obs_level_metadata",
+            otype="DataFrame",
+            features=[
+                ln.Feature(name="cell_medium", dtype="cat[ULabel[CellMedium]]").save(),
+                ln.Feature(name="sample_note", dtype="str").save(),
+                ln.Feature(name="cell_type_by_expert", dtype="cat[bionty.CellType]").save(),
+                ln.Feature(name="cell_type_by_model", dtype="cat[bionty.CellType]").save(),
+            ],
+            coerce_dtype=True,
+        ).save()
+
+        # define var schema
+        var_schema = ln.Schema(
+            name="small_dataset1_var_schema",
+            otype="DataFrame",
+            itype="bionty.Gene.ensembl_gene_id",
+            dtype="num",
+        ).save()
+
+        # define composite schema
+        anndata_schema = ln.Schema(
+            name="small_dataset1_anndata_schema",
+            otype="AnnData",
+            components={"obs": obs_schema, "var": var_schema},
+        ).save()
+
+        # curate an AnnData
+        adata = datasets.small_dataset1(otype="AnnData")
+        curator = ln.curators.AnnDataCurator(adata, anndata_schema)
+        artifact = curator.save_artifact(key="example_datasets/dataset1.h5ad")
+        assert artifact.schema == anndata_schema
+    """
+
+    def __init__(
+        self,
+        dataset: AnnData,
+        schema: Schema,
+    ) -> None:
+        super().__init__(dataset=dataset, schema=schema)
+        if not data_is_anndata(dataset):
+            raise InvalidArgument("dataset must be AnnData-like.")
+        if schema.otype != "AnnData":
+            raise InvalidArgument("Schema otype must be 'AnnData'.")
+        self._obs_curator = DataFrameCurator(dataset.obs, schema._get_component("obs"))
+        self._var_curator = DataFrameCurator(
+            dataset.var.T, schema._get_component("var")
+        )
+
+    @doc_args(VALIDATE_DOCSTRING)
+    def validate(self) -> None:
+        """{}"""  # noqa: D415
+        self._obs_curator.validate()
+        self._var_curator.validate()
+        self._is_validated = True
+
+    @doc_args(SAVE_ARTIFACT_DOCSTRING)
+    def save_artifact(self, *, key=None, description=None, revises=None, run=None):
+        """{}"""  # noqa: D415
+        if not self._is_validated:
+            self.validate()  # raises ValidationError if doesn't validate
+        result = parse_dtype_single_cat(self._var_curator._schema.itype, is_itype=True)
+        return save_artifact(  # type: ignore
+            self._dataset,
+            description=description,
+            fields=self._obs_curator._cat_curator.categoricals,
+            columns_field=result["field"],
+            key=key,
+            revises=revises,
+            run=run,
+            schema=self._schema,
+        )
+
+
+class CatCurator(Curator):
+    """Categorical dataset curator.
+
+    A `CatCurator` object makes it easy to validate, standardize & annotate datasets.
 
     Example:
 
@@ -152,7 +444,7 @@ class Curator:
     >>>     columns=Feature.name,  # map column names
     >>>     categoricals={"perturbation": ULabel.name},  # map categories
     >>> )
-    >>> curator.validate()  # validate the data in df
+    >>> curator.validate()  # validate the dataframe
     >>> artifact = curator.save_artifact(description="my RNA-seq")
     >>> artifact.describe()  # see annotations
 
@@ -164,64 +456,6 @@ class Curator:
     - non-validated values can be accessed using :meth:`~lamindb.core.DataFrameCatCurator.non_validated` and addressed manually
     """
 
-    def __init__(self, dataset: Any):
-        self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
-        self._artifact: Artifact = None  # pass the dataset as a non-curated artifact
-        self._is_validated: bool = False
-        self._cat_curator: CatCurator = None  # is None for CatCurator curators
-
-    def validate(self) -> bool | str:
-        """Validate dataset.
-
-        This method also registers the validated records in the current instance.
-
-        Returns:
-            The boolean `True` if the dataset is validated. Otherwise, a string with the error message.
-        """
-        pass  # pdagma: no cover
-
-    def standardize(self, key: str) -> None:
-        """Replace synonyms with standardized values.
-
-        Inplace modification of the dataset.
-
-        Args:
-            key: The name of the column to standardize.
-
-        Returns:
-            None
-        """
-        pass  # pdagma: no cover
-
-    def save_artifact(
-        self,
-        *,
-        key: str | None = None,
-        description: str | None = None,
-        revises: Artifact | None = None,
-        run: Run | None = None,
-    ) -> Artifact:
-        # Note that this docstring has to be consistent with the Artifact()
-        # constructor signature
-        """Save an annotated artifact.
-
-        Args:
-            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
-            description: A description.
-            revises: Previous version of the artifact. Is an alternative way to passing `key` to trigger a revision.
-            run: The run that creates the artifact.
-
-        Returns:
-            A saved artifact record.
-        """
-        if not self._is_validated:
-            self.validate()  # raises ValidationError if doesn't validate
-        return self._cat_curator.save_artifact(
-            key=key, description=description, revises=revises, run=run
-        )
-
-
-class CatCurator(Curator):
     def __init__(
         self, *, dataset, categoricals, sources, organism, exclude, columns_field=None
     ):
@@ -269,6 +503,30 @@ class CatCurator(Curator):
             )
         return std_values
 
+    def validate(self) -> bool:
+        """Validate dataset.
+
+        This method also registers the validated records in the current instance.
+
+        Returns:
+            The boolean `True` if the dataset is validated. Otherwise, a string with the error message.
+        """
+        pass
+
+    def standardize(self, key: str) -> None:
+        """Replace synonyms with standardized values.
+
+        Inplace modification of the dataset.
+
+        Args:
+            key: The name of the column to standardize.
+
+        Returns:
+            None
+        """
+        pass  # pdagma: no cover
+
+    @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
         self,
         *,
@@ -277,6 +535,7 @@ class CatCurator(Curator):
         revises: Artifact | None = None,
         run: Run | None = None,
     ) -> Artifact:
+        """{}"""  # noqa: D415
         from lamindb.core._settings import settings
 
         if not self._is_validated:
@@ -303,62 +562,6 @@ class CatCurator(Curator):
             settings.verbosity = verbosity
 
         return self._artifact
-
-
-class DataFrameCurator(Curator):
-    """Curator for a DataFrame object.
-
-    See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
-
-    Args:
-        df: The DataFrame-like object to validate & annotate.
-        schema: A `Schema` object that defines the validation constraints.
-
-    Examples:
-        >>> curator = curators.DataFrameCurator(
-        ...     df,
-        ...     schema,
-        ... )
-    """
-
-    def __init__(
-        self,
-        dataset: pd.DataFrame,
-        schema: Schema,
-    ) -> None:
-        self._dataset: pd.DataFrame = dataset
-        non_categoricals = {}
-        categoricals = {}
-        self._schema = schema
-        for feature in schema.features.all():
-            pda_dtype = (
-                feature.dtype if not feature.dtype.startswith("cat") else "category"
-            )
-            non_categoricals[feature.name] = pda.Column(pda_dtype)
-            if feature.dtype.startswith("cat"):
-                categoricals[feature.name] = parse_dtype(feature.dtype)[0]["field"]
-        self._pda_schema = pda.DataFrameSchema(non_categoricals, coerce=True)
-        # now deal with categorical features using the old-style curator
-        self._cat_curator = DataFrameCatCurator(
-            dataset,
-            categoricals=categoricals,
-        )
-
-    def validate(self) -> None:
-        self._cat_curator.validate()
-        try:
-            self._pda_schema.validate(self._dataset)
-            if self._cat_curator._is_validated:
-                self._is_validated = True
-            else:
-                self._is_validated = False
-                raise ValidationError(
-                    self._cat_curator._validate_category_error_messages
-                )
-        except pda.errors.SchemaError as err:
-            self._is_validated = False
-            # .exconly() doesn't exist on SchemaError
-            raise ValidationError(str(err)) from err
 
 
 class DataFrameCatCurator(CatCurator):
@@ -622,8 +825,6 @@ class AnnDataCatCurator(CatCurator):
 
         if isinstance(var_index, str):
             raise TypeError("var_index parameter has to be a bionty field")
-
-        from .._artifact import data_is_anndata
 
         if sources is None:
             sources = {}
@@ -1495,7 +1696,7 @@ class TiledbsomaCatCurator(CatCurator):
                 organism=organism,
                 raise_validation_error=False,
             )
-        artifact._staged__schemas_m2m = _schemas_m2m
+        artifact._staged_schemas_m2m = _schemas_m2m
 
         feature_ref_is_name = _ref_is_name(self._columns_field)
         features = Feature.lookup().dict()
@@ -1905,7 +2106,7 @@ class SpatialDataCatCurator:
 
                 # table features
                 for table, field in var_fields.items():
-                    table_fs = parse_staged__schemas_m2m_from_anndata(
+                    table_fs = parse_staged_schemas_m2m_from_anndata(
                         self._sdata[table],
                         var_field=field,
                         obs_field=obs_fields.get(table, Feature.name),
@@ -1915,7 +2116,7 @@ class SpatialDataCatCurator:
                     for k, v in table_fs.items():
                         _schemas_m2m[f"['{table}'].{k}"] = v
 
-                def _unify_staged__schemas_m2m_by_hash(
+                def _unify_staged_schemas_m2m_by_hash(
                     _schemas_m2m: MutableMapping[str, Schema],
                 ):
                     unique_values: dict[str, Any] = {}
@@ -1932,7 +2133,7 @@ class SpatialDataCatCurator:
                     return _schemas_m2m
 
                 # link feature sets
-                host._staged__schemas_m2m = _unify_staged__schemas_m2m_by_hash(
+                host._staged_schemas_m2m = _unify_staged_schemas_m2m_by_hash(
                     _schemas_m2m
                 )
                 host.save()
@@ -3116,24 +3317,36 @@ def save_artifact(
         )
     artifact.save()
 
-    feature_kwargs = check_registry_organism(
-        (
-            list(columns_field.values())[0].field.model
-            if isinstance(columns_field, dict)
-            else columns_field.field.model
-        ),
-        organism,
-    )
+    if organism is not None:
+        feature_kwargs = check_registry_organism(
+            (
+                list(columns_field.values())[0].field.model
+                if isinstance(columns_field, dict)
+                else columns_field.field.model
+            ),
+            organism,
+        )
+    else:
+        feature_kwargs = {}
 
     if artifact.otype == "DataFrame":
-        # old style
         artifact.features._add_set_from_df(field=columns_field, **feature_kwargs)  # type: ignore
-        # new style (doing both for the time being)
+        # lamindb v2
+        # inferred_schema = artifact._staged_schemas_m2m["columns"]
+        # inferred_schema.validated_by = schema
+        # inferred_schema.save()
         artifact.schema = schema
     elif artifact.otype == "AnnData":
         artifact.features._add_set_from_anndata(  # type: ignore
             var_field=columns_field, **feature_kwargs
         )
+        # lamindb v2
+        # inferred_schema = Schema(
+        #     components=artifact._staged_schemas_m2m,
+        #     otype="AnnData",
+        #     validated_by=schema,
+        # ).save()
+        artifact.schema = schema
     elif artifact.otype == "MuData":
         artifact.features._add_set_from_mudata(  # type: ignore
             var_fields=columns_field, **feature_kwargs
@@ -3509,8 +3722,8 @@ def from_spatialdata(
     )
 
 
-Curator.from_df = from_df  # type: ignore
-Curator.from_anndata = from_anndata  # type: ignore
-Curator.from_mudata = from_mudata  # type: ignore
-Curator.from_spatialdata = from_spatialdata  # type: ignore
-Curator.from_tiledbsoma = from_tiledbsoma  # type: ignore
+CatCurator.from_df = from_df  # type: ignore
+CatCurator.from_anndata = from_anndata  # type: ignore
+CatCurator.from_mudata = from_mudata  # type: ignore
+CatCurator.from_spatialdata = from_spatialdata  # type: ignore
+CatCurator.from_tiledbsoma = from_tiledbsoma  # type: ignore

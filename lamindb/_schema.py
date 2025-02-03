@@ -10,6 +10,7 @@ from lamindb_setup.core.hashing import hash_set
 
 from lamindb.base import ids
 from lamindb.base.types import FieldAttr, ListLike
+from lamindb.errors import InvalidArgument
 from lamindb.models import Feature, Record, Schema
 
 from ._feature import convert_pandas_dtype_to_lamin_dtype
@@ -60,14 +61,14 @@ def __init__(self, *args, **kwargs):
     if len(args) == len(self._meta.concrete_fields):
         super(Schema, self).__init__(*args, **kwargs)
         return None
-    # now we proceed with the user-facing constructor
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: features")
 
-    # Extract primary constructor arguments
-    features: Iterable[Record] = kwargs.pop("features") if len(args) == 0 else args[0]
-
-    # Extract all possible field values with their defaults
+    features: Iterable[Record] | None = args[0] if args else kwargs.pop("features", [])
+    # typing here anticipates transitioning to a ManyToMany
+    # between composites and components similar to _schemas_m2m
+    # in lamindb v2
+    components: dict[str, Schema] = kwargs.pop("components", {})
     name: str | None = kwargs.pop("name", None)
     description: str | None = kwargs.pop("description", None)
     dtype: str | None = kwargs.pop("dtype", None)
@@ -81,59 +82,101 @@ def __init__(self, *args, **kwargs):
     composite: Schema | None = kwargs.pop("composite", None)
     slot: str | None = kwargs.pop("slot", None)
     validated_by: Schema | None = kwargs.pop("validated_by", None)
+    coerce_dtype: bool | None = kwargs.pop("coerce_dtype", None)
 
-    # Check for unexpected keyword arguments
     if kwargs:
         raise ValueError(
             f"Unexpected keyword arguments: {', '.join(kwargs.keys())}\n"
             "Valid arguments are: features, description, dtype, itype, type, "
             "is_type, otype, minimal_set, ordered_set, maximal_set, composite, "
-            "slot, validated_by"
+            "slot, validated_by, coerce_dtype"
         )
 
-    # now code
-    features_registry = validate_features(features)
+    if features:
+        features_registry = validate_features(features)
+        itype_compare = features_registry.__get_name_with_module__()
+        if itype is not None:
+            assert itype == itype_compare, str(itype_compare)  # noqa: S101
+        else:
+            itype = itype_compare
+        n_features = len(features)
+    else:
+        n_features = -1
     if dtype is None:
-        dtype = None if features_registry == Feature else NUMBER_TYPE
-    n_features = len(features)
-    hash = hash_set({feature.uid for feature in features})
+        dtype = None if itype is not None and itype == "Feature" else NUMBER_TYPE
+    else:
+        dtype = get_type_str(dtype)
+    if composite is not None and composite._state.adding:
+        raise InvalidArgument(f"composite schema {composite} must be saved before use")
+    components: dict[str, Schema]
+    if components:
+        itype = "Composite"
     validated_kwargs = {
         "name": name,
         "description": description,
         "type": type,
-        "dtype": get_type_str(dtype),
+        "dtype": dtype,
         "is_type": is_type,
         "otype": otype,
         "n": n_features,
-        "itype": (
-            features_registry.__get_name_with_module__() if itype is None else itype
-        ),
-        "hash": hash,
+        "itype": itype,
         "minimal_set": minimal_set,
         "ordered_set": ordered_set,
         "maximal_set": maximal_set,
         "composite": composite,
-        "slot": slot,
         "validated_by": validated_by,
     }
-    # compute hash
+    if coerce_dtype:
+        validated_kwargs["_aux"] = {"af": {"0": coerce_dtype}}
+    if features:
+        hash = hash_set({feature.uid for feature in features})
+    elif components:
+        hash = hash_set({component.hash for component in components.values()})
+    else:
+        hash = hash_set({str(value) for value in validated_kwargs.values()})
+    validated_kwargs["hash"] = hash
+    validated_kwargs["slot"] = slot
     schema = Schema.filter(hash=hash).one_or_none()
     if schema is not None:
         logger.important(f"returning existing schema with same hash: {schema}")
         init_self_from_db(self, schema)
         update_attributes(self, validated_kwargs)
         return None
-    else:
+    if features:
         self._features = (get_related_name(features_registry), features)
-        validated_kwargs["uid"] = ids.base62_20()
-        super(Schema, self).__init__(**validated_kwargs)
+    elif components:
+        for slot, component in components.items():
+            if component._state.adding:
+                raise InvalidArgument(
+                    f"component schema {component} must be saved before use"
+                )
+            if component.slot is None:
+                component.slot = slot
+            else:
+                assert component.slot == slot, (  # noqa: S101
+                    f"slot mismatch: {component.slot} != {slot}"
+                )
+            assert component.composite is None, (  # noqa: S101
+                f"component already used by {component.composite}"
+            )
+        self._components = components
+    validated_kwargs["uid"] = ids.base62_20()
+    super(Schema, self).__init__(**validated_kwargs)
 
 
 @doc_args(Schema.save.__doc__)
 def save(self, *args, **kwargs) -> Schema:
     """{}"""  # noqa: D415
+    if self.composite is not None:
+        assert self.slot is not None, "pass `slot`, e.g., to 'var', 'obs', etc."  # noqa: S101
     super(Schema, self).save(*args, **kwargs)
+    if hasattr(self, "_components"):
+        # we need to update the components because we set the slot and the composite
+        for component in self._components.values():
+            component.composite = self
+            component.save()
     if hasattr(self, "_features"):
+        assert self.n > 0  # noqa: S101
         related_name, records = self._features
         # only the following method preserves the order
         # .set() does not preserve the order but orders by
@@ -234,7 +277,7 @@ def from_df(
         validated_features = Feature.from_values(  # type: ignore
             df.columns, field=field, organism=organism
         )
-        schema = Schema(validated_features, name=name, dtype=None)
+        schema = Schema(validated_features, name=name, dtype=None, otype="DataFrame")
     else:
         dtypes = [col.dtype for (_, col) in df.loc[:, validated].items()]
         if len(set(dtypes)) != 1:
@@ -250,6 +293,7 @@ def from_df(
             features=validated_features,
             name=name,
             dtype=get_type_str(dtype),
+            otype="DataFrame",
         )
     return schema
 
@@ -295,4 +339,3 @@ for name in METHOD_NAMES:
 
 Schema.members = members  # type: ignore
 Schema._get_related_name = _get_related_name
-Schema.feature_sets = Schema._artifacts_m2m  # backward compat
