@@ -2594,7 +2594,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     _schemas_m2m: Schema = models.ManyToManyField(
         Schema, related_name="_artifacts_m2m", through="ArtifactSchema"
     )
-    """[For backward compatibility] The feature sets measured in the artifact."""
+    """The inferred schemas / feature sets measured by the artifact."""
     _feature_values: FeatureValue = models.ManyToManyField(
         FeatureValue, through="ArtifactFeatureValue", related_name="artifacts"
     )

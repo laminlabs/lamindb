@@ -20,7 +20,7 @@ Registries.
    User
    Storage
    Feature
-   FeatureSet
+   Schema
    Param
    Collection
    Project
@@ -50,6 +50,13 @@ Modules and settings.
    UPath
    base
    core
+
+Backward compatibility.
+
+.. autosummary::
+   :toctree: .
+
+   FeatureSet
 
 """
 
