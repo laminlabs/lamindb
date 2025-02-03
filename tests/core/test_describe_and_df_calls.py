@@ -66,6 +66,7 @@ def test_curate_df():
 
     ## Ingest dataset1
     adata = datasets.small_dataset1(otype="AnnData")
+    print(adata.var)
     curator = ln.Curator.from_anndata(
         adata,
         var_index=bt.Gene.ensembl_gene_id,
@@ -80,7 +81,8 @@ def test_curate_df():
     artifact.features.add_values(adata.uns)
 
     # Ingest dataset2
-    adata2 = datasets.small_dataset2(format="anndata")
+    adata2 = datasets.small_dataset2(otype="AnnData")
+    print(adata2.var)
     curator = ln.Curator.from_anndata(
         adata2,
         var_index=bt.Gene.ensembl_gene_id,

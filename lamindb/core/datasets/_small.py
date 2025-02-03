@@ -71,7 +71,7 @@ def small_dataset2(
         index=["sample4", "sample5", "sample6"],
     )
     ad.AnnData(
-        dataset_df[["CD8A", "CD4", "CD38"]],
+        dataset_df[var_ids],
         obs=dataset_df[["cell_medium", "cell_type_by_model"]],
     )
     if otype == "DataFrame":
