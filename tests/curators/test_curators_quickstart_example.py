@@ -48,8 +48,7 @@ def small_dataset1_schema():
 
     yield schema
 
-    # Cleanup
-    schema.delete()
+    ln.Schema.filter().delete()
     ln.Feature.filter().delete()
     bt.Gene.filter().delete()
     ln.ULabel.filter().delete()
@@ -98,7 +97,7 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema, curator_params):
     obs_schema.composite = adata_schema
     obs_schema.slot = "obs"
     obs_schema.save()
-    ln.Schema(
+    var_schema = ln.Schema(
         name="small_dataset1_var_schema",
         otype="DataFrame",
         itype="bionty.Gene.ensembl_gene_id",
@@ -126,6 +125,9 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema, curator_params):
     }
 
     artifact.delete(permanent=True)
+    obs_schema.delete()
+    var_schema.delete()
+    adata_schema.delete()
 
 
 def test_soma_curator(small_dataset1_schema, curator_params):
@@ -137,7 +139,7 @@ def test_soma_curator(small_dataset1_schema, curator_params):
 
     curator = ln.Curator.from_tiledbsoma(
         "./small_dataset1.tiledbsoma",
-        var_index={"RNA": ("var_id", bt.Gene.symbol)},
+        var_index={"RNA": ("var_id", bt.Gene.ensembl_gene_id)},
         **curator_params,
     )
     artifact = curator.save_artifact(key="example_datasets/dataset1.tiledbsoma")

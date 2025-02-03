@@ -37,7 +37,7 @@ def small_dataset1(
     }
     # the dataset as DataFrame
     dataset_df = pd.DataFrame(dataset_dict, index=["sample1", "sample2", "sample3"])
-    if format == "df":
+    if otype == "DataFrame":
         return dataset_df, metadata
     else:
         dataset_ad = ad.AnnData(
@@ -74,7 +74,7 @@ def small_dataset2(
         dataset_df[["CD8A", "CD4", "CD38"]],
         obs=dataset_df[["cell_medium", "cell_type_by_model"]],
     )
-    if format == "df":
+    if otype == "DataFrame":
         return dataset_df, metadata
     else:
         dataset_ad = ad.AnnData(
