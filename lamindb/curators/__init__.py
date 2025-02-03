@@ -163,13 +163,13 @@ Returns:
 
 
 class Curator:
-    """Categorical dataset curator.
+    """Dataset curator.
 
     A `Curator` object makes it easy to validate, standardize & annotate datasets.
 
     See:
-    - :class:`~lamindb.curators.DataFrameCurator`
-    - :class:`~lamindb.curators.AnnDataCurator`
+        - :class:`~lamindb.curators.DataFrameCurator`
+        - :class:`~lamindb.curators.AnnDataCurator`
     """
 
     def __init__(self, dataset: Any, schema: Schema | None = None):
