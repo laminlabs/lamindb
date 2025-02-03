@@ -3,6 +3,7 @@
 .. autosummary::
    :toctree: .
 
+   Curator
    DataFrameCurator
    AnnDataCurator
 
@@ -142,29 +143,33 @@ class CurateLookup:
             return colors.warning("No fields are found!")
 
 
+VALIDATE_DOCSTRING = """Validate dataset.
+
+Raises:
+    lamindb.errors.ValidationError
+"""
+
+SAVE_ARTIFACT_DOCSTRING = """Save an annotated artifact.
+
+Args:
+    key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+    description: A description.
+    revises: Previous version of the artifact. Is an alternative way to passing `key` to trigger a revision.
+    run: The run that creates the artifact.
+
+Returns:
+    A saved artifact record.
+"""
+
+
 class Curator:
-    """Dataset curator.
+    """Categorical dataset curator.
 
     A `Curator` object makes it easy to validate, standardize & annotate datasets.
 
-    Example:
-
-    >>> curator = ln.Curator(
-    >>>     dataset,
-    >>>     # define validation criteria as mappings
-    >>>     columns=Feature.name,  # map column names
-    >>>     categoricals={"perturbation": ULabel.name},  # map categories
-    >>> )
-    >>> curator.validate()  # validate the data in df
-    >>> artifact = curator.save_artifact(description="my RNA-seq")
-    >>> artifact.describe()  # see annotations
-
-    `curator.validate()` maps values within `df` according to the mapping criteria and logs validated & problematic values.
-
-    If you find non-validated values, you have several options:
-
-    - new values found in the data can be registered using :meth:`~lamindb.core.DataFrameCatCurator.add_new_from`
-    - non-validated values can be accessed using :meth:`~lamindb.core.DataFrameCatCurator.non_validated` and addressed manually
+    See:
+    - :class:`~lamindb.curators.DataFrameCurator`
+    - :class:`~lamindb.curators.AnnDataCurator`
     """
 
     def __init__(self, dataset: Any, schema: Schema | None = None):
@@ -174,16 +179,12 @@ class Curator:
         self._is_validated: bool = False
         self._cat_curator: CatCurator = None  # is None for CatCurator curators
 
+    @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> bool | str:
-        """Validate dataset.
-
-        This method also registers the validated records in the current instance.
-
-        Returns:
-            The boolean `True` if the dataset is validated. Otherwise, a string with the error message.
-        """
+        """{}"""  # noqa: D415
         pass  # pdagma: no cover
 
+    @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
         self,
         *,
@@ -192,19 +193,9 @@ class Curator:
         revises: Artifact | None = None,
         run: Run | None = None,
     ) -> Artifact:
+        """{}"""  # noqa: D415
         # Note that this docstring has to be consistent with the Artifact()
         # constructor signature
-        """Save an annotated artifact.
-
-        Args:
-            key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
-            description: A description.
-            revises: Previous version of the artifact. Is an alternative way to passing `key` to trigger a revision.
-            run: The run that creates the artifact.
-
-        Returns:
-            A saved artifact record.
-        """
         pass
 
 
@@ -245,8 +236,7 @@ class DataFrameCurator(Curator):
 
         # curate a DataFrame
         df = datasets.small_dataset1(otype="DataFrame")
-        curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
-        artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
+        curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)        artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
         assert artifact.schema == anndata_schema
     """
 
@@ -317,6 +307,7 @@ class DataFrameCurator(Curator):
                         f"Invalid identifiers for {self._schema.itype}: {inspector.non_validated}"
                     )
 
+    @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
         self,
         *,
@@ -325,6 +316,7 @@ class DataFrameCurator(Curator):
         revises: Artifact | None = None,
         run: Run | None = None,
     ):
+        """{}"""  # noqa: D415
         if not self._is_validated:
             self.validate()  # raises ValidationError if doesn't validate
         result = parse_dtype_single_cat(self._schema.itype, is_itype=True)
@@ -434,6 +426,30 @@ class AnnDataCurator(Curator):
 
 
 class CatCurator(Curator):
+    """Categorical dataset curator.
+
+    A `CatCurator` object makes it easy to validate, standardize & annotate datasets.
+
+    Example:
+
+    >>> curator = ln.Curator(
+    >>>     dataset,
+    >>>     # define validation criteria as mappings
+    >>>     columns=Feature.name,  # map column names
+    >>>     categoricals={"perturbation": ULabel.name},  # map categories
+    >>> )
+    >>> curator.validate()  # validate the dataframe
+    >>> artifact = curator.save_artifact(description="my RNA-seq")
+    >>> artifact.describe()  # see annotations
+
+    `curator.validate()` maps values within `df` according to the mapping criteria and logs validated & problematic values.
+
+    If you find non-validated values, you have several options:
+
+    - new values found in the data can be registered using :meth:`~lamindb.core.DataFrameCatCurator.add_new_from`
+    - non-validated values can be accessed using :meth:`~lamindb.core.DataFrameCatCurator.non_validated` and addressed manually
+    """
+
     def __init__(
         self, *, dataset, categoricals, sources, organism, exclude, columns_field=None
     ):
