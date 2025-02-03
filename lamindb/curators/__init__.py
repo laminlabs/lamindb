@@ -287,12 +287,13 @@ class DataFrameCurator(Curator):
         else:
             result = parse_dtype_single_cat(self._schema.itype)
             registry: CanCurate = result["registry"]
-            registry.import_source()  # type: ignore
-            indicator = registry.validate(self._dataset.columns, result["field"])
-            if (~indicator).any():
+            inspector = registry.inspect(
+                self._dataset.columns, result["field"], mute=True
+            )
+            if len(inspector.non_validated):
                 self._is_validated = False
                 raise ValidationError(
-                    f"Invalid column identifiers found: {self._dataset.columns[~indicator]}"
+                    f"Invalid column identifiers found: {inspector.non_validated}"
                 )
 
 
