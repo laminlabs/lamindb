@@ -222,6 +222,7 @@ class Curator:
 
 
 class DataFrameCurator(Curator):
+    # the example in the docstring is tested in test_curators_quickstart_example
     """Curator for a DataFrame object.
 
     See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
@@ -232,18 +233,17 @@ class DataFrameCurator(Curator):
 
     Example::
 
-        # Labels
+        # define labels
         ln.ULabel.from_values(["DMSO", "IFNG"], create=True).save()
         bt.CellType.from_values(["B cell", "T cell"], create=True).save()
 
-        # Features
-        # observation-level
+        # define features
         cell_medium = ln.Feature(name="cell_medium", dtype="cat[ULabel]").save()
         sample_note = ln.Feature(name="sample_note", dtype="str").save()
         cell_type_by_expert = ln.Feature(name="cell_type_by_expert", dtype="cat[bionty.CellType]").save()
         cell_type_by_model = ln.Feature(name="cell_type_by_model", dtype="cat[bionty.CellType]").save()
 
-        # Schema
+        # define schema
         schema = ln.Schema(
             name="small_dataset1_obs_level_metadata",
             otype="DataFrame",
@@ -354,6 +354,7 @@ class DataFrameCurator(Curator):
 
 
 class AnnDataCurator(Curator):
+    # the example in the docstring is tested in test_curators_quickstart_example
     """Curator for a DataFrame object.
 
     See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
@@ -366,7 +367,7 @@ class AnnDataCurator(Curator):
 
         import lamindb as ln
 
-        # Labels
+        # define labels
         ln.ULabel.from_values(["DMSO", "IFNG"], create=True).save()
         bt.CellType.from_values(["B cell", "T cell"], create=True).save()
 
