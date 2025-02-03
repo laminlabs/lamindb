@@ -344,7 +344,6 @@ class AnnDataCurator(Curator):
             revises=revises,
             run=run,
             schema=self,
-            organism="human",  # TODO: why necessary for humans?
         )
 
 
@@ -3185,14 +3184,17 @@ def save_artifact(
         )
     artifact.save()
 
-    feature_kwargs = check_registry_organism(
-        (
-            list(columns_field.values())[0].field.model
-            if isinstance(columns_field, dict)
-            else columns_field.field.model
-        ),
-        organism,
-    )
+    if organism is not None:
+        feature_kwargs = check_registry_organism(
+            (
+                list(columns_field.values())[0].field.model
+                if isinstance(columns_field, dict)
+                else columns_field.field.model
+            ),
+            organism,
+        )
+    else:
+        feature_kwargs = {}
 
     if artifact.otype == "DataFrame":
         # old style
