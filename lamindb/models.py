@@ -2168,6 +2168,8 @@ class Schema(Record, CanCurate, TracksRun):
 
     A schema can be composed of sub-schemas.
     """
+    # in lamindb v2, the below will be a M2M to enable re-using a component
+    # across composites
     composite: Schema | None = ForeignKey(
         "self", PROTECT, related_name="components", default=None, null=True
     )
@@ -2203,7 +2205,7 @@ class Schema(Record, CanCurate, TracksRun):
     def __init__(
         self,
         features: Iterable[Record] | None = None,
-        components: Iterable[Schema] | None = None,
+        components: dict[str, Schema] | None = None,
         name: str | None = None,
         description: str | None = None,
         dtype: str | None = None,

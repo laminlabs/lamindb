@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import importlib
 from typing import TYPE_CHECKING, Any, get_args
 
 import lamindb_setup as ln_setup
 import pandas as pd
 from lamin_utils import logger
+from lamindb_setup._init_instance import get_schema_module_name
 from lamindb_setup.core._docs import doc_args
 from pandas.api.types import CategoricalDtype, is_string_dtype
 
@@ -29,7 +31,9 @@ FEATURE_DTYPES = set(get_args(FeatureDtype))
 
 
 def parse_dtype_single_cat(
-    dtype_str: str, related_registries: dict[str, Record] | None = None
+    dtype_str: str,
+    related_registries: dict[str, Record] | None = None,
+    is_itype: bool = False,
 ) -> dict:
     if related_registries is None:
         related_registries = dict_module_name_to_model_name(Artifact)
@@ -62,14 +66,25 @@ def parse_dtype_single_cat(
             field_str = (
                 "" if len(registry_field_split) == 1 else registry_field_split[1]
             )
-    if registry_str not in related_registries:
-        raise ValidationError(
-            f"'{registry_str}' is an invalid dtype, has to be registry, e.g. ULabel or bionty.CellType"
-        )
+    if not is_itype:
+        if registry_str not in related_registries:
+            raise ValidationError(
+                f"'{registry_str}' is an invalid dtype, has to be registry, e.g. ULabel or bionty.CellType"
+            )
+        registry = related_registries[registry_str]
+    else:
+        if "." in registry_str:
+            registry_str_split = registry_str.split(".")
+            assert len(registry_str_split) == 2, registry_str  # noqa: S101
+            module_name, class_name = registry_str_split
+            module_name = get_schema_module_name(module_name)
+        else:
+            module_name, class_name = "lamindb", registry_str
+        module = importlib.import_module(module_name)
+        registry = getattr(module, class_name)
     if sub_type_str != "":
         pass
         # validate that the subtype is a record in the registry with is_type = True
-    registry = related_registries[registry_str]
     if field_str != "":
         pass
         # validate that field_str is an actual field of the module

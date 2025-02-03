@@ -281,7 +281,7 @@ class DataFrameCurator(Curator):
                 # .exconly() doesn't exist on SchemaError
                 raise ValidationError(str(err)) from err
         else:
-            result = parse_dtype_single_cat(self._schema.itype)
+            result = parse_dtype_single_cat(self._schema.itype, is_itype=True)
             registry: CanCurate = result["registry"]
             inspector = registry.inspect(
                 self._dataset.columns,
@@ -313,7 +313,7 @@ class DataFrameCurator(Curator):
     ):
         if not self._is_validated:
             self.validate()  # raises ValidationError if doesn't validate
-        result = parse_dtype_single_cat(self._schema.itype)
+        result = parse_dtype_single_cat(self._schema.itype, is_itype=True)
         return save_artifact(  # type: ignore
             self._dataset,
             description=description,

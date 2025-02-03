@@ -90,19 +90,16 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema, curator_params):
     """Test AnnData curator implementation."""
 
     obs_schema = small_dataset1_schema
-    obs_schema.slot = "obs"
-    obs_schema.save()
     var_schema = ln.Schema(
         name="small_dataset1_var_schema",
         otype="DataFrame",
         itype="bionty.Gene.ensembl_gene_id",
         dtype="num",
-        slot="var",
     ).save()
     adata_schema = ln.Schema(
         name="small_dataset1_anndata_schema",
         otype="AnnData",
-        components=[obs_schema, var_schema],
+        components={"obs": obs_schema, "var": var_schema},
     ).save()
 
     assert adata_schema.components.get(slot="obs").composite == adata_schema

@@ -65,11 +65,10 @@ def __init__(self, *args, **kwargs):
         raise ValueError("Only one non-keyword arg allowed: features")
 
     features: Iterable[Record] | None = args[0] if args else kwargs.pop("features", [])
-    # second typing argument below is for internal use
-    # due to legacy schema linking mechanism via _schemas_m2m
-    components: Iterable[Schema] | dict[str, Schema] | None = kwargs.pop(
-        "components", {}
-    )
+    # typing here anticipates transitioning to a ManyToMany
+    # between composites and components similar to _schemas_m2m
+    # in lamindb v2
+    components: dict[str, Schema] = kwargs.pop("components", {})
     name: str | None = kwargs.pop("name", None)
     description: str | None = kwargs.pop("description", None)
     dtype: str | None = kwargs.pop("dtype", None)
@@ -109,15 +108,8 @@ def __init__(self, *args, **kwargs):
         dtype = get_type_str(dtype)
     if composite is not None and composite._state.adding:
         raise InvalidArgument(f"composite schema {composite} must be saved before use")
-    components_dict: dict[str, Schema]
-    if not isinstance(components, dict):
-        for component in components:
-            if component.slot is None:
-                raise InvalidArgument(f"`.slot` cannot be None in {component}")
-        components_dict = {component.slot: component for component in components}
-    else:
-        components_dict = components
-    if components_dict:
+    components: dict[str, Schema]
+    if components:
         itype = "Composite"
     validated_kwargs = {
         "name": name,
@@ -139,7 +131,7 @@ def __init__(self, *args, **kwargs):
     if features:
         hash = hash_set({feature.uid for feature in features})
     elif components:
-        hash = hash_set({component.hash for component in components_dict.values()})
+        hash = hash_set({component.hash for component in components.values()})
     else:
         hash = hash_set({str(value) for value in validated_kwargs.values()})
     validated_kwargs["hash"] = hash
@@ -153,7 +145,7 @@ def __init__(self, *args, **kwargs):
     if features:
         self._features = (get_related_name(features_registry), features)
     elif components:
-        for slot, component in components_dict.items():
+        for slot, component in components.items():
             if component._state.adding:
                 raise InvalidArgument(
                     f"component schema {component} must be saved before use"
@@ -167,7 +159,7 @@ def __init__(self, *args, **kwargs):
             assert component.composite is None, (  # noqa: S101
                 f"component already used by {component.composite}"
             )
-        self._components = components_dict
+        self._components = components
     validated_kwargs["uid"] = ids.base62_20()
     super(Schema, self).__init__(**validated_kwargs)
 
