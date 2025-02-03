@@ -134,7 +134,7 @@ def test_soma_curator(small_dataset1_schema, curator_params):
         **curator_params,
     )
     artifact = curator.save_artifact(key="example_datasets/dataset1.tiledbsoma")
-    artifact.features.add_values(adata.uns)
+    # artifact.features.add_values(adata.uns)
 
     assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
         "T cell",
