@@ -96,24 +96,24 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema, curator_params):
         itype="bionty.Gene.ensembl_gene_id",
         dtype="num",
     ).save()
-    adata_schema = ln.Schema(
+    anndata_schema = ln.Schema(
         name="small_dataset1_anndata_schema",
         otype="AnnData",
         components={"obs": obs_schema, "var": var_schema},
     ).save()
 
-    assert adata_schema.components.get(slot="obs").composite == adata_schema
-    assert adata_schema.components.get(slot="var").composite == adata_schema
+    assert anndata_schema.components.get(slot="obs").composite == anndata_schema
+    assert anndata_schema.components.get(slot="var").composite == anndata_schema
 
-    describe_output = adata_schema.describe(return_str=True)
+    describe_output = anndata_schema.describe(return_str=True)
     assert "small_dataset1_anndata_schema" in describe_output
     assert "small_dataset1_obs_level_metadata" in describe_output
     assert "small_dataset1_var_schema" in describe_output
 
     adata = datasets.small_dataset1(otype="AnnData")
-    curator = ln.curators.AnnDataCurator(adata, adata_schema)
+    curator = ln.curators.AnnDataCurator(adata, anndata_schema)
     artifact = curator.save_artifact(key="example_datasets/dataset1.h5ad")
-    assert artifact.schema == adata_schema
+    assert artifact.schema == anndata_schema
 
     assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
         "T cell",
@@ -127,7 +127,7 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema, curator_params):
     artifact.delete(permanent=True)
     obs_schema.delete()
     var_schema.delete()
-    adata_schema.delete()
+    anndata_schema.delete()
 
 
 def test_soma_curator(small_dataset1_schema, curator_params):
