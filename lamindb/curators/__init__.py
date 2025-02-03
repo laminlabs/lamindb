@@ -184,19 +184,6 @@ class Curator:
         """
         pass  # pdagma: no cover
 
-    def standardize(self, key: str) -> None:
-        """Replace synonyms with standardized values.
-
-        Inplace modification of the dataset.
-
-        Args:
-            key: The name of the column to standardize.
-
-        Returns:
-            None
-        """
-        pass  # pdagma: no cover
-
     def save_artifact(
         self,
         *,
@@ -493,6 +480,19 @@ class CatCurator(Curator):
                 f'standardized {n} synonym{s} in "{key}": {colors.green(syn_mapper_print)}'
             )
         return std_values
+
+    def standardize(self, key: str) -> None:
+        """Replace synonyms with standardized values.
+
+        Inplace modification of the dataset.
+
+        Args:
+            key: The name of the column to standardize.
+
+        Returns:
+            None
+        """
+        pass  # pdagma: no cover
 
     def save_artifact(
         self,
