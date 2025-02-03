@@ -33,7 +33,6 @@ Key functionality.
    :toctree: .
 
    connect
-   Curator
    view
    save
 

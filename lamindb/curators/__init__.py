@@ -146,7 +146,7 @@ class CurateLookup:
 VALIDATE_DOCSTRING = """Validate dataset.
 
 Raises:
-    lamindb.errors.ValidationError
+    lamindb.errors.ValidationError: If validation fails.
 """
 
 SAVE_ARTIFACT_DOCSTRING = """Save an annotated artifact.
@@ -268,7 +268,9 @@ class DataFrameCurator(Curator):
         else:
             assert schema.itype is not None  # noqa: S101
 
+    @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
+        """{}"""  # noqa: D415
         if self._schema.n > 0:
             self._cat_curator.validate()
             try:
@@ -404,12 +406,16 @@ class AnnDataCurator(Curator):
             dataset.var.T, schema._get_component("var")
         )
 
+    @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
+        """{}"""  # noqa: D415
         self._obs_curator.validate()
         self._var_curator.validate()
         self._is_validated = True
 
+    @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(self, *, key=None, description=None, revises=None, run=None):
+        """{}"""  # noqa: D415
         if not self._is_validated:
             self.validate()  # raises ValidationError if doesn't validate
         result = parse_dtype_single_cat(self._var_curator._schema.itype, is_itype=True)
@@ -497,6 +503,16 @@ class CatCurator(Curator):
             )
         return std_values
 
+    def validate(self) -> bool:
+        """Validate dataset.
+
+        This method also registers the validated records in the current instance.
+
+        Returns:
+            The boolean `True` if the dataset is validated. Otherwise, a string with the error message.
+        """
+        pass
+
     def standardize(self, key: str) -> None:
         """Replace synonyms with standardized values.
 
@@ -510,6 +526,7 @@ class CatCurator(Curator):
         """
         pass  # pdagma: no cover
 
+    @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
         self,
         *,
@@ -518,6 +535,7 @@ class CatCurator(Curator):
         revises: Artifact | None = None,
         run: Run | None = None,
     ) -> Artifact:
+        """{}"""  # noqa: D415
         from lamindb.core._settings import settings
 
         if not self._is_validated:
