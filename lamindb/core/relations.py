@@ -8,7 +8,7 @@ from lamindb_setup._connect_instance import (
 )
 from lamindb_setup.core._settings_store import instance_settings_file
 
-from lamindb.models import LinkORM, Record, Schema
+from lamindb.models import LinkORM, Record, Registry, Schema
 
 
 def get_schema_modules(instance: str | None) -> set[str]:
@@ -38,8 +38,8 @@ def get_schema_modules(instance: str | None) -> set[str]:
 # this function here should likely be renamed
 # it maps the __get_name_with_module__() onto the actual model
 def dict_module_name_to_model_name(
-    registry: type[Record], instance: str | None = None
-) -> dict[str, Record]:
+    registry: Registry, instance: str | None = None
+) -> dict[str, Registry]:
     schema_modules = get_schema_modules(instance)
     d: dict = {
         i.related_model.__get_name_with_module__(): i.related_model

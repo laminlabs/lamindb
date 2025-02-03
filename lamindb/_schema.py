@@ -142,8 +142,13 @@ def __init__(self, *args, **kwargs):
 @doc_args(Schema.save.__doc__)
 def save(self, *args, **kwargs) -> Schema:
     """{}"""  # noqa: D415
+    if self.slot is not None:
+        assert self.composite is not None, "pass `composite` schema"  # noqa: S101
+    if self.composite is not None:
+        assert self.slot is not None, "pass `slot`, e.g., to 'var', 'obs', etc."  # noqa: S101
     super(Schema, self).save(*args, **kwargs)
     if hasattr(self, "_features"):
+        assert self.n > 0  # noqa: S101
         related_name, records = self._features
         # only the following method preserves the order
         # .set() does not preserve the order but orders by

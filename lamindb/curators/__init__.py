@@ -36,13 +36,14 @@ if TYPE_CHECKING:
 
     from lamindb.base.types import FieldAttr
     from lamindb.models import Record
-from lamindb._feature import parse_dtype
+from lamindb._feature import parse_dtype, parse_dtype_single_cat
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.core._data import add_labels
 from lamindb.core._feature_manager import parse_staged__schemas_m2m_from_anndata
 from lamindb.core._settings import settings
 from lamindb.models import (
     Artifact,
+    CanCurate,
     Collection,
     Feature,
     Record,
@@ -51,8 +52,9 @@ from lamindb.models import (
     ULabel,
 )
 
+from .._artifact import data_is_anndata
 from .._from_values import _format_values
-from ..errors import ValidationError
+from ..errors import InvalidArgument, ValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, MutableMapping
@@ -222,6 +224,129 @@ class Curator:
         )
 
 
+class DataFrameCurator(Curator):
+    """Curator for a DataFrame object.
+
+    See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
+
+    Args:
+        dataset: The DataFrame-like object to validate & annotate.
+        schema: A `Schema` object that defines the validation constraints.
+
+    Examples:
+        >>> curator = curators.DataFrameCurator(
+        ...     df,
+        ...     schema,
+        ... )
+    """
+
+    def __init__(
+        self,
+        dataset: pd.DataFrame,
+        schema: Schema,
+    ) -> None:
+        super().__init__(dataset=dataset, schema=schema)
+        if schema.n > 0:
+            # populate features
+            non_categoricals = {}
+            categoricals = {}
+            for feature in schema.features.all():
+                pda_dtype = (
+                    feature.dtype if not feature.dtype.startswith("cat") else "category"
+                )
+                non_categoricals[feature.name] = pda.Column(pda_dtype)
+                if feature.dtype.startswith("cat"):
+                    categoricals[feature.name] = parse_dtype(feature.dtype)[0]["field"]
+            self._pda_schema = pda.DataFrameSchema(
+                non_categoricals, coerce=schema.coerce_dtype
+            )
+            # now deal with categorical features using the old-style curator
+            self._cat_curator = DataFrameCatCurator(
+                dataset,
+                categoricals=categoricals,
+            )
+        else:
+            assert schema.itype is not None  # noqa: S101
+
+    def validate(self) -> None:
+        if self._schema.n > 0:
+            self._cat_curator.validate()
+            try:
+                self._pda_schema.validate(self._dataset)
+                if self._cat_curator._is_validated:
+                    self._is_validated = True
+                else:
+                    self._is_validated = False
+                    raise ValidationError(
+                        self._cat_curator._validate_category_error_messages
+                    )
+            except pda.errors.SchemaError as err:
+                self._is_validated = False
+                # .exconly() doesn't exist on SchemaError
+                raise ValidationError(str(err)) from err
+        else:
+            result = parse_dtype_single_cat(self._schema.itype)
+            registry: CanCurate = result["registry"]
+            registry.import_source()  # type: ignore
+            indicator = registry.validate(self._dataset.columns, result["field"])
+            if (~indicator).any():
+                self._is_validated = False
+                raise ValidationError(
+                    f"Invalid column identifiers found: {self._dataset.columns[~indicator]}"
+                )
+
+
+class AnnDataCurator(Curator):
+    """Curator for a DataFrame object.
+
+    See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
+
+    Args:
+        dataset: The AnnData-like object to validate & annotate.
+        schema: A `Schema` object that defines the validation constraints.
+
+    Examples:
+        >>> curator = curators.DataFrameCurator(
+        ...     df,
+        ...     schema,
+        ... )
+    """
+
+    def __init__(
+        self,
+        dataset: AnnData,
+        schema: Schema,
+    ) -> None:
+        super().__init__(dataset=dataset, schema=schema)
+        if not data_is_anndata(dataset):
+            raise InvalidArgument("dataset must be AnnData-like.")
+        if schema.otype != "AnnData":
+            raise InvalidArgument("Schema otype must be 'AnnData'.")
+        self._obs_curator = DataFrameCurator(dataset.obs, schema._get_component("obs"))
+        self._var_curator = DataFrameCurator(
+            dataset.var.T, schema._get_component("var")
+        )
+
+    def validate(self) -> None:
+        self._obs_curator.validate()
+        self._var_curator.validate()
+        self._is_validated = True
+
+    def save_artifact(self, *, key=None, description=None, revises=None, run=None):
+        result = parse_dtype_single_cat(self._var_curator._schema.itype)
+        return save_artifact(  # type: ignore
+            self._dataset,
+            description=description,
+            fields=self._obs_curator._cat_curator.categoricals,
+            columns_field=result["field"],
+            key=key,
+            revises=revises,
+            run=run,
+            schema=self,
+            organism="human",  # TODO: why necessary for humans?
+        )
+
+
 class CatCurator(Curator):
     def __init__(
         self, *, dataset, categoricals, sources, organism, exclude, columns_field=None
@@ -304,64 +429,6 @@ class CatCurator(Curator):
             settings.verbosity = verbosity
 
         return self._artifact
-
-
-class DataFrameCurator(Curator):
-    """Curator for a DataFrame object.
-
-    See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
-
-    Args:
-        df: The DataFrame-like object to validate & annotate.
-        schema: A `Schema` object that defines the validation constraints.
-
-    Examples:
-        >>> curator = curators.DataFrameCurator(
-        ...     df,
-        ...     schema,
-        ... )
-    """
-
-    def __init__(
-        self,
-        dataset: pd.DataFrame,
-        schema: Schema,
-    ) -> None:
-        super().__init__(dataset=dataset, schema=schema)
-        # populate features
-        non_categoricals = {}
-        categoricals = {}
-        for feature in schema.features.all():
-            pda_dtype = (
-                feature.dtype if not feature.dtype.startswith("cat") else "category"
-            )
-            non_categoricals[feature.name] = pda.Column(pda_dtype)
-            if feature.dtype.startswith("cat"):
-                categoricals[feature.name] = parse_dtype(feature.dtype)[0]["field"]
-        self._pda_schema = pda.DataFrameSchema(
-            non_categoricals, coerce=schema.coerce_dtype
-        )
-        # now deal with categorical features using the old-style curator
-        self._cat_curator = DataFrameCatCurator(
-            dataset,
-            categoricals=categoricals,
-        )
-
-    def validate(self) -> None:
-        self._cat_curator.validate()
-        try:
-            self._pda_schema.validate(self._dataset)
-            if self._cat_curator._is_validated:
-                self._is_validated = True
-            else:
-                self._is_validated = False
-                raise ValidationError(
-                    self._cat_curator._validate_category_error_messages
-                )
-        except pda.errors.SchemaError as err:
-            self._is_validated = False
-            # .exconly() doesn't exist on SchemaError
-            raise ValidationError(str(err)) from err
 
 
 class DataFrameCatCurator(CatCurator):
@@ -625,8 +692,6 @@ class AnnDataCatCurator(CatCurator):
 
         if isinstance(var_index, str):
             raise TypeError("var_index parameter has to be a bionty field")
-
-        from .._artifact import data_is_anndata
 
         if sources is None:
             sources = {}

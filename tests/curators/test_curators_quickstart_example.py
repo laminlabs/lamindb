@@ -89,7 +89,6 @@ def test_dataframe_curator(small_dataset1_schema):
 
 def test_anndata_curator(small_dataset1_schema: ln.Schema, curator_params):
     """Test AnnData curator implementation."""
-    datasets.small_dataset1(otype="AnnData")
 
     adata_schema = ln.Schema(
         name="small_dataset1_anndata_schema",
@@ -113,20 +112,20 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema, curator_params):
     assert "small_dataset1_obs_level_metadata" in describe_output
     assert "small_dataset1_var_schema" in describe_output
 
-    # curator = ln.Curator.from_anndata(adata, var_index=bt.Gene.symbol, **curator_params)
-    # artifact = curator.save_artifact(key="example_datasets/dataset1.h5ad")
-    # artifact.features.add_values(adata.uns)
+    adata = datasets.small_dataset1(otype="AnnData")
+    curator = ln.curators.AnnDataCurator(adata, adata_schema)
+    artifact = curator.save_artifact(key="example_datasets/dataset1.h5ad")
 
-    # assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
-    #     "T cell",
-    #     "B cell",
-    # }
-    # assert set(artifact.features.get_values()["cell_type_by_model"]) == {
-    #     "T cell",
-    #     "B cell",
-    # }
+    assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
+        "T cell",
+        "B cell",
+    }
+    assert set(artifact.features.get_values()["cell_type_by_model"]) == {
+        "T cell",
+        "B cell",
+    }
 
-    # artifact.delete(permanent=True)
+    artifact.delete(permanent=True)
 
 
 def test_soma_curator(small_dataset1_schema, curator_params):

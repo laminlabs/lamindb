@@ -2323,6 +2323,10 @@ class Schema(Record, CanCurate, TracksRun):
             print(message)
             return None
 
+    def _get_component(self, slot: str) -> Schema:
+        components = Schema.filter(composite=self).all()
+        return components.get(slot=slot)
+
 
 class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     # Note that this docstring has to be consistent with Curator.save_artifact()
