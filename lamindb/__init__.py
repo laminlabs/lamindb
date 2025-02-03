@@ -44,6 +44,7 @@ Modules and settings.
 
    integrations
    context
+   curators
    settings
    errors
    setup

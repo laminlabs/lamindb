@@ -4,6 +4,7 @@
    :toctree: .
 
    DataFrameCurator
+   AnnDataCurator
 
 """
 
