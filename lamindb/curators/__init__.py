@@ -233,25 +233,22 @@ class DataFrameCurator(Curator):
 
     Example::
 
-        # define labels
-        ln.ULabel.from_values(["DMSO", "IFNG"], create=True).save()
-        bt.CellType.from_values(["B cell", "T cell"], create=True).save()
-
-        # define features
-        cell_medium = ln.Feature(name="cell_medium", dtype="cat[ULabel]").save()
-        sample_note = ln.Feature(name="sample_note", dtype="str").save()
-        cell_type_by_expert = ln.Feature(name="cell_type_by_expert", dtype="cat[bionty.CellType]").save()
-        cell_type_by_model = ln.Feature(name="cell_type_by_model", dtype="cat[bionty.CellType]").save()
+        # define valid labels
+        cell_medium = ln.ULabel(name="CellMedium", is_type=True).save()
+        ln.ULabel(name="DMSO", type=cell_medium).save()
+        ln.ULabel(name="IFNG", type=cell_medium).save()
+        bt.CellType.from_source(name="B cell").save()
+        bt.CellType.from_source(name="T cell").save()
 
         # define schema
         schema = ln.Schema(
             name="small_dataset1_obs_level_metadata",
             otype="DataFrame",
             features=[
-                cell_medium,
-                sample_note,
-                cell_type_by_expert,
-                cell_type_by_model,
+                ln.Feature(name="cell_medium", dtype="cat[ULabel[CellMedium]]").save(),
+                ln.Feature(name="sample_note", dtype="str").save(),
+                ln.Feature(name="cell_type_by_expert", dtype="cat[bionty.CellType]").save(),
+                ln.Feature(name="cell_type_by_model", dtype="cat[bionty.CellType]").save(),
             ],
             coerce_dtype=True,
         ).save()
@@ -367,25 +364,22 @@ class AnnDataCurator(Curator):
 
         import lamindb as ln
 
-        # define labels
-        ln.ULabel.from_values(["DMSO", "IFNG"], create=True).save()
-        bt.CellType.from_values(["B cell", "T cell"], create=True).save()
-
-        # define features
-        cell_medium = ln.Feature(name="cell_medium", dtype="cat[ULabel]").save()
-        sample_note = ln.Feature(name="sample_note", dtype="str").save()
-        cell_type_by_expert = ln.Feature(name="cell_type_by_expert", dtype="cat[bionty.CellType]").save()
-        cell_type_by_model = ln.Feature(name="cell_type_by_model", dtype="cat[bionty.CellType]").save()
+        # define valid labels
+        cell_medium = ln.ULabel(name="CellMedium", is_type=True).save()
+        ln.ULabel(name="DMSO", type=cell_medium).save()
+        ln.ULabel(name="IFNG", type=cell_medium).save()
+        bt.CellType.from_source(name="B cell").save()
+        bt.CellType.from_source(name="T cell").save()
 
         # define obs schema
         obs_schema = ln.Schema(
             name="small_dataset1_obs_level_metadata",
             otype="DataFrame",
             features=[
-                cell_medium,
-                sample_note,
-                cell_type_by_expert,
-                cell_type_by_model,
+                ln.Feature(name="cell_medium", dtype="cat[ULabel[CellMedium]]").save(),
+                ln.Feature(name="sample_note", dtype="str").save(),
+                ln.Feature(name="cell_type_by_expert", dtype="cat[bionty.CellType]").save(),
+                ln.Feature(name="cell_type_by_model", dtype="cat[bionty.CellType]").save(),
             ],
             coerce_dtype=True,
         ).save()
