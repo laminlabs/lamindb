@@ -2731,7 +2731,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         >>> artifact = ln.Artifact("s3://my-bucket/my-file.csv").save()
         >>> artifact.path
-        S3Path('s3://my-bucket/my-file.csv')
+        S3QueryPath('s3://my-bucket/my-file.csv')
 
         File in local storage:
 

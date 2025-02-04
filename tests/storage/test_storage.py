@@ -370,6 +370,8 @@ def test_write_read_tiledbsoma(storage):
     assert not soma_path.exists()
     assert not ln.Artifact.filter(description="test tiledbsoma").exists()
 
+    Path("adata_to_append_2.h5ad").unlink()
+
     if storage is not None:
         ln.settings.storage = previous_storage
 
