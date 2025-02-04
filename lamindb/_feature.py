@@ -205,7 +205,7 @@ def __init__(self, *args, **kwargs):
     dtype = kwargs.get("dtype", None)
     kwargs = process_init_feature_param(args, kwargs)
     super(Feature, self).__init__(*args, **kwargs)
-    dtype_str = kwargs.pop("dtype")
+    dtype_str = kwargs.pop("dtype", None)
     if not self._state.adding:
         if not (
             self.dtype.startswith("cat") if dtype == "cat" else self.dtype == dtype_str

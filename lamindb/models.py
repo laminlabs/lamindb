@@ -1395,7 +1395,7 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
         dtype = kwargs.get("dtype", None)
         kwargs = process_init_feature_param(args, kwargs, is_param=True)
         super().__init__(*args, **kwargs)
-        dtype_str = kwargs.pop("dtype")
+        dtype_str = kwargs.pop("dtype", None)
         if not self._state.adding:
             if not (
                 self.dtype.startswith("cat")
