@@ -119,9 +119,6 @@ def __init__(transform: Transform, *args, **kwargs):
         hash = hash_string(source_code)
         transform_candidate = Transform.filter(hash=hash, is_latest=True).one_or_none()
         if transform is not None:
-            logger.important(
-                f"returning existing transform with same hash: {transform_candidate}"
-            )
             init_self_from_db(transform, transform_candidate)
             update_attributes(transform, {"key": key, "description": description})
             return None

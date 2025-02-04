@@ -1,5 +1,6 @@
 import functools
 import inspect
+from datetime import datetime, timezone
 from typing import Callable, ParamSpec, TypeVar
 
 from ..models import Run, Transform
@@ -49,7 +50,9 @@ def tracked(
                 source_code=source_code,
             ).save()
 
-            run = Run(transform=transform, initiated_by_run=initiated_by_run).save()  # type: ignore
+            run = Run(transform=transform, initiated_by_run=initiated_by_run)  # type: ignore
+            run.started_at = datetime.now(timezone.utc)
+            run.save()
 
             # Bind arguments to get a mapping of parameter names to values
             bound_args = sig.bind(*args, **kwargs)
