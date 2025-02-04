@@ -99,11 +99,14 @@ def parse_dtype_single_cat(
     }
 
 
-def parse_dtype(dtype_str: str) -> list[dict[str, str]]:
+def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
     result = []
     # simple dtypes are in FEATURE_DTYPES, composed dtypes are in the form `cat...`
     # if we don't have any of these, throw an error
-    if dtype_str not in FEATURE_DTYPES and not dtype_str.startswith("cat"):
+    allowed_dtypes = FEATURE_DTYPES
+    if is_param:
+        allowed_dtypes.add("dict")
+    if dtype_str not in allowed_dtypes and not dtype_str.startswith("cat"):
         raise ValueError(f"dtype is {dtype_str} but has to be one of {FEATURE_DTYPES}!")
     # now deal with composed categorical dtypes
     if dtype_str != "cat" and dtype_str.startswith("cat"):
@@ -156,7 +159,7 @@ def convert_pandas_dtype_to_lamin_dtype(pandas_dtype: ExtensionDtype) -> str:
     return dtype
 
 
-def process_init_feature_param(*args, **kwargs):
+def process_init_feature_param(args, kwargs, is_param: bool = False):
     # now we proceed with the user-facing constructor
     if len(args) != 0:
         raise ValueError("Only keyword args allowed")
@@ -190,7 +193,7 @@ def process_init_feature_param(*args, **kwargs):
             dtype_str = get_dtype_str_from_dtype(dtype)
         else:
             dtype_str = dtype
-            parse_dtype(dtype_str)
+            parse_dtype(dtype_str, is_param=is_param)
         kwargs["dtype"] = dtype_str
     return kwargs
 
@@ -200,7 +203,7 @@ def __init__(self, *args, **kwargs):
         super(Feature, self).__init__(*args, **kwargs)
         return None
     dtype = kwargs.get("dtype", None)
-    kwargs = process_init_feature_param(*args, **kwargs)
+    kwargs = process_init_feature_param(args, kwargs)
     super(Feature, self).__init__(*args, **kwargs)
     dtype_str = kwargs.pop("dtype")
     if not self._state.adding:
