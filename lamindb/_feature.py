@@ -156,10 +156,7 @@ def convert_pandas_dtype_to_lamin_dtype(pandas_dtype: ExtensionDtype) -> str:
     return dtype
 
 
-def __init__(self, *args, **kwargs):
-    if len(args) == len(self._meta.concrete_fields):
-        super(Feature, self).__init__(*args, **kwargs)
-        return None
+def process_init_feature_param(*args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) != 0:
         raise ValueError("Only keyword args allowed")
@@ -195,7 +192,17 @@ def __init__(self, *args, **kwargs):
             dtype_str = dtype
             parse_dtype(dtype_str)
         kwargs["dtype"] = dtype_str
+    return kwargs
+
+
+def __init__(self, *args, **kwargs):
+    if len(args) == len(self._meta.concrete_fields):
+        super(Feature, self).__init__(*args, **kwargs)
+        return None
+    dtype = kwargs.get("dtype", None)
+    kwargs = process_init_feature_param(*args, **kwargs)
     super(Feature, self).__init__(*args, **kwargs)
+    dtype_str = kwargs.pop("dtype")
     if not self._state.adding:
         if not (
             self.dtype.startswith("cat") if dtype == "cat" else self.dtype == dtype_str

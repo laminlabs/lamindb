@@ -1384,6 +1384,28 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
     values: ParamValue
     """Values for this parameter."""
 
+    def __init__(self, *args, **kwargs):
+        from ._feature import process_init_feature_param
+        from .errors import ValidationError
+
+        if len(args) == len(self._meta.concrete_fields):
+            super().__init__(*args, **kwargs)
+            return None
+
+        dtype = kwargs.get("dtype", None)
+        kwargs = process_init_feature_param(*args, **kwargs)
+        super().__init__(*args, **kwargs)
+        dtype_str = kwargs.pop("dtype")
+        if not self._state.adding:
+            if not (
+                self.dtype.startswith("cat")
+                if dtype == "cat"
+                else self.dtype == dtype_str
+            ):
+                raise ValidationError(
+                    f"Feature {self.name} already exists with dtype {self.dtype}, you passed {dtype_str}"
+                )
+
 
 # FeatureValue behaves in many ways like a link in a LinkORM
 # in particular, we don't want a _public field on it

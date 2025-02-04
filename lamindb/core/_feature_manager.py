@@ -876,6 +876,7 @@ def _add_values(
             mute=True,
             str_as_ulabel=str_as_ulabel,
         )
+        print(inferred_type)
         if feature.dtype == "num":
             if inferred_type not in {"int", "float"}:
                 raise TypeError(
