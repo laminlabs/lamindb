@@ -3,9 +3,10 @@ import inspect
 from datetime import datetime, timezone
 from typing import Callable, ParamSpec, TypeVar
 
-from ..models import Run, Transform
-from ._context import context
-from ._feature_manager import infer_feature_type_convert_json
+from core._context import context
+from core._feature_manager import infer_feature_type_convert_json
+
+from .models import Run, Transform
 
 P = ParamSpec("P")
 R = TypeVar("R")
