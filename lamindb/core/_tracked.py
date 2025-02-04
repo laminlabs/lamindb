@@ -77,7 +77,11 @@ def tracked(
             kwargs["run"] = run
 
             # Call the original function with the injected run
-            return func(*args, **kwargs)
+            result = func(*args, **kwargs)
+
+            run.finished_at = datetime.now(timezone.utc)
+            run.save()
+            return result
 
         return wrapper_tracked
 
