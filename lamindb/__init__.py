@@ -94,6 +94,7 @@ if _check_instance_setup(from_module="lamindb"):
         integrations,
     )
     from ._save import save
+    from ._tracked import tracked
     from ._view import view
     from .core._context import context
     from .core._settings import settings
