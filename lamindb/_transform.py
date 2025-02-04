@@ -10,6 +10,7 @@ from lamindb_setup.core.hashing import hash_string
 from lamindb.models import Run, Transform
 
 from ._parents import _view_parents
+from ._record import init_self_from_db, update_attributes
 from ._run import delete_run_artifacts
 from .core._settings import settings
 from .core.versioning import message_update_key_in_version_family, process_revises
@@ -88,8 +89,6 @@ def __init__(transform: Transform, *args, **kwargs):
                     )
                     uid = revises.uid
     if revises is not None and uid is not None and uid == revises.uid:
-        from ._record import init_self_from_db, update_attributes
-
         if revises.key != key:
             logger.warning("ignoring inconsistent key")
         init_self_from_db(transform, revises)
@@ -118,6 +117,14 @@ def __init__(transform: Transform, *args, **kwargs):
     hash = None
     if source_code is not None:
         hash = hash_string(source_code)
+        transform_candidate = Transform.filter(hash=hash, is_latest=True).one_or_none()
+        if transform is not None:
+            logger.important(
+                f"returning existing transform with same hash: {transform_candidate}"
+            )
+            init_self_from_db(transform, transform_candidate)
+            update_attributes(transform, {"key": key, "description": description})
+            return None
     super(Transform, transform).__init__(  # type: ignore
         uid=uid,
         description=description,
