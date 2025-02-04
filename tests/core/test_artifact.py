@@ -719,6 +719,23 @@ def test_check_path_is_child_of_root():
         "https://raw.githubusercontent.com/laminlabs/lamindb/refs/heads/main/README.md",
         root="https://raw.githubusercontent.com",
     )
+    # s3 with endpoint
+    assert not check_path_is_child_of_root(
+        "s3://bucket/key?endpoint_url=http://localhost:8000",
+        root="s3://bucket/",
+    )
+    assert not check_path_is_child_of_root(
+        "s3://bucket/key/",
+        root="s3://bucket/?endpoint_url=http://localhost:8000",
+    )
+    assert check_path_is_child_of_root(
+        "s3://bucket/key?endpoint_url=http://localhost:8000",
+        root="s3://bucket?endpoint_url=http://localhost:8000",
+    )
+    assert check_path_is_child_of_root(
+        UPath("s3://bucket/key", endpoint_url="http://localhost:8000"),
+        root="s3://bucket?endpoint_url=http://localhost:8000",
+    )
 
 
 def test_serialize_paths():
