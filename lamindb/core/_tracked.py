@@ -26,24 +26,28 @@ def tracked(
 
         @functools.wraps(func)
         def wrapper_tracked(*args: P.args, **kwargs: P.kwargs) -> R:
+            nonlocal initiated_by_run
             # Get function metadata
             source_code = inspect.getsource(func)
 
+            if initiated_by_run is None:
+                assert context.run is not None  # noqa: S101
+                initiated_by_run = context.run
+
             # Get fully qualified function name
             module_name = func.__module__
-            qualified_name = f"{module_name}.{func.__qualname__}"
+            if module_name == "__main__":
+                qualified_name = f"{initiated_by_run.transform.key}/{func.__qualname__}"
+            else:
+                qualified_name = f"{module_name}.{func.__qualname__}"
 
             # Create transform and run objects
             transform = Transform(  # type: ignore
                 uid=uid,
-                name=qualified_name,
+                key=qualified_name,
                 type="function",
                 source_code=source_code,
             ).save()
-
-            if initiated_by_run is None:
-                assert context.run is not None  # noqa: S101
-                transform.initiated_by_run = context.run
 
             run = Run(transform=transform, initiated_by_run=initiated_by_run).save()  # type: ignore
 
@@ -55,12 +59,16 @@ def tracked(
             # Remove the run parameter if it exists (we'll inject our own)
             params.pop("run", None)
 
-            # Add parameters to the run
-            run.params.add_values(params)
-
             # Deal with non-trivial parameter values
-            for key, value in params.values():
-                infer_feature_type_convert_json(key, value)
+            filtered_params = {}
+            for key, value in params.items():
+                dtype, _, _ = infer_feature_type_convert_json(key, value)
+                if dtype == "?" or dtype.startswith("cat"):
+                    continue
+                filtered_params[key] = value
+
+            # Add parameters to the run
+            run.params.add_values(filtered_params)
 
             # Add the run to the kwargs
             kwargs["run"] = run
