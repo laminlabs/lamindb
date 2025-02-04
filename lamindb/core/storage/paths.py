@@ -55,6 +55,11 @@ def check_path_is_child_of_root(path: UPathStr, root: UPathStr) -> bool:
         return False
     path_upath = _safely_resolve(UPath(path))
     root_upath = _safely_resolve(UPath(root))
+    if path_upath.protocol == "s3":
+        endpoint_path = path_upath.storage_options.get("endpoint_url", "")
+        endpoint_root = root_upath.storage_options.get("endpoint_url", "")
+        if endpoint_path != endpoint_root:
+            return False
     # str is needed to eliminate UPath storage_options
     # which affect equality checks
     return UPath(str(root_upath)) in UPath(str(path_upath)).parents

@@ -118,7 +118,7 @@ def process_pathlike(
                 else:
                     if filepath.protocol == "s3":
                         # check that endpoint_url didn't propagate here
-                        # as a pert of the path string
+                        # as a part of the path string
                         assert "?" not in filepath.path  # noqa: S101
                     new_root = list(filepath.parents)[-1]
                 # do not register remote storage locations on hub if the current instance
