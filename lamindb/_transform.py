@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
+from lamindb_setup.core.hashing import hash_string
 
 from lamindb.models import Run, Transform
 
@@ -54,6 +55,9 @@ def __init__(transform: Transform, *args, **kwargs):
             )
     # below is internal use that we'll hopefully be able to eliminate
     uid: str | None = kwargs.pop("uid") if "uid" in kwargs else None
+    source_code: str | None = (
+        kwargs.pop("source_code") if "source_code" in kwargs else None
+    )
     if not len(kwargs) == 0:
         raise ValueError(
             "Only key, description, version, type, revises, reference, "
@@ -111,6 +115,9 @@ def __init__(transform: Transform, *args, **kwargs):
         uid = new_uid
     else:
         has_consciously_provided_uid = True
+    hash = None
+    if source_code is not None:
+        hash = hash_string(source_code)
     super(Transform, transform).__init__(  # type: ignore
         uid=uid,
         description=description,
@@ -119,6 +126,8 @@ def __init__(transform: Transform, *args, **kwargs):
         version=version,
         reference=reference,
         reference_type=reference_type,
+        source_code=source_code,
+        hash=hash,
         _has_consciously_provided_uid=has_consciously_provided_uid,
         revises=revises,
     )
