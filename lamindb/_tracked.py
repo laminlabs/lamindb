@@ -74,8 +74,10 @@ def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]
             # Deal with non-trivial parameter values
             filtered_params = {}
             for key, value in params.items():
-                dtype, _, _ = infer_feature_type_convert_json(key, value)
-                if dtype == "?" or dtype.startswith("cat"):
+                dtype, _, _ = infer_feature_type_convert_json(
+                    key, value, str_as_ulabel=False
+                )
+                if (dtype == "?" or dtype.startswith("cat")) and dtype != "cat ? str":
                     continue
                 filtered_params[key] = value
 
