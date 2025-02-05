@@ -21,6 +21,7 @@ from lamindb.models import (
     record_repr,
 )
 
+from .._tracked import get_current_tracked_run
 from ..errors import ValidationError
 from ._context import context
 from ._django import get_artifact_with_related, get_related_model
@@ -45,9 +46,12 @@ WARNING_RUN_TRANSFORM = "no run & transform got linked, call `ln.track()` & re-r
 WARNING_NO_INPUT = "run input wasn't tracked, call `ln.track()` and re-run"
 
 
+# also see current_run() in core._data
 def get_run(run: Run | None) -> Run | None:
     if run is None:
-        run = context.run
+        run = get_current_tracked_run()
+        if run is None:
+            run = context.run
         if run is None and not settings.creation.artifact_silence_missing_run_warning:
             logger.warning(WARNING_RUN_TRANSFORM)
     # suppress run by passing False
@@ -386,13 +390,13 @@ def _track_run_input(
     is_run_input: bool | Run | None = None,
     run: Run | None = None,
 ):
-    # this is an internal hack right now for project-flow, but we can allow this
-    # for the user in the future
     if isinstance(is_run_input, Run):
         run = is_run_input
         is_run_input = True
     elif run is None:
-        run = context.run
+        run = get_current_tracked_run()
+        if run is None:
+            run = context.run
     # consider that data is an iterable of Data
     data_iter: Iterable[Artifact] | Iterable[Collection] = (
         [data] if isinstance(data, (Artifact, Collection)) else data

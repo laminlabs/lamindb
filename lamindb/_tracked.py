@@ -1,5 +1,6 @@
 import functools
 import inspect
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Callable, ParamSpec, TypeVar
 
@@ -10,15 +11,22 @@ from .models import Run, Transform
 P = ParamSpec("P")
 R = TypeVar("R")
 
+# Create a context variable to store the current tracked run
+current_tracked_run: ContextVar[Run | None] = ContextVar(
+    "current_tracked_run", default=None
+)
 
-def tracked(
-    uid: str | None = None, initiated_by_run: Run | None = None
-) -> Callable[[Callable[P, R]], Callable[P, R]]:
+
+def get_current_tracked_run() -> Run | None:
+    """Get the run object if we're inside a tracked function."""
+    return current_tracked_run.get()
+
+
+def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Decorator that tracks function execution in LaminDB and injects the run object.
 
     Args:
         uid: Optional unique identifier for the transform
-        initiated_by_run: Optional parent run that initiated this function
     """
 
     def decorator_tracked(func: Callable[P, R]) -> Callable[P, R]:
@@ -27,13 +35,14 @@ def tracked(
 
         @functools.wraps(func)
         def wrapper_tracked(*args: P.args, **kwargs: P.kwargs) -> R:
-            nonlocal initiated_by_run
             # Get function metadata
             source_code = inspect.getsource(func)
 
+            initiated_by_run = get_current_tracked_run()
             if initiated_by_run is None:
-                assert context.run is not None  # noqa: S101
                 initiated_by_run = context.run
+                if initiated_by_run is None:
+                    raise SystemExit("Switch tracking on: ln.track()")
 
             # Get fully qualified function name
             module_name = func.__module__
@@ -65,23 +74,25 @@ def tracked(
             # Deal with non-trivial parameter values
             filtered_params = {}
             for key, value in params.items():
-                dtype, _, _ = infer_feature_type_convert_json(key, value)
-                if dtype == "?" or dtype.startswith("cat"):
+                dtype, _, _ = infer_feature_type_convert_json(
+                    key, value, str_as_ulabel=False
+                )
+                if (dtype == "?" or dtype.startswith("cat")) and dtype != "cat ? str":
                     continue
                 filtered_params[key] = value
 
             # Add parameters to the run
             run.params.add_values(filtered_params)
 
-            # Add the run to the kwargs
-            kwargs["run"] = run
-
-            # Call the original function with the injected run
-            result = func(*args, **kwargs)
-
-            run.finished_at = datetime.now(timezone.utc)
-            run.save()
-            return result
+            # Set the run in context and execute function
+            token = current_tracked_run.set(run)
+            try:
+                result = func(*args, **kwargs)
+                run.finished_at = datetime.now(timezone.utc)
+                run.save()
+                return result
+            finally:
+                current_tracked_run.reset(token)
 
         return wrapper_tracked
 
