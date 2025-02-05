@@ -216,6 +216,9 @@ def get(
     else:
         assert idlike is None  # noqa: S101
         expressions = process_expressions(qs, expressions)
+        # inject is_latest for consistency with idlike
+        if issubclass(registry, IsVersioned) and "is_latest" not in expressions:
+            expressions["is_latest"] = True
         return registry.objects.using(qs.db).get(**expressions)
 
 
