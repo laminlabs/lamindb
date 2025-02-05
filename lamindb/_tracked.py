@@ -22,14 +22,11 @@ def get_current_tracked_run() -> Run | None:
     return current_tracked_run.get()
 
 
-def tracked(
-    uid: str | None = None, initiated_by_run: Run | None = None
-) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Decorator that tracks function execution in LaminDB and injects the run object.
 
     Args:
         uid: Optional unique identifier for the transform
-        initiated_by_run: Optional parent run that initiated this function
     """
 
     def decorator_tracked(func: Callable[P, R]) -> Callable[P, R]:
@@ -38,13 +35,14 @@ def tracked(
 
         @functools.wraps(func)
         def wrapper_tracked(*args: P.args, **kwargs: P.kwargs) -> R:
-            nonlocal initiated_by_run
             # Get function metadata
             source_code = inspect.getsource(func)
 
+            initiated_by_run = get_current_tracked_run()
             if initiated_by_run is None:
-                assert context.run is not None  # noqa: S101
                 initiated_by_run = context.run
+                if initiated_by_run is None:
+                    raise SystemExit("Switch tracking on: ln.track()")
 
             # Get fully qualified function name
             module_name = func.__module__
