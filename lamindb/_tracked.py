@@ -1,5 +1,6 @@
 import functools
 import inspect
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Callable, ParamSpec, TypeVar
 
@@ -9,6 +10,16 @@ from .models import Run, Transform
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+# Create a context variable to store the current tracked run
+current_tracked_run: ContextVar[Run | None] = ContextVar(
+    "current_tracked_run", default=None
+)
+
+
+def get_current_tracked_run() -> Run | None:
+    """Get the run object if we're inside a tracked function."""
+    return current_tracked_run.get()
 
 
 def tracked(
@@ -73,15 +84,15 @@ def tracked(
             # Add parameters to the run
             run.params.add_values(filtered_params)
 
-            # Add the run to the kwargs
-            kwargs["run"] = run
-
-            # Call the original function with the injected run
-            result = func(*args, **kwargs)
-
-            run.finished_at = datetime.now(timezone.utc)
-            run.save()
-            return result
+            # Set the run in context and execute function
+            token = current_tracked_run.set(run)
+            try:
+                result = func(*args, **kwargs)
+                run.finished_at = datetime.now(timezone.utc)
+                run.save()
+                return result
+            finally:
+                current_tracked_run.reset(token)
 
         return wrapper_tracked
 
