@@ -23,7 +23,7 @@ def get_current_tracked_run() -> Run | None:
 
 
 def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Decorator that tracks function execution in LaminDB and injects the run object.
+    """Decorator that tracks function execution.
 
     Args:
         uid: Optional unique identifier for the transform
@@ -40,9 +40,9 @@ def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]
 
             initiated_by_run = get_current_tracked_run()
             if initiated_by_run is None:
+                if context.run is None:
+                    context.track()
                 initiated_by_run = context.run
-                if initiated_by_run is None:
-                    raise SystemExit("Switch tracking on: ln.track()")
 
             # Get fully qualified function name
             module_name = func.__module__
