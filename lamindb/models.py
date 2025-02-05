@@ -152,11 +152,10 @@ def current_run() -> Run | None:
     if not _TRACKING_READY:
         _TRACKING_READY = _check_instance_setup()
     if _TRACKING_READY:
-        import lamindb.core
-        from lamindb._tracked import get_current_tracked_run
+        import lamindb
 
         # also see get_run() in core._data
-        run = get_current_tracked_run()
+        run = lamindb._tracked.get_current_tracked_run()
         if run is None:
             run = lamindb.context.run
         return run
