@@ -1987,7 +1987,12 @@ class SpatialDataCatCurator:
             if key not in self._sample_metadata.columns:
                 raise ValueError(f"key '{key}' not present in '{accessor}'!")
         else:
-            if key not in self._sdata.tables[accessor].obs.columns:
+            if (
+                key == "var_index" and self._sdata.tables[accessor].var.index is None
+            ) or (
+                key != "var_index"
+                and key not in self._sdata.tables[accessor].obs.columns
+            ):
                 raise ValueError(f"key '{key}' not present in '{accessor}'!")
 
         if accessor in self._table_adata_curators.keys():
