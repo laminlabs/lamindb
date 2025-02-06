@@ -259,7 +259,7 @@ def get_stat_or_artifact(
         message = "returning existing artifact with same hash"
         if result[0]._branch_code == -1:
             result[0].restore()
-            message = "restoring artifact from trash with same hash"
+            message = "restoring artifact with same hash from trash"
         logger.important(
             f"{message}: {result[0]}; if you intended to query to track this artifact as an input, use: ln.Artifact.get()"
         )
