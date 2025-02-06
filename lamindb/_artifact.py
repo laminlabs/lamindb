@@ -256,12 +256,12 @@ def get_stat_or_artifact(
             )
             previous_artifact_version = result[0]
     if artifact_with_same_hash_exists:
-        message = "returning existing artifact with same hash"
+        message = "found artifact with same hash"
         if result[0]._branch_code == -1:
             result[0].restore()
-            message = "restoring artifact with same hash from trash"
+            message = "restored artifact with same hash from trash"
         logger.important(
-            f"{message}: {result[0]}; if you intended to query to track this artifact as an input, use: ln.Artifact.get()"
+            f"{message}: {result[0]}; to track this artifact as an input, use: ln.Artifact.get()"
         )
         return result[0]
     else:
