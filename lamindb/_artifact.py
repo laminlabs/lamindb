@@ -256,29 +256,14 @@ def get_stat_or_artifact(
             )
             previous_artifact_version = result[0]
     if artifact_with_same_hash_exists:
-        if settings.creation.artifact_if_hash_exists == "error":
-            msg = f"artifact with same hash exists: {result[0]}"
-            hint = (
-                "💡 you can make this error a warning:\n"
-                "    ln.settings.creation.artifact_if_hash_exists"
-            )
-            raise FileExistsError(f"{msg}\n{hint}")
-        elif settings.creation.artifact_if_hash_exists == "warn_create_new":
-            logger.warning(
-                "creating new Artifact object despite existing artifact with same hash:"
-                f" {result[0]}"
-            )
-            return size, hash, hash_type, n_files, None
-        else:
-            if result[0]._branch_code == -1:
-                raise FileExistsError(
-                    f"You're trying to re-create this artifact in trash: {result[0]}"
-                    "Either permanently delete it with `artifact.delete(permanent=True)` or restore it with `artifact.restore()`"
-                )
-            logger.important(
-                f"returning existing artifact with same hash: {result[0]}; if you intended to query to track this artifact as an input, use: ln.Artifact.get()"
-            )
-            return result[0]
+        message = "returning existing artifact with same hash"
+        if result[0]._branch_code == -1:
+            result[0].restore()
+            message = "restoring artifact from trash with same hash"
+        logger.important(
+            f"{message}: {result[0]}; if you intended to query to track this artifact as an input, use: ln.Artifact.get()"
+        )
+        return result[0]
     else:
         return size, hash, hash_type, n_files, previous_artifact_version
 

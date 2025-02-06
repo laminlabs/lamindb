@@ -1250,7 +1250,11 @@ class Transform(Record, IsVersioned):
     .. versionchanged:: 0.75
        The `source_code` field is no longer an artifact, but a text field.
     """
-    hash: str | None = CharField(max_length=HASH_LENGTH, db_index=True, null=True)
+    # we have a unique constraint here but not on artifact because on artifact, we haven't yet
+    # settled how we model the same artifact in different storage locations
+    hash: str | None = CharField(
+        max_length=HASH_LENGTH, db_index=True, null=True, unique=True
+    )
     """Hash of the source code."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
     """Reference for the transform, e.g., a URL."""
@@ -2576,7 +2580,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     Examples: 1KB is 1e3 bytes, 1MB is 1e6, 1GB is 1e9, 1TB is 1e12 etc.
     """
-    hash: str | None = CharField(max_length=HASH_LENGTH, db_index=True, null=True)
+    hash: str | None = CharField(
+        max_length=HASH_LENGTH, db_index=True, null=True, unique=True
+    )
     """Hash or pseudo-hash of artifact content.
 
     Useful to ascertain integrity and avoid duplication.
@@ -3115,8 +3121,10 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
     # in their instances
     description: str | None = TextField(null=True, db_index=True)
     """A description or title."""
-    hash: str | None = CharField(max_length=HASH_LENGTH, db_index=True, null=True)
-    """Hash of collection content. 86 base64 chars allow to store 64 bytes, 512 bits."""
+    hash: str | None = CharField(
+        max_length=HASH_LENGTH, db_index=True, null=True, unique=True
+    )
+    """Hash of collection content."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
     """A reference like URL or external ID."""
     # also for reference_type here, we allow an extra long max_length

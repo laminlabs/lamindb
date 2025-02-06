@@ -46,7 +46,7 @@ def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]
 
             # Get fully qualified function name
             module_name = func.__module__
-            if module_name == "__main__":
+            if module_name in {"__main__", "__mp_main__"}:
                 qualified_name = f"{initiated_by_run.transform.key}/{func.__qualname__}"
             else:
                 qualified_name = f"{module_name}.{func.__qualname__}"
