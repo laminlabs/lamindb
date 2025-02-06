@@ -628,9 +628,9 @@ def test_spatialdata_curator():
     blobs_data = blobs()
 
     blobs_data.tables["table"].var.index = [
-        "ENSG00000139618",  # BRCA2
-        "ENSG00000157764",  # BRAF
-        "ENSG00000999999",  # does not exist - to test add_new_from_var_index
+        "TSPAN6",
+        "MYODULIN",  # synonym
+        "DOESNOTEXIST",  # does not exist - to test add_new_from_var_index
     ]
     blobs_data.tables["table"].obs["region"] = pd.Categorical(
         ["region 1"] * 13 + ["region 2"] * 13
@@ -648,7 +648,7 @@ def test_spatialdata_curator():
     ):
         ln.Curator.from_spatialdata(
             blobs_data,
-            var_index={"table": bt.Gene.ensembl_gene_id},
+            var_index={"table": bt.Gene.symbol},
             categoricals={
                 "sample": {
                     "does not exist": bt.ExperimentalFactor.name,
@@ -660,7 +660,7 @@ def test_spatialdata_curator():
     with pytest.raises(ValidationError, match="key passed to sources is not present"):
         ln.Curator.from_spatialdata(
             blobs_data,
-            var_index={"table": bt.Gene.ensembl_gene_id},
+            var_index={"table": bt.Gene.symbol},
             categoricals={
                 "table": {"region": ln.ULabel.name},
             },
@@ -671,7 +671,7 @@ def test_spatialdata_curator():
     try:
         curator = ln.Curator.from_spatialdata(
             blobs_data,
-            var_index={"table": bt.Gene.ensembl_gene_id},
+            var_index={"table": bt.Gene.symbol},
             categoricals={
                 "sample": {
                     "assay": bt.ExperimentalFactor.name,
@@ -706,25 +706,16 @@ def test_spatialdata_curator():
             },
             "table": {
                 "region": ["region 1", "region 2"],
-                "var_index": ["ENSG00000999999"],
+                "var_index": ["MYODULIN", "DOESNOTEXIST"],
             },
-        }
-
-        curator.add_new_from_var_index("table")
-
-        assert curator.non_validated == {
-            "sample": {
-                "disease": ["Alzheimer's dementia"],
-                "developmental_stage": ["very early"],
-            },
-            "table": {"region": ["region 1", "region 2"]},
         }
 
         curator.add_new_from(key="developmental_stage", accessor="sample")
         curator.add_new_from(key="region", accessor="table")
 
         assert curator.non_validated == {
-            "sample": {"disease": ["Alzheimer's dementia"]}
+            "sample": {"disease": ["Alzheimer's dementia"]},
+            "table": {"var_index": ["MYODULIN", "DOESNOTEXIST"]},
         }
 
         # test invalid key in standardize
@@ -734,11 +725,11 @@ def test_spatialdata_curator():
             curator.standardize(key="invalid_key", accessor="table")
 
         # standardize
-        assert curator.non_validated == {
-            "sample": {"disease": ["Alzheimer's dementia"]}
-        }
         curator.standardize(key="disease", accessor="sample")
         assert curator._sample_metadata["disease"].values[0] == "Alzheimer disease"
+        curator.standardize(key="var_index", accessor="table")
+        assert curator.non_validated == {"table": {"var_index": ["DOESNOTEXIST"]}}
+        curator.add_new_from_var_index("table")
         assert curator.non_validated == {}
 
         # validation should finally pass
