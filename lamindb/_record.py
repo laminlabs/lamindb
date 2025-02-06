@@ -76,6 +76,55 @@ if TYPE_CHECKING:
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
 
 
+def to_pascal_case(dotted_str):
+    """Convert the last component of a dotted string from snake_case to PascalCase.
+
+    Args:
+        dotted_str (str): The input string with possible dots and underscores
+
+    Returns:
+        str: The converted string with the last component in PascalCase
+
+    Examples:
+        >>> to_pascal_case("hello_world")
+        "HelloWorld"
+        >>> to_pascal_case("mymodule.my_function_name")
+        "mymodule.MyFunctionName"
+    """
+    # Split by periods first
+    components = dotted_str.split(".")
+
+    # Convert only the last component to pascal case
+    if len(components) > 0:
+        last_part = components[-1]
+        snake_components = last_part.split("_")
+        pascal_last = "".join(x.title() for x in snake_components)
+        components[-1] = pascal_last
+
+    # Join everything back with periods
+    return ".".join(components)
+
+
+def is_approx_pascal_case(s):
+    """Check if the last component of a dotted string is in PascalCase.
+
+    Args:
+        s (str): The string to check
+
+    Returns:
+        bool: True if the last component is in PascalCase
+
+    Raises:
+        ValueError: If the last component doesn't start with a capital letter
+    """
+    last_component = s.split(".")[-1]
+
+    if not last_component[0].isupper():
+        raise ValueError(f"'{s}' should start with a capital letter")
+
+    return True
+
+
 def init_self_from_db(self: Record, existing_record: Record):
     new_args = [
         getattr(existing_record, field.attname) for field in self._meta.concrete_fields
@@ -130,6 +179,13 @@ def validate_fields(record: Record, kwargs):
             raise ValidationError(
                 f"`uid` must be exactly {uid_max_length} characters long, got {len(kwargs['uid'])}."
             )
+    # validate is_type
+    if "is_type" in kwargs and "name" in kwargs:
+        if kwargs["name"].endswith("s"):
+            logger.warning(
+                "`name` ends with 's', in case you're naming with plural, consider the singular for a type name"
+            )
+        is_approx_pascal_case(kwargs["name"])
     # validate literals
     validate_literal_fields(record, kwargs)
 

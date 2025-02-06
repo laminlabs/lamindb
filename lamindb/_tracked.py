@@ -18,8 +18,11 @@ current_tracked_run: ContextVar[Run | None] = ContextVar(
 
 
 def get_current_tracked_run() -> Run | None:
-    """Get the run object if we're inside a tracked function."""
-    return current_tracked_run.get()
+    """Get the run object."""
+    run = current_tracked_run.get()
+    if run is None:
+        run = context.run
+    return run
 
 
 def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:

@@ -28,6 +28,7 @@ from lamindb._from_values import _format_values
 from lamindb._record import (
     REGISTRY_UNIQUE_FIELD,
     get_name_field,
+    to_pascal_case,
     transfer_fk_to_default_db_bulk,
     transfer_to_default_db,
 )
@@ -818,6 +819,8 @@ def _add_values(
         feature_param_field: The field of a reference registry to map keys of the
             dictionary.
     """
+    from .._tracked import get_current_tracked_run
+
     # rename to distinguish from the values inside the dict
     features_values = values
     keys = features_values.keys()
@@ -849,12 +852,20 @@ def _add_values(
             (key, infer_feature_type_convert_json(key, features_values[key]))
             for key in not_validated_keys
         ]
-        hint = "\n".join(
-            [
-                f"  ln.{model_name}(name='{key}', dtype='{dtype}').save(){message}"
-                for key, (dtype, _, message) in not_validated_keys_dtype_message
-            ]
-        )
+        run = get_current_tracked_run()
+        if run is not None:
+            name = to_pascal_case(run.transform.name)
+            type_hint = f"""{model_name.lower()}_type = ln.{model_name}(name='{name}', is_type=True).save()"""
+            elements = [type_hint]
+            type_kwarg = f", type={model_name.lower()}_type"
+        else:
+            elements = []
+            type_kwarg = ""
+        elements += [
+            f"  ln.{model_name}(name='{key}', dtype='{dtype}'{type_kwarg}).save(){message}"
+            for key, (dtype, _, message) in not_validated_keys_dtype_message
+        ]
+        hint = "\n".join()
         msg = (
             f"These keys could not be validated: {not_validated_keys.tolist()}\n"
             f"Here is how to create a {model_name.lower()}:\n\n{hint}"
