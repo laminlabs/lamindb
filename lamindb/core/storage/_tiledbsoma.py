@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
+    from tiledbsoma import Measurement as SOMAMeasurement
     from upath import UPath
 
 
@@ -51,7 +52,7 @@ def _tiledb_config_s3(storepath: UPath) -> dict:
 
 def _open_tiledbsoma(
     storepath: UPath, mode: Literal["r", "w"] = "r"
-) -> SOMACollection | SOMAExperiment:
+) -> SOMACollection | SOMAExperiment | SOMAMeasurement:
     try:
         import tiledbsoma as soma
     except ImportError as e:
@@ -71,6 +72,8 @@ def _open_tiledbsoma(
     soma_objects = [obj.name for obj in storepath.iterdir()]
     if "obs" in soma_objects and "ms" in soma_objects:
         SOMAType = soma.Experiment
+    elif "var" in soma_objects:
+        SOMAType = soma.Measurement
     else:
         SOMAType = soma.Collection
     return SOMAType.open(storepath_str, mode=mode, context=ctx)
@@ -229,3 +232,31 @@ def save_tiledbsoma_experiment(
     artifact.otype = "tiledbsoma"
 
     return artifact.save()
+
+
+# this is less defensive than _anndata_n_observations
+# this doesn't really catches errors
+# assumes that the tiledbsoma object is well-formed
+def _soma_store_n_observations(obj) -> int:
+    if obj.soma_type in {"SOMADataFrame", "SOMASparseNDArray", "SOMADenseNDArray"}:
+        return obj.non_empty_domain()[0][1] + 1
+    elif obj.soma_type == "SOMAExperiment":
+        return _soma_store_n_observations(obj["obs"])
+    elif obj.soma_type == "SOMAMeasurement":
+        keys = obj.keys()
+        for slot in ("X", "obsm", "obsp"):
+            if slot in keys:
+                return _soma_store_n_observations(next(iter(obj[slot].values())))
+    elif obj.soma_type == "SOMACollection":
+        n_obs = 0
+        for value in obj.values():
+            n_obs += _soma_store_n_observations(value)
+        return n_obs
+    raise ValueError(
+        "Could not infer the number of observations from the tiledbsoma object."
+    )
+
+
+def _soma_n_observations(objectpath: UPath) -> int:
+    with _open_tiledbsoma(objectpath, mode="r") as store:
+        return _soma_store_n_observations(store)
