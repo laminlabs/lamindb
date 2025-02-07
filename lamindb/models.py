@@ -65,6 +65,7 @@ if TYPE_CHECKING:
     from pyarrow.dataset import Dataset as PyArrowDataset
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
+    from tiledbsoma import Measurement as SOMAMeasurement
     from upath import UPath
 
     from lamindb.core import LabelManager, MappedCollection, QuerySet, RecordList
@@ -2861,6 +2862,33 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         pass
 
     @classmethod
+    def from_tiledbsoma(
+        cls,
+        path: UPathStr,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        run: Run | None = None,
+        revises: Artifact | None = None,
+        **kwargs,
+    ) -> Artifact:
+        """Create from a tiledbsoma store.
+
+        Args:
+            path: A tiledbsoma store with .tiledbsoma suffix.
+            key: A relative path within default storage,
+                e.g., `"myfolder/mystore.tiledbsoma"`.
+            description: A description.
+            revises: An old version of the artifact.
+            run: The run that creates the artifact.
+
+        Examples:
+            >>> artifact = ln.Artifact.from_tiledbsoma("s3://mybucket/store.tiledbsoma", description="a tiledbsoma store")
+            >>> artifact.save()
+        """
+        pass
+
+    @classmethod
     def from_dir(
         cls,
         path: UPathStr,
@@ -2925,6 +2953,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         | BackedAccessor
         | SOMACollection
         | SOMAExperiment
+        | SOMAMeasurement
         | PyArrowDataset
     ):
         """Return a cloud-backed data object.
