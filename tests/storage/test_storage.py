@@ -398,7 +398,7 @@ def test_from_tiledbsoma():
         assert _soma_store_n_observations(store) == 30
         # dataframe
         assert _soma_store_n_observations(store.obs) == 30
-        # collection
+        # treat as unstructured collection, data + raw
         assert _soma_store_n_observations(store.ms) == 60
         # measurement
         assert _soma_store_n_observations(store.ms["RNA"]) == 30
