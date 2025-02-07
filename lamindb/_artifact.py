@@ -77,6 +77,7 @@ if TYPE_CHECKING:
     from pyarrow.dataset import Dataset as PyArrowDataset
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
+    from tiledbsoma import Measurement as SOMAMeasurement
 
     from lamindb.core.storage._backed_access import AnnDataAccessor, BackedAccessor
 
@@ -989,7 +990,12 @@ inconsistent_state_msg = (
 def open(
     self, mode: str = "r", is_run_input: bool | None = None
 ) -> (
-    AnnDataAccessor | BackedAccessor | SOMACollection | SOMAExperiment | PyArrowDataset
+    AnnDataAccessor
+    | BackedAccessor
+    | SOMACollection
+    | SOMAExperiment
+    | SOMAMeasurement
+    | PyArrowDataset
 ):
     if self._overwrite_versions and not self.is_latest:
         raise ValueError(inconsistent_state_msg)

@@ -65,6 +65,7 @@ if TYPE_CHECKING:
     from pyarrow.dataset import Dataset as PyArrowDataset
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
+    from tiledbsoma import Measurement as SOMAMeasurement
     from upath import UPath
 
     from lamindb.core import LabelManager, MappedCollection, QuerySet, RecordList
@@ -2952,6 +2953,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         | BackedAccessor
         | SOMACollection
         | SOMAExperiment
+        | SOMAMeasurement
         | PyArrowDataset
     ):
         """Return a cloud-backed data object.
