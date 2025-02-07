@@ -16,7 +16,10 @@ from lamindb.core.storage._backed_access import (
     BackedAccessor,
     backed_access,
 )
-from lamindb.core.storage._tiledbsoma import _open_tiledbsoma, _soma_n_observations
+from lamindb.core.storage._tiledbsoma import (
+    _open_tiledbsoma,
+    _soma_store_n_observations,
+)
 from lamindb.core.storage._zarr import load_anndata_zarr, write_adata_zarr
 from lamindb.core.storage.objects import infer_suffix, write_to_disk
 from lamindb.integrations import save_tiledbsoma_experiment
@@ -392,15 +395,15 @@ def test_from_tiledbsoma():
 
     with _open_tiledbsoma(artifact.path, mode="r") as store:
         # experiment
-        assert _soma_n_observations(store) == 30
+        assert _soma_store_n_observations(store) == 30
         # dataframe
-        assert _soma_n_observations(store.obs) == 30
+        assert _soma_store_n_observations(store.obs) == 30
         # collection
-        assert _soma_n_observations(store.ms) == 30
+        assert _soma_store_n_observations(store.ms) == 30
         # measurement
-        assert _soma_n_observations(store.ms["RNA"]) == 30
+        assert _soma_store_n_observations(store.ms["RNA"]) == 30
         # array
-        assert _soma_n_observations(store.ms["RNA"]["X"]["data"]) == 30
+        assert _soma_store_n_observations(store.ms["RNA"]["X"]["data"]) == 30
 
     artifact.delete(permanent=True)
     shutil.rmtree(soma_path)
