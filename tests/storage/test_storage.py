@@ -383,7 +383,7 @@ def test_from_tiledbsoma():
     tiledbsoma.io.from_h5ad(soma_path, test_file, measurement_name="RNA")
     # wrong suffix
     with pytest.raises(ValueError):
-        ln.Artifact("mystore")
+        ln.Artifact.from_tiledbsoma("mystore")
 
     artifact = ln.Artifact.from_tiledbsoma(
         soma_path, description="test soma store"
