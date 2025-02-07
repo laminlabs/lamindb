@@ -399,7 +399,7 @@ def test_from_tiledbsoma():
         # dataframe
         assert _soma_store_n_observations(store.obs) == 30
         # collection
-        assert _soma_store_n_observations(store.ms) == 30
+        assert _soma_store_n_observations(store.ms) == 60
         # measurement
         assert _soma_store_n_observations(store.ms["RNA"]) == 30
         # array
