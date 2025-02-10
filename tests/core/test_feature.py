@@ -72,6 +72,7 @@ def test_feature_init():
     feat2 = ln.Feature(name="feat2", description="feat2").save()
     feat2_again = ln.Feature(name="feat2", description="feat2").save()
     assert feat2 == feat2_again
+    feat2.delete()
 
     # check that this works
     feature = ln.Feature(name="feat1", dtype="cat[ULabel|bionty.Gene]")
