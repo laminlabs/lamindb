@@ -1,6 +1,5 @@
 # .latest_version is tested in test_versioning.py
 
-import re
 
 import bionty as bt
 import lamindb as ln
@@ -98,9 +97,7 @@ def test_one_first():
 def test_wrong_name():
     with pytest.raises(
         FieldError,
-        match=re.match(
-            "Invalid lookup 'somelabel' for ulabels. Did you mean ulabels__name?"
-        ),
+        match=("Invalid lookup 'somelabel' for ulabels. Did you mean ulabels__name?"),
     ):
         ln.Artifact.filter(ulabels="somelabel").all()
 
