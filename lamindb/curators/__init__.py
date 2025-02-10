@@ -863,13 +863,15 @@ class AnnDataCatCurator(CatCurator):
         self._obs_fields = categoricals or {}
         self._var_field = var_index
         super().__init__(
-            dataset=data,
+            dataset=self._dataset,
             categoricals=categoricals,
             sources=sources,
             organism=organism,
             exclude=exclude,
             columns_field=var_index,
         )
+        if isinstance(data, Artifact):
+            self._artifact = data
         self._obs_df_curator = DataFrameCatCurator(
             df=self._adata.obs,
             categoricals=self.categoricals,
