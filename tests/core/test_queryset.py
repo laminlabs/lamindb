@@ -1,8 +1,11 @@
 # .latest_version is tested in test_versioning.py
 
+import re
+
 import bionty as bt
 import lamindb as ln
 import pytest
+from django.core.exceptions import FieldError
 from lamindb._query_set import DoesNotExist
 from lamindb.base.users import current_user_id
 
@@ -90,6 +93,16 @@ def test_one_first():
         qs.one()
     with pytest.raises(Exception):  # noqa: B017
         qs.one_or_none()
+
+
+def test_wrong_name():
+    with pytest.raises(
+        FieldError,
+        match=re.match(
+            "Invalid lookup 'somelabel' for ulabels. Did you mean ulabels__name?"
+        ),
+    ):
+        ln.Artifact.filter(ulabels="somelabel").all()
 
 
 def test_search():
