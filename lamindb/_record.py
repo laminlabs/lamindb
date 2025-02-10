@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, NamedTuple
 
 import dj_database_url
 import lamindb_setup as ln_setup
+from django.core.exceptions import FieldError
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import connections, transaction
 from django.db.models import (
@@ -329,6 +330,18 @@ def _get_record_kwargs(record_class) -> list[tuple[str, str]]:
 def filter(cls, *queries, **expressions) -> QuerySet:
     """{}"""  # noqa: D415
     from lamindb._query_set import QuerySet
+
+    for field, value in expressions.items():
+        if (
+            isinstance(value, str)
+            and value.strip("-").isalpha()  # Clear non-ID string
+            and "__" not in field
+            and hasattr(cls, field)
+            and getattr(cls, field).field.related_model
+        ):
+            raise FieldError(
+                f"Invalid lookup '{value}' for {field}. Did you mean {field}__name?"
+            )
 
     _using_key = None
     if "_using_key" in expressions:
