@@ -384,6 +384,7 @@ def test_mudata_curator(mdata):
     }
 
     try:
+        artifact = None
         curator = ln.Curator.from_mudata(
             mdata,
             categoricals=categoricals,
@@ -431,7 +432,8 @@ def test_mudata_curator(mdata):
         artifact = curator.save_artifact(description="test MuData")
     finally:
         # clean up
-        artifact.delete(permanent=True)
+        if artifact:
+            artifact.delete(permanent=True)
         ln.ULabel.filter().delete()
         bt.ExperimentalFactor.filter().delete()
         bt.CellType.filter().delete()
@@ -481,6 +483,7 @@ def test_soma_curator(adata, categoricals, clean_soma_files):
         )
 
     try:
+        artifact = None
         curator = ln.Curator.from_tiledbsoma(
             "curate.tiledbsoma",
             {"RNA": ("var_id", bt.Gene.symbol)},
@@ -578,7 +581,8 @@ def test_soma_curator(adata, categoricals, clean_soma_files):
         }
     finally:
         # clean up
-        artifact.delete(permanent=True)
+        if artifact:
+            artifact.delete(permanent=True)
         ln.ULabel.filter().delete()
         bt.ExperimentalFactor.filter().delete()
         bt.CellType.filter().delete()
