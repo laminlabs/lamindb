@@ -842,7 +842,7 @@ class AnnDataCatCurator(CatCurator):
 
         if sources is None:
             sources = {}
-        if not data_is_anndata(data):
+        if not data_is_anndata(data) and not isinstance(data, Artifact):
             raise TypeError(
                 "data has to be an AnnData object or a path to AnnData-like"
             )
