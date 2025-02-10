@@ -167,15 +167,14 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
     dtype: type | str | None = kwargs.pop("dtype") if "dtype" in kwargs else None
     is_type: bool = kwargs.pop("is_type") if "is_type" in kwargs else False
     type_: Feature | str | None = kwargs.pop("type") if "type" in kwargs else None
-    description: str | None = None
-    if not is_param:
-        description = kwargs.pop("description") if "description" in kwargs else None
+    description = kwargs.pop("description") if "description" in kwargs else None
     if kwargs:
         valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Feature)])
         raise FieldValidationError(f"Only {valid_keywords} are valid keyword arguments")
     kwargs["name"] = name
     kwargs["type"] = type_
-    kwargs["description"] = description
+    if not is_param:
+        kwargs["description"] = description
     if is_type:
         if name.endswith("s"):
             logger.warning(
