@@ -381,17 +381,23 @@ def test_collection_mapped(adata, adata2):
         assert len(weights) == 2
         assert all(weights == 0.5)
     # nan in filtering values
-    with collection_outer.mapped(obs_filter={"feat1": np.nan}) as ls_ds:
+    with collection_outer.mapped(obs_filter={"feat1": np.nan}, join="outer") as ls_ds:
         assert ls_ds.shape == (1, 6)
     with collection_outer.mapped(
-        obs_filter={"feat1": (np.nan,), "feat2": ["A", "B"]}
+        obs_filter={"feat1": (np.nan,), "feat2": ["A", "B"]}, join="outer"
     ) as ls_ds:
         assert ls_ds.shape == (1, 6)
-    with collection_outer.mapped(obs_filter={"feat1": (np.nan, "A", "B")}) as ls_ds:
+    with collection_outer.mapped(
+        obs_filter={"feat1": (np.nan, "A", "B")}, join="outer"
+    ) as ls_ds:
         assert ls_ds.shape == (6, 6)
-    with collection_outer.mapped(obs_filter={"feat1": ["A", "B"]}) as ls_ds:
+    with collection_outer.mapped(
+        obs_filter={"feat1": ["A", "B"]}, join="outer"
+    ) as ls_ds:
         assert ls_ds.shape == (5, 6)
-    with collection_outer.mapped(obs_filter={"feat1": ("A", np.nan)}) as ls_ds:
+    with collection_outer.mapped(
+        obs_filter={"feat1": ("A", np.nan)}, join="outer"
+    ) as ls_ds:
         assert ls_ds.shape == (3, 6)
 
     collection.delete(permanent=True)
