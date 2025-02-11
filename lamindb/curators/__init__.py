@@ -173,8 +173,12 @@ class Curator:
     """
 
     def __init__(self, dataset: Any, schema: Schema | None = None):
-        self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
         self._artifact: Artifact = None  # pass the dataset as a non-curated artifact
+        self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
+        if isinstance(self._dataset, Artifact):
+            self._artifact = self._dataset
+            if self._artifact.otype in {"DataFrame", "AnnData"}:
+                self._dataset = self._dataset.load()
         self._schema: Schema | None = schema
         self._is_validated: bool = False
         self._cat_curator: CatCurator = None  # is None for CatCurator curators
@@ -242,7 +246,7 @@ class DataFrameCurator(Curator):
 
     def __init__(
         self,
-        dataset: pd.DataFrame,
+        dataset: pd.DataFrame | Artifact,
         schema: Schema,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
@@ -262,7 +266,7 @@ class DataFrameCurator(Curator):
             )
             # now deal with categorical features using the old-style curator
             self._cat_curator = DataFrameCatCurator(
-                dataset,
+                self._dataset,
                 categoricals=categoricals,
             )
         else:
@@ -328,6 +332,7 @@ class DataFrameCurator(Curator):
             fields=self._cat_curator.categoricals,
             columns_field=result["field"],
             key=key,
+            artifact=self._artifact,
             revises=revises,
             run=run,
             schema=self._schema,
@@ -393,17 +398,19 @@ class AnnDataCurator(Curator):
 
     def __init__(
         self,
-        dataset: AnnData,
+        dataset: AnnData | Artifact,
         schema: Schema,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
-        if not data_is_anndata(dataset):
+        if not data_is_anndata(self._dataset):
             raise InvalidArgument("dataset must be AnnData-like.")
         if schema.otype != "AnnData":
             raise InvalidArgument("Schema otype must be 'AnnData'.")
-        self._obs_curator = DataFrameCurator(dataset.obs, schema._get_component("obs"))
+        self._obs_curator = DataFrameCurator(
+            self._dataset.obs, schema._get_component("obs")
+        )
         self._var_curator = DataFrameCurator(
-            dataset.var.T, schema._get_component("var")
+            self._dataset.var.T, schema._get_component("var")
         )
 
     @doc_args(VALIDATE_DOCSTRING)
@@ -425,6 +432,7 @@ class AnnDataCurator(Curator):
             fields=self._obs_curator._cat_curator.categoricals,
             columns_field=result["field"],
             key=key,
+            artifact=self._artifact,
             revises=revises,
             run=run,
             schema=self._schema,
@@ -553,6 +561,7 @@ class CatCurator(Curator):
                 fields=self.categoricals,
                 columns_field=self._columns_field,
                 key=key,
+                artifact=self._artifact,
                 revises=revises,
                 run=run,
                 schema=None,
@@ -596,7 +605,7 @@ class DataFrameCatCurator(CatCurator):
 
     def __init__(
         self,
-        df: pd.DataFrame,
+        df: pd.DataFrame | Artifact,
         columns: FieldAttr = Feature.name,
         categoricals: dict[str, FieldAttr] | None = None,
         verbosity: str = "hint",
@@ -695,6 +704,8 @@ class DataFrameCatCurator(CatCurator):
         Args:
             key: The key referencing the column in the DataFrame to standardize.
         """
+        if self._artifact is not None:
+            raise RuntimeError("can't mutate the dataset when an artifact is passed!")
         # list is needed to avoid RuntimeError: dictionary changed size during iteration
         avail_keys = list(self.non_validated.keys())
         if len(avail_keys) == 0:
@@ -812,7 +823,7 @@ class AnnDataCatCurator(CatCurator):
 
     def __init__(
         self,
-        data: ad.AnnData | UPathStr,
+        data: ad.AnnData | Artifact,
         var_index: FieldAttr,
         categoricals: dict[str, FieldAttr] | None = None,
         obs_columns: FieldAttr = Feature.name,
@@ -821,30 +832,19 @@ class AnnDataCatCurator(CatCurator):
         sources: dict[str, Record] | None = None,
         exclude: dict | None = None,
     ) -> None:
-        from lamindb_setup.core import upath
-
         if isinstance(var_index, str):
             raise TypeError("var_index parameter has to be a bionty field")
 
         if sources is None:
             sources = {}
         if not data_is_anndata(data):
-            raise TypeError(
-                "data has to be an AnnData object or a path to AnnData-like"
-            )
-        if isinstance(data, ad.AnnData):
-            self._adata = data
-        else:  # pdagma: no cover
-            from lamindb.core.storage._backed_access import backed_access
-
-            self._adata = backed_access(upath.create_path(data))
+            raise TypeError("data has to be an AnnData object")
 
         if "symbol" in str(var_index):
             logger.warning(
                 "indexing datasets with gene symbols can be problematic: https://docs.lamin.ai/faq/symbol-mapping"
             )
 
-        self._dataset = data
         self._obs_fields = categoricals or {}
         self._var_field = var_index
         super().__init__(
@@ -855,6 +855,7 @@ class AnnDataCatCurator(CatCurator):
             exclude=exclude,
             columns_field=var_index,
         )
+        self._adata = self._dataset
         self._obs_df_curator = DataFrameCatCurator(
             df=self._adata.obs,
             categoricals=self.categoricals,
@@ -963,6 +964,8 @@ class AnnDataCatCurator(CatCurator):
 
         Inplace modification of the dataset.
         """
+        if self._artifact is not None:
+            raise RuntimeError("can't mutate the dataset when an artifact is passed!")
         if key in self._adata.obs.columns or key == "all":
             # standardize obs columns
             self._obs_df_curator.standardize(key)
@@ -1020,7 +1023,7 @@ class MuDataCatCurator(CatCurator):
 
     def __init__(
         self,
-        mdata: MuData,
+        mdata: MuData | Artifact,
         var_index: dict[str, FieldAttr],
         categoricals: dict[str, FieldAttr] | None = None,
         verbosity: str = "hint",
@@ -1028,25 +1031,23 @@ class MuDataCatCurator(CatCurator):
         sources: dict[str, Record] | None = None,
         exclude: dict | None = None,  # {modality: {field: [values]}}
     ) -> None:
-        if sources is None:
-            sources = {}
-        self._sources = sources
-        if exclude is None:
-            exclude = {}
-        self._exclude = exclude
-        self._dataset = mdata
-        self._organism = organism
-        self._var_fields = var_index
+        super().__init__(
+            dataset=mdata,
+            categoricals={},
+            sources=sources,
+            organism=organism,
+            exclude=exclude,
+        )
         self._columns_field = var_index  # this is for consistency with BaseCatCurator
+        self._var_fields = var_index
         self._verify_modality(self._var_fields.keys())
         self._obs_fields = self._parse_categoricals(categoricals)
         self._modalities = set(self._var_fields.keys()) | set(self._obs_fields.keys())
         self._verbosity = verbosity
         self._obs_df_curator = None
-        self._organism = organism
         if "obs" in self._modalities:
             self._obs_df_curator = DataFrameCatCurator(
-                df=mdata.obs,
+                df=self._dataset.obs,
                 columns=Feature.name,
                 categoricals=self._obs_fields.get("obs", {}),
                 verbosity=verbosity,
@@ -1056,7 +1057,7 @@ class MuDataCatCurator(CatCurator):
             )
         self._mod_adata_curators = {
             modality: AnnDataCatCurator(
-                data=mdata[modality],
+                data=self._dataset[modality],
                 var_index=var_index.get(modality),
                 categoricals=self._obs_fields.get(modality),
                 verbosity=verbosity,
@@ -1221,6 +1222,8 @@ class MuDataCatCurator(CatCurator):
 
         Inplace modification of the dataset.
         """
+        if self._artifact is not None:
+            raise RuntimeError("can't mutate the dataset when an artifact is passed!")
         modality = modality or "obs"
         if modality in self._mod_adata_curators:
             adata_curator = self._mod_adata_curators[modality]
@@ -1725,7 +1728,7 @@ class TiledbsomaCatCurator(CatCurator):
         return artifact.save()
 
 
-class SpatialDataCatCurator:
+class SpatialDataCatCurator(CatCurator):
     """Curation flow for a ``Spatialdata`` object.
 
     See also :class:`~lamindb.Curator`.
@@ -1767,7 +1770,7 @@ class SpatialDataCatCurator:
 
     def __init__(
         self,
-        sdata,
+        sdata: Any,
         var_index: dict[str, FieldAttr],
         categoricals: dict[str, dict[str, FieldAttr]] | None = None,
         verbosity: str = "hint",
@@ -1777,15 +1780,19 @@ class SpatialDataCatCurator:
         *,
         sample_metadata_key: str | None = "sample",
     ) -> None:
-        if sources is None:
-            sources = {}
-        self._sources = sources
-        if exclude is None:
-            exclude = {}
-        self._exclude = exclude
-        self._sdata: SpatialData = sdata
+        super().__init__(
+            dataset=sdata,
+            categoricals={},
+            sources=sources,
+            organism=organism,
+            exclude=exclude,
+        )
+        if isinstance(sdata, Artifact):
+            # TODO: load() doesn't yet work
+            self._sdata = sdata.load()
+        else:
+            self._sdata = self._dataset
         self._sample_metadata_key = sample_metadata_key
-        self._organism = organism
         self._var_fields = var_index
         self._verify_accessor_exists(self._var_fields.keys())
         self._categoricals = categoricals
@@ -1851,7 +1858,7 @@ class SpatialDataCatCurator:
             )
         self._table_adata_curators = {
             table: AnnDataCatCurator(
-                data=sdata[table],
+                data=self._sdata[table],
                 var_index=var_index.get(table),
                 categoricals=self._categoricals.get(table),
                 verbosity=verbosity,
@@ -1875,7 +1882,7 @@ class SpatialDataCatCurator:
         return self._categoricals
 
     @property
-    def non_validated(self) -> dict[str, dict[str, list[str]]]:
+    def non_validated(self) -> dict[str, dict[str, list[str]]]:  # type: ignore
         """Return the non-validated features and labels."""
         if self._non_validated is None:
             raise ValidationError("Please run validate() first!")
@@ -1983,6 +1990,8 @@ class SpatialDataCatCurator:
         if len(self.non_validated) == 0:
             logger.warning("values are already standardized")
             return
+        if self._artifact is not None:
+            raise RuntimeError("can't mutate the dataset when an artifact is passed!")
 
         if accessor == self._sample_metadata_key:
             if key not in self._sample_metadata.columns:
@@ -2065,23 +2074,26 @@ class SpatialDataCatCurator:
         try:
             settings.verbosity = "warning"
 
-            # Write the SpatialData object to a random path in tmp directory
-            # The Artifact constructor will move it to the cache
-            write_path = f"{settings.cache_dir}/{random.randint(10**7, 10**8 - 1)}.zarr"
-            self._sdata.write(write_path)
+            if self._artifact is None:
+                # Write the SpatialData object to a random path in tmp directory
+                # The Artifact constructor will move it to the cache
+                write_path = (
+                    f"{settings.cache_dir}/{random.randint(10**7, 10**8 - 1)}.zarr"
+                )
+                self._sdata.write(write_path)
 
-            # Create the Artifact and associate Artifact metadata
-            self._artifact = Artifact(
-                write_path,
-                description=description,
-                key=key,
-                revises=revises,
-                run=run,
-            )
-            # According to Tim it is not easy to calculate the number of observations.
-            # We would have to write custom code to iterate over labels (which might not even exist at that point)
-            self._artifact.otype = "spatialdata"
-            self._artifact.save()
+                # Create the Artifact and associate Artifact metadata
+                self._artifact = Artifact(
+                    write_path,
+                    description=description,
+                    key=key,
+                    revises=revises,
+                    run=run,
+                )
+                # According to Tim it is not easy to calculate the number of observations.
+                # We would have to write custom code to iterate over labels (which might not even exist at that point)
+                self._artifact.otype = "spatialdata"
+                self._artifact.save()
 
             # Link schemas
             feature_kwargs = check_registry_organism(
@@ -3281,6 +3293,7 @@ def save_artifact(
     description: str | None = None,
     organism: str | None = None,
     key: str | None = None,
+    artifact: Artifact | None = None,
     revises: Artifact | None = None,
     run: Run | None = None,
     schema: Schema | None = None,
@@ -3295,6 +3308,7 @@ def save_artifact(
         organism: The organism name.
         type: The artifact type.
         key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+        artifact: A already registered artifact. Passing this will not save a new artifact from data.
         revises: Previous version of the artifact. Triggers a revision.
         run: The run that creates the artifact.
 
@@ -3304,24 +3318,24 @@ def save_artifact(
     from .._artifact import data_is_anndata, data_is_mudata
     from ..core._data import add_labels
 
-    print(data)
-    if data_is_anndata(data):
-        artifact = Artifact.from_anndata(
-            data, description=description, key=key, revises=revises, run=run
-        )
-    elif isinstance(data, pd.DataFrame):
-        artifact = Artifact.from_df(
-            data, description=description, key=key, revises=revises, run=run
-        )
-    elif data_is_mudata(data):
-        artifact = Artifact.from_mudata(
-            data,
-            description=description,
-            key=key,
-            revises=revises,
-            run=run,
-        )
-    artifact.save()
+    if artifact is None:
+        if data_is_anndata(data):
+            artifact = Artifact.from_anndata(
+                data, description=description, key=key, revises=revises, run=run
+            )
+        elif isinstance(data, pd.DataFrame):
+            artifact = Artifact.from_df(
+                data, description=description, key=key, revises=revises, run=run
+            )
+        elif data_is_mudata(data):
+            artifact = Artifact.from_mudata(
+                data,
+                description=description,
+                key=key,
+                revises=revises,
+                run=run,
+            )
+        artifact.save()
 
     if organism is not None:
         feature_kwargs = check_registry_organism(
