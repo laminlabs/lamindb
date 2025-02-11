@@ -94,12 +94,43 @@ def test_one_first():
         qs.one_or_none()
 
 
-def test_wrong_name():
+def test_filter_related_field_name():
     with pytest.raises(
         FieldError,
-        match=("Invalid lookup 'somelabel' for ulabels. Did you mean ulabels__name?"),
+        match="Invalid lookup 'somelabel' for ulabels. Did you mean ulabels__name?",
     ):
         ln.Artifact.filter(ulabels="somelabel").all()
+
+
+def test_filter_unknown_field():
+    with pytest.raises(
+        FieldError,
+        match="Unknown field 'nonexistent'. Available fields: id, name, status",
+    ):
+        ln.Artifact.filter(nonexistent="value").all()
+
+
+def test_get_id_type_error():
+    with pytest.raises(
+        FieldError, match="Invalid lookup 'abc' for id. Did you mean id__name?"
+    ):
+        ln.Artifact.get(id="abc")
+
+
+def test_get_unknown_field():
+    with pytest.raises(
+        FieldError,
+        match="Unknown field 'nonexistent'. Available fields: id, name, status",
+    ):
+        ln.Artifact.get(nonexistent="value")
+
+
+def test_get_related_field_error():
+    with pytest.raises(
+        FieldError,
+        match="Invalid lookup 'somename' for owner. Did you mean owner__name?",
+    ):
+        ln.Artifact.get(owner="somename")
 
 
 def test_search():
