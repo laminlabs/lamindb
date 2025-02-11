@@ -482,7 +482,7 @@ class CatCurator(Curator):
         self._validate_category_error_messages: str = ""
 
     @property
-    def non_validated(self) -> dict[str, list[str]]:
+    def non_validated(self) -> dict[str, list[str]] | dict[str, dict[str, list[str]]]:
         """Return the non-validated features and labels."""
         if self._non_validated is None:
             raise ValidationError("Please run validate() first!")
@@ -1032,22 +1032,21 @@ class MuDataCatCurator(CatCurator):
         sources: dict[str, Record] | None = None,
         exclude: dict | None = None,  # {modality: {field: [values]}}
     ) -> None:
-        if sources is None:
-            sources = {}
-        self._sources = sources
-        if exclude is None:
-            exclude = {}
-        self._exclude = exclude
-        self._organism = organism
-        self._var_fields = var_index
-        self._columns_field = var_index  # this is for consistency with BaseCatCurator
+        super().__init__(
+            dataset=mdata,
+            categoricals={},
+            sources=sources,
+            organism=organism,
+            exclude=exclude,
+        )
         self._set_dataset_and_artifact()
+        self._columns_field = var_index  # this is for consistency with BaseCatCurator
+        self._var_fields = var_index
         self._verify_modality(self._var_fields.keys())
         self._obs_fields = self._parse_categoricals(categoricals)
         self._modalities = set(self._var_fields.keys()) | set(self._obs_fields.keys())
         self._verbosity = verbosity
         self._obs_df_curator = None
-        self._organism = organism
         if "obs" in self._modalities:
             self._obs_df_curator = DataFrameCatCurator(
                 df=self._dataset.obs,
@@ -1729,7 +1728,7 @@ class TiledbsomaCatCurator(CatCurator):
         return artifact.save()
 
 
-class SpatialDataCatCurator:
+class SpatialDataCatCurator(CatCurator):
     """Curation flow for a ``Spatialdata`` object.
 
     See also :class:`~lamindb.Curator`.
@@ -1781,20 +1780,17 @@ class SpatialDataCatCurator:
         *,
         sample_metadata_key: str | None = "sample",
     ) -> None:
-        if sources is None:
-            sources = {}
-        self._sources = sources
-        if exclude is None:
-            exclude = {}
-        self._exclude = exclude
+        super().__init__(
+            dataset=sdata,
+            categoricals={},
+            sources=sources,
+            organism=organism,
+            exclude=exclude,
+        )
         if isinstance(sdata, Artifact):
-            self._artifact = sdata
+            # TODO: load() doesn't yet work
             self._sdata = sdata.load()
-        else:
-            self._artifact = None
-            self._sdata = sdata
         self._sample_metadata_key = sample_metadata_key
-        self._organism = organism
         self._var_fields = var_index
         self._verify_accessor_exists(self._var_fields.keys())
         self._categoricals = categoricals
@@ -1884,7 +1880,7 @@ class SpatialDataCatCurator:
         return self._categoricals
 
     @property
-    def non_validated(self) -> dict[str, dict[str, list[str]]]:
+    def non_validated(self) -> dict[str, dict[str, list[str]]]:  # type: ignore
         """Return the non-validated features and labels."""
         if self._non_validated is None:
             raise ValidationError("Please run validate() first!")
