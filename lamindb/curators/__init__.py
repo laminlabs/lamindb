@@ -1930,7 +1930,8 @@ class SpatialDataCatCurator:
             raise ValidationError("Run .validate() first.")
         self._table_adata_curators[table].add_new_from_var_index(**kwargs)
         if table in self.non_validated.keys():
-            self._non_validated[table].pop("var_index")
+            if "var_index" in self._non_validated[table]:
+                self._non_validated[table].pop("var_index")
 
             if len(self.non_validated[table].values()) == 0:
                 self.non_validated.pop(table)
