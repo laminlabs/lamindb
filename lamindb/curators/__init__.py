@@ -482,7 +482,7 @@ class CatCurator(Curator):
         self._validate_category_error_messages: str = ""
 
     @property
-    def non_validated(self) -> dict[str, list[str]] | dict[str, dict[str, list[str]]]:
+    def non_validated(self) -> dict[str, list[str]]:
         """Return the non-validated features and labels."""
         if self._non_validated is None:
             raise ValidationError("Please run validate() first!")
