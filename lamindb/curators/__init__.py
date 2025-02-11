@@ -173,8 +173,15 @@ class Curator:
     """
 
     def __init__(self, dataset: Any, schema: Schema | None = None):
-        self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
         self._artifact: Artifact = None  # pass the dataset as a non-curated artifact
+        self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
+        if isinstance(dataset, Artifact):
+            self._artifact = dataset
+            if (
+                self._artifact.otype != "tiledbsoma"
+                and self._artifact.suffix != ".tiledbsoma"
+            ):
+                self._dataset = self._artifact.load()
         self._schema: Schema | None = schema
         self._is_validated: bool = False
         self._cat_curator: CatCurator = None  # is None for CatCurator curators
@@ -260,9 +267,6 @@ class DataFrameCurator(Curator):
             self._pda_schema = pda.DataFrameSchema(
                 non_categoricals, coerce=schema.coerce_dtype
             )
-            if isinstance(dataset, Artifact):
-                self._artifact = dataset
-                self._dataset = dataset.load()
             # now deal with categorical features using the old-style curator
             self._cat_curator = DataFrameCatCurator(
                 self._dataset,
@@ -401,9 +405,6 @@ class AnnDataCurator(Curator):
         schema: Schema,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
-        if isinstance(dataset, Artifact):
-            self._artifact = dataset
-            self._dataset = dataset.load()
         if not data_is_anndata(self._dataset):
             raise InvalidArgument("dataset must be AnnData-like.")
         if schema.otype != "AnnData":
@@ -630,9 +631,6 @@ class DataFrameCatCurator(CatCurator):
             sources=sources,
             exclude=exclude,
         )
-        if isinstance(df, Artifact):
-            self._artifact = df
-            self._dataset = df.load()
         self._save_columns()
 
     def lookup(self, public: bool = False) -> CurateLookup:
@@ -826,7 +824,7 @@ class AnnDataCatCurator(CatCurator):
 
     def __init__(
         self,
-        data: ad.AnnData | UPathStr | Artifact,
+        data: ad.AnnData | Artifact,
         var_index: FieldAttr,
         categoricals: dict[str, FieldAttr] | None = None,
         obs_columns: FieldAttr = Feature.name,
@@ -835,8 +833,6 @@ class AnnDataCatCurator(CatCurator):
         sources: dict[str, Record] | None = None,
         exclude: dict | None = None,
     ) -> None:
-        from lamindb_setup.core import upath
-
         if isinstance(var_index, str):
             raise TypeError("var_index parameter has to be a bionty field")
 
@@ -846,32 +842,23 @@ class AnnDataCatCurator(CatCurator):
             raise TypeError(
                 "data has to be an AnnData object or a path to AnnData-like"
             )
-        if isinstance(data, ad.AnnData):
-            self._adata = data
-        elif isinstance(data, Artifact):
-            self._artifact = data
-            self._adata = data.load()
-        else:
-            self._adata = ad.load(upath.create_path(data))
 
         if "symbol" in str(var_index):
             logger.warning(
                 "indexing datasets with gene symbols can be problematic: https://docs.lamin.ai/faq/symbol-mapping"
             )
 
-        self._dataset = self._adata
         self._obs_fields = categoricals or {}
         self._var_field = var_index
         super().__init__(
-            dataset=self._dataset,
+            dataset=data,
             categoricals=categoricals,
             sources=sources,
             organism=organism,
             exclude=exclude,
             columns_field=var_index,
         )
-        if isinstance(data, Artifact):
-            self._artifact = data
+        self._adata = self._dataset
         self._obs_df_curator = DataFrameCatCurator(
             df=self._adata.obs,
             categoricals=self.categoricals,
@@ -1051,11 +1038,6 @@ class MuDataCatCurator(CatCurator):
         if exclude is None:
             exclude = {}
         self._exclude = exclude
-        if isinstance(mdata, Artifact):
-            self._artifact = mdata
-            self.dataset = mdata.load()
-        else:
-            self._dataset = mdata
         self._organism = organism
         self._var_fields = var_index
         self._columns_field = var_index  # this is for consistency with BaseCatCurator
@@ -1788,7 +1770,7 @@ class SpatialDataCatCurator:
 
     def __init__(
         self,
-        sdata,
+        sdata: Any,
         var_index: dict[str, FieldAttr],
         categoricals: dict[str, dict[str, FieldAttr]] | None = None,
         verbosity: str = "hint",
@@ -1806,11 +1788,9 @@ class SpatialDataCatCurator:
         self._exclude = exclude
         if isinstance(sdata, Artifact):
             self._artifact = sdata
-            self._sdata: SpatialData = sdata.load()
+            self._sdata = sdata.load()
         else:
-            self._artifact = None
             self._sdata = sdata
-        self._dataset = self._sdata
         self._sample_metadata_key = sample_metadata_key
         self._organism = organism
         self._var_fields = var_index
@@ -1878,7 +1858,7 @@ class SpatialDataCatCurator:
             )
         self._table_adata_curators = {
             table: AnnDataCatCurator(
-                data=sdata[table],
+                data=self._sdata[table],
                 var_index=var_index.get(table),
                 categoricals=self._categoricals.get(table),
                 verbosity=verbosity,
