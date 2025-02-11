@@ -123,6 +123,16 @@ def test_get_id_type_error():
         ln.Artifact.get(id="abc")
 
 
+def test_get_related_field_name():
+    with pytest.raises(
+        FieldError,
+        match=re.escape(
+            "Invalid lookup 'somelabel' for ulabels. Did you mean ulabels__name?"
+        ),
+    ):
+        ln.Artifact.get(ulabels="somelabel").all()
+
+
 def test_get_unknown_field():
     with pytest.raises(
         FieldError,
@@ -131,16 +141,6 @@ def test_get_unknown_field():
         ),
     ):
         ln.Artifact.get(nonexistent="value")
-
-
-def test_get_related_field_error():
-    with pytest.raises(
-        FieldError,
-        match=re.escape(
-            "Unknown field 'owner'. Available fields: cell_lines, cell_markers, cell_types, collections, created_at, created_by, description, developmental_stages, diseases, ethnicities, experimental_factors, genes, hash, id, input_of_runs, is_latest, key, kind, n_files, n_observations, organisms, otype, pathways, phenotypes, projects, proteins, references, run, schema, size, space, storage, suffix, tissues, uid, ulabels, updated_at, version"
-        ),
-    ):
-        ln.Artifact.get(owner="somename")
 
 
 def test_search():

@@ -621,7 +621,7 @@ class QuerySet(models.QuerySet):
             raise FieldError(
                 f"Unknown field '{field}'. Available fields: {fields}"
             ) from None
-        raise error
+        raise error  # pragma: no cover
 
     def get(self, idlike: int | str | None = None, **expressions) -> Record:
         """Query a single record. Raises error if there are more or none."""
@@ -636,10 +636,10 @@ class QuerySet(models.QuerySet):
                 raise FieldError(
                     f"Invalid lookup '{expressions[field]}' for {field}. Did you mean {field}__name?"
                 ) from None
-            raise
+            raise  # pragma: no cover
         except FieldError as e:
             self._handle_unknown_field(e)
-            raise
+            raise  # pragma: no cover
 
     def filter(self, *queries, **expressions) -> QuerySet:
         """Query a set of records."""
