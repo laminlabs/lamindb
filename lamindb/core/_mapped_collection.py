@@ -87,7 +87,7 @@ class MappedCollection:
         obs_keys: Keys from the ``.obs`` slots.
         obs_filter: Select only observations with these values for the given obs columns.
             Should be a dictionary with obs column names as keys
-            and filtering values (a string or a tuple of strings) as values.
+            and filtering values (a string or a list of strings) as values.
         join: `"inner"` or `"outer"` virtual joins. If ``None`` is passed,
             does not join.
         encode_labels: Encode labels into integers.
@@ -106,7 +106,7 @@ class MappedCollection:
         layers_keys: str | list[str] | None = None,
         obs_keys: str | list[str] | None = None,
         obsm_keys: str | list[str] | None = None,
-        obs_filter: dict[str, str | tuple[str, ...]] | None = None,
+        obs_filter: dict[str, str | list[str]] | None = None,
         join: Literal["inner", "outer"] | None = "inner",
         encode_labels: bool | list[str] = True,
         unknown_label: str | dict[str, str] | None = None,
@@ -184,9 +184,14 @@ class MappedCollection:
                 if self.filtered:
                     indices_storage_mask = None
                     for obs_filter_key, obs_filter_values in obs_filter.items():
-                        obs_filter_mask = np.isin(
-                            self._get_labels(store, obs_filter_key), obs_filter_values
-                        )
+                        if isinstance(obs_filter_values, tuple):
+                            obs_filter_values = list(obs_filter_values)
+                        elif not isinstance(obs_filter_values, list):
+                            obs_filter_values = [obs_filter_values]
+                        obs_labels = self._get_labels(store, obs_filter_key)
+                        obs_filter_mask = np.isin(obs_labels, obs_filter_values)
+                        if pd.isna(obs_filter_values).any():
+                            obs_filter_mask |= pd.isna(obs_labels)
                         if indices_storage_mask is None:
                             indices_storage_mask = obs_filter_mask
                         else:

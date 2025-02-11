@@ -16,6 +16,10 @@ from lamindb.core.storage._backed_access import (
     BackedAccessor,
     backed_access,
 )
+from lamindb.core.storage._tiledbsoma import (
+    _open_tiledbsoma,
+    _soma_store_n_observations,
+)
 from lamindb.core.storage._zarr import load_anndata_zarr, write_adata_zarr
 from lamindb.core.storage.objects import infer_suffix, write_to_disk
 from lamindb.integrations import save_tiledbsoma_experiment
@@ -374,6 +378,35 @@ def test_write_read_tiledbsoma(storage):
 
     if storage is not None:
         ln.settings.storage = previous_storage
+
+
+def test_from_tiledbsoma():
+    test_file = ln.core.datasets.anndata_file_pbmc68k_test()
+    soma_path = "mystore.tiledbsoma"
+    tiledbsoma.io.from_h5ad(soma_path, test_file, measurement_name="RNA")
+    # wrong suffix
+    with pytest.raises(ValueError):
+        ln.Artifact.from_tiledbsoma("mystore")
+
+    artifact = ln.Artifact.from_tiledbsoma(
+        soma_path, description="test soma store"
+    ).save()
+    assert artifact.n_observations == 30
+
+    with _open_tiledbsoma(artifact.path, mode="r") as store:
+        # experiment
+        assert _soma_store_n_observations(store) == 30
+        # dataframe
+        assert _soma_store_n_observations(store.obs) == 30
+        # treat as unstructured collection, data + raw
+        assert _soma_store_n_observations(store.ms) == 60
+        # measurement
+        assert _soma_store_n_observations(store.ms["RNA"]) == 30
+        # array
+        assert _soma_store_n_observations(store.ms["RNA"]["X"]["data"]) == 30
+
+    artifact.delete(permanent=True)
+    shutil.rmtree(soma_path)
 
 
 def test_backed_pyarrow():

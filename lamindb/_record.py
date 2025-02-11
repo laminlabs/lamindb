@@ -763,7 +763,7 @@ def get_transfer_run(record) -> Run:
         search_names = settings.creation.search_names
         settings.creation.search_names = False
         transform = Transform(  # type: ignore
-            uid=uid, name=f"Transfer from `{slug}`", key=key, type="function"
+            uid=uid, description=f"Transfer from `{slug}`", key=key, type="function"
         ).save()
         settings.creation.search_names = search_names
     # use the global run context to get the initiated_by_run run id

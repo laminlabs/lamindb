@@ -65,6 +65,7 @@ if TYPE_CHECKING:
     from pyarrow.dataset import Dataset as PyArrowDataset
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
+    from tiledbsoma import Measurement as SOMAMeasurement
     from upath import UPath
 
     from lamindb.core import LabelManager, MappedCollection, QuerySet, RecordList
@@ -152,11 +153,10 @@ def current_run() -> Run | None:
     if not _TRACKING_READY:
         _TRACKING_READY = _check_instance_setup()
     if _TRACKING_READY:
-        import lamindb.core
-        from lamindb._tracked import get_current_tracked_run
+        import lamindb
 
         # also see get_run() in core._data
-        run = get_current_tracked_run()
+        run = lamindb._tracked.get_current_tracked_run()
         if run is None:
             run = lamindb.context.run
         return run
@@ -2868,6 +2868,33 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         pass
 
     @classmethod
+    def from_tiledbsoma(
+        cls,
+        path: UPathStr,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        run: Run | None = None,
+        revises: Artifact | None = None,
+        **kwargs,
+    ) -> Artifact:
+        """Create from a tiledbsoma store.
+
+        Args:
+            path: A tiledbsoma store with .tiledbsoma suffix.
+            key: A relative path within default storage,
+                e.g., `"myfolder/mystore.tiledbsoma"`.
+            description: A description.
+            revises: An old version of the artifact.
+            run: The run that creates the artifact.
+
+        Examples:
+            >>> artifact = ln.Artifact.from_tiledbsoma("s3://mybucket/store.tiledbsoma", description="a tiledbsoma store")
+            >>> artifact.save()
+        """
+        pass
+
+    @classmethod
     def from_dir(
         cls,
         path: UPathStr,
@@ -2932,6 +2959,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         | BackedAccessor
         | SOMACollection
         | SOMAExperiment
+        | SOMAMeasurement
         | PyArrowDataset
     ):
         """Return a cloud-backed data object.
@@ -3216,7 +3244,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         layers_keys: str | list[str] | None = None,
         obs_keys: str | list[str] | None = None,
         obsm_keys: str | list[str] | None = None,
-        obs_filter: dict[str, str | tuple[str, ...]] | None = None,
+        obs_filter: dict[str, str | list[str]] | None = None,
         join: Literal["inner", "outer"] | None = "inner",
         encode_labels: bool | list[str] = True,
         unknown_label: str | dict[str, str] | None = None,
@@ -3254,7 +3282,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             obsm_keys: Keys from the ``.obsm`` slots.
             obs_filter: Select only observations with these values for the given obs columns.
                 Should be a dictionary with obs column names as keys
-                and filtering values (a string or a tuple of strings) as values.
+                and filtering values (a string or a list of strings) as values.
             join: `"inner"` or `"outer"` virtual joins. If ``None`` is passed,
                 does not join.
             encode_labels: Encode labels into integers.

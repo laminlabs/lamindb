@@ -140,7 +140,6 @@ def install_ci(session, group):
     elif group == "cli":
         extras += "jupyter,bionty"
     run(session, f"uv pip install --system -e .[dev,{extras}]")
-
     # on the release branch, do not use submodules but run with pypi install
     # only exception is the docs group which should always use the submodule
     # to push docs fixes fast

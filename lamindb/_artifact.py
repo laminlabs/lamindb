@@ -47,6 +47,7 @@ from .core.storage import (
 )
 from .core.storage._anndata_accessor import _anndata_n_observations
 from .core.storage._pyarrow_dataset import PYARROW_SUFFIXES
+from .core.storage._tiledbsoma import _soma_n_observations
 from .core.storage.objects import _mudata_is_installed
 from .core.storage.paths import (
     AUTO_KEY_PREFIX,
@@ -76,6 +77,7 @@ if TYPE_CHECKING:
     from pyarrow.dataset import Dataset as PyArrowDataset
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
+    from tiledbsoma import Measurement as SOMAMeasurement
 
     from lamindb.core.storage._backed_access import AnnDataAccessor, BackedAccessor
 
@@ -473,7 +475,7 @@ def data_is_mudata(data: MuData | UPathStr) -> bool:
         if isinstance(data, MuData):
             return True
     if isinstance(data, (str, Path)):
-        return UPath(data).suffix in {".h5mu"}
+        return UPath(data).suffix == ".h5mu"
     return False
 
 
@@ -758,6 +760,37 @@ def from_mudata(
 
 
 @classmethod  # type: ignore
+@doc_args(Artifact.from_tiledbsoma.__doc__)
+def from_tiledbsoma(
+    cls,
+    path: UPathStr,
+    *,
+    key: str | None = None,
+    description: str | None = None,
+    run: Run | None = None,
+    revises: Artifact | None = None,
+    **kwargs,
+) -> Artifact:
+    """{}"""  # noqa: D415
+    if UPath(path).suffix != ".tiledbsoma":
+        raise ValueError(
+            "A tiledbsoma store should have .tiledbsoma suffix to be registered."
+        )
+    artifact = Artifact(  # type: ignore
+        data=path,
+        key=key,
+        run=run,
+        description=description,
+        revises=revises,
+        otype="tiledbsoma",
+        kind="dataset",
+        **kwargs,
+    )
+    artifact.n_observations = _soma_n_observations(artifact.path)
+    return artifact
+
+
+@classmethod  # type: ignore
 @doc_args(Artifact.from_dir.__doc__)
 def from_dir(
     cls,
@@ -942,7 +975,12 @@ inconsistent_state_msg = (
 def open(
     self, mode: str = "r", is_run_input: bool | None = None
 ) -> (
-    AnnDataAccessor | BackedAccessor | SOMACollection | SOMAExperiment | PyArrowDataset
+    AnnDataAccessor
+    | BackedAccessor
+    | SOMACollection
+    | SOMAExperiment
+    | SOMAMeasurement
+    | PyArrowDataset
 ):
     if self._overwrite_versions and not self.is_latest:
         raise ValueError(inconsistent_state_msg)
@@ -1272,6 +1310,7 @@ METHOD_NAMES = [
     "from_anndata",
     "from_df",
     "from_mudata",
+    "from_tiledbsoma",
     "open",
     "cache",
     "load",

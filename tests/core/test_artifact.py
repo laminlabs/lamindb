@@ -127,7 +127,13 @@ def test_signatures():
         pass
 
     # class methods
-    class_methods = ["from_dir", "from_df", "from_anndata", "from_mudata"]
+    class_methods = [
+        "from_dir",
+        "from_df",
+        "from_anndata",
+        "from_mudata",
+        "from_tiledbsoma",
+    ]
     for name in class_methods:
         setattr(Mock, name, getattr(_artifact, name))
         assert signature(getattr(Mock, name)) == _artifact.SIGS.pop(name)

@@ -192,6 +192,25 @@ def test_df_curator(df, categoricals):
         ln.Schema.filter().delete()
 
 
+def test_pass_artifact(df):
+    try:
+        artifact = ln.Artifact.from_df(df, key="test_cat_curators/df.parquet").save()
+        curator = ln.Curator.from_df(artifact, categoricals={"donor": ln.ULabel.name})
+        curator.validate()
+        with pytest.raises(
+            RuntimeError, match="can't mutate the dataset when an artifact is passed!"
+        ):
+            curator.standardize("all")
+        curator.add_new_from("donor")
+        artifact_2 = curator.save_artifact()
+        assert artifact == artifact_2
+    finally:
+        # clean up
+        artifact.delete(permanent=True)
+        ln.ULabel.filter().delete()
+        ln.Schema.filter().delete()
+
+
 def test_custom_using_invalid_field_lookup(curate_lookup):
     with pytest.raises(
         AttributeError, match='"CurateLookup" object has no attribute "invalid_field"'
@@ -384,6 +403,7 @@ def test_mudata_curator(mdata):
     }
 
     try:
+        artifact = None
         curator = ln.Curator.from_mudata(
             mdata,
             categoricals=categoricals,
@@ -431,7 +451,8 @@ def test_mudata_curator(mdata):
         artifact = curator.save_artifact(description="test MuData")
     finally:
         # clean up
-        artifact.delete(permanent=True)
+        if artifact:
+            artifact.delete(permanent=True)
         ln.ULabel.filter().delete()
         bt.ExperimentalFactor.filter().delete()
         bt.CellType.filter().delete()
@@ -481,6 +502,7 @@ def test_soma_curator(adata, categoricals, clean_soma_files):
         )
 
     try:
+        artifact = None
         curator = ln.Curator.from_tiledbsoma(
             "curate.tiledbsoma",
             {"RNA": ("var_id", bt.Gene.symbol)},
@@ -578,7 +600,8 @@ def test_soma_curator(adata, categoricals, clean_soma_files):
         }
     finally:
         # clean up
-        artifact.delete(permanent=True)
+        if artifact:
+            artifact.delete(permanent=True)
         ln.ULabel.filter().delete()
         bt.ExperimentalFactor.filter().delete()
         bt.CellType.filter().delete()
@@ -628,9 +651,9 @@ def test_spatialdata_curator():
     blobs_data = blobs()
 
     blobs_data.tables["table"].var.index = [
-        "ENSG00000139618",  # BRCA2
-        "ENSG00000157764",  # BRAF
-        "ENSG00000999999",  # does not exist - to test add_new_from_var_index
+        "TSPAN6",
+        "MYODULIN",  # synonym
+        "DOESNOTEXIST",  # does not exist - to test add_new_from_var_index
     ]
     blobs_data.tables["table"].obs["region"] = pd.Categorical(
         ["region 1"] * 13 + ["region 2"] * 13
@@ -648,7 +671,7 @@ def test_spatialdata_curator():
     ):
         ln.Curator.from_spatialdata(
             blobs_data,
-            var_index={"table": bt.Gene.ensembl_gene_id},
+            var_index={"table": bt.Gene.symbol},
             categoricals={
                 "sample": {
                     "does not exist": bt.ExperimentalFactor.name,
@@ -660,7 +683,7 @@ def test_spatialdata_curator():
     with pytest.raises(ValidationError, match="key passed to sources is not present"):
         ln.Curator.from_spatialdata(
             blobs_data,
-            var_index={"table": bt.Gene.ensembl_gene_id},
+            var_index={"table": bt.Gene.symbol},
             categoricals={
                 "table": {"region": ln.ULabel.name},
             },
@@ -671,7 +694,7 @@ def test_spatialdata_curator():
     try:
         curator = ln.Curator.from_spatialdata(
             blobs_data,
-            var_index={"table": bt.Gene.ensembl_gene_id},
+            var_index={"table": bt.Gene.symbol},
             categoricals={
                 "sample": {
                     "assay": bt.ExperimentalFactor.name,
@@ -706,25 +729,16 @@ def test_spatialdata_curator():
             },
             "table": {
                 "region": ["region 1", "region 2"],
-                "var_index": ["ENSG00000999999"],
+                "var_index": ["MYODULIN", "DOESNOTEXIST"],
             },
-        }
-
-        curator.add_new_from_var_index("table")
-
-        assert curator.non_validated == {
-            "sample": {
-                "disease": ["Alzheimer's dementia"],
-                "developmental_stage": ["very early"],
-            },
-            "table": {"region": ["region 1", "region 2"]},
         }
 
         curator.add_new_from(key="developmental_stage", accessor="sample")
         curator.add_new_from(key="region", accessor="table")
 
         assert curator.non_validated == {
-            "sample": {"disease": ["Alzheimer's dementia"]}
+            "sample": {"disease": ["Alzheimer's dementia"]},
+            "table": {"var_index": ["MYODULIN", "DOESNOTEXIST"]},
         }
 
         # test invalid key in standardize
@@ -734,11 +748,11 @@ def test_spatialdata_curator():
             curator.standardize(key="invalid_key", accessor="table")
 
         # standardize
-        assert curator.non_validated == {
-            "sample": {"disease": ["Alzheimer's dementia"]}
-        }
         curator.standardize(key="disease", accessor="sample")
         assert curator._sample_metadata["disease"].values[0] == "Alzheimer disease"
+        curator.standardize(key="var_index", accessor="table")
+        assert curator.non_validated == {"table": {"var_index": ["DOESNOTEXIST"]}}
+        curator.add_new_from_var_index("table")
         assert curator.non_validated == {}
 
         # validation should finally pass
