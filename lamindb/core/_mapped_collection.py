@@ -184,9 +184,10 @@ class MappedCollection:
                 if self.filtered:
                     indices_storage_mask = None
                     for obs_filter_key, obs_filter_values in obs_filter.items():
-                        obs_filter_mask = np.isin(
-                            self._get_labels(store, obs_filter_key), obs_filter_values
-                        )
+                        obs_labels = self._get_labels(store, obs_filter_key)
+                        obs_filter_mask = np.isin(obs_labels, obs_filter_values)
+                        if np.nan in obs_filter_values:
+                            obs_filter_mask |= np.isnan(obs_labels)
                         if indices_storage_mask is None:
                             indices_storage_mask = obs_filter_mask
                         else:
