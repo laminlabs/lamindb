@@ -383,6 +383,7 @@ def test_collection_mapped(adata, adata2):
     # nan in filtering values
     with collection_outer.mapped(obs_filter={"feat1": np.nan}, join="outer") as ls_ds:
         assert ls_ds.shape == (1, 6)
+        assert np.array_equal(ls_ds[0]["X"], np.array([1, 2, 5, 0, 0, 0]))
     with collection_outer.mapped(
         obs_filter={"feat1": (np.nan,), "feat2": ["A", "B"]}, join="outer"
     ) as ls_ds:
