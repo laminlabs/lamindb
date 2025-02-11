@@ -177,9 +177,10 @@ class Curator:
         self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
         if isinstance(dataset, Artifact):
             self._artifact = dataset
+            # tiledbsoma logic is dealt in TiledbsomaCatCurator
             if (
                 self._artifact.otype != "tiledbsoma"
-                and self._artifact.suffix != ".tiledbsoma"
+                or self._artifact.suffix != ".tiledbsoma"
             ):
                 self._dataset = self._artifact.load()
         self._schema: Schema | None = schema
@@ -1047,9 +1048,15 @@ class MuDataCatCurator(CatCurator):
         self._verbosity = verbosity
         self._obs_df_curator = None
         self._organism = organism
+        if isinstance(mdata, Artifact):
+            self._artifact = mdata
+            self._dataset = mdata.load()
+        else:
+            self._artifact = None
+            self._dataset = mdata
         if "obs" in self._modalities:
             self._obs_df_curator = DataFrameCatCurator(
-                df=mdata.obs,
+                df=self._dataset.obs,
                 columns=Feature.name,
                 categoricals=self._obs_fields.get("obs", {}),
                 verbosity=verbosity,
@@ -1059,7 +1066,7 @@ class MuDataCatCurator(CatCurator):
             )
         self._mod_adata_curators = {
             modality: AnnDataCatCurator(
-                data=mdata[modality],
+                data=self._dataset[modality],
                 var_index=var_index.get(modality),
                 categoricals=self._obs_fields.get(modality),
                 verbosity=verbosity,
@@ -1790,6 +1797,7 @@ class SpatialDataCatCurator:
             self._artifact = sdata
             self._sdata = sdata.load()
         else:
+            self._artifact = None
             self._sdata = sdata
         self._sample_metadata_key = sample_metadata_key
         self._organism = organism
