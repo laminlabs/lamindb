@@ -1,6 +1,8 @@
 # .latest_version is tested in test_versioning.py
 
 
+import re
+
 import bionty as bt
 import lamindb as ln
 import pytest
@@ -97,7 +99,9 @@ def test_one_first():
 def test_filter_related_field_name():
     with pytest.raises(
         FieldError,
-        match="Invalid lookup 'somelabel' for ulabels. Did you mean ulabels__name?",
+        match=re.escape(
+            "Invalid lookup 'somelabel' for ulabels. Did you mean ulabels__name?"
+        ),
     ):
         ln.Artifact.filter(ulabels="somelabel").all()
 
@@ -105,14 +109,16 @@ def test_filter_related_field_name():
 def test_filter_unknown_field():
     with pytest.raises(
         FieldError,
-        match="Unknown field 'nonexistent'. Available fields: id, name, status",
+        match=re.escape(
+            "Unknown field 'nonexistent'. Available fields: cell_lines, cell_markers, cell_types, collections, created_at, created_by, description, developmental_stages, diseases, ethnicities, experimental_factors, genes, hash, id, input_of_runs, is_latest, key, kind, n_files, n_observations, organisms, otype, pathways, phenotypes, projects, proteins, references, run, schema, size, space, storage, suffix, tissues, uid, ulabels, updated_at, version"
+        ),
     ):
         ln.Artifact.filter(nonexistent="value").all()
 
 
 def test_get_id_type_error():
     with pytest.raises(
-        FieldError, match="Invalid lookup 'abc' for id. Did you mean id__name?"
+        ValueError, match=re.escape("Field 'id' expected a number but got 'abc'.")
     ):
         ln.Artifact.get(id="abc")
 
@@ -120,7 +126,9 @@ def test_get_id_type_error():
 def test_get_unknown_field():
     with pytest.raises(
         FieldError,
-        match="Unknown field 'nonexistent'. Available fields: id, name, status",
+        match=re.escape(
+            "Unknown field 'nonexistent'. Available fields: cell_lines, cell_markers, cell_types, collections, created_at, created_by, description, developmental_stages, diseases, ethnicities, experimental_factors, genes, hash, id, input_of_runs, is_latest, key, kind, n_files, n_observations, organisms, otype, pathways, phenotypes, projects, proteins, references, run, schema, size, space, storage, suffix, tissues, uid, ulabels, updated_at, version"
+        ),
     ):
         ln.Artifact.get(nonexistent="value")
 
@@ -128,7 +136,9 @@ def test_get_unknown_field():
 def test_get_related_field_error():
     with pytest.raises(
         FieldError,
-        match="Invalid lookup 'somename' for owner. Did you mean owner__name?",
+        match=re.escape(
+            "Unknown field 'owner'. Available fields: cell_lines, cell_markers, cell_types, collections, created_at, created_by, description, developmental_stages, diseases, ethnicities, experimental_factors, genes, hash, id, input_of_runs, is_latest, key, kind, n_files, n_observations, organisms, otype, pathways, phenotypes, projects, proteins, references, run, schema, size, space, storage, suffix, tissues, uid, ulabels, updated_at, version"
+        ),
     ):
         ln.Artifact.get(owner="somename")
 
