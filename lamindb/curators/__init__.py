@@ -840,6 +840,8 @@ class AnnDataCatCurator(CatCurator):
 
         if sources is None:
             sources = {}
+        if not data_is_anndata(data):
+            raise TypeError("data has to be an AnnData object")
 
         if "symbol" in str(var_index):
             logger.warning(
