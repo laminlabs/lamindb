@@ -24,6 +24,9 @@ def test_tracked_parallel():
     # Number of parallel executions
     n_parallel = 3
 
+    param_type = ln.Param(name="Script[test_tracked.py]", is_type=True).save()
+    ln.Param(name="chunk_id", dtype="int", type=param_type).save()
+
     # Use ThreadPoolExecutor for parallel execution
     with concurrent.futures.ThreadPoolExecutor(max_workers=n_parallel) as executor:
         # Submit all tasks

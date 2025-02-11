@@ -854,8 +854,8 @@ def _add_values(
         ]
         run = get_current_tracked_run()
         if run is not None:
-            name = to_pascal_case(run.transform.name)
-            type_hint = f"""{model_name.lower()}_type = ln.{model_name}(name='{name}', is_type=True).save()"""
+            name = f"{to_pascal_case(run.transform.type)}[{run.transform.key}]"
+            type_hint = f"""  {model_name.lower()}_type = ln.{model_name}(name='{name}', is_type=True).save()"""
             elements = [type_hint]
             type_kwarg = f", type={model_name.lower()}_type"
         else:
@@ -865,7 +865,7 @@ def _add_values(
             f"  ln.{model_name}(name='{key}', dtype='{dtype}'{type_kwarg}).save(){message}"
             for key, (dtype, _, message) in not_validated_keys_dtype_message
         ]
-        hint = "\n".join()
+        hint = "\n".join(elements)
         msg = (
             f"These keys could not be validated: {not_validated_keys.tolist()}\n"
             f"Here is how to create a {model_name.lower()}:\n\n{hint}"
