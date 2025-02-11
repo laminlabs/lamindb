@@ -1,8 +1,12 @@
 # .latest_version is tested in test_versioning.py
 
+
+import re
+
 import bionty as bt
 import lamindb as ln
 import pytest
+from django.core.exceptions import FieldError
 from lamindb._query_set import DoesNotExist
 from lamindb.base.users import current_user_id
 
@@ -90,6 +94,53 @@ def test_one_first():
         qs.one()
     with pytest.raises(Exception):  # noqa: B017
         qs.one_or_none()
+
+
+def test_filter_related_field_name():
+    with pytest.raises(
+        FieldError,
+        match=re.escape(
+            "Invalid lookup 'somelabel' for ulabels. Did you mean ulabels__name?"
+        ),
+    ):
+        ln.Artifact.filter(ulabels="somelabel").all()
+
+
+def test_filter_unknown_field():
+    with pytest.raises(
+        FieldError,
+        match=re.escape(
+            "Unknown field 'nonexistent'. Available fields: cell_lines, cell_markers, cell_types, collections, created_at, created_by, description, developmental_stages, diseases, ethnicities, experimental_factors, genes, hash, id, input_of_runs, is_latest, key, kind, n_files, n_observations, organisms, otype, pathways, phenotypes, projects, proteins, references, run, schema, size, space, storage, suffix, tissues, uid, ulabels, updated_at, version"
+        ),
+    ):
+        ln.Artifact.filter(nonexistent="value").all()
+
+
+def test_get_id_type_error():
+    with pytest.raises(
+        ValueError, match=re.escape("Field 'id' expected a number but got 'abc'.")
+    ):
+        ln.Artifact.get(id="abc")
+
+
+def test_get_related_field_name():
+    with pytest.raises(
+        FieldError,
+        match=re.escape(
+            "Invalid lookup 'somelabel' for ulabels. Did you mean ulabels__name?"
+        ),
+    ):
+        ln.Artifact.get(ulabels="somelabel").all()
+
+
+def test_get_unknown_field():
+    with pytest.raises(
+        FieldError,
+        match=re.escape(
+            "Unknown field 'nonexistent'. Available fields: cell_lines, cell_markers, cell_types, collections, created_at, created_by, description, developmental_stages, diseases, ethnicities, experimental_factors, genes, hash, id, input_of_runs, is_latest, key, kind, n_files, n_observations, organisms, otype, pathways, phenotypes, projects, proteins, references, run, schema, size, space, storage, suffix, tissues, uid, ulabels, updated_at, version"
+        ),
+    ):
+        ln.Artifact.get(nonexistent="value")
 
 
 def test_search():

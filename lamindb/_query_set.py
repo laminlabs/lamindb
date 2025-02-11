@@ -8,6 +8,7 @@ from collections.abc import Iterable as IterableType
 from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar
 
 import pandas as pd
+from django.core.exceptions import FieldError
 from django.db import models
 from django.db.models import F, ForeignKey, ManyToManyField
 from django.db.models.fields.related import ForeignObjectRel
@@ -604,17 +605,64 @@ class QuerySet(models.QuerySet):
             return None
         return self[0]
 
+    def _handle_unknown_field(self, error: FieldError) -> None:
+        """Suggest available fields if an unknown field was passed."""
+        if "Cannot resolve keyword" in str(error):
+            field = str(error).split("'")[1]
+            fields = ", ".join(
+                sorted(
+                    f.name
+                    for f in self.model._meta.get_fields()
+                    if not f.name.startswith("_")
+                    and not f.name.startswith("links_")
+                    and not f.name.endswith("_id")
+                )
+            )
+            raise FieldError(
+                f"Unknown field '{field}'. Available fields: {fields}"
+            ) from None
+        raise error  # pragma: no cover
+
     def get(self, idlike: int | str | None = None, **expressions) -> Record:
         """Query a single record. Raises error if there are more or none."""
-        return get(self, idlike, **expressions)
+        try:
+            return get(self, idlike, **expressions)
+        except ValueError as e:
+            # Pass through original error for explicit id lookups
+            if "Field 'id' expected a number" in str(e):
+                if "id" in expressions:
+                    raise
+                field = next(iter(expressions))
+                raise FieldError(
+                    f"Invalid lookup '{expressions[field]}' for {field}. Did you mean {field}__name?"
+                ) from None
+            raise  # pragma: no cover
+        except FieldError as e:
+            self._handle_unknown_field(e)
+            raise  # pragma: no cover
 
     def filter(self, *queries, **expressions) -> QuerySet:
         """Query a set of records."""
+        # Suggest to use __name for related fields such as id when not passed
+        for field, value in expressions.items():
+            if (
+                isinstance(value, str)
+                and value.strip("-").isalpha()
+                and "__" not in field
+                and hasattr(self.model, field)
+                and getattr(self.model, field).field.related_model
+            ):
+                raise FieldError(
+                    f"Invalid lookup '{value}' for {field}. Did you mean {field}__name?"
+                )
+
         expressions = process_expressions(self, expressions)
         if len(expressions) > 0:
-            return super().filter(*queries, **expressions)
-        else:
-            return self
+            try:
+                return super().filter(*queries, **expressions)
+            except FieldError as e:
+                self._handle_unknown_field(e)
+        return self
 
     def one(self) -> Record:
         """Exactly one result. Raises error if there are more or none."""
