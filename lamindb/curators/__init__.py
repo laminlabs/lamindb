@@ -175,6 +175,10 @@ class Curator:
     def __init__(self, dataset: Any, schema: Schema | None = None):
         self._artifact: Artifact = None  # pass the dataset as a non-curated artifact
         self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
+        if isinstance(self._dataset, Artifact):
+            self._artifact = self._dataset
+            if self._artifact.otype in {"DataFrame", "AnnData"}:
+                self._dataset = self._dataset.load()
         self._schema: Schema | None = schema
         self._is_validated: bool = False
         self._cat_curator: CatCurator = None  # is None for CatCurator curators
@@ -197,12 +201,6 @@ class Curator:
         # Note that this docstring has to be consistent with the Artifact()
         # constructor signature
         pass
-
-    def _set_dataset_and_artifact(self):
-        if isinstance(self._dataset, Artifact):
-            self._artifact = self._dataset
-            if self._artifact.otype in {"DataFrame", "AnnData"}:
-                self._dataset = self._dataset.load()
 
 
 class DataFrameCurator(Curator):
@@ -252,7 +250,6 @@ class DataFrameCurator(Curator):
         schema: Schema,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
-        self._set_dataset_and_artifact()
         if schema.n > 0:
             # populate features
             non_categoricals = {}
@@ -405,7 +402,6 @@ class AnnDataCurator(Curator):
         schema: Schema,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
-        self._set_dataset_and_artifact()
         if not data_is_anndata(self._dataset):
             raise InvalidArgument("dataset must be AnnData-like.")
         if schema.otype != "AnnData":
@@ -472,7 +468,6 @@ class CatCurator(Curator):
         self, *, dataset, categoricals, sources, organism, exclude, columns_field=None
     ):
         super().__init__(dataset=dataset)
-        self._set_dataset_and_artifact()
         self._categoricals = categoricals or {}
         self._non_validated = None
         self._organism = organism
@@ -709,6 +704,8 @@ class DataFrameCatCurator(CatCurator):
         Args:
             key: The key referencing the column in the DataFrame to standardize.
         """
+        if self._artifact is not None:
+            raise RuntimeError("can't mutate the dataset when an artifact is passed!")
         # list is needed to avoid RuntimeError: dictionary changed size during iteration
         avail_keys = list(self.non_validated.keys())
         if len(avail_keys) == 0:
@@ -967,6 +964,8 @@ class AnnDataCatCurator(CatCurator):
 
         Inplace modification of the dataset.
         """
+        if self._artifact is not None:
+            raise RuntimeError("can't mutate the dataset when an artifact is passed!")
         if key in self._adata.obs.columns or key == "all":
             # standardize obs columns
             self._obs_df_curator.standardize(key)
@@ -1039,7 +1038,6 @@ class MuDataCatCurator(CatCurator):
             organism=organism,
             exclude=exclude,
         )
-        self._set_dataset_and_artifact()
         self._columns_field = var_index  # this is for consistency with BaseCatCurator
         self._var_fields = var_index
         self._verify_modality(self._var_fields.keys())
@@ -1224,6 +1222,8 @@ class MuDataCatCurator(CatCurator):
 
         Inplace modification of the dataset.
         """
+        if self._artifact is not None:
+            raise RuntimeError("can't mutate the dataset when an artifact is passed!")
         modality = modality or "obs"
         if modality in self._mod_adata_curators:
             adata_curator = self._mod_adata_curators[modality]
@@ -1989,6 +1989,8 @@ class SpatialDataCatCurator(CatCurator):
         if len(self.non_validated) == 0:
             logger.warning("values are already standardized")
             return
+        if self._artifact is not None:
+            raise RuntimeError("can't mutate the dataset when an artifact is passed!")
 
         if accessor == self._sample_metadata_key:
             if key not in self._sample_metadata.columns:

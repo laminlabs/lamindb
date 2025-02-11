@@ -197,6 +197,10 @@ def test_pass_artifact(df):
         artifact = ln.Artifact.from_df(df, key="test_cat_curators/df.parquet").save()
         curator = ln.Curator.from_df(artifact, categoricals={"donor": ln.ULabel.name})
         curator.validate()
+        with pytest.raises(
+            RuntimeError, match="can't mutate the dataset when an artifact is passed!"
+        ):
+            curator.standardize("all")
         curator.add_new_from("donor")
         artifact_2 = curator.save_artifact()
         assert artifact == artifact_2
