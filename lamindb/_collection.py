@@ -227,7 +227,7 @@ def mapped(
     layers_keys: str | list[str] | None = None,
     obs_keys: str | list[str] | None = None,
     obsm_keys: str | list[str] | None = None,
-    obs_filter: dict[str, str | tuple[str, ...]] | None = None,
+    obs_filter: dict[str, str | list[str]] | None = None,
     join: Literal["inner", "outer"] | None = "inner",
     encode_labels: bool | list[str] = True,
     unknown_label: str | dict[str, str] | None = None,
