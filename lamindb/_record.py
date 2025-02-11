@@ -326,7 +326,7 @@ def _get_record_kwargs(record_class) -> list[tuple[str, str]]:
     return []
 
 
-def _simplify_query_errors(cls, expressions, func):
+def LEGACY(cls, expressions, func):
     """Improves error messages for common query syntax mistakes.
 
     Not a decorator to ensure that docstring passing still works.
@@ -396,7 +396,7 @@ def _simplify_query_errors(cls, expressions, func):
         raise
 
 
-def simplify_query_errors(cls, expressions, func):
+def _simplify_query_errors(cls, expressions, func):
     """Improves Django ORM error messages for common query syntax mistakes."""
     try:
         # Pre-query validation: Check related fields have __name suffix
