@@ -173,18 +173,9 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
         raise FieldValidationError(f"Only {valid_keywords} are valid keyword arguments")
     kwargs["name"] = name
     kwargs["type"] = type_
+    kwargs["is_type"] = is_type
     if not is_param:
         kwargs["description"] = description
-    if is_type:
-        if name.endswith("s"):
-            logger.warning(
-                "`name` ends with 's', in case you're naming with plural, consider the singular for a type name"
-            )
-        if name[0].islower():
-            raise ValidationError(
-                "`name` starts with lowercase, name your types with upper-case letters"
-            )
-        kwargs["is_type"] = is_type
     # cast dtype
     if dtype is None and not is_type:
         raise ValidationError(

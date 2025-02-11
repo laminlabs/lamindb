@@ -117,10 +117,13 @@ def is_approx_pascal_case(s):
     Raises:
         ValueError: If the last component doesn't start with a capital letter
     """
-    last_component = s.split(".")[-1]
+    if "[" not in s:  # this is because we allow types of form 'Script[test_script.py]'
+        last_component = s.split(".")[-1]
+    else:
+        last_component = s
 
     if not last_component[0].isupper():
-        raise ValueError(f"'{s}' should start with a capital letter")
+        raise ValueError(f"'{last_component}' should start with a capital letter")
 
     return True
 
@@ -180,7 +183,7 @@ def validate_fields(record: Record, kwargs):
                 f"`uid` must be exactly {uid_max_length} characters long, got {len(kwargs['uid'])}."
             )
     # validate is_type
-    if "is_type" in kwargs and "name" in kwargs:
+    if "is_type" in kwargs and "name" in kwargs and kwargs["is_type"]:
         if kwargs["name"].endswith("s"):
             logger.warning(
                 "`name` ends with 's', in case you're naming with plural, consider the singular for a type name"
