@@ -194,7 +194,7 @@ def test_df_curator(df, categoricals):
 
 def test_pass_artifact(df):
     try:
-        artifact = ln.Artifact.from_df(df, key="test_cat_curators/df").save()
+        artifact = ln.Artifact.from_df(df, key="test_cat_curators/df.parquet").save()
         curator = ln.Curator.from_df(artifact, categoricals={"donor": ln.ULabel.name})
         curator.validate()
         curator.add_new_from("donor")
