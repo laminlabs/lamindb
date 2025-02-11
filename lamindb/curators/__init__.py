@@ -1042,18 +1042,18 @@ class MuDataCatCurator(CatCurator):
         self._organism = organism
         self._var_fields = var_index
         self._columns_field = var_index  # this is for consistency with BaseCatCurator
-        self._verify_modality(self._var_fields.keys())
-        self._obs_fields = self._parse_categoricals(categoricals)
-        self._modalities = set(self._var_fields.keys()) | set(self._obs_fields.keys())
-        self._verbosity = verbosity
-        self._obs_df_curator = None
-        self._organism = organism
         if isinstance(mdata, Artifact):
             self._artifact = mdata
             self._dataset = mdata.load()
         else:
             self._artifact = None
             self._dataset = mdata
+        self._verify_modality(self._var_fields.keys())
+        self._obs_fields = self._parse_categoricals(categoricals)
+        self._modalities = set(self._var_fields.keys()) | set(self._obs_fields.keys())
+        self._verbosity = verbosity
+        self._obs_df_curator = None
+        self._organism = organism
         if "obs" in self._modalities:
             self._obs_df_curator = DataFrameCatCurator(
                 df=self._dataset.obs,

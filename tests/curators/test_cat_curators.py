@@ -192,6 +192,21 @@ def test_df_curator(df, categoricals):
         ln.Schema.filter().delete()
 
 
+def test_pass_artifact(df):
+    try:
+        artifact = ln.Artifact.from_df(df, key="test_cat_curators/df").save()
+        curator = ln.Curator.from_df(artifact, categoricals={"donor": ln.ULabel.name})
+        curator.validate()
+        curator.add_new_from("donor")
+        artifact_2 = curator.save_artifact()
+        assert artifact == artifact_2
+    finally:
+        # clean up
+        artifact.delete(permanent=True)
+        ln.ULabel.filter().delete()
+        ln.Schema.filter().delete()
+
+
 def test_custom_using_invalid_field_lookup(curate_lookup):
     with pytest.raises(
         AttributeError, match='"CurateLookup" object has no attribute "invalid_field"'
