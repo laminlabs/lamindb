@@ -1790,6 +1790,8 @@ class SpatialDataCatCurator(CatCurator):
         if isinstance(sdata, Artifact):
             # TODO: load() doesn't yet work
             self._sdata = sdata.load()
+        else:
+            self._sdata = self._dataset
         self._sample_metadata_key = sample_metadata_key
         self._var_fields = var_index
         self._verify_accessor_exists(self._var_fields.keys())
