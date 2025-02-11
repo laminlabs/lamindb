@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, NamedTuple
 
 import dj_database_url
 import lamindb_setup as ln_setup
-from django.core.exceptions import FieldError
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import connections, transaction
 from django.db.models import (
@@ -43,7 +42,6 @@ from lamindb_setup.core._hub_core import connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
 from lamindb_setup.core.upath import extract_suffix_from_path
 
-from lamindb._query_set import get_backward_compat_filter_kwargs
 from lamindb.errors import FieldValidationError
 from lamindb.models import (
     Artifact,
@@ -326,122 +324,30 @@ def _get_record_kwargs(record_class) -> list[tuple[str, str]]:
     return []
 
 
-def LEGACY(cls, expressions, func):
-    """Improves error messages for common query syntax mistakes.
-
-    Not a decorator to ensure that docstring passing still works.
-    """
-    try:
-        # Pre-query validation for both filter() and get(): Check related fields without double underscores
-        for field, value in expressions.items():
-            if (
-                isinstance(value, str)
-                and value.strip("-").isalpha()
-                and "__" not in field
-                and hasattr(cls, field)
-                and getattr(cls, field).field.related_model
-            ):
-                raise FieldError(
-                    f"Invalid lookup '{value}' for {field}. Did you mean {field}__name?"
-                )
-        try:
-            get_backward_compat_filter_kwargs(QuerySet(model=cls), expressions)
-            return func()
-        except TypeError as e:
-            # DB operation level: Invalid field names in get()
-            if "unpack non-iterable" in str(e):
-                field = next(iter(expressions))
-                field_base = field.split("__")[0]
-                # Only check for unknown fields
-                if not hasattr(cls, field_base):
-                    fields = ", ".join(
-                        sorted(
-                            f.name
-                            for f in cls._meta.get_fields()
-                            if not f.name.startswith("_")
-                            and not f.name.startswith("links_")
-                            and not f.name.endswith("_id")
-                        )
-                    )
-                    raise FieldError(
-                        f"Unknown field '{field}'. Available fields: {fields}"
-                    ) from None
-            raise
-    except ValueError as e:
-        # Pass through original error for explicit id lookups
-        if "Field 'id' expected a number" in str(e):
-            if "id" in expressions:
-                raise
-            field = next(iter(expressions))
-            raise FieldError(
-                f"Invalid lookup '{expressions[field]}' for {field}. Did you mean {field}__name?"
-            ) from None
-        raise
-    except FieldError as e:
-        if "Cannot resolve keyword" in str(e):
-            # Invalid field names in filter()
-            field = str(e).split("'")[1]
-            fields = ", ".join(
-                sorted(
-                    f.name
-                    for f in cls._meta.get_fields()
-                    if not f.name.startswith("_")
-                    and not f.name.startswith("links_")
-                    and not f.name.endswith("_id")
-                )
-            )
-            raise FieldError(
-                f"Unknown field '{field}'. Available fields: {fields}"
-            ) from None
-        raise
-
-
-def _simplify_query_errors(cls, expressions, func):
-    """Improves Django ORM error messages for common query syntax mistakes."""
-    try:
-        # Pre-query validation: Check related fields have __name suffix
-        for field, value in expressions.items():
-            if (
-                isinstance(value, str)
-                and value.strip("-").isalpha()
-                and "__" not in field
-                and hasattr(cls, field)
-                and getattr(cls, field).field.related_model
-            ):
-                raise FieldError(
-                    f"Invalid lookup '{value}' for {field}. Did you mean {field}__name?"
-                )
-        return func()
-    except ValueError as e:
-        # DB operation error: String value provided for ID field
-        if "Field 'id' expected a number" in str(e):
-            field = next(iter(expressions))
-            raise FieldError(
-                f"Invalid lookup '{expressions[field]}' for {field}. Did you mean {field}__name?"
-            ) from None
-        raise
-
-
 @classmethod  # type:ignore
 @doc_args(Record.filter.__doc__)
 def filter(cls, *queries, **expressions) -> QuerySet:
     """{}"""  # noqa: D415
-    return _simplify_query_errors(
-        cls,
-        expressions,
-        lambda: QuerySet(model=cls, using=expressions.pop("_using_key", None)).filter(
-            *queries, **expressions
-        ),
-    )
+    from lamindb._query_set import QuerySet
+
+    _using_key = None
+    if "_using_key" in expressions:
+        _using_key = expressions.pop("_using_key")
+
+    return QuerySet(model=cls, using=_using_key).filter(*queries, **expressions)
 
 
 @classmethod  # type:ignore
 @doc_args(Record.get.__doc__)
-def get(cls, idlike: int | str | None = None, **expressions) -> Record:
+def get(
+    cls,
+    idlike: int | str | None = None,
+    **expressions,
+) -> Record:
     """{}"""  # noqa: D415
-    return _simplify_query_errors(
-        cls, expressions, lambda: QuerySet(model=cls).get(idlike, **expressions)
-    )
+    from lamindb._query_set import QuerySet
+
+    return QuerySet(model=cls).get(idlike, **expressions)
 
 
 @classmethod  # type:ignore
