@@ -30,6 +30,7 @@ from django.db.models.lookups import (
     Regex,
     StartsWith,
 )
+from django.db.utils import IntegrityError
 from lamin_utils import colors, logger
 from lamin_utils._lookup import Lookup
 from lamindb_setup._connect_instance import (
@@ -864,28 +865,34 @@ def save(self, *args, **kwargs) -> Record:
     if pre_existing_record is not None:
         init_self_from_db(self, pre_existing_record)
     else:
-        # save versioned record
-        if isinstance(self, IsVersioned) and self._revises is not None:
-            assert self._revises.is_latest  # noqa: S101
-            revises = self._revises
-            revises.is_latest = False
-            with transaction.atomic():
-                revises._revises = None  # ensure we don't start a recursion
-                revises.save()
-                check_name_change(self)
-                check_key_change(self)
-                super(BasicRecord, self).save(*args, **kwargs)  # type: ignore
-                _store_record_old_name(self)
-                _store_record_old_key(self)
-            self._revises = None
-        # save unversioned record
-        else:
-            check_name_change(self)
-            check_key_change(self)
-            super(BasicRecord, self).save(*args, **kwargs)
-            # update _old_name and _old_key after saving
-            _store_record_old_name(self)
-            _store_record_old_key(self)
+        check_key_change(self)
+        check_name_change(self)
+        try:
+            # save versioned record in presence of self._revises
+            if isinstance(self, IsVersioned) and self._revises is not None:
+                assert self._revises.is_latest  # noqa: S101
+                revises = self._revises
+                revises.is_latest = False
+                with transaction.atomic():
+                    revises._revises = None  # ensure we don't start a recursion
+                    revises.save()
+                    super(BasicRecord, self).save(*args, **kwargs)  # type: ignore
+                self._revises = None
+            # save unversioned record
+            else:
+                super(BasicRecord, self).save(*args, **kwargs)
+        except IntegrityError as e:
+            error_msg = str(e)
+            if "UNIQUE constraint failed" in error_msg and ".hash" in error_msg:
+                pre_existing_record = self.__class__.get(hash=self.hash)
+                logger.warning(
+                    f"returning {self.__class__.__name__.lower()} with same hash: {pre_existing_record}"
+                )
+                init_self_from_db(self, pre_existing_record)
+            else:
+                raise
+        _store_record_old_name(self)
+        _store_record_old_key(self)
     # perform transfer of many-to-many fields
     # only supported for Artifact and Collection records
     if db is not None and db != "default" and using_key is None:
