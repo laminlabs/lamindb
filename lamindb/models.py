@@ -3681,7 +3681,7 @@ class RunData(BasicRecord, DataMixin):
     class Meta:
         constraints = [
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(feature__isnull=False, param__isnull=True)
                     | models.Q(feature__isnull=True, param__isnull=False)
                 ),
@@ -3731,7 +3731,7 @@ class FlexTableData(BasicRecord, DataMixin):
     class Meta:
         constraints = [
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(feature__isnull=False, param__isnull=True)
                     | models.Q(feature__isnull=True, param__isnull=False)
                 ),
