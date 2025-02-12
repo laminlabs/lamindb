@@ -253,10 +253,14 @@ def store_artifacts(
 
     # upload new local artifacts
     for artifact in artifacts:
+        # failure here sets ._clear_storagekey
+        # for cleanup below
         exception = check_and_attempt_upload(artifact, using_key)
         if exception is not None:
             break
         stored_artifacts += [artifact]
+        # if check_and_attempt_upload was successfull
+        # then this can have only ._clear_storagekey from .replace
         exception = check_and_attempt_clearing(artifact, using_key)
         if exception is not None:
             logger.warning(f"clean up of {artifact._clear_storagekey} failed")
@@ -268,6 +272,12 @@ def store_artifacts(
             for artifact in artifacts:
                 if artifact not in stored_artifacts:
                     artifact._delete_skip_storage()
+                    # clean up storage after failure in check_and_attempt_upload
+                    exception_clear = check_and_attempt_clearing(artifact, using_key)
+                    if exception_clear is not None:
+                        logger.warning(
+                            f"clean up of {artifact._clear_storagekey} after the upload error failed"
+                        )
         error_message = prepare_error_message(artifacts, stored_artifacts, exception)
         # this is bad because we're losing the original traceback
         # needs to be refactored - also, the orginal error should be raised
@@ -276,7 +286,7 @@ def store_artifacts(
 
 
 def prepare_error_message(records, stored_artifacts, exception) -> str:
-    if len(records) == 1 or len(stored_artifacts) == 0:
+    if len(stored_artifacts) == 0:
         error_message = (
             "No entries were uploaded or committed"
             " to the database. See error message:\n\n"

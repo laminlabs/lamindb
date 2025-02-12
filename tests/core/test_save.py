@@ -45,9 +45,8 @@ def test_store_artifacts_acid():
 
     with pytest.raises(RuntimeError) as error:
         store_artifacts([artifact], using_key=None)
-
     assert str(error.exconly()).startswith(
-        "RuntimeError: No entries were uploaded or committed to the database."
+        "RuntimeError: The following entries have been successfully uploaded"
     )
 
 
