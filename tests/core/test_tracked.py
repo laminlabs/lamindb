@@ -61,6 +61,7 @@ def test_tracked_parallel():
     for artifact in artifacts:
         artifact.delete(permanent=True)
 
+    ln.context._uid = None
     ln.context._run = None
     ln.context._transform = None
     ln.context._path = None
