@@ -146,6 +146,9 @@ def check_and_attempt_upload(
             )
         except Exception as exception:
             logger.warning(f"could not upload artifact: {artifact}")
+            # clear dangling storages if we were actually uploading or saving
+            if hasattr(artifact, "_to_store") and artifact._to_store:
+                artifact._clear_storagekey = auto_storage_key_from_artifact(artifact)
             return exception
         # copies (if on-disk) or moves the temporary file (if in-memory) to the cache
         if os.getenv("LAMINDB_MULTI_INSTANCE") is None:
@@ -215,16 +218,20 @@ def check_and_attempt_clearing(
     artifact: Artifact, using_key: str | None = None
 ) -> Exception | None:
     # this is a clean-up operation after replace() was called
-    # this will only evaluate to True if replace() was called
+    # or if there was an exception during upload
     if hasattr(artifact, "_clear_storagekey"):
         try:
             if artifact._clear_storagekey is not None:
-                delete_storage_using_key(
-                    artifact, artifact._clear_storagekey, using_key=using_key
+                delete_msg = delete_storage_using_key(
+                    artifact,
+                    artifact._clear_storagekey,
+                    using_key=using_key,
+                    raise_file_not_found_error=False,
                 )
-                logger.success(
-                    f"deleted stale object at storage key {artifact._clear_storagekey}"
-                )
+                if delete_msg != "did-not-delete":
+                    logger.success(
+                        f"deleted stale object at storage key {artifact._clear_storagekey}"
+                    )
                 artifact._clear_storagekey = None
         except Exception as exception:
             return exception
