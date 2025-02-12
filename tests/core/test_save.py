@@ -42,7 +42,7 @@ def test_store_artifacts_acid():
     ln.core.datasets.file_mini_csv()
     artifact = ln.Artifact("mini.csv", description="test")
     artifact._clear_storagekey = "test.csv"
-    # erros on check_and_attempt_clearing
+    # errors on check_and_attempt_clearing
     with pytest.raises(RuntimeError):
         artifact.save()
 
@@ -51,6 +51,8 @@ def test_store_artifacts_acid():
     assert str(error.exconly()).startswith(
         "RuntimeError: The following entries have been successfully uploaded"
     )
+
+    artifact.delete(permanent=True)
 
 
 def test_save_parents():
