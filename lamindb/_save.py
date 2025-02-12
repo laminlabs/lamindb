@@ -226,7 +226,7 @@ def check_and_attempt_clearing(
                     artifact,
                     artifact._clear_storagekey,
                     using_key=using_key,
-                    raise_file_not_found_error=False,
+                    raise_file_not_found_error=True,
                 )
                 if delete_msg != "did-not-delete":
                     logger.success(
