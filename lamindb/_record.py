@@ -243,9 +243,7 @@ def __init__(record: Record, *args, **kwargs):
         if "_has_consciously_provided_uid" in kwargs:
             has_consciously_provided_uid = kwargs.pop("_has_consciously_provided_uid")
         if (
-            isinstance(
-                record, (CanCurate, Collection, Transform)
-            )  # Collection is only temporary because it'll get a key field
+            isinstance(record, (CanCurate, Collection, Transform))
             and settings.creation.search_names
             and not has_consciously_provided_uid
         ):

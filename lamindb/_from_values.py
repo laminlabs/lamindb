@@ -32,7 +32,6 @@ def get_or_create_records(
     registry = field.field.model  # type: ignore
     if create:
         return RecordList([registry(**{field.field.name: value}) for value in iterable])  # type: ignore
-    creation_search_names = settings.creation.search_names
     organism = _get_organism_record(field, organism)
     settings.creation.search_names = False
     try:
@@ -110,7 +109,7 @@ def get_or_create_records(
         #         logger.debug(f"added default feature '{feature_name}'")
         return RecordList(records)
     finally:
-        settings.creation.search_names = creation_search_names
+        settings.creation.search_names = True  # need to refactor the whole function because can no longer use settings; not thread safe
 
 
 def get_existing_records(
