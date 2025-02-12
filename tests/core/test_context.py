@@ -123,6 +123,7 @@ def test_create_or_load_transform():
     assert context._transform.description == "updated title"
 
     # unset to remove side effects
+    ln.context._uid = None
     ln.context._run = None
     ln.context._transform = None
     ln.context._path = None
