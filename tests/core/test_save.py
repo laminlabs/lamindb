@@ -42,6 +42,9 @@ def test_store_artifacts_acid():
     ln.core.datasets.file_mini_csv()
     artifact = ln.Artifact("mini.csv", description="test")
     artifact._clear_storagekey = "test.csv"
+    # erros on check_and_attempt_clearing
+    with pytest.raises(RuntimeError):
+        artifact.save()
 
     with pytest.raises(RuntimeError) as error:
         store_artifacts([artifact], using_key=None)
