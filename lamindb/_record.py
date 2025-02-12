@@ -883,7 +883,13 @@ def save(self, *args, **kwargs) -> Record:
                 super(BasicRecord, self).save(*args, **kwargs)
         except IntegrityError as e:
             error_msg = str(e)
-            if "UNIQUE constraint failed" in error_msg and ".hash" in error_msg:
+            # two possible error messages for hash duplication
+            # "duplicate key value violates unique constraint"
+            # "UNIQUE constraint failed"
+            if (
+                "UNIQUE constraint failed" in error_msg
+                or "duplicate key value violates unique constraint" in error_msg
+            ) and "hash" in error_msg:
                 pre_existing_record = self.__class__.get(hash=self.hash)
                 logger.warning(
                     f"returning {self.__class__.__name__.lower()} with same hash: {pre_existing_record}"

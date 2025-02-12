@@ -39,7 +39,7 @@ def test_tracked_parallel():
     # Verify results
     # Each execution should have created its own artifact with unique run
     print(f"Created artifacts with keys: {chunk_keys}")
-    artifacts = [ln.Artifact.get(key) for key in chunk_keys]
+    artifacts = [ln.Artifact.get(key=key) for key in chunk_keys]
 
     # Check that we got the expected number of artifacts
     assert len(artifacts) == n_parallel
