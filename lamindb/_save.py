@@ -146,6 +146,9 @@ def check_and_attempt_upload(
             )
         except Exception as exception:
             logger.warning(f"could not upload artifact: {artifact}")
+            # clear dangling storages if we were actually uploading or saving
+            if hasattr(artifact, "_to_store") and artifact._to_store:
+                artifact._clear_storagekey = auto_storage_key_from_artifact(artifact)
             return exception
         # copies (if on-disk) or moves the temporary file (if in-memory) to the cache
         if os.getenv("LAMINDB_MULTI_INSTANCE") is None:
@@ -212,19 +215,25 @@ def copy_or_move_to_cache(
 
 # This is also used within Artifact.save()
 def check_and_attempt_clearing(
-    artifact: Artifact, using_key: str | None = None
+    artifact: Artifact,
+    raise_file_not_found_error: bool = True,
+    using_key: str | None = None,
 ) -> Exception | None:
     # this is a clean-up operation after replace() was called
-    # this will only evaluate to True if replace() was called
+    # or if there was an exception during upload
     if hasattr(artifact, "_clear_storagekey"):
         try:
             if artifact._clear_storagekey is not None:
-                delete_storage_using_key(
-                    artifact, artifact._clear_storagekey, using_key=using_key
+                delete_msg = delete_storage_using_key(
+                    artifact,
+                    artifact._clear_storagekey,
+                    raise_file_not_found_error=raise_file_not_found_error,
+                    using_key=using_key,
                 )
-                logger.success(
-                    f"deleted stale object at storage key {artifact._clear_storagekey}"
-                )
+                if delete_msg != "did-not-delete":
+                    logger.success(
+                        f"deleted stale object at storage key {artifact._clear_storagekey}"
+                    )
                 artifact._clear_storagekey = None
         except Exception as exception:
             return exception
@@ -246,11 +255,17 @@ def store_artifacts(
 
     # upload new local artifacts
     for artifact in artifacts:
+        # failure here sets ._clear_storagekey
+        # for cleanup below
         exception = check_and_attempt_upload(artifact, using_key)
         if exception is not None:
             break
         stored_artifacts += [artifact]
-        exception = check_and_attempt_clearing(artifact, using_key)
+        # if check_and_attempt_upload was successfull
+        # then this can have only ._clear_storagekey from .replace
+        exception = check_and_attempt_clearing(
+            artifact, raise_file_not_found_error=True, using_key=using_key
+        )
         if exception is not None:
             logger.warning(f"clean up of {artifact._clear_storagekey} failed")
             break
@@ -261,6 +276,14 @@ def store_artifacts(
             for artifact in artifacts:
                 if artifact not in stored_artifacts:
                     artifact._delete_skip_storage()
+                    # clean up storage after failure in check_and_attempt_upload
+                    exception_clear = check_and_attempt_clearing(
+                        artifact, raise_file_not_found_error=False, using_key=using_key
+                    )
+                    if exception_clear is not None:
+                        logger.warning(
+                            f"clean up of {artifact._clear_storagekey} after the upload error failed"
+                        )
         error_message = prepare_error_message(artifacts, stored_artifacts, exception)
         # this is bad because we're losing the original traceback
         # needs to be refactored - also, the orginal error should be raised
@@ -269,7 +292,7 @@ def store_artifacts(
 
 
 def prepare_error_message(records, stored_artifacts, exception) -> str:
-    if len(records) == 1 or len(stored_artifacts) == 0:
+    if len(stored_artifacts) == 0:
         error_message = (
             "No entries were uploaded or committed"
             " to the database. See error message:\n\n"

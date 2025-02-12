@@ -1266,15 +1266,27 @@ def save(self, upload: bool | None = None, **kwargs) -> Artifact:
     using_key = None
     if "using" in kwargs:
         using_key = kwargs["using"]
-    exception = check_and_attempt_upload(
+    exception_upload = check_and_attempt_upload(
         self, using_key, access_token=access_token, print_progress=print_progress
     )
-    if exception is not None:
+    if exception_upload is not None:
+        # we do not want to raise file not found on cleanup if upload of a file failed
+        # often it is ACID in the filesytsem itself
+        # for example, s3 won't have the failed file, so just skip the delete in this case
+        raise_file_not_found_error = False
         self._delete_skip_storage()
-        raise RuntimeError(exception)
-    exception = check_and_attempt_clearing(self, using_key)
-    if exception is not None:
-        raise RuntimeError(exception)
+    else:
+        # this is the case when it is cleaned on .replace
+        raise_file_not_found_error = True
+    # this is triggered by an exception in check_and_attempt_upload or by replace.
+    exception_clear = check_and_attempt_clearing(
+        self, raise_file_not_found_error=raise_file_not_found_error, using_key=using_key
+    )
+    if exception_upload is not None:
+        raise RuntimeError(exception_upload)
+    if exception_clear is not None:
+        raise RuntimeError(exception_clear)
+    # this is only for keep_artifacts_local
     if local_path is not None and not state_was_adding:
         # only move the local artifact to cache if it was not newly created
         local_path_cache = ln_setup.settings.cache_dir / local_path.name

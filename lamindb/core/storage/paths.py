@@ -4,7 +4,6 @@ import shutil
 from typing import TYPE_CHECKING
 
 import fsspec
-from lamin_utils import logger
 from lamindb_setup.core import StorageSettings
 from lamindb_setup.core.upath import (
     LocalPathClasses,
@@ -171,10 +170,15 @@ def store_file_or_folder(
 
 
 def delete_storage_using_key(
-    artifact: Artifact, storage_key: str, using_key: str | None
-):
+    artifact: Artifact,
+    storage_key: str,
+    raise_file_not_found_error: bool = True,
+    using_key: str | None = None,
+) -> None | str:
     filepath, _ = attempt_accessing_path(artifact, storage_key, using_key=using_key)
-    delete_storage(filepath)
+    return delete_storage(
+        filepath, raise_file_not_found_error=raise_file_not_found_error
+    )
 
 
 def delete_storage(
@@ -193,5 +197,5 @@ def delete_storage(
     elif raise_file_not_found_error:
         raise FileNotFoundError(f"{storagepath} is not an existing path!")
     else:
-        logger.warning(f"{storagepath} is not an existing path!")
+        return "did-not-delete"
     return None
