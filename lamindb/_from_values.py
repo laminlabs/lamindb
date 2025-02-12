@@ -151,6 +151,7 @@ def get_existing_records(
     is_validated = model.validate(
         iterable_idx, field=field, organism=organism, mute=True
     )
+
     if len(is_validated) > 0:
         validated = iterable_idx[is_validated]
     else:
@@ -275,7 +276,7 @@ def create_records_from_source(
             else {"source": source}
         )
         for bk in bionty_kwargs:
-            records.append(model(**bk, **create_kwargs))
+            records.append(model(**bk, **create_kwargs, _skip_validation=True))
 
         # number of records that matches field (not synonyms)
         validated = result.validated

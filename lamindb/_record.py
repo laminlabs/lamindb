@@ -234,7 +234,10 @@ def suggest_records_with_similar_names(
 
 
 def __init__(record: Record, *args, **kwargs):
-    if not args:
+    skip_validation = kwargs.pop("_skip_validation", False)
+    if not args and skip_validation:
+        super(BasicRecord, record).__init__(**kwargs)
+    elif not args and not skip_validation:
         validate_fields(record, kwargs)
 
         # do not search for names if an id is passed; this is important
