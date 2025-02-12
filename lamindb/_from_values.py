@@ -9,8 +9,6 @@ from lamin_utils import colors, logger
 from lamindb._query_set import RecordList
 from lamindb.models import Record
 
-from .core._settings import settings
-
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
@@ -33,83 +31,68 @@ def get_or_create_records(
     if create:
         return RecordList([registry(**{field.field.name: value}) for value in iterable])  # type: ignore
     organism = _get_organism_record(field, organism)
-    settings.creation.search_names = False
-    try:
-        iterable_idx = index_iterable(iterable)
+    iterable_idx = index_iterable(iterable)
 
-        # returns existing records & non-existing values
-        records, nonexist_values, msg = get_existing_records(
-            iterable_idx=iterable_idx,
-            field=field,
-            organism=organism,
-            mute=mute,
-        )
+    # returns existing records & non-existing values
+    records, nonexist_values, msg = get_existing_records(
+        iterable_idx=iterable_idx,
+        field=field,
+        organism=organism,
+        mute=mute,
+    )
 
-        # new records to be created based on new values
-        if len(nonexist_values) > 0:
-            source_record = None
-            if from_source:
-                if isinstance(source, Record):
-                    source_record = source
-            if not source_record and hasattr(registry, "public"):
-                if organism is None:
-                    organism = _ensembl_prefix(nonexist_values[0], field, organism)
-                    organism = _get_organism_record(field, organism, force=True)
+    # new records to be created based on new values
+    if len(nonexist_values) > 0:
+        source_record = None
+        if from_source:
+            if isinstance(source, Record):
+                source_record = source
+        if not source_record and hasattr(registry, "public"):
+            if organism is None:
+                organism = _ensembl_prefix(nonexist_values[0], field, organism)
+                organism = _get_organism_record(field, organism, force=True)
 
-            if source_record:
-                from bionty.core._add_ontology import check_source_in_db
+        if source_record:
+            from bionty.core._add_ontology import check_source_in_db
 
-                check_source_in_db(registry=registry, source=source_record)
+            check_source_in_db(registry=registry, source=source_record)
 
-                from_source = not source_record.in_db
-            elif hasattr(registry, "source_id"):
-                from_source = True
-            else:
-                from_source = False
+            from_source = not source_record.in_db
+        elif hasattr(registry, "source_id"):
+            from_source = True
+        else:
+            from_source = False
 
-            if from_source:
-                records_bionty, unmapped_values = create_records_from_source(
-                    iterable_idx=nonexist_values,
-                    field=field,
-                    organism=organism,
-                    source=source_record,
-                    msg=msg,
-                    mute=mute,
+        if from_source:
+            records_bionty, unmapped_values = create_records_from_source(
+                iterable_idx=nonexist_values,
+                field=field,
+                organism=organism,
+                source=source_record,
+                msg=msg,
+                mute=mute,
+            )
+            if len(records_bionty) > 0:
+                msg = ""
+            for record in records_bionty:
+                record._from_source = True
+            records += records_bionty
+        else:
+            unmapped_values = nonexist_values
+        # unmapped new_ids will NOT create records
+        if len(unmapped_values) > 0:
+            if len(msg) > 0 and not mute:
+                logger.success(msg)
+            s = "" if len(unmapped_values) == 1 else "s"
+            print_values = colors.yellow(_format_values(unmapped_values))
+            name = registry.__name__
+            n_nonval = colors.yellow(f"{len(unmapped_values)} non-validated")
+            if not mute:
+                logger.warning(
+                    f"{colors.red('did not create')} {name} record{s} for "
+                    f"{n_nonval} {colors.italic(f'{field.field.name}{s}')}: {print_values}"  # type: ignore
                 )
-                if len(records_bionty) > 0:
-                    msg = ""
-                for record in records_bionty:
-                    record._from_source = True
-                records += records_bionty
-            else:
-                unmapped_values = nonexist_values
-            # unmapped new_ids will NOT create records
-            if len(unmapped_values) > 0:
-                if len(msg) > 0 and not mute:
-                    logger.success(msg)
-                s = "" if len(unmapped_values) == 1 else "s"
-                print_values = colors.yellow(_format_values(unmapped_values))
-                name = registry.__name__
-                n_nonval = colors.yellow(f"{len(unmapped_values)} non-validated")
-                if not mute:
-                    logger.warning(
-                        f"{colors.red('did not create')} {name} record{s} for "
-                        f"{n_nonval} {colors.italic(f'{field.field.name}{s}')}: {print_values}"  # type: ignore
-                    )
-        # if registry.__get_module_name__() == "bionty" or registry == ULabel:
-        #     if isinstance(iterable, pd.Series):
-        #         feature = iterable.name
-        #     feature_name = None
-        #     if isinstance(feature, str):
-        #         feature_name = feature
-        #     if feature_name is not None:
-        #         if feature_name is not None:
-        #             for record in records:
-        #                 record._feature = feature_name
-        #         logger.debug(f"added default feature '{feature_name}'")
-        return RecordList(records)
-    finally:
-        settings.creation.search_names = True  # need to refactor the whole function because can no longer use settings; not thread safe
+    return RecordList(records)
 
 
 def get_existing_records(
