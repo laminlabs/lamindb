@@ -92,14 +92,12 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
             "n_objects": "n_files",
             "visibility": "_branch_code",  # for convenience (and backward compat <1.0)
             "transform": "run__transform",  # for convenience (and backward compat <1.0)
-            "feature_sets": "feature_sets",
             "type": "kind",
             "_accessor": "otype",
         }
     elif queryset.model == Schema:
         name_mappings = {
             "registry": "itype",
-            "artifacts": "_artifacts_m2m",  # will raise warning when we start to migrate over
         }
     else:
         return expressions
@@ -115,7 +113,6 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
             if parts[0] not in {
                 "transform",
                 "visibility",
-                "feature_sets",
                 "schemas",
                 "artifacts",
             }:
@@ -565,12 +562,6 @@ class QuerySet(models.QuerySet):
         pk_column_name = pk_name if pk_name in df.columns else f"{pk_name}_id"
         if pk_column_name in df_reshaped.columns:
             df_reshaped = df_reshaped.set_index(pk_column_name)
-
-        # Compatibility code
-        df_reshaped.columns = df_reshaped.columns.str.replace(
-            r"feature_sets", "feature_sets", regex=True
-        )
-
         return df_reshaped
 
     def delete(self, *args, **kwargs):
