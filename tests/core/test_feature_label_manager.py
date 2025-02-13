@@ -506,7 +506,7 @@ def test_add_labels_using_anndata(adata):
     artifact.features._add_set_from_anndata(var_field=bt.Gene.ensembl_gene_id)
 
     # check the basic construction of the feature set based on obs
-    schema_obs = artifact._schemas_m2m.filter(
+    schema_obs = artifact._feature_sets.filter(
         itype="Feature", _links_artifact__slot="obs"
     ).one()
     assert schema_obs.n == 4
@@ -523,7 +523,7 @@ def test_add_labels_using_anndata(adata):
     assert organism_link.feature.name == "organism"
     feature = ln.Feature.get(name="organism")
     assert feature.dtype == "cat[bionty.Organism]"
-    schema_obs = artifact._schemas_m2m.filter(
+    schema_obs = artifact._feature_sets.filter(
         itype="Feature", _links_artifact__slot="obs"
     ).one()
     assert schema_obs.n == 4
@@ -658,7 +658,7 @@ def test_labels_get():
     artifact.save()
     assert str(artifact.features) == "no linked features"
     artifact.features.add_schema(schema, slot="random")
-    assert artifact._schemas_m2m.first() == schema
+    assert artifact._feature_sets.first() == schema
     artifact.delete(permanent=True, storage=True)
     schema.delete()
     feature_name_feature.delete()

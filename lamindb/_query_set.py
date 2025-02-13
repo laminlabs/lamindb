@@ -92,7 +92,7 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
             "n_objects": "n_files",
             "visibility": "_branch_code",  # for convenience (and backward compat <1.0)
             "transform": "run__transform",  # for convenience (and backward compat <1.0)
-            "feature_sets": "_schemas_m2m",
+            "feature_sets": "_feature_sets",
             "type": "kind",
             "_accessor": "otype",
         }
@@ -568,7 +568,7 @@ class QuerySet(models.QuerySet):
 
         # Compatibility code
         df_reshaped.columns = df_reshaped.columns.str.replace(
-            r"_schemas_m2m", "feature_sets", regex=True
+            r"_feature_sets", "feature_sets", regex=True
         )
 
         return df_reshaped

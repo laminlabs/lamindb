@@ -2628,7 +2628,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         Schema, PROTECT, null=True, default=None, related_name="validated_artifacts"
     )
     """The *validating* schema of the artifact."""
-    _schemas_m2m: Schema = models.ManyToManyField(
+    feature_sets: Schema = models.ManyToManyField(
         Schema, related_name="_artifacts_m2m", through="ArtifactSchema"
     )
     """The feature sets (inferred schemas) measured by the artifact."""
@@ -2715,11 +2715,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     def n_objects(self) -> int:
         return self.n_files
 
-    @property
-    def feature_sets(self) -> QuerySet[Schema]:  # type: ignore
-        """Feature sets linked to this artifact."""
-        return self._schemas_m2m
-
     # add the below because this is what people will have in their code
     # if they implement the recommended migration strategy
     # - FeatureSet -> Schema
@@ -2729,14 +2724,14 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     # def schemas(self) -> QuerySet[Schema]:
     #     """Schemas linked to artifact via many-to-many relationship.
 
-    #     Is now mediating the private `._schemas_m2m` relationship during
+    #     Is now mediating the private `._feature_sets` relationship during
     #     a transition period to better schema management.
 
     #     .. versionchanged: 1.0
     #        Was previously called `.feature_sets`.
 
     #     """
-    #     return self._schemas_m2m
+    #     return self._feature_sets
 
     @property
     def path(self) -> Path:

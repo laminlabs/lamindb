@@ -105,7 +105,7 @@ def get_artifact_with_related(
 
     if include_schema:
         annotations["schemas"] = Subquery(
-            model._schemas_m2m.through.objects.filter(artifact=OuterRef("pk"))
+            model._feature_sets.through.objects.filter(artifact=OuterRef("pk"))
             .annotate(
                 data=JSONObject(
                     id=F("id"),

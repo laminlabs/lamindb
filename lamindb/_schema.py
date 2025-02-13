@@ -66,7 +66,7 @@ def __init__(self, *args, **kwargs):
 
     features: Iterable[Record] | None = args[0] if args else kwargs.pop("features", [])
     # typing here anticipates transitioning to a ManyToMany
-    # between composites and components similar to _schemas_m2m
+    # between composites and components similar to feature_sets
     # in lamindb v2
     components: dict[str, Schema] = kwargs.pop("components", {})
     name: str | None = kwargs.pop("name", None)
