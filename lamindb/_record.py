@@ -77,35 +77,6 @@ if TYPE_CHECKING:
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
 
 
-def to_pascal_case(dotted_str):
-    """Convert the last component of a dotted string from snake_case to PascalCase.
-
-    Args:
-        dotted_str (str): The input string with possible dots and underscores
-
-    Returns:
-        str: The converted string with the last component in PascalCase
-
-    Examples:
-        >>> to_pascal_case("hello_world")
-        "HelloWorld"
-        >>> to_pascal_case("mymodule.my_function_name")
-        "mymodule.MyFunctionName"
-    """
-    # Split by periods first
-    components = dotted_str.split(".")
-
-    # Convert only the last component to pascal case
-    if len(components) > 0:
-        last_part = components[-1]
-        snake_components = last_part.split("_")
-        pascal_last = "".join(x.title() for x in snake_components)
-        components[-1] = pascal_last
-
-    # Join everything back with periods
-    return ".".join(components)
-
-
 def is_approx_pascal_case(s):
     """Check if the last component of a dotted string is in PascalCase.
 
@@ -118,10 +89,9 @@ def is_approx_pascal_case(s):
     Raises:
         ValueError: If the last component doesn't start with a capital letter
     """
-    if "[" not in s:  # this is because we allow types of form 'Script[test_script.py]'
-        last_component = s.split(".")[-1]
-    else:
-        last_component = s
+    if "[" in s:  # this is because we allow types of form 'script[test_script.py]'
+        return True
+    last_component = s.split(".")[-1]
 
     if not last_component[0].isupper():
         raise ValueError(f"'{last_component}' should start with a capital letter")

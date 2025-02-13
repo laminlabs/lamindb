@@ -28,7 +28,6 @@ from lamindb._from_values import _format_values
 from lamindb._record import (
     REGISTRY_UNIQUE_FIELD,
     get_name_field,
-    to_pascal_case,
     transfer_fk_to_default_db_bulk,
     transfer_to_default_db,
 )
@@ -854,7 +853,7 @@ def _add_values(
         ]
         run = get_current_tracked_run()
         if run is not None:
-            name = f"{to_pascal_case(run.transform.type)}[{run.transform.key}]"
+            name = f"{run.transform.type}[{run.transform.key}]"
             type_hint = f"""  {model_name.lower()}_type = ln.{model_name}(name='{name}', is_type=True).save()"""
             elements = [type_hint]
             type_kwarg = f", type={model_name.lower()}_type"
