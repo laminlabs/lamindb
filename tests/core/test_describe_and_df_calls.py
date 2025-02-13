@@ -99,7 +99,7 @@ def test_curate_df():
     df = (
         ln.Artifact.filter(key__startswith="example_datasets/dataset", suffix=".h5ad")
         .order_by("-key")
-        .df(include=["_feature_sets__hash", "_feature_sets__name"])
+        .df(include=["feature_sets__hash", "feature_sets__name"])
         .drop(["uid"], axis=1)
     )
     expected_data = {
