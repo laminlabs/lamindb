@@ -1017,7 +1017,13 @@ def open(
     localpath = setup_settings.paths.cloud_to_local_no_update(
         filepath, cache_key=cache_key
     )
-    if not is_tiledbsoma_w and localpath.exists():
+    if is_tiledbsoma_w:
+        open_cache = False
+    else:
+        open_cache = not isinstance(
+            filepath, LocalPathClasses
+        ) and not filepath.synchronize(localpath, just_check=True)
+    if open_cache:
         try:
             access = backed_access(localpath, mode, using_key)
         except Exception as e:
