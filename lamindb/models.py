@@ -2229,7 +2229,9 @@ class Schema(Record, CanCurate, TracksRun):
     params: Param
     """The params contained in the schema."""
     artifacts: Artifact
-    """The artifacts that observe this schema."""
+    """The artifacts that have a feature set that matches this schema."""
+    validated_artifacts: Artifact
+    """The artifacts that were validated against this schema."""
     _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
 
     @overload
