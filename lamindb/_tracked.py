@@ -18,12 +18,15 @@ current_tracked_run: ContextVar[Run | None] = ContextVar(
 
 
 def get_current_tracked_run() -> Run | None:
-    """Get the run object if we're inside a tracked function."""
-    return current_tracked_run.get()
+    """Get the run object."""
+    run = current_tracked_run.get()
+    if run is None:
+        run = context.run
+    return run
 
 
 def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Decorator that tracks function execution in LaminDB and injects the run object.
+    """Decorator that tracks function execution.
 
     Args:
         uid: Optional unique identifier for the transform
@@ -40,16 +43,20 @@ def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]
 
             initiated_by_run = get_current_tracked_run()
             if initiated_by_run is None:
+                if context.run is None:
+                    raise RuntimeError(
+                        "Please track the global run context before using @ln.tracked(): ln.track()"
+                    )
                 initiated_by_run = context.run
-                if initiated_by_run is None:
-                    raise SystemExit("Switch tracking on: ln.track()")
 
             # Get fully qualified function name
             module_name = func.__module__
-            if module_name == "__main__":
-                qualified_name = f"{initiated_by_run.transform.key}/{func.__qualname__}"
+            if module_name in {"__main__", "__mp_main__"}:
+                qualified_name = (
+                    f"{initiated_by_run.transform.key}/{func.__qualname__}.py"
+                )
             else:
-                qualified_name = f"{module_name}.{func.__qualname__}"
+                qualified_name = f"{module_name}.{func.__qualname__}.py"
 
             # Create transform and run objects
             transform = Transform(  # type: ignore

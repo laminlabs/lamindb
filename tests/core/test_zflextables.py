@@ -28,7 +28,7 @@ def param():
 
 @pytest.fixture
 def run():
-    transform = Transform(name="Test transform").save()
+    transform = Transform(key="test_transform").save()
     run = Run(name="Test Run", transform=transform).save()
     yield run
     run.delete()

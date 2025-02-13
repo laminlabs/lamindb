@@ -1250,7 +1250,11 @@ class Transform(Record, IsVersioned):
     .. versionchanged:: 0.75
        The `source_code` field is no longer an artifact, but a text field.
     """
-    hash: str | None = CharField(max_length=HASH_LENGTH, db_index=True, null=True)
+    # we have a unique constraint here but not on artifact because on artifact, we haven't yet
+    # settled how we model the same artifact in different storage locations
+    hash: str | None = CharField(
+        max_length=HASH_LENGTH, db_index=True, null=True, unique=True
+    )
     """Hash of the source code."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
     """Reference for the transform, e.g., a URL."""
@@ -1360,7 +1364,7 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
     _name_field: str = "name"
 
     name: str = CharField(max_length=100, db_index=True)
-    dtype: str = CharField(max_length=64, db_index=True)
+    dtype: str | None = CharField(db_index=True, null=True)
     """Data type ("num", "cat", "int", "float", "bool", "datetime").
 
     For categorical types, can define from which registry values are
@@ -2412,26 +2416,28 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     Examples:
 
-        Create an artifact from a file path and pass `description`:
+        Create an artifact by passing `key`:
 
-        >>> artifact = ln.Artifact("s3://my_bucket/my_folder/my_file.csv", description="My file")
-        >>> artifact = ln.Artifact("./my_local_file.jpg", description="My image")
+        >>> artifact = ln.Artifact("./my_file.parquet", key="example_datasets/my_file.parquet").save()
+        >>> artifact = ln.Artifact("./my_folder", key="project1/my_folder").save()
 
-        You can also pass `key` to create a virtual filepath hierarchy:
+        Calling `.save()` uploads the file to the default storage location of your lamindb instance.
+        (If it's a local instance, the "upload" is a mere copy operation.)
 
-        >>> artifact = ln.Artifact("./my_local_file.jpg", key="example_datasets/dataset1.jpg")
+        If your artifact is already in the cloud, lamindb auto-populates the `key` field based on the S3 key and there is no upload:
 
-        What works for files also works for folders:
+        >>> artifact = ln.Artifact("s3://my_bucket/my_folder/my_file.csv").save()
 
-        >>> artifact = ln.Artifact("s3://my_bucket/my_folder", description="My folder")
-        >>> artifact = ln.Artifact("./my_local_folder", description="My local folder")
-        >>> artifact = ln.Artifact("./my_local_folder", key="project1/my_target_folder")
+        You can make a new version of the artifact with `key = "example_datasets/my_file.parquet"`
+
+        >>> artifact_v2 = ln.Artifact("./my_file.parquet", key="example_datasets/my_file.parquet").save()
+        >>> artifact_v2.versions.df()  # see all versions
 
         .. dropdown:: Why does the API look this way?
 
             It's inspired by APIs building on AWS S3.
 
-            Both boto3 and quilt select a bucket (akin to default storage in LaminDB) and define a target path through a `key` argument.
+            Both boto3 and quilt select a bucket (a storage location in LaminDB) and define a target path through a `key` argument.
 
             In `boto3 <https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/bucket/upload_file.html>`__::
 
@@ -2448,16 +2454,18 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 bucket = quilt3.Bucket('mybucket')
                 bucket.put_file('hello.txt', '/tmp/hello.txt')
 
+        Sometimes you want to avoid mapping the artifact into a file hierarchy, and you can then _just_ populate `description` instead:
 
-        Make a new version of an artifact:
+        >>> artifact = ln.Artifact("s3://my_bucket/my_folder", description="My folder").save()
+        >>> artifact = ln.Artifact("./my_local_folder", description="My local folder").save()
 
-        >>> artifact = ln.Artifact.from_df(df, key="example_datasets/dataset1.parquet").save()
-        >>> artifact_v2 = ln.Artifact(df_updated, key="example_datasets/dataset1.parquet").save()
+        Because you can then not use `key`-based versioning you have to pass `revises` to make a new artifact version:
 
-        Alternatively, if you don't want to provide a value for `key`, you can use `revises`:
+        >>> artifact_v2 = ln.Artifact("./my_file.parquet", revises=old_artifact).save()
 
-        >>> artifact = ln.Artifact.from_df(df, description="My dataframe").save()
-        >>> artifact_v2 = ln.Artifact(df_updated, revises=artifact).save()
+        If an artifact with the exact same hash already exists, `Artifact()` returns the existing artifact. In concurrent workloads where
+        the same artifact is created multiple times, `Artifact()` doesn't yet return the existing artifact but creates a new one; `.save()` however
+        detects the duplication and will return the existing artifact.
 
     """
 
@@ -2576,7 +2584,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     Examples: 1KB is 1e3 bytes, 1MB is 1e6, 1GB is 1e9, 1TB is 1e12 etc.
     """
-    hash: str | None = CharField(max_length=HASH_LENGTH, db_index=True, null=True)
+    hash: str | None = CharField(
+        max_length=HASH_LENGTH, db_index=True, null=True, unique=True
+    )
     """Hash or pseudo-hash of artifact content.
 
     Useful to ascertain integrity and avoid duplication.
@@ -3143,8 +3153,10 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
     # in their instances
     description: str | None = TextField(null=True, db_index=True)
     """A description or title."""
-    hash: str | None = CharField(max_length=HASH_LENGTH, db_index=True, null=True)
-    """Hash of collection content. 86 base64 chars allow to store 64 bytes, 512 bits."""
+    hash: str | None = CharField(
+        max_length=HASH_LENGTH, db_index=True, null=True, unique=True
+    )
+    """Hash of collection content."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
     """A reference like URL or external ID."""
     # also for reference_type here, we allow an extra long max_length
@@ -4021,14 +4033,14 @@ class CollectionReference(BasicRecord, LinkORM, TracksRun):
         unique_together = ("collection", "reference")
 
 
-# class Migration(BasicRecord):
-#     app = CharField(max_length=255)
-#     name = CharField(max_length=255)
-#     applied: datetime = DateTimeField()
+class Migration(BasicRecord):
+    app = CharField(max_length=255)
+    name = CharField(max_length=255)
+    applied: datetime = DateTimeField()
 
-#     class Meta:
-#         db_table = "django_migrations"
-#         managed = False
+    class Meta:
+        db_table = "django_migrations"
+        managed = False
 
 
 # -------------------------------------------------------------------------------------

@@ -284,7 +284,6 @@ def test_revise_artifact(df, adata):
     artifact.delete(permanent=True, storage=True)
 
 
-# also test legacy name parameter (got removed by description)
 def test_create_from_dataframe(df):
     artifact = ln.Artifact.from_df(df, description="test1")
     assert artifact.description == "test1"
@@ -495,11 +494,6 @@ def test_create_from_local_filepath(
     ln.settings.creation._artifact_use_virtual_keys = True
 
 
-ERROR_MESSAGE = """\
-ValueError: Currently don't support tracking folders outside one of the storage roots:
-"""
-
-
 @pytest.mark.parametrize("key", [None, "my_new_folder"])
 def test_from_dir_many_artifacts(get_test_filepaths, key):
     is_in_registered_storage = get_test_filepaths[0]
@@ -530,19 +524,23 @@ def test_from_dir_many_artifacts(get_test_filepaths, key):
         artifact.delete(permanent=True, storage=False)
 
 
-def test_delete_artifact(df):
-    artifact = ln.Artifact.from_df(df, description="My test file to delete")
-    artifact.save()
+def test_delete_and_restore_artifact(df):
+    artifact = ln.Artifact.from_df(df, description="My test file to delete").save()
     assert artifact._branch_code == 1
     assert artifact.key is None or artifact._key_is_virtual
     storage_path = artifact.path
     # trash behavior
     artifact.delete()
     assert storage_path.exists()
+    assert artifact._branch_code == -1
     assert ln.Artifact.filter(description="My test file to delete").first() is None
     assert ln.Artifact.filter(
         description="My test file to delete", _branch_code=-1
     ).first()
+    # implicit restore from trash
+    artifact_restored = ln.Artifact.from_df(df, description="My test file to delete")
+    assert artifact_restored._branch_code == 1
+    assert artifact_restored == artifact
     # permanent delete
     artifact.delete(permanent=True)
     assert (
@@ -557,8 +555,7 @@ def test_delete_artifact(df):
     artifact = ln.Artifact(
         "s3://lamindb-dev-datasets/file-to-test-for-delete.csv",
         description="My test file to delete from non-default storage",
-    )
-    artifact.save()
+    ).save()
     assert artifact.storage.instance_uid != ln.setup.settings.instance.uid
     assert artifact.key is not None
     filepath = artifact.path

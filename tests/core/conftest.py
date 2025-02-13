@@ -50,6 +50,20 @@ def pytest_sessionfinish(session: pytest.Session):
     ln.setup.settings.auto_connect = AUTO_CONNECT
 
 
+@pytest.fixture
+def ccaplog(caplog):
+    """Add caplog handler to our custom logger at session start."""
+    from lamin_utils._logger import logger
+
+    # Add caplog's handler to our custom logger
+    logger.addHandler(caplog.handler)
+
+    yield caplog
+
+    # Clean up at the end of the session
+    logger.removeHandler(caplog.handler)
+
+
 @pytest.fixture(
     scope="module",
     params=[

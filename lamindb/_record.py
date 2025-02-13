@@ -30,6 +30,7 @@ from django.db.models.lookups import (
     Regex,
     StartsWith,
 )
+from django.db.utils import IntegrityError
 from lamin_utils import colors, logger
 from lamin_utils._lookup import Lookup
 from lamindb_setup._connect_instance import (
@@ -74,6 +75,30 @@ if TYPE_CHECKING:
 
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
+
+
+def is_approx_pascal_case(s):
+    """Check if the last component of a dotted string is in PascalCase.
+
+    Args:
+        s (str): The string to check
+
+    Returns:
+        bool: True if the last component is in PascalCase
+
+    Raises:
+        ValueError: If the last component doesn't start with a capital letter
+    """
+    if "[" in s:  # this is because we allow types of form 'script[test_script.py]'
+        return True
+    last_component = s.split(".")[-1]
+
+    if not last_component[0].isupper():
+        raise ValueError(
+            f"'{last_component}' should start with a capital letter given you're defining a type"
+        )
+
+    return True
 
 
 def init_self_from_db(self: Record, existing_record: Record):
@@ -130,6 +155,13 @@ def validate_fields(record: Record, kwargs):
             raise ValidationError(
                 f"`uid` must be exactly {uid_max_length} characters long, got {len(kwargs['uid'])}."
             )
+    # validate is_type
+    if "is_type" in kwargs and "name" in kwargs and kwargs["is_type"]:
+        if kwargs["name"].endswith("s"):
+            logger.warning(
+                f"name '{kwargs['name']}' for type ends with 's', in case you're naming with plural, consider the singular for a type name"
+            )
+        is_approx_pascal_case(kwargs["name"])
     # validate literals
     validate_literal_fields(record, kwargs)
 
@@ -174,7 +206,10 @@ def suggest_records_with_similar_names(
 
 
 def __init__(record: Record, *args, **kwargs):
-    if not args:
+    skip_validation = kwargs.pop("_skip_validation", False)
+    if not args and skip_validation:
+        super(BasicRecord, record).__init__(**kwargs)
+    elif not args and not skip_validation:
         validate_fields(record, kwargs)
 
         # do not search for names if an id is passed; this is important
@@ -183,9 +218,7 @@ def __init__(record: Record, *args, **kwargs):
         if "_has_consciously_provided_uid" in kwargs:
             has_consciously_provided_uid = kwargs.pop("_has_consciously_provided_uid")
         if (
-            isinstance(
-                record, (CanCurate, Collection, Transform)
-            )  # Collection is only temporary because it'll get a key field
+            isinstance(record, (CanCurate, Collection, Transform))
             and settings.creation.search_names
             and not has_consciously_provided_uid
         ):
@@ -805,28 +838,40 @@ def save(self, *args, **kwargs) -> Record:
     if pre_existing_record is not None:
         init_self_from_db(self, pre_existing_record)
     else:
-        # save versioned record
-        if isinstance(self, IsVersioned) and self._revises is not None:
-            assert self._revises.is_latest  # noqa: S101
-            revises = self._revises
-            revises.is_latest = False
-            with transaction.atomic():
-                revises._revises = None  # ensure we don't start a recursion
-                revises.save()
-                check_name_change(self)
-                check_key_change(self)
-                super(BasicRecord, self).save(*args, **kwargs)  # type: ignore
-                _store_record_old_name(self)
-                _store_record_old_key(self)
-            self._revises = None
-        # save unversioned record
-        else:
-            check_name_change(self)
-            check_key_change(self)
-            super(BasicRecord, self).save(*args, **kwargs)
-            # update _old_name and _old_key after saving
-            _store_record_old_name(self)
-            _store_record_old_key(self)
+        check_key_change(self)
+        check_name_change(self)
+        try:
+            # save versioned record in presence of self._revises
+            if isinstance(self, IsVersioned) and self._revises is not None:
+                assert self._revises.is_latest  # noqa: S101
+                revises = self._revises
+                revises.is_latest = False
+                with transaction.atomic():
+                    revises._revises = None  # ensure we don't start a recursion
+                    revises.save()
+                    super(BasicRecord, self).save(*args, **kwargs)  # type: ignore
+                self._revises = None
+            # save unversioned record
+            else:
+                super(BasicRecord, self).save(*args, **kwargs)
+        except IntegrityError as e:
+            error_msg = str(e)
+            # two possible error messages for hash duplication
+            # "duplicate key value violates unique constraint"
+            # "UNIQUE constraint failed"
+            if (
+                "UNIQUE constraint failed" in error_msg
+                or "duplicate key value violates unique constraint" in error_msg
+            ) and "hash" in error_msg:
+                pre_existing_record = self.__class__.get(hash=self.hash)
+                logger.warning(
+                    f"returning {self.__class__.__name__.lower()} with same hash: {pre_existing_record}"
+                )
+                init_self_from_db(self, pre_existing_record)
+            else:
+                raise
+        _store_record_old_name(self)
+        _store_record_old_key(self)
     # perform transfer of many-to-many fields
     # only supported for Artifact and Collection records
     if db is not None and db != "default" and using_key is None:
