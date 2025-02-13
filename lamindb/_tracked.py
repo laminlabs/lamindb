@@ -44,7 +44,9 @@ def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]
             initiated_by_run = get_current_tracked_run()
             if initiated_by_run is None:
                 if context.run is None:
-                    context.track()
+                    raise RuntimeError(
+                        "Please track the global run context before using @ln.tracked(): ln.track()"
+                    )
                 initiated_by_run = context.run
 
             # Get fully qualified function name
