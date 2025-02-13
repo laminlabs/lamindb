@@ -2724,14 +2724,14 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     # def schemas(self) -> QuerySet[Schema]:
     #     """Schemas linked to artifact via many-to-many relationship.
 
-    #     Is now mediating the private `._feature_sets` relationship during
+    #     Is now mediating the private `.feature_sets` relationship during
     #     a transition period to better schema management.
 
     #     .. versionchanged: 1.0
     #        Was previously called `.feature_sets`.
 
     #     """
-    #     return self._feature_sets
+    #     return self.feature_sets
 
     @property
     def path(self) -> Path:

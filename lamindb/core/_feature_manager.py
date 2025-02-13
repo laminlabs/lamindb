@@ -105,7 +105,7 @@ def get_schema_by_slot_(host: Artifact | Collection) -> dict:
     kwargs = {host_id_field: host.id}
     # otherwise, we need a query
     links_schema = (
-        host._feature_sets.through.objects.using(host_db)
+        host.feature_sets.through.objects.using(host_db)
         .filter(**kwargs)
         .select_related("schema")
     )
@@ -128,7 +128,7 @@ def get_label_links(
 def get_schema_links(host: Artifact | Collection) -> QuerySet:
     host_id_field = get_host_id_field(host)
     kwargs = {host_id_field: host.id}
-    links_schema = host._feature_sets.through.objects.filter(**kwargs)
+    links_schema = host.feature_sets.through.objects.filter(**kwargs)
     return links_schema
 
 
@@ -348,7 +348,7 @@ def describe_features(
 
     internal_feature_names: dict[str, str] = {}
     if isinstance(self, Artifact):
-        feature_sets = self._feature_sets.filter(itype="Feature").all()
+        feature_sets = self.feature_sets.filter(itype="Feature").all()
         internal_feature_names = {}
         if len(feature_sets) > 0:
             for schema in feature_sets:
@@ -1081,12 +1081,12 @@ def add_schema(self, schema: Schema, slot: str) -> None:
         "slot": slot,
     }
     link_record = (
-        self._host._feature_sets.through.objects.using(host_db)
+        self._host.feature_sets.through.objects.using(host_db)
         .filter(**kwargs)
         .one_or_none()
     )
     if link_record is None:
-        self._host._feature_sets.through(**kwargs).save(using=host_db)
+        self._host.feature_sets.through(**kwargs).save(using=host_db)
         if slot in self._schema_by_slot:
             logger.debug(f"replaced existing {slot} feature set")
         self._schema_by_slot_[slot] = schema  # type: ignore

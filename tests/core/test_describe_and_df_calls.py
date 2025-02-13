@@ -106,8 +106,8 @@ def test_curate_df():
         "key": ["example_datasets/dataset2.h5ad", "example_datasets/dataset1.h5ad"],
         "description": [None, None],
         "feature_sets__hash": [
-            set(artifact2._feature_sets.all().values_list("hash", flat=True)),
-            set(artifact._feature_sets.all().values_list("hash", flat=True)),
+            set(artifact2.feature_sets.all().values_list("hash", flat=True)),
+            set(artifact.feature_sets.all().values_list("hash", flat=True)),
         ],
         "feature_sets__name": [{None}, {None}],
     }

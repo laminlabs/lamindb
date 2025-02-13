@@ -72,7 +72,7 @@ def save_staged_feature_sets(self: Artifact | Collection) -> None:
                 saved_staged_feature_sets[key] = schema
             if key in existing_staged_feature_sets:
                 # remove existing feature set on the same slot
-                self._feature_sets.remove(existing_staged_feature_sets[key])
+                self.feature_sets.remove(existing_staged_feature_sets[key])
         if len(saved_staged_feature_sets) > 0:
             s = "s" if len(saved_staged_feature_sets) > 1 else ""
             display_schema_keys = ",".join(
@@ -97,7 +97,7 @@ def save_schema_links(self: Artifact | Collection) -> None:
                 "schema_id": schema.id,
                 "slot": slot,
             }
-            links.append(Data._feature_sets.through(**kwargs))
+            links.append(Data.feature_sets.through(**kwargs))
         bulk_create(links, ignore_conflicts=True)
 
 
@@ -339,7 +339,7 @@ def add_labels(
     else:
         validate_feature(feature, records)  # type:ignore
         records_by_registry = defaultdict(list)
-        feature_sets = self._feature_sets.filter(itype="Feature").all()
+        feature_sets = self.feature_sets.filter(itype="Feature").all()
         internal_features = set()  # type: ignore
         if len(feature_sets) > 0:
             for schema in feature_sets:

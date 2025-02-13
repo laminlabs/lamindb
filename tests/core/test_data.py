@@ -68,7 +68,7 @@ def test_rename():
     # rename the other feature, automatically deletes no-member schema
     feature2 = ln.Feature.get(name="feature_to_rename2")
     artifact.features.make_external(feature2)
-    assert artifact._feature_sets.count() == 0
+    assert artifact.feature_sets.count() == 0
 
     # clean up
     artifact.delete(permanent=True)

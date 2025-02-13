@@ -53,7 +53,7 @@ class CollectionFeatureManager:
         self._collection = collection
 
     def _get_staged_feature_sets_union(self) -> dict[str, Schema]:
-        links_schema_artifact = Artifact._feature_sets.through.objects.filter(
+        links_schema_artifact = Artifact.feature_sets.through.objects.filter(
             artifact_id__in=self._collection.artifacts.values_list("id", flat=True)
         )
         feature_sets_by_slots = defaultdict(list)
