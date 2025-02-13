@@ -2625,7 +2625,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     collections: Collection
     """The collections that this artifact is part of."""
     schema: Schema | None = ForeignKey(
-        Schema, PROTECT, null=True, default=None, related_name="artifacts"
+        Schema, PROTECT, null=True, default=None, related_name="validated_artifacts"
     )
     """The *validating* schema of the artifact."""
     _schemas_m2m: Schema = models.ManyToManyField(
