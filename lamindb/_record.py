@@ -94,7 +94,9 @@ def is_approx_pascal_case(s):
     last_component = s.split(".")[-1]
 
     if not last_component[0].isupper():
-        raise ValueError(f"'{last_component}' should start with a capital letter")
+        raise ValueError(
+            f"'{last_component}' should start with a capital letter given you're defining a type"
+        )
 
     return True
 
@@ -157,7 +159,7 @@ def validate_fields(record: Record, kwargs):
     if "is_type" in kwargs and "name" in kwargs and kwargs["is_type"]:
         if kwargs["name"].endswith("s"):
             logger.warning(
-                "`name` ends with 's', in case you're naming with plural, consider the singular for a type name"
+                f"name '{kwargs['name']}' for type ends with 's', in case you're naming with plural, consider the singular for a type name"
             )
         is_approx_pascal_case(kwargs["name"])
     # validate literals
