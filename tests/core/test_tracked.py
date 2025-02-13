@@ -2,6 +2,7 @@ import concurrent.futures
 
 import lamindb as ln
 import pandas as pd
+import pytest
 
 
 @ln.tracked()
@@ -18,14 +19,21 @@ def process_chunk(chunk_id: int) -> str:
 
 
 def test_tracked_parallel():
+    param_type = ln.Param(name="Script[test_tracked.py]", is_type=True).save()
+    ln.Param(name="chunk_id", dtype="int", type=param_type).save()
+
+    with pytest.raises(RuntimeError) as err:
+        process_chunk(4)
+    assert (
+        err.exconly()
+        == "RuntimeError: Please track the global run context before using @ln.tracked(): ln.track()"
+    )
+
     # Ensure tracking is on
     ln.track()
 
     # Number of parallel executions
     n_parallel = 3
-
-    param_type = ln.Param(name="Script[test_tracked.py]", is_type=True).save()
-    ln.Param(name="chunk_id", dtype="int", type=param_type).save()
 
     # Use ThreadPoolExecutor for parallel execution
     with concurrent.futures.ThreadPoolExecutor(max_workers=n_parallel) as executor:
