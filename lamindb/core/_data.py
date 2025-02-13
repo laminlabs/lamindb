@@ -186,7 +186,7 @@ def _describe_sqlite(self: Artifact | Collection, print_types: bool = False):
         if isinstance(self, (Collection, Artifact)):
             many_to_many_fields.append("input_of_runs")
         if isinstance(self, Artifact):
-            many_to_many_fields.append("_feature_sets")
+            many_to_many_fields.append("feature_sets")
         self = (
             self.__class__.objects.using(self._state.db)
             .prefetch_related(*many_to_many_fields)
