@@ -137,7 +137,7 @@ def test_get_unknown_field():
     with pytest.raises(
         FieldError,
         match=re.escape(
-            "Unknown field 'nonexistent'. Available fields: cell_lines, cell_markers, cell_types, collections, created_at, created_by, description, developmental_stages, diseases, ethnicities, experimental_factors, genes, hash, id, input_of_runs, is_latest, key, kind, n_files, n_observations, organisms, otype, pathways, phenotypes, projects, proteins, references, run, schema, size, space, storage, suffix, tissues, uid, ulabels, updated_at, version"
+            "Unknown field 'nonexistent'. Available fields: cell_lines, cell_markers, cell_types, collections, created_at, created_by, description, developmental_stages, diseases, ethnicities, experimental_factors, feature_sets, genes, hash, id, input_of_runs, is_latest, key, kind, n_files, n_observations, organisms, otype, pathways, phenotypes, projects, proteins, references, run, schema, size, space, storage, suffix, tissues, uid, ulabels, updated_at, version"
         ),
     ):
         ln.Artifact.get(nonexistent="value")
