@@ -2627,11 +2627,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     schema: Schema | None = ForeignKey(
         Schema, PROTECT, null=True, default=None, related_name="artifacts"
     )
-    """The validating schema of the artifact (to be populated in lamindb 1.1)."""
+    """The *validating* schema of the artifact."""
     _schemas_m2m: Schema = models.ManyToManyField(
         Schema, related_name="_artifacts_m2m", through="ArtifactSchema"
     )
-    """The inferred schemas / feature sets measured by the artifact."""
+    """The feature sets (inferred schemas) measured by the artifact."""
     _feature_values: FeatureValue = models.ManyToManyField(
         FeatureValue, through="ArtifactFeatureValue", related_name="artifacts"
     )
