@@ -16,6 +16,10 @@ from lamindb.core.storage._backed_access import (
     BackedAccessor,
     backed_access,
 )
+from lamindb.core.storage._pyarrow_dataset import (
+    _is_pyarrow_dataset,
+    _open_pyarrow_dataset,
+)
 from lamindb.core.storage._tiledbsoma import (
     _open_tiledbsoma,
     _soma_store_n_observations,
@@ -409,7 +413,7 @@ def test_from_tiledbsoma():
     shutil.rmtree(soma_path)
 
 
-def test_backed_pyarrow():
+def test_backed_pyarrow_artifact():
     previous_storage = ln.setup.settings.storage.root_as_str
     ln.settings.storage = "s3://lamindb-test/storage"
 
@@ -444,6 +448,62 @@ def test_backed_pyarrow():
     artifact_folder.delete(permanent=True)
 
     ln.settings.storage = previous_storage
+
+
+def test_backed_pyarrow_collection():
+    ln.settings.storage = "s3://lamindb-test/storage"
+
+    df = pd.DataFrame({"feat1": [0, 0, 1, 1], "feat2": [6, 7, 8, 9]})
+    shard1 = ln.UPath("df1.parquet")
+    shard2 = ln.UPath("df2.parquet")
+    df[:2].to_parquet(shard1, engine="pyarrow")
+    df[2:].to_parquet(shard2, engine="pyarrow")
+    # test checking and opening local paths
+    assert not _is_pyarrow_dataset([shard1, ln.UPath("some.csv")])
+    assert _open_pyarrow_dataset([shard1, shard2]).to_table().to_pandas().equals(df)
+
+    ln.core.datasets.file_mini_csv()
+
+    artifact1 = ln.Artifact(shard1, key="df1.parquet").save()
+    artifact2 = ln.Artifact(shard2, key="df2.parquet").save()
+    artifact3 = ln.Artifact("mini.csv", key="mini.csv").save()
+    artifact4 = ln.Artifact(
+        "https://raw.githubusercontent.com/laminlabs/lamindb/refs/heads/main/README.md"
+    ).save()
+
+    collection1 = ln.Collection([artifact1, artifact2], key="parquet_col")
+    # before saving
+    assert collection1.open().to_table().to_pandas().equals(df)
+    # after saving
+    collection1.save()
+    assert collection1.open().to_table().to_pandas().equals(df)
+
+    collection2 = ln.Collection([artifact1, artifact3], key="parquet_csv_col").save()
+    with pytest.raises(ValueError) as err:
+        collection2.open()
+    assert str(err) == "This collection is not compatible with pyarrow.dataset.dataset."
+
+    collection3 = ln.Collection([artifact1, artifact4], key="s3_http_col").save()
+    with pytest.raises(ValueError) as err:
+        collection3.open()
+    assert (
+        str(err)
+        == "The collection has artifacts with different filesystems, this is not supported."
+    )
+
+    shard1.unlink()
+    shard2.unlink()
+
+    collection1.delete(permanent=True)
+    collection2.delete(permanent=True)
+    collection3.delete(permanent=True)
+
+    artifact1.delete(permanent=True)
+    artifact2.delete(permanent=True)
+    artifact3.delete(permanent=True)
+    artifact4.delete(permanent=True, storage=False)
+
+    ln.settings.storage = "s3://lamindb-test/storage"
 
 
 def test_backed_wrong_suffix():

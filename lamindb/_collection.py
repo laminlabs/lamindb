@@ -236,7 +236,7 @@ def open(self, is_run_input: bool | None = None) -> PyArrowDataset:
     for path in paths[1:]:
         # this assumes that the filesystems are cached by fsspec
         if path.fs is not fs:
-            return ValueError(
+            raise ValueError(
                 "The collection has artifacts with different filesystems, this is not supported."
             )
     if not _is_pyarrow_dataset(paths):
