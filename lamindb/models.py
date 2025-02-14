@@ -3259,6 +3259,16 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         """
         pass
 
+    def open(self, is_run_input: bool | None = None) -> PyArrowDataset:
+        """Return a cloud-backed pyarrow Dataset.
+
+        Works for `pyarrow` compatible formats.
+
+        Notes:
+            For more info, see tutorial: :doc:`/arrays`.
+        """
+        pass
+
     def mapped(
         self,
         layers_keys: str | list[str] | None = None,

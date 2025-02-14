@@ -15,16 +15,8 @@ from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import hash_set
 
-from lamindb._record import _get_record_kwargs
-from lamindb.errors import FieldValidationError
-from lamindb.models import (
-    Collection,
-    CollectionArtifact,
-    Schema,
-)
-
 from ._parents import view_lineage
-from ._record import init_self_from_db, update_attributes
+from ._record import _get_record_kwargs, init_self_from_db, update_attributes
 from ._utils import attach_func_to_class_method
 from .core._data import (
     _track_run_input,
@@ -35,15 +27,24 @@ from .core._data import (
 )
 from .core._mapped_collection import MappedCollection
 from .core._settings import settings
+from .core.storage._pyarrow_dataset import _is_pyarrow_dataset, _open_pyarrow_dataset
 from .core.versioning import process_revises
-from .models import Artifact, Run
+from .errors import FieldValidationError
+from .models import (
+    Artifact,
+    Collection,
+    CollectionArtifact,
+    Run,
+    Schema,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from lamindb.core.storage import UPath
+    from pyarrow.dataset import Dataset as PyArrowDataset
 
     from ._query_set import QuerySet
+    from .core.storage import UPath
 
 
 class CollectionFeatureManager:
@@ -222,6 +223,39 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
 
 
 # docstring handled through attach_func_to_class_method
+def open(self, is_run_input: bool | None = None) -> PyArrowDataset:
+    if self._state.adding:
+        artifacts = self._artifacts
+        logger.warning("the collection isn't saved, consider calling `.save()`")
+    else:
+        artifacts = self.ordered_artifacts.all()
+    paths = [artifact.path for artifact in artifacts]
+    # this checks that the filesystem is the same for all paths
+    # this is a requirement of pyarrow.dataset.dataset
+    fs = paths[0].fs
+    for path in paths[1:]:
+        # this assumes that the filesystems are cached by fsspec
+        if path.fs is not fs:
+            raise ValueError(
+                "The collection has artifacts with different filesystems, this is not supported."
+            )
+    if not _is_pyarrow_dataset(paths):
+        suffixes = {path.suffix for path in paths}
+        suffixes_str = ", ".join(suffixes)
+        err_msg = "This collection is not compatible with pyarrow.dataset.dataset(), "
+        err_msg += (
+            f"the artifacts have incompatible file types: {suffixes_str}"
+            if len(suffixes) > 1
+            else f"the file type {suffixes_str} is not supported by pyarrow."
+        )
+        raise ValueError(err_msg)
+    dataset = _open_pyarrow_dataset(paths)
+    # track only if successful
+    _track_run_input(self, is_run_input)
+    return dataset
+
+
+# docstring handled through attach_func_to_class_method
 def mapped(
     self,
     layers_keys: str | list[str] | None = None,
@@ -240,12 +274,12 @@ def mapped(
     path_list = []
     if self._state.adding:
         artifacts = self._artifacts
-        logger.warning("The collection isn't saved, consider calling `.save()`")
+        logger.warning("the collection isn't saved, consider calling `.save()`")
     else:
         artifacts = self.ordered_artifacts.all()
     for artifact in artifacts:
         if artifact.suffix not in {".h5ad", ".zarr"}:
-            logger.warning(f"Ignoring artifact with suffix {artifact.suffix}")
+            logger.warning(f"ignoring artifact with suffix {artifact.suffix}")
             continue
         elif not stream:
             path_list.append(artifact.cache())
@@ -383,6 +417,7 @@ def data_artifact(self) -> Artifact | None:
 METHOD_NAMES = [
     "__init__",
     "append",
+    "open",
     "mapped",
     "cache",
     "load",

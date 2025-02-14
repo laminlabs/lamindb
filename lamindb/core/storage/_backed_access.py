@@ -94,8 +94,8 @@ def backed_access(
         return _open_pyarrow_dataset(objectpath)
     else:
         raise ValueError(
-            "object should have .h5, .hdf5, .h5ad, .zarr, .tiledbsoma suffix, not"
-            f" {suffix}."
+            "The object should have .h5, .hdf5, .h5ad, .zarr, .tiledbsoma suffix "
+            f"or be compatible with pyarrow.dataset.dataset, instead of being {suffix} object."
         )
 
     is_anndata = suffix == ".h5ad" or get_spec(storage).encoding_type == "anndata"

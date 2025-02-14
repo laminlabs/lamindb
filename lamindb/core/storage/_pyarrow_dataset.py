@@ -6,26 +6,36 @@ import pyarrow.dataset
 from lamindb_setup.core.upath import LocalPathClasses
 
 if TYPE_CHECKING:
+    from pyarrow.dataset import Dataset as PyArrowDataset
     from upath import UPath
 
 
-PYARROW_SUFFIXES = (".parquet", ".csv", ".json", ".orc", ".arrow", ".feather")
+PYARROW_SUFFIXES = (".parquet", ".csv", ".json", ".orc", ".arrow", ".feather", ".ipc")
 
 
-def _is_pyarrow_dataset(path: UPath) -> bool:
-    # it is assumed here that path exists
-    if path.is_file():
-        return path.suffix in PYARROW_SUFFIXES
+def _is_pyarrow_dataset(paths: UPath | list[UPath]) -> bool:
+    # it is assumed here that the paths exist
+    # we don't check here that the filesystem is the same
+    # but this is a requirement for pyarrow.dataset.dataset
+    if isinstance(paths, list):
+        suffixes = {path.suffix for path in paths}
+    elif paths.is_file():
+        suffixes = {paths.suffix}
     else:
-        objects = path.rglob("*")
-        suffixes = {object.suffix for object in objects if object.suffix != ""}
-        return len(suffixes) == 1 and suffixes.pop() in PYARROW_SUFFIXES
+        suffixes = {path.suffix for path in paths.rglob("*") if path.suffix != ""}
+    return len(suffixes) == 1 and suffixes.pop() in PYARROW_SUFFIXES
 
 
-def _open_pyarrow_dataset(path: UPath) -> pyarrow.dataset.Dataset:
-    if isinstance(path, LocalPathClasses):
-        path_str, filesystem = path.as_posix(), None
+def _open_pyarrow_dataset(paths: UPath | list[UPath]) -> PyArrowDataset:
+    if isinstance(paths, list):
+        path0 = paths[0]
+        if isinstance(path0, LocalPathClasses):
+            paths_str, filesystem = [path.as_posix() for path in paths], None
+        else:
+            paths_str, filesystem = [path.path for path in paths], path0.fs
+    elif isinstance(paths, LocalPathClasses):
+        paths_str, filesystem = paths.as_posix(), None
     else:
-        path_str, filesystem = path.path, path.fs
+        paths_str, filesystem = paths.path, paths.fs
 
-    return pyarrow.dataset.dataset(path_str, filesystem=filesystem)
+    return pyarrow.dataset.dataset(paths_str, filesystem=filesystem)

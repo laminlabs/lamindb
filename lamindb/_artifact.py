@@ -1262,7 +1262,7 @@ def save(self, upload: bool | None = None, **kwargs) -> Artifact:
     )
     if exception_upload is not None:
         # we do not want to raise file not found on cleanup if upload of a file failed
-        # often it is ACID in the filesytsem itself
+        # often it is ACID in the filesystem itself
         # for example, s3 won't have the failed file, so just skip the delete in this case
         raise_file_not_found_error = False
         self._delete_skip_storage()
