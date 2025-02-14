@@ -6,10 +6,11 @@ import pyarrow.dataset
 from lamindb_setup.core.upath import LocalPathClasses
 
 if TYPE_CHECKING:
+    from pyarrow.dataset import Dataset as PyArrowDataset
     from upath import UPath
 
 
-PYARROW_SUFFIXES = (".parquet", ".csv", ".json", ".orc", ".arrow", ".feather")
+PYARROW_SUFFIXES = (".parquet", ".csv", ".json", ".orc", ".arrow", ".feather", ".ipc")
 
 
 def _is_pyarrow_dataset(paths: UPath | list[UPath]) -> bool:
@@ -25,7 +26,7 @@ def _is_pyarrow_dataset(paths: UPath | list[UPath]) -> bool:
     return len(suffixes) == 1 and suffixes.pop() in PYARROW_SUFFIXES
 
 
-def _open_pyarrow_dataset(paths: UPath | list[UPath]) -> pyarrow.dataset.Dataset:
+def _open_pyarrow_dataset(paths: UPath | list[UPath]) -> PyArrowDataset:
     if isinstance(paths, list):
         path0 = paths[0]
         if isinstance(path0, LocalPathClasses):

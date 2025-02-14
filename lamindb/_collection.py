@@ -226,7 +226,7 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
 def open(self, is_run_input: bool | None = None) -> PyArrowDataset:
     if self._state.adding:
         artifacts = self._artifacts
-        logger.warning("The collection isn't saved, consider calling `.save()`")
+        logger.warning("the collection isn't saved, consider calling `.save()`")
     else:
         artifacts = self.ordered_artifacts.all()
     paths = [artifact.path for artifact in artifacts]
@@ -240,13 +240,19 @@ def open(self, is_run_input: bool | None = None) -> PyArrowDataset:
                 "The collection has artifacts with different filesystems, this is not supported."
             )
     if not _is_pyarrow_dataset(paths):
-        raise ValueError(
-            "This collection is not compatible with pyarrow.dataset.dataset."
+        suffixes = {path.suffix for path in paths}
+        suffixes_str = ", ".join(suffixes)
+        err_msg = "This collection is not compatible with pyarrow.dataset.dataset(), "
+        err_msg += (
+            f"the artifacts have incompatible file types: {suffixes_str}"
+            if len(suffixes) > 1
+            else f"the file type {suffixes_str} is not supported by pyarrow."
         )
-    access = _open_pyarrow_dataset(paths)
+        raise ValueError(err_msg)
+    dataset = _open_pyarrow_dataset(paths)
     # track only if successful
     _track_run_input(self, is_run_input)
-    return access
+    return dataset
 
 
 # docstring handled through attach_func_to_class_method
@@ -268,12 +274,12 @@ def mapped(
     path_list = []
     if self._state.adding:
         artifacts = self._artifacts
-        logger.warning("The collection isn't saved, consider calling `.save()`")
+        logger.warning("the collection isn't saved, consider calling `.save()`")
     else:
         artifacts = self.ordered_artifacts.all()
     for artifact in artifacts:
         if artifact.suffix not in {".h5ad", ".zarr"}:
-            logger.warning(f"Ignoring artifact with suffix {artifact.suffix}")
+            logger.warning(f"ignoring artifact with suffix {artifact.suffix}")
             continue
         elif not stream:
             path_list.append(artifact.cache())
