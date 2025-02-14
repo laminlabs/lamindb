@@ -1276,7 +1276,6 @@ def make_external(self, feature: Feature) -> None:
         if len(features_updated) == 0:
             logger.warning(f"deleting empty feature set: {fs}")
             fs.artifacts.set([])
-            fs._artifacts_m2m.set([])
             fs.delete()
 
 
