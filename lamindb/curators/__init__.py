@@ -2083,8 +2083,7 @@ class SpatialDataCatCurator(CatCurator):
                     self._write_path = settings.cache_dir / cache_name
 
             if self._artifact is None:
-                if self._write_path:
-                    self._sdata.write(self._write_path, overwrite=True)
+                self._sdata.write(self._write_path, overwrite=True)
 
                 # Create the Artifact and associate Artifact metadata
                 self._artifact = Artifact(
