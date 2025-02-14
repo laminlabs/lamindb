@@ -60,26 +60,26 @@ def get_run(run: Run | None) -> Run | None:
     return run
 
 
-def save_staged_schemas_m2m(self: Artifact | Collection) -> None:
-    if hasattr(self, "_staged_schemas_m2m"):
+def save_staged_feature_sets(self: Artifact | Collection) -> None:
+    if hasattr(self, "_staged_feature_sets"):
         from lamindb.core._feature_manager import get_schema_by_slot_
 
-        existing_staged_schemas_m2m = get_schema_by_slot_(self)
-        saved_staged_schemas_m2m = {}
-        for key, schema in self._staged_schemas_m2m.items():
+        existing_staged_feature_sets = get_schema_by_slot_(self)
+        saved_staged_feature_sets = {}
+        for key, schema in self._staged_feature_sets.items():
             if isinstance(schema, Schema) and schema._state.adding:
                 schema.save()
-                saved_staged_schemas_m2m[key] = schema
-            if key in existing_staged_schemas_m2m:
+                saved_staged_feature_sets[key] = schema
+            if key in existing_staged_feature_sets:
                 # remove existing feature set on the same slot
-                self._schemas_m2m.remove(existing_staged_schemas_m2m[key])
-        if len(saved_staged_schemas_m2m) > 0:
-            s = "s" if len(saved_staged_schemas_m2m) > 1 else ""
+                self.feature_sets.remove(existing_staged_feature_sets[key])
+        if len(saved_staged_feature_sets) > 0:
+            s = "s" if len(saved_staged_feature_sets) > 1 else ""
             display_schema_keys = ",".join(
-                f"'{key}'" for key in saved_staged_schemas_m2m.keys()
+                f"'{key}'" for key in saved_staged_feature_sets.keys()
             )
             logger.save(
-                f"saved {len(saved_staged_schemas_m2m)} feature set{s} for slot{s}:"
+                f"saved {len(saved_staged_feature_sets)} feature set{s} for slot{s}:"
                 f" {display_schema_keys}"
             )
 
@@ -88,16 +88,16 @@ def save_schema_links(self: Artifact | Collection) -> None:
     from lamindb._save import bulk_create
 
     Data = self.__class__
-    if hasattr(self, "_staged_schemas_m2m"):
+    if hasattr(self, "_staged_feature_sets"):
         links = []
         host_id_field = get_host_id_field(self)
-        for slot, schema in self._staged_schemas_m2m.items():
+        for slot, schema in self._staged_feature_sets.items():
             kwargs = {
                 host_id_field: self.id,
                 "schema_id": schema.id,
                 "slot": slot,
             }
-            links.append(Data._schemas_m2m.through(**kwargs))
+            links.append(Data.feature_sets.through(**kwargs))
         bulk_create(links, ignore_conflicts=True)
 
 
@@ -186,7 +186,7 @@ def _describe_sqlite(self: Artifact | Collection, print_types: bool = False):
         if isinstance(self, (Collection, Artifact)):
             many_to_many_fields.append("input_of_runs")
         if isinstance(self, Artifact):
-            many_to_many_fields.append("_schemas_m2m")
+            many_to_many_fields.append("feature_sets")
         self = (
             self.__class__.objects.using(self._state.db)
             .prefetch_related(*many_to_many_fields)
@@ -339,10 +339,10 @@ def add_labels(
     else:
         validate_feature(feature, records)  # type:ignore
         records_by_registry = defaultdict(list)
-        _schemas_m2m = self._schemas_m2m.filter(itype="Feature").all()
+        feature_sets = self.feature_sets.filter(itype="Feature").all()
         internal_features = set()  # type: ignore
-        if len(_schemas_m2m) > 0:
-            for schema in _schemas_m2m:
+        if len(feature_sets) > 0:
+            for schema in feature_sets:
                 internal_features = internal_features.union(
                     set(schema.members.values_list("name", flat=True))
                 )  # type: ignore

@@ -963,7 +963,7 @@ def check_name_change(record: Record):
         # when a feature is renamed
         elif isinstance(record, Feature):
             # only internal features are associated with schemas
-            linked_artifacts = Artifact.filter(_schemas_m2m__features=record).list(
+            linked_artifacts = Artifact.filter(feature_sets__features=record).list(
                 "uid"
             )
             n = len(linked_artifacts)

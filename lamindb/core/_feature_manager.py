@@ -96,8 +96,8 @@ def get_schema_by_slot_(host: Artifact | Collection) -> dict:
         return {}
     # if the host is not yet saved
     if host._state.adding:
-        if hasattr(host, "_staged_schemas_m2m"):
-            return host._staged_schemas_m2m
+        if hasattr(host, "_staged_feature_sets"):
+            return host._staged_feature_sets
         else:
             return {}
     host_db = host._state.db
@@ -105,7 +105,7 @@ def get_schema_by_slot_(host: Artifact | Collection) -> dict:
     kwargs = {host_id_field: host.id}
     # otherwise, we need a query
     links_schema = (
-        host._schemas_m2m.through.objects.using(host_db)
+        host.feature_sets.through.objects.using(host_db)
         .filter(**kwargs)
         .select_related("schema")
     )
@@ -128,7 +128,7 @@ def get_label_links(
 def get_schema_links(host: Artifact | Collection) -> QuerySet:
     host_id_field = get_host_id_field(host)
     kwargs = {host_id_field: host.id}
-    links_schema = host._schemas_m2m.through.objects.filter(**kwargs)
+    links_schema = host.feature_sets.through.objects.filter(**kwargs)
     return links_schema
 
 
@@ -348,10 +348,10 @@ def describe_features(
 
     internal_feature_names: dict[str, str] = {}
     if isinstance(self, Artifact):
-        _schemas_m2m = self._schemas_m2m.filter(itype="Feature").all()
+        feature_sets = self.feature_sets.filter(itype="Feature").all()
         internal_feature_names = {}
-        if len(_schemas_m2m) > 0:
-            for schema in _schemas_m2m:
+        if len(feature_sets) > 0:
+            for schema in feature_sets:
                 internal_feature_names.update(
                     dict(schema.members.values_list("name", "dtype"))
                 )
@@ -500,7 +500,7 @@ def describe_features(
     return tree
 
 
-def parse_staged_schemas_m2m_from_anndata(
+def parse_staged_feature_sets_from_anndata(
     adata: AnnData,
     var_field: FieldAttr | None = None,
     obs_field: FieldAttr = Feature.name,
@@ -524,7 +524,7 @@ def parse_staged_schemas_m2m_from_anndata(
             if adata.X is None
             else convert_pandas_dtype_to_lamin_dtype(adata.X.dtype)
         )
-    _schemas_m2m = {}
+    feature_sets = {}
     if var_field is not None:
         logger.info("parsing feature names of X stored in slot 'var'")
         logger.indent = "   "
@@ -537,7 +537,7 @@ def parse_staged_schemas_m2m_from_anndata(
             raise_validation_error=False,
         )
         if schema_var is not None:
-            _schemas_m2m["var"] = schema_var
+            feature_sets["var"] = schema_var
             logger.save(f"linked: {schema_var}")
         logger.indent = ""
         if schema_var is None:
@@ -552,12 +552,12 @@ def parse_staged_schemas_m2m_from_anndata(
             organism=organism,
         )
         if schema_obs is not None:
-            _schemas_m2m["obs"] = schema_obs
+            feature_sets["obs"] = schema_obs
             logger.save(f"linked: {schema_obs}")
         logger.indent = ""
         if schema_obs is None:
             logger.warning("skip linking features to artifact in slot 'obs'")
-    return _schemas_m2m
+    return feature_sets
 
 
 def is_valid_datetime_str(date_string: str) -> bool | str:
@@ -1081,12 +1081,12 @@ def add_schema(self, schema: Schema, slot: str) -> None:
         "slot": slot,
     }
     link_record = (
-        self._host._schemas_m2m.through.objects.using(host_db)
+        self._host.feature_sets.through.objects.using(host_db)
         .filter(**kwargs)
         .one_or_none()
     )
     if link_record is None:
-        self._host._schemas_m2m.through(**kwargs).save(using=host_db)
+        self._host.feature_sets.through(**kwargs).save(using=host_db)
         if slot in self._schema_by_slot:
             logger.debug(f"replaced existing {slot} feature set")
         self._schema_by_slot_[slot] = schema  # type: ignore
@@ -1111,7 +1111,7 @@ def _add_set_from_df(
         mute=mute,
         organism=organism,
     )
-    self._host._staged_schemas_m2m = {"columns": schema}
+    self._host._staged_feature_sets = {"columns": schema}
     self._host.save()
 
 
@@ -1130,7 +1130,7 @@ def _add_set_from_anndata(
 
     # parse and register features
     adata = self._host.load()
-    _schemas_m2m = parse_staged_schemas_m2m_from_anndata(
+    feature_sets = parse_staged_feature_sets_from_anndata(
         adata,
         var_field=var_field,
         obs_field=obs_field,
@@ -1139,7 +1139,7 @@ def _add_set_from_anndata(
     )
 
     # link feature sets
-    self._host._staged_schemas_m2m = _schemas_m2m
+    self._host._staged_feature_sets = feature_sets
     self._host.save()
 
 
@@ -1160,12 +1160,12 @@ def _add_set_from_mudata(
 
     # parse and register features
     mdata = self._host.load()
-    _schemas_m2m = {}
+    feature_sets = {}
     obs_features = Feature.from_values(mdata.obs.columns)  # type: ignore
     if len(obs_features) > 0:
-        _schemas_m2m["obs"] = Schema(features=obs_features)
+        feature_sets["obs"] = Schema(features=obs_features)
     for modality, field in var_fields.items():
-        modality_fs = parse_staged_schemas_m2m_from_anndata(
+        modality_fs = parse_staged_feature_sets_from_anndata(
             mdata[modality],
             var_field=field,
             obs_field=obs_fields.get(modality, Feature.name),
@@ -1173,22 +1173,22 @@ def _add_set_from_mudata(
             organism=organism,
         )
         for k, v in modality_fs.items():
-            _schemas_m2m[f"['{modality}'].{k}"] = v
+            feature_sets[f"['{modality}'].{k}"] = v
 
-    def unify_staged_schemas_m2m_by_hash(_schemas_m2m):
+    def unify_staged_feature_sets_by_hash(feature_sets):
         unique_values = {}
 
-        for key, value in _schemas_m2m.items():
+        for key, value in feature_sets.items():
             value_hash = value.hash  # Assuming each value has a .hash attribute
             if value_hash in unique_values:
-                _schemas_m2m[key] = unique_values[value_hash]
+                feature_sets[key] = unique_values[value_hash]
             else:
                 unique_values[value_hash] = value
 
-        return _schemas_m2m
+        return feature_sets
 
     # link feature sets
-    self._host._staged_schemas_m2m = unify_staged_schemas_m2m_by_hash(_schemas_m2m)
+    self._host._staged_feature_sets = unify_staged_feature_sets_by_hash(feature_sets)
     self._host.save()
 
 
@@ -1258,8 +1258,8 @@ def make_external(self, feature: Feature) -> None:
     """
     if not isinstance(feature, Feature):
         raise TypeError("feature must be a Feature record!")
-    _schemas_m2m = Schema.filter(features=feature).all()
-    for fs in _schemas_m2m:
+    feature_sets = Schema.filter(features=feature).all()
+    for fs in feature_sets:
         f = Feature.filter(uid=feature.uid).all()
         features_updated = fs.members.difference(f)
         if len(features_updated) > 0:
@@ -1276,7 +1276,6 @@ def make_external(self, feature: Feature) -> None:
         if len(features_updated) == 0:
             logger.warning(f"deleting empty feature set: {fs}")
             fs.artifacts.set([])
-            fs._artifacts_m2m.set([])
             fs.delete()
 
 

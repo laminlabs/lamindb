@@ -31,7 +31,7 @@ from .core._data import (
     describe,
     get_run,
     save_schema_links,
-    save_staged_schemas_m2m,
+    save_staged_feature_sets,
 )
 from .core._mapped_collection import MappedCollection
 from .core._settings import settings
@@ -52,15 +52,15 @@ class CollectionFeatureManager:
     def __init__(self, collection: Collection):
         self._collection = collection
 
-    def _get_staged_schemas_m2m_union(self) -> dict[str, Schema]:
-        links_schema_artifact = Artifact._schemas_m2m.through.objects.filter(
+    def _get_staged_feature_sets_union(self) -> dict[str, Schema]:
+        links_schema_artifact = Artifact.feature_sets.through.objects.filter(
             artifact_id__in=self._collection.artifacts.values_list("id", flat=True)
         )
-        _schemas_m2m_by_slots = defaultdict(list)
+        feature_sets_by_slots = defaultdict(list)
         for link in links_schema_artifact:
-            _schemas_m2m_by_slots[link.slot].append(link.schema_id)
-        _schemas_m2m_union = {}
-        for slot, schema_ids_slot in _schemas_m2m_by_slots.items():
+            feature_sets_by_slots[link.slot].append(link.schema_id)
+        feature_sets_union = {}
+        for slot, schema_ids_slot in feature_sets_by_slots.items():
             schema_1 = Schema.get(id=schema_ids_slot[0])
             related_name = schema_1._get_related_name()
             features_registry = getattr(Schema, related_name).field.model
@@ -75,8 +75,8 @@ class CollectionFeatureManager:
                 .distinct()
             )
             features = features_registry.filter(id__in=feature_ids)
-            _schemas_m2m_union[slot] = Schema(features, dtype=schema_1.dtype)
-        return _schemas_m2m_union
+            feature_sets_union[slot] = Schema(features, dtype=schema_1.dtype)
+        return feature_sets_union
 
 
 def __init__(
@@ -338,7 +338,7 @@ def save(self, using: str | None = None) -> Collection:
     if self.meta_artifact is not None:
         self.meta_artifact.save()
     # we don't need to save feature sets again
-    save_staged_schemas_m2m(self)
+    save_staged_feature_sets(self)
     super(Collection, self).save()
     # we don't allow updating the collection of artifacts
     # if users want to update the set of artifacts, they

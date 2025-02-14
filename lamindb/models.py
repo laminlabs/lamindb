@@ -2093,18 +2093,33 @@ class Schema(Record, CanCurate, TracksRun):
             a set upon instantiation. If you'd like to pass values, use
             :meth:`~lamindb.Schema.from_values` or
             :meth:`~lamindb.Schema.from_df`.
+        components: `dict[str, Schema] | None = None` A dictionary mapping component names to
+            their corresponding :class:`~lamindb.Schema` objects for composite schemas.
         name: `str | None = None` A name.
+        description: `str | None = None` A description.
         dtype: `str | None = None` The simple type. Defaults to
             `None` for sets of :class:`~lamindb.Feature` records.
             Otherwise defaults to `"num"` (e.g., for sets of :class:`~bionty.Gene`).
+        itype: `str | None = None` The schema identifier type (e.g. :class:`~lamindb.Feature`, :class:`~bionty.Gene`, ...).
+        type: `Schema | None = None` A type.
+        is_type: `bool = False` Distinguish types from instances of the type.
+        otype: `str | None = None` An object type to define the structure of a composite schema.
+        minimal_set: `bool = True` Whether the schema contains a minimal set of linked features.
+        ordered_set: `bool = False` Whether features are required to be ordered.
+        maximal_set: `bool = False` If `True`, no additional features are allowed.
+        composite: `Schema | None = None` A reference to a composite schema this schema is part of.
+        slot: `str | None = None` The slot name when this schema is used as a component in a
+            composite schema.
+        coerce_dtype: `bool = False` When True, attempts to coerce values to the specified dtype
+            during validation.
 
     Note:
 
         A feature set can be identified by the `hash` of its feature uids.
         It's stored in the `.hash` field.
 
-        A `slot` provides a string key to access feature sets.
-        It's typically the accessor within the registered data object, here `pd.DataFrame.columns`.
+        A `slot` provides a string key to access feature sets. For instance, for the schema of an
+        `AnnData` object, it would be `'obs'` for `adata.obs`.
 
     See Also:
         :meth:`~lamindb.Schema.from_values`
@@ -2152,8 +2167,6 @@ class Schema(Record, CanCurate, TracksRun):
 
     For :class:`~lamindb.Feature`, types are expected to be heterogeneous and defined on a per-feature level.
     """
-    # _itype: ContentType = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    # ""Index of the registry that stores the feature identifiers, e.g., `Feature` or `Gene`."""
     itype: str | None = CharField(max_length=120, db_index=True, null=True)
     """A registry that stores feature identifiers used in this schema, e.g., `'Feature'` or `'bionty.Gene'`.
 
@@ -2162,14 +2175,16 @@ class Schema(Record, CanCurate, TracksRun):
     .. versionchanged:: 1.0.0
         Was called `registry` before.
     """
-    type: Feature | None = ForeignKey(
-        "self", PROTECT, null=True, related_name="records"
-    )
-    """Type of feature set (e.g., 'ExpressionPanel', 'ProteinPanel', 'Multimodal', 'Metadata', 'Embedding').
+    type: Schema | None = ForeignKey("self", PROTECT, null=True, related_name="records")
+    """Type of schema.
 
-    Allows to group feature sets by type, e.g., all meassurements evaluating gene expression vs. protein expression vs. multi modal.
+    Allows to group schemas by type, e.g., all meassurements evaluating gene expression vs. protein expression vs. multi modal.
+
+    You can define types via `ln.Schema(name="ProteinPanel", is_type=True)`.
+
+    Here are a few more examples for type names: `'ExpressionPanel'`, `'ProteinPanel'`, `'Multimodal'`, `'Metadata'`, `'Embedding'`.
     """
-    records: Feature
+    records: Schema
     """Records of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
@@ -2188,7 +2203,7 @@ class Schema(Record, CanCurate, TracksRun):
     If `True`, features are linked and considered as a minimally required set in validation.
     """
     ordered_set: bool = BooleanField(default=False, db_index=True)
-    """Whether the linked features are ordered (default `False`)."""
+    """Whether features are required to be ordered (default `False`)."""
     maximal_set: bool = BooleanField(default=False, db_index=True)
     """If `False`, additional features are allowed (default `False`).
 
@@ -2212,25 +2227,32 @@ class Schema(Record, CanCurate, TracksRun):
     """
     slot: str | None = CharField(max_length=100, db_index=True, null=True)
     """The slot in which the schema is stored in the composite schema."""
-    validated_by: Schema | None = ForeignKey(
-        "self", PROTECT, related_name="validated_schemas", default=None, null=True
-    )
-    # for lamindb v2
-    # """The schema that validated this schema during curation.
-
-    # When performing validation, the schema that enforced validation is often less concrete than what is validated.
-
-    # For instance, the set of measured features might be a superset of the minimally required set of features.
-
-    # Often, the curating schema does not specficy any concrete features at all
-    # """
     features: Feature
     """The features contained in the schema."""
     params: Param
     """The params contained in the schema."""
     artifacts: Artifact
-    """The artifacts that observe this schema."""
+    """The artifacts that measure a feature set that matches this schema."""
+    validated_artifacts: Artifact
+    """The artifacts that were validated against this schema with a :class:`~lamindb.curators.Curator`."""
+    projects: Project
+    """Associated projects."""
     _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
+    # lamindb v2
+    # _itype: ContentType = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    # ""Index of the registry that stores the feature identifiers, e.g., `Feature` or `Gene`."""
+    # -- the following two fields are dynamically removed from the API for now
+    validated_by: Schema | None = ForeignKey(
+        "self", PROTECT, related_name="validated_schemas", default=None, null=True
+    )
+    # """The schema that validated this schema during curation.
+
+    # When performing validation, the schema that enforced validation is often less concrete than what is validated.
+
+    # For instance, the set of measured features might be a superset of the minimally required set of features.
+    # """
+    # validated_schemas: Schema
+    # """The schemas that were validated against this schema with a :class:`~lamindb.curators.Curator`."""
 
     @overload
     def __init__(
@@ -2241,7 +2263,7 @@ class Schema(Record, CanCurate, TracksRun):
         description: str | None = None,
         dtype: str | None = None,
         itype: str | None = None,
-        type: ULabel | None = None,
+        type: Schema | None = None,
         is_type: bool = False,
         otype: str | None = None,
         minimal_set: bool = True,
@@ -2249,7 +2271,6 @@ class Schema(Record, CanCurate, TracksRun):
         maximal_set: bool = False,
         composite: Schema | None = None,
         slot: str | None = None,
-        validated_by: Schema | None = None,
         coerce_dtype: bool = False,
     ): ...
 
@@ -2380,9 +2401,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     Args:
         data: `UPathStr` A path to a local or remote folder or file.
         kind: `Literal["dataset", "model"] | None = None` Distinguish models from datasets from other files & folders.
-        key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+        key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
         description: `str | None = None` A description.
-        revises: `Artifact | None = None` Previous version of the artifact. Is an alternative way to passing `key` to trigger a revision.
+        revises: `Artifact | None = None` Previous version of the artifact. Is an alternative way to passing `key` to trigger a new version.
         run: `Run | None = None` The run that creates the artifact.
 
     .. dropdown:: Typical storage formats & their API accessors
@@ -2625,13 +2646,13 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     collections: Collection
     """The collections that this artifact is part of."""
     schema: Schema | None = ForeignKey(
-        Schema, PROTECT, null=True, default=None, related_name="artifacts"
+        Schema, PROTECT, null=True, default=None, related_name="validated_artifacts"
     )
-    """The validating schema of the artifact (to be populated in lamindb 1.1)."""
-    _schemas_m2m: Schema = models.ManyToManyField(
-        Schema, related_name="_artifacts_m2m", through="ArtifactSchema"
+    """The schema that validated this artifact in a :class:`~lamindb.curators.Curator`."""
+    feature_sets: Schema = models.ManyToManyField(
+        Schema, related_name="artifacts", through="ArtifactSchema"
     )
-    """The inferred schemas / feature sets measured by the artifact."""
+    """The feature sets measured by the artifact."""
     _feature_values: FeatureValue = models.ManyToManyField(
         FeatureValue, through="ArtifactFeatureValue", related_name="artifacts"
     )
@@ -2715,11 +2736,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     def n_objects(self) -> int:
         return self.n_files
 
-    @property
-    def feature_sets(self) -> QuerySet[Schema]:  # type: ignore
-        """Feature sets linked to this artifact."""
-        return self._schemas_m2m
-
     # add the below because this is what people will have in their code
     # if they implement the recommended migration strategy
     # - FeatureSet -> Schema
@@ -2729,14 +2745,14 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     # def schemas(self) -> QuerySet[Schema]:
     #     """Schemas linked to artifact via many-to-many relationship.
 
-    #     Is now mediating the private `._schemas_m2m` relationship during
+    #     Is now mediating the private `.feature_sets` relationship during
     #     a transition period to better schema management.
 
     #     .. versionchanged: 1.0
     #        Was previously called `.feature_sets`.
 
     #     """
-    #     return self._schemas_m2m
+    #     return self.feature_sets
 
     @property
     def path(self) -> Path:

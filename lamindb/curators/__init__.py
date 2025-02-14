@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 from lamindb._feature import parse_dtype, parse_dtype_single_cat
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.core._data import add_labels
-from lamindb.core._feature_manager import parse_staged_schemas_m2m_from_anndata
+from lamindb.core._feature_manager import parse_staged_feature_sets_from_anndata
 from lamindb.core._settings import settings
 from lamindb.models import (
     Artifact,
@@ -152,9 +152,9 @@ Raises:
 SAVE_ARTIFACT_DOCSTRING = """Save an annotated artifact.
 
 Args:
-    key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+    key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
     description: A description.
-    revises: Previous version of the artifact. Is an alternative way to passing `key` to trigger a revision.
+    revises: Previous version of the artifact. Is an alternative way to passing `key` to trigger a new version.
     run: The run that creates the artifact.
 
 Returns:
@@ -1644,7 +1644,7 @@ class TiledbsomaCatCurator(CatCurator):
         Args:
             description: A description of the ``tiledbsoma`` store.
             key: A path-like key to reference artifact in default storage,
-                e.g., `"myfolder/mystore.tiledbsoma"`. Artifacts with the same key form a revision family.
+                e.g., `"myfolder/mystore.tiledbsoma"`. Artifacts with the same key form a version family.
             revises: Previous version of the artifact. Triggers a revision.
             run: The run that creates the artifact.
 
@@ -1672,7 +1672,7 @@ class TiledbsomaCatCurator(CatCurator):
         else:
             artifact = self._artifact
 
-        _schemas_m2m = {}
+        feature_sets = {}
         if len(self._obs_fields) > 0:
             organism = check_registry_organism(
                 self._columns_field.field.model, self._organism
@@ -1682,7 +1682,7 @@ class TiledbsomaCatCurator(CatCurator):
                 empty_dict, schema=self._obs_pa_schema
             ).to_pandas()
             # in parallel to https://github.com/laminlabs/lamindb/blob/2a1709990b5736b480c6de49c0ada47fafc8b18d/lamindb/core/_feature_manager.py#L549-L554
-            _schemas_m2m["obs"] = Schema.from_df(
+            feature_sets["obs"] = Schema.from_df(
                 df=mock_df,
                 field=self._columns_field,
                 mute=True,
@@ -1693,13 +1693,13 @@ class TiledbsomaCatCurator(CatCurator):
             organism = check_registry_organism(
                 var_field.field.model, self._organism
             ).get("organism")
-            _schemas_m2m[f"{ms}__var"] = Schema.from_values(
+            feature_sets[f"{ms}__var"] = Schema.from_values(
                 values=self._validated_values[f"{ms}__{var_key}"],
                 field=var_field,
                 organism=organism,
                 raise_validation_error=False,
             )
-        artifact._staged_schemas_m2m = _schemas_m2m
+        artifact._staged_feature_sets = feature_sets
 
         feature_ref_is_name = _ref_is_name(self._columns_field)
         features = Feature.lookup().dict()
@@ -2113,18 +2113,18 @@ class SpatialDataCatCurator(CatCurator):
                     obs_fields = {}
                 assert host.otype == "spatialdata"  # noqa: S101
 
-                _schemas_m2m = {}
+                feature_sets = {}
 
                 # sample features
                 sample_features = Feature.from_values(self._sample_metadata.columns)  # type: ignore
                 if len(sample_features) > 0:
-                    _schemas_m2m[self._sample_metadata_key] = Schema(
+                    feature_sets[self._sample_metadata_key] = Schema(
                         features=sample_features
                     )
 
                 # table features
                 for table, field in var_fields.items():
-                    table_fs = parse_staged_schemas_m2m_from_anndata(
+                    table_fs = parse_staged_feature_sets_from_anndata(
                         self._sdata[table],
                         var_field=field,
                         obs_field=obs_fields.get(table, Feature.name),
@@ -2132,27 +2132,27 @@ class SpatialDataCatCurator(CatCurator):
                         organism=organism,
                     )
                     for k, v in table_fs.items():
-                        _schemas_m2m[f"['{table}'].{k}"] = v
+                        feature_sets[f"['{table}'].{k}"] = v
 
-                def _unify_staged_schemas_m2m_by_hash(
-                    _schemas_m2m: MutableMapping[str, Schema],
+                def _unify_staged_feature_sets_by_hash(
+                    feature_sets: MutableMapping[str, Schema],
                 ):
                     unique_values: dict[str, Any] = {}
 
-                    for key, value in _schemas_m2m.items():
+                    for key, value in feature_sets.items():
                         value_hash = (
                             value.hash
                         )  # Assuming each value has a .hash attribute
                         if value_hash in unique_values:
-                            _schemas_m2m[key] = unique_values[value_hash]
+                            feature_sets[key] = unique_values[value_hash]
                         else:
                             unique_values[value_hash] = value
 
-                    return _schemas_m2m
+                    return feature_sets
 
                 # link feature sets
-                host._staged_schemas_m2m = _unify_staged_schemas_m2m_by_hash(
-                    _schemas_m2m
+                host._staged_feature_sets = _unify_staged_feature_sets_by_hash(
+                    feature_sets
                 )
                 host.save()
 
@@ -3307,7 +3307,7 @@ def save_artifact(
         description: A description of the artifact.
         organism: The organism name.
         type: The artifact type.
-        key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+        key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
         artifact: A already registered artifact. Passing this will not save a new artifact from data.
         revises: Previous version of the artifact. Triggers a revision.
         run: The run that creates the artifact.
@@ -3352,7 +3352,7 @@ def save_artifact(
     if artifact.otype == "DataFrame":
         artifact.features._add_set_from_df(field=columns_field, **feature_kwargs)  # type: ignore
         # lamindb v2
-        # inferred_schema = artifact._staged_schemas_m2m["columns"]
+        # inferred_schema = artifact._staged_feature_sets["columns"]
         # inferred_schema.validated_by = schema
         # inferred_schema.save()
         artifact.schema = schema
@@ -3362,7 +3362,7 @@ def save_artifact(
         )
         # lamindb v2
         # inferred_schema = Schema(
-        #     components=artifact._staged_schemas_m2m,
+        #     components=artifact._staged_feature_sets,
         #     otype="AnnData",
         #     validated_by=schema,
         # ).save()

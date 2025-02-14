@@ -66,7 +66,7 @@ def __init__(self, *args, **kwargs):
 
     features: Iterable[Record] | None = args[0] if args else kwargs.pop("features", [])
     # typing here anticipates transitioning to a ManyToMany
-    # between composites and components similar to _schemas_m2m
+    # between composites and components similar to feature_sets
     # in lamindb v2
     components: dict[str, Schema] = kwargs.pop("components", {})
     name: str | None = kwargs.pop("name", None)
@@ -81,7 +81,6 @@ def __init__(self, *args, **kwargs):
     maximal_set: bool = kwargs.pop("maximal_set", False)
     composite: Schema | None = kwargs.pop("composite", None)
     slot: str | None = kwargs.pop("slot", None)
-    validated_by: Schema | None = kwargs.pop("validated_by", None)
     coerce_dtype: bool | None = kwargs.pop("coerce_dtype", None)
 
     if kwargs:
@@ -124,7 +123,6 @@ def __init__(self, *args, **kwargs):
         "ordered_set": ordered_set,
         "maximal_set": maximal_set,
         "composite": composite,
-        "validated_by": validated_by,
     }
     if coerce_dtype:
         validated_kwargs["_aux"] = {"af": {"0": coerce_dtype}}
@@ -339,6 +337,8 @@ for name in METHOD_NAMES:
 
 Schema.members = members  # type: ignore
 Schema._get_related_name = _get_related_name
-Schema.artifacts = (
-    Schema._artifacts_m2m
-)  # temporary backward compat, better solved in next PR
+# excluded on docs via
+# https://github.com/laminlabs/lndocs/blob/8c1963de65445107ea69b3fd59354c3828e067d1/lndocs/lamin_sphinx/__init__.py#L584-L588
+delattr(Schema, "validated_by")  # we don't want to expose these
+delattr(Schema, "validated_by_id")  # we don't want to expose these
+delattr(Schema, "validated_schemas")  # we don't want to expose these
