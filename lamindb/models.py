@@ -2382,9 +2382,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     Args:
         data: `UPathStr` A path to a local or remote folder or file.
         kind: `Literal["dataset", "model"] | None = None` Distinguish models from datasets from other files & folders.
-        key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+        key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
         description: `str | None = None` A description.
-        revises: `Artifact | None = None` Previous version of the artifact. Is an alternative way to passing `key` to trigger a revision.
+        revises: `Artifact | None = None` Previous version of the artifact. Is an alternative way to passing `key` to trigger a new version.
         run: `Run | None = None` The run that creates the artifact.
 
     .. dropdown:: Typical storage formats & their API accessors
@@ -2629,11 +2629,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     schema: Schema | None = ForeignKey(
         Schema, PROTECT, null=True, default=None, related_name="validated_artifacts"
     )
-    """The schema that validated this artifact in a {class}`~lamindb.curators.Curator`."""
+    """The schema that validated this artifact in a :class:`~lamindb.curators.Curator`."""
     feature_sets: Schema = models.ManyToManyField(
         Schema, related_name="artifacts", through="ArtifactSchema"
     )
-    """The feature sets (inferred schemas) measured by the artifact."""
+    """The feature sets measured by the artifact."""
     _feature_values: FeatureValue = models.ManyToManyField(
         FeatureValue, through="ArtifactFeatureValue", related_name="artifacts"
     )

@@ -152,9 +152,9 @@ Raises:
 SAVE_ARTIFACT_DOCSTRING = """Save an annotated artifact.
 
 Args:
-    key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+    key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
     description: A description.
-    revises: Previous version of the artifact. Is an alternative way to passing `key` to trigger a revision.
+    revises: Previous version of the artifact. Is an alternative way to passing `key` to trigger a new version.
     run: The run that creates the artifact.
 
 Returns:
@@ -1644,7 +1644,7 @@ class TiledbsomaCatCurator(CatCurator):
         Args:
             description: A description of the ``tiledbsoma`` store.
             key: A path-like key to reference artifact in default storage,
-                e.g., `"myfolder/mystore.tiledbsoma"`. Artifacts with the same key form a revision family.
+                e.g., `"myfolder/mystore.tiledbsoma"`. Artifacts with the same key form a version family.
             revises: Previous version of the artifact. Triggers a revision.
             run: The run that creates the artifact.
 
@@ -3307,7 +3307,7 @@ def save_artifact(
         description: A description of the artifact.
         organism: The organism name.
         type: The artifact type.
-        key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a revision family.
+        key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
         artifact: A already registered artifact. Passing this will not save a new artifact from data.
         revises: Previous version of the artifact. Triggers a revision.
         run: The run that creates the artifact.
