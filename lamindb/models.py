@@ -2231,7 +2231,7 @@ class Schema(Record, CanCurate, TracksRun):
     artifacts: Artifact
     """The artifacts that measure a feature set that matches this schema."""
     validated_artifacts: Artifact
-    """The artifacts that were validated against this schema."""
+    """The artifacts that were validated against this schema with a :class:`~lamindb.curators.Curator`"""
     _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
 
     @overload
