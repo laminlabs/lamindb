@@ -2229,7 +2229,7 @@ class Schema(Record, CanCurate, TracksRun):
     params: Param
     """The params contained in the schema."""
     artifacts: Artifact
-    """The artifacts that have a feature set that matches this schema."""
+    """The artifacts that measure a feature set that matches this schema."""
     validated_artifacts: Artifact
     """The artifacts that were validated against this schema."""
     _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
@@ -2629,9 +2629,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     schema: Schema | None = ForeignKey(
         Schema, PROTECT, null=True, default=None, related_name="validated_artifacts"
     )
-    """The *validating* schema of the artifact."""
+    """The schema that validated this artifact in a {class}`~lamindb.curators.Curator`."""
     feature_sets: Schema = models.ManyToManyField(
-        Schema, related_name="_artifacts_m2m", through="ArtifactSchema"
+        Schema, related_name="artifacts", through="ArtifactSchema"
     )
     """The feature sets (inferred schemas) measured by the artifact."""
     _feature_values: FeatureValue = models.ManyToManyField(
