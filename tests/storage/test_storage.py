@@ -481,15 +481,15 @@ def test_backed_pyarrow_collection():
     collection2 = ln.Collection([artifact1, artifact3], key="parquet_csv_col").save()
     with pytest.raises(ValueError) as err:
         collection2.open()
-    assert err.exconly().endswith(
-        "This collection is not compatible with pyarrow.dataset.dataset()"
+    assert err.exconly().startswith(
+        "ValueError: This collection is not compatible with pyarrow.dataset.dataset()"
     )
 
     collection3 = ln.Collection([artifact1, artifact4], key="s3_http_col").save()
     with pytest.raises(ValueError) as err:
         collection3.open()
-    assert err.exconly().endswith(
-        "The collection has artifacts with different filesystems, this is not supported."
+    assert err.exconly().startswith(
+        "ValueError: The collection has artifacts with different filesystems, this is not supported."
     )
 
     shard1.unlink()
