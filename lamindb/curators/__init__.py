@@ -2076,11 +2076,13 @@ class SpatialDataCatCurator(CatCurator):
         try:
             settings.verbosity = "warning"
 
-            if self._artifact is None:
+            if self._write_path is None:
                 provisional_uid, revises = create_uid(revises=revises, version=None)
                 cache_name = f"{provisional_uid}.zarr"
                 if not self._write_path:
                     self._write_path = settings.cache_dir / cache_name
+
+            if self._artifact is None:
                 if self._write_path:
                     self._sdata.write(self._write_path, overwrite=True)
 
@@ -2096,6 +2098,14 @@ class SpatialDataCatCurator(CatCurator):
                 # We would have to write custom code to iterate over labels (which might not even exist at that point)
                 self._artifact.otype = "spatialdata"
                 self._artifact.save()
+            else:
+                self._artifact = Artifact(
+                    self._write_path,
+                    description=description,
+                    key=key,
+                    revises=revises,
+                    run=run,
+                )
 
             # Link schemas
             feature_kwargs = check_registry_organism(
