@@ -14,6 +14,8 @@ PYARROW_SUFFIXES = (".parquet", ".csv", ".json", ".orc", ".arrow", ".feather")
 
 def _is_pyarrow_dataset(paths: UPath | list[UPath]) -> bool:
     # it is assumed here that the paths exist
+    # we don't check here that the filesystem is the same
+    # but this is a requirement for pyarrow.dataset.dataset
     if isinstance(paths, list):
         suffixes = {path.suffix for path in paths}
     elif paths.is_file():
