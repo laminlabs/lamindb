@@ -339,3 +339,8 @@ for name in METHOD_NAMES:
 
 Schema.members = members  # type: ignore
 Schema._get_related_name = _get_related_name
+# excluded on docs via
+# https://github.com/laminlabs/lndocs/blob/8c1963de65445107ea69b3fd59354c3828e067d1/lndocs/lamin_sphinx/__init__.py#L584-L588
+delattr(Schema, "validated_by")  # we don't want to expose these
+delattr(Schema, "validated_by_id")  # we don't want to expose these
+delattr(Schema, "validated_schemas")  # we don't want to expose these

@@ -2103,8 +2103,8 @@ class Schema(Record, CanCurate, TracksRun):
         A feature set can be identified by the `hash` of its feature uids.
         It's stored in the `.hash` field.
 
-        A `slot` provides a string key to access feature sets.
-        It's typically the accessor within the registered data object, here `pd.DataFrame.columns`.
+        A `slot` provides a string key to access feature sets. For instance, for the schema of an
+        `AnnData` object, it would be `'obs'` for `adata.obs`.
 
     See Also:
         :meth:`~lamindb.Schema.from_values`
@@ -2152,8 +2152,6 @@ class Schema(Record, CanCurate, TracksRun):
 
     For :class:`~lamindb.Feature`, types are expected to be heterogeneous and defined on a per-feature level.
     """
-    # _itype: ContentType = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    # ""Index of the registry that stores the feature identifiers, e.g., `Feature` or `Gene`."""
     itype: str | None = CharField(max_length=120, db_index=True, null=True)
     """A registry that stores feature identifiers used in this schema, e.g., `'Feature'` or `'bionty.Gene'`.
 
@@ -2162,14 +2160,16 @@ class Schema(Record, CanCurate, TracksRun):
     .. versionchanged:: 1.0.0
         Was called `registry` before.
     """
-    type: Feature | None = ForeignKey(
-        "self", PROTECT, null=True, related_name="records"
-    )
-    """Type of feature set (e.g., 'ExpressionPanel', 'ProteinPanel', 'Multimodal', 'Metadata', 'Embedding').
+    type: Schema | None = ForeignKey("self", PROTECT, null=True, related_name="records")
+    """Type of schema.
 
-    Allows to group feature sets by type, e.g., all meassurements evaluating gene expression vs. protein expression vs. multi modal.
+    Allows to group schemas by type, e.g., all meassurements evaluating gene expression vs. protein expression vs. multi modal.
+
+    You can define types via `ln.Schema(name="ProteinPanel", is_type=True)`.
+
+    Here are a few more examples for type names: `'ExpressionPanel'`, `'ProteinPanel'`, `'Multimodal'`, `'Metadata'`, `'Embedding'`.
     """
-    records: Feature
+    records: Schema
     """Records of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
@@ -2212,18 +2212,6 @@ class Schema(Record, CanCurate, TracksRun):
     """
     slot: str | None = CharField(max_length=100, db_index=True, null=True)
     """The slot in which the schema is stored in the composite schema."""
-    validated_by: Schema | None = ForeignKey(
-        "self", PROTECT, related_name="validated_schemas", default=None, null=True
-    )
-    # for lamindb v2
-    # """The schema that validated this schema during curation.
-
-    # When performing validation, the schema that enforced validation is often less concrete than what is validated.
-
-    # For instance, the set of measured features might be a superset of the minimally required set of features.
-
-    # Often, the curating schema does not specficy any concrete features at all
-    # """
     features: Feature
     """The features contained in the schema."""
     params: Param
@@ -2231,8 +2219,25 @@ class Schema(Record, CanCurate, TracksRun):
     artifacts: Artifact
     """The artifacts that measure a feature set that matches this schema."""
     validated_artifacts: Artifact
-    """The artifacts that were validated against this schema with a :class:`~lamindb.curators.Curator`"""
+    """The artifacts that were validated against this schema with a :class:`~lamindb.curators.Curator`."""
+    projects: Project
+    """Associated projects."""
     _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
+    # lamindb v2
+    # _itype: ContentType = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    # ""Index of the registry that stores the feature identifiers, e.g., `Feature` or `Gene`."""
+    # -- the following two fields are dynamically removed from the API for now
+    validated_by: Schema | None = ForeignKey(
+        "self", PROTECT, related_name="validated_schemas", default=None, null=True
+    )
+    # """The schema that validated this schema during curation.
+
+    # When performing validation, the schema that enforced validation is often less concrete than what is validated.
+
+    # For instance, the set of measured features might be a superset of the minimally required set of features.
+    # """
+    # validated_schemas: Schema
+    # """The schemas that were validated against this schema with a :class:`~lamindb.curators.Curator`."""
 
     @overload
     def __init__(
