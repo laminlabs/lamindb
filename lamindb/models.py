@@ -2093,10 +2093,25 @@ class Schema(Record, CanCurate, TracksRun):
             a set upon instantiation. If you'd like to pass values, use
             :meth:`~lamindb.Schema.from_values` or
             :meth:`~lamindb.Schema.from_df`.
+        components: `dict[str, Schema] | None = None` A dictionary mapping component names to
+            their corresponding :class:`~lamindb.Schema` objects for composite schemas.
         name: `str | None = None` A name.
+        description: `str | None = None` A description.
         dtype: `str | None = None` The simple type. Defaults to
             `None` for sets of :class:`~lamindb.Feature` records.
             Otherwise defaults to `"num"` (e.g., for sets of :class:`~bionty.Gene`).
+        itype: `str | None = None` The schema identifier type (e.g. :class:`~lamindb.Feature`, :class:`~bionty.Gene`, ...).
+        type: `Schema | None = None` A type.
+        is_type: `bool = False` Distinguish types from instances of the type.
+        otype: `str | None = None` An object type to define the structure of a composite schema.
+        minimal_set: `bool = True` Whether the schema contains a minimal set of linked features.
+        ordered_set: `bool = False` Whether features are required to be ordered.
+        maximal_set: `bool = False` If `True`, no additional features are allowed.
+        composite: `Schema | None = None` A reference to a composite schema this schema is part of.
+        slot: `str | None = None` The slot name when this schema is used as a component in a
+            composite schema.
+        coerce_dtype: `bool = False` When True, attempts to coerce values to the specified dtype
+            during validation.
 
     Note:
 
@@ -2188,7 +2203,7 @@ class Schema(Record, CanCurate, TracksRun):
     If `True`, features are linked and considered as a minimally required set in validation.
     """
     ordered_set: bool = BooleanField(default=False, db_index=True)
-    """Whether the linked features are ordered (default `False`)."""
+    """Whether features are required to be ordered (default `False`)."""
     maximal_set: bool = BooleanField(default=False, db_index=True)
     """If `False`, additional features are allowed (default `False`).
 
@@ -2248,7 +2263,7 @@ class Schema(Record, CanCurate, TracksRun):
         description: str | None = None,
         dtype: str | None = None,
         itype: str | None = None,
-        type: ULabel | None = None,
+        type: Schema | None = None,
         is_type: bool = False,
         otype: str | None = None,
         minimal_set: bool = True,
@@ -2256,7 +2271,6 @@ class Schema(Record, CanCurate, TracksRun):
         maximal_set: bool = False,
         composite: Schema | None = None,
         slot: str | None = None,
-        validated_by: Schema | None = None,
         coerce_dtype: bool = False,
     ): ...
 

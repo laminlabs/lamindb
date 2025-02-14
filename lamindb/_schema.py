@@ -81,7 +81,6 @@ def __init__(self, *args, **kwargs):
     maximal_set: bool = kwargs.pop("maximal_set", False)
     composite: Schema | None = kwargs.pop("composite", None)
     slot: str | None = kwargs.pop("slot", None)
-    validated_by: Schema | None = kwargs.pop("validated_by", None)
     coerce_dtype: bool | None = kwargs.pop("coerce_dtype", None)
 
     if kwargs:
@@ -124,7 +123,6 @@ def __init__(self, *args, **kwargs):
         "ordered_set": ordered_set,
         "maximal_set": maximal_set,
         "composite": composite,
-        "validated_by": validated_by,
     }
     if coerce_dtype:
         validated_kwargs["_aux"] = {"af": {"0": coerce_dtype}}
