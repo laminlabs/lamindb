@@ -29,6 +29,7 @@ from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import UPath
 
 from lamindb.core.storage._backed_access import backed_access
+from lamindb.core.versioning import create_uid
 
 from ._cellxgene_schemas import _read_schema_versions
 
@@ -1793,6 +1794,7 @@ class SpatialDataCatCurator(CatCurator):
         else:
             self._sdata = self._dataset
         self._sample_metadata_key = sample_metadata_key
+        self._write_path = None
         self._var_fields = var_index
         self._verify_accessor_exists(self._var_fields.keys())
         self._categoricals = categoricals
@@ -2075,16 +2077,16 @@ class SpatialDataCatCurator(CatCurator):
             settings.verbosity = "warning"
 
             if self._artifact is None:
-                # Write the SpatialData object to a random path in tmp directory
-                # The Artifact constructor will move it to the cache
-                write_path = (
-                    f"{settings.cache_dir}/{random.randint(10**7, 10**8 - 1)}.zarr"
-                )
-                self._sdata.write(write_path)
+                provisional_uid, revises = create_uid(revises=revises, version=None)
+                cache_name = f"{provisional_uid}.zarr"
+                if not self._write_path:
+                    self._write_path = settings.cache_dir / cache_name
+                if self._write_path:
+                    self._sdata.write(self._write_path, overwrite=True)
 
                 # Create the Artifact and associate Artifact metadata
                 self._artifact = Artifact(
-                    write_path,
+                    self._write_path,
                     description=description,
                     key=key,
                     revises=revises,
