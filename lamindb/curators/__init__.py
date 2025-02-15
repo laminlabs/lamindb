@@ -3335,7 +3335,8 @@ def save_artifact(
                 revises=revises,
                 run=run,
             )
-        artifact.save()
+    artifact.schema = schema
+    artifact.save()
 
     if organism is not None:
         feature_kwargs = check_registry_organism(
@@ -3351,22 +3352,10 @@ def save_artifact(
 
     if artifact.otype == "DataFrame":
         artifact.features._add_set_from_df(field=columns_field, **feature_kwargs)  # type: ignore
-        # lamindb v2
-        # inferred_schema = artifact._staged_feature_sets["columns"]
-        # inferred_schema.validated_by = schema
-        # inferred_schema.save()
-        artifact.schema = schema
     elif artifact.otype == "AnnData":
         artifact.features._add_set_from_anndata(  # type: ignore
             var_field=columns_field, **feature_kwargs
         )
-        # lamindb v2
-        # inferred_schema = Schema(
-        #     components=artifact._staged_feature_sets,
-        #     otype="AnnData",
-        #     validated_by=schema,
-        # ).save()
-        artifact.schema = schema
     elif artifact.otype == "MuData":
         artifact.features._add_set_from_mudata(  # type: ignore
             var_fields=columns_field, **feature_kwargs
