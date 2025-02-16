@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import anndata as ad
 import lamindb_setup as ln_setup
 import pandas as pd
-import pandera as pda
+import pandera
 import pyarrow as pa
 from lamin_utils import colors, logger
 from lamindb_setup.core import deprecated, upath
@@ -253,17 +253,17 @@ class DataFrameCurator(Curator):
         super().__init__(dataset=dataset, schema=schema)
         if schema.n > 0:
             # populate features
-            pda_columns = {}
+            pandera_columns = {}
             categoricals = {}
             for feature in schema.features.all():
-                pda_dtype = (
+                pandera_dtype = (
                     feature.dtype if not feature.dtype.startswith("cat") else "category"
                 )
-                pda_columns[feature.name] = pda.Column(pda_dtype)
+                pandera_columns[feature.name] = pandera.Column(pandera_dtype)
                 if feature.dtype.startswith("cat"):
                     categoricals[feature.name] = parse_dtype(feature.dtype)[0]["field"]
-            self._pda_schema = pda.DataFrameSchema(
-                pda_columns, coerce=schema.coerce_dtype
+            self._pandera_schema = pandera.DataFrameSchema(
+                pandera_columns, coerce=schema.coerce_dtype
             )
             # now deal with detailed validation of categoricals
             self._cat_curator = DataFrameCatCurator(
@@ -279,7 +279,7 @@ class DataFrameCurator(Curator):
         if self._schema.n > 0:
             self._cat_curator.validate()
             try:
-                self._pda_schema.validate(self._dataset)
+                self._pandera_schema.validate(self._dataset)
                 if self._cat_curator._is_validated:
                     self._is_validated = True
                 else:
@@ -287,7 +287,7 @@ class DataFrameCurator(Curator):
                     raise ValidationError(
                         self._cat_curator._validate_category_error_messages
                     )
-            except pda.errors.SchemaError as err:
+            except pandera.errors.SchemaError as err:
                 self._is_validated = False
                 # .exconly() doesn't exist on SchemaError
                 raise ValidationError(str(err)) from err
