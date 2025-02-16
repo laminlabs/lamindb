@@ -133,7 +133,7 @@ def get_dtype_str_from_dtype(dtype: Any) -> str:
             raise ValueError(error_message)
         registries_str = ""
         for registry in dtype:
-            if not issubclass(dtype, Record):
+            if not issubclass(registry, Record):
                 raise ValueError(error_message)
             registries_str += registry.__get_name_with_module__() + "|"
         dtype_str = f"cat[{registries_str.rstrip('|')}]"

@@ -298,6 +298,16 @@ class DataFrameCurator(Curator):
                     )
             else:
                 if feature.default_value is not None:
+                    if isinstance(
+                        self._dataset[feature.name].dtype, pd.CategoricalDtype
+                    ):
+                        if (
+                            feature.default_value
+                            not in self._dataset[feature.name].cat.categories
+                        ):
+                            self._dataset[feature.name] = self._dataset[
+                                feature.name
+                            ].cat.add_categories(feature.default_value)
                     self._dataset[feature.name] = self._dataset[feature.name].fillna(
                         feature.default_value
                     )
