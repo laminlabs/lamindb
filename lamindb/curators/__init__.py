@@ -240,8 +240,9 @@ class DataFrameCurator(Curator):
 
         # curate a DataFrame
         df = datasets.small_dataset1(otype="DataFrame")
-        curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)        artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
-        assert artifact.schema == anndata_schema
+        curator = ln.curators.DataFrameCurator(df, schema)
+        artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
+        assert artifact.schema == schema
     """
 
     def __init__(
@@ -252,19 +253,19 @@ class DataFrameCurator(Curator):
         super().__init__(dataset=dataset, schema=schema)
         if schema.n > 0:
             # populate features
-            non_categoricals = {}
+            pda_columns = {}
             categoricals = {}
             for feature in schema.features.all():
                 pda_dtype = (
                     feature.dtype if not feature.dtype.startswith("cat") else "category"
                 )
-                non_categoricals[feature.name] = pda.Column(pda_dtype)
+                pda_columns[feature.name] = pda.Column(pda_dtype)
                 if feature.dtype.startswith("cat"):
                     categoricals[feature.name] = parse_dtype(feature.dtype)[0]["field"]
             self._pda_schema = pda.DataFrameSchema(
-                non_categoricals, coerce=schema.coerce_dtype
+                pda_columns, coerce=schema.coerce_dtype
             )
-            # now deal with categorical features using the old-style curator
+            # now deal with detailed validation of categoricals
             self._cat_curator = DataFrameCatCurator(
                 self._dataset,
                 categoricals=categoricals,
