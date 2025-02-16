@@ -127,13 +127,13 @@ def get_dtype_str_from_dtype(dtype: Any) -> str:
         dtype_str = dtype.__name__
     else:
         error_message = "dtype has to be of type Record or list[Record]"
-        if issubclass(dtype, Record):
+        if isinstance(dtype, type) and issubclass(dtype, Record):
             dtype = [dtype]
         elif not isinstance(dtype, list):
             raise ValueError(error_message)
         registries_str = ""
         for registry in dtype:
-            if not hasattr(registry, "__get_name_with_module__"):
+            if not issubclass(dtype, Record):
                 raise ValueError(error_message)
             registries_str += registry.__get_name_with_module__() + "|"
         dtype_str = f"cat[{registries_str.rstrip('|')}]"

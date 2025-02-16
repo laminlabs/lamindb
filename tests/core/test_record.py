@@ -41,7 +41,7 @@ def test_validate_literal_fields():
 
 def test_init_with_args():
     with pytest.raises(
-        SystemExit,
+        FieldValidationError,
         match=re.escape(
             "Use keyword arguments instead of positional arguments, e.g.: User(name='...')"
         )
@@ -232,6 +232,14 @@ def test_get_record_kwargs():
         ("unit", "str | None"),
         ("description", "str | None"),
         ("synonyms", "str | None"),
+        (
+            "default_value",
+            "str | None",
+        ),
+        (
+            "cat_filters",
+            "dict[str",
+        ),
     ]
 
 
