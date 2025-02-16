@@ -2162,12 +2162,14 @@ class Schema(Record, CanCurate, TracksRun):
     """A description."""
     n = IntegerField()
     """Number of features in the set."""
-    dtype: str | None = CharField(max_length=64, null=True)
+    dtype: str | None = CharField(max_length=64, null=True, editable=False)
     """Data type, e.g., "num", "float", "int". Is `None` for :class:`~lamindb.Feature`.
 
     For :class:`~lamindb.Feature`, types are expected to be heterogeneous and defined on a per-feature level.
     """
-    itype: str | None = CharField(max_length=120, db_index=True, null=True)
+    itype: str | None = CharField(
+        max_length=120, db_index=True, null=True, editable=False
+    )
     """A registry that stores feature identifiers used in this schema, e.g., `'Feature'` or `'bionty.Gene'`.
 
     Depending on the registry, `.members` stores, e.g., `Feature` or `bionty.Gene` records.
@@ -2190,21 +2192,23 @@ class Schema(Record, CanCurate, TracksRun):
     """Distinguish types from instances of the type."""
     otype: str | None = CharField(max_length=64, db_index=True, null=True)
     """Default Python object type, e.g., DataFrame, AnnData."""
-    hash: str | None = CharField(max_length=HASH_LENGTH, db_index=True, null=True)
+    hash: str | None = CharField(
+        max_length=HASH_LENGTH, db_index=True, null=True, editable=False
+    )
     """A hash of the set of feature identifiers.
 
     For a composite schema, the hash of hashes.
     """
-    minimal_set: bool = BooleanField(default=True, db_index=True)
+    minimal_set: bool = BooleanField(default=True, db_index=True, editable=False)
     """Whether the schema contains a minimal set of linked features (default `True`).
 
     If `False`, no features are linked to this schema.
 
     If `True`, features are linked and considered as a minimally required set in validation.
     """
-    ordered_set: bool = BooleanField(default=False, db_index=True)
+    ordered_set: bool = BooleanField(default=False, db_index=True, editable=False)
     """Whether features are required to be ordered (default `False`)."""
-    maximal_set: bool = BooleanField(default=False, db_index=True)
+    maximal_set: bool = BooleanField(default=False, db_index=True, editable=False)
     """If `False`, additional features are allowed (default `False`).
 
     If `True`, the the minimal set is a maximal set and no additional features are allowed.
@@ -2583,9 +2587,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     """
     description: str | None = CharField(db_index=True, null=True)
     """A description."""
-    storage: Storage = ForeignKey(Storage, PROTECT, related_name="artifacts")
+    storage: Storage = ForeignKey(
+        Storage, PROTECT, related_name="artifacts", editable=False
+    )
     """Storage location, e.g. an S3 or GCP bucket or a local directory."""
-    suffix: str = CharField(max_length=30, db_index=True)
+    suffix: str = CharField(max_length=30, db_index=True, editable=False)
     # Initially, we thought about having this be nullable to indicate folders
     # But, for instance, .zarr is stored in a folder that ends with a .zarr suffix
     """Path suffix or empty string if no canonical suffix exists.
@@ -2598,21 +2604,27 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         null=True,
     )
     """:class:`~lamindb.base.types.ArtifactKind` (default `None`)."""
-    otype: str | None = CharField(max_length=64, db_index=True, null=True)
+    otype: str | None = CharField(
+        max_length=64, db_index=True, null=True, editable=False
+    )
     """Default Python object type, e.g., DataFrame, AnnData."""
-    size: int | None = BigIntegerField(null=True, db_index=True, default=None)
+    size: int | None = BigIntegerField(
+        null=True, db_index=True, default=None, editable=False
+    )
     """Size in bytes.
 
     Examples: 1KB is 1e3 bytes, 1MB is 1e6, 1GB is 1e9, 1TB is 1e12 etc.
     """
     hash: str | None = CharField(
-        max_length=HASH_LENGTH, db_index=True, null=True, unique=True
+        max_length=HASH_LENGTH, db_index=True, null=True, unique=True, editable=False
     )
     """Hash or pseudo-hash of artifact content.
 
     Useful to ascertain integrity and avoid duplication.
     """
-    n_files: int | None = BigIntegerField(null=True, db_index=True, default=None)
+    n_files: int | None = BigIntegerField(
+        null=True, db_index=True, default=None, editable=False
+    )
     """Number of files for folder-like artifacts, `None` for file-like artifacts.
 
     Note that some arrays are also stored as folders, e.g., `.zarr` or `.tiledbsoma`.
@@ -2620,19 +2632,28 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     .. versionchanged:: 1.0
         Renamed from `n_objects` to `n_files`.
     """
-    n_observations: int | None = BigIntegerField(null=True, db_index=True, default=None)
+    n_observations: int | None = BigIntegerField(
+        null=True, db_index=True, default=None, editable=False
+    )
     """Number of observations.
 
     Typically, this denotes the first array dimension.
     """
-    _hash_type: str | None = CharField(max_length=30, db_index=True, null=True)
+    _hash_type: str | None = CharField(
+        max_length=30, db_index=True, null=True, editable=False
+    )
     """Type of hash."""
     ulabels: ULabel = models.ManyToManyField(
         ULabel, through="ArtifactULabel", related_name="artifacts"
     )
     """The ulabels measured in the artifact (:class:`~lamindb.ULabel`)."""
     run: Run | None = ForeignKey(
-        Run, PROTECT, related_name="output_artifacts", null=True, default=None
+        Run,
+        PROTECT,
+        related_name="output_artifacts",
+        null=True,
+        default=None,
+        editable=False,
     )
     """Run that created the artifact."""
     input_of_runs: Run = models.ManyToManyField(Run, related_name="input_artifacts")
@@ -2646,7 +2667,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     collections: Collection
     """The collections that this artifact is part of."""
     schema: Schema | None = ForeignKey(
-        Schema, PROTECT, null=True, default=None, related_name="validated_artifacts"
+        Schema,
+        PROTECT,
+        null=True,
+        default=None,
+        related_name="validated_artifacts",
     )
     """The schema that validated this artifact in a :class:`~lamindb.curators.Curator`."""
     feature_sets: Schema = models.ManyToManyField(
@@ -2673,6 +2698,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         PROTECT,
         default=current_user_id,
         related_name="created_artifacts",
+        editable=False,
     )
     """Creator of record."""
     _overwrite_versions: bool = BooleanField(default=None)

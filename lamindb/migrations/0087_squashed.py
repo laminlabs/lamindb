@@ -390,7 +390,11 @@ class Migration(migrations.Migration):
                 (
                     "suffix",
                     lamindb.base.fields.CharField(
-                        blank=True, db_index=True, default=None, max_length=30
+                        blank=True,
+                        db_index=True,
+                        default=None,
+                        editable=False,
+                        max_length=30,
                     ),
                 ),
                 (
@@ -409,6 +413,7 @@ class Migration(migrations.Migration):
                         blank=True,
                         db_index=True,
                         default=None,
+                        editable=False,
                         max_length=64,
                         null=True,
                     ),
@@ -416,7 +421,11 @@ class Migration(migrations.Migration):
                 (
                     "size",
                     lamindb.base.fields.BigIntegerField(
-                        blank=True, db_index=True, default=None, null=True
+                        blank=True,
+                        db_index=True,
+                        default=None,
+                        editable=False,
+                        null=True,
                     ),
                 ),
                 (
@@ -425,6 +434,7 @@ class Migration(migrations.Migration):
                         blank=True,
                         db_index=True,
                         default=None,
+                        editable=False,
                         max_length=22,
                         null=True,
                         unique=True,
@@ -433,13 +443,21 @@ class Migration(migrations.Migration):
                 (
                     "n_files",
                     lamindb.base.fields.BigIntegerField(
-                        blank=True, db_index=True, default=None, null=True
+                        blank=True,
+                        db_index=True,
+                        default=None,
+                        editable=False,
+                        null=True,
                     ),
                 ),
                 (
                     "n_observations",
                     lamindb.base.fields.BigIntegerField(
-                        blank=True, db_index=True, default=None, null=True
+                        blank=True,
+                        db_index=True,
+                        default=None,
+                        editable=False,
+                        null=True,
                     ),
                 ),
                 (
@@ -448,6 +466,7 @@ class Migration(migrations.Migration):
                         blank=True,
                         db_index=True,
                         default=None,
+                        editable=False,
                         max_length=30,
                         null=True,
                     ),
@@ -1979,6 +1998,7 @@ class Migration(migrations.Migration):
             field=lamindb.base.fields.ForeignKey(
                 blank=True,
                 default=None,
+                editable=False,
                 null=True,
                 on_delete=django.db.models.deletion.PROTECT,
                 related_name="output_artifacts",
@@ -2099,7 +2119,11 @@ class Migration(migrations.Migration):
                 (
                     "dtype",
                     lamindb.base.fields.CharField(
-                        blank=True, default=None, max_length=64, null=True
+                        blank=True,
+                        default=None,
+                        editable=False,
+                        max_length=64,
+                        null=True,
                     ),
                 ),
                 (
@@ -2108,6 +2132,7 @@ class Migration(migrations.Migration):
                         blank=True,
                         db_index=True,
                         default=None,
+                        editable=False,
                         max_length=120,
                         null=True,
                     ),
@@ -2134,6 +2159,7 @@ class Migration(migrations.Migration):
                         blank=True,
                         db_index=True,
                         default=None,
+                        editable=False,
                         max_length=22,
                         null=True,
                     ),
@@ -2141,19 +2167,19 @@ class Migration(migrations.Migration):
                 (
                     "minimal_set",
                     lamindb.base.fields.BooleanField(
-                        blank=True, db_index=True, default=True
+                        blank=True, db_index=True, default=True, editable=False
                     ),
                 ),
                 (
                     "ordered_set",
                     lamindb.base.fields.BooleanField(
-                        blank=True, db_index=True, default=False
+                        blank=True, db_index=True, default=False, editable=False
                     ),
                 ),
                 (
                     "maximal_set",
                     lamindb.base.fields.BooleanField(
-                        blank=True, db_index=True, default=False
+                        blank=True, db_index=True, default=False, editable=False
                     ),
                 ),
                 (
@@ -2703,6 +2729,7 @@ class Migration(migrations.Migration):
             name="storage",
             field=lamindb.base.fields.ForeignKey(
                 blank=True,
+                editable=False,
                 on_delete=django.db.models.deletion.PROTECT,
                 related_name="artifacts",
                 to="lamindb.storage",
@@ -3882,6 +3909,7 @@ class Migration(migrations.Migration):
             field=lamindb.base.fields.ForeignKey(
                 blank=True,
                 default=lamindb.base.users.current_user_id,
+                editable=False,
                 on_delete=django.db.models.deletion.PROTECT,
                 related_name="created_artifacts",
                 to="lamindb.user",
