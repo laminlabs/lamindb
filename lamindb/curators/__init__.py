@@ -143,6 +143,9 @@ class CurateLookup:
             return colors.warning("No fields are found!")
 
 
+CAT_MANAGER_DOCSTRING = """Manage categoricals by updating registries."""
+
+
 VALIDATE_DOCSTRING = """Validate dataset.
 
 Raises:
@@ -173,7 +176,7 @@ class Curator:
     """
 
     def __init__(self, dataset: Any, schema: Schema | None = None):
-        self._artifact: Artifact = None  # pass the dataset as a non-curated artifact
+        self._artifact: Artifact = None  # pass the dataset as an artifact
         self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
         if isinstance(self._dataset, Artifact):
             self._artifact = self._dataset
@@ -181,7 +184,7 @@ class Curator:
                 self._dataset = self._dataset.load()
         self._schema: Schema | None = schema
         self._is_validated: bool = False
-        self._cat_curator: CatManager = None  # is None for CatManager curators
+        self._cat_manager: CatManager = None  # is None for CatManager curators
 
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> bool | str:
@@ -266,26 +269,32 @@ class DataFrameCurator(Curator):
                 pandera_columns, coerce=schema.coerce_dtype
             )
             # now deal with detailed validation of categoricals
-            self._cat_curator = DataFrameCatManager(
+            self._cat_manager = DataFrameCatManager(
                 self._dataset,
                 categoricals=categoricals,
             )
         else:
             assert schema.itype is not None  # noqa: S101
 
+    @property
+    @doc_args(CAT_MANAGER_DOCSTRING)
+    def cat(self) -> CatManager:
+        """{}"""  # noqa: D415
+        return self._cat_manager
+
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
         if self._schema.n > 0:
-            self._cat_curator.validate()
+            self._cat_manager.validate()
             try:
                 self._pandera_schema.validate(self._dataset)
-                if self._cat_curator._is_validated:
+                if self._cat_manager._is_validated:
                     self._is_validated = True
                 else:
                     self._is_validated = False
                     raise ValidationError(
-                        self._cat_curator._validate_category_error_messages
+                        self._cat_manager._validate_category_error_messages
                     )
             except pandera.errors.SchemaError as err:
                 self._is_validated = False
@@ -330,7 +339,7 @@ class DataFrameCurator(Curator):
         return save_artifact(  # type: ignore
             self._dataset,
             description=description,
-            fields=self._cat_curator.categoricals,
+            fields=self._cat_manager.categoricals,
             columns_field=result["field"],
             key=key,
             artifact=self._artifact,
@@ -430,7 +439,7 @@ class AnnDataCurator(Curator):
         return save_artifact(  # type: ignore
             self._dataset,
             description=description,
-            fields=self._obs_curator._cat_curator.categoricals,
+            fields=self._obs_curator._cat_manager.categoricals,
             columns_field=result["field"],
             key=key,
             artifact=self._artifact,
@@ -440,24 +449,24 @@ class AnnDataCurator(Curator):
         )
 
 
-class CatManager(Curator):
-    """Categorical dataset curator.
+class CatManager:
+    """Manage valid categoricals by updating registries.
 
     A `CatManager` object makes it easy to validate, standardize & annotate datasets.
 
     Example:
 
-    >>> curator = ln.Curator(
+    >>> cat_manager = ln.CatManager(
     >>>     dataset,
     >>>     # define validation criteria as mappings
     >>>     columns=Feature.name,  # map column names
     >>>     categoricals={"perturbation": ULabel.name},  # map categories
     >>> )
-    >>> curator.validate()  # validate the dataframe
-    >>> artifact = curator.save_artifact(description="my RNA-seq")
+    >>> cat_manager.validate()  # validate the dataframe
+    >>> artifact = cat_manager.save_artifact(description="my RNA-seq")
     >>> artifact.describe()  # see annotations
 
-    `curator.validate()` maps values within `df` according to the mapping criteria and logs validated & problematic values.
+    `cat_manager.validate()` maps values within `df` according to the mapping criteria and logs validated & problematic values.
 
     If you find non-validated values, you have several options:
 
@@ -468,7 +477,15 @@ class CatManager(Curator):
     def __init__(
         self, *, dataset, categoricals, sources, organism, exclude, columns_field=None
     ):
-        super().__init__(dataset=dataset)
+        # the below is shared with Curator
+        self._artifact: Artifact = None  # pass the dataset as an artifact
+        self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
+        if isinstance(self._dataset, Artifact):
+            self._artifact = self._dataset
+            if self._artifact.otype in {"DataFrame", "AnnData"}:
+                self._dataset = self._dataset.load()
+        self._is_validated: bool = False
+        # shared until here
         self._categoricals = categoricals or {}
         self._non_validated = None
         self._organism = organism
