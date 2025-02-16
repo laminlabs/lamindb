@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import anndata as ad
 import lamindb_setup as ln_setup
 import pandas as pd
-import pandera as pda
+import pandera
 import pyarrow as pa
 from lamin_utils import colors, logger
 from lamindb_setup.core import deprecated, upath
@@ -240,8 +240,9 @@ class DataFrameCurator(Curator):
 
         # curate a DataFrame
         df = datasets.small_dataset1(otype="DataFrame")
-        curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)        artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
-        assert artifact.schema == anndata_schema
+        curator = ln.curators.DataFrameCurator(df, schema)
+        artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
+        assert artifact.schema == schema
     """
 
     def __init__(
@@ -252,19 +253,19 @@ class DataFrameCurator(Curator):
         super().__init__(dataset=dataset, schema=schema)
         if schema.n > 0:
             # populate features
-            non_categoricals = {}
+            pandera_columns = {}
             categoricals = {}
             for feature in schema.features.all():
-                pda_dtype = (
+                pandera_dtype = (
                     feature.dtype if not feature.dtype.startswith("cat") else "category"
                 )
-                non_categoricals[feature.name] = pda.Column(pda_dtype)
+                pandera_columns[feature.name] = pandera.Column(pandera_dtype)
                 if feature.dtype.startswith("cat"):
                     categoricals[feature.name] = parse_dtype(feature.dtype)[0]["field"]
-            self._pda_schema = pda.DataFrameSchema(
-                non_categoricals, coerce=schema.coerce_dtype
+            self._pandera_schema = pandera.DataFrameSchema(
+                pandera_columns, coerce=schema.coerce_dtype
             )
-            # now deal with categorical features using the old-style curator
+            # now deal with detailed validation of categoricals
             self._cat_curator = DataFrameCatCurator(
                 self._dataset,
                 categoricals=categoricals,
@@ -278,7 +279,7 @@ class DataFrameCurator(Curator):
         if self._schema.n > 0:
             self._cat_curator.validate()
             try:
-                self._pda_schema.validate(self._dataset)
+                self._pandera_schema.validate(self._dataset)
                 if self._cat_curator._is_validated:
                     self._is_validated = True
                 else:
@@ -286,7 +287,7 @@ class DataFrameCurator(Curator):
                     raise ValidationError(
                         self._cat_curator._validate_category_error_messages
                     )
-            except pda.errors.SchemaError as err:
+            except pandera.errors.SchemaError as err:
                 self._is_validated = False
                 # .exconly() doesn't exist on SchemaError
                 raise ValidationError(str(err)) from err
