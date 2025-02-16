@@ -1,12 +1,12 @@
 import bionty as bt
 import pandas as pd
-from lamindb.core import DataFrameCatCurator, logger
+from lamindb.core import DataFrameCatManager, logger
 from lamindb.core.types import UPathStr
 
 __version__ = "0.1.0"
 
 
-class EHRCurator(DataFrameCatCurator):
+class EHRCurator(DataFrameCatManager):
     """Custom curation flow for electronic health record data."""
 
     def __init__(self, data: pd.DataFrame | UPathStr):
@@ -66,4 +66,4 @@ class EHRCurator(DataFrameCatCurator):
             )
             return False
 
-        return DataFrameCatCurator.validate(self)
+        return DataFrameCatManager.validate(self)

@@ -181,7 +181,7 @@ class Curator:
                 self._dataset = self._dataset.load()
         self._schema: Schema | None = schema
         self._is_validated: bool = False
-        self._cat_curator: CatCurator = None  # is None for CatCurator curators
+        self._cat_curator: CatManager = None  # is None for CatManager curators
 
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> bool | str:
@@ -266,7 +266,7 @@ class DataFrameCurator(Curator):
                 pandera_columns, coerce=schema.coerce_dtype
             )
             # now deal with detailed validation of categoricals
-            self._cat_curator = DataFrameCatCurator(
+            self._cat_curator = DataFrameCatManager(
                 self._dataset,
                 categoricals=categoricals,
             )
@@ -440,10 +440,10 @@ class AnnDataCurator(Curator):
         )
 
 
-class CatCurator(Curator):
+class CatManager(Curator):
     """Categorical dataset curator.
 
-    A `CatCurator` object makes it easy to validate, standardize & annotate datasets.
+    A `CatManager` object makes it easy to validate, standardize & annotate datasets.
 
     Example:
 
@@ -461,8 +461,8 @@ class CatCurator(Curator):
 
     If you find non-validated values, you have several options:
 
-    - new values found in the data can be registered using :meth:`~lamindb.core.DataFrameCatCurator.add_new_from`
-    - non-validated values can be accessed using :meth:`~lamindb.core.DataFrameCatCurator.non_validated` and addressed manually
+    - new values found in the data can be registered using :meth:`~lamindb.core.DataFrameCatManager.add_new_from`
+    - non-validated values can be accessed using :meth:`~lamindb.core.DataFrameCatManager.non_validated` and addressed manually
     """
 
     def __init__(
@@ -574,7 +574,7 @@ class CatCurator(Curator):
         return self._artifact
 
 
-class DataFrameCatCurator(CatCurator):
+class DataFrameCatManager(CatManager):
     """Curation flow for a DataFrame object.
 
     See also :class:`~lamindb.Curator`.
@@ -794,7 +794,7 @@ class DataFrameCatCurator(CatCurator):
             ).delete()
 
 
-class AnnDataCatCurator(CatCurator):
+class AnnDataCatManager(CatManager):
     """Manage categorical curation.
 
     Args:
@@ -857,7 +857,7 @@ class AnnDataCatCurator(CatCurator):
             columns_field=var_index,
         )
         self._adata = self._dataset
-        self._obs_df_curator = DataFrameCatCurator(
+        self._obs_df_curator = DataFrameCatManager(
             df=self._adata.obs,
             categoricals=self.categoricals,
             columns=obs_columns,
@@ -984,7 +984,7 @@ class AnnDataCatCurator(CatCurator):
                 )
 
 
-class MuDataCatCurator(CatCurator):
+class MuDataCatManager(CatManager):
     """Curation flow for a ``MuData`` object.
 
     See also :class:`~lamindb.Curator`.
@@ -1039,7 +1039,7 @@ class MuDataCatCurator(CatCurator):
             organism=organism,
             exclude=exclude,
         )
-        self._columns_field = var_index  # this is for consistency with BaseCatCurator
+        self._columns_field = var_index  # this is for consistency with BaseCatManager
         self._var_fields = var_index
         self._verify_modality(self._var_fields.keys())
         self._obs_fields = self._parse_categoricals(categoricals)
@@ -1047,7 +1047,7 @@ class MuDataCatCurator(CatCurator):
         self._verbosity = verbosity
         self._obs_df_curator = None
         if "obs" in self._modalities:
-            self._obs_df_curator = DataFrameCatCurator(
+            self._obs_df_curator = DataFrameCatManager(
                 df=self._dataset.obs,
                 columns=Feature.name,
                 categoricals=self._obs_fields.get("obs", {}),
@@ -1057,7 +1057,7 @@ class MuDataCatCurator(CatCurator):
                 organism=organism,
             )
         self._mod_adata_curators = {
-            modality: AnnDataCatCurator(
+            modality: AnnDataCatManager(
                 data=self._dataset[modality],
                 var_index=var_index.get(modality),
                 categoricals=self._obs_fields.get(modality),
@@ -1242,7 +1242,7 @@ def _maybe_curation_keys_not_present(nonval_keys: list[str], name: str):
         )
 
 
-class TiledbsomaCatCurator(CatCurator):
+class TiledbsomaCatManager(CatManager):
     """Curation flow for `tiledbsoma.Experiment`.
 
     See also :class:`~lamindb.Curator`.
@@ -1729,7 +1729,7 @@ class TiledbsomaCatCurator(CatCurator):
         return artifact.save()
 
 
-class SpatialDataCatCurator(CatCurator):
+class SpatialDataCatManager(CatManager):
     """Curation flow for a ``Spatialdata`` object.
 
     See also :class:`~lamindb.Curator`.
@@ -1754,7 +1754,7 @@ class SpatialDataCatCurator(CatCurator):
 
     Examples:
         >>> import bionty as bt
-        >>> curator = SpatialDataCatCurator(
+        >>> curator = SpatialDataCatManager(
         ...     sdata,
         ...     var_index={
         ...         "table_1": bt.Gene.ensembl_gene_id,
@@ -1848,7 +1848,7 @@ class SpatialDataCatCurator(CatCurator):
             self._sample_metadata_key is not None
             and self._sample_metadata_key in self._categoricals
         ):
-            self._sample_df_curator = DataFrameCatCurator(
+            self._sample_df_curator = DataFrameCatManager(
                 df=self._sample_metadata,
                 columns=Feature.name,
                 categoricals=self._categoricals.get(self._sample_metadata_key, {}),
@@ -1858,7 +1858,7 @@ class SpatialDataCatCurator(CatCurator):
                 organism=organism,
             )
         self._table_adata_curators = {
-            table: AnnDataCatCurator(
+            table: AnnDataCatManager(
                 data=self._sdata[table],
                 var_index=var_index.get(table),
                 categoricals=self._categoricals.get(table),
@@ -1966,7 +1966,7 @@ class SpatialDataCatCurator(CatCurator):
 
         if accessor not in self.categoricals:
             raise ValueError(
-                f"Accessor {accessor} is not in 'categoricals'. Include it when creating the SpatialDataCatCurator."
+                f"Accessor {accessor} is not in 'categoricals'. Include it when creating the SpatialDataCatManager."
             )
 
         if accessor in self._table_adata_curators:
@@ -2275,7 +2275,7 @@ def _add_defaults_to_obs(
             )
 
 
-class CellxGeneAnnDataCatCurator(AnnDataCatCurator):
+class CellxGeneAnnDataCatManager(AnnDataCatManager):
     """Annotation flow of AnnData based on CELLxGENE schema."""
 
     _controls_were_created: bool | None = None
@@ -2309,12 +2309,12 @@ class CellxGeneAnnDataCatCurator(AnnDataCatCurator):
         """
         import bionty as bt
 
-        CellxGeneAnnDataCatCurator._init_categoricals_additional_values()
+        CellxGeneAnnDataCatManager._init_categoricals_additional_values()
 
         var_index: FieldAttr = bt.Gene.ensembl_gene_id
 
         if categoricals is None:
-            categoricals = CellxGeneAnnDataCatCurator._get_categoricals()
+            categoricals = CellxGeneAnnDataCatManager._get_categoricals()
 
         self.organism = organism
 
@@ -2359,7 +2359,7 @@ class CellxGeneAnnDataCatCurator(AnnDataCatCurator):
         # Exclude default values from validation because they are not available in the pinned sources
         exclude_keys = {
             entity: default
-            for entity, default in CellxGeneAnnDataCatCurator._get_categoricals_defaults().items()
+            for entity, default in CellxGeneAnnDataCatManager._get_categoricals_defaults().items()
             if entity in self._adata_obs.columns  # type: ignore
         }
 
@@ -2501,7 +2501,7 @@ class CellxGeneAnnDataCatCurator(AnnDataCatCurator):
         return self._adata
 
     def _create_sources(self, obs: pd.DataFrame) -> dict[str, Record]:
-        """Creates a sources dictionary that can be passed to AnnDataCatCurator."""
+        """Creates a sources dictionary that can be passed to AnnDataCatManager."""
         import bionty as bt
 
         # fmt: off
@@ -2565,7 +2565,7 @@ class CellxGeneAnnDataCatCurator(AnnDataCatCurator):
         # Verify that all required obs columns are present
         missing_obs_fields = [
             name
-            for name in CellxGeneAnnDataCatCurator._get_categoricals_defaults().keys()
+            for name in CellxGeneAnnDataCatManager._get_categoricals_defaults().keys()
             if name not in self._adata.obs.columns
             and f"{name}_ontology_term_id" not in self._adata.obs.columns
         ]
@@ -2573,7 +2573,7 @@ class CellxGeneAnnDataCatCurator(AnnDataCatCurator):
             missing_obs_fields_str = ", ".join(list(missing_obs_fields))
             logger.error(f"missing required obs columns {missing_obs_fields_str}")
             logger.info(
-                "consider initializing a Curate object like 'Curate(adata, defaults=cxg.CellxGeneAnnDataCatCurator._get_categoricals_defaults())'"
+                "consider initializing a Curate object like 'Curate(adata, defaults=cxg.CellxGeneAnnDataCatManager._get_categoricals_defaults())'"
                 "to automatically add these columns with default values."
             )
             return False
@@ -2806,7 +2806,7 @@ class TimeHandler:
         return errors
 
 
-class PertAnnDataCatCurator(CellxGeneAnnDataCatCurator):
+class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
     """Curator flow for Perturbation data."""
 
     PERT_COLUMNS = {"compound", "genetic", "biologic", "physical"}
@@ -2849,14 +2849,14 @@ class PertAnnDataCatCurator(CellxGeneAnnDataCatCurator):
         import wetlab as wl
 
         self.PT_DEFAULT_VALUES = (
-            CellxGeneAnnDataCatCurator._get_categoricals_defaults()
+            CellxGeneAnnDataCatManager._get_categoricals_defaults()
             | {
                 "cell_line": "unknown",
                 "pert_target": "unknown",
             }
         )
 
-        self.PT_CATEGORICALS = CellxGeneAnnDataCatCurator._get_categoricals() | {
+        self.PT_CATEGORICALS = CellxGeneAnnDataCatManager._get_categoricals() | {
             k: v
             for k, v in {
                 "cell_line": bt.CellLine.name,
@@ -3140,7 +3140,7 @@ def validate_categories(
     source: Record | None = None,
     exclude: str | list | None = None,
     hint_print: str | None = None,
-    curator: CatCurator | None = None,
+    curator: CatManager | None = None,
 ) -> tuple[bool, list]:
     """Validate ontology terms in a pandas series using LaminDB registries.
 
@@ -3260,7 +3260,7 @@ def validate_categories_in_df(
     fields: dict[str, FieldAttr],
     sources: dict[str, Record] = None,
     exclude: dict | None = None,
-    curator: CatCurator | None = None,
+    curator: CatManager | None = None,
     **kwargs,
 ) -> tuple[bool, dict]:
     """Validate categories in DataFrame columns using LaminDB registries."""
@@ -3630,8 +3630,8 @@ def from_df(
     columns: FieldAttr = Feature.name,
     verbosity: str = "hint",
     organism: str | None = None,
-) -> DataFrameCatCurator:
-    return DataFrameCatCurator(
+) -> DataFrameCatManager:
+    return DataFrameCatManager(
         df=df,
         categoricals=categoricals,
         columns=columns,
@@ -3650,8 +3650,8 @@ def from_anndata(
     verbosity: str = "hint",
     organism: str | None = None,
     sources: dict[str, Record] | None = None,
-) -> AnnDataCatCurator:
-    return AnnDataCatCurator(
+) -> AnnDataCatManager:
+    return AnnDataCatManager(
         data=data,
         var_index=var_index,
         categoricals=categoricals,
@@ -3670,8 +3670,8 @@ def from_mudata(
     categoricals: dict[str, FieldAttr] | None = None,
     verbosity: str = "hint",
     organism: str | None = None,
-) -> MuDataCatCurator:
-    return MuDataCatCurator(
+) -> MuDataCatManager:
+    return MuDataCatManager(
         mdata=mdata,
         var_index=var_index,
         categoricals=categoricals,
@@ -3690,8 +3690,8 @@ def from_tiledbsoma(
     organism: str | None = None,
     sources: dict[str, Record] | None = None,
     exclude: dict[str, str | list[str]] | None = None,
-) -> TiledbsomaCatCurator:
-    return TiledbsomaCatCurator(
+) -> TiledbsomaCatManager:
+    return TiledbsomaCatManager(
         experiment_uri=experiment_uri,
         var_index=var_index,
         categoricals=categoricals,
@@ -3720,7 +3720,7 @@ def from_spatialdata(
     except ImportError as e:
         raise ImportError("Please install spatialdata: pip install spatialdata") from e
 
-    return SpatialDataCatCurator(
+    return SpatialDataCatManager(
         sdata=sdata,
         var_index=var_index,
         categoricals=categoricals,
@@ -3732,8 +3732,8 @@ def from_spatialdata(
     )
 
 
-CatCurator.from_df = from_df  # type: ignore
-CatCurator.from_anndata = from_anndata  # type: ignore
-CatCurator.from_mudata = from_mudata  # type: ignore
-CatCurator.from_spatialdata = from_spatialdata  # type: ignore
-CatCurator.from_tiledbsoma = from_tiledbsoma  # type: ignore
+CatManager.from_df = from_df  # type: ignore
+CatManager.from_anndata = from_anndata  # type: ignore
+CatManager.from_mudata = from_mudata  # type: ignore
+CatManager.from_spatialdata = from_spatialdata  # type: ignore
+CatManager.from_tiledbsoma = from_tiledbsoma  # type: ignore
