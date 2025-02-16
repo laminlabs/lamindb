@@ -100,18 +100,13 @@ def parse_dtype_single_cat(
 
 
 def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
-    result = []
-    # simple dtypes are in FEATURE_DTYPES, composed dtypes are in the form `cat...`
-    # if we don't have any of these, throw an error
     allowed_dtypes = FEATURE_DTYPES
     if is_param:
         allowed_dtypes.add("dict")
-    if dtype_str not in allowed_dtypes and not dtype_str.startswith("cat"):
-        raise ValueError(f"dtype is {dtype_str} but has to be one of {FEATURE_DTYPES}!")
-    # now deal with composed categorical dtypes
-    if dtype_str != "cat" and dtype_str.startswith("cat"):
+    is_composed_cat = dtype_str.startswith("cat[") and dtype_str.endswith("]")
+    result = []
+    if is_composed_cat:
         related_registries = dict_module_name_to_model_name(Artifact)
-        assert dtype_str.endswith("]")  # noqa: S101
         registries_str = dtype_str.replace("cat[", "")[:-1]  # strip last ]
         if registries_str != "":
             registry_str_list = registries_str.split("|")
@@ -120,6 +115,10 @@ def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
                     cat_single_dtype_str, related_registries
                 )
                 result.append(single_result)
+    elif dtype_str not in allowed_dtypes:
+        raise ValueError(
+            f"dtype is '{dtype_str}' but has to be one of {FEATURE_DTYPES}!"
+        )
     return result
 
 

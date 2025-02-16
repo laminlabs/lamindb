@@ -84,10 +84,19 @@ def test_empty_category():
     assert result == []
 
 
-def test_malformed_category_missing_bracket():
-    dtype_str = "cat[ULabel[Customer.name"
-    with pytest.raises(AssertionError):
+def test_malformed_categorical():
+    dtype_str = "cat ? str"
+    with pytest.raises(ValueError) as err:
         parse_dtype(dtype_str)
+    assert err.exconly().startswith(
+        f"ValueError: dtype is '{dtype_str}' but has to be one of"
+    )
+    dtype_str = "cat[ULabel[Customer.name"
+    with pytest.raises(ValueError) as err:
+        parse_dtype(dtype_str)
+    assert err.exconly().startswith(
+        f"ValueError: dtype is '{dtype_str}' but has to be one of"
+    )
 
 
 def test_simple_registry_without_field():
