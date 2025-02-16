@@ -127,7 +127,7 @@ def get_dtype_str_from_dtype(dtype: Any) -> str:
         dtype_str = dtype.__name__
     else:
         error_message = "dtype has to be of type Record or list[Record]"
-        if isinstance(dtype, Record):
+        if issubclass(dtype, Record):
             dtype = [dtype]
         elif not isinstance(dtype, list):
             raise ValueError(error_message)
@@ -163,10 +163,10 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
     if len(args) != 0:
         raise ValueError("Only keyword args allowed")
     name: str = kwargs.pop("name", None)
-    dtype: type | str | None = kwargs.pop("dtype") if "dtype" in kwargs else None
-    is_type: bool = kwargs.pop("is_type") if "is_type" in kwargs else False
-    type_: Feature | str | None = kwargs.pop("type") if "type" in kwargs else None
-    description = kwargs.pop("description") if "description" in kwargs else None
+    dtype: type | str | None = kwargs.pop("dtype", None)
+    is_type: bool = kwargs.pop("is_type", None)
+    type_: Feature | str | None = kwargs.pop("type", None)
+    description: str | None = kwargs.pop("description", None)
     if kwargs:
         valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Feature)])
         raise FieldValidationError(f"Only {valid_keywords} are valid keyword arguments")
@@ -196,9 +196,18 @@ def __init__(self, *args, **kwargs):
         super(Feature, self).__init__(*args, **kwargs)
         return None
     dtype = kwargs.get("dtype", None)
+    default_value = kwargs.pop("default_value", None)
+    cat_filters = kwargs.pop("cat_filters", None)
     kwargs = process_init_feature_param(args, kwargs)
     super(Feature, self).__init__(*args, **kwargs)
+    self.default_value = default_value
     dtype_str = kwargs.pop("dtype", None)
+    if cat_filters:
+        assert "|" not in dtype_str  # noqa: S101
+        assert "]]" not in dtype_str  # noqa: S101
+        fill_in = ", ".join(f"{key}='{value}'" for (key, value) in cat_filters.items())
+        dtype_str = dtype_str.replace("]", f"[{fill_in}]]")
+        self.dtype = dtype_str
     if not self._state.adding:
         if not (
             self.dtype.startswith("cat") if dtype == "cat" else self.dtype == dtype_str

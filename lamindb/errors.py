@@ -19,25 +19,25 @@
 # https://laminlabs.slack.com/archives/C04A0RMA0SC/p1726856875597489
 
 
-class ValidationError(SystemExit):
+class ValidationError(Exception):
     """Validation error."""
 
     pass
 
 
-class InvalidArgument(SystemExit):
+class InvalidArgument(Exception):
     """Invalid method or function argument."""
 
     pass
 
 
-class TrackNotCalled(SystemExit):
+class TrackNotCalled(Exception):
     """`ln.track()` wasn't called."""
 
     pass
 
 
-class NotebookNotSaved(SystemExit):
+class NotebookNotSaved(Exception):
     """Notebook wasn't saved."""
 
     pass
@@ -45,7 +45,7 @@ class NotebookNotSaved(SystemExit):
 
 # equivalent to Django's DoesNotExist
 # and SQLAlchemy's NoResultFound
-class DoesNotExist(SystemExit):
+class DoesNotExist(Exception):
     """No record found."""
 
     pass
@@ -57,13 +57,13 @@ class InconsistentKey(Exception):
     pass
 
 
-class RecordNameChangeIntegrityError(SystemExit):
+class RecordNameChangeIntegrityError(Exception):
     """Custom exception for name change errors."""
 
     pass
 
 
-class FieldValidationError(SystemExit):
+class FieldValidationError(Exception):
     """Field validation error."""
 
     pass

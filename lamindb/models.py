@@ -1883,6 +1883,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         abstract = False
 
     _name_field: str = "name"
+    _aux_fields: dict[str, tuple[str, type]] = {"0": ("default_value", bool)}
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -1976,6 +1977,8 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         unit: str | None = None,
         description: str | None = None,
         synonyms: str | None = None,
+        default_value: str | None = None,
+        cat_filters: dict[str, str] | None = None,
     ): ...
 
     @overload
@@ -1999,6 +2002,25 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     def save(self, *args, **kwargs) -> Feature:
         """Save."""
         pass
+
+    @property
+    def default_value(self) -> Any:
+        """A default value that should overwrite missing values.
+
+        This takes effect when you call `Curator.standardize()`.
+        """
+        if self._aux is not None and "af" in self._aux and "0" in self._aux["af"]:
+            return self._aux["af"]["0"]
+        else:
+            return None
+
+    @default_value.setter
+    def default_value(self, value: bool) -> None:
+        if self._aux is None:
+            self._aux = {}
+        if "af" not in self._aux:
+            self._aux["af"] = {}
+        self._aux["af"]["0"] = value
 
 
 class FeatureValue(Record, TracksRun):
@@ -2363,7 +2385,7 @@ class Schema(Record, CanCurate, TracksRun):
     def coerce_dtype(self, value: bool) -> None:
         if self._aux is None:
             self._aux = {}
-        if "af" not in self._aux["af"]:
+        if "af" not in self._aux:
             self._aux["af"] = {}
         self._aux["af"]["0"] = value
 
