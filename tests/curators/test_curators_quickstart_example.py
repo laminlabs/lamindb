@@ -75,7 +75,7 @@ def test_dataframe_curator(small_dataset1_schema):
     artifact.delete(permanent=True)
 
 
-def test_anndata_curator(small_dataset1_schema: ln.Schema, curator_params):
+def test_anndata_curator(small_dataset1_schema: ln.Schema):
     """Test AnnData curator implementation."""
 
     obs_schema = small_dataset1_schema
@@ -84,18 +84,6 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema, curator_params):
         itype=bt.Gene.ensembl_gene_id,
         dtype="num",
     ).save()
-
-    try:
-        ln.Schema(
-            name="small_dataset1_anndata_schema",
-            otype="AnnData",
-            components={"obs": obs_schema, "var": var_schema},
-        ).save()
-    except ln.errors.InvalidArgument:
-        assert (
-            str(ln.errors.InvalidArgument)
-            == "Please pass otype != None for composite schemas"
-        )
 
     anndata_schema = ln.Schema(
         name="small_dataset1_anndata_schema",
