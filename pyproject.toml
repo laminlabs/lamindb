@@ -19,6 +19,7 @@ dependencies = [
     "lamin_cli==1.0.7",
     "lamindb_setup[aws]==1.0.3",
     # others
+    "pyyaml",
     "pyarrow",
     "pandera",
     "typing_extensions!=4.6.0",
