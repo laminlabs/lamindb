@@ -155,12 +155,12 @@ def save_tiledbsoma_experiment(
     else:
         ctx = None
 
-    storepath = storepath.as_posix()  # type: ignore
+    storepath_str = storepath.as_posix()
 
     add_run_uid = True
     run_uid_dtype = "category"
     if appending:
-        with soma.Experiment.open(storepath, mode="r", context=ctx) as store:
+        with soma.Experiment.open(storepath_str, mode="r", context=ctx) as store:
             obs_schema = store["obs"].schema
             add_run_uid = "lamin_run_uid" in obs_schema.names
             # this is needed to enable backwards compatibility with tiledbsoma stores
@@ -191,7 +191,7 @@ def save_tiledbsoma_experiment(
     registration_mapping = kwargs.get("registration_mapping", None)
     if registration_mapping is None and (appending or len(adata_objects) > 1):
         registration_mapping = soma_io.register_anndatas(
-            experiment_uri=storepath if appending else None,
+            experiment_uri=storepath_str if appending else None,
             adatas=adata_objects,
             measurement_name=measurement_name,
             obs_field_name=obs_id_name,
@@ -211,19 +211,19 @@ def save_tiledbsoma_experiment(
         assert len(adata_objects) == 1  # noqa: S101
         n_observations = adata_objects[0].n_obs
 
-    logger.important(f"Writing the tiledbsoma store to {storepath}")
+    logger.important(f"Writing the tiledbsoma store to {storepath_str}")
     for adata_obj in adata_objects:
-        if resize_experiment and soma.Experiment.exists(storepath, context=ctx):
+        if resize_experiment and soma.Experiment.exists(storepath_str, context=ctx):
             # can only happen if registration_mapping is not None
             soma_io.resize_experiment(
-                storepath,
+                storepath_str,
                 nobs=n_observations,
                 nvars=registration_mapping.get_var_shapes(),
                 context=ctx,
             )
             resize_experiment = False
         soma_io.from_anndata(
-            storepath,
+            storepath_str,
             adata_obj,
             measurement_name,
             context=ctx,
