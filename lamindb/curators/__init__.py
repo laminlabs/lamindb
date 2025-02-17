@@ -231,14 +231,12 @@ class DataFrameCurator(Curator):
         # define schema
         schema = ln.Schema(
             name="small_dataset1_obs_level_metadata",
-            otype="DataFrame",
             features=[
                 ln.Feature(name="cell_medium", dtype="cat[ULabel[CellMedium]]").save(),
                 ln.Feature(name="sample_note", dtype="str").save(),
                 ln.Feature(name="cell_type_by_expert", dtype="cat[bionty.CellType]").save(),
                 ln.Feature(name="cell_type_by_model", dtype="cat[bionty.CellType]").save(),
             ],
-            coerce_dtype=True,
         ).save()
 
         # curate a DataFrame
@@ -406,21 +404,18 @@ class AnnDataCurator(Curator):
         # define obs schema
         obs_schema = ln.Schema(
             name="small_dataset1_obs_level_metadata",
-            otype="DataFrame",
             features=[
                 ln.Feature(name="cell_medium", dtype="cat[ULabel[CellMedium]]").save(),
                 ln.Feature(name="sample_note", dtype="str").save(),
                 ln.Feature(name="cell_type_by_expert", dtype="cat[bionty.CellType]").save(),
                 ln.Feature(name="cell_type_by_model", dtype="cat[bionty.CellType]").save(),
             ],
-            coerce_dtype=True,
         ).save()
 
         # define var schema
         var_schema = ln.Schema(
-            name="small_dataset1_var_schema",
-            otype="DataFrame",
-            itype="bionty.Gene.ensembl_gene_id",
+            name="scRNA_seq_var_schema",
+            itype=bt.Gene.ensembl_gene_id,
             dtype="num",
         ).save()
 

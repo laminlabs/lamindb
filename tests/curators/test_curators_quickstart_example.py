@@ -81,7 +81,7 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema, curator_params):
     obs_schema = small_dataset1_schema
     var_schema = ln.Schema(
         name="scRNA_seq_var_schema",
-        itype="bionty.Gene.ensembl_gene_id",
+        itype=bt.Gene.ensembl_gene_id,
         dtype="num",
     ).save()
 

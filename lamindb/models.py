@@ -2172,7 +2172,7 @@ class Schema(Record, CanCurate, TracksRun):
         slot: `str | None = None` The slot name when this schema is used as a component in a
             composite schema.
         coerce_dtype: `bool = False` When True, attempts to coerce values to the specified dtype
-            during validation.
+            during validation, see :attr:`~lamindb.Schema.coerce_dtype`.
 
     Note:
 
@@ -2410,7 +2410,10 @@ class Schema(Record, CanCurate, TracksRun):
 
     @property
     def coerce_dtype(self) -> bool:
-        """Whether dtypes should be coerced during validation."""
+        """Whether dtypes should be coerced during validation.
+
+        For example, a `objects`-dtyped pandas column can be coerced to `categorical` and would pass validation if this is true.
+        """
         if self._aux is not None and "af" in self._aux and "0" in self._aux["af"]:
             return self._aux["af"]["0"]
         else:
