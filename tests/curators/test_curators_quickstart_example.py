@@ -93,8 +93,8 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema, curator_params):
         components={"obs": obs_schema, "var": var_schema},
     ).save()
 
-    assert anndata_schema.components.get(links_composite__slot="obs") == anndata_schema
-    assert anndata_schema.components.get(links_composite__slot="var") == anndata_schema
+    assert anndata_schema._get_component("obs") == obs_schema
+    assert anndata_schema._get_component("var") == var_schema
 
     describe_output = anndata_schema.describe(return_str=True)
     assert "small_dataset1_anndata_schema" in describe_output
@@ -116,9 +116,9 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema, curator_params):
     }
 
     artifact.delete(permanent=True)
+    anndata_schema.delete()
     obs_schema.delete()
     var_schema.delete()
-    anndata_schema.delete()
 
 
 def test_soma_curator(small_dataset1_schema, curator_params):

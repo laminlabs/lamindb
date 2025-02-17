@@ -2435,9 +2435,8 @@ class Schema(Record, CanCurate, TracksRun):
 
     def describe(self, return_str=False) -> None | str:
         """Describe schema."""
-        components = Schema.filter(composite=self).all()
         message = str(self) + "\ncomponents:"
-        for component in components:
+        for component in self.components.all():
             message += "\n    " + str(component)
         if return_str:
             return message
@@ -2446,8 +2445,7 @@ class Schema(Record, CanCurate, TracksRun):
             return None
 
     def _get_component(self, slot: str) -> Schema:
-        components = Schema.filter(composite=self).all()
-        return components.get(slot=slot)
+        return self.components.get(links_component__slot=slot)
 
 
 class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
