@@ -2169,7 +2169,6 @@ class Schema(Record, CanCurate, TracksRun):
         minimal_set: `bool = True` Whether the schema contains a minimal set of linked features.
         ordered_set: `bool = False` Whether features are required to be ordered.
         maximal_set: `bool = False` If `True`, no additional features are allowed.
-        composite: `Schema | None = None` A reference to a composite schema this schema is part of.
         slot: `str | None = None` The slot name when this schema is used as a component in a
             composite schema.
         coerce_dtype: `bool = False` When True, attempts to coerce values to the specified dtype
@@ -2332,7 +2331,6 @@ class Schema(Record, CanCurate, TracksRun):
         minimal_set: bool = True,
         ordered_set: bool = False,
         maximal_set: bool = False,
-        composite: Schema | None = None,
         slot: str | None = None,
         coerce_dtype: bool = False,
     ): ...

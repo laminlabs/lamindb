@@ -80,7 +80,6 @@ def __init__(self, *args, **kwargs):
     minimal_set: bool = kwargs.pop("minimal_set", True)
     ordered_set: bool = kwargs.pop("ordered_set", False)
     maximal_set: bool = kwargs.pop("maximal_set", False)
-    composite: Schema | None = kwargs.pop("composite", None)
     slot: str | None = kwargs.pop("slot", None)
     coerce_dtype: bool | None = kwargs.pop("coerce_dtype", None)
 
@@ -88,7 +87,7 @@ def __init__(self, *args, **kwargs):
         raise ValueError(
             f"Unexpected keyword arguments: {', '.join(kwargs.keys())}\n"
             "Valid arguments are: features, description, dtype, itype, type, "
-            "is_type, otype, minimal_set, ordered_set, maximal_set, composite, "
+            "is_type, otype, minimal_set, ordered_set, maximal_set, "
             "slot, validated_by, coerce_dtype"
         )
 
@@ -106,8 +105,6 @@ def __init__(self, *args, **kwargs):
         dtype = None if itype is not None and itype == "Feature" else NUMBER_TYPE
     else:
         dtype = get_type_str(dtype)
-    if composite is not None and composite._state.adding:
-        raise InvalidArgument(f"composite schema {composite} must be saved before use")
     components: dict[str, Schema]
     if components:
         itype = "Composite"
@@ -127,7 +124,6 @@ def __init__(self, *args, **kwargs):
         "minimal_set": minimal_set,
         "ordered_set": ordered_set,
         "maximal_set": maximal_set,
-        "composite": composite,
     }
     if coerce_dtype:
         validated_kwargs["_aux"] = {"af": {"0": coerce_dtype}}
