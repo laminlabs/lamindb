@@ -108,4 +108,166 @@ class Migration(migrations.Migration):
                 to="lamindb.schema",
             ),
         ),
+        migrations.AlterUniqueTogether(
+            name="artifactschema",
+            unique_together={("artifact", "schema"), ("artifact", "slot")},
+        ),
+        migrations.AlterUniqueTogether(
+            name="schemacomponent",
+            unique_together={("composite", "component"), ("composite", "slot")},
+        ),
+        # unrelated, not on the SQL level, just switching "editable"
+        migrations.AlterField(
+            model_name="artifact",
+            name="_hash_type",
+            field=lamindb.base.fields.CharField(
+                blank=True,
+                db_index=True,
+                default=None,
+                editable=False,
+                max_length=30,
+                null=True,
+            ),
+        ),
+        migrations.AlterField(
+            model_name="artifact",
+            name="created_by",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=lamindb.base.users.current_user_id,
+                editable=False,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="created_artifacts",
+                to="lamindb.user",
+            ),
+        ),
+        migrations.AlterField(
+            model_name="artifact",
+            name="hash",
+            field=lamindb.base.fields.CharField(
+                blank=True,
+                db_index=True,
+                default=None,
+                editable=False,
+                max_length=22,
+                null=True,
+                unique=True,
+            ),
+        ),
+        migrations.AlterField(
+            model_name="artifact",
+            name="n_files",
+            field=lamindb.base.fields.BigIntegerField(
+                blank=True, db_index=True, default=None, editable=False, null=True
+            ),
+        ),
+        migrations.AlterField(
+            model_name="artifact",
+            name="n_observations",
+            field=lamindb.base.fields.BigIntegerField(
+                blank=True, db_index=True, default=None, editable=False, null=True
+            ),
+        ),
+        migrations.AlterField(
+            model_name="artifact",
+            name="otype",
+            field=lamindb.base.fields.CharField(
+                blank=True,
+                db_index=True,
+                default=None,
+                editable=False,
+                max_length=64,
+                null=True,
+            ),
+        ),
+        migrations.AlterField(
+            model_name="artifact",
+            name="run",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=None,
+                editable=False,
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="output_artifacts",
+                to="lamindb.run",
+            ),
+        ),
+        migrations.AlterField(
+            model_name="artifact",
+            name="size",
+            field=lamindb.base.fields.BigIntegerField(
+                blank=True, db_index=True, default=None, editable=False, null=True
+            ),
+        ),
+        migrations.AlterField(
+            model_name="artifact",
+            name="storage",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                editable=False,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="artifacts",
+                to="lamindb.storage",
+            ),
+        ),
+        migrations.AlterField(
+            model_name="artifact",
+            name="suffix",
+            field=lamindb.base.fields.CharField(
+                blank=True, db_index=True, default=None, editable=False, max_length=30
+            ),
+        ),
+        migrations.AlterField(
+            model_name="schema",
+            name="dtype",
+            field=lamindb.base.fields.CharField(
+                blank=True, default=None, editable=False, max_length=64, null=True
+            ),
+        ),
+        migrations.AlterField(
+            model_name="schema",
+            name="hash",
+            field=lamindb.base.fields.CharField(
+                blank=True,
+                db_index=True,
+                default=None,
+                editable=False,
+                max_length=22,
+                null=True,
+            ),
+        ),
+        migrations.AlterField(
+            model_name="schema",
+            name="itype",
+            field=lamindb.base.fields.CharField(
+                blank=True,
+                db_index=True,
+                default=None,
+                editable=False,
+                max_length=120,
+                null=True,
+            ),
+        ),
+        migrations.AlterField(
+            model_name="schema",
+            name="maximal_set",
+            field=lamindb.base.fields.BooleanField(
+                blank=True, db_index=True, default=False, editable=False
+            ),
+        ),
+        migrations.AlterField(
+            model_name="schema",
+            name="minimal_set",
+            field=lamindb.base.fields.BooleanField(
+                blank=True, db_index=True, default=True, editable=False
+            ),
+        ),
+        migrations.AlterField(
+            model_name="schema",
+            name="ordered_set",
+            field=lamindb.base.fields.BooleanField(
+                blank=True, db_index=True, default=False, editable=False
+            ),
+        ),
     ]
