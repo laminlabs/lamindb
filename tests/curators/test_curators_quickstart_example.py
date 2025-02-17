@@ -28,9 +28,9 @@ def small_dataset1_schema():
         name="small_dataset1_obs_level_metadata",
         features=[
             ln.Feature(name="cell_medium", dtype="cat[ULabel[CellMedium]]").save(),
-            ln.Feature(name="sample_note", dtype="str").save(),
-            ln.Feature(name="cell_type_by_expert", dtype="cat[bionty.CellType]").save(),
-            ln.Feature(name="cell_type_by_model", dtype="cat[bionty.CellType]").save(),
+            ln.Feature(name="sample_note", dtype=str).save(),
+            ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
+            ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
         ],
     ).save()
 
