@@ -2398,7 +2398,7 @@ class Migration(migrations.Migration):
                 ),
             ],
             options={
-                "unique_together": {("composite", "component")},
+                "unique_together": {("composite", "component"), ("composite", "slot")},
             },
             bases=(lamindb.models.LinkORM, models.Model),
         ),
@@ -4351,11 +4351,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AlterUniqueTogether(
             name="artifactschema",
-            unique_together={("artifact", "schema")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="artifactschema",
-            unique_together={("artifact", "slot")},
+            unique_together={("artifact", "schema"), ("artifact", "slot")},
         ),
         migrations.AlterUniqueTogether(
             name="artifactreference",
@@ -4372,9 +4368,5 @@ class Migration(migrations.Migration):
         migrations.AlterUniqueTogether(
             name="artifactfeaturevalue",
             unique_together={("artifact", "featurevalue")},
-        ),
-        migrations.AlterUniqueTogether(
-            name="schemacomponent",
-            unique_together={("composite", "slot")},
         ),
     ]

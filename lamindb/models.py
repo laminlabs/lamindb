@@ -3902,8 +3902,7 @@ class ArtifactSchema(BasicRecord, LinkORM, TracksRun):
     feature_ref_is_semantic: bool | None = BooleanField(null=True)
 
     class Meta:
-        unique_together = ("artifact", "schema")
-        unique_together = ("artifact", "slot")
+        unique_together = (("artifact", "schema"), ("artifact", "slot"))
 
 
 class SchemaComponent(BasicRecord, LinkORM, TracksRun):
@@ -3913,8 +3912,7 @@ class SchemaComponent(BasicRecord, LinkORM, TracksRun):
     slot: str | None = CharField(null=True)
 
     class Meta:
-        unique_together = ("composite", "component")
-        unique_together = ("composite", "slot")
+        unique_together = (("composite", "component"), ("composite", "slot"))
 
 
 class CollectionArtifact(BasicRecord, LinkORM, TracksRun):
