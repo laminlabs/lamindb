@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
+from urllib.parse import urlparse
 
 import pandas as pd
 import pyarrow as pa
@@ -37,9 +38,21 @@ def _load_h5ad_zarr(objpath: UPath):
 
 
 def _tiledb_config_s3(storepath: UPath) -> dict:
-    region = get_storage_region(storepath)
-    tiledb_config = {"vfs.s3.region": region}
     storage_options = storepath.storage_options
+    tiledb_config = {}
+
+    endpoint_url = storage_options.get("endpoint_url", None)
+    if endpoint_url is not None:
+        tiledb_config["vfs.s3.region"] = ""
+        tiledb_config["vfs.s3.use_virtual_addressing"] = "false"
+        parsed = urlparse(endpoint_url)
+        tiledb_config["vfs.s3.scheme"] = parsed.scheme
+        tiledb_config["vfs.s3.endpoint_override"] = (
+            parsed._replace(scheme="").geturl().lstrip("/")
+        )
+    else:
+        tiledb_config["vfs.s3.region"] = get_storage_region(storepath)
+
     if "key" in storage_options:
         tiledb_config["vfs.s3.aws_access_key_id"] = storage_options["key"]
     if "secret" in storage_options:
