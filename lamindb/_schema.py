@@ -347,3 +347,5 @@ Schema._get_related_name = _get_related_name
 delattr(Schema, "validated_by")  # we don't want to expose these
 delattr(Schema, "validated_by_id")  # we don't want to expose these
 delattr(Schema, "validated_schemas")  # we don't want to expose these
+delattr(Schema, "composite")  # we don't want to expose these
+delattr(Schema, "composite_id")  # we don't want to expose these
