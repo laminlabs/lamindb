@@ -2407,7 +2407,7 @@ class Migration(migrations.Migration):
             name="components",
             field=models.ManyToManyField(
                 related_name="composites",
-                through="lamindb.SchemaComponents",
+                through="lamindb.SchemaComponent",
                 to="lamindb.schema",
             ),
         ),

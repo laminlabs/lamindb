@@ -2275,7 +2275,7 @@ class Schema(Record, CanCurate, TracksRun):
     If `True`, the the minimal set is a maximal set and no additional features are allowed.
     """
     components: Schema = ManyToManyField(
-        "self", through="SchemaComponents", symmetrical=False, related_name="composites"
+        "self", through="SchemaComponent", symmetrical=False, related_name="composites"
     )
     """Components of this schema."""
     composites: Schema
