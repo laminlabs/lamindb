@@ -105,6 +105,7 @@ class Migration(migrations.Migration):
         ("lamindb", "0085_alter_feature_is_type_alter_flextable_is_type_and_more"),
         ("lamindb", "0086_various"),
         ("lamindb", "0087_rename__schemas_m2m_artifact_feature_sets_and_more"),
+        ("lamindb", "0088_schema_components"),
     ]
 
     dependencies = []  # type: ignore
