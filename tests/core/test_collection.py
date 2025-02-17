@@ -93,13 +93,13 @@ def test_edge_cases(df):
     with pytest.raises(
         FieldValidationError,
         match=re.escape(
-            "Only artifacts, name, description, meta, reference, reference_type, run, revises can be passed"
+            "Only artifacts, key, description, meta, reference, reference_type, run, revises can be passed"
         ),
     ) as error:
         ln.Collection(df, invalid_param=1)
 
     with pytest.raises(ValueError) as error:
-        ln.Collection(1, name="Invalid")
+        ln.Collection(1, key="Invalid")
     assert str(error.exconly()).startswith(
         "ValueError: Artifact or list[Artifact] is allowed."
     )
@@ -118,7 +118,7 @@ def test_edge_cases(df):
         "ValueError: Please pass artifacts with distinct hashes: these ones are"
         " non-unique"
     )
-    artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True)
 
 
 def test_from_inconsistent_artifacts(df, adata):
@@ -413,7 +413,7 @@ def test_collection_mapped(adata, adata2):
 def test_revise_collection(df, adata):
     # create a versioned collection
     artifact = ln.Artifact.from_df(df, description="test").save()
-    collection = ln.Collection(artifact, key="test", version="1")
+    collection = ln.Collection(artifact, key="test-collection", version="1")
     assert collection.version == "1"
     assert collection.uid.endswith("0000")
     collection.save()
@@ -428,14 +428,15 @@ def test_revise_collection(df, adata):
         ln.Collection(adata, revises="wrong-type")
 
     # create new collection from old collection
-    collection_r2 = ln.Collection(artifact, revises=collection)
+    collection_r2 = ln.Collection(artifact, key="test-collection")
     assert collection_r2.stem_uid == collection.stem_uid
     assert collection_r2.uid.endswith("0001")
-    collection_r2 = ln.Collection(artifact, revises=collection)
+    # repeat
+    collection_r2 = ln.Collection(artifact, key="test-collection")
     assert collection_r2.stem_uid == collection.stem_uid
     assert collection_r2.uid.endswith("0001")
     assert collection_r2.version is None
-    assert collection_r2.key == "test"
+    assert collection_r2.key == "test-collection"
 
     collection_r2.save()
 
@@ -444,12 +445,13 @@ def test_revise_collection(df, adata):
     artifact = ln.Artifact.from_df(df, description="test")
     artifact.save()
     collection_r3 = ln.Collection(
-        artifact, name="test1", revises=collection_r2, version="2"
+        artifact, key="test-collection", description="test description3", version="2"
     )
     assert collection_r3.stem_uid == collection.stem_uid
     assert collection_r3.version == "2"
     assert collection_r3.uid.endswith("0002")
-    assert collection_r3.key == "test1"
+    assert collection_r3.key == "test-collection"
+    assert collection_r3.description == "test description3"
 
     artifacts_r2 = collection_r2.artifacts.all()
     collection_r2.delete(permanent=True)
@@ -462,17 +464,16 @@ def test_revise_collection(df, adata):
 def test_collection_append(df, adata):
     artifact = ln.Artifact.from_df(df, description="test").save()
     artifact_1 = ln.Artifact.from_anndata(adata, description="test").save()
-    col = ln.Collection(artifact, key="Test", description="Test append").save()
+    collection = ln.Collection(artifact, key="Test", description="Test append").save()
+    new_collection = collection.append(artifact_1).save()
 
-    col_append = col.append(artifact_1).save()
-
-    assert col_append.name == col.name
-    assert col_append.description == col.description
-    assert col_append.uid.endswith("0001")
-    artifacts = col_append.artifacts.all()
+    assert new_collection.key == collection.key
+    assert new_collection.description == collection.description
+    assert new_collection.uid.endswith("0001")
+    artifacts = new_collection.artifacts.all()
     assert len(artifacts) == 2
 
-    col_append.versions.delete(permanent=True)
+    new_collection.versions.delete(permanent=True)
     artifacts.delete(permanent=True)
 
 

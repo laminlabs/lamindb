@@ -3210,13 +3210,13 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
 
     Args:
         artifacts: `list[Artifact]` A list of artifacts.
-        name: `str` A name.
+        key: `str` A file-path like key, analogous to the `key` parameter of `Artifact` and `Transform`.
         description: `str | None = None` A description.
         revises: `Collection | None = None` An old version of the collection.
         run: `Run | None = None` The run that creates the collection.
         meta: `Artifact | None = None` An artifact that defines metadata for the collection.
-        reference: `str | None = None` For instance, an external ID or a URL.
-        reference_type: `str | None = None` For instance, `"url"`.
+        reference: `str | None = None` A simple reference, e.g. an external ID or a URL.
+        reference_type: `str | None = None` A way to indicate to indicate the type of the simple reference `"url"`.
 
     See Also:
         :class:`~lamindb.Artifact`
@@ -3225,11 +3225,11 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
 
         Create a collection from a list of :class:`~lamindb.Artifact` objects:
 
-        >>> collection = ln.Collection([artifact1, artifact2], name="My collection")
+        >>> collection = ln.Collection([artifact1, artifact2], key="my_project/my_collection")
 
         Create a collection that groups a data & a metadata artifact (e.g., here :doc:`docs:rxrx`):
 
-        >>> collection = ln.Collection(data_artifact, name="My collection", meta=metadata_artifact)
+        >>> collection = ln.Collection(data_artifact, key="my_project/my_collection", meta=metadata_artifact)
 
     """
 
@@ -3252,7 +3252,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
     """Universal id, valid across DB instances."""
     key: str = CharField(db_index=True)
     """Name or path-like key."""
-    # these here is the only case in which we use a TextField
+    # below is the only case in which we use a TextField
     # for description; we do so because users had descriptions exceeding 255 chars
     # in their instances
     description: str | None = TextField(null=True, db_index=True)
@@ -3304,7 +3304,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
     def __init__(
         self,
         artifacts: list[Artifact],
-        name: str,
+        key: str,
         description: str | None = None,
         meta: Any | None = None,
         reference: str | None = None,
