@@ -93,8 +93,8 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema, curator_params):
         components={"obs": obs_schema, "var": var_schema},
     ).save()
 
-    assert anndata_schema.components.get(slot="obs").composite == anndata_schema
-    assert anndata_schema.components.get(slot="var").composite == anndata_schema
+    assert anndata_schema.components.get(links_composite__slot="obs") == anndata_schema
+    assert anndata_schema.components.get(links_composite__slot="var") == anndata_schema
 
     describe_output = anndata_schema.describe(return_str=True)
     assert "small_dataset1_anndata_schema" in describe_output

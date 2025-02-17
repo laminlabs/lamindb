@@ -3908,10 +3908,10 @@ class ArtifactSchema(BasicRecord, LinkORM, TracksRun):
         unique_together = ("artifact", "slot")
 
 
-class SchemaComponents(BasicRecord, LinkORM, TracksRun):
+class SchemaComponent(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
-    composite: Schema = ForeignKey(Schema, CASCADE, related_name="_links_composites")
-    component: Schema = ForeignKey(Schema, PROTECT, related_name="_links_components")
+    composite: Schema = ForeignKey(Schema, CASCADE, related_name="links_composite")
+    component: Schema = ForeignKey(Schema, PROTECT, related_name="links_component")
     slot: str | None = CharField(null=True)
 
     class Meta:

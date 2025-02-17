@@ -159,8 +159,6 @@ def save(self, *args, **kwargs) -> Schema:
     """{}"""  # noqa: D415
     from lamindb._save import bulk_create
 
-    if self.composite is not None:
-        assert self.slot is not None, "pass `slot`, e.g., to 'var', 'obs', etc."  # noqa: S101
     super(Schema, self).save(*args, **kwargs)
     if hasattr(self, "_components"):
         # analogous to save_schema_links in core._data.py

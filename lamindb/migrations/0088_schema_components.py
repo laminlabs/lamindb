@@ -35,7 +35,7 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.CreateModel(
-            name="SchemaComponents",
+            name="SchemaComponent",
             fields=[
                 (
                     "created_at",
@@ -58,7 +58,7 @@ class Migration(migrations.Migration):
                     lamindb.base.fields.ForeignKey(
                         blank=True,
                         on_delete=django.db.models.deletion.PROTECT,
-                        related_name="_links_components",
+                        related_name="links_component",
                         to="lamindb.schema",
                     ),
                 ),
@@ -67,7 +67,7 @@ class Migration(migrations.Migration):
                     lamindb.base.fields.ForeignKey(
                         blank=True,
                         on_delete=django.db.models.deletion.CASCADE,
-                        related_name="_links_composites",
+                        related_name="links_composite",
                         to="lamindb.schema",
                     ),
                 ),
@@ -104,7 +104,7 @@ class Migration(migrations.Migration):
             name="components",
             field=models.ManyToManyField(
                 related_name="composites",
-                through="lamindb.SchemaComponents",
+                through="lamindb.SchemaComponent",
                 to="lamindb.schema",
             ),
         ),
@@ -113,7 +113,7 @@ class Migration(migrations.Migration):
             unique_together={("artifact", "slot")},
         ),
         migrations.AlterUniqueTogether(
-            name="schemacomponents",
+            name="schemacomponent",
             unique_together={("composite", "slot")},
         ),
     ]
