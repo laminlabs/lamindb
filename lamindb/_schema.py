@@ -108,6 +108,8 @@ def __init__(self, *args, **kwargs):
     components: dict[str, Schema]
     if components:
         itype = "Composite"
+        if otype is None:
+            raise InvalidArgument("Please pass otype != None for composite schemas")
     if itype is not None and not isinstance(itype, str):
         itype_str = get_dtype_str_from_dtype(itype, is_itype=True)
     else:
