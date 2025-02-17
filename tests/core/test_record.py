@@ -232,6 +232,7 @@ def test_get_record_kwargs():
         ("unit", "str | None"),
         ("description", "str | None"),
         ("synonyms", "str | None"),
+        ("nullable", "bool"),
         (
             "default_value",
             "str | None",

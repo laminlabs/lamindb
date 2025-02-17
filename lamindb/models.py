@@ -1819,6 +1819,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         unit: `str | None = None` Unit of measure, ideally SI (`"m"`, `"s"`, `"kg"`, etc.) or `"normalized"` etc.
         description: `str | None = None` A description.
         synonyms: `str | None = None` Bar-separated synonyms.
+        nullable: `bool = True` Whether the feature can have null-like values (`None`, `pd.NA`, `NaN`, etc.).
         default_value: `Any | None = None` Default value for the feature.
         cat_filters: `dict[str, str] | None = None` Subset a registry by additional filters to define valid categories.
 
@@ -1885,7 +1886,10 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         abstract = False
 
     _name_field: str = "name"
-    _aux_fields: dict[str, tuple[str, type]] = {"0": ("default_value", bool)}
+    _aux_fields: dict[str, tuple[str, type]] = {
+        "0": ("default_value", bool),
+        "1": ("nullable", bool),
+    }
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -1979,6 +1983,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         unit: str | None = None,
         description: str | None = None,
         synonyms: str | None = None,
+        nullable: bool = True,
         default_value: str | None = None,
         cat_filters: dict[str, str] | None = None,
     ): ...
@@ -2007,7 +2012,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
 
     @property
     def default_value(self) -> Any:
-        """A default value that overwrites missing values.
+        """A default value that overwrites missing values (default None).
 
         This takes effect when you call `Curator.standardize()`.
         """
@@ -2023,6 +2028,22 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         if "af" not in self._aux:
             self._aux["af"] = {}
         self._aux["af"]["0"] = value
+
+    @property
+    def nullable(self) -> bool:
+        """Indicates whether the feature can have nullable values (default True)."""
+        if self._aux is not None and "af" in self._aux and "1" in self._aux["af"]:
+            return self._aux["af"]["1"]
+        else:
+            return True
+
+    @nullable.setter
+    def nullable(self, value: bool) -> None:
+        if self._aux is None:
+            self._aux = {}
+        if "af" not in self._aux:
+            self._aux["af"] = {}
+        self._aux["af"]["1"] = value
 
 
 class FeatureValue(Record, TracksRun):
