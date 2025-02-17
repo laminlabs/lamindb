@@ -14,7 +14,7 @@ from pandas.api.types import CategoricalDtype, is_string_dtype
 from lamindb._record import _get_record_kwargs
 from lamindb.base.types import FeatureDtype
 from lamindb.errors import FieldValidationError, ValidationError
-from lamindb.models import Artifact, Feature, Record
+from lamindb.models import Artifact, Feature, Record, Registry
 
 from ._query_set import RecordList
 from ._utils import attach_func_to_class_method
@@ -135,7 +135,7 @@ def get_dtype_str_from_dtype(dtype: Any, is_itype: bool = False) -> str:
         error_message = (
             "dtype has to be a record, a record field, or a list of records, not {}"
         )
-        if isinstance(dtype, type) and issubclass(dtype, Record):
+        if isinstance(dtype, Registry):
             dtype = [dtype]
         elif isinstance(dtype, DeferredAttribute):
             dtype = [dtype]
@@ -143,12 +143,11 @@ def get_dtype_str_from_dtype(dtype: Any, is_itype: bool = False) -> str:
             raise ValueError(error_message.format(dtype))
         dtype_str = ""
         for single_dtype in dtype:
-            if (
-                not isinstance(single_dtype, type)
-                or not issubclass(single_dtype, Record)
-            ) and not isinstance(single_dtype, DeferredAttribute):
+            if not isinstance(single_dtype, Registry) and not isinstance(
+                single_dtype, DeferredAttribute
+            ):
                 raise ValueError(error_message.format(single_dtype))
-            if isinstance(single_dtype, type) and issubclass(single_dtype, Record):
+            if isinstance(single_dtype, Registry):
                 dtype_str += single_dtype.__get_name_with_module__() + "|"
             else:
                 dtype_str += (
