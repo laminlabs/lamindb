@@ -1813,12 +1813,14 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
 
     Args:
         name: `str` Name of the feature, typically.  column name.
-        dtype: `FeatureDtype | Registry | list[Registry]` See :class:`~lamindb.base.types.FeatureDtype`.
+        dtype: `FeatureDtype | Registry | list[Registry] | FieldAttr` See :class:`~lamindb.base.types.FeatureDtype`.
             For categorical types, can define from which registry values are
             sampled, e.g., `ULabel` or `[ULabel, bionty.CellType]`.
         unit: `str | None = None` Unit of measure, ideally SI (`"m"`, `"s"`, `"kg"`, etc.) or `"normalized"` etc.
         description: `str | None = None` A description.
         synonyms: `str | None = None` Bar-separated synonyms.
+        default_value: `Any | None = None` Default value for the feature.
+        cat_filters: `dict[str, str] | None = None` Subset a registry by additional filters to define valid categories.
 
     Note:
 
@@ -2005,7 +2007,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
 
     @property
     def default_value(self) -> Any:
-        """A default value that should overwrite missing values.
+        """A default value that overwrites missing values.
 
         This takes effect when you call `Curator.standardize()`.
         """
