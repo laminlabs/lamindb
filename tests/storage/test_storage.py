@@ -23,6 +23,7 @@ from lamindb.core.storage._pyarrow_dataset import (
 from lamindb.core.storage._tiledbsoma import (
     _open_tiledbsoma,
     _soma_store_n_observations,
+    _tiledb_config_s3,
 )
 from lamindb.core.storage._zarr import load_anndata_zarr, write_adata_zarr
 from lamindb.core.storage.objects import infer_suffix, write_to_disk
@@ -411,6 +412,15 @@ def test_from_tiledbsoma():
 
     artifact.delete(permanent=True)
     shutil.rmtree(soma_path)
+
+
+def test_tiledb_config():
+    storepath = ln.UPath("s3://bucket/key?endpoint_url=http://localhost:9000/s3")
+    tiledb_config = _tiledb_config_s3(storepath)
+    assert tiledb_config["vfs.s3.endpoint_override"] == "localhost:9000/s3"
+    assert tiledb_config["vfs.s3.scheme"] == "http"
+    assert tiledb_config["vfs.s3.use_virtual_addressing"] == "false"
+    assert tiledb_config["vfs.s3.region"] == ""
 
 
 def test_backed_pyarrow_artifact():
