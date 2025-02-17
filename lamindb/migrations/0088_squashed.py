@@ -4354,6 +4354,10 @@ class Migration(migrations.Migration):
             unique_together={("artifact", "schema")},
         ),
         migrations.AlterUniqueTogether(
+            name="artifactschema",
+            unique_together={("artifact", "slot")},
+        ),
+        migrations.AlterUniqueTogether(
             name="artifactreference",
             unique_together={("artifact", "reference", "feature")},
         ),
@@ -4368,5 +4372,9 @@ class Migration(migrations.Migration):
         migrations.AlterUniqueTogether(
             name="artifactfeaturevalue",
             unique_together={("artifact", "featurevalue")},
+        ),
+        migrations.AlterUniqueTogether(
+            name="schemacomponents",
+            unique_together={("composite", "slot")},
         ),
     ]

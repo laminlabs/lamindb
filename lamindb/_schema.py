@@ -151,17 +151,8 @@ def __init__(self, *args, **kwargs):
         for slot, component in components.items():
             if component._state.adding:
                 raise InvalidArgument(
-                    f"component schema {component} must be saved before use"
+                    f"component {slot} {component} must be saved before use"
                 )
-            if component.slot is None:
-                component.slot = slot
-            else:
-                assert component.slot == slot, (  # noqa: S101
-                    f"slot mismatch: {component.slot} != {slot}"
-                )
-            assert component.composite is None, (  # noqa: S101
-                f"component already used by {component.composite}"
-            )
         self._components = components
     validated_kwargs["uid"] = ids.base62_20()
     super(Schema, self).__init__(**validated_kwargs)
@@ -170,14 +161,23 @@ def __init__(self, *args, **kwargs):
 @doc_args(Schema.save.__doc__)
 def save(self, *args, **kwargs) -> Schema:
     """{}"""  # noqa: D415
+    from lamindb._save import bulk_create
+
     if self.composite is not None:
         assert self.slot is not None, "pass `slot`, e.g., to 'var', 'obs', etc."  # noqa: S101
     super(Schema, self).save(*args, **kwargs)
     if hasattr(self, "_components"):
-        # we need to update the components because we set the slot and the composite
-        for component in self._components.values():
-            component.composite = self
-            component.save()
+        # analogous to save_schema_links in core._data.py
+        # which is called to save feature sets in artifact.save()
+        links = []
+        for slot, component in self._components.items():
+            kwargs = {
+                "composite_id": self.id,
+                "component_id": component.id,
+                "slot": slot,
+            }
+            links.append(Schema.components.through(**kwargs))
+        bulk_create(links, ignore_conflicts=True)
     if hasattr(self, "_features"):
         assert self.n > 0  # noqa: S101
         related_name, records = self._features

@@ -108,4 +108,12 @@ class Migration(migrations.Migration):
                 to="lamindb.schema",
             ),
         ),
+        migrations.AlterUniqueTogether(
+            name="artifactschema",
+            unique_together={("artifact", "slot")},
+        ),
+        migrations.AlterUniqueTogether(
+            name="schemacomponents",
+            unique_together={("composite", "slot")},
+        ),
     ]

@@ -3907,6 +3907,7 @@ class ArtifactSchema(BasicRecord, LinkORM, TracksRun):
 
     class Meta:
         unique_together = ("artifact", "schema")
+        unique_together = ("artifact", "slot")
 
 
 class SchemaComponents(BasicRecord, LinkORM, TracksRun):
@@ -3917,6 +3918,7 @@ class SchemaComponents(BasicRecord, LinkORM, TracksRun):
 
     class Meta:
         unique_together = ("composite", "component")
+        unique_together = ("composite", "slot")
 
 
 class CollectionArtifact(BasicRecord, LinkORM, TracksRun):
