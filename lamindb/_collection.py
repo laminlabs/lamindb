@@ -26,7 +26,6 @@ from .core._data import (
     save_staged_feature_sets,
 )
 from .core._mapped_collection import MappedCollection
-from .core._settings import settings
 from .core.storage._pyarrow_dataset import _is_pyarrow_dataset, _open_pyarrow_dataset
 from .core.versioning import process_revises
 from .errors import FieldValidationError
@@ -95,23 +94,16 @@ def __init__(
     artifacts: Artifact | Iterable[Artifact] = (
         kwargs.pop("artifacts") if len(args) == 0 else args[0]
     )
-    meta_artifact: Artifact | None = (
-        kwargs.pop("meta_artifact") if "meta_artifact" in kwargs else None
-    )
-    key: str | None = kwargs.pop("key") if "key" in kwargs else None
-    description: str | None = (
-        kwargs.pop("description") if "description" in kwargs else None
-    )
-    reference: str | None = kwargs.pop("reference") if "reference" in kwargs else None
-    reference_type: str | None = (
-        kwargs.pop("reference_type") if "reference_type" in kwargs else None
-    )
-    run: Run | None = kwargs.pop("run") if "run" in kwargs else None
-    revises: Collection | None = kwargs.pop("revises") if "revises" in kwargs else None
-    version: str | None = kwargs.pop("version") if "version" in kwargs else None
-    _branch_code: int | None = (
-        kwargs.pop("_branch_code") if "_branch_code" in kwargs else 1
-    )
+    meta_artifact: Artifact | None = kwargs.pop("meta_artifact", None)
+    tmp_key: str | None = kwargs.pop("key", None)
+    description: str | None = kwargs.pop("description", None)
+    reference: str | None = kwargs.pop("reference", None)
+    reference_type: str | None = kwargs.pop("reference_type", None)
+    run: Run | None = kwargs.pop("run", None)
+    revises: Collection | None = kwargs.pop("revises", None)
+    version: str | None = kwargs.pop("version", None)
+    _branch_code: int | None = kwargs.pop("_branch_code", 1)
+    key: str
     if "name" in kwargs:
         key = kwargs.pop("name")
         warnings.warn(
@@ -119,10 +111,16 @@ def __init__(
             FutureWarning,
             stacklevel=2,
         )
+    else:
+        key = tmp_key
     if not len(kwargs) == 0:
         valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Collection)])
         raise FieldValidationError(
             f"Only {valid_keywords} can be passed, you passed: {kwargs}"
+        )
+    if revises is None:
+        revises = (
+            Collection.filter(key=key, is_latest=True).order_by("-created_at").first()
         )
     provisional_uid, version, key, description, revises = process_revises(
         revises, version, key, description, Collection
@@ -166,10 +164,7 @@ def __init__(
         init_self_from_db(collection, existing_collection)
         update_attributes(collection, {"description": description, "key": key})
     else:
-        kwargs = {}
-        search_names_setting = settings.creation.search_names
-        if revises is not None and key == revises.key:
-            settings.creation.search_names = False
+        _skip_validation = revises is not None and key == revises.key
         super(Collection, collection).__init__(  # type: ignore
             uid=provisional_uid,
             key=key,
@@ -182,9 +177,8 @@ def __init__(
             version=version,
             _branch_code=_branch_code,
             revises=revises,
-            **kwargs,
+            _skip_validation=_skip_validation,
         )
-        settings.creation.search_names = search_names_setting
     collection._artifacts = artifacts
     # register provenance
     if revises is not None:
@@ -196,6 +190,7 @@ def __init__(
 def append(self, artifact: Artifact, run: Run | None = None) -> Collection:
     return Collection(  # type: ignore
         self.artifacts.all().list() + [artifact],
+        # key is automatically taken from revises.key
         description=self.description,
         revises=self,
         run=run,

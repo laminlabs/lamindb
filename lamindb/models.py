@@ -3210,7 +3210,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
 
     Args:
         artifacts: `list[Artifact]` A list of artifacts.
-        name: `str` A name.
+        key: `str` A file-path like key, akin to the `key` parameter of `Artifact` and `Transform`.
         description: `str | None = None` A description.
         revises: `Collection | None = None` An old version of the collection.
         run: `Run | None = None` The run that creates the collection.
@@ -3304,7 +3304,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
     def __init__(
         self,
         artifacts: list[Artifact],
-        name: str,
+        key: str,
         description: str | None = None,
         meta: Any | None = None,
         reference: str | None = None,
