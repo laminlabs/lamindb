@@ -1819,7 +1819,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         unit: `str | None = None` Unit of measure, ideally SI (`"m"`, `"s"`, `"kg"`, etc.) or `"normalized"` etc.
         description: `str | None = None` A description.
         synonyms: `str | None = None` Bar-separated synonyms.
-        nullable: `bool = True` Whether the feature can have null-like values (`None`, `pd.NA`, `NaN`, etc.).
+        nullable: `bool = True` Whether the feature can have null-like values (`None`, `pd.NA`, `NaN`, etc.), see :attr:`~lamindb.Feature.nullable`.
         default_value: `Any | None = None` Default value for the feature.
         cat_filters: `dict[str, str] | None = None` Subset a registry by additional filters to define valid categories.
 
@@ -2012,7 +2012,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
 
     @property
     def default_value(self) -> Any:
-        """A default value that overwrites missing values (default None).
+        """A default value that overwrites missing values (default `None`).
 
         This takes effect when you call `Curator.standardize()`.
         """
@@ -2031,7 +2031,24 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
 
     @property
     def nullable(self) -> bool:
-        """Indicates whether the feature can have nullable values (default True)."""
+        """Indicates whether the feature can have nullable values (default `True`).
+
+        Example::
+
+            import lamindb as ln
+            import pandas as pd
+
+            disease = ln.Feature(name="disease", dtype=ln.ULabel, nullable=False).save()
+            schema = ln.Schema(features=[disease]).save()
+            dataset = {"disease": pd.Categorical([pd.NA, "asthma"])}
+            df = pd.DataFrame(dataset)
+            curator = ln.curators.DataFrameCurator(df, schema)
+            try:
+                curator.validate()
+            except ln.errors.ValidationError as e:
+                assert str(e).startswith("non-nullable series 'disease' contains null values")
+
+        """
         if self._aux is not None and "af" in self._aux and "1" in self._aux["af"]:
             return self._aux["af"]["1"]
         else:
