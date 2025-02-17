@@ -262,7 +262,9 @@ class DataFrameCurator(Curator):
                 pandera_dtype = (
                     feature.dtype if not feature.dtype.startswith("cat") else "category"
                 )
-                pandera_columns[feature.name] = pandera.Column(pandera_dtype)
+                pandera_columns[feature.name] = pandera.Column(
+                    pandera_dtype, nullable=True
+                )
                 if feature.dtype.startswith("cat"):
                     categoricals[feature.name] = parse_dtype(feature.dtype)[0]["field"]
             self._pandera_schema = pandera.DataFrameSchema(
