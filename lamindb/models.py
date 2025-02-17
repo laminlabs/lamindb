@@ -2275,24 +2275,20 @@ class Schema(Record, CanCurate, TracksRun):
 
     If `True`, the the minimal set is a maximal set and no additional features are allowed.
     """
-    components: Schema
+    components: Schema = ManyToManyField(
+        "self", through="SchemaComponents", related_name="composites"
+    )
     """Components of this schema.
 
     A schema can be composed of sub-schemas.
     """
-    # in lamindb v2, the below will be a M2M to enable re-using a component
-    # across composites
-    composite: Schema | None = ForeignKey(
-        "self", PROTECT, related_name="components", default=None, null=True
-    )
-    """The composite schema that contains this schema as a component.
+    composites: Schema
+    """The composite schemas that contains this schema as a component.
 
-    The composite schema composes multiple simpler schemas into one object.
+    Composite schema compose multiple simpler schemas into one object.
 
     For example, an AnnData composes multiple schemas: `var[DataFrameT]`, `obs[DataFrame]`, `obsm[Array]`, `uns[dict]`, etc.
     """
-    slot: str | None = CharField(max_length=100, db_index=True, null=True)
-    """The slot in which the schema is stored in the composite schema."""
     features: Feature
     """The features contained in the schema."""
     params: Param
@@ -2319,6 +2315,12 @@ class Schema(Record, CanCurate, TracksRun):
     # """
     # validated_schemas: Schema
     # """The schemas that were validated against this schema with a :class:`~lamindb.curators.Curator`."""
+    composite: Schema | None = ForeignKey(
+        "self", PROTECT, related_name="components", default=None, null=True
+    )
+    # The legacy foreign key
+    slot: str | None = CharField(max_length=100, db_index=True, null=True)
+    # The legacy slot
 
     @overload
     def __init__(
@@ -3904,15 +3906,22 @@ class SchemaParam(BasicRecord, LinkORM):
 class ArtifactSchema(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="_links_schema")
-    # we follow the lower() case convention rather than snake case for link models
     schema: Schema = ForeignKey(Schema, PROTECT, related_name="_links_artifact")
-    slot: str | None = CharField(max_length=40, null=True)
-    feature_ref_is_semantic: bool | None = BooleanField(
-        null=True
-    )  # like Feature name or Gene symbol or CellMarker name
+    slot: str | None = CharField(null=True)
+    feature_ref_is_semantic: bool | None = BooleanField(null=True)
 
     class Meta:
         unique_together = ("artifact", "schema")
+
+
+class SchemaComponents(BasicRecord, LinkORM, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    composite: Schema = ForeignKey(Schema, CASCADE, related_name="_links_composites")
+    component: Schema = ForeignKey(Schema, PROTECT, related_name="_links_components")
+    slot: str | None = CharField(null=True)
+
+    class Meta:
+        unique_together = ("composite", "component")
 
 
 class CollectionArtifact(BasicRecord, LinkORM, TracksRun):
