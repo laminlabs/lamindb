@@ -109,19 +109,13 @@ def load_json(path: UPathStr) -> dict:
     return data
 
 
-def load_yaml(path: UPathStr) -> dict | UPathStr:
+def load_yaml(path: UPathStr) -> dict:
     """Load `.yaml` to `dict`."""
-    try:
-        import yaml  # type: ignore
+    import yaml  # type: ignore
 
-        with open(path) as f:
-            data = yaml.safe_load(f)
-        return data
-    except ImportError:
-        logger.warning(
-            "Please install PyYAML (`pip install PyYAML`) to load `.yaml` files."
-        )
-        return path
+    with open(path) as f:
+        data = yaml.safe_load(f)
+    return data
 
 
 def load_image(path: UPathStr) -> None | UPathStr:
