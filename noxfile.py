@@ -85,8 +85,6 @@ def install_ci(session, group):
     extras = ""
     if group == "unit-core":
         extras += "bionty,gcp,zarr,fcs,jupyter"
-        # testing load_to_memory for yaml
-        run(session, "uv pip install --system PyYAML")
         run(session, "uv pip install --system huggingface_hub")
         # tiledbsoma dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
