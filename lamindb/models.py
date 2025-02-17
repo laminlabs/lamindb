@@ -2276,18 +2276,13 @@ class Schema(Record, CanCurate, TracksRun):
     If `True`, the the minimal set is a maximal set and no additional features are allowed.
     """
     components: Schema = ManyToManyField(
-        "self", through="SchemaComponents", related_name="composites"
+        "self", through="SchemaComponents", symmetrical=False, related_name="composites"
     )
-    """Components of this schema.
-
-    A schema can be composed of sub-schemas.
-    """
+    """Components of this schema."""
     composites: Schema
     """The composite schemas that contains this schema as a component.
 
-    Composite schema compose multiple simpler schemas into one object.
-
-    For example, an AnnData composes multiple schemas: `var[DataFrameT]`, `obs[DataFrame]`, `obsm[Array]`, `uns[dict]`, etc.
+    For example, an `AnnData` composes multiple schemas: `var[DataFrameT]`, `obs[DataFrame]`, `obsm[Array]`, `uns[dict]`, etc.
     """
     features: Feature
     """The features contained in the schema."""
@@ -2316,7 +2311,7 @@ class Schema(Record, CanCurate, TracksRun):
     # validated_schemas: Schema
     # """The schemas that were validated against this schema with a :class:`~lamindb.curators.Curator`."""
     composite: Schema | None = ForeignKey(
-        "self", PROTECT, related_name="components", default=None, null=True
+        "self", PROTECT, related_name="+", default=None, null=True
     )
     # The legacy foreign key
     slot: str | None = CharField(max_length=100, db_index=True, null=True)
