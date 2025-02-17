@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, get_args
 
 import lamindb_setup as ln_setup
 import pandas as pd
+from django.db.models.query_utils import DeferredAttribute
 from lamin_utils import logger
 from lamindb_setup._init_instance import get_schema_module_name
 from lamindb_setup.core._docs import doc_args
@@ -35,6 +36,7 @@ def parse_dtype_single_cat(
     related_registries: dict[str, Record] | None = None,
     is_itype: bool = False,
 ) -> dict:
+    assert isinstance(dtype_str, str)  # noqa: S101
     if related_registries is None:
         related_registries = dict_module_name_to_model_name(Artifact)
     split_result = dtype_str.split("[")
@@ -122,21 +124,41 @@ def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
     return result
 
 
-def get_dtype_str_from_dtype(dtype: Any) -> str:
-    if not isinstance(dtype, list) and dtype.__name__ in FEATURE_DTYPES:
+def get_dtype_str_from_dtype(dtype: Any, is_itype: bool = False) -> str:
+    if (
+        not isinstance(dtype, list)
+        and hasattr(dtype, "__name__")
+        and dtype.__name__ in FEATURE_DTYPES
+    ):
         dtype_str = dtype.__name__
     else:
-        error_message = "dtype has to be of type Record or list[Record]"
+        error_message = (
+            "dtype has to be a record, a record field, or a list of records, not {}"
+        )
         if isinstance(dtype, type) and issubclass(dtype, Record):
             dtype = [dtype]
+        elif isinstance(dtype, DeferredAttribute):
+            dtype = [dtype]
         elif not isinstance(dtype, list):
-            raise ValueError(error_message)
-        registries_str = ""
-        for registry in dtype:
-            if not issubclass(registry, Record):
-                raise ValueError(error_message)
-            registries_str += registry.__get_name_with_module__() + "|"
-        dtype_str = f"cat[{registries_str.rstrip('|')}]"
+            raise ValueError(error_message.format(dtype))
+        dtype_str = ""
+        for single_dtype in dtype:
+            if (
+                not isinstance(single_dtype, type)
+                or not issubclass(single_dtype, Record)
+            ) and not isinstance(single_dtype, DeferredAttribute):
+                raise ValueError(error_message.format(single_dtype))
+            if isinstance(single_dtype, type) and issubclass(single_dtype, Record):
+                dtype_str += single_dtype.__get_name_with_module__() + "|"
+            else:
+                dtype_str += (
+                    single_dtype.field.model.__get_name_with_module__()
+                    + f".{single_dtype.field.name}"
+                    + "|"
+                )
+        dtype_str = dtype_str.rstrip("|")
+        if not is_itype:
+            dtype_str = f"cat[{dtype_str}]"
     return dtype_str
 
 
