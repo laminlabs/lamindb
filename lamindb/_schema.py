@@ -13,7 +13,7 @@ from lamindb.base.types import FieldAttr, ListLike
 from lamindb.errors import InvalidArgument
 from lamindb.models import Feature, Record, Schema
 
-from ._feature import convert_pandas_dtype_to_lamin_dtype
+from ._feature import convert_pandas_dtype_to_lamin_dtype, get_dtype_str_from_dtype
 from ._record import init_self_from_db, update_attributes
 from ._utils import attach_func_to_class_method
 from .core.relations import (
@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     import pandas as pd
+    from django.db.models.query_utils import DeferredAttribute
 
     from ._query_set import QuerySet
 
@@ -72,7 +73,7 @@ def __init__(self, *args, **kwargs):
     name: str | None = kwargs.pop("name", None)
     description: str | None = kwargs.pop("description", None)
     dtype: str | None = kwargs.pop("dtype", None)
-    itype: str | None = kwargs.pop("itype", None)
+    itype: str | Record | DeferredAttribute | None = kwargs.pop("itype", None)
     type: Feature | None = kwargs.pop("type", None)
     is_type: bool = kwargs.pop("is_type", False)
     otype: str | None = kwargs.pop("otype", None)
@@ -110,6 +111,10 @@ def __init__(self, *args, **kwargs):
     components: dict[str, Schema]
     if components:
         itype = "Composite"
+    if itype is not None and not isinstance(itype, str):
+        itype_str = get_dtype_str_from_dtype(itype, is_itype=True)
+    else:
+        itype_str = itype
     validated_kwargs = {
         "name": name,
         "description": description,
@@ -118,7 +123,7 @@ def __init__(self, *args, **kwargs):
         "is_type": is_type,
         "otype": otype,
         "n": n_features,
-        "itype": itype,
+        "itype": itype_str,
         "minimal_set": minimal_set,
         "ordered_set": ordered_set,
         "maximal_set": maximal_set,

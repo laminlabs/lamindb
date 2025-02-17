@@ -27,7 +27,7 @@ def test_bionty_encode_uid():
                 "organism": "vertebrates",
             },
         )["uid"]
-        == "5MUN"
+        == "5MUNZB0a"
     )
     bt.settings.organism = "human"
     assert (

@@ -282,6 +282,36 @@ class DataFrameCurator(Curator):
         """{}"""  # noqa: D415
         return self._cat_manager
 
+    def standardize(self) -> None:
+        """Standardize the dataset.
+
+        - Adds missing columns if a default value for a feature is defined.
+        - Fills missing values with the default value if a default value for a feature is defined.
+        """
+        for feature in self._schema.members:
+            if feature.name not in self._dataset.columns:
+                if feature.default_value is not None:
+                    self._dataset[feature.name] = feature.default_value
+                else:
+                    raise ValidationError(
+                        f"Missing column {feature.name} cannot be added because no default value is defined for this feature"
+                    )
+            else:
+                if feature.default_value is not None:
+                    if isinstance(
+                        self._dataset[feature.name].dtype, pd.CategoricalDtype
+                    ):
+                        if (
+                            feature.default_value
+                            not in self._dataset[feature.name].cat.categories
+                        ):
+                            self._dataset[feature.name] = self._dataset[
+                                feature.name
+                            ].cat.add_categories(feature.default_value)
+                    self._dataset[feature.name] = self._dataset[feature.name].fillna(
+                        feature.default_value
+                    )
+
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415

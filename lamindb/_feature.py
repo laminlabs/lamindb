@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, get_args
 
 import lamindb_setup as ln_setup
 import pandas as pd
+from django.db.models.query_utils import DeferredAttribute
 from lamin_utils import logger
 from lamindb_setup._init_instance import get_schema_module_name
 from lamindb_setup.core._docs import doc_args
@@ -13,7 +14,7 @@ from pandas.api.types import CategoricalDtype, is_string_dtype
 from lamindb._record import _get_record_kwargs
 from lamindb.base.types import FeatureDtype
 from lamindb.errors import FieldValidationError, ValidationError
-from lamindb.models import Artifact, Feature, Record
+from lamindb.models import Artifact, Feature, Record, Registry
 
 from ._query_set import RecordList
 from ._utils import attach_func_to_class_method
@@ -35,6 +36,7 @@ def parse_dtype_single_cat(
     related_registries: dict[str, Record] | None = None,
     is_itype: bool = False,
 ) -> dict:
+    assert isinstance(dtype_str, str)  # noqa: S101
     if related_registries is None:
         related_registries = dict_module_name_to_model_name(Artifact)
     split_result = dtype_str.split("[")
@@ -122,21 +124,40 @@ def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
     return result
 
 
-def get_dtype_str_from_dtype(dtype: Any) -> str:
-    if not isinstance(dtype, list) and dtype.__name__ in FEATURE_DTYPES:
+def get_dtype_str_from_dtype(dtype: Any, is_itype: bool = False) -> str:
+    if (
+        not isinstance(dtype, list)
+        and hasattr(dtype, "__name__")
+        and dtype.__name__ in FEATURE_DTYPES
+    ):
         dtype_str = dtype.__name__
     else:
-        error_message = "dtype has to be of type Record or list[Record]"
-        if isinstance(dtype, Record):
+        error_message = (
+            "dtype has to be a record, a record field, or a list of records, not {}"
+        )
+        if isinstance(dtype, Registry):
+            dtype = [dtype]
+        elif isinstance(dtype, DeferredAttribute):
             dtype = [dtype]
         elif not isinstance(dtype, list):
-            raise ValueError(error_message)
-        registries_str = ""
-        for registry in dtype:
-            if not hasattr(registry, "__get_name_with_module__"):
-                raise ValueError(error_message)
-            registries_str += registry.__get_name_with_module__() + "|"
-        dtype_str = f"cat[{registries_str.rstrip('|')}]"
+            raise ValueError(error_message.format(dtype))
+        dtype_str = ""
+        for single_dtype in dtype:
+            if not isinstance(single_dtype, Registry) and not isinstance(
+                single_dtype, DeferredAttribute
+            ):
+                raise ValueError(error_message.format(single_dtype))
+            if isinstance(single_dtype, Registry):
+                dtype_str += single_dtype.__get_name_with_module__() + "|"
+            else:
+                dtype_str += (
+                    single_dtype.field.model.__get_name_with_module__()
+                    + f".{single_dtype.field.name}"
+                    + "|"
+                )
+        dtype_str = dtype_str.rstrip("|")
+        if not is_itype:
+            dtype_str = f"cat[{dtype_str}]"
     return dtype_str
 
 
@@ -163,10 +184,10 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
     if len(args) != 0:
         raise ValueError("Only keyword args allowed")
     name: str = kwargs.pop("name", None)
-    dtype: type | str | None = kwargs.pop("dtype") if "dtype" in kwargs else None
-    is_type: bool = kwargs.pop("is_type") if "is_type" in kwargs else False
-    type_: Feature | str | None = kwargs.pop("type") if "type" in kwargs else None
-    description = kwargs.pop("description") if "description" in kwargs else None
+    dtype: type | str | None = kwargs.pop("dtype", None)
+    is_type: bool = kwargs.pop("is_type", None)
+    type_: Feature | str | None = kwargs.pop("type", None)
+    description: str | None = kwargs.pop("description", None)
     if kwargs:
         valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Feature)])
         raise FieldValidationError(f"Only {valid_keywords} are valid keyword arguments")
@@ -196,9 +217,18 @@ def __init__(self, *args, **kwargs):
         super(Feature, self).__init__(*args, **kwargs)
         return None
     dtype = kwargs.get("dtype", None)
+    default_value = kwargs.pop("default_value", None)
+    cat_filters = kwargs.pop("cat_filters", None)
     kwargs = process_init_feature_param(args, kwargs)
     super(Feature, self).__init__(*args, **kwargs)
+    self.default_value = default_value
     dtype_str = kwargs.pop("dtype", None)
+    if cat_filters:
+        assert "|" not in dtype_str  # noqa: S101
+        assert "]]" not in dtype_str  # noqa: S101
+        fill_in = ", ".join(f"{key}='{value}'" for (key, value) in cat_filters.items())
+        dtype_str = dtype_str.replace("]", f"[{fill_in}]]")
+        self.dtype = dtype_str
     if not self._state.adding:
         if not (
             self.dtype.startswith("cat") if dtype == "cat" else self.dtype == dtype_str

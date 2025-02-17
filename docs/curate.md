@@ -5,5 +5,5 @@
 
 curate-df
 curate-any
-curate-subclass
+ehrcuration
 ```
