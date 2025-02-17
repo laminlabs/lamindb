@@ -1971,7 +1971,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     def __init__(
         self,
         name: str,
-        dtype: FeatureDtype | Registry | list[Registry],
+        dtype: FeatureDtype | Registry | list[Registry] | FieldAttr,
         type: Feature | None = None,
         is_type: bool = False,
         unit: str | None = None,
@@ -2288,7 +2288,7 @@ class Schema(Record, CanCurate, TracksRun):
         name: str | None = None,
         description: str | None = None,
         dtype: str | None = None,
-        itype: str | None = None,
+        itype: str | Registry | FieldAttr | None = None,
         type: Schema | None = None,
         is_type: bool = False,
         otype: str | None = None,
