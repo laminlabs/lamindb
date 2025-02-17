@@ -105,6 +105,7 @@ class Migration(migrations.Migration):
         ("lamindb", "0085_alter_feature_is_type_alter_flextable_is_type_and_more"),
         ("lamindb", "0086_various"),
         ("lamindb", "0087_rename__schemas_m2m_artifact_feature_sets_and_more"),
+        ("lamindb", "0088_schema_components"),
     ]
 
     dependencies = []  # type: ignore
@@ -2183,6 +2184,12 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
+                    "_curation",
+                    lamindb.base.fields.JSONField(
+                        blank=True, db_default=None, default=None, null=True
+                    ),
+                ),
+                (
                     "slot",
                     lamindb.base.fields.CharField(
                         blank=True,
@@ -2193,19 +2200,13 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
-                    "_curation",
-                    lamindb.base.fields.JSONField(
-                        blank=True, db_default=None, default=None, null=True
-                    ),
-                ),
-                (
                     "composite",
                     lamindb.base.fields.ForeignKey(
                         blank=True,
                         default=None,
                         null=True,
                         on_delete=django.db.models.deletion.PROTECT,
-                        related_name="components",
+                        related_name="+",
                         to="lamindb.schema",
                     ),
                 ),
@@ -2241,27 +2242,6 @@ class Migration(migrations.Migration):
                         to="lamindb.schema",
                     ),
                 ),
-                (
-                    "space",
-                    lamindb.base.fields.ForeignKey(
-                        blank=True,
-                        db_default=1,
-                        default=1,
-                        on_delete=django.db.models.deletion.PROTECT,
-                        to="lamindb.space",
-                    ),
-                ),
-                (
-                    "created_by",
-                    lamindb.base.fields.ForeignKey(
-                        blank=True,
-                        default=lamindb.base.users.current_user_id,
-                        editable=False,
-                        on_delete=django.db.models.deletion.PROTECT,
-                        related_name="+",
-                        to="lamindb.user",
-                    ),
-                ),
             ],
             options={
                 "abstract": False,
@@ -2284,7 +2264,7 @@ class Migration(migrations.Migration):
                 (
                     "slot",
                     lamindb.base.fields.CharField(
-                        blank=True, default=None, max_length=40, null=True
+                        blank=True, default=None, max_length=255, null=True
                     ),
                 ),
                 (
@@ -2354,6 +2334,80 @@ class Migration(migrations.Migration):
                 null=True,
                 on_delete=django.db.models.deletion.PROTECT,
                 related_name="validated_artifacts",
+                to="lamindb.schema",
+            ),
+        ),
+        migrations.CreateModel(
+            name="SchemaComponent",
+            fields=[
+                (
+                    "created_at",
+                    lamindb.base.fields.DateTimeField(
+                        blank=True,
+                        db_default=django.db.models.functions.datetime.Now(),
+                        db_index=True,
+                        editable=False,
+                    ),
+                ),
+                ("id", models.BigAutoField(primary_key=True, serialize=False)),
+                (
+                    "slot",
+                    lamindb.base.fields.CharField(
+                        blank=True, default=None, max_length=255, null=True
+                    ),
+                ),
+                (
+                    "component",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="links_component",
+                        to="lamindb.schema",
+                    ),
+                ),
+                (
+                    "composite",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="links_composite",
+                        to="lamindb.schema",
+                    ),
+                ),
+                (
+                    "run",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        default=lamindb.models.current_run,
+                        null=True,
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="+",
+                        to="lamindb.run",
+                    ),
+                ),
+                (
+                    "created_by",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        default=lamindb.base.users.current_user_id,
+                        editable=False,
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="+",
+                        to="lamindb.user",
+                    ),
+                ),
+            ],
+            options={
+                "unique_together": {("composite", "component"), ("composite", "slot")},
+            },
+            bases=(lamindb.models.LinkORM, models.Model),
+        ),
+        migrations.AddField(
+            model_name="schema",
+            name="components",
+            field=models.ManyToManyField(
+                related_name="composites",
+                through="lamindb.SchemaComponent",
                 to="lamindb.schema",
             ),
         ),
@@ -2497,6 +2551,17 @@ class Migration(migrations.Migration):
                 related_name="projects",
                 through="lamindb.SchemaProject",
                 to="lamindb.schema",
+            ),
+        ),
+        migrations.AddField(
+            model_name="schema",
+            name="space",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                db_default=1,
+                default=1,
+                on_delete=django.db.models.deletion.PROTECT,
+                to="lamindb.space",
             ),
         ),
         migrations.AddField(
@@ -3562,6 +3627,18 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.AddField(
+            model_name="schema",
+            name="created_by",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=lamindb.base.users.current_user_id,
+                editable=False,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="+",
+                to="lamindb.user",
+            ),
+        ),
+        migrations.AddField(
             model_name="run",
             name="created_by",
             field=lamindb.base.fields.ForeignKey(
@@ -4274,7 +4351,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AlterUniqueTogether(
             name="artifactschema",
-            unique_together={("artifact", "schema")},
+            unique_together={("artifact", "schema"), ("artifact", "slot")},
         ),
         migrations.AlterUniqueTogether(
             name="artifactreference",

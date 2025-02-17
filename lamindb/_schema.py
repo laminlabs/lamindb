@@ -80,7 +80,6 @@ def __init__(self, *args, **kwargs):
     minimal_set: bool = kwargs.pop("minimal_set", True)
     ordered_set: bool = kwargs.pop("ordered_set", False)
     maximal_set: bool = kwargs.pop("maximal_set", False)
-    composite: Schema | None = kwargs.pop("composite", None)
     slot: str | None = kwargs.pop("slot", None)
     coerce_dtype: bool | None = kwargs.pop("coerce_dtype", None)
 
@@ -88,7 +87,7 @@ def __init__(self, *args, **kwargs):
         raise ValueError(
             f"Unexpected keyword arguments: {', '.join(kwargs.keys())}\n"
             "Valid arguments are: features, description, dtype, itype, type, "
-            "is_type, otype, minimal_set, ordered_set, maximal_set, composite, "
+            "is_type, otype, minimal_set, ordered_set, maximal_set, "
             "slot, validated_by, coerce_dtype"
         )
 
@@ -106,11 +105,11 @@ def __init__(self, *args, **kwargs):
         dtype = None if itype is not None and itype == "Feature" else NUMBER_TYPE
     else:
         dtype = get_type_str(dtype)
-    if composite is not None and composite._state.adding:
-        raise InvalidArgument(f"composite schema {composite} must be saved before use")
     components: dict[str, Schema]
     if components:
         itype = "Composite"
+        if otype is None:
+            raise InvalidArgument("Please pass otype != None for composite schemas")
     if itype is not None and not isinstance(itype, str):
         itype_str = get_dtype_str_from_dtype(itype, is_itype=True)
     else:
@@ -127,7 +126,6 @@ def __init__(self, *args, **kwargs):
         "minimal_set": minimal_set,
         "ordered_set": ordered_set,
         "maximal_set": maximal_set,
-        "composite": composite,
     }
     if coerce_dtype:
         validated_kwargs["_aux"] = {"af": {"0": coerce_dtype}}
@@ -151,17 +149,8 @@ def __init__(self, *args, **kwargs):
         for slot, component in components.items():
             if component._state.adding:
                 raise InvalidArgument(
-                    f"component schema {component} must be saved before use"
+                    f"component {slot} {component} must be saved before use"
                 )
-            if component.slot is None:
-                component.slot = slot
-            else:
-                assert component.slot == slot, (  # noqa: S101
-                    f"slot mismatch: {component.slot} != {slot}"
-                )
-            assert component.composite is None, (  # noqa: S101
-                f"component already used by {component.composite}"
-            )
         self._components = components
     validated_kwargs["uid"] = ids.base62_20()
     super(Schema, self).__init__(**validated_kwargs)
@@ -170,14 +159,21 @@ def __init__(self, *args, **kwargs):
 @doc_args(Schema.save.__doc__)
 def save(self, *args, **kwargs) -> Schema:
     """{}"""  # noqa: D415
-    if self.composite is not None:
-        assert self.slot is not None, "pass `slot`, e.g., to 'var', 'obs', etc."  # noqa: S101
+    from lamindb._save import bulk_create
+
     super(Schema, self).save(*args, **kwargs)
     if hasattr(self, "_components"):
-        # we need to update the components because we set the slot and the composite
-        for component in self._components.values():
-            component.composite = self
-            component.save()
+        # analogous to save_schema_links in core._data.py
+        # which is called to save feature sets in artifact.save()
+        links = []
+        for slot, component in self._components.items():
+            kwargs = {
+                "composite_id": self.id,
+                "component_id": component.id,
+                "slot": slot,
+            }
+            links.append(Schema.components.through(**kwargs))
+        bulk_create(links, ignore_conflicts=True)
     if hasattr(self, "_features"):
         assert self.n > 0  # noqa: S101
         related_name, records = self._features
@@ -347,3 +343,5 @@ Schema._get_related_name = _get_related_name
 delattr(Schema, "validated_by")  # we don't want to expose these
 delattr(Schema, "validated_by_id")  # we don't want to expose these
 delattr(Schema, "validated_schemas")  # we don't want to expose these
+delattr(Schema, "composite")  # we don't want to expose these
+delattr(Schema, "composite_id")  # we don't want to expose these

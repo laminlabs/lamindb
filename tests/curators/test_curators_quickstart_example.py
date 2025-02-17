@@ -26,14 +26,12 @@ def small_dataset1_schema():
     # define schema
     schema = ln.Schema(
         name="small_dataset1_obs_level_metadata",
-        otype="DataFrame",
         features=[
             ln.Feature(name="cell_medium", dtype="cat[ULabel[CellMedium]]").save(),
-            ln.Feature(name="sample_note", dtype="str").save(),
-            ln.Feature(name="cell_type_by_expert", dtype="cat[bionty.CellType]").save(),
-            ln.Feature(name="cell_type_by_model", dtype="cat[bionty.CellType]").save(),
+            ln.Feature(name="sample_note", dtype=str).save(),
+            ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
+            ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
         ],
-        coerce_dtype=True,
     ).save()
 
     yield schema
@@ -77,29 +75,29 @@ def test_dataframe_curator(small_dataset1_schema):
     artifact.delete(permanent=True)
 
 
-def test_anndata_curator(small_dataset1_schema: ln.Schema, curator_params):
+def test_anndata_curator(small_dataset1_schema: ln.Schema):
     """Test AnnData curator implementation."""
 
     obs_schema = small_dataset1_schema
     var_schema = ln.Schema(
-        name="small_dataset1_var_schema",
-        otype="DataFrame",
-        itype="bionty.Gene.ensembl_gene_id",
+        name="scRNA_seq_var_schema",
+        itype=bt.Gene.ensembl_gene_id,
         dtype="num",
     ).save()
+
     anndata_schema = ln.Schema(
         name="small_dataset1_anndata_schema",
         otype="AnnData",
         components={"obs": obs_schema, "var": var_schema},
     ).save()
 
-    assert anndata_schema.components.get(slot="obs").composite == anndata_schema
-    assert anndata_schema.components.get(slot="var").composite == anndata_schema
+    assert anndata_schema._get_component("obs") == obs_schema
+    assert anndata_schema._get_component("var") == var_schema
 
     describe_output = anndata_schema.describe(return_str=True)
     assert "small_dataset1_anndata_schema" in describe_output
     assert "small_dataset1_obs_level_metadata" in describe_output
-    assert "small_dataset1_var_schema" in describe_output
+    assert "scRNA_seq_var_schema" in describe_output
 
     adata = datasets.small_dataset1(otype="AnnData")
     curator = ln.curators.AnnDataCurator(adata, anndata_schema)
@@ -116,9 +114,9 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema, curator_params):
     }
 
     artifact.delete(permanent=True)
+    anndata_schema.delete()
     obs_schema.delete()
     var_schema.delete()
-    anndata_schema.delete()
 
 
 def test_soma_curator(small_dataset1_schema, curator_params):

@@ -30,7 +30,7 @@ def test_features_add():
         == """lamindb.errors.ValidationError: These keys could not be validated: ['cell_medium']
 Here is how to create a feature:
 
-  ln.Feature(name='cell_medium', dtype='cat ? str').save()"""
+  ln.Feature(name='cell_medium', dtype='cat').save()"""
     )
 
     ln.Feature(name="cell_medium", dtype="cat").save()

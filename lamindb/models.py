@@ -2169,11 +2169,10 @@ class Schema(Record, CanCurate, TracksRun):
         minimal_set: `bool = True` Whether the schema contains a minimal set of linked features.
         ordered_set: `bool = False` Whether features are required to be ordered.
         maximal_set: `bool = False` If `True`, no additional features are allowed.
-        composite: `Schema | None = None` A reference to a composite schema this schema is part of.
         slot: `str | None = None` The slot name when this schema is used as a component in a
             composite schema.
         coerce_dtype: `bool = False` When True, attempts to coerce values to the specified dtype
-            during validation.
+            during validation, see :attr:`~lamindb.Schema.coerce_dtype`.
 
     Note:
 
@@ -2275,24 +2274,15 @@ class Schema(Record, CanCurate, TracksRun):
 
     If `True`, the the minimal set is a maximal set and no additional features are allowed.
     """
-    components: Schema
-    """Components of this schema.
-
-    A schema can be composed of sub-schemas.
-    """
-    # in lamindb v2, the below will be a M2M to enable re-using a component
-    # across composites
-    composite: Schema | None = ForeignKey(
-        "self", PROTECT, related_name="components", default=None, null=True
+    components: Schema = ManyToManyField(
+        "self", through="SchemaComponent", symmetrical=False, related_name="composites"
     )
-    """The composite schema that contains this schema as a component.
+    """Components of this schema."""
+    composites: Schema
+    """The composite schemas that contains this schema as a component.
 
-    The composite schema composes multiple simpler schemas into one object.
-
-    For example, an AnnData composes multiple schemas: `var[DataFrameT]`, `obs[DataFrame]`, `obsm[Array]`, `uns[dict]`, etc.
+    For example, an `AnnData` composes multiple schemas: `var[DataFrameT]`, `obs[DataFrame]`, `obsm[Array]`, `uns[dict]`, etc.
     """
-    slot: str | None = CharField(max_length=100, db_index=True, null=True)
-    """The slot in which the schema is stored in the composite schema."""
     features: Feature
     """The features contained in the schema."""
     params: Param
@@ -2319,6 +2309,12 @@ class Schema(Record, CanCurate, TracksRun):
     # """
     # validated_schemas: Schema
     # """The schemas that were validated against this schema with a :class:`~lamindb.curators.Curator`."""
+    composite: Schema | None = ForeignKey(
+        "self", PROTECT, related_name="+", default=None, null=True
+    )
+    # The legacy foreign key
+    slot: str | None = CharField(max_length=100, db_index=True, null=True)
+    # The legacy slot
 
     @overload
     def __init__(
@@ -2335,7 +2331,6 @@ class Schema(Record, CanCurate, TracksRun):
         minimal_set: bool = True,
         ordered_set: bool = False,
         maximal_set: bool = False,
-        composite: Schema | None = None,
         slot: str | None = None,
         coerce_dtype: bool = False,
     ): ...
@@ -2415,7 +2410,10 @@ class Schema(Record, CanCurate, TracksRun):
 
     @property
     def coerce_dtype(self) -> bool:
-        """Whether dtypes should be coerced during validation."""
+        """Whether dtypes should be coerced during validation.
+
+        For example, a `objects`-dtyped pandas column can be coerced to `categorical` and would pass validation if this is true.
+        """
         if self._aux is not None and "af" in self._aux and "0" in self._aux["af"]:
             return self._aux["af"]["0"]
         else:
@@ -2440,9 +2438,8 @@ class Schema(Record, CanCurate, TracksRun):
 
     def describe(self, return_str=False) -> None | str:
         """Describe schema."""
-        components = Schema.filter(composite=self).all()
         message = str(self) + "\ncomponents:"
-        for component in components:
+        for component in self.components.all():
             message += "\n    " + str(component)
         if return_str:
             return message
@@ -2451,8 +2448,7 @@ class Schema(Record, CanCurate, TracksRun):
             return None
 
     def _get_component(self, slot: str) -> Schema:
-        components = Schema.filter(composite=self).all()
-        return components.get(slot=slot)
+        return self.components.get(links_component__slot=slot)
 
 
 class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
@@ -3904,15 +3900,22 @@ class SchemaParam(BasicRecord, LinkORM):
 class ArtifactSchema(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="_links_schema")
-    # we follow the lower() case convention rather than snake case for link models
     schema: Schema = ForeignKey(Schema, PROTECT, related_name="_links_artifact")
-    slot: str | None = CharField(max_length=40, null=True)
-    feature_ref_is_semantic: bool | None = BooleanField(
-        null=True
-    )  # like Feature name or Gene symbol or CellMarker name
+    slot: str | None = CharField(null=True)
+    feature_ref_is_semantic: bool | None = BooleanField(null=True)
 
     class Meta:
-        unique_together = ("artifact", "schema")
+        unique_together = (("artifact", "schema"), ("artifact", "slot"))
+
+
+class SchemaComponent(BasicRecord, LinkORM, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    composite: Schema = ForeignKey(Schema, CASCADE, related_name="links_composite")
+    component: Schema = ForeignKey(Schema, PROTECT, related_name="links_component")
+    slot: str | None = CharField(null=True)
+
+    class Meta:
+        unique_together = (("composite", "component"), ("composite", "slot"))
 
 
 class CollectionArtifact(BasicRecord, LinkORM, TracksRun):
