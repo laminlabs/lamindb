@@ -11,7 +11,7 @@ import lamindb.models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lamindb", "0087_squashed"),
+        ("lamindb", "0087_rename__schemas_m2m_artifact_feature_sets_and_more"),
     ]
 
     operations = [
