@@ -93,13 +93,13 @@ def test_edge_cases(df):
     with pytest.raises(
         FieldValidationError,
         match=re.escape(
-            "Only artifacts, name, description, meta, reference, reference_type, run, revises can be passed"
+            "Only artifacts, key, description, meta, reference, reference_type, run, revises can be passed"
         ),
     ) as error:
         ln.Collection(df, invalid_param=1)
 
     with pytest.raises(ValueError) as error:
-        ln.Collection(1, name="Invalid")
+        ln.Collection(1, key="Invalid")
     assert str(error.exconly()).startswith(
         "ValueError: Artifact or list[Artifact] is allowed."
     )
@@ -118,7 +118,7 @@ def test_edge_cases(df):
         "ValueError: Please pass artifacts with distinct hashes: these ones are"
         " non-unique"
     )
-    artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True)
 
 
 def test_from_inconsistent_artifacts(df, adata):
