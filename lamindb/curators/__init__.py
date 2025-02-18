@@ -1,6 +1,6 @@
 """Curators.
 
-.. versionadded: 1.1.0
+.. versionadded:: 1.1.0
 
 .. autosummary::
    :toctree: .
@@ -172,7 +172,7 @@ class Curator:
 
     A `Curator` object makes it easy to validate, standardize & annotate datasets.
 
-    .. versionadded: 1.1.0
+    .. versionadded:: 1.1.0
 
     See:
         - :class:`~lamindb.curators.DataFrameCurator`
@@ -216,7 +216,7 @@ class DataFrameCurator(Curator):
 
     See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
 
-    .. versionadded: 1.1.0
+    .. versionadded:: 1.1.0
 
     Args:
         dataset: The DataFrame-like object to validate & annotate.
@@ -391,7 +391,7 @@ class AnnDataCurator(Curator):
 
     See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
 
-    .. versionadded: 1.1.0
+    .. versionadded:: 1.1.0
 
     Args:
         dataset: The AnnData-like object to validate & annotate.

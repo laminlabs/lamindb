@@ -32,13 +32,15 @@ def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]
 
     Guide: :doc:`/track`
 
-    .. versionadded: 1.1.0
+    .. versionadded:: 1.1.0
         This is still in beta and will be refined in future releases.
 
     Args:
         uid: Persist the uid to identify this transform across renames.
 
     Example::
+
+        import lamindb as ln
 
         @ln.tracked()
         def subset_dataframe(
@@ -48,9 +50,9 @@ def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]
             subset_cols: int = 2,
         ) -> None:
             artifact = ln.Artifact.get(key=input_artifact_key)
-            dataset = artifact.load()  # auto-tracked as input
-            new_data = dataset.iloc[:subset_rows, :subset_cols]
-            ln.Artifact.from_df(new_data, key=output_artifact_key).save()  # auto-tracked as output
+            df = artifact.load()  # auto-tracked as input
+            new_df = df.iloc[:subset_rows, :subset_cols]
+            ln.Artifact.from_df(new_df, key=output_artifact_key).save()  # auto-tracked as output
     """
 
     def decorator_tracked(func: Callable[P, R]) -> Callable[P, R]:
