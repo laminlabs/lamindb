@@ -699,7 +699,7 @@ class Registry(ModelBase):
             A record.
 
         Raises:
-            :exc:`docs:lamindb.core.exceptions.DoesNotExist`: In case no matching record is found.
+            :exc:`docs:lamindb.errors.DoesNotExist`: In case no matching record is found.
 
         See Also:
             - Guide: :doc:`docs:registries`

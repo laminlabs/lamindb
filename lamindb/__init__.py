@@ -1,12 +1,13 @@
 """A data framework for biology.
 
-Tracking notebooks & scripts.
+Tracking notebooks, scripts & functions.
 
 .. autosummary::
    :toctree: .
 
    track
    finish
+   tracked
 
 Registries.
 
@@ -57,6 +58,7 @@ Backward compatibility.
    :toctree: .
 
    FeatureSet
+   Curator
 
 """
 

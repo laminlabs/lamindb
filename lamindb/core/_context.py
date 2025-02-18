@@ -257,7 +257,7 @@ class Context:
         path: str | None = None,
         log_to_file: bool | None = None,
     ) -> None:
-        """Initiate a run with tracked data lineage.
+        """Track a global run of your Python session.
 
         - sets :attr:`~lamindb.core.Context.transform` &
           :attr:`~lamindb.core.Context.run` by creating or loading `Transform` &
