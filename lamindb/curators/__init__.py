@@ -1,5 +1,7 @@
 """Curators.
 
+.. versionadded: 1.1.0
+
 .. autosummary::
    :toctree: .
 
@@ -170,6 +172,8 @@ class Curator:
 
     A `Curator` object makes it easy to validate, standardize & annotate datasets.
 
+    .. versionadded: 1.1.0
+
     See:
         - :class:`~lamindb.curators.DataFrameCurator`
         - :class:`~lamindb.curators.AnnDataCurator`
@@ -211,6 +215,8 @@ class DataFrameCurator(Curator):
     """Curator for a DataFrame object.
 
     See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
+
+    .. versionadded: 1.1.0
 
     Args:
         dataset: The DataFrame-like object to validate & annotate.
@@ -384,6 +390,8 @@ class AnnDataCurator(Curator):
     """Curator for a DataFrame object.
 
     See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
+
+    .. versionadded: 1.1.0
 
     Args:
         dataset: The AnnData-like object to validate & annotate.
@@ -1031,11 +1039,6 @@ class AnnDataCatManager(CatManager):
 class MuDataCatManager(CatManager):
     """Curation flow for a ``MuData`` object.
 
-    See also :class:`~lamindb.Curator`.
-
-    Note that if genes or other measurements are removed from the MuData object,
-    the object should be recreated using :meth:`~lamindb.Curator.from_mudata`.
-
     Args:
         mdata: The MuData object to curate.
         var_index: The registry field for mapping the ``.var`` index for each modality.
@@ -1288,8 +1291,6 @@ def _maybe_curation_keys_not_present(nonval_keys: list[str], name: str):
 
 class TiledbsomaCatManager(CatManager):
     """Curation flow for `tiledbsoma.Experiment`.
-
-    See also :class:`~lamindb.Curator`.
 
     Args:
         experiment_uri: A local or cloud path to a `tiledbsoma.Experiment`.

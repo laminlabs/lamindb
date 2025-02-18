@@ -26,10 +26,31 @@ def get_current_tracked_run() -> Run | None:
 
 
 def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Decorator that tracks function execution.
+    """Mark a function as tracked with this decorator.
+
+    You will be able to see inputs, outputs, and parameters of the function in the data lineage graph.
+
+    Guide: :doc:`/track`
+
+    .. versionadded: 1.1.0
+        This is still in beta and will be refined in future releases.
 
     Args:
-        uid: Optional unique identifier for the transform
+        uid: Persist the uid to identify this transform across renames.
+
+    Example::
+
+        @ln.tracked()
+        def subset_dataframe(
+            input_artifact_key: str,  # all arguments tracked as parameters of the function run
+            output_artifact_key: str,
+            subset_rows: int = 2,
+            subset_cols: int = 2,
+        ) -> None:
+            artifact = ln.Artifact.get(key=input_artifact_key)
+            dataset = artifact.load()  # auto-tracked as input
+            new_data = dataset.iloc[:subset_rows, :subset_cols]
+            ln.Artifact.from_df(new_data, key=output_artifact_key).save()  # auto-tracked as output
     """
 
     def decorator_tracked(func: Callable[P, R]) -> Callable[P, R]:
