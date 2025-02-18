@@ -290,6 +290,7 @@ def test_create_from_dataframe(df):
     assert artifact.key is None
     assert artifact.otype == "DataFrame"
     assert artifact.kind == "dataset"
+    assert artifact.n_observations == 2
     assert hasattr(artifact, "_local_filepath")
     artifact.save()
     # can do backed now, tested in test_storage.py
