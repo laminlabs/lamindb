@@ -641,11 +641,12 @@ class QuerySet(models.QuerySet):
                 and value.strip("-").isalpha()
                 and "__" not in field
                 and hasattr(self.model, field)
-                and getattr(self.model, field).field.related_model
             ):
-                raise FieldError(
-                    f"Invalid lookup '{value}' for {field}. Did you mean {field}__name?"
-                )
+                field_attr = getattr(self.model, field)
+                if hasattr(field_attr, "field") and field_attr.field.related_model:
+                    raise FieldError(
+                        f"Invalid lookup '{value}' for {field}. Did you mean {field}__name?"
+                    )
 
         expressions = process_expressions(self, expressions)
         if len(expressions) > 0:
