@@ -689,6 +689,7 @@ def from_df(
         kind="dataset",
         **kwargs,
     )
+    artifact.n_observations = len(df)
     return artifact
 
 
