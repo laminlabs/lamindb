@@ -436,7 +436,15 @@ def save_context_core(
     # save both run & transform records if we arrive here
     if run is not None:
         run.save()
-    transform.save()
+    transform_id_prior_to_save = transform.id
+    transform.save()  # this in-place updates the state of transform upon hash collision
+    if transform.id != transform_id_prior_to_save:
+        # the hash existed and we're actually back to the previous version
+        # hence, this was in fact a run of the previous transform rather than of
+        # the new transform
+        # this can happen in interactive notebooks if the user makes no change to the notebook
+        run.transform = transform
+        run.save()
 
     # finalize
     if not from_cli and run is not None:
