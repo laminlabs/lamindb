@@ -192,10 +192,12 @@ def process_data(
             f"Do not know how to create a artifact object from {data}, pass a path instead!"
         )
     if key_suffix is not None and key_suffix != suffix:
-        raise InvalidArgument(
-            f"The suffix '{key_suffix}' of the provided key is inconsistent, it should"
-            f" be '{suffix}'"  # consciously omitting a trailing period
-        )
+        # consciously omitting a trailing period
+        if isinstance(data, (str, Path, UPath)):
+            message = f"The suffix '{suffix}' of the provided path is inconsistent, it should be '{key_suffix}'"
+        else:
+            message = f"The suffix '{key_suffix}' of the provided key is inconsistent, it should be '{suffix}'"
+        raise InvalidArgument(message)
     # in case we have an in-memory representation, we need to write it to disk
     if isinstance(data, data_types):
         path = settings.cache_dir / f"{provisional_uid}{suffix}"
