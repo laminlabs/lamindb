@@ -134,7 +134,7 @@ def filepath_cache_key_from_artifact(
 
 
 def store_file_or_folder(
-    local_path: UPathStr, storage_path: UPath, print_progress: bool = True
+    local_path: UPathStr, storage_path: UPath, print_progress: bool = True, **kwargs
 ) -> None:
     """Store file or folder (localpath) at storagepath."""
     local_path = UPath(local_path)
@@ -155,7 +155,10 @@ def store_file_or_folder(
         else:
             create_folder = None
         storage_path.upload_from(
-            local_path, create_folder=create_folder, print_progress=print_progress
+            local_path,
+            create_folder=create_folder,
+            print_progress=print_progress,
+            **kwargs,
         )
     else:  # storage path is local
         if local_path.resolve().as_posix() == storage_path.resolve().as_posix():
