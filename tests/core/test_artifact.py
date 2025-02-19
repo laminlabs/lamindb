@@ -867,6 +867,27 @@ def test_zarr_upload_cache(adata):
     ln.settings.storage = previous_storage
 
 
+def test_path_suffix(df):
+    artifact = ln.Artifact("README.md", key="README.md")
+    assert artifact.suffix == ".md"
+    assert artifact.key == "README.md"
+    artifact = ln.Artifact("LICENSE", key="LICENSE")
+    assert artifact.suffix == ""
+    assert artifact.key == "LICENSE"
+    try:
+        artifact = ln.Artifact("README.md", key="README.inconsistent")
+    except InvalidArgument as error:
+        assert str(error).startswith(
+            "The suffix '.inconsistent' of the provided key is incorrect, it should be '.md'."
+        )
+    try:
+        artifact = ln.Artifact("LICENSE", key="LICENSE.txt")
+    except InvalidArgument as error:
+        assert str(error).startswith(
+            "The suffix '.txt' of the provided key is incorrect, it should be ''."
+        )
+
+
 def test_df_suffix(df):
     artifact = ln.Artifact.from_df(df, key="test_.parquet")
     assert artifact.suffix == ".parquet"

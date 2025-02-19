@@ -161,7 +161,13 @@ def process_data(
         data_types = (pd.DataFrame, AnnData, MuData)
     else:
         data_types = (pd.DataFrame, AnnData)  # type:ignore
-
+    if key is not None:
+        key_suffix = extract_suffix_from_path(PurePosixPath(key), arg_name="key")
+        # use suffix as the (adata) format if the format is not provided
+        if isinstance(data, AnnData) and format is None and len(key_suffix) > 0:
+            format = key_suffix[1:]
+    else:
+        key_suffix = None
     if isinstance(data, (str, Path, UPath)):  # UPathStr, spelled out
         access_token = (
             default_storage._access_token
@@ -180,30 +186,21 @@ def process_data(
     elif isinstance(data, data_types):
         storage = default_storage
         memory_rep = data
-        if key is not None:
-            key_suffix = extract_suffix_from_path(PurePosixPath(key), arg_name="key")
-            # use suffix as the (adata) format if the format is not provided
-            if isinstance(data, AnnData) and format is None and len(key_suffix) > 0:
-                format = key_suffix[1:]
-        else:
-            key_suffix = None
         suffix = infer_suffix(data, format)
-        if key_suffix is not None and key_suffix != suffix:
-            raise InvalidArgument(
-                f"The suffix '{key_suffix}' of the provided key is incorrect, it should"
-                f" be '{suffix}'."
-            )
-        cache_name = f"{provisional_uid}{suffix}"
-        path = settings.cache_dir / cache_name
-        # Alex: I don't understand the line below
-        if path.suffixes == []:
-            path = path.with_suffix(suffix)
-        write_to_disk(data, path)
-        use_existing_storage_key = False
     else:
         raise NotImplementedError(
             f"Do not know how to create a artifact object from {data}, pass a path instead!"
         )
+    if key_suffix is not None and key_suffix != suffix:
+        raise InvalidArgument(
+            f"The suffix '{key_suffix}' of the provided key is incorrect, it should"
+            f" be '{suffix}'."
+        )
+    # in case we have an in-memory representation, we need to write it to disk
+    if isinstance(data, data_types):
+        path = settings.cache_dir / f"{provisional_uid}{suffix}"
+        write_to_disk(data, path)
+        use_existing_storage_key = False
     return memory_rep, path, suffix, storage, use_existing_storage_key
 
 
