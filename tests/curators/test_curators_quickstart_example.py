@@ -72,6 +72,17 @@ def test_dataframe_curator(small_dataset1_schema):
         "T cell",
         "B cell",
     }
+
+    # a second dataset with missing values
+    df = ln.core.datasets.small_dataset2(otype="DataFrame", gene_symbols_in_index=True)
+    curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
+    try:
+        curator.validate()
+    except ln.errors.ValidationError as error:
+        assert str(error).startswith("column 'sample_note' not in dataframe")
+    curator.standardize()
+    curator.validate()
+
     artifact.delete(permanent=True)
 
 

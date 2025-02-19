@@ -335,9 +335,11 @@ class DataFrameCurator(Curator):
     def validate(self) -> None:
         """{}"""  # noqa: D415
         if self._schema.n > 0:
-            self._cat_manager.validate()
             try:
+                # first validate through pandera
                 self._pandera_schema.validate(self._dataset)
+                # then validate lamindb categoricals
+                self._cat_manager.validate()
                 if self._cat_manager._is_validated:
                     self._is_validated = True
                 else:
