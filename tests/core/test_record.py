@@ -126,7 +126,7 @@ def test_search_and_get(get_search_test_filepaths):
 
     # because we're rendering Artifact.DoesNotExist private
     # in some use cases, we're not testing for it
-    with pytest.raises(ln.Artifact._DoesNotExist):
+    with pytest.raises(ln.Artifact.DoesNotExist):
         ln.Artifact.get(description="test-search1000000")
 
     #
