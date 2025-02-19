@@ -1238,6 +1238,7 @@ def _delete_skip_storage(artifact, *args, **kwargs) -> None:
 def save(self, upload: bool | None = None, **kwargs) -> Artifact:
     state_was_adding = self._state.adding
     print_progress = kwargs.pop("print_progress", True)
+    store_kwargs = kwargs.pop("store_kwargs", {})  # kwargs for .upload_from in the end
     access_token = kwargs.pop("access_token", None)
     local_path = None
     if upload and setup_settings.instance.keep_artifacts_local:
@@ -1259,7 +1260,11 @@ def save(self, upload: bool | None = None, **kwargs) -> Artifact:
     if "using" in kwargs:
         using_key = kwargs["using"]
     exception_upload = check_and_attempt_upload(
-        self, using_key, access_token=access_token, print_progress=print_progress
+        self,
+        using_key,
+        access_token=access_token,
+        print_progress=print_progress,
+        **store_kwargs,
     )
     if exception_upload is not None:
         # we do not want to raise file not found on cleanup if upload of a file failed

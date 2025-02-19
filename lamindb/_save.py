@@ -133,7 +133,9 @@ def check_and_attempt_upload(
     using_key: str | None = None,
     access_token: str | None = None,
     print_progress: bool = True,
+    **kwargs,
 ) -> Exception | None:
+    # kwargs are propagated to .upload_from in the end
     # if Artifact object is either newly instantiated or replace() was called on
     # a local env it will have a _local_filepath and needs to be uploaded
     if hasattr(artifact, "_local_filepath"):
@@ -143,6 +145,7 @@ def check_and_attempt_upload(
                 using_key,
                 access_token=access_token,
                 print_progress=print_progress,
+                **kwargs,
             )
         except Exception as exception:
             logger.warning(f"could not upload artifact: {artifact}")
@@ -316,8 +319,10 @@ def upload_artifact(
     using_key: str | None = None,
     access_token: str | None = None,
     print_progress: bool = True,
+    **kwargs,
 ) -> tuple[UPath, UPath | None]:
     """Store and add file and its linked entries."""
+    # kwargs are propagated to .upload_from in the end
     # can't currently use  filepath_from_artifact here because it resolves to ._local_filepath
     storage_key = auto_storage_key_from_artifact(artifact)
     storage_path, storage_settings = attempt_accessing_path(
@@ -326,7 +331,10 @@ def upload_artifact(
     if hasattr(artifact, "_to_store") and artifact._to_store:
         logger.save(f"storing artifact '{artifact.uid}' at '{storage_path}'")
         store_file_or_folder(
-            artifact._local_filepath, storage_path, print_progress=print_progress
+            artifact._local_filepath,
+            storage_path,
+            print_progress=print_progress,
+            **kwargs,
         )
 
     if isinstance(storage_path, LocalPathClasses):
