@@ -291,16 +291,29 @@ class DataFrameCurator(Curator):
     def standardize(self) -> None:
         """Standardize the dataset.
 
-        - Adds missing columns if a default value for a feature is defined.
-        - Fills missing values with the default value if a default value for a feature is defined.
+        - Adds missing columns for features
+        - Fills missing values for features with default values
         """
         for feature in self._schema.members:
             if feature.name not in self._dataset.columns:
-                if feature.default_value is not None:
-                    self._dataset[feature.name] = feature.default_value
+                if feature.default_value is not None or feature.nullable:
+                    fill_value = (
+                        feature.default_value
+                        if feature.default_value is not None
+                        else pd.NA
+                    )
+                    if feature.dtype.startswith("cat"):
+                        self._dataset[feature.name] = pd.Categorical(
+                            [fill_value] * len(self._dataset)
+                        )
+                    else:
+                        self._dataset[feature.name] = fill_value
+                    logger.important(
+                        f"added column {feature.name} with fill value {fill_value}"
+                    )
                 else:
                     raise ValidationError(
-                        f"Missing column {feature.name} cannot be added because no default value is defined for this feature"
+                        f"Missing column {feature.name} cannot be added because is not nullable and has no default value"
                     )
             else:
                 if feature.default_value is not None:
@@ -3423,7 +3436,7 @@ def save_artifact(
             filter_kwargs_current = get_current_filter_kwargs(registry, filter_kwargs)
             df = data if isinstance(data, pd.DataFrame) else data.obs
             # multi-value columns are separated by "|"
-            if df[key].str.contains("|").any():
+            if not df[key].isna().all() and df[key].str.contains("|").any():
                 values = df[key].str.split("|").explode().unique()
             else:
                 values = df[key].unique()
