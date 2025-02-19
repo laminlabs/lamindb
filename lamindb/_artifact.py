@@ -194,7 +194,7 @@ def process_data(
     if key_suffix is not None and key_suffix != suffix:
         raise InvalidArgument(
             f"The suffix '{key_suffix}' of the provided key is incorrect, it should"
-            f" be '{suffix}'."
+            f" be '{suffix}'"  # consciously omitting a trailing period
         )
     # in case we have an in-memory representation, we need to write it to disk
     if isinstance(data, data_types):
