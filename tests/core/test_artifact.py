@@ -430,7 +430,7 @@ def test_create_from_local_filepath(
             artifact = ln.Artifact(test_filepath, key=key, description=description)
         except InvalidArgument as error:
             assert str(error) == (
-                f"The suffix '{key_suffix}' of the provided key is incorrect, it should be '{suffix}'"
+                f"The suffix '{key_suffix}' of the provided key is inconsistent, it should be '{suffix}'"
             )
         return None
     elif key is not None and is_in_registered_storage:
@@ -892,13 +892,13 @@ def test_path_suffix(df):
         artifact = ln.Artifact("README.md", key="README.inconsistent")
     except InvalidArgument as error:
         assert str(error) == (
-            "The suffix '.inconsistent' of the provided key is incorrect, it should be '.md'"
+            "The suffix '.inconsistent' of the provided key is inconsistent, it should be '.md'"
         )
     try:
         artifact = ln.Artifact("LICENSE", key="LICENSE.txt")
     except InvalidArgument as error:
         assert str(error) == (
-            "The suffix '.txt' of the provided key is incorrect, it should be ''"
+            "The suffix '.txt' of the provided key is inconsistent, it should be ''"
         )
 
 
@@ -910,7 +910,7 @@ def test_df_suffix(df):
         artifact = ln.Artifact.from_df(df, key="test_.def")
     assert (
         error.exconly().partition(",")[0]
-        == "lamindb.errors.InvalidArgument: The suffix '.def' of the provided key is incorrect"
+        == "lamindb.errors.InvalidArgument: The suffix '.def' of the provided key is inconsistent"
     )
 
 
@@ -933,7 +933,7 @@ def test_adata_suffix(adata):
         artifact = ln.Artifact.from_anndata(adata, key="test_")
     assert (
         error.exconly().partition(",")[0]
-        == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect"
+        == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is inconsistent"
     )
 
 
