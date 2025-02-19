@@ -218,7 +218,7 @@ def __init__(self, *args, **kwargs):
         return None
     dtype = kwargs.get("dtype", None)
     default_value = kwargs.pop("default_value", None)
-    nullable = kwargs.pop("nullable", None)
+    nullable = kwargs.pop("nullable", True)  # default value of nullable
     cat_filters = kwargs.pop("cat_filters", None)
     kwargs = process_init_feature_param(args, kwargs)
     super(Feature, self).__init__(*args, **kwargs)

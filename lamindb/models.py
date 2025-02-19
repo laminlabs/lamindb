@@ -2015,6 +2015,8 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         """A default value that overwrites missing values (default `None`).
 
         This takes effect when you call `Curator.standardize()`.
+
+        If `default_value = None`, missing values like `pd.NA` or `np.nan` are kept.
         """
         if self._aux is not None and "af" in self._aux and "0" in self._aux["af"]:
             return self._aux["af"]["0"]
@@ -2050,12 +2052,14 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
 
         """
         if self._aux is not None and "af" in self._aux and "1" in self._aux["af"]:
-            return self._aux["af"]["1"]
+            value = self._aux["af"]["1"]
+            return True if value is None else value
         else:
             return True
 
     @nullable.setter
     def nullable(self, value: bool) -> None:
+        assert isinstance(value, bool), value  # noqa: S101
         if self._aux is None:
             self._aux = {}
         if "af" not in self._aux:

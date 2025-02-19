@@ -218,6 +218,14 @@ def test_schema_components(small_dataset1_schema: ln.Schema):
         dtype="num",
     ).save()
 
+    # test recreation of schema based on name lookup
+    var_schema2 = ln.Schema(
+        name="scRNA_seq_var_schema",
+        itype=bt.Gene.ensembl_gene_id,
+        dtype="num",
+    ).save()
+    assert var_schema == var_schema2
+
     try:
         ln.Schema(
             name="small_dataset1_anndata_schema",
