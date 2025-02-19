@@ -124,12 +124,9 @@ def test_search_and_get(get_search_test_filepaths):
     artifact = ln.Artifact.get(description="test-search4")
     assert artifact == artifact4
 
-    # because we're rendering Artifact.DoesNotExist private
-    # in some use cases, we're not testing for it
-    with pytest.raises(ln.Artifact._DoesNotExist):
-        ln.Artifact.get(description="test-search1000000")
+    with pytest.raises(ln.Artifact.DoesNotExist):
+        ln.Artifact.get(description="test-does-not-exist")
 
-    #
     artifact0.delete(permanent=True, storage=True)
     artifact1.delete(permanent=True, storage=True)
     artifact2.delete(permanent=True, storage=True)

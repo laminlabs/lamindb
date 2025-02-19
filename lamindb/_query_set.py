@@ -214,10 +214,27 @@ def get(
     else:
         assert idlike is None  # noqa: S101
         expressions = process_expressions(qs, expressions)
+        # don't want _branch_code here in .get(), only in .filter()
+        expressions.pop("_branch_code", None)
         # inject is_latest for consistency with idlike
-        if issubclass(registry, IsVersioned) and "is_latest" not in expressions:
+        is_latest_was_not_in_expressions = "is_latest" not in expressions
+        if issubclass(registry, IsVersioned) and is_latest_was_not_in_expressions:
             expressions["is_latest"] = True
-        return registry.objects.using(qs.db).get(**expressions)
+        try:
+            return registry.objects.using(qs.db).get(**expressions)
+        except registry.DoesNotExist:
+            # handle the case in which the is_latest injection led to a missed query
+            if "is_latest" in expressions and is_latest_was_not_in_expressions:
+                expressions.pop("is_latest")
+                result = (
+                    registry.objects.using(qs.db)
+                    .filter(**expressions)
+                    .order_by("-created_at")
+                    .first()
+                )
+                if result is not None:
+                    return result
+            raise registry.DoesNotExist from registry.DoesNotExist
 
 
 class RecordList(UserList, Generic[T]):
