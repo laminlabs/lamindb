@@ -226,14 +226,15 @@ def get(
             # handle the case in which the is_latest injection led to a missed query
             if "is_latest" in expressions and is_latest_was_not_in_expressions:
                 expressions.pop("is_latest")
-                return (
+                result = (
                     registry.objects.using(qs.db)
                     .filter(**expressions)
                     .order_by("-created_at")
                     .first()
                 )
-            else:
-                raise registry.DoesNotExist from registry.DoesNotExist
+                if result is not None:
+                    return result
+            raise registry.DoesNotExist from registry.DoesNotExist
 
 
 class RecordList(UserList, Generic[T]):
