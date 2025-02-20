@@ -168,7 +168,11 @@ def process_data(
             if hasattr(default_storage, "_access_token")
             else None
         )
-        path = create_path(data, access_token=access_token).resolve()
+        path = create_path(data, access_token=access_token)
+        # we don't resolve http links because they can resolve into a different domain
+        # for example into a temporary url
+        if path.protocol not in {"http", "https"}:
+            path = path.resolve()
         storage, use_existing_storage_key = process_pathlike(
             path,
             default_storage=default_storage,
