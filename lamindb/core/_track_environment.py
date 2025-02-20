@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
@@ -17,7 +18,7 @@ def track_environment(run: Run) -> None:
     try:
         with open(filepath, "w") as f:
             result = subprocess.run(
-                ["pip", "freeze"],
+                [sys.executable, "-m", "pip", "freeze"],
                 stdout=f,
             )
     except OSError as e:
