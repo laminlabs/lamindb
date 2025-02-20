@@ -3258,7 +3258,7 @@ def validate_categories(
             settings.verbosity = verbosity
 
     # logging messages
-    non_validated_hint_print = hint_print or f'.add_new_from("{key}")'
+    non_validated_hint_print = hint_print or f'.cat.add_new_from("{key}")'
     non_validated = [i for i in non_validated if i not in values_validated]
     n_non_validated = len(non_validated)
     if n_non_validated == 0:
