@@ -152,6 +152,7 @@ def process_data(
     default_storage: Storage,
     using_key: str | None,
     skip_existence_check: bool = False,
+    is_replace: bool = False,
 ) -> tuple[Any, Path | UPath, str, Storage, bool]:
     """Serialize a data object that's provided as file or in memory."""
     # if not overwritten, data gets stored in default storage
@@ -191,7 +192,7 @@ def process_data(
         raise NotImplementedError(
             f"Do not know how to create a artifact object from {data}, pass a path instead!"
         )
-    if key_suffix is not None and key_suffix != suffix:
+    if key_suffix is not None and key_suffix != suffix and not is_replace:
         # consciously omitting a trailing period
         if isinstance(data, (str, Path, UPath)):
             message = f"The suffix '{suffix}' of the provided path is inconsistent, it should be '{key_suffix}'"
@@ -320,6 +321,7 @@ def get_artifact_kwargs_from_data(
         default_storage,
         using_key,
         skip_check_exists,
+        is_replace=is_replace,
     )
     stat_or_artifact = get_stat_or_artifact(
         path=path,
