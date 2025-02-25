@@ -283,7 +283,14 @@ class DataFrameCurator(Curator):
                 categoricals=categoricals,
             )
         else:
+            # only validate a single categorical, in this case the index
             assert schema.itype is not None  # noqa: S101
+            index_field = parse_dtype_single_cat(schema.itype)["field"]
+            dataset = self._dataset.T
+            self._cat_manager = DataFrameCatManager(
+                dataset.reset_index(),
+                categoricals={dataset.index.name or "index": index_field},
+            )
 
     @property
     @doc_args(CAT_MANAGER_DOCSTRING)
@@ -334,6 +341,14 @@ class DataFrameCurator(Curator):
                         feature.default_value
                     )
 
+    def _cat_manager_validate(self) -> None:
+        self._cat_manager.validate()
+        if self._cat_manager._is_validated:
+            self._is_validated = True
+        else:
+            self._is_validated = False
+            raise ValidationError(self._cat_manager._validate_category_error_messages)
+
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
@@ -342,40 +357,34 @@ class DataFrameCurator(Curator):
                 # first validate through pandera
                 self._pandera_schema.validate(self._dataset)
                 # then validate lamindb categoricals
-                self._cat_manager.validate()
-                if self._cat_manager._is_validated:
-                    self._is_validated = True
-                else:
-                    self._is_validated = False
-                    raise ValidationError(
-                        self._cat_manager._validate_category_error_messages
-                    )
+                self._cat_manager_validate()
             except pandera.errors.SchemaError as err:
                 self._is_validated = False
                 # .exconly() doesn't exist on SchemaError
                 raise ValidationError(str(err)) from err
         else:
-            result = parse_dtype_single_cat(self._schema.itype, is_itype=True)
-            registry: CanCurate = result["registry"]
-            inspector = registry.inspect(
-                self._dataset.columns,
-                result["field"],
-                mute=True,
-            )
-            if len(inspector.non_validated) > 0:
-                # also check public ontology
-                if hasattr(registry, "public"):
-                    registry.from_values(
-                        inspector.non_validated, result["field"], mute=True
-                    ).save()
-                    inspector = registry.inspect(
-                        inspector.non_validated, result["field"], mute=True
-                    )
-                if len(inspector.non_validated) > 0:
-                    self._is_validated = False
-                    raise ValidationError(
-                        f"Invalid identifiers for {self._schema.itype}: {inspector.non_validated}"
-                    )
+            # result = parse_dtype_single_cat(self._schema.itype, is_itype=True)
+            # registry: CanCurate = result["registry"]
+            # inspector = registry.inspect(
+            #     self._dataset.columns,
+            #     result["field"],
+            #     mute=True,
+            # )
+            # if len(inspector.non_validated) > 0:
+            #     # also check public ontology
+            #     if hasattr(registry, "public"):
+            #         registry.from_values(
+            #             inspector.non_validated, result["field"], mute=True
+            #         ).save()
+            #         inspector = registry.inspect(
+            #             inspector.non_validated, result["field"], mute=True
+            #         )
+            #     if len(inspector.non_validated) > 0:
+            #         self._is_validated = False
+            #         raise ValidationError(
+            #             f"Invalid identifiers for {self._schema.itype}: {inspector.non_validated}"
+            #         )
+            self._cat_manager_validate()
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
@@ -485,12 +494,27 @@ class AnnDataCurator(Curator):
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
-        self._obs_curator.validate()
-        self._var_curator.validate()
-        self._is_validated = True
+        err1 = err2 = None
+        try:
+            self._obs_curator.validate()
+        except ValidationError as err:
+            err1 = err
+        try:
+            self._var_curator.validate()
+        except ValidationError as err:
+            err2 = err
+        if err1 is not None or err2 is not None:
+            raise ValidationError("\n" + str(err1) + "\n" + str(err2))
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
-    def save_artifact(self, *, key=None, description=None, revises=None, run=None):
+    def save_artifact(
+        self,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ):
         """{}"""  # noqa: D415
         if not self._is_validated:
             self.validate()  # raises ValidationError if doesn't validate
