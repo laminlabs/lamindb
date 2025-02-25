@@ -148,6 +148,9 @@ class CurateLookup:
 CAT_MANAGER_DOCSTRING = """Manage categoricals by updating registries."""
 
 
+SLOTS_DOCSTRING = """Curator object for each slot of the dataset."""
+
+
 VALIDATE_DOCSTRING = """Validate dataset.
 
 Raises:
@@ -228,9 +231,9 @@ class DataFrameCurator(Curator):
         import bionty as bt
 
         # define valid labels
-        cell_medium = ln.ULabel(name="CellMedium", is_type=True).save()
-        ln.ULabel(name="DMSO", type=cell_medium).save()
-        ln.ULabel(name="IFNG", type=cell_medium).save()
+        perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
+        ln.ULabel(name="DMSO", type=perturbation).save()
+        ln.ULabel(name="IFNG", type=perturbation).save()
         bt.CellType.from_source(name="B cell").save()
         bt.CellType.from_source(name="T cell").save()
 
@@ -238,7 +241,7 @@ class DataFrameCurator(Curator):
         schema = ln.Schema(
             name="small_dataset1_obs_level_metadata",
             features=[
-                ln.Feature(name="cell_medium", dtype="cat[ULabel[CellMedium]]").save(),
+                ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
                 ln.Feature(name="sample_note", dtype=str).save(),
                 ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
                 ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
@@ -418,9 +421,9 @@ class AnnDataCurator(Curator):
         import bionty as bt
 
         # define valid labels
-        cell_medium = ln.ULabel(name="CellMedium", is_type=True).save()
-        ln.ULabel(name="DMSO", type=cell_medium).save()
-        ln.ULabel(name="IFNG", type=cell_medium).save()
+        perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
+        ln.ULabel(name="DMSO", type=perturbation).save()
+        ln.ULabel(name="IFNG", type=perturbation).save()
         bt.CellType.from_source(name="B cell").save()
         bt.CellType.from_source(name="T cell").save()
 
@@ -428,9 +431,9 @@ class AnnDataCurator(Curator):
         obs_schema = ln.Schema(
             name="small_dataset1_obs_level_metadata",
             features=[
-                ln.Feature(name="cell_medium", dtype="cat[ULabel[CellMedium]]").save(),
+                ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
                 ln.Feature(name="sample_note", dtype=str).save(),
-                ln.Feature(name="cell_type_by_expert", dtype=bt.CellType").save(),
+                ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
                 ln.Feature(name="cell_type_by_model", dtype=bt.CellType").save(),
             ],
         ).save()
@@ -439,7 +442,7 @@ class AnnDataCurator(Curator):
         var_schema = ln.Schema(
             name="scRNA_seq_var_schema",
             itype=bt.Gene.ensembl_gene_id,
-            dtype="num",
+            dtype=int,
         ).save()
 
         # define composite schema
@@ -472,6 +475,12 @@ class AnnDataCurator(Curator):
         self._var_curator = DataFrameCurator(
             self._dataset.var.T, schema._get_component("var")
         )
+
+    @property
+    @doc_args(SLOTS_DOCSTRING)
+    def slots(self) -> dict[str, DataFrameCurator]:
+        """{}"""  # noqa: D415
+        return {"obs": self._obs_curator, "var": self._var_curator}
 
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
@@ -3279,7 +3288,7 @@ def validate_categories(
             warning_message += f"    {colors.yellow(f'{len(syn_mapper)} synonym{s}')} found: {colors.yellow(syn_mapper_print)}\n    → curate synonyms via {colors.cyan(hint_msg)}"
         if n_non_validated > len(syn_mapper):
             if syn_mapper:
-                warning_message += "    for remaining terms:\n"
+                warning_message += "\n    for remaining terms:\n"
             warning_message += f"    → fix typos, remove non-existent values, or save terms via {colors.cyan(non_validated_hint_print)}"
 
         if logger.indent == "":
