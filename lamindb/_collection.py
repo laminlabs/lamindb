@@ -235,7 +235,7 @@ def open(self, is_run_input: bool | None = None) -> PyArrowDataset:
                 "The collection has artifacts with different filesystems, this is not supported."
             )
     if not _is_pyarrow_dataset(paths):
-        suffixes = {path.suffix for path in paths}
+        suffixes = {"".join(path.suffixes).replace(".gz", "") for path in paths}
         suffixes_str = ", ".join(suffixes)
         err_msg = "This collection is not compatible with pyarrow.dataset.dataset(), "
         err_msg += (
