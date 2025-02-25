@@ -458,7 +458,7 @@ def data_is_anndata(data: AnnData | UPathStr) -> bool:
         return True
     if isinstance(data, (str, Path, UPath)):
         data_path = UPath(data)
-        if data_path.suffix == ".h5ad":
+        if ".h5ad" in data_path.suffixes:  # ".h5ad.gz" is a valid suffix
             return True
         elif data_path.suffix == ".zarr":
             # ".anndata.zarr" is a valid suffix (core.storage._valid_suffixes)
