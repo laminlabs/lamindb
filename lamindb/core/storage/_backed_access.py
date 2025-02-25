@@ -80,10 +80,10 @@ def backed_access(
     else:
         objectpath = artifact_or_filepath
     name = objectpath.name
+    # ignore .gz, only check the real suffix
+    suffixes = objectpath.suffixes
     suffix = (
-        objectpath.suffixes[-2]
-        if len(objectpath.suffixes) > 1 and ".gz" in objectpath.suffixes
-        else objectpath.suffix
+        suffixes[-2] if len(suffixes) > 1 and ".gz" in suffixes else objectpath.suffix
     )
 
     if name == "soma" or suffix == ".tiledbsoma":

@@ -148,9 +148,13 @@ def load_rds(path: UPathStr) -> UPathStr:
 
 FILE_LOADERS = {
     ".csv": pd.read_csv,
+    ".csv.gz": pd.read_csv,
     ".tsv": load_tsv,
+    ".tsv.gz": load_tsv,
     ".h5ad": load_h5ad,
+    ".h5ad.gz": load_h5ad,
     ".parquet": pd.read_parquet,
+    ".parquet.gz": pd.read_parquet,
     ".fcs": load_fcs,
     ".zarr": load_anndata_zarr,
     ".html": load_html,
@@ -177,7 +181,15 @@ def load_to_memory(filepath: UPathStr, **kwargs):
 
     filepath = settings._storage_settings.cloud_to_local(filepath, print_progress=True)
 
-    loader = FILE_LOADERS.get(filepath.suffix)
+    suffixes = filepath.suffixes
+    # infer the correct suffix when .gz is present
+    suffix = (
+        "".join(suffixes[-2:])
+        if len(suffixes) > 1 and ".gz" in suffixes
+        else filepath.suffix
+    )
+
+    loader = FILE_LOADERS.get(suffix)
     if loader is None:
         return filepath
     else:
