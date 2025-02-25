@@ -18,12 +18,26 @@ def _is_pyarrow_dataset(paths: UPath | list[UPath]) -> bool:
     # we don't check here that the filesystem is the same
     # but this is a requirement for pyarrow.dataset.dataset
     if isinstance(paths, list):
-        suffixes = {path.suffix for path in paths}
+        path_list = paths
     elif paths.is_file():
-        suffixes = {paths.suffix}
+        path_list = [paths]
     else:
-        suffixes = {path.suffix for path in paths.rglob("*") if path.suffix != ""}
-    return len(suffixes) == 1 and suffixes.pop() in PYARROW_SUFFIXES
+        path_list = [path for path in paths.rglob("*") if path.suffix != ""]
+    suffix = None
+    for path in path_list:
+        # ignore .gz, only check the real suffix
+        path_suffix = (
+            path.suffix
+            if len(path.suffixes) == 1
+            else "".join(path.suffixes).replace(".gz", "")
+        )
+        if path_suffix not in PYARROW_SUFFIXES:
+            return False
+        elif suffix is None:
+            suffix = path_suffix
+        elif path_suffix != suffix:
+            return False
+    return True
 
 
 def _open_pyarrow_dataset(paths: UPath | list[UPath]) -> PyArrowDataset:

@@ -990,16 +990,21 @@ def open(
 ):
     if self._overwrite_versions and not self.is_latest:
         raise ValueError(inconsistent_state_msg)
+    # all hdf5 suffixes including gzipped
+    h5_suffixes = [".h5", ".hdf5", ".h5ad"]
+    h5_suffixes += [s + ".gz" for s in h5_suffixes]
     # ignore empty suffix for now
     suffixes = (
-        "",
-        ".h5",
-        ".hdf5",
-        ".h5ad",
-        ".zarr",
-        ".anndata.zarr",
-        ".tiledbsoma",
-    ) + PYARROW_SUFFIXES
+        (
+            "",
+            ".zarr",
+            ".anndata.zarr",
+            ".tiledbsoma",
+        )
+        + tuple(h5_suffixes)
+        + PYARROW_SUFFIXES
+        + tuple(s + ".gz" for s in PYARROW_SUFFIXES)
+    )
     if self.suffix not in suffixes:
         raise ValueError(
             "Artifact should have a zarr, h5, tiledbsoma object"
@@ -1017,7 +1022,7 @@ def open(
     using_key = settings._using_key
     filepath, cache_key = filepath_cache_key_from_artifact(self, using_key=using_key)
     is_tiledbsoma_w = (
-        filepath.name == "soma" or filepath.suffix == ".tiledbsoma"
+        filepath.name == "soma" or self.suffix == ".tiledbsoma"
     ) and mode == "w"
     # consider the case where an object is already locally cached
     localpath = setup_settings.paths.cloud_to_local_no_update(
