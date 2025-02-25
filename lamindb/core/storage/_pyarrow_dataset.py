@@ -19,10 +19,10 @@ def _is_pyarrow_dataset(paths: UPath | list[UPath]) -> bool:
     # but this is a requirement for pyarrow.dataset.dataset
     if isinstance(paths, list):
         path_list = paths
-    elif paths.is_file():
-        path_list = [paths]
-    else:
+    elif paths.is_dir():
         path_list = [path for path in paths.rglob("*") if path.suffix != ""]
+    else:
+        path_list = [paths]
     suffix = None
     for path in path_list:
         # ignore .gz, only check the real suffix
