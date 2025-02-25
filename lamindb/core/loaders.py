@@ -181,8 +181,8 @@ def load_to_memory(filepath: UPathStr, **kwargs):
 
     filepath = settings._storage_settings.cloud_to_local(filepath, print_progress=True)
 
-    suffixes = filepath.suffixes
     # infer the correct suffix when .gz is present
+    suffixes = filepath.suffixes
     suffix = (
         "".join(suffixes[-2:])
         if len(suffixes) > 1 and ".gz" in suffixes
