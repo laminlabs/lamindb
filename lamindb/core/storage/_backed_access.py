@@ -77,21 +77,20 @@ def backed_access(
         objectpath, _ = filepath_from_artifact(
             artifact_or_filepath, using_key=using_key
         )
-        suffix = artifact_or_filepath.suffix
     else:
         objectpath = artifact_or_filepath
-        suffix = "".join(objectpath.suffixes)
     name = objectpath.name
-
-    # all hdf5 suffixes including gzipped
-    h5_suffixes = [".h5", ".hdf5", ".h5ad"]
-    h5_suffixes += [s + ".gz" for s in h5_suffixes]
+    suffix = (
+        objectpath.suffixes[-2]
+        if len(objectpath.suffixes) > 1 and ".gz" in objectpath.suffixes
+        else objectpath.suffix
+    )
 
     if name == "soma" or suffix == ".tiledbsoma":
         if mode not in {"r", "w"}:
             raise ValueError("`mode` should be either 'r' or 'w' for tiledbsoma.")
         return _open_tiledbsoma(objectpath, mode=mode)  # type: ignore
-    elif suffix in h5_suffixes:
+    elif suffix in {".h5", ".hdf5", ".h5ad"}:
         conn, storage = registry.open("h5py", objectpath, mode=mode)
     elif suffix == ".zarr":
         conn, storage = registry.open("zarr", objectpath, mode=mode)
@@ -103,7 +102,7 @@ def backed_access(
             f"or be compatible with pyarrow.dataset.dataset, instead of being {suffix} object."
         )
 
-    is_anndata = ".h5ad" in suffix or get_spec(storage).encoding_type == "anndata"
+    is_anndata = suffix == ".h5ad" or get_spec(storage).encoding_type == "anndata"
     if is_anndata:
         if mode != "r":
             raise ValueError("Can only access `AnnData` with mode='r'.")

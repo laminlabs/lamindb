@@ -27,9 +27,9 @@ def _is_pyarrow_dataset(paths: UPath | list[UPath]) -> bool:
     for path in path_list:
         # ignore .gz, only check the real suffix
         path_suffix = (
-            path.suffix
-            if len(path.suffixes) == 1
-            else "".join(path.suffixes).replace(".gz", "")
+            path.suffixes[-2]
+            if len(path.suffixes) > 1 and ".gz" in path.suffixes
+            else path.suffix
         )
         if path_suffix not in PYARROW_SUFFIXES:
             return False
