@@ -571,5 +571,8 @@ def test_compressed():
         assert isinstance(store, AnnDataAccessor)
     assert isinstance(artifact.load(), ad.AnnData)
 
+    with pytest.raises(OSError):
+        artifact.open(compression=None)
+
     artifact.delete(permanent=True)
     adata_gz.unlink()

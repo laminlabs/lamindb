@@ -153,10 +153,13 @@ registry = AccessRegistry()
 
 
 @registry.register_open("h5py")
-def open(filepath: UPathStr, mode: str = "r"):
+def open(filepath: UPathStr, mode: str = "r", compression: str | None = "infer"):
     fs, file_path_str = infer_filesystem(filepath)
     # we don't open compressed files directly because we need fsspec to uncompress on .open
-    if isinstance(fs, LocalFileSystem) and infer_compression(file_path_str) is None:
+    compression = (
+        infer_compression(file_path_str) if compression == "infer" else compression
+    )
+    if isinstance(fs, LocalFileSystem) and compression is None:
         assert mode in {"r", "r+", "a", "w", "w-"}, f"Unknown mode {mode}!"  #  noqa: S101
         return None, h5py.File(file_path_str, mode=mode)
     if mode == "r":
@@ -167,7 +170,7 @@ def open(filepath: UPathStr, mode: str = "r"):
         conn_mode = "ab"
     else:
         raise ValueError(f"Unknown mode {mode}! Should be 'r', 'w' or 'a'.")
-    conn = fs.open(file_path_str, mode=conn_mode, compression="infer")
+    conn = fs.open(file_path_str, mode=conn_mode, compression=compression)
     try:
         storage = h5py.File(conn, mode=mode)
     except Exception as e:
