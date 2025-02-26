@@ -154,7 +154,7 @@ registry = AccessRegistry()
 @registry.register_open("h5py")
 def open(filepath: UPathStr, mode: str = "r"):
     fs, file_path_str = infer_filesystem(filepath)
-    if isinstance(fs, LocalFileSystem):
+    if isinstance(fs, LocalFileSystem) and not file_path_str.endswith(".gz"):
         assert mode in {"r", "r+", "a", "w", "w-"}, f"Unknown mode {mode}!"  #  noqa: S101
         return None, h5py.File(file_path_str, mode=mode)
     if mode == "r":
