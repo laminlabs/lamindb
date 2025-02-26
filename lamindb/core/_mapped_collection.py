@@ -27,7 +27,8 @@ if TYPE_CHECKING:
 class _Connect:
     def __init__(self, storage):
         if isinstance(storage, UPath):
-            self.conn, self.store = registry.open("h5py", storage)
+            # force no external compression even for files with .gz extension. REMOVE LATER
+            self.conn, self.store = registry.open("h5py", storage, compression=None)
             self.to_close = True
         else:
             self.conn, self.store = None, storage
@@ -246,7 +247,8 @@ class MappedCollection:
                 if parallel:
                     conn, storage = None, path
                 else:
-                    conn, storage = registry.open("h5py", path)
+                    # force no external compression even for files with .gz extension. REMOVE LATER
+                    conn, storage = registry.open("h5py", path, compression=None)
             else:
                 conn, storage = registry.open("zarr", path)
             self.conns.append(conn)
