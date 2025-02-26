@@ -1003,6 +1003,7 @@ def open(
         )
         + tuple(h5_suffixes)
         + PYARROW_SUFFIXES
+        + tuple(s + ".gz" for s in PYARROW_SUFFIXES)
     )
     if self.suffix not in suffixes:
         raise ValueError(
