@@ -1005,7 +1005,7 @@ def open(
         + PYARROW_SUFFIXES
         + tuple(
             s + ".gz" for s in PYARROW_SUFFIXES
-        )  # this doesn't work for extranally gzipped files, REMOVE LATER
+        )  # this doesn't work for externally gzipped files, REMOVE LATER
     )
     if self.suffix not in suffixes:
         raise ValueError(
