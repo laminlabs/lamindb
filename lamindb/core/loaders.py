@@ -154,7 +154,6 @@ FILE_LOADERS = {
     ".h5ad": load_h5ad,
     ".h5ad.gz": load_h5ad,
     ".parquet": pd.read_parquet,
-    ".parquet.gz": pd.read_parquet,
     ".fcs": load_fcs,
     ".zarr": load_anndata_zarr,
     ".html": load_html,
