@@ -65,8 +65,7 @@ def load_tsv(path: UPathStr, **kwargs) -> pd.DataFrame:
 def load_h5ad(filepath, **kwargs) -> ad.AnnData:
     """Load an `.h5ad` file to `AnnData`."""
     fs, filepath = infer_filesystem(filepath)
-    compression = "gzip" if filepath.endswith(".gz") else None
-    with fs.open(filepath, mode="rb", compression=compression) as file:
+    with fs.open(filepath, mode="rb", compression="infer") as file:
         adata = ad.read_h5ad(file, backed=False, **kwargs)
         return adata
 
