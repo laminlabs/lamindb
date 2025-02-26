@@ -248,11 +248,10 @@ def __init__(record: Record, *args, **kwargs):
                         f" {name_field}{version_comment}: '{kwargs[name_field]}'"
                     )
                     if isinstance(record, Schema):
-                        if Artifact.filter(schema=record).exists():
-                            if record.hash != kwargs["hash"]:
-                                raise ValueError(
-                                    "Schema is already in use, can't be changed."
-                                )
+                        if existing_record.hash != kwargs["hash"]:
+                            raise ValueError(
+                                "Schema is already in use, can't be changed."
+                            )
                     init_self_from_db(record, existing_record)
                     update_attributes(record, kwargs)
                     return None
