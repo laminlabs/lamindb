@@ -154,7 +154,9 @@ registry = AccessRegistry()
 @registry.register_open("h5py")
 def open(filepath: UPathStr, mode: str = "r"):
     fs, file_path_str = infer_filesystem(filepath)
-    if isinstance(fs, LocalFileSystem) and not file_path_str.endswith(".gz"):
+    is_gzip = file_path_str.endswith(".gz")
+    # we don't open .gz files directly because we need fsspec to uncompress on .open
+    if isinstance(fs, LocalFileSystem) and not is_gzip:
         assert mode in {"r", "r+", "a", "w", "w-"}, f"Unknown mode {mode}!"  #  noqa: S101
         return None, h5py.File(file_path_str, mode=mode)
     if mode == "r":
@@ -165,7 +167,9 @@ def open(filepath: UPathStr, mode: str = "r"):
         conn_mode = "ab"
     else:
         raise ValueError(f"Unknown mode {mode}! Should be 'r', 'w' or 'a'.")
-    conn = fs.open(file_path_str, mode=conn_mode)
+    conn = fs.open(
+        file_path_str, mode=conn_mode, compression="gzip" if is_gzip else None
+    )
     try:
         storage = h5py.File(conn, mode=mode)
     except Exception as e:
