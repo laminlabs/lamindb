@@ -1,6 +1,8 @@
+import gzip
 import shutil
 from pathlib import Path
 
+import anndata as ad
 import h5py
 import lamindb as ln
 import numpy as np
@@ -168,8 +170,6 @@ def test_backed_access(adata_format):
 
 
 def test_infer_suffix():
-    import anndata as ad
-
     adata = ad.AnnData()
     assert infer_suffix(adata, adata_format="h5ad") == ".h5ad"
     with pytest.raises(ValueError):
@@ -553,3 +553,26 @@ def test_anndata_n_observations(bad_adata_path):
     assert _anndata_n_observations(zarr_path) == adata.n_obs
 
     shutil.rmtree(zarr_path)
+
+
+def _compress(input_filepath, output_filepath):
+    with open(input_filepath, "rb") as f_in:
+        with gzip.open(output_filepath, "wb") as f_out:
+            shutil.copyfileobj(f_in, f_out)
+
+
+def test_compressed():
+    adata_f = ln.core.datasets.anndata_file_pbmc68k_test()
+    adata_gz = adata_f.with_suffix(adata_f.suffix + ".gz")
+    _compress(adata_f, adata_gz)
+
+    artifact = ln.Artifact.from_anndata(adata_gz, key="adata.h5ad.gz").save()
+    with artifact.open() as store:
+        assert isinstance(store, AnnDataAccessor)
+    assert isinstance(artifact.load(), ad.AnnData)
+
+    with pytest.raises(OSError):
+        artifact.open(compression=None)
+
+    artifact.delete(permanent=True)
+    adata_gz.unlink()
