@@ -70,6 +70,7 @@ def backed_access(
     artifact_or_filepath: Artifact | UPath,
     mode: str = "r",
     using_key: str | None = None,
+    **kwargs,
 ) -> (
     AnnDataAccessor | BackedAccessor | SOMACollection | SOMAExperiment | PyArrowDataset
 ):
@@ -89,13 +90,13 @@ def backed_access(
     if name == "soma" or suffix == ".tiledbsoma":
         if mode not in {"r", "w"}:
             raise ValueError("`mode` should be either 'r' or 'w' for tiledbsoma.")
-        return _open_tiledbsoma(objectpath, mode=mode)  # type: ignore
+        return _open_tiledbsoma(objectpath, mode=mode, **kwargs)  # type: ignore
     elif suffix in {".h5", ".hdf5", ".h5ad"}:
-        conn, storage = registry.open("h5py", objectpath, mode=mode)
+        conn, storage = registry.open("h5py", objectpath, mode=mode, **kwargs)
     elif suffix == ".zarr":
-        conn, storage = registry.open("zarr", objectpath, mode=mode)
+        conn, storage = registry.open("zarr", objectpath, mode=mode, **kwargs)
     elif _is_pyarrow_dataset(objectpath):
-        return _open_pyarrow_dataset(objectpath)
+        return _open_pyarrow_dataset(objectpath, **kwargs)
     else:
         raise ValueError(
             "The object should have .h5, .hdf5, .h5ad, .zarr, .tiledbsoma suffix "

@@ -458,7 +458,7 @@ def data_is_anndata(data: AnnData | UPathStr) -> bool:
         return True
     if isinstance(data, (str, Path, UPath)):
         data_path = UPath(data)
-        if data_path.suffix == ".h5ad":
+        if ".h5ad" in data_path.suffixes:  # ".h5ad.gz" is a valid suffix
             return True
         elif data_path.suffix == ".zarr":
             # ".anndata.zarr" is a valid suffix (core.storage._valid_suffixes)
@@ -979,7 +979,7 @@ inconsistent_state_msg = (
 
 # docstring handled through attach_func_to_class_method
 def open(
-    self, mode: str = "r", is_run_input: bool | None = None
+    self, mode: str = "r", is_run_input: bool | None = None, **kwargs
 ) -> (
     AnnDataAccessor
     | BackedAccessor
@@ -1003,7 +1003,9 @@ def open(
         )
         + tuple(h5_suffixes)
         + PYARROW_SUFFIXES
-        + tuple(s + ".gz" for s in PYARROW_SUFFIXES)
+        + tuple(
+            s + ".gz" for s in PYARROW_SUFFIXES
+        )  # this doesn't work for externally gzipped files, REMOVE LATER
     )
     if self.suffix not in suffixes:
         raise ValueError(
@@ -1036,14 +1038,14 @@ def open(
         ) and not filepath.synchronize(localpath, just_check=True)
     if open_cache:
         try:
-            access = backed_access(localpath, mode, using_key)
+            access = backed_access(localpath, mode, using_key, **kwargs)
         except Exception as e:
             if isinstance(filepath, LocalPathClasses):
                 raise e
             logger.warning(
                 f"The cache might be corrupted: {e}. Trying to open directly."
             )
-            access = backed_access(filepath, mode, using_key)
+            access = backed_access(filepath, mode, using_key, **kwargs)
             # happens only if backed_access has been successful
             # delete the corrupted cache
             if localpath.is_dir():
@@ -1051,7 +1053,7 @@ def open(
             else:
                 localpath.unlink(missing_ok=True)
     else:
-        access = backed_access(filepath, mode, using_key)
+        access = backed_access(filepath, mode, using_key, **kwargs)
         if is_tiledbsoma_w:
 
             def finalize():

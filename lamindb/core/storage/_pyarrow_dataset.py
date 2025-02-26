@@ -25,8 +25,8 @@ def _is_pyarrow_dataset(paths: UPath | list[UPath]) -> bool:
         path_list = [paths]
     suffix = None
     for path in path_list:
-        # ignore .gz, only check the real suffix
         path_suffixes = path.suffixes
+        # this doesn't work for externally gzipped files, REMOVE LATER
         path_suffix = (
             path_suffixes[-2]
             if len(path_suffixes) > 1 and ".gz" in path_suffixes
@@ -41,7 +41,7 @@ def _is_pyarrow_dataset(paths: UPath | list[UPath]) -> bool:
     return True
 
 
-def _open_pyarrow_dataset(paths: UPath | list[UPath]) -> PyArrowDataset:
+def _open_pyarrow_dataset(paths: UPath | list[UPath], **kwargs) -> PyArrowDataset:
     if isinstance(paths, list):
         path0 = paths[0]
         if isinstance(path0, LocalPathClasses):
@@ -53,4 +53,4 @@ def _open_pyarrow_dataset(paths: UPath | list[UPath]) -> PyArrowDataset:
     else:
         paths_str, filesystem = paths.path, paths.fs
 
-    return pyarrow.dataset.dataset(paths_str, filesystem=filesystem)
+    return pyarrow.dataset.dataset(paths_str, filesystem=filesystem, **kwargs)

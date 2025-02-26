@@ -16,6 +16,7 @@ from anndata._io.h5ad import read_dataframe_legacy as read_dataframe_legacy_h5
 from anndata._io.specs.registry import get_spec, read_elem, read_elem_partial
 from anndata.compat import _read_attr
 from fsspec.implementations.local import LocalFileSystem
+from fsspec.utils import infer_compression
 from lamin_utils import logger
 from lamindb_setup.core.upath import create_mapper, infer_filesystem
 from packaging import version
@@ -152,9 +153,13 @@ registry = AccessRegistry()
 
 
 @registry.register_open("h5py")
-def open(filepath: UPathStr, mode: str = "r"):
+def open(filepath: UPathStr, mode: str = "r", compression: str | None = "infer"):
     fs, file_path_str = infer_filesystem(filepath)
-    if isinstance(fs, LocalFileSystem):
+    # we don't open compressed files directly because we need fsspec to uncompress on .open
+    compression = (
+        infer_compression(file_path_str) if compression == "infer" else compression
+    )
+    if isinstance(fs, LocalFileSystem) and compression is None:
         assert mode in {"r", "r+", "a", "w", "w-"}, f"Unknown mode {mode}!"  #  noqa: S101
         return None, h5py.File(file_path_str, mode=mode)
     if mode == "r":
@@ -165,7 +170,7 @@ def open(filepath: UPathStr, mode: str = "r"):
         conn_mode = "ab"
     else:
         raise ValueError(f"Unknown mode {mode}! Should be 'r', 'w' or 'a'.")
-    conn = fs.open(file_path_str, mode=conn_mode)
+    conn = fs.open(file_path_str, mode=conn_mode, compression=compression)
     try:
         storage = h5py.File(conn, mode=mode)
     except Exception as e:

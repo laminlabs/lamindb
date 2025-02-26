@@ -65,8 +65,8 @@ def load_tsv(path: UPathStr, **kwargs) -> pd.DataFrame:
 def load_h5ad(filepath, **kwargs) -> ad.AnnData:
     """Load an `.h5ad` file to `AnnData`."""
     fs, filepath = infer_filesystem(filepath)
-
-    with fs.open(filepath, mode="rb") as file:
+    compression = kwargs.pop("compression", "infer")
+    with fs.open(filepath, mode="rb", compression=compression) as file:
         adata = ad.read_h5ad(file, backed=False, **kwargs)
         return adata
 
@@ -154,7 +154,7 @@ FILE_LOADERS = {
     ".h5ad": load_h5ad,
     ".h5ad.gz": load_h5ad,
     ".parquet": pd.read_parquet,
-    ".parquet.gz": pd.read_parquet,
+    ".parquet.gz": pd.read_parquet,  # this doesn't work for externally gzipped files, REMOVE LATER
     ".fcs": load_fcs,
     ".zarr": load_anndata_zarr,
     ".html": load_html,
