@@ -566,7 +566,7 @@ def test_compressed():
     adata_gz = adata_f.with_suffix(adata_f.suffix + ".gz")
     _compress(adata_f, adata_gz)
 
-    artifact = ln.Artifact(adata_gz, key="adata.h5ad.gz").save()
+    artifact = ln.Artifact.from_anndata(adata_gz, key="adata.h5ad.gz").save()
     with artifact.open() as store:
         assert isinstance(store, AnnDataAccessor)
     assert isinstance(artifact.load(), ad.AnnData)
