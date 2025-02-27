@@ -1,0 +1,11 @@
+import lamindb_setup as ln_setup
+from laminci.db import setup_local_test_postgres
+from laminhub_rest.hubmodule.hubmodule._setup import _install_db_module
+
+pgurl = setup_local_test_postgres()
+ln_setup.init(
+    storage="./default_storage_permissions",
+    name="lamindb-test-permissions",
+    db=pgurl,
+)
+_install_db_module(pgurl)
