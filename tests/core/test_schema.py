@@ -4,6 +4,7 @@ import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
+from django.db.utils import IntegrityError
 from lamindb import _schema
 from lamindb._schema import get_related_name, validate_features
 from lamindb.errors import ValidationError
@@ -171,3 +172,90 @@ def test_edge_cases():
         == "ValueError: Please pass a ListLike of features, not a single feature"
     )
     feature.delete()
+
+
+@pytest.fixture(scope="module")
+def small_dataset1_schema():
+    # define labels
+    cell_medium = ln.ULabel(name="CellMedium", is_type=True).save()
+    ln.ULabel(name="DMSO", type=cell_medium).save()
+    ln.ULabel(name="IFNG", type=cell_medium).save()
+    bt.CellType.from_source(name="B cell").save()
+    bt.CellType.from_source(name="T cell").save()
+
+    # in next iteration for attrs
+    # ln.Feature(name="temperature", dtype="float").save()
+    # ln.Feature(name="study", dtype="cat[ULabel]").save()
+    # ln.Feature(name="date_of_study", dtype="date").save()
+    # ln.Feature(name="study_note", dtype="str").save()
+
+    # define schema
+    schema = ln.Schema(
+        name="small_dataset1_obs_level_metadata",
+        features=[
+            ln.Feature(name="cell_medium", dtype="cat[ULabel[CellMedium]]").save(),
+            ln.Feature(name="sample_note", dtype=str).save(),
+            ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
+            ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
+        ],
+    ).save()
+
+    yield schema
+
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
+    bt.Gene.filter().delete()
+    ln.ULabel.filter(type__isnull=False).delete()
+    ln.ULabel.filter().delete()
+    bt.CellType.filter().delete()
+
+
+def test_schema_components(small_dataset1_schema: ln.Schema):
+    obs_schema = small_dataset1_schema
+    var_schema = ln.Schema(
+        name="scRNA_seq_var_schema",
+        itype=bt.Gene.ensembl_gene_id,
+        dtype="num",
+    ).save()
+
+    # test recreation of schema based on name lookup
+    var_schema2 = ln.Schema(
+        name="scRNA_seq_var_schema",
+        itype=bt.Gene.ensembl_gene_id,
+        dtype="num",
+    ).save()
+    assert var_schema == var_schema2
+
+    try:
+        ln.Schema(
+            name="small_dataset1_anndata_schema",
+            otype="AnnData",
+            components={"obs": obs_schema, "var": var_schema},
+        ).save()
+    except ln.errors.InvalidArgument:
+        assert (
+            str(ln.errors.InvalidArgument)
+            == "Please pass otype != None for composite schemas"
+        )
+
+    anndata_schema = ln.Schema(
+        name="small_dataset1_anndata_schema",
+        otype="AnnData",
+        components={"obs": obs_schema, "var": var_schema},
+    ).save()
+
+    var_schema2 = ln.Schema(
+        name="symbol_var_schema",
+        itype=bt.Gene.symbol,
+        dtype="num",
+    ).save()
+    # try adding another schema under slot "var"
+    # we want to trigger the unique constraint on slot
+    try:
+        anndata_schema.components.add(var_schema2, through_defaults={"slot": "var"})
+    except IntegrityError as error:
+        assert str(error).startswith("duplicate key value violates unique constraint")
+
+    anndata_schema.delete()
+    var_schema2.delete()
+    var_schema.delete()

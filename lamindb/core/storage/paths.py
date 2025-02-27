@@ -41,24 +41,21 @@ def auto_storage_key_from_artifact_uid(uid: str, suffix: str, is_dir: bool) -> s
     return storage_key
 
 
-def _safely_resolve(upath: UPath) -> UPath:
-    if upath.protocol in {"http", "https"}:
-        resolve_kwargs = {"follow_redirects": False}
-    else:
-        resolve_kwargs = {}
-    return upath.resolve(**resolve_kwargs)
-
-
 def check_path_is_child_of_root(path: UPathStr, root: UPathStr) -> bool:
     if fsspec.utils.get_protocol(str(path)) != fsspec.utils.get_protocol(str(root)):
         return False
-    path_upath = _safely_resolve(UPath(path))
-    root_upath = _safely_resolve(UPath(root))
+    path_upath = UPath(path)
+    root_upath = UPath(root)
     if path_upath.protocol == "s3":
         endpoint_path = path_upath.storage_options.get("endpoint_url", "")
         endpoint_root = root_upath.storage_options.get("endpoint_url", "")
         if endpoint_path != endpoint_root:
             return False
+    # we don't resolve http links because they can resolve into a different domain
+    # for example into a temporary url
+    if path_upath.protocol not in {"http", "https"}:
+        path_upath = path_upath.resolve()
+        root_upath = root_upath.resolve()
     # str is needed to eliminate UPath storage_options
     # which affect equality checks
     return UPath(str(root_upath)) in UPath(str(path_upath)).parents
@@ -134,7 +131,7 @@ def filepath_cache_key_from_artifact(
 
 
 def store_file_or_folder(
-    local_path: UPathStr, storage_path: UPath, print_progress: bool = True
+    local_path: UPathStr, storage_path: UPath, print_progress: bool = True, **kwargs
 ) -> None:
     """Store file or folder (localpath) at storagepath."""
     local_path = UPath(local_path)
@@ -155,7 +152,10 @@ def store_file_or_folder(
         else:
             create_folder = None
         storage_path.upload_from(
-            local_path, create_folder=create_folder, print_progress=print_progress
+            local_path,
+            create_folder=create_folder,
+            print_progress=print_progress,
+            **kwargs,
         )
     else:  # storage path is local
         if local_path.resolve().as_posix() == storage_path.resolve().as_posix():

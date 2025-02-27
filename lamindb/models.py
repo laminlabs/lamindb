@@ -699,7 +699,7 @@ class Registry(ModelBase):
             A record.
 
         Raises:
-            :exc:`docs:lamindb.core.exceptions.DoesNotExist`: In case no matching record is found.
+            :exc:`docs:lamindb.errors.DoesNotExist`: In case no matching record is found.
 
         See Also:
             - Guide: :doc:`docs:registries`
@@ -1813,12 +1813,15 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
 
     Args:
         name: `str` Name of the feature, typically.  column name.
-        dtype: `FeatureDtype | Registry | list[Registry]` See :class:`~lamindb.base.types.FeatureDtype`.
+        dtype: `FeatureDtype | Registry | list[Registry] | FieldAttr` See :class:`~lamindb.base.types.FeatureDtype`.
             For categorical types, can define from which registry values are
             sampled, e.g., `ULabel` or `[ULabel, bionty.CellType]`.
         unit: `str | None = None` Unit of measure, ideally SI (`"m"`, `"s"`, `"kg"`, etc.) or `"normalized"` etc.
         description: `str | None = None` A description.
         synonyms: `str | None = None` Bar-separated synonyms.
+        nullable: `bool = True` Whether the feature can have null-like values (`None`, `pd.NA`, `NaN`, etc.), see :attr:`~lamindb.Feature.nullable`.
+        default_value: `Any | None = None` Default value for the feature.
+        cat_filters: `dict[str, str] | None = None` Subset a registry by additional filters to define valid categories.
 
     Note:
 
@@ -1883,6 +1886,10 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         abstract = False
 
     _name_field: str = "name"
+    _aux_fields: dict[str, tuple[str, type]] = {
+        "0": ("default_value", bool),
+        "1": ("nullable", bool),
+    }
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -1970,12 +1977,15 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     def __init__(
         self,
         name: str,
-        dtype: FeatureDtype | Registry | list[Registry],
+        dtype: FeatureDtype | Registry | list[Registry] | FieldAttr,
         type: Feature | None = None,
         is_type: bool = False,
         unit: str | None = None,
         description: str | None = None,
         synonyms: str | None = None,
+        nullable: bool = True,
+        default_value: str | None = None,
+        cat_filters: dict[str, str] | None = None,
     ): ...
 
     @overload
@@ -1999,6 +2009,62 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     def save(self, *args, **kwargs) -> Feature:
         """Save."""
         pass
+
+    @property
+    def default_value(self) -> Any:
+        """A default value that overwrites missing values (default `None`).
+
+        This takes effect when you call `Curator.standardize()`.
+
+        If `default_value = None`, missing values like `pd.NA` or `np.nan` are kept.
+        """
+        if self._aux is not None and "af" in self._aux and "0" in self._aux["af"]:
+            return self._aux["af"]["0"]
+        else:
+            return None
+
+    @default_value.setter
+    def default_value(self, value: bool) -> None:
+        if self._aux is None:
+            self._aux = {}
+        if "af" not in self._aux:
+            self._aux["af"] = {}
+        self._aux["af"]["0"] = value
+
+    @property
+    def nullable(self) -> bool:
+        """Indicates whether the feature can have nullable values (default `True`).
+
+        Example::
+
+            import lamindb as ln
+            import pandas as pd
+
+            disease = ln.Feature(name="disease", dtype=ln.ULabel, nullable=False).save()
+            schema = ln.Schema(features=[disease]).save()
+            dataset = {"disease": pd.Categorical([pd.NA, "asthma"])}
+            df = pd.DataFrame(dataset)
+            curator = ln.curators.DataFrameCurator(df, schema)
+            try:
+                curator.validate()
+            except ln.errors.ValidationError as e:
+                assert str(e).startswith("non-nullable series 'disease' contains null values")
+
+        """
+        if self._aux is not None and "af" in self._aux and "1" in self._aux["af"]:
+            value = self._aux["af"]["1"]
+            return True if value is None else value
+        else:
+            return True
+
+    @nullable.setter
+    def nullable(self, value: bool) -> None:
+        assert isinstance(value, bool), value  # noqa: S101
+        if self._aux is None:
+            self._aux = {}
+        if "af" not in self._aux:
+            self._aux["af"] = {}
+        self._aux["af"]["1"] = value
 
 
 class FeatureValue(Record, TracksRun):
@@ -2107,11 +2173,10 @@ class Schema(Record, CanCurate, TracksRun):
         minimal_set: `bool = True` Whether the schema contains a minimal set of linked features.
         ordered_set: `bool = False` Whether features are required to be ordered.
         maximal_set: `bool = False` If `True`, no additional features are allowed.
-        composite: `Schema | None = None` A reference to a composite schema this schema is part of.
         slot: `str | None = None` The slot name when this schema is used as a component in a
             composite schema.
         coerce_dtype: `bool = False` When True, attempts to coerce values to the specified dtype
-            during validation.
+            during validation, see :attr:`~lamindb.Schema.coerce_dtype`.
 
     Note:
 
@@ -2162,12 +2227,14 @@ class Schema(Record, CanCurate, TracksRun):
     """A description."""
     n = IntegerField()
     """Number of features in the set."""
-    dtype: str | None = CharField(max_length=64, null=True)
+    dtype: str | None = CharField(max_length=64, null=True, editable=False)
     """Data type, e.g., "num", "float", "int". Is `None` for :class:`~lamindb.Feature`.
 
     For :class:`~lamindb.Feature`, types are expected to be heterogeneous and defined on a per-feature level.
     """
-    itype: str | None = CharField(max_length=120, db_index=True, null=True)
+    itype: str | None = CharField(
+        max_length=120, db_index=True, null=True, editable=False
+    )
     """A registry that stores feature identifiers used in this schema, e.g., `'Feature'` or `'bionty.Gene'`.
 
     Depending on the registry, `.members` stores, e.g., `Feature` or `bionty.Gene` records.
@@ -2190,43 +2257,36 @@ class Schema(Record, CanCurate, TracksRun):
     """Distinguish types from instances of the type."""
     otype: str | None = CharField(max_length=64, db_index=True, null=True)
     """Default Python object type, e.g., DataFrame, AnnData."""
-    hash: str | None = CharField(max_length=HASH_LENGTH, db_index=True, null=True)
+    hash: str | None = CharField(
+        max_length=HASH_LENGTH, db_index=True, null=True, editable=False
+    )
     """A hash of the set of feature identifiers.
 
     For a composite schema, the hash of hashes.
     """
-    minimal_set: bool = BooleanField(default=True, db_index=True)
+    minimal_set: bool = BooleanField(default=True, db_index=True, editable=False)
     """Whether the schema contains a minimal set of linked features (default `True`).
 
     If `False`, no features are linked to this schema.
 
     If `True`, features are linked and considered as a minimally required set in validation.
     """
-    ordered_set: bool = BooleanField(default=False, db_index=True)
+    ordered_set: bool = BooleanField(default=False, db_index=True, editable=False)
     """Whether features are required to be ordered (default `False`)."""
-    maximal_set: bool = BooleanField(default=False, db_index=True)
+    maximal_set: bool = BooleanField(default=False, db_index=True, editable=False)
     """If `False`, additional features are allowed (default `False`).
 
     If `True`, the the minimal set is a maximal set and no additional features are allowed.
     """
-    components: Schema
-    """Components of this schema.
-
-    A schema can be composed of sub-schemas.
-    """
-    # in lamindb v2, the below will be a M2M to enable re-using a component
-    # across composites
-    composite: Schema | None = ForeignKey(
-        "self", PROTECT, related_name="components", default=None, null=True
+    components: Schema = ManyToManyField(
+        "self", through="SchemaComponent", symmetrical=False, related_name="composites"
     )
-    """The composite schema that contains this schema as a component.
+    """Components of this schema."""
+    composites: Schema
+    """The composite schemas that contains this schema as a component.
 
-    The composite schema composes multiple simpler schemas into one object.
-
-    For example, an AnnData composes multiple schemas: `var[DataFrameT]`, `obs[DataFrame]`, `obsm[Array]`, `uns[dict]`, etc.
+    For example, an `AnnData` composes multiple schemas: `var[DataFrameT]`, `obs[DataFrame]`, `obsm[Array]`, `uns[dict]`, etc.
     """
-    slot: str | None = CharField(max_length=100, db_index=True, null=True)
-    """The slot in which the schema is stored in the composite schema."""
     features: Feature
     """The features contained in the schema."""
     params: Param
@@ -2253,6 +2313,12 @@ class Schema(Record, CanCurate, TracksRun):
     # """
     # validated_schemas: Schema
     # """The schemas that were validated against this schema with a :class:`~lamindb.curators.Curator`."""
+    composite: Schema | None = ForeignKey(
+        "self", PROTECT, related_name="+", default=None, null=True
+    )
+    # The legacy foreign key
+    slot: str | None = CharField(max_length=100, db_index=True, null=True)
+    # The legacy slot
 
     @overload
     def __init__(
@@ -2262,14 +2328,13 @@ class Schema(Record, CanCurate, TracksRun):
         name: str | None = None,
         description: str | None = None,
         dtype: str | None = None,
-        itype: str | None = None,
+        itype: str | Registry | FieldAttr | None = None,
         type: Schema | None = None,
         is_type: bool = False,
         otype: str | None = None,
         minimal_set: bool = True,
         ordered_set: bool = False,
         maximal_set: bool = False,
-        composite: Schema | None = None,
         slot: str | None = None,
         coerce_dtype: bool = False,
     ): ...
@@ -2349,7 +2414,10 @@ class Schema(Record, CanCurate, TracksRun):
 
     @property
     def coerce_dtype(self) -> bool:
-        """Whether dtypes should be coerced during validation."""
+        """Whether dtypes should be coerced during validation.
+
+        For example, a `objects`-dtyped pandas column can be coerced to `categorical` and would pass validation if this is true.
+        """
         if self._aux is not None and "af" in self._aux and "0" in self._aux["af"]:
             return self._aux["af"]["0"]
         else:
@@ -2359,7 +2427,7 @@ class Schema(Record, CanCurate, TracksRun):
     def coerce_dtype(self, value: bool) -> None:
         if self._aux is None:
             self._aux = {}
-        if "af" not in self._aux["af"]:
+        if "af" not in self._aux:
             self._aux["af"] = {}
         self._aux["af"]["0"] = value
 
@@ -2374,9 +2442,8 @@ class Schema(Record, CanCurate, TracksRun):
 
     def describe(self, return_str=False) -> None | str:
         """Describe schema."""
-        components = Schema.filter(composite=self).all()
         message = str(self) + "\ncomponents:"
-        for component in components:
+        for component in self.components.all():
             message += "\n    " + str(component)
         if return_str:
             return message
@@ -2385,8 +2452,7 @@ class Schema(Record, CanCurate, TracksRun):
             return None
 
     def _get_component(self, slot: str) -> Schema:
-        components = Schema.filter(composite=self).all()
-        return components.get(slot=slot)
+        return self.components.get(links_component__slot=slot)
 
 
 class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
@@ -2583,9 +2649,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     """
     description: str | None = CharField(db_index=True, null=True)
     """A description."""
-    storage: Storage = ForeignKey(Storage, PROTECT, related_name="artifacts")
+    storage: Storage = ForeignKey(
+        Storage, PROTECT, related_name="artifacts", editable=False
+    )
     """Storage location, e.g. an S3 or GCP bucket or a local directory."""
-    suffix: str = CharField(max_length=30, db_index=True)
+    suffix: str = CharField(max_length=30, db_index=True, editable=False)
     # Initially, we thought about having this be nullable to indicate folders
     # But, for instance, .zarr is stored in a folder that ends with a .zarr suffix
     """Path suffix or empty string if no canonical suffix exists.
@@ -2598,21 +2666,27 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         null=True,
     )
     """:class:`~lamindb.base.types.ArtifactKind` (default `None`)."""
-    otype: str | None = CharField(max_length=64, db_index=True, null=True)
+    otype: str | None = CharField(
+        max_length=64, db_index=True, null=True, editable=False
+    )
     """Default Python object type, e.g., DataFrame, AnnData."""
-    size: int | None = BigIntegerField(null=True, db_index=True, default=None)
+    size: int | None = BigIntegerField(
+        null=True, db_index=True, default=None, editable=False
+    )
     """Size in bytes.
 
     Examples: 1KB is 1e3 bytes, 1MB is 1e6, 1GB is 1e9, 1TB is 1e12 etc.
     """
     hash: str | None = CharField(
-        max_length=HASH_LENGTH, db_index=True, null=True, unique=True
+        max_length=HASH_LENGTH, db_index=True, null=True, unique=True, editable=False
     )
     """Hash or pseudo-hash of artifact content.
 
     Useful to ascertain integrity and avoid duplication.
     """
-    n_files: int | None = BigIntegerField(null=True, db_index=True, default=None)
+    n_files: int | None = BigIntegerField(
+        null=True, db_index=True, default=None, editable=False
+    )
     """Number of files for folder-like artifacts, `None` for file-like artifacts.
 
     Note that some arrays are also stored as folders, e.g., `.zarr` or `.tiledbsoma`.
@@ -2620,19 +2694,28 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     .. versionchanged:: 1.0
         Renamed from `n_objects` to `n_files`.
     """
-    n_observations: int | None = BigIntegerField(null=True, db_index=True, default=None)
+    n_observations: int | None = BigIntegerField(
+        null=True, db_index=True, default=None, editable=False
+    )
     """Number of observations.
 
     Typically, this denotes the first array dimension.
     """
-    _hash_type: str | None = CharField(max_length=30, db_index=True, null=True)
+    _hash_type: str | None = CharField(
+        max_length=30, db_index=True, null=True, editable=False
+    )
     """Type of hash."""
     ulabels: ULabel = models.ManyToManyField(
         ULabel, through="ArtifactULabel", related_name="artifacts"
     )
     """The ulabels measured in the artifact (:class:`~lamindb.ULabel`)."""
     run: Run | None = ForeignKey(
-        Run, PROTECT, related_name="output_artifacts", null=True, default=None
+        Run,
+        PROTECT,
+        related_name="output_artifacts",
+        null=True,
+        default=None,
+        editable=False,
     )
     """Run that created the artifact."""
     input_of_runs: Run = models.ManyToManyField(Run, related_name="input_artifacts")
@@ -2646,7 +2729,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     collections: Collection
     """The collections that this artifact is part of."""
     schema: Schema | None = ForeignKey(
-        Schema, PROTECT, null=True, default=None, related_name="validated_artifacts"
+        Schema,
+        PROTECT,
+        null=True,
+        default=None,
+        related_name="validated_artifacts",
     )
     """The schema that validated this artifact in a :class:`~lamindb.curators.Curator`."""
     feature_sets: Schema = models.ManyToManyField(
@@ -2673,6 +2760,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         PROTECT,
         default=current_user_id,
         related_name="created_artifacts",
+        editable=False,
     )
     """Creator of record."""
     _overwrite_versions: bool = BooleanField(default=None)
@@ -2973,7 +3061,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         pass
 
     def open(
-        self, mode: str = "r", is_run_input: bool | None = None
+        self, mode: str = "r", is_run_input: bool | None = None, **kwargs
     ) -> (
         AnnDataAccessor
         | BackedAccessor
@@ -3122,13 +3210,13 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
 
     Args:
         artifacts: `list[Artifact]` A list of artifacts.
-        name: `str` A name.
+        key: `str` A file-path like key, analogous to the `key` parameter of `Artifact` and `Transform`.
         description: `str | None = None` A description.
         revises: `Collection | None = None` An old version of the collection.
         run: `Run | None = None` The run that creates the collection.
         meta: `Artifact | None = None` An artifact that defines metadata for the collection.
-        reference: `str | None = None` For instance, an external ID or a URL.
-        reference_type: `str | None = None` For instance, `"url"`.
+        reference: `str | None = None` A simple reference, e.g. an external ID or a URL.
+        reference_type: `str | None = None` A way to indicate to indicate the type of the simple reference `"url"`.
 
     See Also:
         :class:`~lamindb.Artifact`
@@ -3137,11 +3225,11 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
 
         Create a collection from a list of :class:`~lamindb.Artifact` objects:
 
-        >>> collection = ln.Collection([artifact1, artifact2], name="My collection")
+        >>> collection = ln.Collection([artifact1, artifact2], key="my_project/my_collection")
 
         Create a collection that groups a data & a metadata artifact (e.g., here :doc:`docs:rxrx`):
 
-        >>> collection = ln.Collection(data_artifact, name="My collection", meta=metadata_artifact)
+        >>> collection = ln.Collection(data_artifact, key="my_project/my_collection", meta=metadata_artifact)
 
     """
 
@@ -3164,7 +3252,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
     """Universal id, valid across DB instances."""
     key: str = CharField(db_index=True)
     """Name or path-like key."""
-    # these here is the only case in which we use a TextField
+    # below is the only case in which we use a TextField
     # for description; we do so because users had descriptions exceeding 255 chars
     # in their instances
     description: str | None = TextField(null=True, db_index=True)
@@ -3216,7 +3304,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
     def __init__(
         self,
         artifacts: list[Artifact],
-        name: str,
+        key: str,
         description: str | None = None,
         meta: Any | None = None,
         reference: str | None = None,
@@ -3256,6 +3344,16 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             >>> collection.save() # save the new version
 
         .. versionadded:: 0.76.14
+        """
+        pass
+
+    def open(self, is_run_input: bool | None = None) -> PyArrowDataset:
+        """Return a cloud-backed pyarrow Dataset.
+
+        Works for `pyarrow` compatible formats.
+
+        Notes:
+            For more info, see tutorial: :doc:`/arrays`.
         """
         pass
 
@@ -3806,15 +3904,22 @@ class SchemaParam(BasicRecord, LinkORM):
 class ArtifactSchema(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="_links_schema")
-    # we follow the lower() case convention rather than snake case for link models
     schema: Schema = ForeignKey(Schema, PROTECT, related_name="_links_artifact")
-    slot: str | None = CharField(max_length=40, null=True)
-    feature_ref_is_semantic: bool | None = BooleanField(
-        null=True
-    )  # like Feature name or Gene symbol or CellMarker name
+    slot: str | None = CharField(null=True)
+    feature_ref_is_semantic: bool | None = BooleanField(null=True)
 
     class Meta:
-        unique_together = ("artifact", "schema")
+        unique_together = (("artifact", "schema"), ("artifact", "slot"))
+
+
+class SchemaComponent(BasicRecord, LinkORM, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    composite: Schema = ForeignKey(Schema, CASCADE, related_name="links_composite")
+    component: Schema = ForeignKey(Schema, PROTECT, related_name="links_component")
+    slot: str | None = CharField(null=True)
+
+    class Meta:
+        unique_together = (("composite", "component"), ("composite", "slot"))
 
 
 class CollectionArtifact(BasicRecord, LinkORM, TracksRun):

@@ -70,6 +70,7 @@ def backed_access(
     artifact_or_filepath: Artifact | UPath,
     mode: str = "r",
     using_key: str | None = None,
+    **kwargs,
 ) -> (
     AnnDataAccessor | BackedAccessor | SOMACollection | SOMAExperiment | PyArrowDataset
 ):
@@ -80,22 +81,26 @@ def backed_access(
     else:
         objectpath = artifact_or_filepath
     name = objectpath.name
-    suffix = objectpath.suffix
+    # ignore .gz, only check the real suffix
+    suffixes = objectpath.suffixes
+    suffix = (
+        suffixes[-2] if len(suffixes) > 1 and ".gz" in suffixes else objectpath.suffix
+    )
 
     if name == "soma" or suffix == ".tiledbsoma":
         if mode not in {"r", "w"}:
             raise ValueError("`mode` should be either 'r' or 'w' for tiledbsoma.")
-        return _open_tiledbsoma(objectpath, mode=mode)  # type: ignore
+        return _open_tiledbsoma(objectpath, mode=mode, **kwargs)  # type: ignore
     elif suffix in {".h5", ".hdf5", ".h5ad"}:
-        conn, storage = registry.open("h5py", objectpath, mode=mode)
+        conn, storage = registry.open("h5py", objectpath, mode=mode, **kwargs)
     elif suffix == ".zarr":
-        conn, storage = registry.open("zarr", objectpath, mode=mode)
+        conn, storage = registry.open("zarr", objectpath, mode=mode, **kwargs)
     elif _is_pyarrow_dataset(objectpath):
-        return _open_pyarrow_dataset(objectpath)
+        return _open_pyarrow_dataset(objectpath, **kwargs)
     else:
         raise ValueError(
-            "object should have .h5, .hdf5, .h5ad, .zarr, .tiledbsoma suffix, not"
-            f" {suffix}."
+            "The object should have .h5, .hdf5, .h5ad, .zarr, .tiledbsoma suffix "
+            f"or be compatible with pyarrow.dataset.dataset, instead of being {suffix} object."
         )
 
     is_anndata = suffix == ".h5ad" or get_spec(storage).encoding_type == "anndata"

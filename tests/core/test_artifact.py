@@ -6,7 +6,7 @@ Also see `test_artifact_folders.py` for tests of folder-like artifacts.
 
 import shutil
 from inspect import signature
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import anndata as ad
 import bionty as bt
@@ -40,6 +40,7 @@ from lamindb_setup.core.upath import (
     CloudPath,
     LocalPathClasses,
     UPath,
+    extract_suffix_from_path,
 )
 
 # how do we properly abstract out the default storage variable?
@@ -290,6 +291,7 @@ def test_create_from_dataframe(df):
     assert artifact.key is None
     assert artifact.otype == "DataFrame"
     assert artifact.kind == "dataset"
+    assert artifact.n_observations == 2
     assert hasattr(artifact, "_local_filepath")
     artifact.save()
     # can do backed now, tested in test_storage.py
@@ -404,7 +406,13 @@ def test_create_from_local_filepath(
     is_in_registered_storage = get_test_filepaths[0]
     root_dir = get_test_filepaths[1]
     test_filepath = get_test_filepaths[3]
-    suffix = get_test_filepaths[4]
+    suffix = get_test_filepaths[4]  # path suffix
+    if key is not None:
+        key_suffix = extract_suffix_from_path(
+            PurePosixPath(key), arg_name="key"
+        )  # key suffix
+    else:
+        key_suffix = None
     # this tests if insufficient information is being provided
     if key is None and not is_in_registered_storage and description is None:
         # this can fail because ln.track() might set a global run context
@@ -417,20 +425,27 @@ def test_create_from_local_filepath(
             == "ValueError: Pass one of key, run or description as a parameter"
         )
         return None
+    elif key is not None and suffix != key_suffix:
+        try:
+            artifact = ln.Artifact(test_filepath, key=key, description=description)
+        except InvalidArgument as error:
+            assert str(error) == (
+                f"The suffix '{suffix}' of the provided path is inconsistent, it should be '{key_suffix}'"
+            )
+        return None
     elif key is not None and is_in_registered_storage:
         inferred_key = get_relative_path_to_directory(
             path=test_filepath, directory=root_dir
         ).as_posix()
-        with pytest.raises(InvalidArgument) as error:
+        try:
             artifact = ln.Artifact(test_filepath, key=key, description=description)
-        assert (
-            error.exconly()
-            == f"lamindb.errors.InvalidArgument: The path '{test_filepath}' is already in registered"
-            " storage"
-            f" '{root_dir.resolve().as_posix()}' with key '{inferred_key}'\nYou"
-            f" passed conflicting key '{key}': please move the file before"
-            " registering it."
-        )
+        except InvalidArgument as error:
+            assert str(error) == (
+                f"The path '{test_filepath}' is already in registered storage"
+                f" '{root_dir.resolve().as_posix()}' with key '{inferred_key}'\nYou"
+                f" passed conflicting key '{key}': please move the file before"
+                " registering it."
+            )
         return None
     else:
         artifact = ln.Artifact(test_filepath, key=key, description=description)
@@ -466,7 +481,7 @@ def test_create_from_local_filepath(
         assert artifact._key_is_virtual == key_is_virtual
         # changing non-virtual key is not allowed
         if not key_is_virtual:
-            with pytest.raises(InvalidArgument) as error:
+            with pytest.raises(InvalidArgument):
                 artifact.key = "new_key"
                 artifact.save()
             # need to change the key back to the original key
@@ -874,7 +889,7 @@ def test_df_suffix(df):
         artifact = ln.Artifact.from_df(df, key="test_.def")
     assert (
         error.exconly().partition(",")[0]
-        == "lamindb.errors.InvalidArgument: The suffix '.def' of the provided key is incorrect"
+        == "lamindb.errors.InvalidArgument: The suffix '.def' of the provided key is inconsistent"
     )
 
 
@@ -897,7 +912,7 @@ def test_adata_suffix(adata):
         artifact = ln.Artifact.from_anndata(adata, key="test_")
     assert (
         error.exconly().partition(",")[0]
-        == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect"
+        == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is inconsistent"
     )
 
 

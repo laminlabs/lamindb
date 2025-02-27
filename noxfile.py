@@ -33,7 +33,7 @@ GROUPS["guide"] = [
     "track.ipynb",
     "curate-df.ipynb",
     "curate-any.ipynb",
-    "curate-subclass.ipynb",
+    "ehrcuration.ipynb",
     "modules.ipynb",
 ]
 GROUPS["biology"] = [
@@ -85,13 +85,11 @@ def install_ci(session, group):
     extras = ""
     if group == "unit-core":
         extras += "bionty,gcp,zarr,fcs,jupyter"
-        # testing load_to_memory for yaml
-        run(session, "uv pip install --system PyYAML")
         run(session, "uv pip install --system huggingface_hub")
         # tiledbsoma dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system scanpy")
-        run(session, "uv pip install --system tiledbsoma")  # test TiledbsomaCatCurator
+        run(session, "uv pip install --system tiledbsoma")  # test TiledbsomaCatManager
     elif group == "unit-storage":
         extras += "zarr,bionty"
         # tiledbsoma dependency, specifying it here explicitly

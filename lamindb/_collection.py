@@ -15,16 +15,8 @@ from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import hash_set
 
-from lamindb._record import _get_record_kwargs
-from lamindb.errors import FieldValidationError
-from lamindb.models import (
-    Collection,
-    CollectionArtifact,
-    Schema,
-)
-
 from ._parents import view_lineage
-from ._record import init_self_from_db, update_attributes
+from ._record import _get_record_kwargs, init_self_from_db, update_attributes
 from ._utils import attach_func_to_class_method
 from .core._data import (
     _track_run_input,
@@ -34,16 +26,24 @@ from .core._data import (
     save_staged_feature_sets,
 )
 from .core._mapped_collection import MappedCollection
-from .core._settings import settings
+from .core.storage._pyarrow_dataset import _is_pyarrow_dataset, _open_pyarrow_dataset
 from .core.versioning import process_revises
-from .models import Artifact, Run
+from .errors import FieldValidationError
+from .models import (
+    Artifact,
+    Collection,
+    CollectionArtifact,
+    Run,
+    Schema,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from lamindb.core.storage import UPath
+    from pyarrow.dataset import Dataset as PyArrowDataset
 
     from ._query_set import QuerySet
+    from .core.storage import UPath
 
 
 class CollectionFeatureManager:
@@ -94,23 +94,16 @@ def __init__(
     artifacts: Artifact | Iterable[Artifact] = (
         kwargs.pop("artifacts") if len(args) == 0 else args[0]
     )
-    meta_artifact: Artifact | None = (
-        kwargs.pop("meta_artifact") if "meta_artifact" in kwargs else None
-    )
-    key: str | None = kwargs.pop("key") if "key" in kwargs else None
-    description: str | None = (
-        kwargs.pop("description") if "description" in kwargs else None
-    )
-    reference: str | None = kwargs.pop("reference") if "reference" in kwargs else None
-    reference_type: str | None = (
-        kwargs.pop("reference_type") if "reference_type" in kwargs else None
-    )
-    run: Run | None = kwargs.pop("run") if "run" in kwargs else None
-    revises: Collection | None = kwargs.pop("revises") if "revises" in kwargs else None
-    version: str | None = kwargs.pop("version") if "version" in kwargs else None
-    _branch_code: int | None = (
-        kwargs.pop("_branch_code") if "_branch_code" in kwargs else 1
-    )
+    meta_artifact: Artifact | None = kwargs.pop("meta_artifact", None)
+    tmp_key: str | None = kwargs.pop("key", None)
+    description: str | None = kwargs.pop("description", None)
+    reference: str | None = kwargs.pop("reference", None)
+    reference_type: str | None = kwargs.pop("reference_type", None)
+    run: Run | None = kwargs.pop("run", None)
+    revises: Collection | None = kwargs.pop("revises", None)
+    version: str | None = kwargs.pop("version", None)
+    _branch_code: int | None = kwargs.pop("_branch_code", 1)
+    key: str
     if "name" in kwargs:
         key = kwargs.pop("name")
         warnings.warn(
@@ -118,10 +111,16 @@ def __init__(
             FutureWarning,
             stacklevel=2,
         )
+    else:
+        key = tmp_key
     if not len(kwargs) == 0:
         valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Collection)])
         raise FieldValidationError(
             f"Only {valid_keywords} can be passed, you passed: {kwargs}"
+        )
+    if revises is None:
+        revises = (
+            Collection.filter(key=key, is_latest=True).order_by("-created_at").first()
         )
     provisional_uid, version, key, description, revises = process_revises(
         revises, version, key, description, Collection
@@ -165,10 +164,7 @@ def __init__(
         init_self_from_db(collection, existing_collection)
         update_attributes(collection, {"description": description, "key": key})
     else:
-        kwargs = {}
-        search_names_setting = settings.creation.search_names
-        if revises is not None and key == revises.key:
-            settings.creation.search_names = False
+        _skip_validation = revises is not None and key == revises.key
         super(Collection, collection).__init__(  # type: ignore
             uid=provisional_uid,
             key=key,
@@ -181,9 +177,8 @@ def __init__(
             version=version,
             _branch_code=_branch_code,
             revises=revises,
-            **kwargs,
+            _skip_validation=_skip_validation,
         )
-        settings.creation.search_names = search_names_setting
     collection._artifacts = artifacts
     # register provenance
     if revises is not None:
@@ -195,6 +190,7 @@ def __init__(
 def append(self, artifact: Artifact, run: Run | None = None) -> Collection:
     return Collection(  # type: ignore
         self.artifacts.all().list() + [artifact],
+        # key is automatically taken from revises.key
         description=self.description,
         revises=self,
         run=run,
@@ -222,6 +218,39 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
 
 
 # docstring handled through attach_func_to_class_method
+def open(self, is_run_input: bool | None = None) -> PyArrowDataset:
+    if self._state.adding:
+        artifacts = self._artifacts
+        logger.warning("the collection isn't saved, consider calling `.save()`")
+    else:
+        artifacts = self.ordered_artifacts.all()
+    paths = [artifact.path for artifact in artifacts]
+    # this checks that the filesystem is the same for all paths
+    # this is a requirement of pyarrow.dataset.dataset
+    fs = paths[0].fs
+    for path in paths[1:]:
+        # this assumes that the filesystems are cached by fsspec
+        if path.fs is not fs:
+            raise ValueError(
+                "The collection has artifacts with different filesystems, this is not supported."
+            )
+    if not _is_pyarrow_dataset(paths):
+        suffixes = {path.suffix for path in paths}
+        suffixes_str = ", ".join(suffixes)
+        err_msg = "This collection is not compatible with pyarrow.dataset.dataset(), "
+        err_msg += (
+            f"the artifacts have incompatible file types: {suffixes_str}"
+            if len(suffixes) > 1
+            else f"the file type {suffixes_str} is not supported by pyarrow."
+        )
+        raise ValueError(err_msg)
+    dataset = _open_pyarrow_dataset(paths)
+    # track only if successful
+    _track_run_input(self, is_run_input)
+    return dataset
+
+
+# docstring handled through attach_func_to_class_method
 def mapped(
     self,
     layers_keys: str | list[str] | None = None,
@@ -240,12 +269,12 @@ def mapped(
     path_list = []
     if self._state.adding:
         artifacts = self._artifacts
-        logger.warning("The collection isn't saved, consider calling `.save()`")
+        logger.warning("the collection isn't saved, consider calling `.save()`")
     else:
         artifacts = self.ordered_artifacts.all()
     for artifact in artifacts:
-        if artifact.suffix not in {".h5ad", ".zarr"}:
-            logger.warning(f"Ignoring artifact with suffix {artifact.suffix}")
+        if ".h5ad" not in artifact.suffix and ".zarr" not in artifact.suffix:
+            logger.warning(f"ignoring artifact with suffix {artifact.suffix}")
             continue
         elif not stream:
             path_list.append(artifact.cache())
@@ -383,6 +412,7 @@ def data_artifact(self) -> Artifact | None:
 METHOD_NAMES = [
     "__init__",
     "append",
+    "open",
     "mapped",
     "cache",
     "load",

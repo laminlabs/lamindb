@@ -42,8 +42,7 @@ def test_local_cache():
     adata.write_zarr(adata_zarr_pth)
     assert adata_zarr_pth.exists()
 
-    artifact = ln.Artifact(adata_zarr_pth, key="test_cache.zarr")
-    artifact.save()
+    artifact = ln.Artifact(adata_zarr_pth, key="test_cache.zarr").save()
     assert adata_zarr_pth.exists()
     assert artifact.path.exists()
     assert artifact.path.name != artifact.key

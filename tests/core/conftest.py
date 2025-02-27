@@ -92,7 +92,7 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
             ln.Storage.filter(root=root_dir.resolve().as_posix()).one_or_none() is None
         )
     test_dirpath = root_dir / "my_dir/"
-    test_dirpath.mkdir(parents=True)
+    test_dirpath.mkdir(parents=True, exist_ok=True)
     # create a first file
     test_filepath0 = test_dirpath / f"my_file{suffix}"
     test_filepath0.write_text("0")

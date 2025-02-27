@@ -30,11 +30,11 @@ Curators:
 .. autosummary::
    :toctree: .
 
-   CatCurator
-   DataFrameCatCurator
-   AnnDataCatCurator
-   MuDataCatCurator
-   TiledbsomaCatCurator
+   CatManager
+   DataFrameCatManager
+   AnnDataCatManager
+   MuDataCatManager
+   TiledbsomaCatManager
    CurateLookup
 
 Settings & context:
@@ -73,13 +73,13 @@ from lamindb._query_set import QuerySet, RecordList
 from lamindb.core._feature_manager import FeatureManager, ParamManager
 from lamindb.core._label_manager import LabelManager
 from lamindb.curators import (
-    AnnDataCatCurator,
-    CatCurator,
+    AnnDataCatManager,
+    CatManager,
     CurateLookup,
     Curator,
-    DataFrameCatCurator,
-    MuDataCatCurator,
-    TiledbsomaCatCurator,
+    DataFrameCatManager,
+    MuDataCatManager,
+    TiledbsomaCatManager,
 )
 from lamindb.models import (
     BasicRecord,
@@ -95,6 +95,7 @@ from lamindb.models import (
     ValidateFields,
 )
 
+from .. import errors as exceptions
 from . import _data, datasets, fields, loaders, subsettings, types
 from ._context import Context
 from ._mapped_collection import MappedCollection

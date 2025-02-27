@@ -10,82 +10,82 @@ import lamindb.models
 
 
 class Migration(migrations.Migration):
-    # initial = True
-    replaces = [
-        (
-            "lamindb",
-            "0037_rename_dataset_to_collection",
-        ),
-        (
-            "lamindb",
-            "0038_alter_collection_artifact_alter_collection_artifacts_and_more",
-        ),
-        (
-            "lamindb",
-            "0039_remove_collection_artifacts_collectionartifact_and_more",
-        ),
-        ("lamindb", "0040_alter_transform_type"),
-        (
-            "lamindb",
-            "0041_remove_transform_short_name_transform_description_and_more",
-        ),
-        ("lamindb", "0042_rename_run_at_run_started_at_run_finished_at"),
-        ("lamindb", "0043_run_json"),
-        ("lamindb", "0044_run_replicated_outputs_transform_ulabels_and_more"),
-        (
-            "lamindb",
-            "0045_rename_replicated_outputs_run_replicated_output_artifacts_and_more",
-        ),
-        ("lamindb", "0046_storage_instance_uid"),
-        ("lamindb", "0047_featurevalue_artifactfeaturevalue_and_more"),
-        ("lamindb", "0048_alter_artifactulabel_feature_and_more"),
-        ("lamindb", "0049_rename_type_feature_dtype_and_more"),
-        ("lamindb", "0050_artifactfeatureset_feature_ref_is_semantic_and_more"),
-        (
-            "lamindb",
-            "0051_remove_feature_feature_sets_featuresetfeature_and_more",
-        ),
-        (
-            "lamindb",
-            "0052_rename_feature_value_artifactfeaturevalue_featurevalue_and_more",
-        ),
-        ("lamindb", "0052_squashed"),
-        (
-            "lamindb",
-            "0053_alter_featureset_hash_alter_paramvalue_created_by_and_more",
-        ),
-        ("lamindb", "0054_alter_feature_previous_runs_and_more"),
-        ("lamindb", "0055_artifact_type_artifactparamvalue_and_more"),
-        (
-            "lamindb",
-            "0056_rename_ulabel_ref_is_name_artifactulabel_label_ref_is_name_and_more",
-        ),
-        ("lamindb", "0057_link_models_latest_report_and_others"),
-        ("lamindb", "0058_artifact__actions_collection__actions"),
-        (
-            "lamindb",
-            "0059_alter_artifact__accessor_alter_artifact__hash_type_and_more",
-        ),
-        ("lamindb", "0060_alter_artifact__actions"),
-        (
-            "lamindb",
-            "0061_alter_collection_meta_artifact_alter_run_environment_and_more",
-        ),
-        ("lamindb", "0062_add_is_latest_field"),
-        ("lamindb", "0063_populate_latest_field"),
-        (
-            "lamindb",
-            "0064_alter_artifact_version_alter_collection_version_and_more",
-        ),
-        ("lamindb", "0065_remove_collection_feature_sets_and_more"),
-        ("lamindb", "0066_alter_artifact__feature_values_and_more"),
-        ("lamindb", "0067_alter_featurevalue_unique_together_and_more"),
-        ("lamindb", "0068_alter_artifactulabel_unique_together_and_more"),
-        (
-            "lamindb",
-            "0069_alter_artifact__accessor_alter_artifact__hash_type_and_more",
-        ),
-    ]
+    initial = True
+    # replaces = [
+    #     (
+    #         "lamindb",
+    #         "0037_rename_dataset_to_collection",
+    #     ),
+    #     (
+    #         "lamindb",
+    #         "0038_alter_collection_artifact_alter_collection_artifacts_and_more",
+    #     ),
+    #     (
+    #         "lamindb",
+    #         "0039_remove_collection_artifacts_collectionartifact_and_more",
+    #     ),
+    #     ("lamindb", "0040_alter_transform_type"),
+    #     (
+    #         "lamindb",
+    #         "0041_remove_transform_short_name_transform_description_and_more",
+    #     ),
+    #     ("lamindb", "0042_rename_run_at_run_started_at_run_finished_at"),
+    #     ("lamindb", "0043_run_json"),
+    #     ("lamindb", "0044_run_replicated_outputs_transform_ulabels_and_more"),
+    #     (
+    #         "lamindb",
+    #         "0045_rename_replicated_outputs_run_replicated_output_artifacts_and_more",
+    #     ),
+    #     ("lamindb", "0046_storage_instance_uid"),
+    #     ("lamindb", "0047_featurevalue_artifactfeaturevalue_and_more"),
+    #     ("lamindb", "0048_alter_artifactulabel_feature_and_more"),
+    #     ("lamindb", "0049_rename_type_feature_dtype_and_more"),
+    #     ("lamindb", "0050_artifactfeatureset_feature_ref_is_semantic_and_more"),
+    #     (
+    #         "lamindb",
+    #         "0051_remove_feature_feature_sets_featuresetfeature_and_more",
+    #     ),
+    #     (
+    #         "lamindb",
+    #         "0052_rename_feature_value_artifactfeaturevalue_featurevalue_and_more",
+    #     ),
+    #     ("lamindb", "0052_squashed"),
+    #     (
+    #         "lamindb",
+    #         "0053_alter_featureset_hash_alter_paramvalue_created_by_and_more",
+    #     ),
+    #     ("lamindb", "0054_alter_feature_previous_runs_and_more"),
+    #     ("lamindb", "0055_artifact_type_artifactparamvalue_and_more"),
+    #     (
+    #         "lamindb",
+    #         "0056_rename_ulabel_ref_is_name_artifactulabel_label_ref_is_name_and_more",
+    #     ),
+    #     ("lamindb", "0057_link_models_latest_report_and_others"),
+    #     ("lamindb", "0058_artifact__actions_collection__actions"),
+    #     (
+    #         "lamindb",
+    #         "0059_alter_artifact__accessor_alter_artifact__hash_type_and_more",
+    #     ),
+    #     ("lamindb", "0060_alter_artifact__actions"),
+    #     (
+    #         "lamindb",
+    #         "0061_alter_collection_meta_artifact_alter_run_environment_and_more",
+    #     ),
+    #     ("lamindb", "0062_add_is_latest_field"),
+    #     ("lamindb", "0063_populate_latest_field"),
+    #     (
+    #         "lamindb",
+    #         "0064_alter_artifact_version_alter_collection_version_and_more",
+    #     ),
+    #     ("lamindb", "0065_remove_collection_feature_sets_and_more"),
+    #     ("lamindb", "0066_alter_artifact__feature_values_and_more"),
+    #     ("lamindb", "0067_alter_featurevalue_unique_together_and_more"),
+    #     ("lamindb", "0068_alter_artifactulabel_unique_together_and_more"),
+    #     (
+    #         "lamindb",
+    #         "0069_alter_artifact__accessor_alter_artifact__hash_type_and_more",
+    #     ),
+    # ]
 
     dependencies = []  # type: ignore
     operations = [
