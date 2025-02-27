@@ -210,6 +210,21 @@ def small_dataset1_schema():
     bt.CellType.filter().delete()
 
 
+def test_schema_recreation_with_same_name_different_hash(
+    small_dataset1_schema: ln.Schema,
+):
+    try:
+        ln.Schema(
+            name="small_dataset1_obs_level_metadata",
+            features=[
+                ln.Feature.get(name="cell_medium"),
+                ln.Feature.get(name="sample_note"),
+            ],
+        ).save()
+    except ValueError as error:
+        assert str(error).startswith("Schema name is already in use by schema with uid")
+
+
 def test_schema_components(small_dataset1_schema: ln.Schema):
     obs_schema = small_dataset1_schema
     var_schema = ln.Schema(
