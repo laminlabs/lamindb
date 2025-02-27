@@ -1,6 +1,5 @@
 import lamindb as ln
-
-from .utils import _create_jwt_user
+from utils import _create_jwt_user
 
 pgurl = "postgresql://postgres:pwd@0.0.0.0:5432/pgtest"
 jwt_db_url = _create_jwt_user(pgurl)
