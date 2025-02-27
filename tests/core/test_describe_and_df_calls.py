@@ -177,27 +177,27 @@ def test_curate_df():
     assert int_features_node.children[0].label.columns[1]._cells[0].plain == "int"
     assert int_features_node.children[1].label.columns[0].header.plain == "obs • 4"
     assert int_features_node.children[1].label.columns[0]._cells == [
-        "perturbation",
         "cell_type_by_expert",
         "cell_type_by_model",
+        "perturbation",
         "sample_note",
     ]
     assert int_features_node.children[1].label.columns[1].header.plain == "[Feature]"
     assert (
-        int_features_node.children[1].label.columns[1]._cells[0].plain == "cat[ULabel]"
+        int_features_node.children[1].label.columns[1]._cells[0].plain
+        == "cat[bionty.CellType]"
     )
     assert (
         int_features_node.children[1].label.columns[1]._cells[1].plain
         == "cat[bionty.CellType]"
     )
     assert (
-        int_features_node.children[1].label.columns[1]._cells[2].plain
-        == "cat[bionty.CellType]"
+        int_features_node.children[1].label.columns[1]._cells[2].plain == "cat[ULabel]"
     )
     assert int_features_node.children[1].label.columns[2]._cells == [
+        "B cell, T cell",
+        "B cell, T cell",
         "DMSO, IFNG",
-        "B cell, T cell",
-        "B cell, T cell",
         "",
     ]
 
