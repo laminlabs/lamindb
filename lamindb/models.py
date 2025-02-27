@@ -63,6 +63,7 @@ if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
     from mudata import MuData
     from pyarrow.dataset import Dataset as PyArrowDataset
+    from spatialdata import SpatialData
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
     from tiledbsoma import Measurement as SOMAMeasurement
@@ -2953,7 +2954,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         """Create from ``MuData``, validate & link features.
 
         Args:
-            mdata: An `MuData` object.
+            mdata: A `MuData` object.
             key: A relative path within default storage,
                 e.g., `"myfolder/myfile.h5mu"`.
             description: A description.
@@ -2971,6 +2972,39 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             >>> bt.settings.organism = "human"
             >>> mdata = ln.core.datasets.mudata_papalexi21_subset()
             >>> artifact = ln.Artifact.from_mudata(mdata, description="a mudata object")
+            >>> artifact.save()
+        """
+        pass
+
+    @classmethod
+    def from_spatialdata(
+        cls,
+        sdata: SpatialData,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        run: Run | None = None,
+        revises: Artifact | None = None,
+        **kwargs,
+    ) -> Artifact:
+        """Create from ``SpatialData``, validate & link features.
+
+        Args:
+            mdata: A `SpatialData` object.
+            key: A relative path within default storage,
+                e.g., `"myfolder/myfile.zarr"`.
+            description: A description.
+            revises: An old version of the artifact.
+            run: The run that creates the artifact.
+
+        See Also:
+            :meth:`~lamindb.Collection`
+                Track collections.
+            :class:`~lamindb.Feature`
+                Track features.
+
+        Examples:
+            >>> artifact = ln.Artifact.from_spatialdata(sdata, description="a sdata object")
             >>> artifact.save()
         """
         pass

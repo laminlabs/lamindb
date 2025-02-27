@@ -14,7 +14,6 @@
 from __future__ import annotations
 
 import copy
-import random
 import re
 from importlib import resources
 from itertools import chain
@@ -57,7 +56,7 @@ from lamindb.models import (
     ULabel,
 )
 
-from .._artifact import data_is_anndata
+from .._artifact import data_is_anndata, data_is_spatialdata
 from .._from_values import _format_values
 from ..errors import InvalidArgument, ValidationError
 
@@ -2137,11 +2136,11 @@ class SpatialDataCatManager(CatManager):
         try:
             settings.verbosity = "warning"
 
+            """
             if self._write_path is None:
                 provisional_uid, revises = create_uid(revises=revises, version=None)
                 cache_name = f"{provisional_uid}.zarr"
-                if not self._write_path:
-                    self._write_path = settings.cache_dir / cache_name
+                self._write_path = settings.cache_dir / cache_name
 
             if self._artifact is None:
                 self._sdata.write(self._write_path, overwrite=True)
@@ -2156,7 +2155,7 @@ class SpatialDataCatManager(CatManager):
                 )
                 # According to Tim it is not easy to calculate the number of observations.
                 # We would have to write custom code to iterate over labels (which might not even exist at that point)
-                self._artifact.otype = "spatialdata"
+                self._artifact.otype = "SpatialData"
                 self._artifact.save()
             else:
                 self._artifact = Artifact(
@@ -2165,7 +2164,17 @@ class SpatialDataCatManager(CatManager):
                     key=key,
                     revises=revises,
                     run=run,
+                    otype="SpatialData"
                 )
+            """
+            self._artifact = Artifact.from_spatialdata(
+                self._sdata,
+                key=key,
+                description=description,
+                revises=revises,
+                run=run,
+            )
+            self._artifact.save()
 
             # Link schemas
             feature_kwargs = check_registry_organism(
@@ -2183,7 +2192,7 @@ class SpatialDataCatManager(CatManager):
                 """Add Schemas from SpatialData."""
                 if obs_fields is None:
                     obs_fields = {}
-                assert host.otype == "spatialdata"  # noqa: S101
+                assert host.otype == "SpatialData"  # noqa: S101
 
                 feature_sets = {}
 
@@ -2811,7 +2820,7 @@ class DoseHandler:
         return cls.UNIT_MAP.get(unit, unit)
 
     @classmethod
-    def validate_values(cls, values: pd.Series) -> list:
+    def validate_values(cls, values: pd.Series) -> list[str]:
         """Validate pert_dose values with strict case checking."""
         errors = []
 
@@ -2855,7 +2864,7 @@ class TimeHandler:
         return unit[0].lower()
 
     @classmethod
-    def validate_values(cls, values: pd.Series) -> list:
+    def validate_values(cls, values: pd.Series) -> list[str]:
         """Validate pert_time values."""
         errors = []
 
@@ -3359,7 +3368,7 @@ def validate_categories_in_df(
 
 
 def save_artifact(
-    data: pd.DataFrame | ad.AnnData | MuData,
+    data: pd.DataFrame | ad.AnnData | MuData | SpatialData,
     fields: dict[str, FieldAttr] | dict[str, dict[str, FieldAttr]],
     columns_field: FieldAttr | dict[str, FieldAttr],
     description: str | None = None,
@@ -3406,6 +3415,10 @@ def save_artifact(
                 key=key,
                 revises=revises,
                 run=run,
+            )
+        elif data_is_spatialdata(data):
+            artifact = Artifact.from_spatialdata(
+                data, description=description, key=key, revises=revises, run=run
             )
     artifact.schema = schema
     artifact.save()

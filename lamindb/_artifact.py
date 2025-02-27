@@ -48,7 +48,7 @@ from .core.storage import (
 from .core.storage._anndata_accessor import _anndata_n_observations
 from .core.storage._pyarrow_dataset import PYARROW_SUFFIXES
 from .core.storage._tiledbsoma import _soma_n_observations
-from .core.storage.objects import _mudata_is_installed
+from .core.storage.objects import is_package_installed
 from .core.storage.paths import (
     AUTO_KEY_PREFIX,
     auto_storage_key_from_artifact,
@@ -75,6 +75,7 @@ if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
     from mudata import MuData
     from pyarrow.dataset import Dataset as PyArrowDataset
+    from spatialdata import SpatialData
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
     from tiledbsoma import Measurement as SOMAMeasurement
@@ -154,18 +155,29 @@ def process_data(
     skip_existence_check: bool = False,
     is_replace: bool = False,
 ) -> tuple[Any, Path | UPath, str, Storage, bool]:
-    """Serialize a data object that's provided as file or in memory."""
-    # if not overwritten, data gets stored in default storage
-    if _mudata_is_installed():
+    """Serialize a data object that's provided as file or in memory.
+
+    if not overwritten, data gets stored in default storage
+    """
+    supported_data_types = [pd.DataFrame, AnnData]
+    if is_package_installed("mudata"):
         from mudata import MuData
 
-        data_types = (pd.DataFrame, AnnData, MuData)
-    else:
-        data_types = (pd.DataFrame, AnnData)  # type:ignore
+        supported_data_types.append(MuData)
+    if is_package_installed("spatialdata"):
+        from spatialdata import SpatialData
+
+        supported_data_types.append(SpatialData)
+    supported_data_types = tuple(supported_data_types)  # type: ignore
+
     if key is not None:
         key_suffix = extract_suffix_from_path(PurePosixPath(key), arg_name="key")
         # use suffix as the (adata) format if the format is not provided
-        if isinstance(data, AnnData) and format is None and len(key_suffix) > 0:
+        if (
+            isinstance(data, (AnnData, SpatialData))
+            and format is None
+            and len(key_suffix) > 0
+        ):
             format = key_suffix[1:]
     else:
         key_suffix = None
@@ -188,7 +200,7 @@ def process_data(
         )
         suffix = extract_suffix_from_path(path)
         memory_rep = None
-    elif isinstance(data, data_types):
+    elif isinstance(data, supported_data_types):
         storage = default_storage
         memory_rep = data
         suffix = infer_suffix(data, format)
@@ -204,7 +216,7 @@ def process_data(
             message = f"The suffix '{key_suffix}' of the provided key is inconsistent, it should be '{suffix}'"
         raise InvalidArgument(message)
     # in case we have an in-memory representation, we need to write it to disk
-    if isinstance(data, data_types):
+    if isinstance(data, supported_data_types):
         path = settings.cache_dir / f"{provisional_uid}{suffix}"
         write_to_disk(data, path)
         use_existing_storage_key = False
@@ -474,7 +486,7 @@ def data_is_anndata(data: AnnData | UPathStr) -> bool:
 
 
 def data_is_mudata(data: MuData | UPathStr) -> bool:
-    if _mudata_is_installed():
+    if is_package_installed("mudata"):
         from mudata import MuData
 
         if isinstance(data, MuData):
@@ -482,6 +494,23 @@ def data_is_mudata(data: MuData | UPathStr) -> bool:
     if isinstance(data, (str, Path)):
         return UPath(data).suffix == ".h5mu"
     return False
+
+
+def data_is_spatialdata(data: SpatialData | UPathStr) -> bool:
+    if is_package_installed("spatialdata"):
+        import zarr
+        from spatialdata import SpatialData
+
+        if isinstance(data, SpatialData):
+            return True
+        if isinstance(data, (str, Path)):
+            # This is NOT necessarily convention.
+            if UPath(data).suffix == ".spatialdata.zarr":
+                return True
+            else:
+                store = zarr.open(data)
+                return "spatialdata_attrs" in store.attrs
+        return False
 
 
 def _check_otype_artifact(data: Any, otype: str | None = None):
@@ -500,6 +529,10 @@ def _check_otype_artifact(data: Any, otype: str | None = None):
             if not data_is_path:
                 logger.warning("data is a MuData, please use .from_mudata()")
             otype = "MuData"
+        elif data_is_spatialdata(data):
+            if not data_is_path:
+                logger.warning("data is a SpatialData, please use .from_spatialdata()")
+            otype = "SpatialData"
         elif not data_is_path:  # UPath is a subclass of Path
             raise TypeError("data has to be a string, Path, UPath")
     return otype
@@ -762,6 +795,34 @@ def from_mudata(
         **kwargs,
     )
     artifact.n_observations = mdata.n_obs
+    return artifact
+
+
+@classmethod  # type: ignore
+@doc_args(Artifact.from_spatialdata.__doc__)
+def from_spatialdata(
+    cls,
+    sdata: SpatialData,
+    *,
+    key: str | None = None,
+    description: str | None = None,
+    run: Run | None = None,
+    revises: Artifact | None = None,
+    **kwargs,
+) -> Artifact:
+    """{}"""  # noqa: D415
+    artifact = Artifact(  # type: ignore
+        data=sdata,
+        key=key,
+        run=run,
+        description=description,
+        revises=revises,
+        otype="SpatialData",
+        kind="dataset",
+        **kwargs,
+    )
+    # ill-defined https://scverse.zulipchat.com/#narrow/channel/315824-spatial/topic/How.20to.20calculate.20the.20number.20of.20observations.3F
+    # artifact.n_observations = sdata.n_obs
     return artifact
 
 
@@ -1346,6 +1407,7 @@ METHOD_NAMES = [
     "from_anndata",
     "from_df",
     "from_mudata",
+    "from_spatialdata",
     "from_tiledbsoma",
     "open",
     "cache",
