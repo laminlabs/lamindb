@@ -48,7 +48,7 @@ def check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame):
 def test_curate_df():
     ## Create a more complex case
     # observation-level metadata
-    ln.Feature(name="cell_medium", dtype="cat[ULabel]").save()
+    ln.Feature(name="perturbation", dtype="cat[ULabel]").save()
     ln.Feature(name="sample_note", dtype="str").save()
     ln.Feature(name="cell_type_by_expert", dtype="cat[bionty.CellType]").save()
     ln.Feature(name="cell_type_by_model", dtype="cat[bionty.CellType]").save()
@@ -71,7 +71,7 @@ def test_curate_df():
         adata,
         var_index=bt.Gene.ensembl_gene_id,
         categoricals={
-            "cell_medium": ln.ULabel.name,
+            "perturbation": ln.ULabel.name,
             "cell_type_by_expert": bt.CellType.name,
             "cell_type_by_model": bt.CellType.name,
         },
@@ -87,7 +87,7 @@ def test_curate_df():
         adata2,
         var_index=bt.Gene.ensembl_gene_id,
         categoricals={
-            "cell_medium": ln.ULabel.name,
+            "perturbation": ln.ULabel.name,
             "cell_type_by_model": bt.CellType.name,
         },
         organism="human",
@@ -127,7 +127,7 @@ def test_curate_df():
         "cell_type_by_expert": [np.nan, {"T cell", "B cell"}],
         "cell_type_by_model": [{"T cell", "B cell"}, {"T cell", "B cell"}],
         "study": [{"Candidate marker study 2"}, {"Candidate marker study 1"}],
-        "cell_medium": [{"IFNG", "DMSO"}, {"IFNG", "DMSO"}],
+        "perturbation": [{"IFNG", "DMSO"}, {"IFNG", "DMSO"}],
         "temperature": [{21.6}, np.nan],
         "study_note": [
             {
@@ -177,7 +177,7 @@ def test_curate_df():
     assert int_features_node.children[0].label.columns[1]._cells[0].plain == "int"
     assert int_features_node.children[1].label.columns[0].header.plain == "obs • 4"
     assert int_features_node.children[1].label.columns[0]._cells == [
-        "cell_medium",
+        "perturbation",
         "cell_type_by_expert",
         "cell_type_by_model",
         "sample_note",
