@@ -281,6 +281,7 @@ class DataFrameCurator(Curator):
             assert schema.itype is not None  # noqa: S101
         self._cat_manager = DataFrameCatManager(
             self._dataset,
+            columns=parse_dtype_single_cat(schema.itype, is_itype=True)["field"],
             categoricals=categoricals,
         )
 
@@ -355,27 +356,7 @@ class DataFrameCurator(Curator):
                 # .exconly() doesn't exist on SchemaError
                 raise ValidationError(str(err)) from err
         else:
-            result = parse_dtype_single_cat(self._schema.itype, is_itype=True)
-            registry: CanCurate = result["registry"]
-            inspector = registry.inspect(
-                self._dataset.columns,
-                result["field"],
-                mute=True,
-            )
-            if len(inspector.non_validated) > 0:
-                # also check public ontology
-                if hasattr(registry, "public"):
-                    registry.from_values(
-                        inspector.non_validated, result["field"], mute=True
-                    ).save()
-                    inspector = registry.inspect(
-                        inspector.non_validated, result["field"], mute=True
-                    )
-                if len(inspector.non_validated) > 0:
-                    self._is_validated = False
-                    raise ValidationError(
-                        f"Invalid identifiers for {self._schema.itype}: {inspector.non_validated}"
-                    )
+            self._cat_manager_validate()
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
@@ -473,7 +454,7 @@ class AnnDataCurator(Curator):
             self._dataset.obs, schema._get_component("obs")
         )
         self._var_curator = DataFrameCurator(
-            self._dataset.var, schema._get_component("var")
+            self._dataset.var.T, schema._get_component("var")
         )
 
     @property
@@ -691,6 +672,7 @@ class DataFrameCatManager(CatManager):
         df: pd.DataFrame | Artifact,
         columns: FieldAttr = Feature.name,
         categoricals: dict[str, FieldAttr] | None = None,
+        validate_all_columns: bool = False,
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
