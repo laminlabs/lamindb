@@ -150,7 +150,7 @@ CAT_MANAGER_DOCSTRING = """Manage categoricals by updating registries."""
 
 SLOTS_DOCSTRING = """Curator objects by slot.
 
-.. versionadded:: 1.2.0
+.. versionadded:: 1.1.1
 """
 
 
