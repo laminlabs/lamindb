@@ -273,7 +273,7 @@ def mapped(
     else:
         artifacts = self.ordered_artifacts.all()
     for artifact in artifacts:
-        if artifact.suffix not in {".h5ad", ".zarr"}:
+        if ".h5ad" not in artifact.suffix and ".zarr" not in artifact.suffix:
             logger.warning(f"ignoring artifact with suffix {artifact.suffix}")
             continue
         elif not stream:

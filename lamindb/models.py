@@ -3061,7 +3061,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         pass
 
     def open(
-        self, mode: str = "r", is_run_input: bool | None = None
+        self, mode: str = "r", is_run_input: bool | None = None, **kwargs
     ) -> (
         AnnDataAccessor
         | BackedAccessor
