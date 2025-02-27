@@ -141,7 +141,12 @@ def install_ci(session, group):
     elif group == "cli":
         extras += "jupyter,bionty"
     elif group == "permissions":
-        run(session, "uv pip install --system -e ./laminhub/rest-hub line_profiler")
+        run(session, "uv pip install --system -e ./laminhub/rest-hub")
+        run(
+            session,
+            "uv pip install --system -e ./laminhub/rest-hub/laminhub_rest/hubmodule",
+        )
+        run(session, "uv pip install --system line_profiler")
 
     extras = "," + extras if extras != "" else extras
     run(session, f"uv pip install --system -e .[dev{extras}]")
