@@ -133,6 +133,7 @@ def test_signatures():
         "from_df",
         "from_anndata",
         "from_mudata",
+        "from_spatialdata",
         "from_tiledbsoma",
     ]
     for name in class_methods:
