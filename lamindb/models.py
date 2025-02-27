@@ -2156,7 +2156,6 @@ class Schema(Record, CanCurate, TracksRun):
             `None` for sets of :class:`~lamindb.Feature` records.
             Otherwise defaults to `"num"` (e.g., for sets of :class:`~bionty.Gene`).
         itype: `str | None = None` The feature identifier type (e.g. :class:`~lamindb.Feature`, :class:`~bionty.Gene`, ...).
-        index_feature: `Record | None = None` A :class:`~lamindb.Feature` to validate the index of a `DataFrame`.
         type: `Schema | None = None` A type.
         is_type: `bool = False` Distinguish types from instances of the type.
         otype: `str | None = None` An object type to define the structure of a composite schema.
@@ -2443,29 +2442,30 @@ class Schema(Record, CanCurate, TracksRun):
             self._aux["af"] = {}
         self._aux["af"]["0"] = value
 
-    @property
-    def index_feature(self) -> None | Feature:
-        """The uid of the index feature, if `index_feature` was set."""
-        if self._index_feature_uid is None:
-            return None
-        else:
-            return self.features.get(uid=self._index_feature_uid)
+    # @property
+    # def index_feature(self) -> None | Feature:
+    #     # index_feature: `Record | None = None` A :class:`~lamindb.Feature` to validate the index of a `DataFrame`.
+    #     """The uid of the index feature, if `index_feature` was set."""
+    #     if self._index_feature_uid is None:
+    #         return None
+    #     else:
+    #         return self.features.get(uid=self._index_feature_uid)
 
-    @property
-    def _index_feature_uid(self) -> None | str:
-        """The uid of the index feature, if `index_feature` was set."""
-        if self._aux is not None and "af" in self._aux and "1" in self._aux["af"]:
-            return self._aux["af"]["1"]
-        else:
-            return None
+    # @property
+    # def _index_feature_uid(self) -> None | str:
+    #     """The uid of the index feature, if `index_feature` was set."""
+    #     if self._aux is not None and "af" in self._aux and "1" in self._aux["af"]:
+    #         return self._aux["af"]["1"]
+    #     else:
+    #         return None
 
-    @_index_feature_uid.setter
-    def _index_feature_uid(self, value: str) -> None:
-        if self._aux is None:
-            self._aux = {}
-        if "af" not in self._aux:
-            self._aux["af"] = {}
-        self._aux["af"]["1"] = value
+    # @_index_feature_uid.setter
+    # def _index_feature_uid(self, value: str) -> None:
+    #     if self._aux is None:
+    #         self._aux = {}
+    #     if "af" not in self._aux:
+    #         self._aux["af"] = {}
+    #     self._aux["af"]["1"] = value
 
     @property
     @deprecated("itype")
