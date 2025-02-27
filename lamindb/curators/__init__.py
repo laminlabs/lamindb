@@ -494,17 +494,8 @@ class AnnDataCurator(Curator):
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
-        err1 = err2 = None
-        try:
-            self._obs_curator.validate()
-        except ValidationError as err:
-            err1 = err
-        try:
-            self._var_curator.validate()
-        except ValidationError as err:
-            err2 = err
-        if err1 is not None or err2 is not None:
-            raise ValidationError("\n" + str(err1) + "\n" + str(err2))
+        self._obs_curator.validate()
+        self._var_curator.validate()
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
@@ -3217,10 +3208,7 @@ def check_registry_organism(registry: Record, organism: str | None = None) -> di
         import bionty as bt
 
         if organism is None and bt.settings.organism is None:
-            raise ValidationError(
-                f"{registry.__name__} registry requires an organism!\n"
-                "      → please pass an organism name via organism="
-            )
+            return {}
         return {"organism": organism or bt.settings.organism.name}
     return {}
 
