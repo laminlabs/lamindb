@@ -2139,20 +2139,9 @@ class FeatureValue(Record, TracksRun):
 class Schema(Record, CanCurate, TracksRun):
     """Schemas / feature sets.
 
-    Stores references to dataset schemas: these are the sets of columns in a dataset
-    that correspond to :class:`~lamindb.Feature`, :class:`~bionty.Gene`, :class:`~bionty.Protein` or other
-    entities.
+    A simple schema is just a set of columns in a `DataFrame`, a "feature set".
 
-    .. dropdown:: Why does LaminDB model feature sets, not just features?
-
-        1. Performance: Imagine you measure the same panel of 20k transcripts in
-           1M samples. By modeling the panel as a feature set, you can link all
-           your artifacts against one feature set and only need to store 1M
-           instead of 1M x 20k = 20B links.
-        2. Interpretation: Model protein panels, gene panels, etc.
-        3. Data integration: Feature sets provide the information that determines whether two datasets can be meaningfully concatenated.
-
-        These reasons do not hold for label sets. Hence, LaminDB does not model label sets.
+    A composite schema has multiple components, e.g. for an `AnnData`, each a feature set for `obs` and `var`.
 
     Args:
         features: `Iterable[Record] | None = None` An iterable of :class:`~lamindb.Feature`
@@ -2167,7 +2156,7 @@ class Schema(Record, CanCurate, TracksRun):
         dtype: `str | None = None` The simple type. Defaults to
             `None` for sets of :class:`~lamindb.Feature` records.
             Otherwise defaults to `"num"` (e.g., for sets of :class:`~bionty.Gene`).
-        itype: `str | None = None` The schema identifier type (e.g. :class:`~lamindb.Feature`, :class:`~bionty.Gene`, ...).
+        itype: `str | None = None` The feature identifier type (e.g. :class:`~lamindb.Feature`, :class:`~bionty.Gene`, ...).
         type: `Schema | None = None` A type.
         is_type: `bool = False` Distinguish types from instances of the type.
         otype: `str | None = None` An object type to define the structure of a composite schema.
@@ -2178,6 +2167,17 @@ class Schema(Record, CanCurate, TracksRun):
             composite schema.
         coerce_dtype: `bool = False` When True, attempts to coerce values to the specified dtype
             during validation, see :attr:`~lamindb.Schema.coerce_dtype`.
+
+    .. dropdown:: Why does LaminDB model schemas, not just features?
+
+        1. Performance: Imagine you measure the same panel of 20k transcripts in
+           1M samples. By modeling the panel as a feature set, you can link all
+           your artifacts against one feature set and only need to store 1M
+           instead of 1M x 20k = 20B links.
+        2. Interpretation: Model protein panels, gene panels, etc.
+        3. Data integration: Feature sets provide the information that determines whether two datasets can be meaningfully concatenated.
+
+        These reasons do not hold for label sets. Hence, LaminDB does not model label sets.
 
     Note:
 
@@ -2216,7 +2216,10 @@ class Schema(Record, CanCurate, TracksRun):
         abstract = False
 
     _name_field: str = "name"
-    _aux_fields: dict[str, tuple[str, type]] = {"0": ("coerce_dtype", bool)}
+    _aux_fields: dict[str, tuple[str, type]] = {
+        "0": ("coerce_dtype", bool),
+        "1": ("_index_feature_uid", str),
+    }
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -2431,6 +2434,39 @@ class Schema(Record, CanCurate, TracksRun):
         if "af" not in self._aux:
             self._aux["af"] = {}
         self._aux["af"]["0"] = value
+
+    @coerce_dtype.setter
+    def coerce_dtype(self, value: bool) -> None:
+        if self._aux is None:
+            self._aux = {}
+        if "af" not in self._aux:
+            self._aux["af"] = {}
+        self._aux["af"]["0"] = value
+
+    # @property
+    # def index_feature(self) -> None | Feature:
+    #     # index_feature: `Record | None = None` A :class:`~lamindb.Feature` to validate the index of a `DataFrame`.
+    #     """The uid of the index feature, if `index_feature` was set."""
+    #     if self._index_feature_uid is None:
+    #         return None
+    #     else:
+    #         return self.features.get(uid=self._index_feature_uid)
+
+    # @property
+    # def _index_feature_uid(self) -> None | str:
+    #     """The uid of the index feature, if `index_feature` was set."""
+    #     if self._aux is not None and "af" in self._aux and "1" in self._aux["af"]:
+    #         return self._aux["af"]["1"]
+    #     else:
+    #         return None
+
+    # @_index_feature_uid.setter
+    # def _index_feature_uid(self, value: str) -> None:
+    #     if self._aux is None:
+    #         self._aux = {}
+    #     if "af" not in self._aux:
+    #         self._aux["af"] = {}
+    #     self._aux["af"]["1"] = value
 
     @property
     @deprecated("itype")

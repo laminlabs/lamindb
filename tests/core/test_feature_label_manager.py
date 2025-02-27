@@ -24,18 +24,18 @@ def test_features_add():
     df = small_dataset1(otype="DataFrame")
     artifact = ln.Artifact.from_df(df, description="test dataset").save()
     with pytest.raises(ValidationError) as err:
-        artifact.features.add_values({"cell_medium": df.cell_medium.unique()})
+        artifact.features.add_values({"perturbation": df.perturbation.unique()})
     assert (
         err.exconly()
-        == """lamindb.errors.ValidationError: These keys could not be validated: ['cell_medium']
+        == """lamindb.errors.ValidationError: These keys could not be validated: ['perturbation']
 Here is how to create a feature:
 
-  ln.Feature(name='cell_medium', dtype='cat').save()"""
+  ln.Feature(name='perturbation', dtype='cat').save()"""
     )
 
-    ln.Feature(name="cell_medium", dtype="cat").save()
+    ln.Feature(name="perturbation", dtype="cat").save()
     ln.ULabel.from_values(["DMSO", "IFNG"], create=True).save()
-    artifact.features.add_values({"cell_medium": df.cell_medium.unique()})
+    artifact.features.add_values({"perturbation": df.perturbation.unique()})
     artifact.delete(permanent=True)
     ln.ULabel.filter().all().delete()
     ln.Feature.filter().all().delete()
