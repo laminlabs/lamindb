@@ -672,7 +672,6 @@ class DataFrameCatManager(CatManager):
         df: pd.DataFrame | Artifact,
         columns: FieldAttr = Feature.name,
         categoricals: dict[str, FieldAttr] | None = None,
-        validate_all_columns: bool = False,
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
