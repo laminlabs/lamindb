@@ -1,6 +1,6 @@
 import lamindb_setup as ln_setup
+from hubmodule._setup import _install_db_module
 from laminci.db import setup_local_test_postgres
-from laminhub_rest.hubmodule.hubmodule._setup import _install_db_module
 
 pgurl = setup_local_test_postgres()
 ln_setup.init(
