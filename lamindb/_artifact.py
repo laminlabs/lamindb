@@ -152,6 +152,7 @@ def process_data(
     default_storage: Storage,
     using_key: str | None,
     skip_existence_check: bool = False,
+    is_replace: bool = False,
 ) -> tuple[Any, Path | UPath, str, Storage, bool]:
     """Serialize a data object that's provided as file or in memory."""
     # if not overwritten, data gets stored in default storage
@@ -161,7 +162,13 @@ def process_data(
         data_types = (pd.DataFrame, AnnData, MuData)
     else:
         data_types = (pd.DataFrame, AnnData)  # type:ignore
-
+    if key is not None:
+        key_suffix = extract_suffix_from_path(PurePosixPath(key), arg_name="key")
+        # use suffix as the (adata) format if the format is not provided
+        if isinstance(data, AnnData) and format is None and len(key_suffix) > 0:
+            format = key_suffix[1:]
+    else:
+        key_suffix = None
     if isinstance(data, (str, Path, UPath)):  # UPathStr, spelled out
         access_token = (
             default_storage._access_token
@@ -184,30 +191,23 @@ def process_data(
     elif isinstance(data, data_types):
         storage = default_storage
         memory_rep = data
-        if key is not None:
-            key_suffix = extract_suffix_from_path(PurePosixPath(key), arg_name="key")
-            # use suffix as the (adata) format if the format is not provided
-            if isinstance(data, AnnData) and format is None and len(key_suffix) > 0:
-                format = key_suffix[1:]
-        else:
-            key_suffix = None
         suffix = infer_suffix(data, format)
-        if key_suffix is not None and key_suffix != suffix:
-            raise InvalidArgument(
-                f"The suffix '{key_suffix}' of the provided key is incorrect, it should"
-                f" be '{suffix}'."
-            )
-        cache_name = f"{provisional_uid}{suffix}"
-        path = settings.cache_dir / cache_name
-        # Alex: I don't understand the line below
-        if path.suffixes == []:
-            path = path.with_suffix(suffix)
-        write_to_disk(data, path)
-        use_existing_storage_key = False
     else:
         raise NotImplementedError(
             f"Do not know how to create a artifact object from {data}, pass a path instead!"
         )
+    if key_suffix is not None and key_suffix != suffix and not is_replace:
+        # consciously omitting a trailing period
+        if isinstance(data, (str, Path, UPath)):
+            message = f"The suffix '{suffix}' of the provided path is inconsistent, it should be '{key_suffix}'"
+        else:
+            message = f"The suffix '{key_suffix}' of the provided key is inconsistent, it should be '{suffix}'"
+        raise InvalidArgument(message)
+    # in case we have an in-memory representation, we need to write it to disk
+    if isinstance(data, data_types):
+        path = settings.cache_dir / f"{provisional_uid}{suffix}"
+        write_to_disk(data, path)
+        use_existing_storage_key = False
     return memory_rep, path, suffix, storage, use_existing_storage_key
 
 
@@ -325,6 +325,7 @@ def get_artifact_kwargs_from_data(
         default_storage,
         using_key,
         skip_check_exists,
+        is_replace=is_replace,
     )
     stat_or_artifact = get_stat_or_artifact(
         path=path,
@@ -457,7 +458,7 @@ def data_is_anndata(data: AnnData | UPathStr) -> bool:
         return True
     if isinstance(data, (str, Path, UPath)):
         data_path = UPath(data)
-        if data_path.suffix == ".h5ad":
+        if ".h5ad" in data_path.suffixes:  # ".h5ad.gz" is a valid suffix
             return True
         elif data_path.suffix == ".zarr":
             # ".anndata.zarr" is a valid suffix (core.storage._valid_suffixes)
@@ -978,7 +979,7 @@ inconsistent_state_msg = (
 
 # docstring handled through attach_func_to_class_method
 def open(
-    self, mode: str = "r", is_run_input: bool | None = None
+    self, mode: str = "r", is_run_input: bool | None = None, **kwargs
 ) -> (
     AnnDataAccessor
     | BackedAccessor
@@ -989,16 +990,23 @@ def open(
 ):
     if self._overwrite_versions and not self.is_latest:
         raise ValueError(inconsistent_state_msg)
+    # all hdf5 suffixes including gzipped
+    h5_suffixes = [".h5", ".hdf5", ".h5ad"]
+    h5_suffixes += [s + ".gz" for s in h5_suffixes]
     # ignore empty suffix for now
     suffixes = (
-        "",
-        ".h5",
-        ".hdf5",
-        ".h5ad",
-        ".zarr",
-        ".anndata.zarr",
-        ".tiledbsoma",
-    ) + PYARROW_SUFFIXES
+        (
+            "",
+            ".zarr",
+            ".anndata.zarr",
+            ".tiledbsoma",
+        )
+        + tuple(h5_suffixes)
+        + PYARROW_SUFFIXES
+        + tuple(
+            s + ".gz" for s in PYARROW_SUFFIXES
+        )  # this doesn't work for externally gzipped files, REMOVE LATER
+    )
     if self.suffix not in suffixes:
         raise ValueError(
             "Artifact should have a zarr, h5, tiledbsoma object"
@@ -1016,7 +1024,7 @@ def open(
     using_key = settings._using_key
     filepath, cache_key = filepath_cache_key_from_artifact(self, using_key=using_key)
     is_tiledbsoma_w = (
-        filepath.name == "soma" or filepath.suffix == ".tiledbsoma"
+        filepath.name == "soma" or self.suffix == ".tiledbsoma"
     ) and mode == "w"
     # consider the case where an object is already locally cached
     localpath = setup_settings.paths.cloud_to_local_no_update(
@@ -1030,14 +1038,14 @@ def open(
         ) and not filepath.synchronize(localpath, just_check=True)
     if open_cache:
         try:
-            access = backed_access(localpath, mode, using_key)
+            access = backed_access(localpath, mode, using_key, **kwargs)
         except Exception as e:
             if isinstance(filepath, LocalPathClasses):
                 raise e
             logger.warning(
                 f"The cache might be corrupted: {e}. Trying to open directly."
             )
-            access = backed_access(filepath, mode, using_key)
+            access = backed_access(filepath, mode, using_key, **kwargs)
             # happens only if backed_access has been successful
             # delete the corrupted cache
             if localpath.is_dir():
@@ -1045,7 +1053,7 @@ def open(
             else:
                 localpath.unlink(missing_ok=True)
     else:
-        access = backed_access(filepath, mode, using_key)
+        access = backed_access(filepath, mode, using_key, **kwargs)
         if is_tiledbsoma_w:
 
             def finalize():
