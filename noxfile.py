@@ -118,7 +118,7 @@ def install_ci(session, group):
         extras += "zarr,bionty,jupyter"
         run(
             session,
-            "uv pip install --system ./sub/wetlab",
+            "uv pip install --system ./sub/bionty ./sub/wetlab",
         )
         run(
             session,
