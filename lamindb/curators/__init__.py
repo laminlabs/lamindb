@@ -3186,8 +3186,8 @@ def validate_categories(
     exclude: str | list | None = None,
     hint_print: str | None = None,
     curator: CatManager | None = None,
-) -> tuple[bool, list]:
-    """Validate ontology terms in a pandas series using LaminDB registries.
+) -> tuple[bool, list[str]]:
+    """Validate ontology terms using LaminDB registries.
 
     Args:
         values: The values to validate.
