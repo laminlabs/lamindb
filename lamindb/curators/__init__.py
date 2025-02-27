@@ -261,10 +261,10 @@ class DataFrameCurator(Curator):
         schema: Schema,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
+        categoricals = {}
         if schema.n > 0:
             # populate features
             pandera_columns = {}
-            categoricals = {}
             for feature in schema.features.all():
                 pandera_dtype = (
                     feature.dtype if not feature.dtype.startswith("cat") else "category"
@@ -277,20 +277,12 @@ class DataFrameCurator(Curator):
             self._pandera_schema = pandera.DataFrameSchema(
                 pandera_columns, coerce=schema.coerce_dtype
             )
-            # now deal with detailed validation of categoricals
-            self._cat_manager = DataFrameCatManager(
-                self._dataset,
-                categoricals=categoricals,
-            )
         else:
-            # only validate a single categorical, in this case the index
             assert schema.itype is not None  # noqa: S101
-            index_field = parse_dtype_single_cat(schema.itype)["field"]
-            dataset = self._dataset.T
-            self._cat_manager = DataFrameCatManager(
-                dataset.reset_index(),
-                categoricals={dataset.index.name or "index": index_field},
-            )
+        self._cat_manager = DataFrameCatManager(
+            self._dataset,
+            categoricals=categoricals,
+        )
 
     @property
     @doc_args(CAT_MANAGER_DOCSTRING)
@@ -363,28 +355,27 @@ class DataFrameCurator(Curator):
                 # .exconly() doesn't exist on SchemaError
                 raise ValidationError(str(err)) from err
         else:
-            # result = parse_dtype_single_cat(self._schema.itype, is_itype=True)
-            # registry: CanCurate = result["registry"]
-            # inspector = registry.inspect(
-            #     self._dataset.columns,
-            #     result["field"],
-            #     mute=True,
-            # )
-            # if len(inspector.non_validated) > 0:
-            #     # also check public ontology
-            #     if hasattr(registry, "public"):
-            #         registry.from_values(
-            #             inspector.non_validated, result["field"], mute=True
-            #         ).save()
-            #         inspector = registry.inspect(
-            #             inspector.non_validated, result["field"], mute=True
-            #         )
-            #     if len(inspector.non_validated) > 0:
-            #         self._is_validated = False
-            #         raise ValidationError(
-            #             f"Invalid identifiers for {self._schema.itype}: {inspector.non_validated}"
-            #         )
-            self._cat_manager_validate()
+            result = parse_dtype_single_cat(self._schema.itype, is_itype=True)
+            registry: CanCurate = result["registry"]
+            inspector = registry.inspect(
+                self._dataset.columns,
+                result["field"],
+                mute=True,
+            )
+            if len(inspector.non_validated) > 0:
+                # also check public ontology
+                if hasattr(registry, "public"):
+                    registry.from_values(
+                        inspector.non_validated, result["field"], mute=True
+                    ).save()
+                    inspector = registry.inspect(
+                        inspector.non_validated, result["field"], mute=True
+                    )
+                if len(inspector.non_validated) > 0:
+                    self._is_validated = False
+                    raise ValidationError(
+                        f"Invalid identifiers for {self._schema.itype}: {inspector.non_validated}"
+                    )
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
@@ -482,7 +473,7 @@ class AnnDataCurator(Curator):
             self._dataset.obs, schema._get_component("obs")
         )
         self._var_curator = DataFrameCurator(
-            self._dataset.var.T, schema._get_component("var")
+            self._dataset.var, schema._get_component("var")
         )
 
     @property
