@@ -143,7 +143,8 @@ def install_ci(session, group):
     elif group == "permissions":
         run(session, "uv pip install --system -e ./laminhub/rest-hub line_profiler")
 
-    run(session, f"uv pip install --system -e .[dev,{extras}]")
+    extras = "," + extras if extras != "" else extras
+    run(session, f"uv pip install --system -e .[dev{extras}]")
     # on the release branch, do not use submodules but run with pypi install
     # only exception is the docs group which should always use the submodule
     # to push docs fixes fast
