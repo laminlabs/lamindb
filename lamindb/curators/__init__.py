@@ -3333,7 +3333,7 @@ def validate_categories_in_df(
 
 
 def save_artifact(
-    data: pd.DataFrame | ad.AnnData | MuData | SpatialData,
+    data: pd.DataFrame | ad.AnnData | MuData,
     fields: dict[str, FieldAttr] | dict[str, dict[str, FieldAttr]],
     columns_field: FieldAttr | dict[str, FieldAttr],
     description: str | None = None,
@@ -3380,10 +3380,6 @@ def save_artifact(
                 key=key,
                 revises=revises,
                 run=run,
-            )
-        elif data_is_spatialdata(data):
-            artifact = Artifact.from_spatialdata(
-                data, description=description, key=key, revises=revises, run=run
             )
     artifact.schema = schema
     artifact.save()
