@@ -2135,37 +2135,6 @@ class SpatialDataCatManager(CatManager):
         try:
             settings.verbosity = "warning"
 
-            """
-            if self._write_path is None:
-                provisional_uid, revises = create_uid(revises=revises, version=None)
-                cache_name = f"{provisional_uid}.zarr"
-                self._write_path = settings.cache_dir / cache_name
-
-            if self._artifact is None:
-                self._sdata.write(self._write_path, overwrite=True)
-
-                # Create the Artifact and associate Artifact metadata
-                self._artifact = Artifact(
-                    self._write_path,
-                    description=description,
-                    key=key,
-                    revises=revises,
-                    run=run,
-                )
-                # According to Tim it is not easy to calculate the number of observations.
-                # We would have to write custom code to iterate over labels (which might not even exist at that point)
-                self._artifact.otype = "SpatialData"
-                self._artifact.save()
-            else:
-                self._artifact = Artifact(
-                    self._write_path,
-                    description=description,
-                    key=key,
-                    revises=revises,
-                    run=run,
-                    otype="SpatialData"
-                )
-            """
             self._artifact = Artifact.from_spatialdata(
                 self._sdata,
                 key=key,

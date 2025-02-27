@@ -22,7 +22,7 @@ def is_package_installed(package_name):
     return spec is not None
 
 
-def infer_suffix(dmem, format: str | None = None):
+def infer_suffix(dmem: SupportedDataTypes, format: str | None = None):
     """Infer LaminDB storage file suffix from a data object."""
     if isinstance(dmem, AnnData):
         if format is not None:
@@ -67,13 +67,16 @@ def write_to_disk(dmem: SupportedDataTypes, filepath: UPathStr) -> None:
         suffix = PurePosixPath(filepath).suffix
         if suffix == ".h5ad":
             dmem.write_h5ad(filepath)
+            return
         elif suffix == ".zarr":
             dmem.write_zarr(filepath)
+            return
         else:
             raise NotImplementedError
 
     if isinstance(dmem, DataFrame):
         dmem.to_parquet(filepath)
+        return
 
     if is_package_installed("mudata"):
         from mudata import MuData
