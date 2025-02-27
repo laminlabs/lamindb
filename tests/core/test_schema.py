@@ -177,9 +177,9 @@ def test_edge_cases():
 @pytest.fixture(scope="module")
 def small_dataset1_schema():
     # define labels
-    cell_medium = ln.ULabel(name="CellMedium", is_type=True).save()
-    ln.ULabel(name="DMSO", type=cell_medium).save()
-    ln.ULabel(name="IFNG", type=cell_medium).save()
+    perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
+    ln.ULabel(name="DMSO", type=perturbation).save()
+    ln.ULabel(name="IFNG", type=perturbation).save()
     bt.CellType.from_source(name="B cell").save()
     bt.CellType.from_source(name="T cell").save()
 
@@ -193,7 +193,7 @@ def small_dataset1_schema():
     schema = ln.Schema(
         name="small_dataset1_obs_level_metadata",
         features=[
-            ln.Feature(name="cell_medium", dtype="cat[ULabel[CellMedium]]").save(),
+            ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
             ln.Feature(name="sample_note", dtype=str).save(),
             ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
             ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
@@ -217,7 +217,7 @@ def test_schema_recreation_with_same_name_different_hash(
         ln.Schema(
             name="small_dataset1_obs_level_metadata",
             features=[
-                ln.Feature.get(name="cell_medium"),
+                ln.Feature.get(name="perturbation"),
                 ln.Feature.get(name="sample_note"),
             ],
         ).save()

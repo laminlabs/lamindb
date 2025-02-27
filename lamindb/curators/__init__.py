@@ -148,6 +148,12 @@ class CurateLookup:
 CAT_MANAGER_DOCSTRING = """Manage categoricals by updating registries."""
 
 
+SLOTS_DOCSTRING = """Curator objects by slot.
+
+.. versionadded:: 1.1.1
+"""
+
+
 VALIDATE_DOCSTRING = """Validate dataset.
 
 Raises:
@@ -228,9 +234,9 @@ class DataFrameCurator(Curator):
         import bionty as bt
 
         # define valid labels
-        cell_medium = ln.ULabel(name="CellMedium", is_type=True).save()
-        ln.ULabel(name="DMSO", type=cell_medium).save()
-        ln.ULabel(name="IFNG", type=cell_medium).save()
+        perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
+        ln.ULabel(name="DMSO", type=perturbation).save()
+        ln.ULabel(name="IFNG", type=perturbation).save()
         bt.CellType.from_source(name="B cell").save()
         bt.CellType.from_source(name="T cell").save()
 
@@ -238,7 +244,7 @@ class DataFrameCurator(Curator):
         schema = ln.Schema(
             name="small_dataset1_obs_level_metadata",
             features=[
-                ln.Feature(name="cell_medium", dtype="cat[ULabel[CellMedium]]").save(),
+                ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
                 ln.Feature(name="sample_note", dtype=str).save(),
                 ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
                 ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
@@ -258,10 +264,10 @@ class DataFrameCurator(Curator):
         schema: Schema,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
+        categoricals = {}
         if schema.n > 0:
             # populate features
             pandera_columns = {}
-            categoricals = {}
             for feature in schema.features.all():
                 pandera_dtype = (
                     feature.dtype if not feature.dtype.startswith("cat") else "category"
@@ -274,13 +280,13 @@ class DataFrameCurator(Curator):
             self._pandera_schema = pandera.DataFrameSchema(
                 pandera_columns, coerce=schema.coerce_dtype
             )
-            # now deal with detailed validation of categoricals
-            self._cat_manager = DataFrameCatManager(
-                self._dataset,
-                categoricals=categoricals,
-            )
         else:
             assert schema.itype is not None  # noqa: S101
+        self._cat_manager = DataFrameCatManager(
+            self._dataset,
+            columns=parse_dtype_single_cat(schema.itype, is_itype=True)["field"],
+            categoricals=categoricals,
+        )
 
     @property
     @doc_args(CAT_MANAGER_DOCSTRING)
@@ -331,6 +337,14 @@ class DataFrameCurator(Curator):
                         feature.default_value
                     )
 
+    def _cat_manager_validate(self) -> None:
+        self._cat_manager.validate()
+        if self._cat_manager._is_validated:
+            self._is_validated = True
+        else:
+            self._is_validated = False
+            raise ValidationError(self._cat_manager._validate_category_error_messages)
+
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
@@ -339,40 +353,13 @@ class DataFrameCurator(Curator):
                 # first validate through pandera
                 self._pandera_schema.validate(self._dataset)
                 # then validate lamindb categoricals
-                self._cat_manager.validate()
-                if self._cat_manager._is_validated:
-                    self._is_validated = True
-                else:
-                    self._is_validated = False
-                    raise ValidationError(
-                        self._cat_manager._validate_category_error_messages
-                    )
+                self._cat_manager_validate()
             except pandera.errors.SchemaError as err:
                 self._is_validated = False
                 # .exconly() doesn't exist on SchemaError
                 raise ValidationError(str(err)) from err
         else:
-            result = parse_dtype_single_cat(self._schema.itype, is_itype=True)
-            registry: CanCurate = result["registry"]
-            inspector = registry.inspect(
-                self._dataset.columns,
-                result["field"],
-                mute=True,
-            )
-            if len(inspector.non_validated) > 0:
-                # also check public ontology
-                if hasattr(registry, "public"):
-                    registry.from_values(
-                        inspector.non_validated, result["field"], mute=True
-                    ).save()
-                    inspector = registry.inspect(
-                        inspector.non_validated, result["field"], mute=True
-                    )
-                if len(inspector.non_validated) > 0:
-                    self._is_validated = False
-                    raise ValidationError(
-                        f"Invalid identifiers for {self._schema.itype}: {inspector.non_validated}"
-                    )
+            self._cat_manager_validate()
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
@@ -418,9 +405,9 @@ class AnnDataCurator(Curator):
         import bionty as bt
 
         # define valid labels
-        cell_medium = ln.ULabel(name="CellMedium", is_type=True).save()
-        ln.ULabel(name="DMSO", type=cell_medium).save()
-        ln.ULabel(name="IFNG", type=cell_medium).save()
+        perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
+        ln.ULabel(name="DMSO", type=perturbation).save()
+        ln.ULabel(name="IFNG", type=perturbation).save()
         bt.CellType.from_source(name="B cell").save()
         bt.CellType.from_source(name="T cell").save()
 
@@ -428,9 +415,9 @@ class AnnDataCurator(Curator):
         obs_schema = ln.Schema(
             name="small_dataset1_obs_level_metadata",
             features=[
-                ln.Feature(name="cell_medium", dtype="cat[ULabel[CellMedium]]").save(),
+                ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
                 ln.Feature(name="sample_note", dtype=str).save(),
-                ln.Feature(name="cell_type_by_expert", dtype=bt.CellType").save(),
+                ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
                 ln.Feature(name="cell_type_by_model", dtype=bt.CellType").save(),
             ],
         ).save()
@@ -439,7 +426,7 @@ class AnnDataCurator(Curator):
         var_schema = ln.Schema(
             name="scRNA_seq_var_schema",
             itype=bt.Gene.ensembl_gene_id,
-            dtype="num",
+            dtype=int,
         ).save()
 
         # define composite schema
@@ -473,15 +460,27 @@ class AnnDataCurator(Curator):
             self._dataset.var.T, schema._get_component("var")
         )
 
+    @property
+    @doc_args(SLOTS_DOCSTRING)
+    def slots(self) -> dict[str, DataFrameCurator]:
+        """{}"""  # noqa: D415
+        return {"obs": self._obs_curator, "var": self._var_curator}
+
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
         self._obs_curator.validate()
         self._var_curator.validate()
-        self._is_validated = True
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
-    def save_artifact(self, *, key=None, description=None, revises=None, run=None):
+    def save_artifact(
+        self,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ):
         """{}"""  # noqa: D415
         if not self._is_validated:
             self.validate()  # raises ValidationError if doesn't validate
@@ -3184,10 +3183,7 @@ def check_registry_organism(registry: Record, organism: str | None = None) -> di
         import bionty as bt
 
         if organism is None and bt.settings.organism is None:
-            raise ValidationError(
-                f"{registry.__name__} registry requires an organism!\n"
-                "      → please pass an organism name via organism="
-            )
+            return {}
         return {"organism": organism or bt.settings.organism.name}
     return {}
 
@@ -3279,7 +3275,7 @@ def validate_categories(
             warning_message += f"    {colors.yellow(f'{len(syn_mapper)} synonym{s}')} found: {colors.yellow(syn_mapper_print)}\n    → curate synonyms via {colors.cyan(hint_msg)}"
         if n_non_validated > len(syn_mapper):
             if syn_mapper:
-                warning_message += "    for remaining terms:\n"
+                warning_message += "\n    for remaining terms:\n"
             warning_message += f"    → fix typos, remove non-existent values, or save terms via {colors.cyan(non_validated_hint_print)}"
 
         if logger.indent == "":
