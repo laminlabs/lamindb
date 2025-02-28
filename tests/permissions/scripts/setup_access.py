@@ -44,7 +44,7 @@ def create_jwt_user(dsn_admin: str):
 
 
 pgurl = "postgresql://postgres:pwd@0.0.0.0:5432/pgtest"  # admin db connection url
-jwt_db_url = create_jwt_user(pgurl)  #
+jwt_db_url = create_jwt_user(pgurl)
 ln.setup.settings.instance._db = jwt_db_url
 ln.setup.settings.instance._persist()
 

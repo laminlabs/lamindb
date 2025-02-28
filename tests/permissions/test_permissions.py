@@ -31,3 +31,9 @@ def test_fine_grained_permissions():
         ulabel.space = space
         with pytest.raises(ProgrammingError):
             ulabel.save()
+    # check update
+    # should succeed
+    ulabel = ln.ULabel.get(name="new label")
+    ulabel.name = "new label update"
+    ulabel.save()
+    ulabel = ln.ULabel.get(name="new label")  # check that it is saved
