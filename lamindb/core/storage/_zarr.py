@@ -11,6 +11,10 @@ from fsspec.implementations.local import LocalFileSystem
 from lamindb_setup.core.upath import create_mapper, infer_filesystem
 from packaging import version
 
+from lamindb.core.storage import (
+    UPath,
+)
+
 from ._anndata_sizes import _size_elem, _size_raw, size_adata
 
 if version.parse(anndata_version) < version.parse("0.11.0"):
@@ -39,7 +43,7 @@ def identify_zarr_type(
         storage = zarr.open(open_obj, mode="r")
 
         if (
-            storepath.suffix == ".spatialdata.zarr"
+            UPath(storepath).suffix == ".spatialdata.zarr"
             or "spatialdata_attrs" in storage.attrs
         ):
             return "spatialdata"
@@ -81,7 +85,7 @@ def write_adata_zarr(
     adata_size = None
     cumulative_val = 0
 
-    def _cb(key_write: str | None = None):
+    def _report_progress(key_write: str | None = None):
         nonlocal adata_size
         nonlocal cumulative_val
 
@@ -107,9 +111,9 @@ def write_adata_zarr(
 
     def _write_elem_cb(f, k, elem, dataset_kwargs):
         write_elem(f, k, elem, dataset_kwargs=dataset_kwargs)
-        _cb(k)
+        _report_progress(k)
 
-    _cb(None)
+    _report_progress(None)
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=UserWarning, module="zarr")
 
@@ -130,4 +134,4 @@ def write_adata_zarr(
             )
         _write_elem_cb(f, "raw", adata.raw, dataset_kwargs=dataset_kwargs)
     # todo: fix size less than total at the end
-    _cb(None)
+    _report_progress(None)
