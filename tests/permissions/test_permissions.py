@@ -13,6 +13,6 @@ def test_fine_grained_permissions():
     # that is just to check that everything was setup properly
     # this doesn't check the real permissions functionality
     assert ln.setup.settings.instance.modules == {"hubmodule"}
-    assert "permissions_jwt" in ln.setup.settings.instance
+    assert "permissions_jwt" in ln.setup.settings.instance.db
 
     assert ln.ULabel.filter().count() == 2
