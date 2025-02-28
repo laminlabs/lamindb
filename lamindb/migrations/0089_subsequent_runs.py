@@ -89,7 +89,7 @@ def update_collection_run_relationships(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lamindb", "previous_migration_name"),  # Replace with your previous migration
+        ("lamindb", "0088_schema_components"),
     ]
 
     operations = [
@@ -113,8 +113,8 @@ class Migration(migrations.Migration):
                     model_name="artifact",
                     name="_subsequent_runs",
                     field=models.ManyToManyField(
-                        "Run",
-                        related_name="_output_artifacts_with_later_updates",
+                        "lamindb.run",
+                        related_name="_recreated_output_artifacts",
                         db_table="lamindb_artifact__previous_runs",  # Keep the original table name
                     ),
                 ),
@@ -140,8 +140,8 @@ class Migration(migrations.Migration):
                     model_name="collection",
                     name="_subsequent_runs",
                     field=models.ManyToManyField(
-                        "Run",
-                        related_name="_output_collections_with_later_updates",
+                        "lamindb.run",
+                        related_name="_recreated_output_collections",
                         db_table="lamindb_collection__previous_runs",  # Keep the original table name
                     ),
                 ),
