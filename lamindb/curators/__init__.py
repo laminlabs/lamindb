@@ -2910,7 +2910,7 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
                 "cell_line": bt.CellLine.name,
                 "pert_target": wl.PerturbationTarget.name,
                 "pert_genetic": wl.GeneticPerturbation.name,
-                "pert_compound": wl.Compound.name,
+                # "pert_compound": wl.Compound.name,
                 "pert_biologic": wl.Biologic.name,
                 "pert_physical": wl.EnvironmentalPerturbation.name,
             }.items()
