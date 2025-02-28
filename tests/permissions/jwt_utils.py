@@ -1,10 +1,9 @@
 import json
 
 import psycopg2
-from laminhub_rest.core.db import DbRoleHandler
 
 
-def _sign_jwt(db_url, payload: dict) -> str:
+def sign_jwt(db_url, payload: dict) -> str:
     with psycopg2.connect(db_url) as conn, conn.cursor() as cur:
         cur.execute(
             """
@@ -23,17 +22,7 @@ def _sign_jwt(db_url, payload: dict) -> str:
         return token
 
 
-def _create_jwt_user(dsn_admin: str):
-    db_role_handler = DbRoleHandler(dsn_admin)
-    jwt_role_name = "permissions_jwt"
-    jwt_db_url = db_role_handler.create(
-        jwt_role_name, expires_in=None, alter_if_exists=True
-    )
-    db_role_handler.permission.grant_write_jwt(jwt_role_name)
-    return jwt_db_url
-
-
-def _set_token(token: str):
+def set_jwt(token: str):
     from django.db import connection  # set in the current django connection
 
     with connection.cursor() as cur:
