@@ -499,7 +499,7 @@ def data_is_spatialdata(data: SpatialData | UPathStr) -> bool:
         if isinstance(data, SpatialData):
             return True
         if isinstance(data, (str, Path)):
-            if UPath(data).suffix in ["spatialdata.zarr", "zarr"]:
+            if UPath(data).suffix in ["spatialdata.zarr", ".zarr"]:
                 return identify_zarr_type(data, check=False) == "spatialdata"
         return False
 
@@ -816,7 +816,7 @@ def from_spatialdata(
         **kwargs,
     )
     # ill-defined https://scverse.zulipchat.com/#narrow/channel/315824-spatial/topic/How.20to.20calculate.20the.20number.20of.20observations.3F
-    # artifact.n_observations = sdata.n_obs
+    # artifact.n_observations = ...
     return artifact
 
 

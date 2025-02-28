@@ -109,7 +109,6 @@ def sdata():
     sdata_obj = sd.SpatialData(
         points={"cells": (coords, points)},
         tables={"gene_expression": adata},
-        coordinate_systems={"global": sd.transformations.Identity()},
     )
 
     return sdata_obj
