@@ -45,7 +45,6 @@ from lamindb_setup.core.upath import (
     extract_suffix_from_path,
 )
 from scipy.sparse import csr_matrix
-from spatialdata.models import ShapesModel
 
 # how do we properly abstract out the default storage variable?
 # currently, we're only mocking it through `default_storage` as
@@ -102,16 +101,14 @@ def sdata():
         var=pd.DataFrame(index=["gene1", "gene2"]),
     )
 
-    polygon_data = {
+    {
         "region1": np.array([[[0, 0], [0, 1], [1, 1], [1, 0]]]),
         "region2": np.array([[[2, 2], [2, 3], [3, 3], [3, 2]]]),
     }
-    shapes = {k: ShapesModel.parse(geometry=v) for k, v in polygon_data.items()}
 
     sdata_obj = sd.SpatialData(
         points={"cells": (coords, points)},
         tables={"gene_expression": adata},
-        shapes=shapes,
         coordinate_systems={"global": sd.transformations.Identity()},
     )
 
