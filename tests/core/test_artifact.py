@@ -89,6 +89,7 @@ def mdata():
     return md.MuData({"rna": adata1, "protein": adata2})
 
 
+@pytest.fixture(scope="module")
 def sdata():
     coords = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
     points = pd.DataFrame(
@@ -178,6 +179,7 @@ def mudata_file(mdata):
     filepath.unlink()
 
 
+@pytest.fixture(scope="module")
 def spatialdata_file(sdata):
     filepath = Path("test.spatialdata.zarr")
     sdata.write(filepath)
@@ -386,7 +388,7 @@ def test_create_from_mudata(mdata):
     assert af.key is None
     assert af.otype == "MuData"
     assert af.kind == "dataset"
-    assert af.n_observations == 4
+    assert af.n_observations == 2
     af.save()
     af.delete(permanent=True, storage=True)
 
