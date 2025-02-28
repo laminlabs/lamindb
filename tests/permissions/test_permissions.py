@@ -7,10 +7,17 @@ set_jwt(token)
 
 
 def test_fine_grained_permissions():
+    # check select
     assert ln.ULabel.filter().count() == 2
+    # check delete
     # should delete
     ln.ULabel.get(name="full_access_ulabel").delete()
     assert ln.ULabel.filter().count() == 1
-    # should not delete, doesn't error for some reason
+    # should not delete, does not error for some reason
     ln.ULabel.get(name="select_ulabel").delete()
     assert ln.ULabel.filter().count() == 1
+    # check insert
+    space = ln.models.Space.get(name="full access")
+    ulabel = ln.ULabel(name="new label")
+    ulabel.space = space
+    ulabel.save()
