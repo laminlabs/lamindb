@@ -798,8 +798,9 @@ def test_load_to_memory(tsv_file, zip_file, fcs_file, yaml_file):
     # fcs
     adata = load_fcs(str(fcs_file))
     assert isinstance(adata, ad.AnnData)
-    # none
-    load_to_memory(zip_file)
+    # error
+    with pytest.raises(NotImplementedError):
+        load_to_memory(zip_file)
     # check that it is a path
     assert isinstance(load_to_memory("./somefile.rds"), UPath)
     # yaml

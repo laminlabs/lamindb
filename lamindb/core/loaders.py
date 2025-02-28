@@ -179,8 +179,6 @@ def load_to_memory(filepath: UPathStr, **kwargs):
     """
     filepath = create_path(filepath)
 
-    filepath = settings._storage_settings.cloud_to_local(filepath, print_progress=True)
-
     # infer the correct suffix when .gz is present
     suffixes = filepath.suffixes
     suffix = (
@@ -189,8 +187,11 @@ def load_to_memory(filepath: UPathStr, **kwargs):
         else filepath.suffix
     )
 
-    loader = FILE_LOADERS.get(suffix)
+    loader = FILE_LOADERS.get(suffix, None)
     if loader is None:
-        return filepath
-    else:
-        return loader(filepath, **kwargs)
+        raise NotImplementedError(
+            f"There is no loader for {suffix} files. Use .cache() to get the path."
+        )
+
+    filepath = settings._storage_settings.cloud_to_local(filepath, print_progress=True)
+    return loader(filepath, **kwargs)

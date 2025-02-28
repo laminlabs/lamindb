@@ -1117,8 +1117,11 @@ def load(self, is_run_input: bool | None = None, **kwargs) -> Any:
             # cache_path is local so doesn't trigger any sync in load_to_memory
             access_memory = load_to_memory(cache_path, **kwargs)
         except Exception as e:
-            # just raise the exception if the original path is local
-            if isinstance(filepath, LocalPathClasses):
+            # raise the exception if it comes from not having a correct loader
+            # or if the original path is local
+            if isinstance(e, NotImplementedError) or isinstance(
+                filepath, LocalPathClasses
+            ):
                 raise e
             logger.warning(
                 f"The cache might be corrupted: {e}. Retrying to synchronize."
