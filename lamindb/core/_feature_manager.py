@@ -466,7 +466,7 @@ def describe_features(
             Text.assemble(
                 ("Dataset features", "bold bright_magenta"),
                 ("/", "dim"),
-                ("schema", "dim bold"),
+                (".feature_sets", "dim bold"),
             )
         )
         for child in int_features_tree_children:
