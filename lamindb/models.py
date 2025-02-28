@@ -3312,10 +3312,12 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
     """:class:`~lamindb.Run` that created the `collection`."""
     input_of_runs: Run = models.ManyToManyField(Run, related_name="input_collections")
     """Runs that use this collection as an input."""
-    _previous_runs: Run = models.ManyToManyField(
-        "Run", related_name="_output_collections_with_later_updates"
+    _subsequent_runs: Run = models.ManyToManyField(
+        "Run",
+        related_name="_recreated_output_collections",
+        db_table="lamindb_collection__previous_runs",  # legacy name, change in lamindb v2
     )
-    """Sequence of runs that created or updated the record."""
+    """Runs that re-created the record after initial creation."""
     artifacts: Artifact = models.ManyToManyField(
         "Artifact", related_name="collections", through="CollectionArtifact"
     )

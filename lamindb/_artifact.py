@@ -262,7 +262,7 @@ def get_stat_or_artifact(
             )
             previous_artifact_version = result[0]
     if artifact_with_same_hash_exists:
-        message = "found artifact with same hash"
+        message = "returning existing artifact with same hash"
         if result[0]._branch_code == -1:
             result[0].restore()
             message = "restored artifact with same hash from trash"
@@ -334,14 +334,14 @@ def get_artifact_kwargs_from_data(
         is_replace=is_replace,
     )
     if isinstance(stat_or_artifact, Artifact):
-        artifact = stat_or_artifact
+        existing_artifact = stat_or_artifact
         if run is not None:
             # note: same logic for collection._subsequent_runs
-            if artifact.run is None:
-                artifact.run = run
-            elif artifact.run != run:
-                artifact._subsequent_runs.add(run)
-        return artifact, None
+            if existing_artifact.run is None:
+                existing_artifact.run = run
+            elif existing_artifact.run != run:
+                existing_artifact._subsequent_runs.add(run)
+        return existing_artifact, None
     else:
         size, hash, hash_type, n_files, revises = stat_or_artifact
 
