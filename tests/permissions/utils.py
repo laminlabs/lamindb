@@ -31,3 +31,10 @@ def _create_jwt_user(dsn_admin: str):
     )
     db_role_handler.permission.grant_write_jwt(jwt_role_name)
     return jwt_db_url
+
+
+def _set_token(token: str):
+    from django.db import connection  # set in the current django connection
+
+    with connection.cursor() as cur:
+        cur.execute("SELECT set_token(%s, false);", (token,))
