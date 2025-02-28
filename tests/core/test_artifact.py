@@ -16,6 +16,7 @@ import mudata as md
 import numpy as np
 import pandas as pd
 import pytest
+import spatialdata as sd
 import yaml  # type: ignore
 from lamindb import _artifact
 from lamindb._artifact import (
@@ -43,6 +44,8 @@ from lamindb_setup.core.upath import (
     UPath,
     extract_suffix_from_path,
 )
+from scipy.sparse import csr_matrix
+from spatialdata.models import ShapesModel
 
 # how do we properly abstract out the default storage variable?
 # currently, we're only mocking it through `default_storage` as
@@ -68,7 +71,7 @@ def adata():
 
 
 @pytest.fixture(scope="module")
-def mudata():
+def mdata():
     adata1 = ad.AnnData(
         X=np.array([[1, 2, 3], [4, 5, 6]]),
         obs={"feat1": ["A", "B"]},
@@ -84,6 +87,35 @@ def mudata():
     )
 
     return md.MuData({"rna": adata1, "protein": adata2})
+
+
+@pytest.fixture(scope="module")
+def sdata():
+    coords = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+    points = pd.DataFrame(
+        {"cell_id": ["cell1", "cell2"], "cell_type": ["type_A", "type_B"]}
+    )
+
+    adata = ad.AnnData(
+        X=csr_matrix(np.array([[0.1, 0.2], [0.3, 0.4]])),
+        obs=pd.DataFrame(index=["cell1", "cell2"]),
+        var=pd.DataFrame(index=["gene1", "gene2"]),
+    )
+
+    polygon_data = {
+        "region1": np.array([[[0, 0], [0, 1], [1, 1], [1, 0]]]),
+        "region2": np.array([[[2, 2], [2, 3], [3, 3], [3, 2]]]),
+    }
+    shapes = {k: ShapesModel.parse(v) for k, v in polygon_data.items()}
+
+    sdata_obj = sd.SpatialData(
+        points={"cells": (coords, points)},
+        tables={"gene_expression": adata},
+        shapes=shapes,
+        coordinate_systems={"global": sd.transformations.Identity()},
+    )
+
+    return sdata_obj
 
 
 @pytest.fixture(scope="module")
@@ -140,13 +172,19 @@ def fcs_file():
 
 
 @pytest.fixture(scope="module")
-def mudata_file():
-    pass
+def mudata_file(mdata):
+    filepath = Path("test.h5mu")
+    mdata.write(filepath)
+    yield filepath
+    filepath.unlink()
 
 
 @pytest.fixture(scope="module")
-def spatialdata_file():
-    pass
+def spatialdata_file(sdata):
+    filepath = Path("test.spatialdata.zarr")
+    sdata.write(filepath)
+    yield filepath
+    filepath.unlink()
 
 
 def test_signatures():
