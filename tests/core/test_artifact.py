@@ -382,6 +382,28 @@ def test_create_from_anndata(adata):
     af.delete(permanent=True, storage=True)
 
 
+def test_create_from_mudata(mdata):
+    af = ln.Artifact.from_mudata(mdata, description="test1")
+    assert af.description == "test1"
+    assert af.key is None
+    assert af.otype == "MuData"
+    assert af.kind == "dataset"
+    assert af.n_observations == 4
+    af.save()
+    af.delete(permanent=True, storage=True)
+
+
+def test_create_from_spatialdata(sdata):
+    af = ln.Artifact.from_spatialdata(sdata, description="test1")
+    assert af.description == "test1"
+    assert af.key is None
+    assert af.otype == "SpatialData"
+    assert af.kind == "dataset"
+    # n_observations is ill-defined so we are not testing for it
+    af.save()
+    af.delete(permanent=True, storage=True)
+
+
 def test_create_from_dataframe_using_from_df_and_link_features(df):
     description = "my description"
     artifact = ln.Artifact.from_df(
