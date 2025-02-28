@@ -504,8 +504,11 @@ def data_is_spatialdata(data: SpatialData | UPathStr) -> bool:
             if UPath(data).suffix == ".spatialdata.zarr":
                 return True
             else:
-                store = zarr.open(data)
-                return "spatialdata_attrs" in store.attrs
+                try:
+                    store = zarr.open(data, mode="r")
+                    return "spatialdata_attrs" in store.attrs
+                except (zarr.errors.PathNotFoundError, OSError):
+                    return False
         return False
 
 
@@ -791,34 +794,6 @@ def from_mudata(
         **kwargs,
     )
     artifact.n_observations = mdata.n_obs
-    return artifact
-
-
-@classmethod  # type: ignore
-@doc_args(Artifact.from_spatialdata.__doc__)
-def from_spatialdata(
-    cls,
-    sdata: SpatialData,
-    *,
-    key: str | None = None,
-    description: str | None = None,
-    run: Run | None = None,
-    revises: Artifact | None = None,
-    **kwargs,
-) -> Artifact:
-    """{}"""  # noqa: D415
-    artifact = Artifact(  # type: ignore
-        data=sdata,
-        key=key,
-        run=run,
-        description=description,
-        revises=revises,
-        otype="SpatialData",
-        kind="dataset",
-        **kwargs,
-    )
-    # ill-defined https://scverse.zulipchat.com/#narrow/channel/315824-spatial/topic/How.20to.20calculate.20the.20number.20of.20observations.3F
-    # artifact.n_observations = sdata.n_obs
     return artifact
 
 
@@ -1403,7 +1378,6 @@ METHOD_NAMES = [
     "from_anndata",
     "from_df",
     "from_mudata",
-    "from_spatialdata",
     "from_tiledbsoma",
     "open",
     "cache",

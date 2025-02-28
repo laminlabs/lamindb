@@ -30,7 +30,6 @@ from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import UPath
 
 from lamindb.core.storage._backed_access import backed_access
-from lamindb.core.versioning import create_uid
 
 from ._cellxgene_schemas import _read_schema_versions
 
@@ -56,7 +55,7 @@ from lamindb.models import (
     ULabel,
 )
 
-from .._artifact import data_is_anndata, data_is_spatialdata
+from .._artifact import data_is_anndata
 from .._from_values import _format_values
 from ..errors import InvalidArgument, ValidationError
 
