@@ -371,6 +371,17 @@ def test_create_from_dataframe(df):
     artifact.delete(permanent=True, storage=True)
 
 
+def test_create_from_anndata(adata):
+    af = ln.Artifact.from_anndata(adata, description="test1")
+    assert af.description == "test1"
+    assert af.key is None
+    assert af.otype == "AnnData"
+    assert af.kind == "dataset"
+    assert af.n_observations == 2
+    af.save()
+    af.delete(permanent=True, storage=True)
+
+
 def test_create_from_dataframe_using_from_df_and_link_features(df):
     description = "my description"
     artifact = ln.Artifact.from_df(
