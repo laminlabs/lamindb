@@ -106,7 +106,7 @@ def sdata():
         "region1": np.array([[[0, 0], [0, 1], [1, 1], [1, 0]]]),
         "region2": np.array([[[2, 2], [2, 3], [3, 3], [3, 2]]]),
     }
-    shapes = {k: ShapesModel.parse(v) for k, v in polygon_data.items()}
+    shapes = {k: ShapesModel.parse(geometry=v) for k, v in polygon_data.items()}
 
     sdata_obj = sd.SpatialData(
         points={"cells": (coords, points)},

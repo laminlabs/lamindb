@@ -507,7 +507,7 @@ def data_is_spatialdata(data: SpatialData | UPathStr) -> bool:
 def _check_otype_artifact(
     data: UPathStr | pd.DataFrame | AnnData | MuData | SpatialData,
     otype: str | None = None,
-):
+) -> str:
     if otype is None:
         if isinstance(data, pd.DataFrame):
             logger.warning("data is a DataFrame, please use .from_df()")
