@@ -89,7 +89,7 @@ def write_to_disk(dmem: SupportedDataTypes, filepath: UPathStr) -> None:
         from spatialdata import SpatialData
 
         if isinstance(dmem, SpatialData):
-            dmem.write(filepath)
+            dmem.write(filepath, overwrite=True)
             return
     else:
         raise NotImplementedError
