@@ -12,6 +12,7 @@ import anndata as ad
 import bionty as bt
 import lamindb as ln
 import lamindb_setup
+import mudata as md
 import numpy as np
 import pandas as pd
 import pytest
@@ -67,6 +68,25 @@ def adata():
 
 
 @pytest.fixture(scope="module")
+def mudata():
+    adata1 = ad.AnnData(
+        X=np.array([[1, 2, 3], [4, 5, 6]]),
+        obs={"feat1": ["A", "B"]},
+        var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
+        obsm={"X_pca": np.array([[1, 2], [3, 4]])},
+    )
+
+    adata2 = ad.AnnData(
+        X=np.array([[7, 8], [9, 10]]),
+        obs={"feat2": ["C", "D"]},
+        var=pd.DataFrame(index=["FOXP3", "CD8A"]),
+        obsm={"X_umap": np.array([[5, 6], [7, 8]])},
+    )
+
+    return md.MuData({"rna": adata1, "protein": adata2})
+
+
+@pytest.fixture(scope="module")
 def adata_file():
     adata = ad.AnnData(
         X=np.array([[1, 2, 3], [4, 5, 6]]),
@@ -117,6 +137,11 @@ def yaml_file():
 @pytest.fixture(scope="module")
 def fcs_file():
     return ln.core.datasets.file_fcs_alpert19()
+
+
+@pytest.fixture(scope="module")
+def mudata_file():
+    pass
 
 
 @pytest.fixture(scope="module")
