@@ -25,7 +25,7 @@ from lamindb._artifact import (
 )
 from lamindb.core._settings import settings
 from lamindb.core.loaders import load_fcs, load_to_memory, load_tsv
-from lamindb.core.storage._zarr import write_adata_zarr, zarr_is_adata
+from lamindb.core.storage._zarr import identify_zarr_type, write_adata_zarr
 from lamindb.core.storage.paths import (
     AUTO_KEY_PREFIX,
     auto_storage_key_from_artifact_uid,
@@ -840,7 +840,7 @@ def test_zarr_upload_cache(adata):
 
     assert isinstance(artifact.path, CloudPath)
     assert artifact.path.exists()
-    assert zarr_is_adata(artifact.path)
+    assert identify_zarr_type(artifact.path) == "anndata"
 
     shutil.rmtree(artifact.cache())
 

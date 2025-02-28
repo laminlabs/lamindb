@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import scipy.sparse as sparse
 import zarr
 from anndata import __version__ as anndata_version
 from anndata._io.specs import write_elem
-from anndata._io.specs.registry import get_spec
 from fsspec.implementations.local import LocalFileSystem
 from lamindb_setup.core.upath import create_mapper, infer_filesystem
 from packaging import version
@@ -25,15 +24,29 @@ if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
 
 
-def zarr_is_adata(storepath: UPathStr) -> bool:
+def identify_zarr_type(
+    storepath: UPathStr,
+) -> Literal["anndata", "spatialdata", "unknown"]:
+    """Identify whether a zarr file is AnnData, SpatialData, or unknown type."""
     fs, storepath_str = infer_filesystem(storepath)
+
     if isinstance(fs, LocalFileSystem):
-        # this is faster than through an fsspec mapper for local
         open_obj = storepath_str
     else:
         open_obj = create_mapper(fs, storepath_str, check=True)
-    storage = zarr.open(open_obj, mode="r")
-    return get_spec(storage).encoding_type == "anndata"
+
+    try:
+        storage = zarr.open(open_obj, mode="r")
+
+        if "spatialdata_attrs" in storage.attrs:
+            return "spatialdata"
+
+        if storage.attrs.get("encoding-type", "") == "anndata":
+            return "anndata"
+
+        return "unknown"
+    except Exception:
+        return "unknown"
 
 
 def load_anndata_zarr(storepath: UPathStr) -> AnnData:

@@ -64,10 +64,10 @@ from .core.versioning import (
 from .errors import IntegrityError, InvalidArgument
 
 try:
-    from .core.storage._zarr import zarr_is_adata
+    from .core.storage._zarr import identify_zarr_type
 except ImportError:
 
-    def zarr_is_adata(storepath):  # type: ignore
+    def identify_zarr_type(storepath):  # type: ignore
         raise ImportError("Please install zarr: pip install zarr<=2.18.4")
 
 
@@ -474,7 +474,7 @@ def data_is_anndata(data: AnnData | UPathStr) -> bool:
                 return True
             # check only for local, expensive for cloud
             if fsspec.utils.get_protocol(data_path.as_posix()) == "file":
-                return zarr_is_adata(data_path)
+                return identify_zarr_type(data_path) == "anndata"
             else:
                 logger.warning("We do not check if cloud zarr is AnnData or not")
                 return False
@@ -500,7 +500,7 @@ def data_is_spatialdata(data: SpatialData | UPathStr) -> bool:
         if isinstance(data, SpatialData):
             return True
         if isinstance(data, (str, Path)):
-            # This is NOT necessarily convention.
+            # This is not necessarily convention
             if UPath(data).suffix == ".spatialdata.zarr":
                 return True
             else:
