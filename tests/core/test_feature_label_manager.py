@@ -320,7 +320,9 @@ Here is how to create ulabels for them:
 def test_params_add():
     path = Path("mymodel.pt")
     path.touch()
-    artifact = ln.Artifact("mymodel.pt", type="model", description="hello").save()
+    artifact = ln.Artifact(
+        "mymodel.pt", type="model", otype="", description="hello"
+    ).save()
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"temperature": 27})
     assert (

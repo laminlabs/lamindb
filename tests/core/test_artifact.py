@@ -89,7 +89,6 @@ def mdata():
     return md.MuData({"rna": adata1, "protein": adata2})
 
 
-@pytest.fixture(scope="module")
 def sdata():
     coords = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
     points = pd.DataFrame(
@@ -179,7 +178,6 @@ def mudata_file(mdata):
     filepath.unlink()
 
 
-@pytest.fixture(scope="module")
 def spatialdata_file(sdata):
     filepath = Path("test.spatialdata.zarr")
     sdata.write(filepath)
