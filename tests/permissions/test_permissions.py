@@ -36,4 +36,4 @@ def test_fine_grained_permissions():
     ulabel = ln.ULabel.get(name="new label")
     ulabel.name = "new label update"
     ulabel.save()
-    ulabel = ln.ULabel.get(name="new label")  # check that it is saved
+    ulabel = ln.ULabel.get(name="new label update")  # check that it is saved
