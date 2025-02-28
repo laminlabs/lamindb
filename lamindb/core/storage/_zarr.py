@@ -38,7 +38,10 @@ def identify_zarr_type(
     try:
         storage = zarr.open(open_obj, mode="r")
 
-        if "spatialdata_attrs" in storage.attrs:
+        if (
+            storepath.suffix == ".spatialdata.zarr"
+            or "spatialdata_attrs" in storage.attrs
+        ):
             return "spatialdata"
 
         if storage.attrs.get("encoding-type", "") == "anndata":

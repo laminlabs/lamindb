@@ -494,21 +494,12 @@ def data_is_mudata(data: MuData | UPathStr) -> bool:
 
 def data_is_spatialdata(data: SpatialData | UPathStr) -> bool:
     if is_package_installed("spatialdata"):
-        import zarr
         from spatialdata import SpatialData
 
         if isinstance(data, SpatialData):
             return True
         if isinstance(data, (str, Path)):
-            # This is not necessarily convention
-            if UPath(data).suffix == ".spatialdata.zarr":
-                return True
-            else:
-                try:
-                    store = zarr.open(data, mode="r")
-                    return "spatialdata_attrs" in store.attrs
-                except (zarr.errors.PathNotFoundError, OSError):
-                    return False
+            return identify_zarr_type(data) == "spatialdata"
         return False
 
 
