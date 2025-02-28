@@ -11,6 +11,7 @@ ln_setup.init(
 )
 
 _install_db_module(pgurl)
-
+# can't add this app in the init because don't want t trigger the initial migration
+# that conflicts with _install_db_module
 ln_setup.settings.instance._schema_str = "hubmodule"
 ln_setup.settings.instance._persist()

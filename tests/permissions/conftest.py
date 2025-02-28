@@ -10,11 +10,22 @@ from lamin_utils import logger
 def pytest_sessionstart():
     t_execute_start = perf_counter()
 
+    ln_setup.settings.auto_connect = True
+    # these are called in separate scrits because can't change connection
+    # within the same python process due to django
+    # init instance and setup RLS
     run(  # noqa: S602
         "python ./tests/permissions/scripts/setup_instance.py",
         shell=True,
         capture_output=False,
     )
+    # populate permission access and other models via the admin connection
+    run(  # noqa: S602
+        "python ./tests/permissions/scripts/setup_models.py",
+        shell=True,
+        capture_output=False,
+    )
+
     ln_setup.settings.auto_connect = False
 
     total_time_elapsed = perf_counter() - t_execute_start
