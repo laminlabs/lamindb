@@ -1,4 +1,6 @@
 import lamindb as ln
+import pytest
+from django.db.utils import ProgrammingError
 from jwt_utils import set_jwt, sign_jwt
 
 pgurl = "postgresql://postgres:pwd@0.0.0.0:5432/pgtest"  # admin db connection url
@@ -22,8 +24,10 @@ def test_fine_grained_permissions():
     ulabel = ln.ULabel(name="new label")
     ulabel.space = space
     ulabel.save()
-    # should fail in the "select access" space
-    space = ln.models.Space.get(name="select access")
-    ulabel = ln.ULabel(name="new label fail")
-    ulabel.space = space
-    ulabel.save()
+    # should fail
+    for space_name in ["select access", "no access"]:
+        space = ln.models.Space.get(name=space_name)
+        ulabel = ln.ULabel(name="new label fail")
+        ulabel.space = space
+        with pytest.raises(ProgrammingError):
+            ulabel.save()
