@@ -154,7 +154,7 @@ def __init__(
         if run is not None:
             # save the information that this collection was previously produced
             # by another run
-            # note: same logic exists for _output_artifacts_with_later_updates
+            # note: same logic exists for _recreated_output_artifacts
             if existing_collection.run is not None and existing_collection.run != run:
                 existing_collection.run._output_collections_with_later_updates.add(
                     existing_collection
