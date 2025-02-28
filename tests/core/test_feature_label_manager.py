@@ -321,7 +321,7 @@ def test_params_add():
     path = Path("mymodel.pt")
     path.touch()
     artifact = ln.Artifact(
-        "mymodel.pt", type="model", otype="", description="hello"
+        "mymodel.pt", kind="model", otype="", description="hello"
     ).save()
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"temperature": 27})

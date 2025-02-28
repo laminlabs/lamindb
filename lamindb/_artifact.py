@@ -499,7 +499,8 @@ def data_is_spatialdata(data: SpatialData | UPathStr) -> bool:
         if isinstance(data, SpatialData):
             return True
         if isinstance(data, (str, Path)):
-            return identify_zarr_type(data, check=False)
+            if UPath(data).suffix in ["spatialdata.zarr", "zarr"]:
+                return identify_zarr_type(data, check=False) == "spatialdata"
         return False
 
 
