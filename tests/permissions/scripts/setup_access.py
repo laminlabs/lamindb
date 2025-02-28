@@ -3,15 +3,11 @@ import hubmodule.models as hm
 from laminhub_rest.core.db import DbRoleHandler
 
 full_access = ln.models.Space(name="full access", uid="00000001").save()
-select_access = ln.models.Space(name="full access", uid="00000002").save()
+select_access = ln.models.Space(name="select access", uid="00000002").save()
 no_access = ln.models.Space(name="no access", uid="00000003").save()
 
 account = hm.Account(id=ln.setup.settings.user._uuid.hex).save()
 
-# no access space
-ulabel = ln.ULabel(name="no_access_ulabel")
-ulabel.space = no_access
-ulabel.save()
 # setup full access space
 hm.AccessSpace(account=account, space=full_access, operation="SELECT").save()
 hm.AccessSpace(account=account, space=full_access, operation="INSERT").save()
@@ -28,11 +24,16 @@ ulabel = ln.ULabel(name="select_ulabel")
 ulabel.space = select_access
 ulabel.save()
 
+# no access space
+ulabel = ln.ULabel(name="no_access_ulabel")
+ulabel.space = no_access
+ulabel.save()
+
 print("Created models")
 
 
 # create a db connection url that works with RLS
-def _create_jwt_user(dsn_admin: str):
+def create_jwt_user(dsn_admin: str):
     db_role_handler = DbRoleHandler(dsn_admin)
     jwt_role_name = "permissions_jwt"
     jwt_db_url = db_role_handler.create(
@@ -43,7 +44,7 @@ def _create_jwt_user(dsn_admin: str):
 
 
 pgurl = "postgresql://postgres:pwd@0.0.0.0:5432/pgtest"  # admin db connection url
-jwt_db_url = _create_jwt_user(pgurl)  #
+jwt_db_url = create_jwt_user(pgurl)  #
 ln.setup.settings.instance._db = jwt_db_url
 ln.setup.settings.instance._persist()
 
