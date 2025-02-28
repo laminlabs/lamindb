@@ -17,7 +17,13 @@ def test_fine_grained_permissions():
     ln.ULabel.get(name="select_ulabel").delete()
     assert ln.ULabel.filter().count() == 1
     # check insert
+    # should succeed
     space = ln.models.Space.get(name="full access")
     ulabel = ln.ULabel(name="new label")
+    ulabel.space = space
+    ulabel.save()
+    # should fail in the "select access" space
+    space = ln.models.Space.get(name="select access")
+    ulabel = ln.ULabel(name="new label fail")
     ulabel.space = space
     ulabel.save()
