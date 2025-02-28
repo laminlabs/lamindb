@@ -2910,7 +2910,7 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
                 "cell_line": bt.CellLine.name,
                 "pert_target": wl.PerturbationTarget.name,
                 "pert_genetic": wl.GeneticPerturbation.name,
-                # "pert_compound": wl.Compound.name,
+                "pert_compound": wl.Compound.name,
                 "pert_biologic": wl.Biologic.name,
                 "pert_physical": wl.EnvironmentalPerturbation.name,
             }.items()
@@ -3008,7 +3008,7 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
         first_columns = [
             "pert_target",
             "pert_genetic",
-            # "pert_compound",
+            "pert_compound",
             "pert_biologic",
             "pert_physical",
             "pert_dose",
