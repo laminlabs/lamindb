@@ -86,7 +86,7 @@ def test_pert_curator():
     # ### Compounds
 
     # the remaining compounds are not in CHEBI and we create records for them
-    curator.add_new_from("pert_compound")
+    # curator.add_new_from("pert_compound")
 
     # manually fix sex and set assay
     adata.obs["sex"] = adata.obs["sex"].astype(str).str.lower()

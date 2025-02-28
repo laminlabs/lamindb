@@ -3008,7 +3008,7 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
         first_columns = [
             "pert_target",
             "pert_genetic",
-            "pert_compound",
+            # "pert_compound",
             "pert_biologic",
             "pert_physical",
             "pert_dose",
