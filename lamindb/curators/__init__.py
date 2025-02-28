@@ -3709,7 +3709,7 @@ def from_anndata(
 @classmethod  # type: ignore
 def from_mudata(
     cls,
-    mdata: MuData,
+    mdata: MuData | UPathStr,
     var_index: dict[str, dict[str, FieldAttr]],
     categoricals: dict[str, FieldAttr] | None = None,
     verbosity: str = "hint",
@@ -3749,7 +3749,7 @@ def from_tiledbsoma(
 @classmethod  # type: ignore
 def from_spatialdata(
     cls,
-    sdata,
+    sdata: SpatialData | UPathStr,
     var_index: dict[str, FieldAttr],
     categoricals: dict[str, dict[str, FieldAttr]] | None = None,
     organism: str | None = None,
