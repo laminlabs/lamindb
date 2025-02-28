@@ -19,14 +19,12 @@ def pytest_sessionstart():
         shell=True,
         capture_output=False,
     )
-    # populate permission access and other models via the admin connection
+    # populate permissions and models via the admin connection
     run(  # noqa: S602
-        "python ./tests/permissions/scripts/setup_models.py",
+        "python ./tests/permissions/scripts/setup_access.py",
         shell=True,
         capture_output=False,
     )
-
-    ln_setup.settings.auto_connect = False
 
     total_time_elapsed = perf_counter() - t_execute_start
     print(f"Time to setup the instance: {total_time_elapsed:.3f}s")

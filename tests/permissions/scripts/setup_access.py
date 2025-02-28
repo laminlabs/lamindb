@@ -1,5 +1,6 @@
 import lamindb as ln  # noqa
 import hubmodule.models as hm
+from ..utils import _create_jwt_user
 
 full_access = ln.models.Space(name="full access", uid="00000001").save()
 select_access = ln.models.Space(name="full access", uid="00000002").save()
@@ -26,3 +27,9 @@ hm.AccessSpace(account=account, space=select_access, operation="SELECT").save()
 ulabel = ln.ULabel(name="select_ulabel")
 ulabel.space = select_access
 ulabel.save()
+
+# create a db connection url that works with RLS
+pgurl = "postgresql://postgres:pwd@0.0.0.0:5432/pgtest"  # admin db connection url
+jwt_db_url = _create_jwt_user(pgurl)  #
+ln.setup.settings.instance._db = jwt_db_url
+ln.setup.settings.instance._persist()
