@@ -769,7 +769,7 @@ def from_anndata(
 @doc_args(Artifact.from_mudata.__doc__)
 def from_mudata(
     cls,
-    mdata: MuData,
+    mdata: MuData | UPathStr,
     *,
     key: str | None = None,
     description: str | None = None,
@@ -778,6 +778,8 @@ def from_mudata(
     **kwargs,
 ) -> Artifact:
     """{}"""  # noqa: D415
+    if not data_is_mudata(mdata):
+        raise ValueError("data has to be an MuData object or a path to MuData-like")
     artifact = Artifact(  # type: ignore
         data=mdata,
         key=key,
@@ -796,7 +798,7 @@ def from_mudata(
 @doc_args(Artifact.from_spatialdata.__doc__)
 def from_spatialdata(
     cls,
-    sdata: SpatialData,
+    sdata: SpatialData | UPathStr,
     *,
     key: str | None = None,
     description: str | None = None,
@@ -805,6 +807,8 @@ def from_spatialdata(
     **kwargs,
 ) -> Artifact:
     """{}"""  # noqa: D415
+    if not data_is_spatialdata(sdata):
+        raise ValueError("data has to be an MuData object or a path to MuData-like")
     artifact = Artifact(  # type: ignore
         data=sdata,
         key=key,
