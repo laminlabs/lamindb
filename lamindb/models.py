@@ -2756,12 +2756,10 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     """Run that created the artifact."""
     input_of_runs: Run = models.ManyToManyField(Run, related_name="input_artifacts")
     """Runs that use this artifact as an input."""
-    # if the artifact is replicated or updated in a new run, we link the previous
-    # run in previous_runs
     _subsequent_runs: Run = models.ManyToManyField(
         "Run",
         related_name="_recreated_output_artifacts",
-        db_table="lamindb_artifact__previous_runs",  # Keep the original table name
+        db_table="lamindb_artifact__previous_runs",  # legacy name, change in lamindb v2
     )
     """Runs that re-created the record after initial creation."""
     collections: Collection
