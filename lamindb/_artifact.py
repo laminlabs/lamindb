@@ -798,6 +798,34 @@ def from_mudata(
 
 
 @classmethod  # type: ignore
+@doc_args(Artifact.from_spatialdata.__doc__)
+def from_spatialdata(
+    cls,
+    sdata: SpatialData,
+    *,
+    key: str | None = None,
+    description: str | None = None,
+    run: Run | None = None,
+    revises: Artifact | None = None,
+    **kwargs,
+) -> Artifact:
+    """{}"""  # noqa: D415
+    artifact = Artifact(  # type: ignore
+        data=sdata,
+        key=key,
+        run=run,
+        description=description,
+        revises=revises,
+        otype="SpatialData",
+        kind="dataset",
+        **kwargs,
+    )
+    # ill-defined https://scverse.zulipchat.com/#narrow/channel/315824-spatial/topic/How.20to.20calculate.20the.20number.20of.20observations.3F
+    # artifact.n_observations = sdata.n_obs
+    return artifact
+
+
+@classmethod  # type: ignore
 @doc_args(Artifact.from_tiledbsoma.__doc__)
 def from_tiledbsoma(
     cls,
@@ -1378,6 +1406,7 @@ METHOD_NAMES = [
     "from_anndata",
     "from_df",
     "from_mudata",
+    "from_spatialdata",
     "from_tiledbsoma",
     "open",
     "cache",
