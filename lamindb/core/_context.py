@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 import lamindb_setup as ln_setup
 from django.db.models import Func, IntegerField
 from lamin_utils import logger
+from lamindb_setup.core import deprecated
 from lamindb_setup.core.hashing import hash_file
 
 from lamindb.base import ids
@@ -217,8 +218,8 @@ class Context:
         self._description = value
 
     @property
+    @deprecated(new_name="description")
     def name(self) -> str | None:
-        """Deprecated. Populates `description` argument for `context.transform`."""
         return self._description
 
     @name.setter
@@ -283,6 +284,10 @@ class Context:
             To track the run of a notebook or script, call:
 
             >>> ln.track()
+
+            If you want to ensure a single version history across renames of the notebook or script, pass the auto-generated `uid` that you'll find in the logs:
+
+            >>> ln.track("Onv04I53OgtT0000")  # example uid, the last four characters encode the version of the transform
 
         """
         self._logging_message_track = ""

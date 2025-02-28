@@ -23,7 +23,7 @@ def small_dataset1(
         var_ids[0]: [1, 2, 3],
         var_ids[1]: [3, 4, 5],
         var_ids[2]: [5, 6, 7],
-        "cell_medium": pd.Categorical(["DMSO", ifng, "DMSO"]),
+        "perturbation": pd.Categorical(["DMSO", ifng, "DMSO"]),
         "sample_note": ["was ok", "looks naah", "pretty! 🤩"],
         "cell_type_by_expert": pd.Categorical(["B cell", "T cell", "T cell"]),
         "cell_type_by_model": pd.Categorical(["B cell", "T cell", "T cell"]),
@@ -60,7 +60,7 @@ def small_dataset2(
         var_ids[0]: [2, 3, 3],
         var_ids[1]: [3, 4, 5],
         var_ids[2]: [4, 2, 3],
-        "cell_medium": pd.Categorical(["DMSO", "IFNG", "IFNG"]),
+        "perturbation": pd.Categorical(["DMSO", "IFNG", "IFNG"]),
         "cell_type_by_model": pd.Categorical(["B cell", "T cell", "T cell"]),
     }
     metadata = {
@@ -74,7 +74,7 @@ def small_dataset2(
     )
     ad.AnnData(
         dataset_df[var_ids],
-        obs=dataset_df[["cell_medium", "cell_type_by_model"]],
+        obs=dataset_df[["perturbation", "cell_type_by_model"]],
     )
     if otype == "DataFrame":
         for key, value in metadata.items():
