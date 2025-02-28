@@ -2491,7 +2491,7 @@ class Schema(Record, CanCurate, TracksRun):
         return self.components.get(links_component__slot=slot)
 
 
-def _populate_subsequent_runs(record: Artifact | Collection, run: Run):
+def _populate_subsequent_runs_(record: Artifact | Collection, run: Run):
     if record.run is None:
         record.run = run
     elif record.run != run:
@@ -3245,8 +3245,8 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         """
         pass
 
-    def _populate_subsequent_runs(self) -> None:
-        _populate_subsequent_runs(self, self.run)
+    def _populate_subsequent_runs(self, run: Run) -> None:
+        _populate_subsequent_runs_(self, run)
 
 
 class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
@@ -3577,8 +3577,8 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         """
         pass
 
-    def _populate_subsequent_runs(self) -> None:
-        _populate_subsequent_runs(self, self.run)
+    def _populate_subsequent_runs(self, run: Run) -> None:
+        _populate_subsequent_runs_(self, run)
 
 
 # -------------------------------------------------------------------------------------
