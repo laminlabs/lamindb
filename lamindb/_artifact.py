@@ -335,15 +335,12 @@ def get_artifact_kwargs_from_data(
     )
     if isinstance(stat_or_artifact, Artifact):
         artifact = stat_or_artifact
-        # update the run of the existing artifact
         if run is not None:
-            # save the information that this artifact was previously produced by
-            # another run
-            # note: same logic exists for _output_collections_with_later_updates
-            if artifact.run is not None and artifact.run != run:
-                artifact.run._recreated_output_artifacts.add(artifact)
-            # update the run of the artifact with the latest run
-            stat_or_artifact.run = run
+            # note: same logic for collection._subsequent_runs
+            if artifact.run is None:
+                artifact.run = run
+            elif artifact.run != run:
+                artifact._subsequent_runs.add(run)
         return artifact, None
     else:
         size, hash, hash_type, n_files, revises = stat_or_artifact
