@@ -11,10 +11,6 @@ from fsspec.implementations.local import LocalFileSystem
 from lamindb_setup.core.upath import create_mapper, infer_filesystem
 from packaging import version
 
-from lamindb.core.storage import (
-    UPath,
-)
-
 from ._anndata_sizes import _size_elem, _size_raw, size_adata
 
 if version.parse(anndata_version) < version.parse("0.11.0"):
@@ -29,7 +25,7 @@ if TYPE_CHECKING:
 
 
 def identify_zarr_type(
-    storepath: UPathStr,
+    storepath: UPathStr, *, check: bool = True
 ) -> Literal["anndata", "spatialdata", "unknown"]:
     """Identify whether a zarr file is AnnData, SpatialData, or unknown type."""
     fs, storepath_str = infer_filesystem(storepath)
@@ -37,15 +33,12 @@ def identify_zarr_type(
     if isinstance(fs, LocalFileSystem):
         open_obj = storepath_str
     else:
-        open_obj = create_mapper(fs, storepath_str, check=True)
+        open_obj = create_mapper(fs, storepath_str, check=check)
 
     try:
         storage = zarr.open(open_obj, mode="r")
 
-        if (
-            UPath(storepath).suffix == ".spatialdata.zarr"
-            or "spatialdata_attrs" in storage.attrs
-        ):
+        if "spatialdata_attrs" in storage.attrs:
             return "spatialdata"
 
         if storage.attrs.get("encoding-type", "") == "anndata":

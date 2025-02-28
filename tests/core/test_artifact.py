@@ -119,6 +119,11 @@ def fcs_file():
     return ln.core.datasets.file_fcs_alpert19()
 
 
+@pytest.fixture(scope="module")
+def spatialdata_file():
+    pass
+
+
 def test_signatures():
     # this seems currently the easiest and most transparent
     # way to test violations of the signature equality

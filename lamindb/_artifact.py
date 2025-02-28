@@ -499,11 +499,26 @@ def data_is_spatialdata(data: SpatialData | UPathStr) -> bool:
         if isinstance(data, SpatialData):
             return True
         if isinstance(data, (str, Path)):
-            return identify_zarr_type(data) == "spatialdata"
+            """
+            import zarr
+            # This is not necessarily convention
+            if UPath(data).suffix == ".spatialdata.zarr":
+                return True
+            else:
+                try:
+                    store = zarr.open(data, mode="r")
+                    return "spatialdata_attrs" in store.attrs
+                except (zarr.errors.PathNotFoundError, OSError):
+                    return False
+            """
+            return identify_zarr_type(data, check=False)
         return False
 
 
-def _check_otype_artifact(data: Any, otype: str | None = None):
+def _check_otype_artifact(
+    data: UPathStr | pd.DataFrame | AnnData | MuData | SpatialData,
+    otype: str | None = None,
+):
     if otype is None:
         if isinstance(data, pd.DataFrame):
             logger.warning("data is a DataFrame, please use .from_df()")
