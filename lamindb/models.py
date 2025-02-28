@@ -2491,6 +2491,13 @@ class Schema(Record, CanCurate, TracksRun):
         return self.components.get(links_component__slot=slot)
 
 
+def _populate_subsequent_runs(record: Artifact | Collection, run: Run):
+    if record.run is None:
+        record.run = run
+    elif record.run != run:
+        record._subsequent_runs.add(run)
+
+
 class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     # Note that this docstring has to be consistent with Curator.save_artifact()
     """Datasets & models stored as files, folders, or arrays.
@@ -3238,6 +3245,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         """
         pass
 
+    def _populate_subsequent_runs(self) -> None:
+        _populate_subsequent_runs(self, self.run)
+
 
 class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
     """Collections of artifacts.
@@ -3566,6 +3576,9 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             >>> artifact.describe()
         """
         pass
+
+    def _populate_subsequent_runs(self) -> None:
+        _populate_subsequent_runs(self, self.run)
 
 
 # -------------------------------------------------------------------------------------

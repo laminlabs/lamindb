@@ -151,11 +151,7 @@ def __init__(
             f"returning existing collection with same hash: {existing_collection}; if you intended to query to track this collection as an input, use: ln.Collection.get()"
         )
         if run is not None:
-            # note: same logic for collection._subsequent_runs
-            if existing_collection.run is None:
-                existing_collection.run = run
-            elif existing_collection.run != run:
-                existing_collection._subsequent_runs.add(run)
+            existing_collection._populate_subsequent_runs(run)
         init_self_from_db(collection, existing_collection)
         update_attributes(collection, {"description": description, "key": key})
     else:
