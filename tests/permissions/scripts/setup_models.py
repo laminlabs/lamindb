@@ -1,5 +1,5 @@
+import lamindb as ln  # noqa
 import hubmodule.models as hm
-import lamindb as ln
 
 full_access = ln.models.Space(name="full access", uid="00000001").save()
 select_access = ln.models.Space(name="full access", uid="00000002").save()
