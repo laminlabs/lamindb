@@ -2765,7 +2765,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     """Runs that use this artifact as an input."""
     _subsequent_runs: Run = models.ManyToManyField(
         "Run",
-        related_name="_recreated_output_artifacts",
+        related_name="_recreated_artifacts",
         db_table="lamindb_artifact__previous_runs",  # legacy name, change in lamindb v2
     )
     """Runs that re-created the record after initial creation."""
@@ -3324,7 +3324,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
     """Runs that use this collection as an input."""
     _subsequent_runs: Run = models.ManyToManyField(
         "Run",
-        related_name="_recreated_output_collections",
+        related_name="_recreated_collections",
         db_table="lamindb_collection__previous_runs",  # legacy name, change in lamindb v2
     )
     """Runs that re-created the record after initial creation."""

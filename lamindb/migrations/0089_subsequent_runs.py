@@ -114,7 +114,7 @@ class Migration(migrations.Migration):
                     name="_subsequent_runs",
                     field=models.ManyToManyField(
                         "lamindb.run",
-                        related_name="_recreated_output_artifacts",
+                        related_name="_recreated_artifacts",
                         db_table="lamindb_artifact__previous_runs",  # Keep the original table name
                     ),
                 ),
@@ -141,7 +141,7 @@ class Migration(migrations.Migration):
                     name="_subsequent_runs",
                     field=models.ManyToManyField(
                         "lamindb.run",
-                        related_name="_recreated_output_collections",
+                        related_name="_recreated_collections",
                         db_table="lamindb_collection__previous_runs",  # Keep the original table name
                     ),
                 ),
