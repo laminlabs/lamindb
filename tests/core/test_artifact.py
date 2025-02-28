@@ -90,11 +90,6 @@ def mdata():
 
 @pytest.fixture(scope="module")
 def sdata():
-    coords = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
-    points = pd.DataFrame(
-        {"cell_id": ["cell1", "cell2"], "cell_type": ["type_A", "type_B"]}
-    )
-
     adata = ad.AnnData(
         X=csr_matrix(np.array([[0.1, 0.2], [0.3, 0.4]])),
         obs=pd.DataFrame(index=["cell1", "cell2"]),
@@ -107,7 +102,6 @@ def sdata():
     }
 
     sdata_obj = sd.SpatialData(
-        points={"cells": (coords, points)},
         tables={"gene_expression": adata},
     )
 

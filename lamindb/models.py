@@ -2979,7 +2979,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_mudata(
         cls,
-        mdata: MuData,
+        mdata: MuData | UPathStr,
         *,
         key: str | None = None,
         description: str | None = None,
@@ -3015,7 +3015,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_spatialdata(
         cls,
-        sdata: SpatialData,
+        sdata: SpatialData | UPathStr,
         *,
         key: str | None = None,
         description: str | None = None,
