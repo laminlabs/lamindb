@@ -545,11 +545,11 @@ class HasParents:
         """
         pass
 
-    def query_parents(self) -> QuerySet:
+    def query_parents(self) -> "QuerySet":
         """Query parents in an ontology."""
         pass
 
-    def query_children(self) -> QuerySet:
+    def query_children(self) -> "QuerySet":
         """Query children in an ontology."""
         pass
 
@@ -668,7 +668,7 @@ class Registry(ModelBase):
         """
         pass
 
-    def filter(cls, *queries, **expressions) -> QuerySet:
+    def filter(cls, *queries, **expressions) -> "QuerySet":
         """Query records.
 
         Args:
@@ -761,7 +761,7 @@ class Registry(ModelBase):
         field: StrField | None = None,
         limit: int | None = 20,
         case_sensitive: bool = False,
-    ) -> QuerySet:
+    ) -> "QuerySet":
         """Search.
 
         Args:
@@ -788,7 +788,7 @@ class Registry(ModelBase):
     def using(
         cls,
         instance: str | None,
-    ) -> QuerySet:
+    ) -> "QuerySet":
         """Use a non-default LaminDB instance.
 
         Args:
@@ -2421,7 +2421,7 @@ class Schema(Record, CanCurate, TracksRun):
         pass
 
     @property
-    def members(self) -> QuerySet:
+    def members(self) -> "QuerySet":
         """A queryset for the individual records of the set."""
         pass
 
@@ -3589,7 +3589,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         return self.key.split("/")[-1]
 
     @property
-    def ordered_artifacts(self) -> QuerySet:
+    def ordered_artifacts(self) -> "QuerySet":
         """Ordered `QuerySet` of `.artifacts`.
 
         Accessing the many-to-many field `collection.artifacts` directly gives
