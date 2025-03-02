@@ -8,6 +8,7 @@ from .base import (
     FeatureManager,
     FeatureSet,  # backward compat
     FeatureValue,
+    FlexTable,
     HasParents,
     IsVersioned,
     LinkORM,
@@ -22,6 +23,7 @@ from .base import (
     Reference,
     Registry,
     Run,
+    RunData,
     Schema,
     Space,
     Storage,
