@@ -2,8 +2,10 @@
 
 import sys
 from collections import defaultdict
+from collections.abc import Iterable
 from datetime import date, datetime  # noqa: TC003
 from itertools import chain
+from pathlib import Path
 from typing import (
     TYPE_CHECKING,  # noqa: F401
     Any,
@@ -24,8 +26,11 @@ from django.db.models.fields.related import (
     ManyToOneRel,
 )
 from lamin_utils import colors
+from lamin_utils._inspect import InspectResult
 from lamindb_setup import _check_instance_setup
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dict
+from lamindb_setup.core.types import UPathStr
+from upath import UPath
 
 from lamindb.base import deprecated, doc_args
 from lamindb.base.fields import (
@@ -55,21 +60,15 @@ from ..base.types import (
 from ..base.users import current_user_id
 
 if TYPE_CHECKING:  # noqa
-    from collections.abc import Iterable
-    from pathlib import Path
-
     import numpy as np
     import pandas as pd
     from anndata import AnnData
-    from lamin_utils._inspect import InspectResult
-    from lamindb_setup.core.types import UPathStr
     from mudata import MuData
     from pyarrow.dataset import Dataset as PyArrowDataset
     from spatialdata import SpatialData
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
     from tiledbsoma import Measurement as SOMAMeasurement
-    from upath import UPath
 
     from lamindb.core import LabelManager, MappedCollection, QuerySet, RecordList
     from lamindb.core.storage import AnnDataAccessor, BackedAccessor
@@ -128,7 +127,7 @@ class IsVersioned(models.Model):
         return self.uid[: self._len_stem_uid]  # type: ignore
 
     @property
-    def versions(self) -> QuerySet:
+    def versions(self) -> "QuerySet":
         """Lists all records of the same version family.
 
         >>> new_artifact = ln.Artifact(df2, revises=artifact).save()
@@ -294,7 +293,7 @@ class CanCurate:
         organism: Union[str, "Record", None] = None,
         source: Optional["Record"] = None,
         strict_source: bool = False,
-    ) -> np.ndarray:
+    ) -> "np.ndarray":
         """Validate values against existing values of a string field.
 
         Note this is strict_source validation, only asserts exact matches.
@@ -336,7 +335,7 @@ class CanCurate:
         organism: Union["Record", str, None] = None,
         source: Optional["Record"] = None,
         mute: bool = False,
-    ) -> RecordList:
+    ) -> "RecordList":
         """Bulk create validated records by parsing values for an identifier such as a name or an id).
 
         Args:
