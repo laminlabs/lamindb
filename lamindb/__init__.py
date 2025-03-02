@@ -111,7 +111,7 @@ if _check_instance_setup(from_module="lamindb"):
         Project,
         Reference,
         Run,
-        Schema,  # forward compat
+        Schema,
         Storage,
         Transform,
         ULabel,

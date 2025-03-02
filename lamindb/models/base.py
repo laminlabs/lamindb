@@ -1,17 +1,21 @@
-from __future__ import annotations
-
 import sys
 from collections import defaultdict
+from collections.abc import Iterable
 from datetime import date, datetime  # noqa: TC003
 from itertools import chain
+from pathlib import Path
 from typing import (
-    TYPE_CHECKING,
     Any,
     Literal,
     NamedTuple,
+    Optional,
+    Union,
     overload,
 )
 
+import numpy as np
+import pandas as pd
+from anndata import AnnData
 from django.core.validators import RegexValidator
 from django.db import IntegrityError, models
 from django.db.models import CASCADE, PROTECT, Field, Q
@@ -21,9 +25,19 @@ from django.db.models.fields.related import (
     ManyToManyRel,
     ManyToOneRel,
 )
+from django.db.models.manager import RelatedManager
 from lamin_utils import colors
+from lamin_utils._inspect import InspectResult
 from lamindb_setup import _check_instance_setup
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dict
+from lamindb_setup.core.types import UPathStr
+from mudata import MuData
+from pyarrow.dataset import Dataset as PyArrowDataset
+from spatialdata import SpatialData
+from tiledbsoma import Collection as SOMACollection
+from tiledbsoma import Experiment as SOMAExperiment
+from tiledbsoma import Measurement as SOMAMeasurement
+from upath import UPath
 
 from lamindb.base import deprecated, doc_args
 from lamindb.base.fields import (
@@ -40,9 +54,11 @@ from lamindb.base.fields import (
     TextField,
     URLField,
 )
+from lamindb.core import LabelManager, MappedCollection, QuerySet, RecordList
+from lamindb.core.storage import AnnDataAccessor, BackedAccessor
 
-from .base.ids import base62_8, base62_12, base62_20
-from .base.types import (
+from ..base.ids import base62_8, base62_12, base62_20
+from ..base.types import (
     ArtifactKind,
     FeatureDtype,
     FieldAttr,
@@ -50,28 +66,7 @@ from .base.types import (
     StrField,
     TransformType,
 )
-from .base.users import current_user_id
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
-    from pathlib import Path
-
-    import numpy as np
-    import pandas as pd
-    from anndata import AnnData
-    from lamin_utils._inspect import InspectResult
-    from lamindb_setup.core.types import UPathStr
-    from mudata import MuData
-    from pyarrow.dataset import Dataset as PyArrowDataset
-    from spatialdata import SpatialData
-    from tiledbsoma import Collection as SOMACollection
-    from tiledbsoma import Experiment as SOMAExperiment
-    from tiledbsoma import Measurement as SOMAMeasurement
-    from upath import UPath
-
-    from lamindb.core import LabelManager, MappedCollection, QuerySet, RecordList
-    from lamindb.core.storage import AnnDataAccessor, BackedAccessor
-
+from ..base.users import current_user_id
 
 _TRACKING_READY: bool | None = None
 
@@ -138,7 +133,9 @@ class IsVersioned(models.Model):
         else:
             return self.__class__.filter(uid__startswith=self.stem_uid)  # type: ignore
 
-    def _add_to_version_family(self, revises: IsVersioned, version: str | None = None):
+    def _add_to_version_family(
+        self, revises: "IsVersioned", version: str | None = None
+    ):
         """Add current record to a version family.
 
         Args:
@@ -148,7 +145,7 @@ class IsVersioned(models.Model):
         pass
 
 
-def current_run() -> Run | None:
+def current_run() -> Optional["Run"]:
     global _TRACKING_READY
 
     if not _TRACKING_READY:
@@ -175,7 +172,7 @@ class TracksRun(models.Model):
         editable=False, db_default=models.functions.Now(), db_index=True
     )
     """Time of creation of record."""
-    created_by: User = ForeignKey(
+    created_by: "User" = ForeignKey(
         "lamindb.User",
         PROTECT,
         editable=False,
@@ -183,10 +180,10 @@ class TracksRun(models.Model):
         related_name="+",
     )
     """Creator of record."""
-    run: Run | None = ForeignKey(
+    run: Optional["Run"] = ForeignKey(
         "lamindb.Run", PROTECT, null=True, default=current_run, related_name="+"
     )
-    """Last run that created or updated the record."""
+    """Run that created record."""
 
     @overload
     def __init__(self): ...
@@ -243,8 +240,8 @@ class CanCurate:
         field: str | StrField | None = None,
         *,
         mute: bool = False,
-        organism: str | Record | None = None,
-        source: Record | None = None,
+        organism: Union[str, "Record", None] = None,
+        source: Optional["Record"] = None,
         strict_source: bool = False,
     ) -> InspectResult:
         """Inspect if values are mappable to a field.
@@ -287,8 +284,8 @@ class CanCurate:
         field: str | StrField | None = None,
         *,
         mute: bool = False,
-        organism: str | Record | None = None,
-        source: Record | None = None,
+        organism: Union[str, "Record", None] = None,
+        source: Optional["Record"] = None,
         strict_source: bool = False,
     ) -> np.ndarray:
         """Validate values against existing values of a string field.
@@ -329,8 +326,8 @@ class CanCurate:
         values: ListLike,
         field: StrField | None = None,
         create: bool = False,
-        organism: Record | str | None = None,
-        source: Record | None = None,
+        organism: Union["Record", str, None] = None,
+        source: Optional["Record"] = None,
         mute: bool = False,
     ) -> RecordList:
         """Bulk create validated records by parsing values for an identifier such as a name or an id).
@@ -384,8 +381,8 @@ class CanCurate:
         public_aware: bool = True,
         keep: Literal["first", "last", False] = "first",
         synonyms_field: str = "synonyms",
-        organism: str | Record | None = None,
-        source: Record | None = None,
+        organism: Union[str, "Record", None] = None,
+        source: Optional["Record"] = None,
         strict_source: bool = False,
     ) -> list[str] | dict[str, str]:
         """Maps input synonyms to standardized names.
@@ -689,7 +686,7 @@ class Registry(ModelBase):
         cls,
         idlike: int | str | None = None,
         **expressions,
-    ) -> Record:
+    ) -> "Record":
         """Get a single record.
 
         Args:
@@ -859,7 +856,7 @@ class Space(BasicRecord):
         editable=False, db_default=models.functions.Now(), db_index=True
     )
     """Time of creation of record."""
-    created_by: User = ForeignKey(
+    created_by: "User" = ForeignKey(
         "User", CASCADE, default=None, related_name="+", null=True
     )
     """Creator of run."""
@@ -904,7 +901,7 @@ class Record(BasicRecord, metaclass=Registry):
     _aux: dict[str, Any] | None = JSONField(default=None, db_default=None, null=True)
     """Auxiliary field for dictionary-like metadata."""
 
-    def save(self, *args, **kwargs) -> Record:
+    def save(self, *args, **kwargs) -> "Record":
         """Save.
 
         Always saves to the default database.
@@ -1009,11 +1006,11 @@ class User(BasicRecord, CanCurate):
     """Universal handle, valid across DB instances (required)."""
     name: str | None = CharField(max_length=150, db_index=True, null=True)
     """Name (optional)."""  # has to match hub specification, where it's also optional
-    created_artifacts: Artifact
+    created_artifacts: "Artifact"
     """Artifacts created by user."""
-    created_transforms: Transform
+    created_transforms: "Transform"
     """Transforms created by user."""
-    created_runs: Run
+    created_runs: "Run"
     """Runs created by user."""
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
@@ -1113,7 +1110,7 @@ class Storage(Record, TracksRun, TracksUpdates):
     """Cloud storage region, if applicable."""
     instance_uid: str | None = CharField(max_length=12, db_index=True, null=True)
     """Instance that manages this storage location."""
-    artifacts: Artifact
+    artifacts: "Artifact"
     """Artifacts contained in this storage location."""
 
     @overload
@@ -1261,13 +1258,13 @@ class Transform(Record, IsVersioned):
     """Reference for the transform, e.g., a URL."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Reference type of the transform, e.g., 'url'."""
-    runs: Run
+    runs: "Run"
     """Runs of this transform."""
-    ulabels: ULabel = models.ManyToManyField(
+    ulabels: "ULabel" = models.ManyToManyField(
         "ULabel", through="TransformULabel", related_name="transforms"
     )
     """ULabel annotations of this transform."""
-    predecessors: Transform = models.ManyToManyField(
+    predecessors: "Transform" = models.ManyToManyField(
         "self", symmetrical=False, related_name="successors"
     )
     """Preceding transforms.
@@ -1280,24 +1277,24 @@ class Transform(Record, IsVersioned):
 
     It also allows to manually add predecessors whose outputs are not tracked in a run.
     """
-    successors: Transform
+    successors: "Transform"
     """Subsequent transforms.
 
     See :attr:`~lamindb.Transform.predecessors`.
     """
-    output_artifacts: Artifact
+    output_artifacts: "Artifact"
     """The artifacts generated by all runs of this transform.
 
     If you're looking for the outputs of a single run, see :attr:`lamindb.Run.output_artifacts`.
     """
-    output_collections: Collection
+    output_collections: "Collection"
     """The collections generated by all runs of this transform.
 
     If you're looking for the outputs of a single run, see :attr:`lamindb.Run.output_collections`.
     """
-    projects: Project
+    projects: "Project"
     """Associated projects."""
-    references: Reference
+    references: "Reference"
     """Associated references."""
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
@@ -1311,7 +1308,7 @@ class Transform(Record, IsVersioned):
         User, PROTECT, default=current_user_id, related_name="created_transforms"
     )
     """Creator of record."""
-    _template: Transform | None = ForeignKey(
+    _template: Optional["Transform"] = ForeignKey(
         "Transform", PROTECT, related_name="_derived_from", default=None, null=True
     )
     """Creating template."""
@@ -1322,7 +1319,7 @@ class Transform(Record, IsVersioned):
         name: str,
         key: str | None = None,
         type: TransformType | None = None,
-        revises: Transform | None = None,
+        revises: Optional["Transform"] = None,
     ): ...
 
     @overload
@@ -1347,7 +1344,7 @@ class Transform(Record, IsVersioned):
         return self.key.split("/")[-1]
 
     @property
-    def latest_run(self) -> Run:
+    def latest_run(self) -> "Run":
         """The latest run of this transform."""
         pass
 
@@ -1371,12 +1368,14 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
     For categorical types, can define from which registry values are
     sampled, e.g., `cat[ULabel]` or `cat[bionty.CellType]`.
     """
-    type: Param | None = ForeignKey("self", PROTECT, null=True, related_name="records")
+    type: Optional["Param"] = ForeignKey(
+        "self", PROTECT, null=True, related_name="records"
+    )
     """Type of param (e.g., 'Pipeline', 'ModelTraining', 'PostProcessing').
 
     Allows to group features by type, e.g., all read outs, all metrics, etc.
     """
-    records: Param
+    records: "Param"
     """Records of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
@@ -1386,17 +1385,17 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
     - if it's `False` (default), the values mean artifact/run-level values and a dtype of `datetime` means `datetime`
     - if it's `True`, the values are from an aggregation, which this seems like an edge case but when characterizing a model ensemble trained with different parameters it could be relevant
     """
-    schemas: Schema = models.ManyToManyField(
+    schemas: "Schema" = models.ManyToManyField(
         "Schema", through="SchemaParam", related_name="params"
     )
     """Feature sets linked to this feature."""
     # backward fields
-    values: ParamValue
+    values: "ParamValue"
     """Values for this parameter."""
 
     def __init__(self, *args, **kwargs):
-        from ._feature import process_init_feature_param
-        from .errors import ValidationError
+        from .._feature import process_init_feature_param
+        from ..errors import ValidationError
 
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args, **kwargs)
@@ -1560,34 +1559,34 @@ class Run(Record):
     """Finished time of run."""
     # we don't want to make below a OneToOne because there could be the same trivial report
     # generated for many different runs
-    report: Artifact | None = ForeignKey(
+    report: Optional["Artifact"] = ForeignKey(
         "Artifact", PROTECT, null=True, related_name="_report_of", default=None
     )
     """Report of run, e.g.. n html file."""
-    _logfile: Artifact | None = ForeignKey(
+    _logfile: Optional["Artifact"] = ForeignKey(
         "Artifact", PROTECT, null=True, related_name="_logfile_of", default=None
     )
     """Report of run, e.g.. n html file."""
-    environment: Artifact | None = ForeignKey(
+    environment: Optional["Artifact"] = ForeignKey(
         "Artifact", PROTECT, null=True, related_name="_environment_of", default=None
     )
     """Computational environment for the run.
 
     For instance, `Dockerfile`, `docker image`, `requirements.txt`, `environment.yml`, etc.
     """
-    input_artifacts: Artifact
+    input_artifacts: "Artifact"
     """The artifacts serving as input for this run.
 
     Related accessor: :attr:`~lamindb.Artifact.input_of_runs`.
     """
-    output_artifacts: Artifact
+    output_artifacts: "Artifact"
     """The artifacts generated by this run.
 
     Related accessor: via :attr:`~lamindb.Artifact.run`
     """
-    input_collections: Collection
+    input_collections: "Collection"
     """The collections serving as input for this run."""
-    output_collections: Collection
+    output_collections: "Collection"
     """The collections generated by this run."""
     _param_values: ParamValue = models.ManyToManyField(
         ParamValue, through="RunParamValue", related_name="runs"
@@ -1605,11 +1604,11 @@ class Run(Record):
         User, CASCADE, default=current_user_id, related_name="created_runs"
     )
     """Creator of run."""
-    ulabels: ULabel = models.ManyToManyField(
+    ulabels: "ULabel" = models.ManyToManyField(
         "ULabel", through="RunULabel", related_name="runs"
     )
     """ULabel annotations of this transform."""
-    initiated_by_run: Run | None = ForeignKey(
+    initiated_by_run: Optional["Run"] = ForeignKey(
         "Run", CASCADE, null=True, related_name="initiated_runs", default=None
     )
     """The run that triggered the current run.
@@ -1620,7 +1619,7 @@ class Run(Record):
 
     Be careful with using this field at this point.
     """
-    initiated_runs: Run
+    initiated_runs: "Run"
     """Runs that were initiated by this run."""
     _is_consecutive: bool | None = BooleanField(null=True)
     """Indicates whether code was consecutively executed. Is relevant for notebooks."""
@@ -1727,12 +1726,14 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     """A universal random id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True)
     """Name or title of ulabel."""
-    type: ULabel | None = ForeignKey("self", PROTECT, null=True, related_name="records")
+    type: Optional["ULabel"] = ForeignKey(
+        "self", PROTECT, null=True, related_name="records"
+    )
     """Type of ulabel, e.g., `"donor"`, `"split"`, etc.
 
     Allows to group ulabels by type, e.g., all donors, all split ulabels, etc.
     """
-    records: ULabel
+    records: "ULabel"
     """Records of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type.
@@ -1745,7 +1746,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     """A reference like URL or external ID."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Type of reference such as a donor_id from Vendor X."""
-    parents: ULabel = models.ManyToManyField(
+    parents: "ULabel" = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
     """Parent entities of this ulabel.
@@ -1754,7 +1755,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
 
     Say, if you modeled `CellType` as a `ULabel`, you would introduce a type `CellType` and model the hiearchy of cell types under it.
     """
-    children: ULabel
+    children: "ULabel"
     """Child entities of this ulabel.
 
     Reverse accessor for parents.
@@ -1763,18 +1764,18 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Transforms annotated with this ulabel."""
     runs: Transform
     """Runs annotated with this ulabel."""
-    artifacts: Artifact
+    artifacts: "Artifact"
     """Artifacts annotated with this ulabel."""
-    collections: Collection
+    collections: "Collection"
     """Collections annotated with this ulabel."""
-    projects: Project
+    projects: "Project"
     """Associated projects."""
 
     @overload
     def __init__(
         self,
         name: str,
-        type: ULabel | None = None,
+        type: Optional["ULabel"] = None,
         is_type: bool = False,
         description: str | None = None,
         reference: str | None = None,
@@ -1907,14 +1908,14 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     sampled, e.g., `'cat[ULabel]'` or `'cat[bionty.CellType]'`. Unions are also
     allowed if the feature samples from two registries, e.g., `'cat[ULabel|bionty.CellType]'`
     """
-    type: Feature | None = ForeignKey(
+    type: Optional["Feature"] = ForeignKey(
         "self", PROTECT, null=True, related_name="records"
     )
     """Type of feature (e.g., 'Readout', 'Metric', 'Metadata', 'ExpertAnnotation', 'ModelPrediction').
 
     Allows to group features by type, e.g., all read outs, all metrics, etc.
     """
-    records: Feature
+    records: "Feature"
     """Records of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
@@ -1959,7 +1960,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     # we define the below ManyToMany on the feature model because it parallels
     # how other registries (like Gene, Protein, etc.) relate to Schema
     # it makes the API more consistent
-    schemas: Schema = models.ManyToManyField(
+    schemas: "Schema" = models.ManyToManyField(
         "Schema", through="SchemaFeature", related_name="features"
     )
     """Feature sets linked to this feature."""
@@ -1971,7 +1972,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     """
     _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
     # backward fields
-    values: FeatureValue
+    values: "FeatureValue"
     """Values for this feature."""
 
     @overload
@@ -1979,7 +1980,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         self,
         name: str,
         dtype: FeatureDtype | Registry | list[Registry] | FieldAttr,
-        type: Feature | None = None,
+        type: Optional["Feature"] = None,
         is_type: bool = False,
         unit: str | None = None,
         description: str | None = None,
@@ -2007,7 +2008,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         """Create Feature records for columns."""
         pass
 
-    def save(self, *args, **kwargs) -> Feature:
+    def save(self, *args, **kwargs) -> "Feature":
         """Save."""
         pass
 
@@ -2246,7 +2247,9 @@ class Schema(Record, CanCurate, TracksRun):
     .. versionchanged:: 1.0.0
         Was called `registry` before.
     """
-    type: Schema | None = ForeignKey("self", PROTECT, null=True, related_name="records")
+    type: Optional["Schema"] = ForeignKey(
+        "self", PROTECT, null=True, related_name="records"
+    )
     """Type of schema.
 
     Allows to group schemas by type, e.g., all meassurements evaluating gene expression vs. protein expression vs. multi modal.
@@ -2255,7 +2258,7 @@ class Schema(Record, CanCurate, TracksRun):
 
     Here are a few more examples for type names: `'ExpressionPanel'`, `'ProteinPanel'`, `'Multimodal'`, `'Metadata'`, `'Embedding'`.
     """
-    records: Schema
+    records: "Schema"
     """Records of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
@@ -2282,11 +2285,11 @@ class Schema(Record, CanCurate, TracksRun):
 
     If `True`, the the minimal set is a maximal set and no additional features are allowed.
     """
-    components: Schema = ManyToManyField(
+    components: "Schema" = ManyToManyField(
         "self", through="SchemaComponent", symmetrical=False, related_name="composites"
     )
     """Components of this schema."""
-    composites: Schema
+    composites: "Schema"
     """The composite schemas that contains this schema as a component.
 
     For example, an `AnnData` composes multiple schemas: `var[DataFrameT]`, `obs[DataFrame]`, `obsm[Array]`, `uns[dict]`, etc.
@@ -2295,18 +2298,18 @@ class Schema(Record, CanCurate, TracksRun):
     """The features contained in the schema."""
     params: Param
     """The params contained in the schema."""
-    artifacts: Artifact
+    artifacts: "Artifact"
     """The artifacts that measure a feature set that matches this schema."""
-    validated_artifacts: Artifact
+    validated_artifacts: "Artifact"
     """The artifacts that were validated against this schema with a :class:`~lamindb.curators.Curator`."""
-    projects: Project
+    projects: "Project"
     """Associated projects."""
     _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
     # lamindb v2
     # _itype: ContentType = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     # ""Index of the registry that stores the feature identifiers, e.g., `Feature` or `Gene`."""
     # -- the following two fields are dynamically removed from the API for now
-    validated_by: Schema | None = ForeignKey(
+    validated_by: Optional["Schema"] = ForeignKey(
         "self", PROTECT, related_name="validated_schemas", default=None, null=True
     )
     # """The schema that validated this schema during curation.
@@ -2317,7 +2320,7 @@ class Schema(Record, CanCurate, TracksRun):
     # """
     # validated_schemas: Schema
     # """The schemas that were validated against this schema with a :class:`~lamindb.curators.Curator`."""
-    composite: Schema | None = ForeignKey(
+    composite: Optional["Schema"] = ForeignKey(
         "self", PROTECT, related_name="+", default=None, null=True
     )
     # The legacy foreign key
@@ -2328,12 +2331,12 @@ class Schema(Record, CanCurate, TracksRun):
     def __init__(
         self,
         features: Iterable[Record] | None = None,
-        components: dict[str, Schema] | None = None,
+        components: dict[str, "Schema"] | None = None,
         name: str | None = None,
         description: str | None = None,
         dtype: str | None = None,
         itype: str | Registry | FieldAttr | None = None,
-        type: Schema | None = None,
+        type: Optional["Schema"] = None,
         is_type: bool = False,
         otype: str | None = None,
         minimal_set: bool = True,
@@ -2367,7 +2370,7 @@ class Schema(Record, CanCurate, TracksRun):
         organism: Record | str | None = None,
         source: Record | None = None,
         raise_validation_error: bool = True,
-    ) -> Schema:
+    ) -> "Schema":
         """Create feature set for validated features.
 
         Args:
@@ -2403,11 +2406,11 @@ class Schema(Record, CanCurate, TracksRun):
         mute: bool = False,
         organism: Record | str | None = None,
         source: Record | None = None,
-    ) -> Schema | None:
+    ) -> Optional["Schema"]:
         """Create feature set for validated features."""
         pass
 
-    def save(self, *args, **kwargs) -> Schema:
+    def save(self, *args, **kwargs) -> "Schema":
         """Save."""
         pass
 
@@ -2488,11 +2491,11 @@ class Schema(Record, CanCurate, TracksRun):
             print(message)
             return None
 
-    def _get_component(self, slot: str) -> Schema:
+    def _get_component(self, slot: str) -> "Schema":
         return self.components.get(links_component__slot=slot)
 
 
-def _populate_subsequent_runs_(record: Artifact | Collection, run: Run):
+def _populate_subsequent_runs_(record: Union["Artifact", "Collection"], run: Run):
     if record.run is None:
         record.run = run
     elif record.run != run:
@@ -2770,7 +2773,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         db_table="lamindb_artifact__previous_runs",  # legacy name, change in lamindb v2
     )
     """Runs that re-created the record after initial creation."""
-    collections: Collection
+    collections: "Collection"
     """The collections that this artifact is part of."""
     schema: Schema | None = ForeignKey(
         Schema,
@@ -2795,7 +2798,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     _key_is_virtual: bool = BooleanField()
     """Indicates whether `key` is virtual or part of an actual file path."""
     # be mindful that below, passing related_name="+" leads to errors
-    _actions: Artifact = models.ManyToManyField(
+    _actions: "Artifact" = models.ManyToManyField(
         "self", symmetrical=False, related_name="_action_targets"
     )
     """Actions to attach for the UI."""
@@ -2812,9 +2815,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     It defaults to False for file-like artifacts and to True for folder-like artifacts.
     """
-    projects: Project
+    projects: RelatedManager["Project"]
     """Associated projects."""
-    references: Reference
+    references: RelatedManager["Reference"]
     """Associated references."""
 
     @overload
@@ -2831,7 +2834,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         kind: ArtifactKind | None = None,
         key: str | None = None,
         description: str | None = None,
-        revises: Artifact | None = None,
+        revises: Optional["Artifact"] = None,
         run: Run | None = None,
     ): ...
 
@@ -2913,9 +2916,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         key: str | None = None,
         description: str | None = None,
         run: Run | None = None,
-        revises: Artifact | None = None,
+        revises: Optional["Artifact"] = None,
         **kwargs,
-    ) -> Artifact:
+    ) -> "Artifact":
         """Create from `DataFrame`, validate & link features.
 
         Args:
@@ -2954,9 +2957,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         key: str | None = None,
         description: str | None = None,
         run: Run | None = None,
-        revises: Artifact | None = None,
+        revises: Optional["Artifact"] = None,
         **kwargs,
-    ) -> Artifact:
+    ) -> "Artifact":
         """Create from ``AnnData``, validate & link features.
 
         Args:
@@ -2991,9 +2994,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         key: str | None = None,
         description: str | None = None,
         run: Run | None = None,
-        revises: Artifact | None = None,
+        revises: Optional["Artifact"] = None,
         **kwargs,
-    ) -> Artifact:
+    ) -> "Artifact":
         """Create from ``MuData``, validate & link features.
 
         Args:
@@ -3027,9 +3030,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         key: str | None = None,
         description: str | None = None,
         run: Run | None = None,
-        revises: Artifact | None = None,
+        revises: Optional["Artifact"] = None,
         **kwargs,
-    ) -> Artifact:
+    ) -> "Artifact":
         """Create from ``SpatialData``, validate & link features.
 
         Args:
@@ -3060,9 +3063,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         key: str | None = None,
         description: str | None = None,
         run: Run | None = None,
-        revises: Artifact | None = None,
+        revises: Optional["Artifact"] = None,
         **kwargs,
-    ) -> Artifact:
+    ) -> "Artifact":
         """Create from a tiledbsoma store.
 
         Args:
@@ -3086,7 +3089,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         *,
         key: str | None = None,
         run: Run | None = None,
-    ) -> list[Artifact]:
+    ) -> list["Artifact"]:
         """Create a list of artifact objects from a directory.
 
         Hint:
@@ -3248,7 +3251,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         """
         pass
 
-    def save(self, upload: bool | None = None, **kwargs) -> Artifact:
+    def save(self, upload: bool | None = None, **kwargs) -> "Artifact":
         """Save to database & storage.
 
         Args:
@@ -3392,7 +3395,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         reference: str | None = None,
         reference_type: str | None = None,
         run: Run | None = None,
-        revises: Collection | None = None,
+        revises: Optional["Collection"] = None,
     ): ...
 
     @overload
@@ -3408,7 +3411,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
     ):
         pass
 
-    def append(self, artifact: Artifact, run: Run | None = None) -> Collection:
+    def append(self, artifact: Artifact, run: Run | None = None) -> "Collection":
         """Add an artifact to the collection.
 
         Creates a new version of the collection.
@@ -3543,7 +3546,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         """
         pass
 
-    def save(self, using: str | None = None) -> Collection:
+    def save(self, using: str | None = None) -> "Collection":
         """Save the collection and underlying artifacts to database & storage.
 
         Args:
@@ -3673,11 +3676,11 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Universal id, valid across DB instances."""
     name: str = CharField(db_index=True)
     """Title or name of the Project."""
-    type: Project | None = ForeignKey(
+    type: Optional["Project"] = ForeignKey(
         "self", PROTECT, null=True, related_name="records"
     )
     """Type of project (e.g., 'Program', 'Project', 'GithubIssue', 'Task')."""
-    records: Project
+    records: "Project"
     """Records of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
@@ -3689,20 +3692,20 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Date of start of the project."""
     end_date: date | None = DateField(null=True, default=None)
     """Date of start of the project."""
-    parents: Project = models.ManyToManyField(
+    parents: "Project" = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
     """Parent projects, the super-projects owning this project."""
-    children: Project
+    children: "Project"
     """Child projects, the sub-projects owned by this project.
 
     Reverse accessor for `.parents`.
     """
-    predecessors: Project = models.ManyToManyField(
+    predecessors: "Project" = models.ManyToManyField(
         "self", symmetrical=False, related_name="successors"
     )
     """The preceding projects required by this project."""
-    successors: Project
+    successors: "Project"
     """The succeeding projects requiring this project.
 
     Reverse accessor for `.predecessors`.
@@ -3735,7 +3738,9 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         Collection, through="CollectionProject", related_name="projects"
     )
     """Collections associated with this project."""
-    references: Reference = models.ManyToManyField("Reference", related_name="projects")
+    references: "Reference" = models.ManyToManyField(
+        "Reference", related_name="projects"
+    )
     """References associated with this project."""
     _status_code: int = models.SmallIntegerField(default=0, db_index=True)
     """Status code."""
@@ -3774,14 +3779,14 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         null=True,
     )
     """An abbreviation for the reference."""
-    type: Reference | None = ForeignKey(
+    type: Optional["Reference"] = ForeignKey(
         "self", PROTECT, null=True, related_name="records"
     )
     """Type of reference (e.g., 'Study', 'Paper', 'Preprint').
 
     Allows to group reference by type, e.g., internal studies vs. all papers etc.
     """
-    records: Reference
+    records: "Reference"
     """Records of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
@@ -3917,7 +3922,7 @@ class FlexTable(Record, TracksRun, TracksUpdates):
     schema: Schema | None = ForeignKey(
         Schema, null=True, on_delete=models.SET_NULL, related_name="_tidytables"
     )
-    type: FlexTable | None = ForeignKey(
+    type: Optional["FlexTable"] = ForeignKey(
         "self", PROTECT, null=True, related_name="records"
     )
     """Type of tidy table, e.g., `Cell`, `SampleSheet`, etc."""
