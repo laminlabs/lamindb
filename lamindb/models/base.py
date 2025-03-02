@@ -25,7 +25,6 @@ from django.db.models.fields.related import (
     ManyToManyRel,
     ManyToOneRel,
 )
-from django.db.models.manager import RelatedManager
 from lamin_utils import colors
 from lamin_utils._inspect import InspectResult
 from lamindb_setup import _check_instance_setup
@@ -2815,9 +2814,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     It defaults to False for file-like artifacts and to True for folder-like artifacts.
     """
-    projects: RelatedManager["Project"]
+    projects: "Project"
     """Associated projects."""
-    references: RelatedManager["Reference"]
+    references: "Reference"
     """Associated references."""
 
     @overload
