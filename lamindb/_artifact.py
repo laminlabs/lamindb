@@ -463,6 +463,7 @@ def data_is_anndata(data: AnnData | UPathStr) -> bool:
             return True
         elif data_path.suffix == ".zarr":
             # ".anndata.zarr" is a valid suffix (core.storage._valid_suffixes)
+            # TODO: the suffix based check should likely be moved to identify_zarr_type
             if ".anndata" in data_path.suffixes:
                 return True
             # check only for local, expensive for cloud
@@ -492,7 +493,9 @@ def data_is_spatialdata(data: SpatialData | UPathStr) -> bool:
         if isinstance(data, SpatialData):
             return True
         if isinstance(data, (str, Path)):
-            if UPath(data).suffix in ["spatialdata.zarr", ".zarr"]:
+            if UPath(data).suffix == ".zarr":
+                # TODO: inconsistent with anndata, where we run the storage
+                # check only for local, expensive for cloud
                 return identify_zarr_type(data, check=False) == "spatialdata"
         return False
 

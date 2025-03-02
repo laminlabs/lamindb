@@ -8,10 +8,9 @@ import zarr
 from anndata import __version__ as anndata_version
 from anndata._io.specs import write_elem
 from fsspec.implementations.local import LocalFileSystem
+from lamin_utils import logger
 from lamindb_setup.core.upath import create_mapper, infer_filesystem
 from packaging import version
-
-from lamindb.core.storage import UPath
 
 from ._anndata_sizes import _size_elem, _size_raw, size_adata
 
@@ -30,6 +29,16 @@ def identify_zarr_type(
     storepath: UPathStr, *, check: bool = True
 ) -> Literal["anndata", "spatialdata", "unknown"]:
     """Identify whether a zarr store is AnnData, SpatialData, or unknown type."""
+    # we can add these cheap suffix-based-checks later
+    # also need to check whether the .spatialdata.zarr suffix
+    # actually becomes a "standard"; currently we don't recognize it
+    # unlike ".anndata.zarr" in VALID_SUFFIXES
+    # suffixes = UPath(storepath).suffixes
+    # if ".spatialdata" in suffixes:
+    #     return "spatialdata"
+    # elif ".anndata" in suffixes:
+    #     return "anndata"
+
     fs, storepath_str = infer_filesystem(storepath)
 
     if isinstance(fs, LocalFileSystem):
@@ -39,19 +48,13 @@ def identify_zarr_type(
 
     try:
         storage = zarr.open(open_obj, mode="r")
-
-        if (
-            UPath(storepath).suffix == ".spatialdata.zarr"
-            or "spatialdata_attrs" in storage.attrs
-        ):
+        if "spatialdata_attrs" in storage.attrs:
             return "spatialdata"
-
         if storage.attrs.get("encoding-type", "") == "anndata":
             return "anndata"
-
-        return "unknown"
-    except Exception:
-        return "unknown"
+    except Exception as error:
+        logger.warning(f"an exception occured {error}")
+    return "unknown"
 
 
 def load_anndata_zarr(storepath: UPathStr) -> AnnData:

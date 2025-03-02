@@ -171,7 +171,7 @@ def mudata_file(mdata):
 
 @pytest.fixture(scope="module")
 def spatialdata_file(sdata):
-    filepath = Path("test.spatialdata.zarr")
+    filepath = Path("test.zarr")
     sdata.write(filepath)
     yield filepath
     shutil.rmtree(filepath)
