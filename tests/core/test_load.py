@@ -6,6 +6,15 @@ import pytest
 
 
 @pytest.fixture(scope="module")
+def zip_file():
+    filepath = Path("test.zip")
+    with open(filepath, "w") as f:
+        f.write("some")
+    yield filepath
+    filepath.unlink()
+
+
+@pytest.fixture(scope="module")
 def local_filepath():
     return ln.core.datasets.anndata_file_pbmc68k_test().resolve()
 
@@ -54,3 +63,9 @@ def test_load_json(json_filepath):
     artifact = ln.Artifact(json_filepath, key=str(json_filepath))
     dictionary = artifact.load()
     assert dictionary["a"] == 1
+
+
+def test_no_loader(zip_file):
+    artifact = ln.Artifact(zip_file, key=str(zip_file))
+    with pytest.raises(NotImplementedError):
+        artifact.load()

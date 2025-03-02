@@ -2492,6 +2492,13 @@ class Schema(Record, CanCurate, TracksRun):
         return self.components.get(links_component__slot=slot)
 
 
+def _populate_subsequent_runs_(record: Artifact | Collection, run: Run):
+    if record.run is None:
+        record.run = run
+    elif record.run != run:
+        record._subsequent_runs.add(run)
+
+
 class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     # Note that this docstring has to be consistent with Curator.save_artifact()
     """Datasets & models stored as files, folders, or arrays.
@@ -2757,12 +2764,12 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     """Run that created the artifact."""
     input_of_runs: Run = models.ManyToManyField(Run, related_name="input_artifacts")
     """Runs that use this artifact as an input."""
-    # if the artifact is replicated or updated in a new run, we link the previous
-    # run in previous_runs
-    _previous_runs: Run = models.ManyToManyField(
-        "Run", related_name="_output_artifacts_with_later_updates"
+    _subsequent_runs: Run = models.ManyToManyField(
+        "Run",
+        related_name="_recreated_artifacts",
+        db_table="lamindb_artifact__previous_runs",  # legacy name, change in lamindb v2
     )
-    """Sequence of runs that created or updated the record."""
+    """Runs that re-created the record after initial creation."""
     collections: Collection
     """The collections that this artifact is part of."""
     schema: Schema | None = ForeignKey(
@@ -3272,6 +3279,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         """
         pass
 
+    def _populate_subsequent_runs(self, run: Run) -> None:
+        _populate_subsequent_runs_(self, run)
+
 
 class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
     """Collections of artifacts.
@@ -3346,10 +3356,12 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
     """:class:`~lamindb.Run` that created the `collection`."""
     input_of_runs: Run = models.ManyToManyField(Run, related_name="input_collections")
     """Runs that use this collection as an input."""
-    _previous_runs: Run = models.ManyToManyField(
-        "Run", related_name="_output_collections_with_later_updates"
+    _subsequent_runs: Run = models.ManyToManyField(
+        "Run",
+        related_name="_recreated_collections",
+        db_table="lamindb_collection__previous_runs",  # legacy name, change in lamindb v2
     )
-    """Sequence of runs that created or updated the record."""
+    """Runs that re-created the record after initial creation."""
     artifacts: Artifact = models.ManyToManyField(
         "Artifact", related_name="collections", through="CollectionArtifact"
     )
@@ -3598,6 +3610,9 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             >>> artifact.describe()
         """
         pass
+
+    def _populate_subsequent_runs(self, run: Run) -> None:
+        _populate_subsequent_runs_(self, run)
 
 
 # -------------------------------------------------------------------------------------

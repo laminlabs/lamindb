@@ -311,12 +311,15 @@ def test_revise_artifact(df, adata):
     artifact_r2 = ln.Artifact.get(artifact_r2.uid)
     assert not artifact_r2.is_latest
 
-    # what happens if I reload based on hash while providing a different key?
-    # artifact_new = ln.Artifact.from_df(
-    #     df, description="test1", key="my-test-dataset1.parquet", version="2"
-    # )
-    # assert artifact_new.version == "2"
-    # assert artifact_new.stem_uid != artifact_r3.stem_uid
+    # re-create based on hash while providing a different key
+    artifact_new = ln.Artifact.from_df(
+        df,
+        description="test1 updated",
+        key="my-test-dataset1.parquet",
+    )
+    assert artifact_new == artifact_r3
+    assert artifact_new.key == key  # old key
+    assert artifact_new.description == "test1 updated"
 
     with pytest.raises(TypeError) as error:
         ln.Artifact.from_df(df, description="test1a", revises=ln.Transform())
@@ -890,8 +893,9 @@ def test_load_to_memory(tsv_file, zip_file, fcs_file, yaml_file):
     # fcs
     adata = load_fcs(str(fcs_file))
     assert isinstance(adata, ad.AnnData)
-    # none
-    load_to_memory(zip_file)
+    # error
+    with pytest.raises(NotImplementedError):
+        load_to_memory(zip_file)
     # check that it is a path
     assert isinstance(load_to_memory("./somefile.rds"), UPath)
     # yaml
