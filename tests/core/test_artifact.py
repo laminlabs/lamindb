@@ -374,7 +374,11 @@ def test_create_from_anndata(adata, adata_file):
         assert af.n_observations == 2
 
 
-def test_create_from_mudata(mdata, mudata_file):
+def test_create_from_mudata(mdata, mudata_file, adata_file):
+    try:
+        ln.Artifact.from_mudata(adata_file, description="test1")
+    except ValueError as error:
+        assert str(error) == "data has to be a MuData object or a path to MuData-like"
     for m in [mdata, mudata_file]:
         af = ln.Artifact.from_mudata(m, description="test1")
         assert af.description == "test1"
@@ -385,7 +389,22 @@ def test_create_from_mudata(mdata, mudata_file):
             assert af.n_observations == 2
 
 
-def test_create_from_spatialdata(sdata, spatialdata_file):
+def test_create_from_spatialdata(sdata, spatialdata_file, adata_file, ccaplog):
+    try:
+        ln.Artifact(adata_file, description="test1")
+    except ValueError as error:
+        assert (
+            str(error)
+            == "data has to be a SpatialData object or a path to SpatialData-like"
+        )
+    for s in [sdata, spatialdata_file]:
+        af = ln.Artifact(s, description="test1")
+        assert af.description == "test1"
+        assert af.key is None
+        assert af.otype == "SpatialData"
+        assert af.kind is None
+        # n_observations not defined
+    assert "data is a SpatialData, please use .from_spatialdata()" in ccaplog.text
     for s in [sdata, spatialdata_file]:
         af = ln.Artifact.from_spatialdata(s, description="test1")
         assert af.description == "test1"

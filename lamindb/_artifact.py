@@ -772,7 +772,7 @@ def from_mudata(
 ) -> Artifact:
     """{}"""  # noqa: D415
     if not data_is_mudata(mdata):
-        raise ValueError("data has to be an MuData object or a path to MuData-like")
+        raise ValueError("data has to be a MuData object or a path to MuData-like")
     artifact = Artifact(  # type: ignore
         data=mdata,
         key=key,
@@ -802,7 +802,9 @@ def from_spatialdata(
 ) -> Artifact:
     """{}"""  # noqa: D415
     if not data_is_spatialdata(sdata):
-        raise ValueError("data has to be an MuData object or a path to MuData-like")
+        raise ValueError(
+            "data has to be a SpatialData object or a path to SpatialData-like"
+        )
     artifact = Artifact(  # type: ignore
         data=sdata,
         key=key,
