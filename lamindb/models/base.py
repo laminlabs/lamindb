@@ -1,10 +1,11 @@
+# ruff: noqa: TC004
+
 import sys
 from collections import defaultdict
-from collections.abc import Iterable
 from datetime import date, datetime  # noqa: TC003
 from itertools import chain
-from pathlib import Path
 from typing import (
+    TYPE_CHECKING,  # noqa: F401
     Any,
     Literal,
     NamedTuple,
@@ -13,9 +14,6 @@ from typing import (
     overload,
 )
 
-import numpy as np
-import pandas as pd
-from anndata import AnnData
 from django.core.validators import RegexValidator
 from django.db import IntegrityError, models
 from django.db.models import CASCADE, PROTECT, Field, Q
@@ -26,17 +24,8 @@ from django.db.models.fields.related import (
     ManyToOneRel,
 )
 from lamin_utils import colors
-from lamin_utils._inspect import InspectResult
 from lamindb_setup import _check_instance_setup
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dict
-from lamindb_setup.core.types import UPathStr
-from mudata import MuData
-from pyarrow.dataset import Dataset as PyArrowDataset
-from spatialdata import SpatialData
-from tiledbsoma import Collection as SOMACollection
-from tiledbsoma import Experiment as SOMAExperiment
-from tiledbsoma import Measurement as SOMAMeasurement
-from upath import UPath
 
 from lamindb.base import deprecated, doc_args
 from lamindb.base.fields import (
@@ -53,8 +42,6 @@ from lamindb.base.fields import (
     TextField,
     URLField,
 )
-from lamindb.core import LabelManager, MappedCollection, QuerySet, RecordList
-from lamindb.core.storage import AnnDataAccessor, BackedAccessor
 
 from ..base.ids import base62_8, base62_12, base62_20
 from ..base.types import (
@@ -66,6 +53,27 @@ from ..base.types import (
     TransformType,
 )
 from ..base.users import current_user_id
+
+if TYPE_CHECKING:  # noqa
+    from collections.abc import Iterable
+    from pathlib import Path
+
+    import numpy as np
+    import pandas as pd
+    from anndata import AnnData
+    from lamin_utils._inspect import InspectResult
+    from lamindb_setup.core.types import UPathStr
+    from mudata import MuData
+    from pyarrow.dataset import Dataset as PyArrowDataset
+    from spatialdata import SpatialData
+    from tiledbsoma import Collection as SOMACollection
+    from tiledbsoma import Experiment as SOMAExperiment
+    from tiledbsoma import Measurement as SOMAMeasurement
+    from upath import UPath
+
+    from lamindb.core import LabelManager, MappedCollection, QuerySet, RecordList
+    from lamindb.core.storage import AnnDataAccessor, BackedAccessor
+
 
 _TRACKING_READY: bool | None = None
 
