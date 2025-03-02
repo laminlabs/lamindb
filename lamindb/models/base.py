@@ -4,6 +4,7 @@ import sys
 from collections import defaultdict
 from collections.abc import Iterable
 from datetime import date, datetime  # noqa: TC003
+from datetime import date as DateType
 from itertools import chain
 from pathlib import Path
 from typing import (
@@ -720,7 +721,7 @@ class Registry(ModelBase):
         include: str | list[str] | None = None,
         features: bool | list[str] = False,
         limit: int = 100,
-    ) -> pd.DataFrame:
+    ) -> "pd.DataFrame":
         """Convert to `pd.DataFrame`.
 
         By default, shows all direct fields, except `updated_at`.
@@ -2010,7 +2011,9 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         pass
 
     @classmethod
-    def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordList:
+    def from_df(
+        cls, df: "pd.DataFrame", field: FieldAttr | None = None
+    ) -> "RecordList":
         """Create Feature records for columns."""
         pass
 
@@ -2406,7 +2409,7 @@ class Schema(Record, CanCurate, TracksRun):
     @classmethod
     def from_df(
         cls,
-        df: pd.DataFrame,
+        df: "pd.DataFrame",
         field: FieldAttr = Feature.name,
         name: str | None = None,
         mute: bool = False,
@@ -2657,7 +2660,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     """
 
     @property
-    def labels(self) -> LabelManager:
+    def labels(self) -> "LabelManager":
         """Label manager.
 
         To annotate with labels, you typically use the registry-specific accessors,
@@ -2917,7 +2920,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_df(
         cls,
-        df: pd.DataFrame,
+        df: "pd.DataFrame",
         *,
         key: str | None = None,
         description: str | None = None,
@@ -2958,7 +2961,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_anndata(
         cls,
-        adata: AnnData | UPathStr,
+        adata: Union["AnnData", UPathStr],
         *,
         key: str | None = None,
         description: str | None = None,
@@ -2995,7 +2998,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_mudata(
         cls,
-        mdata: MuData | UPathStr,
+        mdata: Union["MuData", UPathStr],
         *,
         key: str | None = None,
         description: str | None = None,
@@ -3031,7 +3034,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_spatialdata(
         cls,
-        sdata: SpatialData | UPathStr,
+        sdata: Union["SpatialData", UPathStr],
         *,
         key: str | None = None,
         description: str | None = None,
@@ -3120,7 +3123,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     def replace(
         self,
-        data: UPathStr | pd.DataFrame | AnnData | MuData,
+        data: Union[UPathStr, "pd.DataFrame", "AnnData", "MuData"],
         run: Run | None = None,
         format: str | None = None,
     ) -> None:
@@ -3148,14 +3151,14 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     def open(
         self, mode: str = "r", is_run_input: bool | None = None, **kwargs
-    ) -> (
-        AnnDataAccessor
-        | BackedAccessor
-        | SOMACollection
-        | SOMAExperiment
-        | SOMAMeasurement
-        | PyArrowDataset
-    ):
+    ) -> Union[
+        "AnnDataAccessor",
+        "BackedAccessor",
+        "SOMACollection",
+        "SOMAExperiment",
+        "SOMAMeasurement",
+        "PyArrowDataset",
+    ]:
         """Return a cloud-backed data object.
 
         Works for `AnnData` (`.h5ad` and `.zarr`), generic `hdf5` and `zarr`,
@@ -3438,7 +3441,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         """
         pass
 
-    def open(self, is_run_input: bool | None = None) -> PyArrowDataset:
+    def open(self, is_run_input: bool | None = None) -> "PyArrowDataset":
         """Return a cloud-backed pyarrow Dataset.
 
         Works for `pyarrow` compatible formats.
@@ -3462,7 +3465,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         dtype: str | None = None,
         stream: bool = False,
         is_run_input: bool | None = None,
-    ) -> MappedCollection:
+    ) -> "MappedCollection":
         """Return a map-style dataset.
 
         Returns a `pytorch map-style dataset
@@ -3815,7 +3818,7 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Description of the reference."""
     text: str | None = TextField(null=True)
     """Abstract or full text of the reference to make it searchable."""
-    date: date | None = DateField(null=True, default=None)
+    date: DateType | None = DateField(null=True, default=None)
     """Date of creation or publication of the reference."""
     authors: Person = models.ManyToManyField(Person, related_name="references")
     """All people associated with this reference."""
