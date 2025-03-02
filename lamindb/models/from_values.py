@@ -1,18 +1,13 @@
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
+from collections.abc import Iterable
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from lamin_utils import colors, logger
 
-from lamindb._query_set import RecordList
-from lamindb.models import Record
+from lamindb.base.types import ListLike, StrField
 
-if TYPE_CHECKING:
-    from collections.abc import Iterable
-
-    from lamindb.base.types import ListLike, StrField
+from .query_set import RecordList
+from .record import Record
 
 
 # The base function for `from_values`

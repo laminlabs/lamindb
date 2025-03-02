@@ -73,9 +73,9 @@ def describe_header(self: Artifact | Collection | Run) -> Tree:
             f"This is not the latest version of the {self.__class__.__name__}."
         )
     if hasattr(self, "_branch_code"):
-        if self._branch_code == 0:
+        if self._branch_code == 0:  # type: ignore
             logger.warning("This artifact is hidden.")
-        elif self._branch_code == -1:
+        elif self._branch_code == -1:  # type: ignore
             logger.warning("This artifact is in the trash.")
     # initialize tree
     suffix = self.suffix if hasattr(self, "suffix") and self.suffix else ""

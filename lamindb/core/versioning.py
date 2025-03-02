@@ -102,7 +102,7 @@ def create_uid(
                 f"didn't pass the latest version in `revises`, retrieved it: {revises}"
             )
         suid = revises.stem_uid
-        vuid = increment_base62(revises.uid[-4:])
+        vuid = increment_base62(revises.uid[-4:])  # type: ignore
     else:
         suid = ids.base62(n_full_id - 4)
         vuid = "0000"

@@ -1,32 +1,25 @@
-from __future__ import annotations
-
 import os
 import shutil
 import traceback
 from collections import defaultdict
+from collections.abc import Iterable
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from django.db import transaction
 from django.utils.functional import partition
 from lamin_utils import logger
-from lamindb_setup.core.upath import LocalPathClasses
+from lamindb_setup.core.upath import LocalPathClasses, UPath
 
 from lamindb.models import Artifact, Record
 
-from .core._settings import settings
-from .core.storage.paths import (
+from ..core._settings import settings
+from ..core.storage.paths import (
     _cache_key_from_artifact_storage,
     attempt_accessing_path,
     auto_storage_key_from_artifact,
     delete_storage_using_key,
     store_file_or_folder,
 )
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
-
-    from lamindb_setup.core.upath import UPath
 
 
 def save(records: Iterable[Record], ignore_conflicts: bool | None = False) -> None:
