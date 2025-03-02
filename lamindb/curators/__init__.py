@@ -14,7 +14,6 @@
 from __future__ import annotations
 
 import copy
-import random
 import re
 from importlib import resources
 from itertools import chain
@@ -1853,6 +1852,7 @@ class SpatialDataCatManager(CatManager):
         else:
             self._sdata = self._dataset
         self._sample_metadata_key = sample_metadata_key
+        self._write_path = None
         self._var_fields = var_index
         self._verify_accessor_exists(self._var_fields.keys())
         self._categoricals = categoricals
@@ -2134,26 +2134,14 @@ class SpatialDataCatManager(CatManager):
         try:
             settings.verbosity = "warning"
 
-            if self._artifact is None:
-                # Write the SpatialData object to a random path in tmp directory
-                # The Artifact constructor will move it to the cache
-                write_path = (
-                    f"{settings.cache_dir}/{random.randint(10**7, 10**8 - 1)}.zarr"
-                )
-                self._sdata.write(write_path)
-
-                # Create the Artifact and associate Artifact metadata
-                self._artifact = Artifact(
-                    write_path,
-                    description=description,
-                    key=key,
-                    revises=revises,
-                    run=run,
-                )
-                # According to Tim it is not easy to calculate the number of observations.
-                # We would have to write custom code to iterate over labels (which might not even exist at that point)
-                self._artifact.otype = "spatialdata"
-                self._artifact.save()
+            self._artifact = Artifact.from_spatialdata(
+                self._sdata,
+                key=key,
+                description=description,
+                revises=revises,
+                run=run,
+            )
+            self._artifact.save()
 
             # Link schemas
             feature_kwargs = check_registry_organism(
@@ -2171,7 +2159,7 @@ class SpatialDataCatManager(CatManager):
                 """Add Schemas from SpatialData."""
                 if obs_fields is None:
                     obs_fields = {}
-                assert host.otype == "spatialdata"  # noqa: S101
+                assert host.otype == "SpatialData"  # noqa: S101
 
                 feature_sets = {}
 
@@ -2799,7 +2787,7 @@ class DoseHandler:
         return cls.UNIT_MAP.get(unit, unit)
 
     @classmethod
-    def validate_values(cls, values: pd.Series) -> list:
+    def validate_values(cls, values: pd.Series) -> list[str]:
         """Validate pert_dose values with strict case checking."""
         errors = []
 
@@ -2843,7 +2831,7 @@ class TimeHandler:
         return unit[0].lower()
 
     @classmethod
-    def validate_values(cls, values: pd.Series) -> list:
+    def validate_values(cls, values: pd.Series) -> list[str]:
         """Validate pert_time values."""
         errors = []
 
@@ -3197,8 +3185,8 @@ def validate_categories(
     exclude: str | list | None = None,
     hint_print: str | None = None,
     curator: CatManager | None = None,
-) -> tuple[bool, list]:
-    """Validate ontology terms in a pandas series using LaminDB registries.
+) -> tuple[bool, list[str]]:
+    """Validate ontology terms using LaminDB registries.
 
     Args:
         values: The values to validate.
@@ -3721,7 +3709,7 @@ def from_anndata(
 @classmethod  # type: ignore
 def from_mudata(
     cls,
-    mdata: MuData,
+    mdata: MuData | UPathStr,
     var_index: dict[str, dict[str, FieldAttr]],
     categoricals: dict[str, FieldAttr] | None = None,
     verbosity: str = "hint",
@@ -3761,7 +3749,7 @@ def from_tiledbsoma(
 @classmethod  # type: ignore
 def from_spatialdata(
     cls,
-    sdata,
+    sdata: SpatialData | UPathStr,
     var_index: dict[str, FieldAttr],
     categoricals: dict[str, dict[str, FieldAttr]] | None = None,
     organism: str | None = None,

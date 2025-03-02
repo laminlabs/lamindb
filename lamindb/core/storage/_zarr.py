@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import scipy.sparse as sparse
 import zarr
 from anndata import __version__ as anndata_version
 from anndata._io.specs import write_elem
-from anndata._io.specs.registry import get_spec
 from fsspec.implementations.local import LocalFileSystem
+from lamin_utils import logger
 from lamindb_setup.core.upath import create_mapper, infer_filesystem
 from packaging import version
 
@@ -25,15 +25,36 @@ if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
 
 
-def zarr_is_adata(storepath: UPathStr) -> bool:
+def identify_zarr_type(
+    storepath: UPathStr, *, check: bool = True
+) -> Literal["anndata", "spatialdata", "unknown"]:
+    """Identify whether a zarr store is AnnData, SpatialData, or unknown type."""
+    # we can add these cheap suffix-based-checks later
+    # also need to check whether the .spatialdata.zarr suffix
+    # actually becomes a "standard"; currently we don't recognize it
+    # unlike ".anndata.zarr" in VALID_SUFFIXES
+    # suffixes = UPath(storepath).suffixes
+    # if ".spatialdata" in suffixes:
+    #     return "spatialdata"
+    # elif ".anndata" in suffixes:
+    #     return "anndata"
+
     fs, storepath_str = infer_filesystem(storepath)
+
     if isinstance(fs, LocalFileSystem):
-        # this is faster than through an fsspec mapper for local
         open_obj = storepath_str
     else:
-        open_obj = create_mapper(fs, storepath_str, check=True)
-    storage = zarr.open(open_obj, mode="r")
-    return get_spec(storage).encoding_type == "anndata"
+        open_obj = create_mapper(fs, storepath_str, check=check)
+
+    try:
+        storage = zarr.open(open_obj, mode="r")
+        if "spatialdata_attrs" in storage.attrs:
+            return "spatialdata"
+        if storage.attrs.get("encoding-type", "") == "anndata":
+            return "anndata"
+    except Exception as error:
+        logger.warning(f"an exception occured {error}")
+    return "unknown"
 
 
 def load_anndata_zarr(storepath: UPathStr) -> AnnData:
@@ -65,7 +86,7 @@ def write_adata_zarr(
     adata_size = None
     cumulative_val = 0
 
-    def _cb(key_write: str | None = None):
+    def _report_progress(key_write: str | None = None):
         nonlocal adata_size
         nonlocal cumulative_val
 
@@ -91,9 +112,9 @@ def write_adata_zarr(
 
     def _write_elem_cb(f, k, elem, dataset_kwargs):
         write_elem(f, k, elem, dataset_kwargs=dataset_kwargs)
-        _cb(k)
+        _report_progress(k)
 
-    _cb(None)
+    _report_progress(None)
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=UserWarning, module="zarr")
 
@@ -114,4 +135,4 @@ def write_adata_zarr(
             )
         _write_elem_cb(f, "raw", adata.raw, dataset_kwargs=dataset_kwargs)
     # todo: fix size less than total at the end
-    _cb(None)
+    _report_progress(None)

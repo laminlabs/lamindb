@@ -90,6 +90,8 @@ def install_ci(session, group):
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system scanpy")
         run(session, "uv pip install --system tiledbsoma")  # test TiledbsomaCatManager
+        run(session, "uv pip install --system mudata")
+        run(session, "uv pip install --system spatialdata")
     elif group == "unit-storage":
         extras += "zarr,bionty"
         # tiledbsoma dependency, specifying it here explicitly
@@ -115,15 +117,15 @@ def install_ci(session, group):
         )
         run(session, "uv pip install --system vitessce")
     elif group == "curator":
-        extras += "zarr,bionty,jupyter"
+        extras += "zarr,jupyter"
         run(
             session,
-            "uv pip install --system ./sub/wetlab",
+            "uv pip install --system ./sub/bionty ./sub/wetlab",
         )
         run(
             session,
             "uv pip install --system -U spatialdata",
-        )  # Required to access metadata attrs
+        )
         run(session, "uv pip install --system tiledbsoma==1.15.0rc3")
     elif group == "docs":
         extras += "bionty,zarr"

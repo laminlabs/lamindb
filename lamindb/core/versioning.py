@@ -109,8 +109,7 @@ def create_uid(
     if version is not None:
         if not isinstance(version, str):
             raise ValueError(
-                "`version` parameter must be `None` or `str`, e.g., '0.1', '1', '2',"
-                " etc."
+                "`version` parameter must be `None` or `str`, e.g., '0.1', '1', '2', etc."
             )
         if revises is not None:
             if version == revises.version:

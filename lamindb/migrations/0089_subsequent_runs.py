@@ -93,6 +93,15 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # unrelated to subsequent runs, but related to lamindb 1.2
+        # update the otype field in the artifact table
+        migrations.RunSQL(
+            sql="""
+            UPDATE lamindb_artifact
+            SET otype = 'SpatialData'
+            WHERE otype = 'spatialdata';
+            """
+        ),
         # Migrate artifact relationships
         migrations.RunPython(
             update_artifact_run_relationships, migrations.RunPython.noop
