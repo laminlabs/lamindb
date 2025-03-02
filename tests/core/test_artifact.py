@@ -174,7 +174,7 @@ def spatialdata_file(sdata):
     filepath = Path("test.spatialdata.zarr")
     sdata.write(filepath)
     yield filepath
-    filepath.unlink()
+    shutil.rmtree(filepath)
 
 
 def test_signatures():
@@ -364,37 +364,35 @@ def test_create_from_dataframe(df):
     artifact.delete(permanent=True, storage=True)
 
 
-def test_create_from_anndata(adata):
-    af = ln.Artifact.from_anndata(adata, description="test1")
-    assert af.description == "test1"
-    assert af.key is None
-    assert af.otype == "AnnData"
-    assert af.kind == "dataset"
-    assert af.n_observations == 2
-    af.save()
-    af.delete(permanent=True, storage=True)
+def test_create_from_anndata(adata, adata_file):
+    for _a in [adata, adata_file]:
+        af = ln.Artifact.from_anndata(adata, description="test1")
+        assert af.description == "test1"
+        assert af.key is None
+        assert af.otype == "AnnData"
+        assert af.kind == "dataset"
+        assert af.n_observations == 2
 
 
-def test_create_from_mudata(mdata):
-    af = ln.Artifact.from_mudata(mdata, description="test1")
-    assert af.description == "test1"
-    assert af.key is None
-    assert af.otype == "MuData"
-    assert af.kind == "dataset"
-    assert af.n_observations == 2
-    af.save()
-    af.delete(permanent=True, storage=True)
+def test_create_from_mudata(mdata, mudata_file):
+    for m in [mdata, mudata_file]:
+        af = ln.Artifact.from_mudata(m, description="test1")
+        assert af.description == "test1"
+        assert af.key is None
+        assert af.otype == "MuData"
+        assert af.kind == "dataset"
+        if isinstance(m, md.MuData):
+            assert af.n_observations == 2
 
 
-def test_create_from_spatialdata(sdata):
-    af = ln.Artifact.from_spatialdata(sdata, description="test1")
-    assert af.description == "test1"
-    assert af.key is None
-    assert af.otype == "SpatialData"
-    assert af.kind == "dataset"
-    # n_observations is ill-defined so we are not testing for it
-    af.save()
-    af.delete(permanent=True, storage=True)
+def test_create_from_spatialdata(sdata, spatialdata_file):
+    for s in [sdata, spatialdata_file]:
+        af = ln.Artifact.from_spatialdata(s, description="test1")
+        assert af.description == "test1"
+        assert af.key is None
+        assert af.otype == "SpatialData"
+        assert af.kind == "dataset"
+        # n_observations not defined
 
 
 def test_create_from_dataframe_using_from_df_and_link_features(df):
@@ -452,14 +450,6 @@ def test_create_from_anndata_in_memory_and_link_features(adata):
     feature_sets_queried.delete()
     features_queried.delete()
     genes_queried.delete()
-
-
-def test_create_from_anndata_strpath(adata_file):
-    artifact = ln.Artifact.from_anndata(adata_file, description="test adata file")
-    assert artifact.n_observations == 2
-    artifact.save()
-    assert artifact.otype == "AnnData"
-    artifact.delete(permanent=True, storage=True)
 
 
 @pytest.mark.parametrize(

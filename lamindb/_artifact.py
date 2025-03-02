@@ -16,6 +16,7 @@ from lamindb_setup._init_instance import register_storage_in_instance
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._settings_storage import init_storage
 from lamindb_setup.core.hashing import hash_dir, hash_file
+from lamindb_setup.core.types import UPathStr
 from lamindb_setup.core.upath import (
     create_path,
     extract_suffix_from_path,
@@ -72,7 +73,6 @@ except ImportError:
 
 
 if TYPE_CHECKING:
-    from lamindb_setup.core.types import UPathStr
     from mudata import MuData
     from pyarrow.dataset import Dataset as PyArrowDataset
     from spatialdata import SpatialData
@@ -783,7 +783,8 @@ def from_mudata(
         kind="dataset",
         **kwargs,
     )
-    artifact.n_observations = mdata.n_obs
+    if not isinstance(mdata, UPathStr):
+        artifact.n_observations = mdata.n_obs
     return artifact
 
 
