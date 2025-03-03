@@ -6,6 +6,7 @@
    BasicRecord
    Record
    Registry
+   Space
    QuerySet
    QueryManager
    RecordList

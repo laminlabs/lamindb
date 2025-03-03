@@ -528,8 +528,8 @@ class CatManager:
 
     If you find non-validated values, you have several options:
 
-    - new values found in the data can be registered using :meth:`~lamindb.core.DataFrameCatManager.add_new_from`
-    - non-validated values can be accessed using :meth:`~lamindb.core.DataFrameCatManager.non_validated` and addressed manually
+    - new values found in the data can be registered using :meth:`~lamindb.curators.DataFrameCatManager.add_new_from`
+    - non-validated values can be accessed using :meth:`~lamindb.curators.DataFrameCatManager.non_validated` and addressed manually
     """
 
     def __init__(
