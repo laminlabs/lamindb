@@ -1,3 +1,5 @@
+# ruff: noqa: TC004
+
 import os
 import shutil
 from collections import defaultdict
@@ -86,7 +88,6 @@ from .base import (
     TracksRun,
     TracksUpdates,
 )
-from .collection import Collection
 from .core import ParamValue, Storage, User
 from .feature import Feature, FeatureValue
 from .has_parents import view_lineage
@@ -123,7 +124,9 @@ if TYPE_CHECKING:
     from lamindb.core.storage._backed_access import AnnDataAccessor, BackedAccessor
 
     from ._label_manager import LabelManager
+    from .collection import Collection
     from .project import Project, Reference
+
 
 INCONSISTENT_STATE_MSG = (
     "Trying to read a folder artifact from an outdated version, "
