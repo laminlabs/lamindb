@@ -33,8 +33,8 @@ from lamindb.base.fields import (
     CharField,
     ForeignKey,
 )
+from lamindb.core._settings import settings
 from lamindb.errors import FieldValidationError
-from lamindb.models._settings import settings
 from lamindb.models.query_set import QuerySet
 
 from ..base.users import current_user_id

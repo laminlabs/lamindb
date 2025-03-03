@@ -1,13 +1,5 @@
 """Models library.
 
-Settings:
-
-.. autosummary::
-   :toctree: .
-
-   Settings
-   subsettings
-
 Records & registries:
 
 .. autosummary::
@@ -32,13 +24,6 @@ Records & registries:
    InspectResult
    ValidateFields
    fields
-
-Artifact loaders:
-
-.. autosummary::
-   :toctree: .
-
-   loaders
 
 """
 
@@ -77,5 +62,3 @@ from . import query_manager, query_set
 from .has_parents import HasParents
 
 FeatureSet = Schema  # backward compat
-from ._settings import Settings
-from . import subsettings

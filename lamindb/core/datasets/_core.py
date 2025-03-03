@@ -9,7 +9,7 @@ import pandas as pd
 from upath import UPath
 
 from lamindb.base.ids import base62
-from lamindb.models._settings import settings
+from lamindb.core._settings import settings
 
 if TYPE_CHECKING:
     from mudata import MuData

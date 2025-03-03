@@ -13,6 +13,7 @@ from django.utils.functional import partition
 from lamin_utils import logger
 from lamindb_setup.core.upath import LocalPathClasses, UPath
 
+from ..core._settings import settings
 from ..core.storage.paths import (
     _cache_key_from_artifact_storage,
     attempt_accessing_path,
@@ -20,7 +21,6 @@ from ..core.storage.paths import (
     delete_storage_using_key,
     store_file_or_folder,
 )
-from ..models._settings import settings
 from .record import Record
 
 if TYPE_CHECKING:

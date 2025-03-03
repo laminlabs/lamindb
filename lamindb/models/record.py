@@ -70,12 +70,12 @@ from lamindb.base.fields import (
 from lamindb.base.types import StrField
 from lamindb.errors import FieldValidationError
 
+from ..core._settings import settings
 from ..errors import (
     InvalidArgument,
     RecordNameChangeIntegrityError,
     ValidationError,
 )
-from ..models._settings import settings
 from .base import IsVersioned, LinkORM
 
 if TYPE_CHECKING:

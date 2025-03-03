@@ -85,7 +85,7 @@ if _check_instance_setup(from_module="lamindb"):
     from ._tracked import tracked
     from ._view import view
     from .core._context import context
-    from .models._settings import settings
+    from .core._settings import settings
     from .curators import CatManager as Curator
     from .models import (
         Artifact,

@@ -20,7 +20,7 @@ from lamindb.models.record import (
 )
 from lamindb.models.save import save
 
-from ..models._settings import settings
+from ..core._settings import settings
 from ._describe import (
     NAME_WIDTH,
     TYPE_WIDTH,
