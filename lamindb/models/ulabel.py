@@ -1,4 +1,5 @@
-from datetime import datetime
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Optional, overload
 
 from django.db import models
@@ -24,6 +25,8 @@ from .run import Run, TracksRun, TracksUpdates, User, current_user_id
 from .transform import Transform
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from .artifact import Artifact
     from .collection import Collection
     from .project import Project
@@ -100,14 +103,14 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     """A universal random id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True)
     """Name or title of ulabel."""
-    type: Optional["ULabel"] = ForeignKey(
+    type: Optional[ULabel] = ForeignKey(
         "self", PROTECT, null=True, related_name="records"
     )
     """Type of ulabel, e.g., `"donor"`, `"split"`, etc.
 
     Allows to group ulabels by type, e.g., all donors, all split ulabels, etc.
     """
-    records: "ULabel"
+    records: ULabel
     """Records of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type.
@@ -120,7 +123,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     """A reference like URL or external ID."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Type of reference such as a donor_id from Vendor X."""
-    parents: "ULabel" = models.ManyToManyField(
+    parents: ULabel = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
     """Parent entities of this ulabel.
@@ -129,7 +132,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
 
     Say, if you modeled `CellType` as a `ULabel`, you would introduce a type `CellType` and model the hiearchy of cell types under it.
     """
-    children: "ULabel"
+    children: ULabel
     """Child entities of this ulabel.
 
     Reverse accessor for parents.
@@ -138,18 +141,18 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Transforms annotated with this ulabel."""
     runs: Transform
     """Runs annotated with this ulabel."""
-    artifacts: "Artifact"
+    artifacts: Artifact
     """Artifacts annotated with this ulabel."""
-    collections: "Collection"
+    collections: Collection
     """Collections annotated with this ulabel."""
-    projects: "Project"
+    projects: Project
     """Associated projects."""
 
     @overload
     def __init__(
         self,
         name: str,
-        type: Optional["ULabel"] = None,
+        type: Optional[ULabel] = None,
         is_type: bool = False,
         description: str | None = None,
         reference: str | None = None,
@@ -195,7 +198,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
 
 class ArtifactULabel(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
-    artifact: "Artifact" = ForeignKey("Artifact", CASCADE, related_name="links_ulabel")
+    artifact: Artifact = ForeignKey("Artifact", CASCADE, related_name="links_ulabel")
     ulabel: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_artifact")
     feature: Feature | None = ForeignKey(
         Feature, PROTECT, null=True, related_name="links_artifactulabel", default=None
@@ -237,7 +240,7 @@ class RunULabel(BasicRecord, LinkORM):
 
 class CollectionULabel(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
-    collection: "Collection" = ForeignKey(
+    collection: Collection = ForeignKey(
         "Collection", CASCADE, related_name="links_ulabel"
     )
     ulabel: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_collection")
