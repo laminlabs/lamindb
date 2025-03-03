@@ -15,7 +15,7 @@ from django.db.models.fields.related import ForeignObjectRel
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 
-from lamindb.models.base import IsVersioned
+from lamindb.models._is_versioned import IsVersioned
 from lamindb.models.record import Record
 
 from ..errors import DoesNotExist

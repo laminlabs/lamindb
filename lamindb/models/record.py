@@ -695,8 +695,7 @@ class BasicRecord(models.Model, metaclass=Registry):
         if not args and skip_validation:
             super().__init__(**kwargs)
         elif not args and not skip_validation:
-            from lamindb import settings
-
+            from ..core._settings import settings
             from .can_curate import CanCurate
             from .collection import Collection
             from .schema import Schema
