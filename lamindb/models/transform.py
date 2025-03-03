@@ -16,7 +16,6 @@ from lamindb.base.fields import (
 from lamindb.base.types import TransformType
 from lamindb.base.users import current_user_id
 
-from ..core._settings import settings
 from ..errors import InconsistentKey
 from ..models._versioning import message_update_key_in_version_family, process_revises
 from .base import IsVersioned
@@ -213,6 +212,8 @@ class Transform(Record, IsVersioned):
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args, **kwargs)
             return None
+        from ..core._settings import settings
+
         key: str | None = kwargs.pop("key") if "key" in kwargs else None
         description: str | None = (
             kwargs.pop("description") if "description" in kwargs else None

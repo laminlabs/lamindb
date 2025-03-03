@@ -70,7 +70,6 @@ from lamindb.base.fields import (
 from lamindb.base.types import StrField
 from lamindb.errors import FieldValidationError
 
-from ..core._settings import settings
 from ..errors import (
     InvalidArgument,
     RecordNameChangeIntegrityError,
@@ -299,6 +298,8 @@ def suggest_records_with_similar_names(
     msg = f"record{s} with similar {name_field}{s} exist{nots}! did you mean to load {it}?"
     if IPYTHON:
         from IPython.display import display
+
+        from ..core._settings import settings
 
         logger.warning(f"{msg}")
         if settings._verbosity_int >= 1:
@@ -644,6 +645,7 @@ class BasicRecord(models.Model, metaclass=Registry):
         if not args and skip_validation:
             super().__init__(**kwargs)
         elif not args and not skip_validation:
+            from ..core._settings import settings
             from .can_curate import CanCurate
             from .collection import Collection
             from .schema import Schema
@@ -1250,6 +1252,8 @@ def get_transfer_run(record) -> "Run":
     from lamindb.core._context import context
     from lamindb.models import Run, Transform
     from lamindb.models.artifact import WARNING_RUN_TRANSFORM
+
+    from ..core._settings import settings
 
     slug = record._state.db
     owner, name = get_owner_name_from_identifier(slug)

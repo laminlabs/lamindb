@@ -37,7 +37,6 @@ from lamindb.models.record import (
 from lamindb.models.save import save
 from lamindb.models.schema import DICT_KEYS_TYPE, Schema
 
-from ..core._settings import settings
 from ._describe import (
     NAME_WIDTH,
     TYPE_WIDTH,
@@ -498,6 +497,8 @@ def parse_staged_feature_sets_from_anndata(
         filepath = create_path(adata)  # returns Path for local
         if not isinstance(filepath, LocalPathClasses):
             from lamindb.core.storage._backed_access import backed_access
+
+            from ..core._settings import settings
 
             using_key = settings._using_key
             data_parse = backed_access(filepath, using_key=using_key)
@@ -1189,6 +1190,8 @@ def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
     # This only covers feature sets
     if transfer_logs is None:
         transfer_logs = {"mapped": [], "transferred": [], "run": None}
+    from ..core._settings import settings
+
     using_key = settings._using_key
     for slot, schema in data.features._schema_by_slot.items():  # type: ignore
         members = schema.members

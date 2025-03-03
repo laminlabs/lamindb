@@ -20,7 +20,6 @@ from lamindb.models.record import (
 )
 from lamindb.models.save import save
 
-from ..core._settings import settings
 from ._describe import (
     NAME_WIDTH,
     TYPE_WIDTH,
@@ -240,6 +239,8 @@ class LabelManager:
         """
         if transfer_logs is None:
             transfer_logs = {"mapped": [], "transferred": [], "run": None}
+        from ..core._settings import settings
+
         using_key = settings._using_key
         for related_name, labels in _get_labels(data, instance=data._state.db).items():
             labels = labels.all()

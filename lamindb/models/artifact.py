@@ -33,7 +33,6 @@ from lamindb.base.fields import (
     CharField,
     ForeignKey,
 )
-from lamindb.core._settings import settings
 from lamindb.errors import FieldValidationError
 from lamindb.models.query_set import QuerySet
 
@@ -263,6 +262,8 @@ def process_data(
             message = f"The suffix '{key_suffix}' of the provided key is inconsistent, it should be '{suffix}'"
         raise InvalidArgument(message)
     # in case we have an in-memory representation, we need to write it to disk
+    from lamindb.core._settings import settings
+
     if isinstance(data, supported_data_types):
         path = settings.cache_dir / f"{provisional_uid}{suffix}"
         write_to_disk(data, path)
@@ -281,6 +282,8 @@ def get_stat_or_artifact(
 ]:
     """Retrieves file statistics or an existing artifact based on the path, hash, and key."""
     n_files = None
+    from lamindb.core._settings import settings
+
     if settings.creation.artifact_skip_size_hash:
         return None, None, None, n_files, None
     stat = path.stat()  # one network request
@@ -377,6 +380,8 @@ def get_artifact_kwargs_from_data(
     is_replace: bool = False,
     skip_check_exists: bool = False,
 ):
+    from lamindb.core._settings import settings
+
     run = get_run(run)
     memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
         provisional_uid,
@@ -590,6 +595,8 @@ def _populate_subsequent_runs_(record: Union[Artifact, Collection], run: Run):
 
 # also see current_run() in core._data
 def get_run(run: Run | None) -> Run | None:
+    from lamindb.core._settings import settings
+
     from .._tracked import get_current_tracked_run
     from ..core._context import context
 
@@ -1292,6 +1299,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         # now we proceed with the user-facing constructor
         if len(args) > 1:
             raise ValueError("Only one non-keyword arg allowed: data")
+        from ..core._settings import settings
 
         data: str | Path = kwargs.pop("data") if len(args) == 0 else args[0]
         kind: str = kwargs.pop("kind") if "kind" in kwargs else None
@@ -1498,11 +1506,15 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         >>> artifact.path
         PosixPath('/home/runner/work/lamindb/lamindb/docs/guide/mydata/myfile.csv')
         """
+        from lamindb import settings
+
         filepath, _ = filepath_from_artifact(self, using_key=settings._using_key)
         return filepath
 
     @property
     def _cache_path(self) -> UPath:
+        from lamindb import settings
+
         filepath, cache_key = filepath_cache_key_from_artifact(
             self, using_key=settings._using_key
         )
@@ -1795,6 +1807,8 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             >>> artifacts = ln.Artifact.from_dir(dir_path)
             >>> ln.save(artifacts)
         """
+        from lamindb.core._settings import settings
+
         folderpath: UPath = create_path(path)  # returns Path for local
         default_storage = settings.storage.record
         using_key = settings._using_key
@@ -1904,6 +1918,8 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             However, it will update the suffix if it changes.
         """
+        from lamindb.core._settings import settings
+
         default_storage = settings.storage.record
         kwargs, privates = get_artifact_kwargs_from_data(
             provisional_uid=self.uid,
@@ -2041,6 +2057,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 "Only a tiledbsoma store can be openened with `mode!='r'`."
             )
 
+        from lamindb.core._settings import settings
         from lamindb.core.storage._backed_access import (
             _track_writes_factory,
             backed_access,
@@ -2133,6 +2150,8 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             >>> artifact.load()
             PosixPath('/home/runner/work/lamindb/lamindb/docs/guide/mydata/.lamindb/jb7BY5UJoQVGMUOKiLcn.jpg')
         """
+        from lamindb.core._settings import settings
+
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(INCONSISTENT_STATE_MSG)
 
@@ -2184,6 +2203,8 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             >>> artifact.cache()
             PosixPath('/home/runner/work/Caches/lamindb/lamindb-ci/lndb-storage/pbmc68k.h5ad')
         """
+        from lamindb.core._settings import settings
+
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(INCONSISTENT_STATE_MSG)
 
@@ -2466,6 +2487,8 @@ def _track_run_input(
     is_run_input: bool | Run | None = None,
     run: Run | None = None,
 ):
+    from lamindb.core._settings import settings
+
     from .._tracked import get_current_tracked_run
     from ..core._context import context
     from .collection import Collection
