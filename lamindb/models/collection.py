@@ -28,7 +28,8 @@ from ..core._mapped_collection import MappedCollection
 from ..core.storage import UPath
 from ..core.storage._pyarrow_dataset import _is_pyarrow_dataset, _open_pyarrow_dataset
 from ..errors import FieldValidationError
-from ..models._versioning import process_revises
+from ..models._is_versioned import process_revises
+from ._is_versioned import IsVersioned
 from .artifact import (
     Artifact,
     _populate_subsequent_runs_,
@@ -38,13 +39,10 @@ from .artifact import (
     save_schema_links,
     save_staged_feature_sets,
 )
-from .base import (
-    IsVersioned,
-    LinkORM,
-)
 from .has_parents import view_lineage
 from .record import (
     BasicRecord,
+    LinkORM,
     Record,
     _get_record_kwargs,
     init_self_from_db,

@@ -24,7 +24,6 @@ from ._relations import (
     dict_related_model_to_related_name,
     get_related_name,
 )
-from .base import LinkORM
 from .can_curate import CanCurate
 from .feature import (
     Feature,
@@ -33,6 +32,7 @@ from .feature import (
 )
 from .record import (
     BasicRecord,
+    LinkORM,
     Record,
     Registry,
     init_self_from_db,

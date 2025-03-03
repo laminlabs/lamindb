@@ -137,7 +137,7 @@ def save_tiledbsoma_experiment(
 
     from lamindb.core.storage.paths import auto_storage_key_from_artifact_uid
     from lamindb.models import Artifact
-    from lamindb.models._versioning import create_uid
+    from lamindb.models._is_versioned import create_uid
     from lamindb.models.artifact import get_run
 
     run = get_run(run)

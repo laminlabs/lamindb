@@ -10,7 +10,7 @@ from lamindb_setup._connect_instance import (
 )
 from lamindb_setup.core._settings_store import instance_settings_file
 
-from lamindb.models.base import LinkORM
+from lamindb.models.record import LinkORM
 
 if TYPE_CHECKING:
     from lamindb.models.record import Record, Registry

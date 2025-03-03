@@ -58,7 +58,7 @@ from ..core.storage.paths import (
     filepath_from_artifact,
 )
 from ..errors import IntegrityError, InvalidArgument, ValidationError
-from ..models._versioning import (
+from ..models._is_versioned import (
     create_uid,
     message_update_key_in_version_family,
 )
@@ -70,19 +70,17 @@ from ._feature_manager import (
     add_label_feature_links,
     get_label_links,
 )
+from ._is_versioned import IsVersioned
 from ._relations import (
     dict_module_name_to_model_name,
     dict_related_model_to_related_name,
-)
-from .base import (
-    IsVersioned,
-    LinkORM,
 )
 from .core import Storage
 from .feature import Feature, FeatureValue
 from .has_parents import view_lineage
 from .record import (
     BasicRecord,
+    LinkORM,
     Record,
     _get_record_kwargs,
     format_field_value,

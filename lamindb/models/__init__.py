@@ -1,7 +1,5 @@
 """Models library.
 
-Records & registries:
-
 .. autosummary::
    :toctree: .
 

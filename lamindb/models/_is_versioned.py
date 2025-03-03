@@ -1,15 +1,104 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, overload
 
+from django.db import models
 from lamin_utils import logger
 from lamin_utils._base62 import increment_base62
 from lamindb_setup.core.upath import LocalPathClasses, UPath
 
 from lamindb.base import ids
+from lamindb.base.fields import (
+    BooleanField,
+    CharField,
+)
 
-if TYPE_CHECKING:
-    from lamindb.models import IsVersioned
+if TYPE_CHECKING:  # noqa
+    from lamindb.models.query_set import QuerySet
+
+
+class IsVersioned(models.Model):
+    """Base class for versioned models."""
+
+    class Meta:
+        abstract = True
+
+    _len_stem_uid: int
+
+    version: str | None = CharField(max_length=30, null=True, db_index=True)
+    """Version (default `None`).
+
+    Defines version of a family of records characterized by the same `stem_uid`.
+
+    Consider using `semantic versioning <https://semver.org>`__
+    with `Python versioning <https://peps.python.org/pep-0440/>`__.
+    """
+    is_latest: bool = BooleanField(default=True, db_index=True)
+    """Boolean flag that indicates whether a record is the latest in its version family."""
+
+    @overload
+    def __init__(self): ...
+
+    @overload
+    def __init__(
+        self,
+        *db_args,
+    ): ...
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        self._revises = kwargs.pop("revises") if "revises" in kwargs else None
+        super().__init__(*args, **kwargs)
+
+    @property
+    def stem_uid(self) -> str:
+        """Universal id characterizing the version family.
+
+        The full uid of a record is obtained via concatenating the stem uid and version information::
+
+            stem_uid = random_base62(n_char)  # a random base62 sequence of length 12 (transform) or 16 (artifact, collection)
+            version_uid = "0000"  # an auto-incrementing 4-digit base62 number
+            uid = f"{stem_uid}{version_uid}"  # concatenate the stem_uid & version_uid
+
+        """
+        return self.uid[: self._len_stem_uid]  # type: ignore
+
+    @property
+    def versions(self) -> QuerySet:
+        """Lists all records of the same version family.
+
+        >>> new_artifact = ln.Artifact(df2, revises=artifact).save()
+        >>> new_artifact.versions()
+        """
+        db = self._state.db
+        if db is not None and db != "default":
+            return self.__class__.using(db).filter(uid__startswith=self.stem_uid)  # type: ignore
+        else:
+            return self.__class__.filter(uid__startswith=self.stem_uid)  # type: ignore
+
+    def _add_to_version_family(self, revises: IsVersioned, version: str | None = None):
+        """Add current record to a version family.
+
+        Args:
+            revises: a record that belongs to the version family.
+            version: semantic version of the record.
+        """
+        old_uid = self.uid  # type: ignore
+        new_uid, revises = create_uid(revises=revises, version=version)
+        if self.__class__.__name__ == "Artifact" and self._key_is_virtual:
+            old_path = self.path
+            new_path = get_new_path_from_uid(
+                old_path=old_path, old_uid=old_uid, new_uid=new_uid
+            )
+            new_path = UPath(old_path).rename(new_path)
+            logger.success(f"updated path from {old_path} to {new_path}!")
+        self.uid = new_uid
+        self.version = version
+        self.save()
+        logger.success(f"updated uid from {old_uid} to {new_uid}!")
 
 
 def message_update_key_in_version_family(

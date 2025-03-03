@@ -67,7 +67,7 @@ from lamindb.base.fields import (
     JSONField,
     TextField,
 )
-from lamindb.base.types import StrField
+from lamindb.base.types import FieldAttr, StrField
 from lamindb.errors import FieldValidationError
 
 from ..errors import (
@@ -75,7 +75,7 @@ from ..errors import (
     RecordNameChangeIntegrityError,
     ValidationError,
 )
-from .base import IsVersioned, LinkORM
+from ._is_versioned import IsVersioned
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -86,6 +86,56 @@ if TYPE_CHECKING:
 
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
+
+
+# -------------------------------------------------------------------------------------
+# A note on required fields at the Record level
+#
+# As Django does most of its validation on the Form-level, it doesn't offer functionality
+# for validating the integrity of an Record object upon instantation (similar to pydantic)
+#
+# For required fields, we define them as commonly done on the SQL level together
+# with a validator in Record (validate_required_fields)
+#
+# This goes against the Django convention, but goes with the SQLModel convention
+# (Optional fields can be null on the SQL level, non-optional fields cannot)
+#
+# Due to Django's convention where CharFieldAttr has pre-configured (null=False, default=""), marking
+# a required field necessitates passing `default=None`. Without the validator it would trigger
+# an error at the SQL-level, with it, it triggers it at instantiation
+
+# -------------------------------------------------------------------------------------
+# A note on class and instance methods of core Record
+#
+# All of these are defined and tested within lamindb, in files starting with _{orm_name}.py
+
+# -------------------------------------------------------------------------------------
+# A note on maximal lengths of char fields
+#
+# 100 characters:
+#     "Raindrops pitter-pattered on the windowpane, blurring the"
+#     "city lights outside, curled up with a mug."
+# A good maximal length for a name (title).
+#
+# 150 characters: We choose this for name maximal length because some users like long names.
+#
+# 255 characters:
+#     "In creating a precise 255-character paragraph, one engages in"
+#     "a dance of words, where clarity meets brevity. Every syllable counts,"
+#     "illustrating the skill in compact expression, ensuring the essence of the"
+#     "message shines through within the exacting limit."
+# This is a good maximal length for a description field.
+
+
+class LinkORM:
+    pass
+
+
+def deferred_attribute__repr__(self):
+    return f"FieldAttr({self.field.model.__name__}.{self.field.name})"
+
+
+FieldAttr.__repr__ = deferred_attribute__repr__  # type: ignore
 
 
 class ValidateFields:

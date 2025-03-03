@@ -26,8 +26,11 @@ from ..errors import (
     TrackNotCalled,
     UpdateContext,
 )
-from ..models._versioning import bump_version as bump_version_function
-from ..models._versioning import increment_base62, message_update_key_in_version_family
+from ..models._is_versioned import bump_version as bump_version_function
+from ..models._is_versioned import (
+    increment_base62,
+    message_update_key_in_version_family,
+)
 from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_environment
 

@@ -22,9 +22,8 @@ from lamindb.base.users import current_user_id
 from lamindb.errors import ValidationError
 
 from ..base.ids import base62_20
-from .base import LinkORM
 from .can_curate import CanCurate
-from .record import BasicRecord, Record
+from .record import BasicRecord, LinkORM, Record
 
 if TYPE_CHECKING:
     from datetime import datetime
