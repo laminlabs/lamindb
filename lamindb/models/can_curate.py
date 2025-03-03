@@ -9,7 +9,7 @@ from lamin_utils._inspect import InspectResult
 from lamindb.base.types import ListLike, StrField
 
 from ..errors import ValidationError
-from .from_values import _format_values, _has_organism_field, get_or_create_records
+from ._from_values import _format_values, _has_organism_field, get_or_create_records
 from .record import Record, _queryset, get_name_field
 
 if TYPE_CHECKING:
@@ -593,6 +593,7 @@ class CanCurate:
             source=source,
         )
 
+    @classmethod
     def from_values(
         cls,
         values: ListLike,

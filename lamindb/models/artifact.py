@@ -75,7 +75,6 @@ from ._feature_manager import (
     ParamManager,
     ParamManagerArtifact,
     add_label_feature_links,
-    get_host_id_field,
     get_label_links,
 )
 from ._relations import (
@@ -635,10 +634,9 @@ def save_schema_links(self: "Artifact") -> None:
 
     if hasattr(self, "_staged_feature_sets"):
         links = []
-        host_id_field = get_host_id_field(self)
         for slot, schema in self._staged_feature_sets.items():
             kwargs = {
-                host_id_field: self.id,
+                "artifact_id": self.id,
                 "schema_id": schema.id,
                 "slot": slot,
             }
@@ -2469,6 +2467,7 @@ def _track_run_input(
 ):
     from .._tracked import get_current_tracked_run
     from ..core._context import context
+    from .collection import Collection
 
     if isinstance(is_run_input, Run):
         run = is_run_input

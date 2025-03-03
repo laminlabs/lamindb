@@ -23,11 +23,11 @@ from rich.text import Text
 
 from lamindb.core.storage import LocalPathClasses
 from lamindb.errors import DoesNotExist, ValidationError
+from lamindb.models._from_values import _format_values
 from lamindb.models.feature import (
     convert_pandas_dtype_to_lamin_dtype,
     suggest_categorical_for_str_iterable,
 )
-from lamindb.models.from_values import _format_values
 from lamindb.models.record import (
     REGISTRY_UNIQUE_FIELD,
     get_name_field,
@@ -71,14 +71,6 @@ if TYPE_CHECKING:
     from lamindb.models.query_set import QuerySet
 
 
-def get_host_id_field(host: Artifact | Collection) -> str:
-    if isinstance(host, Artifact):
-        host_id_field = "artifact_id"
-    else:
-        host_id_field = "collection_id"
-    return host_id_field
-
-
 def get_accessor_by_registry_(host: Artifact | Collection) -> dict:
     dictionary = {
         field.related_model.__get_name_with_module__(): field.name
@@ -89,9 +81,7 @@ def get_accessor_by_registry_(host: Artifact | Collection) -> dict:
     return dictionary
 
 
-def get_schema_by_slot_(host: Artifact | Collection) -> dict:
-    if isinstance(host, Collection):
-        return {}
+def get_schema_by_slot_(host: Artifact) -> dict:
     # if the host is not yet saved
     if host._state.adding:
         if hasattr(host, "_staged_feature_sets"):
@@ -99,8 +89,7 @@ def get_schema_by_slot_(host: Artifact | Collection) -> dict:
         else:
             return {}
     host_db = host._state.db
-    host_id_field = get_host_id_field(host)
-    kwargs = {host_id_field: host.id}
+    kwargs = {"artifact_id": host.id}
     # otherwise, we need a query
     links_schema = (
         host.feature_sets.through.objects.using(host_db)
@@ -113,8 +102,7 @@ def get_schema_by_slot_(host: Artifact | Collection) -> dict:
 def get_label_links(
     host: Artifact | Collection, registry: str, feature: Feature
 ) -> QuerySet:
-    host_id_field = get_host_id_field(host)
-    kwargs = {host_id_field: host.id, "feature_id": feature.id}
+    kwargs = {"artifact_id": host.id, "feature_id": feature.id}
     link_records = (
         getattr(host, host.features._accessor_by_registry[registry])  # type: ignore
         .through.objects.using(host._state.db)
@@ -124,8 +112,7 @@ def get_label_links(
 
 
 def get_schema_links(host: Artifact | Collection) -> QuerySet:
-    host_id_field = get_host_id_field(host)
-    kwargs = {host_id_field: host.id}
+    kwargs = {"artifact_id": host.id}
     links_schema = host.feature_sets.through.objects.filter(**kwargs)
     return links_schema
 
@@ -230,6 +217,9 @@ def _get_non_categoricals(
     print_params: bool = False,
 ) -> dict[tuple[str, str], set[Any]]:
     """Get non-categorical features and their values."""
+    from .artifact import Artifact
+    from .run import Run
+
     non_categoricals = {}
 
     if self.id is not None and isinstance(self, (Artifact, Run)):
@@ -306,6 +296,8 @@ def describe_features(
     with_labels: bool = False,
 ):
     """Describe features of an artifact or collection."""
+    from .artifact import Artifact
+
     if print_types:
         warnings.warn(
             "`print_types` parameter is deprecated and will be removed in a future version. Types are now always printed.",
@@ -1084,9 +1076,8 @@ def add_schema(self, schema: Schema, slot: str) -> None:
         )
     host_db = self._host._state.db
     schema.save(using=host_db)
-    host_id_field = get_host_id_field(self._host)
     kwargs = {
-        host_id_field: self._host.id,
+        "artifact_id": self._host.id,
         "schema": schema,
         "slot": slot,
     }
@@ -1109,11 +1100,7 @@ def _add_set_from_df(
     mute: bool = False,
 ):
     """Add feature set corresponding to column names of DataFrame."""
-    if isinstance(self._host, Artifact):
-        assert self._host.otype == "DataFrame"  # noqa: S101
-    else:
-        # Collection
-        assert self._host.artifact.otype == "DataFrame"  # noqa: S101
+    assert self._host.otype == "DataFrame"  # noqa: S101
     df = self._host.load()
     schema = Schema.from_df(
         df=df,

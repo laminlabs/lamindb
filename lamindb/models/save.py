@@ -67,6 +67,8 @@ def save(records: Iterable[Record], ignore_conflicts: bool | None = False) -> No
         >>> transform.save()
 
     """
+    from .artifact import Artifact
+
     if isinstance(records, Record):
         raise ValueError("Please use record.save() if saving a single record.")
 
