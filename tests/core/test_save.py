@@ -1,6 +1,6 @@
 import lamindb as ln
 import pytest
-from lamindb._save import prepare_error_message, store_artifacts
+from lamindb.models.save import prepare_error_message, store_artifacts
 
 
 def test_bulk_save_and_update():

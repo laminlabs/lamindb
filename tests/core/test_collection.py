@@ -1,5 +1,4 @@
 import re
-from inspect import signature
 
 import anndata as ad
 import bionty as bt
@@ -7,7 +6,6 @@ import lamindb as ln
 import numpy as np
 import pandas as pd
 import pytest
-from lamindb import _collection
 from lamindb.errors import FieldValidationError
 from scipy.sparse import csc_matrix, csr_matrix
 
@@ -35,24 +33,6 @@ def adata2():
         var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
         obsm={"X_pca": np.array([[1, 2], [3, 4]])},
     )
-
-
-def test_signatures():
-    # this seems currently the easiest and most transparent
-    # way to test violations of the signature equality
-    # the MockORM class is needed to get inspect.signature
-    # to work
-    class Mock:
-        pass
-
-    # class methods
-    class_methods = []
-    for name in class_methods:
-        setattr(Mock, name, getattr(_collection, name))
-        assert signature(getattr(Mock, name)) == _collection.SIGS.pop(name)
-    # methods
-    for name, sig in _collection.SIGS.items():
-        assert signature(getattr(_collection, name)) == sig
 
 
 def test_from_single_artifact(adata):
