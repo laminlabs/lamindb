@@ -1299,30 +1299,22 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         # now we proceed with the user-facing constructor
         if len(args) > 1:
             raise ValueError("Only one non-keyword arg allowed: data")
-        from lamindb import settings
-
         data: str | Path = kwargs.pop("data") if len(args) == 0 else args[0]
-        kind: str = kwargs.pop("kind") if "kind" in kwargs else None
-        key: str | None = kwargs.pop("key") if "key" in kwargs else None
-        run: Run | None = kwargs.pop("run") if "run" in kwargs else None
-        description: str | None = (
-            kwargs.pop("description") if "description" in kwargs else None
-        )
-        revises: Artifact | None = (
-            kwargs.pop("revises") if "revises" in kwargs else None
-        )
-        version: str | None = kwargs.pop("version") if "version" in kwargs else None
-        if "visibility" in kwargs:
+        kind: str = kwargs.pop("kind", None)
+        key: str | None = kwargs.pop("key", None)
+        run: Run | None = kwargs.pop("run", None)
+        description: str | None = kwargs.pop("description", None)
+        revises: Artifact | None = kwargs.pop("revises", None)
+        version: str | None = kwargs.pop("version", None)
+        if "visibility" in kwargs:  # backward compat
             _branch_code = kwargs.pop("visibility")
         elif "_branch_code" in kwargs:
             _branch_code = kwargs.pop("_branch_code")
         else:
             _branch_code = 1
-        format = kwargs.pop("format") if "format" in kwargs else None
+        format = kwargs.pop("format", None)
         _is_internal_call = kwargs.pop("_is_internal_call", False)
-        skip_check_exists = (
-            kwargs.pop("skip_check_exists") if "skip_check_exists" in kwargs else False
-        )
+        skip_check_exists = kwargs.pop("skip_check_exists", False)
         if "default_storage" in kwargs:
             default_storage = kwargs.pop("default_storage")
         else:
@@ -1330,9 +1322,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 default_storage = setup_settings.instance.storage_local.record
             else:
                 default_storage = setup_settings.instance.storage.record
-        using_key = (
-            kwargs.pop("using_key") if "using_key" in kwargs else settings._using_key
-        )
+        using_key = kwargs.pop("using_key", None)
         otype = kwargs.pop("otype") if "otype" in kwargs else None
         otype = _check_otype_artifact(data=data, otype=otype)
         if "type" in kwargs:
