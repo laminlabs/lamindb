@@ -41,9 +41,7 @@ from .record import (
     format_field_value,
     record_repr,
 )
-from .core import (
-    Storage,
-)
+from .core import Storage
 from .transform import Transform
 from .run import Run, TracksRun, TracksUpdates, current_run, Param, ParamValue, User
 from .feature import Feature, FeatureValue
