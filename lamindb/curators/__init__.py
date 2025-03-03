@@ -77,7 +77,7 @@ if TYPE_CHECKING:
     from mudata import MuData
     from spatialdata import SpatialData
 
-    from lamindb._query_set import RecordList
+    from lamindb.models.query_set import RecordList
 
 
 def strip_ansi_codes(text):
