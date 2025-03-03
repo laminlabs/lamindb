@@ -1,9 +1,9 @@
 # ruff: noqa: TC004
+from __future__ import annotations
 
 import os
 import shutil
 from collections import defaultdict
-from collections.abc import Iterable
 from pathlib import Path, PurePath, PurePosixPath
 from typing import TYPE_CHECKING, Any, Optional, Union, overload
 
@@ -33,14 +33,10 @@ from lamindb.base.fields import (
     CharField,
     ForeignKey,
 )
-from lamindb.base.types import StrField
 from lamindb.core._settings import settings
 from lamindb.errors import FieldValidationError
 from lamindb.models.query_set import QuerySet
 
-from ..base.types import (
-    ArtifactKind,
-)
 from ..base.users import current_user_id
 from ..core.loaders import load_to_memory
 from ..core.storage import (
@@ -97,7 +93,6 @@ from .record import (
 )
 from .run import Run
 from .schema import Schema
-from .transform import Transform
 from .ulabel import ULabel
 
 WARNING_RUN_TRANSFORM = "no run & transform got linked, call `ln.track()` & re-run"
@@ -113,6 +108,8 @@ except ImportError:
 
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from mudata import MuData  # noqa: TC004
     from pyarrow.dataset import Dataset as PyArrowDataset
     from spatialdata import SpatialData  # noqa: TC004
@@ -120,11 +117,16 @@ if TYPE_CHECKING:
     from tiledbsoma import Experiment as SOMAExperiment
     from tiledbsoma import Measurement as SOMAMeasurement
 
+    from lamindb.base.types import StrField
     from lamindb.core.storage._backed_access import AnnDataAccessor, BackedAccessor
 
+    from ..base.types import (
+        ArtifactKind,
+    )
     from ._label_manager import LabelManager
     from .collection import Collection
     from .project import Project, Reference
+    from .transform import Transform
 
 
 INCONSISTENT_STATE_MSG = (
@@ -277,7 +279,7 @@ def get_stat_or_artifact(
     is_replace: bool = False,
     instance: str | None = None,
 ) -> Union[
-    tuple[int, str | None, str | None, int | None, Optional["Artifact"]], "Artifact"
+    tuple[int, str | None, str | None, int | None, Optional[Artifact]], Artifact
 ]:
     """Retrieves file statistics or an existing artifact based on the path, hash, and key."""
     n_files = None
@@ -581,7 +583,7 @@ def _check_otype_artifact(
     return otype
 
 
-def _populate_subsequent_runs_(record: Union["Artifact", "Collection"], run: Run):
+def _populate_subsequent_runs_(record: Union[Artifact, Collection], run: Run):
     if record.run is None:
         record.run = run
     elif record.run != run:
@@ -605,7 +607,7 @@ def get_run(run: Run | None) -> Run | None:
     return run
 
 
-def save_staged_feature_sets(self: "Artifact") -> None:
+def save_staged_feature_sets(self: Artifact) -> None:
     if hasattr(self, "_staged_feature_sets"):
         from lamindb.models._feature_manager import get_schema_by_slot_
 
@@ -629,7 +631,7 @@ def save_staged_feature_sets(self: "Artifact") -> None:
             )
 
 
-def save_schema_links(self: "Artifact") -> None:
+def save_schema_links(self: Artifact) -> None:
     from lamindb.models.save import bulk_create
 
     if hasattr(self, "_staged_feature_sets"):
@@ -1077,7 +1079,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     """
 
     @property
-    def labels(self) -> "LabelManager":
+    def labels(self) -> LabelManager:
         """Label manager.
 
         To annotate with labels, you typically use the registry-specific accessors,
@@ -1199,7 +1201,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         db_table="lamindb_artifact__previous_runs",  # legacy name, change in lamindb v2
     )
     """Runs that re-created the record after initial creation."""
-    collections: "Collection"
+    collections: Collection
     """The collections that this artifact is part of."""
     schema: Schema | None = ForeignKey(
         Schema,
@@ -1224,7 +1226,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     _key_is_virtual: bool = BooleanField()
     """Indicates whether `key` is virtual or part of an actual file path."""
     # be mindful that below, passing related_name="+" leads to errors
-    _actions: "Artifact" = models.ManyToManyField(
+    _actions: Artifact = models.ManyToManyField(
         "self", symmetrical=False, related_name="_action_targets"
     )
     """Actions to attach for the UI."""
@@ -1241,9 +1243,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     It defaults to False for file-like artifacts and to True for folder-like artifacts.
     """
-    projects: "Project"
+    projects: Project
     """Associated projects."""
-    references: "Reference"
+    references: Reference
     """Associated references."""
 
     @overload
@@ -1260,7 +1262,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         kind: ArtifactKind | None = None,
         key: str | None = None,
         description: str | None = None,
-        revises: Optional["Artifact"] = None,
+        revises: Optional[Artifact] = None,
         run: Run | None = None,
     ): ...
 
@@ -1514,14 +1516,14 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_df(
         cls,
-        df: "pd.DataFrame",
+        df: pd.DataFrame,
         *,
         key: str | None = None,
         description: str | None = None,
         run: Run | None = None,
-        revises: Optional["Artifact"] = None,
+        revises: Optional[Artifact] = None,
         **kwargs,
-    ) -> "Artifact":
+    ) -> Artifact:
         """Create from `DataFrame`, validate & link features.
 
         Args:
@@ -1566,14 +1568,14 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_anndata(
         cls,
-        adata: Union["AnnData", UPathStr],
+        adata: Union[AnnData, UPathStr],
         *,
         key: str | None = None,
         description: str | None = None,
         run: Run | None = None,
-        revises: Optional["Artifact"] = None,
+        revises: Optional[Artifact] = None,
         **kwargs,
-    ) -> "Artifact":
+    ) -> Artifact:
         """Create from ``AnnData``, validate & link features.
 
         Args:
@@ -1629,14 +1631,14 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_mudata(
         cls,
-        mdata: Union["MuData", UPathStr],
+        mdata: Union[MuData, UPathStr],
         *,
         key: str | None = None,
         description: str | None = None,
         run: Run | None = None,
-        revises: Optional["Artifact"] = None,
+        revises: Optional[Artifact] = None,
         **kwargs,
-    ) -> "Artifact":
+    ) -> Artifact:
         """Create from ``MuData``, validate & link features.
 
         Args:
@@ -1679,14 +1681,14 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_spatialdata(
         cls,
-        sdata: Union["SpatialData", UPathStr],
+        sdata: Union[SpatialData, UPathStr],
         *,
         key: str | None = None,
         description: str | None = None,
         run: Run | None = None,
-        revises: Optional["Artifact"] = None,
+        revises: Optional[Artifact] = None,
         **kwargs,
-    ) -> "Artifact":
+    ) -> Artifact:
         """Create from ``SpatialData``, validate & link features.
 
         Args:
@@ -1732,9 +1734,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         key: str | None = None,
         description: str | None = None,
         run: Run | None = None,
-        revises: Optional["Artifact"] = None,
+        revises: Optional[Artifact] = None,
         **kwargs,
-    ) -> "Artifact":
+    ) -> Artifact:
         """Create from a tiledbsoma store.
 
         Args:
@@ -1773,7 +1775,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         *,
         key: str | None = None,
         run: Run | None = None,
-    ) -> list["Artifact"]:
+    ) -> list[Artifact]:
         """Create a list of artifact objects from a directory.
 
         Hint:
@@ -1879,7 +1881,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     def replace(
         self,
-        data: Union[UPathStr, "pd.DataFrame", "AnnData", "MuData"],
+        data: Union[UPathStr, pd.DataFrame, AnnData, MuData],
         run: Run | None = None,
         format: str | None = None,
     ) -> None:
@@ -1978,12 +1980,12 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     def open(
         self, mode: str = "r", is_run_input: bool | None = None, **kwargs
     ) -> Union[
-        "AnnDataAccessor",
-        "BackedAccessor",
-        "SOMACollection",
-        "SOMAExperiment",
-        "SOMAMeasurement",
-        "PyArrowDataset",
+        AnnDataAccessor,
+        BackedAccessor,
+        SOMACollection,
+        SOMAExperiment,
+        SOMAMeasurement,
+        PyArrowDataset,
     ]:
         """Return a cloud-backed data object.
 
@@ -2313,7 +2315,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 if delete_msg != "did-not-delete":
                     logger.success(f"deleted {colors.yellow(f'{path}')}")
 
-    def save(self, upload: bool | None = None, **kwargs) -> "Artifact":
+    def save(self, upload: bool | None = None, **kwargs) -> Artifact:
         """Save to database & storage.
 
         Args:

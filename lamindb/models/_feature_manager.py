@@ -661,6 +661,8 @@ def __getitem__(self, slot) -> QuerySet:
 
 
 def filter_base(cls, **expression):
+    from .artifact import Artifact
+
     if cls is FeatureManager:
         model = Feature
         value_model = FeatureValue
@@ -1019,6 +1021,8 @@ def remove_values(
         value: An optional value to restrict removal to a single value.
 
     """
+    from .artifact import Artifact
+
     if isinstance(feature, str):
         feature = Feature.get(name=feature)
     filter_kwargs = {"feature": feature}

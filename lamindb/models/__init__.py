@@ -35,5 +35,6 @@ from .artifact import Artifact
 from .collection import Collection, CollectionArtifact
 from .project import Person, Project, Reference
 from .flextable import FlexTable, RunData
+from . import query_manager, query_set
 
 FeatureSet = Schema  # backward compat
