@@ -40,7 +40,10 @@ class QueryManager(models.Manager):
                 and self.target_field_name == "artifact"
             ):
                 from lamindb.core._context import context
-                from lamindb.core._data import WARNING_RUN_TRANSFORM, _track_run_input
+                from lamindb.models.artifact import (
+                    WARNING_RUN_TRANSFORM,
+                    _track_run_input,
+                )
 
                 if (
                     context.run is None
