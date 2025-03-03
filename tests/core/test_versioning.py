@@ -2,7 +2,7 @@ import lamindb as ln
 import pandas as pd
 import pytest
 from lamindb import UPath
-from lamindb.models._versioning import (
+from lamindb.models._is_versioned import (
     bump_version,
     get_new_path_from_uid,
     set_version,
