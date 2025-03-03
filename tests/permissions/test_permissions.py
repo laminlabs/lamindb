@@ -12,7 +12,7 @@ set_token(token)
 def test_fine_grained_permissions():
     # check select
     assert ln.ULabel.filter().count() == 2
-    assert ln.Project.filter.count() == 0
+    assert ln.Project.filter().count() == 0
     # check delete
     # should delete
     ln.ULabel.get(name="full_access_ulabel").delete()
