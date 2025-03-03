@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, overload
+from typing import TYPE_CHECKING, overload
 
 from django.db import models
 from django.db.models import CASCADE, PROTECT
@@ -100,9 +100,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     """A universal random id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True)
     """Name or title of ulabel."""
-    type: Optional[ULabel] = ForeignKey(
-        "self", PROTECT, null=True, related_name="records"
-    )
+    type: ULabel | None = ForeignKey("self", PROTECT, null=True, related_name="records")
     """Type of ulabel, e.g., `"donor"`, `"split"`, etc.
 
     Allows to group ulabels by type, e.g., all donors, all split ulabels, etc.
@@ -149,7 +147,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     def __init__(
         self,
         name: str,
-        type: Optional[ULabel] = None,
+        type: ULabel | None = None,
         is_type: bool = False,
         description: str | None = None,
         reference: str | None = None,
