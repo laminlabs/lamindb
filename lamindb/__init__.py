@@ -92,22 +92,17 @@ if _check_instance_setup(from_module="lamindb"):
     from .core._context import context
     from .core._settings import settings
     from .curators import CatManager as Curator
-    from .models import (
-        Artifact,
-        Collection,
-        Feature,
-        FeatureSet,  # backward compat
-        Param,
-        Person,
-        Project,
-        Reference,
-        Run,
-        Schema,
-        Storage,
-        Transform,
-        ULabel,
-        User,
-    )
+    from .models.artifact import Artifact
+    from .models.collection import Collection
+    from .models.feature import Feature
+    from .models.run import Run, Param
+    from .models.project import Person, Project, Reference
+    from .models.schema import Schema
+    from .models.core import Storage
+    from .models.transform import Transform
+    from .models.ulabel import ULabel
+    from .models.run import User
+    from . import models
     from .models.save import save
     from . import core
     from . import integrations
@@ -124,3 +119,5 @@ if _check_instance_setup(from_module="lamindb"):
 
     """
     from django.db.models import Q
+
+    FeatureSet = Schema  # backward compat
