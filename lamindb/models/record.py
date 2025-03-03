@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 import builtins
 import inspect
 import re
 import sys
 from collections import defaultdict
-from datetime import datetime
 from functools import reduce
 from itertools import chain
 from pathlib import PurePosixPath
@@ -12,7 +13,6 @@ from typing import (
     Any,
     Literal,
     NamedTuple,
-    Optional,
     Union,
 )
 
@@ -78,6 +78,8 @@ from ..errors import (
 from ._is_versioned import IsVersioned
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     import pandas as pd
 
     from .artifact import Artifact
@@ -166,7 +168,7 @@ def is_approx_pascal_case(s):
     return True
 
 
-def init_self_from_db(self: "Record", existing_record: "Record"):
+def init_self_from_db(self: Record, existing_record: Record):
     new_args = [
         getattr(existing_record, field.attname) for field in self._meta.concrete_fields
     ]
@@ -175,7 +177,7 @@ def init_self_from_db(self: "Record", existing_record: "Record"):
     self._state.db = "default"
 
 
-def update_attributes(record: "Record", attributes: dict[str, str]):
+def update_attributes(record: Record, attributes: dict[str, str]):
     for key, value in attributes.items():
         if (
             getattr(record, key) != value
@@ -187,7 +189,7 @@ def update_attributes(record: "Record", attributes: dict[str, str]):
             setattr(record, key, value)
 
 
-def validate_literal_fields(record: "Record", kwargs) -> None:
+def validate_literal_fields(record: Record, kwargs) -> None:
     """Validate all Literal type fields in a record.
 
     Args:
@@ -265,7 +267,7 @@ def validate_literal_fields(record: "Record", kwargs) -> None:
         raise FieldValidationError(message)
 
 
-def validate_fields(record: "Record", kwargs):
+def validate_fields(record: Record, kwargs):
     from lamindb.models import (
         Artifact,
         Collection,
@@ -319,8 +321,8 @@ def validate_fields(record: "Record", kwargs):
 
 
 def suggest_records_with_similar_names(
-    record: "Record", name_field: str, kwargs
-) -> Optional["Record"]:
+    record: Record, name_field: str, kwargs
+) -> Record | None:
     """Returns True if found exact match, otherwise False.
 
     Logs similar matches if found.
@@ -469,7 +471,7 @@ class Registry(ModelBase):
         """
         return _lookup(cls=cls, field=field, return_field=return_field)
 
-    def filter(cls, *queries, **expressions) -> "QuerySet":
+    def filter(cls, *queries, **expressions) -> QuerySet:
         """Query records.
 
         Args:
@@ -499,7 +501,7 @@ class Registry(ModelBase):
         cls,
         idlike: int | str | None = None,
         **expressions,
-    ) -> "Record":
+    ) -> Record:
         """Get a single record.
 
         Args:
@@ -529,7 +531,7 @@ class Registry(ModelBase):
         include: str | list[str] | None = None,
         features: bool | list[str] = False,
         limit: int = 100,
-    ) -> "pd.DataFrame":
+    ) -> pd.DataFrame:
         """Convert to `pd.DataFrame`.
 
         By default, shows all direct fields, except `updated_at`.
@@ -573,7 +575,7 @@ class Registry(ModelBase):
         field: StrField | None = None,
         limit: int | None = 20,
         case_sensitive: bool = False,
-    ) -> "QuerySet":
+    ) -> QuerySet:
         """Search.
 
         Args:
@@ -606,7 +608,7 @@ class Registry(ModelBase):
     def using(
         cls,
         instance: str | None,
-    ) -> "QuerySet":
+    ) -> QuerySet:
         """Use a non-default LaminDB instance.
 
         Args:
@@ -770,7 +772,7 @@ class BasicRecord(models.Model, metaclass=Registry):
             _store_record_old_name(self)
             _store_record_old_key(self)
 
-    def save(self, *args, **kwargs) -> "Record":
+    def save(self, *args, **kwargs) -> Record:
         """Save.
 
         Always saves to the default database.
@@ -911,7 +913,7 @@ class Space(BasicRecord):
         editable=False, db_default=models.functions.Now(), db_index=True
     )
     """Time of creation of record."""
-    created_by: "User" = ForeignKey(
+    created_by: User = ForeignKey(
         "User", CASCADE, default=None, related_name="+", null=True
     )
     """Creator of run."""
@@ -1298,7 +1300,7 @@ def transfer_fk_to_default_db_bulk(
         update_fk_to_default_db(records, fk, using_key, transfer_logs=transfer_logs)
 
 
-def get_transfer_run(record) -> "Run":
+def get_transfer_run(record) -> Run:
     from lamindb import settings
     from lamindb.core._context import context
     from lamindb.models import Run, Transform
@@ -1475,7 +1477,7 @@ def check_name_change(record: Record):
                 raise RecordNameChangeIntegrityError
 
 
-def check_key_change(record: Union["Artifact", "Transform"]):
+def check_key_change(record: Union[Artifact, Transform]):
     """Errors if a record's key has falsely changed."""
     from .artifact import Artifact
 

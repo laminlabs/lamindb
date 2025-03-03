@@ -1,5 +1,6 @@
-from datetime import date as DateType
-from typing import Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from django.core.validators import RegexValidator
 from django.db import models
@@ -26,6 +27,9 @@ from .run import TracksRun, TracksUpdates
 from .schema import Schema
 from .transform import Transform
 from .ulabel import ULabel
+
+if TYPE_CHECKING:
+    from datetime import date as DateType
 
 
 class Person(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
@@ -93,14 +97,14 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         null=True,
     )
     """An abbreviation for the reference."""
-    type: Optional["Reference"] = ForeignKey(
+    type: Reference | None = ForeignKey(
         "self", PROTECT, null=True, related_name="records"
     )
     """Type of reference (e.g., 'Study', 'Paper', 'Preprint').
 
     Allows to group reference by type, e.g., internal studies vs. all papers etc.
     """
-    records: "Reference"
+    records: Reference
     """Records of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
@@ -163,11 +167,11 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Universal id, valid across DB instances."""
     name: str = CharField(db_index=True)
     """Title or name of the Project."""
-    type: Optional["Project"] = ForeignKey(
+    type: Project | None = ForeignKey(
         "self", PROTECT, null=True, related_name="records"
     )
     """Type of project (e.g., 'Program', 'Project', 'GithubIssue', 'Task')."""
-    records: "Project"
+    records: Project
     """Records of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
@@ -179,20 +183,20 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Date of start of the project."""
     end_date: DateType | None = DateField(null=True, default=None)
     """Date of start of the project."""
-    parents: "Project" = models.ManyToManyField(
+    parents: Project = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
     """Parent projects, the super-projects owning this project."""
-    children: "Project"
+    children: Project
     """Child projects, the sub-projects owned by this project.
 
     Reverse accessor for `.parents`.
     """
-    predecessors: "Project" = models.ManyToManyField(
+    predecessors: Project = models.ManyToManyField(
         "self", symmetrical=False, related_name="successors"
     )
     """The preceding projects required by this project."""
-    successors: "Project"
+    successors: Project
     """The succeeding projects requiring this project.
 
     Reverse accessor for `.predecessors`.
@@ -225,9 +229,7 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         Collection, through="CollectionProject", related_name="projects"
     )
     """Collections associated with this project."""
-    references: "Reference" = models.ManyToManyField(
-        "Reference", related_name="projects"
-    )
+    references: Reference = models.ManyToManyField("Reference", related_name="projects")
     """References associated with this project."""
     _status_code: int = models.SmallIntegerField(default=0, db_index=True)
     """Status code."""
