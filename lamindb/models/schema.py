@@ -81,11 +81,11 @@ def validate_features(features: list[Record]) -> Record:
 
 
 class Schema(Record, CanCurate, TracksRun):
-    """Schemas / feature sets.
+    """Schemas.
 
-    A simple schema is just a set of columns in a `DataFrame`, a "feature set".
+    The simplest schema is a feature set such as the set of columns of a `DataFrame`.
 
-    A composite schema has multiple components, e.g. for an `AnnData`, each a feature set for `obs` and `var`.
+    A composite schema has multiple components, e.g., for an `AnnData`, one schema for `obs` and another one for `var`.
 
     Args:
         features: `Iterable[Record] | None = None` An iterable of :class:`~lamindb.Feature`
