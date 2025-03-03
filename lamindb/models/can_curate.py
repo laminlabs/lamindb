@@ -1,12 +1,11 @@
-from typing import TYPE_CHECKING, Iterable, Literal, Optional, Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Iterable, Literal, Union
 
 import numpy as np
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from lamin_utils import colors, logger
-from lamin_utils._inspect import InspectResult
-
-from lamindb.base.types import ListLike, StrField
 
 from ..errors import ValidationError
 from ._from_values import _format_values, _has_organism_field, get_or_create_records
@@ -14,6 +13,9 @@ from .record import Record, _queryset, get_name_field
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
+    from lamin_utils._inspect import InspectResult
+
+    from lamindb.base.types import ListLike, StrField
 
     from .query_set import RecordList
 
@@ -356,14 +358,14 @@ def _standardize(
 
 def _add_or_remove_synonyms(
     synonym: str | ListLike,
-    record: "CanCurate",
+    record: CanCurate,
     action: Literal["add", "remove"],
     force: bool = False,
     save: bool | None = None,
 ):
     """Add or remove synonyms."""
 
-    def check_synonyms_in_all_records(synonyms: set[str], record: "CanCurate"):
+    def check_synonyms_in_all_records(synonyms: set[str], record: CanCurate):
         """Errors if input synonym is associated with other records in the DB."""
         import pandas as pd
         from IPython.display import display
@@ -434,7 +436,7 @@ def _add_or_remove_synonyms(
         record.save()  # type: ignore
 
 
-def _check_synonyms_field_exist(record: "CanCurate"):
+def _check_synonyms_field_exist(record: CanCurate):
     try:
         record.__getattribute__("synonyms")
     except AttributeError:
@@ -444,7 +446,7 @@ def _check_synonyms_field_exist(record: "CanCurate"):
 
 
 def _filter_query_based_on_organism(
-    queryset: "QuerySet",
+    queryset: QuerySet,
     field: str,
     organism: str | Record | None = None,
     values_list_field: str | None = None,
@@ -496,8 +498,8 @@ class CanCurate:
         field: str | StrField | None = None,
         *,
         mute: bool = False,
-        organism: Union[str, "Record", None] = None,
-        source: Optional["Record"] = None,
+        organism: Union[str, Record, None] = None,
+        source: Record | None = None,
         strict_source: bool = False,
     ) -> InspectResult:
         """Inspect if values are mappable to a field.
@@ -548,10 +550,10 @@ class CanCurate:
         field: str | StrField | None = None,
         *,
         mute: bool = False,
-        organism: Union[str, "Record", None] = None,
-        source: Optional["Record"] = None,
+        organism: Union[str, Record, None] = None,
+        source: Record | None = None,
         strict_source: bool = False,
-    ) -> "np.ndarray":
+    ) -> np.ndarray:
         """Validate values against existing values of a string field.
 
         Note this is strict_source validation, only asserts exact matches.
@@ -599,10 +601,10 @@ class CanCurate:
         values: ListLike,
         field: StrField | None = None,
         create: bool = False,
-        organism: Union["Record", str, None] = None,
-        source: Optional["Record"] = None,
+        organism: Union[Record, str, None] = None,
+        source: Record | None = None,
         mute: bool = False,
-    ) -> "RecordList":
+    ) -> RecordList:
         """Bulk create validated records by parsing values for an identifier such as a name or an id).
 
         Args:
@@ -665,8 +667,8 @@ class CanCurate:
         public_aware: bool = True,
         keep: Literal["first", "last", False] = "first",
         synonyms_field: str = "synonyms",
-        organism: Union[str, "Record", None] = None,
-        source: Optional["Record"] = None,
+        organism: Union[str, Record, None] = None,
+        source: Record | None = None,
         strict_source: bool = False,
     ) -> list[str] | dict[str, str]:
         """Maps input synonyms to standardized names.

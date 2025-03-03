@@ -5,7 +5,7 @@ import os
 import shutil
 from collections import defaultdict
 from pathlib import Path, PurePath, PurePosixPath
-from typing import TYPE_CHECKING, Any, Optional, Union, overload
+from typing import TYPE_CHECKING, Any, Union, overload
 
 import fsspec
 import lamindb_setup as ln_setup
@@ -275,9 +275,7 @@ def get_stat_or_artifact(
     check_hash: bool = True,
     is_replace: bool = False,
     instance: str | None = None,
-) -> Union[
-    tuple[int, str | None, str | None, int | None, Optional[Artifact]], Artifact
-]:
+) -> Union[tuple[int, str | None, str | None, int | None, Artifact | None], Artifact]:
     """Retrieves file statistics or an existing artifact based on the path, hash, and key."""
     n_files = None
     from lamindb import settings
@@ -1266,7 +1264,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         kind: ArtifactKind | None = None,
         key: str | None = None,
         description: str | None = None,
-        revises: Optional[Artifact] = None,
+        revises: Artifact | None = None,
         run: Run | None = None,
     ): ...
 
@@ -1520,7 +1518,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         key: str | None = None,
         description: str | None = None,
         run: Run | None = None,
-        revises: Optional[Artifact] = None,
+        revises: Artifact | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from `DataFrame`, validate & link features.
@@ -1572,7 +1570,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         key: str | None = None,
         description: str | None = None,
         run: Run | None = None,
-        revises: Optional[Artifact] = None,
+        revises: Artifact | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from ``AnnData``, validate & link features.
@@ -1635,7 +1633,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         key: str | None = None,
         description: str | None = None,
         run: Run | None = None,
-        revises: Optional[Artifact] = None,
+        revises: Artifact | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from ``MuData``, validate & link features.
@@ -1685,7 +1683,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         key: str | None = None,
         description: str | None = None,
         run: Run | None = None,
-        revises: Optional[Artifact] = None,
+        revises: Artifact | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from ``SpatialData``, validate & link features.
@@ -1733,7 +1731,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         key: str | None = None,
         description: str | None = None,
         run: Run | None = None,
-        revises: Optional[Artifact] = None,
+        revises: Artifact | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from a tiledbsoma store.
