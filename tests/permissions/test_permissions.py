@@ -37,3 +37,7 @@ def test_fine_grained_permissions():
     ulabel.name = "new label update"
     ulabel.save()
     ulabel = ln.ULabel.get(name="new label update")  # check that it is saved
+    # should succeed
+    ulabel = ln.ULabel.get(name="select_ulabel")
+    ulabel.name = "select_ulabel update"
+    ulabel.save()
