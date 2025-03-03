@@ -2396,13 +2396,13 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         self._branch_code = 1
         self.save()
 
-    def describe(self, print_types: bool = False) -> None:
+    def describe(self) -> None:
         """Describe relations of record.
 
         Examples:
             >>> artifact.describe()
         """
-        return describe_artifact_collection(self, print_types)
+        return describe_artifact_collection(self)
 
     def _populate_subsequent_runs(self, run: Run) -> None:
         _populate_subsequent_runs_(self, run)
