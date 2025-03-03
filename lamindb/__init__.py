@@ -28,6 +28,13 @@ Registries.
    Reference
    Person
 
+Curators & integrations.
+
+.. autosummary::
+
+   curators
+   integrations
+
 Key functionality.
 
 .. autosummary::
@@ -36,19 +43,17 @@ Key functionality.
    connect
    view
    save
+   UPath
+   settings
 
-Modules and settings.
+Low-level functionality.
 
 .. autosummary::
    :toctree: .
 
-   integrations
    context
-   curators
-   settings
    errors
    setup
-   UPath
    base
    models
    core
