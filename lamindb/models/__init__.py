@@ -57,7 +57,8 @@ from ._label_manager import LabelManager
 from .collection import Collection, CollectionArtifact
 from .project import Person, Project, Reference
 from .flextable import FlexTable, RunData
-from . import query_manager, query_set
+from .query_manager import QueryManager
+from .query_set import QuerySet
 from .has_parents import HasParents
 
 FeatureSet = Schema  # backward compat
