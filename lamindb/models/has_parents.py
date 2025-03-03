@@ -349,6 +349,8 @@ def _df_edges_from_parents(
 
 
 def _record_label(record: Record, field: str | None = None):
+    from .artifact import Artifact
+
     if isinstance(record, Artifact):
         if record.description is None:
             name = record.key
