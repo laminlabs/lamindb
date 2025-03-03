@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import lamindb_setup as ln_setup
 from django.db.models import ManyToManyField
 from lamindb_setup._connect_instance import (
@@ -8,7 +10,10 @@ from lamindb_setup._connect_instance import (
 )
 from lamindb_setup.core._settings_store import instance_settings_file
 
-from lamindb.models import LinkORM, Record, Registry, Schema
+from lamindb.models.base import LinkORM
+
+if TYPE_CHECKING:
+    from lamindb.models.record import Record, Registry
 
 
 def get_schema_modules(instance: str | None) -> set[str]:
@@ -84,6 +89,8 @@ def dict_related_model_to_related_name(
 
 
 def get_related_name(features_type: type[Record]) -> str:
+    from lamindb.models.schema import Schema
+
     candidates = [
         field.related_name
         for field in Schema._meta.related_objects

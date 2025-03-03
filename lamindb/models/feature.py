@@ -4,8 +4,9 @@ from typing import TYPE_CHECKING, Any, Optional, get_args, overload
 
 import pandas as pd
 from django.db import models
-from django.db.models import CASCADE, PROTECT, IntegrityError, Q
+from django.db.models import CASCADE, PROTECT, Q
 from django.db.models.query_utils import DeferredAttribute
+from django.db.utils import IntegrityError
 from lamin_utils import logger
 from lamindb_setup._init_instance import get_schema_module_name
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dict
@@ -24,7 +25,6 @@ from lamindb.errors import FieldValidationError, ValidationError
 
 from ..base.ids import base62_12
 from ..core.relations import dict_module_name_to_model_name
-from .artifact import Artifact
 from .base import (
     TracksRun,
     TracksUpdates,
@@ -44,6 +44,8 @@ def parse_dtype_single_cat(
     related_registries: dict[str, Record] | None = None,
     is_itype: bool = False,
 ) -> dict:
+    from .artifact import Artifact
+
     assert isinstance(dtype_str, str)  # noqa: S101
     if related_registries is None:
         related_registries = dict_module_name_to_model_name(Artifact)
@@ -110,6 +112,8 @@ def parse_dtype_single_cat(
 
 
 def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
+    from .artifact import Artifact
+
     allowed_dtypes = FEATURE_DTYPES
     if is_param:
         allowed_dtypes.add("dict")

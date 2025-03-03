@@ -1,13 +1,11 @@
-from __future__ import annotations
-
 from collections import defaultdict
-from typing import TYPE_CHECKING
+from collections.abc import Iterable
 
 from django.db import connections
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 
-from lamindb._query_set import QuerySet
+from lamindb.base.types import StrField
 from lamindb.core._settings import settings
 from lamindb.models import (
     Artifact,
@@ -20,6 +18,7 @@ from lamindb.models import (
     format_field_value,
     record_repr,
 )
+from lamindb.models.query_set import QuerySet
 
 from .._tracked import get_current_tracked_run
 from ..errors import ValidationError
@@ -34,12 +33,6 @@ from .relations import (
     dict_module_name_to_model_name,
     dict_related_model_to_related_name,
 )
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
-
-    from lamindb.base.types import StrField
-
 
 WARNING_RUN_TRANSFORM = "no run & transform got linked, call `ln.track()` & re-run"
 

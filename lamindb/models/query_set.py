@@ -1,11 +1,9 @@
-from __future__ import annotations
-
 import re
 import warnings
 from collections import UserList
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
-from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar
+from typing import Any, Generic, NamedTuple, TypeVar, Union
 
 import pandas as pd
 from django.core.exceptions import FieldError
@@ -15,26 +13,14 @@ from django.db.models.fields.related import ForeignObjectRel
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 
-from lamindb.models import (
-    Artifact,
-    CanCurate,
-    Collection,
-    Feature,
-    IsVersioned,
-    Record,
-    Run,
-    Schema,
-    Transform,
-)
+from lamindb.base.types import ListLike, StrField
+from lamindb.models.base import IsVersioned
+from lamindb.models.record import Record
 
-from .errors import DoesNotExist
+from ..errors import DoesNotExist
+from .can_curate import CanCurate
 
 T = TypeVar("T")
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
-
-    from lamindb.base.types import ListLike, StrField
 
 
 class MultipleResultsFound(Exception):
@@ -82,6 +68,13 @@ def one_helper(self):
 
 
 def get_backward_compat_filter_kwargs(queryset, expressions):
+    from lamindb.models import (
+        Artifact,
+        Collection,
+        Schema,
+        Transform,
+    )
+
     if queryset.model in {Collection, Transform}:
         name_mappings = {
             "name": "key",
@@ -130,7 +123,7 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
     return list(mapped.keys()) if was_list else mapped
 
 
-def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
+def process_expressions(queryset: "QuerySet", expressions: dict) -> dict:
     def _map_databases(value: Any, key: str, target_db: str) -> tuple[str, Any]:
         if isinstance(value, Record):
             if value._state.db != target_db:
@@ -190,7 +183,7 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
 
 
 def get(
-    registry_or_queryset: type[Record] | QuerySet,
+    registry_or_queryset: Union[type[Record], "QuerySet"],
     idlike: int | str | None = None,
     **expressions,
 ) -> Record:
@@ -255,16 +248,16 @@ class RecordList(UserList, Generic[T]):
         """Exactly one result. Throws error if there are more or none."""
         return one_helper(self)
 
-    def save(self) -> RecordList[T]:
+    def save(self) -> "RecordList"[T]:
         """Save all records to the database."""
-        from lamindb._save import save
+        from lamindb.models.save import save
 
         save(self)
         return self
 
 
 def get_basic_field_names(
-    qs: QuerySet, include: list[str], features: bool | list[str] = False
+    qs: "QuerySet", include: list[str], features: bool | list[str] = False
 ) -> list[str]:
     exclude_field_names = ["updated_at"]
     field_names = [
@@ -305,6 +298,11 @@ def get_basic_field_names(
 
 
 def get_feature_annotate_kwargs(show_features: bool | list[str]) -> dict[str, Any]:
+    from lamindb.models import (
+        Artifact,
+        Feature,
+    )
+
     features = Feature.filter()
     if isinstance(show_features, list):
         features.filter(name__in=show_features)
@@ -583,6 +581,8 @@ class QuerySet(models.QuerySet):
 
     def delete(self, *args, **kwargs):
         """Delete all records in the query set."""
+        from lamindb.models import Artifact, Collection, Run, Transform
+
         # both Transform & Run might reference artifacts
         if self.model in {Artifact, Collection, Transform, Run}:
             for record in self:
@@ -649,7 +649,7 @@ class QuerySet(models.QuerySet):
             self._handle_unknown_field(e)
             raise  # pragma: no cover
 
-    def filter(self, *queries, **expressions) -> QuerySet:
+    def filter(self, *queries, **expressions) -> "QuerySet":
         """Query a set of records."""
         # Suggest to use __name for related fields such as id when not passed
         for field, value in expressions.items():
@@ -691,7 +691,7 @@ class QuerySet(models.QuerySet):
         else:
             raise MultipleResultsFound(self.all())
 
-    def latest_version(self) -> QuerySet:
+    def latest_version(self) -> "QuerySet":
         """Filter every version family by latest version."""
         if issubclass(self.model, IsVersioned):
             return self.filter(is_latest=True)
@@ -707,7 +707,7 @@ class QuerySet(models.QuerySet):
 @doc_args(Record.search.__doc__)
 def search(self, string: str, **kwargs):
     """{}"""  # noqa: D415
-    from ._record import _search
+    from .record import _search
 
     return _search(cls=self, string=string, **kwargs)
 
@@ -715,7 +715,7 @@ def search(self, string: str, **kwargs):
 @doc_args(Record.lookup.__doc__)
 def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
     """{}"""  # noqa: D415
-    from ._record import _lookup
+    from .record import _lookup
 
     return _lookup(cls=self, field=field, **kwargs)
 
@@ -723,7 +723,7 @@ def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
 @doc_args(CanCurate.validate.__doc__)
 def validate(self, values: ListLike, field: str | StrField | None = None, **kwargs):
     """{}"""  # noqa: D415
-    from ._can_curate import _validate
+    from .can_curate import _validate
 
     return _validate(cls=self, values=values, field=field, **kwargs)
 
@@ -731,7 +731,7 @@ def validate(self, values: ListLike, field: str | StrField | None = None, **kwar
 @doc_args(CanCurate.inspect.__doc__)
 def inspect(self, values: ListLike, field: str | StrField | None = None, **kwargs):
     """{}"""  # noqa: D415
-    from ._can_curate import _inspect
+    from .can_curate import _inspect
 
     return _inspect(cls=self, values=values, field=field, **kwargs)
 
@@ -739,7 +739,7 @@ def inspect(self, values: ListLike, field: str | StrField | None = None, **kwarg
 @doc_args(CanCurate.standardize.__doc__)
 def standardize(self, values: Iterable, field: str | StrField | None = None, **kwargs):
     """{}"""  # noqa: D415
-    from ._can_curate import _standardize
+    from .can_curate import _standardize
 
     return _standardize(cls=self, values=values, field=field, **kwargs)
 

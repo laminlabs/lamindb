@@ -26,7 +26,7 @@ from ..base.types import (
 from ..base.users import current_user_id
 
 if TYPE_CHECKING:  # noqa
-    from lamindb.core import QuerySet
+    from lamindb.models.query_set import QuerySet
 
     from .record import User
     from .run import Run

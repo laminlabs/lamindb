@@ -7,7 +7,8 @@ import fsspec
 import lamindb_setup as ln_setup
 import pandas as pd
 from anndata import AnnData
-from django.db.models import CASCADE, PROTECT, Q, models
+from django.db import models
+from django.db.models import CASCADE, PROTECT, Q
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage_in_instance
@@ -31,7 +32,6 @@ from lamindb.base.fields import (
     ForeignKey,
 )
 from lamindb.errors import FieldValidationError
-from lamindb.models import FeatureManager, ParamManager, Run, Storage
 
 from ..base.types import (
     ArtifactKind,
@@ -70,11 +70,20 @@ from ..core.versioning import (
     message_update_key_in_version_family,
 )
 from ..errors import IntegrityError, InvalidArgument
-from .base import IsVersioned, LinkORM, ParamManagerArtifact, TracksRun, TracksUpdates
-from .core import ParamValue, User
+from .base import (
+    FeatureManager,
+    IsVersioned,
+    LinkORM,
+    ParamManager,
+    ParamManagerArtifact,
+    TracksRun,
+    TracksUpdates,
+)
+from .core import ParamValue, Storage, User
 from .feature import FeatureValue
 from .has_parents import view_lineage
 from .record import BasicRecord, Record, _get_record_kwargs
+from .run import Run
 from .schema import Schema
 from .transform import Transform
 from .ulabel import ULabel

@@ -20,19 +20,6 @@ from lamindb_setup.core.upath import create_path
 from rich.table import Column, Table
 from rich.text import Text
 
-from lamindb._feature import (
-    convert_pandas_dtype_to_lamin_dtype,
-    suggest_categorical_for_str_iterable,
-)
-from lamindb._from_values import _format_values
-from lamindb._record import (
-    REGISTRY_UNIQUE_FIELD,
-    get_name_field,
-    transfer_fk_to_default_db_bulk,
-    transfer_to_default_db,
-)
-from lamindb._save import save
-from lamindb._schema import DICT_KEYS_TYPE, Schema
 from lamindb.core.storage import LocalPathClasses
 from lamindb.errors import DoesNotExist, ValidationError
 from lamindb.models import (
@@ -51,6 +38,19 @@ from lamindb.models import (
     Run,
     ULabel,
 )
+from lamindb.models.feature import (
+    convert_pandas_dtype_to_lamin_dtype,
+    suggest_categorical_for_str_iterable,
+)
+from lamindb.models.from_values import _format_values
+from lamindb.models.record import (
+    REGISTRY_UNIQUE_FIELD,
+    get_name_field,
+    transfer_fk_to_default_db_bulk,
+    transfer_to_default_db,
+)
+from lamindb.models.save import save
+from lamindb.models.schema import DICT_KEYS_TYPE, Schema
 
 from ._describe import (
     NAME_WIDTH,

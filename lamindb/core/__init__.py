@@ -68,8 +68,8 @@ Modules:
 from lamin_utils import logger
 from lamin_utils._inspect import InspectResult
 
-from lamindb._query_manager import QueryManager
-from lamindb._query_set import QuerySet, RecordList
+# from lamindb.models.query_manager import QueryManager
+# from lamindb.models.query_set import QuerySet, RecordList
 from lamindb.core._feature_manager import FeatureManager, ParamManager
 from lamindb.core._label_manager import LabelManager
 from lamindb.curators import (
