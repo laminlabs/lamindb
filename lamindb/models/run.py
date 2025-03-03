@@ -331,7 +331,9 @@ class ParamValue(Record):
 
 
 class Run(Record):
-    """Runs of transforms.
+    """Runs.
+
+    A registry to store runs of transforms, such as an executation of a script.
 
     Args:
         transform: `Transform` A :class:`~lamindb.Transform` record.
@@ -340,7 +342,7 @@ class Run(Record):
 
     See Also:
         :meth:`~lamindb.core.Context.track`
-            Track global run & transform records for a notebook or pipeline.
+            Track global runs & transforms for a notebook or script.
 
     Examples:
 

@@ -16,8 +16,8 @@ Registries.
 
    Artifact
    Transform
-   ULabel
    Run
+   ULabel
    User
    Storage
    Feature
