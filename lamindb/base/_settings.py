@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 from lamindb_setup._set_managed_storage import set_managed_storage
-from lamindb_setup.base._settings import settings as setup_settings
-from lamindb_setup.base._settings_instance import sanitize_git_repo_url
+from lamindb_setup.core._settings import settings as setup_settings
+from lamindb_setup.core._settings_instance import sanitize_git_repo_url
 
 from .subsettings._creation_settings import CreationSettings, creation_settings
 
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
-    from lamindb_setup.base._settings_storage import StorageSettings
+    from lamindb_setup.core._settings_storage import StorageSettings
     from upath import UPath
 
 VERBOSITY_TO_INT = {

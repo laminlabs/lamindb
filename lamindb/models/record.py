@@ -54,9 +54,9 @@ from lamindb_setup._connect_instance import (
     load_instance_settings,
     update_db_using_local,
 )
-from lamindb_setup.base._settings_store import instance_settings_file
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._hub_core import connect_instance_hub
+from lamindb_setup.core._settings_store import instance_settings_file
 from lamindb_setup.core.upath import extract_suffix_from_path
 
 from lamindb.base import deprecated
