@@ -2335,7 +2335,7 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         *,
         defaults: dict[str, str] = None,
         extra_sources: dict[str, Record] = None,
-        schema_version: Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0"] = "5.2.0",
+        schema_version: Literal["4.0.0", "5.0.0", "5.1.0"] = "5.1.0",
         verbosity: str = "hint",
     ) -> None:
         """CELLxGENE schema curator.
@@ -2365,7 +2365,7 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
 
         self.organism = organism
 
-        VALID_SCHEMA_VERSIONS = {"4.0.0", "5.0.0", "5.1.0", "5.2.0"}
+        VALID_SCHEMA_VERSIONS = {"4.0.0", "5.0.0", "5.1.0"}
         if schema_version not in VALID_SCHEMA_VERSIONS:
             valid_versions = ", ".join(sorted(VALID_SCHEMA_VERSIONS))
             raise ValueError(
