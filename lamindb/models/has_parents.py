@@ -8,7 +8,6 @@ from lamin_utils import logger
 
 from .record import format_field_value, get_name_field
 from .run import Run
-from .transform import Transform
 
 if TYPE_CHECKING:
     from lamindb.base.types import StrField
@@ -17,6 +16,7 @@ if TYPE_CHECKING:
     from .collection import Collection
     from .query_set import QuerySet
     from .record import Record
+    from .transform import Transform
 
 LAMIN_GREEN_LIGHTER = "#10b981"
 LAMIN_GREEN_DARKER = "#065f46"
@@ -350,6 +350,8 @@ def _df_edges_from_parents(
 
 def _record_label(record: Record, field: str | None = None):
     from .artifact import Artifact
+    from .collection import Collection
+    from .transform import Transform
 
     if isinstance(record, Artifact):
         if record.description is None:
