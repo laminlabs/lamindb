@@ -1,3 +1,4 @@
+# ruff: noqa: TC004
 from __future__ import annotations
 
 import warnings
@@ -22,16 +23,6 @@ from rich.text import Text
 
 from lamindb.core.storage import LocalPathClasses
 from lamindb.errors import DoesNotExist, ValidationError
-from lamindb.models import (
-    Artifact,
-    Collection,
-    FeatureValue,
-    Param,
-    ParamValue,
-    Record,
-    Run,
-    ULabel,
-)
 from lamindb.models.feature import (
     convert_pandas_dtype_to_lamin_dtype,
     suggest_categorical_for_str_iterable,
@@ -67,7 +58,15 @@ if TYPE_CHECKING:
 
     from lamindb.base.types import FieldAttr
     from lamindb.models import (
+        Artifact,
+        Collection,
+        FeatureValue,
         LinkORM,
+        Param,
+        ParamValue,
+        Record,
+        Run,
+        ULabel,
     )
     from lamindb.models.query_set import QuerySet
 

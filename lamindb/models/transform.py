@@ -20,7 +20,6 @@ from ..core.versioning import message_update_key_in_version_family, process_revi
 from ..errors import InconsistentKey
 from .base import IsVersioned, current_user_id
 from .core import User
-from .has_parents import _view_parents
 from .record import Record, init_self_from_db, update_attributes
 from .run import Run, delete_run_artifacts
 
@@ -359,6 +358,8 @@ class Transform(Record, IsVersioned):
 
     def view_lineage(self, with_successors: bool = False, distance: int = 5):
         """View lineage of transforms."""
+        from .has_parents import _view_parents
+
         return _view_parents(
             record=self,
             field="key",
