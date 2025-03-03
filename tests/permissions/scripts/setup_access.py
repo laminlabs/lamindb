@@ -8,6 +8,15 @@ no_access = ln.models.Space(name="no access", uid="00000003").save()
 
 account = hm.Account(id=ln.setup.settings.user._uuid.hex).save()
 
+# no access space
+ulabel = ln.ULabel(name="no_access_ulabel")
+ulabel.space = no_access
+ulabel.save()
+
+project = ln.Project(name="No_access_project")  # type: ignore
+project.space = no_access
+project.save()
+
 # setup full access space
 hm.AccessSpace(account=account, space=full_access, operation="SELECT").save()
 hm.AccessSpace(account=account, space=full_access, operation="INSERT").save()
@@ -23,11 +32,10 @@ hm.AccessSpace(account=account, space=select_access, operation="SELECT").save()
 ulabel = ln.ULabel(name="select_ulabel")
 ulabel.space = select_access
 ulabel.save()
+# artificial but better to test
+# create a link table referencing rows in different spaces
+ulabel.projects.add(project)
 
-# no access space
-ulabel = ln.ULabel(name="no_access_ulabel")
-ulabel.space = no_access
-ulabel.save()
 
 print("Created models")
 

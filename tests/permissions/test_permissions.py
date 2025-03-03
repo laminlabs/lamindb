@@ -12,6 +12,7 @@ set_token(token)
 def test_fine_grained_permissions():
     # check select
     assert ln.ULabel.filter().count() == 2
+    assert ln.Project.filter.count() == 0
     # check delete
     # should delete
     ln.ULabel.get(name="full_access_ulabel").delete()
@@ -43,10 +44,13 @@ def test_fine_grained_permissions():
     ulabel.name = "select_ulabel update"
     with pytest.raises(ProgrammingError):
         ulabel.save()
-    # test link tables
+    # check link tables
+    # check insert
     project = ln.Project(name="Myproject")
     project.space = ln.models.Space.get(name="full access")
     project.save()
     ulabel = ln.ULabel.get(name="new label update")
     ulabel.projects.add(project)
     assert ulabel.projects.all().count() == 1
+    # check select of a link table referencing unavailable rows
+    assert ln.ULabel.get(name="select_ulabel").projects.all().count() == 0
