@@ -16,7 +16,7 @@ from lamindb.base.fields import (
 from lamindb.base.types import TransformType
 from lamindb.base.users import current_user_id
 
-from ..core._settings import settings
+from ..base._settings import settings
 from ..core.versioning import message_update_key_in_version_family, process_revises
 from ..errors import InconsistentKey
 from .base import IsVersioned

@@ -17,7 +17,7 @@ import pandas as pd
 import pytest
 import spatialdata as sd
 import yaml  # type: ignore
-from lamindb.core._settings import settings
+from lamindb.base._settings import settings
 from lamindb.core.loaders import load_fcs, load_to_memory, load_tsv
 from lamindb.core.storage._zarr import identify_zarr_type, write_adata_zarr
 from lamindb.core.storage.paths import (

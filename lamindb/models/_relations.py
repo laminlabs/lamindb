@@ -8,7 +8,7 @@ from lamindb_setup._connect_instance import (
     get_owner_name_from_identifier,
     load_instance_settings,
 )
-from lamindb_setup.core._settings_store import instance_settings_file
+from lamindb_setup.base._settings_store import instance_settings_file
 
 from lamindb.models.base import LinkORM
 

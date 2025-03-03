@@ -16,7 +16,7 @@ from django.db.models import CASCADE, PROTECT, Q
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage_in_instance
-from lamindb_setup.core._settings_storage import init_storage
+from lamindb_setup.base._settings_storage import init_storage
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dir, hash_file
 from lamindb_setup.core.types import UPathStr
 from lamindb_setup.core.upath import (
@@ -27,13 +27,13 @@ from lamindb_setup.core.upath import (
 )
 
 from lamindb.base import deprecated
+from lamindb.base._settings import settings
 from lamindb.base.fields import (
     BigIntegerField,
     BooleanField,
     CharField,
     ForeignKey,
 )
-from lamindb.core._settings import settings
 from lamindb.errors import FieldValidationError
 from lamindb.models.query_set import QuerySet
 

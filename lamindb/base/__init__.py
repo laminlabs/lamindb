@@ -1,6 +1,11 @@
 """Base library.
 
-Is available also when no instance is connected.
+Settings:
+
+.. autosummary::
+   :toctree: .
+
+   Settings
 
 Modules:
 
@@ -8,6 +13,7 @@ Modules:
    :toctree: .
 
    types
+   subsettings
 
 Utils:
 
@@ -21,4 +27,5 @@ Utils:
 
 from lamindb_setup.core import deprecated, doc_args
 
-from . import types
+from . import subsettings, types
+from ._settings import Settings

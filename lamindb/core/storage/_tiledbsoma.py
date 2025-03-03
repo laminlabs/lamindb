@@ -8,7 +8,7 @@ import pyarrow as pa
 from anndata import AnnData, read_h5ad
 from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
-from lamindb_setup.core._settings_storage import get_storage_region
+from lamindb_setup.base._settings_storage import get_storage_region
 from lamindb_setup.core.upath import LocalPathClasses, create_path
 from packaging import version
 

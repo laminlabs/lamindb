@@ -17,7 +17,6 @@ Settings & context:
 .. autosummary::
    :toctree: .
 
-   Settings
    Context
 
 Data loaders:
@@ -35,7 +34,6 @@ Modules:
    loaders
    datasets
    storage
-   subsettings
    logger
 
 """
@@ -71,8 +69,9 @@ from lamindb.models import (
 )
 
 from .. import errors as exceptions
-from . import datasets, fields, loaders, subsettings, types
-
-# from ._context import Context
+from . import datasets, fields, loaders, types
+from ._context import Context
 from ._mapped_collection import MappedCollection
+
+# backward compat
 from ._settings import Settings

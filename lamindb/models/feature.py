@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import importlib
-from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, Optional, get_args, overload
 
 import pandas as pd
@@ -11,7 +12,6 @@ from lamin_utils import logger
 from lamindb_setup._init_instance import get_schema_module_name
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dict
 from pandas.api.types import CategoricalDtype, is_string_dtype
-from pandas.core.dtypes.base import ExtensionDtype
 
 from lamindb.base.fields import (
     BooleanField,
@@ -34,6 +34,10 @@ from .run import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from pandas.core.dtypes.base import ExtensionDtype
+
     from .schema import Schema
 
 FEATURE_DTYPES = set(get_args(FeatureDtype))
@@ -336,14 +340,14 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     sampled, e.g., `'cat[ULabel]'` or `'cat[bionty.CellType]'`. Unions are also
     allowed if the feature samples from two registries, e.g., `'cat[ULabel|bionty.CellType]'`
     """
-    type: Optional["Feature"] = ForeignKey(
+    type: Feature | None = ForeignKey(
         "self", PROTECT, null=True, related_name="records"
     )
     """Type of feature (e.g., 'Readout', 'Metric', 'Metadata', 'ExpertAnnotation', 'ModelPrediction').
 
     Allows to group features by type, e.g., all read outs, all metrics, etc.
     """
-    records: "Feature"
+    records: Feature
     """Records of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
@@ -388,7 +392,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     # we define the below ManyToMany on the feature model because it parallels
     # how other registries (like Gene, Protein, etc.) relate to Schema
     # it makes the API more consistent
-    schemas: "Schema" = models.ManyToManyField(
+    schemas: Schema = models.ManyToManyField(
         "Schema", through="SchemaFeature", related_name="features"
     )
     """Feature sets linked to this feature."""
@@ -400,7 +404,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     """
     _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
     # backward fields
-    values: "FeatureValue"
+    values: FeatureValue
     """Values for this feature."""
 
     @overload
@@ -408,7 +412,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         self,
         name: str,
         dtype: FeatureDtype | Registry | list[Registry] | FieldAttr,
-        type: Optional["Feature"] = None,
+        type: Optional[Feature] = None,
         is_type: bool = False,
         unit: str | None = None,
         description: str | None = None,
@@ -460,9 +464,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
                 )
 
     @classmethod
-    def from_df(
-        cls, df: "pd.DataFrame", field: FieldAttr | None = None
-    ) -> "RecordList":
+    def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordList:
         """Create Feature records for columns."""
         field = Feature.name if field is None else field
         registry = field.field.model  # type: ignore
@@ -482,7 +484,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         assert len(features) == len(df.columns)  # noqa: S101
         return RecordList(features)
 
-    def save(self, *args, **kwargs) -> "Feature":
+    def save(self, *args, **kwargs) -> Feature:
         """Save."""
         super().save(*args, **kwargs)
         return self

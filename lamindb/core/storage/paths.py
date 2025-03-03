@@ -10,7 +10,7 @@ from lamindb_setup.core.upath import (
     UPath,
 )
 
-from lamindb.core._settings import settings
+from lamindb.base._settings import settings
 
 if TYPE_CHECKING:
     from pathlib import Path

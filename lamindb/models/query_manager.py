@@ -8,7 +8,7 @@ from lamindb_setup.core._docs import doc_args
 
 from lamindb.models import Record
 
-from ..core._settings import settings
+from ..base._settings import settings
 
 if TYPE_CHECKING:
     from lamindb.base.types import StrField

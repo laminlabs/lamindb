@@ -13,7 +13,7 @@ from django.utils.functional import partition
 from lamin_utils import logger
 from lamindb_setup.core.upath import LocalPathClasses, UPath
 
-from ..core._settings import settings
+from ..base._settings import settings
 from ..core.storage.paths import (
     _cache_key_from_artifact_storage,
     attempt_accessing_path,
