@@ -18,7 +18,7 @@ from lamindb.base.users import current_user_id
 
 from ..errors import InconsistentKey
 from ..models._is_versioned import message_update_key_in_version_family, process_revises
-from .base import IsVersioned
+from ._is_versioned import IsVersioned
 from .record import Record, init_self_from_db, update_attributes
 from .run import Run, User, delete_run_artifacts
 
