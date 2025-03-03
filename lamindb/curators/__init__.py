@@ -1708,7 +1708,7 @@ class TiledbsomaCatManager(CatManager):
         Returns:
             A saved artifact record.
         """
-        from lamindb.core._data import add_labels
+        from lamindb.models.artifact import add_labels
 
         if not self._is_validated:
             self.validate()

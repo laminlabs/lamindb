@@ -1145,10 +1145,7 @@ def _add_set_from_mudata(
     """Add features from MuData."""
     if obs_fields is None:
         obs_fields = {}
-    if isinstance(self._host, Artifact):
-        assert self._host.otype == "MuData"  # noqa: S101
-    else:
-        raise NotImplementedError()
+    assert self._host.otype == "MuData"  # noqa: S101
 
     # parse and register features
     mdata = self._host.load()
