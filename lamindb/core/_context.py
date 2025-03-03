@@ -26,10 +26,10 @@ from ..errors import (
     UpdateContext,
 )
 from ..models._settings import settings
+from ..models._versioning import bump_version as bump_version_function
+from ..models._versioning import increment_base62, message_update_key_in_version_family
 from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_environment
-from .versioning import bump_version as bump_version_function
-from .versioning import increment_base62, message_update_key_in_version_family
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr

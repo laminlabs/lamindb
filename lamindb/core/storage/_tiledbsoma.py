@@ -136,8 +136,8 @@ def save_tiledbsoma_experiment(
         raise ImportError("Please install tiledbsoma: pip install tiledbsoma") from e
 
     from lamindb.core.storage.paths import auto_storage_key_from_artifact_uid
-    from lamindb.core.versioning import create_uid
     from lamindb.models import Artifact
+    from lamindb.models._versioning import create_uid
     from lamindb.models.artifact import get_run
 
     run = get_run(run)

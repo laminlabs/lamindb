@@ -27,8 +27,8 @@ from ..base.ids import base62_20
 from ..core._mapped_collection import MappedCollection
 from ..core.storage import UPath
 from ..core.storage._pyarrow_dataset import _is_pyarrow_dataset, _open_pyarrow_dataset
-from ..core.versioning import process_revises
 from ..errors import FieldValidationError
+from ..models._versioning import process_revises
 from .artifact import (
     Artifact,
     _populate_subsequent_runs_,

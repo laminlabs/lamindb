@@ -93,7 +93,7 @@ class IsVersioned(models.Model):
             revises: a record that belongs to the version family.
             version: semantic version of the record.
         """
-        from ..core.versioning import create_uid, get_new_path_from_uid
+        from ..models._versioning import create_uid, get_new_path_from_uid
 
         old_uid = self.uid  # type: ignore
         new_uid, revises = create_uid(revises=revises, version=version)

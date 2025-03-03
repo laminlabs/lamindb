@@ -58,11 +58,11 @@ from ..core.storage.paths import (
     filepath_cache_key_from_artifact,
     filepath_from_artifact,
 )
-from ..core.versioning import (
+from ..errors import IntegrityError, InvalidArgument, ValidationError
+from ..models._versioning import (
     create_uid,
     message_update_key_in_version_family,
 )
-from ..errors import IntegrityError, InvalidArgument, ValidationError
 from ._django import get_artifact_with_related, get_related_model
 from ._feature_manager import (
     FeatureManager,
