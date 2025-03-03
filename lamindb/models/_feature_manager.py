@@ -496,9 +496,8 @@ def parse_staged_feature_sets_from_anndata(
     if not isinstance(adata, AnnData):  # is a path
         filepath = create_path(adata)  # returns Path for local
         if not isinstance(filepath, LocalPathClasses):
+            from lamindb import settings
             from lamindb.core.storage._backed_access import backed_access
-
-            from ..core._settings import settings
 
             using_key = settings._using_key
             data_parse = backed_access(filepath, using_key=using_key)
@@ -1190,7 +1189,7 @@ def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
     # This only covers feature sets
     if transfer_logs is None:
         transfer_logs = {"mapped": [], "transferred": [], "run": None}
-    from ..core._settings import settings
+    from lamindb import settings
 
     using_key = settings._using_key
     for slot, schema in data.features._schema_by_slot.items():  # type: ignore

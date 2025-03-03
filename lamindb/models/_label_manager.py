@@ -239,7 +239,7 @@ class LabelManager:
         """
         if transfer_logs is None:
             transfer_logs = {"mapped": [], "transferred": [], "run": None}
-        from ..core._settings import settings
+        from lamindb import settings
 
         using_key = settings._using_key
         for related_name, labels in _get_labels(data, instance=data._state.db).items():

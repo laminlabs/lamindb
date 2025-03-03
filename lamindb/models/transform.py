@@ -212,8 +212,6 @@ class Transform(Record, IsVersioned):
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args, **kwargs)
             return None
-        from ..core._settings import settings
-
         key: str | None = kwargs.pop("key") if "key" in kwargs else None
         description: str | None = (
             kwargs.pop("description") if "description" in kwargs else None
@@ -231,9 +229,7 @@ class Transform(Record, IsVersioned):
         reference_type: str | None = (
             kwargs.pop("reference_type") if "reference_type" in kwargs else None
         )
-        using_key = (
-            kwargs.pop("using_key") if "using_key" in kwargs else settings._using_key
-        )
+        using_key = kwargs.pop("using_key") if "using_key" in kwargs else None
         if "name" in kwargs:
             if key is None:
                 key = kwargs.pop("name")
