@@ -702,6 +702,7 @@ def _describe_postgres(self, print_types: bool = False):  # for Artifact & Colle
 def _describe_sqlite(self, print_types: bool = False):  # for artifact & collection
     from ._describe import describe_general
     from ._feature_manager import describe_features
+    from .collection import Collection
 
     model_name = self.__class__.__name__
     msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
