@@ -102,39 +102,39 @@ schema-version:
       ensembl:
         human: "release-110"
         mouse: "release-110"
-5.2.0:
-  CellType:
-    cl:
-      all: "2024-08-16"
-  ExperimentalFactor:
-    efo:
-      all: "3.69.0"
-  Ethnicity:
-    hancestro:
-      human: "3.0"
-  DevelopmentalStage:
-    hsapdv:
-      human: "2024-05-28"
-    mmusdv:
-      mouse: "2024-05-28"
-  Disease:
-    mondo:
-      all: "2024-08-06"
-  Organism:
-    ncbitaxon:
-      all: "2023-06-20"
-    ensembl:
-      vertebrates: "release-110"
-  Phenotype:
-    pato:
-      all: "2023-05-18"
-  Tissue:
-    uberon:
-      all: "2024-08-07"
-  Gene:
-    genecode:
-      human: "v44"
-      mouse: "vM33"
-    ensembl:
-      human: "release-110"
-      mouse: "release-110"
+  5.2.0:
+    CellType:
+      cl:
+        all: "2024-08-16"
+    ExperimentalFactor:
+      efo:
+        all: "3.69.0"
+    Ethnicity:
+      hancestro:
+        human: "3.0"
+    DevelopmentalStage:
+      hsapdv:
+        human: "2024-05-28"
+      mmusdv:
+        mouse: "2024-05-28"
+    Disease:
+      mondo:
+        all: "2024-08-06"
+    Organism:
+      ncbitaxon:
+        all: "2023-06-20"
+      ensembl:
+        vertebrates: "release-110"
+    Phenotype:
+      pato:
+        all: "2023-05-18"
+    Tissue:
+      uberon:
+        all: "2024-08-07"
+    Gene:
+      genecode:
+        human: "v44"
+        mouse: "vM33"
+      ensembl:
+        human: "release-110"
+        mouse: "release-110"
