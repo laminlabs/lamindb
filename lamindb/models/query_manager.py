@@ -17,7 +17,7 @@ class QueryManager(models.Manager):
 
     See Also:
 
-        :class:`lamindb.core.QuerySet`
+        :class:`lamindb.models.QuerySet`
         `django Manager <https://docs.djangoproject.com/en/4.2/topics/db/managers/>`__
 
     Examples:
@@ -73,14 +73,14 @@ class QueryManager(models.Manager):
     def df(self, **kwargs):
         """Convert to DataFrame.
 
-        For `**kwargs`, see :meth:`lamindb.core.QuerySet.df`.
+        For `**kwargs`, see :meth:`lamindb.models.QuerySet.df`.
         """
         return self.all().df(**kwargs)
 
     def all(self):
         """Return QuerySet of all.
 
-        For `**kwargs`, see :meth:`lamindb.core.QuerySet.df`.
+        For `**kwargs`, see :meth:`lamindb.models.QuerySet.df`.
         """
         self._track_run_input_manager()
         return self._all_base_class()
