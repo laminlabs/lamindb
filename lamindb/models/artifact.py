@@ -42,7 +42,6 @@ from ..base.types import (
     ArtifactKind,
 )
 from ..base.users import current_user_id
-from ..core._context import context
 from ..core.loaders import load_to_memory
 from ..core.storage import (
     LocalPathClasses,
@@ -590,6 +589,7 @@ def _populate_subsequent_runs_(record: Union["Artifact", "Collection"], run: Run
 # also see current_run() in core._data
 def get_run(run: Run | None) -> Run | None:
     from .._tracked import get_current_tracked_run
+    from ..core._context import context
 
     if run is None:
         run = get_current_tracked_run()
@@ -2465,6 +2465,7 @@ def _track_run_input(
     run: Run | None = None,
 ):
     from .._tracked import get_current_tracked_run
+    from ..core._context import context
 
     if isinstance(is_run_input, Run):
         run = is_run_input

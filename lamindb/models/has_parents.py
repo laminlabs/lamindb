@@ -1,3 +1,4 @@
+# ruff: noqa: TC004
 from __future__ import annotations
 
 import builtins
@@ -5,8 +6,6 @@ from typing import TYPE_CHECKING, Literal
 
 from lamin_utils import logger
 
-from .artifact import Artifact
-from .collection import Collection
 from .record import format_field_value, get_name_field
 from .run import Run
 from .transform import Transform
@@ -14,9 +13,10 @@ from .transform import Transform
 if TYPE_CHECKING:
     from lamindb.base.types import StrField
 
+    from .artifact import Artifact
+    from .collection import Collection
     from .query_set import QuerySet
     from .record import Record
-
 
 LAMIN_GREEN_LIGHTER = "#10b981"
 LAMIN_GREEN_DARKER = "#065f46"
