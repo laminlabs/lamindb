@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
 
 try:
-    from .storage._zarr import load_anndata_zarr
+    from ..core.storage._zarr import load_anndata_zarr
 except ImportError:
 
     def load_anndata_zarr(storepath):  # type: ignore

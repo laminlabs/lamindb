@@ -2091,7 +2091,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                         # this can be very slow
                         _, hash, _, _ = hash_dir(filepath)
                     if self.hash != hash:
-                        from ._record import init_self_from_db
+                        from .record import init_self_from_db
 
                         new_version = Artifact(
                             filepath, revises=self, _is_internal_call=True
