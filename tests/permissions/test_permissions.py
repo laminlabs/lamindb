@@ -43,3 +43,10 @@ def test_fine_grained_permissions():
     ulabel.name = "select_ulabel update"
     with pytest.raises(ProgrammingError):
         ulabel.save()
+    # test link tables
+    project = ln.Project(name="Myproject")
+    project.space = ln.models.Space.get(name="full access")
+    project.save()
+    ulabel = ln.ULabel.get(name="full_access_ulabel")
+    ulabel.projects.add(project)
+    assert ulabel.projects.all().count() == 1
