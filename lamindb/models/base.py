@@ -208,30 +208,6 @@ class TracksUpdates(models.Model):
         super().__init__(*args, **kwargs)
 
 
-class FeatureManager:
-    """Feature manager."""
-
-    pass
-
-
-class ParamManager:
-    """Param manager."""
-
-    pass
-
-
-class ParamManagerArtifact(ParamManager):
-    """Param manager."""
-
-    pass
-
-
-class ParamManagerRun(ParamManager):
-    """Param manager."""
-
-    pass
-
-
 # -------------------------------------------------------------------------------------
 # A note on required fields at the Record level
 #

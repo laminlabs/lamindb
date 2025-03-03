@@ -79,23 +79,11 @@ def __getattr__(name):
 
 if _check_instance_setup(from_module="lamindb"):
     del __getattr__  # so that imports work out
-    from . import core  # isort: split
     from . import (
-        _artifact,
-        _can_curate,
-        _collection,
-        _feature,
-        _is_versioned,
-        _parents,
-        _record,
-        _run,
-        _schema,
-        _storage,
-        _transform,
-        _ulabel,
-        integrations,
+        base,
+        core,  # isort: split
     )
-    from ._save import save
+    from . import integrations
     from ._tracked import tracked
     from ._view import view
     from .core._context import context
@@ -117,6 +105,7 @@ if _check_instance_setup(from_module="lamindb"):
         ULabel,
         User,
     )
+    from .models.save import save
 
     track = context.track  # simple access
     finish = context.finish  # simple access

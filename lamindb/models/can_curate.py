@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING, Iterable, Literal, Optional, Union
 import numpy as np
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
-from django.db.models import QuerySet
 from lamin_utils import colors, logger
 from lamin_utils._inspect import InspectResult
 
@@ -14,6 +13,8 @@ from .from_values import _format_values, _has_organism_field, get_or_create_reco
 from .record import Record, _queryset, get_name_field
 
 if TYPE_CHECKING:
+    from django.db.models import QuerySet
+
     from .query_set import RecordList
 
 
@@ -443,7 +444,7 @@ def _check_synonyms_field_exist(record: "CanCurate"):
 
 
 def _filter_query_based_on_organism(
-    queryset: QuerySet,
+    queryset: "QuerySet",
     field: str,
     organism: str | Record | None = None,
     values_list_field: str | None = None,

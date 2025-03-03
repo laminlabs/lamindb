@@ -12,14 +12,15 @@ from lamindb_setup.core._settings_storage import get_storage_region
 from lamindb_setup.core.upath import LocalPathClasses, create_path
 from packaging import version
 
-from lamindb.models import Artifact, Run
-
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
     from tiledbsoma import Measurement as SOMAMeasurement
     from upath import UPath
+
+    from lamindb.models.artifact import Artifact
+    from lamindb.models.run import Run
 
 
 def _load_h5ad_zarr(objpath: UPath):
@@ -137,6 +138,7 @@ def save_tiledbsoma_experiment(
     from lamindb.core._data import get_run
     from lamindb.core.storage.paths import auto_storage_key_from_artifact_uid
     from lamindb.core.versioning import create_uid
+    from lamindb.models import Artifact
 
     run = get_run(run)
 

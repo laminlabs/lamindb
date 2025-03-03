@@ -7,7 +7,7 @@ from lamin_utils import logger
 from rich.text import Text
 from rich.tree import Tree
 
-from ._context import is_run_from_ipython
+from ..core._context import is_run_from_ipython
 
 if TYPE_CHECKING:
     from lamindb.models import Artifact, Collection, Run

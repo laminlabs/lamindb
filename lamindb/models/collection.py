@@ -24,19 +24,20 @@ from lamindb.base.fields import (
 )
 
 from ..base.ids import base62_20
-from ..core._data import (
-    _track_run_input,
-    describe,
-    get_run,
-    save_schema_links,
-    save_staged_feature_sets,
-)
 from ..core._mapped_collection import MappedCollection
 from ..core.storage import UPath
 from ..core.storage._pyarrow_dataset import _is_pyarrow_dataset, _open_pyarrow_dataset
 from ..core.versioning import process_revises
 from ..errors import FieldValidationError
-from .artifact import Artifact, _populate_subsequent_runs_
+from .artifact import (
+    Artifact,
+    _populate_subsequent_runs_,
+    _track_run_input,
+    describe_artifact_collection,
+    get_run,
+    save_schema_links,
+    save_staged_feature_sets,
+)
 from .base import (
     IsVersioned,
     LinkORM,
@@ -645,7 +646,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         Examples:
             >>> artifact.describe()
         """
-        pass
+        return describe_artifact_collection(self)
 
     def _populate_subsequent_runs(self, run: Run) -> None:
         _populate_subsequent_runs_(self, run)
@@ -683,5 +684,4 @@ class CollectionArtifact(BasicRecord, LinkORM, TracksRun):
 
 
 # mypy: ignore-errors
-Collection.describe = describe
 Collection.view_lineage = view_lineage

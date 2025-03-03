@@ -25,14 +25,8 @@ from lamindb.errors import DoesNotExist, ValidationError
 from lamindb.models import (
     Artifact,
     Collection,
-    Feature,
-    FeatureManager,
     FeatureValue,
-    LinkORM,
     Param,
-    ParamManager,
-    ParamManagerArtifact,
-    ParamManagerRun,
     ParamValue,
     Record,
     Run,
@@ -52,6 +46,7 @@ from lamindb.models.record import (
 from lamindb.models.save import save
 from lamindb.models.schema import DICT_KEYS_TYPE, Schema
 
+from ..core._settings import settings
 from ._describe import (
     NAME_WIDTH,
     TYPE_WIDTH,
@@ -61,16 +56,20 @@ from ._describe import (
 )
 from ._django import get_artifact_with_related
 from ._label_manager import _get_labels, describe_labels
-from ._settings import settings
-from .relations import (
+from ._relations import (
     dict_related_model_to_related_name,
 )
+from .feature import Feature
+from .run import ParamManager, ParamManagerRun
 
 if TYPE_CHECKING:
     from rich.tree import Tree
 
-    from lamindb._query_set import QuerySet
     from lamindb.base.types import FieldAttr
+    from lamindb.models import (
+        LinkORM,
+    )
+    from lamindb.models.query_set import QuerySet
 
 
 def get_host_id_field(host: Artifact | Collection) -> str:
@@ -629,6 +628,18 @@ def infer_feature_type_convert_json(
     if not mute:
         logger.warning(f"cannot infer feature type of: {value}, returning '?")
     return "?", value, message
+
+
+class FeatureManager:
+    """Feature manager."""
+
+    pass
+
+
+class ParamManagerArtifact(ParamManager):
+    """Param manager."""
+
+    pass
 
 
 def __init__(self, host: Artifact | Collection | Run):

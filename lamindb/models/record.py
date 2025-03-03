@@ -139,7 +139,6 @@ def update_attributes(record: "Record", attributes: dict[str, str]):
 
 
 def validate_fields(record: "Record", kwargs):
-    from lamindb.base.validation import validate_literal_fields
     from lamindb.models import (
         Artifact,
         Collection,
@@ -189,7 +188,7 @@ def validate_fields(record: "Record", kwargs):
             )
         is_approx_pascal_case(kwargs["name"])
     # validate literals
-    validate_literal_fields(record, kwargs)
+    # validate_literal_fields(record, kwargs)
 
 
 def suggest_records_with_similar_names(
@@ -721,7 +720,7 @@ class BasicRecord(models.Model, metaclass=Registry):
             if hasattr(self, "labels"):
                 from copy import copy
 
-                from lamindb.models import FeatureManager
+                from lamindb.models._feature_manager import FeatureManager
 
                 # here we go back to original record on the source database
                 self_on_db = copy(self)

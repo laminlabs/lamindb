@@ -1,16 +1,22 @@
+from __future__ import annotations
+
 import builtins
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from lamin_utils import logger
 
-from lamindb.base.types import StrField
-
 from .artifact import Artifact
 from .collection import Collection
-from .query_set import QuerySet
-from .record import Record, format_field_value, get_name_field
+from .record import format_field_value, get_name_field
 from .run import Run
 from .transform import Transform
+
+if TYPE_CHECKING:
+    from lamindb.base.types import StrField
+
+    from .query_set import QuerySet
+    from .record import Record
+
 
 LAMIN_GREEN_LIGHTER = "#10b981"
 LAMIN_GREEN_DARKER = "#065f46"
@@ -31,7 +37,7 @@ is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 def _query_relatives(
     records: QuerySet | list[Record],
     kind: Literal["parents", "children"],
-    cls: type["HasParents"],
+    cls: type[HasParents],
 ) -> QuerySet:
     relatives = cls.objects.none()  # type: ignore
     if len(records) == 0:
@@ -79,11 +85,11 @@ class HasParents:
             distance=distance,
         )
 
-    def query_parents(self) -> "QuerySet":
+    def query_parents(self) -> QuerySet:
         """Query parents in an ontology."""
         return _query_relatives([self], "parents", self.__class__)  # type: ignore
 
-    def query_children(self) -> "QuerySet":
+    def query_children(self) -> QuerySet:
         """Query children in an ontology."""
         return _query_relatives([self], "children", self.__class__)  # type: ignore
 

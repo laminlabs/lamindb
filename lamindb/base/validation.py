@@ -5,7 +5,7 @@ from lamin_utils import colors
 from lamindb.errors import FieldValidationError
 
 if TYPE_CHECKING:
-    from .models import Record
+    from ..models import Record
 
 
 def validate_literal_fields(record: "Record", kwargs) -> None:

@@ -12,15 +12,27 @@ from lamindb.base.fields import (
 )
 
 from ..base.ids import base62_20
-from .base import LinkORM, ParamManager, ParamManagerRun, current_user_id
-from .core import ParamValue
-from .record import BasicRecord, Record, User
-from .transform import Transform
+from .base import LinkORM, current_user_id
+from .core import ParamValue, User
+from .record import BasicRecord, Record
 
 if TYPE_CHECKING:
     from .artifact import Artifact
     from .collection import Collection
+    from .transform import Transform
     from .ulabel import ULabel
+
+
+class ParamManager:
+    """Param manager."""
+
+    pass
+
+
+class ParamManagerRun(ParamManager):
+    """Param manager."""
+
+    pass
 
 
 class Run(Record):
@@ -82,7 +94,7 @@ class Run(Record):
     """Universal id, valid across DB instances."""
     name: str | None = CharField(max_length=150, null=True)
     """A name."""
-    transform = ForeignKey(Transform, CASCADE, related_name="runs")
+    transform = ForeignKey("Transform", CASCADE, related_name="runs")
     """The transform :class:`~lamindb.Transform` that is being run."""
     started_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
@@ -169,7 +181,7 @@ class Run(Record):
     @overload
     def __init__(
         self,
-        transform: Transform,
+        transform: "Transform",
         reference: str | None = None,
         reference_type: str | None = None,
     ): ...

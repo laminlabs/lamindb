@@ -24,7 +24,7 @@ from lamindb.base.types import FeatureDtype, FieldAttr
 from lamindb.errors import FieldValidationError, ValidationError
 
 from ..base.ids import base62_12
-from ..core.relations import dict_module_name_to_model_name
+from ._relations import dict_module_name_to_model_name
 from .base import (
     TracksRun,
     TracksUpdates,

@@ -19,8 +19,9 @@ from ..core._settings import settings
 from ..core.versioning import message_update_key_in_version_family, process_revises
 from ..errors import InconsistentKey
 from .base import IsVersioned, current_user_id
+from .core import User
 from .has_parents import _view_parents
-from .record import Record, User, init_self_from_db, update_attributes
+from .record import Record, init_self_from_db, update_attributes
 from .run import Run, delete_run_artifacts
 
 if TYPE_CHECKING:

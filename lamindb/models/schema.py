@@ -19,12 +19,11 @@ from lamindb.base.types import FieldAttr, ListLike
 from lamindb.errors import InvalidArgument
 
 from ..base import deprecated
-from ..core.relations import (
+from ..errors import ValidationError
+from ._relations import (
     dict_related_model_to_related_name,
     get_related_name,
 )
-from ..errors import ValidationError
-from .artifact import Artifact
 from .base import LinkORM, TracksRun, TracksUpdates
 from .can_curate import CanCurate
 from .core import Param
@@ -45,6 +44,7 @@ if TYPE_CHECKING:
     import pandas as pd
     from django.db.models.query_utils import DeferredAttribute
 
+    from .artifact import Artifact
     from .project import Project
     from .query_set import QuerySet
 
@@ -674,7 +674,7 @@ class SchemaParam(BasicRecord, LinkORM):
 
 class ArtifactSchema(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
-    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="_links_schema")
+    artifact: "Artifact" = ForeignKey("Artifact", CASCADE, related_name="_links_schema")
     schema: Schema = ForeignKey(Schema, PROTECT, related_name="_links_artifact")
     slot: str | None = CharField(null=True)
     feature_ref_is_semantic: bool | None = BooleanField(null=True)

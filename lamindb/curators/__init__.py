@@ -39,10 +39,7 @@ if TYPE_CHECKING:
 
     from lamindb.base.types import FieldAttr
     from lamindb.models import Record
-from lamindb._feature import parse_dtype, parse_dtype_single_cat
 from lamindb.base.types import FieldAttr  # noqa
-from lamindb.core._data import add_labels
-from lamindb.core._feature_manager import parse_staged_feature_sets_from_anndata
 from lamindb.core._settings import settings
 from lamindb.models import (
     Artifact,
@@ -54,9 +51,11 @@ from lamindb.models import (
     Schema,
     ULabel,
 )
+from lamindb.models._feature_manager import parse_staged_feature_sets_from_anndata
+from lamindb.models.artifact import add_labels, data_is_anndata
+from lamindb.models.feature import parse_dtype, parse_dtype_single_cat
+from lamindb.models.from_values import _format_values
 
-from .._artifact import data_is_anndata
-from .._from_values import _format_values
 from ..errors import InvalidArgument, ValidationError
 
 if TYPE_CHECKING:

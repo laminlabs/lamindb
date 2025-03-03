@@ -13,7 +13,6 @@ from lamindb.base.fields import (
 from lamindb.errors import FieldValidationError
 
 from ..base.ids import base62_8
-from .artifact import Artifact
 from .base import (
     LinkORM,
     TracksRun,
@@ -21,14 +20,16 @@ from .base import (
     current_user_id,
 )
 from .can_curate import CanCurate
-from .collection import Collection
+from .core import User
 from .feature import Feature
 from .has_parents import HasParents
-from .record import BasicRecord, Record, User, _get_record_kwargs
+from .record import BasicRecord, Record, _get_record_kwargs
 from .run import Run
 from .transform import Transform
 
 if TYPE_CHECKING:
+    from .artifact import Artifact
+    from .collection import Collection
     from .project import Project
 
 
@@ -198,7 +199,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
 
 class ArtifactULabel(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
-    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_ulabel")
+    artifact: "Artifact" = ForeignKey("Artifact", CASCADE, related_name="links_ulabel")
     ulabel: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_artifact")
     feature: Feature | None = ForeignKey(
         Feature, PROTECT, null=True, related_name="links_artifactulabel", default=None
@@ -240,8 +241,8 @@ class RunULabel(BasicRecord, LinkORM):
 
 class CollectionULabel(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
-    collection: Collection = ForeignKey(
-        Collection, CASCADE, related_name="links_ulabel"
+    collection: "Collection" = ForeignKey(
+        "Collection", CASCADE, related_name="links_ulabel"
     )
     ulabel: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_collection")
     feature: Feature | None = ForeignKey(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import reduce
+from typing import TYPE_CHECKING
 
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connection
@@ -9,9 +10,12 @@ from django.db.models.fields.related import ForeignKey, ManyToManyField
 from django.db.models.fields.reverse_related import ManyToManyRel, ManyToOneRel
 from django.db.models.functions import JSONObject
 
-from lamindb.models import Artifact, Record, Schema
+from ._relations import dict_related_model_to_related_name, get_schema_modules
+from .schema import Schema
 
-from .relations import dict_related_model_to_related_name, get_schema_modules
+if TYPE_CHECKING:
+    from .artifact import Artifact
+    from .record import Record
 
 
 def get_related_model(model, field_name):
