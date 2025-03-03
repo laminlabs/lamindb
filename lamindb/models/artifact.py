@@ -25,8 +25,6 @@ from lamindb_setup.core.upath import (
     get_stat_dir_cloud,
     get_stat_file_cloud,
 )
-from mudata import MuData
-from spatialdata import SpatialData
 
 from lamindb.base import deprecated
 from lamindb.base.fields import (
@@ -115,7 +113,9 @@ except ImportError:
 
 
 if TYPE_CHECKING:
+    from mudata import MuData  # noqa: TC004
     from pyarrow.dataset import Dataset as PyArrowDataset
+    from spatialdata import SpatialData  # noqa: TC004
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
     from tiledbsoma import Measurement as SOMAMeasurement
