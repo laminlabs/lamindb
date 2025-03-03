@@ -63,7 +63,7 @@ jobs:
           repository: laminlabs/laminhub
           token: ${{ secrets.GH_TOKEN_DEPLOY_LAMINAPP }}
           path: laminhub
-          ref: hubmodule
+          ref: main
 
       - uses: actions/setup-python@v5
         with:
