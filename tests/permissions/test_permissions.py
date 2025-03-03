@@ -47,6 +47,6 @@ def test_fine_grained_permissions():
     project = ln.Project(name="Myproject")
     project.space = ln.models.Space.get(name="full access")
     project.save()
-    ulabel = ln.ULabel.get(name="full_access_ulabel")
+    ulabel = ln.ULabel.get(name="new label update")
     ulabel.projects.add(project)
     assert ulabel.projects.all().count() == 1
