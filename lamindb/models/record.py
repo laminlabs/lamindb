@@ -381,7 +381,7 @@ RECORD_REGISTRY_EXAMPLE = """Example::
 # this is the metaclass for Record
 @doc_args(RECORD_REGISTRY_EXAMPLE)
 class Registry(ModelBase):
-    """Metaclass for :class:`~lamindb.core.Record`.
+    """Metaclass for :class:`~lamindb.models.Record`.
 
     Each `Registry` *object* is a `Record` *class* and corresponds to a table in the metadata SQL database.
 
@@ -453,7 +453,7 @@ class Registry(ModelBase):
             dictionary converter.
 
         See Also:
-            :meth:`~lamindb.core.Record.search`
+            :meth:`~lamindb.models.Record.search`
 
         Examples:
             >>> import bionty as bt
@@ -477,7 +477,7 @@ class Registry(ModelBase):
             expressions: Fields and values passed as Django query expressions.
 
         Returns:
-            A :class:`~lamindb.core.QuerySet`.
+            A :class:`~lamindb.models.QuerySet`.
 
         See Also:
             - Guide: :doc:`docs:registries`
@@ -587,8 +587,8 @@ class Registry(ModelBase):
             If `return_queryset` is `True`.  `QuerySet`.
 
         See Also:
-            :meth:`~lamindb.core.Record.filter`
-            :meth:`~lamindb.core.Record.lookup`
+            :meth:`~lamindb.models.Record.filter`
+            :meth:`~lamindb.models.Record.lookup`
 
         Examples:
             >>> ulabels = ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name")
@@ -929,7 +929,7 @@ class Record(BasicRecord, metaclass=Registry):
 
     {}
 
-    `Record`'s metaclass is :class:`~lamindb.core.Registry`.
+    `Record`'s metaclass is :class:`~lamindb.models.Registry`.
 
     `Record` inherits from Django's `Model` class. Why does LaminDB call it `Record`
     and not `Model`? The term `Record` can't lead to confusion with statistical,

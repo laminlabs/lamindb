@@ -42,7 +42,7 @@ def save(records: Iterable[Record], ignore_conflicts: bool | None = False) -> No
         existing records! Use ``record.save()`` for these use cases.
 
     Args:
-        records: Multiple :class:`~lamindb.core.Record` objects.
+        records: Multiple :class:`~lamindb.models.Record` objects.
         ignore_conflicts: If ``True``, do not error if some records violate a
            unique or another constraint. However, it won't inplace update the id
            fields of records. If you need records with ids, you need to query

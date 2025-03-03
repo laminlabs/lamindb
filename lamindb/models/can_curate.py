@@ -487,7 +487,7 @@ def _field_is_id(field: str, registry: type[Record]) -> bool:
 
 
 class CanCurate:
-    """Base class providing :class:`~lamindb.core.Record`-based validation."""
+    """Base class providing :class:`~lamindb.models.Record`-based validation."""
 
     @classmethod
     def inspect(
@@ -518,7 +518,7 @@ class CanCurate:
                 Note: this parameter won't affect validation against bionty/public sources.
 
         See Also:
-            :meth:`~lamindb.core.CanCurate.validate`
+            :meth:`~lamindb.models.CanCurate.validate`
 
         Examples:
             >>> import bionty as bt
@@ -573,7 +573,7 @@ class CanCurate:
             A vector of booleans indicating if an element is validated.
 
         See Also:
-            :meth:`~lamindb.core.CanCurate.inspect`
+            :meth:`~lamindb.models.CanCurate.inspect`
 
         Examples:
             >>> import bionty as bt
@@ -701,9 +701,9 @@ class CanCurate:
             standardized names as values.
 
         See Also:
-            :meth:`~lamindb.core.CanCurate.add_synonym`
+            :meth:`~lamindb.models.CanCurate.add_synonym`
                 Add synonyms.
-            :meth:`~lamindb.core.CanCurate.remove_synonym`
+            :meth:`~lamindb.models.CanCurate.remove_synonym`
                 Remove synonyms.
 
         Examples:
@@ -745,7 +745,7 @@ class CanCurate:
             save: Whether to save the record to the database.
 
         See Also:
-            :meth:`~lamindb.core.CanCurate.remove_synonym`
+            :meth:`~lamindb.models.CanCurate.remove_synonym`
                 Remove synonyms.
 
         Examples:
@@ -771,7 +771,7 @@ class CanCurate:
             synonym: The synonym values to remove.
 
         See Also:
-            :meth:`~lamindb.core.CanCurate.add_synonym`
+            :meth:`~lamindb.models.CanCurate.add_synonym`
                 Add synonyms
 
         Examples:
@@ -794,7 +794,7 @@ class CanCurate:
             value: A value for an abbreviation.
 
         See Also:
-            :meth:`~lamindb.core.CanCurate.add_synonym`
+            :meth:`~lamindb.models.CanCurate.add_synonym`
 
         Examples:
             >>> import bionty as bt

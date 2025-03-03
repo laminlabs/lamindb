@@ -2114,7 +2114,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     def load(self, is_run_input: bool | None = None, **kwargs) -> Any:
         """Cache and load into memory.
 
-        See all :mod:`~lamindb.core.loaders`.
+        See all :mod:`~lamindb.models.loaders`.
 
         Examples:
 

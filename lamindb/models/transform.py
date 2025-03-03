@@ -48,7 +48,7 @@ class Transform(Record, IsVersioned):
     .. dropdown:: Can I sync transforms to git?
 
         If you switch on
-        :attr:`~lamindb.core.Settings.sync_git_repo` a script-like transform is
+        :attr:`~lamindb.models.Settings.sync_git_repo` a script-like transform is
         synched to its hashed state in a git repository upon calling `ln.track()`.
 
         >>> ln.settings.sync_git_repo = "https://github.com/laminlabs/lamindb"
@@ -65,7 +65,7 @@ class Transform(Record, IsVersioned):
         revises: `Transform | None = None` An old version of the transform.
 
     See Also:
-        :meth:`~lamindb.core.Context.track`
+        :meth:`~lamindb.models.Context.track`
             Globally track a script, notebook or pipeline run.
         :class:`~lamindb.Run`
             Executions of transforms.
