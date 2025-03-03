@@ -26,10 +26,7 @@
 
 # ruff: noqa: I001
 from lamin_utils._inspect import InspectResult
-from .base import (
-    IsVersioned,
-    LinkORM,
-)
+from ._is_versioned import IsVersioned
 from .can_curate import CanCurate
 from .record import (
     BasicRecord,
@@ -39,6 +36,7 @@ from .record import (
     ValidateFields,
     format_field_value,
     record_repr,
+    LinkORM,
 )
 from .core import Storage
 from .transform import Transform
@@ -56,7 +54,7 @@ from .collection import Collection, CollectionArtifact
 from .project import Person, Project, Reference
 from .flextable import FlexTable, RunData
 from .query_manager import QueryManager
-from .query_set import QuerySet
+from .query_set import QuerySet, RecordList
 from .has_parents import HasParents
 
 FeatureSet = Schema  # backward compat
