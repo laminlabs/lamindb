@@ -1,5 +1,6 @@
-from collections.abc import Iterable
-from typing import TYPE_CHECKING, Any, Optional, overload
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, overload
 
 import numpy as np
 from django.db import models
@@ -41,6 +42,8 @@ from .record import (
 from .run import Param, TracksRun, TracksUpdates
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     import pandas as pd
     from django.db.models.query_utils import DeferredAttribute
 
@@ -187,9 +190,7 @@ class Schema(Record, CanCurate, TracksRun):
     .. versionchanged:: 1.0.0
         Was called `registry` before.
     """
-    type: Optional["Schema"] = ForeignKey(
-        "self", PROTECT, null=True, related_name="records"
-    )
+    type: Schema | None = ForeignKey("self", PROTECT, null=True, related_name="records")
     """Type of schema.
 
     Allows to group schemas by type, e.g., all meassurements evaluating gene expression vs. protein expression vs. multi modal.
@@ -198,7 +199,7 @@ class Schema(Record, CanCurate, TracksRun):
 
     Here are a few more examples for type names: `'ExpressionPanel'`, `'ProteinPanel'`, `'Multimodal'`, `'Metadata'`, `'Embedding'`.
     """
-    records: "Schema"
+    records: Schema
     """Records of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
@@ -225,11 +226,11 @@ class Schema(Record, CanCurate, TracksRun):
 
     If `True`, the the minimal set is a maximal set and no additional features are allowed.
     """
-    components: "Schema" = ManyToManyField(
+    components: Schema = ManyToManyField(
         "self", through="SchemaComponent", symmetrical=False, related_name="composites"
     )
     """Components of this schema."""
-    composites: "Schema"
+    composites: Schema
     """The composite schemas that contains this schema as a component.
 
     For example, an `AnnData` composes multiple schemas: `var[DataFrameT]`, `obs[DataFrame]`, `obsm[Array]`, `uns[dict]`, etc.
@@ -238,18 +239,18 @@ class Schema(Record, CanCurate, TracksRun):
     """The features contained in the schema."""
     params: Param
     """The params contained in the schema."""
-    artifacts: "Artifact"
+    artifacts: Artifact
     """The artifacts that measure a feature set that matches this schema."""
-    validated_artifacts: "Artifact"
+    validated_artifacts: Artifact
     """The artifacts that were validated against this schema with a :class:`~lamindb.curators.Curator`."""
-    projects: "Project"
+    projects: Project
     """Associated projects."""
     _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
     # lamindb v2
     # _itype: ContentType = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     # ""Index of the registry that stores the feature identifiers, e.g., `Feature` or `Gene`."""
     # -- the following two fields are dynamically removed from the API for now
-    validated_by: Optional["Schema"] = ForeignKey(
+    validated_by: Schema | None = ForeignKey(
         "self", PROTECT, related_name="validated_schemas", default=None, null=True
     )
     # """The schema that validated this schema during curation.
@@ -260,7 +261,7 @@ class Schema(Record, CanCurate, TracksRun):
     # """
     # validated_schemas: Schema
     # """The schemas that were validated against this schema with a :class:`~lamindb.curators.Curator`."""
-    composite: Optional["Schema"] = ForeignKey(
+    composite: Schema | None = ForeignKey(
         "self", PROTECT, related_name="+", default=None, null=True
     )
     # The legacy foreign key
@@ -271,12 +272,12 @@ class Schema(Record, CanCurate, TracksRun):
     def __init__(
         self,
         features: Iterable[Record] | None = None,
-        components: dict[str, "Schema"] | None = None,
+        components: dict[str, Schema] | None = None,
         name: str | None = None,
         description: str | None = None,
         dtype: str | None = None,
         itype: str | Registry | FieldAttr | None = None,
-        type: Optional["Schema"] = None,
+        type: Schema | None = None,
         is_type: bool = False,
         otype: str | None = None,
         minimal_set: bool = True,
@@ -407,7 +408,7 @@ class Schema(Record, CanCurate, TracksRun):
         organism: Record | str | None = None,
         source: Record | None = None,
         raise_validation_error: bool = True,
-    ) -> "Schema":
+    ) -> Schema:
         """Create feature set for validated features.
 
         Args:
@@ -473,13 +474,13 @@ class Schema(Record, CanCurate, TracksRun):
     @classmethod
     def from_df(
         cls,
-        df: "pd.DataFrame",
+        df: pd.DataFrame,
         field: FieldAttr = Feature.name,
         name: str | None = None,
         mute: bool = False,
         organism: Record | str | None = None,
         source: Record | None = None,
-    ) -> Optional["Schema"]:
+    ) -> Schema | None:
         """Create feature set for validated features."""
         registry = field.field.model
         validated = registry.validate(
@@ -515,7 +516,7 @@ class Schema(Record, CanCurate, TracksRun):
             )
         return schema
 
-    def save(self, *args, **kwargs) -> "Schema":
+    def save(self, *args, **kwargs) -> Schema:
         """Save."""
         from .save import bulk_create
 
@@ -553,7 +554,7 @@ class Schema(Record, CanCurate, TracksRun):
         return self
 
     @property
-    def members(self) -> "QuerySet":
+    def members(self) -> QuerySet:
         """A queryset for the individual records of the set."""
         if self._state.adding:
             # this should return a queryset and not a list...
@@ -636,7 +637,7 @@ class Schema(Record, CanCurate, TracksRun):
             print(message)
             return None
 
-    def _get_component(self, slot: str) -> "Schema":
+    def _get_component(self, slot: str) -> Schema:
         return self.components.get(links_component__slot=slot)
 
 
@@ -674,7 +675,7 @@ class SchemaParam(BasicRecord, LinkORM):
 
 class ArtifactSchema(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
-    artifact: "Artifact" = ForeignKey("Artifact", CASCADE, related_name="_links_schema")
+    artifact: Artifact = ForeignKey("Artifact", CASCADE, related_name="_links_schema")
     schema: Schema = ForeignKey(Schema, PROTECT, related_name="_links_artifact")
     slot: str | None = CharField(null=True)
     feature_ref_is_semantic: bool | None = BooleanField(null=True)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional, overload
+from typing import TYPE_CHECKING, Any, overload
 
 from django.db import models
 from django.db.models import (
@@ -50,7 +50,7 @@ class ParamManagerRun(ParamManager):
     pass
 
 
-def current_run() -> Optional[Run]:
+def current_run() -> Run | None:
     global _TRACKING_READY
 
     if not _TRACKING_READY:
@@ -211,9 +211,7 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
     For categorical types, can define from which registry values are
     sampled, e.g., `cat[ULabel]` or `cat[bionty.CellType]`.
     """
-    type: Optional[Param] = ForeignKey(
-        "self", PROTECT, null=True, related_name="records"
-    )
+    type: Param | None = ForeignKey("self", PROTECT, null=True, related_name="records")
     """Type of param (e.g., 'Pipeline', 'ModelTraining', 'PostProcessing').
 
     Allows to group features by type, e.g., all read outs, all metrics, etc.
@@ -401,15 +399,15 @@ class Run(Record):
     """Finished time of run."""
     # we don't want to make below a OneToOne because there could be the same trivial report
     # generated for many different runs
-    report: Optional[Artifact] = ForeignKey(
+    report: Artifact | None = ForeignKey(
         "Artifact", PROTECT, null=True, related_name="_report_of", default=None
     )
     """Report of run, e.g.. n html file."""
-    _logfile: Optional[Artifact] = ForeignKey(
+    _logfile: Artifact | None = ForeignKey(
         "Artifact", PROTECT, null=True, related_name="_logfile_of", default=None
     )
     """Report of run, e.g.. n html file."""
-    environment: Optional[Artifact] = ForeignKey(
+    environment: Artifact | None = ForeignKey(
         "Artifact", PROTECT, null=True, related_name="_environment_of", default=None
     )
     """Computational environment for the run.
@@ -450,7 +448,7 @@ class Run(Record):
         "ULabel", through="RunULabel", related_name="runs"
     )
     """ULabel annotations of this transform."""
-    initiated_by_run: Optional[Run] = ForeignKey(
+    initiated_by_run: Run | None = ForeignKey(
         "Run", CASCADE, null=True, related_name="initiated_runs", default=None
     )
     """The run that triggered the current run.
