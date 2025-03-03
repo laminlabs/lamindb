@@ -1248,8 +1248,8 @@ def transfer_fk_to_default_db_bulk(
 
 def get_transfer_run(record) -> "Run":
     from lamindb.core._context import context
-    from lamindb.core._data import WARNING_RUN_TRANSFORM
     from lamindb.models import Run, Transform
+    from lamindb.models.artifact import WARNING_RUN_TRANSFORM
 
     slug = record._state.db
     owner, name = get_owner_name_from_identifier(slug)

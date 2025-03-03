@@ -135,10 +135,10 @@ def save_tiledbsoma_experiment(
     except ImportError as e:
         raise ImportError("Please install tiledbsoma: pip install tiledbsoma") from e
 
-    from lamindb.core._data import get_run
     from lamindb.core.storage.paths import auto_storage_key_from_artifact_uid
     from lamindb.core.versioning import create_uid
     from lamindb.models import Artifact
+    from lamindb.models.artifact import get_run
 
     run = get_run(run)
 

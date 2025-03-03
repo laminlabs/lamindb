@@ -62,6 +62,7 @@ Backward compatibility.
 
 """
 
+# ruff: noqa: I001
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
 __version__ = "1.2a1"
 
@@ -79,11 +80,7 @@ def __getattr__(name):
 
 if _check_instance_setup(from_module="lamindb"):
     del __getattr__  # so that imports work out
-    from . import (
-        base,
-        core,  # isort: split
-    )
-    from . import integrations
+    from . import base
     from ._tracked import tracked
     from ._view import view
     from .core._context import context
@@ -106,6 +103,8 @@ if _check_instance_setup(from_module="lamindb"):
         User,
     )
     from .models.save import save
+    from . import core
+    from . import integrations
 
     track = context.track  # simple access
     finish = context.finish  # simple access
