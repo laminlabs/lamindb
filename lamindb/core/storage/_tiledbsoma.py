@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 
 def _load_h5ad_zarr(objpath: UPath):
-    from lamindb.core.loaders import load_anndata_zarr, load_h5ad
+    from lamindb.models.loaders import load_anndata_zarr, load_h5ad
 
     if objpath.is_dir():
         adata = load_anndata_zarr(objpath)

@@ -21,9 +21,9 @@ def test_registry__repr__param():
         .created_at: DateTimeField
         .updated_at: DateTimeField
       Relational fields
+        .space: Space
         .created_by: User
         .run: Run
-        .space: Space
         .type: Param
         .schemas: Schema
         .records: Param

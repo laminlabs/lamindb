@@ -38,7 +38,6 @@ from lamindb.models._settings import settings
 from lamindb.models.query_set import QuerySet
 
 from ..base.users import current_user_id
-from ..core.loaders import load_to_memory
 from ..core.storage import (
     LocalPathClasses,
     UPath,
@@ -82,6 +81,7 @@ from .base import (
 from .core import Storage
 from .feature import Feature, FeatureValue
 from .has_parents import view_lineage
+from .loaders import load_to_memory
 from .record import (
     BasicRecord,
     Record,
@@ -2108,7 +2108,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     def load(self, is_run_input: bool | None = None, **kwargs) -> Any:
         """Cache and load into memory.
 
-        See all :mod:`~lamindb.core.loaders`.
+        See all :mod:`~lamindb.models.loaders`.
 
         Examples:
 

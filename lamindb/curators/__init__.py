@@ -9,6 +9,18 @@
    DataFrameCurator
    AnnDataCurator
 
+CatManager:
+
+.. autosummary::
+   :toctree: .
+
+   CatManager
+   DataFrameCatManager
+   AnnDataCatManager
+   MuDataCatManager
+   TiledbsomaCatManager
+   CurateLookup
+
 """
 
 from __future__ import annotations

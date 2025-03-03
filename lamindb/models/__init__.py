@@ -8,6 +8,8 @@ Settings:
    Settings
    subsettings
 
+Records & registries:
+
 .. autosummary::
    :toctree: .
 
@@ -30,6 +32,13 @@ Settings:
    InspectResult
    ValidateFields
    fields
+
+Artifact loaders:
+
+.. autosummary::
+   :toctree: .
+
+   loaders
 
 """
 
