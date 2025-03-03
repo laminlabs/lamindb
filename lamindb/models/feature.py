@@ -25,13 +25,13 @@ from lamindb.errors import FieldValidationError, ValidationError
 
 from ..base.ids import base62_12
 from ._relations import dict_module_name_to_model_name
-from .base import (
-    TracksRun,
-    TracksUpdates,
-)
 from .can_curate import CanCurate
 from .query_set import RecordList
 from .record import BasicRecord, Record, Registry, _get_record_kwargs
+from .run import (
+    TracksRun,
+    TracksUpdates,
+)
 
 if TYPE_CHECKING:
     from .schema import Schema

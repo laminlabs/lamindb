@@ -89,14 +89,14 @@ class QueryManager(models.Manager):
     @doc_args(Record.search.__doc__)
     def search(self, string: str, **kwargs):
         """{}"""  # noqa: D415
-        from ._record import _search
+        from .record import _search
 
         return _search(cls=self.all(), string=string, **kwargs)
 
     @doc_args(Record.lookup.__doc__)
     def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
         """{}"""  # noqa: D415
-        from ._record import _lookup
+        from .record import _lookup
 
         return _lookup(cls=self.all(), field=field, **kwargs)
 

@@ -3,9 +3,6 @@
 from .base import (
     IsVersioned,
     LinkORM,
-    TracksRun,
-    TracksUpdates,
-    current_run,
 )
 from .can_curate import CanCurate
 from .record import (
@@ -17,16 +14,12 @@ from .record import (
     format_field_value,
     record_repr,
 )
-from .has_parents import HasParents
 from .core import (
-    Param,
-    ParamValue,
     Storage,
-    User,
 )
-from .feature import Feature, FeatureValue
 from .transform import Transform
-from .run import Run
+from .run import Run, TracksRun, TracksUpdates, current_run, Param, ParamValue, User
+from .feature import Feature, FeatureValue
 from .schema import Schema
 from .ulabel import ULabel
 
@@ -36,5 +29,6 @@ from .collection import Collection, CollectionArtifact
 from .project import Person, Project, Reference
 from .flextable import FlexTable, RunData
 from . import query_manager, query_set
+from .has_parents import HasParents
 
 FeatureSet = Schema  # backward compat

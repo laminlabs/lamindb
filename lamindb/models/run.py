@@ -1,8 +1,16 @@
-from datetime import datetime
-from typing import TYPE_CHECKING, Optional, overload
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Optional, overload
 
 from django.db import models
-from django.db.models import CASCADE, PROTECT
+from django.db.models import (
+    CASCADE,
+    PROTECT,
+    Q,
+)
+from django.db.utils import IntegrityError
+from lamindb_setup import _check_instance_setup
+from lamindb_setup.core.hashing import HASH_LENGTH, hash_dict
 
 from lamindb.base.fields import (
     BooleanField,
@@ -10,17 +18,25 @@ from lamindb.base.fields import (
     DateTimeField,
     ForeignKey,
 )
+from lamindb.base.users import current_user_id
+from lamindb.errors import ValidationError
 
 from ..base.ids import base62_20
-from .base import LinkORM, current_user_id
-from .core import ParamValue, User
+from .base import LinkORM
+from .can_curate import CanCurate
 from .record import BasicRecord, Record
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from .artifact import Artifact
     from .collection import Collection
+    from .schema import Schema
     from .transform import Transform
     from .ulabel import ULabel
+
+
+_TRACKING_READY: bool | None = None
 
 
 class ParamManager:
@@ -33,6 +49,288 @@ class ParamManagerRun(ParamManager):
     """Param manager."""
 
     pass
+
+
+def current_run() -> Optional[Run]:
+    global _TRACKING_READY
+
+    if not _TRACKING_READY:
+        _TRACKING_READY = _check_instance_setup()
+    if _TRACKING_READY:
+        import lamindb
+
+        # also see get_run() in core._data
+        run = lamindb._tracked.get_current_tracked_run()
+        if run is None:
+            run = lamindb.context.run
+        return run
+    else:
+        return None
+
+
+class TracksRun(models.Model):
+    """Base class tracking latest run, creating user, and `created_at` timestamp."""
+
+    class Meta:
+        abstract = True
+
+    created_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
+    """Time of creation of record."""
+    created_by: User = ForeignKey(
+        "lamindb.User",
+        PROTECT,
+        editable=False,
+        default=current_user_id,
+        related_name="+",
+    )
+    """Creator of record."""
+    run: Run | None = ForeignKey(
+        "lamindb.Run", PROTECT, null=True, default=current_run, related_name="+"
+    )
+    """Run that created record."""
+
+    @overload
+    def __init__(self): ...
+
+    @overload
+    def __init__(
+        self,
+        *db_args,
+    ): ...
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+
+
+class TracksUpdates(models.Model):
+    """Base class tracking previous runs and `updated_at` timestamp."""
+
+    class Meta:
+        abstract = True
+
+    updated_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
+    """Time of last update to record."""
+
+    @overload
+    def __init__(self): ...
+
+    @overload
+    def __init__(
+        self,
+        *db_args,
+    ): ...
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+
+
+class User(BasicRecord, CanCurate):
+    """Users.
+
+    All data in this registry is synced from `lamin.ai` to ensure a universal
+    user identity. There is no need to manually create records.
+
+    Examples:
+
+        Query a user by handle:
+
+        >>> user = ln.User.get(handle="testuser1")
+        >>> user
+    """
+
+    _name_field: str = "handle"
+
+    id: int = models.AutoField(primary_key=True)
+    """Internal id, valid only in one DB instance."""
+    uid: str = CharField(editable=False, unique=True, db_index=True, max_length=8)
+    """Universal id, valid across DB instances."""
+    handle: str = CharField(max_length=30, unique=True, db_index=True)
+    """User handle, valid across DB instances (required)."""
+    name: str | None = CharField(max_length=150, db_index=True, null=True)
+    """Full name (optional)."""  # has to match hub specification, where it's also optional
+    created_artifacts: Artifact
+    """Artifacts created by user."""
+    created_transforms: Transform
+    """Transforms created by user."""
+    created_runs: Run
+    """Runs created by user."""
+    created_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
+    """Time of creation of record."""
+    updated_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
+    """Time of last update to record."""
+
+    @overload
+    def __init__(
+        self,
+        handle: str,
+        email: str,
+        name: str | None,
+    ): ...
+
+    @overload
+    def __init__(
+        self,
+        *db_args,
+    ): ...
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+
+
+class Param(Record, CanCurate, TracksRun, TracksUpdates):
+    """Parameters of runs & models."""
+
+    class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
+        abstract = False
+
+    _name_field: str = "name"
+
+    name: str = CharField(max_length=100, db_index=True)
+    dtype: str | None = CharField(db_index=True, null=True)
+    """Data type ("num", "cat", "int", "float", "bool", "datetime").
+
+    For categorical types, can define from which registry values are
+    sampled, e.g., `cat[ULabel]` or `cat[bionty.CellType]`.
+    """
+    type: Optional[Param] = ForeignKey(
+        "self", PROTECT, null=True, related_name="records"
+    )
+    """Type of param (e.g., 'Pipeline', 'ModelTraining', 'PostProcessing').
+
+    Allows to group features by type, e.g., all read outs, all metrics, etc.
+    """
+    records: Param
+    """Records of this type."""
+    is_type: bool = BooleanField(default=False, db_index=True, null=True)
+    """Distinguish types from instances of the type."""
+    _expect_many: bool = models.BooleanField(default=False, db_default=False)
+    """Indicates whether values for this param are expected to occur a single or multiple times for an artifact/run (default `False`).
+
+    - if it's `False` (default), the values mean artifact/run-level values and a dtype of `datetime` means `datetime`
+    - if it's `True`, the values are from an aggregation, which this seems like an edge case but when characterizing a model ensemble trained with different parameters it could be relevant
+    """
+    schemas: Schema = models.ManyToManyField(
+        "Schema", through="SchemaParam", related_name="params"
+    )
+    """Feature sets linked to this feature."""
+    # backward fields
+    values: ParamValue
+    """Values for this parameter."""
+
+    def __init__(self, *args, **kwargs):
+        from .feature import process_init_feature_param
+
+        if len(args) == len(self._meta.concrete_fields):
+            super().__init__(*args, **kwargs)
+            return None
+
+        dtype = kwargs.get("dtype", None)
+        kwargs = process_init_feature_param(args, kwargs, is_param=True)
+        super().__init__(*args, **kwargs)
+        dtype_str = kwargs.pop("dtype", None)
+        if not self._state.adding:
+            if not (
+                self.dtype.startswith("cat")
+                if dtype == "cat"
+                else self.dtype == dtype_str
+            ):
+                raise ValidationError(
+                    f"Feature {self.name} already exists with dtype {self.dtype}, you passed {dtype_str}"
+                )
+
+
+# FeatureValue behaves in many ways like a link in a LinkORM
+# in particular, we don't want a _public field on it
+# Also, we don't inherit from TracksRun because a ParamValue
+# is typically created before a run is created and we want to
+# avoid delete cycles (for Model params though it might be helpful)
+class ParamValue(Record):
+    """Parameter values.
+
+    Is largely analogous to `FeatureValue`.
+    """
+
+    # we do not have a unique constraint on param & value because it leads to hashing errors
+    # for large dictionaries: https://lamin.ai/laminlabs/lamindata/transform/jgTrkoeuxAfs0000
+    # we do not hash values because we have `get_or_create` logic all over the place
+    # and also for checking whether the (param, value) combination exists
+    # there does not seem an issue with querying for a dict-like value
+    # https://lamin.ai/laminlabs/lamindata/transform/jgTrkoeuxAfs0001
+    _name_field: str = "value"
+
+    param: Param = ForeignKey(Param, CASCADE, related_name="values")
+    """The dimension metadata."""
+    value: Any = (
+        models.JSONField()
+    )  # stores float, integer, boolean, datetime or dictionaries
+    """The JSON-like value."""
+    # it'd be confusing and hard to populate a run here because these
+    # values are typically created upon creating a run
+    # hence, ParamValue does _not_ inherit from TracksRun but manually
+    # adds created_at & created_by
+    # because ParamValue cannot be updated, we don't need updated_at
+    created_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
+    """Time of creation of record."""
+    created_by: User = ForeignKey(
+        User, PROTECT, default=current_user_id, related_name="+"
+    )
+    """Creator of record."""
+    hash: str = CharField(max_length=HASH_LENGTH, null=True, db_index=True)
+
+    class Meta:
+        constraints = [
+            # For simple types, use direct value comparison
+            models.UniqueConstraint(
+                fields=["param", "value"],
+                name="unique_simple_param_value",
+                condition=Q(hash__isnull=True),
+            ),
+            # For complex types (dictionaries), use hash
+            models.UniqueConstraint(
+                fields=["param", "hash"],
+                name="unique_complex_param_value",
+                condition=Q(hash__isnull=False),
+            ),
+        ]
+
+    @classmethod
+    def get_or_create(cls, param, value):
+        # Simple types: int, float, str, bool
+        if isinstance(value, (int, float, str, bool)):
+            try:
+                return cls.objects.create(param=param, value=value, hash=None), False
+            except IntegrityError:
+                return cls.objects.get(param=param, value=value), True
+
+        # Complex types: dict, list
+        else:
+            hash = hash_dict(value)
+            try:
+                return cls.objects.create(param=param, value=value, hash=hash), False
+            except IntegrityError:
+                return cls.objects.get(param=param, hash=hash), True
 
 
 class Run(Record):
@@ -104,34 +402,34 @@ class Run(Record):
     """Finished time of run."""
     # we don't want to make below a OneToOne because there could be the same trivial report
     # generated for many different runs
-    report: Optional["Artifact"] = ForeignKey(
+    report: Optional[Artifact] = ForeignKey(
         "Artifact", PROTECT, null=True, related_name="_report_of", default=None
     )
     """Report of run, e.g.. n html file."""
-    _logfile: Optional["Artifact"] = ForeignKey(
+    _logfile: Optional[Artifact] = ForeignKey(
         "Artifact", PROTECT, null=True, related_name="_logfile_of", default=None
     )
     """Report of run, e.g.. n html file."""
-    environment: Optional["Artifact"] = ForeignKey(
+    environment: Optional[Artifact] = ForeignKey(
         "Artifact", PROTECT, null=True, related_name="_environment_of", default=None
     )
     """Computational environment for the run.
 
     For instance, `Dockerfile`, `docker image`, `requirements.txt`, `environment.yml`, etc.
     """
-    input_artifacts: "Artifact"
+    input_artifacts: Artifact
     """The artifacts serving as input for this run.
 
     Related accessor: :attr:`~lamindb.Artifact.input_of_runs`.
     """
-    output_artifacts: "Artifact"
+    output_artifacts: Artifact
     """The artifacts generated by this run.
 
     Related accessor: via :attr:`~lamindb.Artifact.run`
     """
-    input_collections: "Collection"
+    input_collections: Collection
     """The collections serving as input for this run."""
-    output_collections: "Collection"
+    output_collections: Collection
     """The collections generated by this run."""
     _param_values: ParamValue = models.ManyToManyField(
         ParamValue, through="RunParamValue", related_name="runs"
@@ -146,14 +444,14 @@ class Run(Record):
     )
     """Time of first creation. Mismatches ``started_at`` if the run is re-run."""
     created_by: User = ForeignKey(
-        User, CASCADE, default=current_user_id, related_name="created_runs"
+        "User", CASCADE, default=current_user_id, related_name="created_runs"
     )
     """Creator of run."""
-    ulabels: "ULabel" = models.ManyToManyField(
+    ulabels: ULabel = models.ManyToManyField(
         "ULabel", through="RunULabel", related_name="runs"
     )
     """ULabel annotations of this transform."""
-    initiated_by_run: Optional["Run"] = ForeignKey(
+    initiated_by_run: Optional[Run] = ForeignKey(
         "Run", CASCADE, null=True, related_name="initiated_runs", default=None
     )
     """The run that triggered the current run.
@@ -164,7 +462,7 @@ class Run(Record):
 
     Be careful with using this field at this point.
     """
-    initiated_runs: "Run"
+    initiated_runs: Run
     """Runs that were initiated by this run."""
     _is_consecutive: bool | None = BooleanField(null=True)
     """Indicates whether code was consecutively executed. Is relevant for notebooks."""
@@ -181,7 +479,7 @@ class Run(Record):
     @overload
     def __init__(
         self,
-        transform: "Transform",
+        transform: Transform,
         reference: str | None = None,
         reference_type: str | None = None,
     ): ...

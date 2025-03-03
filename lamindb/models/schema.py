@@ -24,9 +24,8 @@ from ._relations import (
     dict_related_model_to_related_name,
     get_related_name,
 )
-from .base import LinkORM, TracksRun, TracksUpdates
+from .base import LinkORM
 from .can_curate import CanCurate
-from .core import Param
 from .feature import (
     Feature,
     convert_pandas_dtype_to_lamin_dtype,
@@ -39,6 +38,7 @@ from .record import (
     init_self_from_db,
     update_attributes,
 )
+from .run import Param, TracksRun, TracksUpdates
 
 if TYPE_CHECKING:
     import pandas as pd

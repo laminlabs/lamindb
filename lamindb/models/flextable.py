@@ -11,15 +11,12 @@ from lamindb.base.fields import (
 )
 
 from .artifact import Artifact
-from .base import TracksRun, TracksUpdates
-from .core import Param
-from .feature import (
-    Feature,
-)
+from .feature import Feature
 from .record import (
     BasicRecord,
     Record,
 )
+from .run import Param, TracksRun, TracksUpdates
 
 if TYPE_CHECKING:
     from .project import Project

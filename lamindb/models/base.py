@@ -1,38 +1,25 @@
 # ruff: noqa: TC004
 
-from datetime import datetime  # noqa: TC003
 from typing import (
     TYPE_CHECKING,  # noqa: F401
-    Optional,
     overload,
 )
 
 from django.db import models
-from django.db.models import PROTECT
 from lamin_utils import logger
-from lamindb_setup import _check_instance_setup
 from upath import UPath
 
 from lamindb.base.fields import (
     BooleanField,
     CharField,
-    DateTimeField,
-    ForeignKey,
 )
 
 from ..base.types import (
     FieldAttr,
 )
-from ..base.users import current_user_id
 
 if TYPE_CHECKING:  # noqa
     from lamindb.models.query_set import QuerySet
-
-    from .record import User
-    from .run import Run
-
-
-_TRACKING_READY: bool | None = None
 
 
 class IsVersioned(models.Model):
@@ -121,91 +108,6 @@ class IsVersioned(models.Model):
         self.version = version
         self.save()
         logger.success(f"updated uid from {old_uid} to {new_uid}!")
-
-
-def current_run() -> Optional["Run"]:
-    global _TRACKING_READY
-
-    if not _TRACKING_READY:
-        _TRACKING_READY = _check_instance_setup()
-    if _TRACKING_READY:
-        import lamindb
-
-        # also see get_run() in core._data
-        run = lamindb._tracked.get_current_tracked_run()
-        if run is None:
-            run = lamindb.context.run
-        return run
-    else:
-        return None
-
-
-class TracksRun(models.Model):
-    """Base class tracking latest run, creating user, and `created_at` timestamp."""
-
-    class Meta:
-        abstract = True
-
-    created_at: datetime = DateTimeField(
-        editable=False, db_default=models.functions.Now(), db_index=True
-    )
-    """Time of creation of record."""
-    created_by: "User" = ForeignKey(
-        "lamindb.User",
-        PROTECT,
-        editable=False,
-        default=current_user_id,
-        related_name="+",
-    )
-    """Creator of record."""
-    run: Optional["Run"] = ForeignKey(
-        "lamindb.Run", PROTECT, null=True, default=current_run, related_name="+"
-    )
-    """Run that created record."""
-
-    @overload
-    def __init__(self): ...
-
-    @overload
-    def __init__(
-        self,
-        *db_args,
-    ): ...
-
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
-        super().__init__(*args, **kwargs)
-
-
-class TracksUpdates(models.Model):
-    """Base class tracking previous runs and `updated_at` timestamp."""
-
-    class Meta:
-        abstract = True
-
-    updated_at: datetime = DateTimeField(
-        editable=False, db_default=models.functions.Now(), db_index=True
-    )
-    """Time of last update to record."""
-
-    @overload
-    def __init__(self): ...
-
-    @overload
-    def __init__(
-        self,
-        *db_args,
-    ): ...
-
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
-        super().__init__(*args, **kwargs)
 
 
 # -------------------------------------------------------------------------------------

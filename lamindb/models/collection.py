@@ -41,8 +41,6 @@ from .artifact import (
 from .base import (
     IsVersioned,
     LinkORM,
-    TracksRun,
-    TracksUpdates,
 )
 from .has_parents import view_lineage
 from .record import (
@@ -52,7 +50,7 @@ from .record import (
     init_self_from_db,
     update_attributes,
 )
-from .run import Run
+from .run import Run, TracksRun, TracksUpdates
 from .schema import Schema
 from .transform import Transform
 from .ulabel import ULabel

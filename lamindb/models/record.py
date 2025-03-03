@@ -85,8 +85,7 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from .artifact import Artifact
-    from .core import User
-    from .run import Run
+    from .run import Run, User
     from .transform import Transform
 
 
@@ -152,17 +151,14 @@ def validate_literal_fields(record: "Record", kwargs) -> None:
         ValidationError: If any field value is not in its Literal's allowed values
     """
     # check is based on string to avoid circular imports
-    if record.__class__.__name__ == "Feature":
+    if record.__class__.__name__ in {"Feature", "User", "Space", "Storage", "Source"}:
         # the FeatureDtype is more complicated than a simple literal
         # because it allows constructs like cat[ULabel] etc.
-        # the User model is used at startup and throws a datetime-related error otherwise
+        # the User, Space, Storage, Source models are used at startup and throws a datetime-related error otherwise
         # simmilar for Storage & Source
         return None
-    try:
-        type_hints = get_type_hints(record.__class__)
-    except TypeError:
-        # for 3.9, get_type_hints errors with | in type hints
-        return
+
+    type_hints = get_type_hints(record.__class__)
     errors = {}
 
     for field_name, field_type in type_hints.items():
@@ -247,7 +243,7 @@ def validate_fields(record: "Record", kwargs):
             )
         is_approx_pascal_case(kwargs["name"])
     # validate literals
-    # validate_literal_fields(record, kwargs)  # TODO: uncomment
+    validate_literal_fields(record, kwargs)  # TODO: uncomment
 
 
 def suggest_records_with_similar_names(

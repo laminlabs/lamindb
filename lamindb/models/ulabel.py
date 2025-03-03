@@ -15,16 +15,12 @@ from lamindb.errors import FieldValidationError
 from ..base.ids import base62_8
 from .base import (
     LinkORM,
-    TracksRun,
-    TracksUpdates,
-    current_user_id,
 )
 from .can_curate import CanCurate
-from .core import User
 from .feature import Feature
 from .has_parents import HasParents
 from .record import BasicRecord, Record, _get_record_kwargs
-from .run import Run
+from .run import Run, TracksRun, TracksUpdates, User, current_user_id
 from .transform import Transform
 
 if TYPE_CHECKING:

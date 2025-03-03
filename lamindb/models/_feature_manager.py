@@ -50,10 +50,9 @@ from ._label_manager import _get_labels, describe_labels
 from ._relations import (
     dict_related_model_to_related_name,
 )
-from .core import Param, ParamValue
 from .feature import Feature, FeatureValue
 from .record import Record
-from .run import ParamManager, ParamManagerRun, Run
+from .run import Param, ParamManager, ParamManagerRun, ParamValue, Run
 from .ulabel import ULabel
 
 if TYPE_CHECKING:

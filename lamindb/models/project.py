@@ -18,11 +18,12 @@ from lamindb.base.fields import (
 
 from ..base.ids import base62_8, base62_12
 from .artifact import Artifact
-from .base import LinkORM, TracksRun, TracksUpdates
+from .base import LinkORM
 from .can_curate import CanCurate
 from .collection import Collection
 from .feature import Feature
 from .record import BasicRecord, Record, ValidateFields
+from .run import TracksRun, TracksUpdates
 from .schema import Schema
 from .transform import Transform
 from .ulabel import ULabel

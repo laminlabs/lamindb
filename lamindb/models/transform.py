@@ -14,14 +14,14 @@ from lamindb.base.fields import (
     TextField,
 )
 from lamindb.base.types import TransformType
+from lamindb.base.users import current_user_id
 
 from ..core._settings import settings
 from ..core.versioning import message_update_key_in_version_family, process_revises
 from ..errors import InconsistentKey
-from .base import IsVersioned, current_user_id
-from .core import User
+from .base import IsVersioned
 from .record import Record, init_self_from_db, update_attributes
-from .run import Run, delete_run_artifacts
+from .run import Run, User, delete_run_artifacts
 
 if TYPE_CHECKING:
     from .artifact import Artifact
