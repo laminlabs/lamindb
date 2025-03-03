@@ -17,6 +17,7 @@ import pandas as pd
 import pytest
 import spatialdata as sd
 import yaml  # type: ignore
+from lamindb.core.loaders import load_fcs, load_to_memory, load_tsv
 from lamindb.core.storage._zarr import identify_zarr_type, write_adata_zarr
 from lamindb.core.storage.paths import (
     AUTO_KEY_PREFIX,
@@ -35,7 +36,6 @@ from lamindb.models.artifact import (
     get_relative_path_to_directory,
     process_data,
 )
-from lamindb.models.loaders import load_fcs, load_to_memory, load_tsv
 from lamindb_setup.core.upath import (
     CloudPath,
     LocalPathClasses,

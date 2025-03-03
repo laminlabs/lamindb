@@ -4,7 +4,7 @@ from time import sleep
 
 import lamindb as ln
 import pytest
-from lamindb.models.loaders import load_h5ad
+from lamindb.core.loaders import load_h5ad
 from lamindb_setup._set_managed_storage import set_managed_storage
 
 

@@ -67,6 +67,9 @@ from .ulabel import ULabel
 
 # should come last as it needs everything else
 from .artifact import Artifact
+from ._feature_manager import FeatureManager
+from .run import ParamManager
+from ._label_manager import LabelManager
 from .collection import Collection, CollectionArtifact
 from .project import Person, Project, Reference
 from .flextable import FlexTable, RunData

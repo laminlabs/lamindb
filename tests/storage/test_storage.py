@@ -11,6 +11,7 @@ import pytest
 import tiledbsoma
 import tiledbsoma.io
 import zarr
+from lamindb.core.loaders import load_h5ad
 from lamindb.core.storage._anndata_accessor import _anndata_n_observations
 from lamindb.core.storage._backed_access import (
     AnnDataAccessor,
@@ -29,7 +30,6 @@ from lamindb.core.storage._tiledbsoma import (
 from lamindb.core.storage._zarr import load_anndata_zarr, write_adata_zarr
 from lamindb.core.storage.objects import infer_suffix, write_to_disk
 from lamindb.integrations import save_tiledbsoma_experiment
-from lamindb.models.loaders import load_h5ad
 
 
 @pytest.fixture
