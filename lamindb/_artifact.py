@@ -16,6 +16,7 @@ from lamindb_setup._init_instance import register_storage_in_instance
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._settings_storage import init_storage
 from lamindb_setup.core.hashing import hash_dir, hash_file
+from lamindb_setup.core.types import UPathStr
 from lamindb_setup.core.upath import (
     create_path,
     extract_suffix_from_path,
@@ -48,7 +49,7 @@ from .core.storage import (
 from .core.storage._anndata_accessor import _anndata_n_observations
 from .core.storage._pyarrow_dataset import PYARROW_SUFFIXES
 from .core.storage._tiledbsoma import _soma_n_observations
-from .core.storage.objects import _mudata_is_installed
+from .core.storage.objects import is_package_installed
 from .core.storage.paths import (
     AUTO_KEY_PREFIX,
     auto_storage_key_from_artifact,
@@ -64,17 +65,17 @@ from .core.versioning import (
 from .errors import IntegrityError, InvalidArgument
 
 try:
-    from .core.storage._zarr import zarr_is_adata
+    from .core.storage._zarr import identify_zarr_type
 except ImportError:
 
-    def zarr_is_adata(storepath):  # type: ignore
+    def identify_zarr_type(storepath):  # type: ignore
         raise ImportError("Please install zarr: pip install zarr<=2.18.4")
 
 
 if TYPE_CHECKING:
-    from lamindb_setup.core.types import UPathStr
     from mudata import MuData
     from pyarrow.dataset import Dataset as PyArrowDataset
+    from spatialdata import SpatialData
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
     from tiledbsoma import Measurement as SOMAMeasurement
@@ -154,14 +155,21 @@ def process_data(
     skip_existence_check: bool = False,
     is_replace: bool = False,
 ) -> tuple[Any, Path | UPath, str, Storage, bool]:
-    """Serialize a data object that's provided as file or in memory."""
-    # if not overwritten, data gets stored in default storage
-    if _mudata_is_installed():
+    """Serialize a data object that's provided as file or in memory.
+
+    if not overwritten, data gets stored in default storage
+    """
+    supported_data_types = [pd.DataFrame, AnnData]
+    if is_package_installed("mudata"):
         from mudata import MuData
 
-        data_types = (pd.DataFrame, AnnData, MuData)
-    else:
-        data_types = (pd.DataFrame, AnnData)  # type:ignore
+        supported_data_types.append(MuData)
+    if is_package_installed("spatialdata"):
+        from spatialdata import SpatialData
+
+        supported_data_types.append(SpatialData)
+    supported_data_types = tuple(supported_data_types)  # type: ignore
+
     if key is not None:
         key_suffix = extract_suffix_from_path(PurePosixPath(key), arg_name="key")
         # use suffix as the (adata) format if the format is not provided
@@ -188,7 +196,7 @@ def process_data(
         )
         suffix = extract_suffix_from_path(path)
         memory_rep = None
-    elif isinstance(data, data_types):
+    elif isinstance(data, supported_data_types):
         storage = default_storage
         memory_rep = data
         suffix = infer_suffix(data, format)
@@ -204,7 +212,7 @@ def process_data(
             message = f"The suffix '{key_suffix}' of the provided key is inconsistent, it should be '{suffix}'"
         raise InvalidArgument(message)
     # in case we have an in-memory representation, we need to write it to disk
-    if isinstance(data, data_types):
+    if isinstance(data, supported_data_types):
         path = settings.cache_dir / f"{provisional_uid}{suffix}"
         write_to_disk(data, path)
         use_existing_storage_key = False
@@ -262,7 +270,7 @@ def get_stat_or_artifact(
             )
             previous_artifact_version = result[0]
     if artifact_with_same_hash_exists:
-        message = "found artifact with same hash"
+        message = "returning existing artifact with same hash"
         if result[0]._branch_code == -1:
             result[0].restore()
             message = "restored artifact with same hash from trash"
@@ -334,17 +342,10 @@ def get_artifact_kwargs_from_data(
         is_replace=is_replace,
     )
     if isinstance(stat_or_artifact, Artifact):
-        artifact = stat_or_artifact
-        # update the run of the existing artifact
+        existing_artifact = stat_or_artifact
         if run is not None:
-            # save the information that this artifact was previously produced by
-            # another run
-            # note: same logic exists for _output_collections_with_later_updates
-            if artifact.run is not None and artifact.run != run:
-                artifact.run._output_artifacts_with_later_updates.add(artifact)
-            # update the run of the artifact with the latest run
-            stat_or_artifact.run = run
-        return artifact, None
+            existing_artifact._populate_subsequent_runs(run)
+        return existing_artifact, None
     else:
         size, hash, hash_type, n_files, revises = stat_or_artifact
 
@@ -462,11 +463,12 @@ def data_is_anndata(data: AnnData | UPathStr) -> bool:
             return True
         elif data_path.suffix == ".zarr":
             # ".anndata.zarr" is a valid suffix (core.storage._valid_suffixes)
+            # TODO: the suffix based check should likely be moved to identify_zarr_type
             if ".anndata" in data_path.suffixes:
                 return True
             # check only for local, expensive for cloud
             if fsspec.utils.get_protocol(data_path.as_posix()) == "file":
-                return zarr_is_adata(data_path)
+                return identify_zarr_type(data_path) == "anndata"
             else:
                 logger.warning("We do not check if cloud zarr is AnnData or not")
                 return False
@@ -474,7 +476,7 @@ def data_is_anndata(data: AnnData | UPathStr) -> bool:
 
 
 def data_is_mudata(data: MuData | UPathStr) -> bool:
-    if _mudata_is_installed():
+    if is_package_installed("mudata"):
         from mudata import MuData
 
         if isinstance(data, MuData):
@@ -484,7 +486,24 @@ def data_is_mudata(data: MuData | UPathStr) -> bool:
     return False
 
 
-def _check_otype_artifact(data: Any, otype: str | None = None):
+def data_is_spatialdata(data: SpatialData | UPathStr) -> bool:
+    if is_package_installed("spatialdata"):
+        from spatialdata import SpatialData
+
+        if isinstance(data, SpatialData):
+            return True
+        if isinstance(data, (str, Path)):
+            if UPath(data).suffix == ".zarr":
+                # TODO: inconsistent with anndata, where we run the storage
+                # check only for local, expensive for cloud
+                return identify_zarr_type(data, check=False) == "spatialdata"
+        return False
+
+
+def _check_otype_artifact(
+    data: UPathStr | pd.DataFrame | AnnData | MuData | SpatialData,
+    otype: str | None = None,
+) -> str:
     if otype is None:
         if isinstance(data, pd.DataFrame):
             logger.warning("data is a DataFrame, please use .from_df()")
@@ -500,6 +519,10 @@ def _check_otype_artifact(data: Any, otype: str | None = None):
             if not data_is_path:
                 logger.warning("data is a MuData, please use .from_mudata()")
             otype = "MuData"
+        elif data_is_spatialdata(data):
+            if not data_is_path:
+                logger.warning("data is a SpatialData, please use .from_spatialdata()")
+            otype = "SpatialData"
         elif not data_is_path:  # UPath is a subclass of Path
             raise TypeError("data has to be a string, Path, UPath")
     return otype
@@ -742,7 +765,7 @@ def from_anndata(
 @doc_args(Artifact.from_mudata.__doc__)
 def from_mudata(
     cls,
-    mdata: MuData,
+    mdata: MuData | UPathStr,
     *,
     key: str | None = None,
     description: str | None = None,
@@ -751,6 +774,8 @@ def from_mudata(
     **kwargs,
 ) -> Artifact:
     """{}"""  # noqa: D415
+    if not data_is_mudata(mdata):
+        raise ValueError("data has to be a MuData object or a path to MuData-like")
     artifact = Artifact(  # type: ignore
         data=mdata,
         key=key,
@@ -761,7 +786,40 @@ def from_mudata(
         kind="dataset",
         **kwargs,
     )
-    artifact.n_observations = mdata.n_obs
+    if not isinstance(mdata, UPathStr):
+        artifact.n_observations = mdata.n_obs
+    return artifact
+
+
+@classmethod  # type: ignore
+@doc_args(Artifact.from_spatialdata.__doc__)
+def from_spatialdata(
+    cls,
+    sdata: SpatialData | UPathStr,
+    *,
+    key: str | None = None,
+    description: str | None = None,
+    run: Run | None = None,
+    revises: Artifact | None = None,
+    **kwargs,
+) -> Artifact:
+    """{}"""  # noqa: D415
+    if not data_is_spatialdata(sdata):
+        raise ValueError(
+            "data has to be a SpatialData object or a path to SpatialData-like"
+        )
+    artifact = Artifact(  # type: ignore
+        data=sdata,
+        key=key,
+        run=run,
+        description=description,
+        revises=revises,
+        otype="SpatialData",
+        kind="dataset",
+        **kwargs,
+    )
+    # ill-defined https://scverse.zulipchat.com/#narrow/channel/315824-spatial/topic/How.20to.20calculate.20the.20number.20of.20observations.3F
+    # artifact.n_observations = ...
     return artifact
 
 
@@ -1117,8 +1175,11 @@ def load(self, is_run_input: bool | None = None, **kwargs) -> Any:
             # cache_path is local so doesn't trigger any sync in load_to_memory
             access_memory = load_to_memory(cache_path, **kwargs)
         except Exception as e:
-            # just raise the exception if the original path is local
-            if isinstance(filepath, LocalPathClasses):
+            # raise the exception if it comes from not having a correct loader
+            # or if the original path is local
+            if isinstance(e, NotImplementedError) or isinstance(
+                filepath, LocalPathClasses
+            ):
                 raise e
             logger.warning(
                 f"The cache might be corrupted: {e}. Retrying to synchronize."
@@ -1346,6 +1407,7 @@ METHOD_NAMES = [
     "from_anndata",
     "from_df",
     "from_mudata",
+    "from_spatialdata",
     "from_tiledbsoma",
     "open",
     "cache",

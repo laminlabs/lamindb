@@ -12,9 +12,11 @@ import anndata as ad
 import bionty as bt
 import lamindb as ln
 import lamindb_setup
+import mudata as md
 import numpy as np
 import pandas as pd
 import pytest
+import spatialdata as sd
 import yaml  # type: ignore
 from lamindb import _artifact
 from lamindb._artifact import (
@@ -25,7 +27,7 @@ from lamindb._artifact import (
 )
 from lamindb.core._settings import settings
 from lamindb.core.loaders import load_fcs, load_to_memory, load_tsv
-from lamindb.core.storage._zarr import write_adata_zarr, zarr_is_adata
+from lamindb.core.storage._zarr import identify_zarr_type, write_adata_zarr
 from lamindb.core.storage.paths import (
     AUTO_KEY_PREFIX,
     auto_storage_key_from_artifact_uid,
@@ -42,6 +44,7 @@ from lamindb_setup.core.upath import (
     UPath,
     extract_suffix_from_path,
 )
+from scipy.sparse import csr_matrix
 
 # how do we properly abstract out the default storage variable?
 # currently, we're only mocking it through `default_storage` as
@@ -64,6 +67,45 @@ def adata():
         var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
         obsm={"X_pca": np.array([[1, 2], [3, 4]])},
     )
+
+
+@pytest.fixture(scope="module")
+def mdata():
+    adata1 = ad.AnnData(
+        X=np.array([[1, 2, 3], [4, 5, 6]]),
+        obs={"feat1": ["A", "B"]},
+        var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
+        obsm={"X_pca": np.array([[1, 2], [3, 4]])},
+    )
+
+    adata2 = ad.AnnData(
+        X=np.array([[7, 8], [9, 10]]),
+        obs={"feat2": ["C", "D"]},
+        var=pd.DataFrame(index=["FOXP3", "CD8A"]),
+        obsm={"X_umap": np.array([[5, 6], [7, 8]])},
+    )
+
+    return md.MuData({"rna": adata1, "protein": adata2})
+
+
+@pytest.fixture(scope="module")
+def sdata():
+    adata = ad.AnnData(
+        X=csr_matrix(np.array([[0.1, 0.2], [0.3, 0.4]])),
+        obs=pd.DataFrame(index=["cell1", "cell2"]),
+        var=pd.DataFrame(index=["gene1", "gene2"]),
+    )
+
+    {
+        "region1": np.array([[[0, 0], [0, 1], [1, 1], [1, 0]]]),
+        "region2": np.array([[[2, 2], [2, 3], [3, 3], [3, 2]]]),
+    }
+
+    sdata_obj = sd.SpatialData(
+        tables={"gene_expression": adata},
+    )
+
+    return sdata_obj
 
 
 @pytest.fixture(scope="module")
@@ -119,6 +161,22 @@ def fcs_file():
     return ln.core.datasets.file_fcs_alpert19()
 
 
+@pytest.fixture(scope="module")
+def mudata_file(mdata):
+    filepath = Path("test.h5mu")
+    mdata.write(filepath)
+    yield filepath
+    filepath.unlink()
+
+
+@pytest.fixture(scope="module")
+def spatialdata_file(sdata):
+    filepath = Path("test.zarr")
+    sdata.write(filepath)
+    yield filepath
+    shutil.rmtree(filepath)
+
+
 def test_signatures():
     # this seems currently the easiest and most transparent
     # way to test violations of the signature equality
@@ -133,6 +191,7 @@ def test_signatures():
         "from_df",
         "from_anndata",
         "from_mudata",
+        "from_spatialdata",
         "from_tiledbsoma",
     ]
     for name in class_methods:
@@ -252,12 +311,15 @@ def test_revise_artifact(df, adata):
     artifact_r2 = ln.Artifact.get(artifact_r2.uid)
     assert not artifact_r2.is_latest
 
-    # what happens if I reload based on hash while providing a different key?
-    # artifact_new = ln.Artifact.from_df(
-    #     df, description="test1", key="my-test-dataset1.parquet", version="2"
-    # )
-    # assert artifact_new.version == "2"
-    # assert artifact_new.stem_uid != artifact_r3.stem_uid
+    # re-create based on hash while providing a different key
+    artifact_new = ln.Artifact.from_df(
+        df,
+        description="test1 updated",
+        key="my-test-dataset1.parquet",
+    )
+    assert artifact_new == artifact_r3
+    assert artifact_new.key == key  # old key
+    assert artifact_new.description == "test1 updated"
 
     with pytest.raises(TypeError) as error:
         ln.Artifact.from_df(df, description="test1a", revises=ln.Transform())
@@ -300,6 +362,56 @@ def test_create_from_dataframe(df):
     # check that the local filepath has been cleared
     assert not hasattr(artifact, "_local_filepath")
     artifact.delete(permanent=True, storage=True)
+
+
+def test_create_from_anndata(adata, adata_file):
+    for _a in [adata, adata_file]:
+        af = ln.Artifact.from_anndata(adata, description="test1")
+        assert af.description == "test1"
+        assert af.key is None
+        assert af.otype == "AnnData"
+        assert af.kind == "dataset"
+        assert af.n_observations == 2
+
+
+def test_create_from_mudata(mdata, mudata_file, adata_file):
+    try:
+        ln.Artifact.from_mudata(adata_file, description="test1")
+    except ValueError as error:
+        assert str(error) == "data has to be a MuData object or a path to MuData-like"
+    for m in [mdata, mudata_file]:
+        af = ln.Artifact.from_mudata(m, description="test1")
+        assert af.description == "test1"
+        assert af.key is None
+        assert af.otype == "MuData"
+        assert af.kind == "dataset"
+        if isinstance(m, md.MuData):
+            assert af.n_observations == 2
+
+
+def test_create_from_spatialdata(sdata, spatialdata_file, adata_file, ccaplog):
+    try:
+        ln.Artifact(adata_file, description="test1")
+    except ValueError as error:
+        assert (
+            str(error)
+            == "data has to be a SpatialData object or a path to SpatialData-like"
+        )
+    for s in [sdata, spatialdata_file]:
+        af = ln.Artifact(s, description="test1")
+        assert af.description == "test1"
+        assert af.key is None
+        assert af.otype == "SpatialData"
+        assert af.kind is None
+        # n_observations not defined
+    assert "data is a SpatialData, please use .from_spatialdata()" in ccaplog.text
+    for s in [sdata, spatialdata_file]:
+        af = ln.Artifact.from_spatialdata(s, description="test1")
+        assert af.description == "test1"
+        assert af.key is None
+        assert af.otype == "SpatialData"
+        assert af.kind == "dataset"
+        # n_observations not defined
 
 
 def test_create_from_dataframe_using_from_df_and_link_features(df):
@@ -357,14 +469,6 @@ def test_create_from_anndata_in_memory_and_link_features(adata):
     feature_sets_queried.delete()
     features_queried.delete()
     genes_queried.delete()
-
-
-def test_create_from_anndata_strpath(adata_file):
-    artifact = ln.Artifact.from_anndata(adata_file, description="test adata file")
-    assert artifact.n_observations == 2
-    artifact.save()
-    assert artifact.otype == "AnnData"
-    artifact.delete(permanent=True, storage=True)
 
 
 @pytest.mark.parametrize(
@@ -798,8 +902,9 @@ def test_load_to_memory(tsv_file, zip_file, fcs_file, yaml_file):
     # fcs
     adata = load_fcs(str(fcs_file))
     assert isinstance(adata, ad.AnnData)
-    # none
-    load_to_memory(zip_file)
+    # error
+    with pytest.raises(NotImplementedError):
+        load_to_memory(zip_file)
     # check that it is a path
     assert isinstance(load_to_memory("./somefile.rds"), UPath)
     # yaml
@@ -839,7 +944,7 @@ def test_zarr_upload_cache(adata):
 
     assert isinstance(artifact.path, CloudPath)
     assert artifact.path.exists()
-    assert zarr_is_adata(artifact.path)
+    assert identify_zarr_type(artifact.path) == "anndata"
 
     shutil.rmtree(artifact.cache())
 

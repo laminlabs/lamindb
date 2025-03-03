@@ -171,9 +171,9 @@ def test_backed_access(adata_format):
 
 def test_infer_suffix():
     adata = ad.AnnData()
-    assert infer_suffix(adata, adata_format="h5ad") == ".h5ad"
+    assert infer_suffix(adata, format="h5ad") == ".h5ad"
     with pytest.raises(ValueError):
-        infer_suffix(adata, adata_format="my format")
+        infer_suffix(adata, format="my format")
     with pytest.raises(NotImplementedError):
         infer_suffix(ln.Artifact)
 

@@ -14,16 +14,16 @@ SCRIPTS_DIR = Path(__file__).parent.resolve() / "scripts"
 NOTEBOOKS_DIR = Path(__file__).parent.resolve() / "notebooks"
 
 
-def test_track_with_multi_parents():
-    parent1 = ln.Transform(key="parent 1").save()
-    parent2 = ln.Transform(key="parent 2").save()
-    child = ln.Transform(key="Child").save()
-    child.predecessors.set([parent1, parent2])
+def test_track_with_multi_predecessors():
+    predecessor1 = ln.Transform(key="parent 1").save()
+    predecessor2 = ln.Transform(key="parent 2").save()
+    successor = ln.Transform(key="successor").save()
+    successor.predecessors.set([predecessor1, predecessor2])
 
     # first invocation
     params = {"param1": 1, "param2": "my-string", "param3": 3.14}
     with pytest.raises(ValidationError) as error:
-        ln.context.track(transform=child, params=params)
+        ln.context.track(transform=successor, params=params)
     assert (
         error.exconly()
         == """lamindb.errors.ValidationError: These keys could not be validated: ['param1', 'param2', 'param3']
@@ -36,14 +36,14 @@ Here is how to create a param:
     ln.Param(name="param1", dtype="int").save()
     ln.Param(name="param2", dtype="str").save()
     ln.Param(name="param3", dtype="float").save()
-    ln.context.track(transform=child, params=params)
+    ln.context.track(transform=successor, params=params)
     print("outside", id(ln.context))
     assert ln.context.run.params.get_values() == params
     # second invocation
     params = {"param1": 1, "param2": "my-string", "param3": 3.14, "param4": [1, 2]}
     param4 = ln.Param(name="param4", dtype="int").save()
     with pytest.raises(ValidationError) as error:
-        ln.context.track(transform=child, params=params)
+        ln.context.track(transform=successor, params=params)
     assert (
         error.exconly()
         == """lamindb.errors.ValidationError: Expected dtype for 'param4' is 'int', got 'list[int]'"""
@@ -52,7 +52,7 @@ Here is how to create a param:
     param4.dtype = "list[int]"
     param4.save()
     # re-run
-    ln.context.track(transform=child, params=params)
+    ln.context.track(transform=successor, params=params)
     assert ln.context.run.params.get_values() == params
 
     # test that run populates things like ULabels etc.
