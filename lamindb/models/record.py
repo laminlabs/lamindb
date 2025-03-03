@@ -14,9 +14,6 @@ from typing import (
     NamedTuple,
     Optional,
     Union,
-    get_args,
-    get_origin,
-    get_type_hints,
 )
 
 import dj_database_url
@@ -150,9 +147,10 @@ def validate_literal_fields(record: "Record", kwargs) -> None:
     Raises:
         ValidationError: If any field value is not in its Literal's allowed values
     """
-    # check is based on string to avoid circular imports
+    # Skip validation for certain record types
     if isinstance(record, LinkORM):
         return None
+
     if record.__class__.__name__ in {
         "Feature",
         "User",
@@ -164,39 +162,52 @@ def validate_literal_fields(record: "Record", kwargs) -> None:
         "Collection",
         "Schema",
     }:
-        # the FeatureDtype is more complicated than a simple literal
-        # because it allows constructs like cat[ULabel] etc.
-        # the User, Space, Storage, Source models are used at startup and throws a datetime-related error otherwise
-        # simmilar for Storage & Source
         return None
 
-    type_hints = get_type_hints(record.__class__)
     errors = {}
 
-    for field_name, field_type in type_hints.items():
+    # Access annotations directly instead of using get_type_hints
+    annotations = getattr(record.__class__, "__annotations__", {})
+
+    for field_name, annotation_str in annotations.items():
+        # Skip if the field is not in kwargs
+        if field_name not in kwargs or kwargs[field_name] is None:
+            continue
+
+        value = kwargs[field_name]
+
+        # Check if this is a Literal field by examining the annotation string representation
+        if not hasattr(annotation_str, "__origin__"):
+            continue
+
+        origin = annotation_str.__origin__
+
         # Handle both plain Literal and Union/Optional Literal types
-        origin = get_origin(field_type)
         if origin is Union:
             # For Optional/Union types, find the Literal type if it exists
             literal_type = next(
-                (t for t in get_args(field_type) if get_origin(t) is Literal), None
+                (
+                    t
+                    for t in annotation_str.__args__
+                    if getattr(t, "__origin__", None) is Literal
+                ),
+                None,
             )
         else:
             # For plain types, check if it's a Literal
-            literal_type = field_type if origin is Literal else None
+            literal_type = annotation_str if origin is Literal else None
 
         # Skip if no Literal type found
         if literal_type is None:
             continue
 
-        value = kwargs.get(field_name)
-        if value is not None:
-            valid_values = set(get_args(literal_type))
-            if value not in valid_values:
-                errors[field_name] = (
-                    f"{field_name}: {colors.yellow(value)} is not a valid value"
-                    f"\n    → Valid values are: {colors.green(', '.join(sorted(valid_values)))}"
-                )
+        # Get the valid values for the Literal
+        valid_values = set(literal_type.__args__)
+        if value not in valid_values:
+            errors[field_name] = (
+                f"{field_name}: {colors.yellow(value)} is not a valid value"
+                f"\n    → Valid values are: {colors.green(', '.join(sorted(valid_values)))}"
+            )
 
     if errors:
         message = "\n  "
