@@ -47,7 +47,7 @@ class Storage(Record, TracksRun, TracksUpdates):
         storage locations while data in linked storage locations is ignored.
 
     See Also:
-        :attr:`~lamindb.models.Settings.storage`
+        :attr:`~lamindb.core.Settings.storage`
             Default storage.
         :attr:`~lamindb.setup.core.StorageSettings`
             Storage settings.

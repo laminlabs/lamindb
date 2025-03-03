@@ -341,7 +341,7 @@ class Run(Record):
         reference_type: `str | None = None` For instance, `redun_id`, `nextflow_id` or `url`.
 
     See Also:
-        :meth:`~lamindb.models.Context.track`
+        :meth:`~lamindb.core.Context.track`
             Track global run & transform records for a notebook or pipeline.
 
     Examples:
