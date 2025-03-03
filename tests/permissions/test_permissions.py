@@ -37,7 +37,8 @@ def test_fine_grained_permissions():
     ulabel.name = "new label update"
     ulabel.save()
     ulabel = ln.ULabel.get(name="new label update")  # check that it is saved
-    # should succeed
+    # should fail
     ulabel = ln.ULabel.get(name="select_ulabel")
     ulabel.name = "select_ulabel update"
-    ulabel.save()
+    with pytest.raises(ProgrammingError):
+        ulabel.save()
