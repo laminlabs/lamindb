@@ -205,7 +205,7 @@ class LabelManager:
             records: Label records to add.
             feature: Feature under which to group the labels.
         """
-        from ._data import add_labels
+        from .artifact import add_labels
 
         return add_labels(self._host, records=records, feature=feature)
 
@@ -222,7 +222,7 @@ class LabelManager:
             mute: Show no logging.
             flat_names: Flatten list to names rather than returning records.
         """
-        from ._data import get_labels
+        from .artifact import get_labels
 
         return get_labels(self._host, feature=feature, mute=mute, flat_names=flat_names)
 

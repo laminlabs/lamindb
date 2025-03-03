@@ -1100,7 +1100,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             artifact.features.add_values({"study": candidate_marker_study})
         """
-        from lamindb.core._label_manager import LabelManager
+        from ._label_manager import LabelManager
 
         return LabelManager(self)
 
