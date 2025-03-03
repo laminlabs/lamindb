@@ -20,10 +20,3 @@ def sign_jwt(db_url, payload: dict) -> str:
             msg = "Failed to generate JWT"
             raise ValueError(msg)
         return token
-
-
-def set_jwt(token: str):
-    from django.db import connection  # set in the current django connection
-
-    with connection.cursor() as cur:
-        cur.execute("SELECT set_token(%s, false);", (token,))

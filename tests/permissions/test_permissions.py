@@ -1,11 +1,12 @@
 import lamindb as ln
 import pytest
 from django.db.utils import ProgrammingError
-from jwt_utils import set_jwt, sign_jwt
+from jwt_utils import sign_jwt
+from lamindb_setup.core.django import set_token
 
 pgurl = "postgresql://postgres:pwd@0.0.0.0:5432/pgtest"  # admin db connection url
 token = sign_jwt(pgurl, {"account_id": ln.setup.settings.user._uuid.hex})
-set_jwt(token)
+set_token(token)
 
 
 def test_fine_grained_permissions():
