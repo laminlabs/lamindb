@@ -1,4 +1,6 @@
-from typing import TYPE_CHECKING, Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from django.db import models
 from django.db.models import PROTECT, ManyToManyField
@@ -118,7 +120,7 @@ class FlexTable(Record, TracksRun, TracksUpdates):
     schema: Schema | None = ForeignKey(
         Schema, null=True, on_delete=models.SET_NULL, related_name="_tidytables"
     )
-    type: Optional["FlexTable"] = ForeignKey(
+    type: FlexTable | None = ForeignKey(
         "self", PROTECT, null=True, related_name="records"
     )
     """Type of tidy table, e.g., `Cell`, `SampleSheet`, etc."""

@@ -1,11 +1,11 @@
+from __future__ import annotations
+
 import warnings
 from collections import defaultdict
-from collections.abc import Iterable
 from typing import (
     TYPE_CHECKING,
     Any,
     Literal,
-    Optional,
     overload,
 )
 
@@ -25,7 +25,6 @@ from lamindb.base.fields import (
 
 from ..base.ids import base62_20
 from ..core._mapped_collection import MappedCollection
-from ..core.storage import UPath
 from ..core.storage._pyarrow_dataset import _is_pyarrow_dataset, _open_pyarrow_dataset
 from ..errors import FieldValidationError
 from ..models._is_versioned import process_revises
@@ -50,19 +49,22 @@ from .record import (
 )
 from .run import Run, TracksRun, TracksUpdates
 from .schema import Schema
-from .transform import Transform
-from .ulabel import ULabel
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from pyarrow.dataset import Dataset as PyArrowDataset
 
+    from ..core.storage import UPath
     from .query_set import QuerySet
+    from .transform import Transform
+    from .ulabel import ULabel
 
 
 class CollectionFeatureManager:
     """Query features of artifact in collection."""
 
-    def __init__(self, collection: "Collection"):
+    def __init__(self, collection: Collection):
         self._collection = collection
 
     def _get_staged_feature_sets_union(self) -> dict[str, Schema]:
@@ -201,7 +203,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         reference: str | None = None,
         reference_type: str | None = None,
         run: Run | None = None,
-        revises: Optional["Collection"] = None,
+        revises: Collection | None = None,
     ): ...
 
     @overload
@@ -311,7 +313,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             _track_run_input(revises, run=run)
         _track_run_input(artifacts, run=run)
 
-    def append(self, artifact: Artifact, run: Run | None = None) -> "Collection":
+    def append(self, artifact: Artifact, run: Run | None = None) -> Collection:
         """Add an artifact to the collection.
 
         Creates a new version of the collection.
@@ -338,7 +340,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             run=run,
         )
 
-    def open(self, is_run_input: bool | None = None) -> "PyArrowDataset":
+    def open(self, is_run_input: bool | None = None) -> PyArrowDataset:
         """Return a cloud-backed pyarrow Dataset.
 
         Works for `pyarrow` compatible formats.
@@ -392,7 +394,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         dtype: str | None = None,
         stream: bool = False,
         is_run_input: bool | None = None,
-    ) -> "MappedCollection":
+    ) -> MappedCollection:
         """Return a map-style dataset.
 
         Returns a `pytorch map-style dataset
@@ -555,7 +557,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         if delete_record:
             super().delete()
 
-    def save(self, using: str | None = None) -> "Collection":
+    def save(self, using: str | None = None) -> Collection:
         """Save the collection and underlying artifacts to database & storage.
 
         Args:
@@ -613,7 +615,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         return self.key.split("/")[-1]
 
     @property
-    def ordered_artifacts(self) -> "QuerySet":
+    def ordered_artifacts(self) -> QuerySet:
         """Ordered `QuerySet` of `.artifacts`.
 
         Accessing the many-to-many field `collection.artifacts` directly gives
