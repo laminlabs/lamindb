@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import importlib
-from typing import TYPE_CHECKING, Any, Optional, get_args, overload
+from typing import TYPE_CHECKING, Any, get_args, overload
 
 import pandas as pd
 from django.db import models
@@ -412,7 +412,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         self,
         name: str,
         dtype: FeatureDtype | Registry | list[Registry] | FieldAttr,
-        type: Optional[Feature] = None,
+        type: Feature | None = None,
         is_type: bool = False,
         unit: str | None = None,
         description: str | None = None,
