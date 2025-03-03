@@ -1521,7 +1521,7 @@ def format_field_value(value: datetime | str | Any) -> Any:
         return value
 
 
-class RegistryInfo:
+class RecordInfo:
     def __init__(self, registry: Registry):
         self.registry = registry
 
@@ -1699,7 +1699,7 @@ class RegistryInfo:
 def registry_repr(cls):
     """Shows fields."""
     repr_str = f"{colors.green(cls.__name__)}\n"
-    info = RegistryInfo(cls)
+    info = RecordInfo(cls)
     repr_str += info.get_simple_fields(return_str=True)
     repr_str += info.get_relational_fields(return_str=True)
     repr_str = repr_str.rstrip("\n")
