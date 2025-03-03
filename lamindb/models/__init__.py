@@ -23,12 +23,11 @@ Records & registries:
    FeatureValue
    InspectResult
    ValidateFields
-   fields
 
 """
 
 # ruff: noqa: I001
-
+from lamin_utils._inspect import InspectResult
 from .base import (
     IsVersioned,
     LinkORM,
