@@ -1,3 +1,30 @@
+"""Models library.
+
+.. autosummary::
+   :toctree: .
+
+   BasicRecord
+   Record
+   Registry
+   QuerySet
+   QueryManager
+   RecordList
+   FeatureManager
+   ParamManager
+   LabelManager
+   IsVersioned
+   CanCurate
+   HasParents
+   TracksRun
+   TracksUpdates
+   ParamValue
+   FeatureValue
+   InspectResult
+   ValidateFields
+   fields
+
+"""
+
 # ruff: noqa: I001
 
 from .base import (

@@ -50,6 +50,7 @@ Modules and settings.
    setup
    UPath
    base
+   models
    core
 
 Backward compatibility.
