@@ -79,7 +79,7 @@ from ..errors import (
     RecordNameChangeIntegrityError,
     ValidationError,
 )
-from .base import IsVersioned
+from .base import IsVersioned, LinkORM
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -151,7 +151,19 @@ def validate_literal_fields(record: "Record", kwargs) -> None:
         ValidationError: If any field value is not in its Literal's allowed values
     """
     # check is based on string to avoid circular imports
-    if record.__class__.__name__ in {"Feature", "User", "Space", "Storage", "Source"}:
+    if isinstance(record, LinkORM):
+        return None
+    if record.__class__.__name__ in {
+        "Feature",
+        "User",
+        "Space",
+        "Storage",
+        "Source",
+        "ULabel",
+        "Artifact",
+        "Collection",
+        "Schema",
+    }:
         # the FeatureDtype is more complicated than a simple literal
         # because it allows constructs like cat[ULabel] etc.
         # the User, Space, Storage, Source models are used at startup and throws a datetime-related error otherwise
@@ -243,7 +255,7 @@ def validate_fields(record: "Record", kwargs):
             )
         is_approx_pascal_case(kwargs["name"])
     # validate literals
-    validate_literal_fields(record, kwargs)  # TODO: uncomment
+    validate_literal_fields(record, kwargs)
 
 
 def suggest_records_with_similar_names(
