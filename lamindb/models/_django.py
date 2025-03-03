@@ -42,9 +42,8 @@ def get_artifact_with_related(
     include_schema: bool = False,
 ) -> dict:
     """Fetch an artifact with its related data."""
-    from lamindb._can_curate import get_name_field
-
     from ._label_manager import EXCLUDE_LABELS
+    from .can_curate import get_name_field
 
     model = artifact.__class__
     schema_modules = get_schema_modules(artifact._state.db)
@@ -181,7 +180,7 @@ def get_artifact_with_related(
 
 def get_schema_m2m_relations(artifact: Artifact, slot_schema: dict, limit: int = 20):
     """Fetch all many-to-many relationships for given feature sets."""
-    from lamindb._can_curate import get_name_field
+    from .can_curate import get_name_field
 
     m2m_relations = [
         v

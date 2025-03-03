@@ -50,8 +50,11 @@ from ._label_manager import _get_labels, describe_labels
 from ._relations import (
     dict_related_model_to_related_name,
 )
-from .feature import Feature
-from .run import ParamManager, ParamManagerRun
+from .core import Param, ParamValue
+from .feature import Feature, FeatureValue
+from .record import Record
+from .run import ParamManager, ParamManagerRun, Run
+from .ulabel import ULabel
 
 if TYPE_CHECKING:
     from rich.tree import Tree
@@ -60,13 +63,7 @@ if TYPE_CHECKING:
     from lamindb.models import (
         Artifact,
         Collection,
-        FeatureValue,
         LinkORM,
-        Param,
-        ParamValue,
-        Record,
-        Run,
-        ULabel,
     )
     from lamindb.models.query_set import QuerySet
 
@@ -821,6 +818,7 @@ def _add_values(
             dictionary.
     """
     from .._tracked import get_current_tracked_run
+    from .artifact import Artifact
 
     # rename to distinguish from the values inside the dict
     features_values = values
@@ -1120,10 +1118,7 @@ def _add_set_from_anndata(
     organism: str | Record | None = None,
 ):
     """Add features from AnnData."""
-    if isinstance(self._host, Artifact):
-        assert self._host.otype == "AnnData"  # noqa: S101
-    else:
-        raise NotImplementedError()
+    assert self._host.otype == "AnnData"  # noqa: S101
 
     # parse and register features
     adata = self._host.load()

@@ -3,7 +3,7 @@ import lamindb as ln
 import numpy as np
 import pandas as pd
 from lamindb.core import datasets
-from lamindb.core._data import _describe_postgres
+from lamindb.models.artifact import _describe_postgres
 
 
 def check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame):
