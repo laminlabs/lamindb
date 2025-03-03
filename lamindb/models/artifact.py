@@ -27,7 +27,6 @@ from lamindb_setup.core.upath import (
 )
 
 from lamindb.base import deprecated
-from lamindb.base._settings import settings
 from lamindb.base.fields import (
     BigIntegerField,
     BooleanField,
@@ -35,6 +34,7 @@ from lamindb.base.fields import (
     ForeignKey,
 )
 from lamindb.errors import FieldValidationError
+from lamindb.models._settings import settings
 from lamindb.models.query_set import QuerySet
 
 from ..base.users import current_user_id

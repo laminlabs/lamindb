@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from lamindb.base.types import FieldAttr
     from lamindb.models import Record
 from lamindb.base.types import FieldAttr  # noqa
-from lamindb.base._settings import settings
+from lamindb.models._settings import settings
 from lamindb.models import (
     Artifact,
     Collection,
@@ -608,7 +608,7 @@ class CatManager:
         run: Run | None = None,
     ) -> Artifact:
         """{}"""  # noqa: D415
-        from lamindb.base._settings import settings
+        from lamindb.models._settings import settings
 
         if not self._is_validated:
             self.validate()  # returns True or False
@@ -677,7 +677,7 @@ class DataFrameCatManager(CatManager):
         sources: dict[str, Record] | None = None,
         exclude: dict | None = None,
     ) -> None:
-        from lamindb.base._settings import settings
+        from lamindb.models._settings import settings
 
         if organism is not None and not isinstance(organism, str):
             raise ValueError("organism must be a string such as 'human' or 'mouse'!")
@@ -1242,7 +1242,7 @@ class MuDataCatManager(CatManager):
 
     def validate(self) -> bool:
         """Validate categories."""
-        from lamindb.base._settings import settings
+        from lamindb.models._settings import settings
 
         # add all validated records to the current instance
         verbosity = settings.verbosity
@@ -2084,7 +2084,7 @@ class SpatialDataCatManager(CatManager):
         Returns:
             Whether the SpatialData object is validated.
         """
-        from lamindb.base._settings import settings
+        from lamindb.models._settings import settings
 
         # add all validated records to the current instance
         verbosity = settings.verbosity
@@ -3107,7 +3107,7 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
 
 def get_current_filter_kwargs(registry: type[Record], kwargs: dict) -> dict:
     """Make sure the source and organism are saved in the same database as the registry."""
-    from lamindb.base._settings import settings
+    from lamindb.models._settings import settings
 
     db = registry.filter().db
     source = kwargs.get("source")
@@ -3196,8 +3196,8 @@ def validate_categories(
         standardize: Whether to standardize the values.
         hint_print: The hint to print that suggests fixing non-validated values.
     """
-    from lamindb.base._settings import settings
     from lamindb.models._from_values import _format_values
+    from lamindb.models._settings import settings
 
     model_field = f"{field.field.model.__name__}.{field.field.name}"
 
@@ -3517,7 +3517,7 @@ def update_registry(
         exclude: Values to exclude from inspect.
         kwargs: Additional keyword arguments to pass to the registry model to create new records.
     """
-    from lamindb.base._settings import settings
+    from lamindb.models._settings import settings
     from lamindb.models.save import save as ln_save
 
     registry = field.field.model

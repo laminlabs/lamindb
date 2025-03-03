@@ -7,7 +7,7 @@ from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core.hashing import hash_code
 
-from ..base._settings import sanitize_git_repo_url, settings
+from ..models._settings import sanitize_git_repo_url, settings
 
 
 class BlobHashNotFound(SystemExit):

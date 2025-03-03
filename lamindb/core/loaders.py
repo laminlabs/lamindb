@@ -30,7 +30,7 @@ from lamindb_setup.core.upath import (
     infer_filesystem,
 )
 
-from ..base._settings import settings
+from ..models._settings import settings
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr

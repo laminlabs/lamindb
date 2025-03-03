@@ -20,12 +20,12 @@ from lamindb.base import ids
 from lamindb.base.ids import base62_12
 from lamindb.models import Run, Transform, format_field_value
 
-from ..base._settings import settings
 from ..errors import (
     InconsistentKey,
     TrackNotCalled,
     UpdateContext,
 )
+from ..models._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_environment
 from .versioning import bump_version as bump_version_function

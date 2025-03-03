@@ -1,5 +1,13 @@
 """Models library.
 
+Settings:
+
+.. autosummary::
+   :toctree: .
+
+   Settings
+   subsettings
+
 .. autosummary::
    :toctree: .
 
@@ -57,3 +65,5 @@ from . import query_manager, query_set
 from .has_parents import HasParents
 
 FeatureSet = Schema  # backward compat
+from ._settings import Settings
+from . import subsettings
