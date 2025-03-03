@@ -212,24 +212,14 @@ class Transform(Record, IsVersioned):
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args, **kwargs)
             return None
-        key: str | None = kwargs.pop("key") if "key" in kwargs else None
-        description: str | None = (
-            kwargs.pop("description") if "description" in kwargs else None
-        )
-        revises: Transform | None = (
-            kwargs.pop("revises") if "revises" in kwargs else None
-        )
-        version: str | None = kwargs.pop("version") if "version" in kwargs else None
-        type: TransformType | None = (
-            kwargs.pop("type") if "type" in kwargs else "pipeline"
-        )
-        reference: str | None = (
-            kwargs.pop("reference") if "reference" in kwargs else None
-        )
-        reference_type: str | None = (
-            kwargs.pop("reference_type") if "reference_type" in kwargs else None
-        )
-        using_key = kwargs.pop("using_key") if "using_key" in kwargs else None
+        key: str | None = kwargs.pop("key", None)
+        description: str | None = kwargs.pop("description", None)
+        revises: Transform | None = kwargs.pop("revises", None)
+        version: str | None = kwargs.pop("version", None)
+        type: TransformType | None = kwargs.pop("type", "pipeline")
+        reference: str | None = kwargs.pop("reference", None)
+        reference_type: str | None = kwargs.pop("reference_type", None)
+        using_key = kwargs.pop("using_key", None)
         if "name" in kwargs:
             if key is None:
                 key = kwargs.pop("name")
