@@ -247,7 +247,7 @@ def validate_fields(record: "Record", kwargs):
             )
         is_approx_pascal_case(kwargs["name"])
     # validate literals
-    validate_literal_fields(record, kwargs)
+    # validate_literal_fields(record, kwargs)  # TODO: uncomment
 
 
 def suggest_records_with_similar_names(
