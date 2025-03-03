@@ -1,3 +1,4 @@
+# ruff: noqa: TC004
 from __future__ import annotations
 
 import os
@@ -20,11 +21,12 @@ from ..core.storage.paths import (
     delete_storage_using_key,
     store_file_or_folder,
 )
-from .artifact import Artifact
 from .record import Record
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+
+    from .artifact import Artifact
 
 
 def save(records: Iterable[Record], ignore_conflicts: bool | None = False) -> None:
