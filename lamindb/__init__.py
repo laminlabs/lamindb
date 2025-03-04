@@ -125,4 +125,3 @@ if _check_instance_setup(from_module="lamindb"):
 
     """
     from django.db.models import Q
-    from datetime import datetime as _datetime

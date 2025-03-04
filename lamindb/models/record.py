@@ -215,12 +215,11 @@ def validate_literal_fields(record: Record, kwargs) -> None:
         if field_name not in kwargs or kwargs[field_name] is None:
             continue
         value = kwargs[field_name]
-        if field_name in types:
-            annotation = types[field_name]
+        if str(annotation) in types:
+            annotation = types[annotation]
         if not hasattr(annotation, "__origin__"):
             continue
-        origin = annotation.__origin__
-        literal_type = annotation if origin is Literal else None
+        literal_type = annotation if annotation.__origin__ is Literal else None
         if literal_type is None:
             continue
         valid_values = set(literal_type.__args__)

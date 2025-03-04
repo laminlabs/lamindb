@@ -79,9 +79,8 @@ class Storage(Record, TracksRun, TracksUpdates):
         editable=False, unique=True, max_length=12, default=base62_12, db_index=True
     )
     """Universal id, valid across DB instances."""
-    # we are very conservative here with 255 characters
     root: str = CharField(db_index=True, unique=True)
-    """Root path of storage. n s3 path.  local path, etc. (required)."""
+    """Root path of storage (cloud or local path)."""
     description: str | None = CharField(db_index=True, null=True)
     """A description of what the storage location is used for (optional)."""
     type: str = CharField(max_length=30, db_index=True)
