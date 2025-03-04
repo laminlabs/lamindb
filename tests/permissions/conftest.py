@@ -11,7 +11,7 @@ def pytest_sessionstart():
     t_execute_start = perf_counter()
 
     ln_setup.settings.auto_connect = True
-    # these are called in separate scrits because can't change connection
+    # these are called in separate scripts because can't change connection
     # within the same python process due to django
     # init instance and setup RLS
     run(  # noqa: S602
