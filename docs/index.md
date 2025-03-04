@@ -9,7 +9,6 @@
 :maxdepth: 1
 :hidden:
 
-guide
 api
 changelog
 ```

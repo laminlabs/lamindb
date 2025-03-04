@@ -10,24 +10,3 @@
 cli
 lamindb
 ```
-
-```{toctree}
-:maxdepth: 1
-:caption: R & REST
-:hidden:
-
-laminr
-rest
-```
-
-```{toctree}
-:maxdepth: 1
-:caption: Modules
-:hidden:
-
-bionty
-wetlab
-clinicore
-cellregistry
-omop
-```
