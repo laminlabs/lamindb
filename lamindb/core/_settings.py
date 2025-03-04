@@ -155,12 +155,12 @@ class Settings:
     def verbosity(self) -> str:
         """Logger verbosity (default `'warning'`).
 
-        - `'error'`: ❌ only show error messages
-        - `'warning'`: ❗ also show warning messages
-        - `'success'`: ✅ also show success and save messages
-        - `'info'`: 💡 also show info messages
-        - `'hint'`: 💡 also show hint messages
-        - `'debug'`: 🐛 also show detailed debug messages
+        - `'error'`: only show error messages
+        - `'warning'`: also show warning messages
+        - `'success'`: also show success and save messages
+        - `'info'`: also show info messages
+        - `'hint'`: also show hint messages
+        - `'debug'`: also show detailed debug messages
         """
         return VERBOSITY_TO_STR[self._verbosity_int]
 

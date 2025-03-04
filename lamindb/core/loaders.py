@@ -30,13 +30,13 @@ from lamindb_setup.core.upath import (
     infer_filesystem,
 )
 
-from ._settings import settings
+from ..core._settings import settings
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
 
 try:
-    from .storage._zarr import load_anndata_zarr
+    from ..core.storage._zarr import load_anndata_zarr
 except ImportError:
 
     def load_anndata_zarr(storepath):  # type: ignore

@@ -5,7 +5,6 @@ Also see `test_artifact_folders.py` for tests of folder-like artifacts.
 """
 
 import shutil
-from inspect import signature
 from pathlib import Path, PurePosixPath
 
 import anndata as ad
@@ -18,13 +17,6 @@ import pandas as pd
 import pytest
 import spatialdata as sd
 import yaml  # type: ignore
-from lamindb import _artifact
-from lamindb._artifact import (
-    check_path_is_child_of_root,
-    data_is_anndata,
-    get_relative_path_to_directory,
-    process_data,
-)
 from lamindb.core._settings import settings
 from lamindb.core.loaders import load_fcs, load_to_memory, load_tsv
 from lamindb.core.storage._zarr import identify_zarr_type, write_adata_zarr
@@ -37,6 +29,12 @@ from lamindb.errors import (
     FieldValidationError,
     IntegrityError,
     InvalidArgument,
+)
+from lamindb.models.artifact import (
+    check_path_is_child_of_root,
+    data_is_anndata,
+    get_relative_path_to_directory,
+    process_data,
 )
 from lamindb_setup.core.upath import (
     CloudPath,
@@ -175,34 +173,6 @@ def spatialdata_file(sdata):
     sdata.write(filepath)
     yield filepath
     shutil.rmtree(filepath)
-
-
-def test_signatures():
-    # this seems currently the easiest and most transparent
-    # way to test violations of the signature equality
-    # the MockORM class is needed to get inspect.signature
-    # to work
-    class Mock:
-        pass
-
-    # class methods
-    class_methods = [
-        "from_dir",
-        "from_df",
-        "from_anndata",
-        "from_mudata",
-        "from_spatialdata",
-        "from_tiledbsoma",
-    ]
-    for name in class_methods:
-        setattr(Mock, name, getattr(_artifact, name))
-        assert signature(getattr(Mock, name)) == _artifact.SIGS.pop(name)
-    # methods
-    for name, sig in _artifact.SIGS.items():
-        if name == "delete":
-            # have a temporary fix in delete regarding "using_key"
-            continue
-        assert signature(getattr(_artifact, name)) == sig
 
 
 def test_data_is_anndata_paths():

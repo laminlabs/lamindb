@@ -4,11 +4,11 @@ from pathlib import Path
 import bionty as bt
 import lamindb as ln
 import pytest
-from lamindb.core._data import add_labels
-from lamindb.core._feature_manager import describe_features
-from lamindb.core._label_manager import print_rich_tree
 from lamindb.core.datasets import small_dataset1
 from lamindb.errors import DoesNotExist, ValidationError
+from lamindb.models._feature_manager import describe_features
+from lamindb.models._label_manager import print_rich_tree
+from lamindb.models.artifact import add_labels
 
 
 @pytest.fixture(scope="module")

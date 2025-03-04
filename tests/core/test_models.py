@@ -21,9 +21,9 @@ def test_registry__repr__param():
         .created_at: DateTimeField
         .updated_at: DateTimeField
       Relational fields
+        .space: Space
         .created_by: User
         .run: Run
-        .space: Space
         .type: Param
         .schemas: Schema
         .records: Param
@@ -66,8 +66,8 @@ def test_registry__repr__artifact():
         .input_of_runs: Run
         .feature_sets: Schema
         .collections: Collection
-        .projects: Project
         .references: Reference
+        .projects: Project
       Bionty fields
         .organisms: bionty.Organism
         .genes: bionty.Gene

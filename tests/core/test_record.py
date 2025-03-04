@@ -1,36 +1,17 @@
 import re
 import shutil
-from inspect import signature
 from pathlib import Path
 
 import bionty as bt
 import lamindb as ln
 import pytest
-from lamindb import _record
-from lamindb._record import (
+from lamindb.errors import FieldValidationError
+from lamindb.models.record import (
     _get_record_kwargs,
     _search,
+    get_name_field,
     suggest_records_with_similar_names,
 )
-from lamindb.errors import FieldValidationError
-
-
-def test_signatures():
-    # this seems currently the easiest and most transparent
-    # way to test violations of the signature equality
-    # the MockORM class is needed to get inspect.signature
-    # to work
-    class Mock:
-        pass
-
-    # class methods
-    class_methods = ["filter", "get", "df", "search", "lookup", "using"]
-    for name in class_methods:
-        setattr(Mock, name, getattr(_record, name))
-        assert signature(getattr(Mock, name)) == _record.SIGS.pop(name)
-    # methods
-    for name, sig in _record.SIGS.items():
-        assert signature(getattr(_record, name)) == sig
 
 
 def test_validate_literal_fields():
@@ -188,11 +169,10 @@ def test_pass_version():
 
 
 def test_get_name_field():
-    transform = ln.Transform(key="test")
-    transform.save()
-    assert _record.get_name_field(ln.Run(transform)) == "started_at"
+    transform = ln.Transform(key="test").save()
+    assert get_name_field(ln.Run(transform)) == "started_at"
     with pytest.raises(ValueError):
-        _record.get_name_field(ln.Artifact.ulabels.through())
+        get_name_field(ln.Artifact.ulabels.through())
     transform.delete()
 
 

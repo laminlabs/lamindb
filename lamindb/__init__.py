@@ -16,8 +16,8 @@ Registries.
 
    Artifact
    Transform
-   ULabel
    Run
+   ULabel
    User
    Storage
    Feature
@@ -25,8 +25,16 @@ Registries.
    Param
    Collection
    Project
+   Space
    Reference
    Person
+
+Curators & integrations.
+
+.. autosummary::
+
+   curators
+   integrations
 
 Key functionality.
 
@@ -36,20 +44,19 @@ Key functionality.
    connect
    view
    save
+   UPath
+   settings
 
-Modules and settings.
+Low-level functionality.
 
 .. autosummary::
    :toctree: .
 
-   integrations
    context
-   curators
-   settings
    errors
    setup
-   UPath
    base
+   models
    core
 
 Backward compatibility.
@@ -62,6 +69,7 @@ Backward compatibility.
 
 """
 
+# ruff: noqa: I001
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
 __version__ = "1.2a1"
 
@@ -79,23 +87,7 @@ def __getattr__(name):
 
 if _check_instance_setup(from_module="lamindb"):
     del __getattr__  # so that imports work out
-    from . import core  # isort: split
-    from . import (
-        _artifact,
-        _can_curate,
-        _collection,
-        _feature,
-        _is_versioned,
-        _parents,
-        _record,
-        _run,
-        _schema,
-        _storage,
-        _transform,
-        _ulabel,
-        integrations,
-    )
-    from ._save import save
+    from . import base
     from ._tracked import tracked
     from ._view import view
     from .core._context import context
@@ -111,12 +103,16 @@ if _check_instance_setup(from_module="lamindb"):
         Project,
         Reference,
         Run,
-        Schema,  # forward compat
+        Schema,
         Storage,
         Transform,
         ULabel,
         User,
+        Space,
     )
+    from .models.save import save
+    from . import core
+    from . import integrations
 
     track = context.track  # simple access
     finish = context.finish  # simple access

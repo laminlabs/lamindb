@@ -1,4 +1,4 @@
-"""IDs.
+"""Universal IDs.
 
 Base generators:
 
@@ -53,15 +53,6 @@ def base62(n_char: int) -> str:
     alphabet = string.digits + string.ascii_letters.swapcase()
     id = "".join(secrets.choice(alphabet) for i in range(n_char))
     return id
-
-
-# the following cannot be serialized by Django
-# class Base62:
-#     def __init__(self, n_char: int):
-#         self.n_char = n_char
-
-#     def __call__(self):
-#         return base62(self.n_char)
 
 
 def base26(n_char: int):
