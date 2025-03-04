@@ -2,15 +2,69 @@
 
 Tracking notebooks, scripts & functions.
 
+.. autosummary::
+   :toctree: .
+
+   track
+   finish
+   tracked
+
 Registries.
 
 .. autosummary::
    :toctree: .
 
+   Artifact
+   Transform
    Run
+   ULabel
    User
    Storage
+   Feature
+   Schema
+   Param
+   Collection
+   Project
+   Reference
+   Person
+
+Curators & integrations.
+
+.. autosummary::
+
+   curators
+   integrations
+
+Key functionality.
+
+.. autosummary::
+   :toctree: .
+
+   connect
+   view
+   save
+   UPath
+   settings
+
+Low-level functionality.
+
+.. autosummary::
+   :toctree: .
+
+   context
+   errors
+   setup
+   base
    models
+   core
+
+Backward compatibility.
+
+.. autosummary::
+   :toctree: .
+
+   FeatureSet
+   Curator
 
 """
 
