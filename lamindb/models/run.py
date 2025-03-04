@@ -458,8 +458,6 @@ class Run(Record):
     This is not a preceding run. The preceding runs ("predecessors") is the set
     of runs that produced the output artifacts that serve as the inputs for the
     present run.
-
-    Be careful with using this field at this point.
     """
     initiated_runs: Run
     """Runs that were initiated by this run."""
