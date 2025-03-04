@@ -391,7 +391,7 @@ class Run(Record):
     """Universal id, valid across DB instances."""
     name: str | None = CharField(max_length=150, null=True)
     """A name."""
-    transform = ForeignKey("Transform", CASCADE, related_name="runs")
+    transform: Transform = ForeignKey("Transform", CASCADE, related_name="runs")
     """The transform :class:`~lamindb.Transform` that is being run."""
     started_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
