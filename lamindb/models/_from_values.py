@@ -6,13 +6,14 @@ import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from lamin_utils import colors, logger
 
-from lamindb._query_set import RecordList
-from lamindb.models import Record
+from .record import Record
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from lamindb.base.types import ListLike, StrField
+
+    from .query_set import RecordList
 
 
 # The base function for `from_values`
@@ -27,6 +28,8 @@ def get_or_create_records(
     mute: bool = False,
 ) -> RecordList:
     """Get or create records from iterables."""
+    from .query_set import RecordList
+
     registry = field.field.model  # type: ignore
     if create:
         return RecordList([registry(**{field.field.name: value}) for value in iterable])  # type: ignore

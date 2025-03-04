@@ -1,13 +1,10 @@
-from inspect import signature
-
 import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
 from django.db.utils import IntegrityError
-from lamindb import _schema
-from lamindb._schema import get_related_name, validate_features
 from lamindb.errors import ValidationError
+from lamindb.models.schema import get_related_name, validate_features
 
 
 @pytest.fixture(scope="module")
@@ -20,24 +17,6 @@ def df():
             "feat4": ["id1", "id2", "id3"],
         }
     )
-
-
-def test_signatures():
-    # this seems currently the easiest and most transparent
-    # way to test violations of the signature equality
-    # the MockORM class is needed to get inspect.signature
-    # to work
-    class Mock:
-        pass
-
-    # class methods
-    class_methods = ["from_values", "from_df"]
-    for name in class_methods:
-        setattr(Mock, name, getattr(_schema, name))
-        assert signature(getattr(Mock, name)) == _schema.SIGS.pop(name)
-    # methods
-    for name, sig in _schema.SIGS.items():
-        assert signature(getattr(_schema, name)) == sig
 
 
 def test_schema_from_values():

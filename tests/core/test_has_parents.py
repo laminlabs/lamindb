@@ -1,5 +1,5 @@
 import lamindb as ln
-from lamindb._parents import _add_emoji
+from lamindb.models.has_parents import _add_emoji
 
 
 def test_view_parents():

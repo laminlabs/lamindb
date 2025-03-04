@@ -79,6 +79,7 @@ def install(session):
         "curator",
         "docs",
         "cli",
+        "permissions",
     ],
 )
 def install_ci(session, group):
@@ -139,7 +140,16 @@ def install_ci(session, group):
         )
     elif group == "cli":
         extras += "jupyter,bionty"
-    run(session, f"uv pip install --system -e .[dev,{extras}]")
+    elif group == "permissions":
+        run(session, "uv pip install --system -e ./laminhub/rest-hub")
+        run(
+            session,
+            "uv pip install --system -e ./laminhub/rest-hub/laminhub_rest/hubmodule",
+        )
+        run(session, "uv pip install --system line_profiler")
+
+    extras = "," + extras if extras != "" else extras
+    run(session, f"uv pip install --system -e .[dev{extras}]")
     # on the release branch, do not use submodules but run with pypi install
     # only exception is the docs group which should always use the submodule
     # to push docs fixes fast
@@ -202,6 +212,7 @@ def configure_coverage(session) -> None:
         "faq",
         "storage",
         "cli",
+        "permissions",
     ],
 )
 def test(session, group):
@@ -246,6 +257,8 @@ def test(session, group):
         )
     elif group == "cli":
         run(session, f"pytest {coverage_args} ./sub/lamin-cli/tests --durations=50")
+    elif group == "permissions":
+        run(session, f"pytest {coverage_args} ./tests/permissions")
     # move artifacts into right place
     if group in {"tutorial", "guide", "biology"}:
         target_dir = Path(f"./docs/{group}")

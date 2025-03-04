@@ -10,15 +10,15 @@ from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
 
-from lamindb._from_values import _format_values
-from lamindb._record import (
+from lamindb.models import CanCurate, Feature
+from lamindb.models._from_values import _format_values
+from lamindb.models.record import (
     REGISTRY_UNIQUE_FIELD,
     get_name_field,
     transfer_fk_to_default_db_bulk,
     transfer_to_default_db,
 )
-from lamindb._save import save
-from lamindb.models import CanCurate, Feature
+from lamindb.models.save import save
 
 from ._describe import (
     NAME_WIDTH,
@@ -28,12 +28,11 @@ from ._describe import (
     print_rich_tree,
 )
 from ._django import get_artifact_with_related, get_related_model
-from ._settings import settings
-from .relations import dict_related_model_to_related_name
+from ._relations import dict_related_model_to_related_name
 
 if TYPE_CHECKING:
-    from lamindb._query_set import QuerySet
     from lamindb.models import Artifact, Collection, Record
+    from lamindb.models.query_set import QuerySet
 
 EXCLUDE_LABELS = {"feature_sets"}
 
@@ -205,7 +204,7 @@ class LabelManager:
             records: Label records to add.
             feature: Feature under which to group the labels.
         """
-        from ._data import add_labels
+        from .artifact import add_labels
 
         return add_labels(self._host, records=records, feature=feature)
 
@@ -222,7 +221,7 @@ class LabelManager:
             mute: Show no logging.
             flat_names: Flatten list to names rather than returning records.
         """
-        from ._data import get_labels
+        from .artifact import get_labels
 
         return get_labels(self._host, feature=feature, mute=mute, flat_names=flat_names)
 
@@ -240,6 +239,8 @@ class LabelManager:
         """
         if transfer_logs is None:
             transfer_logs = {"mapped": [], "transferred": [], "run": None}
+        from lamindb import settings
+
         using_key = settings._using_key
         for related_name, labels in _get_labels(data, instance=data._state.db).items():
             labels = labels.all()

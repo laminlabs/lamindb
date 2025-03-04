@@ -5,8 +5,6 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from anndata._io.specs.registry import get_spec
 
-from lamindb.models import Artifact
-
 from ._anndata_accessor import AnnDataAccessor, StorageType, registry
 from ._pyarrow_dataset import _is_pyarrow_dataset, _open_pyarrow_dataset
 from ._tiledbsoma import _open_tiledbsoma
@@ -18,6 +16,8 @@ if TYPE_CHECKING:
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
     from upath import UPath
+
+    from lamindb.models.artifact import Artifact
 
 
 # this dynamically creates a subclass of a context manager class
@@ -74,6 +74,8 @@ def backed_access(
 ) -> (
     AnnDataAccessor | BackedAccessor | SOMACollection | SOMAExperiment | PyArrowDataset
 ):
+    from lamindb.models import Artifact
+
     if isinstance(artifact_or_filepath, Artifact):
         objectpath, _ = filepath_from_artifact(
             artifact_or_filepath, using_key=using_key

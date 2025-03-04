@@ -1,12 +1,9 @@
-from inspect import signature
-
 import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
-from lamindb import _feature
-from lamindb._feature import convert_pandas_dtype_to_lamin_dtype
 from lamindb.errors import ValidationError
+from lamindb.models.feature import convert_pandas_dtype_to_lamin_dtype
 from pandas.api.types import is_string_dtype
 
 
@@ -21,24 +18,6 @@ def df():
             "rando_feature": ["rando1", "rando2", "rando3"],
         }
     )
-
-
-def test_signatures():
-    # this seems currently the easiest and most transparent
-    # way to test violations of the signature equality
-    # the MockORM class is needed to get inspect.signature
-    # to work
-    class Mock:
-        pass
-
-    # class methods
-    class_methods = ["from_df"]
-    for name in class_methods:
-        setattr(Mock, name, getattr(_feature, name))
-        assert signature(getattr(Mock, name)) == _feature.SIGS.pop(name)
-    # methods
-    for name, sig in _feature.SIGS.items():
-        assert signature(getattr(_feature, name)) == sig
 
 
 def test_feature_init():
