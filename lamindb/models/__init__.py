@@ -57,5 +57,6 @@ from .flextable import FlexTable, RunData
 from .query_manager import QueryManager
 from .query_set import QuerySet, RecordList
 from .has_parents import HasParents
+from datetime import datetime as _datetime
 
 FeatureSet = Schema  # backward compat

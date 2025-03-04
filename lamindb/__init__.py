@@ -107,6 +107,7 @@ if _check_instance_setup(from_module="lamindb"):
         Transform,
         ULabel,
         User,
+        Space,
     )
     from .models.save import save
     from . import core
@@ -124,3 +125,4 @@ if _check_instance_setup(from_module="lamindb"):
 
     """
     from django.db.models import Q
+    from datetime import datetime as _datetime

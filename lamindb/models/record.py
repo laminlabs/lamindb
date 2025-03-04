@@ -198,68 +198,37 @@ def validate_literal_fields(record: Record, kwargs) -> None:
     Raises:
         ValidationError: If any field value is not in its Literal's allowed values
     """
-    # Skip validation for certain record types
     if isinstance(record, LinkORM):
         return None
-
-    if record.__class__.__name__ in {
-        "Feature",
-        "User",
-        "Space",
-        "Storage",
-        "Source",
-        "ULabel",
-        "Artifact",
-        "Collection",
-        "Schema",
-    }:
+    if record.__class__.__name__ in "Feature":
         return None
+    from lamindb.base.types import FeatureDtype, TransformType
 
+    types = {
+        "TransformType": TransformType,
+        "ArtifactKind": FeatureDtype,
+        "FeatureDtype": FeatureDtype,
+    }
     errors = {}
-
-    # Access annotations directly instead of using get_type_hints
     annotations = getattr(record.__class__, "__annotations__", {})
-
-    for field_name, annotation_str in annotations.items():
-        # Skip if the field is not in kwargs
+    for field_name, annotation in annotations.items():
         if field_name not in kwargs or kwargs[field_name] is None:
             continue
-
         value = kwargs[field_name]
-
-        # Check if this is a Literal field by examining the annotation string representation
-        if not hasattr(annotation_str, "__origin__"):
+        if field_name in types:
+            annotation = types[field_name]
+        if not hasattr(annotation, "__origin__"):
             continue
-
-        origin = annotation_str.__origin__
-
-        # Handle both plain Literal and Union/Optional Literal types
-        if origin is Union:
-            # For Optional/Union types, find the Literal type if it exists
-            literal_type = next(
-                (
-                    t
-                    for t in annotation_str.__args__
-                    if getattr(t, "__origin__", None) is Literal
-                ),
-                None,
-            )
-        else:
-            # For plain types, check if it's a Literal
-            literal_type = annotation_str if origin is Literal else None
-
-        # Skip if no Literal type found
+        origin = annotation.__origin__
+        literal_type = annotation if origin is Literal else None
         if literal_type is None:
             continue
-
-        # Get the valid values for the Literal
         valid_values = set(literal_type.__args__)
         if value not in valid_values:
             errors[field_name] = (
                 f"{field_name}: {colors.yellow(value)} is not a valid value"
                 f"\n    → Valid values are: {colors.green(', '.join(sorted(valid_values)))}"
             )
-
     if errors:
         message = "\n  "
         for _, error in errors.items():
