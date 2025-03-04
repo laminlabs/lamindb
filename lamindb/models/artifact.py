@@ -601,7 +601,12 @@ def get_run(run: Run | None) -> Run | None:
         if run is None:
             run = context.run
         if run is None and not settings.creation.artifact_silence_missing_run_warning:
-            logger.warning(WARNING_RUN_TRANSFORM)
+            # here we check that this is not a read-only connection
+            # normally for our connection strings the read-only role name has _read in it
+            # not absolutely safe but the worst case is that the warning is not shown
+            instance = setup_settings.instance
+            if instance.dialect != "postgresql" or "_read" not in instance.db:
+                logger.warning(WARNING_RUN_TRANSFORM)
     # suppress run by passing False
     elif not run:
         run = None
@@ -2532,7 +2537,12 @@ def _track_run_input(
         # we don't have a run record
         if run is None:
             if settings.track_run_inputs:
-                logger.warning(WARNING_NO_INPUT)
+                # here we check that this is not a read-only connection
+                # normally for our connection strings the read-only role name has _read in it
+                # not absolutely safe but the worst case is that the warning is not shown
+                instance = setup_settings.instance
+                if instance.dialect != "postgresql" or "_read" not in instance.db:
+                    logger.warning(WARNING_NO_INPUT)
         # assume we have a run record
         else:
             # assume there is non-cyclic candidate input data
