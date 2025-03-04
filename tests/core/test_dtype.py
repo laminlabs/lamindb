@@ -1,8 +1,8 @@
 import bionty
 import pytest
 from lamindb import ULabel
-from lamindb._feature import parse_dtype
 from lamindb.errors import ValidationError
+from lamindb.models.feature import parse_dtype
 
 
 def test_simple_ulabel_with_subtype_and_field():

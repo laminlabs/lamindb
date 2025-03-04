@@ -1,7 +1,7 @@
 import bionty as bt
 import lamindb as ln
 import pytest
-from lamindb.core._django import get_artifact_with_related
+from lamindb.models._django import get_artifact_with_related
 
 
 def test_transfer_from_remote_to_local():

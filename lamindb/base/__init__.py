@@ -1,6 +1,6 @@
 """Base library.
 
-Is available also when no instance is connected.
+Is available also when no instance is setup.
 
 Modules:
 

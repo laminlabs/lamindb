@@ -9,6 +9,18 @@
    DataFrameCurator
    AnnDataCurator
 
+CatManager:
+
+.. autosummary::
+   :toctree: .
+
+   CatManager
+   DataFrameCatManager
+   AnnDataCatManager
+   MuDataCatManager
+   TiledbsomaCatManager
+   CurateLookup
+
 """
 
 from __future__ import annotations
@@ -39,14 +51,10 @@ if TYPE_CHECKING:
 
     from lamindb.base.types import FieldAttr
     from lamindb.models import Record
-from lamindb._feature import parse_dtype, parse_dtype_single_cat
 from lamindb.base.types import FieldAttr  # noqa
-from lamindb.core._data import add_labels
-from lamindb.core._feature_manager import parse_staged_feature_sets_from_anndata
 from lamindb.core._settings import settings
 from lamindb.models import (
     Artifact,
-    CanCurate,
     Collection,
     Feature,
     Record,
@@ -54,9 +62,11 @@ from lamindb.models import (
     Schema,
     ULabel,
 )
+from lamindb.models._feature_manager import parse_staged_feature_sets_from_anndata
+from lamindb.models.artifact import add_labels, data_is_anndata
+from lamindb.models.feature import parse_dtype, parse_dtype_single_cat
+from lamindb.models._from_values import _format_values
 
-from .._artifact import data_is_anndata
-from .._from_values import _format_values
 from ..errors import InvalidArgument, ValidationError
 
 if TYPE_CHECKING:
@@ -67,7 +77,7 @@ if TYPE_CHECKING:
     from mudata import MuData
     from spatialdata import SpatialData
 
-    from lamindb._query_set import RecordList
+    from lamindb.models.query_set import RecordList
 
 
 def strip_ansi_codes(text):
@@ -518,8 +528,8 @@ class CatManager:
 
     If you find non-validated values, you have several options:
 
-    - new values found in the data can be registered using :meth:`~lamindb.core.DataFrameCatManager.add_new_from`
-    - non-validated values can be accessed using :meth:`~lamindb.core.DataFrameCatManager.non_validated` and addressed manually
+    - new values found in the data can be registered using :meth:`~lamindb.curators.DataFrameCatManager.add_new_from`
+    - non-validated values can be accessed using :meth:`~lamindb.curators.DataFrameCatManager.non_validated` and addressed manually
     """
 
     def __init__(
@@ -1710,7 +1720,7 @@ class TiledbsomaCatManager(CatManager):
         Returns:
             A saved artifact record.
         """
-        from lamindb.core._data import add_labels
+        from lamindb.models.artifact import add_labels
 
         if not self._is_validated:
             self.validate()
@@ -3198,8 +3208,8 @@ def validate_categories(
         standardize: Whether to standardize the values.
         hint_print: The hint to print that suggests fixing non-validated values.
     """
-    from lamindb._from_values import _format_values
     from lamindb.core._settings import settings
+    from lamindb.models._from_values import _format_values
 
     model_field = f"{field.field.model.__name__}.{field.field.name}"
 
@@ -3360,8 +3370,7 @@ def save_artifact(
     Returns:
         The saved Artifact.
     """
-    from .._artifact import data_is_anndata, data_is_mudata
-    from ..core._data import add_labels
+    from ..models.artifact import add_labels, data_is_anndata, data_is_mudata
 
     if artifact is None:
         if data_is_anndata(data):
@@ -3520,8 +3529,8 @@ def update_registry(
         exclude: Values to exclude from inspect.
         kwargs: Additional keyword arguments to pass to the registry model to create new records.
     """
-    from lamindb._save import save as ln_save
     from lamindb.core._settings import settings
+    from lamindb.models.save import save as ln_save
 
     registry = field.field.model
     filter_kwargs = check_registry_organism(registry, organism)
@@ -3609,7 +3618,7 @@ def log_saved_labels(
     validated_only: bool = True,
 ) -> None:
     """Log the saved labels."""
-    from .._from_values import _format_values
+    from ..models._from_values import _format_values
 
     model_field = colors.italic(model_field)
     for k, labels in labels_saved.items():
@@ -3657,7 +3666,7 @@ def _save_organism(name: str):
 
 def _ref_is_name(field: FieldAttr) -> bool | None:
     """Check if the reference field is a name field."""
-    from .._can_curate import get_name_field
+    from ..models.can_curate import get_name_field
 
     name_field = get_name_field(field.field.model)
     return field.field.name == name_field
