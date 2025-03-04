@@ -25,6 +25,7 @@ Registries.
    Param
    Collection
    Project
+   Space
    Reference
    Person
 

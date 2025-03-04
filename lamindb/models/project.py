@@ -33,9 +33,9 @@ if TYPE_CHECKING:
 
 
 class Person(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
-    """Persons.
+    """People.
 
-    This registry is distinct from `User` and purely exists for project management.
+    This registry is distinct from `User` and exists for project management.
 
     You'll soon be able to conveniently create persons from users.
 
