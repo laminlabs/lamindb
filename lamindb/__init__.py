@@ -73,6 +73,13 @@ Backward compatibility.
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
 __version__ = "1.2a1"
 
+import warnings
+
+# through SpatialData
+warnings.filterwarnings(
+    "ignore", message="The legacy Dask DataFrame implementation is deprecated"
+)
+
 from lamindb_setup._check_setup import InstanceNotSetupError as _InstanceNotSetupError
 from lamindb_setup._check_setup import _check_instance_setup
 from lamindb_setup._connect_instance import connect
