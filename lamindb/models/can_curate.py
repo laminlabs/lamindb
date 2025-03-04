@@ -1,102 +1,23 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Iterable, Literal, Union
 
-import lamindb_setup as ln_setup
 import numpy as np
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from lamin_utils import colors, logger
-from lamindb_setup.core._docs import doc_args
 
-from lamindb.models import CanCurate, Record
-
+from ..errors import ValidationError
 from ._from_values import _format_values, _has_organism_field, get_or_create_records
-from ._record import _queryset, get_name_field
-from ._utils import attach_func_to_class_method
-from .errors import ValidationError
+from .record import Record, _queryset, get_name_field
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
     from lamin_utils._inspect import InspectResult
 
-    from lamindb._query_set import RecordList
     from lamindb.base.types import ListLike, StrField
 
-
-# from_values doesn't apply for QuerySet or Manager
-@classmethod  # type:ignore
-@doc_args(CanCurate.from_values.__doc__)
-def from_values(
-    cls,
-    values: ListLike,
-    field: StrField | None = None,
-    create: bool = False,
-    organism: Record | str | None = None,
-    source: Record | None = None,
-    mute: bool = False,
-) -> RecordList:
-    """{}"""  # noqa: D415
-    from_source = True if cls.__module__.startswith("bionty.") else False
-
-    field_str = get_name_field(cls, field=field)
-    return get_or_create_records(
-        iterable=values,
-        field=getattr(cls, field_str),
-        create=create,
-        from_source=from_source,
-        organism=organism,
-        source=source,
-        mute=mute,
-    )
-
-
-@classmethod  # type: ignore
-@doc_args(CanCurate.inspect.__doc__)
-def inspect(
-    cls,
-    values: ListLike,
-    field: str | StrField | None = None,
-    *,
-    mute: bool = False,
-    organism: str | Record | None = None,
-    source: Record | None = None,
-    strict_source: bool = False,
-) -> InspectResult:
-    """{}"""  # noqa: D415
-    return _inspect(
-        cls=cls,
-        values=values,
-        field=field,
-        mute=mute,
-        strict_source=strict_source,
-        organism=organism,
-        source=source,
-    )
-
-
-@classmethod  # type: ignore
-@doc_args(CanCurate.validate.__doc__)
-def validate(
-    cls,
-    values: ListLike,
-    field: str | StrField | None = None,
-    *,
-    mute: bool = False,
-    organism: str | Record | None = None,
-    source: Record | None = None,
-    strict_source: bool = False,
-) -> np.ndarray:
-    """{}"""  # noqa: D415
-    return _validate(
-        cls=cls,
-        values=values,
-        field=field,
-        mute=mute,
-        strict_source=strict_source,
-        organism=organism,
-        source=source,
-    )
+    from .query_set import RecordList
 
 
 def _check_source_db(source: Record, using_key: str | None):
@@ -291,76 +212,6 @@ def _validate(
         return result
 
 
-@classmethod  # type: ignore
-@doc_args(CanCurate.standardize.__doc__)
-def standardize(
-    cls,
-    values: ListLike,
-    field: str | StrField | None = None,
-    *,
-    return_field: str = None,
-    return_mapper: bool = False,
-    case_sensitive: bool = False,
-    mute: bool = False,
-    public_aware: bool = True,
-    keep: Literal["first", "last", False] = "first",
-    synonyms_field: str = "synonyms",
-    organism: str | Record | None = None,
-    source: Record | None = None,
-    strict_source: bool = False,
-) -> list[str] | dict[str, str]:
-    """{}"""  # noqa: D415
-    return _standardize(
-        cls=cls,
-        values=values,
-        field=field,
-        return_field=return_field,
-        return_mapper=return_mapper,
-        case_sensitive=case_sensitive,
-        mute=mute,
-        strict_source=strict_source,
-        public_aware=public_aware,
-        keep=keep,
-        synonyms_field=synonyms_field,
-        organism=organism,
-        source=source,
-    )
-
-
-def set_abbr(self, value: str):
-    self.abbr = value
-
-    if hasattr(self, "name") and value == self.name:
-        pass
-    else:
-        try:
-            self.add_synonym(value, save=False)
-        except Exception as e:  # pragma: no cover
-            logger.debug(
-                f"Encountered an Exception while attempting to add synonyms.\n{e}"
-            )
-
-    if not self._state.adding:
-        self.save()
-
-
-def add_synonym(
-    self,
-    synonym: str | ListLike,
-    force: bool = False,
-    save: bool | None = None,
-):
-    _check_synonyms_field_exist(self)
-    _add_or_remove_synonyms(
-        synonym=synonym, record=self, force=force, action="add", save=save
-    )
-
-
-def remove_synonym(self, synonym: str | ListLike):
-    _check_synonyms_field_exist(self)
-    _add_or_remove_synonyms(synonym=synonym, record=self, action="remove")
-
-
 def _standardize(
     cls,
     values: ListLike,
@@ -507,27 +358,27 @@ def _standardize(
 
 def _add_or_remove_synonyms(
     synonym: str | ListLike,
-    record: Record,
+    record: CanCurate,
     action: Literal["add", "remove"],
     force: bool = False,
     save: bool | None = None,
 ):
     """Add or remove synonyms."""
 
-    def check_synonyms_in_all_records(synonyms: set[str], record: Record):
+    def check_synonyms_in_all_records(synonyms: set[str], record: CanCurate):
         """Errors if input synonym is associated with other records in the DB."""
         import pandas as pd
         from IPython.display import display
 
         syns_all = (
-            record.__class__.objects.exclude(synonyms="").exclude(synonyms=None).all()
+            record.__class__.objects.exclude(synonyms="").exclude(synonyms=None).all()  # type: ignore
         )
         if len(syns_all) == 0:
             return
         df = pd.DataFrame(syns_all.values())
         df["synonyms"] = df["synonyms"].str.split("|")
         df = df.explode("synonyms")
-        matches_df = df[(df["synonyms"].isin(synonyms)) & (df["id"] != record.id)]
+        matches_df = df[(df["synonyms"].isin(synonyms)) & (df["id"] != record.id)]  # type: ignore
         if matches_df.shape[0] > 0:
             records_df = pd.DataFrame(syns_all.filter(id__in=matches_df["id"]).values())
             logger.error(
@@ -558,7 +409,7 @@ def _add_or_remove_synonyms(
         raise ValidationError("a synonym can't contain '|'!")
 
     # existing synonyms
-    syns_exist = record.synonyms
+    syns_exist = record.synonyms  # type: ignore
     if syns_exist is None or len(syns_exist) == 0:
         syns_exist_set = set()
     else:
@@ -576,16 +427,16 @@ def _add_or_remove_synonyms(
     else:
         syns_str = "|".join(syns_exist_set)
 
-    record.synonyms = syns_str
+    record.synonyms = syns_str  # type: ignore
 
     if save is None:
         # if record is already in DB, save the changes to DB
-        save = not record._state.adding
+        save = not record._state.adding  # type: ignore
     if save:
-        record.save()
+        record.save()  # type: ignore
 
 
-def _check_synonyms_field_exist(record: Record):
+def _check_synonyms_field_exist(record: CanCurate):
     try:
         record.__getattribute__("synonyms")
     except AttributeError:
@@ -637,24 +488,342 @@ def _field_is_id(field: str, registry: type[Record]) -> bool:
     return False
 
 
-METHOD_NAMES = [
-    "validate",
-    "inspect",
-    "standardize",
-    "add_synonym",
-    "remove_synonym",
-    "set_abbr",
-    "from_values",
-]
+class CanCurate:
+    """Base class providing :class:`~lamindb.models.Record`-based validation."""
 
-if ln_setup._TESTING:  # type: ignore
-    from inspect import signature
+    @classmethod
+    def inspect(
+        cls,
+        values: ListLike,
+        field: str | StrField | None = None,
+        *,
+        mute: bool = False,
+        organism: Union[str, Record, None] = None,
+        source: Record | None = None,
+        strict_source: bool = False,
+    ) -> InspectResult:
+        """Inspect if values are mappable to a field.
 
-    SIGS = {
-        name: signature(getattr(CanCurate, name))
-        for name in METHOD_NAMES
-        if not name.startswith("__")
-    }
+        Being mappable means that an exact match exists.
 
-for name in METHOD_NAMES:
-    attach_func_to_class_method(name, CanCurate, globals())
+        Args:
+            values: Values that will be checked against the field.
+            field: The field of values. Examples are `'ontology_id'` to map
+                against the source ID or `'name'` to map against the ontologies
+                field names.
+            mute: Whether to mute logging.
+            organism: An Organism name or record.
+            source: A `bionty.Source` record that specifies the version to inspect against.
+            strict_source: Determines the validation behavior against records in the registry.
+                - If `False`, validation will include all records in the registry, ignoring the specified source.
+                - If `True`, validation will only include records in the registry  that are linked to the specified source.
+                Note: this parameter won't affect validation against bionty/public sources.
+
+        See Also:
+            :meth:`~lamindb.models.CanCurate.validate`
+
+        Examples:
+            >>> import bionty as bt
+            >>> bt.settings.organism = "human"
+            >>> ln.save(bt.Gene.from_values(["A1CF", "A1BG", "BRCA2"], field="symbol"))
+            >>> gene_symbols = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
+            >>> result = bt.Gene.inspect(gene_symbols, field=bt.Gene.symbol)
+            >>> result.validated
+            ['A1CF', 'A1BG']
+            >>> result.non_validated
+            ['FANCD1', 'FANCD20']
+        """
+        return _inspect(
+            cls=cls,
+            values=values,
+            field=field,
+            mute=mute,
+            strict_source=strict_source,
+            organism=organism,
+            source=source,
+        )
+
+    @classmethod
+    def validate(
+        cls,
+        values: ListLike,
+        field: str | StrField | None = None,
+        *,
+        mute: bool = False,
+        organism: Union[str, Record, None] = None,
+        source: Record | None = None,
+        strict_source: bool = False,
+    ) -> np.ndarray:
+        """Validate values against existing values of a string field.
+
+        Note this is strict_source validation, only asserts exact matches.
+
+        Args:
+            values: Values that will be validated against the field.
+            field: The field of values.
+                    Examples are `'ontology_id'` to map against the source ID
+                    or `'name'` to map against the ontologies field names.
+            mute: Whether to mute logging.
+            organism: An Organism name or record.
+            source: A `bionty.Source` record that specifies the version to validate against.
+            strict_source: Determines the validation behavior against records in the registry.
+                - If `False`, validation will include all records in the registry, ignoring the specified source.
+                - If `True`, validation will only include records in the registry  that are linked to the specified source.
+                Note: this parameter won't affect validation against bionty/public sources.
+
+        Returns:
+            A vector of booleans indicating if an element is validated.
+
+        See Also:
+            :meth:`~lamindb.models.CanCurate.inspect`
+
+        Examples:
+            >>> import bionty as bt
+            >>> bt.settings.organism = "human"
+            >>> ln.save(bt.Gene.from_values(["A1CF", "A1BG", "BRCA2"], field="symbol"))
+            >>> gene_symbols = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
+            >>> bt.Gene.validate(gene_symbols, field=bt.Gene.symbol)
+            array([ True,  True, False, False])
+        """
+        return _validate(
+            cls=cls,
+            values=values,
+            field=field,
+            mute=mute,
+            strict_source=strict_source,
+            organism=organism,
+            source=source,
+        )
+
+    @classmethod
+    def from_values(
+        cls,
+        values: ListLike,
+        field: StrField | None = None,
+        create: bool = False,
+        organism: Union[Record, str, None] = None,
+        source: Record | None = None,
+        mute: bool = False,
+    ) -> RecordList:
+        """Bulk create validated records by parsing values for an identifier such as a name or an id).
+
+        Args:
+            values: A list of values for an identifier, e.g.
+                `["name1", "name2"]`.
+            field: A `Record` field to look up, e.g., `bt.CellMarker.name`.
+            create: Whether to create records if they don't exist.
+            organism: A `bionty.Organism` name or record.
+            source: A `bionty.Source` record to validate against to create records for.
+            mute: Whether to mute logging.
+
+        Returns:
+            A list of validated records. For bionty registries. Also returns knowledge-coupled records.
+
+        Notes:
+            For more info, see tutorial: :doc:`docs:bio-registries`.
+
+        Examples:
+
+            Bulk create from non-validated values will log warnings & returns empty list:
+
+            >>> ulabels = ln.ULabel.from_values(["benchmark", "prediction", "test"], field="name")
+            >>> assert len(ulabels) == 0
+
+            Bulk create records from validated values returns the corresponding existing records:
+
+            >>> ln.save([ln.ULabel(name=name) for name in ["benchmark", "prediction", "test"]])
+            >>> ulabels = ln.ULabel.from_values(["benchmark", "prediction", "test"], field="name")
+            >>> assert len(ulabels) == 3
+
+            Bulk create records from public reference:
+
+            >>> import bionty as bt
+            >>> records = bt.CellType.from_values(["T cell", "B cell"], field="name")
+            >>> records
+        """
+        from_source = True if cls.__module__.startswith("bionty.") else False
+
+        field_str = get_name_field(cls, field=field)
+        return get_or_create_records(
+            iterable=values,
+            field=getattr(cls, field_str),
+            create=create,
+            from_source=from_source,
+            organism=organism,
+            source=source,
+            mute=mute,
+        )
+
+    @classmethod
+    def standardize(
+        cls,
+        values: Iterable,
+        field: str | StrField | None = None,
+        *,
+        return_field: str | StrField | None = None,
+        return_mapper: bool = False,
+        case_sensitive: bool = False,
+        mute: bool = False,
+        public_aware: bool = True,
+        keep: Literal["first", "last", False] = "first",
+        synonyms_field: str = "synonyms",
+        organism: Union[str, Record, None] = None,
+        source: Record | None = None,
+        strict_source: bool = False,
+    ) -> list[str] | dict[str, str]:
+        """Maps input synonyms to standardized names.
+
+        Args:
+            values: Identifiers that will be standardized.
+            field: The field representing the standardized names.
+            return_field: The field to return. Defaults to field.
+            return_mapper: If `True`, returns `{input_value: standardized_name}`.
+            case_sensitive: Whether the mapping is case sensitive.
+            mute: Whether to mute logging.
+            public_aware: Whether to standardize from Bionty reference. Defaults to `True` for Bionty registries.
+            keep: When a synonym maps to multiple names, determines which duplicates to mark as `pd.DataFrame.duplicated`:
+                    - `"first"`: returns the first mapped standardized name
+                    - `"last"`: returns the last mapped standardized name
+                    - `False`: returns all mapped standardized name.
+
+                  When `keep` is `False`, the returned list of standardized names will contain nested lists in case of duplicates.
+
+                  When a field is converted into return_field, keep marks which matches to keep when multiple return_field values map to the same field value.
+            synonyms_field: A field containing the concatenated synonyms.
+            organism: An Organism name or record.
+            source: A `bionty.Source` record that specifies the version to validate against.
+            strict_source: Determines the validation behavior against records in the registry.
+                - If `False`, validation will include all records in the registry, ignoring the specified source.
+                - If `True`, validation will only include records in the registry  that are linked to the specified source.
+                Note: this parameter won't affect validation against bionty/public sources.
+
+        Returns:
+            If `return_mapper` is `False`: a list of standardized names. Otherwise,
+            a dictionary of mapped values with mappable synonyms as keys and
+            standardized names as values.
+
+        See Also:
+            :meth:`~lamindb.models.CanCurate.add_synonym`
+                Add synonyms.
+            :meth:`~lamindb.models.CanCurate.remove_synonym`
+                Remove synonyms.
+
+        Examples:
+            >>> import bionty as bt
+            >>> bt.settings.organism = "human"
+            >>> ln.save(bt.Gene.from_values(["A1CF", "A1BG", "BRCA2"], field="symbol"))
+            >>> gene_synonyms = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
+            >>> standardized_names = bt.Gene.standardize(gene_synonyms)
+            >>> standardized_names
+            ['A1CF', 'A1BG', 'BRCA2', 'FANCD20']
+        """
+        return _standardize(
+            cls=cls,
+            values=values,
+            field=field,
+            return_field=return_field,
+            return_mapper=return_mapper,
+            case_sensitive=case_sensitive,
+            mute=mute,
+            strict_source=strict_source,
+            public_aware=public_aware,
+            keep=keep,
+            synonyms_field=synonyms_field,
+            organism=organism,
+            source=source,
+        )
+
+    def add_synonym(
+        self,
+        synonym: str | ListLike,
+        force: bool = False,
+        save: bool | None = None,
+    ):
+        """Add synonyms to a record.
+
+        Args:
+            synonym: The synonyms to add to the record.
+            force: Whether to add synonyms even if they are already synonyms of other records.
+            save: Whether to save the record to the database.
+
+        See Also:
+            :meth:`~lamindb.models.CanCurate.remove_synonym`
+                Remove synonyms.
+
+        Examples:
+            >>> import bionty as bt
+            >>> bt.CellType.from_source(name="T cell").save()
+            >>> lookup = bt.CellType.lookup()
+            >>> record = lookup.t_cell
+            >>> record.synonyms
+            'T-cell|T lymphocyte|T-lymphocyte'
+            >>> record.add_synonym("T cells")
+            >>> record.synonyms
+            'T cells|T-cell|T-lymphocyte|T lymphocyte'
+        """
+        _check_synonyms_field_exist(self)
+        _add_or_remove_synonyms(
+            synonym=synonym, record=self, force=force, action="add", save=save
+        )
+
+    def remove_synonym(self, synonym: str | ListLike):
+        """Remove synonyms from a record.
+
+        Args:
+            synonym: The synonym values to remove.
+
+        See Also:
+            :meth:`~lamindb.models.CanCurate.add_synonym`
+                Add synonyms
+
+        Examples:
+            >>> import bionty as bt
+            >>> bt.CellType.from_source(name="T cell").save()
+            >>> lookup = bt.CellType.lookup()
+            >>> record = lookup.t_cell
+            >>> record.synonyms
+            'T-cell|T lymphocyte|T-lymphocyte'
+            >>> record.remove_synonym("T-cell")
+            'T lymphocyte|T-lymphocyte'
+        """
+        _check_synonyms_field_exist(self)
+        _add_or_remove_synonyms(synonym=synonym, record=self, action="remove")
+
+    def set_abbr(self, value: str):
+        """Set value for abbr field and add to synonyms.
+
+        Args:
+            value: A value for an abbreviation.
+
+        See Also:
+            :meth:`~lamindb.models.CanCurate.add_synonym`
+
+        Examples:
+            >>> import bionty as bt
+            >>> bt.ExperimentalFactor.from_source(name="single-cell RNA sequencing").save()
+            >>> scrna = bt.ExperimentalFactor.get(name="single-cell RNA sequencing")
+            >>> scrna.abbr
+            None
+            >>> scrna.synonyms
+            'single-cell RNA-seq|single-cell transcriptome sequencing|scRNA-seq|single cell RNA sequencing'
+            >>> scrna.set_abbr("scRNA")
+            >>> scrna.abbr
+            'scRNA'
+            >>> scrna.synonyms
+            'scRNA|single-cell RNA-seq|single cell RNA sequencing|single-cell transcriptome sequencing|scRNA-seq'
+            >>> scrna.save()
+        """
+        self.abbr = value
+
+        if hasattr(self, "name") and value == self.name:
+            pass
+        else:
+            try:
+                self.add_synonym(value, save=False)
+            except Exception as e:  # pragma: no cover
+                logger.debug(
+                    f"Encountered an Exception while attempting to add synonyms.\n{e}"
+                )
+
+        if not self._state.adding:  # type: ignore
+            self.save()  # type: ignore

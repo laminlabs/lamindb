@@ -5,7 +5,7 @@ import warnings
 from collections import UserList
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
-from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, Union
 
 import pandas as pd
 from django.core.exceptions import FieldError
@@ -15,26 +15,16 @@ from django.db.models.fields.related import ForeignObjectRel
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 
-from lamindb.models import (
-    Artifact,
-    CanCurate,
-    Collection,
-    Feature,
-    IsVersioned,
-    Record,
-    Run,
-    Schema,
-    Transform,
-)
+from lamindb.models._is_versioned import IsVersioned
+from lamindb.models.record import Record
 
-from .errors import DoesNotExist
-
-T = TypeVar("T")
+from ..errors import DoesNotExist
+from .can_curate import CanCurate
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-
     from lamindb.base.types import ListLike, StrField
+
+T = TypeVar("T")
 
 
 class MultipleResultsFound(Exception):
@@ -82,6 +72,13 @@ def one_helper(self):
 
 
 def get_backward_compat_filter_kwargs(queryset, expressions):
+    from lamindb.models import (
+        Artifact,
+        Collection,
+        Schema,
+        Transform,
+    )
+
     if queryset.model in {Collection, Transform}:
         name_mappings = {
             "name": "key",
@@ -190,7 +187,7 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
 
 
 def get(
-    registry_or_queryset: type[Record] | QuerySet,
+    registry_or_queryset: Union[type[Record], QuerySet],
     idlike: int | str | None = None,
     **expressions,
 ) -> Record:
@@ -257,7 +254,7 @@ class RecordList(UserList, Generic[T]):
 
     def save(self) -> RecordList[T]:
         """Save all records to the database."""
-        from lamindb._save import save
+        from lamindb.models.save import save
 
         save(self)
         return self
@@ -305,6 +302,11 @@ def get_basic_field_names(
 
 
 def get_feature_annotate_kwargs(show_features: bool | list[str]) -> dict[str, Any]:
+    from lamindb.models import (
+        Artifact,
+        Feature,
+    )
+
     features = Feature.filter()
     if isinstance(show_features, list):
         features.filter(name__in=show_features)
@@ -583,6 +585,8 @@ class QuerySet(models.QuerySet):
 
     def delete(self, *args, **kwargs):
         """Delete all records in the query set."""
+        from lamindb.models import Artifact, Collection, Run, Transform
+
         # both Transform & Run might reference artifacts
         if self.model in {Artifact, Collection, Transform, Run}:
             for record in self:
@@ -707,7 +711,7 @@ class QuerySet(models.QuerySet):
 @doc_args(Record.search.__doc__)
 def search(self, string: str, **kwargs):
     """{}"""  # noqa: D415
-    from ._record import _search
+    from .record import _search
 
     return _search(cls=self, string=string, **kwargs)
 
@@ -715,7 +719,7 @@ def search(self, string: str, **kwargs):
 @doc_args(Record.lookup.__doc__)
 def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
     """{}"""  # noqa: D415
-    from ._record import _lookup
+    from .record import _lookup
 
     return _lookup(cls=self, field=field, **kwargs)
 
@@ -723,7 +727,7 @@ def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
 @doc_args(CanCurate.validate.__doc__)
 def validate(self, values: ListLike, field: str | StrField | None = None, **kwargs):
     """{}"""  # noqa: D415
-    from ._can_curate import _validate
+    from .can_curate import _validate
 
     return _validate(cls=self, values=values, field=field, **kwargs)
 
@@ -731,7 +735,7 @@ def validate(self, values: ListLike, field: str | StrField | None = None, **kwar
 @doc_args(CanCurate.inspect.__doc__)
 def inspect(self, values: ListLike, field: str | StrField | None = None, **kwargs):
     """{}"""  # noqa: D415
-    from ._can_curate import _inspect
+    from .can_curate import _inspect
 
     return _inspect(cls=self, values=values, field=field, **kwargs)
 
@@ -739,7 +743,7 @@ def inspect(self, values: ListLike, field: str | StrField | None = None, **kwarg
 @doc_args(CanCurate.standardize.__doc__)
 def standardize(self, values: Iterable, field: str | StrField | None = None, **kwargs):
     """{}"""  # noqa: D415
-    from ._can_curate import _standardize
+    from .can_curate import _standardize
 
     return _standardize(cls=self, values=values, field=field, **kwargs)
 

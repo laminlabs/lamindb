@@ -11,12 +11,13 @@ from lamindb_setup.core.upath import (
 )
 
 from lamindb.core._settings import settings
-from lamindb.models import Artifact, Storage
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from lamindb_setup.core.types import UPathStr
+
+    from lamindb.models.artifact import Artifact
 
 
 AUTO_KEY_PREFIX = ".lamindb/"
@@ -70,6 +71,8 @@ def attempt_accessing_path(
 ) -> tuple[UPath, StorageSettings]:
     # check whether the file is in the default db and whether storage
     # matches default storage
+    from lamindb.models import Storage
+
     if (
         artifact._state.db in ("default", None)
         and artifact.storage_id == settings._storage_settings.id

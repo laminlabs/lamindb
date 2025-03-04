@@ -1,3 +1,4 @@
+# ruff: noqa: TC004
 from __future__ import annotations
 
 import os
@@ -10,23 +11,22 @@ from typing import TYPE_CHECKING
 from django.db import transaction
 from django.utils.functional import partition
 from lamin_utils import logger
-from lamindb_setup.core.upath import LocalPathClasses
+from lamindb_setup.core.upath import LocalPathClasses, UPath
 
-from lamindb.models import Artifact, Record
-
-from .core._settings import settings
-from .core.storage.paths import (
+from ..core._settings import settings
+from ..core.storage.paths import (
     _cache_key_from_artifact_storage,
     attempt_accessing_path,
     auto_storage_key_from_artifact,
     delete_storage_using_key,
     store_file_or_folder,
 )
+from .record import Record
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from lamindb_setup.core.upath import UPath
+    from .artifact import Artifact
 
 
 def save(records: Iterable[Record], ignore_conflicts: bool | None = False) -> None:
@@ -42,7 +42,7 @@ def save(records: Iterable[Record], ignore_conflicts: bool | None = False) -> No
         existing records! Use ``record.save()`` for these use cases.
 
     Args:
-        records: Multiple :class:`~lamindb.core.Record` objects.
+        records: Multiple :class:`~lamindb.models.Record` objects.
         ignore_conflicts: If ``True``, do not error if some records violate a
            unique or another constraint. However, it won't inplace update the id
            fields of records. If you need records with ids, you need to query
@@ -67,6 +67,8 @@ def save(records: Iterable[Record], ignore_conflicts: bool | None = False) -> No
         >>> transform.save()
 
     """
+    from .artifact import Artifact
+
     if isinstance(records, Record):
         raise ValueError("Please use record.save() if saving a single record.")
 

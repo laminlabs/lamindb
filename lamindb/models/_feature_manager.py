@@ -1,3 +1,4 @@
+# ruff: noqa: TC004
 from __future__ import annotations
 
 import warnings
@@ -20,37 +21,21 @@ from lamindb_setup.core.upath import create_path
 from rich.table import Column, Table
 from rich.text import Text
 
-from lamindb._feature import (
+from lamindb.core.storage import LocalPathClasses
+from lamindb.errors import DoesNotExist, ValidationError
+from lamindb.models._from_values import _format_values
+from lamindb.models.feature import (
     convert_pandas_dtype_to_lamin_dtype,
     suggest_categorical_for_str_iterable,
 )
-from lamindb._from_values import _format_values
-from lamindb._record import (
+from lamindb.models.record import (
     REGISTRY_UNIQUE_FIELD,
     get_name_field,
     transfer_fk_to_default_db_bulk,
     transfer_to_default_db,
 )
-from lamindb._save import save
-from lamindb._schema import DICT_KEYS_TYPE, Schema
-from lamindb.core.storage import LocalPathClasses
-from lamindb.errors import DoesNotExist, ValidationError
-from lamindb.models import (
-    Artifact,
-    Collection,
-    Feature,
-    FeatureManager,
-    FeatureValue,
-    LinkORM,
-    Param,
-    ParamManager,
-    ParamManagerArtifact,
-    ParamManagerRun,
-    ParamValue,
-    Record,
-    Run,
-    ULabel,
-)
+from lamindb.models.save import save
+from lamindb.models.schema import DICT_KEYS_TYPE, Schema
 
 from ._describe import (
     NAME_WIDTH,
@@ -61,24 +46,24 @@ from ._describe import (
 )
 from ._django import get_artifact_with_related
 from ._label_manager import _get_labels, describe_labels
-from ._settings import settings
-from .relations import (
+from ._relations import (
     dict_related_model_to_related_name,
 )
+from .feature import Feature, FeatureValue
+from .record import Record
+from .run import Param, ParamManager, ParamManagerRun, ParamValue, Run
+from .ulabel import ULabel
 
 if TYPE_CHECKING:
     from rich.tree import Tree
 
-    from lamindb._query_set import QuerySet
     from lamindb.base.types import FieldAttr
-
-
-def get_host_id_field(host: Artifact | Collection) -> str:
-    if isinstance(host, Artifact):
-        host_id_field = "artifact_id"
-    else:
-        host_id_field = "collection_id"
-    return host_id_field
+    from lamindb.models import (
+        Artifact,
+        Collection,
+        LinkORM,
+    )
+    from lamindb.models.query_set import QuerySet
 
 
 def get_accessor_by_registry_(host: Artifact | Collection) -> dict:
@@ -91,9 +76,7 @@ def get_accessor_by_registry_(host: Artifact | Collection) -> dict:
     return dictionary
 
 
-def get_schema_by_slot_(host: Artifact | Collection) -> dict:
-    if isinstance(host, Collection):
-        return {}
+def get_schema_by_slot_(host: Artifact) -> dict:
     # if the host is not yet saved
     if host._state.adding:
         if hasattr(host, "_staged_feature_sets"):
@@ -101,8 +84,7 @@ def get_schema_by_slot_(host: Artifact | Collection) -> dict:
         else:
             return {}
     host_db = host._state.db
-    host_id_field = get_host_id_field(host)
-    kwargs = {host_id_field: host.id}
+    kwargs = {"artifact_id": host.id}
     # otherwise, we need a query
     links_schema = (
         host.feature_sets.through.objects.using(host_db)
@@ -115,8 +97,7 @@ def get_schema_by_slot_(host: Artifact | Collection) -> dict:
 def get_label_links(
     host: Artifact | Collection, registry: str, feature: Feature
 ) -> QuerySet:
-    host_id_field = get_host_id_field(host)
-    kwargs = {host_id_field: host.id, "feature_id": feature.id}
+    kwargs = {"artifact_id": host.id, "feature_id": feature.id}
     link_records = (
         getattr(host, host.features._accessor_by_registry[registry])  # type: ignore
         .through.objects.using(host._state.db)
@@ -126,8 +107,7 @@ def get_label_links(
 
 
 def get_schema_links(host: Artifact | Collection) -> QuerySet:
-    host_id_field = get_host_id_field(host)
-    kwargs = {host_id_field: host.id}
+    kwargs = {"artifact_id": host.id}
     links_schema = host.feature_sets.through.objects.filter(**kwargs)
     return links_schema
 
@@ -232,6 +212,9 @@ def _get_non_categoricals(
     print_params: bool = False,
 ) -> dict[tuple[str, str], set[Any]]:
     """Get non-categorical features and their values."""
+    from .artifact import Artifact
+    from .run import Run
+
     non_categoricals = {}
 
     if self.id is not None and isinstance(self, (Artifact, Run)):
@@ -308,6 +291,8 @@ def describe_features(
     with_labels: bool = False,
 ):
     """Describe features of an artifact or collection."""
+    from .artifact import Artifact
+
     if print_types:
         warnings.warn(
             "`print_types` parameter is deprecated and will be removed in a future version. Types are now always printed.",
@@ -511,6 +496,7 @@ def parse_staged_feature_sets_from_anndata(
     if not isinstance(adata, AnnData):  # is a path
         filepath = create_path(adata)  # returns Path for local
         if not isinstance(filepath, LocalPathClasses):
+            from lamindb import settings
             from lamindb.core.storage._backed_access import backed_access
 
             using_key = settings._using_key
@@ -631,6 +617,18 @@ def infer_feature_type_convert_json(
     return "?", value, message
 
 
+class FeatureManager:
+    """Feature manager."""
+
+    pass
+
+
+class ParamManagerArtifact(ParamManager):
+    """Param manager."""
+
+    pass
+
+
 def __init__(self, host: Artifact | Collection | Run):
     self._host = host
     self._schema_by_slot_ = None
@@ -662,6 +660,8 @@ def __getitem__(self, slot) -> QuerySet:
 
 
 def filter_base(cls, **expression):
+    from .artifact import Artifact
+
     if cls is FeatureManager:
         model = Feature
         value_model = FeatureValue
@@ -819,6 +819,7 @@ def _add_values(
             dictionary.
     """
     from .._tracked import get_current_tracked_run
+    from .artifact import Artifact
 
     # rename to distinguish from the values inside the dict
     features_values = values
@@ -1019,6 +1020,8 @@ def remove_values(
         value: An optional value to restrict removal to a single value.
 
     """
+    from .artifact import Artifact
+
     if isinstance(feature, str):
         feature = Feature.get(name=feature)
     filter_kwargs = {"feature": feature}
@@ -1074,9 +1077,8 @@ def add_schema(self, schema: Schema, slot: str) -> None:
         )
     host_db = self._host._state.db
     schema.save(using=host_db)
-    host_id_field = get_host_id_field(self._host)
     kwargs = {
-        host_id_field: self._host.id,
+        "artifact_id": self._host.id,
         "schema": schema,
         "slot": slot,
     }
@@ -1099,11 +1101,7 @@ def _add_set_from_df(
     mute: bool = False,
 ):
     """Add feature set corresponding to column names of DataFrame."""
-    if isinstance(self._host, Artifact):
-        assert self._host.otype == "DataFrame"  # noqa: S101
-    else:
-        # Collection
-        assert self._host.artifact.otype == "DataFrame"  # noqa: S101
+    assert self._host.otype == "DataFrame"  # noqa: S101
     df = self._host.load()
     schema = Schema.from_df(
         df=df,
@@ -1123,10 +1121,7 @@ def _add_set_from_anndata(
     organism: str | Record | None = None,
 ):
     """Add features from AnnData."""
-    if isinstance(self._host, Artifact):
-        assert self._host.otype == "AnnData"  # noqa: S101
-    else:
-        raise NotImplementedError()
+    assert self._host.otype == "AnnData"  # noqa: S101
 
     # parse and register features
     adata = self._host.load()
@@ -1153,10 +1148,7 @@ def _add_set_from_mudata(
     """Add features from MuData."""
     if obs_fields is None:
         obs_fields = {}
-    if isinstance(self._host, Artifact):
-        assert self._host.otype == "MuData"  # noqa: S101
-    else:
-        raise NotImplementedError()
+    assert self._host.otype == "MuData"  # noqa: S101
 
     # parse and register features
     mdata = self._host.load()
@@ -1197,6 +1189,8 @@ def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
     # This only covers feature sets
     if transfer_logs is None:
         transfer_logs = {"mapped": [], "transferred": [], "run": None}
+    from lamindb import settings
+
     using_key = settings._using_key
     for slot, schema in data.features._schema_by_slot.items():  # type: ignore
         members = schema.members

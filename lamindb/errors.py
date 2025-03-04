@@ -1,4 +1,4 @@
-"""Exceptions.
+"""Errors.
 
 .. autosummary::
    :toctree: .

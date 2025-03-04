@@ -1,27 +1,22 @@
+# ruff: noqa: TC004
 from __future__ import annotations
 
 import builtins
 from typing import TYPE_CHECKING, Literal
 
-import lamindb_setup as ln_setup
 from lamin_utils import logger
 
-from lamindb.models import (
-    Artifact,
-    Collection,
-    HasParents,
-    Record,
-    Run,
-    Transform,
-    format_field_value,
-)
-
-from ._record import get_name_field
-from ._utils import attach_func_to_class_method
+from .record import format_field_value, get_name_field
+from .run import Run
 
 if TYPE_CHECKING:
     from lamindb.base.types import StrField
-    from lamindb.core import QuerySet
+
+    from .artifact import Artifact
+    from .collection import Collection
+    from .query_set import QuerySet
+    from .record import Record
+    from .transform import Transform
 
 LAMIN_GREEN_LIGHTER = "#10b981"
 LAMIN_GREEN_DARKER = "#065f46"
@@ -53,12 +48,50 @@ def _query_relatives(
     return relatives
 
 
-def query_parents(self) -> QuerySet:
-    return _query_relatives([self], "parents", self.__class__)
+class HasParents:
+    """Base class for hierarchical registries (ontologies)."""
 
+    def view_parents(
+        self,
+        field: StrField | None = None,
+        with_children: bool = False,
+        distance: int = 5,
+    ):
+        """View parents in an ontology.
 
-def query_children(self) -> QuerySet:
-    return _query_relatives([self], "children", self.__class__)
+        Args:
+            field: Field to display on graph
+            with_children: Whether to also show children.
+            distance: Maximum distance still shown.
+
+        Ontological hierarchies: :class:`~lamindb.ULabel` (project & sub-project), :class:`~bionty.CellType` (cell type & subtype).
+
+        Examples:
+            >>> import bionty as bt
+            >>> bt.Tissue.from_source(name="subsegmental bronchus").save()
+            >>> record = bt.Tissue.get(name="respiratory tube")
+            >>> record.view_parents()
+            >>> tissue.view_parents(with_children=True)
+        """
+        if field is None:
+            field = get_name_field(self)
+        if not isinstance(field, str):
+            field = field.field.name
+
+        return _view_parents(
+            record=self,  # type: ignore
+            field=field,
+            with_children=with_children,
+            distance=distance,
+        )
+
+    def query_parents(self) -> QuerySet:
+        """Query parents in an ontology."""
+        return _query_relatives([self], "parents", self.__class__)  # type: ignore
+
+    def query_children(self) -> QuerySet:
+        """Query children in an ontology."""
+        return _query_relatives([self], "children", self.__class__)  # type: ignore
 
 
 def _transform_emoji(transform: Transform):
@@ -91,22 +124,6 @@ def _view(u):
             " apt-get install graphviz`\n  - Windows:"
             " https://graphviz.org/download/#windows\n  - Mac: `brew install graphviz`"
         )
-
-
-def view_parents(
-    self,
-    field: StrField | None = None,
-    with_children: bool = False,
-    distance: int = 5,
-):
-    if field is None:
-        field = get_name_field(self)
-    if not isinstance(field, str):
-        field = field.field.name
-
-    return _view_parents(
-        record=self, field=field, with_children=with_children, distance=distance
-    )
 
 
 def view_lineage(data: Artifact | Collection, with_children: bool = True) -> None:
@@ -332,6 +349,10 @@ def _df_edges_from_parents(
 
 
 def _record_label(record: Record, field: str | None = None):
+    from .artifact import Artifact
+    from .collection import Collection
+    from .transform import Transform
+
     if isinstance(record, Artifact):
         if record.description is None:
             name = record.key
@@ -511,18 +532,3 @@ def _df_edges_from_runs(df_values: list):
     df["source_label"] = df["source_record"].apply(_record_label)
     df["target_label"] = df["target_record"].apply(_record_label)
     return df
-
-
-METHOD_NAMES = ["view_parents", "query_parents", "query_children"]
-
-if ln_setup._TESTING:  # type: ignore
-    from inspect import signature
-
-    SIGS = {
-        name: signature(getattr(HasParents, name))
-        for name in METHOD_NAMES
-        if not name.startswith("__")
-    }
-
-for name in METHOD_NAMES:
-    attach_func_to_class_method(name, HasParents, globals())
