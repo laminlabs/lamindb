@@ -59,3 +59,21 @@ from .has_parents import HasParents
 from datetime import datetime as _datetime
 
 FeatureSet = Schema  # backward compat
+
+# link models
+from .artifact import ArtifactFeatureValue, ArtifactParamValue
+from .flextable import FlexTableData
+from .project import (
+    ArtifactProject,
+    TransformProject,
+    CollectionProject,
+    ULabelProject,
+    FeatureProject,
+    SchemaProject,
+    ArtifactReference,
+    CollectionReference,
+)
+from .record import Migration
+from .run import RunParamValue
+from .schema import SchemaFeature, SchemaParam, ArtifactSchema, SchemaComponent
+from .ulabel import ArtifactULabel, TransformULabel, RunULabel, CollectionULabel
