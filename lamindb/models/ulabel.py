@@ -115,9 +115,9 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     description: str | None = CharField(null=True, db_index=True)
     """A description (optional)."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
-    """A reference like URL or external ID."""
+    """A simple reference like URL or external ID."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
-    """Type of reference such as a donor_id from Vendor X."""
+    """Type of simple reference."""
     parents: ULabel = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
@@ -133,13 +133,13 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     Reverse accessor for parents.
     """
     transforms: Transform
-    """Transforms annotated with this ulabel."""
-    runs: Transform
-    """Runs annotated with this ulabel."""
+    """Linked transforms."""
+    runs: Run
+    """Linked runs."""
     artifacts: Artifact
-    """Artifacts annotated with this ulabel."""
+    """Linked artifacts."""
     collections: Collection
-    """Collections annotated with this ulabel."""
+    """Linked collections."""
     projects: Project
     """Linked projects."""
 

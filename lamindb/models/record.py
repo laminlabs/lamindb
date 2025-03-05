@@ -745,6 +745,8 @@ class BasicRecord(models.Model, metaclass=Registry):
 
         Always saves to the default database.
         """
+        import lamindb as ln
+
         using_key = None
         if "using" in kwargs:
             using_key = kwargs["using"]
@@ -811,7 +813,7 @@ class BasicRecord(models.Model, metaclass=Registry):
         # perform transfer of many-to-many fields
         # only supported for Artifact and Collection records
         if db is not None and db != "default" and using_key is None:
-            if self.__class__.__name__ == "Collection":
+            if self.__class__ is ln.Collection:
                 if len(artifacts) > 0:
                     logger.info("transfer artifacts")
                     for artifact in artifacts:
@@ -832,6 +834,18 @@ class BasicRecord(models.Model, metaclass=Registry):
             for k, v in transfer_logs.items():
                 if k != "run":
                     logger.important(f"{k} records: {', '.join(v)}")
+        if ln.context.project is not None:
+            if self.__class__ in {
+                ln.Artifact,
+                ln.Transform,
+                ln.Run,
+                ln.ULabel,
+                ln.Feature,
+                ln.Schema,
+                ln.Collection,
+                ln.Reference,
+            }:
+                self.projects.add(ln.context.project)
         return self
 
     def delete(self) -> None:

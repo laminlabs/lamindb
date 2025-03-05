@@ -11,11 +11,13 @@ from lamindb.base.fields import (
     BooleanField,
     CharField,
     DateField,
+    DateTimeField,
     EmailField,
     ForeignKey,
     TextField,
     URLField,
 )
+from lamindb.base.users import current_user_id
 
 from ..base.ids import base62_8, base62_12
 from .artifact import Artifact
@@ -23,13 +25,14 @@ from .can_curate import CanCurate
 from .collection import Collection
 from .feature import Feature
 from .record import BasicRecord, LinkORM, Record, ValidateFields
-from .run import TracksRun, TracksUpdates
+from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
 from .transform import Transform
 from .ulabel import ULabel
 
 if TYPE_CHECKING:
     from datetime import date as DateType
+    from datetime import datetime
 
 
 class Person(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
@@ -204,33 +207,37 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     people: Person = models.ManyToManyField(
         Person, through="PersonProject", related_name="projects"
     )
-    """People associated with this project."""
+    """Linked people."""
     artifacts: Artifact = models.ManyToManyField(
         Artifact, through="ArtifactProject", related_name="projects"
     )
-    """Artifacts associated with this Project."""
+    """Linked artifacts."""
     transforms: Transform = models.ManyToManyField(
         Transform, through="TransformProject", related_name="projects"
     )
-    """Transforms associated with this project."""
+    """Linked transforms."""
+    runs: Run = models.ManyToManyField(
+        Run, through="RunProject", related_name="projects"
+    )
+    """Linked transforms."""
     ulabels: ULabel = models.ManyToManyField(
         ULabel, through="ULabelProject", related_name="projects"
     )
-    """Transforms associated with this project."""
+    """Linked ulabels."""
     features: ULabel = models.ManyToManyField(
         Feature, through="FeatureProject", related_name="projects"
     )
-    """Transforms associated with this project."""
+    """Linked features."""
     schemas: ULabel = models.ManyToManyField(
         Schema, through="SchemaProject", related_name="projects"
     )
-    """Schemas associated with this project."""
+    """Linked schemas."""
     collections: Collection = models.ManyToManyField(
         Collection, through="CollectionProject", related_name="projects"
     )
-    """Collections associated with this project."""
+    """Linked collections."""
     references: Reference = models.ManyToManyField("Reference", related_name="projects")
-    """References associated with this project."""
+    """Linked references."""
     _status_code: int = models.SmallIntegerField(default=0, db_index=True)
     """Status code."""
 
@@ -252,6 +259,27 @@ class ArtifactProject(BasicRecord, LinkORM, TracksRun):
     class Meta:
         # can have the same label linked to the same artifact if the feature is different
         unique_together = ("artifact", "project", "feature")
+
+
+class RunProject(BasicRecord, LinkORM):
+    id: int = models.BigAutoField(primary_key=True)
+    run: Run = ForeignKey(Run, CASCADE, related_name="links_project")
+    project: Project = ForeignKey(Project, PROTECT, related_name="links_run")
+    created_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
+    """Time of creation of record."""
+    created_by: User = ForeignKey(
+        "lamindb.User",
+        PROTECT,
+        editable=False,
+        default=current_user_id,
+        related_name="+",
+    )
+    """Creator of record."""
+
+    class Meta:
+        unique_together = ("run", "project")
 
 
 class TransformProject(BasicRecord, LinkORM, TracksRun):

@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 
     from .artifact import Artifact
     from .collection import Collection
+    from .project import Project
     from .schema import Schema
     from .transform import Transform
     from .ulabel import ULabel
@@ -461,6 +462,8 @@ class Run(Record):
     """
     initiated_runs: Run
     """Runs that were initiated by this run."""
+    projects: Project
+    """Linked projects."""
     _is_consecutive: bool | None = BooleanField(null=True)
     """Indicates whether code was consecutively executed. Is relevant for notebooks."""
     _status_code: int = models.SmallIntegerField(default=0, db_index=True)
