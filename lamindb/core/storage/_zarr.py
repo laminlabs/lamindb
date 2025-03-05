@@ -78,7 +78,9 @@ def load_zarr(storepath: UPathStr) -> ScverseDataStructures:
         case "mudata":
             scverse_obj = with_package("mudata", lambda mod: mod.read_zarr(open_obj))
         case "spatialdata":
-            scverse_obj = with_package("mudata", lambda mod: mod.read_zarr(open_obj))
+            scverse_obj = with_package(
+                "spatialdata", lambda mod: mod.read_zarr(open_obj)
+            )
         case "unknown" | _:
             raise ValueError(
                 "unable to determine zarr store format and therefore cannot load Artifact."

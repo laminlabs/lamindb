@@ -59,10 +59,9 @@ def apply_class_func(
             result = operation(obj)
             return True, result
         except ImportError:
-            print(
+            raise ImportError(
                 f"Object appears to be {class_name} but '{package_name}' package is not installed. "
                 f"Please install with: pip install {package_name}"
-            )
-            return True, None
+            ) from None
 
     return False, None

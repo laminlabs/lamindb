@@ -37,6 +37,7 @@ from lamindb.errors import FieldValidationError
 from lamindb.models.query_set import QuerySet
 
 from ..base.users import current_user_id
+from ..core._compat import is_package_installed
 from ..core.loaders import load_to_memory
 from ..core.storage import (
     LocalPathClasses,
@@ -48,7 +49,6 @@ from ..core.storage import (
 from ..core.storage._anndata_accessor import _anndata_n_observations
 from ..core.storage._pyarrow_dataset import PYARROW_SUFFIXES
 from ..core.storage._tiledbsoma import _soma_n_observations
-from ..core.storage.objects import is_package_installed
 from ..core.storage.paths import (
     AUTO_KEY_PREFIX,
     auto_storage_key_from_artifact,
