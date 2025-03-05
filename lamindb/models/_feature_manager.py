@@ -1,7 +1,6 @@
 # ruff: noqa: TC004
 from __future__ import annotations
 
-import warnings
 from collections import defaultdict
 from collections.abc import Iterable
 from datetime import date, datetime
@@ -282,9 +281,8 @@ def _create_feature_table(
 
 
 def describe_features(
-    self: Artifact | Collection,
+    self: Artifact,
     related_data: dict | None = None,
-    print_types: bool = False,
     to_dict: bool = False,
     print_params: bool = False,
     tree: Tree | None = None,
@@ -292,13 +290,6 @@ def describe_features(
 ):
     """Describe features of an artifact or collection."""
     from .artifact import Artifact
-
-    if print_types:
-        warnings.warn(
-            "`print_types` parameter is deprecated and will be removed in a future version. Types are now always printed.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
 
     # initialize tree
     if tree is None:

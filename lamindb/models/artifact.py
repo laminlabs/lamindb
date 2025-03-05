@@ -62,7 +62,7 @@ from ..models._is_versioned import (
     create_uid,
     message_update_key_in_version_family,
 )
-from ._django import get_artifact_with_related, get_related_model
+from ._django import get_artifact_with_related
 from ._feature_manager import (
     FeatureManager,
     ParamManager,
@@ -83,7 +83,6 @@ from .record import (
     LinkORM,
     Record,
     _get_record_kwargs,
-    format_field_value,
     record_repr,
 )
 from .run import ParamValue, Run, TracksRun, TracksUpdates, User
@@ -601,7 +600,12 @@ def get_run(run: Run | None) -> Run | None:
         if run is None:
             run = context.run
         if run is None and not settings.creation.artifact_silence_missing_run_warning:
-            logger.warning(WARNING_RUN_TRANSFORM)
+            # here we check that this is not a read-only connection
+            # normally for our connection strings the read-only role name has _read in it
+            # not absolutely safe but the worst case is that the warning is not shown
+            instance = setup_settings.instance
+            if instance.dialect != "postgresql" or "_read" not in instance.db:
+                logger.warning(WARNING_RUN_TRANSFORM)
     # suppress run by passing False
     elif not run:
         run = None
@@ -647,29 +651,30 @@ def save_schema_links(self: Artifact) -> None:
         bulk_create(links, ignore_conflicts=True)
 
 
-def format_provenance(self, fk_data, print_types):
-    type_str = lambda attr: (
-        f": {get_related_model(self.__class__, attr).__name__}" if print_types else ""
-    )
+# can restore later if needed
+# def format_provenance(self, fk_data, print_types):
+#     type_str = lambda attr: (
+#         f": {get_related_model(self.__class__, attr).__name__}" if print_types else ""
+#     )
 
-    return "".join(
-        [
-            f"    .{field_name}{type_str(field_name)} = {format_field_value(value.get('name'))}\n"
-            for field_name, value in fk_data.items()
-            if value.get("name")
-        ]
-    )
+#     return "".join(
+#         [
+#             f"    .{field_name}{type_str(field_name)} = {format_field_value(value.get('name'))}\n"
+#             for field_name, value in fk_data.items()
+#             if value.get("name")
+#         ]
+#     )
+
+# can restore later if needed
+# def format_input_of_runs(self, print_types):
+#     if self.id is not None and self.input_of_runs.exists():
+#         values = [format_field_value(i.started_at) for i in self.input_of_runs.all()]
+#         type_str = ": Run" if print_types else ""  # type: ignore
+#         return f"    .input_of_runs{type_str} = {', '.join(values)}\n"
+#     return ""
 
 
-def format_input_of_runs(self, print_types):
-    if self.id is not None and self.input_of_runs.exists():
-        values = [format_field_value(i.started_at) for i in self.input_of_runs.all()]
-        type_str = ": Run" if print_types else ""  # type: ignore
-        return f"    .input_of_runs{type_str} = {', '.join(values)}\n"
-    return ""
-
-
-def _describe_postgres(self, print_types: bool = False):  # for Artifact & Collection
+def _describe_postgres(self):  # for Artifact & Collection
     from ._describe import describe_general
     from ._feature_manager import describe_features
 
@@ -693,13 +698,16 @@ def _describe_postgres(self, print_types: bool = False):  # for Artifact & Colle
     # TODO: fk_data = related_data.get("fk", {})
 
     tree = describe_general(self)
-    return describe_features(
-        self,
-        tree=tree,
-        related_data=related_data,
-        with_labels=True,
-        print_params=hasattr(self, "kind") and self.kind == "model",
-    )
+    if model_name == "Artifact":
+        return describe_features(
+            self,
+            tree=tree,
+            related_data=related_data,
+            with_labels=True,
+            print_params=hasattr(self, "kind") and self.kind == "model",
+        )
+    else:
+        return tree
 
 
 def _describe_sqlite(self, print_types: bool = False):  # for artifact & collection
@@ -740,23 +748,24 @@ def _describe_sqlite(self, print_types: bool = False):  # for artifact & collect
             .get(id=self.id)
         )
     tree = describe_general(self)
-    return describe_features(
-        self,
-        tree=tree,
-        with_labels=True,
-        print_params=hasattr(self, "kind") and self.kind == "kind",
-    )
+    if model_name == "Artifact":
+        return describe_features(
+            self,
+            tree=tree,
+            with_labels=True,
+            print_params=hasattr(self, "kind") and self.kind == "kind",
+        )
+    else:
+        return tree
 
 
-def describe_artifact_collection(
-    self, print_types: bool = False
-):  # for artifact & collection
+def describe_artifact_collection(self):  # for artifact & collection
     from ._describe import print_rich_tree
 
     if not self._state.adding and connections[self._state.db].vendor == "postgresql":
-        tree = _describe_postgres(self, print_types=print_types)
+        tree = _describe_postgres(self)
     else:
-        tree = _describe_sqlite(self, print_types=print_types)
+        tree = _describe_sqlite(self)
 
     print_rich_tree(tree)
 
@@ -1246,9 +1255,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     It defaults to False for file-like artifacts and to True for folder-like artifacts.
     """
     projects: Project
-    """Associated projects."""
+    """Linked projects."""
     references: Reference
-    """Associated references."""
+    """Linked references."""
 
     @overload
     def __init__(
@@ -2532,7 +2541,12 @@ def _track_run_input(
         # we don't have a run record
         if run is None:
             if settings.track_run_inputs:
-                logger.warning(WARNING_NO_INPUT)
+                # here we check that this is not a read-only connection
+                # normally for our connection strings the read-only role name has _read in it
+                # not absolutely safe but the worst case is that the warning is not shown
+                instance = setup_settings.instance
+                if instance.dialect != "postgresql" or "_read" not in instance.db:
+                    logger.warning(WARNING_NO_INPUT)
         # assume we have a run record
         else:
             # assume there is non-cyclic candidate input data
