@@ -18,10 +18,7 @@ if TYPE_CHECKING:
     from mudata import MuData
     from spatialdata import SpatialData
 else:
-    if is_package_installed("anndata"):
-        from anndata import AnnData
-    else:
-        AnnData = type("AnnData", (), {})
+    from anndata import AnnData
 
     if is_package_installed("mudata"):
         from mudata import MuData
