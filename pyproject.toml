@@ -217,4 +217,4 @@ exclude_lines = [
 ]
 
 [tool.coverage.run]
-omit = ["**/core/datasets/*", "**/migrations/*", "lamindb/core/_compat.py", "lamindb/core/types.py"]
+omit = ["**/core/datasets/*", "**/migrations/*", "**/core/_compat.py", "**/core/types.py"]
