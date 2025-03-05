@@ -912,7 +912,7 @@ class AnnDataCatManager(CatManager):
     def __init__(
         self,
         data: ad.AnnData | Artifact,
-        var_index: FieldAttr,
+        var_index: FieldAttr | None = None,
         categoricals: dict[str, FieldAttr] | None = None,
         obs_columns: FieldAttr = Feature.name,
         verbosity: str = "hint",
@@ -981,15 +981,16 @@ class AnnDataCatManager(CatManager):
         validated_only: bool = True,
     ):
         """Save variable records."""
-        update_registry(
-            values=list(self._adata.var.index),
-            field=self.var_index,
-            key="var_index",
-            validated_only=validated_only,
-            organism=self._organism,
-            source=self._sources.get("var_index"),
-            exclude=self._exclude.get("var_index"),
-        )
+        if self.var_index is not None:
+            update_registry(
+                values=list(self._adata.var.index),
+                field=self.var_index,
+                key="var_index",
+                validated_only=validated_only,
+                organism=self._organism,
+                source=self._sources.get("var_index"),
+                exclude=self._exclude.get("var_index"),
+            )
 
     def add_new_from(self, key: str, **kwargs):
         """Add validated & new categories.
@@ -1025,15 +1026,19 @@ class AnnDataCatManager(CatManager):
 
         # add all validated records to the current instance
         self._save_from_var_index(validated_only=True)
-        validated_var, non_validated_var = validate_categories(
-            self._adata.var.index,
-            field=self._var_field,
-            key="var_index",
-            source=self._sources.get("var_index"),
-            hint_print=".add_new_from_var_index()",
-            exclude=self._exclude.get("var_index"),
-            organism=self._organism,  # type: ignore
-        )
+        if self.var_index is not None:
+            validated_var, non_validated_var = validate_categories(
+                self._adata.var.index,
+                field=self._var_field,
+                key="var_index",
+                source=self._sources.get("var_index"),
+                hint_print=".add_new_from_var_index()",
+                exclude=self._exclude.get("var_index"),
+                organism=self._organism,  # type: ignore
+            )
+        else:
+            validated_var = True
+            non_validated_var = []
         validated_obs = self._obs_df_curator.validate()
         self._non_validated = self._obs_df_curator._non_validated  # type: ignore
         if len(non_validated_var) > 0:
@@ -3676,12 +3681,14 @@ def _save_organism(name: str):
     return organism
 
 
-def _ref_is_name(field: FieldAttr) -> bool | None:
+def _ref_is_name(field: FieldAttr | None) -> bool | None:
     """Check if the reference field is a name field."""
     from ..models.can_curate import get_name_field
 
-    name_field = get_name_field(field.field.model)
-    return field.field.name == name_field
+    if field is not None:
+        name_field = get_name_field(field.field.model)
+        return field.field.name == name_field
+    return None
 
 
 # backward compat constructors ------------------
