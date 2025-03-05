@@ -1,7 +1,7 @@
 from pathlib import Path
 
-import anndata as ad
 import lamindb as ln
+import pandas as pd
 import pytest
 
 
@@ -12,16 +12,6 @@ def zip_file():
         f.write("some")
     yield filepath
     filepath.unlink()
-
-
-@pytest.fixture(scope="module")
-def local_filepath():
-    return ln.core.datasets.anndata_file_pbmc68k_test().resolve()
-
-
-@pytest.fixture(scope="module")
-def adata(local_filepath):
-    return ad.read_h5ad(local_filepath)
 
 
 @pytest.fixture(scope="module")
@@ -42,15 +32,92 @@ def json_filepath():
     filepath.unlink()
 
 
-def test_load_anndata(local_filepath, adata):
-    artifact = ln.Artifact(local_filepath, description="test")
-    assert local_filepath == artifact._local_filepath
-    assert local_filepath == artifact.path
-    assert local_filepath == artifact.cache()
+@pytest.fixture(scope="module")
+def csv_filepath():
+    filepath = Path("./tmp.csv")
+    with open(filepath, "w") as f:
+        f.write("a,b\n1,2")
+    yield filepath
+    filepath.unlink()
+
+
+@pytest.fixture(scope="module")
+def tsv_filepath():
+    filepath = Path("./tmp.tsv")
+    with open(filepath, "w") as f:
+        f.write("a\tb\n1\t2")
+    yield filepath
+    filepath.unlink()
+
+
+@pytest.fixture(scope="module")
+def parquet_filepath():
+    filepath = Path("./tmp.parquet")
+    df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
+    df.to_parquet(filepath)
+    yield filepath
+    filepath.unlink()
+
+
+@pytest.fixture(scope="module")
+def yaml_filepath():
+    filepath = Path("./tmp.yaml")
+    with open(filepath, "w") as f:
+        f.write("a: 1\nb: 2")
+    yield filepath
+    filepath.unlink()
+
+
+@pytest.fixture(scope="module")
+def image_filepath():
+    filepath = Path("./tmp.png")
+    with open(filepath, "w") as f:
+        f.write("mock image")
+    yield filepath
+    filepath.unlink()
+
+
+@pytest.fixture(scope="module")
+def svg_filepath():
+    filepath = Path("./tmp.svg")
+    with open(filepath, "w") as f:
+        f.write("<svg><rect width='100' height='100'/></svg>")
+    yield filepath
+    filepath.unlink()
+
+
+@pytest.fixture(scope="module")
+def rds_filepath():
+    filepath = Path("./tmp.rds")
+    with open(filepath, "w") as f:
+        f.write("mock rds")
+    yield filepath
+    filepath.unlink()
+
+
+def test_load_anndata(local_anndata_filepath, adata):
+    artifact = ln.Artifact(local_anndata_filepath, description="test")
+    assert local_anndata_filepath == artifact._local_filepath
+    assert local_anndata_filepath == artifact.path
+    assert local_anndata_filepath == artifact.cache()
 
     artifact = ln.Artifact.from_anndata(adata, description="test")
     assert artifact._memory_rep is adata
     assert artifact.load() is adata
+    assert artifact._local_filepath.resolve() == artifact.cache() == artifact.path
+
+
+def test_load_mudata(mdata):
+    artifact = ln.Artifact.from_mudata(mdata, description="test")
+    assert artifact._memory_rep is mdata
+    assert artifact.load() is mdata
+    assert artifact._local_filepath.resolve() == artifact.cache() == artifact.path
+
+
+def test_load_spatialdata(sdata):
+    artifact = ln.Artifact.from_spatialdata(sdata, description="test")
+    assert artifact._memory_rep is sdata
+    assert artifact.load() is sdata
     assert artifact._local_filepath.resolve() == artifact.cache() == artifact.path
 
 
@@ -69,3 +136,50 @@ def test_no_loader(zip_file):
     artifact = ln.Artifact(zip_file, key=str(zip_file))
     with pytest.raises(NotImplementedError):
         artifact.load()
+
+
+def test_load_csv(csv_filepath):
+    artifact = ln.Artifact(csv_filepath, key=str(csv_filepath))
+    df = artifact.load()
+    assert df.iloc[0, 0] == 1
+    assert df.iloc[0, 1] == 2
+
+
+def test_load_tsv(tsv_filepath):
+    artifact = ln.Artifact(tsv_filepath, key=str(tsv_filepath))
+    df = artifact.load()
+    assert df.iloc[0, 0] == 1
+    assert df.iloc[0, 1] == 2
+
+
+def test_load_parquet(parquet_filepath):
+    artifact = ln.Artifact(parquet_filepath, key=str(parquet_filepath))
+    df = artifact.load()
+    assert df.iloc[0, 0] == 1
+    assert df.iloc[1, 1] == 4
+
+
+def test_load_yaml(yaml_filepath):
+    artifact = ln.Artifact(yaml_filepath, key=str(yaml_filepath))
+    data = artifact.load()
+    assert data["a"] == 1
+    assert data["b"] == 2
+
+
+def test_load_image(image_filepath):
+    artifact = ln.Artifact(image_filepath, key=str(image_filepath))
+    result = artifact.load()
+    assert Path(result).name == image_filepath.name
+
+
+def test_load_svg(svg_filepath):
+    artifact = ln.Artifact(svg_filepath, key=str(svg_filepath))
+    result = artifact.load()
+    assert Path(result).name == svg_filepath.name
+
+
+def test_load_rds(rds_filepath, ccaplog):
+    artifact = ln.Artifact(rds_filepath, key=str(rds_filepath))
+    result = artifact.load()
+    assert "Please use `laminr` to load `.rds` files" in ccaplog.text
+    assert Path(result).name == rds_filepath.name

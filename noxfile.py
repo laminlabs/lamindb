@@ -118,10 +118,10 @@ def install_ci(session, group):
         )
         run(session, "uv pip install --system vitessce")
     elif group == "curator":
-        extras += "zarr,jupyter"
+        extras += "zarr,jupyter,bionty"
         run(
             session,
-            "uv pip install --system ./sub/bionty ./sub/wetlab",
+            "uv pip install --system ./sub/wetlab",
         )
         run(
             session,
