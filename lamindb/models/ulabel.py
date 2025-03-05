@@ -141,7 +141,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     collections: Collection
     """Collections annotated with this ulabel."""
     projects: Project
-    """Associated projects."""
+    """Linked projects."""
 
     @overload
     def __init__(

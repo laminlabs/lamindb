@@ -1257,9 +1257,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     It defaults to False for file-like artifacts and to True for folder-like artifacts.
     """
     projects: Project
-    """Associated projects."""
+    """Linked projects."""
     references: Reference
-    """Associated references."""
+    """Linked references."""
 
     @overload
     def __init__(

@@ -53,9 +53,11 @@ if TYPE_CHECKING:
     from pyarrow.dataset import Dataset as PyArrowDataset
 
     from ..core.storage import UPath
+    from .project import Project, Reference
     from .query_set import QuerySet
     from .transform import Transform
     from .ulabel import ULabel
+
 
 # below is a draft for the future, see also the tests in test_collection.py
 #
@@ -190,6 +192,10 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
     """
     _actions: Artifact = models.ManyToManyField(Artifact, related_name="+")
     """Actions to attach for the UI."""
+    projects: Project
+    """Linked projects."""
+    references: Reference
+    """Linked references."""
 
     @overload
     def __init__(
