@@ -4,6 +4,8 @@ Also see `test_artifact_folders.py` for tests of folder-like artifacts.
 
 """
 
+# ruff: noqa: F811
+
 import shutil
 from pathlib import Path, PurePosixPath
 
@@ -16,6 +18,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import yaml  # type: ignore
+from data_fixtures import adata, mdata, sdata  # noqa
 from lamindb.core._settings import settings
 from lamindb.core.loaders import load_fcs, load_to_memory, load_tsv
 from lamindb.core.storage._zarr import identify_zarr_type, write_adata_zarr

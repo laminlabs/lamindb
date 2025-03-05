@@ -5,6 +5,9 @@ import lamindb as ln
 import pandas as pd
 import pytest
 
+# ruff: noqa: F811
+from data_fixtures import mdata, sdata  # noqa
+
 
 @pytest.fixture(scope="module")
 def zip_file():
