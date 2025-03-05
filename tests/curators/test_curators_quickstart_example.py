@@ -126,7 +126,6 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
 
     artifact.delete(permanent=True)
     anndata_schema.delete()
-    obs_schema.delete()
     var_schema.delete()
 
 
@@ -157,3 +156,18 @@ def test_soma_curator(small_dataset1_schema, curator_params):
     assert artifact._key_is_virtual
     artifact.delete(permanent=True)
     shutil.rmtree("./small_dataset1.tiledbsoma")
+
+
+def test_anndata_curator_no_var(small_dataset1_schema: ln.Schema):
+    # test no var schema
+    anndata_schema_no_var = ln.Schema(
+        name="small_dataset1_anndata_schema_no_var",
+        otype="AnnData",
+        components={"obs": small_dataset1_schema},
+    ).save()
+
+    adata = datasets.small_dataset1(otype="AnnData")
+    curator = ln.curators.AnnDataCurator(adata, anndata_schema_no_var)
+    artifact = curator.save_artifact(key="example_datasets/dataset1_no_var.h5ad")
+    artifact.delete(permanent=True)
+    anndata_schema_no_var.delete()
