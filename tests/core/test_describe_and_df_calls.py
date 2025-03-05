@@ -142,7 +142,7 @@ def test_curate_df():
 
     # expected output has italicized elements that can't be tested
     # hence testing is restricted to section content, not headings
-    description_tree = _describe_postgres(artifact, print_types=True)
+    description_tree = _describe_postgres(artifact)
 
     # general section
     assert (
