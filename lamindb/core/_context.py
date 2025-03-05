@@ -399,7 +399,7 @@ class Context:
             # to update a potential project link
             # is only necessary if transform is loaded rather than newly created
             # can be optimized by checking whether the transform is loaded, but it typically is
-            transform.save()
+            self.transform.save()
         log_to_file = None
         if log_to_file is None:
             log_to_file = self.transform.type != "notebook"
