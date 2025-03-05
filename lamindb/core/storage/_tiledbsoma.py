@@ -24,10 +24,10 @@ if TYPE_CHECKING:
 
 
 def _load_h5ad_zarr(objpath: UPath):
-    from lamindb.core.loaders import load_anndata_zarr, load_h5ad
+    from lamindb.core.loaders import load_h5ad, load_zarr
 
     if objpath.is_dir():
-        adata = load_anndata_zarr(objpath)
+        adata = load_zarr(objpath)
     else:
         # read only local in backed for now
         # in principle possible to read remote in backed also

@@ -20,10 +20,10 @@ from __future__ import annotations
 import builtins
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-import anndata as ad
 import pandas as pd
+from anndata import read_h5ad
 from lamin_utils import logger
 from lamindb_setup.core.upath import (
     create_path,
@@ -33,13 +33,15 @@ from lamindb_setup.core.upath import (
 from ..core._settings import settings
 
 if TYPE_CHECKING:
+    from anndata import AnnData
     from lamindb_setup.core.types import UPathStr
+    from mudata import MuData
 
 try:
-    from ..core.storage._zarr import load_anndata_zarr
+    from ..core.storage._zarr import load_zarr
 except ImportError:
 
-    def load_anndata_zarr(storepath):  # type: ignore
+    def load_zarr(storepath):  # type: ignore
         raise ImportError("Please install zarr: pip install zarr<=2.18.4")
 
 
@@ -47,7 +49,7 @@ is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 
 # tested in lamin-usecases
-def load_fcs(*args, **kwargs) -> ad.AnnData:
+def load_fcs(*args, **kwargs) -> AnnData:
     """Load an `.fcs` file to `AnnData`."""
     try:
         import readfcs
@@ -62,16 +64,16 @@ def load_tsv(path: UPathStr, **kwargs) -> pd.DataFrame:
     return pd.read_csv(path_sanitized, sep="\t", **kwargs)
 
 
-def load_h5ad(filepath, **kwargs) -> ad.AnnData:
+def load_h5ad(filepath, **kwargs) -> AnnData:
     """Load an `.h5ad` file to `AnnData`."""
     fs, filepath = infer_filesystem(filepath)
     compression = kwargs.pop("compression", "infer")
     with fs.open(filepath, mode="rb", compression=compression) as file:
-        adata = ad.read_h5ad(file, backed=False, **kwargs)
+        adata = read_h5ad(file, backed=False, **kwargs)
         return adata
 
 
-def load_h5mu(filepath: UPathStr, **kwargs):
+def load_h5mu(filepath: UPathStr, **kwargs) -> MuData:
     """Load an `.h5mu` file to `MuData`."""
     import mudata as md
 
@@ -100,7 +102,7 @@ def load_html(path: UPathStr) -> None | UPathStr:
         return path
 
 
-def load_json(path: UPathStr) -> dict:
+def load_json(path: UPathStr) -> dict[str, Any] | list[Any]:
     """Load `.json` to `dict`."""
     import json
 
@@ -109,7 +111,7 @@ def load_json(path: UPathStr) -> dict:
     return data
 
 
-def load_yaml(path: UPathStr) -> dict:
+def load_yaml(path: UPathStr) -> dict[str, Any] | list[Any]:
     """Load `.yaml` to `dict`."""
     import yaml  # type: ignore
 
@@ -156,7 +158,8 @@ FILE_LOADERS = {
     ".parquet": pd.read_parquet,
     ".parquet.gz": pd.read_parquet,  # this doesn't work for externally gzipped files, REMOVE LATER
     ".fcs": load_fcs,
-    ".zarr": load_anndata_zarr,
+    ".zarr": load_zarr,
+    ".spatialdata.zarr": load_zarr,
     ".html": load_html,
     ".json": load_json,
     ".yaml": load_yaml,
@@ -172,7 +175,7 @@ SUPPORTED_SUFFIXES = [sfx for sfx in FILE_LOADERS.keys() if sfx != ".rds"]
 """Suffixes with defined artifact loaders."""
 
 
-def load_to_memory(filepath: UPathStr, **kwargs):
+def load_to_memory(filepath: UPathStr, **kwargs) -> None | UPathStr:
     """Load a file into memory.
 
     Returns the filepath if no in-memory form is found.

@@ -1857,7 +1857,6 @@ class SpatialDataCatManager(CatManager):
             exclude=exclude,
         )
         if isinstance(sdata, Artifact):
-            # TODO: load() doesn't yet work
             self._sdata = sdata.load()
         else:
             self._sdata = self._dataset
