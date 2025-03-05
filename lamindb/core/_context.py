@@ -357,6 +357,8 @@ class Context:
                 self._logging_message_track += f"created Transform('{transform.uid}')"
                 transform_exists = transform
             else:
+                if self.project is not None:
+                    transform_exists.save()  # to label by project
                 self._logging_message_track += f"loaded Transform('{transform.uid}')"
             self._transform = transform_exists
 
@@ -665,6 +667,8 @@ class Context:
                     if hash != transform.hash:
                         bump_revision = True
                     else:
+                        if self.project is not None:
+                            transform.save()  # to label by project
                         self._logging_message_track += (
                             f"loaded Transform('{transform.uid}')"
                         )
@@ -678,6 +682,8 @@ class Context:
                         f'✗ {change_type}, please update the `uid` argument in `track()` to "{uid[:-4]}{increment_base62(uid[-4:])}"'
                     )
             else:
+                if self.project is not None:
+                    transform.save()  # to label by project
                 self._logging_message_track += f"loaded Transform('{transform.uid}')"
         self._transform = transform
 
