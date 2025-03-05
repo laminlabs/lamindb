@@ -7,7 +7,7 @@ from anndata import AnnData
 from pandas import DataFrame
 
 from lamindb.core._compat import (
-    apply_class_func,
+    with_package_obj,
 )
 from lamindb.core.types import ScverseDataStructures
 
@@ -33,7 +33,7 @@ def infer_suffix(dmem: SupportedDataTypes, format: str | None = None):
     if isinstance(dmem, DataFrame):
         return ".parquet"
 
-    if apply_class_func(
+    if with_package_obj(
         dmem,
         "MuData",
         "mudata",
@@ -41,7 +41,7 @@ def infer_suffix(dmem: SupportedDataTypes, format: str | None = None):
     )[0]:
         return ".h5mu"
 
-    has_spatialdata, result = apply_class_func(
+    has_spatialdata, result = with_package_obj(
         dmem,
         "SpatialData",
         "spatialdata",
@@ -83,10 +83,10 @@ def write_to_disk(dmem: SupportedDataTypes, filepath: UPathStr) -> None:
         dmem.to_parquet(filepath)
         return
 
-    if apply_class_func(dmem, "MuData", "mudata", lambda obj: obj.write(filepath))[0]:
+    if with_package_obj(dmem, "MuData", "mudata", lambda obj: obj.write(filepath))[0]:
         return
 
-    if apply_class_func(
+    if with_package_obj(
         dmem,
         "SpatialData",
         "spatialdata",

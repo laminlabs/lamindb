@@ -33,7 +33,7 @@ def with_package(package_name: str, operation: Callable[[Any], T]) -> T:
         ) from None
 
 
-def apply_class_func(
+def with_package_obj(
     obj: Any, class_name: str, package_name: str, operation: Callable[[Any], T]
 ) -> tuple[bool, T | None]:
     """Handle operations on objects that require specific packages.
