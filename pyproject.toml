@@ -37,7 +37,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "bionty==1.1.0",
+    "bionty==1.1.1",
 ]
 gcp = [
     "lamindb_setup[gcp]",
