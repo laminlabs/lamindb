@@ -674,7 +674,7 @@ def format_input_of_runs(self, print_types):
     return ""
 
 
-def _describe_postgres(self, print_types: bool = False):  # for Artifact & Collection
+def _describe_postgres(self):  # for Artifact & Collection
     from ._describe import describe_general
     from ._feature_manager import describe_features
 
@@ -698,13 +698,16 @@ def _describe_postgres(self, print_types: bool = False):  # for Artifact & Colle
     # TODO: fk_data = related_data.get("fk", {})
 
     tree = describe_general(self)
-    return describe_features(
-        self,
-        tree=tree,
-        related_data=related_data,
-        with_labels=True,
-        print_params=hasattr(self, "kind") and self.kind == "model",
-    )
+    if model_name == "Artifact":
+        return describe_features(
+            self,
+            tree=tree,
+            related_data=related_data,
+            with_labels=True,
+            print_params=hasattr(self, "kind") and self.kind == "model",
+        )
+    else:
+        return tree
 
 
 def _describe_sqlite(self, print_types: bool = False):  # for artifact & collection
@@ -745,12 +748,15 @@ def _describe_sqlite(self, print_types: bool = False):  # for artifact & collect
             .get(id=self.id)
         )
     tree = describe_general(self)
-    return describe_features(
-        self,
-        tree=tree,
-        with_labels=True,
-        print_params=hasattr(self, "kind") and self.kind == "kind",
-    )
+    if model_name == "Artifact":
+        return describe_features(
+            self,
+            tree=tree,
+            with_labels=True,
+            print_params=hasattr(self, "kind") and self.kind == "kind",
+        )
+    else:
+        return tree
 
 
 def describe_artifact_collection(

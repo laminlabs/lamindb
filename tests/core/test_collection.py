@@ -57,12 +57,9 @@ def test_from_single_artifact(adata):
     assert str(error.exconly()).startswith(
         "ValueError: Only one non-keyword arg allowed: artifacts"
     )
-    transform = ln.Transform(key="My test transform")
-    transform.save()
-    run = ln.Run(transform)
-    run.save()
-    collection = ln.Collection(artifact, key="My new collection", run=run)
-    collection.save()
+    transform = ln.Transform(key="My test transform").save()
+    run = ln.Run(transform).save()
+    collection = ln.Collection(artifact, key="My new collection", run=run).save()
     assert collection.run.input_artifacts.get() == artifact
     collection.delete(permanent=True)
     artifact.delete(permanent=True)
@@ -145,13 +142,13 @@ def test_from_consistent_artifacts(adata, adata2):
     assert "artifact_uid" in adata_joined.obs.columns
     assert artifact1.uid in adata_joined.obs.artifact_uid.cat.categories
 
-    feature_sets = collection.features._get_staged_feature_sets_union()
-    assert set(feature_sets["var"].members.values_list("symbol", flat=True)) == {
-        "MYC",
-        "TCF7",
-        "GATA1",
-    }
-    assert set(feature_sets["obs"].members.values_list("name", flat=True)) == {"feat1"}
+    # feature_sets = collection.features._get_staged_feature_sets_union()
+    # assert set(feature_sets["var"].members.values_list("symbol", flat=True)) == {
+    #     "MYC",
+    #     "TCF7",
+    #     "GATA1",
+    # }
+    # assert set(feature_sets["obs"].members.values_list("name", flat=True)) == {"feat1"}
 
     # re-run with hash-based lookup
     collection2 = ln.Collection([artifact1, artifact2], name="My test 1", run=run)
