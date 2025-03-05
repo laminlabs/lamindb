@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import anndata as ad
 import lamindb as ln
 import pandas as pd
 import pytest
@@ -93,6 +94,16 @@ def rds_filepath():
         f.write("mock rds")
     yield filepath
     filepath.unlink()
+
+
+@pytest.fixture(scope="module")
+def local_anndata_filepath():
+    return ln.core.datasets.anndata_file_pbmc68k_test().resolve()
+
+
+@pytest.fixture(scope="module")
+def adata(local_anndata_filepath):
+    return ad.read_h5ad(local_anndata_filepath)
 
 
 def test_load_anndata(local_anndata_filepath, adata):

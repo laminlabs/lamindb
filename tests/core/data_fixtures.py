@@ -1,5 +1,4 @@
 import anndata as ad
-import lamindb as ln
 import mudata as md
 import numpy as np
 import pandas as pd
@@ -9,13 +8,13 @@ from scipy.sparse import csr_matrix
 
 
 @pytest.fixture(scope="module")
-def local_anndata_filepath():
-    return ln.core.datasets.anndata_file_pbmc68k_test().resolve()
-
-
-@pytest.fixture(scope="module")
-def adata(local_anndata_filepath):
-    return ad.read_h5ad(local_anndata_filepath)
+def adata():
+    return ad.AnnData(
+        X=np.array([[1, 2, 3], [4, 5, 6]]),
+        obs={"feat1": ["A", "B"]},
+        var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
+        obsm={"X_pca": np.array([[1, 2], [3, 4]])},
+    )
 
 
 @pytest.fixture(scope="module")

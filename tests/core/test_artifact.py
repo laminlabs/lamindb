@@ -56,16 +56,6 @@ def df():
 
 
 @pytest.fixture(scope="module")
-def adata():
-    return ad.AnnData(
-        X=np.array([[1, 2, 3], [4, 5, 6]]),
-        obs={"feat1": ["A", "B"]},
-        var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
-        obsm={"X_pca": np.array([[1, 2], [3, 4]])},
-    )
-
-
-@pytest.fixture(scope="module")
 def adata_file():
     adata = ad.AnnData(
         X=np.array([[1, 2, 3], [4, 5, 6]]),
