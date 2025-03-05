@@ -244,7 +244,7 @@ class Schema(Record, CanCurate, TracksRun):
     validated_artifacts: Artifact
     """The artifacts that were validated against this schema with a :class:`~lamindb.curators.Curator`."""
     projects: Project
-    """Associated projects."""
+    """Linked projects."""
     _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
     # lamindb v2
     # _itype: ContentType = models.ForeignKey(ContentType, on_delete=models.CASCADE)

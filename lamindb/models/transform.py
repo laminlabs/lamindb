@@ -173,9 +173,9 @@ class Transform(Record, IsVersioned):
     If you're looking for the outputs of a single run, see :attr:`lamindb.Run.output_collections`.
     """
     projects: Project
-    """Associated projects."""
+    """Linked projects."""
     references: Reference
-    """Associated references."""
+    """Linked references."""
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )

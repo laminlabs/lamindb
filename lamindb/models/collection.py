@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import warnings
-from collections import defaultdict
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -36,7 +35,6 @@ from .artifact import (
     describe_artifact_collection,
     get_run,
     save_schema_links,
-    save_staged_feature_sets,
 )
 from .has_parents import view_lineage
 from .record import (
@@ -48,7 +46,6 @@ from .record import (
     update_attributes,
 )
 from .run import Run, TracksRun, TracksUpdates
-from .schema import Schema
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -56,42 +53,45 @@ if TYPE_CHECKING:
     from pyarrow.dataset import Dataset as PyArrowDataset
 
     from ..core.storage import UPath
+    from .project import Project, Reference
     from .query_set import QuerySet
     from .transform import Transform
     from .ulabel import ULabel
 
 
-class CollectionFeatureManager:
-    """Query features of artifact in collection."""
+# below is a draft for the future, see also the tests in test_collection.py
+#
+# class CollectionFeatureManager:
+#     """Query features of artifact in collection."""
 
-    def __init__(self, collection: Collection):
-        self._collection = collection
+#     def __init__(self, collection: Collection):
+#         self._collection = collection
 
-    def _get_staged_feature_sets_union(self) -> dict[str, Schema]:
-        links_schema_artifact = Artifact.feature_sets.through.objects.filter(
-            artifact_id__in=self._collection.artifacts.values_list("id", flat=True)
-        )
-        feature_sets_by_slots = defaultdict(list)
-        for link in links_schema_artifact:
-            feature_sets_by_slots[link.slot].append(link.schema_id)
-        feature_sets_union = {}
-        for slot, schema_ids_slot in feature_sets_by_slots.items():
-            schema_1 = Schema.get(id=schema_ids_slot[0])
-            related_name = schema_1._get_related_name()
-            features_registry = getattr(Schema, related_name).field.model
-            # this way of writing the __in statement turned out to be the fastest
-            # evaluated on a link table with 16M entries connecting 500 feature sets with
-            # 60k genes
-            feature_ids = (
-                features_registry.schemas.through.objects.filter(
-                    schema_id__in=schema_ids_slot
-                )
-                .values(f"{features_registry.__name__.lower()}_id")
-                .distinct()
-            )
-            features = features_registry.filter(id__in=feature_ids)
-            feature_sets_union[slot] = Schema(features, dtype=schema_1.dtype)
-        return feature_sets_union
+#     def _get_staged_feature_sets_union(self) -> dict[str, Schema]:
+#         links_schema_artifact = Artifact.feature_sets.through.objects.filter(
+#             artifact_id__in=self._collection.artifacts.values_list("id", flat=True)
+#         )
+#         feature_sets_by_slots = defaultdict(list)
+#         for link in links_schema_artifact:
+#             feature_sets_by_slots[link.slot].append(link.schema_id)
+#         feature_sets_union = {}
+#         for slot, schema_ids_slot in feature_sets_by_slots.items():
+#             schema_1 = Schema.get(id=schema_ids_slot[0])
+#             related_name = schema_1._get_related_name()
+#             features_registry = getattr(Schema, related_name).field.model
+#             # this way of writing the __in statement turned out to be the fastest
+#             # evaluated on a link table with 16M entries connecting 500 feature sets with
+#             # 60k genes
+#             feature_ids = (
+#                 features_registry.schemas.through.objects.filter(
+#                     schema_id__in=schema_ids_slot
+#                 )
+#                 .values(f"{features_registry.__name__.lower()}_id")
+#                 .distinct()
+#             )
+#             features = features_registry.filter(id__in=feature_ids)
+#             feature_sets_union[slot] = Schema(features, dtype=schema_1.dtype)
+#         return feature_sets_union
 
 
 class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
@@ -192,6 +192,10 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
     """
     _actions: Artifact = models.ManyToManyField(Artifact, related_name="+")
     """Actions to attach for the UI."""
+    projects: Project
+    """Linked projects."""
+    references: Reference
+    """Linked references."""
 
     @overload
     def __init__(
@@ -217,7 +221,6 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         *args,
         **kwargs,
     ):
-        self.features = CollectionFeatureManager(self)
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args, **kwargs)
             return None
@@ -308,33 +311,30 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
                 _skip_validation=_skip_validation,
             )
         self._artifacts = artifacts
-        # register provenance
         if revises is not None:
             _track_run_input(revises, run=run)
         _track_run_input(artifacts, run=run)
 
     def append(self, artifact: Artifact, run: Run | None = None) -> Collection:
-        """Add an artifact to the collection.
+        """Append an artifact to the collection.
 
-        Creates a new version of the collection.
         This does not modify the original collection in-place, but returns a new version
-        of the original collection with the added artifact.
+        of the original collection with the appended artifact.
 
         Args:
             artifact: An artifact to add to the collection.
             run: The run that creates the new version of the collection.
 
-        Examples:
-            >>> collection = ln.Collection(artifact, key="new collection")
-            >>> collecton.save()
-            >>> collection = collection.append(another_artifact) # returns a new version
-            >>> collection.save() # save the new version
+        Examples::
 
-        .. versionadded:: 0.76.14
+            collection_v1 = ln.Collection(artifact, key="My collection").save()
+            collection_v2 = collection.append(another_artifact)  # returns a new version of the collection
+            collection_v2.save()  # save the new version
+
         """
         return Collection(  # type: ignore
             self.artifacts.all().list() + [artifact],
-            # key is automatically taken from revises.key
+            # key is automatically derived from revises.key
             description=self.description,
             revises=self,
             run=run,
@@ -568,8 +568,6 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         """
         if self.meta_artifact is not None:
             self.meta_artifact.save()
-        # we don't need to save feature sets again
-        save_staged_feature_sets(self)
         super().save()
         # we don't allow updating the collection of artifacts
         # if users want to update the set of artifacts, they
