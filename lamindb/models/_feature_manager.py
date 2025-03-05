@@ -742,7 +742,13 @@ def get(cls, **expression) -> Record:
 
 @property  # type: ignore
 def slots(self) -> dict[str, Schema]:
-    """Schema by slot."""
+    """Schema by slot.
+
+    Example:
+
+        >>> artifact.features.slots
+        {'var': <Schema: var>, 'obs': <Schema: obs>}
+    """
     if self._slots is None:
         self._slots = get_schema_by_slot_(self._host)
     return self._slots
