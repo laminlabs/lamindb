@@ -1,3 +1,5 @@
+# pragma: no cover
+
 import importlib.util
 from typing import Any, Callable, TypeVar
 
