@@ -462,24 +462,31 @@ class AnnDataCurator(Curator):
             raise InvalidArgument("dataset must be AnnData-like.")
         if schema.otype != "AnnData":
             raise InvalidArgument("Schema otype must be 'AnnData'.")
-        self._obs_curator = DataFrameCurator(
-            self._dataset.obs, schema._get_component("obs")
-        )
-        self._var_curator = DataFrameCurator(
-            self._dataset.var.T, schema._get_component("var")
-        )
+        # TODO: also support slots other than obs and var
+        self._slots = {
+            slot: DataFrameCurator(
+                (
+                    self._dataset.__getattribute__(slot).T
+                    if slot == "var"
+                    else self._dataset.__getattribute__(slot)
+                ),
+                slot_schema,
+            )
+            for slot, slot_schema in schema.slots.items()
+            if slot in {"obs", "var"}
+        }
 
     @property
     @doc_args(SLOTS_DOCSTRING)
     def slots(self) -> dict[str, DataFrameCurator]:
         """{}"""  # noqa: D415
-        return {"obs": self._obs_curator, "var": self._var_curator}
+        return self._slots
 
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
-        self._obs_curator.validate()
-        self._var_curator.validate()
+        for _, curator in self._slots.items():
+            curator.validate()
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
@@ -493,11 +500,11 @@ class AnnDataCurator(Curator):
         """{}"""  # noqa: D415
         if not self._is_validated:
             self.validate()  # raises ValidationError if doesn't validate
-        result = parse_dtype_single_cat(self._var_curator._schema.itype, is_itype=True)
+        result = parse_dtype_single_cat(self.slots["var"]._schema.itype, is_itype=True)
         return save_artifact(  # type: ignore
             self._dataset,
             description=description,
-            fields=self._obs_curator._cat_manager.categoricals,
+            fields=self.slots["obs"]._cat_manager.categoricals,
             columns_field=result["field"],
             key=key,
             artifact=self._artifact,
