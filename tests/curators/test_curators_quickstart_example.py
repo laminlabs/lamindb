@@ -116,6 +116,11 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
     assert isinstance(curator.slots["var"], ln.curators.DataFrameCurator)
     artifact = curator.save_artifact(key="example_datasets/dataset1.h5ad")
     assert artifact.schema == anndata_schema
+    assert artifact.features.slots["obs"] == obs_schema
+    assert artifact.features.slots["var"] == var_schema
+    # deprecated
+    assert artifact.features._schema_by_slot["obs"] == obs_schema
+    assert artifact.features._feature_set_by_slot["obs"] == obs_schema
 
     assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
         "T cell",

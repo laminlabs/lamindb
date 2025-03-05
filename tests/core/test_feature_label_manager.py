@@ -657,7 +657,8 @@ def test_labels_get():
     schema.save()
     artifact.save()
     assert str(artifact.features) == "no linked features"
-    artifact.features._add_schema(schema, slot="random")
+    # test for deprecated add_schema
+    artifact.features.add_schema(schema, slot="random")
     assert artifact.feature_sets.first() == schema
     artifact.delete(permanent=True, storage=True)
     schema.delete()

@@ -1277,7 +1277,7 @@ def add_schema(self, schema: Schema, slot: str) -> None:
     return self._add_schema(schema, slot)
 
 
-@deprecated("add_schema")
+@deprecated("_add_schema")
 def add_feature_set(self, schema: Schema, slot: str) -> None:
     return self._add_schema(schema, slot)
 
