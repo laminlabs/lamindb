@@ -499,13 +499,18 @@ class AnnDataCurator(Curator):
     ):
         """{}"""  # noqa: D415
         if not self._is_validated:
-            self.validate()  # raises ValidationError if doesn't validate
-        result = parse_dtype_single_cat(self.slots["var"]._schema.itype, is_itype=True)
+            self.validate()
         return save_artifact(  # type: ignore
             self._dataset,
             description=description,
             fields=self.slots["obs"]._cat_manager.categoricals,
-            columns_field=result["field"],
+            columns_field=(
+                parse_dtype_single_cat(self.slots["var"]._schema.itype, is_itype=True)[
+                    "field"
+                ]
+                if "var" in self._slots
+                else None
+            ),
             key=key,
             artifact=self._artifact,
             revises=revises,
