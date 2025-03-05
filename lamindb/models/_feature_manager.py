@@ -741,8 +741,8 @@ def get(cls, **expression) -> Record:
 
 
 @property  # type: ignore
-def slots(self):
-    """Feature sets by slot."""
+def slots(self) -> dict[str, Schema]:
+    """Schema by slot."""
     if self._slots is None:
         self._slots = get_schema_by_slot_(self._host)
     return self._slots
@@ -1055,7 +1055,7 @@ def remove_values(
         # we can clean the FeatureValue registry periodically if we want to
 
 
-def add_schema(self, schema: Schema, slot: str) -> None:
+def _add_schema(self, schema: Schema, slot: str) -> None:
     """Annotate artifact with a schema.
 
     Args:
@@ -1233,7 +1233,7 @@ def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
         if schema_self.hash == schema.hash:
             schema_self.uid = schema.uid
         logger.info(f"saving {slot} schema: {schema_self}")
-        self._host.features.add_schema(schema_self, slot)
+        self._host.features._add_schema(schema_self, slot)
 
 
 def make_external(self, feature: Feature) -> None:
@@ -1266,10 +1266,14 @@ def make_external(self, feature: Feature) -> None:
             fs.delete()
 
 
-@property
+@deprecated("_add_schema")
+def add_schema(self, schema: Schema, slot: str) -> None:
+    return self._add_schema(schema, slot)
+
+
 @deprecated("add_schema")
-def add_feature_set(self):
-    return self.add_schema
+def add_feature_set(self, schema: Schema, slot: str) -> None:
+    return self._add_schema(schema, slot)
 
 
 @property
@@ -1292,7 +1296,8 @@ FeatureManager.__getitem__ = __getitem__
 FeatureManager.get_values = get_values
 FeatureManager.slots = slots
 FeatureManager.add_values = add_values_features
-FeatureManager.add_schema = add_schema
+FeatureManager._add_schema = _add_schema
+FeatureManager.add_schema = add_schema  # deprecated
 FeatureManager.add_feature_set = add_feature_set  # deprecated
 FeatureManager._schema_by_slot = _schema_by_slot  # deprecated
 FeatureManager._feature_set_by_slot = _feature_set_by_slot  # deprecated

@@ -102,8 +102,8 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
         components={"obs": obs_schema, "var": var_schema},
     ).save()
 
-    assert anndata_schema._get_component("obs") == obs_schema
-    assert anndata_schema._get_component("var") == var_schema
+    assert anndata_schema.slots["obs"] == obs_schema
+    assert anndata_schema.slots["var"] == var_schema
 
     describe_output = anndata_schema.describe(return_str=True)
     assert "small_dataset1_anndata_schema" in describe_output
@@ -112,6 +112,8 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
 
     adata = datasets.small_dataset1(otype="AnnData")
     curator = ln.curators.AnnDataCurator(adata, anndata_schema)
+    assert isinstance(curator.slots["obs"], ln.curators.DataFrameCurator)
+    assert isinstance(curator.slots["var"], ln.curators.DataFrameCurator)
     artifact = curator.save_artifact(key="example_datasets/dataset1.h5ad")
     assert artifact.schema == anndata_schema
 

@@ -654,9 +654,6 @@ class Schema(Record, CanCurate, TracksRun):
             print(message)
             return None
 
-    def _get_component(self, slot: str) -> Schema:
-        return self.components.get(links_component__slot=slot)
-
 
 def get_type_str(dtype: str | None) -> str | None:
     if dtype is not None:
