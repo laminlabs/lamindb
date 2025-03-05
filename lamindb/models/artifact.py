@@ -62,7 +62,7 @@ from ..models._is_versioned import (
     create_uid,
     message_update_key_in_version_family,
 )
-from ._django import get_artifact_with_related, get_related_model
+from ._django import get_artifact_with_related
 from ._feature_manager import (
     FeatureManager,
     ParamManager,
@@ -83,7 +83,6 @@ from .record import (
     LinkORM,
     Record,
     _get_record_kwargs,
-    format_field_value,
     record_repr,
 )
 from .run import ParamValue, Run, TracksRun, TracksUpdates, User
@@ -652,26 +651,27 @@ def save_schema_links(self: Artifact) -> None:
         bulk_create(links, ignore_conflicts=True)
 
 
-def format_provenance(self, fk_data, print_types):
-    type_str = lambda attr: (
-        f": {get_related_model(self.__class__, attr).__name__}" if print_types else ""
-    )
+# can restore later if needed
+# def format_provenance(self, fk_data, print_types):
+#     type_str = lambda attr: (
+#         f": {get_related_model(self.__class__, attr).__name__}" if print_types else ""
+#     )
 
-    return "".join(
-        [
-            f"    .{field_name}{type_str(field_name)} = {format_field_value(value.get('name'))}\n"
-            for field_name, value in fk_data.items()
-            if value.get("name")
-        ]
-    )
+#     return "".join(
+#         [
+#             f"    .{field_name}{type_str(field_name)} = {format_field_value(value.get('name'))}\n"
+#             for field_name, value in fk_data.items()
+#             if value.get("name")
+#         ]
+#     )
 
-
-def format_input_of_runs(self, print_types):
-    if self.id is not None and self.input_of_runs.exists():
-        values = [format_field_value(i.started_at) for i in self.input_of_runs.all()]
-        type_str = ": Run" if print_types else ""  # type: ignore
-        return f"    .input_of_runs{type_str} = {', '.join(values)}\n"
-    return ""
+# can restore later if needed
+# def format_input_of_runs(self, print_types):
+#     if self.id is not None and self.input_of_runs.exists():
+#         values = [format_field_value(i.started_at) for i in self.input_of_runs.all()]
+#         type_str = ": Run" if print_types else ""  # type: ignore
+#         return f"    .input_of_runs{type_str} = {', '.join(values)}\n"
+#     return ""
 
 
 def _describe_postgres(self):  # for Artifact & Collection
@@ -759,15 +759,13 @@ def _describe_sqlite(self, print_types: bool = False):  # for artifact & collect
         return tree
 
 
-def describe_artifact_collection(
-    self, print_types: bool = False
-):  # for artifact & collection
+def describe_artifact_collection(self):  # for artifact & collection
     from ._describe import print_rich_tree
 
     if not self._state.adding and connections[self._state.db].vendor == "postgresql":
-        tree = _describe_postgres(self, print_types=print_types)
+        tree = _describe_postgres(self)
     else:
-        tree = _describe_sqlite(self, print_types=print_types)
+        tree = _describe_sqlite(self)
 
     print_rich_tree(tree)
 
