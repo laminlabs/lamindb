@@ -1108,7 +1108,7 @@ def _add_set_from_df(
 
 def _add_set_from_anndata(
     self,
-    var_field: FieldAttr,
+    var_field: FieldAttr | None = None,
     obs_field: FieldAttr | None = Feature.name,
     mute: bool = False,
     organism: str | Record | None = None,

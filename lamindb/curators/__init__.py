@@ -3351,7 +3351,7 @@ def validate_categories_in_df(
 def save_artifact(
     data: pd.DataFrame | ad.AnnData | MuData,
     fields: dict[str, FieldAttr] | dict[str, dict[str, FieldAttr]],
-    columns_field: FieldAttr | dict[str, FieldAttr],
+    columns_field: FieldAttr | dict[str, FieldAttr] | None = None,
     description: str | None = None,
     organism: str | None = None,
     key: str | None = None,
@@ -3399,7 +3399,7 @@ def save_artifact(
     artifact.schema = schema
     artifact.save()
 
-    if organism is not None:
+    if organism is not None and columns_field is not None:
         feature_kwargs = check_registry_organism(
             (
                 list(columns_field.values())[0].field.model
