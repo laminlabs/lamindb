@@ -14,7 +14,16 @@ SCRIPTS_DIR = Path(__file__).parent.resolve() / "scripts"
 NOTEBOOKS_DIR = Path(__file__).parent.resolve() / "notebooks"
 
 
-def test_track_with_multi_predecessors():
+def test_track_basic_invocation():
+    project = "non-existing project"
+    try:
+        ln.context.track(project=project)
+    except ln.errors.InvalidArgument as error:
+        assert (
+            str(error)
+            == f"Project '{project}' not found, either create it with `ln.Project(name='...').save()` or fix typos."
+        )
+
     predecessor1 = ln.Transform(key="parent 1").save()
     predecessor2 = ln.Transform(key="parent 2").save()
     successor = ln.Transform(key="successor").save()
@@ -22,10 +31,10 @@ def test_track_with_multi_predecessors():
 
     # first invocation
     params = {"param1": 1, "param2": "my-string", "param3": 3.14}
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ValidationError) as exc:
         ln.context.track(transform=successor, params=params)
     assert (
-        error.exconly()
+        exc.exconly()
         == """lamindb.errors.ValidationError: These keys could not be validated: ['param1', 'param2', 'param3']
 Here is how to create a param:
 
@@ -42,10 +51,10 @@ Here is how to create a param:
     # second invocation
     params = {"param1": 1, "param2": "my-string", "param3": 3.14, "param4": [1, 2]}
     param4 = ln.Param(name="param4", dtype="int").save()
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ValidationError) as exc:
         ln.context.track(transform=successor, params=params)
     assert (
-        error.exconly()
+        exc.exconly()
         == """lamindb.errors.ValidationError: Expected dtype for 'param4' is 'int', got 'list[int]'"""
     )
     # fix param4 dtype

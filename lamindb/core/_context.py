@@ -357,8 +357,6 @@ class Context:
                 self._logging_message_track += f"created Transform('{transform.uid}')"
                 transform_exists = transform
             else:
-                if self.project is not None:
-                    transform_exists.save()  # to label by project
                 self._logging_message_track += f"loaded Transform('{transform.uid}')"
             self._transform = transform_exists
 
@@ -397,6 +395,11 @@ class Context:
             )
         self._run = run
         track_environment(run)
+        if self.project is not None:
+            # to update a potential project link
+            # is only necessary if transform is loaded rather than newly created
+            # can be optimized by checking whether the transform is loaded, but it typically is
+            transform.save()
         log_to_file = None
         if log_to_file is None:
             log_to_file = self.transform.type != "notebook"
@@ -667,8 +670,6 @@ class Context:
                     if hash != transform.hash:
                         bump_revision = True
                     else:
-                        if self.project is not None:
-                            transform.save()  # to label by project
                         self._logging_message_track += (
                             f"loaded Transform('{transform.uid}')"
                         )
@@ -682,8 +683,6 @@ class Context:
                         f'✗ {change_type}, please update the `uid` argument in `track()` to "{uid[:-4]}{increment_base62(uid[-4:])}"'
                     )
             else:
-                if self.project is not None:
-                    transform.save()  # to label by project
                 self._logging_message_track += f"loaded Transform('{transform.uid}')"
         self._transform = transform
 
