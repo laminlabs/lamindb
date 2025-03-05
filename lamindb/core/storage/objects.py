@@ -93,3 +93,5 @@ def write_to_disk(dmem: SupportedDataTypes, filepath: UPathStr) -> None:
         lambda obj: obj.write(filepath, overwrite=True),
     )[0]:
         return
+
+    raise NotImplementedError
