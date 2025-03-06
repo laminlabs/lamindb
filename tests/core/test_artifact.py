@@ -18,7 +18,8 @@ import numpy as np
 import pandas as pd
 import pytest
 import yaml  # type: ignore
-from _dataset_fixtures import get_small_adata, get_small_mdata, get_small_sdata  # noqa
+from _dataset_fixtures import get_small_adata as adata  # noqa
+from _dataset_fixtures import get_small_mdata, get_small_sdata  # noqa
 from lamindb.core._settings import settings
 from lamindb.core.loaders import load_fcs, load_to_memory, load_tsv
 from lamindb.core.storage._zarr import identify_zarr_type, write_adata_zarr
