@@ -37,7 +37,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "bionty==1.1.1",
+    "bionty",   # do not pin, is bounded in bionty
 ]
 gcp = [
     "lamindb_setup[gcp]",
@@ -58,10 +58,10 @@ erdiagram = [
     "django-schema-graph",
 ]
 wetlab = [
-    "wetlab==1.1.0"
+    "wetlab"  # do not pin, is bounded in wetlab
 ]
 clinicore = [
-    "clinicore==1.1.0"
+    "clinicore"   # do not pin, is bounded in clinicore
 ]
 cellregistry = [
     "cellregistry"
