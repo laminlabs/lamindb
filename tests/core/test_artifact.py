@@ -18,7 +18,6 @@ import numpy as np
 import pandas as pd
 import pytest
 import yaml  # type: ignore
-from data_fixtures import adata, mdata, sdata  # noqa
 from lamindb.core._settings import settings
 from lamindb.core.loaders import load_fcs, load_to_memory, load_tsv
 from lamindb.core.storage._zarr import identify_zarr_type, write_adata_zarr
@@ -44,6 +43,7 @@ from lamindb_setup.core.upath import (
     UPath,
     extract_suffix_from_path,
 )
+from tests.core.dataset_fixtures import adata, mdata, sdata  # noqa
 
 # how do we properly abstract out the default storage variable?
 # currently, we're only mocking it through `default_storage` as

@@ -70,7 +70,7 @@ def test_anndata_io():
     zarr_path = test_file.with_suffix(".zarr")
     write_adata_zarr(adata, zarr_path, callback)
 
-    adata = load_zarr(zarr_path)
+    adata = load_zarr(zarr_path, "anndata")
 
     assert adata.shape == (30, 200)
 

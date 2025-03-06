@@ -7,7 +7,7 @@ import spatialdata as sd
 from scipy.sparse import csr_matrix
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def adata():
     return ad.AnnData(
         X=np.array([[1, 2, 3], [4, 5, 6]]),
@@ -17,7 +17,7 @@ def adata():
     )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def mdata():
     adata1 = ad.AnnData(
         X=np.array([[1, 2, 3], [4, 5, 6]]),

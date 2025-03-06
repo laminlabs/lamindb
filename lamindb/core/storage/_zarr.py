@@ -63,8 +63,17 @@ def identify_zarr_type(
     return "unknown"
 
 
-def load_zarr(storepath: UPathStr) -> ScverseDataStructures:
-    """Loads a zarr store and returns the corresponding scverse data structure."""
+def load_zarr(
+    storepath: UPathStr,
+    expected_type: Literal["anndata", "mudata", "spatialdata"] = None,
+) -> ScverseDataStructures:
+    """Loads a zarr store and returns the corresponding scverse data structure.
+
+    Args:
+        storepath: Path to the zarr store
+        expected_type: If provided, ensures the zarr store is of this type ("anndata", "mudata", "spatialdata")
+                       and raises ValueError if it's not
+    """
     fs, storepath_str = infer_filesystem(storepath)
     if isinstance(fs, LocalFileSystem):
         # this is faster than through an fsspec mapper for local
@@ -72,7 +81,14 @@ def load_zarr(storepath: UPathStr) -> ScverseDataStructures:
     else:
         open_obj = create_mapper(fs, storepath_str, check=True)
 
-    match identify_zarr_type(storepath):
+    actual_type = identify_zarr_type(storepath)
+
+    if expected_type is not None and actual_type != expected_type:
+        raise ValueError(
+            f"Expected zarr store of type '{expected_type}', but found '{actual_type}'"
+        )
+
+    match actual_type:
         case "anndata":
             scverse_obj = read_anndata_zarr(open_obj)
         case "mudata":
@@ -83,7 +99,7 @@ def load_zarr(storepath: UPathStr) -> ScverseDataStructures:
             )
         case "unknown" | _:
             raise ValueError(
-                "unable to determine zarr store format and therefore cannot load Artifact."
+                "Unable to determine zarr store format and therefore cannot load Artifact."
             )
 
     return scverse_obj
