@@ -49,6 +49,7 @@ from django.db.models.lookups import (
 )
 from lamin_utils import colors, logger
 from lamin_utils._lookup import Lookup
+from lamindb_setup import settings as setup_settings
 from lamindb_setup._connect_instance import (
     get_owner_name_from_identifier,
     load_instance_settings,
@@ -595,6 +596,8 @@ class Registry(ModelBase):
         if instance is None:
             return QuerySet(model=cls, using=None)
         owner, name = get_owner_name_from_identifier(instance)
+        if f"{owner}/{name}" == setup_settings.instance.slug:
+            return QuerySet(model=cls, using=None)
         settings_file = instance_settings_file(name, owner)
         cache_filepath = (
             ln_setup.settings.cache_dir / f"instance--{owner}--{name}--uid.txt"
