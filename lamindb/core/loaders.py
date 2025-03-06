@@ -37,6 +37,8 @@ if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
     from mudata import MuData
 
+    from lamindb.core.types import ScverseDataStructures
+
 try:
     from ..core.storage._zarr import load_zarr
 except ImportError:
@@ -159,7 +161,6 @@ FILE_LOADERS = {
     ".parquet.gz": pd.read_parquet,  # this doesn't work for externally gzipped files, REMOVE LATER
     ".fcs": load_fcs,
     ".zarr": load_zarr,
-    ".spatialdata.zarr": load_zarr,
     ".html": load_html,
     ".json": load_json,
     ".yaml": load_yaml,
@@ -175,10 +176,15 @@ SUPPORTED_SUFFIXES = [sfx for sfx in FILE_LOADERS.keys() if sfx != ".rds"]
 """Suffixes with defined artifact loaders."""
 
 
-def load_to_memory(filepath: UPathStr, **kwargs) -> None | UPathStr:
+def load_to_memory(
+    filepath: UPathStr, **kwargs
+) -> (
+    pd.DataFrame | ScverseDataStructures | dict[str, Any] | list[Any] | UPathStr | None
+):
     """Load a file into memory.
 
     Returns the filepath if no in-memory form is found.
+    May return None in interactive sessions for images.
     """
     filepath = create_path(filepath)
 
@@ -197,4 +203,5 @@ def load_to_memory(filepath: UPathStr, **kwargs) -> None | UPathStr:
         )
 
     filepath = settings._storage_settings.cloud_to_local(filepath, print_progress=True)
+
     return loader(filepath, **kwargs)
