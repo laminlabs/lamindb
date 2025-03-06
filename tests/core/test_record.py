@@ -200,7 +200,7 @@ def test_using():
     assert artifact == artifact_ref
     # check that .using provided with the current intance does nothing
     assert ln.User.using("lamindb-unit-tests-core").first()._state.db == "default"
-    user = ln.setup.settings.user
+    user = ln.setup.settings.user.handle
     assert (
         ln.User.using(f"{user}/lamindb-unit-tests-core").first()._state.db == "default"
     )
