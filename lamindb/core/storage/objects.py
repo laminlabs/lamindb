@@ -41,7 +41,7 @@ def infer_suffix(dmem: SupportedDataTypes, format: str | None = None):
     )[0]:
         return ".h5mu"
 
-    has_spatialdata, result = with_package_obj(
+    has_spatialdata, spatialdata_suffix = with_package_obj(
         dmem,
         "SpatialData",
         "spatialdata",
@@ -61,7 +61,7 @@ def infer_suffix(dmem: SupportedDataTypes, format: str | None = None):
         ),
     )
     if has_spatialdata:
-        return result
+        return spatialdata_suffix
     else:
         raise NotImplementedError
 
