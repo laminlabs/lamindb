@@ -401,7 +401,7 @@ def test_create_from_anndata_in_memory_and_link_features(get_small_adata):
 
 @pytest.mark.parametrize(
     "data",
-    ["adata", "s3://lamindb-test/core/scrnaseq_pbmc68k_tiny.h5ad"],
+    ["get_small_adata", "s3://lamindb-test/core/scrnaseq_pbmc68k_tiny.h5ad"],
     indirect=True,
 )
 def test_create_from_anndata_in_storage(data):
