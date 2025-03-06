@@ -1,25 +1,20 @@
 from __future__ import annotations
 
 from pathlib import PurePosixPath
-from typing import TYPE_CHECKING, TypeAlias, TypeVar
+from typing import TYPE_CHECKING, TypeAlias
 
 from anndata import AnnData
 from pandas import DataFrame
 
+from lamindb.core._compat import (
+    with_package_obj,
+)
+from lamindb.core.types import ScverseDataStructures
+
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
 
-SpatialData = TypeVar("SpatialData")
-MuData = TypeVar("MuData")
-
-SupportedDataTypes: TypeAlias = AnnData | DataFrame | MuData | SpatialData
-
-
-def is_package_installed(package_name):
-    import importlib.util
-
-    spec = importlib.util.find_spec(package_name)
-    return spec is not None
+SupportedDataTypes: TypeAlias = DataFrame | ScverseDataStructures
 
 
 def infer_suffix(dmem: SupportedDataTypes, format: str | None = None):
@@ -38,25 +33,35 @@ def infer_suffix(dmem: SupportedDataTypes, format: str | None = None):
     if isinstance(dmem, DataFrame):
         return ".parquet"
 
-    if is_package_installed("mudata"):
-        from mudata import MuData
+    if with_package_obj(
+        dmem,
+        "MuData",
+        "mudata",
+        lambda obj: True,  # Just checking type, not calling any method
+    )[0]:
+        return ".h5mu"
 
-        if isinstance(dmem, MuData):
-            return ".h5mu"
-
-    if is_package_installed("spatialdata"):
-        from spatialdata import SpatialData
-
-        if isinstance(dmem, SpatialData):
-            if format is not None:
-                if format not in {"spatialdata.zarr"}:
-                    raise ValueError(
-                        "Error when specifying SpatialData storage format, it should be"
-                        f" 'zarr', 'spatialdata.zarr', not '{format}'. Check 'format'"
-                        " or the suffix of 'key'."
-                    )
-                return "." + format
-            return ".zarr"
+    has_spatialdata, spatialdata_suffix = with_package_obj(
+        dmem,
+        "SpatialData",
+        "spatialdata",
+        lambda obj: "."
+        + (
+            format
+            if format is not None and format in {"spatialdata.zarr", "zarr"}
+            else ".zarr"
+            if format is None
+            else (_ for _ in ()).throw(
+                ValueError(
+                    "Error when specifying SpatialData storage format, it should be"
+                    f" 'zarr', 'spatialdata.zarr', not '{format}'. Check 'format'"
+                    " or the suffix of 'key'."
+                )
+            )
+        ),
+    )
+    if has_spatialdata:
+        return spatialdata_suffix
     else:
         raise NotImplementedError
 
@@ -78,18 +83,15 @@ def write_to_disk(dmem: SupportedDataTypes, filepath: UPathStr) -> None:
         dmem.to_parquet(filepath)
         return
 
-    if is_package_installed("mudata"):
-        from mudata import MuData
+    if with_package_obj(dmem, "MuData", "mudata", lambda obj: obj.write(filepath))[0]:
+        return
 
-        if isinstance(dmem, MuData):
-            dmem.write(filepath)
-            return
+    if with_package_obj(
+        dmem,
+        "SpatialData",
+        "spatialdata",
+        lambda obj: obj.write(filepath, overwrite=True),
+    )[0]:
+        return
 
-    if is_package_installed("spatialdata"):
-        from spatialdata import SpatialData
-
-        if isinstance(dmem, SpatialData):
-            dmem.write(filepath, overwrite=True)
-            return
-    else:
-        raise NotImplementedError
+    raise NotImplementedError

@@ -37,6 +37,7 @@ from lamindb.errors import FieldValidationError
 from lamindb.models.query_set import QuerySet
 
 from ..base.users import current_user_id
+from ..core._compat import is_package_installed
 from ..core.loaders import load_to_memory
 from ..core.storage import (
     LocalPathClasses,
@@ -48,7 +49,6 @@ from ..core.storage import (
 from ..core.storage._anndata_accessor import _anndata_n_observations
 from ..core.storage._pyarrow_dataset import PYARROW_SUFFIXES
 from ..core.storage._tiledbsoma import _soma_n_observations
-from ..core.storage.objects import is_package_installed
 from ..core.storage.paths import (
     AUTO_KEY_PREFIX,
     auto_storage_key_from_artifact,
@@ -113,6 +113,7 @@ if TYPE_CHECKING:
 
     from lamindb.base.types import StrField
     from lamindb.core.storage._backed_access import AnnDataAccessor, BackedAccessor
+    from lamindb.core.types import ScverseDataStructures
 
     from ..base.types import (
         ArtifactKind,
@@ -364,7 +365,7 @@ def get_relative_path_to_directory(
 
 def get_artifact_kwargs_from_data(
     *,
-    data: Path | UPath | str | pd.DataFrame | AnnData | MuData,
+    data: Path | UPath | str | pd.DataFrame | ScverseDataStructures,
     key: str | None,
     run: Run | None,
     format: str | None,
@@ -554,7 +555,7 @@ def data_is_spatialdata(data: SpatialData | UPathStr) -> bool:
 
 
 def _check_otype_artifact(
-    data: UPathStr | pd.DataFrame | AnnData | MuData | SpatialData,
+    data: UPathStr | pd.DataFrame | ScverseDataStructures,
     otype: str | None = None,
 ) -> str:
     if otype is None:

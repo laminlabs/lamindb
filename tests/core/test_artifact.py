@@ -4,6 +4,8 @@ Also see `test_artifact_folders.py` for tests of folder-like artifacts.
 
 """
 
+# ruff: noqa: F811
+
 import shutil
 from pathlib import Path, PurePosixPath
 
@@ -15,8 +17,8 @@ import mudata as md
 import numpy as np
 import pandas as pd
 import pytest
-import spatialdata as sd
 import yaml  # type: ignore
+from _dataset_fixtures import get_small_adata, get_small_mdata, get_small_sdata  # noqa
 from lamindb.core._settings import settings
 from lamindb.core.loaders import load_fcs, load_to_memory, load_tsv
 from lamindb.core.storage._zarr import identify_zarr_type, write_adata_zarr
@@ -42,7 +44,6 @@ from lamindb_setup.core.upath import (
     UPath,
     extract_suffix_from_path,
 )
-from scipy.sparse import csr_matrix
 
 # how do we properly abstract out the default storage variable?
 # currently, we're only mocking it through `default_storage` as
@@ -55,55 +56,6 @@ bt.settings.organism = "human"
 @pytest.fixture(scope="module")
 def df():
     return pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
-
-
-@pytest.fixture(scope="module")
-def adata():
-    return ad.AnnData(
-        X=np.array([[1, 2, 3], [4, 5, 6]]),
-        obs={"feat1": ["A", "B"]},
-        var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
-        obsm={"X_pca": np.array([[1, 2], [3, 4]])},
-    )
-
-
-@pytest.fixture(scope="module")
-def mdata():
-    adata1 = ad.AnnData(
-        X=np.array([[1, 2, 3], [4, 5, 6]]),
-        obs={"feat1": ["A", "B"]},
-        var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
-        obsm={"X_pca": np.array([[1, 2], [3, 4]])},
-    )
-
-    adata2 = ad.AnnData(
-        X=np.array([[7, 8], [9, 10]]),
-        obs={"feat2": ["C", "D"]},
-        var=pd.DataFrame(index=["FOXP3", "CD8A"]),
-        obsm={"X_umap": np.array([[5, 6], [7, 8]])},
-    )
-
-    return md.MuData({"rna": adata1, "protein": adata2})
-
-
-@pytest.fixture(scope="module")
-def sdata():
-    adata = ad.AnnData(
-        X=csr_matrix(np.array([[0.1, 0.2], [0.3, 0.4]])),
-        obs=pd.DataFrame(index=["cell1", "cell2"]),
-        var=pd.DataFrame(index=["gene1", "gene2"]),
-    )
-
-    {
-        "region1": np.array([[[0, 0], [0, 1], [1, 1], [1, 0]]]),
-        "region2": np.array([[[2, 2], [2, 3], [3, 3], [3, 2]]]),
-    }
-
-    sdata_obj = sd.SpatialData(
-        tables={"gene_expression": adata},
-    )
-
-    return sdata_obj
 
 
 @pytest.fixture(scope="module")
@@ -122,8 +74,8 @@ def adata_file():
 
 @pytest.fixture
 def data(request):
-    if request.param == "adata":
-        return request.getfixturevalue("adata")
+    if request.param == "get_small_adata":
+        return request.getfixturevalue("get_small_adata")
     else:
         return request.param
 
@@ -160,17 +112,17 @@ def fcs_file():
 
 
 @pytest.fixture(scope="module")
-def mudata_file(mdata):
+def mudata_file(get_small_mdata):
     filepath = Path("test.h5mu")
-    mdata.write(filepath)
+    get_small_mdata.write(filepath)
     yield filepath
     filepath.unlink()
 
 
 @pytest.fixture(scope="module")
-def spatialdata_file(sdata):
+def spatialdata_file(get_small_sdata):
     filepath = Path("test.zarr")
-    sdata.write(filepath)
+    get_small_sdata.write(filepath)
     yield filepath
     shutil.rmtree(filepath)
 
@@ -209,7 +161,7 @@ def test_basic_validation():
     )
 
 
-def test_revise_artifact(df, adata):
+def test_revise_artifact(df, get_small_adata):
     # attempt to create a file with an invalid version
     with pytest.raises(ValueError) as error:
         artifact = ln.Artifact.from_df(df, description="test", version=0)
@@ -229,14 +181,16 @@ def test_revise_artifact(df, adata):
     assert artifact.path.exists()
 
     with pytest.raises(ValueError) as error:
-        artifact_r2 = ln.Artifact.from_anndata(adata, revises=artifact, version="1")
+        artifact_r2 = ln.Artifact.from_anndata(
+            get_small_adata, revises=artifact, version="1"
+        )
     assert error.exconly() == "ValueError: Please increment the previous version: '1'"
 
     # create new file from old file
-    artifact_r2 = ln.Artifact.from_anndata(adata, revises=artifact)
+    artifact_r2 = ln.Artifact.from_anndata(get_small_adata, revises=artifact)
     assert artifact_r2.stem_uid == artifact.stem_uid
     assert artifact_r2.uid.endswith("0001")
-    artifact_r2 = ln.Artifact.from_anndata(adata, revises=artifact)
+    artifact_r2 = ln.Artifact.from_anndata(get_small_adata, revises=artifact)
     assert artifact_r2.uid.endswith("0001")
     assert artifact_r2.stem_uid == artifact.stem_uid
     assert artifact_r2.version is None
@@ -308,7 +262,7 @@ def test_revise_artifact(df, adata):
     artifact.save()
 
     # create new file from old file
-    new_artifact = ln.Artifact.from_anndata(adata, revises=artifact)
+    new_artifact = ln.Artifact.from_anndata(get_small_adata, revises=artifact)
     assert artifact.version is None
     assert new_artifact.stem_uid == artifact.stem_uid
     assert new_artifact.version is None
@@ -334,9 +288,9 @@ def test_create_from_dataframe(df):
     artifact.delete(permanent=True, storage=True)
 
 
-def test_create_from_anndata(adata, adata_file):
-    for _a in [adata, adata_file]:
-        af = ln.Artifact.from_anndata(adata, description="test1")
+def test_create_from_anndata(get_small_adata, adata_file):
+    for _a in [get_small_adata, adata_file]:
+        af = ln.Artifact.from_anndata(get_small_adata, description="test1")
         assert af.description == "test1"
         assert af.key is None
         assert af.otype == "AnnData"
@@ -344,12 +298,12 @@ def test_create_from_anndata(adata, adata_file):
         assert af.n_observations == 2
 
 
-def test_create_from_mudata(mdata, mudata_file, adata_file):
+def test_create_from_mudata(get_small_mdata, mudata_file, adata_file):
     try:
         ln.Artifact.from_mudata(adata_file, description="test1")
     except ValueError as error:
         assert str(error) == "data has to be a MuData object or a path to MuData-like"
-    for m in [mdata, mudata_file]:
+    for m in [get_small_mdata, mudata_file]:
         af = ln.Artifact.from_mudata(m, description="test1")
         assert af.description == "test1"
         assert af.key is None
@@ -359,7 +313,9 @@ def test_create_from_mudata(mdata, mudata_file, adata_file):
             assert af.n_observations == 2
 
 
-def test_create_from_spatialdata(sdata, spatialdata_file, adata_file, ccaplog):
+def test_create_from_spatialdata(
+    get_small_sdata, spatialdata_file, adata_file, ccaplog
+):
     try:
         ln.Artifact(adata_file, description="test1")
     except ValueError as error:
@@ -367,7 +323,7 @@ def test_create_from_spatialdata(sdata, spatialdata_file, adata_file, ccaplog):
             str(error)
             == "data has to be a SpatialData object or a path to SpatialData-like"
         )
-    for s in [sdata, spatialdata_file]:
+    for s in [get_small_sdata, spatialdata_file]:
         af = ln.Artifact(s, description="test1")
         assert af.description == "test1"
         assert af.key is None
@@ -375,7 +331,7 @@ def test_create_from_spatialdata(sdata, spatialdata_file, adata_file, ccaplog):
         assert af.kind is None
         # n_observations not defined
     assert "data is a SpatialData, please use .from_spatialdata()" in ccaplog.text
-    for s in [sdata, spatialdata_file]:
+    for s in [get_small_sdata, spatialdata_file]:
         af = ln.Artifact.from_spatialdata(s, description="test1")
         assert af.description == "test1"
         assert af.key is None
@@ -416,15 +372,17 @@ def test_create_from_dataframe_using_from_df_and_link_features(df):
     ln.Feature.filter(name__in=["feat1", "feat2"]).delete()
 
 
-def test_create_from_anndata_in_memory_and_link_features(adata):
+def test_create_from_anndata_in_memory_and_link_features(get_small_adata):
     ln.save(
-        bt.Gene.from_values(adata.var.index, field=bt.Gene.symbol, organism="human")
+        bt.Gene.from_values(
+            get_small_adata.var.index, field=bt.Gene.symbol, organism="human"
+        )
     )
-    ln.save(ln.Feature.from_df(adata.obs))
-    artifact = ln.Artifact.from_anndata(adata, description="test")
+    ln.save(ln.Feature.from_df(get_small_adata.obs))
+    artifact = ln.Artifact.from_anndata(get_small_adata, description="test")
     assert artifact.otype == "AnnData"
     assert hasattr(artifact, "_local_filepath")
-    assert artifact.n_observations == adata.n_obs
+    assert artifact.n_observations == get_small_adata.n_obs
     artifact.save()
     # check that the local filepath has been cleared
     assert not hasattr(artifact, "_local_filepath")
@@ -432,9 +390,9 @@ def test_create_from_anndata_in_memory_and_link_features(adata):
     artifact.features._add_set_from_anndata(var_field=bt.Gene.symbol, organism="human")
     feature_sets_queried = artifact.feature_sets.all()
     features_queried = ln.Feature.filter(schemas__in=feature_sets_queried).all()
-    assert set(features_queried.list("name")) == set(adata.obs.columns)
+    assert set(features_queried.list("name")) == set(get_small_adata.obs.columns)
     genes_queried = bt.Gene.filter(schemas__in=feature_sets_queried).all()
-    assert set(genes_queried.list("symbol")) == set(adata.var.index)
+    assert set(genes_queried.list("symbol")) == set(get_small_adata.var.index)
     artifact.delete(permanent=True, storage=True)
     feature_sets_queried.delete()
     features_queried.delete()
@@ -443,7 +401,7 @@ def test_create_from_anndata_in_memory_and_link_features(adata):
 
 @pytest.mark.parametrize(
     "data",
-    ["adata", "s3://lamindb-test/core/scrnaseq_pbmc68k_tiny.h5ad"],
+    ["get_small_adata", "s3://lamindb-test/core/scrnaseq_pbmc68k_tiny.h5ad"],
     indirect=True,
 )
 def test_create_from_anndata_in_storage(data):
@@ -897,7 +855,7 @@ def test_describe():
     artifact.describe()
 
 
-def test_zarr_upload_cache(adata):
+def test_zarr_upload_cache(get_small_adata):
     previous_storage = ln.setup.settings.storage.root_as_str
     ln.settings.storage = "s3://lamindb-test/core"
 
@@ -905,7 +863,7 @@ def test_zarr_upload_cache(adata):
         pass
 
     zarr_path = Path("./test_adata.zarr")
-    write_adata_zarr(adata, zarr_path, callback)
+    write_adata_zarr(get_small_adata, zarr_path, callback)
 
     artifact = ln.Artifact(zarr_path, key="test_adata.zarr")
     assert artifact.otype == "AnnData"
@@ -931,7 +889,7 @@ def test_zarr_upload_cache(adata):
     shutil.rmtree(zarr_path)
 
     # test zarr from memory
-    artifact = ln.Artifact(adata, key="test_adata.anndata.zarr")
+    artifact = ln.Artifact(get_small_adata, key="test_adata.anndata.zarr")
     assert artifact._local_filepath.is_dir()
     assert artifact.otype == "AnnData"
     assert artifact.suffix == ".anndata.zarr"
@@ -968,23 +926,25 @@ def test_df_suffix(df):
     )
 
 
-def test_adata_suffix(adata):
-    artifact = ln.Artifact.from_anndata(adata, key="test_.h5ad")
+def test_adata_suffix(get_small_adata):
+    artifact = ln.Artifact.from_anndata(get_small_adata, key="test_.h5ad")
     assert artifact.suffix == ".h5ad"
-    artifact = ln.Artifact.from_anndata(adata, format="h5ad", key="test_.h5ad")
+    artifact = ln.Artifact.from_anndata(
+        get_small_adata, format="h5ad", key="test_.h5ad"
+    )
     assert artifact.suffix == ".h5ad"
-    artifact = ln.Artifact.from_anndata(adata, key="test_.zarr")
+    artifact = ln.Artifact.from_anndata(get_small_adata, key="test_.zarr")
     assert artifact.suffix == ".zarr"
 
     with pytest.raises(ValueError) as error:
-        artifact = ln.Artifact.from_anndata(adata, key="test_.def")
+        artifact = ln.Artifact.from_anndata(get_small_adata, key="test_.def")
     assert (
         error.exconly().partition(",")[0]
         == "ValueError: Error when specifying AnnData storage format"
     )
 
     with pytest.raises(InvalidArgument) as error:
-        artifact = ln.Artifact.from_anndata(adata, key="test_")
+        artifact = ln.Artifact.from_anndata(get_small_adata, key="test_")
     assert (
         error.exconly().partition(",")[0]
         == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is inconsistent"

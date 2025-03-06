@@ -150,7 +150,7 @@ class CurateLookup:
                 "    → categories.alveolar_type_1_fibroblast_cell\n\n"
                 "To look up public ontologies, use .lookup(public=True)"
             )
-        else:  # pdagma: no cover
+        else:  # pragma: no cover
             return colors.warning("No fields are found!")
 
 
@@ -208,7 +208,7 @@ class Curator:
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> bool | str:
         """{}"""  # noqa: D415
-        pass  # pdagma: no cover
+        pass  # pragma: no cover
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
@@ -620,7 +620,7 @@ class CatManager:
         Returns:
             None
         """
-        pass  # pdagma: no cover
+        pass  # pragma: no cover
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
@@ -1874,7 +1874,6 @@ class SpatialDataCatManager(CatManager):
             exclude=exclude,
         )
         if isinstance(sdata, Artifact):
-            # TODO: load() doesn't yet work
             self._sdata = sdata.load()
         else:
             self._sdata = self._dataset
