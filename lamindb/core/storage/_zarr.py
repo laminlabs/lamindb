@@ -9,7 +9,7 @@ from anndata import __version__ as anndata_version
 from anndata._io.specs import write_elem
 from fsspec.implementations.local import LocalFileSystem
 from lamin_utils import logger
-from lamindb_setup.core.upath import create_mapper, infer_filesystem
+from lamindb_setup.core.upath import S3FSMap, create_mapper, infer_filesystem
 from packaging import version
 
 from lamindb.core._compat import with_package
@@ -24,13 +24,28 @@ else:
 
 if TYPE_CHECKING:
     from anndata import AnnData
+    from fsspec import FSMap
     from lamindb_setup.core.types import UPathStr
 
     from lamindb.core.types import ScverseDataStructures
 
 
-def identify_zarr_type(
+def create_zarr_open_obj(
     storepath: UPathStr, *, check: bool = True
+) -> str | S3FSMap | FSMap:
+    """Creates the correct object that can be used to open a zarr file depending on local or remote location."""
+    fs, storepath_str = infer_filesystem(storepath)
+
+    if isinstance(fs, LocalFileSystem):
+        open_obj = storepath_str
+    else:
+        open_obj = create_mapper(fs, storepath_str, check=check)
+
+    return open_obj
+
+
+def identify_zarr_type(
+    open_obj: str | S3FSMap | FSMap,
 ) -> Literal["anndata", "mudata", "spatialdata", "unknown"]:
     """Identify whether a zarr store is AnnData, SpatialData, or unknown type."""
     # we can add these cheap suffix-based-checks later
@@ -42,13 +57,6 @@ def identify_zarr_type(
     #     return "spatialdata"
     # elif ".anndata" in suffixes:
     #     return "anndata"
-
-    fs, storepath_str = infer_filesystem(storepath)
-
-    if isinstance(fs, LocalFileSystem):
-        open_obj = storepath_str
-    else:
-        open_obj = create_mapper(fs, storepath_str, check=check)
 
     try:
         storage = zarr.open(open_obj, mode="r")
@@ -74,14 +82,8 @@ def load_zarr(
         expected_type: If provided, ensures the zarr store is of this type ("anndata", "mudata", "spatialdata")
                        and raises ValueError if it's not
     """
-    fs, storepath_str = infer_filesystem(storepath)
-    if isinstance(fs, LocalFileSystem):
-        # this is faster than through an fsspec mapper for local
-        open_obj = storepath_str
-    else:
-        open_obj = create_mapper(fs, storepath_str, check=True)
-
-    actual_type = identify_zarr_type(storepath)
+    open_obj = create_zarr_open_obj(storepath)
+    actual_type = identify_zarr_type(open_obj)
 
     if expected_type is not None and actual_type != expected_type:
         raise ValueError(
