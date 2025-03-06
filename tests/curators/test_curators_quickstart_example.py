@@ -36,6 +36,7 @@ def small_dataset1_schema():
 
     yield schema
 
+    schema.delete()
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
     bt.Gene.filter().delete()
@@ -101,9 +102,9 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
         otype="AnnData",
         components={"obs": obs_schema, "var": var_schema},
     ).save()
-
-    assert anndata_schema._get_component("obs") == obs_schema
-    assert anndata_schema._get_component("var") == var_schema
+    assert small_dataset1_schema.id is not None, small_dataset1_schema
+    assert anndata_schema.slots["obs"] == obs_schema
+    assert anndata_schema.slots["var"] == var_schema
 
     describe_output = anndata_schema.describe(return_str=True)
     assert "small_dataset1_anndata_schema" in describe_output
@@ -112,8 +113,15 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
 
     adata = datasets.small_dataset1(otype="AnnData")
     curator = ln.curators.AnnDataCurator(adata, anndata_schema)
+    assert isinstance(curator.slots["obs"], ln.curators.DataFrameCurator)
+    assert isinstance(curator.slots["var"], ln.curators.DataFrameCurator)
     artifact = curator.save_artifact(key="example_datasets/dataset1.h5ad")
     assert artifact.schema == anndata_schema
+    assert artifact.features.slots["obs"] == obs_schema
+    assert artifact.features.slots["var"].n == 3  # 3 genes get linked
+    # deprecated
+    assert artifact.features._schema_by_slot["obs"] == obs_schema
+    assert artifact.features._feature_set_by_slot["obs"] == obs_schema
 
     assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
         "T cell",
@@ -126,7 +134,6 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
 
     artifact.delete(permanent=True)
     anndata_schema.delete()
-    obs_schema.delete()
     var_schema.delete()
 
 
@@ -157,3 +164,19 @@ def test_soma_curator(small_dataset1_schema, curator_params):
     assert artifact._key_is_virtual
     artifact.delete(permanent=True)
     shutil.rmtree("./small_dataset1.tiledbsoma")
+
+
+def test_anndata_curator_no_var(small_dataset1_schema: ln.Schema):
+    assert small_dataset1_schema.id is not None, small_dataset1_schema
+    # test no var schema
+    anndata_schema_no_var = ln.Schema(
+        name="small_dataset1_anndata_schema_no_var",
+        otype="AnnData",
+        components={"obs": small_dataset1_schema},
+    ).save()
+    assert small_dataset1_schema.id is not None, small_dataset1_schema
+    adata = datasets.small_dataset1(otype="AnnData")
+    curator = ln.curators.AnnDataCurator(adata, anndata_schema_no_var)
+    artifact = curator.save_artifact(key="example_datasets/dataset1_no_var.h5ad")
+    artifact.delete(permanent=True)
+    anndata_schema_no_var.delete()

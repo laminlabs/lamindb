@@ -175,7 +175,8 @@ def configure_coverage(session) -> None:
     groups_str = session.posargs[0]  # first positional argument
 
     print(groups_str)  # for debugging
-    assert isinstance(groups_str, str)  # noqa: S101 so that we don't change this away from string
+    # so that we don't change this away from string
+    assert isinstance(groups_str, str)  # noqa: S101
 
     if "curator" not in groups_str:
         extra_omit_patterns = ["**/curators/*"]

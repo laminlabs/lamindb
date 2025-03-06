@@ -36,6 +36,7 @@ from lamindb.models.record import (
 from lamindb.models.save import save
 from lamindb.models.schema import DICT_KEYS_TYPE, Schema
 
+from ..base import deprecated
 from ._describe import (
     NAME_WIDTH,
     TYPE_WIDTH,
@@ -622,7 +623,7 @@ class ParamManagerArtifact(ParamManager):
 
 def __init__(self, host: Artifact | Collection | Run):
     self._host = host
-    self._schema_by_slot_ = None
+    self._slots = None
     self._accessor_by_registry_ = None
 
 
@@ -638,14 +639,15 @@ def get_values(self) -> dict[str, Any]:
     )  # type: ignore
 
 
+@deprecated("slots[slot].members")
 def __getitem__(self, slot) -> QuerySet:
-    if slot not in self._schema_by_slot:
+    if slot not in self.slots:
         raise ValueError(
             f"No linked feature set for slot: {slot}\nDid you get validation"
             " warnings? Only features that match registered features get validated"
             " and linked."
         )
-    schema = self._schema_by_slot[slot]
+    schema = self.slots[slot]
     orm_name = schema.itype
     return getattr(schema, self._accessor_by_registry[orm_name]).all()
 
@@ -739,11 +741,17 @@ def get(cls, **expression) -> Record:
 
 
 @property  # type: ignore
-def _schema_by_slot(self):
-    """Feature sets by slot."""
-    if self._schema_by_slot_ is None:
-        self._schema_by_slot_ = get_schema_by_slot_(self._host)
-    return self._schema_by_slot_
+def slots(self) -> dict[str, Schema]:
+    """Schema by slot.
+
+    Example:
+
+        >>> artifact.features.slots
+        {'var': <Schema: var>, 'obs': <Schema: obs>}
+    """
+    if self._slots is None:
+        self._slots = get_schema_by_slot_(self._host)
+    return self._slots
 
 
 @property  # type: ignore
@@ -1053,7 +1061,7 @@ def remove_values(
         # we can clean the FeatureValue registry periodically if we want to
 
 
-def add_schema(self, schema: Schema, slot: str) -> None:
+def _add_schema(self, schema: Schema, slot: str) -> None:
     """Annotate artifact with a schema.
 
     Args:
@@ -1080,9 +1088,9 @@ def add_schema(self, schema: Schema, slot: str) -> None:
     )
     if link_record is None:
         self._host.feature_sets.through(**kwargs).save(using=host_db)
-        if slot in self._schema_by_slot:
+        if slot in self.slots:
             logger.debug(f"replaced existing {slot} feature set")
-        self._schema_by_slot_[slot] = schema  # type: ignore
+        self._slots[slot] = schema  # type: ignore
 
 
 def _add_set_from_df(
@@ -1106,7 +1114,7 @@ def _add_set_from_df(
 
 def _add_set_from_anndata(
     self,
-    var_field: FieldAttr,
+    var_field: FieldAttr | None = None,
     obs_field: FieldAttr | None = Feature.name,
     mute: bool = False,
     organism: str | Record | None = None,
@@ -1183,7 +1191,7 @@ def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
     from lamindb import settings
 
     using_key = settings._using_key
-    for slot, schema in data.features._schema_by_slot.items():  # type: ignore
+    for slot, schema in data.features.slots.items():  # type: ignore
         members = schema.members
         if len(members) == 0:
             continue
@@ -1231,7 +1239,7 @@ def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
         if schema_self.hash == schema.hash:
             schema_self.uid = schema.uid
         logger.info(f"saving {slot} schema: {schema_self}")
-        self._host.features.add_schema(schema_self, slot)
+        self._host.features._add_schema(schema_self, slot)
 
 
 def make_external(self, feature: Feature) -> None:
@@ -1264,6 +1272,27 @@ def make_external(self, feature: Feature) -> None:
             fs.delete()
 
 
+@deprecated("_add_schema")
+def add_schema(self, schema: Schema, slot: str) -> None:
+    return self._add_schema(schema, slot)
+
+
+@deprecated("_add_schema")
+def add_feature_set(self, schema: Schema, slot: str) -> None:
+    return self._add_schema(schema, slot)
+
+
+@property
+@deprecated("slots")
+def _schema_by_slot(self):
+    return self.slots
+
+
+@property
+def _feature_set_by_slot(self):
+    return self.slots
+
+
 # mypy: ignore-errors
 FeatureManager.__init__ = __init__
 ParamManager.__init__ = __init__
@@ -1271,12 +1300,14 @@ FeatureManager.__repr__ = __repr__
 ParamManager.__repr__ = __repr__
 FeatureManager.__getitem__ = __getitem__
 FeatureManager.get_values = get_values
-FeatureManager._schema_by_slot = _schema_by_slot
-FeatureManager._feature_set_by_slot = _schema_by_slot
-FeatureManager._accessor_by_registry = _accessor_by_registry
+FeatureManager.slots = slots
 FeatureManager.add_values = add_values_features
-FeatureManager.add_schema = add_schema
-FeatureManager.add_feature_set = add_schema  # backward compat, will raise warning soon
+FeatureManager._add_schema = _add_schema
+FeatureManager.add_schema = add_schema  # deprecated
+FeatureManager.add_feature_set = add_feature_set  # deprecated
+FeatureManager._schema_by_slot = _schema_by_slot  # deprecated
+FeatureManager._feature_set_by_slot = _feature_set_by_slot  # deprecated
+FeatureManager._accessor_by_registry = _accessor_by_registry
 FeatureManager._add_set_from_df = _add_set_from_df
 FeatureManager._add_set_from_anndata = _add_set_from_anndata
 FeatureManager._add_set_from_mudata = _add_set_from_mudata

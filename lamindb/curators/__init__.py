@@ -462,24 +462,31 @@ class AnnDataCurator(Curator):
             raise InvalidArgument("dataset must be AnnData-like.")
         if schema.otype != "AnnData":
             raise InvalidArgument("Schema otype must be 'AnnData'.")
-        self._obs_curator = DataFrameCurator(
-            self._dataset.obs, schema._get_component("obs")
-        )
-        self._var_curator = DataFrameCurator(
-            self._dataset.var.T, schema._get_component("var")
-        )
+        # TODO: also support slots other than obs and var
+        self._slots = {
+            slot: DataFrameCurator(
+                (
+                    self._dataset.__getattribute__(slot).T
+                    if slot == "var"
+                    else self._dataset.__getattribute__(slot)
+                ),
+                slot_schema,
+            )
+            for slot, slot_schema in schema.slots.items()
+            if slot in {"obs", "var"}
+        }
 
     @property
     @doc_args(SLOTS_DOCSTRING)
     def slots(self) -> dict[str, DataFrameCurator]:
         """{}"""  # noqa: D415
-        return {"obs": self._obs_curator, "var": self._var_curator}
+        return self._slots
 
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
-        self._obs_curator.validate()
-        self._var_curator.validate()
+        for _, curator in self._slots.items():
+            curator.validate()
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
@@ -492,13 +499,18 @@ class AnnDataCurator(Curator):
     ):
         """{}"""  # noqa: D415
         if not self._is_validated:
-            self.validate()  # raises ValidationError if doesn't validate
-        result = parse_dtype_single_cat(self._var_curator._schema.itype, is_itype=True)
+            self.validate()
         return save_artifact(  # type: ignore
             self._dataset,
             description=description,
-            fields=self._obs_curator._cat_manager.categoricals,
-            columns_field=result["field"],
+            fields=self.slots["obs"]._cat_manager.categoricals,
+            columns_field=(
+                parse_dtype_single_cat(self.slots["var"]._schema.itype, is_itype=True)[
+                    "field"
+                ]
+                if "var" in self._slots
+                else None
+            ),
             key=key,
             artifact=self._artifact,
             revises=revises,
@@ -900,7 +912,7 @@ class AnnDataCatManager(CatManager):
     def __init__(
         self,
         data: ad.AnnData | Artifact,
-        var_index: FieldAttr,
+        var_index: FieldAttr | None = None,
         categoricals: dict[str, FieldAttr] | None = None,
         obs_columns: FieldAttr = Feature.name,
         verbosity: str = "hint",
@@ -969,15 +981,16 @@ class AnnDataCatManager(CatManager):
         validated_only: bool = True,
     ):
         """Save variable records."""
-        update_registry(
-            values=list(self._adata.var.index),
-            field=self.var_index,
-            key="var_index",
-            validated_only=validated_only,
-            organism=self._organism,
-            source=self._sources.get("var_index"),
-            exclude=self._exclude.get("var_index"),
-        )
+        if self.var_index is not None:
+            update_registry(
+                values=list(self._adata.var.index),
+                field=self.var_index,
+                key="var_index",
+                validated_only=validated_only,
+                organism=self._organism,
+                source=self._sources.get("var_index"),
+                exclude=self._exclude.get("var_index"),
+            )
 
     def add_new_from(self, key: str, **kwargs):
         """Add validated & new categories.
@@ -1013,15 +1026,19 @@ class AnnDataCatManager(CatManager):
 
         # add all validated records to the current instance
         self._save_from_var_index(validated_only=True)
-        validated_var, non_validated_var = validate_categories(
-            self._adata.var.index,
-            field=self._var_field,
-            key="var_index",
-            source=self._sources.get("var_index"),
-            hint_print=".add_new_from_var_index()",
-            exclude=self._exclude.get("var_index"),
-            organism=self._organism,  # type: ignore
-        )
+        if self.var_index is not None:
+            validated_var, non_validated_var = validate_categories(
+                self._adata.var.index,
+                field=self._var_field,
+                key="var_index",
+                source=self._sources.get("var_index"),
+                hint_print=".add_new_from_var_index()",
+                exclude=self._exclude.get("var_index"),
+                organism=self._organism,  # type: ignore
+            )
+        else:
+            validated_var = True
+            non_validated_var = []
         validated_obs = self._obs_df_curator.validate()
         self._non_validated = self._obs_df_curator._non_validated  # type: ignore
         if len(non_validated_var) > 0:
@@ -3344,7 +3361,7 @@ def validate_categories_in_df(
 def save_artifact(
     data: pd.DataFrame | ad.AnnData | MuData,
     fields: dict[str, FieldAttr] | dict[str, dict[str, FieldAttr]],
-    columns_field: FieldAttr | dict[str, FieldAttr],
+    columns_field: FieldAttr | dict[str, FieldAttr] | None = None,
     description: str | None = None,
     organism: str | None = None,
     key: str | None = None,
@@ -3392,7 +3409,7 @@ def save_artifact(
     artifact.schema = schema
     artifact.save()
 
-    if organism is not None:
+    if organism is not None and columns_field is not None:
         feature_kwargs = check_registry_organism(
             (
                 list(columns_field.values())[0].field.model
@@ -3664,12 +3681,14 @@ def _save_organism(name: str):
     return organism
 
 
-def _ref_is_name(field: FieldAttr) -> bool | None:
+def _ref_is_name(field: FieldAttr | None) -> bool | None:
     """Check if the reference field is a name field."""
     from ..models.can_curate import get_name_field
 
-    name_field = get_name_field(field.field.model)
-    return field.field.name == name_field
+    if field is not None:
+        name_field = get_name_field(field.field.model)
+        return field.field.name == name_field
+    return None
 
 
 # backward compat constructors ------------------

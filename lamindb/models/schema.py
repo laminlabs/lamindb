@@ -394,6 +394,7 @@ class Schema(Record, CanCurate, TracksRun):
                         f"component {slot} {component} must be saved before use"
                     )
             self._components = components
+            self._slots = components
         validated_kwargs["uid"] = ids.base62_20()
         super().__init__(**validated_kwargs)
 
@@ -626,19 +627,46 @@ class Schema(Record, CanCurate, TracksRun):
     def registry(self, value) -> None:
         self.itype = value
 
+    @property
+    def slots(self) -> dict[str, Schema]:
+        """Slots.
+
+        Examples::
+
+            # define composite schema
+            anndata_schema = ln.Schema(
+                name="small_dataset1_anndata_schema",
+                otype="AnnData",
+                components={"obs": obs_schema, "var": var_schema},
+            ).save()
+
+            # access slots
+            anndata_schema.slots
+            # {'obs': <Schema: obs_schema>, 'var': <Schema: var_schema>}
+        """
+        if hasattr(self, "_slots"):
+            return self._slots
+        if self.itype == "Composite":
+            self._slots = {
+                link.slot: link.component
+                for link in self.components.through.filter(composite_id=self.id).all()
+            }
+            return self._slots
+        return {}
+
     def describe(self, return_str=False) -> None | str:
         """Describe schema."""
-        message = str(self) + "\ncomponents:"
-        for component in self.components.all():
-            message += "\n    " + str(component)
+        message = str(self)
+        # display slots for composite schemas
+        if self.itype == "Composite":
+            message + "\nslots:"
+            for slot, schema in self.slots.items():
+                message += f"\n    {slot}: " + str(schema)
         if return_str:
             return message
         else:
             print(message)
             return None
-
-    def _get_component(self, slot: str) -> Schema:
-        return self.components.get(links_component__slot=slot)
 
 
 def get_type_str(dtype: str | None) -> str | None:
