@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 # ruff: noqa: F811
-from tests.core.dataset_fixtures import mdata, sdata  # noqa
+from _dataset_fixtures import mdata, sdata  # noqa
 
 
 @pytest.fixture(scope="module")
