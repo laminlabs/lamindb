@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 # ruff: noqa: F811
-from _dataset_fixtures import mdata, sdata  # noqa
+from _dataset_fixtures import get_small_mdata, get_small_sdata  # noqa
 
 
 @pytest.fixture(scope="module")
@@ -121,17 +121,17 @@ def test_load_anndata(local_anndata_filepath, adata):
     assert artifact._local_filepath.resolve() == artifact.cache() == artifact.path
 
 
-def test_load_mudata(mdata):
-    artifact = ln.Artifact.from_mudata(mdata, description="test")
-    assert artifact._memory_rep is mdata
-    assert artifact.load() is mdata
+def test_load_mudata(get_small_mdata):
+    artifact = ln.Artifact.from_mudata(get_small_mdata, description="test")
+    assert artifact._memory_rep is get_small_mdata
+    assert artifact.load() is get_small_mdata
     assert artifact._local_filepath.resolve() == artifact.cache() == artifact.path
 
 
-def test_load_spatialdata(sdata):
-    artifact = ln.Artifact.from_spatialdata(sdata, description="test")
-    assert artifact._memory_rep is sdata
-    assert artifact.load() is sdata
+def test_load_spatialdata(get_small_sdata):
+    artifact = ln.Artifact.from_spatialdata(get_small_sdata, description="test")
+    assert artifact._memory_rep is get_small_sdata
+    assert artifact.load() is get_small_sdata
     assert artifact._local_filepath.resolve() == artifact.cache() == artifact.path
 
 

@@ -8,7 +8,7 @@ from scipy.sparse import csr_matrix
 
 
 @pytest.fixture(scope="session")
-def adata():
+def get_small_adata():
     return ad.AnnData(
         X=np.array([[1, 2, 3], [4, 5, 6]]),
         obs={"feat1": ["A", "B"]},
@@ -18,7 +18,7 @@ def adata():
 
 
 @pytest.fixture(scope="session")
-def mdata():
+def get_small_mdata():
     adata1 = ad.AnnData(
         X=np.array([[1, 2, 3], [4, 5, 6]]),
         obs={"feat1": ["A", "B"]},
@@ -37,7 +37,7 @@ def mdata():
 
 
 @pytest.fixture(scope="session")
-def sdata():
+def get_small_sdata():
     adata = ad.AnnData(
         X=csr_matrix(np.array([[0.1, 0.2], [0.3, 0.4]])),
         obs=pd.DataFrame(index=["cell1", "cell2"]),
