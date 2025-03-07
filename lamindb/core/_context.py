@@ -461,26 +461,23 @@ class Context:
             path_str = get_notebook_key_colab()
             path = Path(path_str)
         else:
-            import nbproject
+            from nbproject.dev import read_notebook
+            from nbproject.dev._meta_live import get_title
+            from nbproject.dev._pypackage import infer_pypackages
 
             try:
-                nbproject_title = nbproject.meta.live.title
-            except IndexError:
-                # notebook is not saved
-                pass
-            if nbproject_title is not None:
-                description = nbproject_title
-            # log imported python packages
-            try:
-                from nbproject.dev._pypackage import infer_pypackages
+                nb = read_notebook(path_str)
 
-                nb = nbproject.dev.read_notebook(path_str)
+                nbproject_title = get_title(nb)
+                if nbproject_title is not None:
+                    description = nbproject_title
+
                 self._logging_message_imports += (
                     "notebook imports:"
                     f" {pretty_pypackages(infer_pypackages(nb, pin_versions=True))}"
                 )
             except Exception:
-                logger.debug("inferring imported packages failed")
+                logger.debug("reading the notebook file failed")
                 pass
         return path, description
 
