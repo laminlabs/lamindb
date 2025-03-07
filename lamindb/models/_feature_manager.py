@@ -5,7 +5,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 from datetime import date, datetime
 from itertools import compress
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, MutableMapping
 
 import anndata as ad
 import numpy as np
@@ -1183,6 +1183,60 @@ def _add_set_from_mudata(
     self._host.save()
 
 
+def _add_set_from_spatialdata(
+    self,
+    sample_metadata_key: str,
+    var_fields: dict[str, FieldAttr],
+    obs_fields: dict[str, FieldAttr] = None,
+    mute: bool = False,
+    organism: str | Record | None = None,
+):
+    """Add features from SpatialData."""
+    if obs_fields is None:
+        obs_fields = {}
+    assert self._host.otype == "SpatialData"  # noqa: S101
+
+    sdata = self._host.load()
+    feature_sets = {}
+
+    # sample features
+    sample_features = Feature.from_values(
+        sdata.get_attrs(key=sample_metadata_key, return_as="df", flatten=True).columns
+    )  # type: ignore
+    if len(sample_features) > 0:
+        feature_sets[sample_metadata_key] = Schema(features=sample_features)
+
+    # table features
+    for table, field in var_fields.items():
+        table_fs = parse_staged_feature_sets_from_anndata(
+            sdata[table],
+            var_field=field,
+            obs_field=obs_fields.get(table, Feature.name),
+            mute=mute,
+            organism=organism,
+        )
+        for k, v in table_fs.items():
+            feature_sets[f"['{table}'].{k}"] = v
+
+    def _unify_staged_feature_sets_by_hash(
+        feature_sets: MutableMapping[str, Schema],
+    ):
+        unique_values: dict[str, Any] = {}
+
+        for key, value in feature_sets.items():
+            value_hash = value.hash  # Assuming each value has a .hash attribute
+            if value_hash in unique_values:
+                feature_sets[key] = unique_values[value_hash]
+            else:
+                unique_values[value_hash] = value
+
+        return feature_sets
+
+    # link feature sets
+    self._host._staged_feature_sets = _unify_staged_feature_sets_by_hash(feature_sets)
+    self._host.save()
+
+
 def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
     """Transfer features from a artifact or collection."""
     # This only covers feature sets
@@ -1311,6 +1365,7 @@ FeatureManager._accessor_by_registry = _accessor_by_registry
 FeatureManager._add_set_from_df = _add_set_from_df
 FeatureManager._add_set_from_anndata = _add_set_from_anndata
 FeatureManager._add_set_from_mudata = _add_set_from_mudata
+FeatureManager._add_set_from_spatialdata = _add_set_from_spatialdata
 FeatureManager._add_from = _add_from
 FeatureManager.filter = filter
 FeatureManager.get = get
