@@ -43,7 +43,7 @@ gcp = [
     "lamindb_setup[gcp]",
 ]
 jupyter = [
-    "nbproject==0.10.5",  # keep pinning
+    "nbproject==0.10.6",  # keep pinning
     "jupytext",
     "nbconvert>=7.2.1", # avoid lxml[html_clean] dependency
     "mistune!=3.1.0",  # there is a bug in it
