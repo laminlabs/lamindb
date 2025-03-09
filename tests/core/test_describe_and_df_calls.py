@@ -66,7 +66,6 @@ def test_curate_df():
 
     ## Ingest dataset1
     adata = datasets.small_dataset1(otype="AnnData")
-    print(adata.var)
     curator = ln.Curator.from_anndata(
         adata,
         var_index=bt.Gene.ensembl_gene_id,
@@ -82,7 +81,6 @@ def test_curate_df():
 
     # Ingest dataset2
     adata2 = datasets.small_dataset2(otype="AnnData")
-    print(adata2.var)
     curator = ln.Curator.from_anndata(
         adata2,
         var_index=bt.Gene.ensembl_gene_id,
@@ -115,8 +113,14 @@ def test_curate_df():
     check_df_equality(df, expected_df)
 
     # Test df(features=True)
+    # test that the ulabels filter DOES NOT affect joining the annotations
+    # we want it to only affect the artifact query (even though here, it won't change the result as both artifacts have the IFNG label)
     df = (
-        ln.Artifact.filter(key__startswith="example_datasets/dataset", suffix=".h5ad")
+        ln.Artifact.filter(
+            key__startswith="example_datasets/dataset",
+            suffix=".h5ad",
+            ulabels__name="IFNG",
+        )
         .order_by("-key")
         .df(features=True)
         .drop(["uid"], axis=1)
