@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, Union
 import pandas as pd
 from django.core.exceptions import FieldError
 from django.db import models
-from django.db.models import F, ForeignKey, ManyToManyField
+from django.db.models import F, ForeignKey, ManyToManyField, Subquery
 from django.db.models.fields.related import ForeignObjectRel
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
@@ -567,7 +567,12 @@ class QuerySet(models.QuerySet):
             include_kwargs = {s: F(s) for s in include if s not in field_names}
             annotate_kwargs.update(include_kwargs)
         if annotate_kwargs:
-            queryset = self.annotate(**annotate_kwargs)
+            id_subquery = self.values("id")
+            # for annotate, we want the queryset without filters so that joins don't affect the annotations
+            query_set_without_filters = self.model.objects.filter(
+                id__in=Subquery(id_subquery)
+            )
+            queryset = query_set_without_filters.annotate(**annotate_kwargs)
         else:
             queryset = self
 
