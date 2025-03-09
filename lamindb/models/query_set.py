@@ -572,6 +572,11 @@ class QuerySet(models.QuerySet):
             query_set_without_filters = self.model.objects.filter(
                 id__in=Subquery(id_subquery)
             )
+            if self.query.order_by:
+                # Apply the same ordering to the new queryset
+                query_set_without_filters = query_set_without_filters.order_by(
+                    *self.query.order_by
+                )
             queryset = query_set_without_filters.annotate(**annotate_kwargs)
         else:
             queryset = self
