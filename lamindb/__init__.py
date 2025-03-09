@@ -32,6 +32,7 @@ Registries.
 Curators & integrations.
 
 .. autosummary::
+   :toctree: .
 
    curators
    integrations
@@ -120,6 +121,7 @@ if _check_instance_setup(from_module="lamindb"):
     from .models.save import save
     from . import core
     from . import integrations
+    from . import curators
 
     track = context.track  # simple access
     finish = context.finish  # simple access
