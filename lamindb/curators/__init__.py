@@ -8,6 +8,7 @@
    Curator
    DataFrameCurator
    AnnDataCurator
+   MuDataCurator
 
 CatManager:
 
@@ -19,6 +20,7 @@ CatManager:
    AnnDataCatManager
    MuDataCatManager
    TiledbsomaCatManager
+   SpatialDataCatManager
    CurateLookup
 
 """
@@ -55,14 +57,12 @@ from lamindb.base.types import FieldAttr  # noqa
 from lamindb.core._settings import settings
 from lamindb.models import (
     Artifact,
-    Collection,
     Feature,
     Record,
     Run,
     Schema,
     ULabel,
 )
-from lamindb.models._feature_manager import parse_staged_feature_sets_from_anndata
 from lamindb.models.artifact import (
     add_labels,
     data_is_anndata,
@@ -643,7 +643,8 @@ class MuDataCurator(Curator):
                     "field"
                 ]
                 if modality is None:
-                    self._var_fields[slot] = var_field
+                    # this should rarely/never be used since modalities should have different var fields
+                    self._var_fields[slot] = var_field  # pragma: no cover
                 else:
                     # note that this is NOT nested since the nested key is always "var"
                     self._var_fields[modality] = var_field

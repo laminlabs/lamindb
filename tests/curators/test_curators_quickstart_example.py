@@ -2,10 +2,12 @@ import shutil
 
 import bionty as bt
 import lamindb as ln
+import pandas as pd
 import pytest
 import tiledbsoma
 import tiledbsoma.io
 from lamindb.core import datasets
+from lamindb.errors import InvalidArgument
 
 
 @pytest.fixture(scope="module")
@@ -252,11 +254,19 @@ def test_anndata_curator_no_var(small_dataset1_schema: ln.Schema):
     anndata_schema_no_var.delete()
 
 
-def test_mudata_curator(mudata_papalexi21_subset_schema: ln.Schema):
+def test_mudata_curator(
+    mudata_papalexi21_subset_schema: ln.Schema, small_dataset1_schema: ln.Schema
+):
     mudata_schema = mudata_papalexi21_subset_schema
     mdata = ln.core.datasets.mudata_papalexi21_subset()
     # TODO: refactor organism
     bt.settings.organism = "human"
+    # wrong dataset
+    with pytest.raises(InvalidArgument):
+        ln.curators.MuDataCurator(pd.DataFrame(), mudata_schema)
+    # wrong schema
+    with pytest.raises(InvalidArgument):
+        ln.curators.MuDataCurator(mdata, small_dataset1_schema)
     curator = ln.curators.MuDataCurator(mdata, mudata_schema)
     assert curator.slots.keys() == {
         "obs",
