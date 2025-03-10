@@ -94,6 +94,29 @@ if TYPE_CHECKING:
 #         return feature_sets_union
 
 
+def _open_paths(paths: list[UPath]) -> PyArrowDataset:
+    # this checks that the filesystem is the same for all paths
+    # this is a requirement of pyarrow.dataset.dataset
+    fs = paths[0].fs
+    for path in paths[1:]:
+        # this assumes that the filesystems are cached by fsspec
+        if path.fs is not fs:
+            raise ValueError(
+                "The collection has artifacts with different filesystems, this is not supported."
+            )
+    if not _is_pyarrow_dataset(paths):
+        suffixes = {path.suffix for path in paths}
+        suffixes_str = ", ".join(suffixes)
+        err_msg = "This collection is not compatible with pyarrow.dataset.dataset(), "
+        err_msg += (
+            f"the artifacts have incompatible file types: {suffixes_str}"
+            if len(suffixes) > 1
+            else f"the file type {suffixes_str} is not supported by pyarrow."
+        )
+        raise ValueError(err_msg)
+    return _open_pyarrow_dataset(paths)
+
+
 class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
     """Collections of artifacts.
 
@@ -354,28 +377,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         else:
             artifacts = self.ordered_artifacts.all()
         paths = [artifact.path for artifact in artifacts]
-        # this checks that the filesystem is the same for all paths
-        # this is a requirement of pyarrow.dataset.dataset
-        fs = paths[0].fs
-        for path in paths[1:]:
-            # this assumes that the filesystems are cached by fsspec
-            if path.fs is not fs:
-                raise ValueError(
-                    "The collection has artifacts with different filesystems, this is not supported."
-                )
-        if not _is_pyarrow_dataset(paths):
-            suffixes = {path.suffix for path in paths}
-            suffixes_str = ", ".join(suffixes)
-            err_msg = (
-                "This collection is not compatible with pyarrow.dataset.dataset(), "
-            )
-            err_msg += (
-                f"the artifacts have incompatible file types: {suffixes_str}"
-                if len(suffixes) > 1
-                else f"the file type {suffixes_str} is not supported by pyarrow."
-            )
-            raise ValueError(err_msg)
-        dataset = _open_pyarrow_dataset(paths)
+        dataset = _open_paths(paths)
         # track only if successful
         _track_run_input(self, is_run_input)
         return dataset
