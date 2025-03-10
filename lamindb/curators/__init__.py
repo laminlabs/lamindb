@@ -50,6 +50,7 @@ if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
 
     from lamindb.base.types import FieldAttr
+    from lamindb.core.types import ScverseDataStructures
     from lamindb.models import Record
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.core._settings import settings
@@ -1271,8 +1272,6 @@ class MuDataCatManager(CatManager):
 
     def validate(self) -> bool:
         """Validate categories."""
-        from lamindb.core._settings import settings
-
         # add all validated records to the current instance
         verbosity = settings.verbosity
         try:
@@ -1627,8 +1626,6 @@ class SpatialDataCatManager(CatManager):
         Returns:
             Whether the SpatialData object is validated.
         """
-        from lamindb.core._settings import settings
-
         # add all validated records to the current instance
         verbosity = settings.verbosity
         try:
@@ -1666,104 +1663,36 @@ class SpatialDataCatManager(CatManager):
         revises: Artifact | None = None,
         run: Run | None = None,
     ) -> Artifact:
+        """Save the validated SpatialData store and metadata.
+
+        Args:
+            description: A description of the dataset.
+            key: A path-like key to reference artifact in default storage,
+                e.g., `"myfolder/myartifact.h5ad"`. Artifacts with the same key form a version family.
+            revises: Previous version of the artifact. Triggers a revision.
+            run: The run that creates the artifact.
+
+        Returns:
+            A saved artifact record.
+        """
         if not self._is_validated:
             self.validate()
             if not self._is_validated:
                 raise ValidationError("Dataset does not validate. Please curate.")
 
-        verbosity = settings.verbosity
-        try:
-            settings.verbosity = "warning"
-
-            self._artifact = Artifact.from_spatialdata(
-                self._sdata,
-                key=key,
-                description=description,
-                revises=revises,
-                run=run,
-            )
-            self._artifact.save()
-
-            # Link schemas
-            feature_kwargs = check_registry_organism(
-                (list(self._var_fields.values())[0].field.model),
-                self._organism,
-            )
-
-            self._artifact.features._add_set_from_spatialdata(  # type: ignore
-                sample_metadata_key=self._sample_metadata_key,
-                var_fields=self._var_fields,
-                **feature_kwargs,
-            )
-
-            # Link labels
-            def _add_labels_from_spatialdata(
-                data,
-                artifact: Artifact,
-                fields: dict[str, FieldAttr],
-                feature_ref_is_name: bool | None = None,
-            ):
-                """Add Labels from SpatialData."""
-                features = Feature.lookup().dict()
-                for key, field in fields.items():
-                    feature = features.get(key)
-                    registry = field.field.model
-                    filter_kwargs = check_registry_organism(registry, self._organism)
-                    filter_kwargs_current = get_current_filter_kwargs(
-                        registry, filter_kwargs
-                    )
-                    df = data if isinstance(data, pd.DataFrame) else data.obs
-                    labels = registry.from_values(
-                        df[key],
-                        field=field,
-                        **filter_kwargs_current,
-                    )
-                    if len(labels) == 0:
-                        continue
-
-                    label_ref_is_name = None
-                    if hasattr(registry, "_name_field"):
-                        label_ref_is_name = field.field.name == registry._name_field
-                    add_labels(
-                        artifact,
-                        records=labels,
-                        feature=feature,
-                        feature_ref_is_name=feature_ref_is_name,
-                        label_ref_is_name=label_ref_is_name,
-                        from_curator=True,
-                    )
-
-            for accessor, accessor_fields in self._categoricals.items():
-                column_field = self._var_fields.get(accessor)
-                if accessor == self._sample_metadata_key:
-                    _add_labels_from_spatialdata(
-                        self._sample_metadata,
-                        self._artifact,
-                        accessor_fields,
-                        feature_ref_is_name=(
-                            None if column_field is None else _ref_is_name(column_field)
-                        ),
-                    )
-                else:
-                    _add_labels_from_spatialdata(
-                        self._sdata.tables[accessor],
-                        self._artifact,
-                        accessor_fields,
-                        feature_ref_is_name=(
-                            None if column_field is None else _ref_is_name(column_field)
-                        ),
-                    )
-
-        finally:
-            settings.verbosity = verbosity
-
-        slug = ln_setup.settings.instance.slug
-        if ln_setup.settings.instance.is_remote:  # pragma: no cover
-            logger.important(
-                f"go to https://lamin.ai/{slug}/artifact/{self._artifact.uid}"
-            )
-
-        return self._artifact
+        return save_artifact(
+            self._sdata,
+            description=description,
+            fields=self.categoricals,
+            columns_field=self.var_index,
+            key=key,
+            artifact=self._artifact,
+            revises=revises,
+            run=run,
+            schema=None,
+            organism=self._organism,
+            sample_metadata_key=self._sample_metadata_key,
+        )
 
 
 class TiledbsomaCatManager(CatManager):
@@ -2174,8 +2103,6 @@ class TiledbsomaCatManager(CatManager):
         Returns:
             A saved artifact record.
         """
-        from lamindb.models.artifact import add_labels
-
         if not self._is_validated:
             self.validate()
             if not self._is_validated:
@@ -3082,8 +3009,6 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
 
 def get_current_filter_kwargs(registry: type[Record], kwargs: dict) -> dict:
     """Make sure the source and organism are saved in the same database as the registry."""
-    from lamindb.core._settings import settings
-
     db = registry.filter().db
     source = kwargs.get("source")
     organism = kwargs.get("organism")
@@ -3171,7 +3096,6 @@ def validate_categories(
         standardize: Whether to standardize the values.
         hint_print: The hint to print that suggests fixing non-validated values.
     """
-    from lamindb.core._settings import settings
     from lamindb.models._from_values import _format_values
 
     model_field = f"{field.field.model.__name__}.{field.field.name}"
@@ -3305,7 +3229,8 @@ def validate_categories_in_df(
 
 
 def save_artifact(
-    data: pd.DataFrame | ad.AnnData | MuData,
+    data: pd.DataFrame | ScverseDataStructures,
+    *,
     fields: dict[str, FieldAttr] | dict[str, dict[str, FieldAttr]],
     columns_field: FieldAttr | dict[str, FieldAttr] | None = None,
     description: str | None = None,
@@ -3315,16 +3240,17 @@ def save_artifact(
     revises: Artifact | None = None,
     run: Run | None = None,
     schema: Schema | None = None,
+    **kwargs,
 ) -> Artifact:
     """Save all metadata with an Artifact.
 
     Args:
-        data: The DataFrame/AnnData/MuData object to save.
+        data: The object to save.
         fields: A dictionary mapping obs_column to registry_field.
         columns_field: The registry field to validate variables index against.
         description: A description of the artifact.
         organism: The organism name.
-        type: The artifact type.
+        type: The Artifact type.
         key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
         artifact: A already registered artifact. Passing this will not save a new artifact from data.
         revises: Previous version of the artifact. Triggers a revision.
@@ -3336,22 +3262,27 @@ def save_artifact(
     from ..models.artifact import add_labels, data_is_anndata, data_is_mudata
 
     if artifact is None:
-        if data_is_anndata(data):
-            artifact = Artifact.from_anndata(
+        if isinstance(data, pd.DataFrame):
+            artifact = Artifact.from_df(
                 data, description=description, key=key, revises=revises, run=run
             )
-        elif isinstance(data, pd.DataFrame):
-            artifact = Artifact.from_df(
+        elif data_is_anndata(data):
+            artifact = Artifact.from_anndata(
                 data, description=description, key=key, revises=revises, run=run
             )
         elif data_is_mudata(data):
             artifact = Artifact.from_mudata(
-                data,
-                description=description,
-                key=key,
-                revises=revises,
-                run=run,
+                data, description=description, key=key, revises=revises, run=run
             )
+        elif data_is_spatialdata(data):
+            artifact = Artifact.from_spatialdata(
+                data, description=description, key=key, revises=revises, run=run
+            )
+        else:
+            raise InvalidArgument(
+                "data must be one of pd.Dataframe, AnnData, MuData, SpatialData."
+            )
+
     artifact.schema = schema
     artifact.save()
 
@@ -3367,21 +3298,28 @@ def save_artifact(
     else:
         feature_kwargs = {}
 
-    if artifact.otype == "DataFrame":
-        artifact.features._add_set_from_df(field=columns_field, **feature_kwargs)  # type: ignore
-    elif artifact.otype == "AnnData":
-        artifact.features._add_set_from_anndata(  # type: ignore
-            var_field=columns_field, **feature_kwargs
-        )
-    elif artifact.otype == "MuData":
-        artifact.features._add_set_from_mudata(  # type: ignore
-            var_fields=columns_field, **feature_kwargs
-        )
-    else:
-        raise NotImplementedError
+    match artifact.otype:
+        case "DataFrame":
+            artifact.features._add_set_from_df(field=columns_field, **feature_kwargs)  # type: ignore
+        case "AnnData":
+            artifact.features._add_set_from_anndata(  # type: ignore
+                var_field=columns_field, **feature_kwargs
+            )
+        case "MuData":
+            artifact.features._add_set_from_mudata(  # type: ignore
+                var_fields=columns_field, **feature_kwargs
+            )
+        case "SpatialData":
+            artifact.features._add_set_from_spatialdata(  # type: ignore
+                sample_metadata_key=kwargs.get("sample_metadata_key", "sample"),
+                var_fields=columns_field,
+                **feature_kwargs,
+            )
+        case _:
+            raise NotImplementedError
 
     def _add_labels(
-        data,
+        data: pd.DataFrame | ScverseDataStructures,
         artifact: Artifact,
         fields: dict[str, FieldAttr],
         feature_ref_is_name: bool | None = None,
@@ -3442,6 +3380,31 @@ def save_artifact(
                         else _ref_is_name(column_field_modality)
                     ),
                 )
+    elif artifact.otype == "SpatialData":
+        sample_metadata_key = kwargs.get("sample_metadata_key", "sample")
+        for accessor, accessor_fields in fields.items():
+            column_field = columns_field.get(accessor)
+            if accessor == sample_metadata_key:
+                _add_labels(
+                    data.get_attrs(
+                        key=sample_metadata_key, return_as="df", flatten=True
+                    ),
+                    artifact,
+                    accessor_fields,
+                    feature_ref_is_name=(
+                        None if column_field is None else _ref_is_name(column_field)
+                    ),
+                )
+            else:
+                _add_labels(
+                    data.tables[accessor],
+                    artifact,
+                    accessor_fields,
+                    feature_ref_is_name=(
+                        None if column_field is None else _ref_is_name(column_field)
+                    ),
+                )
+    # handles both pd.DataFrames and AnnData objects
     else:
         _add_labels(
             data, artifact, fields, feature_ref_is_name=_ref_is_name(columns_field)
@@ -3492,7 +3455,6 @@ def update_registry(
         exclude: Values to exclude from inspect.
         kwargs: Additional keyword arguments to pass to the registry model to create new records.
     """
-    from lamindb.core._settings import settings
     from lamindb.models.save import save as ln_save
 
     registry = field.field.model

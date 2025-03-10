@@ -47,7 +47,7 @@ def parse_dtype_single_cat(
     dtype_str: str,
     related_registries: dict[str, Record] | None = None,
     is_itype: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     from .artifact import Artifact
 
     assert isinstance(dtype_str, str)  # noqa: S101
