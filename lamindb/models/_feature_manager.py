@@ -1139,8 +1139,8 @@ def _add_set_from_anndata(
 
 def _add_set_from_mudata(
     self,
-    var_fields: dict[str, FieldAttr],
-    obs_fields: dict[str, FieldAttr] = None,
+    var_fields: dict[str, FieldAttr] | None = None,
+    obs_fields: dict[str, FieldAttr] | None = None,
     mute: bool = False,
     organism: str | Record | None = None,
 ):

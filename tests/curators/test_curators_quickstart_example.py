@@ -58,6 +58,76 @@ def curator_params():
     }
 
 
+@pytest.fixture(scope="module")
+def mudata_papalexi21_subset_schema():
+    # define labels
+    perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
+    ln.ULabel(name="Perturbed", type=perturbation).save()
+    ln.ULabel(name="NT", type=perturbation).save()
+
+    replicate = ln.ULabel(name="Replicate", is_type=True).save()
+    ln.ULabel(name="rep1", type=replicate).save()
+    ln.ULabel(name="rep2", type=replicate).save()
+    ln.ULabel(name="rep3", type=replicate).save()
+
+    # define obs schema
+    obs_schema = ln.Schema(
+        name="mudata_papalexi21_subset_obs_schema",
+        features=[
+            ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
+            ln.Feature(name="replicate", dtype="cat[ULabel[Replicate]]").save(),
+        ],
+    ).save()
+
+    obs_schema_rna = ln.Schema(
+        name="mudata_papalexi21_subset_rna_obs_schema",
+        features=[
+            ln.Feature(name="nCount_RNA", dtype=int).save(),
+            ln.Feature(name="nFeature_RNA", dtype=int).save(),
+            ln.Feature(name="percent.mito", dtype=float).save(),
+        ],
+        coerce_dtype=True,
+    ).save()
+
+    obs_schema_hto = ln.Schema(
+        name="mudata_papalexi21_subset_hto_obs_schema",
+        features=[
+            ln.Feature(name="nCount_HTO", dtype=int).save(),
+            ln.Feature(name="nFeature_HTO", dtype=int).save(),
+            ln.Feature(name="technique", dtype=bt.ExperimentalFactor).save(),
+        ],
+        coerce_dtype=True,
+    ).save()
+
+    var_schema_rna = ln.Schema(
+        name="mudata_papalexi21_subset_rna_var_schema",
+        itype=bt.Gene.symbol,
+        dtype=float,
+    ).save()
+
+    # define composite schema
+    mudata_schema = ln.Schema(
+        name="mudata_papalexi21_subset_mudata_schema",
+        otype="MuData",
+        components={
+            "obs": obs_schema,
+            "rna:obs": obs_schema_rna,
+            "hto:obs": obs_schema_hto,
+            "rna:var": var_schema_rna,
+        },
+    ).save()
+
+    yield mudata_schema
+
+    mudata_schema.delete()
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
+    bt.Gene.filter().delete()
+    ln.ULabel.filter(type__isnull=False).delete()
+    ln.ULabel.filter().delete()
+    bt.ExperimentalFactor.filter().delete()
+
+
 def test_dataframe_curator(small_dataset1_schema):
     """Test DataFrame curator implementation."""
 
@@ -180,3 +250,25 @@ def test_anndata_curator_no_var(small_dataset1_schema: ln.Schema):
     artifact = curator.save_artifact(key="example_datasets/dataset1_no_var.h5ad")
     artifact.delete(permanent=True)
     anndata_schema_no_var.delete()
+
+
+def test_mudata_curator(mudata_papalexi21_subset_schema: ln.Schema):
+    mudata_schema = mudata_papalexi21_subset_schema
+    mdata = ln.core.datasets.mudata_papalexi21_subset()
+    # TODO: refactor organism
+    bt.settings.organism = "human"
+    curator = ln.curators.MuDataCurator(mdata, mudata_schema)
+    assert curator.slots.keys() == {
+        "obs",
+        "rna:obs",
+        "hto:obs",
+        "rna:var",
+    }
+    artifact = curator.save_artifact(key="mudata_papalexi21_subset.h5mu")
+    assert artifact.schema == mudata_schema
+    assert artifact.features.slots.keys() == {
+        "obs",
+        "['rna'].var",
+        "['rna'].obs",
+        "['hto'].obs",
+    }

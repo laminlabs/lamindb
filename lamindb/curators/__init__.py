@@ -63,7 +63,7 @@ from lamindb.models import (
     ULabel,
 )
 from lamindb.models._feature_manager import parse_staged_feature_sets_from_anndata
-from lamindb.models.artifact import add_labels, data_is_anndata
+from lamindb.models.artifact import add_labels, data_is_anndata, data_is_mudata
 from lamindb.models.feature import parse_dtype, parse_dtype_single_cat
 from lamindb.models._from_values import _format_values
 
@@ -519,6 +519,176 @@ class AnnDataCurator(Curator):
         )
 
 
+class MuDataCurator(Curator):
+    # the example in the docstring is tested in test_curators_quickstart_example
+    """Curator for a MuData object.
+
+    See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
+
+    .. versionadded:: 1.3.0
+
+    Args:
+        dataset: The MuData-like object to validate & annotate.
+        schema: A `Schema` object that defines the validation constraints.
+
+    Example::
+
+        import lamindb as ln
+        import bionty as bt
+
+        # define obs schema
+        obs_schema = ln.Schema(
+            name="mudata_papalexi21_subset_obs_schema",
+            features=[
+                ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
+                ln.Feature(name="replicate", dtype="cat[ULabel[Replicate]]").save(),
+            ],
+        ).save()
+
+        # define the ['rna'].obs schema
+        obs_schema_rna = ln.Schema(
+            name="mudata_papalexi21_subset_rna_obs_schema",
+            features=[
+                ln.Feature(name="nCount_RNA", dtype=int).save(),
+                ln.Feature(name="nFeature_RNA", dtype=int).save(),
+                ln.Feature(name="percent.mito", dtype=float).save(),
+            ],
+            coerce_dtype=True,
+        ).save()
+
+        # define the ['hto'].obs schema
+        obs_schema_hto = ln.Schema(
+            name="mudata_papalexi21_subset_hto_obs_schema",
+            features=[
+                ln.Feature(name="nCount_HTO", dtype=int).save(),
+                ln.Feature(name="nFeature_HTO", dtype=int).save(),
+                ln.Feature(name="technique", dtype=bt.ExperimentalFactor).save(),
+            ],
+            coerce_dtype=True,
+        ).save()
+
+        # define ['rna'].var schema
+        var_schema_rna = ln.Schema(
+            name="mudata_papalexi21_subset_rna_var_schema",
+            itype=bt.Gene.symbol,
+            dtype=float,
+        ).save()
+
+        # define composite schema
+        mudata_schema = ln.Schema(
+            name="mudata_papalexi21_subset_mudata_schema",
+            otype="MuData",
+            components={
+                "obs": obs_schema,
+                "rna:obs": obs_schema_rna,
+                "hto:obs": obs_schema_hto,
+                "rna:var": var_schema_rna,
+            },
+        ).save()
+
+        # curate an AnnData
+        mdata = ln.core.datasets.mudata_papalexi21_subset()
+        curator = ln.curators.MuDataCurator(mdata, mudata_schema)
+        artifact = curator.save_artifact(key="example_datasets/mudata_papalexi21_subset.h5mu")
+        assert artifact.schema == mudata_schema
+    """
+
+    def __init__(
+        self,
+        dataset: MuData | Artifact,
+        schema: Schema,
+    ) -> None:
+        super().__init__(dataset=dataset, schema=schema)
+        if not data_is_mudata(self._dataset):
+            raise InvalidArgument("dataset must be MuData-like.")
+        if schema.otype != "MuData":
+            raise InvalidArgument("Schema otype must be 'MuData'.")
+
+        # in form of {slot: DataFrameCurator}
+        self._slots: dict[str, DataFrameCurator] = {}
+        # in form of {modality: var_field}
+        self._var_fields: dict[str, FieldAttr] = {}
+        # in form of {modality: obs_fields}
+        self._obs_fields: dict[str, dict[str, FieldAttr]] = {}
+        for slot, slot_schema in schema.slots.items():
+            # Assign to _slots
+            if ":" in slot:
+                modality, modality_slot = slot.split(":")
+                schema_dataset = self._dataset.__getitem__(modality)
+            else:
+                modality = None
+                modality_slot = slot
+                schema_dataset = self._dataset
+            self._slots[slot] = DataFrameCurator(
+                (
+                    schema_dataset.__getattribute__(modality_slot).T
+                    if modality_slot == "var"
+                    else schema_dataset.__getattribute__(modality_slot)
+                ),
+                slot_schema,
+            )
+            # Assign to _var_fields and _obs_fields
+            if modality is not None:
+                # makes sure that all modalities are present
+                self._var_fields[modality] = None
+                self._obs_fields[modality] = {}
+            if modality_slot == "var":
+                var_field = parse_dtype_single_cat(slot_schema.itype, is_itype=True)[
+                    "field"
+                ]
+                if modality is None:
+                    self._var_fields[slot] = var_field
+                else:
+                    # note that this is NOT nested since the nested key is always "var"
+                    self._var_fields[modality] = var_field
+            else:
+                obs_fields = self._slots[slot]._cat_manager.categoricals
+                if modality is None:
+                    self._obs_fields[slot] = obs_fields
+                else:
+                    # note that this is NOT nested since the nested key is always "obs"
+                    self._obs_fields[modality] = obs_fields
+
+        # this is for consistency with BaseCatManager
+        self._columns_field = self._var_fields
+
+    @property
+    @doc_args(SLOTS_DOCSTRING)
+    def slots(self) -> dict[str, DataFrameCurator]:
+        """{}"""  # noqa: D415
+        return self._slots
+
+    @doc_args(VALIDATE_DOCSTRING)
+    def validate(self) -> None:
+        """{}"""  # noqa: D415
+        for _, curator in self._slots.items():
+            curator.validate()
+
+    @doc_args(SAVE_ARTIFACT_DOCSTRING)
+    def save_artifact(
+        self,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ):
+        """{}"""  # noqa: D415
+        if not self._is_validated:
+            self.validate()
+        return save_artifact(  # type: ignore
+            self._dataset,
+            description=description,
+            fields=self._obs_fields,
+            columns_field=self._var_fields,
+            key=key,
+            artifact=self._artifact,
+            revises=revises,
+            run=run,
+            schema=self._schema,
+        )
+
+
 class CatManager:
     """Manage valid categoricals by updating registries.
 
@@ -923,8 +1093,6 @@ class AnnDataCatManager(CatManager):
         if isinstance(var_index, str):
             raise TypeError("var_index parameter has to be a bionty field")
 
-        if sources is None:
-            sources = {}
         if not data_is_anndata(data):
             raise TypeError("data has to be an AnnData object")
 
@@ -935,10 +1103,11 @@ class AnnDataCatManager(CatManager):
 
         self._obs_fields = categoricals or {}
         self._var_field = var_index
+        self._sources = sources or {}
         super().__init__(
             dataset=data,
             categoricals=categoricals,
-            sources=sources,
+            sources=self._sources,
             organism=organism,
             exclude=exclude,
             columns_field=var_index,
@@ -950,7 +1119,7 @@ class AnnDataCatManager(CatManager):
             columns=obs_columns,
             verbosity=verbosity,
             organism=None,
-            sources=sources,
+            sources=self._sources,
             exclude=exclude,
         )
 
@@ -1112,7 +1281,7 @@ class MuDataCatManager(CatManager):
     def __init__(
         self,
         mdata: MuData | Artifact,
-        var_index: dict[str, FieldAttr],
+        var_index: dict[str, FieldAttr] | None = None,
         categoricals: dict[str, FieldAttr] | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
@@ -1126,10 +1295,12 @@ class MuDataCatManager(CatManager):
             organism=organism,
             exclude=exclude,
         )
-        self._columns_field = var_index  # this is for consistency with BaseCatManager
-        self._var_fields = var_index
+        self._columns_field = (
+            var_index or {}
+        )  # this is for consistency with BaseCatManager
+        self._var_fields = var_index or {}
         self._verify_modality(self._var_fields.keys())
-        self._obs_fields = self._parse_categoricals(categoricals)
+        self._obs_fields = self._parse_categoricals(categoricals or {})
         self._modalities = set(self._var_fields.keys()) | set(self._obs_fields.keys())
         self._verbosity = verbosity
         self._obs_df_curator = None
