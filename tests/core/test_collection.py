@@ -163,7 +163,7 @@ def test_from_consistent_artifacts(adata, adata2):
     ln.Feature.filter().delete()
 
 
-def test_collection_mapped(adata, adata2):
+def test_mapped(adata, adata2):
     adata.strings_to_categoricals()
     adata.obs["feat2"] = adata.obs["feat1"]
     adata.layers["layer1"] = adata.X.copy()
@@ -292,6 +292,12 @@ def test_collection_mapped(adata, adata2):
     assert ls_ds.shape == (4, 3)
     assert ls_ds.original_shapes[0] == (2, 3) and ls_ds.original_shapes[1] == (2, 3)
     ls_ds.close()
+    # test with QuerySet
+    query_set = ln.Artifact.filter(description__in=["Part one", "Part two"])
+    with query_set.artifacts_mapped() as ls_ds:
+        assert ls_ds.shape == (4, 3)
+    with query_set.order_by("created_at").artifacts_mapped(stream=True) as ls_ds:
+        assert ls_ds.shape == (4, 3)
 
     with collection.mapped(obs_keys="feat1", stream=True) as ls_ds:
         assert len(ls_ds[0]) == 3 and len(ls_ds[2]) == 3
