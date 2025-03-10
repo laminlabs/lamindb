@@ -24,6 +24,8 @@ from .can_curate import CanCurate
 if TYPE_CHECKING:
     from lamindb.base.types import ListLike, StrField
 
+    from ..core.storage import UPath
+
 T = TypeVar("T")
 
 
@@ -686,6 +688,27 @@ class QuerySet(models.QuerySet):
             except FieldError as e:
                 self._handle_unknown_field(e)
         return self
+
+    def artifacts_open(self, is_run_input: bool | None = None):
+        from lamindb.models.artifact import Artifact, _track_run_input
+        from lamindb.models.collection import _open_paths
+
+        if self.model != Artifact:
+            raise ValueError("A query set should consist of artifacts to be opened.")
+        if not self.ordered:
+            logger.warning(
+                "this query set is unordered, consider using `.order_by()` first "
+                "to avoid opening the artifacts in an arbitrary order"
+            )
+
+        artifacts: list[Artifact] = list(self)
+        paths: list[UPath] = [artifact.path for artifact in artifacts]
+        dataset = _open_paths(paths)
+
+        for artifact in artifacts:
+            _track_run_input(artifact, is_run_input)
+
+        return dataset
 
     def one(self) -> Record:
         """Exactly one result. Raises error if there are more or none."""
