@@ -230,6 +230,37 @@ class Curator:
         pass
 
 
+class SlotsCurator(Curator):
+    """Curator for a dataset with slots.
+
+    Args:
+        dataset: The dataset to validate & annotate.
+        schema: A `Schema` object that defines the validation constraints.
+
+    .. versionadded:: 1.3.0
+    """
+
+    def __init__(
+        self,
+        dataset: Any,
+        schema: Schema,
+    ) -> None:
+        super().__init__(dataset=dataset, schema=schema)
+        self._slots: dict[str, DataFrameCurator] = {}
+
+    @property
+    @doc_args(SLOTS_DOCSTRING)
+    def slots(self) -> dict[str, DataFrameCurator]:
+        """{}"""  # noqa: D415
+        return self._slots
+
+    @doc_args(VALIDATE_DOCSTRING)
+    def validate(self) -> None:
+        """{}"""  # noqa: D415
+        for _, curator in self._slots.items():
+            curator.validate()
+
+
 class DataFrameCurator(Curator):
     # the example in the docstring is tested in test_curators_quickstart_example
     """Curator for a DataFrame object.
@@ -383,7 +414,7 @@ class DataFrameCurator(Curator):
         description: str | None = None,
         revises: Artifact | None = None,
         run: Run | None = None,
-    ):
+    ) -> Artifact:
         """{}"""  # noqa: D415
         if not self._is_validated:
             self.validate()  # raises ValidationError if doesn't validate
@@ -401,7 +432,7 @@ class DataFrameCurator(Curator):
         )
 
 
-class AnnDataCurator(Curator):
+class AnnDataCurator(SlotsCurator):
     # the example in the docstring is tested in test_curators_quickstart_example
     """Curator for an AnnData object.
 
@@ -481,18 +512,6 @@ class AnnDataCurator(Curator):
             if slot in {"obs", "var"}
         }
 
-    @property
-    @doc_args(SLOTS_DOCSTRING)
-    def slots(self) -> dict[str, DataFrameCurator]:
-        """{}"""  # noqa: D415
-        return self._slots
-
-    @doc_args(VALIDATE_DOCSTRING)
-    def validate(self) -> None:
-        """{}"""  # noqa: D415
-        for _, curator in self._slots.items():
-            curator.validate()
-
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
         self,
@@ -501,7 +520,7 @@ class AnnDataCurator(Curator):
         description: str | None = None,
         revises: Artifact | None = None,
         run: Run | None = None,
-    ):
+    ) -> Artifact:
         """{}"""  # noqa: D415
         if not self._is_validated:
             self.validate()
@@ -524,7 +543,7 @@ class AnnDataCurator(Curator):
         )
 
 
-class MuDataCurator(Curator):
+class MuDataCurator(SlotsCurator):
     # the example in the docstring is tested in test_curators_quickstart_example
     """Curator for a MuData object.
 
@@ -541,7 +560,7 @@ class MuDataCurator(Curator):
         import lamindb as ln
         import bionty as bt
 
-        # define obs schema
+        # define the global obs schema
         obs_schema = ln.Schema(
             name="mudata_papalexi21_subset_obs_schema",
             features=[
@@ -604,7 +623,7 @@ class MuDataCurator(Curator):
         dataset: MuData | Artifact,
         schema: Schema,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema)
+        super().__init__(dataset=dataset.to_anndata(), schema=schema)
         if not data_is_mudata(self._dataset):
             raise InvalidArgument("dataset must be MuData-like.")
         if schema.otype != "MuData":
@@ -659,18 +678,6 @@ class MuDataCurator(Curator):
         # this is for consistency with BaseCatManager
         self._columns_field = self._var_fields
 
-    @property
-    @doc_args(SLOTS_DOCSTRING)
-    def slots(self) -> dict[str, DataFrameCurator]:
-        """{}"""  # noqa: D415
-        return self._slots
-
-    @doc_args(VALIDATE_DOCSTRING)
-    def validate(self) -> None:
-        """{}"""  # noqa: D415
-        for _, curator in self._slots.items():
-            curator.validate()
-
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
         self,
@@ -679,7 +686,7 @@ class MuDataCurator(Curator):
         description: str | None = None,
         revises: Artifact | None = None,
         run: Run | None = None,
-    ):
+    ) -> Artifact:
         """{}"""  # noqa: D415
         if not self._is_validated:
             self.validate()
