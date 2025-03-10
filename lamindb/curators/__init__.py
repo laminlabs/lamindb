@@ -1668,7 +1668,7 @@ class SpatialDataCatManager(CatManager):
         Args:
             description: A description of the dataset.
             key: A path-like key to reference artifact in default storage,
-                e.g., `"myfolder/myartifact.h5ad"`. Artifacts with the same key form a version family.
+                e.g., `"myfolder/myartifact.zarr"`. Artifacts with the same key form a version family.
             revises: Previous version of the artifact. Triggers a revision.
             run: The run that creates the artifact.
 
@@ -3279,7 +3279,7 @@ def save_artifact(
                 data, description=description, key=key, revises=revises, run=run
             )
         else:
-            raise InvalidArgument(
+            raise InvalidArgument(  # pragma: no cover
                 "data must be one of pd.Dataframe, AnnData, MuData, SpatialData."
             )
 
@@ -3315,7 +3315,7 @@ def save_artifact(
                 var_fields=columns_field,
                 **feature_kwargs,
             )
-        case _:
+        case _:  # pragma: no cover
             raise NotImplementedError
 
     def _add_labels(
