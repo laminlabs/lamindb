@@ -588,6 +588,7 @@ class MuDataCurator(Curator):
 
         # curate an AnnData
         mdata = ln.core.datasets.mudata_papalexi21_subset()
+        bt.settings.organism = "human" # set the organism
         curator = ln.curators.MuDataCurator(mdata, mudata_schema)
         artifact = curator.save_artifact(key="example_datasets/mudata_papalexi21_subset.h5mu")
         assert artifact.schema == mudata_schema
