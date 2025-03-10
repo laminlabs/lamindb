@@ -22,6 +22,8 @@ from ..errors import DoesNotExist
 from .can_curate import CanCurate
 
 if TYPE_CHECKING:
+    from pyarrow.dataset import Dataset as PyArrowDataset
+
     from lamindb.base.types import ListLike, StrField
 
     from ..core.storage import UPath
@@ -689,7 +691,7 @@ class QuerySet(models.QuerySet):
                 self._handle_unknown_field(e)
         return self
 
-    def artifacts_open(self, is_run_input: bool | None = None):
+    def artifacts_open(self, is_run_input: bool | None = None) -> PyArrowDataset:
         from lamindb.models.artifact import Artifact, _track_run_input
         from lamindb.models.collection import _open_paths
 
