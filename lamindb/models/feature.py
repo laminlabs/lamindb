@@ -47,7 +47,8 @@ def parse_dtype_single_cat(
     dtype_str: str,
     related_registries: dict[str, Record] | None = None,
     is_itype: bool = False,
-) -> dict:
+) -> dict[str, Any]:
+    """Parses a categorical data type string into its components (registry, field, subtypes)."""
     from .artifact import Artifact
 
     assert isinstance(dtype_str, str)  # noqa: S101
@@ -116,6 +117,7 @@ def parse_dtype_single_cat(
 
 
 def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
+    """Parses feature data type string into a structured list of components."""
     from .artifact import Artifact
 
     allowed_dtypes = FEATURE_DTYPES
@@ -140,7 +142,10 @@ def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
     return result
 
 
-def get_dtype_str_from_dtype(dtype: Any, is_itype: bool = False) -> str:
+def get_dtype_str_from_dtype(
+    dtype: Record | FieldAttr | list[Record], is_itype: bool = False
+) -> str:
+    """Converts a data type object into its string representation."""
     if (
         not isinstance(dtype, list)
         and hasattr(dtype, "__name__")
