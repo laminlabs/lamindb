@@ -274,4 +274,3 @@ def test_mudata_curator(mudata_papalexi21_subset_schema: ln.Schema):
     }
 
     artifact.delete(permanent=True)
-    mudata_schema.delete()
