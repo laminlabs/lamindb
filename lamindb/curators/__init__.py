@@ -63,7 +63,12 @@ from lamindb.models import (
     ULabel,
 )
 from lamindb.models._feature_manager import parse_staged_feature_sets_from_anndata
-from lamindb.models.artifact import add_labels, data_is_anndata, data_is_mudata, data_is_spatialdata
+from lamindb.models.artifact import (
+    add_labels,
+    data_is_anndata,
+    data_is_mudata,
+    data_is_spatialdata,
+)
 from lamindb.models.feature import parse_dtype, parse_dtype_single_cat
 from lamindb.models._from_values import _format_values
 
