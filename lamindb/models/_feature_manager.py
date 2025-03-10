@@ -1137,6 +1137,21 @@ def _add_set_from_anndata(
     self._host.save()
 
 
+def _unify_staged_feature_sets_by_hash(
+    feature_sets: MutableMapping[str, Schema],
+):
+    unique_values: dict[str, Any] = {}
+
+    for key, value in feature_sets.items():
+        value_hash = value.hash  # Assuming each value has a .hash attribute
+        if value_hash in unique_values:
+            feature_sets[key] = unique_values[value_hash]
+        else:
+            unique_values[value_hash] = value
+
+    return feature_sets
+
+
 def _add_set_from_mudata(
     self,
     var_fields: dict[str, FieldAttr],
@@ -1152,6 +1167,7 @@ def _add_set_from_mudata(
     # parse and register features
     mdata = self._host.load()
     feature_sets = {}
+
     obs_features = Feature.from_values(mdata.obs.columns)  # type: ignore
     if len(obs_features) > 0:
         feature_sets["obs"] = Schema(features=obs_features)
@@ -1166,42 +1182,32 @@ def _add_set_from_mudata(
         for k, v in modality_fs.items():
             feature_sets[f"['{modality}'].{k}"] = v
 
-    def unify_staged_feature_sets_by_hash(feature_sets):
-        unique_values = {}
-
-        for key, value in feature_sets.items():
-            value_hash = value.hash  # Assuming each value has a .hash attribute
-            if value_hash in unique_values:
-                feature_sets[key] = unique_values[value_hash]
-            else:
-                unique_values[value_hash] = value
-
-        return feature_sets
-
     # link feature sets
-    self._host._staged_feature_sets = unify_staged_feature_sets_by_hash(feature_sets)
+    self._host._staged_feature_sets = _unify_staged_feature_sets_by_hash(feature_sets)
     self._host.save()
 
 
 def _add_set_from_spatialdata(
     self,
     sample_metadata_key: str,
-    var_fields: dict[str, FieldAttr],
-    obs_fields: dict[str, FieldAttr] = None,
+    sample_metadata_field: FieldAttr = Feature.name,
+    var_fields: dict[str, FieldAttr] | None = None,
+    obs_fields: dict[str, FieldAttr] | None = None,
     mute: bool = False,
     organism: str | Record | None = None,
 ):
     """Add features from SpatialData."""
-    if obs_fields is None:
-        obs_fields = {}
+    obs_fields, var_fields = obs_fields or {}, var_fields or {}
     assert self._host.otype == "SpatialData"  # noqa: S101
 
+    # parse and register features
     sdata = self._host.load()
     feature_sets = {}
 
     # sample features
     sample_features = Feature.from_values(
-        sdata.get_attrs(key=sample_metadata_key, return_as="df", flatten=True).columns
+        sdata.get_attrs(key=sample_metadata_key, return_as="df", flatten=True).columns,
+        field=sample_metadata_field,
     )  # type: ignore
     if len(sample_features) > 0:
         feature_sets[sample_metadata_key] = Schema(features=sample_features)
@@ -1217,20 +1223,6 @@ def _add_set_from_spatialdata(
         )
         for k, v in table_fs.items():
             feature_sets[f"['{table}'].{k}"] = v
-
-    def _unify_staged_feature_sets_by_hash(
-        feature_sets: MutableMapping[str, Schema],
-    ):
-        unique_values: dict[str, Any] = {}
-
-        for key, value in feature_sets.items():
-            value_hash = value.hash  # Assuming each value has a .hash attribute
-            if value_hash in unique_values:
-                feature_sets[key] = unique_values[value_hash]
-            else:
-                unique_values[value_hash] = value
-
-        return feature_sets
 
     # link feature sets
     self._host._staged_feature_sets = _unify_staged_feature_sets_by_hash(feature_sets)
