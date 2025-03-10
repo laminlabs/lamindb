@@ -7,6 +7,7 @@
 
    Curator
    DataFrameCurator
+   SlotsCurator
    AnnDataCurator
    MuDataCurator
 
@@ -423,7 +424,7 @@ class DataFrameCurator(Curator):
             self._dataset,
             description=description,
             fields=self._cat_manager.categoricals,
-            columns_field=result["field"],
+            index_field=result["field"],
             key=key,
             artifact=self._artifact,
             revises=revises,
@@ -528,7 +529,7 @@ class AnnDataCurator(SlotsCurator):
             self._dataset,
             description=description,
             fields=self.slots["obs"]._cat_manager.categoricals,
-            columns_field=(
+            index_field=(
                 parse_dtype_single_cat(self.slots["var"]._schema.itype, is_itype=True)[
                     "field"
                 ]
@@ -631,8 +632,8 @@ class MuDataCurator(SlotsCurator):
 
         # in form of {modality: var_field}
         self._var_fields: dict[str, FieldAttr] = {}
-        # in form of {modality: obs_fields}
-        self._obs_fields: dict[str, dict[str, FieldAttr]] = {}
+        # in form of {modality: categoricals}
+        self._categoricals: dict[str, dict[str, FieldAttr]] = {}
         for slot, slot_schema in schema.slots.items():
             # Assign to _slots
             if ":" in slot:
@@ -650,11 +651,11 @@ class MuDataCurator(SlotsCurator):
                 ),
                 slot_schema,
             )
-            # Assign to _var_fields and _obs_fields
+            # Assign to _var_fields and _categoricals
             if modality is not None:
                 # makes sure that all modalities are present
                 self._var_fields[modality] = None
-                self._obs_fields[modality] = {}
+                self._categoricals[modality] = {}
             if modality_slot == "var":
                 var_field = parse_dtype_single_cat(slot_schema.itype, is_itype=True)[
                     "field"
@@ -668,10 +669,10 @@ class MuDataCurator(SlotsCurator):
             else:
                 obs_fields = self._slots[slot]._cat_manager.categoricals
                 if modality is None:
-                    self._obs_fields[slot] = obs_fields
+                    self._categoricals[slot] = obs_fields
                 else:
                     # note that this is NOT nested since the nested key is always "obs"
-                    self._obs_fields[modality] = obs_fields
+                    self._categoricals[modality] = obs_fields
 
         # this is for consistency with BaseCatManager
         self._columns_field = self._var_fields
@@ -690,10 +691,10 @@ class MuDataCurator(SlotsCurator):
             self.validate()
         return save_artifact(  # type: ignore
             self._dataset,
-            description=description,
-            fields=self._obs_fields,
-            columns_field=self._var_fields,
             key=key,
+            description=description,
+            fields=self._categoricals,
+            index_field=self._var_fields,
             artifact=self._artifact,
             revises=revises,
             run=run,
@@ -827,10 +828,10 @@ class CatManager:
             settings.verbosity = "warning"
             self._artifact = save_artifact(  # type: ignore
                 self._dataset,
+                key=key,
                 description=description,
                 fields=self.categoricals,
-                columns_field=self._columns_field,
-                key=key,
+                index_field=self._columns_field,
                 artifact=self._artifact,
                 revises=revises,
                 run=run,
@@ -3490,7 +3491,7 @@ def validate_categories_in_df(
 def save_artifact(
     data: pd.DataFrame | ad.AnnData | MuData,
     fields: dict[str, FieldAttr] | dict[str, dict[str, FieldAttr]],
-    columns_field: FieldAttr | dict[str, FieldAttr] | None = None,
+    index_field: FieldAttr | dict[str, FieldAttr] | None = None,
     description: str | None = None,
     organism: str | None = None,
     key: str | None = None,
@@ -3504,7 +3505,7 @@ def save_artifact(
     Args:
         data: The DataFrame/AnnData/MuData object to save.
         fields: A dictionary mapping obs_column to registry_field.
-        columns_field: The registry field to validate variables index against.
+        index_field: The registry field to validate variables index against.
         description: A description of the artifact.
         organism: The organism name.
         type: The artifact type.
@@ -3538,12 +3539,12 @@ def save_artifact(
     artifact.schema = schema
     artifact.save()
 
-    if organism is not None and columns_field is not None:
+    if organism is not None and index_field is not None:
         feature_kwargs = check_registry_organism(
             (
-                list(columns_field.values())[0].field.model
-                if isinstance(columns_field, dict)
-                else columns_field.field.model
+                list(index_field.values())[0].field.model
+                if isinstance(index_field, dict)
+                else index_field.field.model
             ),
             organism,
         )
@@ -3551,14 +3552,14 @@ def save_artifact(
         feature_kwargs = {}
 
     if artifact.otype == "DataFrame":
-        artifact.features._add_set_from_df(field=columns_field, **feature_kwargs)  # type: ignore
+        artifact.features._add_set_from_df(field=index_field, **feature_kwargs)  # type: ignore
     elif artifact.otype == "AnnData":
         artifact.features._add_set_from_anndata(  # type: ignore
-            var_field=columns_field, **feature_kwargs
+            var_field=index_field, **feature_kwargs
         )
     elif artifact.otype == "MuData":
         artifact.features._add_set_from_mudata(  # type: ignore
-            var_fields=columns_field, **feature_kwargs
+            var_fields=index_field, **feature_kwargs
         )
     else:
         raise NotImplementedError
@@ -3602,7 +3603,7 @@ def save_artifact(
 
     if artifact.otype == "MuData":
         for modality, modality_fields in fields.items():
-            column_field_modality = columns_field.get(modality)
+            column_field_modality = index_field.get(modality)
             if modality == "obs":
                 _add_labels(
                     data,
@@ -3627,7 +3628,7 @@ def save_artifact(
                 )
     else:
         _add_labels(
-            data, artifact, fields, feature_ref_is_name=_ref_is_name(columns_field)
+            data, artifact, fields, feature_ref_is_name=_ref_is_name(index_field)
         )
 
     slug = ln_setup.settings.instance.slug
