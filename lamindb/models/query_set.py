@@ -693,6 +693,31 @@ class QuerySet(models.QuerySet):
                 self._handle_unknown_field(e)
         return self
 
+    def one(self) -> Record:
+        """Exactly one result. Raises error if there are more or none."""
+        return one_helper(self)
+
+    def one_or_none(self) -> Record | None:
+        """At most one result. Returns it if there is one, otherwise returns ``None``.
+
+        Examples:
+            >>> ULabel.filter(name="benchmark").one_or_none()
+            >>> ULabel.filter(name="non existing label").one_or_none()
+        """
+        if len(self) == 0:
+            return None
+        elif len(self) == 1:
+            return self[0]
+        else:
+            raise MultipleResultsFound(self.all())
+
+    def latest_version(self) -> QuerySet:
+        """Filter every version family by latest version."""
+        if issubclass(self.model, IsVersioned):
+            return self.filter(is_latest=True)
+        else:
+            raise ValueError("Record isn't subclass of `lamindb.core.IsVersioned`")
+
     def artifacts_open(self, is_run_input: bool | None = None) -> PyArrowDataset:
         from lamindb.models.artifact import Artifact, _track_run_input
         from lamindb.models.collection import _open_paths
@@ -765,31 +790,6 @@ class QuerySet(models.QuerySet):
         # track only if successful
         _track_run_input(artifacts, is_run_input)
         return ds
-
-    def one(self) -> Record:
-        """Exactly one result. Raises error if there are more or none."""
-        return one_helper(self)
-
-    def one_or_none(self) -> Record | None:
-        """At most one result. Returns it if there is one, otherwise returns ``None``.
-
-        Examples:
-            >>> ULabel.filter(name="benchmark").one_or_none()
-            >>> ULabel.filter(name="non existing label").one_or_none()
-        """
-        if len(self) == 0:
-            return None
-        elif len(self) == 1:
-            return self[0]
-        else:
-            raise MultipleResultsFound(self.all())
-
-    def latest_version(self) -> QuerySet:
-        """Filter every version family by latest version."""
-        if issubclass(self.model, IsVersioned):
-            return self.filter(is_latest=True)
-        else:
-            raise ValueError("Record isn't subclass of `lamindb.core.IsVersioned`")
 
 
 # -------------------------------------------------------------------------------------
