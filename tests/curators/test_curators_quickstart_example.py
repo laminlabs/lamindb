@@ -272,3 +272,6 @@ def test_mudata_curator(mudata_papalexi21_subset_schema: ln.Schema):
         "['rna'].obs",
         "['hto'].obs",
     }
+
+    artifact.delete(permanent=True)
+    mudata_schema.delete()
