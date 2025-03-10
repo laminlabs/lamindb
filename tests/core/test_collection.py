@@ -163,7 +163,7 @@ def test_from_consistent_artifacts(adata, adata2):
     ln.Feature.filter().delete()
 
 
-def test_collection_mapped(adata, adata2):
+def test_mapped(adata, adata2):
     adata.strings_to_categoricals()
     adata.obs["feat2"] = adata.obs["feat1"]
     adata.layers["layer1"] = adata.X.copy()
