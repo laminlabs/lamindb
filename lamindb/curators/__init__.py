@@ -365,8 +365,22 @@ class DataFrameCurator(Curator):
                 self._cat_manager_validate()
             except pandera.errors.SchemaError as err:
                 self._is_validated = False
+                err_msg = str(err)
+
+                # Reduce Pandera validation stdout for many columns
+                if "column" in err_msg and "not in dataframe" in err_msg:
+                    missing_col = err_msg.split("column '")[1].split("'")[0]
+                    # Get actual columns directly from the dataset
+                    actual_cols = list(self._dataset.columns)
+                    col_count = len(actual_cols)
+                    # Show first few columns or all if few
+                    display_cols = actual_cols[:10] if col_count > 10 else actual_cols
+                    display_cols_str = ", ".join([f"'{c}'" for c in display_cols])
+                    suffix = "..." if col_count > 10 else ""
+                    err_msg = f"Missing column '{missing_col}'. Found {col_count} columns including: {display_cols_str}{suffix}"
+
                 # .exconly() doesn't exist on SchemaError
-                raise ValidationError(str(err)) from err
+                raise ValidationError(err_msg) from err
         else:
             self._cat_manager_validate()
 
