@@ -63,7 +63,7 @@ from lamindb.models import (
     ULabel,
 )
 from lamindb.models._feature_manager import parse_staged_feature_sets_from_anndata
-from lamindb.models.artifact import add_labels, data_is_anndata, data_is_mudata
+from lamindb.models.artifact import add_labels, data_is_anndata, data_is_mudata, data_is_spatialdata
 from lamindb.models.feature import parse_dtype, parse_dtype_single_cat
 from lamindb.models._from_values import _format_values
 
@@ -398,7 +398,7 @@ class DataFrameCurator(Curator):
 
 class AnnDataCurator(Curator):
     # the example in the docstring is tested in test_curators_quickstart_example
-    """Curator for a DataFrame object.
+    """Curator for an AnnData object.
 
     See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
 
@@ -446,7 +446,7 @@ class AnnDataCurator(Curator):
         ).save()
 
         # curate an AnnData
-        adata = datasets.small_dataset1(otype="AnnData")
+        adata = ln.core.datasets.small_dataset1(otype="AnnData")
         curator = ln.curators.AnnDataCurator(adata, anndata_schema)
         artifact = curator.save_artifact(key="example_datasets/dataset1.h5ad")
         assert artifact.schema == anndata_schema
@@ -1500,6 +1500,443 @@ def _maybe_curation_keys_not_present(nonval_keys: list[str], name: str):
         )
 
 
+class SpatialDataCatManager(CatManager):
+    """Curation flow for a ``Spatialdata`` object.
+
+    See also :class:`~lamindb.Curator`.
+
+    Note that if genes or other measurements are removed from the SpatialData object,
+    the object should be recreated.
+
+    In the following docstring, an accessor refers to either a ``.table`` key or the ``sample_metadata_key``.
+
+    Args:
+        sdata: The SpatialData object to curate.
+        var_index: A dictionary mapping table keys to the ``.var`` indices.
+        categoricals: A nested dictionary mapping an accessor to dictionaries that map columns to a registry field.
+
+        organism: The organism name.
+        sources: A dictionary mapping an accessor to dictionaries that map columns to Source records.
+        exclude: A dictionary mapping an accessor to dictionaries of column names to values to exclude from validation.
+            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
+            using the exclude parameter ensures they are not validated.
+        verbosity: The verbosity level of the logger.
+        sample_metadata_key: The key in ``.attrs`` that stores the sample level metadata.
+
+    Examples:
+        >>> import bionty as bt
+        >>> curator = SpatialDataCatManager(
+        ...     sdata,
+        ...     var_index={
+        ...         "table_1": bt.Gene.ensembl_gene_id,
+        ...     },
+        ...     categoricals={
+        ...         "table1":
+        ...             {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ULabel.name},
+        ...         "sample":
+        ...             {"experimental_factor": bt.ExperimentalFactor.name},
+        ...     },
+        ...     organism="human",
+        ... )
+    """
+
+    def __init__(
+        self,
+        sdata: Any,
+        var_index: dict[str, FieldAttr],
+        categoricals: dict[str, dict[str, FieldAttr]] | None = None,
+        verbosity: str = "hint",
+        organism: str | None = None,
+        sources: dict[str, dict[str, Record]] | None = None,
+        exclude: dict[str, dict] | None = None,
+        *,
+        sample_metadata_key: str | None = "sample",
+    ) -> None:
+        super().__init__(
+            dataset=sdata,
+            categoricals={},
+            sources=sources,
+            organism=organism,
+            exclude=exclude,
+        )
+        if isinstance(sdata, Artifact):
+            self._sdata = sdata.load()
+        else:
+            self._sdata = self._dataset
+        self._sample_metadata_key = sample_metadata_key
+        self._write_path = None
+        self._var_fields = var_index
+        self._verify_accessor_exists(self._var_fields.keys())
+        self._categoricals = categoricals
+        self._table_keys = set(self._var_fields.keys()) | set(
+            self._categoricals.keys() - {self._sample_metadata_key}
+        )
+        self._verbosity = verbosity
+        self._sample_df_curator = None
+        if self._sample_metadata_key is not None:
+            self._sample_metadata = self._sdata.get_attrs(
+                key=self._sample_metadata_key, return_as="df", flatten=True
+            )
+        self._is_validated = False
+
+        # Check validity of keys in categoricals
+        nonval_keys = []
+        for accessor, accessor_categoricals in self._categoricals.items():
+            if (
+                accessor == self._sample_metadata_key
+                and self._sample_metadata is not None
+            ):
+                for key in accessor_categoricals.keys():
+                    if key not in self._sample_metadata.columns:
+                        nonval_keys.append(key)
+            else:
+                for key in accessor_categoricals.keys():
+                    if key not in self._sdata[accessor].obs.columns:
+                        nonval_keys.append(key)
+
+        _maybe_curation_keys_not_present(nonval_keys, "categoricals")
+
+        # check validity of keys in sources and exclude
+        for name, dct in (("sources", self._sources), ("exclude", self._exclude)):
+            nonval_keys = []
+            for accessor, accessor_sources in dct.items():
+                if (
+                    accessor == self._sample_metadata_key
+                    and self._sample_metadata is not None
+                ):
+                    columns = self._sample_metadata.columns
+                elif accessor != self._sample_metadata_key:
+                    columns = self._sdata[accessor].obs.columns
+                else:
+                    continue
+                for key in accessor_sources:
+                    if key not in columns:
+                        nonval_keys.append(key)
+            _maybe_curation_keys_not_present(nonval_keys, name)
+
+        # Set up sample level metadata and table Curator objects
+        if (
+            self._sample_metadata_key is not None
+            and self._sample_metadata_key in self._categoricals
+        ):
+            self._sample_df_curator = DataFrameCatManager(
+                df=self._sample_metadata,
+                columns=Feature.name,
+                categoricals=self._categoricals.get(self._sample_metadata_key, {}),
+                verbosity=verbosity,
+                sources=self._sources.get(self._sample_metadata_key),
+                exclude=self._exclude.get(self._sample_metadata_key),
+                organism=organism,
+            )
+        self._table_adata_curators = {
+            table: AnnDataCatManager(
+                data=self._sdata[table],
+                var_index=var_index.get(table),
+                categoricals=self._categoricals.get(table),
+                verbosity=verbosity,
+                sources=self._sources.get(table),
+                exclude=self._exclude.get(table),
+                organism=organism,
+            )
+            for table in self._table_keys
+        }
+
+        self._non_validated = None
+
+    @property
+    def var_index(self) -> FieldAttr:
+        """Return the registry fields to validate variables indices against."""
+        return self._var_fields
+
+    @property
+    def categoricals(self) -> dict[str, dict[str, FieldAttr]]:
+        """Return the categorical keys and fields to validate against."""
+        return self._categoricals
+
+    @property
+    def non_validated(self) -> dict[str, dict[str, list[str]]]:  # type: ignore
+        """Return the non-validated features and labels."""
+        if self._non_validated is None:
+            raise ValidationError("Please run validate() first!")
+        return self._non_validated
+
+    def _verify_accessor_exists(self, accessors: Iterable[str]) -> None:
+        """Verify that the accessors exist (either a valid table or in attrs)."""
+        for acc in accessors:
+            is_present = False
+            try:
+                self._sdata.get_attrs(key=acc)
+                is_present = True
+            except KeyError:
+                if acc in self._sdata.tables.keys():
+                    is_present = True
+            if not is_present:
+                raise ValidationError(f"Accessor '{acc}' does not exist!")
+
+    def lookup(self, public: bool = False) -> CurateLookup:
+        """Look up categories.
+
+        Args:
+            public: Whether the lookup is performed on the public reference.
+        """
+        cat_values_dict = list(self.categoricals.values())[0]
+        return CurateLookup(
+            categoricals=cat_values_dict,
+            slots={"accessors": cat_values_dict.keys()},
+            public=public,
+        )
+
+    def _update_registry_all(self) -> None:
+        """Saves labels of all features for sample and table metadata."""
+        if self._sample_df_curator is not None:
+            self._sample_df_curator._update_registry_all(
+                validated_only=True,
+            )
+        for _, adata_curator in self._table_adata_curators.items():
+            adata_curator._obs_df_curator._update_registry_all(
+                validated_only=True,
+            )
+
+    def add_new_from_var_index(self, table: str, **kwargs) -> None:
+        """Save new values from ``.var.index`` of table.
+
+        Args:
+            table: The table key.
+            organism: The organism name.
+            **kwargs: Additional keyword arguments to pass to create new records.
+        """
+        if self._non_validated is None:
+            raise ValidationError("Run .validate() first.")
+        self._table_adata_curators[table].add_new_from_var_index(**kwargs)
+        if table in self.non_validated.keys():
+            if "var_index" in self._non_validated[table]:
+                self._non_validated[table].pop("var_index")
+
+            if len(self.non_validated[table].values()) == 0:
+                self.non_validated.pop(table)
+
+    def add_new_from(
+        self,
+        key: str,
+        accessor: str | None = None,
+        **kwargs,
+    ) -> None:
+        """Save new values of categorical from sample level metadata or table.
+
+        Args:
+            key: The key referencing the slot in the DataFrame.
+            accessor: The accessor key such as 'sample' or 'table x'.
+            organism: The organism name.
+            **kwargs: Additional keyword arguments to pass to create new records.
+        """
+        if self._non_validated is None:
+            raise ValidationError("Run .validate() first.")
+
+        if len(kwargs) > 0 and key == "all":
+            raise ValueError("Cannot pass additional arguments to 'all' key!")
+
+        if accessor not in self.categoricals:
+            raise ValueError(
+                f"Accessor {accessor} is not in 'categoricals'. Include it when creating the SpatialDataCatManager."
+            )
+
+        if accessor in self._table_adata_curators:
+            adata_curator = self._table_adata_curators[accessor]
+            adata_curator.add_new_from(key=key, **kwargs)
+        if accessor == self._sample_metadata_key:
+            self._sample_df_curator.add_new_from(key=key, **kwargs)
+
+        if accessor in self.non_validated.keys():
+            if len(self.non_validated[accessor].values()) == 0:
+                self.non_validated.pop(accessor)
+
+    def standardize(self, key: str, accessor: str | None = None) -> None:
+        """Replace synonyms with canonical values.
+
+        Modifies the dataset inplace.
+
+        Args:
+            key: The key referencing the slot in the table or sample metadata.
+            accessor: The accessor key such as 'sample_key' or 'table_key'.
+        """
+        if len(self.non_validated) == 0:
+            logger.warning("values are already standardized")
+            return
+        if self._artifact is not None:
+            raise RuntimeError("can't mutate the dataset when an artifact is passed!")
+
+        if accessor == self._sample_metadata_key:
+            if key not in self._sample_metadata.columns:
+                raise ValueError(f"key '{key}' not present in '{accessor}'!")
+        else:
+            if (
+                key == "var_index" and self._sdata.tables[accessor].var.index is None
+            ) or (
+                key != "var_index"
+                and key not in self._sdata.tables[accessor].obs.columns
+            ):
+                raise ValueError(f"key '{key}' not present in '{accessor}'!")
+
+        if accessor in self._table_adata_curators.keys():
+            adata_curator = self._table_adata_curators[accessor]
+            adata_curator.standardize(key)
+        if accessor == self._sample_metadata_key:
+            self._sample_df_curator.standardize(key)
+
+        if len(self.non_validated[accessor].values()) == 0:
+            self.non_validated.pop(accessor)
+
+    def validate(self) -> bool:
+        """Validate variables and categorical observations.
+
+        This method also registers the validated records in the current instance:
+        - from public sources
+
+        Args:
+            organism: The organism name.
+
+        Returns:
+            Whether the SpatialData object is validated.
+        """
+        from lamindb.core._settings import settings
+
+        # add all validated records to the current instance
+        verbosity = settings.verbosity
+        try:
+            settings.verbosity = "error"
+            self._update_registry_all()
+        finally:
+            settings.verbosity = verbosity
+
+        self._non_validated = {}  # type: ignore
+
+        sample_validated = True
+        if self._sample_df_curator:
+            logger.info(f"validating categoricals of '{self._sample_metadata_key}' ...")
+            sample_validated &= self._sample_df_curator.validate()
+            if len(self._sample_df_curator.non_validated) > 0:
+                self._non_validated["sample"] = self._sample_df_curator.non_validated  # type: ignore
+            logger.print("")
+
+        mods_validated = True
+        for table, adata_curator in self._table_adata_curators.items():
+            logger.info(f"validating categoricals of table '{table}' ...")
+            mods_validated &= adata_curator.validate()
+            if len(adata_curator.non_validated) > 0:
+                self._non_validated[table] = adata_curator.non_validated  # type: ignore
+            logger.print("")
+
+        self._is_validated = sample_validated & mods_validated
+        return self._is_validated
+
+    def save_artifact(
+        self,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ) -> Artifact:
+        if not self._is_validated:
+            self.validate()
+            if not self._is_validated:
+                raise ValidationError("Dataset does not validate. Please curate.")
+
+        verbosity = settings.verbosity
+        try:
+            settings.verbosity = "warning"
+
+            self._artifact = Artifact.from_spatialdata(
+                self._sdata,
+                key=key,
+                description=description,
+                revises=revises,
+                run=run,
+            )
+            self._artifact.save()
+
+            # Link schemas
+            feature_kwargs = check_registry_organism(
+                (list(self._var_fields.values())[0].field.model),
+                self._organism,
+            )
+
+            self._artifact.features._add_set_from_spatialdata(  # type: ignore
+                sample_metadata_key=self._sample_metadata_key,
+                var_fields=self._var_fields,
+                **feature_kwargs,
+            )
+
+            # Link labels
+            def _add_labels_from_spatialdata(
+                data,
+                artifact: Artifact,
+                fields: dict[str, FieldAttr],
+                feature_ref_is_name: bool | None = None,
+            ):
+                """Add Labels from SpatialData."""
+                features = Feature.lookup().dict()
+                for key, field in fields.items():
+                    feature = features.get(key)
+                    registry = field.field.model
+                    filter_kwargs = check_registry_organism(registry, self._organism)
+                    filter_kwargs_current = get_current_filter_kwargs(
+                        registry, filter_kwargs
+                    )
+                    df = data if isinstance(data, pd.DataFrame) else data.obs
+                    labels = registry.from_values(
+                        df[key],
+                        field=field,
+                        **filter_kwargs_current,
+                    )
+                    if len(labels) == 0:
+                        continue
+
+                    label_ref_is_name = None
+                    if hasattr(registry, "_name_field"):
+                        label_ref_is_name = field.field.name == registry._name_field
+                    add_labels(
+                        artifact,
+                        records=labels,
+                        feature=feature,
+                        feature_ref_is_name=feature_ref_is_name,
+                        label_ref_is_name=label_ref_is_name,
+                        from_curator=True,
+                    )
+
+            for accessor, accessor_fields in self._categoricals.items():
+                column_field = self._var_fields.get(accessor)
+                if accessor == self._sample_metadata_key:
+                    _add_labels_from_spatialdata(
+                        self._sample_metadata,
+                        self._artifact,
+                        accessor_fields,
+                        feature_ref_is_name=(
+                            None if column_field is None else _ref_is_name(column_field)
+                        ),
+                    )
+                else:
+                    _add_labels_from_spatialdata(
+                        self._sdata.tables[accessor],
+                        self._artifact,
+                        accessor_fields,
+                        feature_ref_is_name=(
+                            None if column_field is None else _ref_is_name(column_field)
+                        ),
+                    )
+
+        finally:
+            settings.verbosity = verbosity
+
+        slug = ln_setup.settings.instance.slug
+        if ln_setup.settings.instance.is_remote:  # pragma: no cover
+            logger.important(
+                f"go to https://lamin.ai/{slug}/artifact/{self._artifact.uid}"
+            )
+
+        return self._artifact
+
+
 class TiledbsomaCatManager(CatManager):
     """Curation flow for `tiledbsoma.Experiment`.
 
@@ -1983,496 +2420,6 @@ class TiledbsomaCatManager(CatManager):
                 )
 
         return artifact.save()
-
-
-class SpatialDataCatManager(CatManager):
-    """Curation flow for a ``Spatialdata`` object.
-
-    See also :class:`~lamindb.Curator`.
-
-    Note that if genes or other measurements are removed from the SpatialData object,
-    the object should be recreated.
-
-    In the following docstring, an accessor refers to either a ``.table`` key or the ``sample_metadata_key``.
-
-    Args:
-        sdata: The SpatialData object to curate.
-        var_index: A dictionary mapping table keys to the ``.var`` indices.
-        categoricals: A nested dictionary mapping an accessor to dictionaries that map columns to a registry field.
-
-        organism: The organism name.
-        sources: A dictionary mapping an accessor to dictionaries that map columns to Source records.
-        exclude: A dictionary mapping an accessor to dictionaries of column names to values to exclude from validation.
-            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
-            using the exclude parameter ensures they are not validated.
-        verbosity: The verbosity level of the logger.
-        sample_metadata_key: The key in ``.attrs`` that stores the sample level metadata.
-
-    Examples:
-        >>> import bionty as bt
-        >>> curator = SpatialDataCatManager(
-        ...     sdata,
-        ...     var_index={
-        ...         "table_1": bt.Gene.ensembl_gene_id,
-        ...     },
-        ...     categoricals={
-        ...         "table1":
-        ...             {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ULabel.name},
-        ...         "sample":
-        ...             {"experimental_factor": bt.ExperimentalFactor.name},
-        ...     },
-        ...     organism="human",
-        ... )
-    """
-
-    def __init__(
-        self,
-        sdata: Any,
-        var_index: dict[str, FieldAttr],
-        categoricals: dict[str, dict[str, FieldAttr]] | None = None,
-        verbosity: str = "hint",
-        organism: str | None = None,
-        sources: dict[str, dict[str, Record]] | None = None,
-        exclude: dict[str, dict] | None = None,
-        *,
-        sample_metadata_key: str | None = "sample",
-    ) -> None:
-        super().__init__(
-            dataset=sdata,
-            categoricals={},
-            sources=sources,
-            organism=organism,
-            exclude=exclude,
-        )
-        if isinstance(sdata, Artifact):
-            self._sdata = sdata.load()
-        else:
-            self._sdata = self._dataset
-        self._sample_metadata_key = sample_metadata_key
-        self._write_path = None
-        self._var_fields = var_index
-        self._verify_accessor_exists(self._var_fields.keys())
-        self._categoricals = categoricals
-        self._table_keys = set(self._var_fields.keys()) | set(
-            self._categoricals.keys() - {self._sample_metadata_key}
-        )
-        self._verbosity = verbosity
-        self._sample_df_curator = None
-        if self._sample_metadata_key is not None:
-            self._sample_metadata = self._sdata.get_attrs(
-                key=self._sample_metadata_key, return_as="df", flatten=True
-            )
-        self._is_validated = False
-
-        # Check validity of keys in categoricals
-        nonval_keys = []
-        for accessor, accessor_categoricals in self._categoricals.items():
-            if (
-                accessor == self._sample_metadata_key
-                and self._sample_metadata is not None
-            ):
-                for key in accessor_categoricals.keys():
-                    if key not in self._sample_metadata.columns:
-                        nonval_keys.append(key)
-            else:
-                for key in accessor_categoricals.keys():
-                    if key not in self._sdata[accessor].obs.columns:
-                        nonval_keys.append(key)
-
-        _maybe_curation_keys_not_present(nonval_keys, "categoricals")
-
-        # check validity of keys in sources and exclude
-        for name, dct in (("sources", self._sources), ("exclude", self._exclude)):
-            nonval_keys = []
-            for accessor, accessor_sources in dct.items():
-                if (
-                    accessor == self._sample_metadata_key
-                    and self._sample_metadata is not None
-                ):
-                    columns = self._sample_metadata.columns
-                elif accessor != self._sample_metadata_key:
-                    columns = self._sdata[accessor].obs.columns
-                else:
-                    continue
-                for key in accessor_sources:
-                    if key not in columns:
-                        nonval_keys.append(key)
-            _maybe_curation_keys_not_present(nonval_keys, name)
-
-        # Set up sample level metadata and table Curator objects
-        if (
-            self._sample_metadata_key is not None
-            and self._sample_metadata_key in self._categoricals
-        ):
-            self._sample_df_curator = DataFrameCatManager(
-                df=self._sample_metadata,
-                columns=Feature.name,
-                categoricals=self._categoricals.get(self._sample_metadata_key, {}),
-                verbosity=verbosity,
-                sources=self._sources.get(self._sample_metadata_key),
-                exclude=self._exclude.get(self._sample_metadata_key),
-                organism=organism,
-            )
-        self._table_adata_curators = {
-            table: AnnDataCatManager(
-                data=self._sdata[table],
-                var_index=var_index.get(table),
-                categoricals=self._categoricals.get(table),
-                verbosity=verbosity,
-                sources=self._sources.get(table),
-                exclude=self._exclude.get(table),
-                organism=organism,
-            )
-            for table in self._table_keys
-        }
-
-        self._non_validated = None
-
-    @property
-    def var_index(self) -> FieldAttr:
-        """Return the registry fields to validate variables indices against."""
-        return self._var_fields
-
-    @property
-    def categoricals(self) -> dict[str, dict[str, FieldAttr]]:
-        """Return the categorical keys and fields to validate against."""
-        return self._categoricals
-
-    @property
-    def non_validated(self) -> dict[str, dict[str, list[str]]]:  # type: ignore
-        """Return the non-validated features and labels."""
-        if self._non_validated is None:
-            raise ValidationError("Please run validate() first!")
-        return self._non_validated
-
-    def _verify_accessor_exists(self, accessors: Iterable[str]) -> None:
-        """Verify that the accessors exist (either a valid table or in attrs)."""
-        for acc in accessors:
-            is_present = False
-            try:
-                self._sdata.get_attrs(key=acc)
-                is_present = True
-            except KeyError:
-                if acc in self._sdata.tables.keys():
-                    is_present = True
-            if not is_present:
-                raise ValidationError(f"Accessor '{acc}' does not exist!")
-
-    def lookup(self, public: bool = False) -> CurateLookup:
-        """Look up categories.
-
-        Args:
-            public: Whether the lookup is performed on the public reference.
-        """
-        cat_values_dict = list(self.categoricals.values())[0]
-        return CurateLookup(
-            categoricals=cat_values_dict,
-            slots={"accessors": cat_values_dict.keys()},
-            public=public,
-        )
-
-    def _update_registry_all(self) -> None:
-        """Saves labels of all features for sample and table metadata."""
-        if self._sample_df_curator is not None:
-            self._sample_df_curator._update_registry_all(
-                validated_only=True,
-            )
-        for _, adata_curator in self._table_adata_curators.items():
-            adata_curator._obs_df_curator._update_registry_all(
-                validated_only=True,
-            )
-
-    def add_new_from_var_index(self, table: str, **kwargs) -> None:
-        """Save new values from ``.var.index`` of table.
-
-        Args:
-            table: The table key.
-            organism: The organism name.
-            **kwargs: Additional keyword arguments to pass to create new records.
-        """
-        if self._non_validated is None:
-            raise ValidationError("Run .validate() first.")
-        self._table_adata_curators[table].add_new_from_var_index(**kwargs)
-        if table in self.non_validated.keys():
-            if "var_index" in self._non_validated[table]:
-                self._non_validated[table].pop("var_index")
-
-            if len(self.non_validated[table].values()) == 0:
-                self.non_validated.pop(table)
-
-    def add_new_from(
-        self,
-        key: str,
-        accessor: str | None = None,
-        **kwargs,
-    ) -> None:
-        """Save new values of categorical from sample level metadata or table.
-
-        Args:
-            key: The key referencing the slot in the DataFrame.
-            accessor: The accessor key such as 'sample' or 'table x'.
-            organism: The organism name.
-            **kwargs: Additional keyword arguments to pass to create new records.
-        """
-        if self._non_validated is None:
-            raise ValidationError("Run .validate() first.")
-
-        if len(kwargs) > 0 and key == "all":
-            raise ValueError("Cannot pass additional arguments to 'all' key!")
-
-        if accessor not in self.categoricals:
-            raise ValueError(
-                f"Accessor {accessor} is not in 'categoricals'. Include it when creating the SpatialDataCatManager."
-            )
-
-        if accessor in self._table_adata_curators:
-            adata_curator = self._table_adata_curators[accessor]
-            adata_curator.add_new_from(key=key, **kwargs)
-        if accessor == self._sample_metadata_key:
-            self._sample_df_curator.add_new_from(key=key, **kwargs)
-
-        if accessor in self.non_validated.keys():
-            if len(self.non_validated[accessor].values()) == 0:
-                self.non_validated.pop(accessor)
-
-    def standardize(self, key: str, accessor: str | None = None) -> None:
-        """Replace synonyms with canonical values.
-
-        Modifies the dataset inplace.
-
-        Args:
-            key: The key referencing the slot in the table or sample metadata.
-            accessor: The accessor key such as 'sample_key' or 'table_key'.
-        """
-        if len(self.non_validated) == 0:
-            logger.warning("values are already standardized")
-            return
-        if self._artifact is not None:
-            raise RuntimeError("can't mutate the dataset when an artifact is passed!")
-
-        if accessor == self._sample_metadata_key:
-            if key not in self._sample_metadata.columns:
-                raise ValueError(f"key '{key}' not present in '{accessor}'!")
-        else:
-            if (
-                key == "var_index" and self._sdata.tables[accessor].var.index is None
-            ) or (
-                key != "var_index"
-                and key not in self._sdata.tables[accessor].obs.columns
-            ):
-                raise ValueError(f"key '{key}' not present in '{accessor}'!")
-
-        if accessor in self._table_adata_curators.keys():
-            adata_curator = self._table_adata_curators[accessor]
-            adata_curator.standardize(key)
-        if accessor == self._sample_metadata_key:
-            self._sample_df_curator.standardize(key)
-
-        if len(self.non_validated[accessor].values()) == 0:
-            self.non_validated.pop(accessor)
-
-    def validate(self) -> bool:
-        """Validate variables and categorical observations.
-
-        This method also registers the validated records in the current instance:
-        - from public sources
-
-        Args:
-            organism: The organism name.
-
-        Returns:
-            Whether the SpatialData object is validated.
-        """
-        from lamindb.core._settings import settings
-
-        # add all validated records to the current instance
-        verbosity = settings.verbosity
-        try:
-            settings.verbosity = "error"
-            self._update_registry_all()
-        finally:
-            settings.verbosity = verbosity
-
-        self._non_validated = {}  # type: ignore
-
-        sample_validated = True
-        if self._sample_df_curator:
-            logger.info(f"validating categoricals of '{self._sample_metadata_key}' ...")
-            sample_validated &= self._sample_df_curator.validate()
-            if len(self._sample_df_curator.non_validated) > 0:
-                self._non_validated["sample"] = self._sample_df_curator.non_validated  # type: ignore
-            logger.print("")
-
-        mods_validated = True
-        for table, adata_curator in self._table_adata_curators.items():
-            logger.info(f"validating categoricals of table '{table}' ...")
-            mods_validated &= adata_curator.validate()
-            if len(adata_curator.non_validated) > 0:
-                self._non_validated[table] = adata_curator.non_validated  # type: ignore
-            logger.print("")
-
-        self._is_validated = sample_validated & mods_validated
-        return self._is_validated
-
-    def save_artifact(
-        self,
-        *,
-        key: str | None = None,
-        description: str | None = None,
-        revises: Artifact | None = None,
-        run: Run | None = None,
-    ) -> Artifact:
-        if not self._is_validated:
-            self.validate()
-            if not self._is_validated:
-                raise ValidationError("Dataset does not validate. Please curate.")
-
-        verbosity = settings.verbosity
-        try:
-            settings.verbosity = "warning"
-
-            self._artifact = Artifact.from_spatialdata(
-                self._sdata,
-                key=key,
-                description=description,
-                revises=revises,
-                run=run,
-            )
-            self._artifact.save()
-
-            # Link schemas
-            feature_kwargs = check_registry_organism(
-                (list(self._var_fields.values())[0].field.model),
-                self._organism,
-            )
-
-            def _add_set_from_spatialdata(
-                host: Artifact | Collection | Run,
-                var_fields: dict[str, FieldAttr],
-                obs_fields: dict[str, FieldAttr] = None,
-                mute: bool = False,
-                organism: str | Record | None = None,
-            ):
-                """Add Schemas from SpatialData."""
-                if obs_fields is None:
-                    obs_fields = {}
-                assert host.otype == "SpatialData"  # noqa: S101
-
-                feature_sets = {}
-
-                # sample features
-                sample_features = Feature.from_values(self._sample_metadata.columns)  # type: ignore
-                if len(sample_features) > 0:
-                    feature_sets[self._sample_metadata_key] = Schema(
-                        features=sample_features
-                    )
-
-                # table features
-                for table, field in var_fields.items():
-                    table_fs = parse_staged_feature_sets_from_anndata(
-                        self._sdata[table],
-                        var_field=field,
-                        obs_field=obs_fields.get(table, Feature.name),
-                        mute=mute,
-                        organism=organism,
-                    )
-                    for k, v in table_fs.items():
-                        feature_sets[f"['{table}'].{k}"] = v
-
-                def _unify_staged_feature_sets_by_hash(
-                    feature_sets: MutableMapping[str, Schema],
-                ):
-                    unique_values: dict[str, Any] = {}
-
-                    for key, value in feature_sets.items():
-                        value_hash = (
-                            value.hash
-                        )  # Assuming each value has a .hash attribute
-                        if value_hash in unique_values:
-                            feature_sets[key] = unique_values[value_hash]
-                        else:
-                            unique_values[value_hash] = value
-
-                    return feature_sets
-
-                # link feature sets
-                host._staged_feature_sets = _unify_staged_feature_sets_by_hash(
-                    feature_sets
-                )
-                host.save()
-
-            _add_set_from_spatialdata(
-                self._artifact, var_fields=self._var_fields, **feature_kwargs
-            )
-
-            # Link labels
-            def _add_labels_from_spatialdata(
-                data,
-                artifact: Artifact,
-                fields: dict[str, FieldAttr],
-                feature_ref_is_name: bool | None = None,
-            ):
-                """Add Labels from SpatialData."""
-                features = Feature.lookup().dict()
-                for key, field in fields.items():
-                    feature = features.get(key)
-                    registry = field.field.model
-                    filter_kwargs = check_registry_organism(registry, self._organism)
-                    filter_kwargs_current = get_current_filter_kwargs(
-                        registry, filter_kwargs
-                    )
-                    df = data if isinstance(data, pd.DataFrame) else data.obs
-                    labels = registry.from_values(
-                        df[key],
-                        field=field,
-                        **filter_kwargs_current,
-                    )
-                    if len(labels) == 0:
-                        continue
-
-                    label_ref_is_name = None
-                    if hasattr(registry, "_name_field"):
-                        label_ref_is_name = field.field.name == registry._name_field
-                    add_labels(
-                        artifact,
-                        records=labels,
-                        feature=feature,
-                        feature_ref_is_name=feature_ref_is_name,
-                        label_ref_is_name=label_ref_is_name,
-                        from_curator=True,
-                    )
-
-            for accessor, accessor_fields in self._categoricals.items():
-                column_field = self._var_fields.get(accessor)
-                if accessor == self._sample_metadata_key:
-                    _add_labels_from_spatialdata(
-                        self._sample_metadata,
-                        self._artifact,
-                        accessor_fields,
-                        feature_ref_is_name=(
-                            None if column_field is None else _ref_is_name(column_field)
-                        ),
-                    )
-                else:
-                    _add_labels_from_spatialdata(
-                        self._sdata.tables[accessor],
-                        self._artifact,
-                        accessor_fields,
-                        feature_ref_is_name=(
-                            None if column_field is None else _ref_is_name(column_field)
-                        ),
-                    )
-
-        finally:
-            settings.verbosity = verbosity
-
-        slug = ln_setup.settings.instance.slug
-        if ln_setup.settings.instance.is_remote:  # pragma: no cover
-            logger.important(
-                f"go to https://lamin.ai/{slug}/artifact/{self._artifact.uid}"
-            )
-
-        return self._artifact
 
 
 def _restrict_obs_fields(
