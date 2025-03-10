@@ -623,14 +623,12 @@ class MuDataCurator(SlotsCurator):
         dataset: MuData | Artifact,
         schema: Schema,
     ) -> None:
-        super().__init__(dataset=dataset.to_anndata(), schema=schema)
+        super().__init__(dataset=dataset, schema=schema)
         if not data_is_mudata(self._dataset):
             raise InvalidArgument("dataset must be MuData-like.")
         if schema.otype != "MuData":
             raise InvalidArgument("Schema otype must be 'MuData'.")
 
-        # in form of {slot: DataFrameCurator}
-        self._slots: dict[str, DataFrameCurator] = {}
         # in form of {modality: var_field}
         self._var_fields: dict[str, FieldAttr] = {}
         # in form of {modality: obs_fields}
