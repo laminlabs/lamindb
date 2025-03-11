@@ -3480,26 +3480,6 @@ def save_artifact(
     else:
         feature_kwargs = {}
 
-    match artifact.otype:
-        case "DataFrame":
-            artifact.features._add_set_from_df(field=index_field, **feature_kwargs)  # type: ignore
-        case "AnnData":
-            artifact.features._add_set_from_anndata(  # type: ignore
-                var_field=index_field, **feature_kwargs
-            )
-        case "MuData":
-            artifact.features._add_set_from_mudata(  # type: ignore
-                var_fields=index_field, **feature_kwargs
-            )
-        case "SpatialData":
-            artifact.features._add_set_from_spatialdata(  # type: ignore
-                sample_metadata_key=kwargs.get("sample_metadata_key", "sample"),
-                var_fields=index_field,
-                **feature_kwargs,
-            )
-        case _:
-            raise NotImplementedError  # pragma: no cover
-
     def _add_labels(
         data: pd.DataFrame | ScverseDataStructures,
         artifact: Artifact,
@@ -3537,60 +3517,78 @@ def save_artifact(
                 from_curator=True,
             )
 
-    if artifact.otype == "MuData":
-        for modality, modality_fields in fields.items():
-            column_field_modality = index_field.get(modality)
-            if modality == "obs":
-                _add_labels(
-                    data,
-                    artifact,
-                    modality_fields,
-                    feature_ref_is_name=(
-                        None
-                        if column_field_modality is None
-                        else _ref_is_name(column_field_modality)
-                    ),
-                )
-            else:
-                _add_labels(
-                    data[modality],
-                    artifact,
-                    modality_fields,
-                    feature_ref_is_name=(
-                        None
-                        if column_field_modality is None
-                        else _ref_is_name(column_field_modality)
-                    ),
-                )
-    elif artifact.otype == "SpatialData":
-        sample_metadata_key = kwargs.get("sample_metadata_key", "sample")
-        for accessor, accessor_fields in fields.items():
-            column_field = index_field.get(accessor)
-            if accessor == sample_metadata_key:
-                _add_labels(
-                    data.get_attrs(
-                        key=sample_metadata_key, return_as="df", flatten=True
-                    ),
-                    artifact,
-                    accessor_fields,
-                    feature_ref_is_name=(
-                        None if column_field is None else _ref_is_name(column_field)
-                    ),
-                )
-            else:
-                _add_labels(
-                    data.tables[accessor],
-                    artifact,
-                    accessor_fields,
-                    feature_ref_is_name=(
-                        None if column_field is None else _ref_is_name(column_field)
-                    ),
-                )
-    # handles both pd.DataFrames and AnnData objects
-    else:
-        _add_labels(
-            data, artifact, fields, feature_ref_is_name=_ref_is_name(index_field)
-        )
+    match artifact.otype:
+        case "DataFrame":
+            artifact.features._add_set_from_df(field=index_field, **feature_kwargs)  # type: ignore
+            _add_labels(
+                data, artifact, fields, feature_ref_is_name=_ref_is_name(index_field)
+            )
+        case "AnnData":
+            artifact.features._add_set_from_anndata(  # type: ignore
+                var_field=index_field, **feature_kwargs
+            )
+            _add_labels(
+                data, artifact, fields, feature_ref_is_name=_ref_is_name(index_field)
+            )
+        case "MuData":
+            artifact.features._add_set_from_mudata(  # type: ignore
+                var_fields=index_field, **feature_kwargs
+            )
+            for modality, modality_fields in fields.items():
+                column_field_modality = index_field.get(modality)
+                if modality == "obs":
+                    _add_labels(
+                        data,
+                        artifact,
+                        modality_fields,
+                        feature_ref_is_name=(
+                            None
+                            if column_field_modality is None
+                            else _ref_is_name(column_field_modality)
+                        ),
+                    )
+                else:
+                    _add_labels(
+                        data[modality],
+                        artifact,
+                        modality_fields,
+                        feature_ref_is_name=(
+                            None
+                            if column_field_modality is None
+                            else _ref_is_name(column_field_modality)
+                        ),
+                    )
+        case "SpatialData":
+            artifact.features._add_set_from_spatialdata(  # type: ignore
+                sample_metadata_key=kwargs.get("sample_metadata_key", "sample"),
+                var_fields=index_field,
+                **feature_kwargs,
+            )
+            sample_metadata_key = kwargs.get("sample_metadata_key", "sample")
+            for accessor, accessor_fields in fields.items():
+                column_field = index_field.get(accessor)
+                if accessor == sample_metadata_key:
+                    _add_labels(
+                        data.get_attrs(
+                            key=sample_metadata_key, return_as="df", flatten=True
+                        ),
+                        artifact,
+                        accessor_fields,
+                        feature_ref_is_name=(
+                            None if column_field is None else _ref_is_name(column_field)
+                        ),
+                    )
+                else:
+                    _add_labels(
+                        data.tables[accessor],
+                        artifact,
+                        accessor_fields,
+                        feature_ref_is_name=(
+                            None if column_field is None else _ref_is_name(column_field)
+                        ),
+                    )
+        case _:
+            raise NotImplementedError  # pragma: no cover
 
     artifact.schema = schema
     artifact.save()
