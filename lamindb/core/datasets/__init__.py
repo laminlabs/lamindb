@@ -83,6 +83,12 @@ from ._core import (
     mudata_papalexi21_subset,
     schmidt22_crispra_gws_IFNG,
     schmidt22_perturbseq,
+    spatialdata_blobs,
 )
 from ._fake import fake_bio_notebook_titles
-from ._small import anndata_with_obs, small_dataset1, small_dataset2
+from ._small import (
+    anndata_with_obs,
+    small_dataset1,
+    small_dataset2,
+    small_dataset3_cellxgene,
+)

@@ -3,7 +3,7 @@ import lamindb as ln
 import numpy as np
 import pandas as pd
 from lamindb.core import datasets
-from lamindb.core._data import _describe_postgres
+from lamindb.models.artifact import _describe_postgres
 
 
 def check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame):
@@ -48,7 +48,7 @@ def check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame):
 def test_curate_df():
     ## Create a more complex case
     # observation-level metadata
-    ln.Feature(name="cell_medium", dtype="cat[ULabel]").save()
+    ln.Feature(name="perturbation", dtype="cat[ULabel]").save()
     ln.Feature(name="sample_note", dtype="str").save()
     ln.Feature(name="cell_type_by_expert", dtype="cat[bionty.CellType]").save()
     ln.Feature(name="cell_type_by_model", dtype="cat[bionty.CellType]").save()
@@ -65,12 +65,12 @@ def test_curate_df():
     bt.CellType.from_values(["B cell", "T cell"], create=True).save()
 
     ## Ingest dataset1
-    adata = datasets.small_dataset1(format="anndata")
+    adata = datasets.small_dataset1(otype="AnnData")
     curator = ln.Curator.from_anndata(
         adata,
-        var_index=bt.Gene.symbol,
+        var_index=bt.Gene.ensembl_gene_id,
         categoricals={
-            "cell_medium": ln.ULabel.name,
+            "perturbation": ln.ULabel.name,
             "cell_type_by_expert": bt.CellType.name,
             "cell_type_by_model": bt.CellType.name,
         },
@@ -80,12 +80,12 @@ def test_curate_df():
     artifact.features.add_values(adata.uns)
 
     # Ingest dataset2
-    adata2 = datasets.small_dataset2(format="anndata")
+    adata2 = datasets.small_dataset2(otype="AnnData")
     curator = ln.Curator.from_anndata(
         adata2,
-        var_index=bt.Gene.symbol,
+        var_index=bt.Gene.ensembl_gene_id,
         categoricals={
-            "cell_medium": ln.ULabel.name,
+            "perturbation": ln.ULabel.name,
             "cell_type_by_model": bt.CellType.name,
         },
         organism="human",
@@ -97,15 +97,15 @@ def test_curate_df():
     df = (
         ln.Artifact.filter(key__startswith="example_datasets/dataset", suffix=".h5ad")
         .order_by("-key")
-        .df(include=["_schemas_m2m__hash", "_schemas_m2m__name"])
+        .df(include=["feature_sets__hash", "feature_sets__name"])
         .drop(["uid"], axis=1)
     )
     expected_data = {
         "key": ["example_datasets/dataset2.h5ad", "example_datasets/dataset1.h5ad"],
         "description": [None, None],
         "feature_sets__hash": [
-            set(artifact2._schemas_m2m.all().values_list("hash", flat=True)),
-            set(artifact._schemas_m2m.all().values_list("hash", flat=True)),
+            set(artifact2.feature_sets.all().values_list("hash", flat=True)),
+            set(artifact.feature_sets.all().values_list("hash", flat=True)),
         ],
         "feature_sets__name": [{None}, {None}],
     }
@@ -113,8 +113,14 @@ def test_curate_df():
     check_df_equality(df, expected_df)
 
     # Test df(features=True)
+    # test that the ulabels filter DOES NOT affect joining the annotations
+    # we want it to only affect the artifact query (even though here, it won't change the result as both artifacts have the IFNG label)
     df = (
-        ln.Artifact.filter(key__startswith="example_datasets/dataset", suffix=".h5ad")
+        ln.Artifact.filter(
+            key__startswith="example_datasets/dataset",
+            suffix=".h5ad",
+            ulabels__name="IFNG",
+        )
         .order_by("-key")
         .df(features=True)
         .drop(["uid"], axis=1)
@@ -125,7 +131,7 @@ def test_curate_df():
         "cell_type_by_expert": [np.nan, {"T cell", "B cell"}],
         "cell_type_by_model": [{"T cell", "B cell"}, {"T cell", "B cell"}],
         "study": [{"Candidate marker study 2"}, {"Candidate marker study 1"}],
-        "cell_medium": [{"IFNG", "DMSO"}, {"IFNG", "DMSO"}],
+        "perturbation": [{"IFNG", "DMSO"}, {"IFNG", "DMSO"}],
         "temperature": [{21.6}, np.nan],
         "study_note": [
             {
@@ -140,7 +146,7 @@ def test_curate_df():
 
     # expected output has italicized elements that can't be tested
     # hence testing is restricted to section content, not headings
-    description_tree = _describe_postgres(artifact, print_types=True)
+    description_tree = _describe_postgres(artifact)
 
     # general section
     assert (
@@ -159,7 +165,7 @@ def test_curate_df():
 
     # dataset section
     int_features_node = description_tree.children[1]
-    assert int_features_node.label.plain == "Dataset features/schema"
+    assert int_features_node.label.plain == "Dataset features/.feature_sets"
     assert len(int_features_node.children) == 2
     assert len(int_features_node.children[0].label.rows) == 3
     assert len(int_features_node.children[0].label.columns) == 3
@@ -175,27 +181,27 @@ def test_curate_df():
     assert int_features_node.children[0].label.columns[1]._cells[0].plain == "int"
     assert int_features_node.children[1].label.columns[0].header.plain == "obs • 4"
     assert int_features_node.children[1].label.columns[0]._cells == [
-        "cell_medium",
         "cell_type_by_expert",
         "cell_type_by_model",
+        "perturbation",
         "sample_note",
     ]
     assert int_features_node.children[1].label.columns[1].header.plain == "[Feature]"
     assert (
-        int_features_node.children[1].label.columns[1]._cells[0].plain == "cat[ULabel]"
+        int_features_node.children[1].label.columns[1]._cells[0].plain
+        == "cat[bionty.CellType]"
     )
     assert (
         int_features_node.children[1].label.columns[1]._cells[1].plain
         == "cat[bionty.CellType]"
     )
     assert (
-        int_features_node.children[1].label.columns[1]._cells[2].plain
-        == "cat[bionty.CellType]"
+        int_features_node.children[1].label.columns[1]._cells[2].plain == "cat[ULabel]"
     )
     assert int_features_node.children[1].label.columns[2]._cells == [
+        "B cell, T cell",
+        "B cell, T cell",
         "DMSO, IFNG",
-        "B cell, T cell",
-        "B cell, T cell",
         "",
     ]
 

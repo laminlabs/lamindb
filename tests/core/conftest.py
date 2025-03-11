@@ -50,6 +50,20 @@ def pytest_sessionfinish(session: pytest.Session):
     ln.setup.settings.auto_connect = AUTO_CONNECT
 
 
+@pytest.fixture
+def ccaplog(caplog):
+    """Add caplog handler to our custom logger at session start."""
+    from lamin_utils._logger import logger
+
+    # Add caplog's handler to our custom logger
+    logger.addHandler(caplog.handler)
+
+    yield caplog
+
+    # Clean up at the end of the session
+    logger.removeHandler(caplog.handler)
+
+
 @pytest.fixture(
     scope="module",
     params=[
@@ -78,7 +92,7 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
             ln.Storage.filter(root=root_dir.resolve().as_posix()).one_or_none() is None
         )
     test_dirpath = root_dir / "my_dir/"
-    test_dirpath.mkdir(parents=True)
+    test_dirpath.mkdir(parents=True, exist_ok=True)
     # create a first file
     test_filepath0 = test_dirpath / f"my_file{suffix}"
     test_filepath0.write_text("0")

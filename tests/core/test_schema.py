@@ -1,12 +1,10 @@
-from inspect import signature
-
 import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
-from lamindb import _schema
-from lamindb._schema import get_related_name, validate_features
-from lamindb.core.exceptions import ValidationError
+from django.db.utils import IntegrityError
+from lamindb.errors import ValidationError
+from lamindb.models.schema import get_related_name, validate_features
 
 
 @pytest.fixture(scope="module")
@@ -21,24 +19,6 @@ def df():
     )
 
 
-def test_signatures():
-    # this seems currently the easiest and most transparent
-    # way to test violations of the signature equality
-    # the MockORM class is needed to get inspect.signature
-    # to work
-    class Mock:
-        pass
-
-    # class methods
-    class_methods = ["from_values", "from_df"]
-    for name in class_methods:
-        setattr(Mock, name, getattr(_schema, name))
-        assert signature(getattr(Mock, name)) == _schema.SIGS.pop(name)
-    # methods
-    for name, sig in _schema.SIGS.items():
-        assert signature(getattr(_schema, name)) == sig
-
-
 def test_schema_from_values():
     gene_symbols = ["TCF7", "MYC"]
     bt.settings.organism = "human"
@@ -46,7 +26,7 @@ def test_schema_from_values():
     with pytest.raises(ValidationError) as error:
         schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, type=int)
     assert error.exconly().startswith(
-        "lamindb.core.exceptions.ValidationError: These values could not be validated:"
+        "lamindb.errors.ValidationError: These values could not be validated:"
     )
     ln.save(bt.Gene.from_values(gene_symbols, "symbol"))
     schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol)
@@ -56,7 +36,7 @@ def test_schema_from_values():
     schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, type=int)
     assert schema._state.adding
     assert schema.dtype == "int"
-    assert schema.registry == "bionty.Gene"
+    assert schema.itype == "bionty.Gene"
     schema.save()
     assert set(schema.members) == set(schema.genes.all())
     id = schema.id
@@ -99,7 +79,7 @@ def test_schema_from_records(df):
     assert schema.id is None
     assert schema._state.adding
     assert schema.dtype is None
-    assert schema.registry == "Feature"
+    assert schema.itype == "Feature"
     schema.save()
     # test that the schema is retrieved from the database
     # in case it already exists
@@ -147,7 +127,7 @@ def test_validate_features():
         validate_features(["feature"])
     with pytest.raises(TypeError):
         validate_features({"feature"})
-    transform = ln.Transform(name="test")
+    transform = ln.Transform(key="test")
     transform.save()
     # This is just a type check
     with pytest.raises(TypeError) as error:
@@ -171,3 +151,105 @@ def test_edge_cases():
         == "ValueError: Please pass a ListLike of features, not a single feature"
     )
     feature.delete()
+
+
+@pytest.fixture(scope="module")
+def small_dataset1_schema():
+    # define labels
+    perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
+    ln.ULabel(name="DMSO", type=perturbation).save()
+    ln.ULabel(name="IFNG", type=perturbation).save()
+    bt.CellType.from_source(name="B cell").save()
+    bt.CellType.from_source(name="T cell").save()
+
+    # in next iteration for attrs
+    # ln.Feature(name="temperature", dtype="float").save()
+    # ln.Feature(name="study", dtype="cat[ULabel]").save()
+    # ln.Feature(name="date_of_study", dtype="date").save()
+    # ln.Feature(name="study_note", dtype="str").save()
+
+    # define schema
+    schema = ln.Schema(
+        name="small_dataset1_obs_level_metadata",
+        features=[
+            ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
+            ln.Feature(name="sample_note", dtype=str).save(),
+            ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
+            ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
+        ],
+    ).save()
+
+    yield schema
+
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
+    bt.Gene.filter().delete()
+    ln.ULabel.filter(type__isnull=False).delete()
+    ln.ULabel.filter().delete()
+    bt.CellType.filter().delete()
+
+
+def test_schema_recreation_with_same_name_different_hash(
+    small_dataset1_schema: ln.Schema,
+):
+    try:
+        ln.Schema(
+            name="small_dataset1_obs_level_metadata",
+            features=[
+                ln.Feature.get(name="perturbation"),
+                ln.Feature.get(name="sample_note"),
+            ],
+        ).save()
+    except ValueError as error:
+        assert str(error).startswith("Schema name is already in use by schema with uid")
+
+
+def test_schema_components(small_dataset1_schema: ln.Schema):
+    obs_schema = small_dataset1_schema
+    var_schema = ln.Schema(
+        name="scRNA_seq_var_schema",
+        itype=bt.Gene.ensembl_gene_id,
+        dtype="num",
+    ).save()
+
+    # test recreation of schema based on name lookup
+    var_schema2 = ln.Schema(
+        name="scRNA_seq_var_schema",
+        itype=bt.Gene.ensembl_gene_id,
+        dtype="num",
+    ).save()
+    assert var_schema == var_schema2
+
+    try:
+        ln.Schema(
+            name="small_dataset1_anndata_schema",
+            otype="AnnData",
+            components={"obs": obs_schema, "var": var_schema},
+        ).save()
+    except ln.errors.InvalidArgument:
+        assert (
+            str(ln.errors.InvalidArgument)
+            == "Please pass otype != None for composite schemas"
+        )
+
+    anndata_schema = ln.Schema(
+        name="small_dataset1_anndata_schema",
+        otype="AnnData",
+        components={"obs": obs_schema, "var": var_schema},
+    ).save()
+
+    var_schema2 = ln.Schema(
+        name="symbol_var_schema",
+        itype=bt.Gene.symbol,
+        dtype="num",
+    ).save()
+    # try adding another schema under slot "var"
+    # we want to trigger the unique constraint on slot
+    try:
+        anndata_schema.components.add(var_schema2, through_defaults={"slot": "var"})
+    except IntegrityError as error:
+        assert str(error).startswith("duplicate key value violates unique constraint")
+
+    anndata_schema.delete()
+    var_schema2.delete()
+    var_schema.delete()

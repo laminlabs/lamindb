@@ -1,6 +1,8 @@
+import gzip
 import shutil
 from pathlib import Path
 
+import anndata as ad
 import h5py
 import lamindb as ln
 import numpy as np
@@ -10,12 +12,22 @@ import tiledbsoma
 import tiledbsoma.io
 import zarr
 from lamindb.core.loaders import load_h5ad
+from lamindb.core.storage._anndata_accessor import _anndata_n_observations
 from lamindb.core.storage._backed_access import (
     AnnDataAccessor,
     BackedAccessor,
     backed_access,
 )
-from lamindb.core.storage._zarr import load_anndata_zarr, write_adata_zarr
+from lamindb.core.storage._pyarrow_dataset import (
+    _is_pyarrow_dataset,
+    _open_pyarrow_dataset,
+)
+from lamindb.core.storage._tiledbsoma import (
+    _open_tiledbsoma,
+    _soma_store_n_observations,
+    _tiledb_config_s3,
+)
+from lamindb.core.storage._zarr import load_zarr, write_adata_zarr
 from lamindb.core.storage.objects import infer_suffix, write_to_disk
 from lamindb.integrations import save_tiledbsoma_experiment
 
@@ -58,7 +70,7 @@ def test_anndata_io():
     zarr_path = test_file.with_suffix(".zarr")
     write_adata_zarr(adata, zarr_path, callback)
 
-    adata = load_anndata_zarr(zarr_path)
+    adata = load_zarr(zarr_path, "anndata")
 
     assert adata.shape == (30, 200)
 
@@ -158,12 +170,10 @@ def test_backed_access(adata_format):
 
 
 def test_infer_suffix():
-    import anndata as ad
-
     adata = ad.AnnData()
-    assert infer_suffix(adata, adata_format="h5ad") == ".h5ad"
+    assert infer_suffix(adata, format="h5ad") == ".h5ad"
     with pytest.raises(ValueError):
-        infer_suffix(adata, adata_format="my format")
+        infer_suffix(adata, format="my format")
     with pytest.raises(NotImplementedError):
         infer_suffix(ln.Artifact)
 
@@ -242,7 +252,7 @@ def test_write_read_tiledbsoma(storage):
     else:
         adata.write_h5ad(test_file)
 
-    create_transform = ln.Transform(name="test create tiledbsoma store").save()
+    create_transform = ln.Transform(key="test create tiledbsoma store").save()
     create_run = ln.Run(create_transform).save()
 
     # fails with a view
@@ -309,7 +319,7 @@ def test_write_read_tiledbsoma(storage):
     adata_to_append_2.var["var_id"] = adata_to_append_2.var.index
     adata_to_append_2.write_h5ad("adata_to_append_2.h5ad")
 
-    append_transform = ln.Transform(name="test append tiledbsoma store").save()
+    append_transform = ln.Transform(key="test append tiledbsoma store").save()
     append_run = ln.Run(append_transform).save()
 
     # here run should be passed
@@ -369,11 +379,51 @@ def test_write_read_tiledbsoma(storage):
     assert not soma_path.exists()
     assert not ln.Artifact.filter(description="test tiledbsoma").exists()
 
+    Path("adata_to_append_2.h5ad").unlink()
+
     if storage is not None:
         ln.settings.storage = previous_storage
 
 
-def test_backed_pyarrow():
+def test_from_tiledbsoma():
+    test_file = ln.core.datasets.anndata_file_pbmc68k_test()
+    soma_path = "mystore.tiledbsoma"
+    tiledbsoma.io.from_h5ad(soma_path, test_file, measurement_name="RNA")
+    # wrong suffix
+    with pytest.raises(ValueError):
+        ln.Artifact.from_tiledbsoma("mystore")
+
+    artifact = ln.Artifact.from_tiledbsoma(
+        soma_path, description="test soma store"
+    ).save()
+    assert artifact.n_observations == 30
+
+    with _open_tiledbsoma(artifact.path, mode="r") as store:
+        # experiment
+        assert _soma_store_n_observations(store) == 30
+        # dataframe
+        assert _soma_store_n_observations(store.obs) == 30
+        # treat as unstructured collection, data + raw
+        assert _soma_store_n_observations(store.ms) == 60
+        # measurement
+        assert _soma_store_n_observations(store.ms["RNA"]) == 30
+        # array
+        assert _soma_store_n_observations(store.ms["RNA"]["X"]["data"]) == 30
+
+    artifact.delete(permanent=True)
+    shutil.rmtree(soma_path)
+
+
+def test_tiledb_config():
+    storepath = ln.UPath("s3://bucket/key?endpoint_url=http://localhost:9000/s3")
+    tiledb_config = _tiledb_config_s3(storepath)
+    assert tiledb_config["vfs.s3.endpoint_override"] == "localhost:9000/s3"
+    assert tiledb_config["vfs.s3.scheme"] == "http"
+    assert tiledb_config["vfs.s3.use_virtual_addressing"] == "false"
+    assert tiledb_config["vfs.s3.region"] == ""
+
+
+def test_backed_pyarrow_artifact():
     previous_storage = ln.setup.settings.storage.root_as_str
     ln.settings.storage = "s3://lamindb-test/storage"
 
@@ -410,6 +460,63 @@ def test_backed_pyarrow():
     ln.settings.storage = previous_storage
 
 
+def test_backed_pyarrow_collection():
+    ln.settings.storage = "s3://lamindb-test/storage"
+
+    df = pd.DataFrame({"feat1": [0, 0, 1, 1], "feat2": [6, 7, 8, 9]})
+    shard1 = ln.UPath("df1.parquet")
+    shard2 = ln.UPath("df2.parquet")
+    df[:2].to_parquet(shard1, engine="pyarrow")
+    df[2:].to_parquet(shard2, engine="pyarrow")
+    # test checking and opening local paths
+    assert not _is_pyarrow_dataset([shard1, ln.UPath("some.csv")])
+    assert _open_pyarrow_dataset([shard1, shard2]).to_table().to_pandas().equals(df)
+
+    ln.core.datasets.file_mini_csv()
+
+    artifact1 = ln.Artifact(shard1, key="df1.parquet").save()
+    artifact2 = ln.Artifact(shard2, key="df2.parquet").save()
+    artifact3 = ln.Artifact("mini.csv", key="mini.csv").save()
+    artifact4 = ln.Artifact(
+        "https://raw.githubusercontent.com/laminlabs/lamindb/refs/heads/main/README.md"
+    ).save()
+
+    collection1 = ln.Collection([artifact1, artifact2], key="parquet_col")
+    # before saving
+    assert collection1.open().to_table().to_pandas().equals(df)
+    # after saving
+    collection1.save()
+    assert collection1.open().to_table().to_pandas().equals(df)
+
+    collection2 = ln.Collection([artifact1, artifact3], key="parquet_csv_col").save()
+    with pytest.raises(ValueError) as err:
+        collection2.open()
+    assert err.exconly().startswith(
+        "ValueError: This collection is not compatible with pyarrow.dataset.dataset()"
+    )
+
+    collection3 = ln.Collection([artifact1, artifact4], key="s3_http_col").save()
+    with pytest.raises(ValueError) as err:
+        collection3.open()
+    assert err.exconly().startswith(
+        "ValueError: The collection has artifacts with different filesystems, this is not supported."
+    )
+
+    shard1.unlink()
+    shard2.unlink()
+
+    collection1.delete(permanent=True)
+    collection2.delete(permanent=True)
+    collection3.delete(permanent=True)
+
+    artifact1.delete(permanent=True)
+    artifact2.delete(permanent=True)
+    artifact3.delete(permanent=True)
+    artifact4.delete(permanent=True, storage=False)
+
+    ln.settings.storage = "s3://lamindb-test/storage"
+
+
 def test_backed_wrong_suffix():
     fp = Path("test_file.txt")
     fp.write_text("test open with wrong suffix")
@@ -420,3 +527,52 @@ def test_backed_wrong_suffix():
         artifact.open()
 
     fp.unlink()
+
+
+def test_anndata_n_observations(bad_adata_path):
+    assert _anndata_n_observations(bad_adata_path) == 30
+
+    assert _anndata_n_observations("./path_does_not_exist.h5ad") is None
+    assert _anndata_n_observations("./path_does_not_exist.zarr") is None
+
+    corrupted_path = Path("./corrupted.h5ad")
+    shutil.copy(bad_adata_path, corrupted_path)
+    with h5py.File(corrupted_path, mode="r+") as f:
+        del f["obs"]
+        assert "obs" not in f
+    assert _anndata_n_observations(corrupted_path) is None
+    corrupted_path.unlink()
+
+    adata = ln.core.datasets.anndata_pbmc68k_reduced()
+    assert _anndata_n_observations(adata) == adata.n_obs
+    zarr_path = "./test_adata_n_obs.zarr"
+    adata.write_zarr(zarr_path)
+    assert _anndata_n_observations(zarr_path) == adata.n_obs
+
+    del zarr.open(zarr_path, mode="r+")["obs"].attrs["_index"]
+    assert _anndata_n_observations(zarr_path) == adata.n_obs
+
+    shutil.rmtree(zarr_path)
+
+
+def _compress(input_filepath, output_filepath):
+    with open(input_filepath, "rb") as f_in:
+        with gzip.open(output_filepath, "wb") as f_out:
+            shutil.copyfileobj(f_in, f_out)
+
+
+def test_compressed():
+    adata_f = ln.core.datasets.anndata_file_pbmc68k_test()
+    adata_gz = adata_f.with_suffix(adata_f.suffix + ".gz")
+    _compress(adata_f, adata_gz)
+
+    artifact = ln.Artifact.from_anndata(adata_gz, key="adata.h5ad.gz").save()
+    with artifact.open() as store:
+        assert isinstance(store, AnnDataAccessor)
+    assert isinstance(artifact.load(), ad.AnnData)
+
+    with pytest.raises(OSError):
+        artifact.open(compression=None)
+
+    artifact.delete(permanent=True)
+    adata_gz.unlink()

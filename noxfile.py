@@ -33,7 +33,7 @@ GROUPS["guide"] = [
     "track.ipynb",
     "curate-df.ipynb",
     "curate-any.ipynb",
-    "curate-subclass.ipynb",
+    "ehrcuration.ipynb",
     "modules.ipynb",
 ]
 GROUPS["biology"] = [
@@ -79,19 +79,20 @@ def install(session):
         "curator",
         "docs",
         "cli",
+        "permissions",
     ],
 )
 def install_ci(session, group):
     extras = ""
     if group == "unit-core":
         extras += "bionty,gcp,zarr,fcs,jupyter"
-        # testing load_to_memory for yaml
-        run(session, "uv pip install --system PyYAML")
         run(session, "uv pip install --system huggingface_hub")
         # tiledbsoma dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system scanpy")
-        run(session, "uv pip install --system tiledbsoma")  # test SOMACurator
+        run(session, "uv pip install --system tiledbsoma")  # test TiledbsomaCatManager
+        run(session, "uv pip install --system mudata")
+        run(session, "uv pip install --system spatialdata")
     elif group == "unit-storage":
         extras += "zarr,bionty"
         # tiledbsoma dependency, specifying it here explicitly
@@ -117,15 +118,15 @@ def install_ci(session, group):
         )
         run(session, "uv pip install --system vitessce")
     elif group == "curator":
-        extras += "zarr,bionty,jupyter"
+        extras += "zarr,jupyter"
         run(
             session,
-            "uv pip install --system ./sub/wetlab",
+            "uv pip install --system ./sub/bionty ./sub/wetlab",
         )
         run(
             session,
             "uv pip install --system -U spatialdata",
-        )  # Required to access metadata attrs
+        )
         run(session, "uv pip install --system tiledbsoma==1.15.0rc3")
     elif group == "docs":
         extras += "bionty,zarr"
@@ -139,8 +140,16 @@ def install_ci(session, group):
         )
     elif group == "cli":
         extras += "jupyter,bionty"
-    run(session, f"uv pip install --system -e .[dev,{extras}]")
+    elif group == "permissions":
+        run(session, "uv pip install --system -e ./laminhub/rest-hub")
+        run(
+            session,
+            "uv pip install --system -e ./laminhub/rest-hub/laminhub_rest/hubmodule",
+        )
+        run(session, "uv pip install --system line_profiler")
 
+    extras = "," + extras if extras != "" else extras
+    run(session, f"uv pip install --system -e .[dev{extras}]")
     # on the release branch, do not use submodules but run with pypi install
     # only exception is the docs group which should always use the submodule
     # to push docs fixes fast
@@ -166,7 +175,8 @@ def configure_coverage(session) -> None:
     groups_str = session.posargs[0]  # first positional argument
 
     print(groups_str)  # for debugging
-    assert isinstance(groups_str, str)  # noqa: S101 so that we don't change this away from string
+    # so that we don't change this away from string
+    assert isinstance(groups_str, str)  # noqa: S101
 
     if "curator" not in groups_str:
         extra_omit_patterns = ["**/curators/*"]
@@ -203,6 +213,7 @@ def configure_coverage(session) -> None:
         "faq",
         "storage",
         "cli",
+        "permissions",
     ],
 )
 def test(session, group):
@@ -247,6 +258,8 @@ def test(session, group):
         )
     elif group == "cli":
         run(session, f"pytest {coverage_args} ./sub/lamin-cli/tests --durations=50")
+    elif group == "permissions":
+        run(session, f"pytest {coverage_args} ./tests/permissions")
     # move artifacts into right place
     if group in {"tutorial", "guide", "biology"}:
         target_dir = Path(f"./docs/{group}")

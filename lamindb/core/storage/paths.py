@@ -4,7 +4,6 @@ import shutil
 from typing import TYPE_CHECKING
 
 import fsspec
-from lamin_utils import logger
 from lamindb_setup.core import StorageSettings
 from lamindb_setup.core.upath import (
     LocalPathClasses,
@@ -12,12 +11,13 @@ from lamindb_setup.core.upath import (
 )
 
 from lamindb.core._settings import settings
-from lamindb.models import Artifact, Storage
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from lamindb_setup.core.types import UPathStr
+
+    from lamindb.models.artifact import Artifact
 
 
 AUTO_KEY_PREFIX = ".lamindb/"
@@ -43,24 +43,23 @@ def auto_storage_key_from_artifact_uid(uid: str, suffix: str, is_dir: bool) -> s
 
 
 def check_path_is_child_of_root(path: UPathStr, root: UPathStr) -> bool:
-    # str is needed to eliminate UPath storage_options
-    # from the equality checks below
-    # and for fsspec.utils.get_protocol
-    path_str = str(path)
-    root_str = str(root)
-    root_protocol = fsspec.utils.get_protocol(root_str)
-    # check that the protocols are the same first
-    if fsspec.utils.get_protocol(path_str) != root_protocol:
+    if fsspec.utils.get_protocol(str(path)) != fsspec.utils.get_protocol(str(root)):
         return False
-    if root_protocol in {"http", "https"}:
-        # in this case it is a base url, not a file
-        # so formally does not exist
-        resolve_kwargs = {"follow_redirects": False}
-    else:
-        resolve_kwargs = {}
-    return (
-        UPath(root_str).resolve(**resolve_kwargs) in UPath(path_str).resolve().parents
-    )
+    path_upath = UPath(path)
+    root_upath = UPath(root)
+    if path_upath.protocol == "s3":
+        endpoint_path = path_upath.storage_options.get("endpoint_url", "")
+        endpoint_root = root_upath.storage_options.get("endpoint_url", "")
+        if endpoint_path != endpoint_root:
+            return False
+    # we don't resolve http links because they can resolve into a different domain
+    # for example into a temporary url
+    if path_upath.protocol not in {"http", "https"}:
+        path_upath = path_upath.resolve()
+        root_upath = root_upath.resolve()
+    # str is needed to eliminate UPath storage_options
+    # which affect equality checks
+    return UPath(str(root_upath)) in UPath(str(path_upath)).parents
 
 
 # returns filepath and root of the storage
@@ -72,6 +71,8 @@ def attempt_accessing_path(
 ) -> tuple[UPath, StorageSettings]:
     # check whether the file is in the default db and whether storage
     # matches default storage
+    from lamindb.models import Storage
+
     if (
         artifact._state.db in ("default", None)
         and artifact.storage_id == settings._storage_settings.id
@@ -133,7 +134,7 @@ def filepath_cache_key_from_artifact(
 
 
 def store_file_or_folder(
-    local_path: UPathStr, storage_path: UPath, print_progress: bool = True
+    local_path: UPathStr, storage_path: UPath, print_progress: bool = True, **kwargs
 ) -> None:
     """Store file or folder (localpath) at storagepath."""
     local_path = UPath(local_path)
@@ -154,7 +155,10 @@ def store_file_or_folder(
         else:
             create_folder = None
         storage_path.upload_from(
-            local_path, create_folder=create_folder, print_progress=print_progress
+            local_path,
+            create_folder=create_folder,
+            print_progress=print_progress,
+            **kwargs,
         )
     else:  # storage path is local
         if local_path.resolve().as_posix() == storage_path.resolve().as_posix():
@@ -169,10 +173,15 @@ def store_file_or_folder(
 
 
 def delete_storage_using_key(
-    artifact: Artifact, storage_key: str, using_key: str | None
-):
+    artifact: Artifact,
+    storage_key: str,
+    raise_file_not_found_error: bool = True,
+    using_key: str | None = None,
+) -> None | str:
     filepath, _ = attempt_accessing_path(artifact, storage_key, using_key=using_key)
-    delete_storage(filepath)
+    return delete_storage(
+        filepath, raise_file_not_found_error=raise_file_not_found_error
+    )
 
 
 def delete_storage(
@@ -191,5 +200,5 @@ def delete_storage(
     elif raise_file_not_found_error:
         raise FileNotFoundError(f"{storagepath} is not an existing path!")
     else:
-        logger.warning(f"{storagepath} is not an existing path!")
+        return "did-not-delete"
     return None

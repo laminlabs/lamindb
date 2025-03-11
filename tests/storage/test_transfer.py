@@ -1,7 +1,7 @@
 import bionty as bt
 import lamindb as ln
 import pytest
-from lamindb.core._django import get_artifact_with_related
+from lamindb.models._django import get_artifact_with_related
 
 
 def test_transfer_from_remote_to_local():
@@ -146,6 +146,7 @@ def test_using_record_organism():
         ["ENSMUSG00000102862", "ENSMUSG00000084826"],
         field=bt.Gene.ensembl_gene_id,
         source=release_112_cxg,
+        strict_source=True,
     )
     assert len(inspector.validated) == 0
 
@@ -154,6 +155,7 @@ def test_using_record_organism():
         ["ENSMUSG00000102862", "ENSMUSG00000084826"],
         field=bt.Gene.ensembl_gene_id,
         source=release_110_cxg,
+        strict_source=True,
     )
     assert len(inspector.validated) == 2
 

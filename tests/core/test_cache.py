@@ -42,8 +42,7 @@ def test_local_cache():
     adata.write_zarr(adata_zarr_pth)
     assert adata_zarr_pth.exists()
 
-    artifact = ln.Artifact(adata_zarr_pth, key="test_cache.zarr")
-    artifact.save()
+    artifact = ln.Artifact(adata_zarr_pth, key="test_cache.zarr").save()
     assert adata_zarr_pth.exists()
     assert artifact.path.exists()
     assert artifact.path.name != artifact.key
@@ -197,3 +196,53 @@ def test_cloud_cache_versions(switch_storage):
     assert cache_path_v1.name == f"{artifact.uid}.h5ad"
 
     artifact_v2.versions.delete(permanent=True)
+
+
+def test_corrupted_cache_local():
+    filepath = ln.core.datasets.anndata_file_pbmc68k_test()
+    artifact = ln.Artifact.from_anndata(filepath, key="test_corrupt_cache_local.h5ad")
+    artifact.save()
+    # corrupt cache
+    with open(artifact._cache_path, "r+b") as f:
+        f.write(b"corruption")
+    # just raises an exception, nothing to re-sync on local
+    with pytest.raises(OSError):
+        artifact.load()
+    with pytest.raises(OSError):
+        artifact.open()
+
+    artifact.delete(permanent=True)
+
+
+def test_corrupted_cache_cloud(switch_storage):
+    # check that we have cloud storage
+    assert ln.setup.settings.storage.root_as_str == switch_storage
+
+    filepath = ln.core.datasets.anndata_file_pbmc68k_test()
+    artifact = ln.Artifact.from_anndata(filepath, key="test_corrupt_cache_cloud.h5ad")
+    artifact.save()
+    # corrupt cache
+    # sleep not to reset cache mtime to a smaller value
+    # it is increased artificially on cache copying in save
+    # so due to lower granularity of cloud mtimes and fast code execution
+    # after the change cache mtime can become smaller than cloud mtime
+    sleep(1)
+    with open(artifact._cache_path, "r+b") as f:
+        f.write(b"corruption")
+    assert artifact._cache_path.stat().st_mtime > artifact.path.stat().st_mtime
+    # check that it is indeed corrupted
+    with pytest.raises(OSError):
+        load_h5ad(artifact.cache())
+    # should load successfully
+    artifact.load()
+    # check open also
+    assert artifact._cache_path.exists()
+    with open(artifact._cache_path, "r+b") as f:
+        f.write(b"corruption")
+    # should open successfully
+    with artifact.open():
+        pass
+    # corrupted cache has been deleted
+    assert not artifact._cache_path.exists()
+
+    artifact.delete(permanent=True)

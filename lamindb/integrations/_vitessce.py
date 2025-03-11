@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 
-from lamindb._artifact import Artifact
-from lamindb._collection import Collection
-from lamindb._run import Run
-from lamindb._transform import Transform
+from lamindb.models.artifact import Artifact
+from lamindb.models.collection import Collection
+from lamindb.models.run import Run
+from lamindb.models.transform import Transform
 
 if TYPE_CHECKING:
     from vitessce import VitessceConfig
@@ -31,7 +31,7 @@ def save_vitessce_config(
     Args:
         vitessce_config: A `VitessceConfig` object.
         description: A description for the `VitessceConfig` object. Is used as
-            `name` for a `Collection` in case the `VitessceConfig` object
+            `key` for a `Collection` in case the `VitessceConfig` object
             references multiple artifacts.
 
     .. versionchanged:: 0.76.12
@@ -70,7 +70,7 @@ def save_vitessce_config(
     if len(dataset_artifacts) > 1:
         # if we have more datasets, we should create a collection
         # and attach an action to the collection
-        collection = Collection(dataset_artifacts, name=description).save()
+        collection = Collection(dataset_artifacts, key=description).save()
 
     # create a JSON export
     config_file_local_path = ln_setup.settings.cache_dir / "config.vitessce.json"

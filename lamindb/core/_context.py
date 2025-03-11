@@ -11,29 +11,35 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
-from django.db.models import Func, IntegerField
+from django.db.models import Func, IntegerField, Q
 from lamin_utils import logger
+from lamindb_setup.core import deprecated
 from lamindb_setup.core.hashing import hash_file
 
 from lamindb.base import ids
 from lamindb.base.ids import base62_12
 from lamindb.models import Run, Transform, format_field_value
 
-from ._settings import settings
-from ._sync_git import get_transform_reference_from_git_repo
-from ._track_environment import track_environment
-from .exceptions import (
+from ..core._settings import settings
+from ..errors import (
     InconsistentKey,
+    InvalidArgument,
     TrackNotCalled,
     UpdateContext,
 )
-from .versioning import bump_version as bump_version_function
-from .versioning import increment_base62, message_update_key_in_version_family
+from ..models._is_versioned import bump_version as bump_version_function
+from ..models._is_versioned import (
+    increment_base62,
+    message_update_key_in_version_family,
+)
+from ._sync_git import get_transform_reference_from_git_repo
+from ._track_environment import track_environment
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
 
     from lamindb.base.types import TransformType
+    from lamindb.models import Project
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
@@ -197,6 +203,7 @@ class Context:
         self._run: Run | None = None
         self._path: Path | None = None
         """A local path to the script that's running."""
+        self._project: Project | None = None
         self._logging_message_track: str = ""
         self._logging_message_imports: str = ""
         self._stream_tracker: LogStreamTracker = LogStreamTracker()
@@ -217,8 +224,8 @@ class Context:
         self._description = value
 
     @property
+    @deprecated(new_name="description")
     def name(self) -> str | None:
-        """Deprecated. Populates `description` argument for `context.transform`."""
         return self._description
 
     @name.setter
@@ -244,6 +251,11 @@ class Context:
         self._version = value
 
     @property
+    def project(self) -> Project | None:
+        """Project to label entities created during the run."""
+        return self._project
+
+    @property
     def run(self) -> Run | None:
         """Managed run of context."""
         return self._run
@@ -252,12 +264,12 @@ class Context:
         self,
         transform: str | Transform | None = None,
         *,
+        project: str | None = None,
         params: dict | None = None,
         new_run: bool | None = None,
         path: str | None = None,
-        log_to_file: bool | None = None,
     ) -> None:
-        """Initiate a run with tracked data lineage.
+        """Track a global run of your Python session.
 
         - sets :attr:`~lamindb.core.Context.transform` &
           :attr:`~lamindb.core.Context.run` by creating or loading `Transform` &
@@ -269,14 +281,12 @@ class Context:
 
         Args:
             transform: A transform `uid` or record. If `None`, creates a `uid`.
+            project: A project `name` or `uid` for labeling entities created during the run.
             params: A dictionary of parameters to track for the run.
             new_run: If `False`, loads the latest run of transform
                 (default notebook), if `True`, creates new run (default non-notebook).
             path: Filepath of notebook or script. Only needed if it can't be
                 automatically detected.
-            log_to_file: If `True`, logs stdout and stderr to a file and
-                saves the file within the current run (default non-notebook),
-                if `False`, does not log the output (default notebook).
 
         Examples:
 
@@ -284,7 +294,22 @@ class Context:
 
             >>> ln.track()
 
+            If you want to ensure a single version history across renames of the notebook or script, pass the auto-generated `uid` that you'll find in the logs:
+
+            >>> ln.track("Onv04I53OgtT0000")  # example uid, the last four characters encode the version of the transform
+
         """
+        from lamindb.models import Project
+
+        if project is not None:
+            project_record = Project.filter(
+                Q(name=project) | Q(uid=project)
+            ).one_or_none()
+            if project_record is None:
+                raise InvalidArgument(
+                    f"Project '{project}' not found, either create it with `ln.Project(name='...').save()` or fix typos."
+                )
+            self._project = project_record
         self._logging_message_track = ""
         self._logging_message_imports = ""
         if transform is not None and isinstance(transform, str):
@@ -370,6 +395,12 @@ class Context:
             )
         self._run = run
         track_environment(run)
+        if self.project is not None:
+            # to update a potential project link
+            # is only necessary if transform is loaded rather than newly created
+            # can be optimized by checking whether the transform is loaded, but it typically is
+            self.transform.save()
+        log_to_file = None
         if log_to_file is None:
             log_to_file = self.transform.type != "notebook"
         if log_to_file:
@@ -430,26 +461,23 @@ class Context:
             path_str = get_notebook_key_colab()
             path = Path(path_str)
         else:
-            import nbproject
+            from nbproject.dev import read_notebook
+            from nbproject.dev._meta_live import get_title
+            from nbproject.dev._pypackage import infer_pypackages
 
             try:
-                nbproject_title = nbproject.meta.live.title
-            except IndexError:
-                # notebook is not saved
-                pass
-            if nbproject_title is not None:
-                description = nbproject_title
-            # log imported python packages
-            try:
-                from nbproject.dev._pypackage import infer_pypackages
+                nb = read_notebook(path_str)
 
-                nb = nbproject.dev.read_notebook(path_str)
+                nbproject_title = get_title(nb)
+                if nbproject_title is not None:
+                    description = nbproject_title
+
                 self._logging_message_imports += (
                     "notebook imports:"
                     f" {pretty_pypackages(infer_pypackages(nb, pin_versions=True))}"
                 )
             except Exception:
-                logger.debug("inferring imported packages failed")
+                logger.debug("reading the notebook file failed")
                 pass
         return path, description
 

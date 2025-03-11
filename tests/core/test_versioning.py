@@ -2,7 +2,7 @@ import lamindb as ln
 import pandas as pd
 import pytest
 from lamindb import UPath
-from lamindb.core.versioning import (
+from lamindb.models._is_versioned import (
     bump_version,
     get_new_path_from_uid,
     set_version,
@@ -113,8 +113,7 @@ def test_latest_version_and_get():
     assert len(ln.Transform.filter(description="Introduction").all()) == 3
     assert len(ln.Transform.filter(description="Introduction").latest_version()) == 2
     transform_v4.delete()
-    with pytest.raises(Exception):  # noqa: B017 should be MultipleResultsFound
-        ln.Transform.get(description="Introduction")
+    assert ln.Transform.get(description="Introduction") == transform_v3
     assert (
         ln.Transform.filter(description="Introduction").latest_version().one()
         == transform_v3

@@ -8,20 +8,25 @@ import pandas as pd
 
 
 def small_dataset1(
-    format: Literal["df", "anndata"],
+    otype: Literal["DataFrame", "AnnData"],
+    gene_symbols_in_index: bool = False,
     with_typo: bool = False,
-) -> tuple[pd.DataFrame, dict[str, Any]] | ad.AnnData:
+) -> pd.DataFrame | ad.AnnData:
     # define the data in the dataset
     # it's a mix of numerical measurements and observation-level metadata
     ifng = "IFNJ" if with_typo else "IFNG"
+    if gene_symbols_in_index:
+        var_ids = ["CD8A", "CD4", "CD14"]
+    else:
+        var_ids = ["ENSG00000153563", "ENSG00000010610", "ENSG00000170458"]
     dataset_dict = {
-        "CD8A": [1, 2, 3],
-        "CD4": [3, 4, 5],
-        "CD14": [5, 6, 7],
-        "cell_medium": ["DMSO", ifng, "DMSO"],
+        var_ids[0]: [1, 2, 3],
+        var_ids[1]: [3, 4, 5],
+        var_ids[2]: [5, 6, 7],
+        "perturbation": pd.Categorical(["DMSO", ifng, "DMSO"]),
         "sample_note": ["was ok", "looks naah", "pretty! 🤩"],
-        "cell_type_by_expert": ["B cell", "T cell", "T cell"],
-        "cell_type_by_model": ["B cell", "T cell", "T cell"],
+        "cell_type_by_expert": pd.Categorical(["B cell", "T cell", "T cell"]),
+        "cell_type_by_model": pd.Categorical(["B cell", "T cell", "T cell"]),
     }
     # define the dataset-level metadata
     metadata = {
@@ -32,8 +37,10 @@ def small_dataset1(
     }
     # the dataset as DataFrame
     dataset_df = pd.DataFrame(dataset_dict, index=["sample1", "sample2", "sample3"])
-    if format == "df":
-        return dataset_df, metadata
+    if otype == "DataFrame":
+        for key, value in metadata.items():
+            dataset_df.attrs[key] = value
+        return dataset_df
     else:
         dataset_ad = ad.AnnData(
             dataset_df.iloc[:, :3], obs=dataset_df.iloc[:, 3:], uns=metadata
@@ -42,14 +49,19 @@ def small_dataset1(
 
 
 def small_dataset2(
-    format: Literal["df", "anndata"],
-) -> tuple[pd.DataFrame, dict[str, Any]] | ad.AnnData:
+    otype: Literal["DataFrame", "AnnData"],
+    gene_symbols_in_index: bool = False,
+) -> pd.DataFrame | ad.AnnData:
+    if gene_symbols_in_index:
+        var_ids = ["CD8A", "CD4", "CD38"]
+    else:
+        var_ids = ["ENSG00000153563", "ENSG00000010610", "ENSG00000004468"]
     dataset_dict = {
-        "CD8A": [2, 3, 3],
-        "CD4": [3, 4, 5],
-        "CD38": [4, 2, 3],
-        "cell_medium": ["DMSO", "IFNG", "IFNG"],
-        "cell_type_by_model": ["B cell", "T cell", "T cell"],
+        var_ids[0]: [2, 3, 3],
+        var_ids[1]: [3, 4, 5],
+        var_ids[2]: [4, 2, 3],
+        "perturbation": pd.Categorical(["DMSO", "IFNG", "IFNG"]),
+        "cell_type_by_model": pd.Categorical(["B cell", "T cell", "T cell"]),
     }
     metadata = {
         "temperature": 22.6,
@@ -61,15 +73,49 @@ def small_dataset2(
         index=["sample4", "sample5", "sample6"],
     )
     ad.AnnData(
-        dataset_df[["CD8A", "CD4", "CD38"]],
-        obs=dataset_df[["cell_medium", "cell_type_by_model"]],
+        dataset_df[var_ids],
+        obs=dataset_df[["perturbation", "cell_type_by_model"]],
     )
-    if format == "df":
-        return dataset_df, metadata
+    if otype == "DataFrame":
+        for key, value in metadata.items():
+            dataset_df.attrs[key] = value
+        return dataset_df
     else:
         dataset_ad = ad.AnnData(
             dataset_df.iloc[:, :3], obs=dataset_df.iloc[:, 3:], uns=metadata
         )
+        return dataset_ad
+
+
+def small_dataset3_cellxgene(
+    otype: Literal["DataFrame", "AnnData"] = "AnnData",
+) -> tuple[pd.DataFrame, dict[str, Any]] | ad.AnnData:
+    # TODO: consider other ids for other organisms
+    # "ENSMUSG00002076988"
+    var_ids = ["invalid_ensembl_id", "ENSG00000000419", "ENSG00000139618"]
+    dataset_dict = {
+        var_ids[0]: [2, 3, 3],
+        var_ids[1]: [3, 4, 5],
+        var_ids[2]: [4, 2, 3],
+        "disease_ontology_term_id": ["MONDO:0004975", "MONDO:0004980", "MONDO:0004980"],
+        "organism": ["human", "human", "human"],
+        "sex": ["female", "male", "unknown"],
+        "tissue": ["lungg", "lungg", "heart"],
+        "donor": ["-1", "1", "2"],
+    }
+    dataset_df = pd.DataFrame(
+        dataset_dict,
+        index=["barcode1", "barcode2", "barcode3"],
+    )
+    dataset_df["tissue"] = dataset_df["tissue"].astype("category")
+    ad.AnnData(
+        dataset_df[var_ids],
+        obs=dataset_df[[key for key in dataset_dict if key not in var_ids]],
+    )
+    if otype == "DataFrame":
+        return dataset_df
+    else:
+        dataset_ad = ad.AnnData(dataset_df.iloc[:, :3], obs=dataset_df.iloc[:, 3:])
         return dataset_ad
 
 

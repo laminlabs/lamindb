@@ -1,6 +1,6 @@
 import lamindb as ln
 import pytest
-from lamindb._save import prepare_error_message, store_artifacts
+from lamindb.models.save import prepare_error_message, store_artifacts
 
 
 def test_bulk_save_and_update():
@@ -42,13 +42,17 @@ def test_store_artifacts_acid():
     ln.core.datasets.file_mini_csv()
     artifact = ln.Artifact("mini.csv", description="test")
     artifact._clear_storagekey = "test.csv"
+    # errors on check_and_attempt_clearing
+    with pytest.raises(RuntimeError):
+        artifact.save()
 
     with pytest.raises(RuntimeError) as error:
         store_artifacts([artifact], using_key=None)
-
     assert str(error.exconly()).startswith(
-        "RuntimeError: No entries were uploaded or committed to the database."
+        "RuntimeError: The following entries have been successfully uploaded"
     )
+
+    artifact.delete(permanent=True)
 
 
 def test_save_parents():

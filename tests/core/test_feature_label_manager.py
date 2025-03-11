@@ -4,11 +4,11 @@ from pathlib import Path
 import bionty as bt
 import lamindb as ln
 import pytest
-from lamindb.core._data import add_labels
-from lamindb.core._feature_manager import describe_features
-from lamindb.core._label_manager import print_rich_tree
 from lamindb.core.datasets import small_dataset1
-from lamindb.core.exceptions import DoesNotExist, ValidationError
+from lamindb.errors import DoesNotExist, ValidationError
+from lamindb.models._feature_manager import describe_features
+from lamindb.models._label_manager import print_rich_tree
+from lamindb.models.artifact import add_labels
 
 
 @pytest.fixture(scope="module")
@@ -21,21 +21,21 @@ def adata():
 
 
 def test_features_add():
-    df, metadata = small_dataset1(format="df")
+    df = small_dataset1(otype="DataFrame")
     artifact = ln.Artifact.from_df(df, description="test dataset").save()
     with pytest.raises(ValidationError) as err:
-        artifact.features.add_values({"cell_medium": df.cell_medium.unique()})
+        artifact.features.add_values({"perturbation": df.perturbation.unique()})
     assert (
         err.exconly()
-        == """lamindb.core.exceptions.ValidationError: These keys could not be validated: ['cell_medium']
+        == """lamindb.errors.ValidationError: These keys could not be validated: ['perturbation']
 Here is how to create a feature:
 
-  ln.Feature(name='cell_medium', dtype='cat ? str').save()"""
+  ln.Feature(name='perturbation', dtype='cat').save()"""
     )
 
-    ln.Feature(name="cell_medium", dtype="cat").save()
+    ln.Feature(name="perturbation", dtype="cat").save()
     ln.ULabel.from_values(["DMSO", "IFNG"], create=True).save()
-    artifact.features.add_values({"cell_medium": df.cell_medium.unique()})
+    artifact.features.add_values({"perturbation": df.perturbation.unique()})
     artifact.delete(permanent=True)
     ln.ULabel.filter().all().delete()
     ln.Feature.filter().all().delete()
@@ -48,18 +48,18 @@ def test_features_add_remove(adata):
         artifact.params.add_values({"learning_rate": 0.01})
     assert (
         error.exconly()
-        == "lamindb.core.exceptions.ValidationError: Can only set params for model-like artifacts."
+        == "lamindb.errors.ValidationError: Can only set params for model-like artifacts."
     )
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
     assert error.exconly().startswith(
-        "lamindb.core.exceptions.ValidationError: These keys could not be validated:"
+        "lamindb.errors.ValidationError: These keys could not be validated:"
     )
     ln.Feature(name="experiment", dtype="cat").save()
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
     assert error.exconly().startswith(
-        "lamindb.core.exceptions.ValidationError: These values could not be validated: ['Experiment 1']"
+        "lamindb.errors.ValidationError: These values could not be validated: ['Experiment 1']"
     )
     experiment_label = ln.ULabel(name="Experiment 1").save()
     # add the label without the feature first
@@ -93,7 +93,7 @@ def test_features_add_remove(adata):
         artifact.features.add_values({"date_of_experiment": "2024-12-01"})
     assert (
         error.exconly()
-        == """lamindb.core.exceptions.ValidationError: These keys could not be validated: ['date_of_experiment']
+        == """lamindb.errors.ValidationError: These keys could not be validated: ['date_of_experiment']
 Here is how to create a feature:
 
   ln.Feature(name='date_of_experiment', dtype='date').save()"""
@@ -104,7 +104,7 @@ Here is how to create a feature:
         artifact.features.add_values({"date_of_experiment": "Typo2024-12-01"})
     assert (
         error.exconly()
-        == """lamindb.core.exceptions.ValidationError: Expected dtype for 'date_of_experiment' is 'date', got 'cat ? str'"""
+        == """lamindb.errors.ValidationError: Expected dtype for 'date_of_experiment' is 'date', got 'cat ? str'"""
     )
     artifact.features.add_values({"date_of_experiment": "2024-12-01"})
 
@@ -117,7 +117,7 @@ Here is how to create a feature:
         artifact.features.add_values({"organism": mouse})
     assert (
         error.exconly()
-        == """lamindb.core.exceptions.ValidationError: These keys could not be validated: ['organism']
+        == """lamindb.errors.ValidationError: These keys could not be validated: ['organism']
 Here is how to create a feature:
 
   ln.Feature(name='organism', dtype='cat[bionty.Organism]').save()"""
@@ -127,9 +127,7 @@ Here is how to create a feature:
         artifact.features.add_values({"organism": mouse})
     assert (
         # ensure the label is saved
-        error.exconly().startswith(
-            "lamindb.core.exceptions.ValidationError: Please save"
-        )
+        error.exconly().startswith("lamindb.errors.ValidationError: Please save")
     )
     mouse.save()
     artifact.features.add_values({"organism": mouse})
@@ -159,7 +157,7 @@ Here is how to create a feature:
     assert (
         error.exconly()
         == """\
-lamindb.core.exceptions.ValidationError: These keys could not be validated: ['project', 'is_validated', 'cell_type_by_expert', 'donor']
+lamindb.errors.ValidationError: These keys could not be validated: ['project', 'is_validated', 'cell_type_by_expert', 'donor']
 Here is how to create a feature:
 
   ln.Feature(name='project', dtype='cat ? str').save()
@@ -179,7 +177,7 @@ Here is how to create a feature:
     assert (
         error.exconly()
         == """\
-lamindb.core.exceptions.ValidationError: These values could not be validated: ['Experiment 2', 'project_1', 'T Cell', 'U0123']
+lamindb.errors.ValidationError: These values could not be validated: ['Experiment 2', 'project_1', 'T Cell', 'U0123']
 Here is how to create ulabels for them:
 
   ulabels = ln.ULabel.from_values(['Experiment 2', 'project_1', 'T Cell', 'U0123'], create=True)
@@ -274,7 +272,7 @@ Here is how to create ulabels for them:
             temperature_with_typo=100.0, project="project_1"
         ).one()
     assert error.exconly().startswith(
-        "lamindb.core.exceptions.ValidationError: Some keys in the filter expression are not registered as features:"
+        "lamindb.errors.ValidationError: Some keys in the filter expression are not registered as features:"
     )
 
     ln.Artifact.features.get(temperature=100.0)
@@ -290,7 +288,7 @@ Here is how to create ulabels for them:
     with pytest.raises(DoesNotExist) as error:
         ln.Artifact.features.get(project="project__1")
     assert error.exconly().startswith(
-        "lamindb.core.exceptions.DoesNotExist: Did not find a ULabel matching"
+        "lamindb.errors.DoesNotExist: Did not find a ULabel matching"
     )
 
     # test comparator
@@ -322,12 +320,12 @@ Here is how to create ulabels for them:
 def test_params_add():
     path = Path("mymodel.pt")
     path.touch()
-    artifact = ln.Artifact("mymodel.pt", type="model", description="hello").save()
+    artifact = ln.Artifact("mymodel.pt", kind="model", description="hello").save()
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"temperature": 27})
     assert (
         error.exconly()
-        == "lamindb.core.exceptions.ValidationError: Can only set features for dataset-like artifacts."
+        == "lamindb.errors.ValidationError: Can only set features for dataset-like artifacts."
     )
     ln.Param(name="learning_rate", dtype="float").save()
     ln.Param(name="quantification", dtype="dict").save()
@@ -389,7 +387,7 @@ def test_labels_add(adata):
         artifact.labels.add(label, feature=experiment)
     assert (
         error.exconly()
-        == "lamindb.core.exceptions.ValidationError: Feature not validated. If it looks"
+        == "lamindb.errors.ValidationError: Feature not validated. If it looks"
         " correct: ln.Feature(name='experiment', type='cat[ULabel]').save()"
     )
     experiment.save()
@@ -479,7 +477,7 @@ def test_add_labels_using_anndata(adata):
     feature_name_feature = ln.Feature(name="feature name", dtype="cat[ULabel]").save()
     schema = ln.Schema(features=[feature_name_feature])
     with pytest.raises(ValueError) as error:
-        artifact.features.add_schema(schema, slot="random")
+        artifact.features._add_schema(schema, slot="random")
     assert (
         error.exconly()
         == "ValueError: Please save the artifact or collection before adding a feature"
@@ -508,7 +506,7 @@ def test_add_labels_using_anndata(adata):
     artifact.features._add_set_from_anndata(var_field=bt.Gene.ensembl_gene_id)
 
     # check the basic construction of the feature set based on obs
-    schema_obs = artifact._schemas_m2m.filter(
+    schema_obs = artifact.feature_sets.filter(
         itype="Feature", _links_artifact__slot="obs"
     ).one()
     assert schema_obs.n == 4
@@ -516,7 +514,7 @@ def test_add_labels_using_anndata(adata):
 
     # now, we add organism and run checks
     features = ln.Feature.lookup()
-    with pytest.raises(ln.core.exceptions.ValidationError):
+    with pytest.raises(ln.errors.ValidationError):
         artifact.labels.add(organism, feature=features.organism)
     organism.save()
     artifact.labels.add(organism, feature=features.organism)
@@ -525,7 +523,7 @@ def test_add_labels_using_anndata(adata):
     assert organism_link.feature.name == "organism"
     feature = ln.Feature.get(name="organism")
     assert feature.dtype == "cat[bionty.Organism]"
-    schema_obs = artifact._schemas_m2m.filter(
+    schema_obs = artifact.feature_sets.filter(
         itype="Feature", _links_artifact__slot="obs"
     ).one()
     assert schema_obs.n == 4
@@ -547,7 +545,7 @@ def test_add_labels_using_anndata(adata):
         add_labels(artifact, tissues, feature=features.tissue, from_curator=True)
     assert (
         err.exconly()
-        == "lamindb.core.exceptions.ValidationError: Label type ULabel is not valid for Feature(name='tissue', dtype='cat[bionty.Tissue]'), consider updating to dtype='cat[bionty.Tissue|ULabel]'"
+        == "lamindb.errors.ValidationError: Label type ULabel is not valid for Feature(name='tissue', dtype='cat[bionty.Tissue]'), consider updating to dtype='cat[bionty.Tissue|ULabel]'"
     )
     tissue = ln.Feature.get(name="tissue")
     tissue.dtype = "cat[bionty.Tissue|ULabel]"
@@ -659,8 +657,9 @@ def test_labels_get():
     schema.save()
     artifact.save()
     assert str(artifact.features) == "no linked features"
+    # test for deprecated add_schema
     artifact.features.add_schema(schema, slot="random")
-    assert artifact._schemas_m2m.first() == schema
+    assert artifact.feature_sets.first() == schema
     artifact.delete(permanent=True, storage=True)
     schema.delete()
     feature_name_feature.delete()

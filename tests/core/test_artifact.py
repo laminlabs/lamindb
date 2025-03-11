@@ -4,41 +4,45 @@ Also see `test_artifact_folders.py` for tests of folder-like artifacts.
 
 """
 
+# ruff: noqa: F811
+
 import shutil
-from inspect import signature
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import anndata as ad
 import bionty as bt
 import lamindb as ln
 import lamindb_setup
+import mudata as md
 import numpy as np
 import pandas as pd
 import pytest
 import yaml  # type: ignore
-from lamindb import _artifact
-from lamindb._artifact import (
-    check_path_is_child_of_root,
-    data_is_anndata,
-    get_relative_path_to_directory,
-    process_data,
-)
+from _dataset_fixtures import get_small_adata, get_small_mdata, get_small_sdata  # noqa
 from lamindb.core._settings import settings
-from lamindb.core.exceptions import (
-    IntegrityError,
-    InvalidArgument,
-)
 from lamindb.core.loaders import load_fcs, load_to_memory, load_tsv
-from lamindb.core.storage._zarr import write_adata_zarr, zarr_is_adata
+from lamindb.core.storage._zarr import identify_zarr_type, write_adata_zarr
 from lamindb.core.storage.paths import (
     AUTO_KEY_PREFIX,
     auto_storage_key_from_artifact_uid,
     delete_storage,
 )
+from lamindb.errors import (
+    FieldValidationError,
+    IntegrityError,
+    InvalidArgument,
+)
+from lamindb.models.artifact import (
+    check_path_is_child_of_root,
+    data_is_anndata,
+    get_relative_path_to_directory,
+    process_data,
+)
 from lamindb_setup.core.upath import (
     CloudPath,
     LocalPathClasses,
     UPath,
+    extract_suffix_from_path,
 )
 
 # how do we properly abstract out the default storage variable?
@@ -52,16 +56,6 @@ bt.settings.organism = "human"
 @pytest.fixture(scope="module")
 def df():
     return pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
-
-
-@pytest.fixture(scope="module")
-def adata():
-    return ad.AnnData(
-        X=np.array([[1, 2, 3], [4, 5, 6]]),
-        obs={"feat1": ["A", "B"]},
-        var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
-        obsm={"X_pca": np.array([[1, 2], [3, 4]])},
-    )
 
 
 @pytest.fixture(scope="module")
@@ -80,8 +74,8 @@ def adata_file():
 
 @pytest.fixture
 def data(request):
-    if request.param == "adata":
-        return request.getfixturevalue("adata")
+    if request.param == "get_small_adata":
+        return request.getfixturevalue("get_small_adata")
     else:
         return request.param
 
@@ -117,25 +111,20 @@ def fcs_file():
     return ln.core.datasets.file_fcs_alpert19()
 
 
-def test_signatures():
-    # this seems currently the easiest and most transparent
-    # way to test violations of the signature equality
-    # the MockORM class is needed to get inspect.signature
-    # to work
-    class Mock:
-        pass
+@pytest.fixture(scope="module")
+def mudata_file(get_small_mdata):
+    filepath = Path("test.h5mu")
+    get_small_mdata.write(filepath)
+    yield filepath
+    filepath.unlink()
 
-    # class methods
-    class_methods = ["from_dir", "from_df", "from_anndata", "from_mudata"]
-    for name in class_methods:
-        setattr(Mock, name, getattr(_artifact, name))
-        assert signature(getattr(Mock, name)) == _artifact.SIGS.pop(name)
-    # methods
-    for name, sig in _artifact.SIGS.items():
-        if name == "delete":
-            # have a temporary fix in delete regarding "using_key"
-            continue
-        assert signature(getattr(_artifact, name)) == sig
+
+@pytest.fixture(scope="module")
+def spatialdata_file(get_small_sdata):
+    filepath = Path("test.zarr")
+    get_small_sdata.write(filepath)
+    yield filepath
+    shutil.rmtree(filepath)
 
 
 def test_data_is_anndata_paths():
@@ -147,7 +136,7 @@ def test_data_is_anndata_paths():
 
 def test_basic_validation():
     # extra kwargs
-    with pytest.raises(ValueError):
+    with pytest.raises(FieldValidationError):
         ln.Artifact("testpath.csv", description="test1b", extra_kwarg="extra")
 
     # > 1 args
@@ -172,7 +161,7 @@ def test_basic_validation():
     )
 
 
-def test_revise_artifact(df, adata):
+def test_revise_artifact(df, get_small_adata):
     # attempt to create a file with an invalid version
     with pytest.raises(ValueError) as error:
         artifact = ln.Artifact.from_df(df, description="test", version=0)
@@ -192,14 +181,16 @@ def test_revise_artifact(df, adata):
     assert artifact.path.exists()
 
     with pytest.raises(ValueError) as error:
-        artifact_r2 = ln.Artifact.from_anndata(adata, revises=artifact, version="1")
+        artifact_r2 = ln.Artifact.from_anndata(
+            get_small_adata, revises=artifact, version="1"
+        )
     assert error.exconly() == "ValueError: Please increment the previous version: '1'"
 
     # create new file from old file
-    artifact_r2 = ln.Artifact.from_anndata(adata, revises=artifact)
+    artifact_r2 = ln.Artifact.from_anndata(get_small_adata, revises=artifact)
     assert artifact_r2.stem_uid == artifact.stem_uid
     assert artifact_r2.uid.endswith("0001")
-    artifact_r2 = ln.Artifact.from_anndata(adata, revises=artifact)
+    artifact_r2 = ln.Artifact.from_anndata(get_small_adata, revises=artifact)
     assert artifact_r2.uid.endswith("0001")
     assert artifact_r2.stem_uid == artifact.stem_uid
     assert artifact_r2.version is None
@@ -244,12 +235,15 @@ def test_revise_artifact(df, adata):
     artifact_r2 = ln.Artifact.get(artifact_r2.uid)
     assert not artifact_r2.is_latest
 
-    # what happens if I reload based on hash while providing a different key?
-    # artifact_new = ln.Artifact.from_df(
-    #     df, description="test1", key="my-test-dataset1.parquet", version="2"
-    # )
-    # assert artifact_new.version == "2"
-    # assert artifact_new.stem_uid != artifact_r3.stem_uid
+    # re-create based on hash while providing a different key
+    artifact_new = ln.Artifact.from_df(
+        df,
+        description="test1 updated",
+        key="my-test-dataset1.parquet",
+    )
+    assert artifact_new == artifact_r3
+    assert artifact_new.key == key  # old key
+    assert artifact_new.description == "test1 updated"
 
     with pytest.raises(TypeError) as error:
         ln.Artifact.from_df(df, description="test1a", revises=ln.Transform())
@@ -268,7 +262,7 @@ def test_revise_artifact(df, adata):
     artifact.save()
 
     # create new file from old file
-    new_artifact = ln.Artifact.from_anndata(adata, revises=artifact)
+    new_artifact = ln.Artifact.from_anndata(get_small_adata, revises=artifact)
     assert artifact.version is None
     assert new_artifact.stem_uid == artifact.stem_uid
     assert new_artifact.version is None
@@ -277,13 +271,13 @@ def test_revise_artifact(df, adata):
     artifact.delete(permanent=True, storage=True)
 
 
-# also test legacy name parameter (got removed by description)
 def test_create_from_dataframe(df):
     artifact = ln.Artifact.from_df(df, description="test1")
     assert artifact.description == "test1"
     assert artifact.key is None
     assert artifact.otype == "DataFrame"
     assert artifact.kind == "dataset"
+    assert artifact.n_observations == 2
     assert hasattr(artifact, "_local_filepath")
     artifact.save()
     # can do backed now, tested in test_storage.py
@@ -292,6 +286,58 @@ def test_create_from_dataframe(df):
     # check that the local filepath has been cleared
     assert not hasattr(artifact, "_local_filepath")
     artifact.delete(permanent=True, storage=True)
+
+
+def test_create_from_anndata(get_small_adata, adata_file):
+    for _a in [get_small_adata, adata_file]:
+        af = ln.Artifact.from_anndata(get_small_adata, description="test1")
+        assert af.description == "test1"
+        assert af.key is None
+        assert af.otype == "AnnData"
+        assert af.kind == "dataset"
+        assert af.n_observations == 2
+
+
+def test_create_from_mudata(get_small_mdata, mudata_file, adata_file):
+    try:
+        ln.Artifact.from_mudata(adata_file, description="test1")
+    except ValueError as error:
+        assert str(error) == "data has to be a MuData object or a path to MuData-like"
+    for m in [get_small_mdata, mudata_file]:
+        af = ln.Artifact.from_mudata(m, description="test1")
+        assert af.description == "test1"
+        assert af.key is None
+        assert af.otype == "MuData"
+        assert af.kind == "dataset"
+        if isinstance(m, md.MuData):
+            assert af.n_observations == 2
+
+
+def test_create_from_spatialdata(
+    get_small_sdata, spatialdata_file, adata_file, ccaplog
+):
+    try:
+        ln.Artifact(adata_file, description="test1")
+    except ValueError as error:
+        assert (
+            str(error)
+            == "data has to be a SpatialData object or a path to SpatialData-like"
+        )
+    for s in [get_small_sdata, spatialdata_file]:
+        af = ln.Artifact(s, description="test1")
+        assert af.description == "test1"
+        assert af.key is None
+        assert af.otype == "SpatialData"
+        assert af.kind is None
+        # n_observations not defined
+    assert "data is a SpatialData, please use .from_spatialdata()" in ccaplog.text
+    for s in [get_small_sdata, spatialdata_file]:
+        af = ln.Artifact.from_spatialdata(s, description="test1")
+        assert af.description == "test1"
+        assert af.key is None
+        assert af.otype == "SpatialData"
+        assert af.kind == "dataset"
+        # n_observations not defined
 
 
 def test_create_from_dataframe_using_from_df_and_link_features(df):
@@ -317,7 +363,7 @@ def test_create_from_dataframe_using_from_df_and_link_features(df):
     artifact.features._add_set_from_df()
     # mere access test right now
     artifact.features["columns"]
-    schema_queried = artifact._schemas_m2m.get()  # exactly one
+    schema_queried = artifact.feature_sets.get()  # exactly one
     feature_list_queried = ln.Feature.filter(schemas=schema_queried).list()
     feature_list_queried = [feature.name for feature in feature_list_queried]
     assert set(feature_list_queried) == set(df.columns)
@@ -326,54 +372,54 @@ def test_create_from_dataframe_using_from_df_and_link_features(df):
     ln.Feature.filter(name__in=["feat1", "feat2"]).delete()
 
 
-def test_create_from_anndata_in_memory_and_link_features(adata):
+def test_create_from_anndata_in_memory_and_link_features(get_small_adata):
     ln.save(
-        bt.Gene.from_values(adata.var.index, field=bt.Gene.symbol, organism="human")
+        bt.Gene.from_values(
+            get_small_adata.var.index, field=bt.Gene.symbol, organism="human"
+        )
     )
-    ln.save(ln.Feature.from_df(adata.obs))
-    artifact = ln.Artifact.from_anndata(adata, description="test")
+    ln.save(ln.Feature.from_df(get_small_adata.obs))
+    artifact = ln.Artifact.from_anndata(get_small_adata, description="test")
     assert artifact.otype == "AnnData"
     assert hasattr(artifact, "_local_filepath")
+    assert artifact.n_observations == get_small_adata.n_obs
     artifact.save()
     # check that the local filepath has been cleared
     assert not hasattr(artifact, "_local_filepath")
     # link features
     artifact.features._add_set_from_anndata(var_field=bt.Gene.symbol, organism="human")
-    _schemas_m2m_queried = artifact._schemas_m2m.all()
-    features_queried = ln.Feature.filter(schemas__in=_schemas_m2m_queried).all()
-    assert set(features_queried.list("name")) == set(adata.obs.columns)
-    genes_queried = bt.Gene.filter(schemas__in=_schemas_m2m_queried).all()
-    assert set(genes_queried.list("symbol")) == set(adata.var.index)
+    feature_sets_queried = artifact.feature_sets.all()
+    features_queried = ln.Feature.filter(schemas__in=feature_sets_queried).all()
+    assert set(features_queried.list("name")) == set(get_small_adata.obs.columns)
+    genes_queried = bt.Gene.filter(schemas__in=feature_sets_queried).all()
+    assert set(genes_queried.list("symbol")) == set(get_small_adata.var.index)
     artifact.delete(permanent=True, storage=True)
-    _schemas_m2m_queried.delete()
+    feature_sets_queried.delete()
     features_queried.delete()
     genes_queried.delete()
 
 
-def test_create_from_anndata_strpath(adata_file):
-    artifact = ln.Artifact.from_anndata(adata_file, description="test adata file")
-    artifact.save()
-    assert artifact.otype == "AnnData"
-    artifact.delete(permanent=True, storage=True)
-
-
 @pytest.mark.parametrize(
     "data",
-    ["adata", "s3://lamindb-test/core/scrnaseq_pbmc68k_tiny.h5ad"],
+    ["get_small_adata", "s3://lamindb-test/core/scrnaseq_pbmc68k_tiny.h5ad"],
     indirect=True,
 )
 def test_create_from_anndata_in_storage(data):
     if isinstance(data, ad.AnnData):
         artifact = ln.Artifact.from_anndata(
-            data, description="test_create_from_anndata"
+            data, description="test_create_from_anndata_memory"
         )
+        assert artifact.n_observations == data.n_obs
         assert artifact.otype == "AnnData"
         assert hasattr(artifact, "_local_filepath")
     else:
         previous_storage = ln.setup.settings.storage.root_as_str
         ln.settings.storage = "s3://lamindb-test/core"
         filepath = data
-        artifact = ln.Artifact(filepath)
+        artifact = ln.Artifact.from_anndata(
+            filepath, description="test_create_from_anndata_cloudpath"
+        )
+        assert artifact.n_observations == 70
     artifact.save()
     # check that the local filepath has been cleared
     assert not hasattr(artifact, "_local_filepath")
@@ -392,7 +438,13 @@ def test_create_from_local_filepath(
     is_in_registered_storage = get_test_filepaths[0]
     root_dir = get_test_filepaths[1]
     test_filepath = get_test_filepaths[3]
-    suffix = get_test_filepaths[4]
+    suffix = get_test_filepaths[4]  # path suffix
+    if key is not None:
+        key_suffix = extract_suffix_from_path(
+            PurePosixPath(key), arg_name="key"
+        )  # key suffix
+    else:
+        key_suffix = None
     # this tests if insufficient information is being provided
     if key is None and not is_in_registered_storage and description is None:
         # this can fail because ln.track() might set a global run context
@@ -405,20 +457,27 @@ def test_create_from_local_filepath(
             == "ValueError: Pass one of key, run or description as a parameter"
         )
         return None
+    elif key is not None and suffix != key_suffix:
+        try:
+            artifact = ln.Artifact(test_filepath, key=key, description=description)
+        except InvalidArgument as error:
+            assert str(error) == (
+                f"The suffix '{suffix}' of the provided path is inconsistent, it should be '{key_suffix}'"
+            )
+        return None
     elif key is not None and is_in_registered_storage:
         inferred_key = get_relative_path_to_directory(
             path=test_filepath, directory=root_dir
         ).as_posix()
-        with pytest.raises(InvalidArgument) as error:
+        try:
             artifact = ln.Artifact(test_filepath, key=key, description=description)
-        assert (
-            error.exconly()
-            == f"lamindb.core.exceptions.InvalidArgument: The path '{test_filepath}' is already in registered"
-            " storage"
-            f" '{root_dir.resolve().as_posix()}' with key '{inferred_key}'\nYou"
-            f" passed conflicting key '{key}': please move the file before"
-            " registering it."
-        )
+        except InvalidArgument as error:
+            assert str(error) == (
+                f"The path '{test_filepath}' is already in registered storage"
+                f" '{root_dir.resolve().as_posix()}' with key '{inferred_key}'\nYou"
+                f" passed conflicting key '{key}': please move the file before"
+                " registering it."
+            )
         return None
     else:
         artifact = ln.Artifact(test_filepath, key=key, description=description)
@@ -454,7 +513,7 @@ def test_create_from_local_filepath(
         assert artifact._key_is_virtual == key_is_virtual
         # changing non-virtual key is not allowed
         if not key_is_virtual:
-            with pytest.raises(InvalidArgument) as error:
+            with pytest.raises(InvalidArgument):
                 artifact.key = "new_key"
                 artifact.save()
             # need to change the key back to the original key
@@ -482,11 +541,6 @@ def test_create_from_local_filepath(
     ln.settings.creation._artifact_use_virtual_keys = True
 
 
-ERROR_MESSAGE = """\
-ValueError: Currently don't support tracking folders outside one of the storage roots:
-"""
-
-
 @pytest.mark.parametrize("key", [None, "my_new_folder"])
 def test_from_dir_many_artifacts(get_test_filepaths, key):
     is_in_registered_storage = get_test_filepaths[0]
@@ -496,7 +550,7 @@ def test_from_dir_many_artifacts(get_test_filepaths, key):
         with pytest.raises(InvalidArgument) as error:
             ln.Artifact.from_dir(test_dirpath, key=key)
         assert error.exconly().startswith(
-            "lamindb.core.exceptions.InvalidArgument: The path"  # The path {data} is already in registered storage
+            "lamindb.errors.InvalidArgument: The path"  # The path {data} is already in registered storage
         )
         return None
     else:
@@ -517,19 +571,23 @@ def test_from_dir_many_artifacts(get_test_filepaths, key):
         artifact.delete(permanent=True, storage=False)
 
 
-def test_delete_artifact(df):
-    artifact = ln.Artifact.from_df(df, description="My test file to delete")
-    artifact.save()
+def test_delete_and_restore_artifact(df):
+    artifact = ln.Artifact.from_df(df, description="My test file to delete").save()
     assert artifact._branch_code == 1
     assert artifact.key is None or artifact._key_is_virtual
     storage_path = artifact.path
     # trash behavior
     artifact.delete()
     assert storage_path.exists()
+    assert artifact._branch_code == -1
     assert ln.Artifact.filter(description="My test file to delete").first() is None
     assert ln.Artifact.filter(
         description="My test file to delete", _branch_code=-1
     ).first()
+    # implicit restore from trash
+    artifact_restored = ln.Artifact.from_df(df, description="My test file to delete")
+    assert artifact_restored._branch_code == 1
+    assert artifact_restored == artifact
     # permanent delete
     artifact.delete(permanent=True)
     assert (
@@ -544,15 +602,14 @@ def test_delete_artifact(df):
     artifact = ln.Artifact(
         "s3://lamindb-dev-datasets/file-to-test-for-delete.csv",
         description="My test file to delete from non-default storage",
-    )
-    artifact.save()
+    ).save()
     assert artifact.storage.instance_uid != ln.setup.settings.instance.uid
     assert artifact.key is not None
     filepath = artifact.path
     with pytest.raises(IntegrityError) as e:
         artifact.delete()
     assert e.exconly().startswith(
-        "lamindb.core.exceptions.IntegrityError: Cannot simply delete artifacts"
+        "lamindb.errors.IntegrityError: Cannot simply delete artifacts"
     )
     artifact.delete(storage=False, permanent=True)
     assert (
@@ -712,6 +769,23 @@ def test_check_path_is_child_of_root():
         "https://raw.githubusercontent.com/laminlabs/lamindb/refs/heads/main/README.md",
         root="https://raw.githubusercontent.com",
     )
+    # s3 with endpoint
+    assert not check_path_is_child_of_root(
+        "s3://bucket/key?endpoint_url=http://localhost:8000",
+        root="s3://bucket/",
+    )
+    assert not check_path_is_child_of_root(
+        "s3://bucket/key/",
+        root="s3://bucket/?endpoint_url=http://localhost:8000",
+    )
+    assert check_path_is_child_of_root(
+        "s3://bucket/key?endpoint_url=http://localhost:8000",
+        root="s3://bucket?endpoint_url=http://localhost:8000",
+    )
+    assert check_path_is_child_of_root(
+        UPath("s3://bucket/key", endpoint_url="http://localhost:8000"),
+        root="s3://bucket?endpoint_url=http://localhost:8000",
+    )
 
 
 def test_serialize_paths():
@@ -756,8 +830,9 @@ def test_load_to_memory(tsv_file, zip_file, fcs_file, yaml_file):
     # fcs
     adata = load_fcs(str(fcs_file))
     assert isinstance(adata, ad.AnnData)
-    # none
-    load_to_memory(zip_file)
+    # error
+    with pytest.raises(NotImplementedError):
+        load_to_memory(zip_file)
     # check that it is a path
     assert isinstance(load_to_memory("./somefile.rds"), UPath)
     # yaml
@@ -780,7 +855,7 @@ def test_describe():
     artifact.describe()
 
 
-def test_zarr_upload_cache(adata):
+def test_zarr_upload_cache(get_small_adata):
     previous_storage = ln.setup.settings.storage.root_as_str
     ln.settings.storage = "s3://lamindb-test/core"
 
@@ -788,7 +863,7 @@ def test_zarr_upload_cache(adata):
         pass
 
     zarr_path = Path("./test_adata.zarr")
-    write_adata_zarr(adata, zarr_path, callback)
+    write_adata_zarr(get_small_adata, zarr_path, callback)
 
     artifact = ln.Artifact(zarr_path, key="test_adata.zarr")
     assert artifact.otype == "AnnData"
@@ -797,7 +872,7 @@ def test_zarr_upload_cache(adata):
 
     assert isinstance(artifact.path, CloudPath)
     assert artifact.path.exists()
-    assert zarr_is_adata(artifact.path)
+    assert identify_zarr_type(artifact.path) == "anndata"
 
     shutil.rmtree(artifact.cache())
 
@@ -814,7 +889,7 @@ def test_zarr_upload_cache(adata):
     shutil.rmtree(zarr_path)
 
     # test zarr from memory
-    artifact = ln.Artifact(adata, key="test_adata.anndata.zarr")
+    artifact = ln.Artifact(get_small_adata, key="test_adata.anndata.zarr")
     assert artifact._local_filepath.is_dir()
     assert artifact.otype == "AnnData"
     assert artifact.suffix == ".anndata.zarr"
@@ -847,30 +922,32 @@ def test_df_suffix(df):
         artifact = ln.Artifact.from_df(df, key="test_.def")
     assert (
         error.exconly().partition(",")[0]
-        == "lamindb.core.exceptions.InvalidArgument: The suffix '.def' of the provided key is incorrect"
+        == "lamindb.errors.InvalidArgument: The suffix '.def' of the provided key is inconsistent"
     )
 
 
-def test_adata_suffix(adata):
-    artifact = ln.Artifact.from_anndata(adata, key="test_.h5ad")
+def test_adata_suffix(get_small_adata):
+    artifact = ln.Artifact.from_anndata(get_small_adata, key="test_.h5ad")
     assert artifact.suffix == ".h5ad"
-    artifact = ln.Artifact.from_anndata(adata, format="h5ad", key="test_.h5ad")
+    artifact = ln.Artifact.from_anndata(
+        get_small_adata, format="h5ad", key="test_.h5ad"
+    )
     assert artifact.suffix == ".h5ad"
-    artifact = ln.Artifact.from_anndata(adata, key="test_.zarr")
+    artifact = ln.Artifact.from_anndata(get_small_adata, key="test_.zarr")
     assert artifact.suffix == ".zarr"
 
     with pytest.raises(ValueError) as error:
-        artifact = ln.Artifact.from_anndata(adata, key="test_.def")
+        artifact = ln.Artifact.from_anndata(get_small_adata, key="test_.def")
     assert (
         error.exconly().partition(",")[0]
         == "ValueError: Error when specifying AnnData storage format"
     )
 
     with pytest.raises(InvalidArgument) as error:
-        artifact = ln.Artifact.from_anndata(adata, key="test_")
+        artifact = ln.Artifact.from_anndata(get_small_adata, key="test_")
     assert (
         error.exconly().partition(",")[0]
-        == "lamindb.core.exceptions.InvalidArgument: The suffix '' of the provided key is incorrect"
+        == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is inconsistent"
     )
 
 

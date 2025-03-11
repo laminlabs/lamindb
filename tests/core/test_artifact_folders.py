@@ -1,6 +1,6 @@
 import lamindb as ln
 import pytest
-from lamindb.core.exceptions import InvalidArgument
+from lamindb.errors import InvalidArgument
 
 
 @pytest.mark.parametrize("key", [None, "my_new_folder"])
@@ -15,7 +15,7 @@ def test_folder_like_artifact(get_test_filepaths, key):
         with pytest.raises(InvalidArgument) as error:
             ln.Artifact(test_dirpath, key=key)
         assert error.exconly().startswith(
-            "lamindb.core.exceptions.InvalidArgument: The path"  # The path {data} is already in registered storage
+            "lamindb.errors.InvalidArgument: The path"  # The path {data} is already in registered storage
         )
         return None
     if key is None and not is_in_registered_storage:

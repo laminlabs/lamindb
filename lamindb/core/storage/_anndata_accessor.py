@@ -16,9 +16,11 @@ from anndata._io.h5ad import read_dataframe_legacy as read_dataframe_legacy_h5
 from anndata._io.specs.registry import get_spec, read_elem, read_elem_partial
 from anndata.compat import _read_attr
 from fsspec.implementations.local import LocalFileSystem
+from fsspec.utils import infer_compression
 from lamin_utils import logger
 from lamindb_setup.core.upath import create_mapper, infer_filesystem
 from packaging import version
+from upath import UPath
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -151,9 +153,13 @@ registry = AccessRegistry()
 
 
 @registry.register_open("h5py")
-def open(filepath: UPathStr, mode: str = "r"):
+def open(filepath: UPathStr, mode: str = "r", compression: str | None = "infer"):
     fs, file_path_str = infer_filesystem(filepath)
-    if isinstance(fs, LocalFileSystem):
+    # we don't open compressed files directly because we need fsspec to uncompress on .open
+    compression = (
+        infer_compression(file_path_str) if compression == "infer" else compression
+    )
+    if isinstance(fs, LocalFileSystem) and compression is None:
         assert mode in {"r", "r+", "a", "w", "w-"}, f"Unknown mode {mode}!"  #  noqa: S101
         return None, h5py.File(file_path_str, mode=mode)
     if mode == "r":
@@ -164,7 +170,7 @@ def open(filepath: UPathStr, mode: str = "r"):
         conn_mode = "ab"
     else:
         raise ValueError(f"Unknown mode {mode}! Should be 'r', 'w' or 'a'.")
-    conn = fs.open(file_path_str, mode=conn_mode)
+    conn = fs.open(file_path_str, mode=conn_mode, compression=compression)
     try:
         storage = h5py.File(conn, mode=mode)
     except Exception as e:
@@ -741,3 +747,43 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         return AnnDataRawAccessor(
             self.storage["raw"], None, None, self._obs_names, None, self.shape[0]
         )
+
+
+# get the number of observations in an anndata object or file fast and safely
+def _anndata_n_observations(object: UPathStr | AnnData) -> int | None:
+    if isinstance(object, AnnData):
+        return object.n_obs
+
+    try:
+        objectpath = UPath(object)
+        suffix = objectpath.suffix
+        conn_module = {".h5ad": "h5py", ".zarr": "zarr"}.get(suffix, suffix[1:])
+        conn, storage = registry.open(conn_module, objectpath, mode="r")
+    except Exception as e:
+        logger.warning(f"Could not open {object} to read n_observations: {e}")
+        return None
+
+    n_observations: int | None = None
+    try:
+        obs = storage["obs"]
+        if isinstance(obs, GroupTypes):  # type: ignore
+            if "_index" in obs.attrs:
+                elem_key = _read_attr(obs.attrs, "_index")
+            else:
+                elem_key = next(iter(obs))
+            elem = obs[elem_key]
+            if isinstance(elem, ArrayTypes):  # type: ignore
+                n_observations = elem.shape[0]
+            else:
+                # assume standard obs group
+                n_observations = elem["codes"].shape[0]
+        else:
+            n_observations = obs.shape[0]
+    except Exception as e:
+        logger.warning(f"Could not read n_observations from anndata {object}: {e}")
+    finally:
+        if hasattr(storage, "close"):
+            storage.close()
+        if hasattr(conn, "close"):
+            conn.close()
+    return n_observations

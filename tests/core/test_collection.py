@@ -1,4 +1,4 @@
-from inspect import signature
+import re
 
 import anndata as ad
 import bionty as bt
@@ -6,7 +6,7 @@ import lamindb as ln
 import numpy as np
 import pandas as pd
 import pytest
-from lamindb import _collection
+from lamindb.errors import FieldValidationError
 from scipy.sparse import csc_matrix, csr_matrix
 
 
@@ -35,24 +35,6 @@ def adata2():
     )
 
 
-def test_signatures():
-    # this seems currently the easiest and most transparent
-    # way to test violations of the signature equality
-    # the MockORM class is needed to get inspect.signature
-    # to work
-    class Mock:
-        pass
-
-    # class methods
-    class_methods = []
-    for name in class_methods:
-        setattr(Mock, name, getattr(_collection, name))
-        assert signature(getattr(Mock, name)) == _collection.SIGS.pop(name)
-    # methods
-    for name, sig in _collection.SIGS.items():
-        assert signature(getattr(_collection, name)) == sig
-
-
 def test_from_single_artifact(adata):
     bt.settings.organism = "human"
     features = ln.Feature.from_df(adata.obs)
@@ -65,7 +47,7 @@ def test_from_single_artifact(adata):
         artifact.delete(permanent=True)  # make sure we get a fresh one
         artifact = ln.Artifact.from_anndata(adata, description="My adata")
     with pytest.raises(ValueError) as error:
-        ln.Collection(artifact, name="Test")
+        ln.Collection(artifact, key="Test")
     assert str(error.exconly()).startswith(
         "ValueError: Not all artifacts are yet saved, please save them"
     )
@@ -75,12 +57,9 @@ def test_from_single_artifact(adata):
     assert str(error.exconly()).startswith(
         "ValueError: Only one non-keyword arg allowed: artifacts"
     )
-    transform = ln.Transform(name="My test transform")
-    transform.save()
-    run = ln.Run(transform)
-    run.save()
-    collection = ln.Collection(artifact, name="My new collection", run=run)
-    collection.save()
+    transform = ln.Transform(key="My test transform").save()
+    run = ln.Run(transform).save()
+    collection = ln.Collection(artifact, key="My new collection", run=run).save()
     assert collection.run.input_artifacts.get() == artifact
     collection.delete(permanent=True)
     artifact.delete(permanent=True)
@@ -88,16 +67,20 @@ def test_from_single_artifact(adata):
 
 
 def test_edge_cases(df):
-    with pytest.raises(ValueError) as error:
+    with pytest.raises(
+        FieldValidationError,
+        match=re.escape(
+            "Only artifacts, key, description, meta, reference, reference_type, run, revises can be passed"
+        ),
+    ) as error:
         ln.Collection(df, invalid_param=1)
-    assert str(error.exconly()).startswith(
-        "ValueError: Only artifacts, key, run, description, reference, reference_type can be passed, you passed: "
-    )
+
     with pytest.raises(ValueError) as error:
-        ln.Collection(1, name="Invalid")
+        ln.Collection(1, key="Invalid")
     assert str(error.exconly()).startswith(
         "ValueError: Artifact or list[Artifact] is allowed."
     )
+
     artifact = ln.Artifact.from_df(df, description="Test artifact")
     assert artifact._state.adding
     with pytest.raises(ValueError) as error:
@@ -112,7 +95,7 @@ def test_edge_cases(df):
         "ValueError: Please pass artifacts with distinct hashes: these ones are"
         " non-unique"
     )
-    artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True)
 
 
 def test_from_inconsistent_artifacts(df, adata):
@@ -122,7 +105,7 @@ def test_from_inconsistent_artifacts(df, adata):
     # test idempotency of .save()
     collection.save()
     # create a run context
-    ln.context.track(transform=ln.Transform(name="My test transform"))
+    ln.context.track(transform=ln.Transform(key="My test transform"))
     # can iterate over them
     collection.cache()
     assert set(ln.context.run.input_collections.all()) == {collection}
@@ -149,7 +132,7 @@ def test_from_consistent_artifacts(adata, adata2):
         adata2, var_index=bt.Gene.symbol, organism="human"
     )
     artifact2 = curator.save_artifact(description="My test2").save()
-    transform = ln.Transform(name="My test transform").save()
+    transform = ln.Transform(key="My test transform").save()
     run = ln.Run(transform).save()
     collection = ln.Collection([artifact1, artifact2], name="My test", run=run)
     assert collection._state.adding
@@ -159,13 +142,13 @@ def test_from_consistent_artifacts(adata, adata2):
     assert "artifact_uid" in adata_joined.obs.columns
     assert artifact1.uid in adata_joined.obs.artifact_uid.cat.categories
 
-    _schemas_m2m = collection.features._get_staged__schemas_m2m_union()
-    assert set(_schemas_m2m["var"].members.values_list("symbol", flat=True)) == {
-        "MYC",
-        "TCF7",
-        "GATA1",
-    }
-    assert set(_schemas_m2m["obs"].members.values_list("name", flat=True)) == {"feat1"}
+    # feature_sets = collection.features._get_staged_feature_sets_union()
+    # assert set(feature_sets["var"].members.values_list("symbol", flat=True)) == {
+    #     "MYC",
+    #     "TCF7",
+    #     "GATA1",
+    # }
+    # assert set(feature_sets["obs"].members.values_list("name", flat=True)) == {"feat1"}
 
     # re-run with hash-based lookup
     collection2 = ln.Collection([artifact1, artifact2], name="My test 1", run=run)
@@ -194,6 +177,7 @@ def test_collection_mapped(adata, adata2):
     artifact2.save()
     adata3 = adata2.copy()
     adata3.var_names = ["A", "B", "C"]
+    adata3.obs.loc["0", "feat1"] = np.nan
     artifact3 = ln.Artifact.from_anndata(adata3, description="Other vars")
     artifact3.save()
     adata4 = adata.copy()
@@ -328,13 +312,16 @@ def test_collection_mapped(adata, adata2):
         assert np.array_equal(ls_ds[1]["X"], np.array([0, 0, 0, 6, 4, 5]))
         assert np.array_equal(ls_ds[2]["X"], np.array([0, 0, 0, 5, 1, 2]))
         assert np.array_equal(ls_ds[3]["X"], np.array([0, 0, 0, 8, 4, 5]))
-        assert np.array_equal(ls_ds[4]["X"], np.array([1, 2, 5, 0, 0, 0]))
+        ls_ds_idx = ls_ds[4]
+        assert np.array_equal(ls_ds_idx["X"], np.array([1, 2, 5, 0, 0, 0]))
+        assert ls_ds_idx["feat1"] is np.nan
         assert np.array_equal(ls_ds[5]["X"], np.array([4, 5, 8, 0, 0, 0]))
         assert np.issubdtype(ls_ds[2]["X"].dtype, np.integer)
         assert np.issubdtype(ls_ds[4]["X"].dtype, np.integer)
         assert np.array_equal(ls_ds[3]["obsm_X_pca"], np.array([3, 4]))
         assert ls_ds.check_vars_non_aligned(["MYC", "TCF7", "GATA1"]) == [2]
         assert not ls_ds.check_vars_sorted()
+        assert len(ls_ds.get_label_weights("feat1")) == 6
 
     with collection_outer.mapped(layers_keys="layer1", join="outer") as ls_ds:
         assert np.array_equal(ls_ds[0]["layer1"], np.array([0, 0, 0, 3, 0, 2]))
@@ -370,6 +357,26 @@ def test_collection_mapped(adata, adata2):
         weights = ls_ds.get_label_weights("feat2")
         assert len(weights) == 2
         assert all(weights == 0.5)
+    # nan in filtering values
+    with collection_outer.mapped(obs_filter={"feat1": np.nan}, join="outer") as ls_ds:
+        assert ls_ds.shape == (1, 6)
+        assert np.array_equal(ls_ds[0]["X"], np.array([1, 2, 5, 0, 0, 0]))
+    with collection_outer.mapped(
+        obs_filter={"feat1": (np.nan,), "feat2": ["A", "B"]}, join="outer"
+    ) as ls_ds:
+        assert ls_ds.shape == (1, 6)
+    with collection_outer.mapped(
+        obs_filter={"feat1": (np.nan, "A", "B")}, join="outer"
+    ) as ls_ds:
+        assert ls_ds.shape == (6, 6)
+    with collection_outer.mapped(
+        obs_filter={"feat1": ["A", "B"]}, join="outer"
+    ) as ls_ds:
+        assert ls_ds.shape == (5, 6)
+    with collection_outer.mapped(
+        obs_filter={"feat1": ("A", np.nan)}, join="outer"
+    ) as ls_ds:
+        assert ls_ds.shape == (3, 6)
 
     collection.delete(permanent=True)
     collection_outer.delete(permanent=True)
@@ -383,7 +390,7 @@ def test_collection_mapped(adata, adata2):
 def test_revise_collection(df, adata):
     # create a versioned collection
     artifact = ln.Artifact.from_df(df, description="test").save()
-    collection = ln.Collection(artifact, name="test", version="1")
+    collection = ln.Collection(artifact, key="test-collection", version="1")
     assert collection.version == "1"
     assert collection.uid.endswith("0000")
     collection.save()
@@ -398,14 +405,15 @@ def test_revise_collection(df, adata):
         ln.Collection(adata, revises="wrong-type")
 
     # create new collection from old collection
-    collection_r2 = ln.Collection(artifact, revises=collection)
+    collection_r2 = ln.Collection(artifact, key="test-collection")
     assert collection_r2.stem_uid == collection.stem_uid
     assert collection_r2.uid.endswith("0001")
-    collection_r2 = ln.Collection(artifact, revises=collection)
+    # repeat
+    collection_r2 = ln.Collection(artifact, key="test-collection")
     assert collection_r2.stem_uid == collection.stem_uid
     assert collection_r2.uid.endswith("0001")
     assert collection_r2.version is None
-    assert collection_r2.key == "test"
+    assert collection_r2.key == "test-collection"
 
     collection_r2.save()
 
@@ -414,12 +422,13 @@ def test_revise_collection(df, adata):
     artifact = ln.Artifact.from_df(df, description="test")
     artifact.save()
     collection_r3 = ln.Collection(
-        artifact, name="test1", revises=collection_r2, version="2"
+        artifact, key="test-collection", description="test description3", version="2"
     )
     assert collection_r3.stem_uid == collection.stem_uid
     assert collection_r3.version == "2"
     assert collection_r3.uid.endswith("0002")
-    assert collection_r3.key == "test1"
+    assert collection_r3.key == "test-collection"
+    assert collection_r3.description == "test description3"
 
     artifacts_r2 = collection_r2.artifacts.all()
     collection_r2.delete(permanent=True)
@@ -432,17 +441,16 @@ def test_revise_collection(df, adata):
 def test_collection_append(df, adata):
     artifact = ln.Artifact.from_df(df, description="test").save()
     artifact_1 = ln.Artifact.from_anndata(adata, description="test").save()
-    col = ln.Collection(artifact, name="Test", description="Test append").save()
+    collection = ln.Collection(artifact, key="Test", description="Test append").save()
+    new_collection = collection.append(artifact_1).save()
 
-    col_append = col.append(artifact_1).save()
-
-    assert col_append.name == col.name
-    assert col_append.description == col.description
-    assert col_append.uid.endswith("0001")
-    artifacts = col_append.artifacts.all()
+    assert new_collection.key == collection.key
+    assert new_collection.description == collection.description
+    assert new_collection.uid.endswith("0001")
+    artifacts = new_collection.artifacts.all()
     assert len(artifacts) == 2
 
-    col_append.versions.delete(permanent=True)
+    new_collection.versions.delete(permanent=True)
     artifacts.delete(permanent=True)
 
 

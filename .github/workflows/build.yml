@@ -22,12 +22,12 @@ jobs:
           filters: |
             curator:
               - 'lamindb/curators/**'
-              - 'tests/curators/test_curator.py'
+              - 'tests/curators/**'
 
       - id: set-matrix
         shell: bash
         run: |
-          BASE_GROUPS=$(jq -n -c '["unit-core", "unit-storage", "tutorial", "guide", "biology", "faq", "storage", "cli"]')
+          BASE_GROUPS=$(jq -n -c '["unit-core", "unit-storage", "tutorial", "guide", "biology", "faq", "storage", "cli", "permissions"]')
 
           if [[ "${{ github.event_name }}" == "push" || "${{ steps.changes.outputs.curator }}" == "true" ]]; then
             # Run everything on push or when curator paths change
@@ -50,12 +50,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{fromJson(needs.pre-filter.outputs.matrix)}}
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
+
+      - uses: actions/checkout@v4
+        if: ${{ matrix.group == 'permissions' }}
+        with:
+          repository: laminlabs/laminhub
+          token: ${{ secrets.GH_TOKEN_DEPLOY_LAMINAPP }}
+          path: laminhub
+          ref: main
 
       - uses: actions/setup-python@v5
         with:
@@ -72,7 +80,7 @@ jobs:
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: cache postgres
-        if: ${{ matrix.group == 'faq' || matrix.group == 'unit-core' || matrix.group == 'unit-storage' }}
+        if: ${{ matrix.group == 'faq' || matrix.group == 'unit-core' || matrix.group == 'unit-storage' || matrix.group == 'permissions'}}
         id: cache-postgres
         uses: actions/cache@v4
         with:

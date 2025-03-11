@@ -1,13 +1,8 @@
-from typing import Literal
-
-
 class CreationSettings:
-    artifact_if_hash_exists: Literal[
-        "warn_return_existing", "error", "warn_create_new"
-    ] = "warn_return_existing"
-    """Behavior if file hash exists (default `"warn_return_existing"`).
+    search_names: bool = True
+    """Switch off to speed up creating records (default `True`).
 
-    One of `["warn_return_existing", "error", "warn_create_new"]`.
+    If `True`, search for alternative names and avoids duplicates.
 
     FAQ: :doc:`/faq/idempotency`
     """
@@ -18,15 +13,8 @@ class CreationSettings:
 
     It speeds up file creation by about a factor 100.
     """
-    search_names: bool = True
-    """To speed up creating records (default `True`).
-
-    If `True`, search for alternative names.
-
-    FAQ: :doc:`/faq/idempotency`
-    """
     artifact_silence_missing_run_warning: bool = False
-    """Silence warning about missing run & transform during artifact creation."""
+    """Silence warning about missing run & transform during artifact creation (default `False`)."""
     _artifact_use_virtual_keys: bool = True
     """Treat `key` parameter in :class:`~lamindb.Artifact` as virtual.
 

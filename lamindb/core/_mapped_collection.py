@@ -27,7 +27,8 @@ if TYPE_CHECKING:
 class _Connect:
     def __init__(self, storage):
         if isinstance(storage, UPath):
-            self.conn, self.store = registry.open("h5py", storage)
+            # force no external compression even for files with .gz extension. REMOVE LATER
+            self.conn, self.store = registry.open("h5py", storage, compression=None)
             self.to_close = True
         else:
             self.conn, self.store = None, storage
@@ -87,7 +88,7 @@ class MappedCollection:
         obs_keys: Keys from the ``.obs`` slots.
         obs_filter: Select only observations with these values for the given obs columns.
             Should be a dictionary with obs column names as keys
-            and filtering values (a string or a tuple of strings) as values.
+            and filtering values (a string or a list of strings) as values.
         join: `"inner"` or `"outer"` virtual joins. If ``None`` is passed,
             does not join.
         encode_labels: Encode labels into integers.
@@ -106,7 +107,7 @@ class MappedCollection:
         layers_keys: str | list[str] | None = None,
         obs_keys: str | list[str] | None = None,
         obsm_keys: str | list[str] | None = None,
-        obs_filter: dict[str, str | tuple[str, ...]] | None = None,
+        obs_filter: dict[str, str | list[str]] | None = None,
         join: Literal["inner", "outer"] | None = "inner",
         encode_labels: bool | list[str] = True,
         unknown_label: str | dict[str, str] | None = None,
@@ -184,9 +185,14 @@ class MappedCollection:
                 if self.filtered:
                     indices_storage_mask = None
                     for obs_filter_key, obs_filter_values in obs_filter.items():
-                        obs_filter_mask = np.isin(
-                            self._get_labels(store, obs_filter_key), obs_filter_values
-                        )
+                        if isinstance(obs_filter_values, tuple):
+                            obs_filter_values = list(obs_filter_values)
+                        elif not isinstance(obs_filter_values, list):
+                            obs_filter_values = [obs_filter_values]
+                        obs_labels = self._get_labels(store, obs_filter_key)
+                        obs_filter_mask = np.isin(obs_labels, obs_filter_values)
+                        if pd.isna(obs_filter_values).any():
+                            obs_filter_mask |= pd.isna(obs_labels)
                         if indices_storage_mask is None:
                             indices_storage_mask = obs_filter_mask
                         else:
@@ -241,7 +247,8 @@ class MappedCollection:
                 if parallel:
                     conn, storage = None, path
                 else:
-                    conn, storage = registry.open("h5py", path)
+                    # force no external compression even for files with .gz extension. REMOVE LATER
+                    conn, storage = registry.open("h5py", path, compression=None)
             else:
                 conn, storage = registry.open("zarr", path)
             self.conns.append(conn)
@@ -296,7 +303,7 @@ class MappedCollection:
             self.var_joint = reduce(pd.Index.intersection, self.var_list)
             if len(self.var_joint) == 0:
                 raise ValueError(
-                    "The provided AnnData objects don't have shared varibales.\n"
+                    "The provided AnnData objects don't have shared variables.\n"
                     "Use join='outer'."
                 )
             self.var_indices = [
@@ -389,7 +396,7 @@ class MappedCollection:
                     else:
                         cats = None
                     label_idx = self._get_obs_idx(store, obs_idx, label, cats)
-                    if label in self.encoders:
+                    if label in self.encoders and label_idx is not np.nan:
                         label_idx = self.encoders[label][label_idx]
                     out[label] = label_idx
         return out
@@ -453,6 +460,8 @@ class MappedCollection:
                 label = labels[idx]
             else:
                 label = labels["codes"][idx]
+                if label == -1:
+                    return np.nan
         if categories is not None:
             cats = categories
         else:
@@ -589,7 +598,13 @@ class MappedCollection:
             cats = self._get_categories(storage, label_key)
         if cats is not None:
             cats = _decode(cats) if isinstance(cats[0], bytes) else cats
+            # NaN is coded as -1
+            nans = labels == -1
             labels = cats[labels]
+            # detect and replace nans
+            if nans.any():
+                labels[nans] = np.nan
+
         return labels
 
     def close(self):

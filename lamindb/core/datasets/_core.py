@@ -13,6 +13,7 @@ from lamindb.core._settings import settings
 
 if TYPE_CHECKING:
     from mudata import MuData
+    from spatialdata import SpatialData
 
 
 def file_fcs() -> Path:
@@ -552,3 +553,25 @@ def schmidt22_perturbseq(basedir=".") -> Path:  # pragma: no cover
         "schmidt22_perturbseq.h5ad",
     )
     return Path(filepath).rename(Path(basedir) / filepath)
+
+
+def spatialdata_blobs() -> SpatialData:
+    """Example SpatialData dataset for tutorials."""
+    from spatialdata.datasets import blobs
+
+    sdata = blobs()
+    sdata.attrs["sample"] = {
+        "assay": "Visium Spatial Gene Expression",
+        "disease": "Alzheimer's dementia",
+        "developmental_stage": "very early",
+    }
+    sdata.tables["table"].var.index = [
+        "ENSG00000139618",  # BRCA2
+        "ENSG00000157764",  # BRAF
+        "ENSG00000999999",  # Does not exist
+    ]
+    sdata.tables["table"].obs["sample_region"] = pd.Categorical(
+        ["sample region 1"] * 13 + ["sample region 2"] * 13
+    )
+
+    return sdata

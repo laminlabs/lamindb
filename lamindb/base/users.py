@@ -12,12 +12,9 @@ def current_user_id() -> int:
         if ln_setup.core.django.IS_MIGRATING:
             return 1
         else:
-            exc_attr = (
-                "DoesNotExist" if hasattr(User, "DoesNotExist") else "_DoesNotExist"
-            )
             try:
                 user_id = User.objects.get(uid=settings.user.uid).id
-            except getattr(User, exc_attr):
+            except User.DoesNotExist:
                 register_user(settings.user)
                 user_id = User.objects.get(uid=settings.user.uid).id
             return user_id
