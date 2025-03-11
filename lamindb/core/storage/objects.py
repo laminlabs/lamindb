@@ -45,8 +45,7 @@ def infer_suffix(dmem: SupportedDataTypes, format: str | None = None):
         dmem,
         "SpatialData",
         "spatialdata",
-        lambda obj: "."
-        + (
+        lambda obj: (
             format
             if format is not None and format in {"spatialdata.zarr", "zarr"}
             else ".zarr"
