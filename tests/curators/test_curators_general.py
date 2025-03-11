@@ -32,7 +32,6 @@ def test_nullable():
 def test_save_artifact_invalid_data_type():
     data = np.array([1, 2, 3])
 
-    # Check that the correct exception is raised with the expected message
     with pytest.raises(
         InvalidArgument,
         match="data must be one of pd.Dataframe, AnnData, MuData, SpatialData.",
