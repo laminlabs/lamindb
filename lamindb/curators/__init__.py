@@ -1868,7 +1868,7 @@ class SpatialDataCatManager(CatManager):
             self._sdata,
             description=description,
             fields=self.categoricals,
-            columns_field=self.var_index,
+            index_field=self.var_index,
             key=key,
             artifact=self._artifact,
             revises=revises,
