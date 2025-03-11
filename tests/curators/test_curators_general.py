@@ -1,5 +1,9 @@
 import lamindb as ln
+import numpy as np
 import pandas as pd
+import pytest
+from lamindb.core.exceptions import InvalidArgument
+from lamindb.curators import save_artifact
 
 
 def test_nullable():
@@ -23,3 +27,14 @@ def test_nullable():
         assert str(e).startswith("1 term is not validated: 'asthma'")
     schema.delete()
     disease.delete()
+
+
+def test_save_artifact_invalid_data_type():
+    data = np.array([1, 2, 3])
+
+    # Check that the correct exception is raised with the expected message
+    with pytest.raises(
+        InvalidArgument,
+        match="data must be one of pd.Dataframe, AnnData, MuData, SpatialData.",
+    ):
+        save_artifact(data=data, fields={"field1": "attr1"})

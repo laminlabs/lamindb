@@ -3497,8 +3497,8 @@ def save_artifact(
                 var_fields=index_field,
                 **feature_kwargs,
             )
-        case _:  # pragma: no cover
-            raise NotImplementedError
+        case _:
+            raise NotImplementedError  # pragma: no cover
 
     def _add_labels(
         data: pd.DataFrame | ScverseDataStructures,
