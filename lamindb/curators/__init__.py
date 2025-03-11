@@ -46,7 +46,6 @@ from lamindb.core.storage._backed_access import backed_access
 from ._cellxgene_schemas import _read_schema_versions
 
 if TYPE_CHECKING:
-    from anndata import AnnData
     from lamindb_setup.core.types import UPathStr
 
     from lamindb.base.types import FieldAttr
@@ -69,14 +68,15 @@ from lamindb.models.feature import parse_dtype, parse_dtype_single_cat
 from lamindb.models._from_values import _format_values
 
 from ..errors import InvalidArgument, ValidationError
+from anndata import AnnData
+from spatialdata import SpatialData
+from mudata import MuData
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, MutableMapping
     from typing import Any
 
     from lamindb_setup.core.types import UPathStr
-    from mudata import MuData
-    from spatialdata import SpatialData
 
     from lamindb.models.query_set import RecordList
 
@@ -1668,7 +1668,7 @@ class SpatialDataCatManager(CatManager):
         Args:
             description: A description of the dataset.
             key: A path-like key to reference artifact in default storage,
-                e.g., `"myfolder/myartifact.zarr"`. Artifacts with the same key form a version family.
+                e.g., `"myartifact.zarr"`. Artifacts with the same key form a version family.
             revises: Previous version of the artifact. Triggers a revision.
             run: The run that creates the artifact.
 
@@ -3250,31 +3250,31 @@ def save_artifact(
         columns_field: The registry field to validate variables index against.
         description: A description of the artifact.
         organism: The organism name.
-        type: The Artifact type.
         key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
         artifact: A already registered artifact. Passing this will not save a new artifact from data.
         revises: Previous version of the artifact. Triggers a revision.
         run: The run that creates the artifact.
+        schema: The Schema to associate with the Artifact.
 
     Returns:
         The saved Artifact.
     """
-    from ..models.artifact import add_labels, data_is_anndata, data_is_mudata
+    from ..models.artifact import add_labels
 
     if artifact is None:
         if isinstance(data, pd.DataFrame):
             artifact = Artifact.from_df(
                 data, description=description, key=key, revises=revises, run=run
             )
-        elif data_is_anndata(data):
+        elif isinstance(data, AnnData):
             artifact = Artifact.from_anndata(
                 data, description=description, key=key, revises=revises, run=run
             )
-        elif data_is_mudata(data):
+        elif isinstance(data, MuData):
             artifact = Artifact.from_mudata(
                 data, description=description, key=key, revises=revises, run=run
             )
-        elif data_is_spatialdata(data):
+        elif isinstance(data, SpatialData):
             artifact = Artifact.from_spatialdata(
                 data, description=description, key=key, revises=revises, run=run
             )
@@ -3282,8 +3282,6 @@ def save_artifact(
             raise InvalidArgument(  # pragma: no cover
                 "data must be one of pd.Dataframe, AnnData, MuData, SpatialData."
             )
-
-    artifact.schema = schema
     artifact.save()
 
     if organism is not None and columns_field is not None:
@@ -3409,6 +3407,9 @@ def save_artifact(
         _add_labels(
             data, artifact, fields, feature_ref_is_name=_ref_is_name(columns_field)
         )
+
+    artifact.schema = schema
+    artifact.save()
 
     slug = ln_setup.settings.instance.slug
     if ln_setup.settings.instance.is_remote:  # pdagma: no cover
