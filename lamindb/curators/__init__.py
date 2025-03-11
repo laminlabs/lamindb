@@ -377,7 +377,7 @@ class DataFrameCurator(Curator):
                     display_cols = actual_cols[:10] if col_count > 10 else actual_cols
                     display_cols_str = ", ".join([f"'{c}'" for c in display_cols])
                     suffix = "..." if col_count > 10 else ""
-                    err_msg = f"Missing column '{missing_col}'. Found {col_count} columns including: {display_cols_str}{suffix}"
+                    err_msg = f"column '{missing_col}' not in dataframe. {col_count} columns in dataframe including: {display_cols_str}{suffix}"
 
                 # .exconly() doesn't exist on SchemaError
                 raise ValidationError(err_msg) from err
