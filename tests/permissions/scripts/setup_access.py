@@ -17,17 +17,14 @@ project = ln.Project(name="No_access_project")  # type: ignore
 project.space = no_access
 project.save()
 
-# setup full access space
-hm.AccessSpace(account=account, space=full_access, operation="SELECT").save()
-hm.AccessSpace(account=account, space=full_access, operation="INSERT").save()
-hm.AccessSpace(account=account, space=full_access, operation="UPDATE").save()
-hm.AccessSpace(account=account, space=full_access, operation="DELETE").save()
+# setup write access space
+hm.AccessSpace(account=account, space=full_access, role="write").save()
 
 ulabel = ln.ULabel(name="full_access_ulabel")
 ulabel.space = full_access
 ulabel.save()
-# setup select access space
-hm.AccessSpace(account=account, space=select_access, operation="SELECT").save()
+# setup read access space
+hm.AccessSpace(account=account, space=select_access, role="read").save()
 
 ulabel = ln.ULabel(name="select_ulabel")
 ulabel.space = select_access
