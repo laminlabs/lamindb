@@ -370,10 +370,9 @@ class DataFrameCurator(Curator):
                 # Reduce Pandera validation stdout for many columns
                 if "column" in err_msg and "not in dataframe" in err_msg:
                     missing_col = err_msg.split("column '")[1].split("'")[0]
-                    # Get actual columns directly from the dataset
                     actual_cols = list(self._dataset.columns)
                     col_count = len(actual_cols)
-                    # Show first few columns or all if few
+                    # Show first 10 columns or all if few
                     display_cols = actual_cols[:10] if col_count > 10 else actual_cols
                     display_cols_str = ", ".join([f"'{c}'" for c in display_cols])
                     suffix = "..." if col_count > 10 else ""
