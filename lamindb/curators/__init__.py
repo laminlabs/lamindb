@@ -50,6 +50,8 @@ from ._cellxgene_schemas import _read_schema_versions
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
+    from mudata import MuData
+    from spatialdata import SpatialData
 
     from lamindb.base.types import FieldAttr
     from lamindb.core.types import ScverseDataStructures
@@ -75,8 +77,6 @@ from lamindb.models._from_values import _format_values
 
 from ..errors import InvalidArgument, ValidationError
 from anndata import AnnData
-from spatialdata import SpatialData
-from mudata import MuData
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, MutableMapping
@@ -3454,11 +3454,11 @@ def save_artifact(
             artifact = Artifact.from_anndata(
                 data, description=description, key=key, revises=revises, run=run
             )
-        elif isinstance(data, MuData):
+        elif data_is_mudata(data):
             artifact = Artifact.from_mudata(
                 data, description=description, key=key, revises=revises, run=run
             )
-        elif isinstance(data, SpatialData):
+        elif data_is_spatialdata(data):
             artifact = Artifact.from_spatialdata(
                 data, description=description, key=key, revises=revises, run=run
             )
