@@ -283,6 +283,7 @@ class DataFrameCurator(Curator):
         schema: A `Schema` object that defines the validation constraints.
 
     Example::
+
         import lamindb as ln
         import bionty as bt
 
@@ -453,6 +454,7 @@ class AnnDataCurator(SlotsCurator):
         schema: A `Schema` object that defines the validation constraints.
 
     Example::
+
         import lamindb as ln
         import bionty as bt
 
@@ -595,6 +597,7 @@ class MuDataCurator(SlotsCurator):
         schema: A `Schema` object that defines the validation constraints.
 
     Example::
+
         import lamindb as ln
         import bionty as bt
 
@@ -739,6 +742,7 @@ class SpatialDataCurator(SlotsCurator):
         schema: A `Schema` object that defines the validation constraints.
 
     Example::
+
         import lamindb as ln
         import bionty as bt
 
@@ -895,6 +899,7 @@ class CatManager:
     A `CatManager` object makes it easy to validate, standardize & annotate datasets.
 
     Example::
+
         cat_manager = ln.CatManager(
             dataset,
             # define validation criteria as mappings
@@ -1050,6 +1055,7 @@ class DataFrameCatManager(CatManager):
         A curator object.
 
     Example::
+
         import bionty as bt
         curator = ln.Curator.from_df(
             df,
@@ -1266,6 +1272,7 @@ class AnnDataCatManager(CatManager):
             using the exclude parameter ensures they are not validated.
 
     Example::
+
         import bionty as bt
         curator = ln.Curator.from_anndata(
             adata,
@@ -1462,6 +1469,7 @@ class MuDataCatManager(CatManager):
             using the exclude parameter ensures they are not validated.
 
     Example::
+
         import bionty as bt
         curator = ln.Curator.from_mudata(
             mdata,
@@ -1721,6 +1729,7 @@ class SpatialDataCatManager(CatManager):
         sample_metadata_key: The key in ``.attrs`` that stores the sample level metadata.
 
     Example::
+
         import bionty as bt
         curator = SpatialDataCatManager(
             sdata,
