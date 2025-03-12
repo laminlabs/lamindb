@@ -553,9 +553,10 @@ class AnnDataCurator(SlotsCurator):
 
 
 def _assign_var_fields_categoricals_multimodal(
+    table_key: str | None,
+    table_slot: str,
     slot: str,
     slot_schema: Schema,
-    schema_dataset: Any,
     var_fields: dict[str, FieldAttr],
     categoricals: dict[str, dict[str, FieldAttr]],
     slots: dict[str, DataFrameCurator],
@@ -570,33 +571,15 @@ def _assign_var_fields_categoricals_multimodal(
         categoricals: Dictionary to store categorical fields, keyed by modality
         slots: Dictionary to store slot curators
     """
-    # Parse the slot name to get modality and modality_slot
-    if ":" in slot:
-        table_key, table_slot = slot.split(":")
-    else:
-        table_key = None
-        table_slot = slot
-
-    # Create curator for this slot
-    slots[slot] = DataFrameCurator(
-        (
-            schema_dataset.__getattribute__(table_slot).T
-            if table_slot == "var"
-            else schema_dataset.__getattribute__(table_slot)
-        ),
-        slot_schema,
-    )
-
-    # Assign to var_fields and categoricals
     if table_key is not None:
-        # Makes sure that all modalities are present
+        # Makes sure that all tables are present
         var_fields[table_key] = None
         categoricals[table_key] = {}
 
     if table_slot == "var":
         var_field = parse_dtype_single_cat(slot_schema.itype, is_itype=True)["field"]
         if table_key is None:
-            # This should rarely/never be used since modalities should have different var fields
+            # This should rarely/never be used since tables should have different var fields
             var_fields[slot] = var_field  # pragma: no cover
         else:
             # Note that this is NOT nested since the nested key is always "var"
@@ -718,9 +701,10 @@ class MuDataCurator(SlotsCurator):
                 slot_schema,
             )
             _assign_var_fields_categoricals_multimodal(
+                table_key=modality,
+                table_slot=modality_slot,
                 slot=slot,
                 slot_schema=slot_schema,
-                schema_dataset=schema_dataset,
                 var_fields=self._var_fields,
                 categoricals=self._categoricals,
                 slots=self._slots,
@@ -867,9 +851,10 @@ class SpatialDataCurator(SlotsCurator):
             )
 
             _assign_var_fields_categoricals_multimodal(
+                table_key=table_key,
+                table_slot=table_slot,
                 slot=slot,
                 slot_schema=slot_schema,
-                schema_dataset=schema_dataset,
                 var_fields=self._var_fields,
                 categoricals=self._categoricals,
                 slots=self._slots,
