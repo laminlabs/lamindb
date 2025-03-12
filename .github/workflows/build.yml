@@ -67,10 +67,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: |
-            ${{ matrix.group == 'storage' && '3.10' ||
-                '3.13'
-                }}
+          python-version: "3.13"
 
       - name: cache pre-commit
         uses: actions/cache@v4
