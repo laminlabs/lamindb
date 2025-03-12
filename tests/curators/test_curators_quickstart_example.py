@@ -7,6 +7,7 @@ import pytest
 import tiledbsoma
 import tiledbsoma.io
 from lamindb.core import datasets
+from lamindb.core.types import FieldAttr
 from lamindb.errors import InvalidArgument
 
 
@@ -166,6 +167,9 @@ def spatialdata_blobs_schema():
 
     yield spatialdata_schema
 
+    from lamindb.models import SchemaComponent
+
+    SchemaComponent.filter().delete()
     spatialdata_schema.delete()
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
@@ -177,7 +181,7 @@ def spatialdata_blobs_schema():
     bt.Disease.filter().delete()
 
 
-def test_dataframe_curator(small_dataset1_schema):
+def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     """Test DataFrame curator implementation."""
 
     df = datasets.small_dataset1(otype="DataFrame")
@@ -256,14 +260,16 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
     var_schema.delete()
 
 
-def test_soma_curator(small_dataset1_schema, curator_params):
+def test_soma_curator(
+    small_dataset1_schema: ln.Schema, curator_params: dict[str, str | FieldAttr]
+):
     """Test SOMA curator implementation."""
     adata = datasets.small_dataset1(otype="AnnData")
     tiledbsoma.io.from_anndata(
         "./small_dataset1.tiledbsoma", adata, measurement_name="RNA"
     )
 
-    curator = ln.Curator.from_tiledbsoma(
+    curator = ln.Curator.from_tiledbsoma(  # type: ignore
         "./small_dataset1.tiledbsoma",
         var_index={"RNA": ("var_id", bt.Gene.ensembl_gene_id)},
         **curator_params,
@@ -333,7 +339,9 @@ def test_mudata_curator(
     artifact.delete(permanent=True)
 
 
-def test_spatialdata_curator(spatialdata_blobs_schema, small_dataset1_schema):
+def test_spatialdata_curator(
+    spatialdata_blobs_schema: ln.Schema, small_dataset1_schema: ln.Schema
+):
     spatialdata_schema = spatialdata_blobs_schema
     spatialdata = ln.core.datasets.spatialdata_blobs()
 
