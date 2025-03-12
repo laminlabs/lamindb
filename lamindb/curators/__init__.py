@@ -2090,7 +2090,8 @@ class TiledbsomaCatManager(CatManager):
             When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
             using the exclude parameter ensures they are not validated.
 
-    Example:
+    Example::
+
         import bionty as bt
         curator = ln.Curator.from_tiledbsoma(
             "./my_array_store.tiledbsoma",
