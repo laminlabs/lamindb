@@ -283,7 +283,6 @@ class DataFrameCurator(Curator):
         schema: A `Schema` object that defines the validation constraints.
 
     Example::
-
         import lamindb as ln
         import bionty as bt
 
@@ -454,7 +453,6 @@ class AnnDataCurator(SlotsCurator):
         schema: A `Schema` object that defines the validation constraints.
 
     Example::
-
         import lamindb as ln
         import bionty as bt
 
@@ -597,7 +595,6 @@ class MuDataCurator(SlotsCurator):
         schema: A `Schema` object that defines the validation constraints.
 
     Example::
-
         import lamindb as ln
         import bionty as bt
 
@@ -898,7 +895,6 @@ class CatManager:
     A `CatManager` object makes it easy to validate, standardize & annotate datasets.
 
     Example::
-
         cat_manager = ln.CatManager(
             dataset,
             # define validation criteria as mappings
@@ -1053,7 +1049,7 @@ class DataFrameCatManager(CatManager):
     Returns:
         A curator object.
 
-    Examples::
+    Example::
         import bionty as bt
         curator = ln.Curator.from_df(
             df,
@@ -1269,7 +1265,7 @@ class AnnDataCatManager(CatManager):
             When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
             using the exclude parameter ensures they are not validated.
 
-    Examples::
+    Example::
         import bionty as bt
         curator = ln.Curator.from_anndata(
             adata,
@@ -1465,7 +1461,7 @@ class MuDataCatManager(CatManager):
             When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
             using the exclude parameter ensures they are not validated.
 
-    Examples::
+    Example::
         import bionty as bt
         curator = ln.Curator.from_mudata(
             mdata,
@@ -1724,7 +1720,7 @@ class SpatialDataCatManager(CatManager):
         verbosity: The verbosity level of the logger.
         sample_metadata_key: The key in ``.attrs`` that stores the sample level metadata.
 
-    Examples::
+    Example::
         import bionty as bt
         curator = SpatialDataCatManager(
             sdata,
@@ -2085,17 +2081,17 @@ class TiledbsomaCatManager(CatManager):
             When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
             using the exclude parameter ensures they are not validated.
 
-    Examples:
-        >>> import bionty as bt
-        >>> curator = ln.Curator.from_tiledbsoma(
-        ...     "./my_array_store.tiledbsoma",
-        ...     var_index={"RNA": ("var_id", bt.Gene.symbol)},
-        ...     categoricals={
-        ...         "cell_type_ontology_id": bt.CellType.ontology_id,
-        ...         "donor_id": ULabel.name
-        ...     },
-        ...     organism="human",
-        ... )
+    Example:
+        import bionty as bt
+        curator = ln.Curator.from_tiledbsoma(
+            "./my_array_store.tiledbsoma",
+            var_index={"RNA": ("var_id", bt.Gene.symbol)},
+            categoricals={
+                "cell_type_ontology_id": bt.CellType.ontology_id,
+                "donor_id": ULabel.name
+            },
+            organism="human",
+        )
     """
 
     def __init__(
