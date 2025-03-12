@@ -552,6 +552,64 @@ class AnnDataCurator(SlotsCurator):
         )
 
 
+def _assign_var_fields_categoricals_multimodal(
+    slot: str,
+    slot_schema: Schema,
+    schema_dataset: Any,
+    var_fields: dict[str, FieldAttr],
+    categoricals: dict[str, dict[str, FieldAttr]],
+    slots: dict[str, DataFrameCurator],
+) -> None:
+    """Assigns var_fields and categoricals for multimodal data curators.
+
+    Args:
+        slot: The slot name, which may contain a modality prefix (e.g., "rna:var")
+        slot_schema: The schema for this slot
+        schema_dataset: The dataset object to apply the schema to
+        var_fields: Dictionary to store var fields, keyed by modality
+        categoricals: Dictionary to store categorical fields, keyed by modality
+        slots: Dictionary to store slot curators
+    """
+    # Parse the slot name to get modality and modality_slot
+    if ":" in slot:
+        table_key, table_slot = slot.split(":")
+    else:
+        table_key = None
+        table_slot = slot
+
+    # Create curator for this slot
+    slots[slot] = DataFrameCurator(
+        (
+            schema_dataset.__getattribute__(table_slot).T
+            if table_slot == "var"
+            else schema_dataset.__getattribute__(table_slot)
+        ),
+        slot_schema,
+    )
+
+    # Assign to var_fields and categoricals
+    if table_key is not None:
+        # Makes sure that all modalities are present
+        var_fields[table_key] = None
+        categoricals[table_key] = {}
+
+    if table_slot == "var":
+        var_field = parse_dtype_single_cat(slot_schema.itype, is_itype=True)["field"]
+        if table_key is None:
+            # This should rarely/never be used since modalities should have different var fields
+            var_fields[slot] = var_field  # pragma: no cover
+        else:
+            # Note that this is NOT nested since the nested key is always "var"
+            var_fields[table_key] = var_field
+    else:
+        obs_fields = slots[slot]._cat_manager.categoricals
+        if table_key is None:
+            categoricals[slot] = obs_fields
+        else:
+            # Note that this is NOT nested since the nested key is always "obs"
+            categoricals[table_key] = obs_fields
+
+
 class MuDataCurator(SlotsCurator):
     # the example in the docstring is tested in test_curators_quickstart_example
     """Curator for a MuData object.
@@ -659,30 +717,16 @@ class MuDataCurator(SlotsCurator):
                 ),
                 slot_schema,
             )
-            # Assign to _var_fields and _categoricals
-            if modality is not None:
-                # makes sure that all modalities are present
-                self._var_fields[modality] = None
-                self._categoricals[modality] = {}
-            if modality_slot == "var":
-                var_field = parse_dtype_single_cat(slot_schema.itype, is_itype=True)[
-                    "field"
-                ]
-                if modality is None:
-                    # this should rarely/never be used since modalities should have different var fields
-                    self._var_fields[slot] = var_field  # pragma: no cover
-                else:
-                    # note that this is NOT nested since the nested key is always "var"
-                    self._var_fields[modality] = var_field
-            else:
-                obs_fields = self._slots[slot]._cat_manager.categoricals
-                if modality is None:
-                    self._categoricals[slot] = obs_fields
-                else:
-                    # note that this is NOT nested since the nested key is always "obs"
-                    self._categoricals[modality] = obs_fields
+            _assign_var_fields_categoricals_multimodal(
+                slot=slot,
+                slot_schema=slot_schema,
+                schema_dataset=schema_dataset,
+                var_fields=self._var_fields,
+                categoricals=self._categoricals,
+                slots=self._slots,
+            )
 
-        # this is for consistency with BaseCatManager
+        # for consistency with BaseCatManager
         self._columns_field = self._var_fields
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
@@ -783,7 +827,7 @@ class SpatialDataCurator(SlotsCurator):
 
     def __init__(
         self,
-        dataset: AnnData | Artifact,
+        dataset: SpatialData | Artifact,
         schema: Schema,
         *,
         sample_metadata_key: str | None = "sample",
@@ -821,30 +865,17 @@ class SpatialDataCurator(SlotsCurator):
                 ),
                 slot_schema,
             )
-            # Assign to _var_fields and _categoricals
-            if table_key is not None:
-                # makes sure that all tables are present
-                self._var_fields[table_key] = None
-                self._categoricals[table_key] = {}
-            if table_slot == "var":
-                var_field = parse_dtype_single_cat(slot_schema.itype, is_itype=True)[
-                    "field"
-                ]
-                if table_key is None:
-                    # this should rarely/never be used since tables can have different var fields
-                    self._var_fields[slot] = var_field  # pragma: no cover
-                else:
-                    # note that this is NOT nested since the nested key is always "var"
-                    self._var_fields[table_key] = var_field
-            else:
-                obs_fields = self._slots[slot]._cat_manager.categoricals
-                if table_key is None:
-                    self._categoricals[slot] = obs_fields
-                else:
-                    # note that this is NOT nested since the nested key is always "obs"
-                    self._categoricals[table_key] = obs_fields
 
-        # this is for consistency with BaseCatManager
+            _assign_var_fields_categoricals_multimodal(
+                slot=slot,
+                slot_schema=slot_schema,
+                schema_dataset=schema_dataset,
+                var_fields=self._var_fields,
+                categoricals=self._categoricals,
+                slots=self._slots,
+            )
+
+        # for consistency with BaseCatManager
         self._columns_field = self._var_fields
 
     @property
