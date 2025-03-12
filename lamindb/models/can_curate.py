@@ -8,7 +8,7 @@ from django.core.exceptions import FieldDoesNotExist
 from lamin_utils import colors, logger
 
 from ..errors import ValidationError
-from ._from_values import _format_values, _has_organism_field, get_or_create_records
+from ._from_values import _format_values, _require_organism, get_or_create_records
 from .record import Record, _queryset, get_name_field
 
 if TYPE_CHECKING:
@@ -250,7 +250,7 @@ def _standardize(
     _check_organism_db(organism, using_key)
     registry = queryset.model
 
-    if _has_organism_field(registry):
+    if _require_organism(registry):
         # here, we can safely import bionty
         from bionty._bionty import create_or_get_organism_record
 
@@ -457,7 +457,7 @@ def _filter_query_based_on_organism(
 
     registry = queryset.model
 
-    if _has_organism_field(registry) and not _field_is_id(field, registry):
+    if _require_organism(registry) and not _field_is_id(field, registry):
         # here, we can safely import bionty
         from bionty._bionty import create_or_get_organism_record
 
@@ -641,17 +641,15 @@ class CanCurate:
             >>> records = bt.CellType.from_values(["T cell", "B cell"], field="name")
             >>> records
         """
-        from_source = True if cls.__module__.startswith("bionty.") else False
-
         field_str = get_name_field(cls, field=field)
         return get_or_create_records(
             iterable=values,
             field=getattr(cls, field_str),
             create=create,
-            from_source=from_source,
             organism=organism,
             source=source,
             mute=mute,
+            _from_source=True if cls.__module__.startswith("bionty.") else False,
         )
 
     @classmethod
