@@ -1,3 +1,5 @@
+import re
+
 import lamindb as ln
 import numpy as np
 import pandas as pd
@@ -34,6 +36,8 @@ def test_save_artifact_invalid_data_type():
 
     with pytest.raises(
         InvalidArgument,
-        match="data must be one of pd.Dataframe, AnnData, MuData, SpatialData.",
+        match=re.escape(
+            "data must be one of pd.Dataframe, AnnData, MuData, SpatialData."
+        ),
     ):
         save_artifact(data=data, fields={"field1": "attr1"})
