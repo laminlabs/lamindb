@@ -244,11 +244,11 @@ def create_records_from_source(
             df=bionty_df,
         )
 
-        # this here is needed when the organism is required to create new records
-        if organism is None:
-            organism = _get_organism_record(
-                field, source.organism, values=mapped_values
-            )
+        # # this here is needed when the organism is required to create new records
+        # if organism is None:
+        #     organism = _get_organism_record(
+        #         field, source.organism, values=mapped_values
+        #     )
 
         create_kwargs = (
             {"organism": organism, "source": source}
@@ -384,11 +384,11 @@ def _get_organism_record(  # type: ignore
     field_str = field.field.name
     check = not _is_simple_field_unique(field=field) or organism is not None
 
+    if field_str == "ensembl_gene_id" and len(values) > 0 and organism is None:  # type: ignore
+        return _organism_from_ensembl_id(values[0])  # type: ignore
+
     if _require_organism(registry) and check:
         from bionty._bionty import create_or_get_organism_record
-
-        if field_str == "ensembl_gene_id" and len(values) > 0:  # type: ignore
-            organism = _organism_from_ensembl_id(values[0])  # type: ignore
 
         organism_record = create_or_get_organism_record(
             organism=organism, registry=registry, field=field_str
