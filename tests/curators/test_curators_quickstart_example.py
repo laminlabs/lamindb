@@ -355,8 +355,8 @@ def test_spatialdata_curator(
     curator = ln.curators.SpatialDataCurator(spatialdata, spatialdata_schema)
     try:
         curator.validate()
-    except ln.errors.ValidationError as error:
-        print(error)
+    except ln.errors.ValidationError:
+        pass
 
     curator.slots["sample"].cat.add_new_from(key="developmental_stage")
     curator.slots["sample"].cat.standardize(key="disease")
