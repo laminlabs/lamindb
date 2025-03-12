@@ -357,3 +357,10 @@ def test_spatialdata_curator(spatialdata_blobs_schema, small_dataset1_schema):
     # validate again (must pass now) and save artifact
     artifact = curator.save_artifact(key="example_datasets/spatialdata1.zarr")
     assert artifact.schema == spatialdata_schema
+    assert artifact.features.slots.keys() == {
+        "sample",
+        "['table'].var",
+        "['table'].obs",
+    }
+
+    artifact.delete(permanent=True)
