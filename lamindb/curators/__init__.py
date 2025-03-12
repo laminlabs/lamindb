@@ -561,16 +561,7 @@ def _assign_var_fields_categoricals_multimodal(
     categoricals: dict[str, dict[str, FieldAttr]],
     slots: dict[str, DataFrameCurator],
 ) -> None:
-    """Assigns var_fields and categoricals for multimodal data curators.
-
-    Args:
-        slot: The slot name, which may contain a modality prefix (e.g., "rna:var")
-        slot_schema: The schema for this slot
-        schema_dataset: The dataset object to apply the schema to
-        var_fields: Dictionary to store var fields, keyed by modality
-        categoricals: Dictionary to store categorical fields, keyed by modality
-        slots: Dictionary to store slot curators
-    """
+    """Assigns var_fields and categoricals for multimodal data curators."""
     if table_key is not None:
         # Makes sure that all tables are present
         var_fields[table_key] = None
@@ -660,7 +651,7 @@ class MuDataCurator(SlotsCurator):
             },
         ).save()
 
-        # curate an AnnData
+        # curate a MuData
         mdata = ln.core.datasets.mudata_papalexi21_subset()
         bt.settings.organism = "human" # set the organism
         curator = ln.curators.MuDataCurator(mdata, mudata_schema)
