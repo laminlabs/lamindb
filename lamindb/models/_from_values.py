@@ -7,14 +7,13 @@ import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from lamin_utils import colors, logger
 
-from .record import Record
-
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from lamindb.base.types import FieldAttr, ListLike, StrField
 
     from .query_set import RecordList
+    from .record import Record
 
 
 # The base function for `from_values`
@@ -37,8 +36,9 @@ def get_or_create_records(
     organism_record = _get_organism_record(field, organism, values=iterable)
     # TODO: the create is problematic if field is not a name field
     if create:
+        create_kwargs = {}
         if organism_record:
-            create_kwargs = {"organism": organism_record}
+            create_kwargs["organism"] = organism_record
         return RecordList(
             [
                 registry(**{field.field.name: value}, **create_kwargs)
@@ -58,23 +58,7 @@ def get_or_create_records(
 
     # new records to be created based on new values
     if len(nonexist_values) > 0:
-        source_record = None
-        if _from_source:
-            if isinstance(source, Record):
-                source_record = source
-
-        if source_record:
-            from bionty.core._add_ontology import check_source_in_db
-
-            check_source_in_db(registry=registry, source=source_record)
-
-            _from_source = not source_record.in_db
-        elif hasattr(registry, "source_id"):
-            _from_source = True
-        else:
-            _from_source = False
-
-        if _from_source:
+        if _from_source and hasattr(registry, "source_id"):
             if (
                 organism_record is None
                 and len(records) > 0
@@ -85,7 +69,7 @@ def get_or_create_records(
                 iterable_idx=nonexist_values,
                 field=field,
                 organism=organism_record,
-                source=source_record,
+                source=source,
                 msg=msg,
                 mute=mute,
             )
@@ -98,15 +82,15 @@ def get_or_create_records(
             unmapped_values = nonexist_values
         # unmapped new_ids will NOT create records
         if len(unmapped_values) > 0:
+            # first log the success message
             if len(msg) > 0 and not mute:
                 logger.success(msg)
             s = "" if len(unmapped_values) == 1 else "s"
             print_values = colors.yellow(_format_values(unmapped_values))
-            name = registry.__name__
             n_nonval = colors.yellow(f"{len(unmapped_values)} non-validated")
             if not mute:
                 logger.warning(
-                    f"{colors.red('did not create')} {name} record{s} for "
+                    f"{colors.red('did not create')} {registry.__name__} record{s} for "
                     f"{n_nonval} {colors.italic(f'{field.field.name}{s}')}: {print_values}"  # type: ignore
                 )
     return RecordList(records)
@@ -181,8 +165,6 @@ def get_existing_records(
         msg = ""
 
     # get all existing records in the db
-    # if necessary, create records for the values in kwargs
-    # k:v -> k:v_record
     query = {f"{field.field.name}__in": iterable_idx.values}  # type: ignore
     if organism is not None:
         query["organism"] = organism
