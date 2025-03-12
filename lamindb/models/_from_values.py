@@ -59,6 +59,7 @@ def get_or_create_records(
     # new records to be created based on new values
     if len(nonexist_values) > 0:
         if _from_source and hasattr(registry, "source_id"):
+            # if can and needed, get organism record from the existing records
             if (
                 organism_record is None
                 and len(records) > 0
@@ -354,6 +355,15 @@ def _require_organism(registry: type[Record]) -> bool:
         return False
 
 
+def _is_simple_field_unique(field: FieldAttr) -> bool:
+    """Check if the field is an id field."""
+    # id field is a unique field that's not a relation
+    field = field.field
+    if field.unique and not field.is_relation:
+        return True
+    return False
+
+
 def _get_organism_record(  # type: ignore
     field: FieldAttr,
     organism: str | Record | None = None,
@@ -371,23 +381,24 @@ def _get_organism_record(  # type: ignore
             The field is not unique or the organism is not None
     """
     registry = field.field.model
-    check = not field.field.unique or organism is not None
+    field_str = field.field.name
+    check = not _is_simple_field_unique(field=field) or organism is not None
 
     if _require_organism(registry) and check:
         from bionty._bionty import create_or_get_organism_record
 
-        if field.field.name == "ensembl_gene_id" and len(values) > 0:  # type: ignore
+        if field_str == "ensembl_gene_id" and len(values) > 0:  # type: ignore
             organism = _organism_from_ensembl_id(values[0])  # type: ignore
 
         organism_record = create_or_get_organism_record(
-            organism=organism, registry=registry, field=field.field.name
+            organism=organism, registry=registry, field=field_str
         )
-        if organism_record._state.adding:
+        if organism_record and organism_record._state.adding:
             organism_record.save()
         return organism_record
 
 
-def _organism_from_ensembl_id(id: str) -> Record | None:
+def _organism_from_ensembl_id(id: str) -> Record | None:  # type: ignore
     import bionty as bt
 
     from .artifact import Artifact  # has to be here to avoid circular imports
@@ -396,8 +407,10 @@ def _organism_from_ensembl_id(id: str) -> Record | None:
         Artifact.using("laminlabs/bionty-assets")
         .get(key="ensembl_prefixes.parquet")
         .load(is_run_input=False)
+        .set_index("gene_prefix")
     )
     prefix = re.sub(r"\d+", "", id)
-    sname = ensembl_prefixes.set_index("gene_prefix").loc[prefix, "scientific_name"]
+    if prefix in ensembl_prefixes.index:
+        sname = ensembl_prefixes.loc[prefix, "scientific_name"]
 
-    return bt.Organism.from_source(scientific_name=sname)
+        return bt.Organism.from_source(scientific_name=sname)

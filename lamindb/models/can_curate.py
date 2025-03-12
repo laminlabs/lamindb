@@ -8,7 +8,11 @@ from django.core.exceptions import FieldDoesNotExist
 from lamin_utils import colors, logger
 
 from ..errors import ValidationError
-from ._from_values import _format_values, _require_organism, get_or_create_records
+from ._from_values import (
+    _format_values,
+    _get_organism_record,
+    get_or_create_records,
+)
 from .record import Record, _queryset, get_name_field
 
 if TYPE_CHECKING:
@@ -20,22 +24,13 @@ if TYPE_CHECKING:
     from .query_set import RecordList
 
 
-def _check_source_db(source: Record, using_key: str | None):
-    """Check if the source is from the DB."""
-    if using_key is not None and using_key != "default":
-        if source._state.db != using_key:
-            raise ValueError(
-                f"source must be a bionty.Source record from instance '{using_key}'!"
-            )
-
-
-def _check_organism_db(organism: str | Record | None, using_key: str | None):
-    """Check if the organism is from the DB."""
-    if isinstance(organism, Record):
+def _check_record_db(record: str | Record | None, using_key: str | None):
+    """Check if the record is from the using_key DB."""
+    if isinstance(record, Record):
         if using_key is not None and using_key != "default":
-            if organism._state.db != using_key:
+            if record._state.db != using_key:
                 raise ValueError(
-                    f"organism must be a bionty.Organism record from instance '{using_key}'!"
+                    f"record must be a {record.__class__.__get_name_with_module__()} record from instance '{using_key}'!"
                 )
 
 
@@ -55,7 +50,7 @@ def _concat_lists(values: ListLike) -> list[str]:
 def _inspect(
     cls,
     values: ListLike,
-    field: str | StrField | None = None,
+    field: StrField | None = None,
     *,
     mute: bool = False,
     using_key: str | None = None,
@@ -70,31 +65,32 @@ def _inspect(
         values = [values]
     values = _concat_lists(values)
 
-    field = get_name_field(cls, field=field)
+    field_str = get_name_field(cls, field=field)
     queryset = _queryset(cls, using_key)
     using_key = queryset.db
     if isinstance(source, Record):
-        _check_source_db(source, using_key)
+        _check_record_db(source, using_key)
         # if strict_source mode, restrict the query to the passed ontology source
         # otherwise, inspect across records present in the DB from all ontology sources and no-source
         if strict_source:
             queryset = queryset.filter(source=source)
-    _check_organism_db(organism, using_key)
     registry = queryset.model
     model_name = registry._meta.model.__name__
+    organism_record = _get_organism_record(
+        getattr(registry, field_str), organism, values
+    )
+    _check_record_db(organism_record, using_key)
 
     # do not inspect synonyms if the field is not name field
     inspect_synonyms = True
-    if hasattr(registry, "_name_field") and field != registry._name_field:
+    if hasattr(registry, "_name_field") and field_str != registry._name_field:
         inspect_synonyms = False
 
     # inspect in the DB
     result_db = inspect(
-        df=_filter_query_based_on_organism(
-            queryset=queryset, field=field, organism=organism
-        ),
+        df=_filter_queryset_with_organism(queryset=queryset, organism=organism_record),
         identifiers=values,
-        field=field,
+        field=field_str,
         mute=mute,
         inspect_synonyms=inspect_synonyms,
     )
@@ -102,8 +98,13 @@ def _inspect(
 
     if len(nonval) > 0 and registry.__get_module_name__() == "bionty":
         try:
-            bionty_result = registry.public(organism=organism, source=source).inspect(
-                values=nonval, field=field, mute=True, inspect_synonyms=inspect_synonyms
+            bionty_result = registry.public(
+                organism=organism_record, source=source
+            ).inspect(
+                values=nonval,
+                field=field_str,
+                mute=True,
+                inspect_synonyms=inspect_synonyms,
             )
             bionty_validated = bionty_result.validated
             bionty_mapper = bionty_result.synonyms_mapper
@@ -114,7 +115,7 @@ def _inspect(
                 labels = colors.yellow(f"{len(bionty_validated)} {model_name} term{s}")
                 logger.print(
                     f"   detected {labels} in Bionty for"
-                    f" {colors.italic(field)}: {colors.yellow(print_values)}"
+                    f" {colors.italic(field_str)}: {colors.yellow(print_values)}"
                 )
                 hint = True
 
@@ -155,7 +156,7 @@ def _inspect(
 def _validate(
     cls,
     values: ListLike,
-    field: str | StrField | None = None,
+    field: StrField | None = None,
     *,
     mute: bool = False,
     using_key: str | None = None,
@@ -171,21 +172,24 @@ def _validate(
         values = [values]
     values = _concat_lists(values)
 
-    field = get_name_field(cls, field=field)
+    field_str = get_name_field(cls, field=field)
 
     queryset = _queryset(cls, using_key)
     using_key = queryset.db
     if isinstance(source, Record):
-        _check_source_db(source, using_key)
+        _check_record_db(source, using_key)
         if strict_source:
             queryset = queryset.filter(source=source)
-    _check_organism_db(organism, using_key)
+    registry = queryset.model
+    organism_record = _get_organism_record(
+        getattr(registry, field_str), organism, values
+    )
+    _check_record_db(organism_record, using_key)
     field_values = pd.Series(
-        _filter_query_based_on_organism(
+        _filter_queryset_with_organism(
             queryset=queryset,
-            field=field,
-            organism=organism,
-            values_list_field=field,
+            organism=organism_record,
+            values_list_field=field_str,
         ),
         dtype="object",
     )
@@ -204,7 +208,7 @@ def _validate(
         field_values=field_values,
         case_sensitive=True,
         mute=mute,
-        field=field,
+        field=field_str,
     )
     if return_str and len(result) == 1:
         return result[0]
@@ -215,7 +219,7 @@ def _validate(
 def _standardize(
     cls,
     values: ListLike,
-    field: str | StrField | None = None,
+    field: StrField | None = None,
     *,
     return_field: str = None,
     return_mapper: bool = False,
@@ -237,55 +241,44 @@ def _standardize(
         values = [values]
     values = _concat_lists(values)
 
-    field = get_name_field(cls, field=field)
-    return_field = get_name_field(
+    field_str = get_name_field(cls, field=field)
+    return_field_str = get_name_field(
         cls, field=field if return_field is None else return_field
     )
     queryset = _queryset(cls, using_key)
     using_key = queryset.db
     if isinstance(source, Record):
-        _check_source_db(source, using_key)
+        _check_record_db(source, using_key)
         if strict_source:
             queryset = queryset.filter(source=source)
-    _check_organism_db(organism, using_key)
     registry = queryset.model
-
-    if _require_organism(registry):
-        # here, we can safely import bionty
-        from bionty._bionty import create_or_get_organism_record
-
-        organism_record = create_or_get_organism_record(
-            organism=organism, registry=registry, field=field
-        )
-        organism = (
-            organism_record.name if organism_record is not None else organism_record
-        )
-    else:
-        organism = None
+    organism_record = _get_organism_record(
+        getattr(registry, field_str), organism, values
+    )
+    _check_record_db(organism_record, using_key)
 
     # only perform synonym mapping if field is the name field
-    if hasattr(registry, "_name_field") and field != registry._name_field:
+    if hasattr(registry, "_name_field") and field_str != registry._name_field:
         synonyms_field = None
 
     try:
         registry._meta.get_field(synonyms_field)
         fields = {
             field_name
-            for field_name in [field, return_field, synonyms_field]
+            for field_name in [field_str, return_field_str, synonyms_field]
             if field_name is not None
         }
-        df = _filter_query_based_on_organism(
+        df = _filter_queryset_with_organism(
             queryset=queryset,
-            field=field,
-            organism=organism,
-            fields=list(fields),
+            organism=organism_record,
+            values_list_fields=list(fields),
         )
     except FieldDoesNotExist:
         df = pd.DataFrame()
 
     _kwargs = {
-        "field": field,
-        "return_field": return_field,
+        "field": field_str,
+        "return_field": return_field_str,
         "case_sensitive": case_sensitive,
         "keep": keep,
         "synonyms_field": synonyms_field,
@@ -317,19 +310,19 @@ def _standardize(
             )
 
         val_res = registry.validate(
-            std_names_db, field=field, mute=True, organism=organism
+            std_names_db, field=field, mute=True, organism=organism_record
         )
         if all(val_res):
             return _return(result=std_names_db, mapper=mapper)
 
         nonval = np.array(std_names_db)[~val_res]
-        std_names_bt_mapper = registry.public(organism=organism).standardize(
+        std_names_bt_mapper = registry.public(organism=organism_record).standardize(
             nonval, return_mapper=True, mute=True, **_kwargs
         )
 
         if len(std_names_bt_mapper) > 0 and not mute:
             s = "" if len(std_names_bt_mapper) == 1 else "s"
-            field_print = "synonym" if field == return_field else field
+            field_print = "synonym" if field_str == return_field_str else field_str
 
             reduced_mapped_keys_str = f"{list(std_names_bt_mapper.keys())[:10] + ['...'] if len(std_names_bt_mapper) > 10 else list(std_names_bt_mapper.keys())}"
             truncated_note = (
@@ -437,55 +430,34 @@ def _add_or_remove_synonyms(
 
 
 def _check_synonyms_field_exist(record: CanCurate):
-    try:
-        record.__getattribute__("synonyms")
-    except AttributeError:
+    """Check if synonyms field exists."""
+    if not hasattr(record, "synonyms"):
         raise NotImplementedError(
             f"No synonyms field found in table {record.__class__.__name__}!"
         ) from None
 
 
-def _filter_query_based_on_organism(
+def _filter_queryset_with_organism(
     queryset: QuerySet,
-    field: str,
-    organism: str | Record | None = None,
+    organism: Record | None = None,
     values_list_field: str | None = None,
-    fields: list[str] | None = None,
+    values_list_fields: list[str] | None = None,
 ):
     """Filter a queryset based on organism."""
     import pandas as pd
 
-    registry = queryset.model
+    if organism is not None:
+        queryset = queryset.filter(organism=organism)
 
-    if _require_organism(registry) and not _field_is_id(field, registry):
-        # here, we can safely import bionty
-        from bionty._bionty import create_or_get_organism_record
-
-        organism_record = create_or_get_organism_record(
-            organism=organism, registry=registry, field=field
-        )
-        if organism_record is not None:
-            queryset = queryset.filter(organism__name=organism_record.name)
-
+    # values_list_field/s for better performance
     if values_list_field is None:
-        if fields:
+        if values_list_fields:
             return pd.DataFrame.from_records(
-                queryset.values_list(*fields), columns=fields
+                queryset.values_list(*values_list_fields), columns=values_list_fields
             )
         return pd.DataFrame.from_records(queryset.values())
-
     else:
         return queryset.values_list(values_list_field, flat=True)
-
-
-def _field_is_id(field: str, registry: type[Record]) -> bool:
-    """Check if the field is an ontology ID."""
-    if hasattr(registry, "_ontology_id_field"):
-        if field == registry._ontology_id_field:
-            return True
-    if field.endswith("id"):
-        return True
-    return False
 
 
 class CanCurate:
@@ -495,7 +467,7 @@ class CanCurate:
     def inspect(
         cls,
         values: ListLike,
-        field: str | StrField | None = None,
+        field: StrField | None = None,
         *,
         mute: bool = False,
         organism: Union[str, Record, None] = None,
@@ -547,7 +519,7 @@ class CanCurate:
     def validate(
         cls,
         values: ListLike,
-        field: str | StrField | None = None,
+        field: StrField | None = None,
         *,
         mute: bool = False,
         organism: Union[str, Record, None] = None,
@@ -656,9 +628,9 @@ class CanCurate:
     def standardize(
         cls,
         values: Iterable,
-        field: str | StrField | None = None,
+        field: StrField | None = None,
         *,
-        return_field: str | StrField | None = None,
+        return_field: StrField | None = None,
         return_mapper: bool = False,
         case_sensitive: bool = False,
         mute: bool = False,

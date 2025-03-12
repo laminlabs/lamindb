@@ -1177,7 +1177,7 @@ def _lookup(
 def get_name_field(
     registry: type[Record] | QuerySet | Manager,
     *,
-    field: str | StrField | None = None,
+    field: StrField | None = None,
 ) -> str:
     """Get the 1st char or text field from the registry."""
     if isinstance(registry, (QuerySet, Manager)):
