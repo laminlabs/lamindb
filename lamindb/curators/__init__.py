@@ -10,6 +10,7 @@
    SlotsCurator
    AnnDataCurator
    MuDataCurator
+   SpatialDataCurator
 
 CatManager:
 
