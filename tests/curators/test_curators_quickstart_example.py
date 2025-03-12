@@ -130,6 +130,53 @@ def mudata_papalexi21_subset_schema():
     bt.ExperimentalFactor.filter().delete()
 
 
+@pytest.fixture(scope="module")
+def spatialdata_blobs_schema():
+    sample_schema = ln.Schema(
+        name="blobs_sample_level_metadata",
+        features=[
+            ln.Feature(name="assay", dtype=bt.ExperimentalFactor).save(),
+            ln.Feature(name="disease", dtype=bt.Disease).save(),
+            ln.Feature(name="developmental_stage", dtype=bt.DevelopmentalStage).save(),
+        ],
+        coerce_dtype=True,
+    ).save()
+
+    blobs_obs_schema = ln.Schema(
+        name="blobs_obs_level_metadata",
+        features=[
+            ln.Feature(name="sample_region", dtype="cat[ULabel]").save(),
+        ],
+        coerce_dtype=True,
+    ).save()
+
+    blobs_var_schema = ln.Schema(
+        name="visium_var_schema", itype=bt.Gene.ensembl_gene_id, dtype=int
+    ).save()
+
+    spatialdata_schema = ln.Schema(
+        name="blobs_spatialdata_schema",
+        otype="SpatialData",
+        components={
+            "sample": sample_schema,
+            "table:obs": blobs_obs_schema,
+            "table:var": blobs_var_schema,
+        },
+    ).save()
+
+    yield spatialdata_schema
+
+    spatialdata_schema.delete()
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
+    bt.Gene.filter().delete()
+    ln.ULabel.filter(type__isnull=False).delete()
+    ln.ULabel.filter().delete()
+    bt.ExperimentalFactor.filter().delete()
+    bt.DevelopmentalStage.filter().delete()
+    bt.Disease.filter().delete()
+
+
 def test_dataframe_curator(small_dataset1_schema):
     """Test DataFrame curator implementation."""
 
@@ -284,3 +331,29 @@ def test_mudata_curator(
     }
 
     artifact.delete(permanent=True)
+
+
+def test_spatialdata_curator(spatialdata_blobs_schema, small_dataset1_schema):
+    spatialdata_schema = spatialdata_blobs_schema
+    spatialdata = ln.core.datasets.spatialdata_blobs()
+
+    # wrong dataset
+    with pytest.raises(InvalidArgument):
+        ln.curators.SpatialDataCurator(pd.DataFrame(), spatialdata_blobs_schema)
+    # wrong schema
+    with pytest.raises(InvalidArgument):
+        ln.curators.SpatialDataCurator(spatialdata, small_dataset1_schema)
+
+    curator = ln.curators.SpatialDataCurator(spatialdata, spatialdata_schema)
+    try:
+        curator.validate()
+    except ln.errors.ValidationError as error:
+        print(error)
+
+    curator.slots["sample"].cat.add_new_from(key="developmental_stage")
+    curator.slots["sample"].cat.standardize(key="disease")
+    curator.slots["table:obs"].cat.add_new_from(key="sample_region")
+
+    # validate again (must pass now) and save artifact
+    artifact = curator.save_artifact(key="example_datasets/spatialdata1.zarr")
+    assert artifact.schema == spatialdata_schema

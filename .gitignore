@@ -60,6 +60,7 @@ default_storage_unit_core
 default_storage_unit_storage
 test.ipynb
 test2.ipynb
+test3.ipynb
 run-tests
 test-django-validation/
 
