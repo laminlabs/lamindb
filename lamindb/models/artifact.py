@@ -2006,6 +2006,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         Args:
             mode: can only be `"w"` (write mode) for `tiledbsoma` stores,
                 otherwise should be always `"r"` (read-only mode).
+            is_run_input: Whether to track this artifact as run input.
+            **kwargs: Keyword arguments for the accessor, i.e. `h5py` or `zarr` connection,
+                `pyarrow.dataset.dataset`.
 
         Notes:
             For more info, see tutorial: :doc:`/arrays`.
