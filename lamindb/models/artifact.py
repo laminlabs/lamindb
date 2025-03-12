@@ -2006,6 +2006,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         Args:
             mode: can only be `"w"` (write mode) for `tiledbsoma` stores,
                 otherwise should be always `"r"` (read-only mode).
+            is_run_input: Whether to track this artifact as run input.
+            **kwargs: Keyword arguments for the accessor, i.e. `h5py` or `zarr` connection,
+                `pyarrow.dataset.dataset`.
 
         Notes:
             For more info, see tutorial: :doc:`/arrays`.
@@ -2124,6 +2127,10 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         See all :mod:`~lamindb.core.loaders`.
 
+        Args:
+            is_run_input: Whether to track this artifact as run input.
+            **kwargs: Keyword arguments for the loader.
+
         Examples:
 
             Load a `DataFrame`-like artifact:
@@ -2185,12 +2192,16 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         _track_run_input(self, is_run_input)
         return access_memory
 
-    def cache(self, is_run_input: bool | None = None) -> Path:
+    def cache(self, is_run_input: bool | None = None, **kwargs) -> Path:
         """Download cloud artifact to local cache.
 
         Follows synching logic: only caches an artifact if it's outdated in the local cache.
 
         Returns a path to a locally cached on-disk object (say a `.jpg` file).
+
+        Args:
+            is_run_input: Whether to track this artifact as run input.
+            **kwargs: Keyword arguments for synchronization.
 
         Examples:
 
@@ -2207,7 +2218,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         filepath, cache_key = filepath_cache_key_from_artifact(
             self, using_key=settings._using_key
         )
-        cache_path = _synchronize_cleanup_on_error(filepath, cache_key=cache_key)
+        cache_path = _synchronize_cleanup_on_error(
+            filepath, cache_key=cache_key, **kwargs
+        )
         # only call if sync is successfull
         _track_run_input(self, is_run_input)
         return cache_path
@@ -2428,11 +2441,12 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
 # can't really just call .cache in .load because of double tracking
 def _synchronize_cleanup_on_error(
-    filepath: UPath, cache_key: str | None = None
+    filepath: UPath, cache_key: str | None = None, **kwargs
 ) -> UPath:
     try:
+        print_progress = kwargs.pop("print_progress", True)
         cache_path = setup_settings.paths.cloud_to_local(
-            filepath, cache_key=cache_key, print_progress=True
+            filepath, cache_key=cache_key, print_progress=print_progress, **kwargs
         )
     except Exception as e:
         if not isinstance(filepath, LocalPathClasses):
