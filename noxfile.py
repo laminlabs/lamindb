@@ -127,7 +127,7 @@ def install_ci(session, group):
             session,
             "uv pip install --system -U spatialdata",
         )
-        run(session, "uv pip install --system tiledbsoma==1.15.0rc3")
+        run(session, "uv pip install --system tiledbsoma>=1.16.0")
     elif group == "docs":
         extras += "bionty,zarr"
         run(
