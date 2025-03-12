@@ -170,7 +170,7 @@ SLOTS_DOCSTRING = """Curator objects by slot.
 """
 
 
-VALIDATE_DOCSTRING = """Validate dataset.
+VALIDATE_DOCSTRING = """Validate dataset against Schema.
 
 Raises:
     lamindb.errors.ValidationError: If validation fails.
