@@ -385,7 +385,7 @@ def _get_organism_record(  # type: ignore
     check = not _is_simple_field_unique(field=field) or organism is not None
 
     if field_str == "ensembl_gene_id" and len(values) > 0 and organism is None:  # type: ignore
-        return _organism_from_ensembl_id(values[0])  # type: ignore
+        return _organism_from_ensembl_id(values[0], registry)  # type: ignore
 
     if _require_organism(registry) and check:
         from bionty._bionty import create_or_get_organism_record
@@ -393,12 +393,10 @@ def _get_organism_record(  # type: ignore
         organism_record = create_or_get_organism_record(
             organism=organism, registry=registry, field=field_str
         )
-        if organism_record and organism_record._state.adding:
-            organism_record.save()
-        return organism_record
+        return organism_record.save()
 
 
-def _organism_from_ensembl_id(id: str) -> Record | None:  # type: ignore
+def _organism_from_ensembl_id(id: str, registry: type[Record]) -> Record | None:  # type: ignore
     import bionty as bt
 
     from .artifact import Artifact  # has to be here to avoid circular imports
@@ -413,4 +411,4 @@ def _organism_from_ensembl_id(id: str) -> Record | None:  # type: ignore
     if prefix in ensembl_prefixes.index:
         sname = ensembl_prefixes.loc[prefix, "scientific_name"]
 
-        return bt.Organism.from_source(scientific_name=sname)
+        return bt.Organism.from_source(scientific_name=sname).save()
