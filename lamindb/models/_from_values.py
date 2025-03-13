@@ -10,28 +10,26 @@ from lamin_utils import colors, logger
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from lamindb.base.types import FieldAttr, ListLike, StrField
+    from lamindb.base.types import FieldAttr, ListLike
 
     from .query_set import RecordList
     from .record import Record
 
 
 # The base function for `from_values`
-def get_or_create_records(
+def _from_values(
     iterable: ListLike,
-    field: StrField,
+    field: FieldAttr,
     *,
     create: bool = False,
     organism: Record | str | None = None,
     source: Record | None = None,
     mute: bool = False,
-    _from_source: bool = False,
 ) -> RecordList:
     """Get or create records from iterables."""
     from .query_set import RecordList
 
     registry = field.field.model  # type: ignore
-    field = registry._meta.get_field(field) if isinstance(field, str) else field
     organism_record = _get_organism_record(field, organism, values=iterable)
     # TODO: the create is problematic if field is not a name field
     if create:
@@ -57,7 +55,7 @@ def get_or_create_records(
 
     # new records to be created based on new values
     if len(nonexist_values) > 0:
-        if _from_source and hasattr(registry, "source_id"):
+        if hasattr(registry, "source_id"):
             # if can and needed, get organism record from the existing records
             if (
                 organism_record is None

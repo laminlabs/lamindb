@@ -11,8 +11,8 @@ from lamin_utils import colors, logger
 from ..errors import ValidationError
 from ._from_values import (
     _format_values,
+    _from_values,
     _get_organism_record,
-    get_or_create_records,
 )
 from .record import Record, get_name_field
 
@@ -604,15 +604,13 @@ class CanCurate:
             # Bulk create records from public reference
             bt.CellType.from_values(["T cell", "B cell"]).save()
         """
-        field_str = get_name_field(cls, field=field)
-        return get_or_create_records(
+        return _from_values(
             iterable=values,
-            field=getattr(cls, field_str),
+            field=getattr(cls, get_name_field(cls, field=field)),
             create=create,
             organism=organism,
             source=source,
             mute=mute,
-            _from_source=True if cls.__module__.startswith("bionty.") else False,
         )
 
     @classmethod
