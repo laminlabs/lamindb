@@ -393,10 +393,11 @@ def _get_organism_record(  # type: ignore
         organism_record = create_or_get_organism_record(
             organism=organism, registry=registry, field=field_str
         )
-        return organism_record.save()
+        if organism_record is not None:
+            return organism_record.save()
 
 
-def _organism_from_ensembl_id(id: str, registry: type[Record]) -> Record | None:  # type: ignore
+def _organism_from_ensembl_id(id: str) -> Record | None:  # type: ignore
     import bionty as bt
 
     from .artifact import Artifact  # has to be here to avoid circular imports
@@ -411,4 +412,6 @@ def _organism_from_ensembl_id(id: str, registry: type[Record]) -> Record | None:
     if prefix in ensembl_prefixes.index:
         sname = ensembl_prefixes.loc[prefix, "scientific_name"]
 
-        return bt.Organism.from_source(scientific_name=sname).save()
+        organism_record = bt.Organism.from_source(scientific_name=sname)
+        if organism_record is not None:
+            return organism_record.save()
