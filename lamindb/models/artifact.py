@@ -127,7 +127,7 @@ if TYPE_CHECKING:
 INCONSISTENT_STATE_MSG = (
     "Trying to read a folder artifact from an outdated version, "
     "this can result in an incosistent state.\n"
-    "Read from the latest version: artifact.versions.filter(is_latest=True).one()"
+    "Read from the latest version: artifact.versions.get(is_latest=True)"
 )
 
 
@@ -1502,7 +1502,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             # File in local storage:
             ln.Artifact("./myfile.csv", key="myfile.csv").save()
             artifact.path
-            #PosixPath('/home/runner/work/lamindb/lamindb/docs/guide/mydata/myfile.csv')
+            #> PosixPath('/home/runner/work/lamindb/lamindb/docs/guide/mydata/myfile.csv')
         """
         from lamindb import settings
 
@@ -1555,14 +1555,13 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             df = ln.core.datasets.df_iris_in_meter_batch1()
             df.head()
-            #   sepal_length sepal_width petal_length petal_width iris_organism_code
-            # 0        0.051       0.035        0.014       0.002                 0
-            # 1        0.049       0.030        0.014       0.002                 0
-            # 2        0.047       0.032        0.013       0.002                 0
-            # 3        0.046       0.031        0.015       0.002                 0
-            # 4        0.050       0.036        0.014       0.002                 0
-            artifact = ln.Artifact.from_df(df, key="iris/result_batch1.parquet")
-            artifact.save()
+            #>   sepal_length sepal_width petal_length petal_width iris_organism_code
+            #> 0        0.051       0.035        0.014       0.002                 0
+            #> 1        0.049       0.030        0.014       0.002                 0
+            #> 2        0.047       0.032        0.013       0.002                 0
+            #> 3        0.046       0.031        0.015       0.002                 0
+            #> 4        0.050       0.036        0.014       0.002                 0
+            artifact = ln.Artifact.from_df(df, key="iris/result_batch1.parquet").save()
         """
         artifact = Artifact(  # type: ignore
             data=df,
@@ -1610,8 +1609,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             import lamindb as ln
 
             adata = ln.core.datasets.anndata_with_obs()
-            artifact = ln.Artifact.from_anndata(adata, key="mini_anndata_with_obs.h5ad")
-            artifact.save()
+            artifact = ln.Artifact.from_anndata(adata, key="mini_anndata_with_obs.h5ad").save()
         """
         if not data_is_anndata(adata):
             raise ValueError(
@@ -1673,8 +1671,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             import lamindb as ln
 
             mdata = ln.core.datasets.mudata_papalexi21_subset()
-            artifact = ln.Artifact.from_mudata(mdata, key="mudata_papalexi21_subset.h5mu")
-            artifact.save()
+            artifact = ln.Artifact.from_mudata(mdata, key="mudata_papalexi21_subset.h5mu").save()
         """
         if not data_is_mudata(mdata):
             raise ValueError("data has to be a MuData object or a path to MuData-like")
@@ -1723,8 +1720,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             import lamindb as ln
 
-            artifact = ln.Artifact.from_spatialdata(sdata, key="my_dataset.zarr")
-            artifact.save()
+            artifact = ln.Artifact.from_spatialdata(sdata, key="my_dataset.zarr").save()
         """
         if not data_is_spatialdata(sdata):
             raise ValueError(
@@ -1769,8 +1765,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             import lamindb as ln
 
-            artifact = ln.Artifact.from_tiledbsoma("s3://mybucket/store.tiledbsoma", description="a tiledbsoma store")
-            artifact.save()
+            artifact = ln.Artifact.from_tiledbsoma("s3://mybucket/store.tiledbsoma", description="a tiledbsoma store").save()
         """
         if UPath(path).suffix != ".tiledbsoma":
             raise ValueError(
@@ -2038,9 +2033,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             artifact = ln.Artifact.get(key="lndb-storage/pbmc68k.h5ad")
             artifact.open()
-            # AnnDataAccessor object with n_obs × n_vars = 70 × 765
-            #     constructed for the AnnData object pbmc68k.h5ad
-            #     ...
+            #> AnnDataAccessor object with n_obs × n_vars = 70 × 765
+            #>     constructed for the AnnData object pbmc68k.h5ad
+            #>     ...
         """
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(INCONSISTENT_STATE_MSG)
@@ -2226,7 +2221,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             # Sync file from cloud and return the local path of the cache
             artifact.cache()
-            # PosixPath('/home/runner/work/Caches/lamindb/lamindb-ci/lndb-storage/pbmc68k.h5ad')
+            #> PosixPath('/home/runner/work/Caches/lamindb/lamindb-ci/lndb-storage/pbmc68k.h5ad')
         """
         from lamindb import settings
 
@@ -2268,13 +2263,13 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             import lamindb as ln
 
             # For an `Artifact` object `artifact`, call:
-            artifact = ln.Artifact.filter(key="some.csv").one()
+            artifact = ln.Artifact.get(key="some.csv")
             artifact.delete() # delete a single file artifact
 
             artifact = ln.Artifact.filter(key="some.tiledbsoma". is_latest=False).first()
             artiact.delete() # delete an old version, the data will not be deleted
 
-            artifact = ln.Artifact.filter(key="some.tiledbsoma". is_latest=True).one()
+            artifact = ln.Artifact.get(key="some.tiledbsoma". is_latest=True)
             artiact.delete() # delete all versions, the data will be deleted or prompted for deletion.
         """
         # this first check means an invalid delete fails fast rather than cascading through
@@ -2373,8 +2368,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             import lamindb as ln
 
-            artifact = ln.Artifact("./myfile.csv", key="myfile.parquet")
-            artifact.save()
+            artifact = ln.Artifact("./myfile.csv", key="myfile.parquet").save()
         """
         state_was_adding = self._state.adding
         print_progress = kwargs.pop("print_progress", True)

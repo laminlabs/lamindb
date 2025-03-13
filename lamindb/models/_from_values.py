@@ -31,8 +31,7 @@ def get_or_create_records(
     from .query_set import RecordList
 
     registry = field.field.model  # type: ignore
-    if isinstance(field, str):
-        field = registry._meta.get_field(field)
+    field = registry._meta.get_field(field) if isinstance(field, str) else field
     organism_record = _get_organism_record(field, organism, values=iterable)
     # TODO: the create is problematic if field is not a name field
     if create:
@@ -63,7 +62,7 @@ def get_or_create_records(
             if (
                 organism_record is None
                 and len(records) > 0
-                and _require_organism(registry)
+                and _is_organism_required(registry)
             ):
                 organism_record = records[0].organism
             records_bionty, unmapped_values = create_records_from_source(
@@ -103,6 +102,7 @@ def get_existing_records(
     organism: Record | None = None,
     mute: bool = False,
 ) -> tuple[list, pd.Index, str]:
+    """Get existing records from the database."""
     # NOTE: existing records matching is agnostic to the source
     model = field.field.model  # type: ignore
 
@@ -112,7 +112,7 @@ def get_existing_records(
         field=field,
         organism=organism,
         mute=True,
-        public_aware=False,  # standardize only based on the DB reference
+        source_aware=False,  # standardize only based on the DB reference
         return_mapper=True,
     )
     iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
@@ -186,6 +186,7 @@ def create_records_from_source(
     msg: str = "",
     mute: bool = False,
 ) -> tuple[list, pd.Index]:
+    """Create records from source."""
     model = field.field.model  # type: ignore
     records: list = []
     # populate additional fields from bionty
@@ -286,6 +287,7 @@ def create_records_from_source(
 
 
 def index_iterable(iterable: Iterable) -> pd.Index:
+    """Get unique values from an iterable."""
     idx = pd.Index(iterable).unique()
     # No entries are made for NAs, '', None
     # returns an ordered unique not null list
@@ -295,6 +297,7 @@ def index_iterable(iterable: Iterable) -> pd.Index:
 def _format_values(
     names: Iterable, n: int = 20, quotes: bool = True, sep: str = "'"
 ) -> str:
+    """Format values for printing."""
     if isinstance(names, dict):
         items = {
             f"{key}: {value}": None
@@ -339,7 +342,7 @@ def _bulk_create_dicts_from_df(
     return df.reset_index().to_dict(orient="records"), multi_msg
 
 
-def _require_organism(registry: type[Record]) -> bool:
+def _is_organism_required(registry: type[Record]) -> bool:
     """Check if the registry has an organism field and is required.
 
     Returns:
@@ -391,7 +394,7 @@ def _get_organism_record(  # type: ignore
     if field_str == "ensembl_gene_id" and len(values) > 0 and organism is None:  # type: ignore
         return _organism_from_ensembl_id(values[0], using_key)  # type: ignore
 
-    if _require_organism(registry) and check:
+    if _is_organism_required(registry) and check:
         from bionty._bionty import create_or_get_organism_record
 
         organism_record = create_or_get_organism_record(
@@ -402,6 +405,7 @@ def _get_organism_record(  # type: ignore
 
 
 def _organism_from_ensembl_id(id: str, using_key: str | None) -> Record | None:  # type: ignore
+    """Get organism record from ensembl id."""
     import bionty as bt
 
     from .artifact import Artifact  # has to be here to avoid circular imports
@@ -419,7 +423,9 @@ def _organism_from_ensembl_id(id: str, using_key: str | None) -> Record | None: 
         using_key = None if using_key == "default" else using_key
 
         organism_record = (
-            bt.Organism.using(using_key).filter(name=organism_name).one_or_none()
+            bt.Organism.using(using_key)
+            .filter(name=organism_name, is_latest=True)
+            .one_or_none()
         )
         if organism_record is None:
             organism_record = bt.Organism.from_source(name=organism_name)

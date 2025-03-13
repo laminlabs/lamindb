@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from .query_set import RecordList
 
 
-def _check_record_db(record: str | Record | None, using_key: str | None):
+def _check_if_record_in_db(record: str | Record | None, using_key: str | None):
     """Check if the record is from the using_key DB."""
     if isinstance(record, Record):
         if using_key is not None and using_key != "default":
@@ -69,7 +69,7 @@ def _inspect(
     registry = queryset.model
     model_name = registry._meta.model.__name__
     if isinstance(source, Record):
-        _check_record_db(source, queryset.db)
+        _check_if_record_in_db(source, queryset.db)
         # if strict_source mode, restrict the query to the passed ontology source
         # otherwise, inspect across records present in the DB from all ontology sources and no-source
         if strict_source:
@@ -77,7 +77,7 @@ def _inspect(
     organism_record = _get_organism_record(
         getattr(registry, field_str), organism, values, queryset.db
     )
-    _check_record_db(organism_record, queryset.db)
+    _check_if_record_in_db(organism_record, queryset.db)
 
     # do not inspect synonyms if the field is not name field
     inspect_synonyms = True
@@ -172,14 +172,14 @@ def _validate(
     queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.objects.all()
     registry = queryset.model
     if isinstance(source, Record):
-        _check_record_db(source, queryset.db)
+        _check_if_record_in_db(source, queryset.db)
         if strict_source:
             queryset = queryset.filter(source=source)
 
     organism_record = _get_organism_record(
         getattr(registry, field_str), organism, values, queryset.db
     )
-    _check_record_db(organism_record, queryset.db)
+    _check_if_record_in_db(organism_record, queryset.db)
     field_values = pd.Series(
         _filter_queryset_with_organism(
             queryset=queryset,
@@ -220,7 +220,7 @@ def _standardize(
     return_mapper: bool = False,
     case_sensitive: bool = False,
     mute: bool = False,
-    public_aware: bool = True,
+    source_aware: bool = True,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
     organism: str | Record | None = None,
@@ -240,13 +240,13 @@ def _standardize(
     queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.objects.all()
     registry = queryset.model
     if isinstance(source, Record):
-        _check_record_db(source, queryset.db)
+        _check_if_record_in_db(source, queryset.db)
         if strict_source:
             queryset = queryset.filter(source=source)
     organism_record = _get_organism_record(
         getattr(registry, field_str), organism, values, queryset.db
     )
-    _check_record_db(organism_record, queryset.db)
+    _check_if_record_in_db(organism_record, queryset.db)
 
     # only perform synonym mapping if field is the name field
     if hasattr(registry, "_name_field") and field_str != registry._name_field:
@@ -292,7 +292,7 @@ def _standardize(
             return result
 
     # map synonyms in public source
-    if hasattr(registry, "source_id") and public_aware:
+    if hasattr(registry, "source_id") and source_aware:
         mapper = {}
         if return_mapper:
             mapper = std_names_db
@@ -550,7 +550,7 @@ class CanCurate:
 
             gene_symbols = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
             bt.Gene.validate(gene_symbols, field=bt.Gene.symbol, organism="human")
-            # array([ True,  True, False, False])
+            #> array([ True,  True, False, False])
         """
         return _validate(
             cls=cls,
@@ -625,7 +625,7 @@ class CanCurate:
         return_mapper: bool = False,
         case_sensitive: bool = False,
         mute: bool = False,
-        public_aware: bool = True,
+        source_aware: bool = True,
         keep: Literal["first", "last", False] = "first",
         synonyms_field: str = "synonyms",
         organism: Union[str, Record, None] = None,
@@ -641,7 +641,7 @@ class CanCurate:
             return_mapper: If `True`, returns `{input_value: standardized_name}`.
             case_sensitive: Whether the mapping is case sensitive.
             mute: Whether to mute logging.
-            public_aware: Whether to standardize from public source. Defaults to `True` for BioRecord registries.
+            source_aware: Whether to standardize from public source. Defaults to `True` for BioRecord registries.
             keep: When a synonym maps to multiple names, determines which duplicates to mark as `pd.DataFrame.duplicated`:
                 - `"first"`: returns the first mapped standardized name
                 - `"last"`: returns the last mapped standardized name
@@ -678,8 +678,8 @@ class CanCurate:
 
             # standardize gene synonyms
             gene_synonyms = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
-            standardized_names = bt.Gene.standardize(gene_synonyms)
-            assert standardized_names == ['A1CF', 'A1BG', 'BRCA2', 'FANCD20']
+            bt.Gene.standardize(gene_synonyms)
+            #> ['A1CF', 'A1BG', 'BRCA2', 'FANCD20']
         """
         return _standardize(
             cls=cls,
@@ -690,7 +690,7 @@ class CanCurate:
             case_sensitive=case_sensitive,
             mute=mute,
             strict_source=strict_source,
-            public_aware=public_aware,
+            source_aware=source_aware,
             keep=keep,
             synonyms_field=synonyms_field,
             organism=organism,
@@ -720,11 +720,13 @@ class CanCurate:
 
             # save "T cell" record
             record = bt.CellType.from_source(name="T cell").save()
-            assert record.synonyms == "T-cell|T lymphocyte|T-lymphocyte"
+            record.synonyms
+            #> "T-cell|T lymphocyte|T-lymphocyte"
 
             # add a synonym
             record.add_synonym("T cells")
-            assert record.synonyms == "T cells|T-cell|T-lymphocyte|T lymphocyte"
+            record.synonyms
+            #> "T cells|T-cell|T-lymphocyte|T lymphocyte"
         """
         _check_synonyms_field_exist(self)
         _add_or_remove_synonyms(
@@ -747,10 +749,13 @@ class CanCurate:
 
             # save "T cell" record
             record = bt.CellType.from_source(name="T cell").save()
-            assert record.synonyms == "T-cell|T lymphocyte|T-lymphocyte"
+            record.synonyms
+            #> "T-cell|T lymphocyte|T-lymphocyte"
 
             # remove a synonym
-            assert record.remove_synonym("T-cell") == "T lymphocyte|T-lymphocyte"
+            record.remove_synonym("T-cell")
+            record.synonyms
+            #> "T lymphocyte|T-lymphocyte"
         """
         _check_synonyms_field_exist(self)
         _add_or_remove_synonyms(synonym=synonym, record=self, action="remove")
