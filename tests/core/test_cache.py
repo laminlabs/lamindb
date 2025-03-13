@@ -154,7 +154,7 @@ def test_cloud_cache_versions(switch_storage):
         == cache_dir / "lamindb-ci/lamindb-unit-tests-cloud/test_cache.h5ad"
     )
     cache_path_v1.unlink()
-    artifact.cache()
+    artifact.cache(print_progress=False)
     assert cache_path_v1.exists()
     assert (
         cache_path_v1
@@ -180,7 +180,7 @@ def test_cloud_cache_versions(switch_storage):
     )
     assert cache_path_v2.stat().st_mtime > timestamp_v1
     cache_path_v2.unlink()
-    artifact_v2.cache()
+    artifact_v2.cache(print_progress=False)
     assert cache_path_v2.exists()
     assert (
         cache_path_v2
