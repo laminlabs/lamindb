@@ -554,6 +554,8 @@ class AnnDataCurator(SlotsCurator):
 
 
 def _assign_var_fields_categoricals_multimodal(
+    modality: str | None,
+    slot_type: str,
     slot: str,
     slot_schema: Schema,
     var_fields: dict[str, FieldAttr],
@@ -561,31 +563,21 @@ def _assign_var_fields_categoricals_multimodal(
     slots: dict[str, DataFrameCurator],
 ) -> None:
     """Assigns var_fields and categoricals for multimodal data curators."""
-    if ":" in slot:
-        adata_key, adata_slot = slot.split(":")
-    else:
-        adata_key = None
-        adata_slot = slot
-    if adata_key is not None:
-        # Makes sure that all tables are present
-        var_fields[adata_key] = None
-        categoricals[adata_key] = {}
-
-    if adata_slot == "var":
+    if slot_type == "var":
         var_field = parse_dtype_single_cat(slot_schema.itype, is_itype=True)["field"]
-        if adata_key is None:
+        if modality is None:
             # This should rarely/never be used since tables should have different var fields
             var_fields[slot] = var_field  # pragma: no cover
         else:
             # Note that this is NOT nested since the nested key is always "var"
-            var_fields[adata_key] = var_field
+            var_fields[modality] = var_field
     else:
         obs_fields = slots[slot]._cat_manager.categoricals
-        if adata_key is None:
+        if modality is None:
             categoricals[slot] = obs_fields
         else:
             # Note that this is NOT nested since the nested key is always "obs"
-            categoricals[adata_key] = obs_fields
+            categoricals[modality] = obs_fields
 
 
 class MuDataCurator(SlotsCurator):
@@ -684,8 +676,7 @@ class MuDataCurator(SlotsCurator):
                 modality, modality_slot = slot.split(":")
                 schema_dataset = self._dataset.__getitem__(modality)
             else:
-                modality = None
-                modality_slot = slot
+                modality, modality_slot = None, slot
                 schema_dataset = self._dataset
             self._slots[slot] = DataFrameCurator(
                 (
@@ -696,6 +687,8 @@ class MuDataCurator(SlotsCurator):
                 slot_schema,
             )
             _assign_var_fields_categoricals_multimodal(
+                modality=modality,
+                slot_type=modality_slot,
                 slot=slot,
                 slot_schema=slot_schema,
                 var_fields=self._var_fields,
@@ -845,6 +838,8 @@ class SpatialDataCurator(SlotsCurator):
             )
 
             _assign_var_fields_categoricals_multimodal(
+                modality=table_key,
+                slot_type=table_slot,
                 slot=slot,
                 slot_schema=slot_schema,
                 var_fields=self._var_fields,
