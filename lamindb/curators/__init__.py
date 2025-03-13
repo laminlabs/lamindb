@@ -2599,85 +2599,9 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
 
     @classmethod
     def _init_categoricals_additional_values(cls) -> None:
-        import bionty as bt
+        from ._cellxgene_schemas import _init_categoricals_additional_values
 
-        import lamindb as ln
-
-        # Note: if you add another control below, be mindful to change the if condition that
-        # triggers whether creating these records is re-considered
-        if cls._controls_were_created is None:
-            cls._controls_were_created = (
-                ln.ULabel.filter(name="SuspensionType", is_type=True).one_or_none()
-                is not None
-            )
-        if not cls._controls_were_created:
-            logger.important("Creating control labels in the CellxGene schema.")
-            bt.CellType(
-                ontology_id="unknown",
-                name="unknown",
-                description="From CellxGene schema.",
-            ).save()
-            pato = bt.Source.filter(name="pato", version="2024-03-28").one()
-            normal = bt.Phenotype.from_source(ontology_id="PATO:0000461", source=pato)
-            bt.Disease(
-                uid=normal.uid,
-                name=normal.name,
-                ontology_id=normal.ontology_id,
-                description=normal.description,
-                source=normal.source,  # not sure
-            ).save()
-            bt.Ethnicity(
-                ontology_id="na", name="na", description="From CellxGene schema."
-            ).save()
-            bt.Ethnicity(
-                ontology_id="unknown",
-                name="unknown",
-                description="From CellxGene schema.",
-            ).save()
-            bt.DevelopmentalStage(
-                ontology_id="unknown",
-                name="unknown",
-                description="From CellxGene schema.",
-            ).save()
-            bt.Phenotype(
-                ontology_id="unknown",
-                name="unknown",
-                description="From CellxGene schema.",
-            ).save()
-
-            # tissue_type
-            tissue_type = ln.ULabel(
-                name="TissueType",
-                is_type=True,
-                description='From CellxGene schema. Is "tissue", "organoid", or "cell culture".',
-            ).save()
-            ln.ULabel(
-                name="tissue", type=tissue_type, description="From CellxGene schema."
-            ).save()
-            ln.ULabel(
-                name="organoid", type=tissue_type, description="From CellxGene schema."
-            ).save()
-            ln.ULabel(
-                name="cell culture",
-                type=tissue_type,
-                description="From CellxGene schema.",
-            ).save()
-
-            # suspension_type
-            suspension_type = ln.ULabel(
-                name="SuspensionType",
-                is_type=True,
-                description='From CellxGene schema. This MUST be "cell", "nucleus", or "na".',
-            ).save()
-            ln.ULabel(
-                name="cell", type=suspension_type, description="From CellxGene schema."
-            ).save()
-            ln.ULabel(
-                name="nucleus",
-                type=suspension_type,
-                description="From CellxGene schema.",
-            ).save()
-            ln.ULabel(name="na", type=suspension_type).save()
+        _init_categoricals_additional_values(cls._controls_were_created)
 
     @classmethod
     def _get_categoricals(cls) -> dict[str, FieldAttr]:
@@ -3778,7 +3702,7 @@ def update_registry(
 
         # save parent labels for ulabels, for example a parent label "project" for label "project001"
         if registry == ULabel and field.field.name == "name":
-            save_ulabels_parent(values, field=field, key=key)
+            save_ulabels_type(values, field=field, key=key)
 
     finally:
         settings.verbosity = verbosity
@@ -3816,16 +3740,18 @@ def log_saved_labels(
             )
 
 
-def save_ulabels_parent(values: list[str], field: FieldAttr, key: str) -> None:
+def save_ulabels_type(values: list[str], field: FieldAttr, key: str) -> None:
     """Save a parent label for the given labels."""
     registry = field.field.model
     assert registry == ULabel  # noqa: S101
-    all_records = registry.from_values(list(values), field=field)
-    is_feature = registry.filter(name=f"{key}").one_or_none()
-    if is_feature is None:
-        is_feature = registry(name=f"{key}").save()
-        logger.important(f"Created a parent ULabel: {is_feature}")
-    is_feature.children.add(*all_records)
+    all_records = registry.filter(**{field.field.name: list(values)}).all()
+    # so `tissue_type` becomes `TissueType`
+    type_name = "".join([i.capitalize() for i in key.lower().split("_")])
+    ulabel_type = registry.filter(name=type_name, is_type=True).one_or_none()
+    if ulabel_type is None:
+        ulabel_type = registry(name=type_name, is_type=True).save()
+        logger.important(f"Created a ULabel type: {ulabel_type}")
+    all_records.update(type=ulabel_type)
 
 
 def _save_organism(name: str):
