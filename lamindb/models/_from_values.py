@@ -414,9 +414,16 @@ def _organism_from_ensembl_id(id: str, using_key: str | None) -> Record | None: 
     )
     prefix = re.sub(r"\d+", "", id)
     if prefix in ensembl_prefixes.index:
-        sname = ensembl_prefixes.loc[prefix, "scientific_name"]
+        organism_name = ensembl_prefixes.loc[prefix, "name"].lower()
 
-        organism_record = bt.Organism.from_source(scientific_name=sname)
+        using_key = None if using_key == "default" else using_key
 
-        if organism_record is not None:
-            return organism_record.save(using=using_key)
+        organism_record = (
+            bt.Organism.using(using_key).filter(name=organism_name).one_or_none()
+        )
+        if organism_record is None:
+            organism_record = bt.Organism.from_source(name=organism_name)
+            if organism_record is not None:
+                organism_record.save(using=using_key)
+
+        return organism_record
