@@ -101,10 +101,10 @@ class CurateLookup:
         slots: A dictionary of slot fields to lookup.
         public: Whether to lookup from the public instance. Defaults to False.
 
-    Example:
-        >>> curator = ln.Curator.from_df(...)
-        >>> curator.lookup()["cell_type"].alveolar_type_1_fibroblast_cell
-        <Category: alveolar_type_1_fibroblast_cell>
+    Example::
+
+        curator = ln.Curator.from_df(...)
+        curator.lookup()["cell_type"].alveolar_type_1_fibroblast_cell
 
     """
 
@@ -2104,12 +2104,11 @@ class TiledbsomaCatManager(CatManager):
 
         # check validity of keys in sources
         valid_arg_keys = valid_obs_keys + valid_var_keys + ["columns"]
-        for name, dct in ("sources", self._sources):
-            nonval_keys = []
-            for arg_key in dct.keys():
-                if arg_key not in valid_arg_keys:
-                    nonval_keys.append(arg_key)
-            _maybe_curation_keys_not_present(nonval_keys, name)
+        nonval_keys = []
+        for arg_key in self._sources.keys():
+            if arg_key not in valid_arg_keys:
+                nonval_keys.append(arg_key)
+        _maybe_curation_keys_not_present(nonval_keys, "sources")
 
         # register obs columns' names
         register_columns = list(self._obs_fields.keys())
