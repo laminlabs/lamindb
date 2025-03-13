@@ -7,6 +7,7 @@ import pytest
 import tiledbsoma
 import tiledbsoma.io
 from lamindb.core import datasets
+from lamindb.core.types import FieldAttr
 from lamindb.errors import InvalidArgument
 
 
@@ -130,7 +131,57 @@ def mudata_papalexi21_subset_schema():
     bt.ExperimentalFactor.filter().delete()
 
 
-def test_dataframe_curator(small_dataset1_schema):
+@pytest.fixture(scope="module")
+def spatialdata_blobs_schema():
+    sample_schema = ln.Schema(
+        name="blobs_sample_level_metadata",
+        features=[
+            ln.Feature(name="assay", dtype=bt.ExperimentalFactor).save(),
+            ln.Feature(name="disease", dtype=bt.Disease).save(),
+            ln.Feature(name="developmental_stage", dtype=bt.DevelopmentalStage).save(),
+        ],
+        coerce_dtype=True,
+    ).save()
+
+    blobs_obs_schema = ln.Schema(
+        name="blobs_obs_level_metadata",
+        features=[
+            ln.Feature(name="sample_region", dtype="str").save(),
+        ],
+        coerce_dtype=True,
+    ).save()
+
+    blobs_var_schema = ln.Schema(
+        name="visium_var_schema", itype=bt.Gene.ensembl_gene_id, dtype=int
+    ).save()
+
+    spatialdata_schema = ln.Schema(
+        name="blobs_spatialdata_schema",
+        otype="SpatialData",
+        components={
+            "sample": sample_schema,
+            "table:obs": blobs_obs_schema,
+            "table:var": blobs_var_schema,
+        },
+    ).save()
+
+    yield spatialdata_schema
+
+    from lamindb.models import SchemaComponent
+
+    SchemaComponent.filter().delete()
+    spatialdata_schema.delete()
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
+    bt.Gene.filter().delete()
+    ln.ULabel.filter(type__isnull=False).delete()
+    ln.ULabel.filter().delete()
+    bt.ExperimentalFactor.filter().delete()
+    bt.DevelopmentalStage.filter().delete()
+    bt.Disease.filter().delete()
+
+
+def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     """Test DataFrame curator implementation."""
 
     df = datasets.small_dataset1(otype="DataFrame")
@@ -209,14 +260,16 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
     var_schema.delete()
 
 
-def test_soma_curator(small_dataset1_schema, curator_params):
+def test_soma_curator(
+    small_dataset1_schema: ln.Schema, curator_params: dict[str, str | FieldAttr]
+):
     """Test SOMA curator implementation."""
     adata = datasets.small_dataset1(otype="AnnData")
     tiledbsoma.io.from_anndata(
         "./small_dataset1.tiledbsoma", adata, measurement_name="RNA"
     )
 
-    curator = ln.Curator.from_tiledbsoma(
+    curator = ln.Curator.from_tiledbsoma(  # type: ignore
         "./small_dataset1.tiledbsoma",
         var_index={"RNA": ("var_id", bt.Gene.ensembl_gene_id)},
         **curator_params,
@@ -281,6 +334,37 @@ def test_mudata_curator(
         "['rna'].var",
         "['rna'].obs",
         "['hto'].obs",
+    }
+
+    artifact.delete(permanent=True)
+
+
+def test_spatialdata_curator(
+    spatialdata_blobs_schema: ln.Schema, small_dataset1_schema: ln.Schema
+):
+    spatialdata_schema = spatialdata_blobs_schema
+    spatialdata = ln.core.datasets.spatialdata_blobs()
+
+    # wrong dataset
+    with pytest.raises(InvalidArgument):
+        ln.curators.SpatialDataCurator(pd.DataFrame(), spatialdata_blobs_schema)
+    # wrong schema
+    with pytest.raises(InvalidArgument):
+        ln.curators.SpatialDataCurator(spatialdata, small_dataset1_schema)
+
+    curator = ln.curators.SpatialDataCurator(spatialdata, spatialdata_schema)
+    try:
+        curator.validate()
+    except ln.errors.ValidationError:
+        pass
+
+    # validate again (must pass now) and save artifact
+    artifact = curator.save_artifact(key="example_datasets/spatialdata1.zarr")
+    assert artifact.schema == spatialdata_schema
+    assert artifact.features.slots.keys() == {
+        "sample",
+        "['table'].var",
+        "['table'].obs",
     }
 
     artifact.delete(permanent=True)

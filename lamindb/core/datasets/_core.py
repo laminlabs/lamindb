@@ -562,8 +562,8 @@ def spatialdata_blobs() -> SpatialData:
     sdata = blobs()
     sdata.attrs["sample"] = {
         "assay": "Visium Spatial Gene Expression",
-        "disease": "Alzheimer's dementia",
-        "developmental_stage": "very early",
+        "disease": "Alzheimer disease",
+        "developmental_stage": "adult stage",
     }
     sdata.tables["table"].var.index = [
         "ENSG00000139618",  # BRCA2

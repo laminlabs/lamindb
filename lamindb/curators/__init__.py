@@ -10,6 +10,7 @@
    SlotsCurator
    AnnDataCurator
    MuDataCurator
+   SpatialDataCurator
 
 CatManager:
 
@@ -199,6 +200,8 @@ class Curator:
     See:
         - :class:`~lamindb.curators.DataFrameCurator`
         - :class:`~lamindb.curators.AnnDataCurator`
+        - :class:`~lamindb.curators.MuDataCurator`
+        - :class:`~lamindb.curators.SpatialDataCurator`
     """
 
     def __init__(self, dataset: Any, schema: Schema | None = None):
@@ -206,7 +209,12 @@ class Curator:
         self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
         if isinstance(self._dataset, Artifact):
             self._artifact = self._dataset
-            if self._artifact.otype in {"DataFrame", "AnnData"}:
+            if self._artifact.otype in {
+                "DataFrame",
+                "AnnData",
+                "MuData",
+                "SpatialData",
+            }:
                 self._dataset = self._dataset.load()
         self._schema: Schema | None = schema
         self._is_validated: bool = False
@@ -250,6 +258,12 @@ class SlotsCurator(Curator):
         super().__init__(dataset=dataset, schema=schema)
         self._slots: dict[str, DataFrameCurator] = {}
 
+        # used in MuDataCurator and SpatialDataCurator
+        # in form of {table/modality_key: var_field}
+        self._var_fields: dict[str, FieldAttr] = {}
+        # in form of {table/modality_key: categoricals}
+        self._categoricals: dict[str, dict[str, FieldAttr]] = {}
+
     @property
     @doc_args(SLOTS_DOCSTRING)
     def slots(self) -> dict[str, DataFrameCurator]:
@@ -261,6 +275,32 @@ class SlotsCurator(Curator):
         """{}"""  # noqa: D415
         for _, curator in self._slots.items():
             curator.validate()
+
+    @doc_args(SAVE_ARTIFACT_DOCSTRING)
+    def save_artifact(
+        self,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ) -> Artifact:
+        """{}"""  # noqa: D415
+        if not self._is_validated:
+            self.validate()
+
+        # default implementation for MuDataCurator and SpatialDataCurator
+        return save_artifact(  # type: ignore
+            self._dataset,
+            key=key,
+            description=description,
+            fields=self._categoricals,
+            index_field=self._var_fields,
+            artifact=self._artifact,
+            revises=revises,
+            run=run,
+            schema=self._schema,
+        )
 
 
 class DataFrameCurator(Curator):
@@ -545,6 +585,38 @@ class AnnDataCurator(SlotsCurator):
         )
 
 
+def _assign_var_fields_categoricals_multimodal(
+    modality: str | None,
+    slot_type: str,
+    slot: str,
+    slot_schema: Schema,
+    var_fields: dict[str, FieldAttr],
+    categoricals: dict[str, dict[str, FieldAttr]],
+    slots: dict[str, DataFrameCurator],
+) -> None:
+    """Assigns var_fields and categoricals for multimodal data curators."""
+    if modality is not None:
+        # Makes sure that all tables are present
+        var_fields[modality] = None
+        categoricals[modality] = {}
+
+    if slot_type == "var":
+        var_field = parse_dtype_single_cat(slot_schema.itype, is_itype=True)["field"]
+        if modality is None:
+            # This should rarely/never be used since tables should have different var fields
+            var_fields[slot] = var_field  # pragma: no cover
+        else:
+            # Note that this is NOT nested since the nested key is always "var"
+            var_fields[modality] = var_field
+    else:
+        obs_fields = slots[slot]._cat_manager.categoricals
+        if modality is None:
+            categoricals[slot] = obs_fields
+        else:
+            # Note that this is NOT nested since the nested key is always "obs"
+            categoricals[modality] = obs_fields
+
+
 class MuDataCurator(SlotsCurator):
     # the example in the docstring is tested in test_curators_quickstart_example
     """Curator for a MuData object.
@@ -612,7 +684,7 @@ class MuDataCurator(SlotsCurator):
             },
         ).save()
 
-        # curate an AnnData
+        # curate a MuData
         mdata = ln.core.datasets.mudata_papalexi21_subset()
         bt.settings.organism = "human" # set the organism
         curator = ln.curators.MuDataCurator(mdata, mudata_schema)
@@ -631,18 +703,13 @@ class MuDataCurator(SlotsCurator):
         if schema.otype != "MuData":
             raise InvalidArgument("Schema otype must be 'MuData'.")
 
-        # in form of {modality: var_field}
-        self._var_fields: dict[str, FieldAttr] = {}
-        # in form of {modality: categoricals}
-        self._categoricals: dict[str, dict[str, FieldAttr]] = {}
         for slot, slot_schema in schema.slots.items():
             # Assign to _slots
             if ":" in slot:
                 modality, modality_slot = slot.split(":")
                 schema_dataset = self._dataset.__getitem__(modality)
             else:
-                modality = None
-                modality_slot = slot
+                modality, modality_slot = None, slot
                 schema_dataset = self._dataset
             self._slots[slot] = DataFrameCurator(
                 (
@@ -652,55 +719,136 @@ class MuDataCurator(SlotsCurator):
                 ),
                 slot_schema,
             )
-            # Assign to _var_fields and _categoricals
-            if modality is not None:
-                # makes sure that all modalities are present
-                self._var_fields[modality] = None
-                self._categoricals[modality] = {}
-            if modality_slot == "var":
-                var_field = parse_dtype_single_cat(slot_schema.itype, is_itype=True)[
-                    "field"
-                ]
-                if modality is None:
-                    # this should rarely/never be used since modalities should have different var fields
-                    self._var_fields[slot] = var_field  # pragma: no cover
-                else:
-                    # note that this is NOT nested since the nested key is always "var"
-                    self._var_fields[modality] = var_field
-            else:
-                obs_fields = self._slots[slot]._cat_manager.categoricals
-                if modality is None:
-                    self._categoricals[slot] = obs_fields
-                else:
-                    # note that this is NOT nested since the nested key is always "obs"
-                    self._categoricals[modality] = obs_fields
+            _assign_var_fields_categoricals_multimodal(
+                modality=modality,
+                slot_type=modality_slot,
+                slot=slot,
+                slot_schema=slot_schema,
+                var_fields=self._var_fields,
+                categoricals=self._categoricals,
+                slots=self._slots,
+            )
 
-        # this is for consistency with BaseCatManager
+        # for consistency with BaseCatManager
         self._columns_field = self._var_fields
 
-    @doc_args(SAVE_ARTIFACT_DOCSTRING)
-    def save_artifact(
+
+class SpatialDataCurator(SlotsCurator):
+    # the example in the docstring is tested in test_curators_quickstart_example
+    """Curator for a SpatialData object.
+
+    See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
+
+    .. versionadded:: 1.3.0
+
+    Args:
+        dataset: The SpatialData-like object to validate & annotate.
+        schema: A `Schema` object that defines the validation constraints.
+
+    Example::
+
+        import lamindb as ln
+        import bionty as bt
+
+        # define sample schema
+        sample_schema = ln.Schema(
+            name="blobs_sample_level_metadata",
+            features=[
+                ln.Feature(name="assay", dtype=bt.ExperimentalFactor).save(),
+                ln.Feature(name="disease", dtype=bt.Disease).save(),
+                ln.Feature(name="development_stage", dtype=bt.DevelopmentalStage).save(),
+            ],
+            coerce_dtype=True
+        ).save()
+
+        # define table obs schema
+        blobs_obs_schema = ln.Schema(
+            name="blobs_obs_level_metadata",
+            features=[
+                ln.Feature(name="sample_region", dtype="str").save(),
+            ],
+            coerce_dtype=True
+        ).save()
+
+        # define table var schema
+        blobs_var_schema = ln.Schema(
+            name="blobs_var_schema",
+            itype=bt.Gene.ensembl_gene_id,
+            dtype=int
+        ).save()
+
+        # define composite schema
+        spatialdata_schema = ln.Schema(
+            name="blobs_spatialdata_schema",
+            otype="SpatialData",
+            components={
+                "sample": sample_schema,
+                "table:obs": blobs_obs_schema,
+                "table:var": blobs_var_schema,
+        }).save()
+
+        # curate a SpatialData
+        spatialdata = ln.core.datasets.spatialdata_blobs()
+        curator = ln.curators.SpatialDataCurator(spatialdata, spatialdata_schema)
+        try:
+            curator.validate()
+        except ln.errors.ValidationError as error:
+            print(error)
+
+        # validate again (must pass now) and save artifact
+        artifact = curator.save_artifact(key="example_datasets/spatialdata1.zarr")
+        assert artifact.schema == spatialdata_schema
+    """
+
+    def __init__(
         self,
+        dataset: SpatialData | Artifact,
+        schema: Schema,
         *,
-        key: str | None = None,
-        description: str | None = None,
-        revises: Artifact | None = None,
-        run: Run | None = None,
-    ) -> Artifact:
-        """{}"""  # noqa: D415
-        if not self._is_validated:
-            self.validate()
-        return save_artifact(  # type: ignore
-            self._dataset,
-            key=key,
-            description=description,
-            fields=self._categoricals,
-            index_field=self._var_fields,
-            artifact=self._artifact,
-            revises=revises,
-            run=run,
-            schema=self._schema,
-        )
+        sample_metadata_key: str | None = "sample",
+    ) -> None:
+        super().__init__(dataset=dataset, schema=schema)
+        if not data_is_spatialdata(self._dataset):
+            raise InvalidArgument("dataset must be SpatialData-like.")
+        if schema.otype != "SpatialData":
+            raise InvalidArgument("Schema otype must be 'SpatialData'.")
+
+        for slot, slot_schema in schema.slots.items():
+            # Assign to _slots
+            if ":" in slot:
+                table_key, table_slot = slot.split(":")
+                schema_dataset = self._dataset.tables.__getitem__(table_key)
+            # sample metadata (does not have a `:` separator)
+            else:
+                table_key = None
+                table_slot = slot
+                schema_dataset = self._dataset.get_attrs(
+                    key=sample_metadata_key, return_as="df", flatten=True
+                )
+
+            self._slots[slot] = DataFrameCurator(
+                (
+                    schema_dataset.__getattribute__(table_slot).T
+                    if table_slot == "var"
+                    else schema_dataset.__getattribute__(table_slot)
+                    if table_slot != sample_metadata_key
+                    else schema_dataset  # just take the schema_dataset if it's the sample metadata key
+                ),
+                slot_schema,
+            )
+
+            _assign_var_fields_categoricals_multimodal(
+                modality=table_key,
+                slot_type=table_slot,
+                slot=slot,
+                slot_schema=slot_schema,
+                var_fields=self._var_fields,
+                categoricals=self._categoricals,
+                slots=self._slots,
+            )
+
+        # for consistency with BaseCatManager
+        self._columns_field = self._var_fields
 
 
 class CatManager:
@@ -708,17 +856,17 @@ class CatManager:
 
     A `CatManager` object makes it easy to validate, standardize & annotate datasets.
 
-    Example:
+    Example::
 
-    >>> cat_manager = ln.CatManager(
-    >>>     dataset,
-    >>>     # define validation criteria as mappings
-    >>>     columns=Feature.name,  # map column names
-    >>>     categoricals={"perturbation": ULabel.name},  # map categories
-    >>> )
-    >>> cat_manager.validate()  # validate the dataframe
-    >>> artifact = cat_manager.save_artifact(description="my RNA-seq")
-    >>> artifact.describe()  # see annotations
+        cat_manager = ln.CatManager(
+            dataset,
+            # define validation criteria as mappings
+            columns=Feature.name,  # map column names
+            categoricals={"perturbation": ULabel.name},  # map categories
+        )
+        cat_manager.validate()  # validate the dataframe
+        artifact = cat_manager.save_artifact(description="my RNA-seq")
+        artifact.describe()  # see annotations
 
     `cat_manager.validate()` maps values within `df` according to the mapping criteria and logs validated & problematic values.
 
@@ -864,15 +1012,16 @@ class DataFrameCatManager(CatManager):
     Returns:
         A curator object.
 
-    Examples:
-        >>> import bionty as bt
-        >>> curator = ln.Curator.from_df(
-        ...     df,
-        ...     categoricals={
-        ...         "cell_type_ontology_id": bt.CellType.ontology_id,
-        ...         "donor_id": ULabel.name
-        ...     }
-        ... )
+    Example::
+
+        import bionty as bt
+        curator = ln.Curator.from_df(
+            df,
+            categoricals={
+                "cell_type_ontology_id": bt.CellType.ontology_id,
+                "donor_id": ULabel.name
+            }
+        )
     """
 
     def __init__(
@@ -1080,17 +1229,18 @@ class AnnDataCatManager(CatManager):
             When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
             using the exclude parameter ensures they are not validated.
 
-    Examples:
-        >>> import bionty as bt
-        >>> curator = ln.Curator.from_anndata(
-        ...     adata,
-        ...     var_index=bt.Gene.ensembl_gene_id,
-        ...     categoricals={
-        ...         "cell_type_ontology_id": bt.CellType.ontology_id,
-        ...         "donor_id": ULabel.name
-        ...     },
-        ...     organism="human",
-        ... )
+    Example::
+
+        import bionty as bt
+        curator = ln.Curator.from_anndata(
+            adata,
+            var_index=bt.Gene.ensembl_gene_id,
+            categoricals={
+                "cell_type_ontology_id": bt.CellType.ontology_id,
+                "donor_id": ULabel.name
+            },
+            organism="human",
+        )
     """
 
     def __init__(
@@ -1276,20 +1426,21 @@ class MuDataCatManager(CatManager):
             When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
             using the exclude parameter ensures they are not validated.
 
-    Examples:
-        >>> import bionty as bt
-        >>> curator = ln.Curator.from_mudata(
-        ...     mdata,
-        ...     var_index={
-        ...         "rna": bt.Gene.ensembl_gene_id,
-        ...         "adt": CellMarker.name
-        ...     },
-        ...     categoricals={
-        ...         "cell_type_ontology_id": bt.CellType.ontology_id,
-        ...         "donor_id": ULabel.name
-        ...     },
-        ...     organism="human",
-        ... )
+    Example::
+
+        import bionty as bt
+        curator = ln.Curator.from_mudata(
+            mdata,
+            var_index={
+                "rna": bt.Gene.ensembl_gene_id,
+                "adt": CellMarker.name
+            },
+            categoricals={
+                "cell_type_ontology_id": bt.CellType.ontology_id,
+                "donor_id": ULabel.name
+            },
+            organism="human",
+        )
     """
 
     def __init__(
@@ -1535,21 +1686,22 @@ class SpatialDataCatManager(CatManager):
         verbosity: The verbosity level of the logger.
         sample_metadata_key: The key in ``.attrs`` that stores the sample level metadata.
 
-    Examples:
-        >>> import bionty as bt
-        >>> curator = SpatialDataCatManager(
-        ...     sdata,
-        ...     var_index={
-        ...         "table_1": bt.Gene.ensembl_gene_id,
-        ...     },
-        ...     categoricals={
-        ...         "table1":
-        ...             {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ULabel.name},
-        ...         "sample":
-        ...             {"experimental_factor": bt.ExperimentalFactor.name},
-        ...     },
-        ...     organism="human",
-        ... )
+    Example::
+
+        import bionty as bt
+        curator = SpatialDataCatManager(
+            sdata,
+            var_index={
+                "table_1": bt.Gene.ensembl_gene_id,
+            },
+            categoricals={
+                "table1":
+                    {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ULabel.name},
+                "sample":
+                    {"experimental_factor": bt.ExperimentalFactor.name},
+            },
+            organism="human",
+        )
     """
 
     def __init__(
@@ -1896,17 +2048,18 @@ class TiledbsomaCatManager(CatManager):
             When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
             using the exclude parameter ensures they are not validated.
 
-    Examples:
-        >>> import bionty as bt
-        >>> curator = ln.Curator.from_tiledbsoma(
-        ...     "./my_array_store.tiledbsoma",
-        ...     var_index={"RNA": ("var_id", bt.Gene.symbol)},
-        ...     categoricals={
-        ...         "cell_type_ontology_id": bt.CellType.ontology_id,
-        ...         "donor_id": ULabel.name
-        ...     },
-        ...     organism="human",
-        ... )
+    Example::
+
+        import bionty as bt
+        curator = ln.Curator.from_tiledbsoma(
+            "./my_array_store.tiledbsoma",
+            var_index={"RNA": ("var_id", bt.Gene.symbol)},
+            categoricals={
+                "cell_type_ontology_id": bt.CellType.ontology_id,
+                "donor_id": ULabel.name
+            },
+            organism="human",
+        )
     """
 
     def __init__(
