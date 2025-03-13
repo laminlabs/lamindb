@@ -16,7 +16,7 @@ def _read_schema_versions(ontology_versions: Path) -> dict[str, pd.DataFrame]:
                 for ontology, values in details.items()
                 for organism, version in values.items()
             ],
-            columns=["entity", "organism", "source", "version"],
+            columns=["entity", "source", "organism", "version"],
         ).set_index("entity")
 
     schema_versions_df = {

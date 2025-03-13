@@ -100,6 +100,7 @@ def small_dataset3_cellxgene(
         "disease_ontology_term_id": ["MONDO:0004975", "MONDO:0004980", "MONDO:0004980"],
         "organism": ["human", "human", "human"],
         "sex": ["female", "male", "unknown"],
+        "sex_ontology_term_id": ["PATO:0000383", "PATO:0000384", "unknown"],
         "tissue": ["lungg", "lungg", "heart"],
         "donor": ["-1", "1", "2"],
     }

@@ -54,7 +54,6 @@ if TYPE_CHECKING:
     from mudata import MuData
     from spatialdata import SpatialData
 
-    from lamindb.base.types import FieldAttr
     from lamindb.core.types import ScverseDataStructures
     from lamindb.models import Record
 from lamindb.base.types import FieldAttr  # noqa
@@ -830,9 +829,11 @@ class SpatialDataCurator(SlotsCurator):
                 (
                     schema_dataset.__getattribute__(table_slot).T
                     if table_slot == "var"
-                    else schema_dataset.__getattribute__(table_slot)
-                    if table_slot != sample_metadata_key
-                    else schema_dataset  # just take the schema_dataset if it's the sample metadata key
+                    else (
+                        schema_dataset.__getattribute__(table_slot)
+                        if table_slot != sample_metadata_key
+                        else schema_dataset
+                    )  # just take the schema_dataset if it's the sample metadata key
                 ),
                 slot_schema,
             )
@@ -2517,8 +2518,8 @@ class TiledbsomaCatManager(CatManager):
 
 def _restrict_obs_fields(
     obs: pd.DataFrame, obs_fields: dict[str, FieldAttr]
-) -> dict[str, str]:
-    """Restrict the obs fields to name return only available obs fields.
+) -> dict[str, FieldAttr]:
+    """Restrict the obs fields only available obs fields.
 
     To simplify the curation, we only validate against either name or ontology_id.
     If both are available, we validate against ontology_id.
@@ -2628,13 +2629,9 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         if defaults:
             _add_defaults_to_obs(self._adata_obs, defaults)
 
-        self.sources = self._create_sources(self._adata_obs)
-        self.sources = {
-            entity: source
-            for entity, source in self.sources.items()
-            if source is not None
-        }
+        obs_fields = _restrict_obs_fields(self._adata_obs, categoricals)
 
+        self.sources = self._create_sources(obs_fields)
         # These sources are not a part of the cellxgene schema but rather passed through.
         # This is useful when other Curators extend the CELLxGENE curator
         if extra_sources:
@@ -2650,7 +2647,7 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         super().__init__(
             data=adata,
             var_index=var_index,
-            categoricals=_restrict_obs_fields(self._adata_obs, categoricals),
+            categoricals=obs_fields,
             verbosity=verbosity,
             organism=organism,
             sources=self.sources,
@@ -2684,7 +2681,7 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
                 name=normal.name,
                 ontology_id=normal.ontology_id,
                 description=normal.description,
-                source=normal.source,
+                source=normal.source,  # not sure
             ).save()
             bt.Ethnicity(
                 ontology_id="na", name="na", description="From CellxGene schema."
@@ -2705,6 +2702,7 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
                 description="From CellxGene schema.",
             ).save()
 
+            # tissue_type
             tissue_type = ln.ULabel(
                 name="TissueType",
                 is_type=True,
@@ -2722,6 +2720,7 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
                 description="From CellxGene schema.",
             ).save()
 
+            # suspension_type
             suspension_type = ln.ULabel(
                 name="SuspensionType",
                 is_type=True,
@@ -2784,46 +2783,41 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
     def adata(self) -> AnnData:
         return self._adata
 
-    def _create_sources(self, obs: pd.DataFrame) -> dict[str, Record]:
+    def _create_sources(self, obs_fields: dict[str, FieldAttr]) -> dict[str, Record]:
         """Creates a sources dictionary that can be passed to AnnDataCatManager."""
         import bionty as bt
 
-        # fmt: off
-        def _fetch_bionty_source(
-            entity: str, organism: str, source: str
-        ) -> bt.Source | None:
-            """Fetch the Bionty source of the pinned ontology.
+        def _fetch_bionty_source(entity: str, organism: str) -> bt.Source | None:
+            """Fetch the Bionty source of the pinned ontology."""
+            entity_sources = self._pinned_ontologies.loc[
+                (self._pinned_ontologies.index == entity)
+            ].copy()
+            if len(entity_sources) == 1:
+                # for sources with organism "all"
+                source_row = entity_sources.iloc[0]
+            else:
+                source_row = entity_sources[
+                    entity_sources["organism"] == organism
+                ].iloc[0]
 
-            Returns None if the source does not exist.
-            """
-            version = self._pinned_ontologies.loc[(self._pinned_ontologies.index == entity) &
-                                                  (self._pinned_ontologies["organism"] == organism) &
-                                                  (self._pinned_ontologies["source"] == source), "version"].iloc[0]
-            return bt.Source.filter(organism=organism, entity=f"bionty.{entity}", version=version).first()
+            return bt.Source.get(
+                organism=source_row.organism,
+                entity=f"bionty.{entity}",
+                name=source_row.source,
+                version=source_row.version,
+            )
 
-        entity_mapping = {
-             "var_index": ("Gene", self.organism, "ensembl"),
-             "cell_type": ("CellType", "all", "cl"),
-             "assay": ("ExperimentalFactor", "all", "efo"),
-             "self_reported_ethnicity": ("Ethnicity", self.organism, "hancestro"),
-             "development_stage": ("DevelopmentalStage", self.organism, "hsapdv" if self.organism == "human" else "mmusdv"),
-             "disease": ("Disease", "all", "mondo"),
-             # "organism": ("Organism", "vertebrates", "ensembl"),
-             "sex": ("Phenotype", "all", "pato"),
-             "tissue": ("Tissue", "all", "uberon"),
-        }
-        # fmt: on
+        key_to_source: dict[str, bt.Source] = {}
+        for key, field in obs_fields.items():
+            if field.field.model.__get_module_name__() == "bionty":
+                key_to_source[key] = _fetch_bionty_source(
+                    entity=field.field.model.__name__, organism=self.organism
+                )
+        key_to_source["var_index"] = _fetch_bionty_source(
+            entity="Gene", organism=self.organism
+        )
 
-        # Retain var_index and one of 'entity'/'entity_ontology_term_id' that is present in obs
-        entity_to_sources = {
-            entity: _fetch_bionty_source(*params)
-            for entity, params in entity_mapping.items()
-            if entity in obs.columns
-            or (f"{entity}_ontology_term_id" in obs.columns and entity != "var_index")
-            or entity == "var_index"
-        }
-
-        return entity_to_sources
+        return key_to_source
 
     def _convert_name_to_ontology_id(self, values: pd.Series, field: FieldAttr):
         """Converts a column that stores a name into a column that stores the ontology id.
@@ -2857,7 +2851,7 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
             missing_obs_fields_str = ", ".join(list(missing_obs_fields))
             logger.error(f"missing required obs columns {missing_obs_fields_str}")
             logger.info(
-                "consider initializing a Curate object like 'Curate(adata, defaults=cxg.CellxGeneAnnDataCatManager._get_categoricals_defaults())'"
+                "consider initializing a Curate object with defaults=cxg.CellxGeneAnnDataCatManager._get_categoricals_defaults()"
                 "to automatically add these columns with default values."
             )
             return False
@@ -3774,7 +3768,6 @@ def update_registry(
     organism: str | None = None,
     dtype: str | None = None,
     source: Record | None = None,
-    exclude: str | list | None = None,
     **kwargs,
 ) -> None:
     """Save features or labels records in the default instance..
@@ -3788,7 +3781,6 @@ def update_registry(
         organism: The organism name.
         dtype: The type of the feature.
         source: The source record.
-        exclude: Values to exclude from inspect.
         kwargs: Additional keyword arguments to pass to the registry model to create new records.
     """
     from lamindb.models.save import save as ln_save

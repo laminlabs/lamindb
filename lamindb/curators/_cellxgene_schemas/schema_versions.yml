@@ -1,104 +1,97 @@
 schema-version:
   4.0.0:
     CellType:
-      cl:
-        all: "2023-08-24"
+      all:
+        cl: "2023-08-24"
     ExperimentalFactor:
-      efo:
-        all: "3.57.0"
+      all:
+        efo: "3.57.0"
     Ethnicity:
-      hancestro:
-        human: "3.0"
+      human:
+        hancestro: "3.0"
     DevelopmentalStage:
-      hsapdv:
-        human: "2020-03-10"
-      mmusdv:
-        mouse: "2020-03-10"
+      human:
+        hsapdv: "2020-03-10"
+      mouse:
+        mmusdv: "2020-03-10"
     Disease:
-      mondo:
-        all: "2023-08-02"
+      all:
+        mondo: "2023-08-02"
     Organism:
-      ncbitaxon:
-        all: "2023-06-20"
+      all:
+        ncbitaxon: "2023-06-20"
     Phenotype:
-      pato:
-        all: "2023-05-18"
+      all:
+        pato: "2023-05-18"
     Tissue:
-      uberon:
-        all: "2023-09-05"
+      all:
+        uberon: "2023-09-05"
     Gene:
-      genecode:
-        human: "v38"
-        mouse: "vM27"
+      human:
+        ensembl: "release-110"
+      mouse:
+        ensembl: "release-110"
   5.0.0:
     CellType:
-      cl:
-        all: "2024-01-04"
+      all:
+        cl: "2024-01-04"
     ExperimentalFactor:
-      efo:
-        all: "3.62.0"
+      all:
+        efo: "3.62.0"
     Ethnicity:
-      hancestro:
-        human: "3.0"
+      human:
+        hancestro: "3.0"
     DevelopmentalStage:
-      hsapdv:
-        human: "2020-03-10"
-      mmusdv:
-        mouse: "2020-03-10"
+      human:
+        hsapdv: "2020-03-10"
+      mouse:
+        mmusdv: "2020-03-10"
     Disease:
-      mondo:
-        all: "2024-01-03"
+      all:
+        mondo: "2024-01-03"
     Organism:
-      ncbitaxon:
-        all: "2023-06-20"
-      ensembl:
-        vertebrates: "release-110"
+      all:
+        ncbitaxon: "2023-06-20"
     Phenotype:
-      pato:
-        all: "2023-05-18"
+      all:
+        pato: "2023-05-18"
     Tissue:
-      uberon:
-        all: "2024-01-18"
+      all:
+        uberon: "2024-01-18"
     Gene:
-      genecode:
-        human: "v44"
-        mouse: "vM33"
-      ensembl:
-        human: "release-110"
-        mouse: "release-110"
+      human:
+        ensembl: "release-110"
+      mouse:
+        ensembl: "release-110"
   5.1.0:
     CellType:
-      cl:
-        all: "2024-04-05"
+      all:
+        cl: "2024-04-05"
     ExperimentalFactor:
-      efo:
-        all: "3.65.0"
+      all:
+        efo: "3.65.0"
     Ethnicity:
-      hancestro:
-        human: "3.0"
+      human:
+        hancestro: "3.0"
     DevelopmentalStage:
-      hsapdv:
-        human: "2020-03-10"
-      mmusdv:
-        mouse: "2020-03-10"
+      human:
+        hsapdv: "2020-03-10"
+      mouse:
+        mmusdv: "2020-03-10"
     Disease:
-      mondo:
-        all: "2024-05-08"
+      all:
+        mondo: "2024-05-08"
     Organism:
-      ncbitaxon:
-        all: "2023-06-20"
-      ensembl:
-        vertebrates: "release-110"
+      all:
+        ncbitaxon: "2023-06-20"
     Phenotype:
-      pato:
-        all: "2023-05-18"
+      all:
+        pato: "2023-05-18"
     Tissue:
-      uberon:
-        all: "2024-03-22"
+      all:
+        uberon: "2024-03-22"
     Gene:
-      genecode:
-        human: "v44"
-        mouse: "vM33"
-      ensembl:
-        human: "release-110"
-        mouse: "release-110"
+      human:
+        ensembl: "release-110"
+      mouse:
+        ensembl: "release-110"
