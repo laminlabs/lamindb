@@ -765,7 +765,7 @@ class SpatialDataCurator(SlotsCurator):
         blobs_obs_schema = ln.Schema(
             name="blobs_obs_level_metadata",
             features=[
-                ln.Feature(name="sample_region", dtype="cat[ULabel]").save(),
+                ln.Feature(name="sample_region", dtype="str").save(),
             ],
             coerce_dtype=True
         ).save()
@@ -794,11 +794,6 @@ class SpatialDataCurator(SlotsCurator):
             curator.validate()
         except ln.errors.ValidationError as error:
             print(error)
-
-        # add new categorical values and standardize
-        curator.slots["sample"].cat.add_new_from(key="developmental_stage")
-        curator.slots["sample"].cat.standardize(key="disease")
-        curator.slots["table:obs"].cat.add_new_from(key="sample_region")
 
         # validate again (must pass now) and save artifact
         artifact = curator.save_artifact(key="example_datasets/spatialdata1.zarr")
