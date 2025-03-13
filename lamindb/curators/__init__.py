@@ -259,9 +259,9 @@ class SlotsCurator(Curator):
         self._slots: dict[str, DataFrameCurator] = {}
 
         # used in MuDataCurator and SpatialDataCurator
-        # in form of {table_key: var_field}
+        # in form of {table/modality_key: var_field}
         self._var_fields: dict[str, FieldAttr] = {}
-        # in form of {table_key: categoricals}
+        # in form of {table/modality_key: categoricals}
         self._categoricals: dict[str, dict[str, FieldAttr]] = {}
 
     @property
