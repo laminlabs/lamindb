@@ -1,28 +1,27 @@
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from lamin_utils import colors, logger
 
-from .record import Record
-
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from lamindb.base.types import ListLike, StrField
+    from lamindb.base.types import FieldAttr, ListLike
 
     from .query_set import RecordList
+    from .record import Record
 
 
 # The base function for `from_values`
-def get_or_create_records(
+def _from_values(
     iterable: ListLike,
-    field: StrField,
+    field: FieldAttr,
     *,
     create: bool = False,
-    from_source: bool = False,
     organism: Record | str | None = None,
     source: Record | None = None,
     mute: bool = False,
@@ -31,47 +30,44 @@ def get_or_create_records(
     from .query_set import RecordList
 
     registry = field.field.model  # type: ignore
+    organism_record = _get_organism_record(field, organism, values=iterable)
+    # TODO: the create is problematic if field is not a name field
     if create:
-        return RecordList([registry(**{field.field.name: value}) for value in iterable])  # type: ignore
-    organism = _get_organism_record(field, organism)
+        create_kwargs = {}
+        if organism_record:
+            create_kwargs["organism"] = organism_record
+        return RecordList(
+            [
+                registry(**{field.field.name: value}, **create_kwargs)
+                for value in iterable
+            ]
+        )  # type: ignore
+
     iterable_idx = index_iterable(iterable)
 
     # returns existing records & non-existing values
     records, nonexist_values, msg = get_existing_records(
         iterable_idx=iterable_idx,
         field=field,
-        organism=organism,
+        organism=organism_record,
         mute=mute,
     )
 
     # new records to be created based on new values
     if len(nonexist_values) > 0:
-        source_record = None
-        if from_source:
-            if isinstance(source, Record):
-                source_record = source
-        if not source_record and hasattr(registry, "public"):
-            if organism is None:
-                organism = _ensembl_prefix(nonexist_values[0], field, organism)
-                organism = _get_organism_record(field, organism, force=True)
-
-        if source_record:
-            from bionty.core._add_ontology import check_source_in_db
-
-            check_source_in_db(registry=registry, source=source_record)
-
-            from_source = not source_record.in_db
-        elif hasattr(registry, "source_id"):
-            from_source = True
-        else:
-            from_source = False
-
-        if from_source:
+        if hasattr(registry, "source_id"):
+            # if can and needed, get organism record from the existing records
+            if (
+                organism_record is None
+                and len(records) > 0
+                and _is_organism_required(registry)
+            ):
+                organism_record = records[0].organism
             records_bionty, unmapped_values = create_records_from_source(
                 iterable_idx=nonexist_values,
                 field=field,
-                organism=organism,
-                source=source_record,
+                organism=organism_record,
+                source=source,
                 msg=msg,
                 mute=mute,
             )
@@ -84,15 +80,15 @@ def get_or_create_records(
             unmapped_values = nonexist_values
         # unmapped new_ids will NOT create records
         if len(unmapped_values) > 0:
+            # first log the success message
             if len(msg) > 0 and not mute:
                 logger.success(msg)
             s = "" if len(unmapped_values) == 1 else "s"
             print_values = colors.yellow(_format_values(unmapped_values))
-            name = registry.__name__
             n_nonval = colors.yellow(f"{len(unmapped_values)} non-validated")
             if not mute:
                 logger.warning(
-                    f"{colors.red('did not create')} {name} record{s} for "
+                    f"{colors.red('did not create')} {registry.__name__} record{s} for "
                     f"{n_nonval} {colors.italic(f'{field.field.name}{s}')}: {print_values}"  # type: ignore
                 )
     return RecordList(records)
@@ -100,25 +96,21 @@ def get_or_create_records(
 
 def get_existing_records(
     iterable_idx: pd.Index,
-    field: StrField,
+    field: FieldAttr,
     organism: Record | None = None,
     mute: bool = False,
-):
+) -> tuple[list, pd.Index, str]:
+    """Get existing records from the database."""
     # NOTE: existing records matching is agnostic to the source
     model = field.field.model  # type: ignore
-    if organism is None and field.field.name == "ensembl_gene_id":  # type: ignore
-        if len(iterable_idx) > 0:
-            organism = _ensembl_prefix(iterable_idx[0], field, organism)  # type: ignore
-            organism = _get_organism_record(field, organism, force=True)
 
-    # standardize based on the DB reference
     # log synonyms mapped terms
     syn_mapper = model.standardize(
         iterable_idx,
         field=field,
         organism=organism,
         mute=True,
-        public_aware=False,
+        source_aware=False,  # standardize only based on the DB reference
         return_mapper=True,
     )
     iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
@@ -137,7 +129,6 @@ def get_existing_records(
     is_validated = model.validate(
         iterable_idx, field=field, organism=organism, mute=True
     )
-
     if len(is_validated) > 0:
         validated = iterable_idx[is_validated]
     else:
@@ -151,7 +142,7 @@ def get_existing_records(
             msg = (
                 "loaded"
                 f" {colors.green(f'{len(validated)} {model.__name__} record{s}')}"
-                f" matching {colors.italic(f'{field.field.name}')}: {print_values}"  # type: ignore
+                f" matching {colors.italic(f'{field.field.name}')}: {print_values}"
             )
         if len(syn_mapper) > 0:
             s = "" if len(syn_mapper) == 1 else "s"
@@ -173,15 +164,13 @@ def get_existing_records(
         msg = ""
 
     # get all existing records in the db
-    # if necessary, create records for the values in kwargs
-    # k:v -> k:v_record
     query = {f"{field.field.name}__in": iterable_idx.values}  # type: ignore
     if organism is not None:
         query["organism"] = organism
     records = model.filter(**query).list()
 
     if len(validated) == len(iterable_idx):
-        return records, [], msg
+        return records, pd.Index([]), msg
     else:
         nonval_values = iterable_idx.difference(validated)
         return records, nonval_values, msg
@@ -189,12 +178,13 @@ def get_existing_records(
 
 def create_records_from_source(
     iterable_idx: pd.Index,
-    field: StrField,
+    field: FieldAttr,
     organism: Record | None = None,
     source: Record | None = None,
     msg: str = "",
     mute: bool = False,
-):
+) -> tuple[list, pd.Index]:
+    """Create records from source."""
     model = field.field.model  # type: ignore
     records: list = []
     # populate additional fields from bionty
@@ -253,8 +243,11 @@ def create_records_from_source(
             df=bionty_df,
         )
 
-        if hasattr(model, "organism_id") and organism is None:
-            organism = _get_organism_record(field, source.organism, force=True)
+        # # this here is needed when the organism is required to create new records
+        # if organism is None:
+        #     organism = _get_organism_record(
+        #         field, source.organism, values=mapped_values
+        #     )
 
         create_kwargs = (
             {"organism": organism, "source": source}
@@ -292,6 +285,7 @@ def create_records_from_source(
 
 
 def index_iterable(iterable: Iterable) -> pd.Index:
+    """Get unique values from an iterable."""
     idx = pd.Index(iterable).unique()
     # No entries are made for NAs, '', None
     # returns an ordered unique not null list
@@ -301,6 +295,7 @@ def index_iterable(iterable: Iterable) -> pd.Index:
 def _format_values(
     names: Iterable, n: int = 20, quotes: bool = True, sep: str = "'"
 ) -> str:
+    """Format values for printing."""
     if isinstance(names, dict):
         items = {
             f"{key}: {value}": None
@@ -345,50 +340,92 @@ def _bulk_create_dicts_from_df(
     return df.reset_index().to_dict(orient="records"), multi_msg
 
 
-def _has_organism_field(registry: type[Record]) -> bool:
+def _is_organism_required(registry: type[Record]) -> bool:
+    """Check if the registry has an organism field and is required.
+
+    Returns:
+        True if the registry has an organism field and is required, False otherwise.
+    """
     try:
-        registry._meta.get_field("organism")
-        return True
+        organism_field = registry._meta.get_field("organism")
+        # organism is not required or not a relation
+        if organism_field.null or not organism_field.is_relation:
+            return False
+        else:
+            return True
     except FieldDoesNotExist:
         return False
 
 
+def _is_simple_field_unique(field: FieldAttr) -> bool:
+    """Check if the field is an id field."""
+    # id field is a unique field that's not a relation
+    field = field.field
+    if field.unique and not field.is_relation:
+        return True
+    return False
+
+
 def _get_organism_record(  # type: ignore
-    field: StrField, organism: str | Record, force: bool = False
-) -> Record:
+    field: FieldAttr,
+    organism: str | Record | None = None,
+    values: Iterable = [],
+    using_key: str | None = None,
+) -> Record | None:
     """Get organism record.
 
     Args:
         field: the field to get the organism record for
         organism: the organism to get the record for
-        force: whether to force fetching the organism record
-    """
-    registry = field.field.model  # type: ignore
-    check = True
-    if not force and hasattr(registry, "_ontology_id_field"):
-        check = field.field.name != registry._ontology_id_field  # type: ignore
-        # e.g. bionty.CellMarker has "name" as _ontology_id_field
-        if not registry._ontology_id_field.endswith("id"):
-            check = True
+        values: the values to get the organism record for
+        using_key: the db to get the organism record for
 
-    if _has_organism_field(registry) and check:
+    Returns:
+        The organism record if:
+            The organism FK is required for the registry
+            The field is not unique or the organism is not None
+    """
+    registry = field.field.model
+    field_str = field.field.name
+    check = not _is_simple_field_unique(field=field) or organism is not None
+
+    if field_str == "ensembl_gene_id" and len(values) > 0 and organism is None:  # type: ignore
+        return _organism_from_ensembl_id(values[0], using_key)  # type: ignore
+
+    if _is_organism_required(registry) and check:
         from bionty._bionty import create_or_get_organism_record
 
-        if field and not isinstance(field, str):
-            field = field.field.name
-
         organism_record = create_or_get_organism_record(
-            organism=organism, registry=registry, field=field
+            organism=organism, registry=registry, field=field_str
         )
         if organism_record is not None:
-            return organism_record
+            return organism_record.save()
 
 
-def _ensembl_prefix(id: str, field: StrField, organism: Record | None) -> str | None:
-    if field.field.name == "ensembl_gene_id" and organism is None:  # type: ignore
-        if id.startswith("ENSG"):
-            organism = "human"  # type: ignore
-        elif id.startswith("ENSMUSG"):
-            organism = "mouse"  # type: ignore
+def _organism_from_ensembl_id(id: str, using_key: str | None) -> Record | None:  # type: ignore
+    """Get organism record from ensembl id."""
+    import bionty as bt
 
-    return organism
+    from .artifact import Artifact  # has to be here to avoid circular imports
+
+    ensembl_prefixes = (
+        Artifact.using("laminlabs/bionty-assets")
+        .get(key="ensembl_prefixes.parquet", is_latest=True)
+        .load(is_run_input=False)
+        .set_index("gene_prefix")
+    )
+    prefix = re.sub(r"\d+", "", id)
+    if prefix in ensembl_prefixes.index:
+        organism_name = ensembl_prefixes.loc[prefix, "name"].lower()
+
+        using_key = None if using_key == "default" else using_key
+
+        organism_record = (
+            bt.Organism.using(using_key).filter(name=organism_name).one_or_none()
+        )
+        if organism_record is None:
+            organism_record = bt.Organism.from_source(name=organism_name)
+            if organism_record is not None:
+                organism_record.save(using=using_key)
+
+        return organism_record

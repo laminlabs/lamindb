@@ -1042,13 +1042,14 @@ def _search(
     field: StrField | list[StrField] | None = None,
     limit: int | None = 20,
     case_sensitive: bool = False,
-    using_key: str | None = None,
     truncate_string: bool = False,
 ) -> QuerySet:
     if string is None:
         raise ValueError("Cannot search for None value! Please pass a valid string.")
 
-    input_queryset = _queryset(cls, using_key=using_key)
+    input_queryset = (
+        cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.objects.all()
+    )
     registry = input_queryset.model
     name_field = getattr(registry, "_name_field", "name")
     if field is None:
@@ -1157,7 +1158,7 @@ def _lookup(
     using_key: str | None = None,
 ) -> NamedTuple:
     """{}"""  # noqa: D415
-    queryset = _queryset(cls, using_key=using_key)
+    queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.objects.all()
     field = get_name_field(registry=queryset.model, field=field)
 
     return Lookup(
@@ -1177,7 +1178,7 @@ def _lookup(
 def get_name_field(
     registry: type[Record] | QuerySet | Manager,
     *,
-    field: str | StrField | None = None,
+    field: StrField | None = None,
 ) -> str:
     """Get the 1st char or text field from the registry."""
     if isinstance(registry, (QuerySet, Manager)):
@@ -1215,16 +1216,6 @@ def get_name_field(
             ) from None
 
     return field
-
-
-def _queryset(cls: Record | QuerySet | Manager, using_key: str) -> QuerySet:
-    if isinstance(cls, (QuerySet, Manager)):
-        return cls.all()
-    elif using_key is None or using_key == "default":
-        return cls.objects.all()
-    else:
-        # using must be called on cls, otherwise the connection isn't found
-        return cls.using(using_key).all()
 
 
 def add_db_connection(db: str, using: str):

@@ -127,7 +127,7 @@ if TYPE_CHECKING:
 INCONSISTENT_STATE_MSG = (
     "Trying to read a folder artifact from an outdated version, "
     "this can result in an incosistent state.\n"
-    "Read from the latest version: artifact.versions.filter(is_latest=True).one()"
+    "Read from the latest version: artifact.versions.get(is_latest=True)"
 )
 
 
@@ -1490,17 +1490,19 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     def path(self) -> Path:
         """Path.
 
-        File in cloud storage, here AWS S3:
+        Example::
 
-        >>> artifact = ln.Artifact("s3://my-bucket/my-file.csv").save()
-        >>> artifact.path
-        S3QueryPath('s3://my-bucket/my-file.csv')
+            import lamindb as ln
 
-        File in local storage:
+            # File in cloud storage, here AWS S3:
+            artifact = ln.Artifact("s3://my-bucket/my-file.csv").save()
+            artifact.path
+            #S3QueryPath('s3://my-bucket/my-file.csv')
 
-        >>> ln.Artifact("./myfile.csv", key="myfile.csv").save()
-        >>> artifact.path
-        PosixPath('/home/runner/work/lamindb/lamindb/docs/guide/mydata/myfile.csv')
+            # File in local storage:
+            ln.Artifact("./myfile.csv", key="myfile.csv").save()
+            artifact.path
+            #> PosixPath('/home/runner/work/lamindb/lamindb/docs/guide/mydata/myfile.csv')
         """
         from lamindb import settings
 
@@ -1547,17 +1549,19 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             :class:`~lamindb.Feature`
                 Track features.
 
-        Examples:
-            >>> df = ln.core.datasets.df_iris_in_meter_batch1()
-            >>> df.head()
-              sepal_length sepal_width petal_length petal_width iris_organism_code
-            0        0.051       0.035        0.014       0.002                 0
-            1        0.049       0.030        0.014       0.002                 0
-            2        0.047       0.032        0.013       0.002                 0
-            3        0.046       0.031        0.015       0.002                 0
-            4        0.050       0.036        0.014       0.002                 0
-            >>> artifact = ln.Artifact.from_df(df, description="Iris flower collection batch1")
-            >>> artifact.save()
+        Example::
+
+            import lamindb as ln
+
+            df = ln.core.datasets.df_iris_in_meter_batch1()
+            df.head()
+            #>   sepal_length sepal_width petal_length petal_width iris_organism_code
+            #> 0        0.051       0.035        0.014       0.002                 0
+            #> 1        0.049       0.030        0.014       0.002                 0
+            #> 2        0.047       0.032        0.013       0.002                 0
+            #> 3        0.046       0.031        0.015       0.002                 0
+            #> 4        0.050       0.036        0.014       0.002                 0
+            artifact = ln.Artifact.from_df(df, key="iris/result_batch1.parquet").save()
         """
         artifact = Artifact(  # type: ignore
             data=df,
@@ -1600,12 +1604,12 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             :class:`~lamindb.Feature`
                 Track features.
 
-        Examples:
-            >>> import bionty as bt
-            >>> bt.settings.organism = "human"
-            >>> adata = ln.core.datasets.anndata_with_obs()
-            >>> artifact = ln.Artifact.from_anndata(adata, description="mini anndata with obs")
-            >>> artifact.save()
+        Example::
+
+            import lamindb as ln
+
+            adata = ln.core.datasets.anndata_with_obs()
+            artifact = ln.Artifact.from_anndata(adata, key="mini_anndata_with_obs.h5ad").save()
         """
         if not data_is_anndata(adata):
             raise ValueError(
@@ -1662,12 +1666,12 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             :class:`~lamindb.Feature`
                 Track features.
 
-        Examples:
-            >>> import bionty as bt
-            >>> bt.settings.organism = "human"
-            >>> mdata = ln.core.datasets.mudata_papalexi21_subset()
-            >>> artifact = ln.Artifact.from_mudata(mdata, description="a mudata object")
-            >>> artifact.save()
+        Example::
+
+            import lamindb as ln
+
+            mdata = ln.core.datasets.mudata_papalexi21_subset()
+            artifact = ln.Artifact.from_mudata(mdata, key="mudata_papalexi21_subset.h5mu").save()
         """
         if not data_is_mudata(mdata):
             raise ValueError("data has to be a MuData object or a path to MuData-like")
@@ -1712,8 +1716,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             :class:`~lamindb.Feature`
                 Track features.
 
-        Examples:
-            >>> artifact = ln.Artifact.from_spatialdata(sdata, key="my_dataset.zarr")
+        Example::
+
+            import lamindb as ln
+
+            artifact = ln.Artifact.from_spatialdata(sdata, key="my_dataset.zarr").save()
         """
         if not data_is_spatialdata(sdata):
             raise ValueError(
@@ -1754,9 +1761,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             revises: An old version of the artifact.
             run: The run that creates the artifact.
 
-        Examples:
-            >>> artifact = ln.Artifact.from_tiledbsoma("s3://mybucket/store.tiledbsoma", description="a tiledbsoma store")
-            >>> artifact.save()
+        Example::
+
+            import lamindb as ln
+
+            artifact = ln.Artifact.from_tiledbsoma("s3://mybucket/store.tiledbsoma", description="a tiledbsoma store").save()
         """
         if UPath(path).suffix != ".tiledbsoma":
             raise ValueError(
@@ -1798,10 +1807,13 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 of a registered storage location, the inferred key defaults to `path.name`.
             run: A `Run` object.
 
-        Examples:
-            >>> dir_path = ln.core.datasets.generate_cell_ranger_files("sample_001", ln.settings.storage)
-            >>> artifacts = ln.Artifact.from_dir(dir_path)
-            >>> ln.save(artifacts)
+        Example::
+
+            import lamindb as ln
+
+            dir_path = ln.core.datasets.generate_cell_ranger_files("sample_001", ln.settings.storage)
+            artifacts = ln.Artifact.from_dir(dir_path)
+            ln.save(artifacts)
         """
         from lamindb import settings
 
@@ -2013,15 +2025,17 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         Notes:
             For more info, see tutorial: :doc:`/arrays`.
 
-        Examples:
+        Example::
 
-            Read AnnData in backed mode from cloud:
+            import lamindb as ln
 
-            >>> artifact = ln.Artifact.get(key="lndb-storage/pbmc68k.h5ad")
-            >>> artifact.open()
-            AnnDataAccessor object with n_obs × n_vars = 70 × 765
-                constructed for the AnnData object pbmc68k.h5ad
-                ...
+            # Read AnnData in backed mode from cloud
+
+            artifact = ln.Artifact.get(key="lndb-storage/pbmc68k.h5ad")
+            artifact.open()
+            #> AnnDataAccessor object with n_obs × n_vars = 70 × 765
+            #>     constructed for the AnnData object pbmc68k.h5ad
+            #>     ...
         """
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(INCONSISTENT_STATE_MSG)
@@ -2203,12 +2217,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             is_run_input: Whether to track this artifact as run input.
             **kwargs: Keyword arguments for synchronization.
 
-        Examples:
+        Example::
 
-            Sync file from cloud and return the local path of the cache:
-
-            >>> artifact.cache()
-            PosixPath('/home/runner/work/Caches/lamindb/lamindb-ci/lndb-storage/pbmc68k.h5ad')
+            # Sync file from cloud and return the local path of the cache
+            artifact.cache()
+            #> PosixPath('/home/runner/work/Caches/lamindb/lamindb-ci/lndb-storage/pbmc68k.h5ad')
         """
         from lamindb import settings
 
@@ -2245,18 +2258,19 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             permanent: Permanently delete the artifact (skip trash).
             storage: Indicate whether you want to delete the artifact in storage.
 
-        Examples:
+        Example::
 
-            For an `Artifact` object `artifact`, call:
+            import lamindb as ln
 
-            >>> artifact = ln.Artifact.filter(key="some.csv").one()
-            >>> artifact.delete() # delete a single file artifact
+            # For an `Artifact` object `artifact`, call:
+            artifact = ln.Artifact.get(key="some.csv")
+            artifact.delete() # delete a single file artifact
 
-            >>> artifact = ln.Artifact.filter(key="some.tiledbsoma". is_latest=False).first()
-            >>> artiact.delete() # delete an old version, the data will not be deleted
+            artifact = ln.Artifact.filter(key="some.tiledbsoma". is_latest=False).first()
+            artiact.delete() # delete an old version, the data will not be deleted
 
-            >>> artifact = ln.Artifact.filter(key="some.tiledbsoma". is_latest=True).one()
-            >>> artiact.delete() # delete all versions, the data will be deleted or prompted for deletion.
+            artifact = ln.Artifact.get(key="some.tiledbsoma". is_latest=True)
+            artiact.delete() # delete all versions, the data will be deleted or prompted for deletion.
         """
         # this first check means an invalid delete fails fast rather than cascading through
         # database and storage permission errors
@@ -2350,9 +2364,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         Args:
             upload: Trigger upload to cloud storage in instances with hybrid storage mode.
 
-        Examples:
-            >>> artifact = ln.Artifact("./myfile.csv", description="myfile")
-            >>> artifact.save()
+        Example::
+
+            import lamindb as ln
+
+            artifact = ln.Artifact("./myfile.csv", key="myfile.parquet").save()
         """
         state_was_adding = self._state.adding
         print_progress = kwargs.pop("print_progress", True)
@@ -2421,8 +2437,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     def restore(self) -> None:
         """Restore from trash.
 
-        Examples:
-            >>> artifact.restore()
+        Example::
+
+            artifact.restore()
         """
         self._branch_code = 1
         self.save()
@@ -2430,8 +2447,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     def describe(self) -> None:
         """Describe relations of record.
 
-        Examples:
-            >>> artifact.describe()
+        Example::
+
+            artifact.describe()
         """
         return describe_artifact_collection(self)
 
@@ -2492,8 +2510,9 @@ class ArtifactParamValue(BasicRecord, LinkORM, TracksRun):
 
 
 def _track_run_input(
-    data: Artifact
-    | Iterable[Artifact],  # can also be Collection | Iterable[Collection]
+    data: (
+        Artifact | Iterable[Artifact]
+    ),  # can also be Collection | Iterable[Collection]
     is_run_input: bool | Run | None = None,
     run: Run | None = None,
 ):

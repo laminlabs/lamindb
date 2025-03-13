@@ -167,6 +167,6 @@ def test_using_record_organism():
             source=release_110,
         )
     assert (
-        "source must be a bionty.Source record from instance 'laminlabs/lamin-dev'"
+        "record must be a bionty.Source record from instance 'laminlabs/lamin-dev'"
         in str(error.value)
     )
