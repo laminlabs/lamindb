@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Iterable, Literal, Union
 import numpy as np
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
+from django.db.models import Manager, QuerySet
 from lamin_utils import colors, logger
 
 from ..errors import ValidationError
@@ -13,10 +14,9 @@ from ._from_values import (
     _get_organism_record,
     get_or_create_records,
 )
-from .record import Record, _queryset, get_name_field
+from .record import Record, get_name_field
 
 if TYPE_CHECKING:
-    from django.db.models import QuerySet
     from lamin_utils._inspect import InspectResult
 
     from lamindb.base.types import ListLike, StrField
@@ -34,8 +34,10 @@ def _check_record_db(record: str | Record | None, using_key: str | None):
                 )
 
 
-def _concat_lists(values: ListLike) -> list[str]:
+def _concat_lists(values: ListLike | str) -> list[str]:
     """Concatenate a list of lists of strings into a single list."""
+    if isinstance(values, str):
+        values = [values]
     if isinstance(values, (list, pd.Series)) and len(values) > 0:
         first_item = values[0] if isinstance(values, list) else values.iloc[0]
         if isinstance(first_item, list):
@@ -53,7 +55,6 @@ def _inspect(
     field: StrField | None = None,
     *,
     mute: bool = False,
-    using_key: str | None = None,
     organism: str | Record | None = None,
     source: Record | None = None,
     strict_source: bool = False,
@@ -61,25 +62,22 @@ def _inspect(
     """{}"""  # noqa: D415
     from lamin_utils._inspect import inspect
 
-    if isinstance(values, str):
-        values = [values]
     values = _concat_lists(values)
 
     field_str = get_name_field(cls, field=field)
-    queryset = _queryset(cls, using_key)
-    using_key = queryset.db
+    queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.objects.all()
+    registry = queryset.model
+    model_name = registry._meta.model.__name__
     if isinstance(source, Record):
-        _check_record_db(source, using_key)
+        _check_record_db(source, queryset.db)
         # if strict_source mode, restrict the query to the passed ontology source
         # otherwise, inspect across records present in the DB from all ontology sources and no-source
         if strict_source:
             queryset = queryset.filter(source=source)
-    registry = queryset.model
-    model_name = registry._meta.model.__name__
     organism_record = _get_organism_record(
         getattr(registry, field_str), organism, values
     )
-    _check_record_db(organism_record, using_key)
+    _check_record_db(organism_record, queryset.db)
 
     # do not inspect synonyms if the field is not name field
     inspect_synonyms = True
@@ -96,7 +94,7 @@ def _inspect(
     )
     nonval = set(result_db.non_validated).difference(result_db.synonyms_mapper.keys())
 
-    if len(nonval) > 0 and registry.__get_module_name__() == "bionty":
+    if len(nonval) > 0 and hasattr(registry, "source_id"):
         try:
             bionty_result = registry.public(
                 organism=organism_record, source=source
@@ -114,7 +112,7 @@ def _inspect(
                 s = "" if len(bionty_validated) == 1 else "s"
                 labels = colors.yellow(f"{len(bionty_validated)} {model_name} term{s}")
                 logger.print(
-                    f"   detected {labels} in Bionty for"
+                    f"   detected {labels} in public source for"
                     f" {colors.italic(field_str)}: {colors.yellow(print_values)}"
                 )
                 hint = True
@@ -124,21 +122,21 @@ def _inspect(
                 s = "" if len(bionty_mapper) == 1 else "s"
                 labels = colors.yellow(f"{len(bionty_mapper)} {model_name} term{s}")
                 logger.print(
-                    f"   detected {labels} in Bionty as {colors.italic(f'synonym{s}')}:"
+                    f"   detected {labels} in public source as {colors.italic(f'synonym{s}')}:"
                     f" {colors.yellow(print_values)}"
                 )
                 hint = True
 
             if hint:
                 logger.print(
-                    f"→  add records from Bionty to your {model_name} registry via"
+                    f"→  add records from public source to your {model_name} registry via"
                     f" {colors.italic('.from_values()')}"
                 )
 
             nonval = [i for i in bionty_result.non_validated if i not in bionty_mapper]  # type: ignore
         # no bionty source is found
         except ValueError:
-            logger.warning("no Bionty source found, skipping Bionty validation")
+            logger.warning("no public source found, skipping source validation")
 
     if len(nonval) > 0 and not mute:
         print_values = _format_values(list(nonval))
@@ -159,7 +157,6 @@ def _validate(
     field: StrField | None = None,
     *,
     mute: bool = False,
-    using_key: str | None = None,
     organism: str | Record | None = None,
     source: Record | None = None,
     strict_source: bool = False,
@@ -168,23 +165,21 @@ def _validate(
     from lamin_utils._inspect import validate
 
     return_str = True if isinstance(values, str) else False
-    if isinstance(values, str):
-        values = [values]
     values = _concat_lists(values)
 
     field_str = get_name_field(cls, field=field)
 
-    queryset = _queryset(cls, using_key)
-    using_key = queryset.db
+    queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.objects.all()
+    registry = queryset.model
     if isinstance(source, Record):
-        _check_record_db(source, using_key)
+        _check_record_db(source, queryset.db)
         if strict_source:
             queryset = queryset.filter(source=source)
-    registry = queryset.model
+
     organism_record = _get_organism_record(
         getattr(registry, field_str), organism, values
     )
-    _check_record_db(organism_record, using_key)
+    _check_record_db(organism_record, queryset.db)
     field_values = pd.Series(
         _filter_queryset_with_organism(
             queryset=queryset,
@@ -228,7 +223,6 @@ def _standardize(
     public_aware: bool = True,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
-    using_key: str | None = None,
     organism: str | Record | None = None,
     source: Record | None = None,
     strict_source: bool = False,
@@ -237,25 +231,22 @@ def _standardize(
     from lamin_utils._standardize import standardize as map_synonyms
 
     return_str = True if isinstance(values, str) else False
-    if isinstance(values, str):
-        values = [values]
     values = _concat_lists(values)
 
     field_str = get_name_field(cls, field=field)
     return_field_str = get_name_field(
         cls, field=field if return_field is None else return_field
     )
-    queryset = _queryset(cls, using_key)
-    using_key = queryset.db
+    queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.objects.all()
+    registry = queryset.model
     if isinstance(source, Record):
-        _check_record_db(source, using_key)
+        _check_record_db(source, queryset.db)
         if strict_source:
             queryset = queryset.filter(source=source)
-    registry = queryset.model
     organism_record = _get_organism_record(
         getattr(registry, field_str), organism, values
     )
-    _check_record_db(organism_record, using_key)
+    _check_record_db(organism_record, queryset.db)
 
     # only perform synonym mapping if field is the name field
     if hasattr(registry, "_name_field") and field_str != registry._name_field:
@@ -300,8 +291,8 @@ def _standardize(
                 return result[0]
             return result
 
-    # map synonyms in Bionty
-    if registry.__get_module_name__() == "bionty" and public_aware:
+    # map synonyms in public source
+    if hasattr(registry, "source_id") and public_aware:
         mapper = {}
         if return_mapper:
             mapper = std_names_db
@@ -330,7 +321,7 @@ def _standardize(
             )
 
             warn_msg = (
-                f"found {len(std_names_bt_mapper)} {field_print}{s} in Bionty{truncated_note}:"
+                f"found {len(std_names_bt_mapper)} {field_print}{s} in public source{truncated_note}:"
                 f" {reduced_mapped_keys_str}\n"
                 f"  please add corresponding {registry._meta.model.__name__} records via{truncated_note}:"
                 f" `.from_values({reduced_mapped_keys_str})`"
@@ -494,16 +485,18 @@ class CanCurate:
         See Also:
             :meth:`~lamindb.models.CanCurate.validate`
 
-        Examples:
-            >>> import bionty as bt
-            >>> bt.settings.organism = "human"
-            >>> ln.save(bt.Gene.from_values(["A1CF", "A1BG", "BRCA2"], field="symbol"))
-            >>> gene_symbols = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
-            >>> result = bt.Gene.inspect(gene_symbols, field=bt.Gene.symbol)
-            >>> result.validated
-            ['A1CF', 'A1BG']
-            >>> result.non_validated
-            ['FANCD1', 'FANCD20']
+        Example::
+
+            import bionty as bt
+
+            # save some gene records
+            bt.Gene.from_values(["A1CF", "A1BG", "BRCA2"], field="symbol", organism="human").save()
+
+            # inspect gene symbols
+            gene_symbols = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
+            result = bt.Gene.inspect(gene_symbols, field=bt.Gene.symbol, organism="human")
+            assert result.validated == ["A1CF", "A1BG"]
+            assert result.non_validated == ["FANCD1", "FANCD20"]
         """
         return _inspect(
             cls=cls,
@@ -549,13 +542,15 @@ class CanCurate:
         See Also:
             :meth:`~lamindb.models.CanCurate.inspect`
 
-        Examples:
-            >>> import bionty as bt
-            >>> bt.settings.organism = "human"
-            >>> ln.save(bt.Gene.from_values(["A1CF", "A1BG", "BRCA2"], field="symbol"))
-            >>> gene_symbols = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
-            >>> bt.Gene.validate(gene_symbols, field=bt.Gene.symbol)
-            array([ True,  True, False, False])
+        Example::
+
+            import bionty as bt
+
+            bt.Gene.from_values(["A1CF", "A1BG", "BRCA2"], field="symbol", organism="human").save()
+
+            gene_symbols = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
+            bt.Gene.validate(gene_symbols, field=bt.Gene.symbol, organism="human")
+            # array([ True,  True, False, False])
         """
         return _validate(
             cls=cls,
@@ -594,24 +589,20 @@ class CanCurate:
         Notes:
             For more info, see tutorial: :doc:`docs:bio-registries`.
 
-        Examples:
+        Example::
 
-            Bulk create from non-validated values will log warnings & returns empty list:
+            import bionty as bt
 
-            >>> ulabels = ln.ULabel.from_values(["benchmark", "prediction", "test"], field="name")
-            >>> assert len(ulabels) == 0
+            # Bulk create from non-validated values will log warnings & returns empty list
+            ulabels = ln.ULabel.from_values(["benchmark", "prediction", "test"])
+            assert len(ulabels) == 0
 
-            Bulk create records from validated values returns the corresponding existing records:
+            # Bulk create records from validated values returns the corresponding existing records
+            ulabels = ln.ULabel.from_values(["benchmark", "prediction", "test"], create=True).save()
+            assert len(ulabels) == 3
 
-            >>> ln.save([ln.ULabel(name=name) for name in ["benchmark", "prediction", "test"]])
-            >>> ulabels = ln.ULabel.from_values(["benchmark", "prediction", "test"], field="name")
-            >>> assert len(ulabels) == 3
-
-            Bulk create records from public reference:
-
-            >>> import bionty as bt
-            >>> records = bt.CellType.from_values(["T cell", "B cell"], field="name")
-            >>> records
+            # Bulk create records from public reference
+            bt.CellType.from_values(["T cell", "B cell"]).save()
         """
         field_str = get_name_field(cls, field=field)
         return get_or_create_records(
@@ -650,15 +641,15 @@ class CanCurate:
             return_mapper: If `True`, returns `{input_value: standardized_name}`.
             case_sensitive: Whether the mapping is case sensitive.
             mute: Whether to mute logging.
-            public_aware: Whether to standardize from Bionty reference. Defaults to `True` for Bionty registries.
+            public_aware: Whether to standardize from public source. Defaults to `True` for BioRecord registries.
             keep: When a synonym maps to multiple names, determines which duplicates to mark as `pd.DataFrame.duplicated`:
-                    - `"first"`: returns the first mapped standardized name
-                    - `"last"`: returns the last mapped standardized name
-                    - `False`: returns all mapped standardized name.
+                - `"first"`: returns the first mapped standardized name
+                - `"last"`: returns the last mapped standardized name
+                - `False`: returns all mapped standardized name.
 
-                  When `keep` is `False`, the returned list of standardized names will contain nested lists in case of duplicates.
+                When `keep` is `False`, the returned list of standardized names will contain nested lists in case of duplicates.
 
-                  When a field is converted into return_field, keep marks which matches to keep when multiple return_field values map to the same field value.
+                When a field is converted into return_field, keep marks which matches to keep when multiple return_field values map to the same field value.
             synonyms_field: A field containing the concatenated synonyms.
             organism: An Organism name or record.
             source: A `bionty.Source` record that specifies the version to validate against.
@@ -678,14 +669,17 @@ class CanCurate:
             :meth:`~lamindb.models.CanCurate.remove_synonym`
                 Remove synonyms.
 
-        Examples:
-            >>> import bionty as bt
-            >>> bt.settings.organism = "human"
-            >>> ln.save(bt.Gene.from_values(["A1CF", "A1BG", "BRCA2"], field="symbol"))
-            >>> gene_synonyms = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
-            >>> standardized_names = bt.Gene.standardize(gene_synonyms)
-            >>> standardized_names
-            ['A1CF', 'A1BG', 'BRCA2', 'FANCD20']
+        Example::
+
+            import bionty as bt
+
+            # save some gene records
+            bt.Gene.from_values(["A1CF", "A1BG", "BRCA2"], field="symbol", organism="human").save()
+
+            # standardize gene synonyms
+            gene_synonyms = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
+            standardized_names = bt.Gene.standardize(gene_synonyms)
+            assert standardized_names == ['A1CF', 'A1BG', 'BRCA2', 'FANCD20']
         """
         return _standardize(
             cls=cls,
@@ -720,16 +714,17 @@ class CanCurate:
             :meth:`~lamindb.models.CanCurate.remove_synonym`
                 Remove synonyms.
 
-        Examples:
-            >>> import bionty as bt
-            >>> bt.CellType.from_source(name="T cell").save()
-            >>> lookup = bt.CellType.lookup()
-            >>> record = lookup.t_cell
-            >>> record.synonyms
-            'T-cell|T lymphocyte|T-lymphocyte'
-            >>> record.add_synonym("T cells")
-            >>> record.synonyms
-            'T cells|T-cell|T-lymphocyte|T lymphocyte'
+        Example::
+
+            import bionty as bt
+
+            # save "T cell" record
+            record = bt.CellType.from_source(name="T cell").save()
+            assert record.synonyms == "T-cell|T lymphocyte|T-lymphocyte"
+
+            # add a synonym
+            record.add_synonym("T cells")
+            assert record.synonyms == "T cells|T-cell|T-lymphocyte|T lymphocyte"
         """
         _check_synonyms_field_exist(self)
         _add_or_remove_synonyms(
@@ -746,15 +741,16 @@ class CanCurate:
             :meth:`~lamindb.models.CanCurate.add_synonym`
                 Add synonyms
 
-        Examples:
-            >>> import bionty as bt
-            >>> bt.CellType.from_source(name="T cell").save()
-            >>> lookup = bt.CellType.lookup()
-            >>> record = lookup.t_cell
-            >>> record.synonyms
-            'T-cell|T lymphocyte|T-lymphocyte'
-            >>> record.remove_synonym("T-cell")
-            'T lymphocyte|T-lymphocyte'
+        Example::
+
+            import bionty as bt
+
+            # save "T cell" record
+            record = bt.CellType.from_source(name="T cell").save()
+            assert record.synonyms == "T-cell|T lymphocyte|T-lymphocyte"
+
+            # remove a synonym
+            assert record.remove_synonym("T-cell") == "T lymphocyte|T-lymphocyte"
         """
         _check_synonyms_field_exist(self)
         _add_or_remove_synonyms(synonym=synonym, record=self, action="remove")
@@ -768,20 +764,20 @@ class CanCurate:
         See Also:
             :meth:`~lamindb.models.CanCurate.add_synonym`
 
-        Examples:
-            >>> import bionty as bt
-            >>> bt.ExperimentalFactor.from_source(name="single-cell RNA sequencing").save()
-            >>> scrna = bt.ExperimentalFactor.get(name="single-cell RNA sequencing")
-            >>> scrna.abbr
-            None
-            >>> scrna.synonyms
-            'single-cell RNA-seq|single-cell transcriptome sequencing|scRNA-seq|single cell RNA sequencing'
-            >>> scrna.set_abbr("scRNA")
-            >>> scrna.abbr
-            'scRNA'
-            >>> scrna.synonyms
-            'scRNA|single-cell RNA-seq|single cell RNA sequencing|single-cell transcriptome sequencing|scRNA-seq'
-            >>> scrna.save()
+        Example::
+
+            import bionty as bt
+
+            # save an experimental factor record
+            scrna = bt.ExperimentalFactor.from_source(name="single-cell RNA sequencing").save()
+            assert scrna.abbr is None
+            assert scrna.synonyms == "single-cell RNA-seq|single-cell transcriptome sequencing|scRNA-seq|single cell RNA sequencing"
+
+            # set abbreviation
+            scrna.set_abbr("scRNA")
+            assert scrna.abbr == "scRNA"
+            # synonyms are updated
+            assert scrna.synonyms == "scRNA|single-cell RNA-seq|single cell RNA sequencing|single-cell transcriptome sequencing|scRNA-seq"
         """
         self.abbr = value
 
