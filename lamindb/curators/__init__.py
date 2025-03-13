@@ -1744,7 +1744,7 @@ class SpatialDataCatManager(CatManager):
             for key in accessor_sources:
                 if key not in columns:
                     nonval_keys.append(key)
-        _maybe_curation_keys_not_present(nonval_keys, "source")
+        _maybe_curation_keys_not_present(nonval_keys, "sources")
 
         # Set up sample level metadata and table Curator objects
         if (
