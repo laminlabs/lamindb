@@ -258,6 +258,12 @@ class SlotsCurator(Curator):
         super().__init__(dataset=dataset, schema=schema)
         self._slots: dict[str, DataFrameCurator] = {}
 
+        # used in MuDataCurator and SpatialDataCurator
+        # in form of {table_key: var_field}
+        self._var_fields: dict[str, FieldAttr] = {}
+        # in form of {table_key: categoricals}
+        self._categoricals: dict[str, dict[str, FieldAttr]] = {}
+
     @property
     @doc_args(SLOTS_DOCSTRING)
     def slots(self) -> dict[str, DataFrameCurator]:
@@ -269,6 +275,32 @@ class SlotsCurator(Curator):
         """{}"""  # noqa: D415
         for _, curator in self._slots.items():
             curator.validate()
+
+    @doc_args(SAVE_ARTIFACT_DOCSTRING)
+    def save_artifact(
+        self,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ) -> Artifact:
+        """{}"""  # noqa: D415
+        if not self._is_validated:
+            self.validate()
+
+        # default implementation for MuDataCurator and SpatialDataCurator
+        return save_artifact(  # type: ignore
+            self._dataset,
+            key=key,
+            description=description,
+            fields=self._categoricals,
+            index_field=self._var_fields,
+            artifact=self._artifact,
+            revises=revises,
+            run=run,
+            schema=self._schema,
+        )
 
 
 class DataFrameCurator(Curator):
@@ -563,6 +595,11 @@ def _assign_var_fields_categoricals_multimodal(
     slots: dict[str, DataFrameCurator],
 ) -> None:
     """Assigns var_fields and categoricals for multimodal data curators."""
+    if modality is not None:
+        # Makes sure that all tables are present
+        var_fields[modality] = None
+        categoricals[modality] = {}
+
     if slot_type == "var":
         var_field = parse_dtype_single_cat(slot_schema.itype, is_itype=True)["field"]
         if modality is None:
@@ -666,10 +703,6 @@ class MuDataCurator(SlotsCurator):
         if schema.otype != "MuData":
             raise InvalidArgument("Schema otype must be 'MuData'.")
 
-        # in form of {modality: var_field}
-        self._var_fields: dict[str, FieldAttr] = {}
-        # in form of {modality: categoricals}
-        self._categoricals: dict[str, dict[str, FieldAttr]] = {}
         for slot, slot_schema in schema.slots.items():
             # Assign to _slots
             if ":" in slot:
@@ -698,30 +731,6 @@ class MuDataCurator(SlotsCurator):
 
         # for consistency with BaseCatManager
         self._columns_field = self._var_fields
-
-    @doc_args(SAVE_ARTIFACT_DOCSTRING)
-    def save_artifact(
-        self,
-        *,
-        key: str | None = None,
-        description: str | None = None,
-        revises: Artifact | None = None,
-        run: Run | None = None,
-    ) -> Artifact:
-        """{}"""  # noqa: D415
-        if not self._is_validated:
-            self.validate()
-        return save_artifact(  # type: ignore
-            self._dataset,
-            key=key,
-            description=description,
-            fields=self._categoricals,
-            index_field=self._var_fields,
-            artifact=self._artifact,
-            revises=revises,
-            run=run,
-            schema=self._schema,
-        )
 
 
 class SpatialDataCurator(SlotsCurator):
@@ -809,10 +818,6 @@ class SpatialDataCurator(SlotsCurator):
         if schema.otype != "SpatialData":
             raise InvalidArgument("Schema otype must be 'SpatialData'.")
 
-        # in form of {table_key: var_field}
-        self._var_fields: dict[str, FieldAttr] = {}
-        # in form of {table_key: categoricals}
-        self._categoricals: dict[str, dict[str, FieldAttr]] = {}
         for slot, slot_schema in schema.slots.items():
             # Assign to _slots
             if ":" in slot:
@@ -849,43 +854,6 @@ class SpatialDataCurator(SlotsCurator):
 
         # for consistency with BaseCatManager
         self._columns_field = self._var_fields
-
-    @property
-    @doc_args(SLOTS_DOCSTRING)
-    def slots(self) -> dict[str, DataFrameCurator]:
-        """{}"""  # noqa: D415
-        return self._slots
-
-    @doc_args(VALIDATE_DOCSTRING)
-    def validate(self) -> None:
-        """{}"""  # noqa: D415
-        for _, curator in self._slots.items():
-            curator.validate()
-
-    @doc_args(SAVE_ARTIFACT_DOCSTRING)
-    def save_artifact(
-        self,
-        *,
-        key: str | None = None,
-        description: str | None = None,
-        revises: Artifact | None = None,
-        run: Run | None = None,
-    ):
-        """{}"""  # noqa: D415
-        if not self._is_validated:
-            self.validate()
-
-        return save_artifact(  # type: ignore
-            self._dataset,
-            key=key,
-            description=description,
-            fields=self._categoricals,
-            index_field=self._var_fields,
-            artifact=self._artifact,
-            revises=revises,
-            run=run,
-            schema=self._schema,
-        )
 
 
 class CatManager:
