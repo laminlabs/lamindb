@@ -543,9 +543,9 @@ class AnnDataCurator(SlotsCurator):
         self._slots = {
             slot: DataFrameCurator(
                 (
-                    self._dataset.__getattribute__(slot).T
+                    getattr(self._dataset, slot).T
                     if slot == "var"
-                    else self._dataset.__getattribute__(slot)
+                    else getattr(self._dataset, slot)
                 ),
                 slot_schema,
             )
@@ -712,9 +712,9 @@ class MuDataCurator(SlotsCurator):
                 schema_dataset = self._dataset
             self._slots[slot] = DataFrameCurator(
                 (
-                    schema_dataset.__getattribute__(modality_slot).T
+                    getattr(schema_dataset, modality_slot).T
                     if modality_slot == "var"
-                    else schema_dataset.__getattribute__(modality_slot)
+                    else getattr(schema_dataset, modality_slot)
                 ),
                 slot_schema,
             )
@@ -827,10 +827,10 @@ class SpatialDataCurator(SlotsCurator):
 
             self._slots[slot] = DataFrameCurator(
                 (
-                    schema_dataset.__getattribute__(table_slot).T
+                    getattr(schema_dataset, table_slot).T
                     if table_slot == "var"
                     else (
-                        schema_dataset.__getattribute__(table_slot)
+                        getattr(schema_dataset, table_slot)
                         if table_slot != sample_metadata_key
                         else schema_dataset
                     )  # just take the schema_dataset if it's the sample metadata key
@@ -877,9 +877,7 @@ class CatManager:
     - non-validated values can be accessed using :meth:`~lamindb.curators.DataFrameCatManager.non_validated` and addressed manually
     """
 
-    def __init__(
-        self, *, dataset, categoricals, sources, organism, exclude, columns_field=None
-    ):
+    def __init__(self, *, dataset, categoricals, sources, organism, columns_field=None):
         # the below is shared with Curator
         self._artifact: Artifact = None  # pass the dataset as an artifact
         self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
@@ -893,7 +891,6 @@ class CatManager:
         self._non_validated = None
         self._organism = organism
         self._sources = sources or {}
-        self._exclude = exclude or {}
         self._columns_field = columns_field
         self._validate_category_error_messages: str = ""
 
@@ -1006,9 +1003,6 @@ class DataFrameCatManager(CatManager):
         verbosity: The verbosity level.
         organism: The organism name.
         sources: A dictionary mapping column names to Source records.
-        exclude: A dictionary mapping column names to values to exclude from validation.
-            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
-            using the exclude parameter ensures they are not validated.
 
     Returns:
         A curator object.
@@ -1033,7 +1027,6 @@ class DataFrameCatManager(CatManager):
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
-        exclude: dict | None = None,
     ) -> None:
         from lamindb.core._settings import settings
 
@@ -1048,7 +1041,6 @@ class DataFrameCatManager(CatManager):
             organism=organism,
             categoricals=categoricals,
             sources=sources,
-            exclude=exclude,
         )
         self._save_columns()
 
@@ -1073,7 +1065,6 @@ class DataFrameCatManager(CatManager):
             key="columns",
             validated_only=False,
             source=self._sources.get("columns"),
-            exclude=self._exclude.get("columns"),
         )
 
         # Save the rest of the columns based on validated_only
@@ -1086,7 +1077,6 @@ class DataFrameCatManager(CatManager):
                 validated_only=validated_only,
                 df=self._dataset,  # Get the Feature type from df
                 source=self._sources.get("columns"),
-                exclude=self._exclude.get("columns"),
             )
 
     @deprecated(new_name="is run by default")
@@ -1112,7 +1102,6 @@ class DataFrameCatManager(CatManager):
             self._dataset,
             fields=self.categoricals,
             sources=self._sources,
-            exclude=self._exclude,
             curator=self,
             organism=self._organism,
         )
@@ -1186,7 +1175,6 @@ class DataFrameCatManager(CatManager):
                 key=categorical,
                 validated_only=validated_only,
                 source=self._sources.get(categorical),
-                exclude=self._exclude.get(categorical),
                 organism=self._organism,
             )
             # adding new records removes them from non_validated
@@ -1226,9 +1214,6 @@ class AnnDataCatManager(CatManager):
         verbosity: The verbosity level.
         organism: The organism name.
         sources: A dictionary mapping ``.obs.columns`` to Source records.
-        exclude: A dictionary mapping column names to values to exclude from validation.
-            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
-            using the exclude parameter ensures they are not validated.
 
     Example::
 
@@ -1253,7 +1238,6 @@ class AnnDataCatManager(CatManager):
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
-        exclude: dict | None = None,
     ) -> None:
         if isinstance(var_index, str):
             raise TypeError("var_index parameter has to be a bionty field")
@@ -1274,7 +1258,6 @@ class AnnDataCatManager(CatManager):
             categoricals=categoricals,
             sources=self._sources,
             organism=organism,
-            exclude=exclude,
             columns_field=var_index,
         )
         self._adata = self._dataset
@@ -1285,7 +1268,6 @@ class AnnDataCatManager(CatManager):
             verbosity=verbosity,
             organism=None,
             sources=self._sources,
-            exclude=exclude,
         )
 
     @property
@@ -1323,7 +1305,6 @@ class AnnDataCatManager(CatManager):
                 validated_only=validated_only,
                 organism=self._organism,
                 source=self._sources.get("var_index"),
-                exclude=self._exclude.get("var_index"),
             )
 
     def add_new_from(self, key: str, **kwargs):
@@ -1367,7 +1348,6 @@ class AnnDataCatManager(CatManager):
                 key="var_index",
                 source=self._sources.get("var_index"),
                 hint_print=".add_new_from_var_index()",
-                exclude=self._exclude.get("var_index"),
                 organism=self._organism,  # type: ignore
             )
         else:
@@ -1423,9 +1403,6 @@ class MuDataCatManager(CatManager):
         verbosity: The verbosity level.
         organism: The organism name.
         sources: A dictionary mapping ``.obs.columns`` to Source records.
-        exclude: A dictionary mapping column names to values to exclude from validation.
-            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
-            using the exclude parameter ensures they are not validated.
 
     Example::
 
@@ -1452,14 +1429,12 @@ class MuDataCatManager(CatManager):
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
-        exclude: dict | None = None,  # {modality: {field: [values]}}
     ) -> None:
         super().__init__(
             dataset=mdata,
             categoricals={},
             sources=sources,
             organism=organism,
-            exclude=exclude,
         )
         self._columns_field = (
             var_index or {}
@@ -1477,7 +1452,6 @@ class MuDataCatManager(CatManager):
                 categoricals=self._obs_fields.get("obs", {}),
                 verbosity=verbosity,
                 sources=self._sources.get("obs"),
-                exclude=self._exclude.get("obs"),
                 organism=organism,
             )
         self._mod_adata_curators = {
@@ -1487,7 +1461,6 @@ class MuDataCatManager(CatManager):
                 categoricals=self._obs_fields.get(modality),
                 verbosity=verbosity,
                 sources=self._sources.get(modality),
-                exclude=self._exclude.get(modality),
                 organism=organism,
             )
             for modality in self._modalities
@@ -1681,9 +1654,6 @@ class SpatialDataCatManager(CatManager):
 
         organism: The organism name.
         sources: A dictionary mapping an accessor to dictionaries that map columns to Source records.
-        exclude: A dictionary mapping an accessor to dictionaries of column names to values to exclude from validation.
-            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
-            using the exclude parameter ensures they are not validated.
         verbosity: The verbosity level of the logger.
         sample_metadata_key: The key in ``.attrs`` that stores the sample level metadata.
 
@@ -1713,7 +1683,6 @@ class SpatialDataCatManager(CatManager):
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, dict[str, Record]] | None = None,
-        exclude: dict[str, dict] | None = None,
         *,
         sample_metadata_key: str | None = "sample",
     ) -> None:
@@ -1722,7 +1691,6 @@ class SpatialDataCatManager(CatManager):
             categoricals={},
             sources=sources,
             organism=organism,
-            exclude=exclude,
         )
         if isinstance(sdata, Artifact):
             self._sdata = sdata.load()
@@ -1761,23 +1729,22 @@ class SpatialDataCatManager(CatManager):
 
         _maybe_curation_keys_not_present(nonval_keys, "categoricals")
 
-        # check validity of keys in sources and exclude
-        for name, dct in (("sources", self._sources), ("exclude", self._exclude)):
-            nonval_keys = []
-            for accessor, accessor_sources in dct.items():
-                if (
-                    accessor == self._sample_metadata_key
-                    and self._sample_metadata is not None
-                ):
-                    columns = self._sample_metadata.columns
-                elif accessor != self._sample_metadata_key:
-                    columns = self._sdata[accessor].obs.columns
-                else:
-                    continue
-                for key in accessor_sources:
-                    if key not in columns:
-                        nonval_keys.append(key)
-            _maybe_curation_keys_not_present(nonval_keys, name)
+        # check validity of keys in sources
+        nonval_keys = []
+        for accessor, accessor_sources in self._sources.items():
+            if (
+                accessor == self._sample_metadata_key
+                and self._sample_metadata is not None
+            ):
+                columns = self._sample_metadata.columns
+            elif accessor != self._sample_metadata_key:
+                columns = self._sdata[accessor].obs.columns
+            else:
+                continue
+            for key in accessor_sources:
+                if key not in columns:
+                    nonval_keys.append(key)
+        _maybe_curation_keys_not_present(nonval_keys, "source")
 
         # Set up sample level metadata and table Curator objects
         if (
@@ -1790,7 +1757,6 @@ class SpatialDataCatManager(CatManager):
                 categoricals=self._categoricals.get(self._sample_metadata_key, {}),
                 verbosity=verbosity,
                 sources=self._sources.get(self._sample_metadata_key),
-                exclude=self._exclude.get(self._sample_metadata_key),
                 organism=organism,
             )
         self._table_adata_curators = {
@@ -1800,7 +1766,6 @@ class SpatialDataCatManager(CatManager):
                 categoricals=self._categoricals.get(table),
                 verbosity=verbosity,
                 sources=self._sources.get(table),
-                exclude=self._exclude.get(table),
                 organism=organism,
             )
             for table in self._table_keys
@@ -2045,9 +2010,6 @@ class TiledbsomaCatManager(CatManager):
         obs_columns: The registry field for mapping the names of the `.obs` columns.
         organism: The organism name.
         sources: A dictionary mapping `.obs` columns to Source records.
-        exclude: A dictionary mapping column names to values to exclude from validation.
-            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
-            using the exclude parameter ensures they are not validated.
 
     Example::
 
@@ -2071,7 +2033,6 @@ class TiledbsomaCatManager(CatManager):
         obs_columns: FieldAttr = Feature.name,
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
-        exclude: dict[str, str | list[str]] | None = None,
     ):
         self._obs_fields = categoricals or {}
         self._var_fields = var_index
@@ -2084,7 +2045,6 @@ class TiledbsomaCatManager(CatManager):
             self._artifact = None
         self._organism = organism
         self._sources = sources or {}
-        self._exclude = exclude or {}
 
         self._is_validated: bool | None = False
         self._non_validated_values: dict[str, list] | None = None
@@ -2142,9 +2102,9 @@ class TiledbsomaCatManager(CatManager):
                 self._var_fields_flat[var_key_flat] = var_field
         _maybe_curation_keys_not_present(nonval_keys, "var_index")
 
-        # check validity of keys in sources and exclude
+        # check validity of keys in sources
         valid_arg_keys = valid_obs_keys + valid_var_keys + ["columns"]
-        for name, dct in (("sources", self._sources), ("exclude", self._exclude)):
+        for name, dct in ("sources", self._sources):
             nonval_keys = []
             for arg_key in dct.keys():
                 if arg_key not in valid_arg_keys:
@@ -2163,7 +2123,6 @@ class TiledbsomaCatManager(CatManager):
             validated_only=False,
             organism=organism,
             source=self._sources.get("columns"),
-            exclude=self._exclude.get("columns"),
         )
         additional_columns = [k for k in valid_obs_keys if k not in register_columns]
         # no need to register with validated_only=True if columns are features
@@ -2178,7 +2137,6 @@ class TiledbsomaCatManager(CatManager):
                 validated_only=True,
                 organism=organism,
                 source=self._sources.get("columns"),
-                exclude=self._exclude.get("columns"),
             )
 
     def validate(self):
@@ -2207,7 +2165,6 @@ class TiledbsomaCatManager(CatManager):
                     validated_only=True,
                     organism=organism,
                     source=self._sources.get(var_ms_key),
-                    exclude=self._exclude.get(var_ms_key),
                 )
                 _, non_val = validate_categories(
                     values=var_ms_values,
@@ -2215,7 +2172,6 @@ class TiledbsomaCatManager(CatManager):
                     key=var_ms_key,
                     organism=organism,
                     source=self._sources.get(var_ms_key),
-                    exclude=self._exclude.get(var_ms_key),
                 )
                 if len(non_val) > 0:
                     validated = False
@@ -2241,7 +2197,6 @@ class TiledbsomaCatManager(CatManager):
                     validated_only=True,
                     organism=organism,
                     source=self._sources.get(key),
-                    exclude=self._exclude.get(key),
                 )
                 _, non_val = validate_categories(
                     values=values,
@@ -2249,7 +2204,6 @@ class TiledbsomaCatManager(CatManager):
                     key=key,
                     organism=organism,
                     source=self._sources.get(key),
-                    exclude=self._exclude.get(key),
                 )
                 if len(non_val) > 0:
                     validated = False
@@ -2307,7 +2261,6 @@ class TiledbsomaCatManager(CatManager):
                 validated_only=False,
                 organism=organism,
                 source=self._sources.get(k),
-                exclude=self._exclude.get(k),
                 **kwargs,
             )
             # update non-validated values list but keep the key there
@@ -2587,7 +2540,6 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
             extra_sources: A dictionary mapping ``.obs.columns`` to Source records.
                 These extra sources are joined with the CELLxGENE fixed sources.
                 Use this parameter when subclassing.
-            exclude: A dictionary mapping column names to values to exclude.
             schema_version: The CELLxGENE schema version to curate against.
             verbosity: The verbosity level.
 
@@ -2637,13 +2589,6 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         if extra_sources:
             self.sources = self.sources | extra_sources
 
-        # Exclude default values from validation because they are not available in the pinned sources
-        exclude_keys = {
-            entity: default
-            for entity, default in CellxGeneAnnDataCatManager._get_categoricals_defaults().items()
-            if entity in self._adata_obs.columns  # type: ignore
-        }
-
         super().__init__(
             data=adata,
             var_index=var_index,
@@ -2651,7 +2596,6 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
             verbosity=verbosity,
             organism=organism,
             sources=self.sources,
-            exclude=exclude_keys,
         )
 
     @classmethod
@@ -3368,22 +3312,11 @@ def inspect_instance(
     values: Iterable[str],
     field: FieldAttr,
     registry: type[Record],
-    exclude: str | list | None = None,
     **kwargs,
 ):
     """Inspect values using a registry."""
-    # inspect exclude values in the default instance
     values = list(values)
-    include_validated = []
-    if exclude is not None:
-        exclude = [exclude] if isinstance(exclude, str) else exclude
-        exclude = [i for i in exclude if i in values]
-        if len(exclude) > 0:
-            # exclude values are validated without source and organism
-            inspect_result_exclude = registry.inspect(exclude, field=field, mute=True)
-            # if exclude values are validated, remove them from the values
-            values = [i for i in values if i not in inspect_result_exclude.validated]
-            include_validated = inspect_result_exclude.validated
+    include_validated: list = []
 
     inspect_result = registry.inspect(values, field=field, mute=True, **kwargs)
     inspect_result._validated += include_validated
@@ -3411,7 +3344,6 @@ def validate_categories(
     key: str,
     organism: str | None = None,
     source: Record | None = None,
-    exclude: str | list | None = None,
     hint_print: str | None = None,
     curator: CatManager | None = None,
 ) -> tuple[bool, list[str]]:
@@ -3423,7 +3355,6 @@ def validate_categories(
         key: The key referencing the slot in the DataFrame.
         organism: The organism name.
         source: The source record.
-        exclude: Exclude specific values from validation.
         standardize: Whether to standardize the values.
         hint_print: The hint to print that suggests fixing non-validated values.
     """
@@ -3448,7 +3379,6 @@ def validate_categories(
         values=values,
         field=field,
         registry=registry,
-        exclude=exclude,
         **kwargs_current,
     )
     non_validated = inspect_result.non_validated
@@ -3531,7 +3461,6 @@ def validate_categories_in_df(
     df: pd.DataFrame,
     fields: dict[str, FieldAttr],
     sources: dict[str, Record] = None,
-    exclude: dict | None = None,
     curator: CatManager | None = None,
     **kwargs,
 ) -> tuple[bool, dict]:
@@ -3549,7 +3478,6 @@ def validate_categories_in_df(
             field=field,
             key=key,
             source=sources.get(key),
-            exclude=exclude.get(key) if exclude else None,
             curator=curator,
             **kwargs,
         )
@@ -3997,7 +3925,6 @@ def from_tiledbsoma(
     obs_columns: FieldAttr = Feature.name,
     organism: str | None = None,
     sources: dict[str, Record] | None = None,
-    exclude: dict[str, str | list[str]] | None = None,
 ) -> TiledbsomaCatManager:
     return TiledbsomaCatManager(
         experiment_uri=experiment_uri,
@@ -4006,7 +3933,6 @@ def from_tiledbsoma(
         obs_columns=obs_columns,
         organism=organism,
         sources=sources,
-        exclude=exclude,
     )
 
 
@@ -4018,7 +3944,6 @@ def from_spatialdata(
     categoricals: dict[str, dict[str, FieldAttr]] | None = None,
     organism: str | None = None,
     sources: dict[str, dict[str, Record]] | None = None,
-    exclude: dict[str, dict] | None = None,
     verbosity: str = "hint",
     *,
     sample_metadata_key: str = "sample",
@@ -4035,7 +3960,6 @@ def from_spatialdata(
         verbosity=verbosity,
         organism=organism,
         sources=sources,
-        exclude=exclude,
         sample_metadata_key=sample_metadata_key,
     )
 
