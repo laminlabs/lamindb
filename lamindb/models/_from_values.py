@@ -347,7 +347,8 @@ def _require_organism(registry: type[Record]) -> bool:
     """
     try:
         organism_field = registry._meta.get_field("organism")
-        if organism_field.null:  # organism is not required
+        # organism is not required or not a relation
+        if organism_field.null or not organism_field.is_relation:
             return False
         else:
             return True
@@ -385,7 +386,7 @@ def _get_organism_record(  # type: ignore
     check = not _is_simple_field_unique(field=field) or organism is not None
 
     if field_str == "ensembl_gene_id" and len(values) > 0 and organism is None:  # type: ignore
-        return _organism_from_ensembl_id(values[0], registry)  # type: ignore
+        return _organism_from_ensembl_id(values[0])  # type: ignore
 
     if _require_organism(registry) and check:
         from bionty._bionty import create_or_get_organism_record
