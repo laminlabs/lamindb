@@ -2654,25 +2654,26 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         """Creates a sources dictionary that can be passed to AnnDataCatManager."""
         import bionty as bt
 
-        def _fetch_bionty_source(entity: str, organism: str) -> bt.Source | None:
+        def _fetch_bionty_source(entity: str, organism: str) -> bt.Source | None:  # type: ignore
             """Fetch the Bionty source of the pinned ontology."""
             entity_sources = self._pinned_ontologies.loc[
                 (self._pinned_ontologies.index == entity)
             ].copy()
-            if len(entity_sources) == 1:
-                # for sources with organism "all"
-                source_row = entity_sources.iloc[0]
-            else:
-                source_row = entity_sources[
-                    entity_sources["organism"] == organism
-                ].iloc[0]
+            if len(entity_sources) > 0:
+                if len(entity_sources) == 1:
+                    # for sources with organism "all"
+                    source_row = entity_sources.iloc[0]
+                else:
+                    source_row = entity_sources[
+                        entity_sources["organism"] == organism
+                    ].iloc[0]
 
-            return bt.Source.get(
-                organism=source_row.organism,
-                entity=f"bionty.{entity}",
-                name=source_row.source,
-                version=source_row.version,
-            )
+                return bt.Source.get(
+                    organism=source_row.organism,
+                    entity=f"bionty.{entity}",
+                    name=source_row.source,
+                    version=source_row.version,
+                )
 
         key_to_source: dict[str, bt.Source] = {}
         for key, field in obs_fields.items():
@@ -2967,8 +2968,6 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
         cxg_schema_version: Literal["5.0.0", "5.1.0"] = "5.1.0",
     ):
         """Initialize the curator with configuration and validation settings."""
-        import bionty as bt
-
         self._pert_time = pert_time
         self._pert_dose = pert_dose
 
