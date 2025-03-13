@@ -75,8 +75,8 @@ def test_standardize():
     assert bt.Gene.standardize(["LMN1"], return_mapper=True) == {"LMN1": "LMNA"}
 
 
-def test_standardize_public_aware():
-    result = bt.Gene.standardize(["ABC1", "PDCD1"], public_aware=False)
+def test_standardize_source_aware():
+    result = bt.Gene.standardize(["ABC1", "PDCD1"], source_aware=False)
     assert result == ["ABC1", "PDCD1"]
 
 
