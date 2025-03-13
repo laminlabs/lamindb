@@ -410,7 +410,7 @@ def _organism_from_ensembl_id(id: str, using_key: str | None) -> Record | None: 
 
     ensembl_prefixes = (
         Artifact.using("laminlabs/bionty-assets")
-        .get(key="ensembl_prefixes.parquet")
+        .get(key="ensembl_prefixes.parquet", is_latest=True)
         .load(is_run_input=False)
         .set_index("gene_prefix")
     )
@@ -421,9 +421,7 @@ def _organism_from_ensembl_id(id: str, using_key: str | None) -> Record | None: 
         using_key = None if using_key == "default" else using_key
 
         organism_record = (
-            bt.Organism.using(using_key)
-            .filter(name=organism_name, is_latest=True)
-            .one_or_none()
+            bt.Organism.using(using_key).filter(name=organism_name).one_or_none()
         )
         if organism_record is None:
             organism_record = bt.Organism.from_source(name=organism_name)
