@@ -75,7 +75,7 @@ def _inspect(
         if strict_source:
             queryset = queryset.filter(source=source)
     organism_record = _get_organism_record(
-        getattr(registry, field_str), organism, values
+        getattr(registry, field_str), organism, values, queryset.db
     )
     _check_record_db(organism_record, queryset.db)
 
@@ -177,7 +177,7 @@ def _validate(
             queryset = queryset.filter(source=source)
 
     organism_record = _get_organism_record(
-        getattr(registry, field_str), organism, values
+        getattr(registry, field_str), organism, values, queryset.db
     )
     _check_record_db(organism_record, queryset.db)
     field_values = pd.Series(
@@ -244,7 +244,7 @@ def _standardize(
         if strict_source:
             queryset = queryset.filter(source=source)
     organism_record = _get_organism_record(
-        getattr(registry, field_str), organism, values
+        getattr(registry, field_str), organism, values, queryset.db
     )
     _check_record_db(organism_record, queryset.db)
 

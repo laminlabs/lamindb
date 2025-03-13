@@ -369,16 +369,19 @@ def _get_organism_record(  # type: ignore
     field: FieldAttr,
     organism: str | Record | None = None,
     values: Iterable = [],
+    using_key: str | None = None,
 ) -> Record | None:
     """Get organism record.
 
     Args:
         field: the field to get the organism record for
         organism: the organism to get the record for
+        values: the values to get the organism record for
+        using_key: the db to get the organism record for
 
     Returns:
         The organism record if:
-            The organism is required for the registry
+            The organism FK is required for the registry
             The field is not unique or the organism is not None
     """
     registry = field.field.model
@@ -386,7 +389,7 @@ def _get_organism_record(  # type: ignore
     check = not _is_simple_field_unique(field=field) or organism is not None
 
     if field_str == "ensembl_gene_id" and len(values) > 0 and organism is None:  # type: ignore
-        return _organism_from_ensembl_id(values[0], registry)  # type: ignore
+        return _organism_from_ensembl_id(values[0], using_key)  # type: ignore
 
     if _require_organism(registry) and check:
         from bionty._bionty import create_or_get_organism_record
@@ -398,7 +401,7 @@ def _get_organism_record(  # type: ignore
             return organism_record.save()
 
 
-def _organism_from_ensembl_id(id: str, registry: type[Record]) -> Record | None:  # type: ignore
+def _organism_from_ensembl_id(id: str, using_key: str | None) -> Record | None:  # type: ignore
     import bionty as bt
 
     from .artifact import Artifact  # has to be here to avoid circular imports
@@ -413,12 +416,7 @@ def _organism_from_ensembl_id(id: str, registry: type[Record]) -> Record | None:
     if prefix in ensembl_prefixes.index:
         sname = ensembl_prefixes.loc[prefix, "scientific_name"]
 
-        db = registry.objects.db
-        if db is None or db == "default":
-            organism_model = bt.Organism
-        else:
-            organism_model = bt.Organism.using(db)
+        organism_record = bt.Organism.from_source(scientific_name=sname)
 
-        organism_record = organism_model.from_source(scientific_name=sname)
         if organism_record is not None:
-            return organism_record.save()
+            return organism_record.save(using=using_key)
