@@ -30,3 +30,14 @@ schema_version,entity,organism,source,version
 5.1.0,Tissue,all,uberon,2024-03-22
 5.1.0,Gene,human,ensembl,release-110
 5.1.0,Gene,mouse,ensembl,release-110
+5.2.0,CellType,all,cl,2024-08-16
+5.2.0,ExperimentalFactor,all,efo,3.69.0
+5.2.0,Ethnicity,human,hancestro,3.0
+5.2.0,DevelopmentalStage,human,hsapdv,2024-05-28
+5.2.0,DevelopmentalStage,mouse,mmusdv,2024-05-28
+5.2.0,Disease,all,mondo,2024-08-06
+5.2.0,Organism,all,ncbitaxon,2023-06-20
+5.2.0,Phenotype,all,pato,2023-05-18
+5.2.0,Tissue,all,uberon,2024-08-07
+5.2.0,Gene,human,ensembl,release-110
+5.2.0,Gene,mouse,ensembl,release-110

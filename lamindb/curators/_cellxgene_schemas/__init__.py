@@ -70,7 +70,10 @@ def _create_sources(
                 version=row.version,
             ).one_or_none()
             if source is None:
-                logger.error(f"Could not find source: {entity}\n")
+                logger.error(
+                    f"Could not find source: {entity}\n"
+                    "    → consider running `bionty.core.sync_all_sources_to_latest()` and re-connect to your instance"
+                )
             return source
 
     sources_df = pd.read_csv(UPath(__file__).parent / "schema_versions.csv")

@@ -2531,7 +2531,7 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         *,
         defaults: dict[str, str] = None,
         extra_sources: dict[str, Record] = None,
-        schema_version: Literal["4.0.0", "5.0.0", "5.1.0"] = "5.1.0",
+        schema_version: Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0"] = "5.2.0",
         verbosity: str = "hint",
     ) -> None:
         """CELLxGENE schema curator.
