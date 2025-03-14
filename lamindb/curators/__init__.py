@@ -40,11 +40,9 @@ import pandas as pd
 import pandera
 import pyarrow as pa
 from lamin_utils import colors, logger
-from lamindb_setup.core import deprecated, upath
+from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import UPath
-
-from lamindb.core.storage._backed_access import backed_access
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
