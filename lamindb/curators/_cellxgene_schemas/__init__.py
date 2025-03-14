@@ -108,9 +108,8 @@ def _init_categoricals_additional_values(
         )
     if not controls_were_created:
         logger.important("Creating control labels in the CellxGene schema.")
-        bt.CellType(
-            ontology_id="unknown", name="unknown", description="From CellxGene schema."
-        ).save()
+
+        # "normal" in Disease
         normal = bt.Phenotype.from_source(
             ontology_id="PATO:0000461",
             source=bt.Source.get(name="pato", version="2024-03-28"),
@@ -122,18 +121,21 @@ def _init_categoricals_additional_values(
             description=normal.description,
             source=normal.source,  # not sure
         ).save()
-        bt.Ethnicity(
-            ontology_id="na", name="na", description="From CellxGene schema."
-        ).save()
-        bt.Ethnicity(
-            ontology_id="unknown", name="unknown", description="From CellxGene schema."
-        ).save()
-        bt.DevelopmentalStage(
-            ontology_id="unknown", name="unknown", description="From CellxGene schema."
-        ).save()
-        bt.Phenotype(
-            ontology_id="unknown", name="unknown", description="From CellxGene schema."
-        ).save()
+
+        # na, unknown
+        for model, name in zip(
+            [
+                bt.Ethnicity,
+                bt.Ethnicity,
+                bt.DevelopmentalStage,
+                bt.Phenotype,
+                bt.CellType,
+            ],
+            ["na", "unknown", "unknown", "unknown", "unknown"],
+        ):
+            model(
+                ontology_id=name, name=name, description="From CellxGene schema."
+            ).save()
 
         # tissue_type
         tissue_type = ULabel(
@@ -141,15 +143,10 @@ def _init_categoricals_additional_values(
             is_type=True,
             description='From CellxGene schema. Is "tissue", "organoid", or "cell culture".',
         ).save()
-        ULabel(
-            name="tissue", type=tissue_type, description="From CellxGene schema."
-        ).save()
-        ULabel(
-            name="organoid", type=tissue_type, description="From CellxGene schema."
-        ).save()
-        ULabel(
-            name="cell culture", type=tissue_type, description="From CellxGene schema."
-        ).save()
+        for name in ["tissue", "organoid", "cell culture"]:
+            ULabel(
+                name=name, type=tissue_type, description="From CellxGene schema."
+            ).save()
 
         # suspension_type
         suspension_type = ULabel(
@@ -157,12 +154,7 @@ def _init_categoricals_additional_values(
             is_type=True,
             description='From CellxGene schema. This MUST be "cell", "nucleus", or "na".',
         ).save()
-        ULabel(
-            name="cell", type=suspension_type, description="From CellxGene schema."
-        ).save()
-        ULabel(
-            name="nucleus", type=suspension_type, description="From CellxGene schema."
-        ).save()
-        ULabel(
-            name="na", type=suspension_type, description="From CellxGene schema."
-        ).save()
+        for name in ["cell", "nucleus", "na"]:
+            ULabel(
+                name=name, type=suspension_type, description="From CellxGene schema."
+            ).save()
