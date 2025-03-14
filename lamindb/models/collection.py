@@ -117,6 +117,39 @@ def _open_paths(paths: list[UPath]) -> PyArrowDataset:
     return _open_pyarrow_dataset(paths)
 
 
+def _load_concat_artifacts(
+    artifacts: list[Artifact], join: Literal["inner", "outer"] = "outer", **kwargs
+) -> pd.DataFrame | ad.AnnData:
+    suffixes = {artifact.suffix for artifact in artifacts}
+    # Why is that? - Sergei
+    if len(suffixes) != 1:
+        raise ValueError(
+            "Can only load collections where all artifacts have the same suffix"
+        )
+
+    # because we're tracking data flow on the collection-level, here, we don't
+    # want to track it on the artifact-level
+    first_object = artifacts[0].load(is_run_input=False)
+    is_dataframe = isinstance(first_object, pd.DataFrame)
+    is_anndata = isinstance(first_object, ad.AnnData)
+    if not is_dataframe and not is_anndata:
+        raise ValueError(f"Unable to concatenate {suffixes.pop()} objects.")
+
+    objects = [first_object]
+    artifact_uids = [artifacts[0].uid]
+    for artifact in artifacts[1:]:
+        objects.append(artifact.load(is_run_input=False))
+        artifact_uids.append(artifact.uid)
+
+    if is_dataframe:
+        concat_object = pd.concat(objects, join=join, **kwargs)
+    elif is_anndata:
+        label = kwargs.pop("label", "artifact_uid")
+        keys = kwargs.pop("keys", artifact_uids)
+        concat_object = ad.concat(objects, join=join, label=label, keys=keys, **kwargs)
+    return concat_object
+
+
 class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
     """Collections of artifacts.
 
@@ -498,29 +531,15 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         join: Literal["inner", "outer"] = "outer",
         is_run_input: bool | None = None,
         **kwargs,
-    ) -> Any:
+    ) -> pd.DataFrame | ad.AnnData:
         """Stage and load to memory.
 
-        Returns in-memory representation if possible such as a concatenated `DataFrame` or `AnnData` object.
+        Returns an in-memory concatenated `DataFrame` or `AnnData` object.
         """
         # cannot call _track_run_input here, see comment further down
-        all_artifacts = self.ordered_artifacts.all()
-        suffixes = [artifact.suffix for artifact in all_artifacts]
-        if len(set(suffixes)) != 1:
-            raise RuntimeError(
-                "Can only load collections where all artifacts have the same suffix"
-            )
-        # because we're tracking data flow on the collection-level, here, we don't
-        # want to track it on the artifact-level
-        objects = [artifact.load(is_run_input=False) for artifact in all_artifacts]
-        artifact_uids = [artifact.uid for artifact in all_artifacts]
-        if isinstance(objects[0], pd.DataFrame):
-            concat_object = pd.concat(objects, join=join)
-        elif isinstance(objects[0], ad.AnnData):
-            concat_object = ad.concat(
-                objects, join=join, label="artifact_uid", keys=artifact_uids
-            )
-        # only call it here because there might be errors during concat
+        artifacts = self.ordered_artifacts.all()
+        concat_object = _load_concat_artifacts(artifacts, **kwargs)
+        # only call it here because there might be errors during load or concat
         _track_run_input(self, is_run_input)
         return concat_object
 
