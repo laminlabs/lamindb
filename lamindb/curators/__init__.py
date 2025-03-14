@@ -3180,7 +3180,7 @@ def validate_categories(
     else:
         # inspect values from the default instance
         inspect_result = inspect_instance(
-            values=values,
+            values=to_check,
             field=field,
             registry=registry,
             **kwargs_current,
@@ -3348,7 +3348,7 @@ def validate_categories_in_df(
                 validated = False
                 non_validated[key] = [f"Error during validation: {exc}"]
 
-    return validated, non_validated
+        return validated, non_validated
 
 
 def save_artifact(
