@@ -84,10 +84,12 @@ def _inspect(
     if hasattr(registry, "_name_field") and field_str != registry._name_field:
         inspect_synonyms = False
 
+    unique_values = set(values)
+
     # inspect in the DB
     result_db = inspect(
         df=_filter_queryset_with_organism(queryset=queryset, organism=organism_record),
-        identifiers=values,
+        identifiers=unique_values,
         field=field_str,
         mute=mute,
         inspect_synonyms=inspect_synonyms,

@@ -3163,16 +3163,16 @@ def validate_categories(
             warning_message = f"{colors.red(f'{n_non_validated} terms')} are not validated: {colors.red(print_values)}\n"
 
         if syn_mapper:
+            s = "" if len(syn_mapper) == 1 else "s"
             syn_mapper_print = _format_values(
                 [f'"{k}" → "{v}"' for k, v in syn_mapper.items()], sep=""
             )
-            warning_message += f" {colors.yellow(f'{len(syn_mapper)} synonyms')} found: {colors.yellow(syn_mapper_print)}\n"
-            warning_message += (
-                f" → curate synonyms via {colors.cyan('.standardize("' + key + '")')}"
-            )
+            warning_message += f"    {colors.yellow(f'{len(syn_mapper)} synonym{s}')} found: {colors.yellow(syn_mapper_print)}\n    → curate synonyms via {colors.cyan(f'.standardize("{key}")')}"
 
         if n_non_validated > len(syn_mapper):
-            warning_message += f" → fix typos, remove non-existent values, or save terms via {colors.cyan(hint_print or f'.add_new_from("{key}")')}"
+            if syn_mapper:
+                warning_message += "\n    for remaining terms:\n"
+            warning_message += f"    → fix typos, remove non-existent values, or save terms via {colors.cyan(hint_print or f'.add_new_from("{key}")')}"
 
         log_messages.append(("warning", warning_message))
 
@@ -3226,7 +3226,7 @@ def validate_categories_in_df(
     validated = True
     non_validated = {}
     log_queue = Queue()  # type: ignore
-    max_workers = min(len(fields), 16)
+    max_workers = min(len(fields), 8)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_key = {
