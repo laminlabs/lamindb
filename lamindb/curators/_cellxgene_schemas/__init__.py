@@ -49,6 +49,47 @@ def _get_cxg_categoricals() -> dict[str, FieldAttr]:
     }
 
 
+def _restrict_obs_fields(
+    obs: pd.DataFrame, obs_fields: dict[str, FieldAttr]
+) -> dict[str, FieldAttr]:
+    """Restrict the obs fields only available obs fields.
+
+    To simplify the curation, we only validate against either name or ontology_id.
+    If both are available, we validate against ontology_id.
+    If none are available, we validate against name.
+    """
+    obs_fields_unique = {k: v for k, v in obs_fields.items() if k in obs.columns}
+    for name, field in obs_fields.items():
+        if name.endswith("_ontology_term_id"):
+            continue
+        # if both the ontology id and the name are present, only validate on the ontology_id
+        if name in obs.columns and f"{name}_ontology_term_id" in obs.columns:
+            obs_fields_unique.pop(name)
+        # if the neither name nor ontology id are present, validate on the name
+        # this will raise error downstream, we just use name to be more readable
+        if name not in obs.columns and f"{name}_ontology_term_id" not in obs.columns:
+            obs_fields_unique[name] = field
+
+    # Only retain obs_fields_unique that have keys in adata.obs.columns
+    available_obs_fields = {
+        k: v for k, v in obs_fields_unique.items() if k in obs.columns
+    }
+
+    return available_obs_fields
+
+
+def _add_defaults_to_obs(obs: pd.DataFrame, defaults: dict[str, str]) -> None:
+    """Add default columns and values to obs DataFrame."""
+    added_defaults: dict = {}
+    for name, default in defaults.items():
+        if name not in obs.columns and f"{name}_ontology_term_id" not in obs.columns:
+            obs[name] = default
+            added_defaults[name] = default
+            logger.important(
+                f"added default value '{default}' to the adata.obs['{name}']"
+            )
+
+
 def _create_sources(
     categoricals: dict[str, FieldAttr], schema_version: str, organism: str
 ) -> dict[str, Record]:

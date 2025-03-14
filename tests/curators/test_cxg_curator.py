@@ -31,7 +31,7 @@ def test_cxg_curator():
     )
     title = "Cross-tissue immune cell analysis reveals tissue-specific features in humans (for test demo only)"
 
-    adata.obsm["X_umap"] = np.random.Generator(size=(adata.shape[0], 2))
+    adata.obsm["X_umap"] = np.zeros((adata.shape[0], 2))
     adata_cxg = curator.to_cellxgene_anndata(is_primary_data=True, title=title)
     assert "cell_type_ontology_term_id" in adata_cxg.obs.columns
 

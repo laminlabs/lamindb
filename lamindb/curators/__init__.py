@@ -2465,50 +2465,6 @@ class TiledbsomaCatManager(CatManager):
         return artifact.save()
 
 
-def _restrict_obs_fields(
-    obs: pd.DataFrame, obs_fields: dict[str, FieldAttr]
-) -> dict[str, FieldAttr]:
-    """Restrict the obs fields only available obs fields.
-
-    To simplify the curation, we only validate against either name or ontology_id.
-    If both are available, we validate against ontology_id.
-    If none are available, we validate against name.
-    """
-    obs_fields_unique = {k: v for k, v in obs_fields.items() if k in obs.columns}
-    for name, field in obs_fields.items():
-        if name.endswith("_ontology_term_id"):
-            continue
-        # if both the ontology id and the name are present, only validate on the ontology_id
-        if name in obs.columns and f"{name}_ontology_term_id" in obs.columns:
-            obs_fields_unique.pop(name)
-        # if the neither name nor ontology id are present, validate on the name
-        # this will raise error downstream, we just use name to be more readable
-        if name not in obs.columns and f"{name}_ontology_term_id" not in obs.columns:
-            obs_fields_unique[name] = field
-
-    # Only retain obs_fields_unique that have keys in adata.obs.columns
-    available_obs_fields = {
-        k: v for k, v in obs_fields_unique.items() if k in obs.columns
-    }
-
-    return available_obs_fields
-
-
-def _add_defaults_to_obs(
-    obs: pd.DataFrame,
-    defaults: dict[str, str],
-) -> None:
-    """Add default columns and values to obs DataFrame."""
-    added_defaults: dict = {}
-    for name, default in defaults.items():
-        if name not in obs.columns and f"{name}_ontology_term_id" not in obs.columns:
-            obs[name] = default
-            added_defaults[name] = default
-            logger.important(
-                f"added default value '{default}' to the adata.obs['{name}']"
-            )
-
-
 class CellxGeneAnnDataCatManager(AnnDataCatManager):
     """Annotation flow of AnnData based on CELLxGENE schema."""
 
@@ -2552,8 +2508,10 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         import bionty as bt
 
         from ._cellxgene_schemas import (
+            _add_defaults_to_obs,
             _create_sources,
             _init_categoricals_additional_values,
+            _restrict_obs_fields,
         )
 
         # Add defaults first to ensure that we fetch valid sources
@@ -2566,13 +2524,13 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         categoricals = _restrict_obs_fields(adata.obs, categoricals)
 
         # Configure sources
-        self.sources = _create_sources(categoricals, schema_version, organism)
+        sources = _create_sources(categoricals, schema_version, organism)
         self.schema_version = schema_version
         self.schema_reference = f"https://github.com/chanzuckerberg/single-cell-curation/blob/main/schema/{schema_version}/schema.md"
         # These sources are not a part of the cellxgene schema but rather passed through.
         # This is useful when other Curators extend the CELLxGENE curator
         if extra_sources:
-            self.sources = self.sources | extra_sources
+            sources = sources | extra_sources
 
         _init_categoricals_additional_values()
 
@@ -2582,7 +2540,7 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
             categoricals=categoricals,
             verbosity=verbosity,
             organism=organism,
-            sources=self.sources,
+            sources=sources,
         )
 
     @classmethod
@@ -2592,7 +2550,7 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
 
     @classmethod
     def _get_cxg_categoricals(cls) -> dict[str, FieldAttr]:
-        """Returns the CELLxGENE required fields."""
+        """Returns the CELLxGENE schema mapped fields."""
         from ._cellxgene_schemas import _get_cxg_categoricals
 
         return _get_cxg_categoricals()
