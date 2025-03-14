@@ -2596,10 +2596,6 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
 
         return _get_categoricals()
 
-    @property
-    def adata(self) -> AnnData:
-        return self._adata
-
     def validate(self) -> bool:
         """Validates the AnnData object against most cellxgene requirements."""
         from ._cellxgene_schemas import RESERVED_NAMES
