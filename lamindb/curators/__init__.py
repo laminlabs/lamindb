@@ -3157,17 +3157,22 @@ def validate_categories(
         return True, []
     else:
         print_values = _format_values(non_validated)
-        warning_message = f"{colors.red(f'{n_non_validated} terms')} are not validated: {colors.red(print_values)}\n"
+        if n_non_validated == 1:
+            warning_message = f"{colors.red(f'{n_non_validated} term')} is not validated: {colors.red(print_values)}\n"
+        else:
+            warning_message = f"{colors.red(f'{n_non_validated} terms')} are not validated: {colors.red(print_values)}\n"
 
         if syn_mapper:
             syn_mapper_print = _format_values(
                 [f'"{k}" → "{v}"' for k, v in syn_mapper.items()], sep=""
             )
-            warning_message += f"    {colors.yellow(f'{len(syn_mapper)} synonyms')} found: {colors.yellow(syn_mapper_print)}\n"
-            warning_message += f"    → curate synonyms via {colors.cyan('.standardize("' + key + '")')}"
+            warning_message += f" {colors.yellow(f'{len(syn_mapper)} synonyms')} found: {colors.yellow(syn_mapper_print)}\n"
+            warning_message += (
+                f" → curate synonyms via {colors.cyan('.standardize("' + key + '")')}"
+            )
 
         if n_non_validated > len(syn_mapper):
-            warning_message += f"    → fix typos, remove non-existent values, or save terms via {colors.cyan(hint_print or f'.add_new_from("{key}")')}"
+            warning_message += f" → fix typos, remove non-existent values, or save terms via {colors.cyan(hint_print or f'.add_new_from("{key}")')}"
 
         log_messages.append(("warning", warning_message))
 
