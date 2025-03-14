@@ -3569,7 +3569,7 @@ def log_saved_labels(
 
 
 def save_ulabels_type(values: list[str], field: FieldAttr, key: str) -> None:
-    """Save the ULabel tupe of the given labels."""
+    """Save the ULabel type of the given labels."""
     registry = field.field.model
     assert registry == ULabel  # noqa: S101
     all_records = registry.filter(**{field.field.name: list(values)}).all()
