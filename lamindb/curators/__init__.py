@@ -71,7 +71,6 @@ from lamindb.models.artifact import (
 )
 from lamindb.models.feature import parse_dtype, parse_dtype_single_cat
 from lamindb.models._from_values import _format_values
-from ._cellxgene_schemas import _get_cxg_categoricals
 
 from ..errors import InvalidArgument, ValidationError
 from anndata import AnnData
@@ -2523,7 +2522,6 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         "suspension_type": "cell",
         "tissue_type": "tissue",
     }
-    cxg_categoricals = _get_cxg_categoricals()
 
     def __init__(
         self,
@@ -2564,7 +2562,7 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
 
         # Filter categoricals based on what's present in adata
         if categoricals is None:
-            categoricals = self.cxg_categoricals
+            categoricals = self._get_cxg_categoricals()
         categoricals = _restrict_obs_fields(adata.obs, categoricals)
 
         # Configure sources
@@ -2591,6 +2589,13 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
     @deprecated(new_name="categoricals_defaults")
     def _get_categoricals_defaults(cls) -> dict[str, str]:
         return cls.categoricals_defaults
+
+    @classmethod
+    def _get_cxg_categoricals(cls) -> dict[str, FieldAttr]:
+        """Returns the CELLxGENE required fields."""
+        from ._cellxgene_schemas import _get_cxg_categoricals
+
+        return _get_cxg_categoricals()
 
     def validate(self) -> bool:
         """Validates the AnnData object against most cellxgene requirements."""
@@ -2889,7 +2894,7 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
             "pert_target": "unknown",
         }
 
-        self.PT_CATEGORICALS = CellxGeneAnnDataCatManager.cxg_categoricals | {
+        self.PT_CATEGORICALS = CellxGeneAnnDataCatManager._get_cxg_categoricals() | {
             k: v
             for k, v in {
                 "cell_line": bt.CellLine.name,
