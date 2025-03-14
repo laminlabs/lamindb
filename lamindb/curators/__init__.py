@@ -2512,7 +2512,6 @@ def _add_defaults_to_obs(
 class CellxGeneAnnDataCatManager(AnnDataCatManager):
     """Annotation flow of AnnData based on CELLxGENE schema."""
 
-    _controls_were_created: bool | None = None
     categoricals_defaults = {
         "cell_type": "unknown",
         "development_stage": "unknown",
@@ -2526,7 +2525,7 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
 
     def __init__(
         self,
-        adata: ad.AnnData | UPathStr,
+        adata: ad.AnnData,
         categoricals: dict[str, FieldAttr] | None = None,
         organism: Literal["human", "mouse"] = "human",
         *,
@@ -2557,45 +2556,29 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
             _init_categoricals_additional_values,
         )
 
-        _init_categoricals_additional_values()
-
-        var_index: FieldAttr = bt.Gene.ensembl_gene_id
-
-        if categoricals is None:
-            categoricals = CellxGeneAnnDataCatManager._get_categoricals()
-
-        self.organism = organism
-
-        VALID_SCHEMA_VERSIONS = {"4.0.0", "5.0.0", "5.1.0"}
-        if schema_version not in VALID_SCHEMA_VERSIONS:
-            raise ValueError(
-                f"Invalid schema_version: {schema_version}\n"
-                f"Valid versions are: {_format_values(VALID_SCHEMA_VERSIONS)}"
-            )
-        self.schema_version = schema_version
-        self.schema_reference = f"https://github.com/chanzuckerberg/single-cell-curation/blob/main/schema/{schema_version}/schema.md"
-
-        # Fetch AnnData obs to be able to set defaults and get sources
-        if isinstance(adata, ad.AnnData):
-            self._adata_obs = adata.obs
-        else:
-            self._adata_obs = backed_access(upath.create_path(adata)).obs  # type: ignore
-
         # Add defaults first to ensure that we fetch valid sources
         if defaults:
-            _add_defaults_to_obs(self._adata_obs, defaults)
+            _add_defaults_to_obs(adata.obs, defaults)
 
-        categoricals = _restrict_obs_fields(self._adata_obs, categoricals)
+        # Filter categoricals based on what's present in adata
+        if categoricals is None:
+            categoricals = CellxGeneAnnDataCatManager._get_cxg_categoricals()
+        categoricals = _restrict_obs_fields(adata.obs, categoricals)
 
-        self.sources = _create_sources(categoricals, self.schema_version, self.organism)
+        # Configure sources
+        self.sources = _create_sources(categoricals, schema_version, organism)
+        self.schema_version = schema_version
+        self.schema_reference = f"https://github.com/chanzuckerberg/single-cell-curation/blob/main/schema/{schema_version}/schema.md"
         # These sources are not a part of the cellxgene schema but rather passed through.
         # This is useful when other Curators extend the CELLxGENE curator
         if extra_sources:
             self.sources = self.sources | extra_sources
 
+        _init_categoricals_additional_values()
+
         super().__init__(
             data=adata,
-            var_index=var_index,
+            var_index=bt.Gene.ensembl_gene_id,
             categoricals=categoricals,
             verbosity=verbosity,
             organism=organism,
@@ -2603,42 +2586,24 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         )
 
     @classmethod
-    def _get_categoricals(cls) -> dict[str, FieldAttr]:
-        import bionty as bt
-
-        return {
-            "assay": bt.ExperimentalFactor.name,
-            "assay_ontology_term_id": bt.ExperimentalFactor.ontology_id,
-            "cell_type": bt.CellType.name,
-            "cell_type_ontology_term_id": bt.CellType.ontology_id,
-            "development_stage": bt.DevelopmentalStage.name,
-            "development_stage_ontology_term_id": bt.DevelopmentalStage.ontology_id,
-            "disease": bt.Disease.name,
-            "disease_ontology_term_id": bt.Disease.ontology_id,
-            # "donor_id": "str",  via pandera
-            "self_reported_ethnicity": bt.Ethnicity.name,
-            "self_reported_ethnicity_ontology_term_id": bt.Ethnicity.ontology_id,
-            "sex": bt.Phenotype.name,
-            "sex_ontology_term_id": bt.Phenotype.ontology_id,
-            "suspension_type": ULabel.name,
-            "tissue": bt.Tissue.name,
-            "tissue_ontology_term_id": bt.Tissue.ontology_id,
-            "tissue_type": ULabel.name,
-            "organism": bt.Organism.name,
-            "organism_ontology_term_id": bt.Organism.ontology_id,
-        }
-
-    @classmethod
     @deprecated(new_name="categoricals_defaults")
     def _get_categoricals_defaults(cls) -> dict[str, str]:
         return cls.categoricals_defaults
+
+    @classmethod
+    def _get_cxg_categoricals(cls) -> dict[str, FieldAttr]:
+        from ._cellxgene_schemas import _get_categoricals
+
+        return _get_categoricals()
 
     @property
     def adata(self) -> AnnData:
         return self._adata
 
-    def validate(self) -> bool:  # type: ignore
+    def validate(self) -> bool:
         """Validates the AnnData object against most cellxgene requirements."""
+        from _cellxgene_schemas import RESERVED_NAMES
+
         # Verify that all required obs columns are present
         missing_obs_fields = [
             name
@@ -2648,32 +2613,14 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         ]
         if len(missing_obs_fields) > 0:
             logger.error(
-                f"missing required obs columns {_format_values(missing_obs_fields)}"
-            )
-            logger.info(
-                "consider initializing a Curate object with defaults=cxg.CellxGeneAnnDataCatManager.categoricals_defaults"
-                "to automatically add these columns with default values."
+                f"missing required obs columns {_format_values(missing_obs_fields)}\n"
+                "    → consider initializing a Curate object with `defaults=cxg.CellxGeneAnnDataCatManager.categoricals_defaults` to automatically add these columns with default values"
             )
             return False
 
         # Verify that no cellxgene reserved names are present
-        reserved_names = {
-            "ethnicity",
-            "ethnicity_ontology_term_id",
-            "X_normalization",
-            "default_field",
-            "layer_descriptions",
-            "tags",
-            "versions",
-            "contributors",
-            "preprint_doi",
-            "project_description",
-            "project_links",
-            "project_name",
-            "publication_doi",
-        }
         matched_columns = [
-            column for column in self._adata.obs.columns if column in reserved_names
+            column for column in self._adata.obs.columns if column in RESERVED_NAMES
         ]
         if len(matched_columns) > 0:
             raise ValueError(
@@ -2949,7 +2896,7 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
             "pert_target": "unknown",
         }
 
-        self.PT_CATEGORICALS = CellxGeneAnnDataCatManager._get_categoricals() | {
+        self.PT_CATEGORICALS = CellxGeneAnnDataCatManager._get_cxg_categoricals() | {
             k: v
             for k, v in {
                 "cell_line": bt.CellLine.name,
@@ -3229,8 +3176,6 @@ def validate_categories(
         standardize: Whether to standardize the values.
         hint_print: The hint to print that suggests fixing non-validated values.
     """
-    from lamindb.models._from_values import _format_values
-
     model_field = f"{field.field.model.__name__}.{field.field.name}"
 
     def _log_mapping_info():

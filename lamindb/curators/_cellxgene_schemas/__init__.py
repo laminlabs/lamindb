@@ -4,6 +4,49 @@ from lamindb_setup.core.upath import UPath
 
 from lamindb.base.types import FieldAttr
 from lamindb.models import Record, ULabel
+from lamindb.models._from_values import _format_values
+
+RESERVED_NAMES = {
+    "ethnicity",
+    "ethnicity_ontology_term_id",
+    "X_normalization",
+    "default_field",
+    "layer_descriptions",
+    "tags",
+    "versions",
+    "contributors",
+    "preprint_doi",
+    "project_description",
+    "project_links",
+    "project_name",
+    "publication_doi",
+}
+
+
+def _get_categoricals() -> dict[str, FieldAttr]:
+    import bionty as bt
+
+    return {
+        "assay": bt.ExperimentalFactor.name,
+        "assay_ontology_term_id": bt.ExperimentalFactor.ontology_id,
+        "cell_type": bt.CellType.name,
+        "cell_type_ontology_term_id": bt.CellType.ontology_id,
+        "development_stage": bt.DevelopmentalStage.name,
+        "development_stage_ontology_term_id": bt.DevelopmentalStage.ontology_id,
+        "disease": bt.Disease.name,
+        "disease_ontology_term_id": bt.Disease.ontology_id,
+        # "donor_id": "str",  via pandera
+        "self_reported_ethnicity": bt.Ethnicity.name,
+        "self_reported_ethnicity_ontology_term_id": bt.Ethnicity.ontology_id,
+        "sex": bt.Phenotype.name,
+        "sex_ontology_term_id": bt.Phenotype.ontology_id,
+        "suspension_type": ULabel.name,
+        "tissue": bt.Tissue.name,
+        "tissue_ontology_term_id": bt.Tissue.ontology_id,
+        "tissue_type": ULabel.name,
+        "organism": bt.Organism.name,
+        "organism_ontology_term_id": bt.Organism.ontology_id,
+    }
 
 
 def _create_sources(
@@ -32,6 +75,11 @@ def _create_sources(
 
     sources_df = pd.read_csv(UPath(__file__).parent / "schema_versions.csv")
     sources_df = sources_df[sources_df.schema_version == schema_version]
+    if sources_df.empty:
+        raise ValueError(
+            f"Invalid schema_version: {schema_version}\n"
+            f"Valid versions are: {_format_values(sources_df.schema_version.unique())}"
+        )
 
     key_to_source: dict[str, bt.Source] = {}
     for key, field in categoricals.items():
