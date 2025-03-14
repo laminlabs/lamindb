@@ -215,3 +215,6 @@ _build
 
 # VSCode
 .vscode
+
+# cxg
+!lamindb/curators/_cellxgene_schemas/schema_versions.csv

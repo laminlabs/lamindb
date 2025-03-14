@@ -31,7 +31,6 @@ from __future__ import annotations
 
 import copy
 import re
-from importlib import resources
 from itertools import chain
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -46,8 +45,6 @@ from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import UPath
 
 from lamindb.core.storage._backed_access import backed_access
-
-from ._cellxgene_schemas import _read_schema_versions
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
@@ -103,8 +100,8 @@ class CurateLookup:
 
     Example::
 
-        curator = ln.Curator.from_df(...)
-        curator.lookup()["cell_type"].alveolar_type_1_fibroblast_cell
+        curator = ln.curators.DataFrameCurator(...)
+        curator.cat.lookup()["cell_type"].alveolar_type_1_fibroblast_cell
 
     """
 
@@ -2516,6 +2513,16 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
     """Annotation flow of AnnData based on CELLxGENE schema."""
 
     _controls_were_created: bool | None = None
+    categoricals_defaults = {
+        "cell_type": "unknown",
+        "development_stage": "unknown",
+        "disease": "normal",
+        "donor_id": "unknown",
+        "self_reported_ethnicity": "unknown",
+        "sex": "unknown",
+        "suspension_type": "cell",
+        "tissue_type": "tissue",
+    }
 
     def __init__(
         self,
@@ -2545,7 +2552,12 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         """
         import bionty as bt
 
-        CellxGeneAnnDataCatManager._init_categoricals_additional_values()
+        from ._cellxgene_schemas import (
+            _create_sources,
+            _init_categoricals_additional_values,
+        )
+
+        _init_categoricals_additional_values()
 
         var_index: FieldAttr = bt.Gene.ensembl_gene_id
 
@@ -2556,19 +2568,12 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
 
         VALID_SCHEMA_VERSIONS = {"4.0.0", "5.0.0", "5.1.0"}
         if schema_version not in VALID_SCHEMA_VERSIONS:
-            valid_versions = ", ".join(sorted(VALID_SCHEMA_VERSIONS))
             raise ValueError(
-                f"Invalid schema_version: {schema_version}. "
-                f"Valid versions are: {valid_versions}"
+                f"Invalid schema_version: {schema_version}\n"
+                f"Valid versions are: {_format_values(VALID_SCHEMA_VERSIONS)}"
             )
         self.schema_version = schema_version
         self.schema_reference = f"https://github.com/chanzuckerberg/single-cell-curation/blob/main/schema/{schema_version}/schema.md"
-        with resources.path(
-            "lamindb.curators._cellxgene_schemas", "schema_versions.yml"
-        ) as schema_versions_path:
-            self._pinned_ontologies = _read_schema_versions(schema_versions_path)[
-                self.schema_version
-            ]
 
         # Fetch AnnData obs to be able to set defaults and get sources
         if isinstance(adata, ad.AnnData):
@@ -2580,9 +2585,9 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         if defaults:
             _add_defaults_to_obs(self._adata_obs, defaults)
 
-        obs_fields = _restrict_obs_fields(self._adata_obs, categoricals)
+        categoricals = _restrict_obs_fields(self._adata_obs, categoricals)
 
-        self.sources = self._create_sources(obs_fields)
+        self.sources = _create_sources(categoricals, self.schema_version, self.organism)
         # These sources are not a part of the cellxgene schema but rather passed through.
         # This is useful when other Curators extend the CELLxGENE curator
         if extra_sources:
@@ -2591,17 +2596,11 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         super().__init__(
             data=adata,
             var_index=var_index,
-            categoricals=obs_fields,
+            categoricals=categoricals,
             verbosity=verbosity,
             organism=organism,
             sources=self.sources,
         )
-
-    @classmethod
-    def _init_categoricals_additional_values(cls) -> None:
-        from ._cellxgene_schemas import _init_categoricals_additional_values
-
-        _init_categoricals_additional_values(cls._controls_were_created)
 
     @classmethod
     def _get_categoricals(cls) -> dict[str, FieldAttr]:
@@ -2630,96 +2629,29 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         }
 
     @classmethod
+    @deprecated(new_name="categoricals_defaults")
     def _get_categoricals_defaults(cls) -> dict[str, str]:
-        return {
-            "cell_type": "unknown",
-            "development_stage": "unknown",
-            "disease": "normal",
-            "donor_id": "unknown",
-            "self_reported_ethnicity": "unknown",
-            "sex": "unknown",
-            "suspension_type": "cell",
-            "tissue_type": "tissue",
-        }
-
-    @property
-    def pinned_ontologies(self) -> pd.DataFrame:
-        return self._pinned_ontologies
+        return cls.categoricals_defaults
 
     @property
     def adata(self) -> AnnData:
         return self._adata
-
-    def _create_sources(self, obs_fields: dict[str, FieldAttr]) -> dict[str, Record]:
-        """Creates a sources dictionary that can be passed to AnnDataCatManager."""
-        import bionty as bt
-
-        def _fetch_bionty_source(entity: str, organism: str) -> bt.Source | None:  # type: ignore
-            """Fetch the Bionty source of the pinned ontology."""
-            entity_sources = self._pinned_ontologies.loc[
-                (self._pinned_ontologies.index == entity)
-            ].copy()
-            if len(entity_sources) > 0:
-                if len(entity_sources) == 1:
-                    # for sources with organism "all"
-                    source_row = entity_sources.iloc[0]
-                else:
-                    source_row = entity_sources[
-                        entity_sources["organism"] == organism
-                    ].iloc[0]
-
-                return bt.Source.get(
-                    organism=source_row.organism,
-                    entity=f"bionty.{entity}",
-                    name=source_row.source,
-                    version=source_row.version,
-                )
-
-        key_to_source: dict[str, bt.Source] = {}
-        for key, field in obs_fields.items():
-            if field.field.model.__get_module_name__() == "bionty":
-                key_to_source[key] = _fetch_bionty_source(
-                    entity=field.field.model.__name__, organism=self.organism
-                )
-        key_to_source["var_index"] = _fetch_bionty_source(
-            entity="Gene", organism=self.organism
-        )
-
-        return key_to_source
-
-    def _convert_name_to_ontology_id(self, values: pd.Series, field: FieldAttr):
-        """Converts a column that stores a name into a column that stores the ontology id.
-
-        cellxgene expects the obs columns to be {entity}_ontology_id columns and disallows {entity} columns.
-        """
-        field_name = field.field.name
-        assert field_name == "name"  # noqa: S101
-        cols = ["name", "ontology_id"]
-        registry = field.field.model
-
-        if hasattr(registry, "ontology_id"):
-            validated_records = registry.filter(**{f"{field_name}__in": values})
-            mapper = (
-                pd.DataFrame(validated_records.values_list(*cols))
-                .set_index(0)
-                .to_dict()[1]
-            )
-            return values.map(mapper)
 
     def validate(self) -> bool:  # type: ignore
         """Validates the AnnData object against most cellxgene requirements."""
         # Verify that all required obs columns are present
         missing_obs_fields = [
             name
-            for name in CellxGeneAnnDataCatManager._get_categoricals_defaults().keys()
+            for name in self.categoricals_defaults.keys()
             if name not in self._adata.obs.columns
             and f"{name}_ontology_term_id" not in self._adata.obs.columns
         ]
         if len(missing_obs_fields) > 0:
-            missing_obs_fields_str = ", ".join(list(missing_obs_fields))
-            logger.error(f"missing required obs columns {missing_obs_fields_str}")
+            logger.error(
+                f"missing required obs columns {_format_values(missing_obs_fields)}"
+            )
             logger.info(
-                "consider initializing a Curate object with defaults=cxg.CellxGeneAnnDataCatManager._get_categoricals_defaults()"
+                "consider initializing a Curate object with defaults=cxg.CellxGeneAnnDataCatManager.categoricals_defaults"
                 "to automatically add these columns with default values."
             )
             return False
@@ -2768,6 +2700,26 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         Returns:
             An AnnData object which adheres to the cellxgene-schema.
         """
+
+        def _convert_name_to_ontology_id(values: pd.Series, field: FieldAttr):
+            """Converts a column that stores a name into a column that stores the ontology id.
+
+            cellxgene expects the obs columns to be {entity}_ontology_id columns and disallows {entity} columns.
+            """
+            field_name = field.field.name
+            assert field_name == "name"  # noqa: S101
+            cols = ["name", "ontology_id"]
+            registry = field.field.model
+
+            if hasattr(registry, "ontology_id"):
+                validated_records = registry.filter(**{f"{field_name}__in": values})
+                mapper = (
+                    pd.DataFrame(validated_records.values_list(*cols))
+                    .set_index(0)
+                    .to_dict()[1]
+                )
+                return values.map(mapper)
+
         # Create a copy since we modify the AnnData object extensively
         adata_cxg = self._adata.copy()
 
@@ -2787,7 +2739,7 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         # convert name column to ontology_term_id column
         for column in adata_cxg.obs.columns:
             if column in self.categoricals and not column.endswith("_ontology_term_id"):
-                mapped_column = self._convert_name_to_ontology_id(
+                mapped_column = _convert_name_to_ontology_id(
                     adata_cxg.obs[column], field=self.categoricals.get(column)
                 )
                 if mapped_column is not None:
@@ -2992,13 +2944,10 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
         import bionty as bt
         import wetlab as wl
 
-        self.PT_DEFAULT_VALUES = (
-            CellxGeneAnnDataCatManager._get_categoricals_defaults()
-            | {
-                "cell_line": "unknown",
-                "pert_target": "unknown",
-            }
-        )
+        self.PT_DEFAULT_VALUES = CellxGeneAnnDataCatManager.categoricals_defaults | {
+            "cell_line": "unknown",
+            "pert_target": "unknown",
+        }
 
         self.PT_CATEGORICALS = CellxGeneAnnDataCatManager._get_categoricals() | {
             k: v

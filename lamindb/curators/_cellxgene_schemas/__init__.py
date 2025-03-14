@@ -1,44 +1,59 @@
-from pathlib import Path
-
 import pandas as pd
-import yaml  # type: ignore
 from lamin_utils import logger
+from lamindb_setup.core.upath import UPath
+
+from lamindb.base.types import FieldAttr
+from lamindb.models import Record, ULabel
 
 
-def _read_schema_versions(ontology_versions: Path) -> dict[str, pd.DataFrame]:
-    data = yaml.safe_load(open(ontology_versions))
-    schema_versions = data["schema-version"]
-
-    def _schema_to_df(schema_data):
-        return pd.DataFrame(
-            [
-                (entity, organism, ontology, version)
-                for entity, details in schema_data.items()
-                for ontology, values in details.items()
-                for organism, version in values.items()
-            ],
-            columns=["entity", "source", "organism", "version"],
-        ).set_index("entity")
-
-    schema_versions_df = {
-        version: _schema_to_df(details) for version, details in schema_versions.items()
-    }
-
-    return schema_versions_df
-
-
-def _init_categoricals_additional_values(controls_were_created: bool | None = None):
-    """Add additional values from CellxGene schema to the DB."""
+def _create_sources(
+    categoricals: dict[str, FieldAttr], schema_version: str, organism: str
+) -> dict[str, Record]:
+    """Creates a sources dictionary that can be passed to AnnDataCatManager."""
     import bionty as bt
 
-    import lamindb as ln
+    def _fetch_bionty_source(entity: str, organism: str) -> Record | None:  # type: ignore
+        """Fetch the Bionty source of the pinned ontology."""
+        entity_sources = sources_df.loc[(sources_df.entity == entity)].copy()
+        if not entity_sources.empty:
+            if len(entity_sources) == 1:
+                row = entity_sources.iloc[0]  # for sources with organism "all"
+            else:
+                row = entity_sources[entity_sources.organism == organism].iloc[0]
+            source = bt.Source.filter(
+                organism=row.organism,
+                entity=f"bionty.{entity}",
+                name=row.source,
+                version=row.version,
+            ).one_or_none()
+            if source is None:
+                logger.error(f"Could not find source: {entity}\n")
+            return source
+
+    sources_df = pd.read_csv(UPath(__file__).parent / "schema_versions.csv")
+    sources_df = sources_df[sources_df.schema_version == schema_version]
+
+    key_to_source: dict[str, bt.Source] = {}
+    for key, field in categoricals.items():
+        if field.field.model.__get_module_name__() == "bionty":
+            entity = field.field.model.__name__
+            key_to_source[key] = _fetch_bionty_source(entity, organism)
+    key_to_source["var_index"] = _fetch_bionty_source("Gene", organism)
+
+    return key_to_source
+
+
+def _init_categoricals_additional_values(
+    controls_were_created: bool | None = None,
+) -> None:
+    """Add additional values from CellxGene schema to the DB."""
+    import bionty as bt
 
     # Note: if you add another control below, be mindful to change the if condition that
     # triggers whether creating these records is re-considered
     if controls_were_created is None:
         controls_were_created = (
-            ln.ULabel.filter(name="SuspensionType", is_type=True).one_or_none()
-            is not None
+            ULabel.filter(name="SuspensionType", is_type=True).one_or_none() is not None
         )
     if not controls_were_created:
         logger.important("Creating control labels in the CellxGene schema.")
@@ -70,31 +85,33 @@ def _init_categoricals_additional_values(controls_were_created: bool | None = No
         ).save()
 
         # tissue_type
-        tissue_type = ln.ULabel(
+        tissue_type = ULabel(
             name="TissueType",
             is_type=True,
             description='From CellxGene schema. Is "tissue", "organoid", or "cell culture".',
         ).save()
-        ln.ULabel(
+        ULabel(
             name="tissue", type=tissue_type, description="From CellxGene schema."
         ).save()
-        ln.ULabel(
+        ULabel(
             name="organoid", type=tissue_type, description="From CellxGene schema."
         ).save()
-        ln.ULabel(
+        ULabel(
             name="cell culture", type=tissue_type, description="From CellxGene schema."
         ).save()
 
         # suspension_type
-        suspension_type = ln.ULabel(
+        suspension_type = ULabel(
             name="SuspensionType",
             is_type=True,
             description='From CellxGene schema. This MUST be "cell", "nucleus", or "na".',
         ).save()
-        ln.ULabel(
+        ULabel(
             name="cell", type=suspension_type, description="From CellxGene schema."
         ).save()
-        ln.ULabel(
+        ULabel(
             name="nucleus", type=suspension_type, description="From CellxGene schema."
         ).save()
-        ln.ULabel(name="na", type=suspension_type).save()
+        ULabel(
+            name="na", type=suspension_type, description="From CellxGene schema."
+        ).save()
