@@ -23,7 +23,7 @@ RESERVED_NAMES = {
 }
 
 
-def _get_categoricals() -> dict[str, FieldAttr]:
+def _get_cxg_categoricals() -> dict[str, FieldAttr]:
     import bionty as bt
 
     return {
@@ -94,18 +94,15 @@ def _create_sources(
     return key_to_source
 
 
-def _init_categoricals_additional_values(
-    controls_were_created: bool | None = None,
-) -> None:
+def _init_categoricals_additional_values() -> None:
     """Add additional values from CellxGene schema to the DB."""
     import bionty as bt
 
     # Note: if you add another control below, be mindful to change the if condition that
     # triggers whether creating these records is re-considered
-    if controls_were_created is None:
-        controls_were_created = (
-            ULabel.filter(name="SuspensionType", is_type=True).one_or_none() is not None
-        )
+    controls_were_created = (
+        ULabel.filter(name="SuspensionType", is_type=True).one_or_none() is not None
+    )
     if not controls_were_created:
         logger.important("Creating control labels in the CellxGene schema.")
 
