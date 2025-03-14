@@ -29,9 +29,11 @@ CatManager:
 
 from __future__ import annotations
 
+import concurrent.futures
 import copy
 import re
 from itertools import chain
+from queue import Queue
 from typing import TYPE_CHECKING, Any, Literal
 
 import anndata as ad
@@ -890,6 +892,7 @@ class CatManager:
         self._sources = sources or {}
         self._columns_field = columns_field
         self._validate_category_error_messages: str = ""
+        self._validation_cache = {}
 
     @property
     def non_validated(self) -> dict[str, list[str]]:
@@ -3104,6 +3107,7 @@ def validate_categories(
     source: Record | None = None,
     hint_print: str | None = None,
     curator: CatManager | None = None,
+    log_queue: Queue | None = None,
 ) -> tuple[bool, list[str]]:
     """Validate ontology terms using LaminDB registries.
 
@@ -3117,11 +3121,6 @@ def validate_categories(
         hint_print: The hint to print that suggests fixing non-validated values.
     """
     model_field = f"{field.field.model.__name__}.{field.field.name}"
-
-    def _log_mapping_info():
-        logger.indent = ""
-        logger.info(f'mapping "{key}" on {colors.italic(model_field)}')
-        logger.indent = "  "
 
     registry = field.field.model
 
@@ -3147,38 +3146,45 @@ def validate_categories(
         values_validated += [getattr(r, field.field.name) for r in public_records]
 
     # logging messages
-    non_validated_hint_print = hint_print or f'.add_new_from("{key}")'
     non_validated = [i for i in non_validated if i not in values_validated]
     n_non_validated = len(non_validated)
+
+    log_messages = []
     if n_non_validated == 0:
-        logger.indent = ""
-        logger.success(f'"{key}" is validated against {colors.italic(model_field)}')
+        log_messages.append(
+            ("success", f'"{key}" is validated against {colors.italic(model_field)}')
+        )
         return True, []
     else:
-        are = "is" if n_non_validated == 1 else "are"
-        s = "" if n_non_validated == 1 else "s"
         print_values = _format_values(non_validated)
-        warning_message = f"{colors.red(f'{n_non_validated} term{s}')} {are} not validated: {colors.red(print_values)}\n"
+        if n_non_validated == 1:
+            warning_message = f"{colors.red(f'{n_non_validated} term')} is not validated: {colors.red(print_values)}\n"
+        else:
+            warning_message = f"{colors.red(f'{n_non_validated} terms')} are not validated: {colors.red(print_values)}\n"
+
         if syn_mapper:
             s = "" if len(syn_mapper) == 1 else "s"
             syn_mapper_print = _format_values(
                 [f'"{k}" → "{v}"' for k, v in syn_mapper.items()], sep=""
             )
-            hint_msg = f'.standardize("{key}")'
-            warning_message += f"    {colors.yellow(f'{len(syn_mapper)} synonym{s}')} found: {colors.yellow(syn_mapper_print)}\n    → curate synonyms via {colors.cyan(hint_msg)}"
+            warning_message += f"    {colors.yellow(f'{len(syn_mapper)} synonym{s}')} found: {colors.yellow(syn_mapper_print)}\n    → curate synonyms via {colors.cyan(f'.standardize("{key}")')}"
+
         if n_non_validated > len(syn_mapper):
             if syn_mapper:
                 warning_message += "\n    for remaining terms:\n"
-            warning_message += f"    → fix typos, remove non-existent values, or save terms via {colors.cyan(non_validated_hint_print)}"
+            warning_message += f"    → fix typos, remove non-existent values, or save terms via {colors.cyan(hint_print or f'.add_new_from("{key}")')}"
 
-        if logger.indent == "":
-            _log_mapping_info()
-        logger.warning(warning_message)
+        log_messages.append(("warning", warning_message))
+
         if curator is not None:
             curator._validate_category_error_messages = strip_ansi_codes(
                 warning_message
             )
-        logger.indent = ""
+
+        if log_queue is not None:
+            for level, msg in log_messages:
+                log_queue.put((level, msg))
+
         return False, non_validated
 
 
@@ -3214,23 +3220,47 @@ def validate_categories_in_df(
     """Validate categories in DataFrame columns using LaminDB registries."""
     if not fields:
         return True, {}
-
     if sources is None:
         sources = {}
+
     validated = True
     non_validated = {}
-    for key, field in fields.items():
-        is_val, non_val = validate_categories(
-            df[key],
-            field=field,
-            key=key,
-            source=sources.get(key),
-            curator=curator,
-            **kwargs,
-        )
-        validated &= is_val
-        if len(non_val) > 0:
-            non_validated[key] = non_val
+    log_queue = Queue()  # type: ignore
+    max_workers = min(len(fields), 8)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_key = {
+            executor.submit(
+                validate_categories,
+                df[key],
+                field=field,
+                key=key,
+                source=sources.get(key),
+                curator=curator,
+                log_queue=log_queue,
+                **kwargs,
+            ): key
+            for key, field in fields.items()
+        }
+
+        for future in concurrent.futures.as_completed(future_to_key):
+            key = future_to_key[future]
+            try:
+                is_val, non_val = future.result()
+                validated &= is_val
+                if non_val:
+                    non_validated[key] = non_val
+            except Exception as exc:
+                validated = False
+                non_validated[key] = [f"Error during validation: {exc}"]
+
+    while not log_queue.empty():
+        level, message = log_queue.get()
+        if level == "success":
+            logger.success(message)
+        elif level == "warning":
+            logger.warning(message)
+
     return validated, non_validated
 
 

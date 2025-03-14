@@ -62,6 +62,10 @@ test.ipynb
 test2.ipynb
 run-tests
 test-django-validation/
+benchmark.ipynb
+benchmark.py
+profile.html
+profile.json
 
 # General
 .DS_Store
