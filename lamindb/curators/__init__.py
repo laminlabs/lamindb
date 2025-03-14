@@ -3157,9 +3157,9 @@ def validate_categories(
     kwargs_current = get_current_filter_kwargs(registry, kwargs)
 
     # inspect values from the default instance
-    unique_values = set(values)
+    # unique_values = set(values)
     inspect_result = inspect_instance(
-        values=unique_values,
+        values=values,
         field=field,
         registry=registry,
         **kwargs_current,
