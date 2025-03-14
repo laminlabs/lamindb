@@ -29,6 +29,7 @@ CatManager:
 
 from __future__ import annotations
 
+import concurrent.futures
 import copy
 import re
 from importlib import resources
@@ -438,7 +439,7 @@ class DataFrameCurator(Curator):
         if self._schema.n > 0:
             try:
                 # first validate through pandera
-                self._pandera_schema.validate(self._dataset)
+                self._pandera_schema.validate(self._dataset, lazy=True)
                 # then validate lamindb categoricals
                 self._cat_manager_validate()
             except pandera.errors.SchemaError as err:
@@ -895,6 +896,7 @@ class CatManager:
         self._exclude = exclude or {}
         self._columns_field = columns_field
         self._validate_category_error_messages: str = ""
+        self._validation_cache = {}
 
     @property
     def non_validated(self) -> dict[str, list[str]]:
@@ -3449,16 +3451,51 @@ def validate_categories(
     kwargs.update({"source": source} if source else {})
     kwargs_current = get_current_filter_kwargs(registry, kwargs)
 
-    # inspect values from the default instance
-    inspect_result = inspect_instance(
-        values=values,
-        field=field,
-        registry=registry,
-        exclude=exclude,
-        **kwargs_current,
-    )
-    non_validated = inspect_result.non_validated
-    syn_mapper = inspect_result.synonyms_mapper
+    unique_values = set(values)
+    cached_validated = set()
+    cached_non_validated = set()
+    to_check = unique_values
+
+    if curator is not None:
+        # Create cache key based on registry, field, organism and source
+        cache_key = (registry.__name__, field.field.name, str(organism), str(source))
+
+        if cache_key in curator._validation_cache:
+            curator._validation_cache.setdefault(
+                cache_key, {"validated": set(), "non_validated": set()}
+            )
+            cached_validated = curator._validation_cache[cache_key]["validated"]
+            cached_non_validated = curator._validation_cache[cache_key]["non_validated"]
+            to_check = unique_values - cached_validated - cached_non_validated
+
+    # Only run validation if we have uncached values
+    if not to_check:
+        non_validated = list(cached_non_validated & unique_values)
+        syn_mapper = {}
+    else:
+        # inspect values from the default instance
+        inspect_result = inspect_instance(
+            values=to_check,
+            field=field,
+            registry=registry,
+            exclude=exclude,
+            **kwargs_current,
+        )
+
+        # Store validation results in cache
+        if curator is not None:
+            curator._validation_cache[cache_key]["validated"].update(
+                inspect_result.validated
+            )
+            curator._validation_cache[cache_key]["non_validated"].update(
+                inspect_result.non_validated
+            )
+
+        # Combine cached and new results
+        non_validated = list(
+            set(inspect_result.non_validated) | (cached_non_validated & unique_values)
+        )
+        syn_mapper = inspect_result.synonyms_mapper
 
     # inspect the non-validated values from public (bionty only)
     values_validated = []
@@ -3508,6 +3545,7 @@ def validate_categories(
                 warning_message
             )
         logger.indent = ""
+
         return False, non_validated
 
 
@@ -3544,25 +3582,69 @@ def validate_categories_in_df(
     """Validate categories in DataFrame columns using LaminDB registries."""
     if not fields:
         return True, {}
-
     if sources is None:
         sources = {}
-    validated = True
-    non_validated = {}
+
+    # Group fields by registry type to batch validation for caching purposes
+    registry_groups = {}
     for key, field in fields.items():
-        is_val, non_val = validate_categories(
-            df[key],
-            field=field,
-            key=key,
-            source=sources.get(key),
-            exclude=exclude.get(key) if exclude else None,
-            curator=curator,
-            **kwargs,
-        )
-        validated &= is_val
-        if len(non_val) > 0:
-            non_validated[key] = non_val
-    return validated, non_validated
+        registry = field.field.model
+        registry_name = f"{registry.__name__}.{field.field.name}"
+        if registry_name not in registry_groups:
+            registry_groups[registry_name] = {"registry": registry, "fields": []}
+        registry_groups[registry_name]["fields"].append(key)
+
+    # Pre-cache validation results for fields using the same registry
+    if curator is not None:
+        for registry_group in registry_groups.values():
+            registry = registry_group["registry"]
+            for key in registry_group["fields"]:
+                field = fields[key]
+                organism = kwargs.get("organism")
+                source = sources.get(key)
+                cache_key = (
+                    registry.__name__,
+                    field.field.name,
+                    str(organism),
+                    str(source),
+                )
+                if cache_key not in curator._validation_cache:
+                    curator._validation_cache[cache_key] = {
+                        "validated": set(),
+                        "non_validated": set(),
+                    }
+
+    non_validated = {}
+    max_workers = min(len(fields), 16)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_key = {
+            executor.submit(
+                validate_categories,
+                df[key],
+                field=field,
+                key=key,
+                organism=kwargs.get("organism"),
+                source=sources.get(key),
+                exclude=exclude.get(key) if exclude else None,
+                hint_print=None,
+                curator=curator,
+            ): key
+            for key, field in fields.items()
+        }
+
+        validated = True
+        for future in concurrent.futures.as_completed(future_to_key):
+            key = future_to_key[future]
+            try:
+                is_val, non_val = future.result()
+                validated &= is_val
+                if len(non_val) > 0:
+                    non_validated[key] = non_val
+            except Exception as exc:
+                validated = False
+                non_validated[key] = [f"Error during validation: {exc}"]
+
+        return validated, non_validated
 
 
 def save_artifact(
