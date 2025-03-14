@@ -3456,7 +3456,7 @@ def update_registry(
         organism: The organism name.
         dtype: The type of the feature.
         source: The source record.
-        create_kwargs: Additional keyword arguments to pass to the registry model to create new records.
+        **create_kwargs: Additional keyword arguments to pass to the registry model to create new records.
     """
     from lamindb.models.save import save as ln_save
 
