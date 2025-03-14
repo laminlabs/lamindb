@@ -243,11 +243,11 @@ def create_records_from_source(
             df=bionty_df,
         )
 
-        # # this here is needed when the organism is required to create new records
-        # if organism is None:
-        #     organism = _get_organism_record(
-        #         field, source.organism, values=mapped_values
-        #     )
+        # this here is needed when the organism is required to create new records
+        if organism is None:
+            organism = _get_organism_record(
+                field, source.organism, values=mapped_values
+            )
 
         create_kwargs = (
             {"organism": organism, "source": source}
@@ -405,15 +405,13 @@ def _get_organism_record(  # type: ignore
 def _organism_from_ensembl_id(id: str, using_key: str | None) -> Record | None:  # type: ignore
     """Get organism record from ensembl id."""
     import bionty as bt
+    from bionty.base.dev._io import s3_bionty_assets
 
-    from .artifact import Artifact  # has to be here to avoid circular imports
-
-    ensembl_prefixes = (
-        Artifact.using("laminlabs/bionty-assets")
-        .get(key="ensembl_prefixes.parquet", is_latest=True)
-        .load(is_run_input=False)
-        .set_index("gene_prefix")
+    localpath = s3_bionty_assets(
+        ".lamindb/0QeqXlKq9aqW8aqe0000.parquet", bt.base.settings.versionsdir
     )
+    ensembl_prefixes = pd.read_parquet(localpath).set_index("gene_prefix")
+
     prefix = re.sub(r"\d+", "", id)
     if prefix in ensembl_prefixes.index:
         organism_name = ensembl_prefixes.loc[prefix, "name"].lower()
