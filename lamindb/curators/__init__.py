@@ -2605,9 +2605,10 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         from ._cellxgene_schemas import RESERVED_NAMES
 
         # Verify that all required obs columns are present
+        required_columns = list(self.categoricals_defaults.keys()) + ["donor_id"]
         missing_obs_fields = [
             name
-            for name in self.categoricals_defaults.keys()
+            for name in required_columns
             if name not in self._adata.obs.columns
             and f"{name}_ontology_term_id" not in self._adata.obs.columns
         ]
