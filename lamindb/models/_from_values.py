@@ -243,11 +243,11 @@ def create_records_from_source(
             df=bionty_df,
         )
 
-        # # this here is needed when the organism is required to create new records
-        # if organism is None:
-        #     organism = _get_organism_record(
-        #         field, source.organism, values=mapped_values
-        #     )
+        # this here is needed when the organism is required to create new records
+        if organism is None:
+            organism = _get_organism_record(
+                field, source.organism, values=mapped_values
+            )
 
         create_kwargs = (
             {"organism": organism, "source": source}
