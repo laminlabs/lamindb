@@ -40,11 +40,9 @@ import pandas as pd
 import pandera
 import pyarrow as pa
 from lamin_utils import colors, logger
-from lamindb_setup.core import deprecated, upath
+from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import UPath
-
-from lamindb.core.storage._backed_access import backed_access
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
@@ -2118,7 +2116,7 @@ class TiledbsomaCatManager(CatManager):
 
         # register obs columns' names
         register_columns = list(self._obs_fields.keys())
-        organism = check_registry_organism(
+        organism = configure_organism(
             self._columns_field.field.model, self._organism
         ).get("organism")
         update_registry(
@@ -2160,9 +2158,9 @@ class TiledbsomaCatManager(CatManager):
                 var_ms_values = (
                     var_ms.read(column_names=[key]).concat()[key].to_pylist()
                 )
-                organism = check_registry_organism(
-                    field.field.model, self._organism
-                ).get("organism")
+                organism = configure_organism(field.field.model, self._organism).get(
+                    "organism"
+                )
                 update_registry(
                     values=var_ms_values,
                     field=field,
@@ -2192,9 +2190,9 @@ class TiledbsomaCatManager(CatManager):
                 values = pa.compute.unique(
                     obs.read(column_names=[key]).concat()[key]
                 ).to_pylist()
-                organism = check_registry_organism(
-                    field.field.model, self._organism
-                ).get("organism")
+                organism = configure_organism(field.field.model, self._organism).get(
+                    "organism"
+                )
                 update_registry(
                     values=values,
                     field=field,
@@ -2256,7 +2254,7 @@ class TiledbsomaCatManager(CatManager):
             values, field = self._non_validated_values_field(k)
             if len(values) == 0:
                 continue
-            organism = check_registry_organism(field.field.model, self._organism).get(
+            organism = configure_organism(field.field.model, self._organism).get(
                 "organism"
             )
             update_registry(
@@ -2336,7 +2334,7 @@ class TiledbsomaCatManager(CatManager):
                 slot_key = k
             # errors if public ontology and the model has no organism
             # has to be fixed in bionty
-            organism = check_registry_organism(field.field.model, self._organism).get(
+            organism = configure_organism(field.field.model, self._organism).get(
                 "organism"
             )
             syn_mapper = standardize_categories(
@@ -2420,7 +2418,7 @@ class TiledbsomaCatManager(CatManager):
 
         feature_sets = {}
         if len(self._obs_fields) > 0:
-            organism = check_registry_organism(
+            organism = configure_organism(
                 self._columns_field.field.model, self._organism
             ).get("organism")
             empty_dict = {field.name: [] for field in self._obs_pa_schema}  # type: ignore
@@ -2436,9 +2434,9 @@ class TiledbsomaCatManager(CatManager):
             )
         for ms in self._var_fields:
             var_key, var_field = self._var_fields[ms]
-            organism = check_registry_organism(
-                var_field.field.model, self._organism
-            ).get("organism")
+            organism = configure_organism(var_field.field.model, self._organism).get(
+                "organism"
+            )
             feature_sets[f"{ms}__var"] = Schema.from_values(
                 values=self._validated_values[f"{ms}__{var_key}"],
                 field=var_field,
@@ -2452,7 +2450,7 @@ class TiledbsomaCatManager(CatManager):
         for key, field in self._obs_fields.items():
             feature = features.get(key)
             registry = field.field.model
-            organism = check_registry_organism(field.field.model, self._organism).get(
+            organism = configure_organism(field.field.model, self._organism).get(
                 "organism"
             )
             labels = registry.from_values(
@@ -2477,7 +2475,7 @@ class TiledbsomaCatManager(CatManager):
 class CellxGeneAnnDataCatManager(AnnDataCatManager):
     """Annotation flow of AnnData based on CELLxGENE schema."""
 
-    categoricals_defaults = {
+    cxg_categoricals_defaults = {
         "cell_type": "unknown",
         "development_stage": "unknown",
         "disease": "normal",
@@ -2552,9 +2550,9 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         )
 
     @classmethod
-    @deprecated(new_name="categoricals_defaults")
+    @deprecated(new_name="cxg_categoricals_defaults")
     def _get_categoricals_defaults(cls) -> dict[str, str]:
-        return cls.categoricals_defaults
+        return cls.cxg_categoricals_defaults
 
     @classmethod
     def _get_cxg_categoricals(cls) -> dict[str, FieldAttr]:
@@ -2568,7 +2566,7 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         from ._cellxgene_schemas import RESERVED_NAMES
 
         # Verify that all required obs columns are present
-        required_columns = list(self.categoricals_defaults.keys()) + ["donor_id"]
+        required_columns = list(self.cxg_categoricals_defaults.keys()) + ["donor_id"]
         missing_obs_fields = [
             name
             for name in required_columns
@@ -2578,7 +2576,7 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         if len(missing_obs_fields) > 0:
             logger.error(
                 f"missing required obs columns {_format_values(missing_obs_fields)}\n"
-                "    → consider initializing a Curate object with `defaults=cxg.CellxGeneAnnDataCatManager.categoricals_defaults` to automatically add these columns with default values"
+                "    → consider initializing a Curate object with `defaults=cxg.CellxGeneAnnDataCatManager.cxg_categoricals_defaults` to automatically add these columns with default values"
             )
             return False
 
@@ -2827,40 +2825,32 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
         pert_dose: bool = True,
         pert_time: bool = True,
         *,
+        cxg_schema_version: Literal["5.0.0", "5.1.0", "5.2.0"] = "5.2.0",
         verbosity: str = "hint",
-        cxg_schema_version: Literal["5.0.0", "5.1.0"] = "5.1.0",
     ):
         """Initialize the curator with configuration and validation settings."""
         self._pert_time = pert_time
         self._pert_dose = pert_dose
 
         self._validate_initial_data(adata)
-        self._setup_configuration(adata)
-
-        self._setup_sources(adata)
-        self._setup_compound_source()
+        categoricals, categoricals_defaults = self._configure_categoricals(adata)
 
         super().__init__(
             adata=adata,
-            categoricals=self.PT_CATEGORICALS,
-            defaults=self.PT_DEFAULT_VALUES,
-            verbosity=verbosity,
+            categoricals=categoricals,
+            defaults=categoricals_defaults,
             organism=organism,
-            extra_sources=self.PT_SOURCES,
+            extra_sources=self._configure_sources(adata),
             schema_version=cxg_schema_version,
+            verbosity=verbosity,
         )
 
-    def _setup_configuration(self, adata: ad.AnnData):
+    def _configure_categoricals(self, adata: ad.AnnData):
         """Set up default configuration values."""
         import bionty as bt
         import wetlab as wl
 
-        self.PT_DEFAULT_VALUES = CellxGeneAnnDataCatManager.categoricals_defaults | {
-            "cell_line": "unknown",
-            "pert_target": "unknown",
-        }
-
-        self.PT_CATEGORICALS = CellxGeneAnnDataCatManager._get_cxg_categoricals() | {
+        categoricals = CellxGeneAnnDataCatManager._get_cxg_categoricals() | {
             k: v
             for k, v in {
                 "cell_line": bt.CellLine.name,
@@ -2872,22 +2862,40 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
             }.items()
             if k in adata.obs.columns
         }
-        # if "donor_id" in self.PT_CATEGORICALS:
-        #     self.PT_CATEGORICALS["donor_id"] = Donor.name
+        # if "donor_id" in categoricals:
+        #     categoricals["donor_id"] = Donor.name
 
-    def _setup_sources(self, adata: ad.AnnData):
+        categoricals_defaults = CellxGeneAnnDataCatManager.cxg_categoricals_defaults | {
+            "cell_line": "unknown",
+            "pert_target": "unknown",
+        }
+
+        return categoricals, categoricals_defaults
+
+    def _configure_sources(self, adata: ad.AnnData):
         """Set up data sources."""
-        self.PT_SOURCES = {}
-        # if "cell_line" in adata.obs.columns:
-        #     self.PT_SOURCES["cell_line"] = (
-        #         bt.Source.filter(name="depmap").first()
-        #     )
-        if "pert_compound" in adata.obs.columns:
-            import bionty as bt
+        import bionty as bt
+        import wetlab as wl
 
-            self.PT_SOURCES["pert_compound"] = bt.Source.filter(
+        sources = {}
+        if "cell_line" in adata.obs.columns:
+            sources["cell_line"] = bt.Source.filter(
+                entity="bionty.CellLine", name="depmap"
+            ).first()
+        if "pert_compound" in adata.obs.columns:
+            with logger.mute():
+                chebi_source = bt.Source.filter(
+                    entity="wetlab.Compound", name="chebi"
+                ).first()
+                if not chebi_source:
+                    wl.Compound.add_source(
+                        bt.Source.filter(entity="Drug", name="chebi").first()
+                    )
+
+            sources["pert_compound"] = bt.Source.filter(
                 entity="wetlab.Compound", name="chebi"
             ).first()
+        return sources
 
     def _validate_initial_data(self, adata: ad.AnnData):
         """Validate the initial data structure."""
@@ -2934,20 +2942,6 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
             if adata.obs[col_name].dtype.name == "category":
                 adata.obs[col_name].cat.remove_unused_categories()
             logger.important(f"mapped 'pert_name' to '{col_name}'")
-
-    def _setup_compound_source(self):
-        """Set up the compound source with muted logging."""
-        import bionty as bt
-        import wetlab as wl
-
-        with logger.mute():
-            chebi_source = bt.Source.filter(
-                entity="wetlab.Compound", name="chebi"
-            ).first()
-            if not chebi_source:
-                wl.Compound.add_source(
-                    bt.Source.filter(entity="Drug", name="chebi").first()
-                )
 
     def validate(self) -> bool:  # type: ignore
         """Validate the AnnData object."""
@@ -3090,33 +3084,15 @@ def get_current_filter_kwargs(registry: type[Record], kwargs: dict) -> dict:
     return filter_kwargs
 
 
-def inspect_instance(
-    values: Iterable[str],
-    field: FieldAttr,
-    registry: type[Record],
-    **kwargs,
-):
-    """Inspect values using a registry."""
-    values = list(values)
-    include_validated: list = []
-
-    inspect_result = registry.inspect(values, field=field, mute=True, **kwargs)
-    inspect_result._validated += include_validated
-    inspect_result._non_validated = [
-        i for i in inspect_result.non_validated if i not in include_validated
-    ]
-
-    return inspect_result
-
-
-def check_registry_organism(registry: Record, organism: str | None = None) -> dict:
+def configure_organism(registry: Record, organism: str | None = None) -> dict[str, str]:
     """Check if a registry needs an organism and return the organism name."""
-    if hasattr(registry, "organism_id"):
+    from ..models._from_values import _is_organism_required
+
+    if _is_organism_required(registry):
         import bionty as bt
 
-        if organism is None and bt.settings.organism is None:
-            return {}
-        return {"organism": organism or bt.settings.organism.name}
+        if organism is not None or bt.settings.organism is not None:
+            return {"organism": organism or bt.settings.organism.name}
     return {}
 
 
@@ -3149,35 +3125,26 @@ def validate_categories(
 
     registry = field.field.model
 
-    # {"organism": organism_name/organism_record}
-    kwargs = check_registry_organism(registry, organism)
+    # {"organism": organism_name}
+    kwargs = configure_organism(registry, organism)
     kwargs.update({"source": source} if source else {})
     kwargs_current = get_current_filter_kwargs(registry, kwargs)
 
     # inspect values from the default instance
-    inspect_result = inspect_instance(
-        values=values,
-        field=field,
-        registry=registry,
-        **kwargs_current,
-    )
+    inspect_result = registry.inspect(values, field=field, mute=True, **kwargs_current)
     non_validated = inspect_result.non_validated
     syn_mapper = inspect_result.synonyms_mapper
 
     # inspect the non-validated values from public (bionty only)
     values_validated = []
     if hasattr(registry, "public"):
-        verbosity = settings.verbosity
-        try:
-            settings.verbosity = "error"
-            public_records = registry.from_values(
-                non_validated,
-                field=field,
-                **kwargs_current,
-            )
-            values_validated += [getattr(r, field.field.name) for r in public_records]
-        finally:
-            settings.verbosity = verbosity
+        public_records = registry.from_values(
+            non_validated,
+            field=field,
+            mute=True,
+            **kwargs_current,
+        )
+        values_validated += [getattr(r, field.field.name) for r in public_records]
 
     # logging messages
     non_validated_hint_print = hint_print or f'.add_new_from("{key}")'
@@ -3324,7 +3291,7 @@ def save_artifact(
     artifact.save()
 
     if organism is not None and index_field is not None:
-        feature_kwargs = check_registry_organism(
+        feature_kwargs = configure_organism(
             (
                 list(index_field.values())[0].field.model
                 if isinstance(index_field, dict)
@@ -3345,7 +3312,7 @@ def save_artifact(
         for key, field in fields.items():
             feature = features.get(key)
             registry = field.field.model
-            filter_kwargs = check_registry_organism(registry, organism)
+            filter_kwargs = configure_organism(registry, organism)
             filter_kwargs_current = get_current_filter_kwargs(registry, filter_kwargs)
             df = data if isinstance(data, pd.DataFrame) else data.obs
             # multi-value columns are separated by "|"
@@ -3476,7 +3443,7 @@ def update_registry(
     organism: str | None = None,
     dtype: str | None = None,
     source: Record | None = None,
-    **kwargs,
+    **create_kwargs,
 ) -> None:
     """Save features or labels records in the default instance..
 
@@ -3489,12 +3456,12 @@ def update_registry(
         organism: The organism name.
         dtype: The type of the feature.
         source: The source record.
-        kwargs: Additional keyword arguments to pass to the registry model to create new records.
+        **create_kwargs: Additional keyword arguments to pass to the registry model to create new records.
     """
     from lamindb.models.save import save as ln_save
 
     registry = field.field.model
-    filter_kwargs = check_registry_organism(registry, organism)
+    filter_kwargs = configure_organism(registry, organism)
     filter_kwargs.update({"source": source} if source else {})
     values = [i for i in values if isinstance(i, str) and i]
     if not values:
@@ -3552,7 +3519,9 @@ def update_registry(
                         registry(
                             **init_kwargs,
                             **{k: v for k, v in filter_kwargs.items() if k != "source"},
-                            **{k: v for k, v in kwargs.items() if k != "sources"},
+                            **{
+                                k: v for k, v in create_kwargs.items() if k != "sources"
+                            },
                         )
                     )
             ln_save(non_validated_records)
@@ -3598,7 +3567,7 @@ def log_saved_labels(
 
 
 def save_ulabels_type(values: list[str], field: FieldAttr, key: str) -> None:
-    """Save a parent label for the given labels."""
+    """Save the ULabel type of the given labels."""
     registry = field.field.model
     assert registry == ULabel  # noqa: S101
     all_records = registry.filter(**{field.field.name: list(values)}).all()
