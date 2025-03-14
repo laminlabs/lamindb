@@ -194,3 +194,11 @@ def test_validate():
 def test_map_synonyms():
     qs = ln.User.filter(handle="testuser1").all()
     assert qs.standardize(["user1", "user2"]) == ["user1", "user2"]
+
+
+def test_artifacts_open_mapped_errors():
+    # can only use this with a query set of artifacts
+    with pytest.raises(ValueError):
+        ln.ULabel.filter().artifacts_open()
+    with pytest.raises(ValueError):
+        ln.ULabel.filter().artifacts_mapped()
