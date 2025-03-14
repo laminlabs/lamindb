@@ -719,6 +719,12 @@ class QuerySet(models.QuerySet):
             raise ValueError("Record isn't subclass of `lamindb.core.IsVersioned`")
 
     def artifacts_open(self, is_run_input: bool | None = None) -> PyArrowDataset:
+        """Return a cloud-backed pyarrow Dataset from a query set of artifacts.
+
+        Works for `pyarrow` compatible formats.
+
+        See also {meth}`~lamindb.models.Collecton.open`.
+        """
         from lamindb.models.artifact import Artifact, _track_run_input
         from lamindb.models.collection import _open_paths
 
@@ -753,6 +759,10 @@ class QuerySet(models.QuerySet):
         stream: bool = False,
         is_run_input: bool | None = None,
     ) -> MappedCollection:
+        """Return a map-style dataset from a query set of artifacts.
+
+        See {meth}`~lamindb.models.Collecton.mapped`.
+        """
         from lamindb.models.artifact import Artifact, _track_run_input
 
         if self.model != Artifact:
