@@ -2602,7 +2602,7 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
 
     def validate(self) -> bool:
         """Validates the AnnData object against most cellxgene requirements."""
-        from _cellxgene_schemas import RESERVED_NAMES
+        from ._cellxgene_schemas import RESERVED_NAMES
 
         # Verify that all required obs columns are present
         missing_obs_fields = [
