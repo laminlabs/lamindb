@@ -856,7 +856,9 @@ class CatManager:
 
     Example::
 
-        cat_manager = ln.CatManager(
+        import lamindb as ln
+
+        cat_manager = ln.curators.CatManager(
             dataset,
             # define validation criteria as mappings
             columns=Feature.name,  # map column names
@@ -1006,8 +1008,10 @@ class DataFrameCatManager(CatManager):
 
     Example::
 
+        import lamindb as ln
         import bionty as bt
-        curator = ln.Curator.from_df(
+
+        curator = ln.curators.DataFrameCatManager(
             df,
             categoricals={
                 "cell_type_ontology_id": bt.CellType.ontology_id,
@@ -1214,15 +1218,16 @@ class AnnDataCatManager(CatManager):
 
     Example::
 
+        import lamindb as ln
         import bionty as bt
-        curator = ln.Curator.from_anndata(
+
+        curator = ln.curators.AnnDataCatManager(
             adata,
             var_index=bt.Gene.ensembl_gene_id,
             categoricals={
                 "cell_type_ontology_id": bt.CellType.ontology_id,
                 "donor_id": ULabel.name
             },
-            organism="human",
         )
     """
 
@@ -1403,8 +1408,10 @@ class MuDataCatManager(CatManager):
 
     Example::
 
+        import lamindb as ln
         import bionty as bt
-        curator = ln.Curator.from_mudata(
+
+        curator = ln.curators.MuDataCatManager(
             mdata,
             var_index={
                 "rna": bt.Gene.ensembl_gene_id,
@@ -1414,7 +1421,6 @@ class MuDataCatManager(CatManager):
                 "cell_type_ontology_id": bt.CellType.ontology_id,
                 "donor_id": ULabel.name
             },
-            organism="human",
         )
     """
 
@@ -1656,19 +1662,20 @@ class SpatialDataCatManager(CatManager):
 
     Example::
 
+        import lamindb as ln
         import bionty as bt
-        curator = SpatialDataCatManager(
+
+        curator = ln.curators.SpatialDataCatManager(
             sdata,
             var_index={
                 "table_1": bt.Gene.ensembl_gene_id,
             },
             categoricals={
                 "table1":
-                    {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ULabel.name},
+                    {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name},
                 "sample":
                     {"experimental_factor": bt.ExperimentalFactor.name},
             },
-            organism="human",
         )
     """
 
@@ -2010,13 +2017,15 @@ class TiledbsomaCatManager(CatManager):
 
     Example::
 
+        import lamindb as ln
         import bionty as bt
-        curator = ln.Curator.from_tiledbsoma(
+
+        curator = ln.curators.TiledbsomaCatManager(
             "./my_array_store.tiledbsoma",
             var_index={"RNA": ("var_id", bt.Gene.symbol)},
             categoricals={
                 "cell_type_ontology_id": bt.CellType.ontology_id,
-                "donor_id": ULabel.name
+                "donor_id": ln.ULabel.name
             },
             organism="human",
         )
@@ -2485,9 +2494,9 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         categoricals: dict[str, FieldAttr] | None = None,
         organism: Literal["human", "mouse"] = "human",
         *,
+        schema_version: Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0"] = "5.2.0",
         defaults: dict[str, str] = None,
         extra_sources: dict[str, Record] = None,
-        schema_version: Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0"] = "5.2.0",
         verbosity: str = "hint",
     ) -> None:
         """CELLxGENE schema curator.
@@ -2497,13 +2506,12 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
             categoricals: A dictionary mapping ``.obs.columns`` to a registry field.
                 The CELLxGENE Curator maps against the required CELLxGENE fields by default.
             organism: The organism name. CELLxGENE restricts it to 'human' and 'mouse'.
+            schema_version: The CELLxGENE schema version to curate against.
             defaults: Default values that are set if columns or column values are missing.
             extra_sources: A dictionary mapping ``.obs.columns`` to Source records.
                 These extra sources are joined with the CELLxGENE fixed sources.
                 Use this parameter when subclassing.
-            schema_version: The CELLxGENE schema version to curate against.
             verbosity: The verbosity level.
-
         """
         import bionty as bt
 
