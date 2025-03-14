@@ -24,6 +24,7 @@ from .record import Record
 if TYPE_CHECKING:
     import builtins
 
+    from anndata import AnnData
     from pyarrow.dataset import Dataset as PyArrowDataset
 
     from lamindb.base.types import ListLike, StrField
@@ -537,6 +538,18 @@ def process_extra_columns(
     return result
 
 
+def _check_ordered_artifacts(qs: QuerySet):
+    from lamindb.models import Artifact
+
+    if qs.model != Artifact:
+        raise ValueError("A query set should consist of artifacts to be opened.")
+    if not qs.ordered:
+        logger.warning(
+            "this query set is unordered, consider using `.order_by()` first "
+            "to avoid opening the artifacts in an arbitrary order"
+        )
+
+
 class QuerySet(models.QuerySet):
     """Sets of records returned by queries.
 
@@ -718,6 +731,29 @@ class QuerySet(models.QuerySet):
         else:
             raise ValueError("Record isn't subclass of `lamindb.core.IsVersioned`")
 
+    def artifacts_load(
+        self,
+        join: Literal["inner", "outer"] = "outer",
+        is_run_input: bool | None = None,
+        **kwargs,
+    ) -> pd.DataFrame | AnnData:
+        """Cache and load a query set of artifacts to memory.
+
+        Returns an in-memory concatenated `DataFrame` or `AnnData` object.
+
+        See also {meth}`~lamindb.models.Collecton.load`.
+        """
+        from lamindb.models.artifact import Artifact, _track_run_input
+        from lamindb.models.collection import _load_concat_artifacts
+
+        _check_ordered_artifacts(self)
+
+        artifacts: list[Artifact] = list(self)
+        concat_object = _load_concat_artifacts(artifacts, join, **kwargs)
+        # track only if successful
+        _track_run_input(artifacts, is_run_input)
+        return concat_object
+
     def artifacts_open(self, is_run_input: bool | None = None) -> PyArrowDataset:
         """Return a cloud-backed pyarrow Dataset from a query set of artifacts.
 
@@ -728,13 +764,7 @@ class QuerySet(models.QuerySet):
         from lamindb.models.artifact import Artifact, _track_run_input
         from lamindb.models.collection import _open_paths
 
-        if self.model != Artifact:
-            raise ValueError("A query set should consist of artifacts to be opened.")
-        if not self.ordered:
-            logger.warning(
-                "this query set is unordered, consider using `.order_by()` first "
-                "to avoid opening the artifacts in an arbitrary order"
-            )
+        _check_ordered_artifacts(self)
 
         artifacts: list[Artifact] = list(self)
         paths: list[UPath] = [artifact.path for artifact in artifacts]
@@ -765,13 +795,7 @@ class QuerySet(models.QuerySet):
         """
         from lamindb.models.artifact import Artifact, _track_run_input
 
-        if self.model != Artifact:
-            raise ValueError("A query set should consist of artifacts to be mapped.")
-        if not self.ordered:
-            logger.warning(
-                "this query set is unordered, consider using `.order_by()` first "
-                "to avoid opening the artifacts in an arbitrary order"
-            )
+        _check_ordered_artifacts(self)
 
         artifacts: list[Artifact] = []
         paths: list[UPath] = []

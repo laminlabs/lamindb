@@ -532,13 +532,13 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         is_run_input: bool | None = None,
         **kwargs,
     ) -> pd.DataFrame | ad.AnnData:
-        """Stage and load to memory.
+        """Cache and load to memory.
 
         Returns an in-memory concatenated `DataFrame` or `AnnData` object.
         """
         # cannot call _track_run_input here, see comment further down
         artifacts = self.ordered_artifacts.all()
-        concat_object = _load_concat_artifacts(artifacts, **kwargs)
+        concat_object = _load_concat_artifacts(artifacts, join, **kwargs)
         # only call it here because there might be errors during load or concat
         _track_run_input(self, is_run_input)
         return concat_object
