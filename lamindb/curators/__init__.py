@@ -32,7 +32,6 @@ from __future__ import annotations
 import concurrent.futures
 import copy
 import re
-from importlib import resources
 from itertools import chain
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -48,14 +47,11 @@ from lamindb_setup.core.upath import UPath
 
 from lamindb.core.storage._backed_access import backed_access
 
-from ._cellxgene_schemas import _read_schema_versions
-
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
     from mudata import MuData
     from spatialdata import SpatialData
 
-    from lamindb.base.types import FieldAttr
     from lamindb.core.types import ScverseDataStructures
     from lamindb.models import Record
 from lamindb.base.types import FieldAttr  # noqa
@@ -103,10 +99,10 @@ class CurateLookup:
         slots: A dictionary of slot fields to lookup.
         public: Whether to lookup from the public instance. Defaults to False.
 
-    Example:
-        >>> curator = ln.Curator.from_df(...)
-        >>> curator.lookup()["cell_type"].alveolar_type_1_fibroblast_cell
-        <Category: alveolar_type_1_fibroblast_cell>
+    Example::
+
+        curator = ln.curators.DataFrameCurator(...)
+        curator.cat.lookup()["cell_type"].alveolar_type_1_fibroblast_cell
 
     """
 
@@ -545,9 +541,9 @@ class AnnDataCurator(SlotsCurator):
         self._slots = {
             slot: DataFrameCurator(
                 (
-                    self._dataset.__getattribute__(slot).T
+                    getattr(self._dataset, slot).T
                     if slot == "var"
-                    else self._dataset.__getattribute__(slot)
+                    else getattr(self._dataset, slot)
                 ),
                 slot_schema,
             )
@@ -714,9 +710,9 @@ class MuDataCurator(SlotsCurator):
                 schema_dataset = self._dataset
             self._slots[slot] = DataFrameCurator(
                 (
-                    schema_dataset.__getattribute__(modality_slot).T
+                    getattr(schema_dataset, modality_slot).T
                     if modality_slot == "var"
-                    else schema_dataset.__getattribute__(modality_slot)
+                    else getattr(schema_dataset, modality_slot)
                 ),
                 slot_schema,
             )
@@ -829,11 +825,13 @@ class SpatialDataCurator(SlotsCurator):
 
             self._slots[slot] = DataFrameCurator(
                 (
-                    schema_dataset.__getattribute__(table_slot).T
+                    getattr(schema_dataset, table_slot).T
                     if table_slot == "var"
-                    else schema_dataset.__getattribute__(table_slot)
-                    if table_slot != sample_metadata_key
-                    else schema_dataset  # just take the schema_dataset if it's the sample metadata key
+                    else (
+                        getattr(schema_dataset, table_slot)
+                        if table_slot != sample_metadata_key
+                        else schema_dataset
+                    )  # just take the schema_dataset if it's the sample metadata key
                 ),
                 slot_schema,
             )
@@ -859,7 +857,9 @@ class CatManager:
 
     Example::
 
-        cat_manager = ln.CatManager(
+        import lamindb as ln
+
+        cat_manager = ln.curators.CatManager(
             dataset,
             # define validation criteria as mappings
             columns=Feature.name,  # map column names
@@ -877,9 +877,7 @@ class CatManager:
     - non-validated values can be accessed using :meth:`~lamindb.curators.DataFrameCatManager.non_validated` and addressed manually
     """
 
-    def __init__(
-        self, *, dataset, categoricals, sources, organism, exclude, columns_field=None
-    ):
+    def __init__(self, *, dataset, categoricals, sources, organism, columns_field=None):
         # the below is shared with Curator
         self._artifact: Artifact = None  # pass the dataset as an artifact
         self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
@@ -893,7 +891,6 @@ class CatManager:
         self._non_validated = None
         self._organism = organism
         self._sources = sources or {}
-        self._exclude = exclude or {}
         self._columns_field = columns_field
         self._validate_category_error_messages: str = ""
         self._validation_cache = {}
@@ -1007,17 +1004,16 @@ class DataFrameCatManager(CatManager):
         verbosity: The verbosity level.
         organism: The organism name.
         sources: A dictionary mapping column names to Source records.
-        exclude: A dictionary mapping column names to values to exclude from validation.
-            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
-            using the exclude parameter ensures they are not validated.
 
     Returns:
         A curator object.
 
     Example::
 
+        import lamindb as ln
         import bionty as bt
-        curator = ln.Curator.from_df(
+
+        curator = ln.curators.DataFrameCatManager(
             df,
             categoricals={
                 "cell_type_ontology_id": bt.CellType.ontology_id,
@@ -1034,7 +1030,6 @@ class DataFrameCatManager(CatManager):
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
-        exclude: dict | None = None,
     ) -> None:
         from lamindb.core._settings import settings
 
@@ -1049,7 +1044,6 @@ class DataFrameCatManager(CatManager):
             organism=organism,
             categoricals=categoricals,
             sources=sources,
-            exclude=exclude,
         )
         self._save_columns()
 
@@ -1074,7 +1068,6 @@ class DataFrameCatManager(CatManager):
             key="columns",
             validated_only=False,
             source=self._sources.get("columns"),
-            exclude=self._exclude.get("columns"),
         )
 
         # Save the rest of the columns based on validated_only
@@ -1087,7 +1080,6 @@ class DataFrameCatManager(CatManager):
                 validated_only=validated_only,
                 df=self._dataset,  # Get the Feature type from df
                 source=self._sources.get("columns"),
-                exclude=self._exclude.get("columns"),
             )
 
     @deprecated(new_name="is run by default")
@@ -1113,7 +1105,6 @@ class DataFrameCatManager(CatManager):
             self._dataset,
             fields=self.categoricals,
             sources=self._sources,
-            exclude=self._exclude,
             curator=self,
             organism=self._organism,
         )
@@ -1187,7 +1178,6 @@ class DataFrameCatManager(CatManager):
                 key=categorical,
                 validated_only=validated_only,
                 source=self._sources.get(categorical),
-                exclude=self._exclude.get(categorical),
                 organism=self._organism,
             )
             # adding new records removes them from non_validated
@@ -1227,21 +1217,19 @@ class AnnDataCatManager(CatManager):
         verbosity: The verbosity level.
         organism: The organism name.
         sources: A dictionary mapping ``.obs.columns`` to Source records.
-        exclude: A dictionary mapping column names to values to exclude from validation.
-            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
-            using the exclude parameter ensures they are not validated.
 
     Example::
 
+        import lamindb as ln
         import bionty as bt
-        curator = ln.Curator.from_anndata(
+
+        curator = ln.curators.AnnDataCatManager(
             adata,
             var_index=bt.Gene.ensembl_gene_id,
             categoricals={
                 "cell_type_ontology_id": bt.CellType.ontology_id,
                 "donor_id": ULabel.name
             },
-            organism="human",
         )
     """
 
@@ -1254,7 +1242,6 @@ class AnnDataCatManager(CatManager):
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
-        exclude: dict | None = None,
     ) -> None:
         if isinstance(var_index, str):
             raise TypeError("var_index parameter has to be a bionty field")
@@ -1275,7 +1262,6 @@ class AnnDataCatManager(CatManager):
             categoricals=categoricals,
             sources=self._sources,
             organism=organism,
-            exclude=exclude,
             columns_field=var_index,
         )
         self._adata = self._dataset
@@ -1286,7 +1272,6 @@ class AnnDataCatManager(CatManager):
             verbosity=verbosity,
             organism=None,
             sources=self._sources,
-            exclude=exclude,
         )
 
     @property
@@ -1324,7 +1309,6 @@ class AnnDataCatManager(CatManager):
                 validated_only=validated_only,
                 organism=self._organism,
                 source=self._sources.get("var_index"),
-                exclude=self._exclude.get("var_index"),
             )
 
     def add_new_from(self, key: str, **kwargs):
@@ -1368,7 +1352,6 @@ class AnnDataCatManager(CatManager):
                 key="var_index",
                 source=self._sources.get("var_index"),
                 hint_print=".add_new_from_var_index()",
-                exclude=self._exclude.get("var_index"),
                 organism=self._organism,  # type: ignore
             )
         else:
@@ -1424,14 +1407,13 @@ class MuDataCatManager(CatManager):
         verbosity: The verbosity level.
         organism: The organism name.
         sources: A dictionary mapping ``.obs.columns`` to Source records.
-        exclude: A dictionary mapping column names to values to exclude from validation.
-            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
-            using the exclude parameter ensures they are not validated.
 
     Example::
 
+        import lamindb as ln
         import bionty as bt
-        curator = ln.Curator.from_mudata(
+
+        curator = ln.curators.MuDataCatManager(
             mdata,
             var_index={
                 "rna": bt.Gene.ensembl_gene_id,
@@ -1441,7 +1423,6 @@ class MuDataCatManager(CatManager):
                 "cell_type_ontology_id": bt.CellType.ontology_id,
                 "donor_id": ULabel.name
             },
-            organism="human",
         )
     """
 
@@ -1453,14 +1434,12 @@ class MuDataCatManager(CatManager):
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
-        exclude: dict | None = None,  # {modality: {field: [values]}}
     ) -> None:
         super().__init__(
             dataset=mdata,
             categoricals={},
             sources=sources,
             organism=organism,
-            exclude=exclude,
         )
         self._columns_field = (
             var_index or {}
@@ -1478,7 +1457,6 @@ class MuDataCatManager(CatManager):
                 categoricals=self._obs_fields.get("obs", {}),
                 verbosity=verbosity,
                 sources=self._sources.get("obs"),
-                exclude=self._exclude.get("obs"),
                 organism=organism,
             )
         self._mod_adata_curators = {
@@ -1488,7 +1466,6 @@ class MuDataCatManager(CatManager):
                 categoricals=self._obs_fields.get(modality),
                 verbosity=verbosity,
                 sources=self._sources.get(modality),
-                exclude=self._exclude.get(modality),
                 organism=organism,
             )
             for modality in self._modalities
@@ -1682,27 +1659,25 @@ class SpatialDataCatManager(CatManager):
 
         organism: The organism name.
         sources: A dictionary mapping an accessor to dictionaries that map columns to Source records.
-        exclude: A dictionary mapping an accessor to dictionaries of column names to values to exclude from validation.
-            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
-            using the exclude parameter ensures they are not validated.
         verbosity: The verbosity level of the logger.
         sample_metadata_key: The key in ``.attrs`` that stores the sample level metadata.
 
     Example::
 
+        import lamindb as ln
         import bionty as bt
-        curator = SpatialDataCatManager(
+
+        curator = ln.curators.SpatialDataCatManager(
             sdata,
             var_index={
                 "table_1": bt.Gene.ensembl_gene_id,
             },
             categoricals={
                 "table1":
-                    {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ULabel.name},
+                    {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name},
                 "sample":
                     {"experimental_factor": bt.ExperimentalFactor.name},
             },
-            organism="human",
         )
     """
 
@@ -1714,7 +1689,6 @@ class SpatialDataCatManager(CatManager):
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, dict[str, Record]] | None = None,
-        exclude: dict[str, dict] | None = None,
         *,
         sample_metadata_key: str | None = "sample",
     ) -> None:
@@ -1723,7 +1697,6 @@ class SpatialDataCatManager(CatManager):
             categoricals={},
             sources=sources,
             organism=organism,
-            exclude=exclude,
         )
         if isinstance(sdata, Artifact):
             self._sdata = sdata.load()
@@ -1762,23 +1735,22 @@ class SpatialDataCatManager(CatManager):
 
         _maybe_curation_keys_not_present(nonval_keys, "categoricals")
 
-        # check validity of keys in sources and exclude
-        for name, dct in (("sources", self._sources), ("exclude", self._exclude)):
-            nonval_keys = []
-            for accessor, accessor_sources in dct.items():
-                if (
-                    accessor == self._sample_metadata_key
-                    and self._sample_metadata is not None
-                ):
-                    columns = self._sample_metadata.columns
-                elif accessor != self._sample_metadata_key:
-                    columns = self._sdata[accessor].obs.columns
-                else:
-                    continue
-                for key in accessor_sources:
-                    if key not in columns:
-                        nonval_keys.append(key)
-            _maybe_curation_keys_not_present(nonval_keys, name)
+        # check validity of keys in sources
+        nonval_keys = []
+        for accessor, accessor_sources in self._sources.items():
+            if (
+                accessor == self._sample_metadata_key
+                and self._sample_metadata is not None
+            ):
+                columns = self._sample_metadata.columns
+            elif accessor != self._sample_metadata_key:
+                columns = self._sdata[accessor].obs.columns
+            else:
+                continue
+            for key in accessor_sources:
+                if key not in columns:
+                    nonval_keys.append(key)
+        _maybe_curation_keys_not_present(nonval_keys, "sources")
 
         # Set up sample level metadata and table Curator objects
         if (
@@ -1791,7 +1763,6 @@ class SpatialDataCatManager(CatManager):
                 categoricals=self._categoricals.get(self._sample_metadata_key, {}),
                 verbosity=verbosity,
                 sources=self._sources.get(self._sample_metadata_key),
-                exclude=self._exclude.get(self._sample_metadata_key),
                 organism=organism,
             )
         self._table_adata_curators = {
@@ -1801,7 +1772,6 @@ class SpatialDataCatManager(CatManager):
                 categoricals=self._categoricals.get(table),
                 verbosity=verbosity,
                 sources=self._sources.get(table),
-                exclude=self._exclude.get(table),
                 organism=organism,
             )
             for table in self._table_keys
@@ -2046,19 +2016,18 @@ class TiledbsomaCatManager(CatManager):
         obs_columns: The registry field for mapping the names of the `.obs` columns.
         organism: The organism name.
         sources: A dictionary mapping `.obs` columns to Source records.
-        exclude: A dictionary mapping column names to values to exclude from validation.
-            When specific :class:`~bionty.Source` instances are pinned and may lack default values (e.g., "unknown" or "na"),
-            using the exclude parameter ensures they are not validated.
 
     Example::
 
+        import lamindb as ln
         import bionty as bt
-        curator = ln.Curator.from_tiledbsoma(
+
+        curator = ln.curators.TiledbsomaCatManager(
             "./my_array_store.tiledbsoma",
             var_index={"RNA": ("var_id", bt.Gene.symbol)},
             categoricals={
                 "cell_type_ontology_id": bt.CellType.ontology_id,
-                "donor_id": ULabel.name
+                "donor_id": ln.ULabel.name
             },
             organism="human",
         )
@@ -2072,7 +2041,6 @@ class TiledbsomaCatManager(CatManager):
         obs_columns: FieldAttr = Feature.name,
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
-        exclude: dict[str, str | list[str]] | None = None,
     ):
         self._obs_fields = categoricals or {}
         self._var_fields = var_index
@@ -2085,7 +2053,6 @@ class TiledbsomaCatManager(CatManager):
             self._artifact = None
         self._organism = organism
         self._sources = sources or {}
-        self._exclude = exclude or {}
 
         self._is_validated: bool | None = False
         self._non_validated_values: dict[str, list] | None = None
@@ -2143,14 +2110,13 @@ class TiledbsomaCatManager(CatManager):
                 self._var_fields_flat[var_key_flat] = var_field
         _maybe_curation_keys_not_present(nonval_keys, "var_index")
 
-        # check validity of keys in sources and exclude
+        # check validity of keys in sources
         valid_arg_keys = valid_obs_keys + valid_var_keys + ["columns"]
-        for name, dct in (("sources", self._sources), ("exclude", self._exclude)):
-            nonval_keys = []
-            for arg_key in dct.keys():
-                if arg_key not in valid_arg_keys:
-                    nonval_keys.append(arg_key)
-            _maybe_curation_keys_not_present(nonval_keys, name)
+        nonval_keys = []
+        for arg_key in self._sources.keys():
+            if arg_key not in valid_arg_keys:
+                nonval_keys.append(arg_key)
+        _maybe_curation_keys_not_present(nonval_keys, "sources")
 
         # register obs columns' names
         register_columns = list(self._obs_fields.keys())
@@ -2164,7 +2130,6 @@ class TiledbsomaCatManager(CatManager):
             validated_only=False,
             organism=organism,
             source=self._sources.get("columns"),
-            exclude=self._exclude.get("columns"),
         )
         additional_columns = [k for k in valid_obs_keys if k not in register_columns]
         # no need to register with validated_only=True if columns are features
@@ -2179,7 +2144,6 @@ class TiledbsomaCatManager(CatManager):
                 validated_only=True,
                 organism=organism,
                 source=self._sources.get("columns"),
-                exclude=self._exclude.get("columns"),
             )
 
     def validate(self):
@@ -2208,7 +2172,6 @@ class TiledbsomaCatManager(CatManager):
                     validated_only=True,
                     organism=organism,
                     source=self._sources.get(var_ms_key),
-                    exclude=self._exclude.get(var_ms_key),
                 )
                 _, non_val = validate_categories(
                     values=var_ms_values,
@@ -2216,7 +2179,6 @@ class TiledbsomaCatManager(CatManager):
                     key=var_ms_key,
                     organism=organism,
                     source=self._sources.get(var_ms_key),
-                    exclude=self._exclude.get(var_ms_key),
                 )
                 if len(non_val) > 0:
                     validated = False
@@ -2242,7 +2204,6 @@ class TiledbsomaCatManager(CatManager):
                     validated_only=True,
                     organism=organism,
                     source=self._sources.get(key),
-                    exclude=self._exclude.get(key),
                 )
                 _, non_val = validate_categories(
                     values=values,
@@ -2250,7 +2211,6 @@ class TiledbsomaCatManager(CatManager):
                     key=key,
                     organism=organism,
                     source=self._sources.get(key),
-                    exclude=self._exclude.get(key),
                 )
                 if len(non_val) > 0:
                     validated = False
@@ -2308,7 +2268,6 @@ class TiledbsomaCatManager(CatManager):
                 validated_only=False,
                 organism=organism,
                 source=self._sources.get(k),
-                exclude=self._exclude.get(k),
                 **kwargs,
             )
             # update non-validated values list but keep the key there
@@ -2517,64 +2476,29 @@ class TiledbsomaCatManager(CatManager):
         return artifact.save()
 
 
-def _restrict_obs_fields(
-    obs: pd.DataFrame, obs_fields: dict[str, FieldAttr]
-) -> dict[str, str]:
-    """Restrict the obs fields to name return only available obs fields.
-
-    To simplify the curation, we only validate against either name or ontology_id.
-    If both are available, we validate against ontology_id.
-    If none are available, we validate against name.
-    """
-    obs_fields_unique = {k: v for k, v in obs_fields.items() if k in obs.columns}
-    for name, field in obs_fields.items():
-        if name.endswith("_ontology_term_id"):
-            continue
-        # if both the ontology id and the name are present, only validate on the ontology_id
-        if name in obs.columns and f"{name}_ontology_term_id" in obs.columns:
-            obs_fields_unique.pop(name)
-        # if the neither name nor ontology id are present, validate on the name
-        # this will raise error downstream, we just use name to be more readable
-        if name not in obs.columns and f"{name}_ontology_term_id" not in obs.columns:
-            obs_fields_unique[name] = field
-
-    # Only retain obs_fields_unique that have keys in adata.obs.columns
-    available_obs_fields = {
-        k: v for k, v in obs_fields_unique.items() if k in obs.columns
-    }
-
-    return available_obs_fields
-
-
-def _add_defaults_to_obs(
-    obs: pd.DataFrame,
-    defaults: dict[str, str],
-) -> None:
-    """Add default columns and values to obs DataFrame."""
-    added_defaults: dict = {}
-    for name, default in defaults.items():
-        if name not in obs.columns and f"{name}_ontology_term_id" not in obs.columns:
-            obs[name] = default
-            added_defaults[name] = default
-            logger.important(
-                f"added default value '{default}' to the adata.obs['{name}']"
-            )
-
-
 class CellxGeneAnnDataCatManager(AnnDataCatManager):
     """Annotation flow of AnnData based on CELLxGENE schema."""
 
-    _controls_were_created: bool | None = None
+    categoricals_defaults = {
+        "cell_type": "unknown",
+        "development_stage": "unknown",
+        "disease": "normal",
+        "donor_id": "unknown",
+        "self_reported_ethnicity": "unknown",
+        "sex": "unknown",
+        "suspension_type": "cell",
+        "tissue_type": "tissue",
+    }
 
     def __init__(
         self,
-        adata: ad.AnnData | UPathStr,
+        adata: ad.AnnData,
         categoricals: dict[str, FieldAttr] | None = None,
         organism: Literal["human", "mouse"] = "human",
         *,
+        schema_version: Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0"] = "5.2.0",
         defaults: dict[str, str] = None,
         extra_sources: dict[str, Record] = None,
-        schema_version: Literal["4.0.0", "5.0.0", "5.1.0"] = "5.1.0",
         verbosity: str = "hint",
     ) -> None:
         """CELLxGENE schema curator.
@@ -2584,304 +2508,85 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
             categoricals: A dictionary mapping ``.obs.columns`` to a registry field.
                 The CELLxGENE Curator maps against the required CELLxGENE fields by default.
             organism: The organism name. CELLxGENE restricts it to 'human' and 'mouse'.
+            schema_version: The CELLxGENE schema version to curate against.
             defaults: Default values that are set if columns or column values are missing.
             extra_sources: A dictionary mapping ``.obs.columns`` to Source records.
                 These extra sources are joined with the CELLxGENE fixed sources.
                 Use this parameter when subclassing.
-            exclude: A dictionary mapping column names to values to exclude.
-            schema_version: The CELLxGENE schema version to curate against.
             verbosity: The verbosity level.
-
         """
         import bionty as bt
 
-        CellxGeneAnnDataCatManager._init_categoricals_additional_values()
-
-        var_index: FieldAttr = bt.Gene.ensembl_gene_id
-
-        if categoricals is None:
-            categoricals = CellxGeneAnnDataCatManager._get_categoricals()
-
-        self.organism = organism
-
-        VALID_SCHEMA_VERSIONS = {"4.0.0", "5.0.0", "5.1.0"}
-        if schema_version not in VALID_SCHEMA_VERSIONS:
-            valid_versions = ", ".join(sorted(VALID_SCHEMA_VERSIONS))
-            raise ValueError(
-                f"Invalid schema_version: {schema_version}. "
-                f"Valid versions are: {valid_versions}"
-            )
-        self.schema_version = schema_version
-        self.schema_reference = f"https://github.com/chanzuckerberg/single-cell-curation/blob/main/schema/{schema_version}/schema.md"
-        with resources.path(
-            "lamindb.curators._cellxgene_schemas", "schema_versions.yml"
-        ) as schema_versions_path:
-            self._pinned_ontologies = _read_schema_versions(schema_versions_path)[
-                self.schema_version
-            ]
-
-        # Fetch AnnData obs to be able to set defaults and get sources
-        if isinstance(adata, ad.AnnData):
-            self._adata_obs = adata.obs
-        else:
-            self._adata_obs = backed_access(upath.create_path(adata)).obs  # type: ignore
+        from ._cellxgene_schemas import (
+            _add_defaults_to_obs,
+            _create_sources,
+            _init_categoricals_additional_values,
+            _restrict_obs_fields,
+        )
 
         # Add defaults first to ensure that we fetch valid sources
         if defaults:
-            _add_defaults_to_obs(self._adata_obs, defaults)
+            _add_defaults_to_obs(adata.obs, defaults)
 
-        self.sources = self._create_sources(self._adata_obs)
-        self.sources = {
-            entity: source
-            for entity, source in self.sources.items()
-            if source is not None
-        }
+        # Filter categoricals based on what's present in adata
+        if categoricals is None:
+            categoricals = self._get_cxg_categoricals()
+        categoricals = _restrict_obs_fields(adata.obs, categoricals)
 
+        # Configure sources
+        sources = _create_sources(categoricals, schema_version, organism)
+        self.schema_version = schema_version
+        self.schema_reference = f"https://github.com/chanzuckerberg/single-cell-curation/blob/main/schema/{schema_version}/schema.md"
         # These sources are not a part of the cellxgene schema but rather passed through.
         # This is useful when other Curators extend the CELLxGENE curator
         if extra_sources:
-            self.sources = self.sources | extra_sources
+            sources = sources | extra_sources
 
-        # Exclude default values from validation because they are not available in the pinned sources
-        exclude_keys = {
-            entity: default
-            for entity, default in CellxGeneAnnDataCatManager._get_categoricals_defaults().items()
-            if entity in self._adata_obs.columns  # type: ignore
-        }
+        _init_categoricals_additional_values()
 
         super().__init__(
             data=adata,
-            var_index=var_index,
-            categoricals=_restrict_obs_fields(self._adata_obs, categoricals),
+            var_index=bt.Gene.ensembl_gene_id,
+            categoricals=categoricals,
             verbosity=verbosity,
             organism=organism,
-            sources=self.sources,
-            exclude=exclude_keys,
+            sources=sources,
         )
 
     @classmethod
-    def _init_categoricals_additional_values(cls) -> None:
-        import bionty as bt
-
-        import lamindb as ln
-
-        # Note: if you add another control below, be mindful to change the if condition that
-        # triggers whether creating these records is re-considered
-        if cls._controls_were_created is None:
-            cls._controls_were_created = (
-                ln.ULabel.filter(name="SuspensionType", is_type=True).one_or_none()
-                is not None
-            )
-        if not cls._controls_were_created:
-            logger.important("Creating control labels in the CellxGene schema.")
-            bt.CellType(
-                ontology_id="unknown",
-                name="unknown",
-                description="From CellxGene schema.",
-            ).save()
-            pato = bt.Source.filter(name="pato", version="2024-03-28").one()
-            normal = bt.Phenotype.from_source(ontology_id="PATO:0000461", source=pato)
-            bt.Disease(
-                uid=normal.uid,
-                name=normal.name,
-                ontology_id=normal.ontology_id,
-                description=normal.description,
-                source=normal.source,
-            ).save()
-            bt.Ethnicity(
-                ontology_id="na", name="na", description="From CellxGene schema."
-            ).save()
-            bt.Ethnicity(
-                ontology_id="unknown",
-                name="unknown",
-                description="From CellxGene schema.",
-            ).save()
-            bt.DevelopmentalStage(
-                ontology_id="unknown",
-                name="unknown",
-                description="From CellxGene schema.",
-            ).save()
-            bt.Phenotype(
-                ontology_id="unknown",
-                name="unknown",
-                description="From CellxGene schema.",
-            ).save()
-
-            tissue_type = ln.ULabel(
-                name="TissueType",
-                is_type=True,
-                description='From CellxGene schema. Is "tissue", "organoid", or "cell culture".',
-            ).save()
-            ln.ULabel(
-                name="tissue", type=tissue_type, description="From CellxGene schema."
-            ).save()
-            ln.ULabel(
-                name="organoid", type=tissue_type, description="From CellxGene schema."
-            ).save()
-            ln.ULabel(
-                name="cell culture",
-                type=tissue_type,
-                description="From CellxGene schema.",
-            ).save()
-
-            suspension_type = ln.ULabel(
-                name="SuspensionType",
-                is_type=True,
-                description='From CellxGene schema. This MUST be "cell", "nucleus", or "na".',
-            ).save()
-            ln.ULabel(
-                name="cell", type=suspension_type, description="From CellxGene schema."
-            ).save()
-            ln.ULabel(
-                name="nucleus",
-                type=suspension_type,
-                description="From CellxGene schema.",
-            ).save()
-            ln.ULabel(name="na", type=suspension_type).save()
-
-    @classmethod
-    def _get_categoricals(cls) -> dict[str, FieldAttr]:
-        import bionty as bt
-
-        return {
-            "assay": bt.ExperimentalFactor.name,
-            "assay_ontology_term_id": bt.ExperimentalFactor.ontology_id,
-            "cell_type": bt.CellType.name,
-            "cell_type_ontology_term_id": bt.CellType.ontology_id,
-            "development_stage": bt.DevelopmentalStage.name,
-            "development_stage_ontology_term_id": bt.DevelopmentalStage.ontology_id,
-            "disease": bt.Disease.name,
-            "disease_ontology_term_id": bt.Disease.ontology_id,
-            # "donor_id": "str",  via pandera
-            "self_reported_ethnicity": bt.Ethnicity.name,
-            "self_reported_ethnicity_ontology_term_id": bt.Ethnicity.ontology_id,
-            "sex": bt.Phenotype.name,
-            "sex_ontology_term_id": bt.Phenotype.ontology_id,
-            "suspension_type": ULabel.name,
-            "tissue": bt.Tissue.name,
-            "tissue_ontology_term_id": bt.Tissue.ontology_id,
-            "tissue_type": ULabel.name,
-            "organism": bt.Organism.name,
-            "organism_ontology_term_id": bt.Organism.ontology_id,
-        }
-
-    @classmethod
+    @deprecated(new_name="categoricals_defaults")
     def _get_categoricals_defaults(cls) -> dict[str, str]:
-        return {
-            "cell_type": "unknown",
-            "development_stage": "unknown",
-            "disease": "normal",
-            "donor_id": "unknown",
-            "self_reported_ethnicity": "unknown",
-            "sex": "unknown",
-            "suspension_type": "cell",
-            "tissue_type": "tissue",
-        }
+        return cls.categoricals_defaults
 
-    @property
-    def pinned_ontologies(self) -> pd.DataFrame:
-        return self._pinned_ontologies
+    @classmethod
+    def _get_cxg_categoricals(cls) -> dict[str, FieldAttr]:
+        """Returns the CELLxGENE schema mapped fields."""
+        from ._cellxgene_schemas import _get_cxg_categoricals
 
-    @property
-    def adata(self) -> AnnData:
-        return self._adata
+        return _get_cxg_categoricals()
 
-    def _create_sources(self, obs: pd.DataFrame) -> dict[str, Record]:
-        """Creates a sources dictionary that can be passed to AnnDataCatManager."""
-        import bionty as bt
-
-        # fmt: off
-        def _fetch_bionty_source(
-            entity: str, organism: str, source: str
-        ) -> bt.Source | None:
-            """Fetch the Bionty source of the pinned ontology.
-
-            Returns None if the source does not exist.
-            """
-            version = self._pinned_ontologies.loc[(self._pinned_ontologies.index == entity) &
-                                                  (self._pinned_ontologies["organism"] == organism) &
-                                                  (self._pinned_ontologies["source"] == source), "version"].iloc[0]
-            return bt.Source.filter(organism=organism, entity=f"bionty.{entity}", version=version).first()
-
-        entity_mapping = {
-             "var_index": ("Gene", self.organism, "ensembl"),
-             "cell_type": ("CellType", "all", "cl"),
-             "assay": ("ExperimentalFactor", "all", "efo"),
-             "self_reported_ethnicity": ("Ethnicity", self.organism, "hancestro"),
-             "development_stage": ("DevelopmentalStage", self.organism, "hsapdv" if self.organism == "human" else "mmusdv"),
-             "disease": ("Disease", "all", "mondo"),
-             # "organism": ("Organism", "vertebrates", "ensembl"),
-             "sex": ("Phenotype", "all", "pato"),
-             "tissue": ("Tissue", "all", "uberon"),
-        }
-        # fmt: on
-
-        # Retain var_index and one of 'entity'/'entity_ontology_term_id' that is present in obs
-        entity_to_sources = {
-            entity: _fetch_bionty_source(*params)
-            for entity, params in entity_mapping.items()
-            if entity in obs.columns
-            or (f"{entity}_ontology_term_id" in obs.columns and entity != "var_index")
-            or entity == "var_index"
-        }
-
-        return entity_to_sources
-
-    def _convert_name_to_ontology_id(self, values: pd.Series, field: FieldAttr):
-        """Converts a column that stores a name into a column that stores the ontology id.
-
-        cellxgene expects the obs columns to be {entity}_ontology_id columns and disallows {entity} columns.
-        """
-        field_name = field.field.name
-        assert field_name == "name"  # noqa: S101
-        cols = ["name", "ontology_id"]
-        registry = field.field.model
-
-        if hasattr(registry, "ontology_id"):
-            validated_records = registry.filter(**{f"{field_name}__in": values})
-            mapper = (
-                pd.DataFrame(validated_records.values_list(*cols))
-                .set_index(0)
-                .to_dict()[1]
-            )
-            return values.map(mapper)
-
-    def validate(self) -> bool:  # type: ignore
+    def validate(self) -> bool:
         """Validates the AnnData object against most cellxgene requirements."""
+        from ._cellxgene_schemas import RESERVED_NAMES
+
         # Verify that all required obs columns are present
+        required_columns = list(self.categoricals_defaults.keys()) + ["donor_id"]
         missing_obs_fields = [
             name
-            for name in CellxGeneAnnDataCatManager._get_categoricals_defaults().keys()
+            for name in required_columns
             if name not in self._adata.obs.columns
             and f"{name}_ontology_term_id" not in self._adata.obs.columns
         ]
         if len(missing_obs_fields) > 0:
-            missing_obs_fields_str = ", ".join(list(missing_obs_fields))
-            logger.error(f"missing required obs columns {missing_obs_fields_str}")
-            logger.info(
-                "consider initializing a Curate object like 'Curate(adata, defaults=cxg.CellxGeneAnnDataCatManager._get_categoricals_defaults())'"
-                "to automatically add these columns with default values."
+            logger.error(
+                f"missing required obs columns {_format_values(missing_obs_fields)}\n"
+                "    → consider initializing a Curate object with `defaults=cxg.CellxGeneAnnDataCatManager.categoricals_defaults` to automatically add these columns with default values"
             )
             return False
 
         # Verify that no cellxgene reserved names are present
-        reserved_names = {
-            "ethnicity",
-            "ethnicity_ontology_term_id",
-            "X_normalization",
-            "default_field",
-            "layer_descriptions",
-            "tags",
-            "versions",
-            "contributors",
-            "preprint_doi",
-            "project_description",
-            "project_links",
-            "project_name",
-            "publication_doi",
-        }
         matched_columns = [
-            column for column in self._adata.obs.columns if column in reserved_names
+            column for column in self._adata.obs.columns if column in RESERVED_NAMES
         ]
         if len(matched_columns) > 0:
             raise ValueError(
@@ -2908,6 +2613,26 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         Returns:
             An AnnData object which adheres to the cellxgene-schema.
         """
+
+        def _convert_name_to_ontology_id(values: pd.Series, field: FieldAttr):
+            """Converts a column that stores a name into a column that stores the ontology id.
+
+            cellxgene expects the obs columns to be {entity}_ontology_id columns and disallows {entity} columns.
+            """
+            field_name = field.field.name
+            assert field_name == "name"  # noqa: S101
+            cols = ["name", "ontology_id"]
+            registry = field.field.model
+
+            if hasattr(registry, "ontology_id"):
+                validated_records = registry.filter(**{f"{field_name}__in": values})
+                mapper = (
+                    pd.DataFrame(validated_records.values_list(*cols))
+                    .set_index(0)
+                    .to_dict()[1]
+                )
+                return values.map(mapper)
+
         # Create a copy since we modify the AnnData object extensively
         adata_cxg = self._adata.copy()
 
@@ -2927,7 +2652,7 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         # convert name column to ontology_term_id column
         for column in adata_cxg.obs.columns:
             if column in self.categoricals and not column.endswith("_ontology_term_id"):
-                mapped_column = self._convert_name_to_ontology_id(
+                mapped_column = _convert_name_to_ontology_id(
                     adata_cxg.obs[column], field=self.categoricals.get(column)
                 )
                 if mapped_column is not None:
@@ -3108,8 +2833,6 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
         cxg_schema_version: Literal["5.0.0", "5.1.0"] = "5.1.0",
     ):
         """Initialize the curator with configuration and validation settings."""
-        import bionty as bt
-
         self._pert_time = pert_time
         self._pert_dose = pert_dose
 
@@ -3134,15 +2857,12 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
         import bionty as bt
         import wetlab as wl
 
-        self.PT_DEFAULT_VALUES = (
-            CellxGeneAnnDataCatManager._get_categoricals_defaults()
-            | {
-                "cell_line": "unknown",
-                "pert_target": "unknown",
-            }
-        )
+        self.PT_DEFAULT_VALUES = CellxGeneAnnDataCatManager.categoricals_defaults | {
+            "cell_line": "unknown",
+            "pert_target": "unknown",
+        }
 
-        self.PT_CATEGORICALS = CellxGeneAnnDataCatManager._get_categoricals() | {
+        self.PT_CATEGORICALS = CellxGeneAnnDataCatManager._get_cxg_categoricals() | {
             k: v
             for k, v in {
                 "cell_line": bt.CellLine.name,
@@ -3376,22 +3096,11 @@ def inspect_instance(
     values: Iterable[str],
     field: FieldAttr,
     registry: type[Record],
-    exclude: str | list | None = None,
     **kwargs,
 ):
     """Inspect values using a registry."""
-    # inspect exclude values in the default instance
     values = list(values)
-    include_validated = []
-    if exclude is not None:
-        exclude = [exclude] if isinstance(exclude, str) else exclude
-        exclude = [i for i in exclude if i in values]
-        if len(exclude) > 0:
-            # exclude values are validated without source and organism
-            inspect_result_exclude = registry.inspect(exclude, field=field, mute=True)
-            # if exclude values are validated, remove them from the values
-            values = [i for i in values if i not in inspect_result_exclude.validated]
-            include_validated = inspect_result_exclude.validated
+    include_validated: list = []
 
     inspect_result = registry.inspect(values, field=field, mute=True, **kwargs)
     inspect_result._validated += include_validated
@@ -3419,7 +3128,6 @@ def validate_categories(
     key: str,
     organism: str | None = None,
     source: Record | None = None,
-    exclude: str | list | None = None,
     hint_print: str | None = None,
     curator: CatManager | None = None,
 ) -> tuple[bool, list[str]]:
@@ -3431,12 +3139,9 @@ def validate_categories(
         key: The key referencing the slot in the DataFrame.
         organism: The organism name.
         source: The source record.
-        exclude: Exclude specific values from validation.
         standardize: Whether to standardize the values.
         hint_print: The hint to print that suggests fixing non-validated values.
     """
-    from lamindb.models._from_values import _format_values
-
     model_field = f"{field.field.model.__name__}.{field.field.name}"
 
     def _log_mapping_info():
@@ -3475,10 +3180,9 @@ def validate_categories(
     else:
         # inspect values from the default instance
         inspect_result = inspect_instance(
-            values=to_check,
+            values=values,
             field=field,
             registry=registry,
-            exclude=exclude,
             **kwargs_current,
         )
 
@@ -3496,6 +3200,9 @@ def validate_categories(
             set(inspect_result.non_validated) | (cached_non_validated & unique_values)
         )
         syn_mapper = inspect_result.synonyms_mapper
+
+    non_validated = inspect_result.non_validated
+    syn_mapper = inspect_result.synonyms_mapper
 
     # inspect the non-validated values from public (bionty only)
     values_validated = []
@@ -3575,7 +3282,6 @@ def validate_categories_in_df(
     df: pd.DataFrame,
     fields: dict[str, FieldAttr],
     sources: dict[str, Record] = None,
-    exclude: dict | None = None,
     curator: CatManager | None = None,
     **kwargs,
 ) -> tuple[bool, dict]:
@@ -3623,11 +3329,9 @@ def validate_categories_in_df(
                 df[key],
                 field=field,
                 key=key,
-                organism=kwargs.get("organism"),
                 source=sources.get(key),
-                exclude=exclude.get(key) if exclude else None,
-                hint_print=None,
                 curator=curator,
+                **kwargs,
             ): key
             for key, field in fields.items()
         }
@@ -3644,7 +3348,7 @@ def validate_categories_in_df(
                 validated = False
                 non_validated[key] = [f"Error during validation: {exc}"]
 
-        return validated, non_validated
+    return validated, non_validated
 
 
 def save_artifact(
@@ -3856,7 +3560,6 @@ def update_registry(
     organism: str | None = None,
     dtype: str | None = None,
     source: Record | None = None,
-    exclude: str | list | None = None,
     **kwargs,
 ) -> None:
     """Save features or labels records in the default instance..
@@ -3870,7 +3573,6 @@ def update_registry(
         organism: The organism name.
         dtype: The type of the feature.
         source: The source record.
-        exclude: Values to exclude from inspect.
         kwargs: Additional keyword arguments to pass to the registry model to create new records.
     """
     from lamindb.models.save import save as ln_save
@@ -3941,7 +3643,7 @@ def update_registry(
 
         # save parent labels for ulabels, for example a parent label "project" for label "project001"
         if registry == ULabel and field.field.name == "name":
-            save_ulabels_parent(values, field=field, key=key)
+            save_ulabels_type(values, field=field, key=key)
 
     finally:
         settings.verbosity = verbosity
@@ -3979,16 +3681,18 @@ def log_saved_labels(
             )
 
 
-def save_ulabels_parent(values: list[str], field: FieldAttr, key: str) -> None:
+def save_ulabels_type(values: list[str], field: FieldAttr, key: str) -> None:
     """Save a parent label for the given labels."""
     registry = field.field.model
     assert registry == ULabel  # noqa: S101
-    all_records = registry.from_values(list(values), field=field)
-    is_feature = registry.filter(name=f"{key}").one_or_none()
-    if is_feature is None:
-        is_feature = registry(name=f"{key}").save()
-        logger.important(f"Created a parent ULabel: {is_feature}")
-    is_feature.children.add(*all_records)
+    all_records = registry.filter(**{field.field.name: list(values)}).all()
+    # so `tissue_type` becomes `TissueType`
+    type_name = "".join([i.capitalize() for i in key.lower().split("_")])
+    ulabel_type = registry.filter(name=type_name, is_type=True).one_or_none()
+    if ulabel_type is None:
+        ulabel_type = registry(name=type_name, is_type=True).save()
+        logger.important(f"Created a ULabel type: {ulabel_type}")
+    all_records.update(type=ulabel_type)
 
 
 def _save_organism(name: str):
@@ -4087,7 +3791,6 @@ def from_tiledbsoma(
     obs_columns: FieldAttr = Feature.name,
     organism: str | None = None,
     sources: dict[str, Record] | None = None,
-    exclude: dict[str, str | list[str]] | None = None,
 ) -> TiledbsomaCatManager:
     return TiledbsomaCatManager(
         experiment_uri=experiment_uri,
@@ -4096,7 +3799,6 @@ def from_tiledbsoma(
         obs_columns=obs_columns,
         organism=organism,
         sources=sources,
-        exclude=exclude,
     )
 
 
@@ -4108,7 +3810,6 @@ def from_spatialdata(
     categoricals: dict[str, dict[str, FieldAttr]] | None = None,
     organism: str | None = None,
     sources: dict[str, dict[str, Record]] | None = None,
-    exclude: dict[str, dict] | None = None,
     verbosity: str = "hint",
     *,
     sample_metadata_key: str = "sample",
@@ -4125,7 +3826,6 @@ def from_spatialdata(
         verbosity=verbosity,
         organism=organism,
         sources=sources,
-        exclude=exclude,
         sample_metadata_key=sample_metadata_key,
     )
 
