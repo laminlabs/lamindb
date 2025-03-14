@@ -856,7 +856,9 @@ class CatManager:
 
     Example::
 
-        cat_manager = ln.CatManager(
+        import lamindb as ln
+
+        cat_manager = ln.curators.CatManager(
             dataset,
             # define validation criteria as mappings
             columns=Feature.name,  # map column names
@@ -1006,8 +1008,10 @@ class DataFrameCatManager(CatManager):
 
     Example::
 
+        import lamindb as ln
         import bionty as bt
-        curator = ln.Curator.from_df(
+
+        curator = ln.curators.DataFrameCatManager(
             df,
             categoricals={
                 "cell_type_ontology_id": bt.CellType.ontology_id,
@@ -1214,15 +1218,16 @@ class AnnDataCatManager(CatManager):
 
     Example::
 
+        import lamindb as ln
         import bionty as bt
-        curator = ln.Curator.from_anndata(
+
+        curator = ln.curators.AnnDataCatManager(
             adata,
             var_index=bt.Gene.ensembl_gene_id,
             categoricals={
                 "cell_type_ontology_id": bt.CellType.ontology_id,
                 "donor_id": ULabel.name
             },
-            organism="human",
         )
     """
 
@@ -1403,8 +1408,10 @@ class MuDataCatManager(CatManager):
 
     Example::
 
+        import lamindb as ln
         import bionty as bt
-        curator = ln.Curator.from_mudata(
+
+        curator = ln.curators.MuDataCatManager(
             mdata,
             var_index={
                 "rna": bt.Gene.ensembl_gene_id,
@@ -1414,7 +1421,6 @@ class MuDataCatManager(CatManager):
                 "cell_type_ontology_id": bt.CellType.ontology_id,
                 "donor_id": ULabel.name
             },
-            organism="human",
         )
     """
 
@@ -1656,19 +1662,20 @@ class SpatialDataCatManager(CatManager):
 
     Example::
 
+        import lamindb as ln
         import bionty as bt
-        curator = SpatialDataCatManager(
+
+        curator = ln.curators.SpatialDataCatManager(
             sdata,
             var_index={
                 "table_1": bt.Gene.ensembl_gene_id,
             },
             categoricals={
                 "table1":
-                    {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ULabel.name},
+                    {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name},
                 "sample":
                     {"experimental_factor": bt.ExperimentalFactor.name},
             },
-            organism="human",
         )
     """
 
@@ -2010,13 +2017,15 @@ class TiledbsomaCatManager(CatManager):
 
     Example::
 
+        import lamindb as ln
         import bionty as bt
-        curator = ln.Curator.from_tiledbsoma(
+
+        curator = ln.curators.TiledbsomaCatManager(
             "./my_array_store.tiledbsoma",
             var_index={"RNA": ("var_id", bt.Gene.symbol)},
             categoricals={
                 "cell_type_ontology_id": bt.CellType.ontology_id,
-                "donor_id": ULabel.name
+                "donor_id": ln.ULabel.name
             },
             organism="human",
         )
@@ -2465,50 +2474,6 @@ class TiledbsomaCatManager(CatManager):
         return artifact.save()
 
 
-def _restrict_obs_fields(
-    obs: pd.DataFrame, obs_fields: dict[str, FieldAttr]
-) -> dict[str, FieldAttr]:
-    """Restrict the obs fields only available obs fields.
-
-    To simplify the curation, we only validate against either name or ontology_id.
-    If both are available, we validate against ontology_id.
-    If none are available, we validate against name.
-    """
-    obs_fields_unique = {k: v for k, v in obs_fields.items() if k in obs.columns}
-    for name, field in obs_fields.items():
-        if name.endswith("_ontology_term_id"):
-            continue
-        # if both the ontology id and the name are present, only validate on the ontology_id
-        if name in obs.columns and f"{name}_ontology_term_id" in obs.columns:
-            obs_fields_unique.pop(name)
-        # if the neither name nor ontology id are present, validate on the name
-        # this will raise error downstream, we just use name to be more readable
-        if name not in obs.columns and f"{name}_ontology_term_id" not in obs.columns:
-            obs_fields_unique[name] = field
-
-    # Only retain obs_fields_unique that have keys in adata.obs.columns
-    available_obs_fields = {
-        k: v for k, v in obs_fields_unique.items() if k in obs.columns
-    }
-
-    return available_obs_fields
-
-
-def _add_defaults_to_obs(
-    obs: pd.DataFrame,
-    defaults: dict[str, str],
-) -> None:
-    """Add default columns and values to obs DataFrame."""
-    added_defaults: dict = {}
-    for name, default in defaults.items():
-        if name not in obs.columns and f"{name}_ontology_term_id" not in obs.columns:
-            obs[name] = default
-            added_defaults[name] = default
-            logger.important(
-                f"added default value '{default}' to the adata.obs['{name}']"
-            )
-
-
 class CellxGeneAnnDataCatManager(AnnDataCatManager):
     """Annotation flow of AnnData based on CELLxGENE schema."""
 
@@ -2529,9 +2494,9 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         categoricals: dict[str, FieldAttr] | None = None,
         organism: Literal["human", "mouse"] = "human",
         *,
+        schema_version: Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0"] = "5.2.0",
         defaults: dict[str, str] = None,
         extra_sources: dict[str, Record] = None,
-        schema_version: Literal["4.0.0", "5.0.0", "5.1.0"] = "5.1.0",
         verbosity: str = "hint",
     ) -> None:
         """CELLxGENE schema curator.
@@ -2541,19 +2506,20 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
             categoricals: A dictionary mapping ``.obs.columns`` to a registry field.
                 The CELLxGENE Curator maps against the required CELLxGENE fields by default.
             organism: The organism name. CELLxGENE restricts it to 'human' and 'mouse'.
+            schema_version: The CELLxGENE schema version to curate against.
             defaults: Default values that are set if columns or column values are missing.
             extra_sources: A dictionary mapping ``.obs.columns`` to Source records.
                 These extra sources are joined with the CELLxGENE fixed sources.
                 Use this parameter when subclassing.
-            schema_version: The CELLxGENE schema version to curate against.
             verbosity: The verbosity level.
-
         """
         import bionty as bt
 
         from ._cellxgene_schemas import (
+            _add_defaults_to_obs,
             _create_sources,
             _init_categoricals_additional_values,
+            _restrict_obs_fields,
         )
 
         # Add defaults first to ensure that we fetch valid sources
@@ -2562,17 +2528,17 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
 
         # Filter categoricals based on what's present in adata
         if categoricals is None:
-            categoricals = CellxGeneAnnDataCatManager._get_cxg_categoricals()
+            categoricals = self._get_cxg_categoricals()
         categoricals = _restrict_obs_fields(adata.obs, categoricals)
 
         # Configure sources
-        self.sources = _create_sources(categoricals, schema_version, organism)
+        sources = _create_sources(categoricals, schema_version, organism)
         self.schema_version = schema_version
         self.schema_reference = f"https://github.com/chanzuckerberg/single-cell-curation/blob/main/schema/{schema_version}/schema.md"
         # These sources are not a part of the cellxgene schema but rather passed through.
         # This is useful when other Curators extend the CELLxGENE curator
         if extra_sources:
-            self.sources = self.sources | extra_sources
+            sources = sources | extra_sources
 
         _init_categoricals_additional_values()
 
@@ -2582,7 +2548,7 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
             categoricals=categoricals,
             verbosity=verbosity,
             organism=organism,
-            sources=self.sources,
+            sources=sources,
         )
 
     @classmethod
@@ -2592,22 +2558,20 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
 
     @classmethod
     def _get_cxg_categoricals(cls) -> dict[str, FieldAttr]:
-        from ._cellxgene_schemas import _get_categoricals
+        """Returns the CELLxGENE schema mapped fields."""
+        from ._cellxgene_schemas import _get_cxg_categoricals
 
-        return _get_categoricals()
-
-    @property
-    def adata(self) -> AnnData:
-        return self._adata
+        return _get_cxg_categoricals()
 
     def validate(self) -> bool:
         """Validates the AnnData object against most cellxgene requirements."""
         from ._cellxgene_schemas import RESERVED_NAMES
 
         # Verify that all required obs columns are present
+        required_columns = list(self.categoricals_defaults.keys()) + ["donor_id"]
         missing_obs_fields = [
             name
-            for name in self.categoricals_defaults.keys()
+            for name in required_columns
             if name not in self._adata.obs.columns
             and f"{name}_ontology_term_id" not in self._adata.obs.columns
         ]

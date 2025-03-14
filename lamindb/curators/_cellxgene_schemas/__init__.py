@@ -23,7 +23,7 @@ RESERVED_NAMES = {
 }
 
 
-def _get_categoricals() -> dict[str, FieldAttr]:
+def _get_cxg_categoricals() -> dict[str, FieldAttr]:
     import bionty as bt
 
     return {
@@ -49,6 +49,47 @@ def _get_categoricals() -> dict[str, FieldAttr]:
     }
 
 
+def _restrict_obs_fields(
+    obs: pd.DataFrame, obs_fields: dict[str, FieldAttr]
+) -> dict[str, FieldAttr]:
+    """Restrict the obs fields only available obs fields.
+
+    To simplify the curation, we only validate against either name or ontology_id.
+    If both are available, we validate against ontology_id.
+    If none are available, we validate against name.
+    """
+    obs_fields_unique = {k: v for k, v in obs_fields.items() if k in obs.columns}
+    for name, field in obs_fields.items():
+        if name.endswith("_ontology_term_id"):
+            continue
+        # if both the ontology id and the name are present, only validate on the ontology_id
+        if name in obs.columns and f"{name}_ontology_term_id" in obs.columns:
+            obs_fields_unique.pop(name)
+        # if the neither name nor ontology id are present, validate on the name
+        # this will raise error downstream, we just use name to be more readable
+        if name not in obs.columns and f"{name}_ontology_term_id" not in obs.columns:
+            obs_fields_unique[name] = field
+
+    # Only retain obs_fields_unique that have keys in adata.obs.columns
+    available_obs_fields = {
+        k: v for k, v in obs_fields_unique.items() if k in obs.columns
+    }
+
+    return available_obs_fields
+
+
+def _add_defaults_to_obs(obs: pd.DataFrame, defaults: dict[str, str]) -> None:
+    """Add default columns and values to obs DataFrame."""
+    added_defaults: dict = {}
+    for name, default in defaults.items():
+        if name not in obs.columns and f"{name}_ontology_term_id" not in obs.columns:
+            obs[name] = default
+            added_defaults[name] = default
+            logger.important(
+                f"added default value '{default}' to the adata.obs['{name}']"
+            )
+
+
 def _create_sources(
     categoricals: dict[str, FieldAttr], schema_version: str, organism: str
 ) -> dict[str, Record]:
@@ -70,7 +111,10 @@ def _create_sources(
                 version=row.version,
             ).one_or_none()
             if source is None:
-                logger.error(f"Could not find source: {entity}\n")
+                logger.error(
+                    f"Could not find source: {entity}\n"
+                    "    → consider running `bionty.core.sync_all_sources_to_latest()` and re-connect to your instance"
+                )
             return source
 
     sources_df = pd.read_csv(UPath(__file__).parent / "schema_versions.csv")
@@ -91,23 +135,19 @@ def _create_sources(
     return key_to_source
 
 
-def _init_categoricals_additional_values(
-    controls_were_created: bool | None = None,
-) -> None:
+def _init_categoricals_additional_values() -> None:
     """Add additional values from CellxGene schema to the DB."""
     import bionty as bt
 
     # Note: if you add another control below, be mindful to change the if condition that
     # triggers whether creating these records is re-considered
-    if controls_were_created is None:
-        controls_were_created = (
-            ULabel.filter(name="SuspensionType", is_type=True).one_or_none() is not None
-        )
+    controls_were_created = (
+        ULabel.filter(name="SuspensionType", is_type=True).one_or_none() is not None
+    )
     if not controls_were_created:
         logger.important("Creating control labels in the CellxGene schema.")
-        bt.CellType(
-            ontology_id="unknown", name="unknown", description="From CellxGene schema."
-        ).save()
+
+        # "normal" in Disease
         normal = bt.Phenotype.from_source(
             ontology_id="PATO:0000461",
             source=bt.Source.get(name="pato", version="2024-03-28"),
@@ -119,18 +159,21 @@ def _init_categoricals_additional_values(
             description=normal.description,
             source=normal.source,  # not sure
         ).save()
-        bt.Ethnicity(
-            ontology_id="na", name="na", description="From CellxGene schema."
-        ).save()
-        bt.Ethnicity(
-            ontology_id="unknown", name="unknown", description="From CellxGene schema."
-        ).save()
-        bt.DevelopmentalStage(
-            ontology_id="unknown", name="unknown", description="From CellxGene schema."
-        ).save()
-        bt.Phenotype(
-            ontology_id="unknown", name="unknown", description="From CellxGene schema."
-        ).save()
+
+        # na, unknown
+        for model, name in zip(
+            [
+                bt.Ethnicity,
+                bt.Ethnicity,
+                bt.DevelopmentalStage,
+                bt.Phenotype,
+                bt.CellType,
+            ],
+            ["na", "unknown", "unknown", "unknown", "unknown"],
+        ):
+            model(
+                ontology_id=name, name=name, description="From CellxGene schema."
+            ).save()
 
         # tissue_type
         tissue_type = ULabel(
@@ -138,15 +181,10 @@ def _init_categoricals_additional_values(
             is_type=True,
             description='From CellxGene schema. Is "tissue", "organoid", or "cell culture".',
         ).save()
-        ULabel(
-            name="tissue", type=tissue_type, description="From CellxGene schema."
-        ).save()
-        ULabel(
-            name="organoid", type=tissue_type, description="From CellxGene schema."
-        ).save()
-        ULabel(
-            name="cell culture", type=tissue_type, description="From CellxGene schema."
-        ).save()
+        for name in ["tissue", "organoid", "cell culture"]:
+            ULabel(
+                name=name, type=tissue_type, description="From CellxGene schema."
+            ).save()
 
         # suspension_type
         suspension_type = ULabel(
@@ -154,12 +192,7 @@ def _init_categoricals_additional_values(
             is_type=True,
             description='From CellxGene schema. This MUST be "cell", "nucleus", or "na".',
         ).save()
-        ULabel(
-            name="cell", type=suspension_type, description="From CellxGene schema."
-        ).save()
-        ULabel(
-            name="nucleus", type=suspension_type, description="From CellxGene schema."
-        ).save()
-        ULabel(
-            name="na", type=suspension_type, description="From CellxGene schema."
-        ).save()
+        for name in ["cell", "nucleus", "na"]:
+            ULabel(
+                name=name, type=suspension_type, description="From CellxGene schema."
+            ).save()
