@@ -90,6 +90,9 @@ def install_ci(session, group):
         run(session, "uv pip install --system scanpy")
         run(session, "uv pip install --system tiledbsoma")  # test TiledbsomaCatManager
         run(session, "uv pip install --system mudata")
+        # spatialdata dependency, specifying it here explicitly
+        # otherwise there are problems with uv resolver
+        run(session, "uv pip install --system xarray-dataclasses")
         run(session, "uv pip install --system spatialdata")
     elif group == "unit-storage":
         extras += "zarr,bionty"
@@ -121,16 +124,22 @@ def install_ci(session, group):
             session,
             "uv pip install --system ./sub/bionty ./sub/wetlab",
         )
+        # spatialdata dependency, specifying it here explicitly
+        # otherwise there are problems with uv resolver
+        run(session, "uv pip install --system xarray-dataclasses")
         run(
             session,
-            "uv pip install --system -U spatialdata",
+            "uv pip install --system spatialdata",
         )
         run(session, "uv pip install --system tiledbsoma")
     elif group == "docs":
         extras += "bionty,zarr"
+        # spatialdata dependency, specifying it here explicitly
+        # otherwise there are problems with uv resolver
+        run(session, "uv pip install --system xarray-dataclasses")
         run(
             session,
-            "uv pip install --system -U mudata spatialdata",
+            "uv pip install --system mudata spatialdata",
         )
         run(
             session,
