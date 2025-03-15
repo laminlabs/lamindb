@@ -287,7 +287,7 @@ def docs(session):
         os.environ["NO_RICH"] = "1"
         from lamin_cli.__main__ import _generate_help
 
-        page = "# `lamin`\n\nFor a guide, see: {doc}`/setup`.\n"
+        page = "# `lamin`\n\n"
         helps = _generate_help()
         for name, help_dict in helps.items():
             names = name.split(" ")
