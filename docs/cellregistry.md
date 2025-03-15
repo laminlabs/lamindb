@@ -1,3 +1,0 @@
-# `cellregistry`
-
-Place holder.

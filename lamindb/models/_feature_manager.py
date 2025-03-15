@@ -201,7 +201,11 @@ def _get_categoricals(
             if hasattr(link, "feature_id") and link.feature_id is not None:
                 feature = Feature.objects.using(self._state.db).get(id=link.feature_id)
                 link_attr = get_link_attr(link, self)
-                label_name = getattr(link, link_attr).name
+                label = getattr(link, link_attr)
+                name_attr = (
+                    "name" if hasattr(label, "name") else label.__class__._name_field
+                )
+                label_name = getattr(label, name_attr)
                 result[(feature.name, feature.dtype)].add(label_name)
 
     return dict(result)
