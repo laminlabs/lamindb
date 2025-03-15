@@ -302,11 +302,11 @@ class Context:
         from lamindb.models import Project
 
         instance_settings = ln_setup.settings.instance
+        # similar logic here: https://github.com/laminlabs/lamindb/pull/2527
+        # TODO: refactor upon new access management
         if (
-            # similar logic here: https://github.com/laminlabs/lamindb/pull/2527
-            # TODO: refactor upon new access management
             instance_settings.dialect == "postgresql"
-            and "_read" in instance_settings.db
+            and "read:" in instance_settings.db
         ):
             logger.warning("skipping track(), connected in read-only mode")
             return None
