@@ -27,7 +27,6 @@ GROUPS["tutorial"] = [
     "transfer.ipynb",
     "arrays.ipynb",
     "registries.ipynb",
-    "setup.ipynb",
 ]
 GROUPS["guide"] = [
     "track.ipynb",
