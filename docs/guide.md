@@ -4,12 +4,10 @@
 :hidden:
 :caption: "How to"
 
-setup
 query-search
 track
 curate
 bio-registries
-modules
 transfer
 ```
 
