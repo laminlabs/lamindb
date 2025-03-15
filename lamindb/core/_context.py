@@ -301,6 +301,13 @@ class Context:
         """
         from lamindb.models import Project
 
+        instance_settings = ln_setup.settings.instance
+        if (
+            instance_settings.dialect == "postgresql"
+            and "_read" in instance_settings.db
+        ):
+            logger.warning("skipping track(), connected in read-only mode")
+            return None
         if project is not None:
             project_record = Project.filter(
                 Q(name=project) | Q(uid=project)
