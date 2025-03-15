@@ -33,7 +33,6 @@ GROUPS["guide"] = [
     "curate-df.ipynb",
     "curate-any.ipynb",
     "ehrcuration.ipynb",
-    "modules.ipynb",
 ]
 GROUPS["biology"] = [
     "bio-registries.ipynb",
