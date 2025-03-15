@@ -602,10 +602,10 @@ def get_run(run: Run | None) -> Run | None:
             run = context.run
         if run is None and not settings.creation.artifact_silence_missing_run_warning:
             # here we check that this is not a read-only connection
-            # normally for our connection strings the read-only role name has _read in it
+            # normally for our connection strings the read-only role name has "read" in it
             # not absolutely safe but the worst case is that the warning is not shown
             instance = setup_settings.instance
-            if instance.dialect != "postgresql" or "_read" not in instance.db:
+            if instance.dialect != "postgresql" or "read" not in instance.db:
                 logger.warning(WARNING_RUN_TRANSFORM)
     # suppress run by passing False
     elif not run:
@@ -2576,10 +2576,10 @@ def _track_run_input(
         if run is None:
             if settings.track_run_inputs:
                 # here we check that this is not a read-only connection
-                # normally for our connection strings the read-only role name has _read in it
+                # normally for our connection strings the read-only role name has "read" in it
                 # not absolutely safe but the worst case is that the warning is not shown
                 instance = setup_settings.instance
-                if instance.dialect != "postgresql" or "_read" not in instance.db:
+                if instance.dialect != "postgresql" or "read" not in instance.db:
                     logger.warning(WARNING_NO_INPUT)
         # assume we have a run record
         else:
