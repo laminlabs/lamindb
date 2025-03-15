@@ -303,6 +303,8 @@ class Context:
 
         instance_settings = ln_setup.settings.instance
         if (
+            # similar logic here: https://github.com/laminlabs/lamindb/pull/2527
+            # TODO: refactor upon new access management
             instance_settings.dialect == "postgresql"
             and "_read" in instance_settings.db
         ):
