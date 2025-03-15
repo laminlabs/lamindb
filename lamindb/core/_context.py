@@ -304,10 +304,7 @@ class Context:
         instance_settings = ln_setup.settings.instance
         # similar logic here: https://github.com/laminlabs/lamindb/pull/2527
         # TODO: refactor upon new access management
-        if (
-            instance_settings.dialect == "postgresql"
-            and "read:" in instance_settings.db
-        ):
+        if instance_settings.dialect == "postgresql" and "read" in instance_settings.db:
             logger.warning("skipping track(), connected in read-only mode")
             return None
         if project is not None:
