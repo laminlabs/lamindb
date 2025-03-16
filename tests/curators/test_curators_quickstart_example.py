@@ -189,7 +189,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
 
     assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
-        "T cell",
+        "CD8-positive, alpha-beta T cell",
         "B cell",
     }
     assert set(artifact.features.get_values()["cell_type_by_model"]) == {
@@ -247,7 +247,7 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
     assert artifact.features._feature_set_by_slot["obs"] == obs_schema
 
     assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
-        "T cell",
+        "CD8-positive, alpha-beta T cell",
         "B cell",
     }
     assert set(artifact.features.get_values()["cell_type_by_model"]) == {
@@ -278,7 +278,7 @@ def test_soma_curator(
     # artifact.features.add_values(adata.uns)
 
     assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
-        "T cell",
+        "CD8-positive, alpha-beta T cell",
         "B cell",
     }
     assert set(artifact.features.get_values()["cell_type_by_model"]) == {
