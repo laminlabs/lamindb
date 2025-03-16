@@ -1,29 +1,27 @@
 """Curators.
 
-.. versionadded:: 1.1.0
+.. autosummary::
+   :toctree: .
+
+   DataFrameCurator
+   AnnDataCurator
+   MuDataCurator
+   SpatialDataCurator
+
+Helper classes:
 
 .. autosummary::
    :toctree: .
 
    Curator
-   DataFrameCurator
    SlotsCurator
-   AnnDataCurator
-   MuDataCurator
-   SpatialDataCurator
-
-CatManager:
-
-.. autosummary::
-   :toctree: .
-
    CatManager
+   CatLookup
    DataFrameCatManager
    AnnDataCatManager
    MuDataCatManager
    TiledbsomaCatManager
    SpatialDataCatManager
-   CurateLookup
 
 """
 
@@ -88,7 +86,7 @@ def strip_ansi_codes(text):
     return ansi_pattern.sub("", text)
 
 
-class CurateLookup:
+class CatLookup:
     """Lookup categories from the reference instance.
 
     Args:
@@ -189,13 +187,13 @@ class Curator:
 
     A `Curator` object makes it easy to validate, standardize & annotate datasets.
 
-    .. versionadded:: 1.1.0
-
     See:
         - :class:`~lamindb.curators.DataFrameCurator`
         - :class:`~lamindb.curators.AnnDataCurator`
         - :class:`~lamindb.curators.MuDataCurator`
         - :class:`~lamindb.curators.SpatialDataCurator`
+
+    .. versionadded:: 1.1.0
     """
 
     def __init__(self, dataset: Any, schema: Schema | None = None):
@@ -848,30 +846,14 @@ class SpatialDataCurator(SlotsCurator):
 
 
 class CatManager:
-    """Manage valid categoricals by updating registries.
+    """Manage categoricals by updating registries.
 
-    A `CatManager` object makes it easy to validate, standardize & annotate datasets.
-
-    Example::
-
-        import lamindb as ln
-
-        cat_manager = ln.curators.CatManager(
-            dataset,
-            # define validation criteria as mappings
-            columns=Feature.name,  # map column names
-            categoricals={"perturbation": ULabel.name},  # map categories
-        )
-        cat_manager.validate()  # validate the dataframe
-        artifact = cat_manager.save_artifact(description="my RNA-seq")
-        artifact.describe()  # see annotations
-
-    `cat_manager.validate()` maps values within `df` according to the mapping criteria and logs validated & problematic values.
+    This class is accessible from within a `DataFrameCurator` via the `.cat` attribute.
 
     If you find non-validated values, you have several options:
 
-    - new values found in the data can be registered using :meth:`~lamindb.curators.DataFrameCatManager.add_new_from`
-    - non-validated values can be accessed using :meth:`~lamindb.curators.DataFrameCatManager.non_validated` and addressed manually
+    - new values found in the data can be registered via `DataFrameCurator.cat.add_new_from()` :meth:`~lamindb.curators.DataFrameCatManager.add_new_from`
+    - non-validated values can be accessed via `DataFrameCurator.cat.add_new_from()` :meth:`~lamindb.curators.DataFrameCatManager.non_validated` and addressed manually
     """
 
     def __init__(self, *, dataset, categoricals, sources, organism, columns_field=None):
@@ -989,34 +971,7 @@ class CatManager:
 
 
 class DataFrameCatManager(CatManager):
-    """Curation flow for a DataFrame object.
-
-    See also :class:`~lamindb.Curator`.
-
-    Args:
-        df: The DataFrame object to curate.
-        columns: The field attribute for the feature column.
-        categoricals: A dictionary mapping column names to registry_field.
-        verbosity: The verbosity level.
-        organism: The organism name.
-        sources: A dictionary mapping column names to Source records.
-
-    Returns:
-        A curator object.
-
-    Example::
-
-        import lamindb as ln
-        import bionty as bt
-
-        curator = ln.curators.DataFrameCatManager(
-            df,
-            categoricals={
-                "cell_type_ontology_id": bt.CellType.ontology_id,
-                "donor_id": ULabel.name
-            }
-        )
-    """
+    """Categorical manager for a `DataFrame`."""
 
     def __init__(
         self,
@@ -1043,13 +998,13 @@ class DataFrameCatManager(CatManager):
         )
         self._save_columns()
 
-    def lookup(self, public: bool = False) -> CurateLookup:
+    def lookup(self, public: bool = False) -> CatLookup:
         """Lookup categories.
 
         Args:
             public: If "public", the lookup is performed on the public reference.
         """
-        return CurateLookup(
+        return CatLookup(
             categoricals=self._categoricals,
             slots={"columns": self._columns_field},
             public=public,
@@ -1203,31 +1158,7 @@ class DataFrameCatManager(CatManager):
 
 
 class AnnDataCatManager(CatManager):
-    """Manage categorical curation.
-
-    Args:
-        data: The AnnData object or an AnnData-like path.
-        var_index: The registry field for mapping the ``.var`` index.
-        categoricals: A dictionary mapping ``.obs.columns`` to a registry field.
-        obs_columns: The registry field for mapping the ``.obs.columns``.
-        verbosity: The verbosity level.
-        organism: The organism name.
-        sources: A dictionary mapping ``.obs.columns`` to Source records.
-
-    Example::
-
-        import lamindb as ln
-        import bionty as bt
-
-        curator = ln.curators.AnnDataCatManager(
-            adata,
-            var_index=bt.Gene.ensembl_gene_id,
-            categoricals={
-                "cell_type_ontology_id": bt.CellType.ontology_id,
-                "donor_id": ULabel.name
-            },
-        )
-    """
+    """Categorical manager for an `AnnData`."""
 
     def __init__(
         self,
@@ -1280,13 +1211,13 @@ class AnnDataCatManager(CatManager):
         """Return the obs fields to validate against."""
         return self._obs_fields
 
-    def lookup(self, public: bool = False) -> CurateLookup:
+    def lookup(self, public: bool = False) -> CatLookup:
         """Lookup categories.
 
         Args:
             public: If "public", the lookup is performed on the public reference.
         """
-        return CurateLookup(
+        return CatLookup(
             categoricals=self._obs_fields,
             slots={"columns": self._columns_field, "var_index": self._var_field},
             public=public,
@@ -1391,36 +1322,7 @@ class AnnDataCatManager(CatManager):
 
 
 class MuDataCatManager(CatManager):
-    """Curation flow for a ``MuData`` object.
-
-    Args:
-        mdata: The MuData object to curate.
-        var_index: The registry field for mapping the ``.var`` index for each modality.
-            For example:
-            ``{"modality_1": bt.Gene.ensembl_gene_id, "modality_2": CellMarker.name}``
-        categoricals: A dictionary mapping ``.obs.columns`` to a registry field.
-            Use modality keys to specify categoricals for MuData slots such as `"rna:cell_type": bt.CellType.name"`.
-        verbosity: The verbosity level.
-        organism: The organism name.
-        sources: A dictionary mapping ``.obs.columns`` to Source records.
-
-    Example::
-
-        import lamindb as ln
-        import bionty as bt
-
-        curator = ln.curators.MuDataCatManager(
-            mdata,
-            var_index={
-                "rna": bt.Gene.ensembl_gene_id,
-                "adt": CellMarker.name
-            },
-            categoricals={
-                "cell_type_ontology_id": bt.CellType.ontology_id,
-                "donor_id": ULabel.name
-            },
-        )
-    """
+    """Categorical manager for a `MuData`."""
 
     def __init__(
         self,
@@ -1510,7 +1412,7 @@ class MuDataCatManager(CatManager):
                 obs_fields["obs"][k] = v
         return obs_fields
 
-    def lookup(self, public: bool = False) -> CurateLookup:
+    def lookup(self, public: bool = False) -> CatLookup:
         """Lookup categories.
 
         Args:
@@ -1523,7 +1425,7 @@ class MuDataCatManager(CatManager):
                     obs_fields[k] = v
                 else:
                     obs_fields[f"{mod}:{k}"] = v
-        return CurateLookup(
+        return CatLookup(
             categoricals=obs_fields,
             slots={
                 **{f"{k}_var_index": v for k, v in self._var_fields.items()},
@@ -1639,43 +1541,7 @@ def _maybe_curation_keys_not_present(nonval_keys: list[str], name: str):
 
 
 class SpatialDataCatManager(CatManager):
-    """Curation flow for a ``Spatialdata`` object.
-
-    See also :class:`~lamindb.Curator`.
-
-    Note that if genes or other measurements are removed from the SpatialData object,
-    the object should be recreated.
-
-    In the following docstring, an accessor refers to either a ``.table`` key or the ``sample_metadata_key``.
-
-    Args:
-        sdata: The SpatialData object to curate.
-        var_index: A dictionary mapping table keys to the ``.var`` indices.
-        categoricals: A nested dictionary mapping an accessor to dictionaries that map columns to a registry field.
-
-        organism: The organism name.
-        sources: A dictionary mapping an accessor to dictionaries that map columns to Source records.
-        verbosity: The verbosity level of the logger.
-        sample_metadata_key: The key in ``.attrs`` that stores the sample level metadata.
-
-    Example::
-
-        import lamindb as ln
-        import bionty as bt
-
-        curator = ln.curators.SpatialDataCatManager(
-            sdata,
-            var_index={
-                "table_1": bt.Gene.ensembl_gene_id,
-            },
-            categoricals={
-                "table1":
-                    {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name},
-                "sample":
-                    {"experimental_factor": bt.ExperimentalFactor.name},
-            },
-        )
-    """
+    """Categorical manager for a `MuData`."""
 
     def __init__(
         self,
@@ -1805,14 +1671,14 @@ class SpatialDataCatManager(CatManager):
             if not is_present:
                 raise ValidationError(f"Accessor '{acc}' does not exist!")
 
-    def lookup(self, public: bool = False) -> CurateLookup:
+    def lookup(self, public: bool = False) -> CatLookup:
         """Look up categories.
 
         Args:
             public: Whether the lookup is performed on the public reference.
         """
         cat_values_dict = list(self.categoricals.values())[0]
-        return CurateLookup(
+        return CatLookup(
             categoricals=cat_values_dict,
             slots={"accessors": cat_values_dict.keys()},
             public=public,
@@ -2000,34 +1866,7 @@ class SpatialDataCatManager(CatManager):
 
 
 class TiledbsomaCatManager(CatManager):
-    """Curation flow for `tiledbsoma.Experiment`.
-
-    Args:
-        experiment_uri: A local or cloud path to a `tiledbsoma.Experiment`.
-        var_index: The registry fields for mapping the `.var` indices for measurements.
-            Should be in the form `{"measurement name": ("var column", field)}`.
-            These keys should be used in the flattened form (`'{measurement name}__{column name in .var}'`)
-            in `.standardize` or `.add_new_from`, see the output of `.var_index`.
-        categoricals: A dictionary mapping categorical `.obs` columns to a registry field.
-        obs_columns: The registry field for mapping the names of the `.obs` columns.
-        organism: The organism name.
-        sources: A dictionary mapping `.obs` columns to Source records.
-
-    Example::
-
-        import lamindb as ln
-        import bionty as bt
-
-        curator = ln.curators.TiledbsomaCatManager(
-            "./my_array_store.tiledbsoma",
-            var_index={"RNA": ("var_id", bt.Gene.symbol)},
-            categoricals={
-                "cell_type_ontology_id": bt.CellType.ontology_id,
-                "donor_id": ln.ULabel.name
-            },
-            organism="human",
-        )
-    """
+    """Categorical manager for a `tiledbsoma.Experiment`."""
 
     def __init__(
         self,
@@ -2287,13 +2126,13 @@ class TiledbsomaCatManager(CatManager):
         """Return the obs fields to validate against."""
         return self._obs_fields
 
-    def lookup(self, public: bool = False) -> CurateLookup:
+    def lookup(self, public: bool = False) -> CatLookup:
         """Lookup categories.
 
         Args:
             public: If "public", the lookup is performed on the public reference.
         """
-        return CurateLookup(
+        return CatLookup(
             categoricals=self._obs_fields,
             slots={"columns": self._columns_field, **self._var_fields_flat},
             public=public,
@@ -2473,7 +2312,10 @@ class TiledbsomaCatManager(CatManager):
 
 
 class CellxGeneAnnDataCatManager(AnnDataCatManager):
-    """Annotation flow of AnnData based on CELLxGENE schema."""
+    """Categorical manager for an `AnnData` respecting the CELLxGENE schema.
+
+    This will be superceded by a schema-based curation flow.
+    """
 
     cxg_categoricals_defaults = {
         "cell_type": "unknown",
@@ -2814,7 +2656,7 @@ class TimeHandler:
 
 
 class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
-    """Curator flow for Perturbation data."""
+    """Categorical manager for an `AnnData` to manage perturbations."""
 
     PERT_COLUMNS = {"compound", "genetic", "biologic", "physical"}
 

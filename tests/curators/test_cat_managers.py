@@ -9,7 +9,7 @@ import lamindb as ln
 import mudata as md
 import pandas as pd
 import pytest
-from lamindb.curators import CurateLookup, ValidationError
+from lamindb.curators import CatLookup, ValidationError
 
 
 @pytest.fixture
@@ -86,7 +86,7 @@ def categoricals():
 
 @pytest.fixture
 def curate_lookup(categoricals):
-    return CurateLookup(categoricals=categoricals)
+    return CatLookup(categoricals=categoricals)
 
 
 @pytest.fixture
@@ -213,7 +213,7 @@ def test_pass_artifact(df):
 
 def test_custom_using_invalid_field_lookup(curate_lookup):
     with pytest.raises(
-        AttributeError, match='"CurateLookup" object has no attribute "invalid_field"'
+        AttributeError, match='"CatLookup" object has no attribute "invalid_field"'
     ):
         _ = curate_lookup["invalid_field"]
 
