@@ -14,6 +14,7 @@ from typing import (
     Literal,
     NamedTuple,
     Union,
+    overload,
 )
 
 import dj_database_url
@@ -880,7 +881,13 @@ class BasicRecord(models.Model, metaclass=Registry):
 
 
 class Space(BasicRecord):
-    """Spaces."""
+    """Spaces.
+
+    You can use spaces to restrict access to records within an instance.
+
+    All data in this registry is synced from `lamin.ai` to enable re-using spaces across instances.
+    There is no need to manually create records.
+    """
 
     id: int = models.SmallAutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -905,6 +912,26 @@ class Space(BasicRecord):
         "User", CASCADE, default=None, related_name="+", null=True
     )
     """Creator of run."""
+
+    @overload
+    def __init__(
+        self,
+        name: str,
+        description: str | None = None,
+    ): ...
+
+    @overload
+    def __init__(
+        self,
+        *db_args,
+    ): ...
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
 
 
 @doc_args(RECORD_REGISTRY_EXAMPLE)
@@ -994,8 +1021,8 @@ def _get_record_kwargs(record_class) -> list[tuple[str, str]]:
     pattern = r"@overload\s+def __init__\s*\(([\s\S]*?)\):\s*\.{3}"
     overloads = re.finditer(pattern, source)
 
-    for overload in overloads:
-        params_block = overload.group(1)
+    for single_overload in overloads:
+        params_block = single_overload.group(1)
         # This is an additional safety measure if the overloaded signature that we're
         # looking for is not at the top but a "db_args" constructor
         if "*db_args" in params_block:
