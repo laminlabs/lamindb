@@ -8,9 +8,11 @@ import pandas as pd
 
 
 def small_dataset1(
-    otype: Literal["DataFrame", "AnnData"],
+    otype: Literal["DataFrame", "AnnData"] = "DataFrame",
     gene_symbols_in_index: bool = False,
     with_typo: bool = False,
+    with_cell_type_synonym: bool = False,
+    with_cell_type_typo: bool = False,
 ) -> pd.DataFrame | ad.AnnData:
     # define the data in the dataset
     # it's a mix of numerical measurements and observation-level metadata
@@ -19,14 +21,25 @@ def small_dataset1(
         var_ids = ["CD8A", "CD4", "CD14"]
     else:
         var_ids = ["ENSG00000153563", "ENSG00000010610", "ENSG00000170458"]
+    abt_cell = (
+        "CD8-pos alpha-beta T cell"
+        if with_cell_type_typo
+        else "CD8-positive, alpha-beta T cell"
+    )
     dataset_dict = {
         var_ids[0]: [1, 2, 3],
         var_ids[1]: [3, 4, 5],
         var_ids[2]: [5, 6, 7],
         "perturbation": pd.Categorical(["DMSO", ifng, "DMSO"]),
         "sample_note": ["was ok", "looks naah", "pretty! 🤩"],
-        "cell_type_by_expert": pd.Categorical(["B cell", "T cell", "T cell"]),
+        "cell_type_by_expert": pd.Categorical(
+            ["B-cell" if with_cell_type_synonym else "B cell", abt_cell, abt_cell]
+        ),
         "cell_type_by_model": pd.Categorical(["B cell", "T cell", "T cell"]),
+        "assay_oid": pd.Categorical(["EFO:0008913", "EFO:0008913", "EFO:0008913"]),
+        "concentration": ["0.1%", "200 nM", "0.1%"],
+        "treatment_time_h": [24, 24, 6],
+        "donor": ["D0001", "D0002", None],
     }
     # define the dataset-level metadata
     metadata = {

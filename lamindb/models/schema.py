@@ -585,14 +585,6 @@ class Schema(Record, CanCurate, TracksRun):
             self._aux["af"] = {}
         self._aux["af"]["0"] = value
 
-    @coerce_dtype.setter
-    def coerce_dtype(self, value: bool) -> None:
-        if self._aux is None:
-            self._aux = {}
-        if "af" not in self._aux:
-            self._aux["af"] = {}
-        self._aux["af"]["0"] = value
-
     # @property
     # def index_feature(self) -> None | Feature:
     #     # index_feature: `Record | None = None` A :class:`~lamindb.Feature` to validate the index of a `DataFrame`.
