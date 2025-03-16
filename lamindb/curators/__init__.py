@@ -20,6 +20,7 @@ Helper classes.
    DataFrameCatManager
    AnnDataCatManager
    MuDataCatManager
+   SpatialDataCatManager
    TiledbsomaCatManager
 
 """
