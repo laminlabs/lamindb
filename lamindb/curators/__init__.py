@@ -8,7 +8,7 @@
    MuDataCurator
    SpatialDataCurator
 
-Helper classes:
+Helper classes.
 
 .. autosummary::
    :toctree: .
@@ -21,7 +21,6 @@ Helper classes:
    AnnDataCatManager
    MuDataCatManager
    TiledbsomaCatManager
-   SpatialDataCatManager
 
 """
 
@@ -183,7 +182,7 @@ Returns:
 
 
 class Curator:
-    """Dataset curator.
+    """Curator base class.
 
     A `Curator` object makes it easy to validate, standardize & annotate datasets.
 
@@ -297,7 +296,7 @@ class SlotsCurator(Curator):
 
 class DataFrameCurator(Curator):
     # the example in the docstring is tested in test_curators_quickstart_example
-    """Curator for a DataFrame object.
+    """Curator for `DataFrame`.
 
     See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
 
@@ -468,7 +467,7 @@ class DataFrameCurator(Curator):
 
 class AnnDataCurator(SlotsCurator):
     # the example in the docstring is tested in test_curators_quickstart_example
-    """Curator for an AnnData object.
+    """Curator for `AnnData`.
 
     See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
 
@@ -611,7 +610,7 @@ def _assign_var_fields_categoricals_multimodal(
 
 class MuDataCurator(SlotsCurator):
     # the example in the docstring is tested in test_curators_quickstart_example
-    """Curator for a MuData object.
+    """Curator for `MuData`.
 
     See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
 
@@ -727,7 +726,7 @@ class MuDataCurator(SlotsCurator):
 
 class SpatialDataCurator(SlotsCurator):
     # the example in the docstring is tested in test_curators_quickstart_example
-    """Curator for a SpatialData object.
+    """Curator for `SpatialData`.
 
     See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
 
@@ -971,7 +970,7 @@ class CatManager:
 
 
 class DataFrameCatManager(CatManager):
-    """Categorical manager for a `DataFrame`."""
+    """Categorical manager for `DataFrame`."""
 
     def __init__(
         self,
@@ -1158,7 +1157,7 @@ class DataFrameCatManager(CatManager):
 
 
 class AnnDataCatManager(CatManager):
-    """Categorical manager for an `AnnData`."""
+    """Categorical manager for `AnnData`."""
 
     def __init__(
         self,
@@ -1322,7 +1321,7 @@ class AnnDataCatManager(CatManager):
 
 
 class MuDataCatManager(CatManager):
-    """Categorical manager for a `MuData`."""
+    """Categorical manager for `MuData`."""
 
     def __init__(
         self,
@@ -1541,7 +1540,7 @@ def _maybe_curation_keys_not_present(nonval_keys: list[str], name: str):
 
 
 class SpatialDataCatManager(CatManager):
-    """Categorical manager for a `MuData`."""
+    """Categorical manager for `SpatialData`."""
 
     def __init__(
         self,
@@ -1866,7 +1865,7 @@ class SpatialDataCatManager(CatManager):
 
 
 class TiledbsomaCatManager(CatManager):
-    """Categorical manager for a `tiledbsoma.Experiment`."""
+    """Categorical manager for `tiledbsoma.Experiment`."""
 
     def __init__(
         self,
@@ -2312,7 +2311,7 @@ class TiledbsomaCatManager(CatManager):
 
 
 class CellxGeneAnnDataCatManager(AnnDataCatManager):
-    """Categorical manager for an `AnnData` respecting the CELLxGENE schema.
+    """Categorical manager for `AnnData` respecting the CELLxGENE schema.
 
     This will be superceded by a schema-based curation flow.
     """
@@ -2656,7 +2655,7 @@ class TimeHandler:
 
 
 class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
-    """Categorical manager for an `AnnData` to manage perturbations."""
+    """Categorical manager for `AnnData` to manage perturbations."""
 
     PERT_COLUMNS = {"compound", "genetic", "biologic", "physical"}
 
