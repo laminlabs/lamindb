@@ -13,6 +13,7 @@ from typing import (
     Any,
     Literal,
     NamedTuple,
+    TypeVar,
     Union,
     overload,
 )
@@ -89,6 +90,7 @@ if TYPE_CHECKING:
     from .transform import Transform
 
 
+T = TypeVar("T", bound="Record")
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
 
 
@@ -468,10 +470,10 @@ class Registry(ModelBase):
         return QuerySet(model=cls, using=_using_key).filter(*queries, **expressions)
 
     def get(
-        cls,
+        cls: type[T],
         idlike: int | str | None = None,
         **expressions,
-    ) -> Record:
+    ) -> T:
         """Get a single record.
 
         Args:
