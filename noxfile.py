@@ -30,9 +30,7 @@ GROUPS["tutorial"] = [
 ]
 GROUPS["guide"] = [
     "track.ipynb",
-    "curate-df.ipynb",
-    "curate-any.ipynb",
-    "ehrcuration.ipynb",
+    "curate.ipynb",
 ]
 GROUPS["biology"] = [
     "bio-registries.ipynb",
@@ -110,7 +108,7 @@ def install_ci(session, group):
         extras += "bionty,fcs,jupyter"
         run(session, "uv pip install --system ipywidgets")
     elif group == "faq":
-        extras += "bionty,jupyter"
+        extras += "bionty,jupyter,zarr"
     elif group == "storage":
         extras += "zarr,bionty,jupyter"
         run(
