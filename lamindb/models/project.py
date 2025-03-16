@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, overload
 
 from django.core.validators import RegexValidator
 from django.db import models
@@ -66,6 +66,23 @@ class Person(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     external: bool = BooleanField(default=True, db_index=True)
     """Whether the person is external to the organization."""
 
+    @overload
+    def __init__(
+        self,
+        name: str,
+        email: str | None = None,
+        external: bool = True,
+    ): ...
+
+    @overload
+    def __init__(
+        self,
+        *db_args,
+    ): ...
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
 
 class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """References such as internal studies, papers, documents, or URLs.
@@ -94,12 +111,6 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Universal id, valid across DB instances."""
     name: str = CharField(db_index=True)
     """Title or name of the reference document."""
-    abbr: str | None = CharField(
-        max_length=32,
-        db_index=True,
-        null=True,
-    )
-    """An abbreviation for the reference."""
     type: Reference | None = ForeignKey(
         "self", PROTECT, null=True, related_name="records"
     )
@@ -111,6 +122,12 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Records of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
+    abbr: str | None = CharField(
+        max_length=32,
+        db_index=True,
+        null=True,
+    )
+    """An abbreviation for the reference."""
     url: str | None = URLField(null=True)
     """URL linking to the reference."""
     pubmed_id: int | None = BigIntegerField(null=True, db_index=True)
@@ -146,6 +163,30 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         Collection, through="CollectionReference", related_name="references"
     )
     """Collections associated with this reference."""
+
+    @overload
+    def __init__(
+        self,
+        name: str,
+        type: Reference | None = None,
+        is_type: bool = False,
+        abbr: str | None = None,
+        url: str | None = None,
+        pubmed_id: int | None = None,
+        doi: str | None = None,
+        description: str | None = None,
+        text: str | None = None,
+        date: DateType | None = None,
+    ): ...
+
+    @overload
+    def __init__(
+        self,
+        *db_args,
+    ): ...
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
@@ -240,6 +281,27 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Linked references."""
     _status_code: int = models.SmallIntegerField(default=0, db_index=True)
     """Status code."""
+
+    @overload
+    def __init__(
+        self,
+        name: str,
+        type: Project | None = None,
+        is_type: bool = False,
+        abbr: str | None = None,
+        url: str | None = None,
+        start_date: DateType | None = None,
+        end_date: DateType | None = None,
+    ): ...
+
+    @overload
+    def __init__(
+        self,
+        *db_args,
+    ): ...
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 class ArtifactProject(BasicRecord, LinkORM, TracksRun):

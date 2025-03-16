@@ -23,10 +23,12 @@ from lamindb.errors import ValidationError
 
 from ..base.ids import base62_20
 from .can_curate import CanCurate
-from .record import BasicRecord, LinkORM, Record
+from .record import BasicRecord, LinkORM, Record, Registry
 
 if TYPE_CHECKING:
     from datetime import datetime
+
+    from lamindb.base.types import FeatureDtype, FieldAttr
 
     from .artifact import Artifact
     from .collection import Collection
@@ -234,6 +236,21 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
     # backward fields
     values: ParamValue
     """Values for this parameter."""
+
+    @overload
+    def __init__(
+        self,
+        name: str,
+        dtype: FeatureDtype | Registry | list[Registry] | FieldAttr,
+        type: Param | None = None,
+        is_type: bool = False,
+    ): ...
+
+    @overload
+    def __init__(
+        self,
+        *db_args,
+    ): ...
 
     def __init__(self, *args, **kwargs):
         from .feature import process_init_feature_param

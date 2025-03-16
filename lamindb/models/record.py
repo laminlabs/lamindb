@@ -13,7 +13,9 @@ from typing import (
     Any,
     Literal,
     NamedTuple,
+    TypeVar,
     Union,
+    overload,
 )
 
 import dj_database_url
@@ -88,6 +90,7 @@ if TYPE_CHECKING:
     from .transform import Transform
 
 
+T = TypeVar("T", bound="Record")
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
 
 
@@ -467,18 +470,15 @@ class Registry(ModelBase):
         return QuerySet(model=cls, using=_using_key).filter(*queries, **expressions)
 
     def get(
-        cls,
+        cls: type[T],
         idlike: int | str | None = None,
         **expressions,
-    ) -> Record:
+    ) -> T:
         """Get a single record.
 
         Args:
             idlike: Either a uid stub, uid or an integer id.
             expressions: Fields and values passed as Django query expressions.
-
-        Returns:
-            A record.
 
         Raises:
             :exc:`docs:lamindb.errors.DoesNotExist`: In case no matching record is found.
@@ -487,9 +487,10 @@ class Registry(ModelBase):
             - Guide: :doc:`docs:registries`
             - Django documentation: `Queries <https://docs.djangoproject.com/en/stable/topics/db/queries/>`__
 
-        Examples:
-            >>> ulabel = ln.ULabel.get("FvtpPJLJ")
-            >>> ulabel = ln.ULabel.get(name="my-label")
+        Examples::
+
+            ulabel = ln.ULabel.get("FvtpPJLJ")
+            ulabel = ln.ULabel.get(name="my-label")
         """
         from .query_set import QuerySet
 
@@ -880,7 +881,13 @@ class BasicRecord(models.Model, metaclass=Registry):
 
 
 class Space(BasicRecord):
-    """Spaces."""
+    """Spaces.
+
+    You can use spaces to restrict access to records within an instance.
+
+    All data in this registry is synced from `lamin.ai` to enable re-using spaces across instances.
+    There is no need to manually create records.
+    """
 
     id: int = models.SmallAutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -905,6 +912,26 @@ class Space(BasicRecord):
         "User", CASCADE, default=None, related_name="+", null=True
     )
     """Creator of run."""
+
+    @overload
+    def __init__(
+        self,
+        name: str,
+        description: str | None = None,
+    ): ...
+
+    @overload
+    def __init__(
+        self,
+        *db_args,
+    ): ...
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
 
 
 @doc_args(RECORD_REGISTRY_EXAMPLE)
@@ -994,8 +1021,8 @@ def _get_record_kwargs(record_class) -> list[tuple[str, str]]:
     pattern = r"@overload\s+def __init__\s*\(([\s\S]*?)\):\s*\.{3}"
     overloads = re.finditer(pattern, source)
 
-    for overload in overloads:
-        params_block = overload.group(1)
+    for single_overload in overloads:
+        params_block = single_overload.group(1)
         # This is an additional safety measure if the overloaded signature that we're
         # looking for is not at the top but a "db_args" constructor
         if "*db_args" in params_block:
