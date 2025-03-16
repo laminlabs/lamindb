@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, overload
 
 from django.core.validators import RegexValidator
 from django.db import models
@@ -240,6 +240,27 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Linked references."""
     _status_code: int = models.SmallIntegerField(default=0, db_index=True)
     """Status code."""
+
+    @overload
+    def __init__(
+        self,
+        name: str,
+        type: Project | None = None,
+        is_type: bool = False,
+        abbr: str | None = None,
+        url: str | None = None,
+        start_date: DateType | None = None,
+        end_date: DateType | None = None,
+    ): ...
+
+    @overload
+    def __init__(
+        self,
+        *db_args,
+    ): ...
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 class ArtifactProject(BasicRecord, LinkORM, TracksRun):
