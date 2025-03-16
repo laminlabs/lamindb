@@ -66,6 +66,23 @@ class Person(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     external: bool = BooleanField(default=True, db_index=True)
     """Whether the person is external to the organization."""
 
+    @overload
+    def __init__(
+        self,
+        name: str,
+        email: str | None = None,
+        external: bool = True,
+    ): ...
+
+    @overload
+    def __init__(
+        self,
+        *db_args,
+    ): ...
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
 
 class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """References such as internal studies, papers, documents, or URLs.
