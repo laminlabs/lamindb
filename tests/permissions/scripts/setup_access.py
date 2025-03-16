@@ -2,9 +2,9 @@ import lamindb as ln  # noqa
 import hubmodule.models as hm
 from laminhub_rest.core.db import DbRoleHandler
 
-full_access = ln.models.Space(name="full access", uid="00000001").save()
-select_access = ln.models.Space(name="select access", uid="00000002").save()
-no_access = ln.models.Space(name="no access", uid="00000003").save()
+full_access = ln.models.Space(name="full access", uid="00000001").save()  # type: ignore
+select_access = ln.models.Space(name="select access", uid="00000002").save()  # type: ignore
+no_access = ln.models.Space(name="no access", uid="00000003").save()  # type: ignore
 
 account = hm.Account(id=ln.setup.settings.user._uuid.hex).save()
 
