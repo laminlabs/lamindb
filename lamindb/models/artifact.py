@@ -1468,24 +1468,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     def n_objects(self) -> int:
         return self.n_files
 
-    # add the below because this is what people will have in their code
-    # if they implement the recommended migration strategy
-    # - FeatureSet -> Schema
-    # - featureset -> schema
-    # - feature_set -> schema
-    # @property
-    # def schemas(self) -> QuerySet[Schema]:
-    #     """Schemas linked to artifact via many-to-many relationship.
-
-    #     Is now mediating the private `.feature_sets` relationship during
-    #     a transition period to better schema management.
-
-    #     .. versionchanged: 1.0
-    #        Was previously called `.feature_sets`.
-
-    #     """
-    #     return self.feature_sets
-
     @property
     def path(self) -> Path:
         """Path.
@@ -1521,6 +1503,34 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         return setup_settings.paths.cloud_to_local_no_update(
             filepath, cache_key=cache_key
         )
+
+    @classmethod
+    def get(
+        cls,
+        idlike: int | str | None = None,
+        **expressions,
+    ) -> Artifact:
+        """Get a single artifact.
+
+        Args:
+            idlike: Either a uid stub, uid or an integer id.
+            expressions: Fields and values passed as Django query expressions.
+
+        Raises:
+            :exc:`docs:lamindb.errors.DoesNotExist`: In case no matching record is found.
+
+        See Also:
+            - Guide: :doc:`docs:registries`
+            - Method in `Record` base class: :meth:`~lamindb.models.Record.get`
+
+        Examples::
+
+            artifact = ln.Artifact.get("tCUkRcaEjTjhtozp0000")
+            artifact = ln.Arfifact.get(key="my_datasets/my_file.parquet")
+        """
+        from .query_set import QuerySet
+
+        return QuerySet(model=cls).get(idlike, **expressions)
 
     @classmethod
     def from_df(

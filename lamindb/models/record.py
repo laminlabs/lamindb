@@ -478,9 +478,6 @@ class Registry(ModelBase):
             idlike: Either a uid stub, uid or an integer id.
             expressions: Fields and values passed as Django query expressions.
 
-        Returns:
-            A record.
-
         Raises:
             :exc:`docs:lamindb.errors.DoesNotExist`: In case no matching record is found.
 
@@ -488,9 +485,10 @@ class Registry(ModelBase):
             - Guide: :doc:`docs:registries`
             - Django documentation: `Queries <https://docs.djangoproject.com/en/stable/topics/db/queries/>`__
 
-        Examples:
-            >>> ulabel = ln.ULabel.get("FvtpPJLJ")
-            >>> ulabel = ln.ULabel.get(name="my-label")
+        Examples::
+
+            ulabel = ln.ULabel.get("FvtpPJLJ")
+            ulabel = ln.ULabel.get(name="my-label")
         """
         from .query_set import QuerySet
 
