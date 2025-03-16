@@ -128,7 +128,7 @@ def test_curate_df():
     expected_data = {
         "key": ["example_datasets/dataset2.h5ad", "example_datasets/dataset1.h5ad"],
         "description": [None, None],
-        "cell_type_by_expert": [np.nan, {"T cell", "B cell"}],
+        "cell_type_by_expert": [np.nan, {"CD8-positive, alpha-beta T cell", "B cell"}],
         "cell_type_by_model": [{"T cell", "B cell"}, {"T cell", "B cell"}],
         "study": [{"Candidate marker study 2"}, {"Candidate marker study 1"}],
         "perturbation": [{"IFNG", "DMSO"}, {"IFNG", "DMSO"}],
@@ -199,7 +199,7 @@ def test_curate_df():
         int_features_node.children[1].label.columns[1]._cells[2].plain == "cat[ULabel]"
     )
     assert int_features_node.children[1].label.columns[2]._cells == [
-        "B cell, T cell",
+        "B cell, CD8-positive, alpha-beta T cell",
         "B cell, T cell",
         "DMSO, IFNG",
         "",
@@ -242,7 +242,7 @@ def test_curate_df():
     assert labels_node.children[0].label.columns[1]._cells[0].plain == "bionty.CellType"
     assert labels_node.children[0].label.columns[1]._cells[1].plain == "ULabel"
     assert labels_node.children[0].label.columns[2]._cells == [
-        "B cell, T cell",
+        "B cell, T cell, CD8-positive, alpha-beta T cell",
         "DMSO, IFNG, Candidate marker study 1",
     ]
 

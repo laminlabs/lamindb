@@ -260,6 +260,8 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         synonyms: `str | None = None` Bar-separated synonyms.
         nullable: `bool = True` Whether the feature can have null-like values (`None`, `pd.NA`, `NaN`, etc.), see :attr:`~lamindb.Feature.nullable`.
         default_value: `Any | None = None` Default value for the feature.
+        coerce_dtype: `bool = False` When True, attempts to coerce values to the specified dtype
+            during validation, see :attr:`~lamindb.Feature.coerce_dtype`.
         cat_filters: `dict[str, str] | None = None` Subset a registry by additional filters to define valid categories.
 
     Note:
@@ -328,6 +330,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     _aux_fields: dict[str, tuple[str, type]] = {
         "0": ("default_value", bool),
         "1": ("nullable", bool),
+        "2": ("coerce_dtype", bool),
     }
 
     id: int = models.AutoField(primary_key=True)
@@ -424,6 +427,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         synonyms: str | None = None,
         nullable: bool = True,
         default_value: str | None = None,
+        coerce_dtype: bool = False,
         cat_filters: dict[str, str] | None = None,
     ): ...
 
@@ -445,10 +449,12 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         default_value = kwargs.pop("default_value", None)
         nullable = kwargs.pop("nullable", True)  # default value of nullable
         cat_filters = kwargs.pop("cat_filters", None)
+        coerce_dtype = kwargs.pop("coerce_dtype", False)
         kwargs = process_init_feature_param(args, kwargs)
         super().__init__(*args, **kwargs)
         self.default_value = default_value
         self.nullable = nullable
+        self.coerce_dtype = coerce_dtype
         dtype_str = kwargs.pop("dtype", None)
         if cat_filters:
             assert "|" not in dtype_str  # noqa: S101
@@ -493,6 +499,25 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         """Save."""
         super().save(*args, **kwargs)
         return self
+
+    @property
+    def coerce_dtype(self) -> bool:
+        """Whether dtypes should be coerced during validation.
+
+        For example, a `objects`-dtyped pandas column can be coerced to `categorical` and would pass validation if this is true.
+        """
+        if self._aux is not None and "af" in self._aux and "2" in self._aux["af"]:  # type: ignore
+            return self._aux["af"]["2"]  # type: ignore
+        else:
+            return False
+
+    @coerce_dtype.setter
+    def coerce_dtype(self, value: bool) -> None:
+        if self._aux is None:  # type: ignore
+            self._aux = {}  # type: ignore
+        if "af" not in self._aux:
+            self._aux["af"] = {}
+        self._aux["af"]["2"] = value
 
     @property
     def default_value(self) -> Any:
