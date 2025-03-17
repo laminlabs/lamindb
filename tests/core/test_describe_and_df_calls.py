@@ -57,6 +57,8 @@ def test_curate_df():
     ln.Feature(name="study", dtype="cat[ULabel]").save()
     ln.Feature(name="date_of_study", dtype="date").save()
     ln.Feature(name="study_note", dtype="str").save()
+    # ad-hoc external metadata
+    # ln.Feature(name="adhoc_feature", dtype=float).save()
     ## Permissible values for categoricals
     ln.ULabel.from_values(["DMSO", "IFNG"], create=True).save()
     ln.ULabel.from_values(
@@ -77,7 +79,7 @@ def test_curate_df():
         organism="human",
     )
     artifact = curator.save_artifact(key="example_datasets/dataset1.h5ad")
-    artifact.features.add_values(adata.uns)
+    # artifact.features.add_values({"adhoc_feature": 5.5})
 
     # Ingest dataset2
     adata2 = datasets.small_dataset2(otype="AnnData")
@@ -91,7 +93,6 @@ def test_curate_df():
         organism="human",
     )
     artifact2 = curator.save_artifact(key="example_datasets/dataset2.h5ad")
-    artifact2.features.add_values(adata2.uns)
 
     # Test df(include=[...])
     df = (
@@ -125,6 +126,9 @@ def test_curate_df():
         .df(features=True)
         .drop(["uid"], axis=1)
     )
+    print(artifact.features)
+    print(artifact.features.get_values())
+    print(df.columns)
     expected_data = {
         "key": ["example_datasets/dataset2.h5ad", "example_datasets/dataset1.h5ad"],
         "description": [None, None],
@@ -140,6 +144,7 @@ def test_curate_df():
             np.nan,
         ],
         "date_of_study": [{"2024-12-01"}, np.nan],
+        "adhoc_feature": [{5.5}, np.nan],
     }
     expected_df = pd.DataFrame(expected_data)
     check_df_equality(df, expected_df)
@@ -147,11 +152,12 @@ def test_curate_df():
     # expected output has italicized elements that can't be tested
     # hence testing is restricted to section content, not headings
     description_tree = _describe_postgres(artifact)
+    from lamindb.models._describe import print_rich_tree
+
+    print_rich_tree(description_tree)
 
     # general section
-    assert (
-        len(description_tree.children) == 4
-    )  # general, internal features, external features, labels
+    assert len(description_tree.children) == 3  # general, dataset features, labels
     general_node = description_tree.children[0]
     assert general_node.label.plain == "General"
     assert general_node.children[0].label == f".uid = '{artifact.uid}'"
@@ -179,6 +185,8 @@ def test_curate_df():
         int_features_node.children[0].label.columns[1].header.plain == "[bionty.Gene]"
     )
     assert int_features_node.children[0].label.columns[1]._cells[0].plain == "int"
+
+    # obs
     assert int_features_node.children[1].label.columns[0].header.plain == "obs • 4"
     assert int_features_node.children[1].label.columns[0]._cells == [
         "cell_type_by_expert",
@@ -205,28 +213,39 @@ def test_curate_df():
         "",
     ]
 
-    # external features section
-    ext_features_node = description_tree.children[2]
-    assert ext_features_node.label.plain == "Linked features"
-    assert len(ext_features_node.children) == 1
-    assert len(ext_features_node.children[0].label.columns) == 3
-    assert len(ext_features_node.children[0].label.rows) == 4
-    assert ext_features_node.children[0].label.columns[0]._cells == [
+    # uns
+    assert int_features_node.children[2].label.columns[0].header.plain == "uns • 4"
+    assert int_features_node.children[2].label.columns[0]._cells == [
         "study",
         "date_of_study",
         "study_note",
         "temperature",
     ]
+    assert int_features_node.children[2].label.columns[1].header.plain == "[Feature]"
     assert (
-        ext_features_node.children[0].label.columns[1]._cells[0].plain == "cat[ULabel]"
+        int_features_node.children[2].label.columns[1]._cells[0].plain == "cat[ULabel]"
     )
-    assert ext_features_node.children[0].label.columns[1]._cells[1].plain == "date"
-    assert ext_features_node.children[0].label.columns[1]._cells[2].plain == "str"
-    assert ext_features_node.children[0].label.columns[1]._cells[3].plain == "float"
-    assert ext_features_node.children[0].label.columns[2]._cells == [
+    assert int_features_node.children[2].label.columns[1]._cells[1].plain == "date"
+    assert int_features_node.children[2].label.columns[1]._cells[2].plain == "str"
+    assert int_features_node.children[2].label.columns[1]._cells[3].plain == "float"
+    assert int_features_node.children[2].label.columns[2]._cells == [
         "Candidate marker study 1",
         "2024-12-01",
         "We had a great time performing this study and the results look compelling.",
+        "21.6",
+    ]
+
+    # external features section
+    ext_features_node = description_tree.children[2]
+    assert ext_features_node.label.plain == "Linked features"
+    assert len(ext_features_node.children) == 1
+    assert len(ext_features_node.children[0].label.columns) == 3
+    assert len(ext_features_node.children[0].label.rows) == 1
+    assert ext_features_node.children[0].label.columns[0]._cells == [
+        "adhoc_feature",
+    ]
+    assert ext_features_node.children[0].label.columns[1]._cells[0].plain == "float"
+    assert ext_features_node.children[0].label.columns[2]._cells == [
         "21.6",
     ]
 
