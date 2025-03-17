@@ -482,14 +482,14 @@ class Schema(Record, CanCurate, TracksRun):
         organism: Record | str | None = None,
         source: Record | None = None,
     ) -> Schema | None:
-        """Create feature set for validated features."""
+        """Create schema for valid columns."""
         registry = field.field.model
         validated = registry.validate(
             df.columns, field=field, mute=mute, organism=organism
         )
         if validated.sum() == 0:
-            if mute is True:
-                logger.warning("no validated features, skip creating feature set")
+            if not mute:
+                logger.warning("no validated features, skip creating schema")
             return None
         if registry == Feature:
             validated_features = Feature.from_values(  # type: ignore

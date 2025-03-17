@@ -545,7 +545,7 @@ class AnnDataCurator(SlotsCurator):
                 slot_schema,
             )
             for slot, slot_schema in schema.slots.items()
-            if slot in {"obs", "var"}
+            if slot in {"obs", "var", "uns"}
         }
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
@@ -560,10 +560,14 @@ class AnnDataCurator(SlotsCurator):
         """{}"""  # noqa: D415
         if not self._is_validated:
             self.validate()
+        if "obs" in self.slots:
+            categoricals = self.slots["obs"]._cat_manager.categoricals
+        else:
+            categoricals = {}
         return save_artifact(  # type: ignore
             self._dataset,
             description=description,
-            fields=self.slots["obs"]._cat_manager.categoricals,
+            fields=categoricals,
             index_field=(
                 parse_dtype_single_cat(self.slots["var"]._schema.itype, is_itype=True)[
                     "field"
@@ -1018,18 +1022,18 @@ class DataFrameCatManager(CatManager):
         update_registry(
             values=list(self.categoricals.keys()),
             field=self._columns_field,
-            key="columns",
+            key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
             validated_only=False,
             source=self._sources.get("columns"),
         )
 
         # Save the rest of the columns based on validated_only
-        additional_columns = set(self._dataset.columns) - set(self.categoricals.keys())
+        additional_columns = set(self._dataset.keys()) - set(self.categoricals.keys())
         if additional_columns:
             update_registry(
                 values=list(additional_columns),
                 field=self._columns_field,
-                key="columns",
+                key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
                 validated_only=validated_only,
                 df=self._dataset,  # Get the Feature type from df
                 source=self._sources.get("columns"),
@@ -3190,8 +3194,14 @@ def save_artifact(
                 data, artifact, fields, feature_ref_is_name=_ref_is_name(index_field)
             )
         case "AnnData":
+            if schema is not None and "uns" in schema.slots:
+                uns_field = parse_dtype_single_cat(
+                    schema.slots["uns"].itype, is_itype=True
+                )["field"]
+            else:
+                uns_field = None
             artifact.features._add_set_from_anndata(  # type: ignore
-                var_field=index_field, **feature_kwargs
+                var_field=index_field, uns_field=uns_field, **feature_kwargs
             )
             _add_labels(
                 data, artifact, fields, feature_ref_is_name=_ref_is_name(index_field)
