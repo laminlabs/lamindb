@@ -485,7 +485,7 @@ def parse_staged_feature_sets_from_anndata(
     adata: AnnData,
     var_field: FieldAttr | None = None,
     obs_field: FieldAttr = Feature.name,
-    uns_field: FieldAttr = Feature.name,
+    uns_field: FieldAttr | None = None,
     mute: bool = False,
     organism: str | Record | None = None,
 ) -> dict:
