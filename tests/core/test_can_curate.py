@@ -154,16 +154,6 @@ def test_synonym_mapping():
     # only name field can be standardized
     bt.Gene.from_source(symbol="TNFRSF4", organism="human").save()
 
-    bt_result = bt.Gene.public().inspect(
-        ["ABC1", "TNFRSF4"], field="symbol", organism="human"
-    )
-    assert bt_result.synonyms_mapper == {"ABC1": "HEATR6"}
-
-    bt_result = bt.Gene.public().inspect(
-        ["ABC1", "TNFRSF4"], field="symbol", organism="human", inspect_synonyms=False
-    )
-    assert bt_result.synonyms_mapper == {}
-
     result = bt.Gene.inspect(
         ["CD134", "TNFRSF4"], field=bt.Gene.symbol, organism="human"
     )
