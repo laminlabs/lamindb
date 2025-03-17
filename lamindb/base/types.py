@@ -39,13 +39,14 @@ TransformType = Literal[
 ]
 ArtifactKind = Literal["dataset", "model"]
 FeatureDtype = Literal[
-    "cat",  # categorical variables
+    "cat",  # categoricals
     "num",  # numerical variables
-    "str",  # string variables
-    "int",  # integer variables
-    "float",  # float variables
-    "bool",  # boolean variables
-    "date",  # date variables
-    "datetime",  # datetime variables
-    "object",  # this is a pandas type, we're only using it for complicated types, not for strings
+    "str",  # string
+    "int",  # integer
+    "uint",  # unsigned integer
+    "float",  # float
+    "bool",  # boolean
+    "date",  # date
+    "datetime",  # datetime
+    "object",  # this is a pandas dtype, we're only using it for complicated types, not for strings
 ]
