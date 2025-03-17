@@ -3194,7 +3194,7 @@ def save_artifact(
                 data, artifact, fields, feature_ref_is_name=_ref_is_name(index_field)
             )
         case "AnnData":
-            if "uns" in schema.slots:
+            if schema is not None and "uns" in schema.slots:
                 uns_field = parse_dtype_single_cat(
                     schema.slots["uns"].itype, is_itype=True
                 )["field"]
