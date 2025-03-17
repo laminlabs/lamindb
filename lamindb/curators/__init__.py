@@ -560,10 +560,14 @@ class AnnDataCurator(SlotsCurator):
         """{}"""  # noqa: D415
         if not self._is_validated:
             self.validate()
+        if "obs" in self.slots:
+            categoricals = self.slots["obs"]._cat_manager.categoricals
+        else:
+            categoricals = {}
         return save_artifact(  # type: ignore
             self._dataset,
             description=description,
-            fields=self.slots["obs"]._cat_manager.categoricals,
+            fields=categoricals,
             index_field=(
                 parse_dtype_single_cat(self.slots["var"]._schema.itype, is_itype=True)[
                     "field"
