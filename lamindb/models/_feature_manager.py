@@ -485,6 +485,7 @@ def parse_staged_feature_sets_from_anndata(
     adata: AnnData,
     var_field: FieldAttr | None = None,
     obs_field: FieldAttr = Feature.name,
+    uns_field: FieldAttr = Feature.name,
     mute: bool = False,
     organism: str | Record | None = None,
 ) -> dict:
@@ -508,8 +509,6 @@ def parse_staged_feature_sets_from_anndata(
         )
     feature_sets = {}
     if var_field is not None:
-        logger.info("parsing feature names of X stored in slot 'var'")
-        logger.indent = "   "
         schema_var = Schema.from_values(
             data_parse.var.index,
             var_field,
@@ -520,13 +519,7 @@ def parse_staged_feature_sets_from_anndata(
         )
         if schema_var is not None:
             feature_sets["var"] = schema_var
-            logger.save(f"linked: {schema_var}")
-        logger.indent = ""
-        if schema_var is None:
-            logger.warning("skip linking features to artifact in slot 'var'")
-    if len(data_parse.obs.columns) > 0:
-        logger.info("parsing feature names of slot 'obs'")
-        logger.indent = "   "
+    if obs_field is not None and len(data_parse.obs.columns) > 0:
         schema_obs = Schema.from_df(
             df=data_parse.obs,
             field=obs_field,
@@ -535,10 +528,13 @@ def parse_staged_feature_sets_from_anndata(
         )
         if schema_obs is not None:
             feature_sets["obs"] = schema_obs
-            logger.save(f"linked: {schema_obs}")
-        logger.indent = ""
-        if schema_obs is None:
-            logger.warning("skip linking features to artifact in slot 'obs'")
+    if uns_field is not None and len(data_parse.uns) > 0:
+        validated_features = Feature.from_values(  # type: ignore
+            data_parse.uns.keys(), field=uns_field, organism=organism
+        )
+        if len(validated_features) > 0:
+            schema_uns = Schema(validated_features, dtype=None, otype="dict")
+            feature_sets["uns"] = schema_uns
     return feature_sets
 
 

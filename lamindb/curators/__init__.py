@@ -545,7 +545,7 @@ class AnnDataCurator(SlotsCurator):
                 slot_schema,
             )
             for slot, slot_schema in schema.slots.items()
-            if slot in {"obs", "var"}
+            if slot in {"obs", "var", "uns"}
         }
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
@@ -1022,18 +1022,18 @@ class DataFrameCatManager(CatManager):
         update_registry(
             values=list(self.categoricals.keys()),
             field=self._columns_field,
-            key="columns",
+            key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
             validated_only=False,
             source=self._sources.get("columns"),
         )
 
         # Save the rest of the columns based on validated_only
-        additional_columns = set(self._dataset.columns) - set(self.categoricals.keys())
+        additional_columns = set(self._dataset.keys()) - set(self.categoricals.keys())
         if additional_columns:
             update_registry(
                 values=list(additional_columns),
                 field=self._columns_field,
-                key="columns",
+                key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
                 validated_only=validated_only,
                 df=self._dataset,  # Get the Feature type from df
                 source=self._sources.get("columns"),

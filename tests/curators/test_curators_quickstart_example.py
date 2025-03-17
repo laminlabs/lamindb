@@ -21,7 +21,7 @@ def small_dataset1_schema():
     bt.CellType.from_source(name="T cell").save()
 
     # in next iteration for attrs
-    # ln.Feature(name="temperature", dtype="float").save()
+    ln.Feature(name="temperature", dtype=float).save()
     # ln.Feature(name="study", dtype="cat[ULabel]").save()
     # ln.Feature(name="date_of_study", dtype="date").save()
     # ln.Feature(name="study_note", dtype="str").save()
@@ -214,50 +214,77 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
     """Test AnnData curator implementation."""
 
     obs_schema = small_dataset1_schema
-    var_schema = ln.Schema(
-        name="scRNA_seq_var_schema",
-        itype=bt.Gene.ensembl_gene_id,
-        dtype="num",
-    ).save()
 
-    anndata_schema = ln.Schema(
-        name="small_dataset1_anndata_schema",
-        otype="AnnData",
-        components={"obs": obs_schema, "var": var_schema},
-    ).save()
-    assert small_dataset1_schema.id is not None, small_dataset1_schema
-    assert anndata_schema.slots["obs"] == obs_schema
-    assert anndata_schema.slots["var"] == var_schema
+    for add_comp in ["var", "obs", "uns"]:
+        var_schema = ln.Schema(
+            name="scRNA_seq_var_schema",
+            itype=bt.Gene.ensembl_gene_id,
+            dtype="num",
+        ).save()
 
-    describe_output = anndata_schema.describe(return_str=True)
-    assert "small_dataset1_anndata_schema" in describe_output
-    assert "small_dataset1_obs_level_metadata" in describe_output
-    assert "scRNA_seq_var_schema" in describe_output
+        # always assume var
+        components = {"var": var_schema}
+        if add_comp == "obs":
+            components["obs"] = obs_schema
+        if add_comp == "uns":
+            uns_schema = ln.Schema(
+                name="flexible_uns_schema",
+                itype=ln.Feature,
+            ).save()
+            components["uns"] = uns_schema
 
-    adata = datasets.small_dataset1(otype="AnnData")
-    curator = ln.curators.AnnDataCurator(adata, anndata_schema)
-    assert isinstance(curator.slots["obs"], ln.curators.DataFrameCurator)
-    assert isinstance(curator.slots["var"], ln.curators.DataFrameCurator)
-    artifact = curator.save_artifact(key="example_datasets/dataset1.h5ad")
-    assert artifact.schema == anndata_schema
-    assert artifact.features.slots["obs"] == obs_schema
-    assert artifact.features.slots["var"].n == 3  # 3 genes get linked
-    # deprecated
-    assert artifact.features._schema_by_slot["obs"] == obs_schema
-    assert artifact.features._feature_set_by_slot["obs"] == obs_schema
+        anndata_schema = ln.Schema(
+            name="small_dataset1_anndata_schema",
+            otype="AnnData",
+            components=components,
+        ).save()
+        assert small_dataset1_schema.id is not None, small_dataset1_schema
+        assert anndata_schema.slots["var"] == var_schema
+        if add_comp == "obs":
+            assert anndata_schema.slots["obs"] == obs_schema
+        if add_comp == "uns":
+            assert anndata_schema.slots["uns"] == uns_schema
 
-    assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
-        "CD8-positive, alpha-beta T cell",
-        "B cell",
-    }
-    assert set(artifact.features.get_values()["cell_type_by_model"]) == {
-        "T cell",
-        "B cell",
-    }
+        describe_output = anndata_schema.describe(return_str=True)
+        assert "small_dataset1_anndata_schema" in describe_output
+        assert "scRNA_seq_var_schema" in describe_output
+        if add_comp == "obs":
+            assert "small_dataset1_obs_level_metadata" in describe_output
+        if add_comp == "uns":
+            assert "flexible_uns_schema" in describe_output
 
-    artifact.delete(permanent=True)
-    anndata_schema.delete()
-    var_schema.delete()
+        adata = datasets.small_dataset1(otype="AnnData")
+        curator = ln.curators.AnnDataCurator(adata, anndata_schema)
+        assert isinstance(curator.slots["var"], ln.curators.DataFrameCurator)
+        if add_comp == "obs":
+            assert isinstance(curator.slots["obs"], ln.curators.DataFrameCurator)
+        if add_comp == "uns":
+            assert isinstance(curator.slots["uns"], ln.curators.DataFrameCurator)
+        artifact = curator.save_artifact(key="example_datasets/dataset1.h5ad")
+        assert artifact.schema == anndata_schema
+        assert artifact.features.slots["var"].n == 3  # 3 genes get linked
+        if add_comp == "obs":
+            assert artifact.features.slots["obs"] == obs_schema
+            # deprecated
+            assert artifact.features._schema_by_slot["obs"] == obs_schema
+            assert artifact.features._feature_set_by_slot["obs"] == obs_schema
+
+            assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
+                "CD8-positive, alpha-beta T cell",
+                "B cell",
+            }
+            assert set(artifact.features.get_values()["cell_type_by_model"]) == {
+                "T cell",
+                "B cell",
+            }
+        if add_comp == "uns":
+            assert artifact.features.slots["uns"].features.first() == ln.Feature.get(
+                name="temperature"
+            )
+
+        artifact.delete(permanent=True)
+        anndata_schema.delete()
+        var_schema.delete()
 
 
 def test_soma_curator(
