@@ -1116,6 +1116,7 @@ def _add_set_from_anndata(
     self,
     var_field: FieldAttr | None = None,
     obs_field: FieldAttr | None = Feature.name,
+    uns_field: FieldAttr | None = None,
     mute: bool = False,
     organism: str | Record | None = None,
 ):
@@ -1128,6 +1129,7 @@ def _add_set_from_anndata(
         adata,
         var_field=var_field,
         obs_field=obs_field,
+        uns_field=uns_field,
         mute=mute,
         organism=organism,
     )
