@@ -141,7 +141,10 @@ def test_from_consistent_artifacts(adata, adata2):
     adata_joined = collection.load()
     assert "artifact_uid" in adata_joined.obs.columns
     assert artifact1.uid in adata_joined.obs.artifact_uid.cat.categories
-
+    # test from query set through collection
+    adata_joined = collection.artifacts.order_by("-created_at").artifacts_load()
+    assert "artifact_uid" in adata_joined.obs.columns
+    assert artifact1.uid in adata_joined.obs.artifact_uid.cat.categories
     # feature_sets = collection.features._get_staged_feature_sets_union()
     # assert set(feature_sets["var"].members.values_list("symbol", flat=True)) == {
     #     "MYC",
