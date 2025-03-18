@@ -2216,7 +2216,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         _track_run_input(self, is_run_input)
         return access_memory
 
-    def cache(self, is_run_input: bool | None = None, **kwargs) -> Path:
+    def cache(
+        self, mute: bool = False, is_run_input: bool | None = None, **kwargs
+    ) -> Path:
         """Download cloud artifact to local cache.
 
         Follows synching logic: only caches an artifact if it's outdated in the local cache.
@@ -2225,7 +2227,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         Args:
             is_run_input: Whether to track this artifact as run input.
+            mute: Whether to print the progress of synchronization.
             **kwargs: Keyword arguments for synchronization.
+                This is internal and normally should not be supplied by a user.
 
         Example::
 
@@ -2241,6 +2245,8 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         filepath, cache_key = filepath_cache_key_from_artifact(
             self, using_key=settings._using_key
         )
+        if mute:
+            kwargs["print_progress"] = False
         cache_path = _synchronize_cleanup_on_error(
             filepath, cache_key=cache_key, **kwargs
         )
@@ -2373,6 +2379,8 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         Args:
             upload: Trigger upload to cloud storage in instances with hybrid storage mode.
+            **kwargs: Keyword arguments for purely internal purposes.
+                Normally this should not be supplied by a user.
 
         Example::
 
