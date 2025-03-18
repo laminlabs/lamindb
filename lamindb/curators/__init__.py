@@ -1187,7 +1187,9 @@ class AnnDataCatManager(CatManager):
         sources: dict[str, Record] | None = None,
     ) -> None:
         if isinstance(var_index, str):
-            raise TypeError("var_index parameter has to be a bionty field")
+            raise TypeError(
+                "var_index parameter has to be a field, e.g. Gene.ensembl_gene_id"
+            )
 
         if not data_is_anndata(data):
             raise TypeError("data has to be an AnnData object")
@@ -2195,8 +2197,6 @@ class TiledbsomaCatManager(CatManager):
             else:
                 slot = lambda experiment: experiment.obs
                 slot_key = k
-            # errors if public ontology and the model has no organism
-            # has to be fixed in bionty
             organism = configure_organism(field.field.model, self._organism).get(
                 "organism"
             )
@@ -2744,10 +2744,11 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
         import wetlab as wl
 
         sources = {}
-        if "cell_line" in adata.obs.columns:
-            sources["cell_line"] = bt.Source.filter(
-                entity="bionty.CellLine", name="depmap"
-            ).first()
+        # # do not yet specify cell_line source
+        # if "cell_line" in adata.obs.columns:
+        #     sources["cell_line"] = bt.Source.filter(
+        #         entity="bionty.CellLine", name="depmap"
+        #     ).first()
         if "pert_compound" in adata.obs.columns:
             with logger.mute():
                 chebi_source = bt.Source.filter(
@@ -2952,13 +2953,13 @@ def get_current_filter_kwargs(registry: type[Record], kwargs: dict) -> dict:
 
 def configure_organism(registry: Record, organism: str | None = None) -> dict[str, str]:
     """Check if a registry needs an organism and return the organism name."""
-    from ..models._from_values import _is_organism_required
-
-    if _is_organism_required(registry):
+    if registry.__base__.__name__ == "BioRecord":
         import bionty as bt
+        from bionty._organism import is_organism_required
 
-        if organism is not None or bt.settings.organism is not None:
-            return {"organism": organism or bt.settings.organism.name}
+        if is_organism_required(registry):
+            if organism is not None or bt.settings.organism is not None:
+                return {"organism": organism or bt.settings.organism.name}
     return {}
 
 
@@ -3001,7 +3002,7 @@ def validate_categories(
     non_validated = inspect_result.non_validated
     syn_mapper = inspect_result.synonyms_mapper
 
-    # inspect the non-validated values from public (bionty only)
+    # inspect the non-validated values from public (BioRecord only)
     values_validated = []
     if hasattr(registry, "public"):
         public_records = registry.from_values(

@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pandas as pd
-from django.core.exceptions import FieldDoesNotExist
 from lamin_utils import colors, logger
 
 if TYPE_CHECKING:
@@ -27,7 +26,7 @@ def _from_values(
     from .query_set import RecordList
 
     registry = field.field.model  # type: ignore
-    organism_record = _get_organism_record(field, organism, values=iterable)
+    organism_record = get_organism_record_from_field(field, organism, values=iterable)
     # TODO: the create is problematic if field is not a name field
     if create:
         create_kwargs = {}
@@ -52,15 +51,17 @@ def _from_values(
 
     # new records to be created based on new values
     if len(nonexist_values) > 0:
-        if hasattr(registry, "source_id"):
+        if registry.__base__.__name__ == "BioRecord":
+            from bionty._organism import is_organism_required
+
             # if can and needed, get organism record from the existing records
             if (
                 organism_record is None
                 and len(records) > 0
-                and _is_organism_required(registry)
+                and is_organism_required(registry)
             ):
                 organism_record = records[0].organism
-            records_bionty, unmapped_values = create_records_from_source(
+            records_public, unmapped_values = create_records_from_source(
                 iterable_idx=nonexist_values,
                 field=field,
                 organism=organism_record,
@@ -68,11 +69,11 @@ def _from_values(
                 msg=msg,
                 mute=mute,
             )
-            if len(records_bionty) > 0:
+            if len(records_public) > 0:
                 msg = ""
-            for record in records_bionty:
+            for record in records_public:
                 record._from_source = True
-            records += records_bionty
+            records += records_public
         else:
             unmapped_values = nonexist_values
         # unmapped new_ids will NOT create records
@@ -184,23 +185,23 @@ def create_records_from_source(
     """Create records from source."""
     model = field.field.model  # type: ignore
     records: list = []
-    # populate additional fields from bionty
+    # populate additional fields from public_df
     from bionty._source import filter_public_df_columns, get_source_record
 
     # get the default source
     source_record = get_source_record(model, organism, source)
 
-    # create the corresponding bionty object from model
+    # create the corresponding PublicOntology object from model
     try:
         public_ontology = model.public(source=source_record)
     except Exception:
         # no public source
         return records, iterable_idx
 
-    # filter the columns in bionty df based on fields
-    bionty_df = filter_public_df_columns(model=model, public_ontology=public_ontology)
+    # filter the columns in public df based on fields
+    public_df = filter_public_df_columns(model=model, public_ontology=public_ontology)
 
-    # standardize in the bionty reference
+    # standardize in the public reference
     # do not inspect synonyms if the field is not name field
     inspect_synonyms = True
     if hasattr(model, "_name_field") and field.field.name != model._name_field:  # type: ignore
@@ -226,21 +227,21 @@ def create_records_from_source(
 
         iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
 
-    # create records for values that are found in the bionty reference
+    # create records for values that are found in the public reference
     # matching either field or synonyms
-    mapped_values = iterable_idx.intersection(bionty_df[field.field.name])  # type: ignore
+    mapped_values = iterable_idx.intersection(public_df[field.field.name])  # type: ignore
 
     multi_msg = ""
     if len(mapped_values) > 0:
-        bionty_kwargs, multi_msg = _bulk_create_dicts_from_df(
+        public_kwargs, multi_msg = _bulk_create_dicts_from_df(
             keys=mapped_values,
             column_name=field.field.name,  # type: ignore
-            df=bionty_df,
+            df=public_df,
         )
 
         # this here is needed when the organism is required to create new records
         if organism is None:
-            organism = _get_organism_record(
+            organism = get_organism_record_from_field(
                 field, source_record.organism, values=mapped_values
             )
 
@@ -249,7 +250,7 @@ def create_records_from_source(
             if organism is not None
             else {"source": source_record}
         )
-        for bk in bionty_kwargs:
+        for bk in public_kwargs:
             records.append(model(**bk, **create_kwargs, _skip_validation=True))
 
         # number of records that matches field (not synonyms)
@@ -274,7 +275,7 @@ def create_records_from_source(
     if len(multi_msg) > 0 and not mute:
         logger.warning(multi_msg)
 
-    # return the values that are not found in the bionty reference
+    # return the values that are not found in the public reference
     unmapped_values = iterable_idx.difference(mapped_values)
     return records, unmapped_values
 
@@ -335,33 +336,7 @@ def _bulk_create_dicts_from_df(
     return df.reset_index().to_dict(orient="records"), multi_msg
 
 
-def _is_organism_required(registry: type[Record]) -> bool:
-    """Check if the registry has an organism field and is required.
-
-    Returns:
-        True if the registry has an organism field and is required, False otherwise.
-    """
-    try:
-        organism_field = registry._meta.get_field("organism")
-        # organism is not required or not a relation
-        if organism_field.null or not organism_field.is_relation:
-            return False
-        else:
-            return True
-    except FieldDoesNotExist:
-        return False
-
-
-def _is_simple_field_unique(field: FieldAttr) -> bool:
-    """Check if the field is an id field."""
-    # id field is a unique field that's not a relation
-    field = field.field
-    if field.unique and not field.is_relation:
-        return True
-    return False
-
-
-def _get_organism_record(  # type: ignore
+def get_organism_record_from_field(  # type: ignore
     field: FieldAttr,
     organism: str | Record | None = None,
     values: ListLike = None,
@@ -384,18 +359,23 @@ def _get_organism_record(  # type: ignore
         values = []
     registry = field.field.model
     field_str = field.field.name
-    check = not _is_simple_field_unique(field=field) or organism is not None
+    # id field is a unique field that's not a relation
+    is_simple_field_unique = field.field.unique and not field.field.is_relation
+    check = not is_simple_field_unique or organism is not None
 
-    if field_str == "ensembl_gene_id" and len(values) > 0 and organism is None:  # type: ignore
-        from bionty._organism import _organism_from_ensembl_id
+    if (
+        field.field.model.__get_name_with_module__() == "bionty.ensembl_gene_id"
+        and len(values) > 0
+        and organism is None
+    ):  # type: ignore
+        from bionty._organism import organism_from_ensembl_id
 
-        return _organism_from_ensembl_id(values[0], using_key)  # type: ignore
+        return organism_from_ensembl_id(values[0], using_key)  # type: ignore
 
-    if _is_organism_required(registry) and check:
+    if registry.__base__.__name__ == "BioRecord" and check:
         from bionty._organism import create_or_get_organism_record
 
         organism_record = create_or_get_organism_record(
             organism=organism, registry=registry, field=field_str
         )
-        if organism_record is not None:
-            return organism_record.save()
+        return organism_record

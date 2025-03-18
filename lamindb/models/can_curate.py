@@ -12,7 +12,7 @@ from ..errors import ValidationError
 from ._from_values import (
     _format_values,
     _from_values,
-    _get_organism_record,
+    get_organism_record_from_field,
 )
 from .record import Record, get_name_field
 
@@ -74,7 +74,7 @@ def _inspect(
         # otherwise, inspect across records present in the DB from all ontology sources and no-source
         if strict_source:
             queryset = queryset.filter(source=source)
-    organism_record = _get_organism_record(
+    organism_record = get_organism_record_from_field(
         getattr(registry, field_str), organism, values, queryset.db
     )
     _check_if_record_in_db(organism_record, queryset.db)
@@ -96,7 +96,7 @@ def _inspect(
 
     if len(nonval) > 0 and hasattr(registry, "source_id"):
         try:
-            bionty_result = registry.public(
+            public_result = registry.public(
                 organism=organism_record, source=source
             ).inspect(
                 values=nonval,
@@ -104,23 +104,23 @@ def _inspect(
                 mute=True,
                 inspect_synonyms=inspect_synonyms,
             )
-            bionty_validated = bionty_result.validated
-            bionty_mapper = bionty_result.synonyms_mapper
+            public_validated = public_result.validated
+            public_mapper = public_result.synonyms_mapper
             hint = False
-            if len(bionty_validated) > 0 and not mute:
-                print_values = _format_values(bionty_validated)
-                s = "" if len(bionty_validated) == 1 else "s"
-                labels = colors.yellow(f"{len(bionty_validated)} {model_name} term{s}")
+            if len(public_validated) > 0 and not mute:
+                print_values = _format_values(public_validated)
+                s = "" if len(public_validated) == 1 else "s"
+                labels = colors.yellow(f"{len(public_validated)} {model_name} term{s}")
                 logger.print(
                     f"   detected {labels} in public source for"
                     f" {colors.italic(field_str)}: {colors.yellow(print_values)}"
                 )
                 hint = True
 
-            if len(bionty_mapper) > 0 and not mute:
-                print_values = _format_values(list(bionty_mapper.keys()))
-                s = "" if len(bionty_mapper) == 1 else "s"
-                labels = colors.yellow(f"{len(bionty_mapper)} {model_name} term{s}")
+            if len(public_mapper) > 0 and not mute:
+                print_values = _format_values(list(public_mapper.keys()))
+                s = "" if len(public_mapper) == 1 else "s"
+                labels = colors.yellow(f"{len(public_mapper)} {model_name} term{s}")
                 logger.print(
                     f"   detected {labels} in public source as {colors.italic(f'synonym{s}')}:"
                     f" {colors.yellow(print_values)}"
@@ -133,8 +133,8 @@ def _inspect(
                     f" {colors.italic('.from_values()')}"
                 )
 
-            nonval = [i for i in bionty_result.non_validated if i not in bionty_mapper]  # type: ignore
-        # no bionty source is found
+            nonval = [i for i in public_result.non_validated if i not in public_mapper]  # type: ignore
+        # no public source is found
         except ValueError:
             logger.warning("no public source found, skipping source validation")
 
@@ -176,7 +176,7 @@ def _validate(
         if strict_source:
             queryset = queryset.filter(source=source)
 
-    organism_record = _get_organism_record(
+    organism_record = get_organism_record_from_field(
         getattr(registry, field_str), organism, values, queryset.db
     )
     _check_if_record_in_db(organism_record, queryset.db)
@@ -243,7 +243,7 @@ def _standardize(
         _check_if_record_in_db(source, queryset.db)
         if strict_source:
             queryset = queryset.filter(source=source)
-    organism_record = _get_organism_record(
+    organism_record = get_organism_record_from_field(
         getattr(registry, field_str), organism, values, queryset.db
     )
     _check_if_record_in_db(organism_record, queryset.db)
@@ -480,7 +480,7 @@ class CanCurate:
             strict_source: Determines the validation behavior against records in the registry.
                 - If `False`, validation will include all records in the registry, ignoring the specified source.
                 - If `True`, validation will only include records in the registry  that are linked to the specified source.
-                Note: this parameter won't affect validation against bionty/public sources.
+                Note: this parameter won't affect validation against public sources.
 
         See Also:
             :meth:`~lamindb.models.CanCurate.validate`
@@ -534,7 +534,7 @@ class CanCurate:
             strict_source: Determines the validation behavior against records in the registry.
                 - If `False`, validation will include all records in the registry, ignoring the specified source.
                 - If `True`, validation will only include records in the registry  that are linked to the specified source.
-                Note: this parameter won't affect validation against bionty/public sources.
+                Note: this parameter won't affect validation against public sources.
 
         Returns:
             A vector of booleans indicating if an element is validated.
@@ -654,7 +654,7 @@ class CanCurate:
             strict_source: Determines the validation behavior against records in the registry.
                 - If `False`, validation will include all records in the registry, ignoring the specified source.
                 - If `True`, validation will only include records in the registry  that are linked to the specified source.
-                Note: this parameter won't affect validation against bionty/public sources.
+                Note: this parameter won't affect validation against public sources.
 
         Returns:
             If `return_mapper` is `False`: a list of standardized names. Otherwise,
