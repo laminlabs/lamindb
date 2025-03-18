@@ -7,8 +7,6 @@ from django.core.exceptions import FieldDoesNotExist
 from lamin_utils import colors, logger
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-
     from lamindb.base.types import FieldAttr, ListLike
 
     from .query_set import RecordList
@@ -187,8 +185,7 @@ def create_records_from_source(
     model = field.field.model  # type: ignore
     records: list = []
     # populate additional fields from bionty
-    from bionty._source import get_source_record
-    from bionty.core._bionty import filter_bionty_df_columns
+    from bionty._source import filter_public_df_columns, get_source_record
 
     # get the default source
     source_record = get_source_record(model, organism, source)
@@ -199,12 +196,9 @@ def create_records_from_source(
     except Exception:
         # no public source
         return records, iterable_idx
-    # get the default source
-    # if source is None:
-    #     source = get_source_record_from_public(public_ontology, model)
 
     # filter the columns in bionty df based on fields
-    bionty_df = filter_bionty_df_columns(model=model, public_ontology=public_ontology)
+    bionty_df = filter_public_df_columns(model=model, public_ontology=public_ontology)
 
     # standardize in the bionty reference
     # do not inspect synonyms if the field is not name field
@@ -285,7 +279,7 @@ def create_records_from_source(
     return records, unmapped_values
 
 
-def index_iterable(iterable: Iterable) -> pd.Index:
+def index_iterable(iterable: ListLike) -> pd.Index:
     """Get unique values from an iterable."""
     idx = pd.Index(iterable).unique()
     # No entries are made for NAs, '', None
@@ -294,7 +288,7 @@ def index_iterable(iterable: Iterable) -> pd.Index:
 
 
 def _format_values(
-    names: Iterable, n: int = 20, quotes: bool = True, sep: str = "'"
+    names: ListLike, n: int = 20, quotes: bool = True, sep: str = "'"
 ) -> str:
     """Format values for printing."""
     if isinstance(names, dict):
@@ -370,7 +364,7 @@ def _is_simple_field_unique(field: FieldAttr) -> bool:
 def _get_organism_record(  # type: ignore
     field: FieldAttr,
     organism: str | Record | None = None,
-    values: Iterable = [],
+    values: ListLike = None,
     using_key: str | None = None,
 ) -> Record | None:
     """Get organism record.
@@ -386,6 +380,8 @@ def _get_organism_record(  # type: ignore
             The organism FK is required for the registry
             The field is not unique or the organism is not None
     """
+    if values is None:
+        values = []
     registry = field.field.model
     field_str = field.field.name
     check = not _is_simple_field_unique(field=field) or organism is not None
