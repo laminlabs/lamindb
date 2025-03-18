@@ -2214,7 +2214,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                     cache_path.unlink(missing_ok=True)
                 # download again and try to load into memory
                 cache_path = _synchronize_cleanup_on_error(
-                    filepath, cache_key=cache_key
+                    filepath, cache_key=cache_key, print_progress=not mute
                 )
                 access_memory = load_to_memory(cache_path, **kwargs)
         # only call if load is successfull
