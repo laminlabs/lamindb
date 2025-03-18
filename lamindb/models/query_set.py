@@ -603,7 +603,7 @@ class QuerySet(models.QuerySet):
                 logger.important(f"deleting {record}")
                 record.delete(*args, **kwargs)
         else:
-            self._delete_base_class(*args, **kwargs)
+            super().delete(*args, **kwargs)
 
     def list(self, field: str | None = None) -> list[Record]:
         """Populate a list with the results.
@@ -712,62 +712,39 @@ class QuerySet(models.QuerySet):
         else:
             raise ValueError("Record isn't subclass of `lamindb.core.IsVersioned`")
 
+    @doc_args(Record.search.__doc__)
+    def search(self, string: str, **kwargs):
+        """{}"""  # noqa: D415
+        from .record import _search
 
-# -------------------------------------------------------------------------------------
-# CanCurate
-# -------------------------------------------------------------------------------------
+        return _search(cls=self, string=string, **kwargs)
 
+    @doc_args(Record.lookup.__doc__)
+    def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
+        """{}"""  # noqa: D415
+        from .record import _lookup
 
-@doc_args(Record.search.__doc__)
-def search(self, string: str, **kwargs):
-    """{}"""  # noqa: D415
-    from .record import _search
+        return _lookup(cls=self, field=field, **kwargs)
 
-    return _search(cls=self, string=string, **kwargs)
+    @doc_args(CanCurate.validate.__doc__)
+    def validate(self, values: ListLike, field: str | StrField | None = None, **kwargs):
+        """{}"""  # noqa: D415
+        from .can_curate import _validate
 
+        return _validate(cls=self, values=values, field=field, **kwargs)
 
-@doc_args(Record.lookup.__doc__)
-def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
-    """{}"""  # noqa: D415
-    from .record import _lookup
+    @doc_args(CanCurate.inspect.__doc__)
+    def inspect(self, values: ListLike, field: str | StrField | None = None, **kwargs):
+        """{}"""  # noqa: D415
+        from .can_curate import _inspect
 
-    return _lookup(cls=self, field=field, **kwargs)
+        return _inspect(cls=self, values=values, field=field, **kwargs)
 
+    @doc_args(CanCurate.standardize.__doc__)
+    def standardize(
+        self, values: Iterable, field: str | StrField | None = None, **kwargs
+    ):
+        """{}"""  # noqa: D415
+        from .can_curate import _standardize
 
-@doc_args(CanCurate.validate.__doc__)
-def validate(self, values: ListLike, field: str | StrField | None = None, **kwargs):
-    """{}"""  # noqa: D415
-    from .can_curate import _validate
-
-    return _validate(cls=self, values=values, field=field, **kwargs)
-
-
-@doc_args(CanCurate.inspect.__doc__)
-def inspect(self, values: ListLike, field: str | StrField | None = None, **kwargs):
-    """{}"""  # noqa: D415
-    from .can_curate import _inspect
-
-    return _inspect(cls=self, values=values, field=field, **kwargs)
-
-
-@doc_args(CanCurate.standardize.__doc__)
-def standardize(self, values: Iterable, field: str | StrField | None = None, **kwargs):
-    """{}"""  # noqa: D415
-    from .can_curate import _standardize
-
-    return _standardize(cls=self, values=values, field=field, **kwargs)
-
-
-models.QuerySet.df = QuerySet.df
-models.QuerySet.list = QuerySet.list
-models.QuerySet.first = QuerySet.first
-models.QuerySet.one = QuerySet.one
-models.QuerySet.one_or_none = QuerySet.one_or_none
-models.QuerySet.latest_version = QuerySet.latest_version
-models.QuerySet.search = search
-models.QuerySet.lookup = lookup
-models.QuerySet.validate = validate
-models.QuerySet.inspect = inspect
-models.QuerySet.standardize = standardize
-models.QuerySet._delete_base_class = models.QuerySet.delete
-models.QuerySet.delete = QuerySet.delete
+        return _standardize(cls=self, values=values, field=field, **kwargs)

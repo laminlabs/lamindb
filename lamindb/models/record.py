@@ -79,6 +79,7 @@ from ..errors import (
     ValidationError,
 )
 from ._is_versioned import IsVersioned
+from .query_manager import QueryManager
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -663,8 +664,12 @@ class BasicRecord(models.Model, metaclass=Registry):
     It's mainly used for LinkORMs and similar.
     """
 
+    query_manager = QueryManager()
+    objects = Manager()
+
     class Meta:
         abstract = True
+        base_manager_name = "query_manager"
 
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
