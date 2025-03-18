@@ -195,10 +195,9 @@ def create_records_from_source(
 
     # create the corresponding bionty object from model
     try:
-        # TODO: more generic
         public_ontology = model.public(source=source_record)
     except Exception:
-        # for custom records that are not created from public sources
+        # no public source
         return records, iterable_idx
     # get the default source
     # if source is None:
