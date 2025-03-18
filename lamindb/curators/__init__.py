@@ -106,16 +106,22 @@ class CatLookup:
         categoricals: dict[str, FieldAttr],
         slots: dict[str, FieldAttr] = None,
         public: bool = False,
+        organism: str | None = None,
+        sources: dict[str, Record] | None = None,
     ) -> None:
         slots = slots or {}
         self._categoricals = {**categoricals, **slots}
         self._public = public
+        self._organism = organism
+        self._sources = sources
 
     def __getattr__(self, name):
         if name in self._categoricals:
             registry = self._categoricals[name].field.model
             if self._public and hasattr(registry, "public"):
-                return registry.public().lookup()
+                return registry.public(
+                    organism=self._organism, source=self._sources.get(name)
+                ).lookup()
             else:
                 return registry.lookup()
         raise AttributeError(
@@ -126,7 +132,9 @@ class CatLookup:
         if name in self._categoricals:
             registry = self._categoricals[name].field.model
             if self._public and hasattr(registry, "public"):
-                return registry.public().lookup()
+                return registry.public(
+                    organism=self._organism, source=self._sources.get(name)
+                ).lookup()
             else:
                 return registry.lookup()
         raise AttributeError(
@@ -1014,6 +1022,8 @@ class DataFrameCatManager(CatManager):
             categoricals=self._categoricals,
             slots={"columns": self._columns_field},
             public=public,
+            organism=self._organism,
+            sources=self._sources,
         )
 
     def _save_columns(self, validated_only: bool = True) -> None:
@@ -1227,6 +1237,8 @@ class AnnDataCatManager(CatManager):
             categoricals=self._obs_fields,
             slots={"columns": self._columns_field, "var_index": self._var_field},
             public=public,
+            organism=self._organism,
+            sources=self._sources,
         )
 
     def _save_from_var_index(
@@ -1437,6 +1449,8 @@ class MuDataCatManager(CatManager):
                 **{f"{k}_var_index": v for k, v in self._var_fields.items()},
             },
             public=public,
+            organism=self._organism,
+            sources=self._sources,
         )
 
     @deprecated(new_name="is run by default")
@@ -1688,6 +1702,8 @@ class SpatialDataCatManager(CatManager):
             categoricals=cat_values_dict,
             slots={"accessors": cat_values_dict.keys()},
             public=public,
+            organism=self._organism,
+            sources=self._sources,
         )
 
     def _update_registry_all(self) -> None:
@@ -2142,6 +2158,8 @@ class TiledbsomaCatManager(CatManager):
             categoricals=self._obs_fields,
             slots={"columns": self._columns_field, **self._var_fields_flat},
             public=public,
+            organism=self._organism,
+            sources=self._sources,
         )
 
     def standardize(self, key: str):

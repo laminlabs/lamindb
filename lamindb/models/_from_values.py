@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -188,19 +187,21 @@ def create_records_from_source(
     model = field.field.model  # type: ignore
     records: list = []
     # populate additional fields from bionty
-    from bionty._bionty import get_source_record
+    from bionty._source import get_source_record
     from bionty.core._bionty import filter_bionty_df_columns
+
+    # get the default source
+    source_record = get_source_record(model, organism, source)
 
     # create the corresponding bionty object from model
     try:
-        # TODO: more generic
-        public_ontology = model.public(organism=organism, source=source)
+        public_ontology = model.public(source=source_record)
     except Exception:
-        # for custom records that are not created from public sources
+        # no public source
         return records, iterable_idx
     # get the default source
-    if source is None:
-        source = get_source_record(public_ontology, model)
+    # if source is None:
+    #     source = get_source_record_from_public(public_ontology, model)
 
     # filter the columns in bionty df based on fields
     bionty_df = filter_bionty_df_columns(model=model, public_ontology=public_ontology)
@@ -246,13 +247,13 @@ def create_records_from_source(
         # this here is needed when the organism is required to create new records
         if organism is None:
             organism = _get_organism_record(
-                field, source.organism, values=mapped_values
+                field, source_record.organism, values=mapped_values
             )
 
         create_kwargs = (
-            {"organism": organism, "source": source}
+            {"organism": organism, "source": source_record}
             if organism is not None
-            else {"source": source}
+            else {"source": source_record}
         )
         for bk in bionty_kwargs:
             records.append(model(**bk, **create_kwargs, _skip_validation=True))
@@ -390,40 +391,15 @@ def _get_organism_record(  # type: ignore
     check = not _is_simple_field_unique(field=field) or organism is not None
 
     if field_str == "ensembl_gene_id" and len(values) > 0 and organism is None:  # type: ignore
+        from bionty._organism import _organism_from_ensembl_id
+
         return _organism_from_ensembl_id(values[0], using_key)  # type: ignore
 
     if _is_organism_required(registry) and check:
-        from bionty._bionty import create_or_get_organism_record
+        from bionty._organism import create_or_get_organism_record
 
         organism_record = create_or_get_organism_record(
             organism=organism, registry=registry, field=field_str
         )
         if organism_record is not None:
             return organism_record.save()
-
-
-def _organism_from_ensembl_id(id: str, using_key: str | None) -> Record | None:  # type: ignore
-    """Get organism record from ensembl id."""
-    import bionty as bt
-    from bionty.base.dev._io import s3_bionty_assets
-
-    localpath = s3_bionty_assets(
-        ".lamindb/0QeqXlKq9aqW8aqe0000.parquet", bt.base.settings.versionsdir
-    )
-    ensembl_prefixes = pd.read_parquet(localpath).set_index("gene_prefix")
-
-    prefix = re.sub(r"\d+", "", id)
-    if prefix in ensembl_prefixes.index:
-        organism_name = ensembl_prefixes.loc[prefix, "name"].lower()
-
-        using_key = None if using_key == "default" else using_key
-
-        organism_record = (
-            bt.Organism.using(using_key).filter(name=organism_name).one_or_none()
-        )
-        if organism_record is None:
-            organism_record = bt.Organism.from_source(name=organism_name)
-            if organism_record is not None:
-                organism_record.save(using=using_key)
-
-        return organism_record
