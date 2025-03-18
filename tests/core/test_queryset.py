@@ -202,3 +202,5 @@ def test_artifacts_open_mapped_errors():
         ln.ULabel.filter().artifacts_open()
     with pytest.raises(ValueError):
         ln.ULabel.filter().artifacts_mapped()
+    with pytest.raises(ValueError):
+        ln.ULabel.filter().artifacts_load()
