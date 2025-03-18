@@ -191,16 +191,19 @@ def create_records_from_source(
     from bionty._bionty import get_source_record
     from bionty.core._bionty import filter_bionty_df_columns
 
+    # get the default source
+    source_record = get_source_record(model, organism, source)
+
     # create the corresponding bionty object from model
     try:
         # TODO: more generic
-        public_ontology = model.public(organism=organism, source=source)
+        public_ontology = model.public(source=source_record)
     except Exception:
         # for custom records that are not created from public sources
         return records, iterable_idx
     # get the default source
-    if source is None:
-        source = get_source_record(public_ontology, model)
+    # if source is None:
+    #     source = get_source_record_from_public(public_ontology, model)
 
     # filter the columns in bionty df based on fields
     bionty_df = filter_bionty_df_columns(model=model, public_ontology=public_ontology)
@@ -246,13 +249,13 @@ def create_records_from_source(
         # this here is needed when the organism is required to create new records
         if organism is None:
             organism = _get_organism_record(
-                field, source.organism, values=mapped_values
+                field, source_record.organism, values=mapped_values
             )
 
         create_kwargs = (
-            {"organism": organism, "source": source}
+            {"organism": organism, "source": source_record}
             if organism is not None
-            else {"source": source}
+            else {"source": source_record}
         )
         for bk in bionty_kwargs:
             records.append(model(**bk, **create_kwargs, _skip_validation=True))
