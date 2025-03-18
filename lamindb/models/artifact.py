@@ -2146,12 +2146,15 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         _track_run_input(self, is_run_input)
         return access
 
-    def load(self, is_run_input: bool | None = None, **kwargs) -> Any:
+    def load(
+        self, mute: bool = False, is_run_input: bool | None = None, **kwargs
+    ) -> Any:
         """Cache and load into memory.
 
         See all :mod:`~lamindb.core.loaders`.
 
         Args:
+            mute: Whether to print the progress of caching.
             is_run_input: Whether to track this artifact as run input.
             **kwargs: Keyword arguments for the loader.
 
@@ -2188,7 +2191,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             filepath, cache_key = filepath_cache_key_from_artifact(
                 self, using_key=settings._using_key
             )
-            cache_path = _synchronize_cleanup_on_error(filepath, cache_key=cache_key)
+            cache_path = _synchronize_cleanup_on_error(
+                filepath, cache_key=cache_key, print_progress=not mute
+            )
             try:
                 # cache_path is local so doesn't trigger any sync in load_to_memory
                 access_memory = load_to_memory(cache_path, **kwargs)
@@ -2227,8 +2232,8 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         Args:
             is_run_input: Whether to track this artifact as run input.
-            mute: Whether to print the progress of synchronization.
-            **kwargs: Keyword arguments for synchronization.
+            mute: Whether to print the progress of caching.
+            **kwargs: Keyword arguments for internal caching functions.
                 This is internal and normally should not be supplied by a user.
 
         Example::
