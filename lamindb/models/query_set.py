@@ -884,5 +884,6 @@ models.QuerySet.inspect = inspect
 models.QuerySet.standardize = standardize
 models.QuerySet.artifacts_open = QuerySet.artifacts_open
 models.QuerySet.artifacts_mapped = QuerySet.artifacts_mapped
+models.QuerySet.artifacts_load = QuerySet.artifacts_load
 models.QuerySet._delete_base_class = models.QuerySet.delete
 models.QuerySet.delete = QuerySet.delete
