@@ -63,10 +63,10 @@ class QueryManager(models.Manager):
             >>> label.parents.list("name")
             ['ULabel1', 'ULabel2', 'ULabel3']
         """
-        self._track_run_input_manager()
         if field is None:
             return list(self.all())
         else:
+            self._track_run_input_manager()
             return list(self.values_list(field, flat=True))
 
     def df(self, **kwargs):

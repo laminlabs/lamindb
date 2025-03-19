@@ -197,6 +197,7 @@ def get(
     else:
         qs = QuerySet(model=registry_or_queryset)
         registry = registry_or_queryset
+
     if isinstance(idlike, int):
         return super(QuerySet, qs).get(id=idlike)  # type: ignore
     elif isinstance(idlike, str):
@@ -208,6 +209,8 @@ def get(
                 return qs.one()
         else:
             return qs.one()
+    elif idlike is not None:
+        registry.objects.using(qs.db).get(idlike, **expressions)
     else:
         assert idlike is None  # noqa: S101
         expressions = process_expressions(qs, expressions)
