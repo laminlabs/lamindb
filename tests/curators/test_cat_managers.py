@@ -350,7 +350,10 @@ def test_anndata_curator(adata, categoricals, to_add):
 
 
 def test_str_var_index(adata):
-    with pytest.raises(TypeError, match="var_index parameter has to be a bionty field"):
+    with pytest.raises(
+        TypeError,
+        match="var_index parameter has to be a field, e.g. Gene.ensembl_gene_id",
+    ):
         _ = ln.Curator.from_anndata(
             adata,
             var_index="symbol",

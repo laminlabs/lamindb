@@ -237,7 +237,7 @@ class Curator:
         """{}"""  # noqa: D415
         # Note that this docstring has to be consistent with the Artifact()
         # constructor signature
-        pass
+        pass  # pragma: no cover
 
 
 class SlotsCurator(Curator):
@@ -882,10 +882,16 @@ class CatManager:
         # shared until here
         self._categoricals = categoricals or {}
         self._non_validated = None
-        self._organism = organism
         self._sources = sources or {}
         self._columns_field = columns_field
         self._validate_category_error_messages: str = ""
+        # make sure to only fetch organism once at the beginning
+        if organism:
+            self._organism = organism
+        else:
+            fields = list(self._categoricals.values()) + [columns_field]
+            organisms = {get_organism_kwargs(field).get("organism") for field in fields}
+            self._organism = organisms.pop() if len(organisms) > 0 else None
 
     @property
     def non_validated(self) -> dict[str, list[str]]:
@@ -930,7 +936,7 @@ class CatManager:
         Returns:
             The boolean `True` if the dataset is validated. Otherwise, a string with the error message.
         """
-        pass
+        pass  # pragma: no cover
 
     def standardize(self, key: str) -> None:
         """Replace synonyms with standardized values.
@@ -955,31 +961,24 @@ class CatManager:
         run: Run | None = None,
     ) -> Artifact:
         """{}"""  # noqa: D415
-        from lamindb.core._settings import settings
-
+        # Make sure all labels are saved in the current instance
         if not self._is_validated:
             self.validate()  # returns True or False
             if not self._is_validated:  # need to raise error manually
                 raise ValidationError("Dataset does not validate. Please curate.")
 
-        # Make sure all labels are saved in the current instance
-        verbosity = settings.verbosity
-        try:
-            settings.verbosity = "warning"
-            self._artifact = save_artifact(  # type: ignore
-                self._dataset,
-                key=key,
-                description=description,
-                fields=self.categoricals,
-                index_field=self._columns_field,
-                artifact=self._artifact,
-                revises=revises,
-                run=run,
-                schema=None,
-                organism=self._organism,
-            )
-        finally:
-            settings.verbosity = verbosity
+        self._artifact = save_artifact(  # type: ignore
+            self._dataset,
+            key=key,
+            description=description,
+            fields=self.categoricals,
+            index_field=self._columns_field,
+            artifact=self._artifact,
+            revises=revises,
+            run=run,
+            schema=None,
+            organism=self._organism,
+        )
 
         return self._artifact
 
@@ -996,8 +995,6 @@ class DataFrameCatManager(CatManager):
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
     ) -> None:
-        from lamindb.core._settings import settings
-
         if organism is not None and not isinstance(organism, str):
             raise ValueError("organism must be a string such as 'human' or 'mouse'!")
 
@@ -1051,7 +1048,7 @@ class DataFrameCatManager(CatManager):
 
     @deprecated(new_name="is run by default")
     def add_new_from_columns(self, organism: str | None = None, **kwargs):
-        pass
+        pass  # pragma: no cover
 
     def validate(self) -> bool:
         """Validate variables and categorical observations.
@@ -1107,7 +1104,7 @@ class DataFrameCatManager(CatManager):
         else:
             if key not in avail_keys:
                 if key in self._categoricals:
-                    logger.info(f"No unstandardized values found for {key!r}")
+                    logger.warning(f"No non-standardized values found for {key!r}")
                 else:
                     raise KeyError(
                         f"{key!r} is not a valid key, available keys are: {_format_values(avail_keys)}!"
@@ -1187,7 +1184,9 @@ class AnnDataCatManager(CatManager):
         sources: dict[str, Record] | None = None,
     ) -> None:
         if isinstance(var_index, str):
-            raise TypeError("var_index parameter has to be a bionty field")
+            raise TypeError(
+                "var_index parameter has to be a field, e.g. Gene.ensembl_gene_id"
+            )
 
         if not data_is_anndata(data):
             raise TypeError("data has to be an AnnData object")
@@ -1460,7 +1459,7 @@ class MuDataCatManager(CatManager):
         column_names: list[str] | None = None,
         **kwargs,
     ):
-        pass
+        pass  # pragma: no cover
 
     def add_new_from_var_index(self, modality: str, **kwargs):
         """Update variable records.
@@ -1505,13 +1504,7 @@ class MuDataCatManager(CatManager):
     def validate(self) -> bool:
         """Validate categories."""
         # add all validated records to the current instance
-        verbosity = settings.verbosity
-        try:
-            settings.verbosity = "error"
-            self._update_registry_all()
-        finally:
-            settings.verbosity = verbosity
-
+        self._update_registry_all()
         self._non_validated = {}  # type: ignore
 
         obs_validated = True
@@ -1819,12 +1812,7 @@ class SpatialDataCatManager(CatManager):
             Whether the SpatialData object is validated.
         """
         # add all validated records to the current instance
-        verbosity = settings.verbosity
-        try:
-            settings.verbosity = "error"
-            self._update_registry_all()
-        finally:
-            settings.verbosity = verbosity
+        self._update_registry_all()
 
         self._non_validated = {}  # type: ignore
 
@@ -1977,15 +1965,12 @@ class TiledbsomaCatManager(CatManager):
 
         # register obs columns' names
         register_columns = list(self._obs_fields.keys())
-        organism = configure_organism(
-            self._columns_field.field.model, self._organism
-        ).get("organism")
         update_registry(
             values=register_columns,
             field=self._columns_field,
             key="columns",
             validated_only=False,
-            organism=organism,
+            organism=self._organism,
             source=self._sources.get("columns"),
         )
         additional_columns = [k for k in valid_obs_keys if k not in register_columns]
@@ -1999,7 +1984,7 @@ class TiledbsomaCatManager(CatManager):
                 field=self._columns_field,
                 key="columns",
                 validated_only=True,
-                organism=organism,
+                organism=self._organism,
                 source=self._sources.get("columns"),
             )
 
@@ -2019,22 +2004,19 @@ class TiledbsomaCatManager(CatManager):
                 var_ms_values = (
                     var_ms.read(column_names=[key]).concat()[key].to_pylist()
                 )
-                organism = configure_organism(field.field.model, self._organism).get(
-                    "organism"
-                )
                 update_registry(
                     values=var_ms_values,
                     field=field,
                     key=var_ms_key,
                     validated_only=True,
-                    organism=organism,
+                    organism=self._organism,
                     source=self._sources.get(var_ms_key),
                 )
                 _, non_val = validate_categories(
                     values=var_ms_values,
                     field=field,
                     key=var_ms_key,
-                    organism=organism,
+                    organism=self._organism,
                     source=self._sources.get(var_ms_key),
                 )
                 if len(non_val) > 0:
@@ -2051,22 +2033,19 @@ class TiledbsomaCatManager(CatManager):
                 values = pa.compute.unique(
                     obs.read(column_names=[key]).concat()[key]
                 ).to_pylist()
-                organism = configure_organism(field.field.model, self._organism).get(
-                    "organism"
-                )
                 update_registry(
                     values=values,
                     field=field,
                     key=key,
                     validated_only=True,
-                    organism=organism,
+                    organism=self._organism,
                     source=self._sources.get(key),
                 )
                 _, non_val = validate_categories(
                     values=values,
                     field=field,
                     key=key,
-                    organism=organism,
+                    organism=self._organism,
                     source=self._sources.get(key),
                 )
                 if len(non_val) > 0:
@@ -2115,15 +2094,12 @@ class TiledbsomaCatManager(CatManager):
             values, field = self._non_validated_values_field(k)
             if len(values) == 0:
                 continue
-            organism = configure_organism(field.field.model, self._organism).get(
-                "organism"
-            )
             update_registry(
                 values=values,
                 field=field,
                 key=k,
                 validated_only=False,
-                organism=organism,
+                organism=self._organism,
                 source=self._sources.get(k),
                 **kwargs,
             )
@@ -2195,16 +2171,11 @@ class TiledbsomaCatManager(CatManager):
             else:
                 slot = lambda experiment: experiment.obs
                 slot_key = k
-            # errors if public ontology and the model has no organism
-            # has to be fixed in bionty
-            organism = configure_organism(field.field.model, self._organism).get(
-                "organism"
-            )
             syn_mapper = standardize_categories(
                 values=values,
                 field=field,
                 source=self._sources.get(k),
-                organism=organism,
+                organism=self._organism,
             )
             if (n_syn_mapper := len(syn_mapper)) == 0:
                 continue
@@ -2281,9 +2252,6 @@ class TiledbsomaCatManager(CatManager):
 
         feature_sets = {}
         if len(self._obs_fields) > 0:
-            organism = configure_organism(
-                self._columns_field.field.model, self._organism
-            ).get("organism")
             empty_dict = {field.name: [] for field in self._obs_pa_schema}  # type: ignore
             mock_df = pa.Table.from_pydict(
                 empty_dict, schema=self._obs_pa_schema
@@ -2293,17 +2261,14 @@ class TiledbsomaCatManager(CatManager):
                 df=mock_df,
                 field=self._columns_field,
                 mute=True,
-                organism=organism,
+                organism=self._organism,
             )
         for ms in self._var_fields:
             var_key, var_field = self._var_fields[ms]
-            organism = configure_organism(var_field.field.model, self._organism).get(
-                "organism"
-            )
             feature_sets[f"{ms}__var"] = Schema.from_values(
                 values=self._validated_values[f"{ms}__{var_key}"],
                 field=var_field,
-                organism=organism,
+                organism=self._organism,
                 raise_validation_error=False,
             )
         artifact._staged_feature_sets = feature_sets
@@ -2313,11 +2278,10 @@ class TiledbsomaCatManager(CatManager):
         for key, field in self._obs_fields.items():
             feature = features.get(key)
             registry = field.field.model
-            organism = configure_organism(field.field.model, self._organism).get(
-                "organism"
-            )
             labels = registry.from_values(
-                values=self._validated_values[key], field=field, organism=organism
+                values=self._validated_values[key],
+                field=field,
+                organism=self._organism,
             )
             if len(labels) == 0:
                 continue
@@ -2744,10 +2708,11 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
         import wetlab as wl
 
         sources = {}
-        if "cell_line" in adata.obs.columns:
-            sources["cell_line"] = bt.Source.filter(
-                entity="bionty.CellLine", name="depmap"
-            ).first()
+        # # do not yet specify cell_line source
+        # if "cell_line" in adata.obs.columns:
+        #     sources["cell_line"] = bt.Source.filter(
+        #         entity="bionty.CellLine", name="depmap"
+        #     ).first()
         if "pert_compound" in adata.obs.columns:
             with logger.mute():
                 chebi_source = bt.Source.filter(
@@ -2930,35 +2895,43 @@ def get_current_filter_kwargs(registry: type[Record], kwargs: dict) -> dict:
     source = kwargs.get("source")
     organism = kwargs.get("organism")
     filter_kwargs = kwargs.copy()
-    try:
-        verbosity = settings.verbosity
-        settings.verbosity = "error"
-        if isinstance(organism, Record) and organism._state.db != "default":
-            if db is None or db == "default":
-                organism_default = copy.copy(organism)
-                # save the organism record in the default database
-                organism_default.save()
-                filter_kwargs["organism"] = organism_default
-        if isinstance(source, Record) and source._state.db != "default":
-            if db is None or db == "default":
-                source_default = copy.copy(source)
-                # save the source record in the default database
-                source_default.save()
-                filter_kwargs["source"] = source_default
-    finally:
-        settings.verbosity = verbosity
+
+    if isinstance(organism, Record) and organism._state.db != "default":
+        if db is None or db == "default":
+            organism_default = copy.copy(organism)
+            # save the organism record in the default database
+            organism_default.save()
+            filter_kwargs["organism"] = organism_default
+    if isinstance(source, Record) and source._state.db != "default":
+        if db is None or db == "default":
+            source_default = copy.copy(source)
+            # save the source record in the default database
+            source_default.save()
+            filter_kwargs["source"] = source_default
+
     return filter_kwargs
 
 
-def configure_organism(registry: Record, organism: str | None = None) -> dict[str, str]:
+def get_organism_kwargs(
+    field: FieldAttr, organism: str | None = None
+) -> dict[str, str]:
     """Check if a registry needs an organism and return the organism name."""
-    from ..models._from_values import _is_organism_required
-
-    if _is_organism_required(registry):
+    registry = field.field.model
+    if registry.__base__.__name__ == "BioRecord":
         import bionty as bt
+        from bionty._organism import is_organism_required
 
-        if organism is not None or bt.settings.organism is not None:
-            return {"organism": organism or bt.settings.organism.name}
+        from ..models._from_values import get_organism_record_from_field
+
+        if is_organism_required(registry):
+            if organism is not None or bt.settings.organism is not None:
+                return {"organism": organism or bt.settings.organism.name}
+            else:
+                organism_record = get_organism_record_from_field(
+                    field, organism=organism
+                )
+                if organism_record is not None:
+                    return {"organism": organism_record.name}
     return {}
 
 
@@ -2991,17 +2964,16 @@ def validate_categories(
 
     registry = field.field.model
 
-    # {"organism": organism_name}
-    kwargs = configure_organism(registry, organism)
-    kwargs.update({"source": source} if source else {})
-    kwargs_current = get_current_filter_kwargs(registry, kwargs)
+    kwargs_current = get_current_filter_kwargs(
+        registry, {"organism": organism, "source": source}
+    )
 
     # inspect values from the default instance
     inspect_result = registry.inspect(values, field=field, mute=True, **kwargs_current)
     non_validated = inspect_result.non_validated
     syn_mapper = inspect_result.synonyms_mapper
 
-    # inspect the non-validated values from public (bionty only)
+    # inspect the non-validated values from public (BioRecord only)
     values_validated = []
     if hasattr(registry, "public"):
         public_records = registry.from_values(
@@ -3156,18 +3128,6 @@ def save_artifact(
             )
     artifact.save()
 
-    if organism is not None and index_field is not None:
-        feature_kwargs = configure_organism(
-            (
-                list(index_field.values())[0].field.model
-                if isinstance(index_field, dict)
-                else index_field.field.model
-            ),
-            organism,
-        )
-    else:
-        feature_kwargs = {}
-
     def _add_labels(
         data: pd.DataFrame | ScverseDataStructures,
         artifact: Artifact,
@@ -3178,19 +3138,15 @@ def save_artifact(
         for key, field in fields.items():
             feature = features.get(key)
             registry = field.field.model
-            filter_kwargs = configure_organism(registry, organism)
-            filter_kwargs_current = get_current_filter_kwargs(registry, filter_kwargs)
+            # we don't need source here because all records are already in the DB
+            filter_kwargs = get_current_filter_kwargs(registry, {"organism": organism})
             df = data if isinstance(data, pd.DataFrame) else data.obs
             # multi-value columns are separated by "|"
             if not df[key].isna().all() and df[key].str.contains("|").any():
                 values = df[key].str.split("|").explode().unique()
             else:
                 values = df[key].unique()
-            labels = registry.from_values(
-                values,
-                field=field,
-                **filter_kwargs_current,
-            )
+            labels = registry.from_values(values, field=field, **filter_kwargs)
             if len(labels) == 0:
                 continue
             label_ref_is_name = None
@@ -3207,7 +3163,7 @@ def save_artifact(
 
     match artifact.otype:
         case "DataFrame":
-            artifact.features._add_set_from_df(field=index_field, **feature_kwargs)  # type: ignore
+            artifact.features._add_set_from_df(field=index_field, organism=organism)  # type: ignore
             _add_labels(
                 data, artifact, fields, feature_ref_is_name=_ref_is_name(index_field)
             )
@@ -3219,14 +3175,14 @@ def save_artifact(
             else:
                 uns_field = None
             artifact.features._add_set_from_anndata(  # type: ignore
-                var_field=index_field, uns_field=uns_field, **feature_kwargs
+                var_field=index_field, uns_field=uns_field, organism=organism
             )
             _add_labels(
                 data, artifact, fields, feature_ref_is_name=_ref_is_name(index_field)
             )
         case "MuData":
             artifact.features._add_set_from_mudata(  # type: ignore
-                var_fields=index_field, **feature_kwargs
+                var_fields=index_field, organism=organism
             )
             for modality, modality_fields in fields.items():
                 column_field_modality = index_field.get(modality)
@@ -3256,7 +3212,7 @@ def save_artifact(
             artifact.features._add_set_from_spatialdata(  # type: ignore
                 sample_metadata_key=kwargs.get("sample_metadata_key", "sample"),
                 var_fields=index_field,
-                **feature_kwargs,
+                organism=organism,
             )
             sample_metadata_key = kwargs.get("sample_metadata_key", "sample")
             for accessor, accessor_fields in fields.items():
@@ -3333,77 +3289,63 @@ def update_registry(
     from lamindb.models.save import save as ln_save
 
     registry = field.field.model
-    filter_kwargs = configure_organism(registry, organism)
-    filter_kwargs.update({"source": source} if source else {})
+    filter_kwargs = get_current_filter_kwargs(
+        registry, {"organism": organism, "source": source}
+    )
     values = [i for i in values if isinstance(i, str) and i]
     if not values:
         return
 
-    verbosity = settings.verbosity
-    try:
-        settings.verbosity = "error"
-        labels_saved: dict = {"from public": [], "new": []}
+    labels_saved: dict = {"from public": [], "new": []}
 
-        # inspect the default instance and save validated records from public
-        filter_kwargs_current = get_current_filter_kwargs(registry, filter_kwargs)
-        existing_and_public_records = registry.from_values(
-            list(values), field=field, **filter_kwargs_current
-        )
-        existing_and_public_labels = [
-            getattr(r, field.field.name) for r in existing_and_public_records
+    # inspect the default instance and save validated records from public
+    existing_and_public_records = registry.from_values(
+        list(values), field=field, **filter_kwargs, mute=True
+    )
+    existing_and_public_labels = [
+        getattr(r, field.field.name) for r in existing_and_public_records
+    ]
+    # public records that are not already in the database
+    public_records = [r for r in existing_and_public_records if r._state.adding]
+    # here we check to only save the public records if they are from the specified source
+    # we check the uid because r.source and source can be from different instances
+    if source:
+        public_records = [r for r in public_records if r.source.uid == source.uid]
+    if len(public_records) > 0:
+        logger.info(f"saving validated records of '{key}'")
+        ln_save(public_records)
+        labels_saved["from public"] = [
+            getattr(r, field.field.name) for r in public_records
         ]
-        # public records that are not already in the database
-        public_records = [r for r in existing_and_public_records if r._state.adding]
-        # here we check to only save the public records if they are from the specified source
-        # we check the uid because r.source and source can be from different instances
-        if source:
-            public_records = [r for r in public_records if r.source.uid == source.uid]
-        if len(public_records) > 0:
-            settings.verbosity = "info"
-            logger.info(f"saving validated records of '{key}'")
-            settings.verbosity = "error"
-            ln_save(public_records)
-            labels_saved["from public"] = [
-                getattr(r, field.field.name) for r in public_records
-            ]
-        # non-validated records from the default instance
-        non_validated_labels = [
-            i for i in values if i not in existing_and_public_labels
-        ]
+    # non-validated records from the default instance
+    non_validated_labels = [i for i in values if i not in existing_and_public_labels]
 
-        # save non-validated/new records
-        labels_saved["new"] = non_validated_labels
-        if not validated_only:
-            non_validated_records: RecordList[Any] = []  # type: ignore
-            if df is not None and registry == Feature:
-                nonval_columns = Feature.inspect(df.columns, mute=True).non_validated
-                non_validated_records = Feature.from_df(df.loc[:, nonval_columns])
-            else:
-                if "organism" in filter_kwargs:
-                    # make sure organism record is saved to the current instance
-                    filter_kwargs["organism"] = _save_organism(name=organism)
-                init_kwargs = {}
-                for value in labels_saved["new"]:
-                    init_kwargs[field.field.name] = value
-                    if registry == Feature:
-                        init_kwargs["dtype"] = "cat" if dtype is None else dtype
-                    non_validated_records.append(
-                        registry(
-                            **init_kwargs,
-                            **{k: v for k, v in filter_kwargs.items() if k != "source"},
-                            **{
-                                k: v for k, v in create_kwargs.items() if k != "sources"
-                            },
-                        )
-                    )
-            ln_save(non_validated_records)
+    # save non-validated/new records
+    labels_saved["new"] = non_validated_labels
+    if not validated_only:
+        non_validated_records: RecordList[Any] = []  # type: ignore
+        if df is not None and registry == Feature:
+            nonval_columns = Feature.inspect(df.columns, mute=True).non_validated
+            non_validated_records = Feature.from_df(df.loc[:, nonval_columns])
+        else:
+            if (
+                organism
+                and hasattr(registry, "organism")
+                and registry._meta.get_field("organism").is_relation
+            ):
+                # make sure organism record is saved to the current instance
+                create_kwargs["organism"] = _save_organism(name=organism)
 
-        # save parent labels for ulabels, for example a parent label "project" for label "project001"
-        if registry == ULabel and field.field.name == "name":
-            save_ulabels_type(values, field=field, key=key)
+            for value in labels_saved["new"]:
+                init_kwargs = {field.field.name: value}
+                if registry == Feature:
+                    init_kwargs["dtype"] = "cat" if dtype is None else dtype
+                non_validated_records.append(registry(**init_kwargs, **create_kwargs))
+        ln_save(non_validated_records)
 
-    finally:
-        settings.verbosity = verbosity
+    # save parent labels for ulabels, for example a parent label "project" for label "project001"
+    if registry == ULabel and field.field.name == "name":
+        save_ulabels_type(values, field=field, key=key)
 
     log_saved_labels(
         labels_saved,
@@ -3461,8 +3403,9 @@ def _save_organism(name: str):
         organism = bt.Organism.from_source(name=name)
         if organism is None:
             raise ValidationError(
-                f'Organism "{name}" not found\n'
-                f'      → please save it: bt.Organism(name="{name}").save()'
+                f'Organism "{name}" not found from public reference\n'
+                f'      → please save it from a different source: bt.Organism.from_source(name="{name}", source).save()'
+                f'      → or manually save it without source: bt.Organism(name="{name}").save()'
             )
         organism.save()
     return organism
