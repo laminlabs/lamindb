@@ -472,8 +472,8 @@ class Registry(ModelBase):
 
     def get(
         cls: type[T],
-        idlike: int | str | None = None,
-        **expressions,
+        *args,
+        **kwargs,
     ) -> T:
         """Get a single record.
 
@@ -495,7 +495,7 @@ class Registry(ModelBase):
         """
         from .query_set import QuerySet
 
-        return QuerySet(model=cls).get(idlike, **expressions)
+        return QuerySet(model=cls).get(*args, **kwargs)
 
     def df(
         cls,
