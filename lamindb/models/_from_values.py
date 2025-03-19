@@ -364,7 +364,8 @@ def get_organism_record_from_field(  # type: ignore
     check = not is_simple_field_unique or organism is not None
 
     if (
-        field.field.model.__get_name_with_module__() == "bionty.ensembl_gene_id"
+        registry.__get_name_with_module__() == "bionty.Gene"
+        and field.field.name == "ensembl_gene_id"
         and len(values) > 0
         and organism is None
     ):  # type: ignore
