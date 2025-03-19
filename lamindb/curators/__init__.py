@@ -237,7 +237,7 @@ class Curator:
         """{}"""  # noqa: D415
         # Note that this docstring has to be consistent with the Artifact()
         # constructor signature
-        pass
+        pass  # pragma: no cover
 
 
 class SlotsCurator(Curator):
@@ -936,7 +936,7 @@ class CatManager:
         Returns:
             The boolean `True` if the dataset is validated. Otherwise, a string with the error message.
         """
-        pass
+        pass  # pragma: no cover
 
     def standardize(self, key: str) -> None:
         """Replace synonyms with standardized values.
@@ -1048,7 +1048,7 @@ class DataFrameCatManager(CatManager):
 
     @deprecated(new_name="is run by default")
     def add_new_from_columns(self, organism: str | None = None, **kwargs):
-        pass
+        pass  # pragma: no cover
 
     def validate(self) -> bool:
         """Validate variables and categorical observations.
@@ -1459,7 +1459,7 @@ class MuDataCatManager(CatManager):
         column_names: list[str] | None = None,
         **kwargs,
     ):
-        pass
+        pass  # pragma: no cover
 
     def add_new_from_var_index(self, modality: str, **kwargs):
         """Update variable records.
