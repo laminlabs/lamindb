@@ -188,53 +188,30 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
 
 def get(
     registry_or_queryset: Union[type[Record], QuerySet],
-    idlike: int | str | None = None,
-    **expressions,
+    *args,
+    **kwargs,
 ) -> Record:
     if isinstance(registry_or_queryset, QuerySet):
         qs = registry_or_queryset
-        registry = qs.model
+        registry = registry_or_queryset.model
     else:
         qs = QuerySet(model=registry_or_queryset)
         registry = registry_or_queryset
 
-    if isinstance(idlike, int):
-        return super(QuerySet, qs).get(id=idlike)  # type: ignore
-    elif isinstance(idlike, str):
-        qs = qs.filter(uid__startswith=idlike)
-        if issubclass(registry, IsVersioned):
-            if len(idlike) <= registry._len_stem_uid:
-                return qs.latest_version().one()
-            else:
-                return qs.one()
-        else:
+    if len(args) == 1 and len(kwargs) == 0:
+        idlike = args[0]
+        if isinstance(idlike, int):
+            return super(QuerySet, qs).get(id=idlike)  # type: ignore
+        elif isinstance(idlike, str):
+            qs = qs.filter(uid__startswith=idlike)
+            if (
+                issubclass(registry, IsVersioned)
+                and len(idlike) <= registry._len_stem_uid
+            ):
+                qs = qs.filter(is_latest=True)
             return qs.one()
-    elif idlike is not None:
-        registry.objects.using(qs.db).get(idlike, **expressions)
-    else:
-        assert idlike is None  # noqa: S101
-        expressions = process_expressions(qs, expressions)
-        # don't want _branch_code here in .get(), only in .filter()
-        expressions.pop("_branch_code", None)
-        # inject is_latest for consistency with idlike
-        is_latest_was_not_in_expressions = "is_latest" not in expressions
-        if issubclass(registry, IsVersioned) and is_latest_was_not_in_expressions:
-            expressions["is_latest"] = True
-        try:
-            return registry.objects.using(qs.db).get(**expressions)
-        except registry.DoesNotExist:
-            # handle the case in which the is_latest injection led to a missed query
-            if "is_latest" in expressions and is_latest_was_not_in_expressions:
-                expressions.pop("is_latest")
-                result = (
-                    registry.objects.using(qs.db)
-                    .filter(**expressions)
-                    .order_by("-created_at")
-                    .first()
-                )
-                if result is not None:
-                    return result
-            raise registry.DoesNotExist from registry.DoesNotExist
+
+    return super(QuerySet, qs).get(*args, **kwargs)  # type: ignore
 
 
 class RecordList(UserList, Generic[T]):
@@ -648,11 +625,12 @@ class QuerySet(models.QuerySet):
             ) from None
         raise error  # pragma: no cover
 
-    def get(self, idlike: int | str | None = None, **expressions) -> Record:
+    def get(self, *args, **kwargs) -> Record:
         """Query a single record. Raises error if there are more or none."""
         try:
-            return get(self, idlike, **expressions)
+            return get(self, *args, **kwargs)
         except ValueError as e:
+            expressions = kwargs
             # Pass through original error for explicit id lookups
             if "Field 'id' expected a number" in str(e):
                 if "id" in expressions:
