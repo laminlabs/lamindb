@@ -16,6 +16,7 @@ from django.db.models import CASCADE, PROTECT, Q
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage_in_instance
+from lamindb_setup.core import doc_args
 from lamindb_setup.core._settings_storage import init_storage
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dir, hash_file
 from lamindb_setup.core.types import UPathStr
@@ -92,6 +93,8 @@ from .ulabel import ULabel
 WARNING_RUN_TRANSFORM = "no run & transform got linked, call `ln.track()` & re-run"
 
 WARNING_NO_INPUT = "run input wasn't tracked, call `ln.track()` and re-run"
+
+DEBUG_KWARGS_DOC = "**kwargs: Internal arguments for debugging."
 
 try:
     from ..core.storage._zarr import identify_zarr_type
@@ -2146,13 +2149,16 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         _track_run_input(self, is_run_input)
         return access
 
-    def load(self, is_run_input: bool | None = None, **kwargs) -> Any:
+    def load(
+        self, *, is_run_input: bool | None = None, mute: bool = False, **kwargs
+    ) -> Any:
         """Cache and load into memory.
 
         See all :mod:`~lamindb.core.loaders`.
 
         Args:
             is_run_input: Whether to track this artifact as run input.
+            mute: Silence logging of caching progress.
             **kwargs: Keyword arguments for the loader.
 
         Examples:
@@ -2188,7 +2194,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             filepath, cache_key = filepath_cache_key_from_artifact(
                 self, using_key=settings._using_key
             )
-            cache_path = _synchronize_cleanup_on_error(filepath, cache_key=cache_key)
+            cache_path = _synchronize_cleanup_on_error(
+                filepath, cache_key=cache_key, print_progress=not mute
+            )
             try:
                 # cache_path is local so doesn't trigger any sync in load_to_memory
                 access_memory = load_to_memory(cache_path, **kwargs)
@@ -2209,14 +2217,17 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                     cache_path.unlink(missing_ok=True)
                 # download again and try to load into memory
                 cache_path = _synchronize_cleanup_on_error(
-                    filepath, cache_key=cache_key
+                    filepath, cache_key=cache_key, print_progress=not mute
                 )
                 access_memory = load_to_memory(cache_path, **kwargs)
         # only call if load is successfull
         _track_run_input(self, is_run_input)
         return access_memory
 
-    def cache(self, is_run_input: bool | None = None, **kwargs) -> Path:
+    @doc_args(DEBUG_KWARGS_DOC)
+    def cache(
+        self, *, is_run_input: bool | None = None, mute: bool = False, **kwargs
+    ) -> Path:
         """Download cloud artifact to local cache.
 
         Follows synching logic: only caches an artifact if it's outdated in the local cache.
@@ -2224,8 +2235,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         Returns a path to a locally cached on-disk object (say a `.jpg` file).
 
         Args:
+            mute: Silence logging of caching progress.
             is_run_input: Whether to track this artifact as run input.
-            **kwargs: Keyword arguments for synchronization.
+            {}
 
         Example::
 
@@ -2241,6 +2253,8 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         filepath, cache_key = filepath_cache_key_from_artifact(
             self, using_key=settings._using_key
         )
+        if mute:
+            kwargs["print_progress"] = False
         cache_path = _synchronize_cleanup_on_error(
             filepath, cache_key=cache_key, **kwargs
         )
@@ -2368,11 +2382,13 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 if delete_msg != "did-not-delete":
                     logger.success(f"deleted {colors.yellow(f'{path}')}")
 
+    @doc_args(DEBUG_KWARGS_DOC)
     def save(self, upload: bool | None = None, **kwargs) -> Artifact:
         """Save to database & storage.
 
         Args:
             upload: Trigger upload to cloud storage in instances with hybrid storage mode.
+            {}
 
         Example::
 

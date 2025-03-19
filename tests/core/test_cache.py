@@ -180,7 +180,7 @@ def test_cloud_cache_versions(switch_storage):
     )
     assert cache_path_v2.stat().st_mtime > timestamp_v1
     cache_path_v2.unlink()
-    artifact_v2.cache(print_progress=False)
+    artifact_v2.cache(mute=True)
     assert cache_path_v2.exists()
     assert (
         cache_path_v2
