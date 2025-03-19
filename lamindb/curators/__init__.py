@@ -961,31 +961,24 @@ class CatManager:
         run: Run | None = None,
     ) -> Artifact:
         """{}"""  # noqa: D415
-        from lamindb.core._settings import settings
-
+        # Make sure all labels are saved in the current instance
         if not self._is_validated:
             self.validate()  # returns True or False
             if not self._is_validated:  # need to raise error manually
                 raise ValidationError("Dataset does not validate. Please curate.")
 
-        # Make sure all labels are saved in the current instance
-        verbosity = settings.verbosity
-        try:
-            settings.verbosity = "warning"
-            self._artifact = save_artifact(  # type: ignore
-                self._dataset,
-                key=key,
-                description=description,
-                fields=self.categoricals,
-                index_field=self._columns_field,
-                artifact=self._artifact,
-                revises=revises,
-                run=run,
-                schema=None,
-                organism=self._organism,
-            )
-        finally:
-            settings.verbosity = verbosity
+        self._artifact = save_artifact(  # type: ignore
+            self._dataset,
+            key=key,
+            description=description,
+            fields=self.categoricals,
+            index_field=self._columns_field,
+            artifact=self._artifact,
+            revises=revises,
+            run=run,
+            schema=None,
+            organism=self._organism,
+        )
 
         return self._artifact
 
@@ -1002,8 +995,6 @@ class DataFrameCatManager(CatManager):
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
     ) -> None:
-        from lamindb.core._settings import settings
-
         if organism is not None and not isinstance(organism, str):
             raise ValueError("organism must be a string such as 'human' or 'mouse'!")
 
@@ -1113,7 +1104,7 @@ class DataFrameCatManager(CatManager):
         else:
             if key not in avail_keys:
                 if key in self._categoricals:
-                    logger.info(f"No unstandardized values found for {key!r}")
+                    logger.warning(f"No non-standardized values found for {key!r}")
                 else:
                     raise KeyError(
                         f"{key!r} is not a valid key, available keys are: {_format_values(avail_keys)}!"
@@ -1513,13 +1504,7 @@ class MuDataCatManager(CatManager):
     def validate(self) -> bool:
         """Validate categories."""
         # add all validated records to the current instance
-        verbosity = settings.verbosity
-        try:
-            settings.verbosity = "error"
-            self._update_registry_all()
-        finally:
-            settings.verbosity = verbosity
-
+        self._update_registry_all()
         self._non_validated = {}  # type: ignore
 
         obs_validated = True
@@ -1827,12 +1812,7 @@ class SpatialDataCatManager(CatManager):
             Whether the SpatialData object is validated.
         """
         # add all validated records to the current instance
-        verbosity = settings.verbosity
-        try:
-            settings.verbosity = "error"
-            self._update_registry_all()
-        finally:
-            settings.verbosity = verbosity
+        self._update_registry_all()
 
         self._non_validated = {}  # type: ignore
 
@@ -2915,23 +2895,20 @@ def get_current_filter_kwargs(registry: type[Record], kwargs: dict) -> dict:
     source = kwargs.get("source")
     organism = kwargs.get("organism")
     filter_kwargs = kwargs.copy()
-    try:
-        verbosity = settings.verbosity
-        settings.verbosity = "error"
-        if isinstance(organism, Record) and organism._state.db != "default":
-            if db is None or db == "default":
-                organism_default = copy.copy(organism)
-                # save the organism record in the default database
-                organism_default.save()
-                filter_kwargs["organism"] = organism_default
-        if isinstance(source, Record) and source._state.db != "default":
-            if db is None or db == "default":
-                source_default = copy.copy(source)
-                # save the source record in the default database
-                source_default.save()
-                filter_kwargs["source"] = source_default
-    finally:
-        settings.verbosity = verbosity
+
+    if isinstance(organism, Record) and organism._state.db != "default":
+        if db is None or db == "default":
+            organism_default = copy.copy(organism)
+            # save the organism record in the default database
+            organism_default.save()
+            filter_kwargs["organism"] = organism_default
+    if isinstance(source, Record) and source._state.db != "default":
+        if db is None or db == "default":
+            source_default = copy.copy(source)
+            # save the source record in the default database
+            source_default.save()
+            filter_kwargs["source"] = source_default
+
     return filter_kwargs
 
 
