@@ -15,10 +15,15 @@ For installation from GitHub, call:
 ```bash
 git clone --recursive https://github.com/laminlabs/lamindb
 pip install laminci
+uv venv
+source .venv/bin/activate
 nox -s install
+uv pip install -r pyproject.toml "lamindb[dev]"
 ```
 
-This will install a few dependencies from the git submodules linked [here](https://github.com/laminlabs/lamindb/tree/main/sub).
+This will install a few dependencies from the git submodules linked [here](https://github.com/laminlabs/lamindb/tree/main/sub), as well as packages
+like `pytest` and `pre-commit` which you'll need when developing.
+
 lamindb depends on several other packages that may require modifications for pull requests to successfully pass the continuous integration build.
 We suggest the following workflow if commits to any of the submodules are essential for the current modifications in lamindb:
 
@@ -77,6 +82,8 @@ and enabled for the repository via:
 ```bash
 gitmoji -i
 ```
+
+If you don't have `sudo` in your working environment, follow [these instructions](https://github.com/sindresorhus/guides/blob/main/npm-global-without-sudo.md).
 
 ## Documentation
 
