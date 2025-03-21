@@ -2013,6 +2013,10 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         # no need to upload if new file is already in storage
         self._to_store = not check_path_in_storage
 
+        # update old suffix with the new one so that checks in record pass
+        # replace() supports changing the suffix
+        self._old_suffix = self.suffix
+
     def open(
         self, mode: str = "r", is_run_input: bool | None = None, **kwargs
     ) -> Union[
