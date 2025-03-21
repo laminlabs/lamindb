@@ -1397,10 +1397,11 @@ def transfer_to_default_db(
 
 
 def track_current_key_and_name_values(record: Record):
-    from lamindb.models import Artifact, Transform
+    from lamindb.models import Artifact
 
-    if isinstance(record, (Artifact, Transform)):
+    if isinstance(record, Artifact):
         record._old_key = record.key
+        record._old_suffix = record.suffix
     elif hasattr(record, "_name_field"):
         record._old_name = getattr(record, record._name_field)
 
@@ -1484,21 +1485,29 @@ def check_key_change(record: Union[Artifact, Transform]):
     if not isinstance(record, Artifact) or not hasattr(record, "_old_key"):
         return
 
-    old_key = record._old_key or ""
-    new_key = record.key or ""
+    old_key = record._old_key
+    new_key = record.key
 
     if old_key != new_key:
         if not record._key_is_virtual:
             raise InvalidArgument(
                 f"Changing a non-virtual key of an artifact is not allowed! Tried to change key from '{old_key}' to '{new_key}'."
             )
-        old_key_suffix = (
-            record.suffix
-            if record.suffix
-            else extract_suffix_from_path(PurePosixPath(old_key), arg_name="key")
-        )
-        print(record.suffix)
-        print(old_key_suffix)
+        if old_key is not None:
+            old_key_suffix = extract_suffix_from_path(
+                PurePosixPath(old_key), arg_name="key"
+            )
+            assert old_key_suffix == record.suffix == record._old_suffix, (  # noqa: S101
+                old_key_suffix,
+                record.suffix,
+                record._old_suffix,
+            )
+        else:
+            old_key_suffix = record.suffix
+            assert record.suffix == record._old_suffix, (  # noqa: S101
+                record.suffix,
+                record._old_suffix,
+            )
         new_key_suffix = extract_suffix_from_path(
             PurePosixPath(new_key), arg_name="key"
         )

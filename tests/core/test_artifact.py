@@ -275,9 +275,21 @@ def test_create_from_dataframe(df):
     assert artifact.kind == "dataset"
     assert artifact.n_observations == 2
     assert hasattr(artifact, "_local_filepath")
+    artifact.key = "my-test-dataset"
+    with pytest.raises(InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect, it should be '.parquet'."
+    )
+    artifact.key = None
     artifact.save()
     # check that the local filepath has been cleared
     assert not hasattr(artifact, "_local_filepath")
+    del artifact
+
+    # get an artifact from the database
+    artifact = ln.Artifact.get(description="test1")
 
     # coming from `key is None` that setting a key with different suffix is not allowed
     artifact.key = "my-test-dataset.suffix"
@@ -297,7 +309,15 @@ def test_create_from_dataframe(df):
         == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect, it should be '.parquet'."
     )
 
+    # try a joint update where both suffix and key are changed, this previously enabled to create a corrupted state
+    artifact.key = "my-test-dataset"
+    artifact.suffix = ""
+    with pytest.raises(AssertionError) as error:
+        artifact.save()
+    assert error.exconly() == "AssertionError: ('', '.parquet')"
+
     # because this is a parquet artifact, we can set a key with a .parquet suffix
+    artifact.suffix = ".parquet"  # restore proper suffix
     artifact.key = "my-test-dataset.parquet"
     artifact.save()
     assert artifact.key == "my-test-dataset.parquet"
