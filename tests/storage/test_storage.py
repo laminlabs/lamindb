@@ -262,12 +262,13 @@ def test_write_read_tiledbsoma(storage):
     artifact_soma = save_tiledbsoma_experiment(
         [test_file],
         description="test tiledbsoma",
-        key="scrna/my-big-dataset",  # can also be None, but that's trivial
+        key="scrna/my-big-dataset.tiledbsoma",  # can also be None, but that's trivial
         run=create_run,
         measurement_name="RNA",
     )
     assert artifact_soma.path.stem == artifact_soma.uid[:16]
-    assert artifact_soma.key == "scrna/my-big-dataset"
+    assert artifact_soma.key == "scrna/my-big-dataset.tiledbsoma"
+    assert artifact_soma.suffix == ".tiledbsoma"
     assert artifact_soma._key_is_virtual
     assert artifact_soma.otype == "tiledbsoma"
     assert artifact_soma.n_observations == adata.n_obs
@@ -339,8 +340,8 @@ def test_write_read_tiledbsoma(storage):
         append_obsm_varm=True,
     )
     assert artifact_soma_append.uid.endswith("0002")
-    # below is inherited from "scrna/my-big-dataset"
-    assert artifact_soma_append.key == "scrna/my-big-dataset"
+    # below is inherited from "scrna/my-big-dataset.tiledbsoma"
+    assert artifact_soma_append.key == "scrna/my-big-dataset.tiledbsoma"
 
     # wrong mode, should be either r or w for tiledbsoma
     with pytest.raises(ValueError):
