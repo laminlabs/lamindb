@@ -275,21 +275,38 @@ def test_create_from_dataframe(df):
     assert artifact.kind == "dataset"
     assert artifact.n_observations == 2
     assert hasattr(artifact, "_local_filepath")
-    artifact.key = "my-test-dataset"
+    artifact.key = "my-test-dataset"  # try changing key
     with pytest.raises(InvalidArgument) as error:
         artifact.save()
     assert (
         error.exconly()
         == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect, it should be '.parquet'."
     )
-    artifact.key = None
+    artifact.key = None  # restore
+    artifact.suffix = ".whatever"  # try changing suffix
+    with pytest.raises(InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: Changing the `.suffix` of an artifact is not allowed! You tried to change it from '.parquet' to '.whatever'."
+    )
+    artifact.suffix = ".parquet"
     artifact.save()
     # check that the local filepath has been cleared
     assert not hasattr(artifact, "_local_filepath")
     del artifact
 
-    # get an artifact from the database
+    # now get an artifact from the database
     artifact = ln.Artifact.get(description="test1")
+
+    artifact.suffix = ".whatever"  # try changing suffix
+    with pytest.raises(InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: Changing the `.suffix` of an artifact is not allowed! You tried to change it from '.parquet' to '.whatever'."
+    )
+    artifact.suffix = ".parquet"
 
     # coming from `key is None` that setting a key with different suffix is not allowed
     artifact.key = "my-test-dataset.suffix"
@@ -312,9 +329,12 @@ def test_create_from_dataframe(df):
     # try a joint update where both suffix and key are changed, this previously enabled to create a corrupted state
     artifact.key = "my-test-dataset"
     artifact.suffix = ""
-    with pytest.raises(AssertionError) as error:
+    with pytest.raises(InvalidArgument) as error:
         artifact.save()
-    assert error.exconly() == "AssertionError: ('', '.parquet')"
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: Changing the `.suffix` of an artifact is not allowed! You tried to change it from '.parquet' to ''."
+    )
 
     # because this is a parquet artifact, we can set a key with a .parquet suffix
     artifact.suffix = ".parquet"  # restore proper suffix

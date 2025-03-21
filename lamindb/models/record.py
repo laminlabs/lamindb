@@ -1484,6 +1484,10 @@ def check_key_change(record: Union[Artifact, Transform]):
 
     if not isinstance(record, Artifact) or not hasattr(record, "_old_key"):
         return
+    if record._old_suffix != record.suffix:
+        raise InvalidArgument(
+            f"Changing the `.suffix` of an artifact is not allowed! You tried to change it from '{record._old_suffix}' to '{record.suffix}'."
+        )
 
     old_key = record._old_key
     new_key = record.key
@@ -1491,23 +1495,18 @@ def check_key_change(record: Union[Artifact, Transform]):
     if old_key != new_key:
         if not record._key_is_virtual:
             raise InvalidArgument(
-                f"Changing a non-virtual key of an artifact is not allowed! Tried to change key from '{old_key}' to '{new_key}'."
+                f"Changing a non-virtual key of an artifact is not allowed! You tried to change it from '{old_key}' to '{new_key}'."
             )
         if old_key is not None:
             old_key_suffix = extract_suffix_from_path(
                 PurePosixPath(old_key), arg_name="key"
             )
-            assert old_key_suffix == record.suffix == record._old_suffix, (  # noqa: S101
+            assert old_key_suffix == record.suffix, (  # noqa: S101
                 old_key_suffix,
                 record.suffix,
-                record._old_suffix,
             )
         else:
             old_key_suffix = record.suffix
-            assert record.suffix == record._old_suffix, (  # noqa: S101
-                record.suffix,
-                record._old_suffix,
-            )
         new_key_suffix = extract_suffix_from_path(
             PurePosixPath(new_key), arg_name="key"
         )
