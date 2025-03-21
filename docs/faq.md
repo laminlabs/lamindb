@@ -10,7 +10,6 @@ faq/setup
 faq/curate-any
 faq/import-modules
 faq/reference-field
-faq/key
 faq/visibility
 faq/delete
 faq/keep-artifacts-local
