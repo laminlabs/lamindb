@@ -743,7 +743,7 @@ class BasicRecord(models.Model, metaclass=Registry):
             )
         else:
             super().__init__(*args)
-            track_current_key_and_name_values(self)
+        track_current_key_and_name_values(self)
 
     def save(self, *args, **kwargs) -> Record:
         """Save.
