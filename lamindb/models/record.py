@@ -743,8 +743,7 @@ class BasicRecord(models.Model, metaclass=Registry):
             )
         else:
             super().__init__(*args)
-            _store_record_old_name(self)
-            _store_record_old_key(self)
+            track_current_key_and_name_values(self)
 
     def save(self, *args, **kwargs) -> Record:
         """Save.
@@ -812,8 +811,8 @@ class BasicRecord(models.Model, metaclass=Registry):
                     init_self_from_db(self, pre_existing_record)
                 else:
                     raise
-            _store_record_old_name(self)
-            _store_record_old_key(self)
+            # call the below in case a user makes more updates to the record
+            track_current_key_and_name_values(self)
         # perform transfer of many-to-many fields
         # only supported for Artifact and Collection records
         if db is not None and db != "default" and using_key is None:
@@ -1397,18 +1396,13 @@ def transfer_to_default_db(
     return None
 
 
-def _store_record_old_name(record: Record):
-    # writes the name to the _name attribute, so we can detect renaming upon save
-    if hasattr(record, "_name_field"):
-        record._old_name = getattr(record, record._name_field)
-
-
-def _store_record_old_key(record: Record):
+def track_current_key_and_name_values(record: Record):
     from lamindb.models import Artifact, Transform
 
-    # writes the key to the _old_key attribute, so we can detect key changes upon save
     if isinstance(record, (Artifact, Transform)):
         record._old_key = record.key
+    elif hasattr(record, "_name_field"):
+        record._old_name = getattr(record, record._name_field)
 
 
 def check_name_change(record: Record):
@@ -1503,6 +1497,8 @@ def check_key_change(record: Union[Artifact, Transform]):
             if record.suffix
             else extract_suffix_from_path(PurePosixPath(old_key), arg_name="key")
         )
+        print(record.suffix)
+        print(old_key_suffix)
         new_key_suffix = extract_suffix_from_path(
             PurePosixPath(new_key), arg_name="key"
         )
