@@ -161,7 +161,7 @@ def test_basic_validation():
     )
 
 
-def test_revise_artifact(df, get_small_adata):
+def test_revise_artifact(df):
     # attempt to create a file with an invalid version
     with pytest.raises(ValueError) as error:
         artifact = ln.Artifact.from_df(df, description="test", version=0)
@@ -182,16 +182,16 @@ def test_revise_artifact(df, get_small_adata):
     assert artifact.suffix == ".parquet"
 
     with pytest.raises(ValueError) as error:
-        artifact_r2 = ln.Artifact.from_anndata(
-            get_small_adata, revises=artifact, version="1"
-        )
+        artifact_r2 = ln.Artifact.from_df(df, revises=artifact, version="1")
     assert error.exconly() == "ValueError: Please increment the previous version: '1'"
 
     # create new file from old file
-    artifact_r2 = ln.Artifact.from_anndata(get_small_adata, revises=artifact)
+    df.iloc[0, 0] = 99  # mutate dataframe so that hash lookup doesn't trigger
+    artifact_r2 = ln.Artifact.from_df(df, revises=artifact)
     assert artifact_r2.stem_uid == artifact.stem_uid
     assert artifact_r2.uid.endswith("0001")
-    artifact_r2 = ln.Artifact.from_anndata(get_small_adata, revises=artifact)
+    # call this again
+    artifact_r2 = ln.Artifact.from_df(df, revises=artifact)
     assert artifact_r2.uid.endswith("0001")
     assert artifact_r2.stem_uid == artifact.stem_uid
     assert artifact_r2.version is None
@@ -242,9 +242,9 @@ def test_revise_artifact(df, get_small_adata):
         ln.Artifact.from_df(df, description="test1a", revises=ln.Transform())
     assert error.exconly() == "TypeError: `revises` has to be of type `Artifact`"
 
-    artifact_r3.delete(permanent=True, storage=True)
-    artifact_r2.delete(permanent=True, storage=True)
-    artifact.delete(permanent=True, storage=True)
+    artifact_r3.delete(permanent=True)
+    artifact_r2.delete(permanent=True)
+    artifact.delete(permanent=True)
 
     # unversioned file
     artifact = ln.Artifact.from_df(df, description="test2")
@@ -255,13 +255,14 @@ def test_revise_artifact(df, get_small_adata):
     artifact.save()
 
     # create new file from old file
-    new_artifact = ln.Artifact.from_anndata(get_small_adata, revises=artifact)
+    df.iloc[0, 0] = 101  # mutate dataframe so that hash lookup doesn't trigger
+    new_artifact = ln.Artifact.from_df(df, revises=artifact)
     assert artifact.version is None
     assert new_artifact.stem_uid == artifact.stem_uid
     assert new_artifact.version is None
     assert new_artifact.description == artifact.description
 
-    artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True)
 
 
 def test_create_from_dataframe(df):
