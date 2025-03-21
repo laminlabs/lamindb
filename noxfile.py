@@ -50,7 +50,7 @@ def install(session):
         "./sub/bionty",
     ]
     top_deps = [
-        ".[bionty,jupyter]",
+        ".[dev,bionty,jupyter]",
     ]
     cmds = [
         f"uv pip install {'--system' if CI else ''} --no-cache-dir {' '.join(base_deps)}",
