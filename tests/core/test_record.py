@@ -44,7 +44,7 @@ def test_validate_required_fields():
 @pytest.fixture
 def get_search_test_filepaths():
     Path("unregistered_storage/").mkdir(exist_ok=True)
-    filepaths = [Path(f"./unregistered_storage/test-search{i}") for i in range(6)]
+    filepaths = [Path(f"./unregistered_storage/test-search{i}.txt") for i in range(6)]
     for filepath in filepaths:
         filepath.write_text(filepath.name)
     yield None
@@ -53,25 +53,25 @@ def get_search_test_filepaths():
 
 def test_search_and_get(get_search_test_filepaths):
     artifact1 = ln.Artifact(
-        "./unregistered_storage/test-search1", description="nonsense"
+        "./unregistered_storage/test-search1.txt", description="nonsense"
     )
     artifact1.save()
     artifact2 = ln.Artifact(
-        "./unregistered_storage/test-search2", description="nonsense"
+        "./unregistered_storage/test-search2.txt", description="nonsense"
     )
     artifact2.save()
 
     # on purpose to be search3 to test duplicated search
     artifact0 = ln.Artifact(
-        "./unregistered_storage/test-search0", description="test-search3"
+        "./unregistered_storage/test-search0.txt", description="test-search3"
     )
     artifact0.save()
     artifact3 = ln.Artifact(
-        "./unregistered_storage/test-search3", description="test-search3"
+        "./unregistered_storage/test-search3.txt", description="test-search3"
     )
     artifact3.save()
     artifact4 = ln.Artifact(
-        "./unregistered_storage/test-search4", description="test-search4"
+        "./unregistered_storage/test-search4.txt", description="test-search4"
     )
     artifact4.save()
 
@@ -83,19 +83,18 @@ def test_search_and_get(get_search_test_filepaths):
     # need a better search string below
     # assert ln.Artifact.search("x").shape[0] == 0
 
-    artifact5 = ln.Artifact("./unregistered_storage/test-search5", key="test-search5")
+    artifact5 = ln.Artifact(
+        "./unregistered_storage/test-search5.txt", key="test-search5.txt"
+    )
     artifact5.save()
     res = ln.Artifact.search("search5").df()
-    assert res.iloc[0].key == "test-search5"
+    assert res.iloc[0].key == "test-search5.txt"
 
     res_q = ln.Artifact.search("search5")
-    assert res_q[0].key == "test-search5"
+    assert res_q[0].key == "test-search5.txt"
     # queryset returns the same order of results
     assert res.uid.tolist() == [i.uid for i in res_q]
 
-    f = ln.Artifact.get(key="test-search5")
-    f.suffix = ".txt"
-    f.save()
     # multi-field search
     res = ln.Artifact.search("txt", field=["key", "description", "suffix"]).df()
     assert res.iloc[0].suffix == ".txt"
