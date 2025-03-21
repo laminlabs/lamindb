@@ -175,10 +175,10 @@ def test_revise_artifact(df, get_small_adata):
     artifact = ln.Artifact.from_df(df, description="test", version="1")
     assert artifact.version == "1"
     assert artifact.uid.endswith("0000")
-
     assert artifact.path.exists()  # because of cache file already exists
     artifact.save()
     assert artifact.path.exists()
+    assert artifact.suffix == ".parquet"
 
     with pytest.raises(ValueError) as error:
         artifact_r2 = ln.Artifact.from_anndata(
@@ -195,16 +195,12 @@ def test_revise_artifact(df, get_small_adata):
     assert artifact_r2.stem_uid == artifact.stem_uid
     assert artifact_r2.version is None
     assert artifact_r2.key is None
+    assert artifact.suffix == ".parquet"
     assert artifact_r2.description == "test"
     assert artifact_r2._revises is not None
     artifact_r2.save()
     assert artifact_r2.path.exists()
     assert artifact_r2._revises is None
-
-    # modify key to have a different suffix is not allowed
-    with pytest.raises(InvalidArgument) as error:
-        artifact_r2.key = "my-test-dataset.suffix"
-        artifact_r2.save()
 
     # create new file from newly versioned file
     df.iloc[0, 0] = 0  # mutate dataframe so that hash lookup doesn't trigger
@@ -280,12 +276,42 @@ def test_create_from_dataframe(df):
     assert artifact.n_observations == 2
     assert hasattr(artifact, "_local_filepath")
     artifact.save()
-    # can do backed now, tested in test_storage.py
-    ds = artifact.open()
-    assert len(ds.files) == 1
     # check that the local filepath has been cleared
     assert not hasattr(artifact, "_local_filepath")
-    artifact.delete(permanent=True, storage=True)
+
+    # coming from `key is None` that setting a key with different suffix is not allowed
+    artifact.key = "my-test-dataset.suffix"
+    with pytest.raises(InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: The suffix '.suffix' of the provided key is incorrect, it should be '.parquet'."
+    )
+
+    # coming from `key is None` test with no suffix
+    artifact.key = "my-test-dataset"
+    with pytest.raises(InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect, it should be '.parquet'."
+    )
+
+    # because this is a parquet artifact, we can set a key with a .parquet suffix
+    artifact.key = "my-test-dataset.parquet"
+    artifact.save()
+    assert artifact.key == "my-test-dataset.parquet"
+
+    # coming from a .parquet key, test changing the key to no suffix
+    artifact.key = "my-test-dataset"
+    with pytest.raises(InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect, it should be '.parquet'."
+    )
+
+    artifact.delete(permanent=True)
 
 
 def test_create_from_anndata(get_small_adata, adata_file):
