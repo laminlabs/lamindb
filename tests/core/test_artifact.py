@@ -172,7 +172,8 @@ def test_revise_artifact(df, get_small_adata):
     )
 
     # create a file and tag it with a version
-    artifact = ln.Artifact.from_df(df, description="test", version="1")
+    key = "my-test-dataset.parquet"
+    artifact = ln.Artifact.from_df(df, key=key, description="test", version="1")
     assert artifact.version == "1"
     assert artifact.uid.endswith("0000")
     assert artifact.path.exists()  # because of cache file already exists
@@ -194,7 +195,7 @@ def test_revise_artifact(df, get_small_adata):
     assert artifact_r2.uid.endswith("0001")
     assert artifact_r2.stem_uid == artifact.stem_uid
     assert artifact_r2.version is None
-    assert artifact_r2.key is None
+    assert artifact_r2.key == key
     assert artifact.suffix == ".parquet"
     assert artifact_r2.description == "test"
     assert artifact_r2._revises is not None
@@ -213,11 +214,7 @@ def test_revise_artifact(df, get_small_adata):
     assert artifact_r3.description == "test1"
 
     # revise by matching on `key`
-    artifact_r2.suffix = ".parquet"  # this has to be .parquet
-    key = "my-test-dataset.parquet"
-    artifact_r2.key = key
-    artifact_r2.save()
-
+    df.iloc[0, 0] = 100  # mutate dataframe so that hash lookup doesn't trigger
     artifact_r3 = ln.Artifact.from_df(df, description="test1", key=key, version="2")
     assert artifact_r3.uid.endswith("0002")
     assert artifact_r3.stem_uid == artifact.stem_uid
