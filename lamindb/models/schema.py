@@ -28,8 +28,8 @@ from ._relations import (
 from .can_curate import CanCurate
 from .feature import (
     Feature,
-    convert_pandas_dtype_to_lamin_dtype,
     serialize_dtype,
+    serialize_pandas_dtype,
 )
 from .record import (
     BasicRecord,
@@ -502,7 +502,7 @@ class Schema(Record, CanCurate, TracksRun):
             dtypes = [col.dtype for (_, col) in df.loc[:, validated].items()]
             if len(set(dtypes)) != 1:
                 raise ValueError(f"data types are heterogeneous: {set(dtypes)}")
-            dtype = convert_pandas_dtype_to_lamin_dtype(dtypes[0])
+            dtype = serialize_pandas_dtype(dtypes[0])
             validated_features = registry.from_values(
                 df.columns[validated],
                 field=field,

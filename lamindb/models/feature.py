@@ -153,7 +153,7 @@ def serialize_dtype(
     ):
         dtype_str = dtype.__name__
     elif isinstance(dtype, (ExtensionDtype, np.dtype)):
-        dtype_str = convert_pandas_dtype_to_lamin_dtype(dtype)
+        dtype_str = serialize_pandas_dtype(dtype)
     else:
         error_message = (
             "dtype has to be a record, a record field, or a list of records, not {}"
@@ -184,7 +184,7 @@ def serialize_dtype(
     return dtype_str
 
 
-def convert_pandas_dtype_to_lamin_dtype(pandas_dtype: ExtensionDtype) -> str:
+def serialize_pandas_dtype(pandas_dtype: ExtensionDtype) -> str:
     if is_string_dtype(pandas_dtype):
         if not isinstance(pandas_dtype, CategoricalDtype):
             dtype = "str"
@@ -491,7 +491,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
             if name in categoricals:
                 dtypes[name] = "cat"
             else:
-                dtypes[name] = convert_pandas_dtype_to_lamin_dtype(col.dtype)
+                dtypes[name] = serialize_pandas_dtype(col.dtype)
         with logger.mute():  # silence the warning "loaded record with exact same name "
             features = [
                 Feature(name=name, dtype=dtype) for name, dtype in dtypes.items()
