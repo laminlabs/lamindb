@@ -49,3 +49,13 @@ FeatureDtype = Literal[
     "datetime",  # datetime
     "object",  # this is a pandas dtype, we're only using it for complicated types, not for strings
 ]
+"""Data types.
+
+============  ===================================
+lamindb dtype  numpy / pandas dtype
+============  ===================================
+int            `Union[int64, int32, int16, int8, uint, ...]`
+float          `Union[float64, float32, float16, float8, ...]`
+num            `Union[int, float]`
+============  ===================================
+"""
