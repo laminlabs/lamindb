@@ -312,15 +312,25 @@ def is_any_float_type(series):
 
 
 def is_any_num_type(series):
-    return pd.api.types.is_float_dtype(series.dtype) or pd.api.types.is_integer_dtype(
-        series.dtype
-    )
+    return pd.api.types.is_numeric_dtype(series.dtype)
+
+
+def create_type_check(check_function, type_name):
+    def check_with_error_msg(series):
+        result = check_function(series)
+        if not result:
+            raise ValidationError(
+                f"Column {series.name} failed dtype check for {type_name}:, got {series.dtype}"
+            )
+        return result
+
+    return check_with_error_msg
 
 
 DTYPE_CHECK_MAP = {
-    "int": is_any_integer_type,
-    "float": is_any_float_type,
-    "num": is_any_num_type,
+    "int": create_type_check(is_any_integer_type, "int"),
+    "float": create_type_check(is_any_float_type, "float"),
+    "num": create_type_check(is_any_num_type, "numeric"),
 }
 
 
