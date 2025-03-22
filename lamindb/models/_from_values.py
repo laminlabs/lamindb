@@ -201,6 +201,9 @@ def create_records_from_source(
     # filter the columns in public df based on fields
     public_df = filter_public_df_columns(model=model, public_ontology=public_ontology)
 
+    if public_df.empty:
+        return records, iterable_idx
+
     # standardize in the public reference
     # do not inspect synonyms if the field is not name field
     inspect_synonyms = True
