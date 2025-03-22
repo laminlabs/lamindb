@@ -43,7 +43,6 @@ FeatureDtype = Literal[
     "num",  # numerical variables
     "str",  # string
     "int",  # integer
-    "uint",  # unsigned integer
     "float",  # float
     "bool",  # boolean
     "date",  # date

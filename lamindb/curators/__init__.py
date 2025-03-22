@@ -303,6 +303,27 @@ class SlotsCurator(Curator):
         )
 
 
+def is_any_integer_type(series):
+    return pd.api.types.is_integer_dtype(series.dtype)
+
+
+def is_any_float_type(series):
+    return pd.api.types.is_float_dtype(series.dtype)
+
+
+def is_any_num_type(series):
+    return pd.api.types.is_float_dtype(series.dtype) or pd.api.types.is_integer_dtype(
+        series.dtype
+    )
+
+
+DTYPE_CHECK_MAP = {
+    "int": is_any_integer_type,
+    "float": is_any_float_type,
+    "num": is_any_num_type,
+}
+
+
 class DataFrameCurator(Curator):
     # the example in the docstring is tested in test_curators_quickstart_example
     """Curator for `DataFrame`.
@@ -356,14 +377,26 @@ class DataFrameCurator(Curator):
             # populate features
             pandera_columns = {}
             for feature in schema.features.all():
-                pandera_dtype = (
-                    feature.dtype if not feature.dtype.startswith("cat") else "category"
-                )
-                pandera_columns[feature.name] = pandera.Column(
-                    pandera_dtype,
-                    nullable=feature.nullable,
-                    coerce=feature.coerce_dtype,
-                )
+                if feature.dtype in DTYPE_CHECK_MAP:
+                    pandera_columns[feature.name] = pandera.Column(
+                        dtype=None,
+                        checks=pa.Check(
+                            DTYPE_CHECK_MAP[feature.dtype], element_wise=False
+                        ),
+                        nullable=feature.nullable,
+                        coerce=feature.coerce_dtype,
+                    )
+                else:
+                    pandera_dtype = (
+                        feature.dtype
+                        if not feature.dtype.startswith("cat")
+                        else "category"
+                    )
+                    pandera_columns[feature.name] = pandera.Column(
+                        pandera_dtype,
+                        nullable=feature.nullable,
+                        coerce=feature.coerce_dtype,
+                    )
                 if feature.dtype.startswith("cat"):
                     categoricals[feature.name] = parse_dtype(feature.dtype)[0]["field"]
             self._pandera_schema = pandera.DataFrameSchema(
