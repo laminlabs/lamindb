@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 from typing import TYPE_CHECKING, Any, get_args, overload
 
+import numpy as np
 import pandas as pd
 from django.db import models
 from django.db.models import CASCADE, PROTECT, Q
@@ -12,6 +13,7 @@ from lamin_utils import logger
 from lamindb_setup._init_instance import get_schema_module_name
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dict
 from pandas.api.types import CategoricalDtype, is_string_dtype
+from pandas.core.dtypes.base import ExtensionDtype
 
 from lamindb.base.fields import (
     BooleanField,
@@ -35,8 +37,6 @@ from .run import (
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-
-    from pandas.core.dtypes.base import ExtensionDtype
 
     from .schema import Schema
 
@@ -152,6 +152,8 @@ def get_dtype_str_from_dtype(
         and dtype.__name__ in FEATURE_DTYPES
     ):
         dtype_str = dtype.__name__
+    elif isinstance(dtype, (ExtensionDtype, np.dtype)):
+        dtype_str = convert_pandas_dtype_to_lamin_dtype(dtype)
     else:
         error_message = (
             "dtype has to be a record, a record field, or a list of records, not {}"
