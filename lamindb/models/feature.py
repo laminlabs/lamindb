@@ -43,12 +43,38 @@ if TYPE_CHECKING:
 FEATURE_DTYPES = set(get_args(FeatureDtype))
 
 
-def parse_dtype_single_cat(
+def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
+    """Parses feature data type string into a structured list of components."""
+    from .artifact import Artifact
+
+    allowed_dtypes = FEATURE_DTYPES
+    if is_param:
+        allowed_dtypes.add("dict")
+    is_composed_cat = dtype_str.startswith("cat[") and dtype_str.endswith("]")
+    result = []
+    if is_composed_cat:
+        related_registries = dict_module_name_to_model_name(Artifact)
+        registries_str = dtype_str.replace("cat[", "")[:-1]  # strip last ]
+        if registries_str != "":
+            registry_str_list = registries_str.split("|")
+            for cat_single_dtype_str in registry_str_list:
+                single_result = parse_cat_dtype(
+                    cat_single_dtype_str, related_registries
+                )
+                result.append(single_result)
+    elif dtype_str not in allowed_dtypes:
+        raise ValueError(
+            f"dtype is '{dtype_str}' but has to be one of {FEATURE_DTYPES}!"
+        )
+    return result
+
+
+def parse_cat_dtype(
     dtype_str: str,
     related_registries: dict[str, Record] | None = None,
     is_itype: bool = False,
 ) -> dict[str, Any]:
-    """Parses a categorical data type string into its components (registry, field, subtypes)."""
+    """Parses a categorical dtype string into its components (registry, field, subtypes)."""
     from .artifact import Artifact
 
     assert isinstance(dtype_str, str)  # noqa: S101
@@ -114,32 +140,6 @@ def parse_dtype_single_cat(
         "field_str": field_str,
         "field": getattr(registry, field_str),
     }
-
-
-def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
-    """Parses feature data type string into a structured list of components."""
-    from .artifact import Artifact
-
-    allowed_dtypes = FEATURE_DTYPES
-    if is_param:
-        allowed_dtypes.add("dict")
-    is_composed_cat = dtype_str.startswith("cat[") and dtype_str.endswith("]")
-    result = []
-    if is_composed_cat:
-        related_registries = dict_module_name_to_model_name(Artifact)
-        registries_str = dtype_str.replace("cat[", "")[:-1]  # strip last ]
-        if registries_str != "":
-            registry_str_list = registries_str.split("|")
-            for cat_single_dtype_str in registry_str_list:
-                single_result = parse_dtype_single_cat(
-                    cat_single_dtype_str, related_registries
-                )
-                result.append(single_result)
-    elif dtype_str not in allowed_dtypes:
-        raise ValueError(
-            f"dtype is '{dtype_str}' but has to be one of {FEATURE_DTYPES}!"
-        )
-    return result
 
 
 def serialize_dtype(

@@ -65,7 +65,7 @@ from lamindb.models.artifact import (
     data_is_mudata,
     data_is_spatialdata,
 )
-from lamindb.models.feature import parse_dtype, parse_dtype_single_cat
+from lamindb.models.feature import parse_dtype, parse_cat_dtype
 from lamindb.models._from_values import _format_values
 
 from ..errors import InvalidArgument, ValidationError
@@ -406,7 +406,7 @@ class DataFrameCurator(Curator):
             assert schema.itype is not None  # noqa: S101
         self._cat_manager = DataFrameCatManager(
             self._dataset,
-            columns=parse_dtype_single_cat(schema.itype, is_itype=True)["field"],
+            columns=parse_cat_dtype(schema.itype, is_itype=True)["field"],
             categoricals=categoricals,
         )
 
@@ -495,7 +495,7 @@ class DataFrameCurator(Curator):
         """{}"""  # noqa: D415
         if not self._is_validated:
             self.validate()  # raises ValidationError if doesn't validate
-        result = parse_dtype_single_cat(self._schema.itype, is_itype=True)
+        result = parse_cat_dtype(self._schema.itype, is_itype=True)
         return save_artifact(  # type: ignore
             self._dataset,
             description=description,
@@ -610,9 +610,7 @@ class AnnDataCurator(SlotsCurator):
             description=description,
             fields=categoricals,
             index_field=(
-                parse_dtype_single_cat(self.slots["var"]._schema.itype, is_itype=True)[
-                    "field"
-                ]
+                parse_cat_dtype(self.slots["var"]._schema.itype, is_itype=True)["field"]
                 if "var" in self._slots
                 else None
             ),
@@ -640,7 +638,7 @@ def _assign_var_fields_categoricals_multimodal(
         categoricals[modality] = {}
 
     if slot_type == "var":
-        var_field = parse_dtype_single_cat(slot_schema.itype, is_itype=True)["field"]
+        var_field = parse_cat_dtype(slot_schema.itype, is_itype=True)["field"]
         if modality is None:
             # This should rarely/never be used since tables should have different var fields
             var_fields[slot] = var_field  # pragma: no cover
@@ -3202,9 +3200,9 @@ def save_artifact(
             )
         case "AnnData":
             if schema is not None and "uns" in schema.slots:
-                uns_field = parse_dtype_single_cat(
-                    schema.slots["uns"].itype, is_itype=True
-                )["field"]
+                uns_field = parse_cat_dtype(schema.slots["uns"].itype, is_itype=True)[
+                    "field"
+                ]
             else:
                 uns_field = None
             artifact.features._add_set_from_anndata(  # type: ignore
