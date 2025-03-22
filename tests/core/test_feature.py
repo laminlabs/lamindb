@@ -3,7 +3,7 @@ import lamindb as ln
 import pandas as pd
 import pytest
 from lamindb.errors import ValidationError
-from lamindb.models.feature import convert_pandas_dtype_to_lamin_dtype
+from lamindb.models.feature import serialize_pandas_dtype
 from pandas.api.types import is_string_dtype
 
 
@@ -78,7 +78,7 @@ def test_feature_from_df(df):
             assert feature.dtype == "cat"
         else:
             orig_type = df[feature.name].dtype
-            assert feature.dtype == convert_pandas_dtype_to_lamin_dtype(orig_type)
+            assert feature.dtype == serialize_pandas_dtype(orig_type)
     for feature in features:
         feature.save()
     labels = [ln.ULabel(name=name) for name in df["feat3"].unique()]

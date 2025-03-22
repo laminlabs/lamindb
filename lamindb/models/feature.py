@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 from typing import TYPE_CHECKING, Any, get_args, overload
 
+import numpy as np
 import pandas as pd
 from django.db import models
 from django.db.models import CASCADE, PROTECT, Q
@@ -12,6 +13,7 @@ from lamin_utils import logger
 from lamindb_setup._init_instance import get_schema_module_name
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dict
 from pandas.api.types import CategoricalDtype, is_string_dtype
+from pandas.core.dtypes.base import ExtensionDtype
 
 from lamindb.base.fields import (
     BooleanField,
@@ -36,19 +38,43 @@ from .run import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from pandas.core.dtypes.base import ExtensionDtype
-
     from .schema import Schema
 
 FEATURE_DTYPES = set(get_args(FeatureDtype))
 
 
-def parse_dtype_single_cat(
+def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
+    """Parses feature data type string into a structured list of components."""
+    from .artifact import Artifact
+
+    allowed_dtypes = FEATURE_DTYPES
+    if is_param:
+        allowed_dtypes.add("dict")
+    is_composed_cat = dtype_str.startswith("cat[") and dtype_str.endswith("]")
+    result = []
+    if is_composed_cat:
+        related_registries = dict_module_name_to_model_name(Artifact)
+        registries_str = dtype_str.replace("cat[", "")[:-1]  # strip last ]
+        if registries_str != "":
+            registry_str_list = registries_str.split("|")
+            for cat_single_dtype_str in registry_str_list:
+                single_result = parse_cat_dtype(
+                    cat_single_dtype_str, related_registries
+                )
+                result.append(single_result)
+    elif dtype_str not in allowed_dtypes:
+        raise ValueError(
+            f"dtype is '{dtype_str}' but has to be one of {FEATURE_DTYPES}!"
+        )
+    return result
+
+
+def parse_cat_dtype(
     dtype_str: str,
     related_registries: dict[str, Record] | None = None,
     is_itype: bool = False,
 ) -> dict[str, Any]:
-    """Parses a categorical data type string into its components (registry, field, subtypes)."""
+    """Parses a categorical dtype string into its components (registry, field, subtypes)."""
     from .artifact import Artifact
 
     assert isinstance(dtype_str, str)  # noqa: S101
@@ -116,33 +142,7 @@ def parse_dtype_single_cat(
     }
 
 
-def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
-    """Parses feature data type string into a structured list of components."""
-    from .artifact import Artifact
-
-    allowed_dtypes = FEATURE_DTYPES
-    if is_param:
-        allowed_dtypes.add("dict")
-    is_composed_cat = dtype_str.startswith("cat[") and dtype_str.endswith("]")
-    result = []
-    if is_composed_cat:
-        related_registries = dict_module_name_to_model_name(Artifact)
-        registries_str = dtype_str.replace("cat[", "")[:-1]  # strip last ]
-        if registries_str != "":
-            registry_str_list = registries_str.split("|")
-            for cat_single_dtype_str in registry_str_list:
-                single_result = parse_dtype_single_cat(
-                    cat_single_dtype_str, related_registries
-                )
-                result.append(single_result)
-    elif dtype_str not in allowed_dtypes:
-        raise ValueError(
-            f"dtype is '{dtype_str}' but has to be one of {FEATURE_DTYPES}!"
-        )
-    return result
-
-
-def get_dtype_str_from_dtype(
+def serialize_dtype(
     dtype: Record | FieldAttr | list[Record], is_itype: bool = False
 ) -> str:
     """Converts a data type object into its string representation."""
@@ -152,6 +152,8 @@ def get_dtype_str_from_dtype(
         and dtype.__name__ in FEATURE_DTYPES
     ):
         dtype_str = dtype.__name__
+    elif isinstance(dtype, (ExtensionDtype, np.dtype)):
+        dtype_str = serialize_pandas_dtype(dtype)
     else:
         error_message = (
             "dtype has to be a record, a record field, or a list of records, not {}"
@@ -182,7 +184,7 @@ def get_dtype_str_from_dtype(
     return dtype_str
 
 
-def convert_pandas_dtype_to_lamin_dtype(pandas_dtype: ExtensionDtype) -> str:
+def serialize_pandas_dtype(pandas_dtype: ExtensionDtype) -> str:
     if is_string_dtype(pandas_dtype):
         if not isinstance(pandas_dtype, CategoricalDtype):
             dtype = "str"
@@ -194,6 +196,8 @@ def convert_pandas_dtype_to_lamin_dtype(pandas_dtype: ExtensionDtype) -> str:
     else:
         # strip precision qualifiers
         dtype = "".join(dt for dt in pandas_dtype.name if not dt.isdigit())
+        if dtype == "uint":
+            dtype = "int"
     if dtype.startswith("datetime"):
         dtype = dtype.split("[")[0]
     assert dtype in FEATURE_DTYPES  # noqa: S101
@@ -225,7 +229,7 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
     dtype_str = None
     if dtype is not None:
         if not isinstance(dtype, str):
-            dtype_str = get_dtype_str_from_dtype(dtype)
+            dtype_str = serialize_dtype(dtype)
         else:
             dtype_str = dtype
             parse_dtype(dtype_str, is_param=is_param)
@@ -487,7 +491,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
             if name in categoricals:
                 dtypes[name] = "cat"
             else:
-                dtypes[name] = convert_pandas_dtype_to_lamin_dtype(col.dtype)
+                dtypes[name] = serialize_pandas_dtype(col.dtype)
         with logger.mute():  # silence the warning "loaded record with exact same name "
             features = [
                 Feature(name=name, dtype=dtype) for name, dtype in dtypes.items()

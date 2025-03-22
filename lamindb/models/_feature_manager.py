@@ -24,7 +24,7 @@ from lamindb.core.storage import LocalPathClasses
 from lamindb.errors import DoesNotExist, ValidationError
 from lamindb.models._from_values import _format_values
 from lamindb.models.feature import (
-    convert_pandas_dtype_to_lamin_dtype,
+    serialize_pandas_dtype,
     suggest_categorical_for_str_iterable,
 )
 from lamindb.models.record import (
@@ -502,11 +502,7 @@ def parse_staged_feature_sets_from_anndata(
             data_parse = ad.read_h5ad(filepath, backed="r")
         type = "float"
     else:
-        type = (
-            "float"
-            if adata.X is None
-            else convert_pandas_dtype_to_lamin_dtype(adata.X.dtype)
-        )
+        type = "float" if adata.X is None else serialize_pandas_dtype(adata.X.dtype)
     feature_sets = {}
     if var_field is not None:
         schema_var = Schema.from_values(
@@ -571,7 +567,7 @@ def infer_feature_type_convert_json(
             return "cat ? str", value, message
     elif isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
         if isinstance(value, (pd.Series, np.ndarray, pd.Categorical)):
-            dtype = convert_pandas_dtype_to_lamin_dtype(value.dtype)
+            dtype = serialize_pandas_dtype(value.dtype)
             if dtype == "str":
                 # ndarray doesn't know categorical, so there was no conscious choice
                 # offer both options
