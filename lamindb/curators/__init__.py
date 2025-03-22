@@ -380,7 +380,7 @@ class DataFrameCurator(Curator):
                 if feature.dtype in DTYPE_CHECK_MAP:
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
-                        checks=pa.Check(
+                        checks=pandera.Check(
                             DTYPE_CHECK_MAP[feature.dtype], element_wise=False
                         ),
                         nullable=feature.nullable,
