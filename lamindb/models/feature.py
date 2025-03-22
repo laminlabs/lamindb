@@ -142,7 +142,7 @@ def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
     return result
 
 
-def get_dtype_str_from_dtype(
+def serialize_dtype(
     dtype: Record | FieldAttr | list[Record], is_itype: bool = False
 ) -> str:
     """Converts a data type object into its string representation."""
@@ -229,7 +229,7 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
     dtype_str = None
     if dtype is not None:
         if not isinstance(dtype, str):
-            dtype_str = get_dtype_str_from_dtype(dtype)
+            dtype_str = serialize_dtype(dtype)
         else:
             dtype_str = dtype
             parse_dtype(dtype_str, is_param=is_param)

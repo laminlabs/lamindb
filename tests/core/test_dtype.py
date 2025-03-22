@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 from lamindb import ULabel
 from lamindb.errors import ValidationError
-from lamindb.models.feature import get_dtype_str_from_dtype, parse_dtype
+from lamindb.models.feature import parse_dtype, serialize_dtype
 
 # -----------------------------------------------------------------------------
 # serializing dtypes
@@ -17,7 +17,7 @@ def test_seralize_dtypes():
         }
     )
     assert df.column1.dtype.name == "uint64"
-    assert get_dtype_str_from_dtype(df.column1.dtype) == "int"
+    assert serialize_dtype(df.column1.dtype) == "int"
 
 
 # -----------------------------------------------------------------------------

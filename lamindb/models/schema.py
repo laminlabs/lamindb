@@ -29,7 +29,7 @@ from .can_curate import CanCurate
 from .feature import (
     Feature,
     convert_pandas_dtype_to_lamin_dtype,
-    get_dtype_str_from_dtype,
+    serialize_dtype,
 )
 from .record import (
     BasicRecord,
@@ -352,7 +352,7 @@ class Schema(Record, CanCurate, TracksRun):
             if otype is None:
                 raise InvalidArgument("Please pass otype != None for composite schemas")
         if itype is not None and not isinstance(itype, str):
-            itype_str = get_dtype_str_from_dtype(itype, is_itype=True)
+            itype_str = serialize_dtype(itype, is_itype=True)
         else:
             itype_str = itype
         validated_kwargs = {
