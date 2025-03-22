@@ -743,8 +743,7 @@ class BasicRecord(models.Model, metaclass=Registry):
             )
         else:
             super().__init__(*args)
-            _store_record_old_name(self)
-            _store_record_old_key(self)
+        track_current_key_and_name_values(self)
 
     def save(self, *args, **kwargs) -> Record:
         """Save.
@@ -812,8 +811,8 @@ class BasicRecord(models.Model, metaclass=Registry):
                     init_self_from_db(self, pre_existing_record)
                 else:
                     raise
-            _store_record_old_name(self)
-            _store_record_old_key(self)
+            # call the below in case a user makes more updates to the record
+            track_current_key_and_name_values(self)
         # perform transfer of many-to-many fields
         # only supported for Artifact and Collection records
         if db is not None and db != "default" and using_key is None:
@@ -1397,18 +1396,14 @@ def transfer_to_default_db(
     return None
 
 
-def _store_record_old_name(record: Record):
-    # writes the name to the _name attribute, so we can detect renaming upon save
-    if hasattr(record, "_name_field"):
-        record._old_name = getattr(record, record._name_field)
+def track_current_key_and_name_values(record: Record):
+    from lamindb.models import Artifact
 
-
-def _store_record_old_key(record: Record):
-    from lamindb.models import Artifact, Transform
-
-    # writes the key to the _old_key attribute, so we can detect key changes upon save
-    if isinstance(record, (Artifact, Transform)):
+    if isinstance(record, Artifact):
         record._old_key = record.key
+        record._old_suffix = record.suffix
+    elif hasattr(record, "_name_field"):
+        record._old_name = getattr(record, record._name_field)
 
 
 def check_name_change(record: Record):
@@ -1489,20 +1484,29 @@ def check_key_change(record: Union[Artifact, Transform]):
 
     if not isinstance(record, Artifact) or not hasattr(record, "_old_key"):
         return
+    if record._old_suffix != record.suffix:
+        raise InvalidArgument(
+            f"Changing the `.suffix` of an artifact is not allowed! You tried to change it from '{record._old_suffix}' to '{record.suffix}'."
+        )
 
-    old_key = record._old_key or ""
-    new_key = record.key or ""
+    old_key = record._old_key
+    new_key = record.key
 
     if old_key != new_key:
         if not record._key_is_virtual:
             raise InvalidArgument(
-                f"Changing a non-virtual key of an artifact is not allowed! Tried to change key from '{old_key}' to '{new_key}'."
+                f"Changing a non-virtual key of an artifact is not allowed! You tried to change it from '{old_key}' to '{new_key}'."
             )
-        old_key_suffix = (
-            record.suffix
-            if record.suffix
-            else extract_suffix_from_path(PurePosixPath(old_key), arg_name="key")
-        )
+        if old_key is not None:
+            old_key_suffix = extract_suffix_from_path(
+                PurePosixPath(old_key), arg_name="key"
+            )
+            assert old_key_suffix == record.suffix, (  # noqa: S101
+                old_key_suffix,
+                record.suffix,
+            )
+        else:
+            old_key_suffix = record.suffix
         new_key_suffix = extract_suffix_from_path(
             PurePosixPath(new_key), arg_name="key"
         )

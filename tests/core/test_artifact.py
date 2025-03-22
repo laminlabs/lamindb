@@ -161,7 +161,7 @@ def test_basic_validation():
     )
 
 
-def test_revise_artifact(df, get_small_adata):
+def test_revise_artifact(df):
     # attempt to create a file with an invalid version
     with pytest.raises(ValueError) as error:
         artifact = ln.Artifact.from_df(df, description="test", version=0)
@@ -172,39 +172,36 @@ def test_revise_artifact(df, get_small_adata):
     )
 
     # create a file and tag it with a version
-    artifact = ln.Artifact.from_df(df, description="test", version="1")
+    key = "my-test-dataset.parquet"
+    artifact = ln.Artifact.from_df(df, key=key, description="test", version="1")
     assert artifact.version == "1"
     assert artifact.uid.endswith("0000")
-
     assert artifact.path.exists()  # because of cache file already exists
     artifact.save()
     assert artifact.path.exists()
+    assert artifact.suffix == ".parquet"
 
     with pytest.raises(ValueError) as error:
-        artifact_r2 = ln.Artifact.from_anndata(
-            get_small_adata, revises=artifact, version="1"
-        )
+        artifact_r2 = ln.Artifact.from_df(df, revises=artifact, version="1")
     assert error.exconly() == "ValueError: Please increment the previous version: '1'"
 
     # create new file from old file
-    artifact_r2 = ln.Artifact.from_anndata(get_small_adata, revises=artifact)
+    df.iloc[0, 0] = 99  # mutate dataframe so that hash lookup doesn't trigger
+    artifact_r2 = ln.Artifact.from_df(df, revises=artifact)
     assert artifact_r2.stem_uid == artifact.stem_uid
     assert artifact_r2.uid.endswith("0001")
-    artifact_r2 = ln.Artifact.from_anndata(get_small_adata, revises=artifact)
+    # call this again
+    artifact_r2 = ln.Artifact.from_df(df, revises=artifact)
     assert artifact_r2.uid.endswith("0001")
     assert artifact_r2.stem_uid == artifact.stem_uid
     assert artifact_r2.version is None
-    assert artifact_r2.key is None
+    assert artifact_r2.key == key
+    assert artifact.suffix == ".parquet"
     assert artifact_r2.description == "test"
     assert artifact_r2._revises is not None
     artifact_r2.save()
     assert artifact_r2.path.exists()
     assert artifact_r2._revises is None
-
-    # modify key to have a different suffix is not allowed
-    with pytest.raises(InvalidArgument) as error:
-        artifact_r2.key = "my-test-dataset.suffix"
-        artifact_r2.save()
 
     # create new file from newly versioned file
     df.iloc[0, 0] = 0  # mutate dataframe so that hash lookup doesn't trigger
@@ -217,11 +214,7 @@ def test_revise_artifact(df, get_small_adata):
     assert artifact_r3.description == "test1"
 
     # revise by matching on `key`
-    artifact_r2.suffix = ".parquet"  # this has to be .parquet
-    key = "my-test-dataset.parquet"
-    artifact_r2.key = key
-    artifact_r2.save()
-
+    df.iloc[0, 0] = 100  # mutate dataframe so that hash lookup doesn't trigger
     artifact_r3 = ln.Artifact.from_df(df, description="test1", key=key, version="2")
     assert artifact_r3.uid.endswith("0002")
     assert artifact_r3.stem_uid == artifact.stem_uid
@@ -249,9 +242,9 @@ def test_revise_artifact(df, get_small_adata):
         ln.Artifact.from_df(df, description="test1a", revises=ln.Transform())
     assert error.exconly() == "TypeError: `revises` has to be of type `Artifact`"
 
-    artifact_r3.delete(permanent=True, storage=True)
-    artifact_r2.delete(permanent=True, storage=True)
-    artifact.delete(permanent=True, storage=True)
+    artifact_r3.delete(permanent=True)
+    artifact_r2.delete(permanent=True)
+    artifact.delete(permanent=True)
 
     # unversioned file
     artifact = ln.Artifact.from_df(df, description="test2")
@@ -262,13 +255,14 @@ def test_revise_artifact(df, get_small_adata):
     artifact.save()
 
     # create new file from old file
-    new_artifact = ln.Artifact.from_anndata(get_small_adata, revises=artifact)
+    df.iloc[0, 0] = 101  # mutate dataframe so that hash lookup doesn't trigger
+    new_artifact = ln.Artifact.from_df(df, revises=artifact)
     assert artifact.version is None
     assert new_artifact.stem_uid == artifact.stem_uid
     assert new_artifact.version is None
     assert new_artifact.description == artifact.description
 
-    artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True)
 
 
 def test_create_from_dataframe(df):
@@ -279,13 +273,83 @@ def test_create_from_dataframe(df):
     assert artifact.kind == "dataset"
     assert artifact.n_observations == 2
     assert hasattr(artifact, "_local_filepath")
+    artifact.key = "my-test-dataset"  # try changing key
+    with pytest.raises(InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect, it should be '.parquet'."
+    )
+    artifact.key = None  # restore
+    artifact.suffix = ".whatever"  # try changing suffix
+    with pytest.raises(InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: Changing the `.suffix` of an artifact is not allowed! You tried to change it from '.parquet' to '.whatever'."
+    )
+    artifact.suffix = ".parquet"
     artifact.save()
-    # can do backed now, tested in test_storage.py
-    ds = artifact.open()
-    assert len(ds.files) == 1
     # check that the local filepath has been cleared
     assert not hasattr(artifact, "_local_filepath")
-    artifact.delete(permanent=True, storage=True)
+    del artifact
+
+    # now get an artifact from the database
+    artifact = ln.Artifact.get(description="test1")
+
+    artifact.suffix = ".whatever"  # try changing suffix
+    with pytest.raises(InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: Changing the `.suffix` of an artifact is not allowed! You tried to change it from '.parquet' to '.whatever'."
+    )
+    artifact.suffix = ".parquet"
+
+    # coming from `key is None` that setting a key with different suffix is not allowed
+    artifact.key = "my-test-dataset.suffix"
+    with pytest.raises(InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: The suffix '.suffix' of the provided key is incorrect, it should be '.parquet'."
+    )
+
+    # coming from `key is None` test with no suffix
+    artifact.key = "my-test-dataset"
+    with pytest.raises(InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect, it should be '.parquet'."
+    )
+
+    # try a joint update where both suffix and key are changed, this previously enabled to create a corrupted state
+    artifact.key = "my-test-dataset"
+    artifact.suffix = ""
+    with pytest.raises(InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: Changing the `.suffix` of an artifact is not allowed! You tried to change it from '.parquet' to ''."
+    )
+
+    # because this is a parquet artifact, we can set a key with a .parquet suffix
+    artifact.suffix = ".parquet"  # restore proper suffix
+    artifact.key = "my-test-dataset.parquet"
+    artifact.save()
+    assert artifact.key == "my-test-dataset.parquet"
+
+    # coming from a .parquet key, test changing the key to no suffix
+    artifact.key = "my-test-dataset"
+    with pytest.raises(InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect, it should be '.parquet'."
+    )
+
+    artifact.delete(permanent=True)
 
 
 def test_create_from_anndata(get_small_adata, adata_file):
