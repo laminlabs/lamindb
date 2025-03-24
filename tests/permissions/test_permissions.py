@@ -34,7 +34,7 @@ def test_fine_grained_permissions():
     ulabel.save()
     # should fail
     with pytest.raises(ProgrammingError):
-        ln.ULabel(name="new label fail")
+        ln.ULabel(name="new label fail").save()
     for space_name in ["select access", "no access"]:
         space = ln.models.Space.get(name=space_name)
         ulabel = ln.ULabel(name="new label fail")
