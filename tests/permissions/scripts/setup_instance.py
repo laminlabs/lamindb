@@ -10,7 +10,7 @@ ln_setup.init(
     db=pgurl,
 )
 
-_install_db_module(pgurl, public_instance=False)
+_install_db_module(pgurl, jwt_role_name="permissions_jwt")
 # can't add this app in the init because don't want t trigger the initial migration
 # that conflicts with _install_db_module
 ln_setup.settings.instance._schema_str = "hubmodule"
