@@ -8,9 +8,6 @@ no_access = ln.models.Space(name="no access", uid="00000003").save()  # type: ig
 
 account = hm.Account(id=ln.setup.settings.user._uuid.hex).save()
 
-# space All
-ulabel = ln.ULabel(name="space_all_ulabel").save()
-
 # no access space
 ulabel = ln.ULabel(name="no_access_ulabel")
 ulabel.space = no_access
@@ -36,6 +33,12 @@ ulabel.save()
 # create a link table referencing rows in different spaces
 ulabel.projects.add(project)
 
+# space All, only select access by default
+ulabel = ln.ULabel(name="space_all_ulabel").save()
+ulabel.projects.add(project)
+
+project = ln.Project(name="space_all_project").save()
+ulabel.projects.add(project)
 
 print("Created models")
 
