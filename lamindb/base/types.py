@@ -7,7 +7,7 @@ Central object types.
 
    ArtifactKind
    TransformType
-   FeatureDtype
+   Dtype
 
 Basic types.
 
@@ -38,24 +38,26 @@ TransformType = Literal[
     "pipeline", "notebook", "upload", "script", "function", "linker"
 ]
 ArtifactKind = Literal["dataset", "model"]
-FeatureDtype = Literal[
+Dtype = Literal[
     "cat",  # categoricals
-    "num",  # numerical variables
+    "num",  # numericals
     "str",  # string
-    "int",  # integer
+    "int",  # integer / numpy.integer
     "float",  # float
     "bool",  # boolean
     "date",  # date
     "datetime",  # datetime
     "object",  # this is a pandas dtype, we're only using it for complicated types, not for strings
 ]
-"""Data types.
+"""Data type.
 
-============  ===================================
-lamindb dtype  numpy / pandas dtype
-============  ===================================
-int            `Union[int64, int32, int16, int8, uint, ...]`
-float          `Union[float64, float32, float16, float8, ...]`
-num            `Union[int, float]`
-============  ===================================
+============  =================================================
+lamindb       numpy / pandas
+============  =================================================
+`"cat"`       `category`
+`"num"`       `int | float`
+`"int"`       `int64 | int32 | int16 | int8 | uint | ...`
+`"float"`     `float64 | float32 | float16 | float8 | ...`
+============  =================================================
 """
+FeatureDtype = Dtype  # backward compat

@@ -22,7 +22,7 @@ from lamindb.base.fields import (
     JSONField,
     TextField,
 )
-from lamindb.base.types import FeatureDtype, FieldAttr
+from lamindb.base.types import Dtype, FieldAttr
 from lamindb.errors import FieldValidationError, ValidationError
 
 from ..base.ids import base62_12
@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 
     from .schema import Schema
 
-FEATURE_DTYPES = set(get_args(FeatureDtype))
+FEATURE_DTYPES = set(get_args(Dtype))
 
 
 def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
@@ -256,7 +256,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
 
     Args:
         name: `str` Name of the feature, typically.  column name.
-        dtype: `FeatureDtype | Registry | list[Registry] | FieldAttr` See :class:`~lamindb.base.types.FeatureDtype`.
+        dtype: `Dtype | Registry | list[Registry] | FieldAttr` See :class:`~lamindb.base.types.Dtype`.
             For categorical types, can define from which registry values are
             sampled, e.g., `ULabel` or `[ULabel, bionty.CellType]`.
         unit: `str | None = None` Unit of measure, ideally SI (`"m"`, `"s"`, `"kg"`, etc.) or `"normalized"` etc.
@@ -345,8 +345,8 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     """Universal id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True, unique=True)
     """Name of feature (hard unique constraint `unique=True`)."""
-    dtype: FeatureDtype | None = CharField(db_index=True, null=True)
-    """Data type (:class:`~lamindb.base.types.FeatureDtype`).
+    dtype: Dtype | None = CharField(db_index=True, null=True)
+    """Data type (:class:`~lamindb.base.types.Dtype`).
 
     For categorical types, can define from which registry values are
     sampled, e.g., `'cat[ULabel]'` or `'cat[bionty.CellType]'`. Unions are also
@@ -393,7 +393,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
 
     Is stored as a list rather than a tuple because it's serialized as JSON.
     """
-    proxy_dtype: FeatureDtype | None = CharField(default=None, null=True)
+    proxy_dtype: Dtype | None = CharField(default=None, null=True)
     """Proxy data type.
 
     If the feature is an image it's often stored via a path to the image file. Hence, while the dtype might be
@@ -423,7 +423,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     def __init__(
         self,
         name: str,
-        dtype: FeatureDtype | Registry | list[Registry] | FieldAttr,
+        dtype: Dtype | Registry | list[Registry] | FieldAttr,
         type: Feature | None = None,
         is_type: bool = False,
         unit: str | None = None,

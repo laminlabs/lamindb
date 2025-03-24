@@ -28,7 +28,7 @@ from .record import BasicRecord, LinkORM, Record, Registry
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from lamindb.base.types import FeatureDtype, FieldAttr
+    from lamindb.base.types import Dtype, FieldAttr
 
     from .artifact import Artifact
     from .collection import Collection
@@ -241,7 +241,7 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
     def __init__(
         self,
         name: str,
-        dtype: FeatureDtype | Registry | list[Registry] | FieldAttr,
+        dtype: Dtype | Registry | list[Registry] | FieldAttr,
         type: Param | None = None,
         is_type: bool = False,
     ): ...

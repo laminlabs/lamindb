@@ -30,7 +30,7 @@ from __future__ import annotations
 import copy
 import re
 from itertools import chain
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Callable, Literal
 
 import anndata as ad
 import lamindb_setup as ln_setup
@@ -315,7 +315,7 @@ def is_any_num_type(series):
     return pd.api.types.is_numeric_dtype(series.dtype)
 
 
-def create_type_check(check_function, type_name):
+def create_type_check(check_function: Callable, type_name: str):
     def check_with_error_msg(series):
         result = check_function(series)
         if not result:
@@ -330,7 +330,7 @@ def create_type_check(check_function, type_name):
 DTYPE_CHECK_MAP = {
     "int": create_type_check(is_any_integer_type, "int"),
     "float": create_type_check(is_any_float_type, "float"),
-    "num": create_type_check(is_any_num_type, "numeric"),
+    "num": create_type_check(is_any_num_type, "num"),
 }
 
 
