@@ -303,35 +303,26 @@ class SlotsCurator(Curator):
         )
 
 
-def is_any_integer_type(series):
-    return pd.api.types.is_integer_dtype(series.dtype)
+def check_dtype(expected_type) -> Callable:
+    """Creates a check function for Pandera that validates a column's dtype.
 
+    Args:
+        expected_type: String identifier for the expected type ('int', 'float', or 'num')
 
-def is_any_float_type(series):
-    return pd.api.types.is_float_dtype(series.dtype)
+    Returns:
+        A function that checks if a series has the expected dtype
+    """
 
+    def check_function(series):
+        if expected_type == "int":
+            is_valid = pd.api.types.is_integer_dtype(series.dtype)
+        elif expected_type == "float":
+            is_valid = pd.api.types.is_float_dtype(series.dtype)
+        elif expected_type == "num":
+            is_valid = pd.api.types.is_numeric_dtype(series.dtype)
+        return is_valid
 
-def is_any_num_type(series):
-    return pd.api.types.is_numeric_dtype(series.dtype)
-
-
-def create_type_check(check_function: Callable, type_name: str):
-    def check_with_error_msg(series):
-        result = check_function(series)
-        if not result:
-            raise ValidationError(
-                f"Column {series.name} failed dtype check for {type_name}:, got {series.dtype}"
-            )
-        return result
-
-    return check_with_error_msg
-
-
-DTYPE_CHECK_MAP = {
-    "int": create_type_check(is_any_integer_type, "int"),
-    "float": create_type_check(is_any_float_type, "float"),
-    "num": create_type_check(is_any_num_type, "num"),
-}
+    return check_function
 
 
 class DataFrameCurator(Curator):
@@ -387,11 +378,13 @@ class DataFrameCurator(Curator):
             # populate features
             pandera_columns = {}
             for feature in schema.features.all():
-                if feature.dtype in DTYPE_CHECK_MAP:
+                if feature.dtype in {"int", "float", "num"}:
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
                         checks=pandera.Check(
-                            DTYPE_CHECK_MAP[feature.dtype], element_wise=False
+                            check_dtype(feature.dtype),
+                            element_wise=False,
+                            error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}': got {self._dataset[feature.name].dtype}",
                         ),
                         nullable=feature.nullable,
                         coerce=feature.coerce_dtype,
