@@ -379,12 +379,17 @@ class DataFrameCurator(Curator):
             pandera_columns = {}
             for feature in schema.features.all():
                 if feature.dtype in {"int", "float", "num"}:
+                    dtype = (
+                        self._dataset[feature.name].dtype
+                        if feature.name in self._dataset.columns
+                        else None
+                    )
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
                         checks=pandera.Check(
                             check_dtype(feature.dtype),
                             element_wise=False,
-                            error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}': got {self._dataset[feature.name].dtype}",
+                            error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}': got {dtype}",
                         ),
                         nullable=feature.nullable,
                         coerce=feature.coerce_dtype,
