@@ -844,7 +844,7 @@ def _add_values(
                 )
     validated = registry.validate(keys, field=feature_param_field, mute=True)
     keys_array = np.array(keys)
-    validated_keys = keys_array[validated]
+    keys_array[validated]
     if validated.sum() != len(keys):
         not_validated_keys = keys_array[~validated]
         not_validated_keys_dtype_message = [
@@ -870,10 +870,7 @@ def _add_values(
             f"Here is how to create a {model_name.lower()}:\n\n{hint}"
         )
         raise ValidationError(msg)
-    registry.from_values(
-        validated_keys,
-        field=feature_param_field,
-    )
+
     # figure out which of the values go where
     features_labels = defaultdict(list)
     _feature_values = []
@@ -933,12 +930,14 @@ def _add_values(
                 if "ULabel" not in feature.dtype:
                     feature.dtype += "[ULabel]"
                     feature.save()
-                validated = ULabel.validate(values, field="name", mute=True)
+                validated = ULabel.validate(values, field=ULabel.name, mute=True)
                 values_array = np.array(values)
                 validated_values = values_array[validated]
                 if validated.sum() != len(values):
                     not_validated_values += values_array[~validated].tolist()
-                label_records = ULabel.from_values(validated_values, field="name")  # type: ignore
+                label_records = ULabel.from_values(
+                    validated_values, field=ULabel.name, mute=True
+                )  # type: ignore
                 features_labels["ULabel"] += [
                     (feature, label_record) for label_record in label_records
                 ]
@@ -1253,7 +1252,7 @@ def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
         # create records from ontology_id
         if hasattr(registry, "_ontology_id_field") and len(member_uids) > 0:
             # create from bionty
-            members_records = registry.from_values(member_uids, field=field)
+            members_records = registry.from_values(member_uids, field=field, mute=True)
             save([r for r in members_records if r._state.adding])
         validated = registry.validate(member_uids, field=field, mute=True)
         new_members_uids = list(compress(member_uids, ~validated))
