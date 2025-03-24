@@ -248,10 +248,11 @@ class LabelManager:
                     new_labels, using_key, transfer_logs=transfer_logs
                 )
             for label in labels:
+                keys: list = []
                 # if the link table doesn't follow this convention, we'll ignore it
                 if not hasattr(label, f"links_{data_name_lower}"):
                     key = None
-                    labels_by_features[key] = []
+                    keys.append(key)
                 else:
                     links = (
                         getattr(label, f"links_{data_name_lower}")
@@ -264,7 +265,7 @@ class LabelManager:
                             key = link.feature.name
                         else:
                             key = None
-                        labels_by_features[key] = []
+                        keys.append(key)
                 label_returned = transfer_to_default_db(
                     label,
                     using_key,
@@ -275,7 +276,7 @@ class LabelManager:
                 # TODO: refactor return value of transfer to default db
                 if label_returned is not None:
                     label = label_returned
-                for key in labels_by_features.keys():
+                for key in keys:
                     labels_by_features[key].append(label)
             # treat features
             new_features = save_validated_records(list(features))
