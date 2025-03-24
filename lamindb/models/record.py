@@ -206,12 +206,12 @@ def validate_literal_fields(record: Record, kwargs) -> None:
         return None
     if record.__class__.__name__ in "Feature":
         return None
-    from lamindb.base.types import FeatureDtype, TransformType
+    from lamindb.base.types import Dtype, TransformType
 
     types = {
         "TransformType": TransformType,
-        "ArtifactKind": FeatureDtype,
-        "FeatureDtype": FeatureDtype,
+        "ArtifactKind": Dtype,
+        "Dtype": Dtype,
     }
     errors = {}
     annotations = getattr(record.__class__, "__annotations__", {})

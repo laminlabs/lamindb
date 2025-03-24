@@ -11,7 +11,7 @@ from lamindb_setup._init_instance import get_schema_module_name
 
 from lamindb.models import Feature, FeatureValue, ParamValue, Record
 
-from .models.feature import convert_pandas_dtype_to_lamin_dtype
+from .models.feature import serialize_pandas_dtype
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -114,7 +114,7 @@ def view(
     """
     if df is not None:
         descriptions = {
-            col_name: convert_pandas_dtype_to_lamin_dtype(dtype)
+            col_name: serialize_pandas_dtype(dtype)
             for col_name, dtype in df.dtypes.to_dict().items()
         }
         feature_dtypes = dict(Feature.objects.values_list("name", "dtype"))
