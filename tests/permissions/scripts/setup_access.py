@@ -1,5 +1,6 @@
 import lamindb as ln  # noqa
 import hubmodule.models as hm
+from hubmodule._setup import _install_db_module
 from laminhub_rest.core.db import DbRoleHandler
 
 full_access = ln.models.Space(name="full access", uid="00000001").save()  # type: ignore
@@ -44,9 +45,11 @@ print("Created models")
 
 
 # create a db connection url that works with RLS
-def create_jwt_user(dsn_admin: str):
+JWT_ROLE_NAME = "permissions_jwt"
+
+
+def create_jwt_user(dsn_admin: str, jwt_role_name: str):
     db_role_handler = DbRoleHandler(dsn_admin)
-    jwt_role_name = "permissions_jwt"
     jwt_db_url = db_role_handler.create(
         jwt_role_name, expires_in=None, alter_if_exists=True
     )
@@ -55,7 +58,8 @@ def create_jwt_user(dsn_admin: str):
 
 
 pgurl = "postgresql://postgres:pwd@0.0.0.0:5432/pgtest"  # admin db connection url
-jwt_db_url = create_jwt_user(pgurl)
+jwt_db_url = create_jwt_user(pgurl, jwt_role_name=JWT_ROLE_NAME)
+_install_db_module(pgurl, jwt_role_name=JWT_ROLE_NAME)
 ln.setup.settings.instance._db = jwt_db_url
 ln.setup.settings.instance._persist()
 
