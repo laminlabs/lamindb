@@ -257,8 +257,8 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     Args:
         name: `str` Name of the feature, typically.  column name.
         dtype: `Dtype | Registry | list[Registry] | FieldAttr` See :class:`~lamindb.base.types.Dtype`.
-            For categorical types, can define from which registry values are
-            sampled, e.g., `ULabel` or `[ULabel, bionty.CellType]`.
+            For categorical types, you can define to which registry values are
+            restricted, e.g., `ULabel` or `[ULabel, bionty.CellType]`.
         unit: `str | None = None` Unit of measure, ideally SI (`"m"`, `"s"`, `"kg"`, etc.) or `"normalized"` etc.
         description: `str | None = None` A description.
         synonyms: `str | None = None` Bar-separated synonyms.
@@ -346,12 +346,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     name: str = CharField(max_length=150, db_index=True, unique=True)
     """Name of feature (hard unique constraint `unique=True`)."""
     dtype: Dtype | None = CharField(db_index=True, null=True)
-    """Data type (:class:`~lamindb.base.types.Dtype`).
-
-    For categorical types, can define from which registry values are
-    sampled, e.g., `'cat[ULabel]'` or `'cat[bionty.CellType]'`. Unions are also
-    allowed if the feature samples from two registries, e.g., `'cat[ULabel|bionty.CellType]'`
-    """
+    """Data type (:class:`~lamindb.base.types.Dtype`)."""
     type: Feature | None = ForeignKey(
         "self", PROTECT, null=True, related_name="records"
     )

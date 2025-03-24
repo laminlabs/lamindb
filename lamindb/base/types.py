@@ -38,6 +38,8 @@ TransformType = Literal[
     "pipeline", "notebook", "upload", "script", "function", "linker"
 ]
 ArtifactKind = Literal["dataset", "model"]
+
+# below is used for Feature.dtype and Param.dtype
 Dtype = Literal[
     "cat",  # categoricals
     "num",  # numericals
@@ -47,17 +49,42 @@ Dtype = Literal[
     "bool",  # boolean
     "date",  # date
     "datetime",  # datetime
-    "object",  # this is a pandas dtype, we're only using it for complicated types, not for strings
+    "object",  # this is a pandas input dtype, we're only using it for complicated types, not for strings
 ]
 """Data type.
 
-============  =================================================
-lamindb       numpy / pandas
-============  =================================================
-`"cat"`       `category`
-`"num"`       `int | float`
-`"int"`       `int64 | int32 | int16 | int8 | uint | ...`
-`"float"`     `float64 | float32 | float16 | float8 | ...`
-============  =================================================
+Data types in lamindb are a string-serialized abstraction of common data types.
+
+Overview
+========
+
+============  ============  =================================================
+description   lamindb       pandas
+============  ============  =================================================
+categorical   `"cat"`       `category`
+numerical     `"num"`       `int | float`
+integer       `"int"`       `int64 | int32 | int16 | int8 | uint | ...`
+float         `"float"`     `float64 | float32 | float16 | float8 | ...`
+string        `"str"`       `object`
+datetime      `"datetime"`  `datetime`
+date          `"date"`      `date`
+============  ============  =================================================
+
+Categoricals
+============
+
+Beyond indicating that a feature is a categorical, `lamindb` allows you to define the registry to which values are restricted.
+
+For example, `'cat[ULabel]'` or `'cat[bionty.CellType]'` indicate that permissible values are from the `ULabel` or `CellType` registry, respectively.
+
+You can also reference multiple registries, e.g., `'cat[ULabel|bionty.CellType]'` indicates that values can be from either registry.
+
+You can also restrict to sub-types defined in registries via the `type` column, e.g., `'cat[ULabel[CellMedium]]'` indicates that values must be of type `CellMedium` within the `ULabel` registry.
+
+Literal
+=======
+
+A `Dtype` object in `lamindb` is a `Literal` up to further specification of `"cat"`.
+
 """
 FeatureDtype = Dtype  # backward compat

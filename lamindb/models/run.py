@@ -208,12 +208,8 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
     _name_field: str = "name"
 
     name: str = CharField(max_length=100, db_index=True)
-    dtype: str | None = CharField(db_index=True, null=True)
-    """Data type ("num", "cat", "int", "float", "bool", "datetime").
-
-    For categorical types, can define from which registry values are
-    sampled, e.g., `cat[ULabel]` or `cat[bionty.CellType]`.
-    """
+    dtype: Dtype | None = CharField(db_index=True, null=True)
+    """Data type (:class:`~lamindb.base.types.Dtype`)."""
     type: Param | None = ForeignKey("self", PROTECT, null=True, related_name="records")
     """Type of param (e.g., 'Pipeline', 'ModelTraining', 'PostProcessing').
 
