@@ -142,7 +142,7 @@ def _save_validated_records(
     # save labels from ontology_ids
     if hasattr(registry, "_ontology_id_field") and label_uids:
         try:
-            records = registry.from_values(label_uids, field=field)
+            records = registry.from_values(label_uids, field=field, mute=True)
             save([r for r in records if r._state.adding])
         except Exception:  # noqa: S110
             pass
@@ -240,7 +240,7 @@ class LabelManager:
                 continue
             # look for features
             data_name_lower = data.__class__.__name__.lower()
-            labels_by_features = defaultdict(list)
+            labels_by_features: dict = defaultdict(list)
             features = set()
             new_labels = save_validated_records(labels)
             if len(new_labels) > 0:
@@ -248,18 +248,24 @@ class LabelManager:
                     new_labels, using_key, transfer_logs=transfer_logs
                 )
             for label in labels:
+                keys: list = []
                 # if the link table doesn't follow this convention, we'll ignore it
                 if not hasattr(label, f"links_{data_name_lower}"):
                     key = None
+                    keys.append(key)
                 else:
-                    link = getattr(label, f"links_{data_name_lower}").get(
-                        **{f"{data_name_lower}_id": data.id}
+                    links = (
+                        getattr(label, f"links_{data_name_lower}")
+                        .filter(**{f"{data_name_lower}_id": data.id})
+                        .all()
                     )
-                    if link.feature is not None:
-                        features.add(link.feature)
-                        key = link.feature.name
-                    else:
-                        key = None
+                    for link in links:
+                        if link.feature is not None:
+                            features.add(link.feature)
+                            key = link.feature.name
+                        else:
+                            key = None
+                        keys.append(key)
                 label_returned = transfer_to_default_db(
                     label,
                     using_key,
@@ -270,7 +276,8 @@ class LabelManager:
                 # TODO: refactor return value of transfer to default db
                 if label_returned is not None:
                     label = label_returned
-                labels_by_features[key].append(label)
+                for key in keys:
+                    labels_by_features[key].append(label)
             # treat features
             new_features = save_validated_records(list(features))
             if len(new_features) > 0:
