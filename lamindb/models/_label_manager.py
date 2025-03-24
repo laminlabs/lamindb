@@ -142,7 +142,7 @@ def _save_validated_records(
     # save labels from ontology_ids
     if hasattr(registry, "_ontology_id_field") and label_uids:
         try:
-            records = registry.from_values(label_uids, field=field)
+            records = registry.from_values(label_uids, field=field, mute=True)
             save([r for r in records if r._state.adding])
         except Exception:  # noqa: S110
             pass
