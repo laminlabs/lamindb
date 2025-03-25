@@ -11,15 +11,21 @@ set_db_token(token)
 
 def test_fine_grained_permissions():
     # check select
-    assert ln.ULabel.filter().count() == 2
-    assert ln.Project.filter().count() == 0
+    assert ln.ULabel.filter().count() == 3
+    assert ln.Project.filter().count() == 1
+
+    ulabel = ln.ULabel.get(name="space_all_ulabel")
+    assert ulabel.projects.all().count() == 1
     # check delete
     # should delete
     ln.ULabel.get(name="full_access_ulabel").delete()
-    assert ln.ULabel.filter().count() == 1
+    assert ln.ULabel.filter().count() == 2
     # should not delete, does not error for some reason
     ln.ULabel.get(name="select_ulabel").delete()
-    assert ln.ULabel.filter().count() == 1
+    assert ln.ULabel.filter().count() == 2
+    # space all
+    ulabel.delete()
+    assert ln.ULabel.filter().count() == 2
     # check insert
     # should succeed
     space = ln.models.Space.get(name="full access")
@@ -27,6 +33,8 @@ def test_fine_grained_permissions():
     ulabel.space = space
     ulabel.save()
     # should fail
+    with pytest.raises(ProgrammingError):
+        ln.ULabel(name="new label fail").save()
     for space_name in ["select access", "no access"]:
         space = ln.models.Space.get(name=space_name)
         ulabel = ln.ULabel(name="new label fail")
@@ -42,6 +50,11 @@ def test_fine_grained_permissions():
     # should fail
     ulabel = ln.ULabel.get(name="select_ulabel")
     ulabel.name = "select_ulabel update"
+    with pytest.raises(ProgrammingError):
+        ulabel.save()
+    # space all
+    ulabel = ln.ULabel.get(name="space_all_ulabel")
+    ulabel.name = "space_all_ulabel update"
     with pytest.raises(ProgrammingError):
         ulabel.save()
     # check link tables
