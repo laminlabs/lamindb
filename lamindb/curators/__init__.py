@@ -30,7 +30,7 @@ from __future__ import annotations
 import copy
 import re
 from itertools import chain
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Callable, Literal
 
 import anndata as ad
 import lamindb_setup as ln_setup
@@ -65,7 +65,7 @@ from lamindb.models.artifact import (
     data_is_mudata,
     data_is_spatialdata,
 )
-from lamindb.models.feature import parse_dtype, parse_dtype_single_cat
+from lamindb.models.feature import parse_dtype, parse_cat_dtype
 from lamindb.models._from_values import _format_values
 
 from ..errors import InvalidArgument, ValidationError
@@ -303,6 +303,28 @@ class SlotsCurator(Curator):
         )
 
 
+def check_dtype(expected_type) -> Callable:
+    """Creates a check function for Pandera that validates a column's dtype.
+
+    Args:
+        expected_type: String identifier for the expected type ('int', 'float', or 'num')
+
+    Returns:
+        A function that checks if a series has the expected dtype
+    """
+
+    def check_function(series):
+        if expected_type == "int":
+            is_valid = pd.api.types.is_integer_dtype(series.dtype)
+        elif expected_type == "float":
+            is_valid = pd.api.types.is_float_dtype(series.dtype)
+        elif expected_type == "num":
+            is_valid = pd.api.types.is_numeric_dtype(series.dtype)
+        return is_valid
+
+    return check_function
+
+
 class DataFrameCurator(Curator):
     # the example in the docstring is tested in test_curators_quickstart_example
     """Curator for `DataFrame`.
@@ -356,14 +378,33 @@ class DataFrameCurator(Curator):
             # populate features
             pandera_columns = {}
             for feature in schema.features.all():
-                pandera_dtype = (
-                    feature.dtype if not feature.dtype.startswith("cat") else "category"
-                )
-                pandera_columns[feature.name] = pandera.Column(
-                    pandera_dtype,
-                    nullable=feature.nullable,
-                    coerce=feature.coerce_dtype,
-                )
+                if feature.dtype in {"int", "float", "num"}:
+                    dtype = (
+                        self._dataset[feature.name].dtype
+                        if feature.name in self._dataset.columns
+                        else None
+                    )
+                    pandera_columns[feature.name] = pandera.Column(
+                        dtype=None,
+                        checks=pandera.Check(
+                            check_dtype(feature.dtype),
+                            element_wise=False,
+                            error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}': got {dtype}",
+                        ),
+                        nullable=feature.nullable,
+                        coerce=feature.coerce_dtype,
+                    )
+                else:
+                    pandera_dtype = (
+                        feature.dtype
+                        if not feature.dtype.startswith("cat")
+                        else "category"
+                    )
+                    pandera_columns[feature.name] = pandera.Column(
+                        pandera_dtype,
+                        nullable=feature.nullable,
+                        coerce=feature.coerce_dtype,
+                    )
                 if feature.dtype.startswith("cat"):
                     categoricals[feature.name] = parse_dtype(feature.dtype)[0]["field"]
             self._pandera_schema = pandera.DataFrameSchema(
@@ -373,7 +414,7 @@ class DataFrameCurator(Curator):
             assert schema.itype is not None  # noqa: S101
         self._cat_manager = DataFrameCatManager(
             self._dataset,
-            columns=parse_dtype_single_cat(schema.itype, is_itype=True)["field"],
+            columns=parse_cat_dtype(schema.itype, is_itype=True)["field"],
             categoricals=categoricals,
         )
 
@@ -462,7 +503,7 @@ class DataFrameCurator(Curator):
         """{}"""  # noqa: D415
         if not self._is_validated:
             self.validate()  # raises ValidationError if doesn't validate
-        result = parse_dtype_single_cat(self._schema.itype, is_itype=True)
+        result = parse_cat_dtype(self._schema.itype, is_itype=True)
         return save_artifact(  # type: ignore
             self._dataset,
             description=description,
@@ -577,9 +618,7 @@ class AnnDataCurator(SlotsCurator):
             description=description,
             fields=categoricals,
             index_field=(
-                parse_dtype_single_cat(self.slots["var"]._schema.itype, is_itype=True)[
-                    "field"
-                ]
+                parse_cat_dtype(self.slots["var"]._schema.itype, is_itype=True)["field"]
                 if "var" in self._slots
                 else None
             ),
@@ -607,7 +646,7 @@ def _assign_var_fields_categoricals_multimodal(
         categoricals[modality] = {}
 
     if slot_type == "var":
-        var_field = parse_dtype_single_cat(slot_schema.itype, is_itype=True)["field"]
+        var_field = parse_cat_dtype(slot_schema.itype, is_itype=True)["field"]
         if modality is None:
             # This should rarely/never be used since tables should have different var fields
             var_fields[slot] = var_field  # pragma: no cover
@@ -3169,9 +3208,9 @@ def save_artifact(
             )
         case "AnnData":
             if schema is not None and "uns" in schema.slots:
-                uns_field = parse_dtype_single_cat(
-                    schema.slots["uns"].itype, is_itype=True
-                )["field"]
+                uns_field = parse_cat_dtype(schema.slots["uns"].itype, is_itype=True)[
+                    "field"
+                ]
             else:
                 uns_field = None
             artifact.features._add_set_from_anndata(  # type: ignore

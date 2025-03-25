@@ -95,7 +95,7 @@ def mudata_papalexi21_subset_schema():
     obs_schema_hto = ln.Schema(
         name="mudata_papalexi21_subset_hto_obs_schema",
         features=[
-            ln.Feature(name="nCount_HTO", dtype=int).save(),
+            ln.Feature(name="nCount_HTO", dtype=float).save(),
             ln.Feature(name="nFeature_HTO", dtype=int).save(),
             ln.Feature(name="technique", dtype=bt.ExperimentalFactor).save(),
         ],
@@ -184,7 +184,28 @@ def spatialdata_blobs_schema():
 def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     """Test DataFrame curator implementation."""
 
+    feature_to_fail = ln.Feature(name="treatment_time_h", dtype=float).save()
+    schema = ln.Schema(
+        name="small_dataset1_obs_level_metadata_v2",
+        features=[
+            ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
+            ln.Feature(name="sample_note", dtype=str).save(),
+            ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
+            ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
+            feature_to_fail,
+        ],
+    ).save()
+
     df = datasets.small_dataset1(otype="DataFrame")
+    curator = ln.curators.DataFrameCurator(df, schema)
+    with pytest.raises(ln.errors.ValidationError) as error:
+        curator.validate()
+    assert (
+        error.exconly()
+        == "lamindb.errors.ValidationError: Column 'treatment_time_h' failed series or dataframe validator 0: <Check check_function: Column 'treatment_time_h' failed dtype check for 'float': got int64>"
+    )
+    schema.delete()
+    feature_to_fail.delete()
     curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
     artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
 

@@ -28,7 +28,7 @@ from .record import BasicRecord, LinkORM, Record, Registry
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from lamindb.base.types import FeatureDtype, FieldAttr
+    from lamindb.base.types import Dtype, FieldAttr
 
     from .artifact import Artifact
     from .collection import Collection
@@ -208,12 +208,8 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
     _name_field: str = "name"
 
     name: str = CharField(max_length=100, db_index=True)
-    dtype: str | None = CharField(db_index=True, null=True)
-    """Data type ("num", "cat", "int", "float", "bool", "datetime").
-
-    For categorical types, can define from which registry values are
-    sampled, e.g., `cat[ULabel]` or `cat[bionty.CellType]`.
-    """
+    dtype: Dtype | None = CharField(db_index=True, null=True)
+    """Data type (:class:`~lamindb.base.types.Dtype`)."""
     type: Param | None = ForeignKey("self", PROTECT, null=True, related_name="records")
     """Type of param (e.g., 'Pipeline', 'ModelTraining', 'PostProcessing').
 
@@ -241,7 +237,7 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
     def __init__(
         self,
         name: str,
-        dtype: FeatureDtype | Registry | list[Registry] | FieldAttr,
+        dtype: Dtype | Registry | list[Registry] | FieldAttr,
         type: Param | None = None,
         is_type: bool = False,
     ): ...

@@ -113,7 +113,7 @@ def _create_sources(
             if source is None:
                 logger.error(
                     f"Could not find source: {entity}\n"
-                    "    → consider running `bionty.core.sync_all_sources_to_latest()` and re-connect to your instance"
+                    "    → consider running `bionty.core.sync_public_sources()`"
                 )
             return source
 
