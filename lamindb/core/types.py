@@ -6,7 +6,7 @@ from anndata import AnnData
 from lamindb_setup.core.types import UPathStr
 
 from lamindb.base.types import (
-    FeatureDtype,
+    Dtype,
     FieldAttr,
     ListLike,
     StrField,

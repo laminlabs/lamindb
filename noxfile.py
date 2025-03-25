@@ -91,10 +91,6 @@ def install_ci(session, group):
         # spatialdata dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system xarray-dataclasses")
-        run(
-            session,
-            "uv pip install --system git+https://github.com/Zethson/pims.git@patch-1",
-        )  #  https://github.com/soft-matter/pims/issues/462
         run(session, "uv pip install --system spatialdata")
     elif group == "unit-storage":
         extras += "zarr,bionty"
@@ -131,10 +127,6 @@ def install_ci(session, group):
         run(session, "uv pip install --system xarray-dataclasses")
         run(
             session,
-            "uv pip install --system git+https://github.com/Zethson/pims.git@patch-1",
-        )  #  https://github.com/soft-matter/pims/issues/462
-        run(
-            session,
             "uv pip install --system spatialdata",
         )
         run(session, "uv pip install --system tiledbsoma")
@@ -143,10 +135,6 @@ def install_ci(session, group):
         # spatialdata dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system xarray-dataclasses")
-        run(
-            session,
-            "uv pip install --system git+https://github.com/Zethson/pims.git@patch-1",
-        )  #  https://github.com/soft-matter/pims/issues/462
         run(
             session,
             "uv pip install --system mudata spatialdata",

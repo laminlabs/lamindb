@@ -1,8 +1,28 @@
 import bionty
+import pandas as pd
 import pytest
 from lamindb import ULabel
 from lamindb.errors import ValidationError
-from lamindb.models.feature import parse_dtype
+from lamindb.models.feature import parse_dtype, serialize_dtype
+
+# -----------------------------------------------------------------------------
+# serializing dtypes
+# -----------------------------------------------------------------------------
+
+
+def test_seralize_dtypes():
+    df = pd.DataFrame(
+        {
+            "column1": pd.Series([1, 4, 0, 10, 9], dtype="uint"),
+        }
+    )
+    assert df.column1.dtype.name == "uint64"
+    assert serialize_dtype(df.column1.dtype) == "int"
+
+
+# -----------------------------------------------------------------------------
+# parsing serialized dtypes
+# -----------------------------------------------------------------------------
 
 
 def test_simple_ulabel_with_subtype_and_field():
