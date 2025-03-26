@@ -1,7 +1,7 @@
 import lamindb as ln  # noqa
 import hubmodule.models as hm
 from hubmodule._setup import _install_db_module
-from laminhub_rest.core.db import DbRoleHandler
+from laminhub_rest.core.postgres import DbRoleHandler
 
 # create a db connection url that works with RLS
 JWT_ROLE_NAME = "permissions_jwt"
