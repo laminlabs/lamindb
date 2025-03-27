@@ -612,9 +612,10 @@ class Registry(ModelBase):
                     f"Failed to load instance {instance}, please check your permissions!"
                 )
             iresult, _ = result
+            # do not use {} syntax below, it seems to be interpreted as a dict by reticulate
             source_module = {
                 modules for modules in iresult["schema_str"].split(",") if modules != ""
-            }  # type: ignore
+            }
             target_module = ln_setup.settings.instance.modules
             if not source_module.issubset(target_module):
                 missing_members = source_module - target_module
