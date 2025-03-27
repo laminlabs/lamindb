@@ -612,9 +612,11 @@ class Registry(ModelBase):
                     f"Failed to load instance {instance}, please check your permissions!"
                 )
             iresult, _ = result
-            source_module = {
-                modules for modules in iresult["schema_str"].split(",") if modules != ""
-            }  # type: ignore
+            # do not use {} syntax below, it gives rise to a dict if the schema modules
+            # are empty and then triggers a TypeError in missing_members = source_module - target_module
+            source_module = set(  # noqa
+                [mod for mod in iresult["schema_str"].split(",") if mod != ""]
+            )
             target_module = ln_setup.settings.instance.modules
             if not source_module.issubset(target_module):
                 missing_members = source_module - target_module
