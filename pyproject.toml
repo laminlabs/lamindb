@@ -18,7 +18,7 @@ dependencies = [
     # Lamin PINNED packages
     "lamin_utils==0.13.11",
     "lamin_cli==1.2.0",
-    "lamindb_setup[aws]==1.4.0",
+    "lamindb_setup[aws]==1.4.1",
     # others
     "pyyaml",
     "pyarrow",
@@ -38,7 +38,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "bionty>=1.2a1",   # do not pin, is bounded in bionty
+    "bionty>=1.2.1",   # do not pin, is bounded in bionty
 ]
 gcp = [
     "lamindb_setup[gcp]",
