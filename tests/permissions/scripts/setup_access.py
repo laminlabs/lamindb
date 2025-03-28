@@ -62,6 +62,13 @@ ulabel.projects.add(project)
 project = ln.Project(name="space_all_project").save()
 ulabel.projects.add(project)
 
+# create a link table referencing ulabel from space all and project from select space
+project = ln.Project(name="select_project")
+project.space = select_access
+project.save()
+
+ulabel.projects.add(project)
+
 print("Created models")
 
 # save jwt db connection
