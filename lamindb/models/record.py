@@ -79,6 +79,7 @@ from ..errors import (
     ValidationError,
 )
 from ._is_versioned import IsVersioned
+from .query_manager import QueryManager
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -471,8 +472,8 @@ class Registry(ModelBase):
 
     def get(
         cls: type[T],
-        idlike: int | str | None = None,
-        **expressions,
+        *args,
+        **kwargs,
     ) -> T:
         """Get a single record.
 
@@ -494,7 +495,7 @@ class Registry(ModelBase):
         """
         from .query_set import QuerySet
 
-        return QuerySet(model=cls).get(idlike, **expressions)
+        return QuerySet(model=cls).get(*args, **kwargs)
 
     def df(
         cls,
@@ -665,8 +666,12 @@ class BasicRecord(models.Model, metaclass=Registry):
     It's mainly used for LinkORMs and similar.
     """
 
+    query_manager = QueryManager()
+    objects = Manager()
+
     class Meta:
         abstract = True
+        base_manager_name = "query_manager"
 
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
