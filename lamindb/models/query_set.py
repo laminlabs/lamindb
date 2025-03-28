@@ -5,7 +5,7 @@ import warnings
 from collections import UserList
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
-from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Generic, Literal, NamedTuple, TypeVar, Union
 
 import pandas as pd
 from django.core.exceptions import FieldError
@@ -15,14 +15,21 @@ from django.db.models.fields.related import ForeignObjectRel
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 
-from lamindb.models._is_versioned import IsVersioned
-from lamindb.models.record import Record
-
+from ..core._mapped_collection import MappedCollection
 from ..errors import DoesNotExist
+from ._is_versioned import IsVersioned
 from .can_curate import CanCurate
+from .record import Record
 
 if TYPE_CHECKING:
+    import builtins
+
+    from anndata import AnnData
+    from pyarrow.dataset import Dataset as PyArrowDataset
+
     from lamindb.base.types import ListLike, StrField
+
+    from ..core.storage import UPath
 
 T = TypeVar("T")
 
@@ -531,6 +538,18 @@ def process_extra_columns(
     return result
 
 
+def _check_ordered_artifacts(qs: QuerySet):
+    from lamindb.models import Artifact
+
+    if qs.model != Artifact:
+        raise ValueError("A query set should consist of artifacts to be opened.")
+    if not qs.ordered:
+        logger.warning(
+            "this query set is unordered, consider using `.order_by()` first "
+            "to avoid opening the artifacts in an arbitrary order"
+        )
+
+
 class QuerySet(models.QuerySet):
     """Sets of records returned by queries.
 
@@ -712,6 +731,100 @@ class QuerySet(models.QuerySet):
         else:
             raise ValueError("Record isn't subclass of `lamindb.core.IsVersioned`")
 
+    def artifacts_load(
+        self,
+        join: Literal["inner", "outer"] = "outer",
+        is_run_input: bool | None = None,
+        **kwargs,
+    ) -> pd.DataFrame | AnnData:
+        """Cache and load a query set of artifacts to memory.
+
+        Returns an in-memory concatenated `DataFrame` or `AnnData` object.
+
+        See also {meth}`~lamindb.models.Collecton.load`.
+        """
+        from lamindb.models.artifact import Artifact, _track_run_input
+        from lamindb.models.collection import _load_concat_artifacts
+
+        _check_ordered_artifacts(self)
+
+        artifacts: list[Artifact] = list(self)
+        concat_object = _load_concat_artifacts(artifacts, join, **kwargs)
+        # track only if successful
+        _track_run_input(artifacts, is_run_input)
+        return concat_object
+
+    def artifacts_open(self, is_run_input: bool | None = None) -> PyArrowDataset:
+        """Return a cloud-backed pyarrow Dataset from a query set of artifacts.
+
+        Works for `pyarrow` compatible formats.
+
+        See also {meth}`~lamindb.models.Collecton.open`.
+        """
+        from lamindb.models.artifact import Artifact, _track_run_input
+        from lamindb.models.collection import _open_paths
+
+        _check_ordered_artifacts(self)
+
+        artifacts: list[Artifact] = list(self)
+        paths: list[UPath] = [artifact.path for artifact in artifacts]
+        dataset = _open_paths(paths)
+        # track only if successful
+        _track_run_input(artifacts, is_run_input)
+        return dataset
+
+    # for some reason mypy considers type list[str] as QuerySet.list[str], this is why builtins.list
+    def artifacts_mapped(
+        self,
+        layers_keys: str | builtins.list[str] | None = None,
+        obs_keys: str | builtins.list[str] | None = None,
+        obsm_keys: str | builtins.list[str] | None = None,
+        obs_filter: dict[str, str | builtins.list[str]] | None = None,
+        join: Literal["inner", "outer"] | None = "inner",
+        encode_labels: bool | builtins.list[str] = True,
+        unknown_label: str | dict[str, str] | None = None,
+        cache_categories: bool = True,
+        parallel: bool = False,
+        dtype: str | None = None,
+        stream: bool = False,
+        is_run_input: bool | None = None,
+    ) -> MappedCollection:
+        """Return a map-style dataset from a query set of artifacts.
+
+        See {meth}`~lamindb.models.Collecton.mapped`.
+        """
+        from lamindb.models.artifact import Artifact, _track_run_input
+
+        _check_ordered_artifacts(self)
+
+        artifacts: list[Artifact] = []
+        paths: list[UPath] = []
+        for artifact in self:
+            if ".h5ad" not in artifact.suffix and ".zarr" not in artifact.suffix:
+                logger.warning(f"ignoring artifact with suffix {artifact.suffix}")
+                continue
+            elif not stream:
+                paths.append(artifact.cache())
+            else:
+                paths.append(artifact.path)
+            artifacts.append(artifact)
+        ds = MappedCollection(
+            paths,
+            layers_keys,
+            obs_keys,
+            obsm_keys,
+            obs_filter,
+            join,
+            encode_labels,
+            unknown_label,
+            cache_categories,
+            parallel,
+            dtype,
+        )
+        # track only if successful
+        _track_run_input(artifacts, is_run_input)
+        return ds
+
 
 # -------------------------------------------------------------------------------------
 # CanCurate
@@ -769,5 +882,8 @@ models.QuerySet.lookup = lookup
 models.QuerySet.validate = validate
 models.QuerySet.inspect = inspect
 models.QuerySet.standardize = standardize
+models.QuerySet.artifacts_open = QuerySet.artifacts_open
+models.QuerySet.artifacts_mapped = QuerySet.artifacts_mapped
+models.QuerySet.artifacts_load = QuerySet.artifacts_load
 models.QuerySet._delete_base_class = models.QuerySet.delete
 models.QuerySet.delete = QuerySet.delete
