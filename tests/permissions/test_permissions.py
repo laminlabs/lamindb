@@ -12,10 +12,10 @@ set_db_token(token)
 def test_fine_grained_permissions():
     # check select
     assert ln.ULabel.filter().count() == 3
-    assert ln.Project.filter().count() == 1
+    assert ln.Project.filter().count() == 2
 
     ulabel = ln.ULabel.get(name="space_all_ulabel")
-    assert ulabel.projects.all().count() == 1
+    assert ulabel.projects.all().count() == 2
     # check delete
     # should delete
     ln.ULabel.get(name="full_access_ulabel").delete()
