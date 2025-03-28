@@ -366,7 +366,7 @@ class CollectionProject(BasicRecord, LinkORM, TracksRun):
 
 class ULabelProject(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
-    ulabel: Transform = ForeignKey(ULabel, CASCADE, related_name="links_project")
+    ulabel: ULabel = ForeignKey(ULabel, CASCADE, related_name="links_project")
     project: Project = ForeignKey(Project, PROTECT, related_name="links_ulabel")
 
     class Meta:
@@ -375,7 +375,7 @@ class ULabelProject(BasicRecord, LinkORM, TracksRun):
 
 class PersonProject(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
-    person: Transform = ForeignKey(Person, CASCADE, related_name="links_project")
+    person: Person = ForeignKey(Person, CASCADE, related_name="links_project")
     project: Project = ForeignKey(Project, PROTECT, related_name="links_person")
     role: str | None = CharField(null=True, default=None)
 
