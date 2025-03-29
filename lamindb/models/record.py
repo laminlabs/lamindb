@@ -594,14 +594,14 @@ class Registry(ModelBase):
         """
         from .query_set import QuerySet
 
+        # we're in the default instance
+        if instance is None or instance == "default":
+            return QuerySet(model=cls, using=None)
         owner, name = get_owner_name_from_identifier(instance)
-        if (
-            instance is None
-            or instance == "default"
-            or f"{owner}/{name}" == setup_settings.instance.slug
-        ):
+        if [owner, name] == setup_settings.instance.slug.split("/"):
             return QuerySet(model=cls, using=None)
 
+        # move on to different instances
         settings_file = instance_settings_file(name, owner)
         cache_filepath = (
             ln_setup.settings.cache_dir / f"instance--{owner}--{name}--uid.txt"
