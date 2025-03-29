@@ -73,11 +73,11 @@ class IsVersioned(models.Model):
         >>> new_artifact = ln.Artifact(df2, revises=artifact).save()
         >>> new_artifact.versions()
         """
-        db = self._state.db
-        if db is not None and db != "default":
-            return self.__class__.using(db).filter(uid__startswith=self.stem_uid)  # type: ignore
-        else:
-            return self.__class__.filter(uid__startswith=self.stem_uid)  # type: ignore
+        return (
+            self.__class__.using(self._state.db)
+            .filter(uid__startswith=self.stem_uid)
+            .order_by("-created_at")
+        )
 
     def _add_to_version_family(self, revises: IsVersioned, version: str | None = None):
         """Add current record to a version family.
