@@ -164,37 +164,35 @@ def test_from_consistent_artifacts(adata, adata2):
 
 
 def test_collection_mapped(adata, adata2):
+    # prepare test data
     adata.strings_to_categoricals()
     adata.obs["feat2"] = adata.obs["feat1"]
     adata.layers["layer1"] = adata.X.copy()
     adata.layers["layer1"][0, 0] = 0
-    artifact1 = ln.Artifact.from_anndata(adata, description="Part one")
-    artifact1.save()
+    artifact1 = ln.Artifact.from_anndata(adata, key="part_one.h5ad").save()
     adata2.X = csr_matrix(adata2.X)
     adata2.layers["layer1"] = adata2.X.copy()
     adata2.obs["feat2"] = adata2.obs["feat1"]
-    artifact2 = ln.Artifact.from_anndata(adata2, description="Part two", format="zarr")
-    artifact2.save()
+    artifact2 = ln.Artifact.from_anndata(
+        adata2, key="part_two.zarr", format="zarr"
+    ).save()
     adata3 = adata2.copy()
     adata3.var_names = ["A", "B", "C"]
     adata3.obs.loc["0", "feat1"] = np.nan
-    artifact3 = ln.Artifact.from_anndata(adata3, description="Other vars")
-    artifact3.save()
+    artifact3 = ln.Artifact.from_anndata(adata3, key="other_vars.h5ad").save()
     adata4 = adata.copy()
     adata4.layers["layer1"] = csc_matrix(adata4.layers["layer1"])
-    artifact4 = ln.Artifact.from_anndata(adata4, description="csc layer")
-    artifact4.save()
-    collection = ln.Collection([artifact1, artifact2], name="Gather")
+    artifact4 = ln.Artifact.from_anndata(adata4, description="csc layer").save()
+    collection_outer = ln.Collection(
+        [artifact1, artifact2, artifact3], key="gather_outer"
+    ).save()
+    collection_csc = ln.Collection([artifact4, artifact2], key="check_csc").save()
+    collection = ln.Collection([artifact1, artifact2], key="gather")
     # test mapped without saving first
     with collection.mapped() as ls_ds:
         assert ls_ds.__class__.__name__ == "MappedCollection"
     collection.save()
-    collection_outer = ln.Collection(
-        [artifact1, artifact2, artifact3], name="Gather outer"
-    )
-    collection_outer.save()
-    collection_csc = ln.Collection([artifact4, artifact2], name="Check csc")
-    collection_csc.save()
+
     # test encoders
     with pytest.raises(ValueError):
         ls_ds = collection.mapped(encode_labels=["feat1"])
