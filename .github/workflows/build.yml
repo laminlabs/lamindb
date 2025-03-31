@@ -27,7 +27,7 @@ jobs:
       - id: set-matrix
         shell: bash
         run: |
-          BASE_GROUPS=$(jq -n -c '["unit-core", "unit-storage", "tutorial", "guide", "biology", "faq", "storage", "cli", "permissions"]')
+          BASE_GROUPS=$(jq -n -c '["permissions"]')
 
           if [[ "${{ github.event_name }}" == "push" || "${{ steps.changes.outputs.curator }}" == "true" ]]; then
             # Run everything on push or when curator paths change
@@ -63,7 +63,7 @@ jobs:
           repository: laminlabs/laminhub
           token: ${{ secrets.GH_TOKEN_DEPLOY_LAMINAPP }}
           path: laminhub
-          ref: main
+          ref: rls_role_write
 
       - uses: actions/setup-python@v5
         with:
