@@ -1424,11 +1424,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             kwargs["uid"] = uid
 
         # only set key now so that we don't do a look-up on it in case revises is passed
-        if revises is not None and revises.key is not None:
-            assert revises.key.endswith(kwargs["suffix"]), (  # noqa: S101
-                revises.key,
-                kwargs["suffix"],
-            )
+        if revises is not None and revises.key is not None and kwargs["key"] is None:
             kwargs["key"] = revises.key
 
         kwargs["kind"] = kind
