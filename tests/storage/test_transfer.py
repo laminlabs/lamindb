@@ -29,7 +29,9 @@ def test_transfer_from_remote_to_local():
         include_schema=True,
     )
     assert result["related_data"]["m2m"]["tissues"] == {2: "cortex of kidney"}
-    assert result["related_data"]["link"]["links_ulabel"] == [
+    assert sorted(
+        result["related_data"]["link"]["links_ulabel"], key=lambda d: d["id"]
+    ) == [
         {"id": 7, "ulabel": 15, "feature": 1},
         {"id": 8, "ulabel": 10, "feature": 10},
     ]
