@@ -27,8 +27,8 @@ print("Created jwt db connection")
 full_access = ln.models.Space(name="full access", uid="00000001").save()  # type: ignore
 select_access = ln.models.Space(name="select access", uid="00000002").save()  # type: ignore
 no_access = ln.models.Space(name="no access", uid="00000003").save()  # type: ignore
-
-account = hm.Account(id=ln.setup.settings.user._uuid.hex).save()
+# set read role for space all
+account = hm.Account(id=ln.setup.settings.user._uuid.hex, role="read").save()
 
 # no access space
 ulabel = ln.ULabel(name="no_access_ulabel")
