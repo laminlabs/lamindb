@@ -22,7 +22,6 @@ from lamindb.models import Run, Transform, format_field_value
 
 from ..core._settings import settings
 from ..errors import (
-    InconsistentKey,
     InvalidArgument,
     TrackNotCalled,
     UpdateContext,
@@ -30,7 +29,6 @@ from ..errors import (
 from ..models._is_versioned import bump_version as bump_version_function
 from ..models._is_versioned import (
     increment_base62,
-    message_update_key_in_version_family,
 )
 from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_environment
@@ -495,19 +493,6 @@ class Context:
         transform_ref_type: str | None = None,
         transform_type: TransformType = None,
     ):
-        def get_key_clashing_message(transform: Transform, key: str) -> str:
-            update_key_note = message_update_key_in_version_family(
-                suid=transform.stem_uid,
-                existing_key=transform.key,
-                new_key=key,
-                registry="Transform",
-            )
-            return (
-                f'Filepath "{key}" clashes with the existing key "{transform.key}" for uid "{transform.uid[:-4]}...."\n\nEither init a new transform with a new uid:\n\n'
-                f'ln.track("{ids.base62_12()}0000")\n\n{update_key_note}'
-            )
-
-        revises = None
         # the user did not pass the uid
         if self.uid is None:
 
@@ -564,7 +549,6 @@ class Context:
                             ):
                                 message += f" -- {aux_transform.created_by.handle} already works on this draft"
                             message += f", creating new version '{uid}'"
-                            revises = aux_transform
                         found_key = True
                         break
                 if not found_key:
@@ -585,15 +569,14 @@ class Context:
             if transform is not None:
                 if transform.key not in self._path.as_posix():
                     n_parts = len(Path(transform.key).parts)
-                    last_path_elements = (
+                    (
                         Path(*self._path.parts[-n_parts:]).as_posix()
                         if n_parts > 0
                         else ""
                     )
-                    raise UpdateContext(
-                        get_key_clashing_message(transform, last_path_elements)
-                    )
-                key = transform.key  # type: ignore
+                    key = self._path.name
+                else:
+                    key = transform.key  # type: ignore
             else:
                 key = self._path.name
         if self.version is not None:
@@ -619,27 +602,15 @@ class Context:
         # make a new transform record
         if transform is None:
             assert key is not None  # noqa: S101
-            raise_update_context = False
-            try:
-                transform = Transform(  # type: ignore
-                    uid=self.uid,
-                    version=self.version,
-                    description=description,
-                    key=key,
-                    reference=transform_ref,
-                    reference_type=transform_ref_type,
-                    type=transform_type,
-                ).save()
-            except InconsistentKey:
-                raise_update_context = True
-            if raise_update_context:
-                if revises is None:
-                    revises = (
-                        Transform.filter(uid__startswith=self.uid[:-4], is_latest=True)
-                        .order_by("-created_at")
-                        .first()
-                    )
-                raise UpdateContext(get_key_clashing_message(revises, key))
+            transform = Transform(  # type: ignore
+                uid=self.uid,
+                version=self.version,
+                description=description,
+                key=key,
+                reference=transform_ref,
+                reference_type=transform_ref_type,
+                type=transform_type,
+            ).save()
             self._logging_message_track += f"created Transform('{transform.uid}')"
         else:
             uid = transform.uid
@@ -647,7 +618,9 @@ class Context:
             transform_was_saved = transform.source_code is not None
             # check whether the transform.key is consistent
             if transform.key != key:
-                raise UpdateContext(get_key_clashing_message(transform, key))
+                self._logging_message_track += f"updated key {transform.key} to {key}"
+                transform.key = key
+                transform.save()
             elif transform.description != description and description is not None:
                 transform.description = description
                 transform.save()
@@ -659,7 +632,7 @@ class Context:
                 and not transform_was_saved
             ):
                 raise UpdateContext(
-                    f'{transform.created_by.name} ({transform.created_by.handle}) already works on this draft {transform.type}.\n\nPlease create a revision via `ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")` or a new transform with a *different* filedescription and `ln.track("{ids.base62_12()}0000")`.'
+                    f'{transform.created_by.name} ({transform.created_by.handle}) already works on this draft {transform.type}.\n\nPlease create a revision via `ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")` or a new transform with a *different* key and `ln.track("{ids.base62_12()}0000")`.'
                 )
             # check whether transform source code was already saved
             if transform_was_saved:

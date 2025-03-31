@@ -101,16 +101,6 @@ class IsVersioned(models.Model):
         logger.success(f"updated uid from {old_uid} to {new_uid}!")
 
 
-def message_update_key_in_version_family(
-    *,
-    suid: str,
-    existing_key: str,
-    registry: str,
-    new_key: str,
-) -> str:
-    return f'Or update key "{existing_key}" to "{new_key}" for all previous versions:\n\nln.{registry}.filter(uid__startswith="{suid}").update(key="{new_key}")\n'
-
-
 def bump_version(
     version: str,
     bump_type: str = "minor",

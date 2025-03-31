@@ -16,8 +16,7 @@ from lamindb.base.fields import (
 )
 from lamindb.base.users import current_user_id
 
-from ..errors import InconsistentKey
-from ..models._is_versioned import message_update_key_in_version_family, process_revises
+from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned
 from .record import Record, init_self_from_db, update_attributes
 from .run import Run, User, delete_run_artifacts
@@ -281,14 +280,8 @@ class Transform(Record, IsVersioned):
             update_attributes(self, {"description": description})
             return None
         if revises is not None and key is not None and revises.key != key:
-            note = message_update_key_in_version_family(
-                suid=revises.stem_uid,
-                existing_key=revises.key,
-                new_key=key,
-                registry="Transform",
-            )
-            raise InconsistentKey(
-                f"`key` is '{key}', but `revises.key` is '{revises.key}'\n\nEither do *not* pass `key`.\n\n{note}"
+            logger.warning(
+                f"renaming transform from `revises.key` '{revises.key}' to `key` {key}"
             )
         new_uid, version, key, description, revises = process_revises(
             revises, version, key, description, Transform
