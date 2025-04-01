@@ -4,6 +4,7 @@ from __future__ import annotations
 import builtins
 from typing import TYPE_CHECKING, Literal
 
+import lamindb_setup as ln_setup
 from lamin_utils import logger
 
 from .record import format_field_value, get_name_field
@@ -136,6 +137,13 @@ def view_lineage(data: Artifact | Collection, with_children: bool = True) -> Non
         >>> collection.view_lineage()
         >>> artifact.view_lineage()
     """
+    if ln_setup.settings.instance.is_on_hub:
+        instance_slug = ln_setup.settings.instance.slug
+        entity_slug = data.__class__.__name__.lower()
+        logger.important(
+            f"explore at: https://lamin.ai/{instance_slug}/{entity_slug}/{data.uid}"
+        )
+
     import graphviz
 
     df_values = _get_all_parent_runs(data)
