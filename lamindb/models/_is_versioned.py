@@ -73,11 +73,11 @@ class IsVersioned(models.Model):
         >>> new_artifact = ln.Artifact(df2, revises=artifact).save()
         >>> new_artifact.versions()
         """
-        db = self._state.db
-        if db is not None and db != "default":
-            return self.__class__.using(db).filter(uid__startswith=self.stem_uid)  # type: ignore
-        else:
-            return self.__class__.filter(uid__startswith=self.stem_uid)  # type: ignore
+        return (
+            self.__class__.using(self._state.db)
+            .filter(uid__startswith=self.stem_uid)
+            .order_by("-created_at")
+        )
 
     def _add_to_version_family(self, revises: IsVersioned, version: str | None = None):
         """Add current record to a version family.
@@ -99,16 +99,6 @@ class IsVersioned(models.Model):
         self.version = version
         self.save()
         logger.success(f"updated uid from {old_uid} to {new_uid}!")
-
-
-def message_update_key_in_version_family(
-    *,
-    suid: str,
-    existing_key: str,
-    registry: str,
-    new_key: str,
-) -> str:
-    return f'Or update key "{existing_key}" to "{new_key}" for all previous versions:\n\nln.{registry}.filter(uid__startswith="{suid}").update(key="{new_key}")\n'
 
 
 def bump_version(
