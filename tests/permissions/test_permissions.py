@@ -1,11 +1,13 @@
 import lamindb as ln
+import psycopg2
 import pytest
 from django.db.utils import ProgrammingError
 from jwt_utils import sign_jwt
 from lamindb_setup.core.django import set_db_token
 
 pgurl = "postgresql://postgres:pwd@0.0.0.0:5432/pgtest"  # admin db connection url
-token = sign_jwt(pgurl, {"account_id": ln.setup.settings.user._uuid.hex})
+user_uuid = ln.setup.settings.user._uuid.hex
+token = sign_jwt(pgurl, {"account_id": user_uuid})
 set_db_token(token)
 
 
@@ -67,3 +69,13 @@ def test_fine_grained_permissions():
     assert ulabel.projects.all().count() == 1
     # check select of a link table referencing unavailable rows
     assert ln.ULabel.get(name="select_ulabel").projects.all().count() == 0
+
+
+def test_write_role():
+    # switch user role to write
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE hubmodule_account SET role = %s WHERE id = %s", ("write", user_uuid)
+        )
+
+    ln.ULabel(name="new label space all").save()
