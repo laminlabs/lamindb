@@ -120,7 +120,7 @@ def view_digraph(u: Digraph):
                 # call to display()
                 display(u._repr_mimebundle_(), raw=True)
         else:
-            return u
+            return u.view()
     except (FileNotFoundError, RuntimeError, ExecutableNotFound):  # pragma: no cover
         logger.error(
             "please install the graphviz executable on your system:\n  - Ubuntu: `sudo"
