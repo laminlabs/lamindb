@@ -61,7 +61,6 @@ from ..core.storage.paths import (
 from ..errors import IntegrityError, InvalidArgument, ValidationError
 from ..models._is_versioned import (
     create_uid,
-    message_update_key_in_version_family,
 )
 from ._django import get_artifact_with_related
 from ._feature_manager import (
@@ -1343,15 +1342,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 f"Only {valid_keywords} can be passed, you passed: {kwargs}"
             )
         if revises is not None and key is not None and revises.key != key:
-            note = message_update_key_in_version_family(
-                suid=revises.stem_uid,
-                existing_key=revises.key,
-                new_key=key,
-                registry="Artifact",
-            )
-            raise ValueError(
-                f"`key` is {key}, but `revises.key` is '{revises.key}'\n\n Either do *not* pass `key`.\n\n{note}"
-            )
+            logger.warning(f"renaming artifact from '{revises.key}' to {key}")
         if revises is not None:
             if not isinstance(revises, Artifact):
                 raise TypeError("`revises` has to be of type `Artifact`")
@@ -1431,11 +1422,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             kwargs["uid"] = uid
 
         # only set key now so that we don't do a look-up on it in case revises is passed
-        if revises is not None and revises.key is not None:
-            assert revises.key.endswith(kwargs["suffix"]), (  # noqa: S101
-                revises.key,
-                kwargs["suffix"],
-            )
+        if revises is not None and revises.key is not None and kwargs["key"] is None:
             kwargs["key"] = revises.key
 
         kwargs["kind"] = kind

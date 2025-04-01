@@ -157,8 +157,8 @@ def test_run_scripts():
         shell=True,
         capture_output=True,
     )
-    assert result.returncode == 1
-    assert "clashes with the existing key" in result.stderr.decode()
+    assert result.returncode == 0
+    assert "renaming transform" in result.stdout.decode()
 
     # version already taken
     result = subprocess.run(  # noqa: S602
