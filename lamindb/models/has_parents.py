@@ -11,6 +11,8 @@ from .record import format_field_value, get_name_field
 from .run import Run
 
 if TYPE_CHECKING:
+    from graphviz import Digraph
+
     from lamindb.base.types import StrField
 
     from .artifact import Artifact
@@ -79,7 +81,7 @@ class HasParents:
         if not isinstance(field, str):
             field = field.field.name
 
-        return _view_parents(
+        return view_parents(
             record=self,  # type: ignore
             field=field,
             with_children=with_children,
@@ -102,7 +104,7 @@ def _transform_emoji(transform: Transform):
         return TRANSFORM_EMOJIS["pipeline"]
 
 
-def _view(u):
+def view_digraph(u: Digraph):
     from graphviz.backend import ExecutableNotFound
 
     try:
@@ -197,10 +199,10 @@ def view_lineage(data: Artifact | Collection, with_children: bool = True) -> Non
         shape="box",
     )
 
-    _view(u)
+    view_digraph(u)
 
 
-def _view_parents(
+def view_parents(
     record: Record,
     field: str,
     with_children: bool = False,
@@ -266,7 +268,7 @@ def _view_parents(
             u.node(row["target"], label=row["target_label"])
             u.edge(row["source"], row["target"], color="dimgrey")
 
-    _view(u)
+    view_digraph(u)
 
 
 def _get_parents(
