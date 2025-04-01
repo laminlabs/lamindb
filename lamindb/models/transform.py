@@ -280,9 +280,7 @@ class Transform(Record, IsVersioned):
             update_attributes(self, {"description": description})
             return None
         if revises is not None and key is not None and revises.key != key:
-            logger.warning(
-                f"renaming transform from `revises.key` '{revises.key}' to `key` {key}"
-            )
+            logger.warning(f"renaming transform '{revises.key}' to {key}")
         new_uid, version, key, description, revises = process_revises(
             revises, version, key, description, Transform
         )

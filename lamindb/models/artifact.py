@@ -1342,9 +1342,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 f"Only {valid_keywords} can be passed, you passed: {kwargs}"
             )
         if revises is not None and key is not None and revises.key != key:
-            logger.warning(
-                f"renaming artifact from `revises.key` '{revises.key}' to `key` {key}"
-            )
+            logger.warning(f"renaming artifact from '{revises.key}' to {key}")
         if revises is not None:
             if not isinstance(revises, Artifact):
                 raise TypeError("`revises` has to be of type `Artifact`")

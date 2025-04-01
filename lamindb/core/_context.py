@@ -618,7 +618,9 @@ class Context:
             transform_was_saved = transform.source_code is not None
             # check whether the transform.key is consistent
             if transform.key != key:
-                self._logging_message_track += f"updated key {transform.key} to {key}"
+                self._logging_message_track += (
+                    f"renaming transform {transform.key} to {key}"
+                )
                 transform.key = key
                 transform.save()
             elif transform.description != description and description is not None:
