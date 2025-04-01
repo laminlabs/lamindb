@@ -4,12 +4,15 @@ from __future__ import annotations
 import builtins
 from typing import TYPE_CHECKING, Literal
 
+import lamindb_setup as ln_setup
 from lamin_utils import logger
 
 from .record import format_field_value, get_name_field
 from .run import Run
 
 if TYPE_CHECKING:
+    from graphviz import Digraph
+
     from lamindb.base.types import StrField
 
     from .artifact import Artifact
@@ -78,7 +81,7 @@ class HasParents:
         if not isinstance(field, str):
             field = field.field.name
 
-        return _view_parents(
+        return view_parents(
             record=self,  # type: ignore
             field=field,
             with_children=with_children,
@@ -101,7 +104,7 @@ def _transform_emoji(transform: Transform):
         return TRANSFORM_EMOJIS["pipeline"]
 
 
-def _view(u):
+def view_digraph(u: Digraph):
     from graphviz.backend import ExecutableNotFound
 
     try:
@@ -117,7 +120,7 @@ def _view(u):
                 # call to display()
                 display(u._repr_mimebundle_(), raw=True)
         else:
-            return u
+            return u.view()
     except (FileNotFoundError, RuntimeError, ExecutableNotFound):  # pragma: no cover
         logger.error(
             "please install the graphviz executable on your system:\n  - Ubuntu: `sudo"
@@ -136,6 +139,13 @@ def view_lineage(data: Artifact | Collection, with_children: bool = True) -> Non
         >>> collection.view_lineage()
         >>> artifact.view_lineage()
     """
+    if ln_setup.settings.instance.is_on_hub:
+        instance_slug = ln_setup.settings.instance.slug
+        entity_slug = data.__class__.__name__.lower()
+        logger.important(
+            f"explore at: https://lamin.ai/{instance_slug}/{entity_slug}/{data.uid}"
+        )
+
     import graphviz
 
     df_values = _get_all_parent_runs(data)
@@ -189,10 +199,10 @@ def view_lineage(data: Artifact | Collection, with_children: bool = True) -> Non
         shape="box",
     )
 
-    _view(u)
+    view_digraph(u)
 
 
-def _view_parents(
+def view_parents(
     record: Record,
     field: str,
     with_children: bool = False,
@@ -258,7 +268,7 @@ def _view_parents(
             u.node(row["target"], label=row["target_label"])
             u.edge(row["source"], row["target"], color="dimgrey")
 
-    _view(u)
+    view_digraph(u)
 
 
 def _get_parents(

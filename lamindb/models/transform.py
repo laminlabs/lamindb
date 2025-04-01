@@ -340,9 +340,9 @@ class Transform(Record, IsVersioned):
 
     def view_lineage(self, with_successors: bool = False, distance: int = 5):
         """View lineage of transforms."""
-        from .has_parents import _view_parents
+        from .has_parents import view_parents
 
-        return _view_parents(
+        return view_parents(
             record=self,
             field="key",
             with_children=with_successors,
