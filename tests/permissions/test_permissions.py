@@ -1,3 +1,6 @@
+from uuid import uuid4
+
+import hubmodule.models as hm
 import lamindb as ln
 import psycopg2
 import pytest
@@ -69,6 +72,33 @@ def test_fine_grained_permissions():
     assert ulabel.projects.all().count() == 1
     # check select of a link table referencing unavailable rows
     assert ln.ULabel.get(name="select_ulabel").projects.all().count() == 0
+
+
+def test_utility_tables():
+    # can select in these tables
+    assert ln.models.User.filter().count() == 1
+    assert ln.models.Space.filter().count() == 4
+    # can't select
+    assert hm.Account.filter().count() == 0
+    assert hm.Team.filter().count() == 0
+    assert hm.AccountTeam.filter().count() == 0
+    assert hm.AccessSpace.filter().count() == 0
+    # can't update
+    space = ln.models.Space.get(name="All")
+    space.name = "new name"
+    with pytest.raises(ProgrammingError):
+        space.save()
+
+    user = ln.models.User.filter().one()
+    user.name = "new name"
+    with pytest.raises(ProgrammingError):
+        space.save()
+    # can't insert
+    with pytest.raises(ProgrammingError):
+        ln.models.Space(name="new space", uid="00000004").save()
+
+    with pytest.raises(ProgrammingError):
+        hm.Account(id=uuid4().hex, role="admin").save()
 
 
 def test_write_role():
