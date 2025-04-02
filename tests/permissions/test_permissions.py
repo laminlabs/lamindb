@@ -19,7 +19,7 @@ def test_fine_grained_permissions():
     assert ln.ULabel.filter().count() == 3
     assert ln.Project.filter().count() == 2
 
-    ulabel = ln.ULabel.get(name="space_all_ulabel")
+    ulabel = ln.ULabel.get(name="default_space_ulabel")
     assert ulabel.projects.all().count() == 2
     # check delete
     # should delete
@@ -28,7 +28,7 @@ def test_fine_grained_permissions():
     # should not delete, does not error for some reason
     ln.ULabel.get(name="select_ulabel").delete()
     assert ln.ULabel.filter().count() == 2
-    # space all
+    # default space
     ulabel.delete()
     assert ln.ULabel.filter().count() == 2
     # check insert
@@ -57,9 +57,9 @@ def test_fine_grained_permissions():
     ulabel.name = "select_ulabel update"
     with pytest.raises(ProgrammingError):
         ulabel.save()
-    # space all
-    ulabel = ln.ULabel.get(name="space_all_ulabel")
-    ulabel.name = "space_all_ulabel update"
+    # default space
+    ulabel = ln.ULabel.get(name="default_space_ulabel")
+    ulabel.name = "default_space_ulabel update"
     with pytest.raises(ProgrammingError):
         ulabel.save()
     # check link tables
@@ -84,7 +84,7 @@ def test_utility_tables():
     assert hm.AccountTeam.filter().count() == 0
     assert hm.AccessSpace.filter().count() == 0
     # can't update
-    space = ln.models.Space.get(name="All")
+    space = ln.models.Space.get(id=1)  # default space
     space.name = "new name"
     with pytest.raises(ProgrammingError):
         space.save()
@@ -108,4 +108,4 @@ def test_write_role():
             "UPDATE hubmodule_account SET role = %s WHERE id = %s", ("write", user_uuid)
         )
 
-    ln.ULabel(name="new label space all").save()
+    ln.ULabel(name="new label default space").save()

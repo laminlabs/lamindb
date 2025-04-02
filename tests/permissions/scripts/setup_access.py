@@ -27,7 +27,7 @@ print("Created jwt db connection")
 full_access = ln.models.Space(name="full access", uid="00000001").save()  # type: ignore
 select_access = ln.models.Space(name="select access", uid="00000002").save()  # type: ignore
 no_access = ln.models.Space(name="no access", uid="00000003").save()  # type: ignore
-# set read role for space all
+# set read role for the default space
 account = hm.Account(id=ln.setup.settings.user._uuid.hex, role="read").save()
 
 # no access space
@@ -55,14 +55,14 @@ ulabel.save()
 # create a link table referencing rows in different spaces
 ulabel.projects.add(project)
 
-# space All, only select access by default
-ulabel = ln.ULabel(name="space_all_ulabel").save()
+# default space, only select access by default
+ulabel = ln.ULabel(name="default_space_ulabel").save()
 ulabel.projects.add(project)
 
-project = ln.Project(name="space_all_project").save()
+project = ln.Project(name="default_space_project").save()
 ulabel.projects.add(project)
 
-# create a link table referencing ulabel from space all and project from select space
+# create a link table referencing ulabel from the default space and project from select space
 project = ln.Project(name="select_project")
 project.space = select_access
 project.save()
