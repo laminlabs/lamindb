@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 import hubmodule.models as hm
 import lamindb as ln
 import psycopg2
@@ -95,10 +97,8 @@ def test_utility_tables():
     with pytest.raises(ProgrammingError):
         ln.models.Space(name="new space", uid="00000004").save()
 
-    space = ln.models.Space.get(name="no access")
-    account = hm.Account.get(role="read")
     with pytest.raises(ProgrammingError):
-        hm.AccessSpace(account=account, space=space, role="write").save()
+        hm.Account(id=uuid4().hex, role="admin").save()
 
 
 def test_write_role():
