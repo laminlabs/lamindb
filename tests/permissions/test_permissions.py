@@ -99,6 +99,10 @@ def test_utility_tables():
 
     with pytest.raises(ProgrammingError):
         hm.Account(id=uuid4().hex, role="admin").save()
+    # can't delete
+    ln.models.User.filter().one().delete()
+    # check that it wasn't deleted
+    assert ln.models.User.filter().count() == 1
 
 
 def test_write_role():
