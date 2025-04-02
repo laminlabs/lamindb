@@ -19,15 +19,15 @@ def test_track_basic_invocation():
     with pytest.raises(ln.errors.InvalidArgument) as error:
         ln.context.track(project=project)
     assert (
-        str(error)
-        == f"Project '{project}' not found, either create it with `ln.Project(name='...').save()` or fix typos."
+        error.exconly()
+        == f"lamindb.errors.InvalidArgument: Project '{project}' not found, either create it with `ln.Project(name='...').save()` or fix typos."
     )
     space = "non-existing space"
     with pytest.raises(ln.errors.InvalidArgument) as error:
         ln.context.track(space=space)
     assert (
-        str(error)
-        == f"Space '{space}', please check on the hub UI whether you have the correct `uid` or `name`."
+        error.exconly()
+        == f"lamindb.errors.InvalidArgument: Space '{space}', please check on the hub UI whether you have the correct `uid` or `name`."
     )
 
     predecessor1 = ln.Transform(key="parent 1").save()
