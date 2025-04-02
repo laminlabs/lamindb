@@ -841,16 +841,20 @@ class BasicRecord(models.Model, metaclass=Registry):
                 if k != "run":
                     logger.important(f"{k} records: {', '.join(v)}")
 
-        if self.__class__.__name__ in {
-            "Artifact",
-            "Transform",
-            "Run",
-            "ULabel",
-            "Feature",
-            "Schema",
-            "Collection",
-            "Reference",
-        }:
+        if (
+            self.__class__.__name__
+            in {
+                "Artifact",
+                "Transform",
+                "Run",
+                "ULabel",
+                "Feature",
+                "Schema",
+                "Collection",
+                "Reference",
+            }
+            and self._branch_code >= 1
+        ):
             import lamindb as ln
 
             if ln.context.project is not None:
