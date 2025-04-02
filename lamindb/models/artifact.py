@@ -38,7 +38,6 @@ from lamindb.errors import FieldValidationError
 from lamindb.models.query_set import QuerySet
 
 from ..base.users import current_user_id
-from ..core._compat import is_package_installed
 from ..core.loaders import load_to_memory
 from ..core.storage import (
     LocalPathClasses,
@@ -209,35 +208,24 @@ def process_data(
 
     if not overwritten, data gets stored in default storage
     """
-    supported_data_types = [pd.DataFrame, AnnData]
-    if is_package_installed("mudata"):
-        from mudata import MuData
-
-        supported_data_types.append(MuData)
-    if is_package_installed("spatialdata"):
-        from spatialdata import SpatialData
-
-        supported_data_types.append(SpatialData)
-    supported_data_types = tuple(supported_data_types)  # type: ignore
-
     if key is not None:
         key_suffix = extract_suffix_from_path(PurePosixPath(key), arg_name="key")
-        # use suffix as the (adata) format if the format is not provided
         if isinstance(data, AnnData) and format is None and len(key_suffix) > 0:
             format = key_suffix[1:]
     else:
         key_suffix = None
-    if isinstance(data, (str, Path, UPath)):  # UPathStr, spelled out
+
+    if isinstance(data, (str, Path, UPath)):
         access_token = (
             default_storage._access_token
             if hasattr(default_storage, "_access_token")
             else None
         )
         path = create_path(data, access_token=access_token)
-        # we don't resolve http links because they can resolve into a different domain
-        # for example into a temporary url
+
         if path.protocol not in {"http", "https"}:
             path = path.resolve()
+
         storage, use_existing_storage_key = process_pathlike(
             path,
             default_storage=default_storage,
@@ -246,28 +234,36 @@ def process_data(
         )
         suffix = extract_suffix_from_path(path)
         memory_rep = None
-    elif isinstance(data, supported_data_types):
+    elif (
+        isinstance(data, pd.DataFrame)
+        or isinstance(data, AnnData)
+        or data_is_mudata(data)
+        or data_is_spatialdata(data)
+    ):
         storage = default_storage
         memory_rep = data
         suffix = infer_suffix(data, format)
     else:
         raise NotImplementedError(
-            f"Do not know how to create a artifact object from {data}, pass a path instead!"
+            f"Do not know how to create an Artifact from {data}, pass a path instead."
         )
+
+    # Check for suffix consistency
     if key_suffix is not None and key_suffix != suffix and not is_replace:
-        # consciously omitting a trailing period
         if isinstance(data, (str, Path, UPath)):
             message = f"The suffix '{suffix}' of the provided path is inconsistent, it should be '{key_suffix}'"
         else:
             message = f"The suffix '{key_suffix}' of the provided key is inconsistent, it should be '{suffix}'"
         raise InvalidArgument(message)
-    # in case we have an in-memory representation, we need to write it to disk
-    from lamindb import settings
 
-    if isinstance(data, supported_data_types):
+    # Handle in-memory data serialization
+    if memory_rep is not None:
+        from lamindb import settings
+
         path = settings.cache_dir / f"{provisional_uid}{suffix}"
         write_to_disk(data, path)
         use_existing_storage_key = False
+
     return memory_rep, path, suffix, storage, use_existing_storage_key
 
 
@@ -532,28 +528,24 @@ def data_is_anndata(data: AnnData | UPathStr) -> bool:
 
 
 def data_is_mudata(data: MuData | UPathStr) -> bool:
-    if is_package_installed("mudata"):
-        from mudata import MuData
-
-        if isinstance(data, MuData):
-            return True
+    # We are not importing MuData here to keep loaded modules minimal
+    if hasattr(data, "__class__") and data.__class__.__name__ == "MuData":
+        return True
     if isinstance(data, (str, Path)):
         return UPath(data).suffix == ".h5mu"
     return False
 
 
 def data_is_spatialdata(data: SpatialData | UPathStr) -> bool:
-    if is_package_installed("spatialdata"):
-        from spatialdata import SpatialData
-
-        if isinstance(data, SpatialData):
-            return True
-        if isinstance(data, (str, Path)):
-            if UPath(data).suffix == ".zarr":
-                # TODO: inconsistent with anndata, where we run the storage
-                # check only for local, expensive for cloud
-                return identify_zarr_type(data, check=False) == "spatialdata"
-        return False
+    # We are not importing SpatialData here to keep loaded modules minimal
+    if hasattr(data, "__class__") and data.__class__.__name__ == "SpatialData":
+        return True
+    if isinstance(data, (str, Path)):
+        if UPath(data).suffix == ".zarr":
+            # TODO: inconsistent with anndata, where we run the storage
+            # check only for local, expensive for cloud
+            return identify_zarr_type(data, check=False) == "spatialdata"
+    return False
 
 
 def _check_otype_artifact(
