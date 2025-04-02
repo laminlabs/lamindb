@@ -1,6 +1,9 @@
 from uuid import uuid4
 
 import hubmodule.models as hm
+import subprocess
+from pathlib import Path
+
 import lamindb as ln
 import psycopg2
 import pytest
@@ -114,3 +117,16 @@ def test_write_role():
         )
 
     ln.ULabel(name="new label default space").save()
+
+
+def test_lamin_dev():
+    script_path = Path(__file__).parent.resolve() / "scripts/example_script.py"
+
+    result = subprocess.run(  # noqa: S602
+        f"python {script_path}",
+        shell=True,
+        capture_output=True,
+    )
+    print(result.stdout.decode())
+    print(result.stderr.decode())
+    assert result.returncode == 0

@@ -672,7 +672,10 @@ class BasicRecord(models.Model, metaclass=Registry):
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
         if not args:
-            if self.__class__ is Record and not self.__class__.__name__ == "Storage":
+            if (
+                issubclass(self.__class__, Record)
+                and not self.__class__.__name__ == "Storage"
+            ):
                 from lamindb import context as run_context
 
                 if run_context.space is not None:
