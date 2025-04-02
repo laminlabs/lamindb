@@ -81,6 +81,22 @@ def test_utility_tables():
     assert hm.Team.filter().count() == 0
     assert hm.AccountTeam.filter().count() == 0
     assert hm.AccessSpace.filter().count() == 0
+    # can't update
+    space = ln.models.Space.get(name="All")
+    space.name = "new name"
+    with pytest.raises(ProgrammingError):
+        space.save()
+
+    user = ln.models.User.filter().one()
+    user.name = "new name"
+    with pytest.raises(ProgrammingError):
+        space.save()
+    # can't delete
+    ln.models.Space.get(name="All").delete()
+    assert ln.models.Space.filter().count() == 4
+
+    ln.models.User.filter().one().delete()
+    assert ln.models.User.filter().count() == 1
 
 
 def test_write_role():
