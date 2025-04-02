@@ -253,7 +253,7 @@ def process_data(
     # Check for suffix consistency
     if key_suffix is not None and key_suffix != suffix and not is_replace:
         # consciously omitting a trailing period
-        if isinstance(data, (str, Path, UPath)):
+        if isinstance(data, (str, Path, UPath)):  # UPathStr, spelled out
             message = f"The suffix '{suffix}' of the provided path is inconsistent, it should be '{key_suffix}'"
         else:
             message = f"The suffix '{key_suffix}' of the provided key is inconsistent, it should be '{suffix}'"
