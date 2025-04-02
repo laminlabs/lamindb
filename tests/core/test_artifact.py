@@ -1149,3 +1149,5 @@ def test_no_unnecessary_imports(df, module_name: str) -> None:
 
     # Cleanup and restore imports to ensure that other tests still run smoothly
     af.delete(permanent=True)
+    import mudata  # noqa
+    import spatialdata  # noqa
