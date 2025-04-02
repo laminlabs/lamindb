@@ -670,12 +670,13 @@ class BasicRecord(models.Model, metaclass=Registry):
         abstract = True
 
     def __init__(self, *args, **kwargs):
-        from lamindb import context as run_context
-
         skip_validation = kwargs.pop("_skip_validation", False)
         if not args:
-            if run_context.space is not None:
-                kwargs["space"] = run_context.space
+            if self.__class__ is Record and not self.__class__.__name__ == "Storage":
+                from lamindb import context as run_context
+
+                if run_context.space is not None:
+                    kwargs["space"] = run_context.space
             if skip_validation:
                 super().__init__(**kwargs)
             else:
@@ -686,9 +687,6 @@ class BasicRecord(models.Model, metaclass=Registry):
                 from .transform import Transform
 
                 validate_fields(self, kwargs)
-
-                if run_context.space is not None:
-                    kwargs["space"] = run_context.space
 
                 # do not search for names if an id is passed; this is important
                 # e.g. when synching ids from the notebook store to lamindb
