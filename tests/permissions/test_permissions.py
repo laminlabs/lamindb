@@ -14,7 +14,7 @@ token = sign_jwt(pgurl, {"account_id": user_uuid})
 set_db_token(token)
 
 
-def test_fine_grained_permissions():
+def test_fine_grained_permissions_account():
     # check select
     assert ln.ULabel.filter().count() == 3
     assert ln.Project.filter().count() == 2
@@ -74,10 +74,15 @@ def test_fine_grained_permissions():
     assert ln.ULabel.get(name="select_ulabel").projects.all().count() == 0
 
 
+def test_fine_grained_permissions_team():
+    assert ln.Feature.filter().count() == 1
+    ln.Feature.get(name="team_access_feature")
+
+
 def test_utility_tables():
     # can select in these tables
     assert ln.models.User.filter().count() == 1
-    assert ln.models.Space.filter().count() == 4
+    assert ln.models.Space.filter().count() == 5
     # can't select
     assert hm.Account.filter().count() == 0
     assert hm.Team.filter().count() == 0
@@ -95,7 +100,7 @@ def test_utility_tables():
         space.save()
     # can't insert
     with pytest.raises(ProgrammingError):
-        ln.models.Space(name="new space", uid="00000004").save()
+        ln.models.Space(name="new space", uid="00000005").save()
 
     with pytest.raises(ProgrammingError):
         hm.Account(id=uuid4().hex, role="admin").save()

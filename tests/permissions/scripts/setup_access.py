@@ -1,5 +1,6 @@
 import lamindb as ln  # noqa
 import hubmodule.models as hm
+from uuid import uuid4
 from hubmodule._setup import _install_db_module
 from laminhub_rest.core.postgres import DbRoleHandler
 
@@ -68,6 +69,16 @@ project.space = select_access
 project.save()
 
 ulabel.projects.add(project)
+
+# setup team and relevent models
+team_access = ln.models.Space(name="team access", uid="00000004").save()  # type: ignore
+team = hm.Team(id=uuid4().hex, uid="teamuiduid11", name="test_team", role="read").save()
+hm.AccountTeam(account=account, team=team).save()
+hm.AccessSpace(team=team, space=team_access, role="read").save()
+
+feature = ln.Feature(name="team_access_feature", dtype=float)
+feature.space = team_access
+feature.save()
 
 print("Created models")
 
