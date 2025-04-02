@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
 
     from lamindb.base.types import TransformType
-    from lamindb.models import Project
+    from lamindb.models import Project, Space
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
@@ -202,6 +202,7 @@ class Context:
         self._path: Path | None = None
         """A local path to the script that's running."""
         self._project: Project | None = None
+        self._space: Space | None = None
         self._logging_message_track: str = ""
         self._logging_message_imports: str = ""
         self._stream_tracker: LogStreamTracker = LogStreamTracker()
@@ -254,6 +255,11 @@ class Context:
         return self._project
 
     @property
+    def space(self) -> Space | None:
+        """The space in which entities are created during the run."""
+        return self._space
+
+    @property
     def run(self) -> Run | None:
         """Managed run of context."""
         return self._run
@@ -278,8 +284,9 @@ class Context:
         script-like transform exists in a git repository and links it.
 
         Args:
-            transform: A transform `uid` or record. If `None`, creates a `uid`.
+            transform: A transform `uid` or record. If `None`, manages the `transform` based on the script or notebook that calls `ln.track()`.
             project: A project `name` or `uid` for labeling entities created during the run.
+            space: A space `name` or `uid` for creating entities during the run.
             params: A dictionary of parameters to track for the run.
             new_run: If `False`, loads the latest run of transform
                 (default notebook), if `True`, creates new run (default non-notebook).
@@ -727,4 +734,4 @@ class Context:
         self._description = None
 
 
-context = Context()
+context: Context = Context()
