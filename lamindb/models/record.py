@@ -62,7 +62,6 @@ from lamindb_setup.core._hub_core import connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
 from lamindb_setup.core.upath import extract_suffix_from_path
 
-from lamindb import context as run_context
 from lamindb.base import deprecated
 from lamindb.base.fields import (
     CharField,
@@ -671,6 +670,8 @@ class BasicRecord(models.Model, metaclass=Registry):
         abstract = True
 
     def __init__(self, *args, **kwargs):
+        from lamindb import context as run_context
+
         skip_validation = kwargs.pop("_skip_validation", False)
         if not args:
             if run_context.space is not None:

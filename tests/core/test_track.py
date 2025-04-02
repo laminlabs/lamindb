@@ -16,13 +16,19 @@ NOTEBOOKS_DIR = Path(__file__).parent.resolve() / "notebooks"
 
 def test_track_basic_invocation():
     project = "non-existing project"
-    try:
+    with pytest.raises(ln.errors.InvalidArgument) as error:
         ln.context.track(project=project)
-    except ln.errors.InvalidArgument as error:
-        assert (
-            str(error)
-            == f"Project '{project}' not found, either create it with `ln.Project(name='...').save()` or fix typos."
-        )
+    assert (
+        str(error)
+        == f"Project '{project}' not found, either create it with `ln.Project(name='...').save()` or fix typos."
+    )
+    space = "non-existing space"
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        ln.context.track(space=space)
+    assert (
+        str(error)
+        == f"Space '{space}', please check on the hub UI whether you have the correct `uid` or `name`."
+    )
 
     predecessor1 = ln.Transform(key="parent 1").save()
     predecessor2 = ln.Transform(key="parent 2").save()

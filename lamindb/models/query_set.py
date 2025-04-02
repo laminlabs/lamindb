@@ -680,7 +680,7 @@ class QuerySet(models.QuerySet):
                     )
 
         expressions = process_expressions(self, expressions)
-        if len(expressions) > 0:
+        if queries or len(expressions) > 0:
             try:
                 return super().filter(*queries, **expressions)
             except FieldError as e:

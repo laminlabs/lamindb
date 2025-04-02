@@ -269,6 +269,7 @@ class Context:
         transform: str | Transform | None = None,
         *,
         project: str | None = None,
+        space: str | None = None,
         params: dict | None = None,
         new_run: bool | None = None,
         path: str | None = None,
@@ -304,7 +305,7 @@ class Context:
             >>> ln.track("Onv04I53OgtT0000")  # example uid, the last four characters encode the version of the transform
 
         """
-        from lamindb.models import Project
+        from lamindb.models import Project, Space
 
         instance_settings = ln_setup.settings.instance
         # similar logic here: https://github.com/laminlabs/lamindb/pull/2527
@@ -321,6 +322,13 @@ class Context:
                     f"Project '{project}' not found, either create it with `ln.Project(name='...').save()` or fix typos."
                 )
             self._project = project_record
+        if space is not None:
+            space_record = Space.filter(Q(name=space) | Q(uid=space)).one_or_none()
+            if space_record is None:
+                raise InvalidArgument(
+                    f"Space '{space}', please check on the hub UI whether you have the correct `uid` or `name`."
+                )
+            self._space = space_record
         self._logging_message_track = ""
         self._logging_message_imports = ""
         if transform is not None and isinstance(transform, str):
