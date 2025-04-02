@@ -680,7 +680,8 @@ class QuerySet(models.QuerySet):
                     )
 
         expressions = process_expressions(self, expressions)
-        if queries or len(expressions) > 0:
+        # need to run a query if queries or expressions are not empty
+        if queries or expressions:
             try:
                 return super().filter(*queries, **expressions)
             except FieldError as e:
