@@ -129,7 +129,9 @@ def view_digraph(u: Digraph):
         )
 
 
-def view_lineage(data: Artifact | Collection, with_children: bool = True) -> None:
+def view_lineage(
+    data: Artifact | Collection, with_children: bool = True, return_graph: bool = False
+) -> Digraph | None:
     """Graph of data flow.
 
     Notes:
@@ -199,7 +201,10 @@ def view_lineage(data: Artifact | Collection, with_children: bool = True) -> Non
         shape="box",
     )
 
-    view_digraph(u)
+    if return_graph:
+        return u
+    else:
+        return view_digraph(u)
 
 
 def view_parents(

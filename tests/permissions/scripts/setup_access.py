@@ -1,5 +1,6 @@
 import lamindb as ln  # noqa
 import hubmodule.models as hm
+from uuid import uuid4
 from hubmodule._setup import _install_db_module
 from laminhub_rest.core.postgres import DbRoleHandler
 
@@ -27,7 +28,7 @@ print("Created jwt db connection")
 full_access = ln.models.Space(name="full access", uid="00000001").save()  # type: ignore
 select_access = ln.models.Space(name="select access", uid="00000002").save()  # type: ignore
 no_access = ln.models.Space(name="no access", uid="00000003").save()  # type: ignore
-# set read role for space all
+# set read role for the default space
 account = hm.Account(id=ln.setup.settings.user._uuid.hex, role="read").save()
 
 # no access space
@@ -55,19 +56,29 @@ ulabel.save()
 # create a link table referencing rows in different spaces
 ulabel.projects.add(project)
 
-# space All, only select access by default
-ulabel = ln.ULabel(name="space_all_ulabel").save()
+# default space, only select access by default
+ulabel = ln.ULabel(name="default_space_ulabel").save()
 ulabel.projects.add(project)
 
-project = ln.Project(name="space_all_project").save()
+project = ln.Project(name="default_space_project").save()
 ulabel.projects.add(project)
 
-# create a link table referencing ulabel from space all and project from select space
+# create a link table referencing ulabel from the default space and project from select space
 project = ln.Project(name="select_project")
 project.space = select_access
 project.save()
 
 ulabel.projects.add(project)
+
+# setup team and relevent models
+team_access = ln.models.Space(name="team access", uid="00000004").save()  # type: ignore
+team = hm.Team(id=uuid4().hex, uid="teamuiduid11", name="test_team", role="read").save()
+hm.AccountTeam(account=account, team=team).save()
+hm.AccessSpace(team=team, space=team_access, role="read").save()
+
+feature = ln.Feature(name="team_access_feature", dtype=float)
+feature.space = team_access
+feature.save()
 
 print("Created models")
 
