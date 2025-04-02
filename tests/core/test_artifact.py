@@ -1148,4 +1148,4 @@ def test_no_unnecessary_imports(df, module_name: str) -> None:
     assert module_name not in sorted(loaded_packages)
 
     # Cleanup and restore imports to ensure that other tests still run smoothly
-    af.delete(permament=True)
+    af.delete(permanent=True)
