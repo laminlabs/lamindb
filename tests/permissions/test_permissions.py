@@ -75,7 +75,7 @@ def test_fine_grained_permissions():
 def test_utility_tables():
     # can select in these tables
     assert ln.models.User.filter().count() == 1
-    assert ln.models.Space.filter().count() == 1
+    assert ln.models.Space.filter().count() == 4
     # can't select
     assert hm.Account.filter().count() == 0
     assert hm.Team.filter().count() == 0
