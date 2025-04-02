@@ -7,7 +7,9 @@ Also see `test_artifact_folders.py` for tests of folder-like artifacts.
 # ruff: noqa: F811
 
 import shutil
+import sys
 from pathlib import Path, PurePosixPath
+from types import ModuleType
 
 import anndata as ad
 import bionty as bt
@@ -1128,3 +1130,22 @@ def test_http_paths():
 
     artifact_readme.delete(permanent=True, storage=False)
     artifact_license.delete(permanent=True, storage=False)
+
+
+@pytest.mark.parametrize("module_name", ["mudata", "spatialdata"])
+def test_no_unnecessary_imports(df, module_name: str) -> None:
+    if module_name in sys.modules:
+        del sys.modules[module_name]
+
+    af = ln.Artifact.from_df(df, description="to delete").save()
+
+    loaded_packages = []
+    for name, module in sys.modules.items():
+        if isinstance(module, ModuleType) and not name.startswith("_"):
+            if "." not in name:
+                loaded_packages.append(name)
+
+    assert module_name not in sorted(loaded_packages)
+
+    # Cleanup and restore imports to ensure that other tests still run smoothly
+    af.delete(permament=True)
