@@ -210,6 +210,7 @@ def process_data(
     """
     if key is not None:
         key_suffix = extract_suffix_from_path(PurePosixPath(key), arg_name="key")
+        # use suffix as the (adata) format if the format is not provided
         if isinstance(data, AnnData) and format is None and len(key_suffix) > 0:
             format = key_suffix[1:]
     else:
@@ -222,7 +223,8 @@ def process_data(
             else None
         )
         path = create_path(data, access_token=access_token)
-
+        # we don't resolve http links because they can resolve into a different domain
+        # for example into a temporary url
         if path.protocol not in {"http", "https"}:
             path = path.resolve()
 
@@ -250,13 +252,14 @@ def process_data(
 
     # Check for suffix consistency
     if key_suffix is not None and key_suffix != suffix and not is_replace:
+        # consciously omitting a trailing period
         if isinstance(data, (str, Path, UPath)):
             message = f"The suffix '{suffix}' of the provided path is inconsistent, it should be '{key_suffix}'"
         else:
             message = f"The suffix '{key_suffix}' of the provided key is inconsistent, it should be '{suffix}'"
         raise InvalidArgument(message)
 
-    # Handle in-memory data serialization
+    # in case we have an in-memory representation, we need to write it to disk
     if memory_rep is not None:
         from lamindb import settings
 
