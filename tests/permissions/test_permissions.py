@@ -1,3 +1,4 @@
+import hubmodule.models as hm
 import lamindb as ln
 import psycopg2
 import pytest
@@ -69,6 +70,17 @@ def test_fine_grained_permissions():
     assert ulabel.projects.all().count() == 1
     # check select of a link table referencing unavailable rows
     assert ln.ULabel.get(name="select_ulabel").projects.all().count() == 0
+
+
+def test_utility_tables():
+    # can select in these tables
+    assert ln.models.User.filter().count() == 1
+    assert ln.models.Space.filter().count() == 1
+    # can't select
+    assert hm.Account.filter().count() == 0
+    assert hm.Team.filter().count() == 0
+    assert hm.AccountTeam.filter().count() == 0
+    assert hm.AccessSpace.filter().count() == 0
 
 
 def test_write_role():
