@@ -91,12 +91,14 @@ def test_utility_tables():
     user.name = "new name"
     with pytest.raises(ProgrammingError):
         space.save()
-    # can't delete
-    ln.models.Space.get(name="All").delete()
-    assert ln.models.Space.filter().count() == 4
+    # can't insert
+    with pytest.raises(ProgrammingError):
+        ln.models.Space(name="new space", uid="00000004").save()
 
-    ln.models.User.filter().one().delete()
-    assert ln.models.User.filter().count() == 1
+    space = ln.models.Space.get(name="no access")
+    account = hm.Account.get(role="read")
+    with pytest.raises(ProgrammingError):
+        hm.AccessSpace(account=account, space=space, role="write").save()
 
 
 def test_write_role():
