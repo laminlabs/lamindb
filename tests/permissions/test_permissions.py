@@ -14,12 +14,12 @@ token = sign_jwt(pgurl, {"account_id": user_uuid})
 set_db_token(token)
 
 
-def test_fine_grained_permissions():
+def test_fine_grained_permissions_account():
     # check select
     assert ln.ULabel.filter().count() == 3
     assert ln.Project.filter().count() == 2
 
-    ulabel = ln.ULabel.get(name="space_all_ulabel")
+    ulabel = ln.ULabel.get(name="default_space_ulabel")
     assert ulabel.projects.all().count() == 2
     # check delete
     # should delete
@@ -28,7 +28,7 @@ def test_fine_grained_permissions():
     # should not delete, does not error for some reason
     ln.ULabel.get(name="select_ulabel").delete()
     assert ln.ULabel.filter().count() == 2
-    # space all
+    # default space
     ulabel.delete()
     assert ln.ULabel.filter().count() == 2
     # check insert
@@ -57,9 +57,9 @@ def test_fine_grained_permissions():
     ulabel.name = "select_ulabel update"
     with pytest.raises(ProgrammingError):
         ulabel.save()
-    # space all
-    ulabel = ln.ULabel.get(name="space_all_ulabel")
-    ulabel.name = "space_all_ulabel update"
+    # default space
+    ulabel = ln.ULabel.get(name="default_space_ulabel")
+    ulabel.name = "default_space_ulabel update"
     with pytest.raises(ProgrammingError):
         ulabel.save()
     # check link tables
@@ -74,17 +74,22 @@ def test_fine_grained_permissions():
     assert ln.ULabel.get(name="select_ulabel").projects.all().count() == 0
 
 
+def test_fine_grained_permissions_team():
+    assert ln.Feature.filter().count() == 1
+    ln.Feature.get(name="team_access_feature")
+
+
 def test_utility_tables():
     # can select in these tables
     assert ln.models.User.filter().count() == 1
-    assert ln.models.Space.filter().count() == 4
+    assert ln.models.Space.filter().count() == 5
     # can't select
     assert hm.Account.filter().count() == 0
     assert hm.Team.filter().count() == 0
     assert hm.AccountTeam.filter().count() == 0
     assert hm.AccessSpace.filter().count() == 0
     # can't update
-    space = ln.models.Space.get(name="All")
+    space = ln.models.Space.get(id=1)  # default space
     space.name = "new name"
     with pytest.raises(ProgrammingError):
         space.save()
@@ -95,7 +100,7 @@ def test_utility_tables():
         space.save()
     # can't insert
     with pytest.raises(ProgrammingError):
-        ln.models.Space(name="new space", uid="00000004").save()
+        ln.models.Space(name="new space", uid="00000005").save()
 
     with pytest.raises(ProgrammingError):
         hm.Account(id=uuid4().hex, role="admin").save()
@@ -108,4 +113,4 @@ def test_write_role():
             "UPDATE hubmodule_account SET role = %s WHERE id = %s", ("write", user_uuid)
         )
 
-    ln.ULabel(name="new label space all").save()
+    ln.ULabel(name="new label default space").save()
