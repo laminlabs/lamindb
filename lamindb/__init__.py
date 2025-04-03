@@ -123,8 +123,8 @@ if _check_instance_setup(from_module="lamindb"):
     from . import integrations
     from . import curators
 
-    track = context.track  # simple access
-    finish = context.finish  # simple access
+    track = context.track
+    finish = context.finish
     settings.__doc__ = """Global settings (:class:`~lamindb.core.Settings`)."""
     context.__doc__ = """Global run context (:class:`~lamindb.core.Context`).
 
