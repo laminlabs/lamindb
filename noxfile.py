@@ -148,7 +148,7 @@ def install_ci(session, group):
     elif group == "permissions":
         run(
             session,
-            "uv pip install --system sentry_sdk line_profiler wheel==0.45.1 flit",
+            "uv pip install --system sentry_sdk line_profiler setuptools wheel==0.45.1 flit",
         )
         run(
             session,
