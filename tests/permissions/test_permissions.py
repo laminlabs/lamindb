@@ -1,9 +1,8 @@
+import subprocess
+from pathlib import Path
 from uuid import uuid4
 
 import hubmodule.models as hm
-import subprocess
-from pathlib import Path
-
 import lamindb as ln
 import psycopg2
 import pytest
