@@ -4,7 +4,7 @@ import lamindb as ln
 import numpy as np
 import pandas as pd
 import pytest
-from lamindb.core.exceptions import InvalidArgument
+from lamindb.core.exceptions import InvalidArgument, ValidationError
 from lamindb.curators import save_artifact
 
 
@@ -41,3 +41,98 @@ def test_save_artifact_invalid_data_type():
         ),
     ):
         save_artifact(data=data, fields={"field1": "attr1"})
+
+
+def test_pandera_dataframe_schema():
+    # DataFrames
+    df = pd.DataFrame(
+        {
+            "sample_id": ["sample1", "sample2"],
+            "sample_name": ["Sample 1", "Sample 2"],
+            "sample_type": ["Type A", "Type B"],
+        }
+    )
+    # missing a column
+    df_missing_column = pd.DataFrame(
+        {
+            "sample_id": ["sample1", "sample2"],
+            "sample_name": ["Sample 1", "Sample 2"],
+        }
+    )
+    # changed columns order
+    df_changed_order = pd.DataFrame(
+        {
+            "sample_name": ["Sample 1", "Sample 2"],
+            "sample_type": ["Type A", "Type B"],
+            "sample_id": ["sample1", "sample2"],
+        }
+    )
+    # additional column
+    df_extra_column = pd.DataFrame(
+        {
+            "sample_id": ["sample1", "sample2"],
+            "sample_name": ["Sample 1", "Sample 2"],
+            "sample_type": ["Type A", "Type B"],
+            "extra_column": ["Extra 1", "Extra 2"],
+        }
+    )
+
+    # schemas
+    schema_minimal_set = ln.Schema(
+        name="my-schema minimal_set",
+        features=[
+            ln.Feature(name="sample_id", dtype=str).save(),
+            ln.Feature(name="sample_name", dtype=str).save(),
+            ln.Feature(name="sample_type", dtype=str).save(),
+        ],
+    ).save()
+    schema_maximal_set = ln.Schema(
+        name="my-schema maximal_set",
+        features=[
+            ln.Feature(name="sample_id", dtype=str).save(),
+            ln.Feature(name="sample_name", dtype=str).save(),
+            ln.Feature(name="sample_type", dtype=str).save(),
+        ],
+        minimal_set=False,
+        maximal_set=True,
+    ).save()
+    schema_ordered_set = ln.Schema(
+        name="my-schema ordered_set",
+        features=[
+            ln.Feature(name="sample_id", dtype=str).save(),
+            ln.Feature(name="sample_name", dtype=str).save(),
+            ln.Feature(name="sample_type", dtype=str).save(),
+        ],
+        ordered_set=True,
+    ).save()
+
+    # minimal_set=True
+    ln.curators.DataFrameCurator(df, schema=schema_minimal_set).validate()
+    # can't miss a required column
+    with pytest.raises(ValidationError):
+        ln.curators.DataFrameCurator(
+            df_missing_column, schema=schema_minimal_set
+        ).validate()
+    # doesn't care about order
+    ln.curators.DataFrameCurator(df_changed_order, schema=schema_minimal_set).validate()
+    # extra column is fine
+    ln.curators.DataFrameCurator(df_extra_column, schema=schema_minimal_set).validate()
+
+    # minimal_set=False
+    with pytest.raises(ValidationError):
+        ln.curators.DataFrameCurator(
+            df_extra_column, schema=schema_maximal_set
+        ).validate()
+    ln.curators.DataFrameCurator(
+        df_missing_column, schema=schema_maximal_set
+    ).validate()
+
+    # ordered_set=True
+    with pytest.raises(ValidationError):
+        ln.curators.DataFrameCurator(
+            df_changed_order, schema=schema_ordered_set
+        ).validate()
+
+    # clean up
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
