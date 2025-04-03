@@ -124,8 +124,5 @@ def test_lamin_dev():
     result = subprocess.run(  # noqa: S602
         f"python {script_path}",
         shell=True,
-        capture_output=True,
+        check=True,
     )
-    print(result.stdout.decode())
-    print(result.stderr.decode())
-    assert result.returncode == 0
