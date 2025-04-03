@@ -449,11 +449,13 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         nullable = kwargs.pop("nullable", True)  # default value of nullable
         cat_filters = kwargs.pop("cat_filters", None)
         coerce_dtype = kwargs.pop("coerce_dtype", False)
+        required = kwargs.pop("required", False)
         kwargs = process_init_feature_param(args, kwargs)
         super().__init__(*args, **kwargs)
         self.default_value = default_value
         self.nullable = nullable
         self.coerce_dtype = coerce_dtype
+        self.required = required
         dtype_str = kwargs.pop("dtype", None)
         if cat_filters:
             assert "|" not in dtype_str  # noqa: S101
@@ -500,25 +502,6 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         return self
 
     @property
-    def coerce_dtype(self) -> bool:
-        """Whether dtypes should be coerced during validation.
-
-        For example, a `objects`-dtyped pandas column can be coerced to `categorical` and would pass validation if this is true.
-        """
-        if self._aux is not None and "af" in self._aux and "2" in self._aux["af"]:  # type: ignore
-            return self._aux["af"]["2"]  # type: ignore
-        else:
-            return False
-
-    @coerce_dtype.setter
-    def coerce_dtype(self, value: bool) -> None:
-        if self._aux is None:  # type: ignore
-            self._aux = {}  # type: ignore
-        if "af" not in self._aux:
-            self._aux["af"] = {}
-        self._aux["af"]["2"] = value
-
-    @property
     def default_value(self) -> Any:
         """A default value that overwrites missing values (default `None`).
 
@@ -533,11 +516,8 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
 
     @default_value.setter
     def default_value(self, value: bool) -> None:
-        if self._aux is None:  # type: ignore
-            self._aux = {}  # type: ignore
-        if "af" not in self._aux:
-            self._aux["af"] = {}
-        self._aux["af"]["0"] = value
+        self._aux = self._aux or {}
+        self._aux.setdefault("af", {})["0"] = value
 
     @property
     def nullable(self) -> bool:
@@ -568,11 +548,37 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     @nullable.setter
     def nullable(self, value: bool) -> None:
         assert isinstance(value, bool), value  # noqa: S101
-        if self._aux is None:
-            self._aux = {}
-        if "af" not in self._aux:
-            self._aux["af"] = {}
-        self._aux["af"]["1"] = value
+        self._aux = self._aux or {}
+        self._aux.setdefault("af", {})["1"] = value
+
+    @property
+    def coerce_dtype(self) -> bool:
+        """Whether dtypes should be coerced during validation.
+
+        For example, a `objects`-dtyped pandas column can be coerced to `categorical` and would pass validation if this is true.
+        """
+        if self._aux is not None and "af" in self._aux and "2" in self._aux["af"]:  # type: ignore
+            return self._aux["af"]["2"]  # type: ignore
+        else:
+            return False
+
+    @coerce_dtype.setter
+    def coerce_dtype(self, value: bool) -> None:
+        self._aux = self._aux or {}
+        self._aux.setdefault("af", {})["2"] = value
+
+    @property
+    def required(self) -> bool:
+        """Whether the field is required."""
+        if self._aux is not None and "af" in self._aux and "3" in self._aux["af"]:  # type: ignore
+            return self._aux["af"]["3"]  # type: ignore
+        else:
+            return False
+
+    @required.setter
+    def required(self, value: bool) -> None:
+        self._aux = self._aux or {}
+        self._aux.setdefault("af", {})["3"] = value
 
 
 class FeatureValue(Record, TracksRun):

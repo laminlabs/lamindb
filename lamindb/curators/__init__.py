@@ -377,8 +377,6 @@ class DataFrameCurator(Curator):
         super().__init__(dataset=dataset, schema=schema)
         categoricals = {}
         if schema.n > 0:
-            # whether all the columns are required
-            required = schema.minimal_set
             # populate features
             pandera_columns = {}
             for feature in schema.features.all():
@@ -397,7 +395,7 @@ class DataFrameCurator(Curator):
                         ),
                         nullable=feature.nullable,
                         coerce=feature.coerce_dtype,
-                        required=required,
+                        required=True if schema.minimal_set else feature.required,
                     )
                 else:
                     pandera_dtype = (
@@ -409,7 +407,7 @@ class DataFrameCurator(Curator):
                         pandera_dtype,
                         nullable=feature.nullable,
                         coerce=feature.coerce_dtype,
-                        required=required,
+                        required=True if schema.minimal_set else feature.required,
                     )
                 if feature.dtype.startswith("cat"):
                     categoricals[feature.name] = parse_dtype(feature.dtype)[0]["field"]

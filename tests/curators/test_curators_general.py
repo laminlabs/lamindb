@@ -133,6 +133,33 @@ def test_pandera_dataframe_schema():
             df_changed_order, schema=schema_ordered_set
         ).validate()
 
+    # default=True (require) for a single feature when minimal_set=False
+    # note this modifies the "sample_type" feature to be required
+    schema_not_minimal_set_require_sample_type = ln.Schema(
+        name="my-schema minimal_set require sample_type",
+        features=[
+            ln.Feature(name="sample_id", dtype=str).save(),
+            ln.Feature(name="sample_name", dtype=str).save(),
+            ln.Feature(name="sample_type", dtype=str, required=True).save(),
+        ],
+        minimal_set=False,
+    ).save()
+    # missing "sample_type" column now raises an error
+    with pytest.raises(ValidationError):
+        ln.curators.DataFrameCurator(
+            df_missing_column, schema=schema_not_minimal_set_require_sample_type
+        ).validate()
+    # missing a non-required column is fine
+    ln.curators.DataFrameCurator(
+        pd.DataFrame(
+            {
+                "sample_id": ["sample1", "sample2"],
+                "sample_type": ["Type A", "Type B"],
+            }
+        ),
+        schema=schema_not_minimal_set_require_sample_type,
+    ).validate()
+
     # clean up
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
