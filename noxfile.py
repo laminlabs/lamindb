@@ -155,7 +155,10 @@ def install_ci(session, group):
 
     extras = "," + extras if extras != "" else extras
     run(session, f"uv pip install --system -e .[dev{extras}]")
-    run(session, "uv pip install --system fsspec[s3fs,gcsfs]==2025.3.2")
+    run(
+        session,
+        "uv pip install --system fsspec==2025.3.2 s3fs==2025.3.2 gcsfs==2025.3.2",
+    )
     # on the release branch, do not use submodules but run with pypi install
     # only exception is the docs group which should always use the submodule
     # to push docs fixes fast
