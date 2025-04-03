@@ -121,7 +121,7 @@ def test_write_role():
 # below is an integration test that should run last
 def test_lamin_dev():
     script_path = Path(__file__).parent.resolve() / "scripts/example_script.py"
-    result = subprocess.run(  # noqa: S602
+    subprocess.run(  # noqa: S602
         f"python {script_path}",
         shell=True,
         check=True,
