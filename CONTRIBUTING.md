@@ -48,11 +48,12 @@ Please add a test for every function added to the package.
 Running tests requires the [Docker daemon][] up, then run at the root of the repository:
 
 ```bash
-pytest
+pytest --ignore=tests/storage --ignore=tests/permission
 ```
 
 in the root of the repository.
-Continuous integration will automatically run the tests on all pull requests.
+We exclude specific directories in local `pytest` runs because they directly access external resources such as AWS, which require specific access keys.
+Continuous integration will automatically run **all** tests on pull requests.
 
 ## Code-style
 
