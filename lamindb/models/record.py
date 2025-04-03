@@ -70,7 +70,6 @@ from lamindb.base.fields import (
     JSONField,
     TextField,
 )
-
 from ..base.types import FieldAttr, StrField
 from ..errors import (
     FieldValidationError,
@@ -80,6 +79,7 @@ from ..errors import (
     ValidationError,
 )
 from ._is_versioned import IsVersioned
+from .query_manager import QueryManager
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -701,8 +701,11 @@ class BasicRecord(models.Model, metaclass=Registry):
     It's mainly used for LinkORMs and similar.
     """
 
+    objects = QueryManager()
+
     class Meta:
         abstract = True
+        base_manager_name = "objects"
 
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
