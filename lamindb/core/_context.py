@@ -274,20 +274,21 @@ class Context:
         new_run: bool | None = None,
         path: str | None = None,
     ) -> None:
-        """Track a global run of your Python session.
+        """Track a global run in your compute session.
 
         - sets :attr:`~lamindb.core.Context.transform` &
           :attr:`~lamindb.core.Context.run` by creating or loading `Transform` &
           `Run` records
-        - saves Python environment as a `requirements.txt` file: `run.environment`
+        - writes compute environment to prepare populating: `run.environment`
+        - if :attr:`~lamindb.core.Settings.sync_git_repo` is set, checks whether a script-like
+          transform exists in a git repository and links it
 
-        If :attr:`~lamindb.core.Settings.sync_git_repo` is set, checks whether a
-        script-like transform exists in a git repository and links it.
+        Guide: :doc:`/track`
 
         Args:
             transform: A transform `uid` or record. If `None`, manages the `transform` based on the script or notebook that calls `ln.track()`.
             project: A project `name` or `uid` for labeling entities created during the run.
-            space: A space `name` or `uid` for creating entities during the run.
+            space: A space `name` or `uid` for creating entities during the run. This doesn't affect bionty entities given they should typically be commonly accessible.
             params: A dictionary of parameters to track for the run.
             new_run: If `False`, loads the latest run of transform
                 (default notebook), if `True`, creates new run (default non-notebook).
@@ -296,13 +297,13 @@ class Context:
 
         Examples:
 
-            To track the run of a notebook or script, call:
+            To track the run of a notebook or script, call::
 
-            >>> ln.track()
+                ln.track()
 
-            If you want to ensure a single version history across renames of the notebook or script, pass the auto-generated `uid` that you'll find in the logs:
+            If you want to ensure a single version history across renames of the notebook or script, pass the auto-generated `uid` that you'll find in the logs::
 
-            >>> ln.track("Onv04I53OgtT0000")  # example uid, the last four characters encode the version of the transform
+                ln.track("Onv04I53OgtT0000")  # example uid, the last four characters encode the version of the transform
 
         """
         from lamindb.models import Project, Space
