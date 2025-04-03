@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
 
     from lamindb.base.types import TransformType
-    from lamindb.models import Project
+    from lamindb.models import Project, Space
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
@@ -202,6 +202,7 @@ class Context:
         self._path: Path | None = None
         """A local path to the script that's running."""
         self._project: Project | None = None
+        self._space: Space | None = None
         self._logging_message_track: str = ""
         self._logging_message_imports: str = ""
         self._stream_tracker: LogStreamTracker = LogStreamTracker()
@@ -254,6 +255,11 @@ class Context:
         return self._project
 
     @property
+    def space(self) -> Space | None:
+        """The space in which entities are created during the run."""
+        return self._space
+
+    @property
     def run(self) -> Run | None:
         """Managed run of context."""
         return self._run
@@ -263,23 +269,26 @@ class Context:
         transform: str | Transform | None = None,
         *,
         project: str | None = None,
+        space: str | None = None,
         params: dict | None = None,
         new_run: bool | None = None,
         path: str | None = None,
     ) -> None:
-        """Track a global run of your Python session.
+        """Track a global run in your compute session.
 
         - sets :attr:`~lamindb.core.Context.transform` &
           :attr:`~lamindb.core.Context.run` by creating or loading `Transform` &
           `Run` records
-        - saves Python environment as a `requirements.txt` file: `run.environment`
+        - writes compute environment to prepare populating: `run.environment`
+        - if :attr:`~lamindb.core.Settings.sync_git_repo` is set, checks whether a script-like
+          transform exists in a git repository and links it
 
-        If :attr:`~lamindb.core.Settings.sync_git_repo` is set, checks whether a
-        script-like transform exists in a git repository and links it.
+        Guide: :doc:`/track`
 
         Args:
-            transform: A transform `uid` or record. If `None`, creates a `uid`.
+            transform: A transform `uid` or record. If `None`, manages the `transform` based on the script or notebook that calls `ln.track()`.
             project: A project `name` or `uid` for labeling entities created during the run.
+            space: A space `name` or `uid` for creating entities during the run. This doesn't affect bionty entities given they should typically be commonly accessible.
             params: A dictionary of parameters to track for the run.
             new_run: If `False`, loads the latest run of transform
                 (default notebook), if `True`, creates new run (default non-notebook).
@@ -288,16 +297,16 @@ class Context:
 
         Examples:
 
-            To track the run of a notebook or script, call:
+            To track the run of a notebook or script, call::
 
-            >>> ln.track()
+                ln.track()
 
-            If you want to ensure a single version history across renames of the notebook or script, pass the auto-generated `uid` that you'll find in the logs:
+            If you want to ensure a single version history across renames of the notebook or script, pass the auto-generated `uid` that you'll find in the logs::
 
-            >>> ln.track("Onv04I53OgtT0000")  # example uid, the last four characters encode the version of the transform
+                ln.track("Onv04I53OgtT0000")  # example uid, the last four characters encode the version of the transform
 
         """
-        from lamindb.models import Project
+        from lamindb.models import Project, Space
 
         instance_settings = ln_setup.settings.instance
         # similar logic here: https://github.com/laminlabs/lamindb/pull/2527
@@ -314,6 +323,13 @@ class Context:
                     f"Project '{project}' not found, either create it with `ln.Project(name='...').save()` or fix typos."
                 )
             self._project = project_record
+        if space is not None:
+            space_record = Space.filter(Q(name=space) | Q(uid=space)).one_or_none()
+            if space_record is None:
+                raise InvalidArgument(
+                    f"Space '{space}', please check on the hub UI whether you have the correct `uid` or `name`."
+                )
+            self._space = space_record
         self._logging_message_track = ""
         self._logging_message_imports = ""
         if transform is not None and isinstance(transform, str):
@@ -727,4 +743,4 @@ class Context:
         self._description = None
 
 
-context = Context()
+context: Context = Context()

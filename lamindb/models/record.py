@@ -671,75 +671,86 @@ class BasicRecord(models.Model, metaclass=Registry):
 
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
-        if not args and skip_validation:
-            super().__init__(**kwargs)
-        elif not args and not skip_validation:
-            from ..core._settings import settings
-            from .can_curate import CanCurate
-            from .collection import Collection
-            from .schema import Schema
-            from .transform import Transform
-
-            validate_fields(self, kwargs)
-
-            # do not search for names if an id is passed; this is important
-            # e.g. when synching ids from the notebook store to lamindb
-            has_consciously_provided_uid = False
-            if "_has_consciously_provided_uid" in kwargs:
-                has_consciously_provided_uid = kwargs.pop(
-                    "_has_consciously_provided_uid"
-                )
+        if not args:
             if (
-                isinstance(self, (CanCurate, Collection, Transform))
-                and settings.creation.search_names
-                and not has_consciously_provided_uid
+                issubclass(self.__class__, Record)
+                and not self.__class__.__name__ == "Storage"
+                # do not save bionty entities in restricted spaces by default
+                and self.__class__.__module__ != "bionty.models"
             ):
-                name_field = getattr(self, "_name_field", "name")
-                exact_match = suggest_records_with_similar_names(
-                    self, name_field, kwargs
-                )
-                if exact_match is not None:
-                    if "version" in kwargs:
-                        if kwargs["version"] is not None:
-                            version_comment = " and version"
-                            existing_record = self.__class__.filter(
-                                **{
-                                    name_field: kwargs[name_field],
-                                    "version": kwargs["version"],
-                                }
-                            ).one_or_none()
+                from lamindb import context as run_context
+
+                if run_context.space is not None:
+                    kwargs["space"] = run_context.space
+            if skip_validation:
+                super().__init__(**kwargs)
+            else:
+                from ..core._settings import settings
+                from .can_curate import CanCurate
+                from .collection import Collection
+                from .schema import Schema
+                from .transform import Transform
+
+                validate_fields(self, kwargs)
+
+                # do not search for names if an id is passed; this is important
+                # e.g. when synching ids from the notebook store to lamindb
+                has_consciously_provided_uid = False
+                if "_has_consciously_provided_uid" in kwargs:
+                    has_consciously_provided_uid = kwargs.pop(
+                        "_has_consciously_provided_uid"
+                    )
+                if (
+                    isinstance(self, (CanCurate, Collection, Transform))
+                    and settings.creation.search_names
+                    and not has_consciously_provided_uid
+                ):
+                    name_field = getattr(self, "_name_field", "name")
+                    exact_match = suggest_records_with_similar_names(
+                        self, name_field, kwargs
+                    )
+                    if exact_match is not None:
+                        if "version" in kwargs:
+                            if kwargs["version"] is not None:
+                                version_comment = " and version"
+                                existing_record = self.__class__.filter(
+                                    **{
+                                        name_field: kwargs[name_field],
+                                        "version": kwargs["version"],
+                                    }
+                                ).one_or_none()
+                            else:
+                                # for a versioned record, an exact name match is not a criterion
+                                # for retrieving a record in case `version` isn't passed -
+                                # we'd always pull out many records with exactly the same name
+                                existing_record = None
                         else:
-                            # for a versioned record, an exact name match is not a criterion
-                            # for retrieving a record in case `version` isn't passed -
-                            # we'd always pull out many records with exactly the same name
-                            existing_record = None
-                    else:
-                        version_comment = ""
-                        existing_record = exact_match
-                    if existing_record is not None:
-                        logger.important(
-                            f"returning existing {self.__class__.__name__} record with same"
-                            f" {name_field}{version_comment}: '{kwargs[name_field]}'"
-                        )
-                        if isinstance(self, Schema):
-                            if existing_record.hash != kwargs["hash"]:
-                                raise ValueError(
-                                    f"Schema name is already in use by schema with uid '{existing_record.uid}', please choose a different name."
-                                )
-                        init_self_from_db(self, existing_record)
-                        update_attributes(self, kwargs)
-                        return None
-            super().__init__(**kwargs)
-            if isinstance(self, ValidateFields):
-                # this will trigger validation against django validators
-                try:
-                    if hasattr(self, "clean_fields"):
-                        self.clean_fields()
-                    else:
-                        self._Model__clean_fields()
-                except DjangoValidationError as e:
-                    message = _format_django_validation_error(self, e)
-                    raise FieldValidationError(message) from e
+                            version_comment = ""
+                            existing_record = exact_match
+                        if existing_record is not None:
+                            logger.important(
+                                f"returning existing {self.__class__.__name__} record with same"
+                                f" {name_field}{version_comment}: '{kwargs[name_field]}'"
+                            )
+                            if isinstance(self, Schema):
+                                if existing_record.hash != kwargs["hash"]:
+                                    raise ValueError(
+                                        f"Schema name is already in use by schema with uid '{existing_record.uid}', please choose a different name."
+                                    )
+                            init_self_from_db(self, existing_record)
+                            update_attributes(self, kwargs)
+                            return None
+                super().__init__(**kwargs)
+                if isinstance(self, ValidateFields):
+                    # this will trigger validation against django validators
+                    try:
+                        if hasattr(self, "clean_fields"):
+                            self.clean_fields()
+                        else:
+                            self._Model__clean_fields()
+                    except DjangoValidationError as e:
+                        message = _format_django_validation_error(self, e)
+                        raise FieldValidationError(message) from e
         elif len(args) != len(self._meta.concrete_fields):
             raise FieldValidationError(
                 f"Use keyword arguments instead of positional arguments, e.g.: {self.__class__.__name__}(name='...')."
@@ -841,16 +852,20 @@ class BasicRecord(models.Model, metaclass=Registry):
                 if k != "run":
                     logger.important(f"{k} records: {', '.join(v)}")
 
-        if self.__class__.__name__ in {
-            "Artifact",
-            "Transform",
-            "Run",
-            "ULabel",
-            "Feature",
-            "Schema",
-            "Collection",
-            "Reference",
-        }:
+        if (
+            self.__class__.__name__
+            in {
+                "Artifact",
+                "Transform",
+                "Run",
+                "ULabel",
+                "Feature",
+                "Schema",
+                "Collection",
+                "Reference",
+            }
+            and self._branch_code >= 1
+        ):
             import lamindb as ln
 
             if ln.context.project is not None:
