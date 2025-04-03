@@ -4,12 +4,9 @@ from typing import TYPE_CHECKING, NamedTuple
 
 from django.db import models
 from lamin_utils import logger
-from lamindb_setup.core._docs import doc_args
-
-from lamindb.models import Record
 
 if TYPE_CHECKING:
-    from lamindb.base.types import StrField
+    from ..base.types import StrField
 
 
 class QueryManager(models.Manager):
@@ -64,10 +61,10 @@ class QueryManager(models.Manager):
             >>> label.parents.list("name")
             ['ULabel1', 'ULabel2', 'ULabel3']
         """
-        self._track_run_input_manager()
         if field is None:
             return list(self.all())
         else:
+            self._track_run_input_manager()
             return list(self.values_list(field, flat=True))
 
     def df(self, **kwargs):
@@ -83,29 +80,16 @@ class QueryManager(models.Manager):
         For `**kwargs`, see :meth:`lamindb.models.QuerySet.df`.
         """
         self._track_run_input_manager()
-        return self._all_base_class()
+        return super().all()
 
-    @doc_args(Record.search.__doc__)
     def search(self, string: str, **kwargs):
         """{}"""  # noqa: D415
         from .record import _search
 
         return _search(cls=self.all(), string=string, **kwargs)
 
-    @doc_args(Record.lookup.__doc__)
     def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
         """{}"""  # noqa: D415
         from .record import _lookup
 
         return _lookup(cls=self.all(), field=field, **kwargs)
-
-
-models.Manager.list = QueryManager.list
-models.Manager.df = QueryManager.df
-models.Manager.search = QueryManager.search
-models.Manager.lookup = QueryManager.lookup
-models.Manager._track_run_input_manager = QueryManager._track_run_input_manager
-# the two lines below would be easy if we could actually inherit; like this,
-# they're suboptimal
-models.Manager._all_base_class = models.Manager.all
-models.Manager.all = QueryManager.all
