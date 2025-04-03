@@ -42,6 +42,8 @@ from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import UPath
 
+from lamindb.core._compat import is_package_installed
+
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
     from mudata import MuData
@@ -3519,6 +3521,9 @@ def from_mudata(
     verbosity: str = "hint",
     organism: str | None = None,
 ) -> MuDataCatManager:
+    if not is_package_installed("mudata"):
+        raise ImportError("Please install mudata: pip install mudata")
+
     return MuDataCatManager(
         mdata=mdata,
         var_index=var_index,
@@ -3560,10 +3565,8 @@ def from_spatialdata(
     *,
     sample_metadata_key: str = "sample",
 ):
-    try:
-        import spatialdata
-    except ImportError as e:
-        raise ImportError("Please install spatialdata: pip install spatialdata") from e
+    if not is_package_installed("spatialdata"):
+        raise ImportError("Please install spatialdata: pip install spatialdata")
 
     return SpatialDataCatManager(
         sdata=sdata,
