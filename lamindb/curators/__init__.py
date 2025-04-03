@@ -412,7 +412,11 @@ class DataFrameCurator(Curator):
                         required=required,
                     )
                 if feature.dtype.startswith("cat"):
-                    categoricals[feature.name] = parse_dtype(feature.dtype)[0]["field"]
+                    # validate categoricals if the column is required or if the column is present
+                    if required or feature.name in self._dataset.columns:
+                        categoricals[feature.name] = parse_dtype(feature.dtype)[0][
+                            "field"
+                        ]
             self._pandera_schema = pandera.DataFrameSchema(
                 pandera_columns,
                 coerce=schema.coerce_dtype,
