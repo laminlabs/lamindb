@@ -93,3 +93,8 @@ class QueryManager(models.Manager):
         from .record import _lookup
 
         return _lookup(cls=self.all(), field=field, **kwargs)
+
+    def get_queryset(self):
+        from .query_set import BasicQuerySet
+
+        return BasicQuerySet(model=self.model, using=self._db, hints=self._hints)
