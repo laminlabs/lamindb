@@ -8,12 +8,12 @@ import psycopg2
 import pytest
 from django.db.utils import ProgrammingError
 from jwt_utils import sign_jwt
-from lamindb_setup.core.django import set_db_token
+from lamindb_setup.core.django import db_token_manager
 
 pgurl = "postgresql://postgres:pwd@0.0.0.0:5432/pgtest"  # admin db connection url
 user_uuid = ln.setup.settings.user._uuid.hex
 token = sign_jwt(pgurl, {"account_id": user_uuid})
-set_db_token(token)
+db_token_manager.set(token)
 
 
 def test_fine_grained_permissions_account():
@@ -120,7 +120,7 @@ def test_write_role():
 
 # below is an integration test that should run last
 def test_lamin_dev():
-    script_path = Path(__file__).parent.resolve() / "scripts/example_script.py"
+    script_path = Path(__file__).parent.resolve() / "scripts/check_lamin_dev.py"
     subprocess.run(  # noqa: S602
         f"python {script_path}",
         shell=True,
