@@ -29,7 +29,9 @@ full_access = ln.models.Space(name="full access", uid="00000001").save()  # type
 select_access = ln.models.Space(name="select access", uid="00000002").save()  # type: ignore
 no_access = ln.models.Space(name="no access", uid="00000003").save()  # type: ignore
 # set read role for the default space
-account = hm.Account(id=ln.setup.settings.user._uuid.hex, role="read").save()
+account = hm.Account(
+    id=ln.setup.settings.user._uuid.hex, uid="accntid1", role="read"
+).save()
 
 # no access space
 ulabel = ln.ULabel(name="no_access_ulabel")
