@@ -6,6 +6,7 @@ import hubmodule.models as hm
 import lamindb as ln
 import psycopg2
 import pytest
+from django.db import transaction
 from django.db.utils import ProgrammingError
 from jwt_utils import sign_jwt
 from lamindb_setup.core.django import db_token_manager
@@ -79,6 +80,21 @@ def test_fine_grained_permissions_account():
 def test_fine_grained_permissions_team():
     assert ln.Feature.filter().count() == 1
     ln.Feature.get(name="team_access_feature")
+
+
+# tests that token is set properly in atomic blocks
+def test_atomic():
+    with transaction.atomic():
+        assert ln.Feature.filter().count() == 1
+        # test with nested
+        with transaction.atomic():
+            assert ln.Feature.filter().count() == 1
+
+            feature = ln.Feature(name="atomic_feature", dtype=float)
+            feature.space = ln.models.Space.get(name="full access")
+            feature.save()
+
+    assert ln.Feature.filter().count() == 2
 
 
 def test_utility_tables():
