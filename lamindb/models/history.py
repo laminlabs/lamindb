@@ -9,6 +9,7 @@ from django.db.models import (
     JSONField,
     SmallIntegerField,
     UUIDField,
+    functions,
 )
 
 from .record import BasicRecord
@@ -25,6 +26,6 @@ class History(BasicRecord):
     record_id: int = BigIntegerField()
     values: dict = JSONField()
     created_at: datetime = DateTimeField(
-        auto_now_add=True
-    )  # not strictly necessary if id is timestamped; has to be done at the database level as in rest of the code
+        db_default=functions.Now(),
+    )  # not strictly necessary if id is timestamped
     created_by: int = SmallIntegerField()  # ForeignKey into User but unprotected so that we don't pay the price for the constraint; no need for integrity as table is immutable
