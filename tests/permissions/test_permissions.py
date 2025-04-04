@@ -121,7 +121,7 @@ def test_utility_tables():
         ln.models.Space(name="new space", uid="00000005").save()
 
     with pytest.raises(ProgrammingError):
-        hm.Account(id=uuid4().hex, role="admin").save()
+        hm.Account(id=uuid4().hex, uid="accntid2", role="admin").save()
 
 
 def test_write_role():
