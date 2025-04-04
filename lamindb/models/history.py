@@ -1,7 +1,15 @@
+from datetime import datetime
 from uuid import UUID
 
-from django.contrib.contenttypes.models import ContentType
-from django.db.models import JSONField, SmallIntegerField, UUIDField
+# from .record import User --> only needed for ForeignKey
+# from django.contrib.contenttypes.models import ContentType --> only needed for ForeignKey
+from django.db.models import (
+    BigIntegerField,
+    DateTimeField,
+    JSONField,
+    SmallIntegerField,
+    UUIDField,
+)
 
 from .record import BasicRecord
 
@@ -10,8 +18,13 @@ class History(BasicRecord):
     id: UUID = UUIDField(
         primary_key=True
     )  # snowflake ID would be ideal because then we'd have some ordering; otherwise timsstamped uuid also ok
-    table: ContentType = SmallIntegerField()  # ForeignKey into ContentType but unprotected so that tables can be deleted; so not using ForeignKey
+    table_id: int = SmallIntegerField()  # ForeignKey into ContentType but unprotected so that tables can be deleted; so not using ForeignKey
     operation: int = (
         SmallIntegerField()
     )  # code INSERT, DELETE, UPDATE and other things we might want
-    data: dict = JSONField()
+    record_id: int = BigIntegerField()
+    values: dict = JSONField()
+    created_at: datetime = DateTimeField(
+        auto_now_add=True
+    )  # not strictly necessary if id is timestamped; has to be done at the database level as in rest of the code
+    created_by: int = SmallIntegerField()  # ForeignKey into User but unprotected so that we don't pay the price for the constraint; no need for integrity as table is immutable
