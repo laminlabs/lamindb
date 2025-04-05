@@ -77,3 +77,4 @@ from .record import Migration
 from .run import RunParamValue
 from .schema import SchemaFeature, SchemaParam, ArtifactSchema, SchemaComponent
 from .ulabel import ArtifactULabel, TransformULabel, RunULabel, CollectionULabel
+from .history import History
