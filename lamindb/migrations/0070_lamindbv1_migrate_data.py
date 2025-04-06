@@ -3,26 +3,48 @@
 from pathlib import Path
 
 import lamindb_setup as ln_setup
-import psycopg2
 from django.db import migrations
 
 
-def get_artifact_path_psycopg2(artifact_id):
+def get_artifact_path_using_sql(artifact_id):
     """Get artifact path using psycopg2."""
-    query = """
-        SELECT
-            s.root || '/.lamindb/' || a.uid || a.suffix AS full_path
-        FROM
-            lamindb_artifact a
-            JOIN lamindb_storage s ON a.storage_id = s.id
-        WHERE
-            a.id = %s
-    """
+    if ln_setup.settings.instance.dialect == "sqlite":
+        import sqlite3
 
-    with psycopg2.connect(ln_setup.settings.instance.db) as conn:
-        with conn.cursor() as cur:
+        query = """
+            SELECT
+                s.root || '/.lamindb/' || a.uid || a.suffix AS full_path
+            FROM
+                lamindb_artifact a
+                JOIN lamindb_storage s ON a.storage_id = s.id
+            WHERE
+                a.id = ?
+        """
+
+        # Extract the actual SQLite path from the SQLAlchemy connection string
+        db_path = ln_setup.settings.instance._sqlite_file_local
+
+        with sqlite3.connect(db_path) as conn:
+            cur = conn.cursor()
             cur.execute(query, (artifact_id,))
-            return cur.fetchone()[0]
+            result = cur.fetchone()
+            return result[0] if result else None
+    else:
+        import psycopg2
+
+        query = """
+            SELECT
+                s.root || '/.lamindb/' || a.uid || a.suffix AS full_path
+            FROM
+                lamindb_artifact a
+                JOIN lamindb_storage s ON a.storage_id = s.id
+            WHERE
+                a.id = %s
+        """
+        with psycopg2.connect(ln_setup.settings.instance.db) as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, (artifact_id,))
+                return cur.fetchone()[0]
 
 
 def transfer_source_code(apps, schema_editor):
@@ -38,7 +60,7 @@ def transfer_source_code(apps, schema_editor):
         artifact = transform._source_code_artifact
         print("artifact", artifact.uid)
 
-        path_str = get_artifact_path_psycopg2(artifact.id)
+        path_str = get_artifact_path_using_sql(artifact.id)
         print(ln_setup.settings.storage.root_as_str)
         print(path_str)
         if path_str.startswith(ln_setup.settings.storage.root_as_str):
