@@ -6,14 +6,15 @@ import hubmodule.models as hm
 import lamindb as ln
 import psycopg2
 import pytest
+from django.db import transaction
 from django.db.utils import ProgrammingError
 from jwt_utils import sign_jwt
-from lamindb_setup.core.django import set_db_token
+from lamindb_setup.core.django import db_token_manager
 
 pgurl = "postgresql://postgres:pwd@0.0.0.0:5432/pgtest"  # admin db connection url
 user_uuid = ln.setup.settings.user._uuid.hex
 token = sign_jwt(pgurl, {"account_id": user_uuid})
-set_db_token(token)
+db_token_manager.set(token)
 
 
 def test_fine_grained_permissions_account():
@@ -81,6 +82,21 @@ def test_fine_grained_permissions_team():
     ln.Feature.get(name="team_access_feature")
 
 
+# tests that token is set properly in atomic blocks
+def test_atomic():
+    with transaction.atomic():
+        assert ln.Feature.filter().count() == 1
+        # test with nested
+        with transaction.atomic():
+            assert ln.Feature.filter().count() == 1
+
+            feature = ln.Feature(name="atomic_feature", dtype=float)
+            feature.space = ln.models.Space.get(name="full access")
+            feature.save()
+
+    assert ln.Feature.filter().count() == 2
+
+
 def test_utility_tables():
     # can select in these tables
     assert ln.models.User.filter().count() == 1
@@ -105,7 +121,7 @@ def test_utility_tables():
         ln.models.Space(name="new space", uid="00000005").save()
 
     with pytest.raises(ProgrammingError):
-        hm.Account(id=uuid4().hex, role="admin").save()
+        hm.Account(id=uuid4().hex, uid="accntid2", role="admin").save()
 
 
 def test_write_role():
@@ -120,7 +136,7 @@ def test_write_role():
 
 # below is an integration test that should run last
 def test_lamin_dev():
-    script_path = Path(__file__).parent.resolve() / "scripts/example_script.py"
+    script_path = Path(__file__).parent.resolve() / "scripts/check_lamin_dev.py"
     subprocess.run(  # noqa: S602
         f"python {script_path}",
         shell=True,
