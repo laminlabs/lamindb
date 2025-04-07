@@ -249,7 +249,7 @@ def test_run_scripts():
 
 
 def test_run_external_script():
-    script_path = "sub/lamin-cli/tests/scripts/run-track-and-finish-sync-git.py"
+    script_path = "sub/lamin-cli/tests/core/scripts/run-track-and-finish-sync-git.py"
     result = subprocess.run(  # noqa: S602
         f"python {script_path}",
         shell=True,
