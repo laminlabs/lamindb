@@ -57,6 +57,7 @@ def _inspect(
     mute: bool = False,
     organism: str | Record | None = None,
     source: Record | None = None,
+    from_source: bool = True,
     strict_source: bool = False,
 ) -> pd.DataFrame | dict[str, list[str]]:
     """{}"""  # noqa: D415
@@ -94,7 +95,7 @@ def _inspect(
     )
     nonval = set(result_db.non_validated).difference(result_db.synonyms_mapper.keys())
 
-    if len(nonval) > 0 and hasattr(registry, "source_id"):
+    if from_source and len(nonval) > 0 and hasattr(registry, "source_id"):
         try:
             public_result = registry.public(
                 organism=organism_record, source=source
@@ -463,6 +464,7 @@ class CanCurate:
         mute: bool = False,
         organism: Union[str, Record, None] = None,
         source: Record | None = None,
+        from_source: bool = True,
         strict_source: bool = False,
     ) -> InspectResult:
         """Inspect if values are mappable to a field.
@@ -506,6 +508,7 @@ class CanCurate:
             strict_source=strict_source,
             organism=organism,
             source=source,
+            from_source=from_source,
         )
 
     @classmethod
