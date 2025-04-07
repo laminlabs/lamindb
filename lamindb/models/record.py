@@ -62,23 +62,23 @@ from lamindb_setup.core._hub_core import connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
 from lamindb_setup.core.upath import extract_suffix_from_path
 
-from lamindb.base import deprecated
-from lamindb.base.fields import (
+from ..base import deprecated
+from ..base.fields import (
     CharField,
     DateTimeField,
     ForeignKey,
     JSONField,
     TextField,
 )
-from lamindb.base.types import FieldAttr, StrField
-from lamindb.errors import FieldValidationError
-
+from ..base.types import FieldAttr, StrField
 from ..errors import (
+    FieldValidationError,
     InvalidArgument,
     RecordNameChangeIntegrityError,
     ValidationError,
 )
 from ._is_versioned import IsVersioned
+from .query_manager import QueryManager
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -666,8 +666,11 @@ class BasicRecord(models.Model, metaclass=Registry):
     It's mainly used for LinkORMs and similar.
     """
 
+    objects = QueryManager()
+
     class Meta:
         abstract = True
+        base_manager_name = "objects"
 
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
