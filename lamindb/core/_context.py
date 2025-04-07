@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import builtins
 import hashlib
+import os
 import signal
 import sys
 import threading
@@ -314,6 +315,8 @@ class Context:
         if instance_settings.dialect == "postgresql" and "read" in instance_settings.db:
             logger.warning("skipping track(), connected in read-only mode")
             return None
+        if project is None:
+            project = os.environ.get("LAMIN_CURRENT_PROJECT")
         if project is not None:
             project_record = Project.filter(
                 Q(name=project) | Q(uid=project)
