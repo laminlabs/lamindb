@@ -158,6 +158,8 @@ def install_ci(session, group):
             session,
             "uv pip install --system -e ./laminhub/rest-hub/laminhub_rest/hubmodule",
         )
+        # check that just installing psycopg (psycopg3) doesn't break fine-grained access
+        run(session, "uv pip install --system psycopg[binary]")
 
     extras = "," + extras if extras != "" else extras
     run(session, f"uv pip install --system -e .[dev{extras}]")
