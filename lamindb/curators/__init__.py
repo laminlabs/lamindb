@@ -609,6 +609,12 @@ class AnnDataCurator(SlotsCurator):
             for slot, slot_schema in schema.slots.items()
             if slot in {"obs", "var", "uns"}
         }
+        # TODO: better way to handle this?
+        if "var" in self._slots:
+            self._slots["var"]._cat_manager._cat_columns["var_index"] = self._slots[
+                "var"
+            ]._cat_manager._cat_columns.pop("columns")
+            self._slots["var"]._cat_manager._cat_columns["var_index"]._key = "var_index"
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
@@ -985,7 +991,7 @@ class CatColumn:
             )
         return std_values
 
-    def validate(self, mute: bool = False) -> None:
+    def validate(self) -> None:
         """Validate the column."""
         self.add_validated()
         self._non_validated, self._synonyms = validate_categories(
@@ -994,7 +1000,6 @@ class CatColumn:
             key=self._key,
             organism=self._organism,
             source=self._source,
-            mute=mute,
         )
 
     def standardize(self) -> list[str]:
@@ -1021,7 +1026,7 @@ class CatColumn:
     def add_new(self, **create_kwargs) -> None:
         """Add new values to the registry."""
         if self._non_validated is None:
-            self.validate(mute=True)
+            self.validate()
         if len(self._synonyms) > 0:
             raise ValidationError(
                 "Please run `.standardize()` before adding new values."
@@ -1068,7 +1073,9 @@ class CatManager:
             self._organism = organism
         else:
             fields = list(self._categoricals.values()) + [columns_field]
-            organisms = {get_organism_kwargs(field).get("organism") for field in fields}
+            organisms = {
+                get_organism_kwargs(field=field).get("organism") for field in fields
+            }
             self._organism = organisms.pop() if len(organisms) > 0 else None
 
     @property
@@ -1175,14 +1182,14 @@ class DataFrameCatManager(CatManager):
                 source=self._sources.get(key),
             )
         self._cat_columns["columns"] = CatColumn(
-            values=self.categoricals.keys(),  # only the keys in categoricals
+            values=self._dataset.columns,
             field=self._columns_field,
             key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
             organism=self._organism,
             source=self._sources.get("columns"),
         )
         # Always save features specified as the categoricals
-        self._cat_columns["columns"].add_new(mute=True)
+        self._cat_columns["columns"].add_validated()
 
     def lookup(self, public: bool = False) -> CatLookup:
         """Lookup categories.
@@ -2965,7 +2972,7 @@ def get_current_filter_kwargs(registry: type[Record], kwargs: dict) -> dict:
 
 
 def get_organism_kwargs(
-    field: FieldAttr, organism: str | None = None
+    field: FieldAttr, organism: str | None = None, values: Any = None
 ) -> dict[str, str]:
     """Check if a registry needs an organism and return the organism name."""
     registry = field.field.model
@@ -2980,7 +2987,7 @@ def get_organism_kwargs(
                 return {"organism": organism or bt.settings.organism.name}
             else:
                 organism_record = get_organism_record_from_field(
-                    field, organism=organism
+                    field, organism=organism, values=values
                 )
                 if organism_record is not None:
                     return {"organism": organism_record.name}
@@ -2995,7 +3002,6 @@ def validate_categories(
     source: Record | None = None,
     hint_print: str | None = None,
     curator: CatManager | None = None,
-    mute: bool = False,
 ) -> tuple[list[str], dict]:
     """Validate ontology terms using LaminDB registries.
 
@@ -3042,9 +3048,8 @@ def validate_categories(
     non_validated = [i for i in non_validated if i not in values_validated]
     n_non_validated = len(non_validated)
     if n_non_validated == 0:
-        if not mute:
-            logger.indent = ""
-            logger.success(f'"{key}" is validated against {colors.italic(model_field)}')
+        logger.indent = ""
+        logger.success(f'"{key}" is validated against {colors.italic(model_field)}')
         return [], {}
     else:
         are = "is" if n_non_validated == 1 else "are"
