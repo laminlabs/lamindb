@@ -148,14 +148,6 @@ def install_ci(session, group):
     elif group == "permissions":
         run(
             session,
-            "uv pip install --system sentry_sdk line_profiler setuptools wheel==0.45.1 flit",
-        )
-        run(
-            session,
-            "uv pip install --system -e ./laminhub/rest-hub --no-build-isolation",
-        )
-        run(
-            session,
             "uv pip install --system --no-deps -e ./laminhub/rest-hub/laminhub_rest/hubmodule",
         )
         # check that just installing psycopg (psycopg3) doesn't break fine-grained access
@@ -163,6 +155,18 @@ def install_ci(session, group):
 
     extras = "," + extras if extras != "" else extras
     run(session, f"uv pip install --system -e .[dev{extras}]")
+
+    if group == "permissions":
+        # have to install after lamindb installation
+        # because lamindb downgrades django
+        run(
+            session,
+            "uv pip install --system sentry_sdk line_profiler setuptools wheel==0.45.1 flit",
+        )
+        run(
+            session,
+            "uv pip install --system -e ./laminhub/rest-hub --no-build-isolation",
+        )
     # on the release branch, do not use submodules but run with pypi install
     # only exception is the docs group which should always use the submodule
     # to push docs fixes fast
