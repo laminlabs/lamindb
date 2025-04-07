@@ -58,8 +58,9 @@ from lamindb_setup._connect_instance import (
     update_db_using_local,
 )
 from lamindb_setup.core._docs import doc_args
-from lamindb_setup.core._hub_core import connect_instance_hub
+from lamindb_setup.core._hub_core import access_db, connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
+from lamindb_setup.core.django import db_token_manager
 from lamindb_setup.core.upath import extract_suffix_from_path
 
 from lamindb.base import deprecated
@@ -603,7 +604,7 @@ class Registry(ModelBase):
 
         # move on to different instances
         cache_using_filepath = (
-            ln_setup.settings.cache_dir / f"instance--{owner}--{name}--uid.txt"
+            setup_settings.cache_dir / f"instance--{owner}--{name}--uid.txt"
         )
         settings_file = instance_settings_file(name, owner)
         if not settings_file.exists():
@@ -622,16 +623,28 @@ class Registry(ModelBase):
             db = update_db_using_local(iresult, settings_file)
             cache_using_filepath.write_text(
                 f"{iresult['lnid']}\n{iresult['schema_str']}"
-            )  # type: ignore
+            )
+            # need to set the token if it is a fine_grained_access and the user is jwt (not public)
+            is_fine_grained_access = (
+                iresult["fine_grained_access"] and iresult["db_permissions"] == "jwt"
+            )
+            # access_db can take both: the dict from connect_instance_hub and isettings
+            into_access_db = iresult
         else:
             isettings = load_instance_settings(settings_file)
             source_modules = isettings.modules
             db = isettings.db
             cache_using_filepath.write_text(
                 f"{isettings.uid}\n{','.join(source_modules)}"
-            )  # type: ignore
+            )
+            # need to set the token if it is a fine_grained_access and the user is jwt (not public)
+            is_fine_grained_access = (
+                isettings._fine_grained_access and isettings._db_permissions == "jwt"
+            )
+            # access_db can take both: the dict from connect_instance_hub and isettings
+            into_access_db = isettings
 
-        target_modules = ln_setup.settings.instance.modules
+        target_modules = setup_settings.instance.modules
         if not (missing_members := source_modules - target_modules):
             logger.warning(
                 f"source modules has additional modules: {missing_members}\n"
@@ -639,6 +652,9 @@ class Registry(ModelBase):
             )
 
         add_db_connection(db, instance)
+        if is_fine_grained_access:
+            db_token = access_db(into_access_db)
+            db_token_manager.set(db_token, instance)
         return QuerySet(model=cls, using=instance)
 
     def __get_module_name__(cls) -> str:
