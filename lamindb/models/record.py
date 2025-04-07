@@ -602,10 +602,10 @@ class Registry(ModelBase):
             return QuerySet(model=cls, using=None)
 
         # move on to different instances
-        settings_file = instance_settings_file(name, owner)
-        cache_filepath = (
+        cache_using_filepath = (
             ln_setup.settings.cache_dir / f"instance--{owner}--{name}--uid.txt"
         )
+        settings_file = instance_settings_file(name, owner)
         if not settings_file.exists():
             result = connect_instance_hub(owner=owner, name=name)
             if isinstance(result, str):
@@ -614,23 +614,29 @@ class Registry(ModelBase):
                 )
             iresult, _ = result
             # do not use {} syntax below, it gives rise to a dict if the schema modules
-            # are empty and then triggers a TypeError in missing_members = source_module - target_module
-            source_module = set(  # noqa
+            # are empty and then triggers a TypeError in missing_members = source_modules - target_modules
+            source_modules = set(  # noqa
                 [mod for mod in iresult["schema_str"].split(",") if mod != ""]
             )
-            target_module = ln_setup.settings.instance.modules
-            if not source_module.issubset(target_module):
-                missing_members = source_module - target_module
-                logger.warning(
-                    f"source modules has additional modules: {missing_members}\nconsider mounting these registry modules to transfer all metadata"
-                )
-            cache_filepath.write_text(f"{iresult['lnid']}\n{iresult['schema_str']}")  # type: ignore
-            settings_file = instance_settings_file(name, owner)
+            # this just retrives the full connection string from iresult
             db = update_db_using_local(iresult, settings_file)
+            cache_using_filepath.write_text(
+                f"{iresult['lnid']}\n{iresult['schema_str']}"
+            )  # type: ignore
         else:
             isettings = load_instance_settings(settings_file)
+            source_modules = isettings.modules
             db = isettings.db
-            cache_filepath.write_text(f"{isettings.uid}\n{','.join(isettings.modules)}")  # type: ignore
+            cache_using_filepath.write_text(
+                f"{isettings.uid}\n{','.join(source_modules)}"
+            )  # type: ignore
+
+        target_modules = ln_setup.settings.instance.modules
+        if not (missing_members := source_modules - target_modules):
+            logger.warning(
+                f"source modules has additional modules: {missing_members}\nconsider mounting these registry modules to transfer all metadata"
+            )
+
         add_db_connection(db, instance)
         return QuerySet(model=cls, using=instance)
 
@@ -1331,10 +1337,12 @@ def get_transfer_run(record) -> Run:
 
     slug = record._state.db
     owner, name = get_owner_name_from_identifier(slug)
-    cache_filepath = ln_setup.settings.cache_dir / f"instance--{owner}--{name}--uid.txt"
-    if not cache_filepath.exists():
+    cache_using_filepath = (
+        ln_setup.settings.cache_dir / f"instance--{owner}--{name}--uid.txt"
+    )
+    if not cache_using_filepath.exists():
         raise SystemExit("Need to call .using() before")
-    instance_uid = cache_filepath.read_text().split("\n")[0]
+    instance_uid = cache_using_filepath.read_text().split("\n")[0]
     key = f"transfers/{instance_uid}"
     uid = instance_uid + "0000"
     transform = Transform.filter(uid=uid).one_or_none()
