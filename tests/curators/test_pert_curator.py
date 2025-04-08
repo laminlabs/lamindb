@@ -103,6 +103,7 @@ def test_pert_curator():
 
     curator = wl.PertCurator(adata)
     # this still doesn't validate, hence add_new_from("all")
+    curator.standardize("all")
     curator.add_new_from("all")
 
     assert curator.validate() is True

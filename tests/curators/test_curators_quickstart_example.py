@@ -375,6 +375,10 @@ def test_mudata_curator(
         "hto:obs",
         "rna:var",
     }
+    with pytest.raises(ln.errors.ValidationError):
+        curator.validate()
+    curator.slots["rna:var"].cat.standardize("columns")
+    curator.slots["rna:var"].cat.add_new_from("columns")
     artifact = curator.save_artifact(key="mudata_papalexi21_subset.h5mu")
     assert artifact.schema == mudata_schema
     assert artifact.features.slots.keys() == {
@@ -401,12 +405,12 @@ def test_spatialdata_curator(
         ln.curators.SpatialDataCurator(spatialdata, small_dataset1_schema)
 
     curator = ln.curators.SpatialDataCurator(spatialdata, spatialdata_schema)
-    try:
+    with pytest.raises(ln.errors.ValidationError):
         curator.validate()
-    except ln.errors.ValidationError:
-        pass
+    spatialdata.tables["table"].var.drop(index="ENSG00000999999", inplace=True)
 
-    # validate again (must pass now) and save artifact
+    # TODO: shouldn't need to re-init the curator
+    curator = ln.curators.SpatialDataCurator(spatialdata, spatialdata_schema)
     artifact = curator.save_artifact(key="example_datasets/spatialdata1.zarr")
     assert artifact.schema == spatialdata_schema
     assert artifact.features.slots.keys() == {

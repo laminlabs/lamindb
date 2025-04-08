@@ -275,7 +275,8 @@ class SlotsCurator(Curator):
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
-        for _, curator in self._slots.items():
+        for slot, curator in self._slots.items():
+            logger.info(f"validating slot {slot} ...")
             curator.validate()
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
@@ -561,7 +562,7 @@ class AnnDataCurator(SlotsCurator):
                 ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
                 ln.Feature(name="sample_note", dtype=str).save(),
                 ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
-                ln.Feature(name="cell_type_by_model", dtype=bt.CellType").save(),
+                ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
             ],
         ).save()
 
@@ -921,9 +922,10 @@ class CatColumn:
     """Categorical column for `DataFrame`.
 
     Args:
-        values: The values to validate.
+        values_getter: A callable or iterable that returns the values to validate.
         field: The field to validate against.
-        key: The name of the column to validate.
+        key: The name of the column to validate. Only used for logging.
+        values_setter: A callable that sets the values.
         organism: The organism to validate against.
         source: The source to validate against.
     """
@@ -1010,9 +1012,7 @@ class CatColumn:
         if not hasattr(registry, "standardize"):
             return self.values
         if self._synonyms is None:
-            raise ValidationError(
-                "Please run `.validate()` before running `.standardize()`."
-            )
+            self.validate()
         # get standardized values
         std_values = self._replace_synonyms()
         # update non_validated values
@@ -1027,7 +1027,7 @@ class CatColumn:
     def add_validated(self) -> None:
         """Add validated values to the registry."""
         self._validated, self._non_validated = add_validated(
-            values=self.values,
+            values=self.values,  # always runs on all values because user might modify the dataset
             field=self._field,
             key=self._key,
             organism=self._organism,
@@ -1039,6 +1039,7 @@ class CatColumn:
         if self._non_validated is None:
             self.validate()
         if len(self._synonyms) > 0:
+            # raise error because .standardize modifies the input dataset
             raise ValidationError(
                 "Please run `.standardize()` before adding new values."
             )
@@ -1211,7 +1212,7 @@ class DataFrameCatManager(CatManager):
         else:
             # NOTE: for var_index right now
             self._cat_columns["columns"] = CatColumn(
-                values_getter=lambda: self._dataset.columns.tolist(),
+                values_getter=lambda: self._dataset.columns,
                 values_setter=lambda new_values: setattr(
                     self._dataset, "columns", pd.Index(new_values)
                 ),
