@@ -609,15 +609,12 @@ class AnnDataCurator(SlotsCurator):
             for slot, slot_schema in schema.slots.items()
             if slot in {"obs", "var", "uns"}
         }
-        # TODO: better way to handle this?
+        # TODO: better way to handle this!
         if "var" in self._slots:
             self._slots["var"]._cat_manager._cat_columns["var_index"] = self._slots[
                 "var"
             ]._cat_manager._cat_columns.pop("columns")
             self._slots["var"]._cat_manager._cat_columns["var_index"]._key = "var_index"
-            self._slots["var"]._cat_manager._cat_columns[
-                "var_index"
-            ]._values = self._dataset.var.index
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
@@ -933,19 +930,15 @@ class CatColumn:
 
     def __init__(
         self,
-        values: Iterable[str] | pd.DataFrame,
+        values_getter: Callable | Iterable[str],
         field: FieldAttr,
         key: str,
+        values_setter: Callable | None = None,
         organism: str | None = None,
         source: Record | None = None,
     ) -> None:
-        if isinstance(values, pd.DataFrame) and key is not None:
-            # DataFrame reference mode
-            self._dataset = values
-        else:
-            # Direct values mode
-            self._values = values
-            self._dataset = None
+        self._values_getter = values_getter
+        self._values_setter = values_setter
         self._field = field
         self._key = key
         self._organism = organism
@@ -956,13 +949,19 @@ class CatColumn:
 
     @property
     def values(self):
-        """Return the values of the column."""
-        if self._dataset is not None and self._key is not None:
-            # get current values from the DataFrame without creating a copy
-            return self._dataset[self._key]
+        """Get the current values using the getter function."""
+        if callable(self._values_getter):
+            return self._values_getter()
+        return self._values_getter
+
+    @values.setter
+    def values(self, new_values):
+        """Set new values using the setter function if available."""
+        if callable(self._values_setter):
+            self._values_setter(new_values)
         else:
-            # Use static values otherwise
-            return self._values
+            # If values_getter is not callable, it's a direct reference we can update
+            self._values_getter = new_values
 
     @property
     def is_validated(self) -> bool:
@@ -1005,7 +1004,7 @@ class CatColumn:
             source=self._source,
         )
 
-    def standardize(self) -> list[str]:
+    def standardize(self) -> None:
         """Standardize the column."""
         registry = self._field.field.model
         if not hasattr(registry, "standardize"):
@@ -1022,7 +1021,8 @@ class CatColumn:
         ]
         # remove synonyms since they are now standardized
         self._synonyms = {}
-        return std_values
+        # update the values with the standardized values
+        self.values = std_values
 
     def add_validated(self) -> None:
         """Add validated values to the registry."""
@@ -1049,6 +1049,7 @@ class CatColumn:
             organism=self._organism,
             **create_kwargs,
         )
+        # remove the non_validated values since they are now registered
         self._non_validated = []
 
 
@@ -1177,6 +1178,8 @@ class DataFrameCatManager(CatManager):
 
         settings.verbosity = verbosity
         self._non_validated = None
+        # TODO: validate all columns if they are not Feature
+        self._validate_all_columns = False if columns == Feature.name else True
         super().__init__(
             dataset=df,
             columns_field=columns,
@@ -1186,21 +1189,37 @@ class DataFrameCatManager(CatManager):
         )
         for key, field in self._categoricals.items():
             self._cat_columns[key] = CatColumn(
-                values=self._dataset,
+                values_getter=lambda k=key: self._dataset[
+                    k
+                ],  # Capture key as default argument
+                values_setter=lambda new_values, k=key: self._dataset.__setitem__(
+                    k, new_values
+                ),
                 field=field,
                 key=key,
                 organism=self._organism,
                 source=self._sources.get(key),
             )
-        self._cat_columns["columns"] = CatColumn(
-            values=self._categoricals.keys(),
-            field=self._columns_field,
-            key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
-            organism=self._organism,
-            source=self._sources.get("columns"),
-        )
-        # Always save features specified as the categoricals
-        self._cat_columns["columns"].add_new()
+        if not self._validate_all_columns:
+            self._cat_columns["columns"] = CatColumn(
+                values_getter=self._categoricals.keys(),
+                field=self._columns_field,
+                key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
+                organism=self._organism,
+                source=self._sources.get("columns"),
+            )
+        else:
+            # NOTE: for var_index right now
+            self._cat_columns["columns"] = CatColumn(
+                values_getter=lambda: self._dataset.columns.tolist(),
+                values_setter=lambda new_values: setattr(
+                    self._dataset, "columns", pd.Index(new_values)
+                ),
+                field=self._columns_field,
+                key="columns",
+                organism=self._organism,
+                source=self._sources.get("columns"),
+            )
 
     def lookup(self, public: bool = False) -> CatLookup:
         """Lookup categories.
@@ -1230,18 +1249,19 @@ class DataFrameCatManager(CatManager):
         """
         # add all validated records to the current instance
         self._validate_category_error_messages = ""  # reset the error messages
+
+        if not self._validate_all_columns:
+            # Always save features specified as the categoricals
+            self._cat_columns["columns"].add_new()
         validated = True
-        non_validated = {}
         for key, cat_column in self._cat_columns.items():
             # do not re-validate the columns
-            if key == "columns":
+            if key == "columns" and not self._validate_all_columns:
                 continue
             cat_column.validate()
             validated &= cat_column.is_validated
-            if not cat_column.is_validated:
-                non_validated[key] = cat_column._non_validated
         self._is_validated = validated
-        self._non_validated = non_validated
+        self._non_validated = {}  # so it's no longer None
 
         return self._is_validated
 
@@ -1261,9 +1281,9 @@ class DataFrameCatManager(CatManager):
                 "'all' is deprecated, please pass a single key from `.non_validated.keys()` instead!"
             )
             for k in self.non_validated.keys():
-                self._dataset[k] = self._cat_columns[k].standardize()
+                self._cat_columns[k].standardize()
         else:
-            self._dataset[key] = self._cat_columns[key].standardize()
+            self._cat_columns[key].standardize()
 
     def add_new_from(self, key: str, **kwargs):
         """Add validated & new categories.
@@ -1341,7 +1361,10 @@ class AnnDataCatManager(CatManager):
         self._cat_columns = self._obs_df_curator._cat_columns
         if var_index is not None:
             self._cat_columns["var_index"] = CatColumn(
-                values=self._adata.var.index,
+                values_getter=lambda: self._adata.var.index,
+                values_setter=lambda new_values: setattr(
+                    self._adata.var, "index", pd.Index(new_values)
+                ),
                 field=self._var_field,
                 key="var_index",
                 organism=self._organism,
@@ -1416,16 +1439,11 @@ class AnnDataCatManager(CatManager):
         self._validate_category_error_messages = ""  # reset the error messages
 
         validated_obs = self._obs_df_curator.validate()
-        non_validated = self._obs_df_curator.non_validated
         if "var_index" in self._cat_columns:
             self._cat_columns["var_index"].validate()
             validated_var_index = self._cat_columns["var_index"].is_validated
-            if not validated_var_index:
-                non_validated["var_index"] = self._cat_columns[
-                    "var_index"
-                ]._non_validated
         self._is_validated = validated_obs & validated_var_index
-        self._non_validated = non_validated
+        self._non_validated = {}  # so it's no longer None
         return self._is_validated
 
     def standardize(self, key: str):
@@ -1448,18 +1466,10 @@ class AnnDataCatManager(CatManager):
         if key in self._adata.obs.columns or key == "all":
             # standardize obs columns
             self._obs_df_curator.standardize(key)
-        non_validated = self._obs_df_curator.non_validated
         # in addition to the obs columns, standardize the var.index
         if key == "var_index" or key == "all":
             if "var_index" in self.non_validated.keys():
-                std_values = self._cat_columns["var_index"].standardize()
-                self._adata.var.index = std_values
-                # this is needed to update the non_validated values
-                self._cat_columns["var_index"]._values = std_values
-                if len(self._cat_columns["var_index"]._non_validated) > 0:
-                    non_validated["var_index"] = self._cat_columns[
-                        "var_index"
-                    ]._non_validated
+                self._cat_columns["var_index"].standardize()
 
 
 class MuDataCatManager(CatManager):
@@ -2261,13 +2271,13 @@ class TiledbsomaCatManager(CatManager):
                 slot = lambda experiment: experiment.obs
                 slot_key = k
             cat_column = CatColumn(
-                values=values,
+                values_getter=values,
                 field=field,
                 key=k,
                 organism=self._organism,
                 source=self._sources.get(k),
             )
-            _ = cat_column.standardize()
+            cat_column.standardize()
             syn_mapper = cat_column._synonyms
             if (n_syn_mapper := len(syn_mapper)) == 0:
                 continue
