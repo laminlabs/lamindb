@@ -615,6 +615,9 @@ class AnnDataCurator(SlotsCurator):
                 "var"
             ]._cat_manager._cat_columns.pop("columns")
             self._slots["var"]._cat_manager._cat_columns["var_index"]._key = "var_index"
+            self._slots["var"]._cat_manager._cat_columns[
+                "var_index"
+            ]._values = self._dataset.var.index
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
@@ -1011,12 +1014,20 @@ class CatColumn:
             raise ValidationError(
                 "Please run `.validate()` before running `.standardize()`."
             )
-        return self._replace_synonyms()
+        # get standardized values
+        std_values = self._replace_synonyms()
+        # update non_validated values
+        self._non_validated = [
+            i for i in self._non_validated if i not in self._synonyms.keys()
+        ]
+        # remove synonyms since they are now standardized
+        self._synonyms = {}
+        return std_values
 
     def add_validated(self) -> None:
         """Add validated values to the registry."""
         self._validated, self._non_validated = add_validated(
-            values=_flatten_unique(self.values),
+            values=self.values,
             field=self._field,
             key=self._key,
             organism=self._organism,
@@ -1086,7 +1097,7 @@ class CatManager:
         return {
             key: cat_column._non_validated
             for key, cat_column in self._cat_columns.items()
-            if cat_column._non_validated
+            if cat_column._non_validated and key != "columns"
         }
 
     @property
@@ -1182,14 +1193,14 @@ class DataFrameCatManager(CatManager):
                 source=self._sources.get(key),
             )
         self._cat_columns["columns"] = CatColumn(
-            values=self._dataset.columns,
+            values=self._categoricals.keys(),
             field=self._columns_field,
             key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
             organism=self._organism,
             source=self._sources.get("columns"),
         )
         # Always save features specified as the categoricals
-        self._cat_columns["columns"].add_validated()
+        self._cat_columns["columns"].add_new()
 
     def lookup(self, public: bool = False) -> CatLookup:
         """Lookup categories.
@@ -1369,8 +1380,19 @@ class AnnDataCatManager(CatManager):
             organism: The organism name.
             **kwargs: Additional keyword arguments to pass to create new records
         """
-        self._obs_df_curator.add_new_from(key, **kwargs)
+        if key == "all":
+            logger.warning(
+                "'all' is deprecated, please pass a single key from `.non_validated.keys()` instead!"
+            )
+            for k in self.non_validated.keys():
+                self._obs_df_curator.add_new_from(k, **kwargs)
+        else:
+            self._obs_df_curator.add_new_from(key, **kwargs)
+        if key == "var_index" or key == "all":
+            if "var_index" in self.non_validated.keys():
+                self._cat_columns["var_index"].add_new(**kwargs)
 
+    @deprecated(new_name="add_new_from('var_index')")
     def add_new_from_var_index(self, **kwargs):
         """Update variable records.
 
@@ -1393,10 +1415,17 @@ class AnnDataCatManager(CatManager):
         """
         self._validate_category_error_messages = ""  # reset the error messages
 
-        validated = True
-        for _key, cat_column in self._cat_columns.items():
-            cat_column.validate()
-            validated &= cat_column.is_validated
+        validated_obs = self._obs_df_curator.validate()
+        non_validated = self._obs_df_curator.non_validated
+        if "var_index" in self._cat_columns:
+            self._cat_columns["var_index"].validate()
+            validated_var_index = self._cat_columns["var_index"].is_validated
+            if not validated_var_index:
+                non_validated["var_index"] = self._cat_columns[
+                    "var_index"
+                ]._non_validated
+        self._is_validated = validated_obs & validated_var_index
+        self._non_validated = non_validated
         return self._is_validated
 
     def standardize(self, key: str):
@@ -1412,12 +1441,25 @@ class AnnDataCatManager(CatManager):
         """
         if self._artifact is not None:
             raise RuntimeError("can't mutate the dataset when an artifact is passed!")
+        if key == "all":
+            logger.warning(
+                "'all' is deprecated, please pass a single key from `.non_validated.keys()` instead!"
+            )
         if key in self._adata.obs.columns or key == "all":
             # standardize obs columns
             self._obs_df_curator.standardize(key)
+        non_validated = self._obs_df_curator.non_validated
         # in addition to the obs columns, standardize the var.index
         if key == "var_index" or key == "all":
-            self._adata.var.index = self._cat_columns["var_index"].standardize()
+            if "var_index" in self.non_validated.keys():
+                std_values = self._cat_columns["var_index"].standardize()
+                self._adata.var.index = std_values
+                # this is needed to update the non_validated values
+                self._cat_columns["var_index"]._values = std_values
+                if len(self._cat_columns["var_index"]._non_validated) > 0:
+                    non_validated["var_index"] = self._cat_columns[
+                        "var_index"
+                    ]._non_validated
 
 
 class MuDataCatManager(CatManager):
@@ -1533,15 +1575,6 @@ class MuDataCatManager(CatManager):
             organism=self._organism,
             sources=self._sources,
         )
-
-    @deprecated(new_name="is run by default")
-    def add_new_from_columns(
-        self,
-        modality: str,
-        column_names: list[str] | None = None,
-        **kwargs,
-    ):
-        pass  # pragma: no cover
 
     def add_new_from_var_index(self, modality: str, **kwargs):
         """Update variable records.
@@ -2437,11 +2470,6 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
             organism=organism,
             sources=sources,
         )
-
-    @classmethod
-    @deprecated(new_name="cxg_categoricals_defaults")
-    def _get_categoricals_defaults(cls) -> dict[str, str]:
-        return cls.cxg_categoricals_defaults
 
     @classmethod
     def _get_cxg_categoricals(cls) -> dict[str, FieldAttr]:
