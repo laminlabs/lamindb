@@ -224,14 +224,6 @@ def test_additional_args_with_all_key(df, categoricals):
         curator.add_new_from("all", extra_arg="not_allowed")
 
 
-def test_save_columns_not_defined_in_fields(df, categoricals):
-    curator = ln.Curator.from_df(df, categoricals=categoricals)
-    with pytest.raises(
-        ValidationError, match="Feature nonexistent is not part of the fields!"
-    ):
-        curator._update_registry("nonexistent")
-
-
 def test_unvalidated_data_object(df, categoricals):
     curator = ln.Curator.from_df(df, categoricals=categoricals)
     with pytest.raises(
@@ -445,7 +437,6 @@ def test_mudata_curator(mdata):
         }
 
         # add new
-        curator.add_new_from_columns("rna")  # deprecated, doesn't do anything
         curator.add_new_from_var_index("rna")  # doesn't do anything
         curator.add_new_from("donor")
 
@@ -566,7 +557,7 @@ def test_soma_curator(adata, categoricals, clean_soma_files):
         with pytest.raises(KeyError):
             curator.add_new_from("invalid_key")
 
-        # cover no keys to standardize
+        # cover values are already standardized
         curator.standardize("donor")
 
         # lookup
@@ -709,7 +700,9 @@ def test_spatialdata_curator():
             organism="human",
         )
 
-        with pytest.raises(ValidationError, match=re.escape("Run .validate() first.")):
+        with pytest.raises(
+            ValidationError, match=re.escape("Please run validate() first!")
+        ):
             curator.add_new_from(key="region", accessor="table")
 
         with pytest.raises(
@@ -717,11 +710,6 @@ def test_spatialdata_curator():
             match=re.escape("Dataset does not validate. Please curate."),
         ):
             curator.save_artifact(description="test spatialdata curation")
-
-        with pytest.raises(
-            ValueError, match=re.escape("Accessor notexist is not in 'categoricals'")
-        ):
-            curator.add_new_from(key="region", accessor="notexist")
 
         assert not curator.validate()
 
@@ -755,7 +743,7 @@ def test_spatialdata_curator():
         assert curator._sample_metadata["disease"].values[0] == "Alzheimer disease"
         curator.standardize(key="var_index", accessor="table")
         assert curator.non_validated == {"table": {"var_index": ["DOESNOTEXIST"]}}
-        curator.add_new_from_var_index("table")
+        curator.add_new_from(key="var_index", accessor="table")
         assert curator.non_validated == {}
 
         # validation should finally pass

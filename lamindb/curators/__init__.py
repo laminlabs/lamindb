@@ -1473,6 +1473,7 @@ class AnnDataCatManager(CatManager):
                 self._cat_columns["var_index"].standardize()
 
 
+@deprecated(new_name="MuDataCurator")
 class MuDataCatManager(CatManager):
     """Categorical manager for `MuData`."""
 
@@ -1538,6 +1539,16 @@ class MuDataCatManager(CatManager):
         """Return the non-validated features and labels."""
         if self._non_validated is None:
             raise ValidationError("Please run validate() first!")
+        non_validated = {}
+        if (
+            self._obs_df_curator is not None
+            and len(self._obs_df_curator.non_validated) > 0
+        ):
+            non_validated["obs"] = self._obs_df_curator.non_validated
+        for modality, adata_curator in self._mod_adata_curators.items():
+            if len(adata_curator.non_validated) > 0:
+                non_validated[modality] = adata_curator.non_validated
+        self._non_validated = non_validated
         return self._non_validated
 
     def _verify_modality(self, modalities: Iterable[str]):
@@ -1587,6 +1598,7 @@ class MuDataCatManager(CatManager):
             sources=self._sources,
         )
 
+    @deprecated(new_name="add_new_from('var_index')")
     def add_new_from_var_index(self, modality: str, **kwargs):
         """Update variable records.
 
@@ -1595,7 +1607,7 @@ class MuDataCatManager(CatManager):
             organism: The organism name.
             **kwargs: Additional keyword arguments to pass to create new records.
         """
-        self._mod_adata_curators[modality].add_new_from_var_index(**kwargs)
+        self._mod_adata_curators[modality].add_new_from(key="var_index", **kwargs)
 
     def add_new_from(
         self,
@@ -1611,35 +1623,28 @@ class MuDataCatManager(CatManager):
             organism: The organism name.
             **kwargs: Additional keyword arguments to pass to create new records.
         """
-        if len(kwargs) > 0 and key == "all":
-            raise ValueError("Cannot pass additional arguments to 'all' key!")
         modality = modality or "obs"
         if modality in self._mod_adata_curators:
             adata_curator = self._mod_adata_curators[modality]
             adata_curator.add_new_from(key=key, **kwargs)
         if modality == "obs":
             self._obs_df_curator.add_new_from(key=key, **kwargs)
+        if key == "var_index":
+            self._mod_adata_curators[modality].add_new_from(key=key, **kwargs)
 
     def validate(self) -> bool:
         """Validate categories."""
-        # add all validated records to the current instance
-        self._non_validated = {}  # type: ignore
-
         obs_validated = True
         if "obs" in self._modalities:
             logger.info('validating categoricals in "obs"...')
             obs_validated &= self._obs_df_curator.validate()
-            self._non_validated["obs"] = self._obs_df_curator.non_validated  # type: ignore
-            logger.print("")
 
         mods_validated = True
         for modality, adata_curator in self._mod_adata_curators.items():
             logger.info(f'validating categoricals in modality "{modality}"...')
             mods_validated &= adata_curator.validate()
-            if len(adata_curator.non_validated) > 0:
-                self._non_validated[modality] = adata_curator.non_validated  # type: ignore
-            logger.print("")
 
+        self._non_validated = {}  # so it's no longer None
         self._is_validated = obs_validated & mods_validated
         return self._is_validated
 
@@ -1671,6 +1676,7 @@ def _maybe_curation_keys_not_present(nonval_keys: list[str], name: str):
         )
 
 
+@deprecated(new_name="SpatialDataCurator")
 class SpatialDataCatManager(CatManager):
     """Categorical manager for `SpatialData`."""
 
@@ -1787,7 +1793,15 @@ class SpatialDataCatManager(CatManager):
         """Return the non-validated features and labels."""
         if self._non_validated is None:
             raise ValidationError("Please run validate() first!")
-        return self._non_validated
+        non_curated = {}
+        if len(self._sample_df_curator.non_validated) > 0:
+            non_curated[self._sample_metadata_key] = (
+                self._sample_df_curator.non_validated
+            )
+        for table, adata_curator in self._table_adata_curators.items():
+            if len(adata_curator.non_validated) > 0:
+                non_curated[table] = adata_curator.non_validated
+        return non_curated
 
     def _verify_accessor_exists(self, accessors: Iterable[str]) -> None:
         """Verify that the accessors exist (either a valid table or in attrs)."""
@@ -1817,6 +1831,7 @@ class SpatialDataCatManager(CatManager):
             sources=self._sources,
         )
 
+    @deprecated(new_name="add_new_from('var_index')")
     def add_new_from_var_index(self, table: str, **kwargs) -> None:
         """Save new values from ``.var.index`` of table.
 
@@ -1825,15 +1840,8 @@ class SpatialDataCatManager(CatManager):
             organism: The organism name.
             **kwargs: Additional keyword arguments to pass to create new records.
         """
-        if self._non_validated is None:
-            raise ValidationError("Run .validate() first.")
-        self._table_adata_curators[table].add_new_from_var_index(**kwargs)
         if table in self.non_validated.keys():
-            if "var_index" in self._non_validated[table]:
-                self._non_validated[table].pop("var_index")
-
-            if len(self.non_validated[table].values()) == 0:
-                self.non_validated.pop(table)
+            self._table_adata_curators[table].add_new_from(key="var_index", **kwargs)
 
     def add_new_from(
         self,
@@ -1846,29 +1854,17 @@ class SpatialDataCatManager(CatManager):
         Args:
             key: The key referencing the slot in the DataFrame.
             accessor: The accessor key such as 'sample' or 'table x'.
-            organism: The organism name.
             **kwargs: Additional keyword arguments to pass to create new records.
         """
-        if self._non_validated is None:
-            raise ValidationError("Run .validate() first.")
-
-        if len(kwargs) > 0 and key == "all":
-            raise ValueError("Cannot pass additional arguments to 'all' key!")
-
-        if accessor not in self.categoricals:
-            raise ValueError(
-                f"Accessor {accessor} is not in 'categoricals'. Include it when creating the SpatialDataCatManager."
-            )
-
-        if accessor in self._table_adata_curators:
-            adata_curator = self._table_adata_curators[accessor]
-            adata_curator.add_new_from(key=key, **kwargs)
-        if accessor == self._sample_metadata_key:
-            self._sample_df_curator.add_new_from(key=key, **kwargs)
-
         if accessor in self.non_validated.keys():
-            if len(self.non_validated[accessor].values()) == 0:
-                self.non_validated.pop(accessor)
+            if accessor in self._table_adata_curators:
+                adata_curator = self._table_adata_curators[accessor]
+                adata_curator.add_new_from(key=key, **kwargs)
+            if accessor == self._sample_metadata_key:
+                self._sample_df_curator.add_new_from(key=key, **kwargs)
+
+        if key == "var_index":
+            self._table_adata_curators[accessor].add_new_from(key=key, **kwargs)
 
     def standardize(self, key: str, accessor: str | None = None) -> None:
         """Replace synonyms with canonical values.
@@ -1903,9 +1899,6 @@ class SpatialDataCatManager(CatManager):
         if accessor == self._sample_metadata_key:
             self._sample_df_curator.standardize(key)
 
-        if len(self.non_validated[accessor].values()) == 0:
-            self.non_validated.pop(accessor)
-
     def validate(self) -> bool:
         """Validate variables and categorical observations.
 
@@ -1919,24 +1912,17 @@ class SpatialDataCatManager(CatManager):
             Whether the SpatialData object is validated.
         """
         # add all validated records to the current instance
-        self._non_validated = {}  # type: ignore
-
         sample_validated = True
         if self._sample_df_curator:
             logger.info(f"validating categoricals of '{self._sample_metadata_key}' ...")
             sample_validated &= self._sample_df_curator.validate()
-            if len(self._sample_df_curator.non_validated) > 0:
-                self._non_validated["sample"] = self._sample_df_curator.non_validated  # type: ignore
-            logger.print("")
 
         mods_validated = True
         for table, adata_curator in self._table_adata_curators.items():
             logger.info(f"validating categoricals of table '{table}' ...")
             mods_validated &= adata_curator.validate()
-            if len(adata_curator.non_validated) > 0:
-                self._non_validated[table] = adata_curator.non_validated  # type: ignore
-            logger.print("")
 
+        self._non_validated = {}  # so it's no longer None
         self._is_validated = sample_validated & mods_validated
         return self._is_validated
 
@@ -2016,6 +2002,16 @@ class TiledbsomaCatManager(CatManager):
         self._valid_var_keys: list[str] | None = None
         self._var_fields_flat: dict[str, FieldAttr] | None = None
         self._check_save_keys()
+
+        # register categorical keys as features
+        cat_column = CatColumn(
+            values_getter=categoricals.keys(),
+            field=self._columns_field,
+            key="columns",
+            organism=self._organism,
+            source=self._sources.get("columns"),
+        )
+        cat_column.add_new()
 
     # check that the provided keys in var_index and categoricals are available in the store
     # and save features
@@ -2107,15 +2103,15 @@ class TiledbsomaCatManager(CatManager):
                 var_ms_values = (
                     var_ms.read(column_names=[key]).concat()[key].to_pylist()
                 )
-                add_validated(
+                _, non_val = add_validated(
                     values=var_ms_values,
                     field=field,
                     key=var_ms_key,
                     organism=self._organism,
                     source=self._sources.get(var_ms_key),
                 )
-                _, non_val = validate_categories(
-                    values=var_ms_values,
+                validate_categories(
+                    non_val,
                     field=field,
                     key=var_ms_key,
                     organism=self._organism,
@@ -2135,15 +2131,15 @@ class TiledbsomaCatManager(CatManager):
                 values = pa.compute.unique(
                     obs.read(column_names=[key]).concat()[key]
                 ).to_pylist()
-                add_validated(
+                _, non_val = add_validated(
                     values=values,
                     field=field,
                     key=key,
                     organism=self._organism,
                     source=self._sources.get(key),
                 )
-                _, non_val = validate_categories(
-                    values=values,
+                validate_categories(
+                    non_val,
                     field=field,
                     key=key,
                     organism=self._organism,
@@ -2200,7 +2196,6 @@ class TiledbsomaCatManager(CatManager):
                 field=field,
                 key=k,
                 organism=self._organism,
-                source=self._sources.get(k),
                 **kwargs,
             )
             # update non-validated values list but keep the key there
@@ -2278,7 +2273,7 @@ class TiledbsomaCatManager(CatManager):
                 organism=self._organism,
                 source=self._sources.get(k),
             )
-            cat_column.standardize()
+            cat_column.validate()
             syn_mapper = cat_column._synonyms
             if (n_syn_mapper := len(syn_mapper)) == 0:
                 continue
@@ -3360,6 +3355,10 @@ def add_validated(
             logger.success(
                 f'added {len(labels_saved_public)} record{s} {colors.green("from_public")} with {model_field} for "{key}": {_format_values(labels_saved_public)}'
             )
+
+    # save parent labels for ulabels, for example a parent label "project" for label "project001"
+    if registry == ULabel and field.field.name == "name":
+        save_ulabels_type(values, field=field, key=key)
 
     # non-validated records from the default instance
     non_validated_labels = [i for i in values if i not in existing_and_public_labels]
