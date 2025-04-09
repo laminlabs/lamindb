@@ -948,6 +948,7 @@ class CatColumn:
         self._validated: None | list[str] = None
         self._non_validated: None | list[str] = None
         self._synonyms: None | dict[str, str] = None
+        self._last_values_hash = self._compute_hash(self.values)
 
     @property
     def values(self):
@@ -1164,10 +1165,44 @@ class CatColumn:
             logger.indent = ""
             return non_validated, syn_mapper
 
+    def _compute_hash(self, values):
+        """Compute a stable hash for values, handling different types."""
+        if values is None:
+            return None
+        if isinstance(values, (pd.Series, pd.Index)):
+            # For pandas objects, convert to tuple for hashing
+            return hash(tuple(values))
+        if hasattr(values, "__iter__") and not isinstance(values, (str, bytes)):
+            # For other iterables (lists, sets, etc.)
+            try:
+                return hash(tuple(values))
+            except TypeError:
+                # Fall back to hashing string representation if items aren't hashable
+                return hash(str(values))
+        # Direct hashing for other types
+        try:
+            return hash(values)
+        except TypeError:
+            # Last resort
+            return hash(str(values))
+
     def validate(self) -> None:
         """Validate the column."""
+        current_values = self.values
+        current_hash = self._compute_hash(current_values)
+
+        # check if validation is needed - compare directly
+        if current_hash == self._last_values_hash and self._validated is not None:
+            return
+
         self.add_validated()
         self._non_validated, self._synonyms = self._validate(values=self._non_validated)
+        # always register new Features if they are columns
+        if self._key == "columns" and self._field == Feature.name:
+            self.add_new()
+
+        # update the hash cache
+        self._last_values_hash = current_hash
 
     def standardize(self) -> None:
         """Standardize the column."""
@@ -1333,8 +1368,6 @@ class DataFrameCatManager(CatManager):
 
         settings.verbosity = verbosity
         self._non_validated = None
-        # TODO: validate all columns if they are not Feature
-        self._validate_all_columns = False if columns == Feature.name else True
         super().__init__(
             dataset=df,
             columns_field=columns,
@@ -1355,7 +1388,7 @@ class DataFrameCatManager(CatManager):
                 organism=self._organism,
                 source=self._sources.get(key),
             )
-        if not self._validate_all_columns:
+        if columns == Feature.name:
             self._cat_columns["columns"] = CatColumn(
                 values_getter=self._categoricals.keys(),
                 field=self._columns_field,
@@ -1405,14 +1438,8 @@ class DataFrameCatManager(CatManager):
         # add all validated records to the current instance
         self._validate_category_error_messages = ""  # reset the error messages
 
-        if not self._validate_all_columns:
-            # Always save features specified as the categoricals
-            self._cat_columns["columns"].add_new()
         validated = True
-        for key, cat_column in self._cat_columns.items():
-            # do not re-validate the columns
-            if key == "columns" and not self._validate_all_columns:
-                continue
+        for _, cat_column in self._cat_columns.items():
             cat_column.validate()
             validated &= cat_column.is_validated
         self._is_validated = validated
@@ -1456,8 +1483,10 @@ class DataFrameCatManager(CatManager):
             )
             for k in self.non_validated.keys():
                 self._cat_columns[k].add_new(**kwargs)
-        self._cat_columns[key].add_new(**kwargs)
+        else:
+            self._cat_columns[key].add_new(**kwargs)
 
+    @deprecated
     def clean_up_failed_runs(self):
         """Clean up previous failed runs that don't save any outputs."""
         from lamindb.core._context import context
@@ -1596,6 +1625,7 @@ class AnnDataCatManager(CatManager):
             validated &= cat_column.is_validated
 
         self._non_validated = {}  # so it's no longer None
+        self._is_validated = validated
         return self._is_validated
 
     def standardize(self, key: str):
