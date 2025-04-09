@@ -128,10 +128,21 @@ def test_write_role():
     # switch user role to write
     with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(
-            "UPDATE hubmodule_account SET role = %s WHERE id = %s", ("write", user_uuid)
+            "UPDATE hubmodule_account SET role = 'write' WHERE id = %s", (user_uuid,)
         )
 
-    ln.ULabel(name="new label default space").save()
+    ln.ULabel(name="new label account default space").save()
+
+    # switch user role back to read and team role to write
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE hubmodule_account SET role = 'read' WHERE id = %s", (user_uuid,)
+        )
+        cur.execute(
+            "UPDATE hubmodule_team SET role = 'write' WHERE uid = 'teamuiduid11'",
+        )
+
+    ln.ULabel(name="new label team default space").save()
 
 
 # below is an integration test that should run last
