@@ -995,16 +995,179 @@ class CatColumn:
             )
         return std_values
 
+    def _add_validated(self) -> tuple[list, list]:
+        """Save features or labels records in the default instance."""
+        from lamindb.models.save import save as ln_save
+
+        registry = self._field.field.model
+        field_name = self._field.field.name
+        model_field = registry.__get_name_with_module__()
+        filter_kwargs = get_current_filter_kwargs(
+            registry, {"organism": self._organism, "source": self._source}
+        )
+        values = [i for i in self.values if isinstance(i, str) and i]
+        if not values:
+            return [], []
+
+        # inspect the default instance and save validated records from public
+        existing_and_public_records = registry.from_values(
+            list(values), field=self._field, **filter_kwargs, mute=True
+        )
+        existing_and_public_labels = [
+            getattr(r, field_name) for r in existing_and_public_records
+        ]
+        # public records that are not already in the database
+        public_records = [r for r in existing_and_public_records if r._state.adding]
+        # here we check to only save the public records if they are from the specified source
+        # we check the uid because r.source and source can be from different instances
+        if self._source:
+            public_records = [
+                r for r in public_records if r.source.uid == self._source.uid
+            ]
+        if len(public_records) > 0:
+            logger.info(f"saving validated records of '{self._key}'")
+            ln_save(public_records)
+            labels_saved_public = [getattr(r, field_name) for r in public_records]
+            # log the saved public labels
+            # the term "transferred" stresses that this is always in the context of transferring
+            # labels from a public ontology or a different instance to the present instance
+            if len(labels_saved_public) > 0:
+                s = "s" if len(labels_saved_public) > 1 else ""
+                logger.success(
+                    f'added {len(labels_saved_public)} record{s} {colors.green("from_public")} with {model_field} for "{self._key}": {_format_values(labels_saved_public)}'
+                )
+
+        # save parent labels for ulabels, for example a parent label "project" for label "project001"
+        if registry == ULabel and field_name == "name":
+            _save_ulabels_type(values, field=self._field, key=self._key)
+
+        # non-validated records from the default instance
+        non_validated_labels = [
+            i for i in values if i not in existing_and_public_labels
+        ]
+
+        # validated, non-validated
+        return existing_and_public_labels, non_validated_labels
+
+    def _add_new(
+        self,
+        values: list[str],
+        df: pd.DataFrame | None = None,  # remove when all users use schema
+        dtype: str | None = None,
+        **create_kwargs,
+    ) -> None:
+        """Add new labels to the registry."""
+        from lamindb.models.save import save as ln_save
+
+        registry = self._field.field.model
+        field_name = self._field.field.name
+        non_validated_records: RecordList[Any] = []  # type: ignore
+        if df is not None and registry == Feature:
+            nonval_columns = Feature.inspect(df.columns, mute=True).non_validated
+            non_validated_records = Feature.from_df(df.loc[:, nonval_columns])
+        else:
+            if (
+                self._organism
+                and hasattr(registry, "organism")
+                and registry._meta.get_field("organism").is_relation
+            ):
+                # make sure organism record is saved to the current instance
+                create_kwargs["organism"] = _save_organism(name=self._organism)
+
+            for value in values:
+                init_kwargs = {field_name: value}
+                if registry == Feature:
+                    init_kwargs["dtype"] = "cat" if dtype is None else dtype
+                non_validated_records.append(registry(**init_kwargs, **create_kwargs))
+        if len(non_validated_records) > 0:
+            ln_save(non_validated_records)
+            model_field = colors.italic(registry.__get_name_with_module__())
+            s = "s" if len(values) > 1 else ""
+            logger.success(
+                f'added {len(values)} record{s} with {model_field} for "{self._key}": {_format_values(values)}'
+            )
+        # save parent labels for ulabels, for example a parent label "project" for label "project001"
+        if registry == ULabel and field_name == "name":
+            _save_ulabels_type(values, field=self._field, key=self._key)
+
+    def _validate(
+        self,
+        values: list[str],
+        curator: CatManager | None = None,  # TODO: not yet used
+    ) -> tuple[list[str], dict]:
+        """Validate ontology terms using LaminDB registries."""
+        registry = self._field.field.model
+        field_name = self._field.field.name
+        model_field = f"{registry.__name__}.{field_name}"
+
+        def _log_mapping_info():
+            logger.indent = ""
+            logger.info(f'mapping "{self._key}" on {colors.italic(model_field)}')
+            logger.indent = "  "
+
+        kwargs_current = get_current_filter_kwargs(
+            registry, {"organism": self._organism, "source": self._source}
+        )
+
+        # inspect values from the default instance
+        inspect_result = registry.inspect(
+            values, field=self._field, mute=True, **kwargs_current
+        )
+        non_validated = inspect_result.non_validated
+        syn_mapper = inspect_result.synonyms_mapper
+
+        # inspect the non-validated values from public (BioRecord only)
+        values_validated = []
+        if hasattr(registry, "public"):
+            public_records = registry.from_values(
+                non_validated,
+                field=self._field,
+                mute=True,
+                **kwargs_current,
+            )
+            values_validated += [getattr(r, field_name) for r in public_records]
+
+        # logging messages
+        non_validated_hint_print = f'.add_new_from("{self._key}")'
+        non_validated = [i for i in non_validated if i not in values_validated]
+        n_non_validated = len(non_validated)
+        if n_non_validated == 0:
+            logger.indent = ""
+            logger.success(
+                f'"{self._key}" is validated against {colors.italic(model_field)}'
+            )
+            return [], {}
+        else:
+            are = "is" if n_non_validated == 1 else "are"
+            s = "" if n_non_validated == 1 else "s"
+            print_values = _format_values(non_validated)
+            warning_message = f"{colors.red(f'{n_non_validated} term{s}')} {are} not validated: {colors.red(print_values)}\n"
+            if syn_mapper:
+                s = "" if len(syn_mapper) == 1 else "s"
+                syn_mapper_print = _format_values(
+                    [f'"{k}" → "{v}"' for k, v in syn_mapper.items()], sep=""
+                )
+                hint_msg = f'.standardize("{self._key}")'
+                warning_message += f"    {colors.yellow(f'{len(syn_mapper)} synonym{s}')} found: {colors.yellow(syn_mapper_print)}\n    → curate synonyms via {colors.cyan(hint_msg)}"
+            if n_non_validated > len(syn_mapper):
+                if syn_mapper:
+                    warning_message += "\n    for remaining terms:\n"
+                warning_message += f"    → fix typos, remove non-existent values, or save terms via {colors.cyan(non_validated_hint_print)}"
+
+            if logger.indent == "":
+                _log_mapping_info()
+            logger.warning(warning_message)
+            if curator is not None:
+                curator._validate_category_error_messages = strip_ansi_codes(
+                    warning_message
+                )
+            logger.indent = ""
+            return non_validated, syn_mapper
+
     def validate(self) -> None:
         """Validate the column."""
         self.add_validated()
-        self._non_validated, self._synonyms = validate_categories(
-            values=self._non_validated,
-            field=self._field,
-            key=self._key,
-            organism=self._organism,
-            source=self._source,
-        )
+        self._non_validated, self._synonyms = self._validate(values=self._non_validated)
 
     def standardize(self) -> None:
         """Standardize the column."""
@@ -1026,13 +1189,7 @@ class CatColumn:
 
     def add_validated(self) -> None:
         """Add validated values to the registry."""
-        self._validated, self._non_validated = add_validated(
-            values=self.values,  # always runs on all values because user might modify the dataset
-            field=self._field,
-            key=self._key,
-            organism=self._organism,
-            source=self._source,
-        )
+        self._validated, self._non_validated = self._add_validated()
 
     def add_new(self, **create_kwargs) -> None:
         """Add new values to the registry."""
@@ -1043,11 +1200,8 @@ class CatColumn:
             raise ValidationError(
                 "Please run `.standardize()` before adding new values."
             )
-        add_new(
+        self._add_new(
             values=self._non_validated,
-            field=self._field,
-            key=self._key,
-            organism=self._organism,
             **create_kwargs,
         )
         # remove the non_validated values since they are now registered
@@ -2003,16 +2157,6 @@ class TiledbsomaCatManager(CatManager):
         self._var_fields_flat: dict[str, FieldAttr] | None = None
         self._check_save_keys()
 
-        # register categorical keys as features
-        cat_column = CatColumn(
-            values_getter=categoricals.keys(),
-            field=self._columns_field,
-            key="columns",
-            organism=self._organism,
-            source=self._sources.get("columns"),
-        )
-        cat_column.add_new()
-
     # check that the provided keys in var_index and categoricals are available in the store
     # and save features
     def _check_save_keys(self):
@@ -2066,26 +2210,15 @@ class TiledbsomaCatManager(CatManager):
 
         # register obs columns' names
         register_columns = list(self._obs_fields.keys())
-        add_validated(
-            values=register_columns,
+        # register categorical keys as features
+        cat_column = CatColumn(
+            values_getter=register_columns,
             field=self._columns_field,
             key="columns",
             organism=self._organism,
             source=self._sources.get("columns"),
         )
-        additional_columns = [k for k in valid_obs_keys if k not in register_columns]
-        # no need to register with validated_only=True if columns are features
-        if (
-            len(additional_columns) > 0
-            and self._columns_field.field.model is not Feature
-        ):
-            add_validated(
-                values=additional_columns,
-                field=self._columns_field,
-                key="columns",
-                organism=self._organism,
-                source=self._sources.get("columns"),
-            )
+        cat_column.add_new()
 
     def validate(self):
         """Validate categories."""
@@ -2103,20 +2236,15 @@ class TiledbsomaCatManager(CatManager):
                 var_ms_values = (
                     var_ms.read(column_names=[key]).concat()[key].to_pylist()
                 )
-                _, non_val = add_validated(
-                    values=var_ms_values,
+                cat_column = CatColumn(
+                    values_getter=var_ms_values,
                     field=field,
                     key=var_ms_key,
                     organism=self._organism,
                     source=self._sources.get(var_ms_key),
                 )
-                validate_categories(
-                    non_val,
-                    field=field,
-                    key=var_ms_key,
-                    organism=self._organism,
-                    source=self._sources.get(var_ms_key),
-                )
+                cat_column.validate()
+                non_val = cat_column._non_validated
                 if len(non_val) > 0:
                     validated = False
                     self._non_validated_values[var_ms_key] = non_val
@@ -2131,20 +2259,15 @@ class TiledbsomaCatManager(CatManager):
                 values = pa.compute.unique(
                     obs.read(column_names=[key]).concat()[key]
                 ).to_pylist()
-                _, non_val = add_validated(
-                    values=values,
+                cat_column = CatColumn(
+                    values_getter=values,
                     field=field,
                     key=key,
                     organism=self._organism,
                     source=self._sources.get(key),
                 )
-                validate_categories(
-                    non_val,
-                    field=field,
-                    key=key,
-                    organism=self._organism,
-                    source=self._sources.get(key),
-                )
+                cat_column.validate()
+                non_val = cat_column._non_validated
                 if len(non_val) > 0:
                     validated = False
                     self._non_validated_values[key] = non_val
@@ -2191,13 +2314,14 @@ class TiledbsomaCatManager(CatManager):
             values, field = self._non_validated_values_field(k)
             if len(values) == 0:
                 continue
-            add_new(
-                values=values,
+            cat_column = CatColumn(
+                values_getter=values,
                 field=field,
                 key=k,
                 organism=self._organism,
-                **kwargs,
+                source=self._sources.get(k),
             )
+            cat_column.add_new()
             # update non-validated values list but keep the key there
             # it will be removed by .validate()
             if k in self._non_validated_values:
@@ -3028,91 +3152,6 @@ def get_organism_kwargs(
     return {}
 
 
-def validate_categories(
-    values: Iterable[str],
-    field: FieldAttr,
-    key: str,
-    organism: str | None = None,
-    source: Record | None = None,
-    hint_print: str | None = None,
-    curator: CatManager | None = None,
-) -> tuple[list[str], dict]:
-    """Validate ontology terms using LaminDB registries.
-
-    Args:
-        values: The values to validate.
-        field: The field attribute.
-        key: The key referencing the slot in the DataFrame.
-        organism: The organism name.
-        source: The source record.
-        standardize: Whether to standardize the values.
-        hint_print: The hint to print that suggests fixing non-validated values.
-    """
-    model_field = f"{field.field.model.__name__}.{field.field.name}"
-
-    def _log_mapping_info():
-        logger.indent = ""
-        logger.info(f'mapping "{key}" on {colors.italic(model_field)}')
-        logger.indent = "  "
-
-    registry = field.field.model
-
-    kwargs_current = get_current_filter_kwargs(
-        registry, {"organism": organism, "source": source}
-    )
-
-    # inspect values from the default instance
-    inspect_result = registry.inspect(values, field=field, mute=True, **kwargs_current)
-    non_validated = inspect_result.non_validated
-    syn_mapper = inspect_result.synonyms_mapper
-
-    # inspect the non-validated values from public (BioRecord only)
-    values_validated = []
-    if hasattr(registry, "public"):
-        public_records = registry.from_values(
-            non_validated,
-            field=field,
-            mute=True,
-            **kwargs_current,
-        )
-        values_validated += [getattr(r, field.field.name) for r in public_records]
-
-    # logging messages
-    non_validated_hint_print = hint_print or f'.add_new_from("{key}")'
-    non_validated = [i for i in non_validated if i not in values_validated]
-    n_non_validated = len(non_validated)
-    if n_non_validated == 0:
-        logger.indent = ""
-        logger.success(f'"{key}" is validated against {colors.italic(model_field)}')
-        return [], {}
-    else:
-        are = "is" if n_non_validated == 1 else "are"
-        s = "" if n_non_validated == 1 else "s"
-        print_values = _format_values(non_validated)
-        warning_message = f"{colors.red(f'{n_non_validated} term{s}')} {are} not validated: {colors.red(print_values)}\n"
-        if syn_mapper:
-            s = "" if len(syn_mapper) == 1 else "s"
-            syn_mapper_print = _format_values(
-                [f'"{k}" → "{v}"' for k, v in syn_mapper.items()], sep=""
-            )
-            hint_msg = f'.standardize("{key}")'
-            warning_message += f"    {colors.yellow(f'{len(syn_mapper)} synonym{s}')} found: {colors.yellow(syn_mapper_print)}\n    → curate synonyms via {colors.cyan(hint_msg)}"
-        if n_non_validated > len(syn_mapper):
-            if syn_mapper:
-                warning_message += "\n    for remaining terms:\n"
-            warning_message += f"    → fix typos, remove non-existent values, or save terms via {colors.cyan(non_validated_hint_print)}"
-
-        if logger.indent == "":
-            _log_mapping_info()
-        logger.warning(warning_message)
-        if curator is not None:
-            curator._validate_category_error_messages = strip_ansi_codes(
-                warning_message
-            )
-        logger.indent = ""
-        return non_validated, syn_mapper
-
-
 def save_artifact(
     data: pd.DataFrame | ScverseDataStructures,
     *,
@@ -3290,6 +3329,7 @@ def save_artifact(
     return artifact
 
 
+# TODO: need this function to support mutli-value columns
 def _flatten_unique(series: pd.Series[list[Any] | Any]) -> list[Any]:
     """Flatten a Pandas series containing lists or single items into a unique list of elements."""
     result = set()
@@ -3303,114 +3343,7 @@ def _flatten_unique(series: pd.Series[list[Any] | Any]) -> list[Any]:
     return list(result)
 
 
-def add_validated(
-    values: list[str],
-    field: FieldAttr,
-    key: str,
-    organism: str | None = None,
-    source: Record | None = None,
-) -> tuple[list, list]:
-    """Save features or labels records in the default instance..
-
-    Args:
-        values: A list of values to be saved as labels.
-        field: The FieldAttr object representing the field for which labels are being saved.
-        key: The name of the feature to save.
-        organism: The organism name.
-        source: The source record.
-    """
-    from lamindb.models.save import save as ln_save
-
-    registry = field.field.model
-    model_field = registry.__get_name_with_module__()
-    filter_kwargs = get_current_filter_kwargs(
-        registry, {"organism": organism, "source": source}
-    )
-    values = [i for i in values if isinstance(i, str) and i]
-    if not values:
-        return [], []
-
-    # inspect the default instance and save validated records from public
-    existing_and_public_records = registry.from_values(
-        list(values), field=field, **filter_kwargs, mute=True
-    )
-    existing_and_public_labels = [
-        getattr(r, field.field.name) for r in existing_and_public_records
-    ]
-    # public records that are not already in the database
-    public_records = [r for r in existing_and_public_records if r._state.adding]
-    # here we check to only save the public records if they are from the specified source
-    # we check the uid because r.source and source can be from different instances
-    if source:
-        public_records = [r for r in public_records if r.source.uid == source.uid]
-    if len(public_records) > 0:
-        logger.info(f"saving validated records of '{key}'")
-        ln_save(public_records)
-        labels_saved_public = [getattr(r, field.field.name) for r in public_records]
-        # log the saved public labels
-        # the term "transferred" stresses that this is always in the context of transferring
-        # labels from a public ontology or a different instance to the present instance
-        if len(labels_saved_public) > 0:
-            s = "s" if len(labels_saved_public) > 1 else ""
-            logger.success(
-                f'added {len(labels_saved_public)} record{s} {colors.green("from_public")} with {model_field} for "{key}": {_format_values(labels_saved_public)}'
-            )
-
-    # save parent labels for ulabels, for example a parent label "project" for label "project001"
-    if registry == ULabel and field.field.name == "name":
-        save_ulabels_type(values, field=field, key=key)
-
-    # non-validated records from the default instance
-    non_validated_labels = [i for i in values if i not in existing_and_public_labels]
-
-    # validated, non-validated
-    return existing_and_public_labels, non_validated_labels
-
-
-def add_new(
-    values: list[str],
-    field: FieldAttr,
-    key: str,
-    df: pd.DataFrame | None = None,
-    organism: str | None = None,
-    dtype: str | None = None,
-    **create_kwargs,
-) -> None:
-    """Add new labels to the registry."""
-    from lamindb.models.save import save as ln_save
-
-    registry = field.field.model
-    non_validated_records: RecordList[Any] = []  # type: ignore
-    if df is not None and registry == Feature:
-        nonval_columns = Feature.inspect(df.columns, mute=True).non_validated
-        non_validated_records = Feature.from_df(df.loc[:, nonval_columns])
-    else:
-        if (
-            organism
-            and hasattr(registry, "organism")
-            and registry._meta.get_field("organism").is_relation
-        ):
-            # make sure organism record is saved to the current instance
-            create_kwargs["organism"] = _save_organism(name=organism)
-
-        for value in values:
-            init_kwargs = {field.field.name: value}
-            if registry == Feature:
-                init_kwargs["dtype"] = "cat" if dtype is None else dtype
-            non_validated_records.append(registry(**init_kwargs, **create_kwargs))
-    if len(non_validated_records) > 0:
-        ln_save(non_validated_records)
-        model_field = colors.italic(registry.__get_name_with_module__())
-        s = "s" if len(values) > 1 else ""
-        logger.success(
-            f'added {len(values)} record{s} with {model_field} for "{key}": {_format_values(values)}'
-        )
-    # save parent labels for ulabels, for example a parent label "project" for label "project001"
-    if registry == ULabel and field.field.name == "name":
-        save_ulabels_type(values, field=field, key=key)
-
-
-def save_ulabels_type(values: list[str], field: FieldAttr, key: str) -> None:
+def _save_ulabels_type(values: list[str], field: FieldAttr, key: str) -> None:
     """Save the ULabel type of the given labels."""
     registry = field.field.model
     assert registry == ULabel  # noqa: S101
