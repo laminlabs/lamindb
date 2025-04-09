@@ -1513,7 +1513,7 @@ class AnnDataCatManager(CatManager):
             organism=None,
             sources=self._sources,
         )
-        self._cat_columns = self._obs_df_curator._cat_columns
+        self._cat_columns = self._obs_df_curator._cat_columns.copy()
         if var_index is not None:
             self._cat_columns["var_index"] = CatColumn(
                 values_getter=lambda: self._adata.var.index,
@@ -1563,12 +1563,9 @@ class AnnDataCatManager(CatManager):
                 "'all' is deprecated, please pass a single key from `.non_validated.keys()` instead!"
             )
             for k in self.non_validated.keys():
-                self._obs_df_curator.add_new_from(k, **kwargs)
+                self._cat_columns[k].add_new(**kwargs)
         else:
-            self._obs_df_curator.add_new_from(key, **kwargs)
-        if key == "var_index" or key == "all":
-            if "var_index" in self.non_validated.keys():
-                self._cat_columns["var_index"].add_new(**kwargs)
+            self._cat_columns[key].add_new(**kwargs)
 
     @deprecated(new_name="add_new_from('var_index')")
     def add_new_from_var_index(self, **kwargs):
@@ -1578,7 +1575,7 @@ class AnnDataCatManager(CatManager):
             organism: The organism name.
             **kwargs: Additional keyword arguments to pass to create new records.
         """
-        self._cat_columns["var_index"].add_new(**kwargs)
+        self.add_new_from(key="var_index", **kwargs)
 
     def validate(self) -> bool:
         """Validate categories.
@@ -1593,11 +1590,11 @@ class AnnDataCatManager(CatManager):
         """
         self._validate_category_error_messages = ""  # reset the error messages
 
-        validated_obs = self._obs_df_curator.validate()
-        if "var_index" in self._cat_columns:
-            self._cat_columns["var_index"].validate()
-            validated_var_index = self._cat_columns["var_index"].is_validated
-        self._is_validated = validated_obs & validated_var_index
+        validated = True
+        for _, cat_column in self._cat_columns.items():
+            cat_column.validate()
+            validated &= cat_column.is_validated
+
         self._non_validated = {}  # so it's no longer None
         return self._is_validated
 
@@ -1618,13 +1615,10 @@ class AnnDataCatManager(CatManager):
             logger.warning(
                 "'all' is deprecated, please pass a single key from `.non_validated.keys()` instead!"
             )
-        if key in self._adata.obs.columns or key == "all":
-            # standardize obs columns
-            self._obs_df_curator.standardize(key)
-        # in addition to the obs columns, standardize the var.index
-        if key == "var_index" or key == "all":
-            if "var_index" in self.non_validated.keys():
-                self._cat_columns["var_index"].standardize()
+            for k in self.non_validated.keys():
+                self._cat_columns[k].standardize()
+        else:
+            self._cat_columns[key].standardize()
 
 
 @deprecated(new_name="MuDataCurator")
