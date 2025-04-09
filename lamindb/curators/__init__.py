@@ -948,7 +948,6 @@ class CatColumn:
         self._validated: None | list[str] = None
         self._non_validated: None | list[str] = None
         self._synonyms: None | dict[str, str] = None
-        self._last_values_hash = self._compute_hash(self.values)
 
     @property
     def values(self):
@@ -1110,9 +1109,9 @@ class CatColumn:
             registry, {"organism": self._organism, "source": self._source}
         )
 
-        # inspect values from the default instance
+        # inspect values from the default instance, excluding public
         inspect_result = registry.inspect(
-            values, field=self._field, mute=True, **kwargs_current
+            values, field=self._field, mute=True, from_source=False, **kwargs_current
         )
         non_validated = inspect_result.non_validated
         syn_mapper = inspect_result.synonyms_mapper
@@ -1165,44 +1164,14 @@ class CatColumn:
             logger.indent = ""
             return non_validated, syn_mapper
 
-    def _compute_hash(self, values):
-        """Compute a stable hash for values, handling different types."""
-        if values is None:
-            return None
-        if isinstance(values, (pd.Series, pd.Index)):
-            # For pandas objects, convert to tuple for hashing
-            return hash(tuple(values))
-        if hasattr(values, "__iter__") and not isinstance(values, (str, bytes)):
-            # For other iterables (lists, sets, etc.)
-            try:
-                return hash(tuple(values))
-            except TypeError:
-                # Fall back to hashing string representation if items aren't hashable
-                return hash(str(values))
-        # Direct hashing for other types
-        try:
-            return hash(values)
-        except TypeError:
-            # Last resort
-            return hash(str(values))
-
     def validate(self) -> None:
         """Validate the column."""
-        current_values = self.values
-        current_hash = self._compute_hash(current_values)
-
-        # check if validation is needed - compare directly
-        if current_hash == self._last_values_hash and self._validated is not None:
-            return
-
-        self.add_validated()
+        # add source-validated values to the registry
+        self._validated, self._non_validated = self._add_validated()
         self._non_validated, self._synonyms = self._validate(values=self._non_validated)
         # always register new Features if they are columns
         if self._key == "columns" and self._field == Feature.name:
             self.add_new()
-
-        # update the hash cache
-        self._last_values_hash = current_hash
 
     def standardize(self) -> None:
         """Standardize the column."""
@@ -1221,10 +1190,6 @@ class CatColumn:
         self._synonyms = {}
         # update the values with the standardized values
         self.values = std_values
-
-    def add_validated(self) -> None:
-        """Add validated values to the registry."""
-        self._validated, self._non_validated = self._add_validated()
 
     def add_new(self, **create_kwargs) -> None:
         """Add new values to the registry."""
@@ -1486,7 +1451,9 @@ class DataFrameCatManager(CatManager):
         else:
             self._cat_columns[key].add_new(**kwargs)
 
-    @deprecated
+    @deprecated(
+        new_name="Run.filter(transform=context.run.transform, output_artifacts=None)"
+    )
     def clean_up_failed_runs(self):
         """Clean up previous failed runs that don't save any outputs."""
         from lamindb.core._context import context
