@@ -1366,7 +1366,7 @@ class DataFrameCatManager(CatManager):
         else:
             # NOTE: for var_index right now
             self._cat_columns["columns"] = CatColumn(
-                values_getter=lambda: self._dataset.columns,
+                values_getter=lambda: self._dataset.columns,  # lambda ensures the inplace update
                 values_setter=lambda new_values: setattr(
                     self._dataset, "columns", pd.Index(new_values)
                 ),
