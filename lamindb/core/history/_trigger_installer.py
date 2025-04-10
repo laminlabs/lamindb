@@ -1,15 +1,24 @@
 import enum
+import re
 from abc import ABC, abstractmethod
 
 from django.apps import apps
 from django.db.backends.base.base import BaseDatabaseWrapper
+from django.db.backends.utils import CursorWrapper
 from lamin_utils import logger
+
+from lamindb.models.history import HistoryLock
 
 
 class HistoryEventTypes(enum.Enum):
     INSERT = 0
     UPDATE = 1
     DELETE = 2
+
+
+# Certain tables must be excluded from history triggers to avoid
+# creating infinite loops of triggering.
+EXCLUDED_TABLES = ["lamindb_history", "lamindb_historylock"]
 
 
 class HistoryRecordingTriggerInstaller(ABC):
@@ -27,6 +36,9 @@ class HistoryRecordingTriggerInstaller(ABC):
         raise NotImplementedError()
 
     def update_history_triggers(self):
+        # Ensure that the history lock exists
+        HistoryLock.load()
+
         tables = self._get_db_tables()
 
         tables_with_installed_triggers = self.get_tables_with_installed_triggers()
@@ -34,8 +46,9 @@ class HistoryRecordingTriggerInstaller(ABC):
         tables_missing_triggers = tables.difference(tables_with_installed_triggers)
 
         for table in tables_missing_triggers:
-            logger.info(f"Installing history recording triggers for {table}")
-            self.install_triggers(table)
+            if table not in EXCLUDED_TABLES:
+                logger.info(f"Installing history recording triggers for {table}")
+                self.install_triggers(table)
 
     def _get_db_tables(self) -> set[str]:
         """Get the schema and table names for all tables in the database for which we might want to track history."""
@@ -59,22 +72,27 @@ class HistoryRecordingTriggerInstaller(ABC):
 
 
 class PostgresHistoryRecordingTriggerInstaller(HistoryRecordingTriggerInstaller):
+    # Since we're creating triggers and functions based on table names,
+    # it's probably a good idea to check that those table names are valid
+    # to mitigate the potential for SQL injection.
+    VALID_TABLE_NAME_REGEX = re.compile("^[a-z_][a-z0-9_$]*$")
+
     def __init__(self, connection: BaseDatabaseWrapper):
         super().__init__(connection=connection)
 
-    def install_triggers(self, table: str):
-        cursor = self.connection.cursor()
+    def _install_trigger(
+        self,
+        table: str,
+        history_event_type: HistoryEventTypes,
+        function_body_sql: str,
+        cursor: CursorWrapper,
+    ):
+        function_name = f"lamindb_history_{table}_{history_event_type.name.lower()}_fn"
+        trigger_name = f"lamindb_history_{table}_{history_event_type.name.lower()}_tr"
 
-        # TODO: should we be extracting the primary key from info schema as well?
-        # The assumption that all tables are keyed off 'id' seems brittle.
-
-        # TODO: migration_history_id is only capturing the latest migration from
-        # the `lamindb` app, and isn't taking bionty, etc into account.
-
-        # TODO: populate update and delete triggers once the insert trigger works
-
-        cursor.execute(f"""
-CREATE OR REPLACE FUNCTION lamindb_history_{table}_insert_fn()
+        cursor.execute(
+            f"""
+CREATE OR REPLACE FUNCTION {function_name}()
     RETURNS TRIGGER
     LANGUAGE PLPGSQL
 AS $$
@@ -84,25 +102,83 @@ DECLARE latest_migration int := (SELECT
     WHERE app = 'lamindb'
     ORDER BY CAST(SUBSTRING(name FROM '^(\\d+)') AS INTEGER) DESC
     LIMIT 1);
+DECLARE history_triggers_locked bool := (SELECT EXISTS(SELECT locked FROM lamindb_historylock LIMIT 1) AND (SELECT locked FROM lamindb_historylock LIMIT 1));
 BEGIN
-    INSERT INTO lamindb_history
-    (id, migration_history_id, table_name, record_id, record_data, event_type, created_at)
-    VALUES
-    (gen_random_uuid(), latest_migration, '{table}', NEW.id, row_to_json(NEW), {HistoryEventTypes.INSERT.value}, now());
+    IF NOT history_triggers_locked THEN
+        {function_body_sql}
+    END IF;
     RETURN NEW;
 END;
 $$
-""")  # noqa: S608
-
-        print("Trigger function installed")
+""",  # noqa: S608
+            (table, history_event_type.value),  # noqa: S608
+        )
 
         cursor.execute(f"""
-CREATE OR REPLACE TRIGGER lamindb_history_{table}_insert_trigger
-    AFTER INSERT
-    ON {table}
-    FOR EACH ROW
-    EXECUTE PROCEDURE lamindb_history_{table}_insert_fn();
-                       """)
+        CREATE OR REPLACE TRIGGER {trigger_name}
+        AFTER {history_event_type.name}
+        ON {table}
+        FOR EACH ROW EXECUTE PROCEDURE {function_name}();
+        """)
+
+    def _install_insert_trigger(self, table: str, cursor: CursorWrapper) -> str:
+        return self._install_trigger(
+            table=table,
+            history_event_type=HistoryEventTypes.INSERT,
+            function_body_sql="""
+        INSERT INTO lamindb_history
+        (id, migration_history_id, table_name, record_id, record_data, event_type, created_at)
+        VALUES
+        (gen_random_uuid(), latest_migration, %s, NEW.id, row_to_json(NEW), %s, now());
+        """,
+            cursor=cursor,
+        )
+
+    def _install_update_trigger(self, table: str, cursor: CursorWrapper):
+        return self._install_trigger(
+            table=table,
+            history_event_type=HistoryEventTypes.UPDATE,
+            function_body_sql="""
+        INSERT INTO lamindb_history
+        (id, migration_history_id, table_name, record_id, record_data, event_type, created_at)
+        VALUES
+        (gen_random_uuid(), latest_migration, %s, NEW.id, row_to_json(NEW), %s, now());
+        """,
+            cursor=cursor,
+        )
+
+    def _install_delete_trigger(self, table: str, cursor: CursorWrapper):
+        return self._install_trigger(
+            table=table,
+            history_event_type=HistoryEventTypes.DELETE,
+            function_body_sql="""
+        INSERT INTO lamindb_history
+        (id, migration_history_id, table_name, record_id, record_data, event_type, created_at)
+        VALUES
+        (gen_random_uuid(), latest_migration, %s, OLD.id, NULL, %s, now());
+        """,
+            cursor=cursor,
+        )
+
+    def install_triggers(self, table: str):
+        if not self.VALID_TABLE_NAME_REGEX.match(table):
+            raise ValueError(
+                f"Table name '{table}' doesn't look like a valid PostgreSQL table name"
+            )
+
+        cursor = self.connection.cursor()
+
+        # TODO: should we be extracting the primary key from info schema as well?
+        # The assumption that all tables are keyed off 'id' seems brittle.
+
+        # TODO: migration_history_id is only capturing the latest migration from
+        # the `lamindb` app, and isn't taking bionty, etc into account.
+
+        self._install_insert_trigger(table, cursor)
+        self._install_update_trigger(table, cursor)
+        self._install_delete_trigger(table, cursor)
+
+        print("Trigger functions installed")
 
     def get_tables_with_installed_triggers(self) -> set[str]:
         cursor = self.connection.cursor()
