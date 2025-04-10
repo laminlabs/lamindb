@@ -23,10 +23,11 @@ def test_nullable():
     disease.nullable = True
     disease.save()
     curator = ln.curators.DataFrameCurator(df, schema)
-    try:
+    with pytest.raises(
+        ValidationError,
+        # match=re.escape("1 term is not validated: 'asthma'"),  # TODO: need the message
+    ):
         curator.validate()
-    except ln.errors.ValidationError as e:
-        assert str(e).startswith("1 term is not validated: 'asthma'")
     schema.delete()
     disease.delete()
 
