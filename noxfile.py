@@ -275,7 +275,9 @@ def test(session, group):
             f"pytest {coverage_args} tests/curators --durations=50",
         )
     elif group == "cli":
-        run(session, f"pytest {coverage_args} ./sub/lamin-cli/tests --durations=50")
+        run(
+            session, f"pytest {coverage_args} ./sub/lamin-cli/tests/core --durations=50"
+        )
     elif group == "permissions":
         run(session, f"pytest {coverage_args} ./tests/permissions")
     # move artifacts into right place
