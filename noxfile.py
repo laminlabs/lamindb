@@ -99,6 +99,8 @@ def install_ci(session, group):
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system scanpy")
         run(session, "uv pip install --system tiledbsoma")
+    elif group == "unit-history":
+        extras += "bionty"
     elif group == "tutorial":
         extras += "jupyter,bionty"
         run(session, "uv pip install --system huggingface_hub")
