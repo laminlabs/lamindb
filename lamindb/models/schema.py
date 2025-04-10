@@ -213,7 +213,8 @@ class Schema(Record, CanCurate, TracksRun):
     For a composite schema, the hash of hashes.
     """
     minimal_set: bool = BooleanField(default=True, db_index=True, editable=False)
-    """Deprecated. Use `required` instead.
+    """Deprecated. Use `optional` instead.
+
     Whether the schema contains a minimal set of linked features (default `True`).
 
     If `False`, no features are linked to this schema.
@@ -399,7 +400,7 @@ class Schema(Record, CanCurate, TracksRun):
         validated_kwargs["uid"] = ids.base62_20()
         super().__init__(**validated_kwargs)
         if features_registry == Feature:
-            self.required = [f for f in features if f.required]
+            self.optional = [f for f in features if not f.required]
 
     @classmethod
     def from_values(  # type: ignore
@@ -586,8 +587,8 @@ class Schema(Record, CanCurate, TracksRun):
         self._aux.setdefault("af", {})["0"] = value
 
     @property
-    def required(self) -> QuerySet:
-        """Required features."""
+    def optional(self) -> QuerySet:
+        """Optional features."""
         if self._aux is not None and "af" in self._aux and "1" in self._aux["af"]:  # type: ignore
             feature_uids = self._aux["af"]["1"]
             return (
@@ -598,9 +599,9 @@ class Schema(Record, CanCurate, TracksRun):
         else:
             return Feature.objects.none()  # empty QuerySet
 
-    @required.setter
-    def required(self, value: list[Record]) -> None:
-        """Set required features."""
+    @optional.setter
+    def optional(self, value: list[Record]) -> None:
+        """Set optional features."""
         self._aux = self._aux or {}
         self._aux.setdefault("af", {})["1"] = [feature.uid for feature in value]
 
