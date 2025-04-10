@@ -35,17 +35,21 @@ class HistoryRecordingTriggerInstaller(ABC):
     def get_tables_with_installed_triggers(self) -> set[str]:
         raise NotImplementedError()
 
-    def update_history_triggers(self):
+    def update_history_triggers(self, update_all: bool = False):
         # Ensure that the history lock exists
         HistoryLock.load()
 
         tables = self._get_db_tables()
 
         tables_with_installed_triggers = self.get_tables_with_installed_triggers()
-
         tables_missing_triggers = tables.difference(tables_with_installed_triggers)
 
-        for table in tables_missing_triggers:
+        if update_all:
+            tables_to_update = tables
+        else:
+            tables_to_update = tables_missing_triggers
+
+        for table in tables_to_update:
             if table not in EXCLUDED_TABLES:
                 logger.info(f"Installing history recording triggers for {table}")
                 self.install_triggers(table)

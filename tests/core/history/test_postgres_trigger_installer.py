@@ -56,3 +56,15 @@ def test_get_tables_with_installed_triggers(fake_db, fake_cursor):
     }
 
     assert "DISTINCT event_object_table" in execute.call_args[0][0]
+
+
+def test_update_history_triggers_skips_existing_triggers(fake_db, fake_cursor):
+    installer = PostgresHistoryRecordingTriggerInstaller(connection=fake_db)
+
+    installer._get_db_tables = MagicMock(return_value={"table_a", "table_b", "table_c"})
+    installer.install_triggers = MagicMock(return_value=None)
+
+    installer.update_history_triggers()
+
+    installer._get_db_tables.assert_called_once()
+    installer.install_triggers.assert_called_once_with("table_b")
