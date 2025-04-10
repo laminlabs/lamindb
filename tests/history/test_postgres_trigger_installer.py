@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, Mock
 
 import pytest
-from lamindb.core.history._trigger_installer import (
+from lamindb.history._trigger_installer import (
     PostgresHistoryRecordingTriggerInstaller,
 )
 
