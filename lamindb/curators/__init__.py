@@ -1233,15 +1233,17 @@ class CatManager:
         self._columns_field = columns_field
         self._validate_category_error_messages: str = ""
         self._cat_columns: dict[str, CatColumn] = {}
+        # organism should not be deal with in CatManager but in CatColumn
         # make sure to only fetch organism once at the beginning
-        if organism:
-            self._organism = organism
-        else:
-            fields = list(self._categoricals.values()) + [columns_field]
-            organisms = {
-                get_organism_kwargs(field=field).get("organism") for field in fields
-            }
-            self._organism = organisms.pop() if len(organisms) > 0 else None
+        # if organism:
+        #     self._organism = organism
+        # else:
+        #     fields = list(self._categoricals.values()) + [columns_field]
+        #     organisms = {
+        #         get_organism_kwargs(field=field).get("organism") for field in fields
+        #     }
+        #     self._organism = organisms.pop() if len(organisms) > 0 else None
+        self._organism = "human"
 
     @property
     def non_validated(self) -> dict[str, list[str]]:
@@ -1340,11 +1342,11 @@ class DataFrameCatManager(CatManager):
         )
         if isinstance(self._categoricals, list):
             for feature in self._categoricals:
-                result = parse_cat_dtype(feature.dtype)
-                key = getattr(feature, result["field_str"])
-                field = parse_dtype(feature.dtype)[0][
-                    "field"
+                result = parse_dtype(feature.dtype)[
+                    0
                 ]  # TODO: support composite dtypes for categoricals
+                key = feature.name
+                field = result["field"]
                 self._cat_columns[key] = CatColumn(
                     values_getter=lambda k=key: self._dataset[
                         k
@@ -1373,8 +1375,12 @@ class DataFrameCatManager(CatManager):
                     source=self._sources.get(key),
                 )
         if columns == Feature.name:
+            if isinstance(self._categoricals, list):
+                values = [feature.name for feature in self._categoricals]
+            else:
+                values = list(self._categoricals.keys())
             self._cat_columns["columns"] = CatColumn(
-                values_getter=self._categoricals.keys(),
+                values_getter=values,
                 field=self._columns_field,
                 key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
                 organism=self._organism,
