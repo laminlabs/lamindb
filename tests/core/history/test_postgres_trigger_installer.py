@@ -29,23 +29,25 @@ class FakeCursor:
 
 
 @pytest.fixture(scope="function")
-def cursor():
+def fake_cursor():
     cursor = FakeCursor()
     yield cursor
     cursor.reset()
 
 
 @pytest.fixture(scope="function")
-def db(cursor):
+def fake_db(fake_cursor):
     db = MagicMock()
-    db.cursor.returnvalue = cursor
+    db.cursor.returnvalue = fake_cursor
 
     return db
 
 
-def test_get_tables_with_installed_triggers(db, cursor):
-    installer = PostgresHistoryRecordingTriggerInstaller(connection=db)
-    execute = create_spy(cursor, "execute")
+def test_get_tables_with_installed_triggers(fake_db, fake_cursor):
+    installer = PostgresHistoryRecordingTriggerInstaller(connection=fake_db)
+    execute = create_spy(fake_cursor, "execute")
+
+    execute.assert_called_once()
 
     assert installer.get_tables_with_installed_triggers() == {
         "table_a",
@@ -53,5 +55,4 @@ def test_get_tables_with_installed_triggers(db, cursor):
         "table_c",
     }
 
-    assert execute.called_once()
     assert "DISTINCT event_object_table" in execute.call_args[0]
