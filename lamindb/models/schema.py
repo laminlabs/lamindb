@@ -343,7 +343,7 @@ class Schema(Record, CanCurate, TracksRun):
                 itype = itype_compare
             n_features = len(features)
             if features_registry == Feature:
-                [f for f in features if f.optional]
+                [f for f in features if hasattr(f, "optional") and f.optional]
         else:
             n_features = -1
         if dtype is None:
