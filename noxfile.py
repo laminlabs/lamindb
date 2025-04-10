@@ -67,6 +67,7 @@ def install(session):
     [
         "unit-core",
         "unit-storage",
+        "unit-history",
         "tutorial",
         "guide",
         "biology",
@@ -217,6 +218,7 @@ def configure_coverage(session) -> None:
     [
         "unit-core",
         "unit-storage",
+        "unit-history",
         "curator",
         "tutorial",
         "guide",
@@ -241,6 +243,8 @@ def test(session, group):
         )
     elif group == "unit-storage":
         run(session, f"pytest {coverage_args} ./tests/storage --durations=50")
+    elif group == "unit-history":
+        run(session, f"pytest {coverage_args} ./tests/history --durations=50")
     elif group == "tutorial":
         run(session, "lamin logout")
         run(
