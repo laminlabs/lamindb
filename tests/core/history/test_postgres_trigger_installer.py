@@ -17,9 +17,9 @@ class FakeCursor:
     def __init__(self):
         self._last_result = None
 
-    def execute(self, query, parameters):
+    def execute(self, query, parameters=None):
         if "DISTINCT event_object_table" in query:
-            self._last_result = [("table_a",), ("table_b",), ("table_c",)]
+            self._last_result = [("table_a",), ("table_c",)]
 
     def fetchall(self):
         return self._last_result
@@ -38,7 +38,7 @@ def fake_cursor():
 @pytest.fixture(scope="function")
 def fake_db(fake_cursor):
     db = MagicMock()
-    db.cursor.returnvalue = fake_cursor
+    db.cursor.return_value = fake_cursor
 
     return db
 
@@ -47,12 +47,12 @@ def test_get_tables_with_installed_triggers(fake_db, fake_cursor):
     installer = PostgresHistoryRecordingTriggerInstaller(connection=fake_db)
     execute = create_spy(fake_cursor, "execute")
 
+    tables_with_triggers = installer.get_tables_with_installed_triggers()
     execute.assert_called_once()
 
-    assert installer.get_tables_with_installed_triggers() == {
+    assert tables_with_triggers == {
         "table_a",
-        "table_b",
         "table_c",
     }
 
-    assert "DISTINCT event_object_table" in execute.call_args[0]
+    assert "DISTINCT event_object_table" in execute.call_args[0][0]
