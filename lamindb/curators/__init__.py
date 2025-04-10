@@ -380,7 +380,12 @@ class DataFrameCurator(Curator):
         if schema.n > 0:
             # populate features
             pandera_columns = {}
+            required_feature_uids = schema.required.list("uid")
             for feature in schema.features.all():
+                feature = feature.with_config(
+                    required=feature.uid in required_feature_uids
+                )
+                required = True if schema.minimal_set else feature.required
                 if feature.dtype in {"int", "float", "num"}:
                     dtype = (
                         self._dataset[feature.name].dtype
@@ -396,7 +401,7 @@ class DataFrameCurator(Curator):
                         ),
                         nullable=feature.nullable,
                         coerce=feature.coerce_dtype,
-                        required=True if schema.minimal_set else feature.required,
+                        required=required,
                     )
                 else:
                     pandera_dtype = (
@@ -408,7 +413,7 @@ class DataFrameCurator(Curator):
                         pandera_dtype,
                         nullable=feature.nullable,
                         coerce=feature.coerce_dtype,
-                        required=True if schema.minimal_set else feature.required,
+                        required=required,
                     )
                 if feature.dtype.startswith("cat"):
                     # validate categoricals if the column is required or if the column is present

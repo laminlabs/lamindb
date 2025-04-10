@@ -213,7 +213,8 @@ class Schema(Record, CanCurate, TracksRun):
     For a composite schema, the hash of hashes.
     """
     minimal_set: bool = BooleanField(default=True, db_index=True, editable=False)
-    """Whether the schema contains a minimal set of linked features (default `True`).
+    """Deprecated. Use `required` instead.
+    Whether the schema contains a minimal set of linked features (default `True`).
 
     If `False`, no features are linked to this schema.
 
@@ -397,6 +398,8 @@ class Schema(Record, CanCurate, TracksRun):
             self._slots = components
         validated_kwargs["uid"] = ids.base62_20()
         super().__init__(**validated_kwargs)
+        if features_registry == Feature:
+            self.required = [f for f in features if f.required]
 
     @classmethod
     def from_values(  # type: ignore
@@ -579,11 +582,27 @@ class Schema(Record, CanCurate, TracksRun):
 
     @coerce_dtype.setter
     def coerce_dtype(self, value: bool) -> None:
-        if self._aux is None:  # type: ignore
-            self._aux = {}  # type: ignore
-        if "af" not in self._aux:
-            self._aux["af"] = {}
-        self._aux["af"]["0"] = value
+        self._aux = self._aux or {}
+        self._aux.setdefault("af", {})["0"] = value
+
+    @property
+    def required(self) -> QuerySet:
+        """Required features."""
+        if self._aux is not None and "af" in self._aux and "1" in self._aux["af"]:  # type: ignore
+            feature_uids = self._aux["af"]["1"]
+            return (
+                self.members.filter(uid__in=feature_uids)
+                .order_by("links_schema__id")
+                .all()
+            )
+        else:
+            return Feature.objects.none()  # empty QuerySet
+
+    @required.setter
+    def required(self, value: list[Record]) -> None:
+        """Set required features."""
+        self._aux = self._aux or {}
+        self._aux.setdefault("af", {})["1"] = [feature.uid for feature in value]
 
     # @property
     # def index_feature(self) -> None | Feature:
@@ -604,11 +623,8 @@ class Schema(Record, CanCurate, TracksRun):
 
     # @_index_feature_uid.setter
     # def _index_feature_uid(self, value: str) -> None:
-    #     if self._aux is None:
-    #         self._aux = {}
-    #     if "af" not in self._aux:
-    #         self._aux["af"] = {}
-    #     self._aux["af"]["1"] = value
+    #     self._aux = self._aux or {}
+    #     self._aux.setdefault("af", {})["0"] = value
 
     @property
     @deprecated("itype")

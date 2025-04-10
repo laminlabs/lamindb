@@ -8,6 +8,64 @@ from lamindb.core.exceptions import InvalidArgument, ValidationError
 from lamindb.curators import save_artifact
 
 
+@pytest.fixture
+def df():
+    # DataFrames
+    return pd.DataFrame(
+        {
+            "sample_id": ["sample1", "sample2"],
+            "sample_name": ["Sample 1", "Sample 2"],
+            "sample_type": ["Type A", "Type B"],
+        }
+    )
+
+
+@pytest.fixture
+def df_missing_sample_type_column():
+    # missing a column
+    return pd.DataFrame(
+        {
+            "sample_id": ["sample1", "sample2"],
+            "sample_name": ["Sample 1", "Sample 2"],
+        }
+    )
+
+
+@pytest.fixture
+def df_missing_sample_name_column():
+    return pd.DataFrame(
+        {
+            "sample_id": ["sample1", "sample2"],
+            "sample_type": ["Type A", "Type B"],
+        }
+    )
+
+
+@pytest.fixture
+def df_changed_order():
+    # changed columns order
+    return pd.DataFrame(
+        {
+            "sample_name": ["Sample 1", "Sample 2"],
+            "sample_type": ["Type A", "Type B"],
+            "sample_id": ["sample1", "sample2"],
+        }
+    )
+
+
+@pytest.fixture
+def df_extra_column():
+    # additional column
+    return pd.DataFrame(
+        {
+            "sample_id": ["sample1", "sample2"],
+            "sample_name": ["Sample 1", "Sample 2"],
+            "sample_type": ["Type A", "Type B"],
+            "extra_column": ["Extra 1", "Extra 2"],
+        }
+    )
+
+
 def test_nullable():
     disease = ln.Feature(name="disease", dtype=ln.ULabel, nullable=False).save()
     schema = ln.Schema(features=[disease]).save()
@@ -44,40 +102,13 @@ def test_save_artifact_invalid_data_type():
         save_artifact(data=data, fields={"field1": "attr1"})
 
 
-def test_pandera_dataframe_schema():
-    # DataFrames
-    df = pd.DataFrame(
-        {
-            "sample_id": ["sample1", "sample2"],
-            "sample_name": ["Sample 1", "Sample 2"],
-            "sample_type": ["Type A", "Type B"],
-        }
-    )
-    # missing a column
-    df_missing_column = pd.DataFrame(
-        {
-            "sample_id": ["sample1", "sample2"],
-            "sample_name": ["Sample 1", "Sample 2"],
-        }
-    )
-    # changed columns order
-    df_changed_order = pd.DataFrame(
-        {
-            "sample_name": ["Sample 1", "Sample 2"],
-            "sample_type": ["Type A", "Type B"],
-            "sample_id": ["sample1", "sample2"],
-        }
-    )
-    # additional column
-    df_extra_column = pd.DataFrame(
-        {
-            "sample_id": ["sample1", "sample2"],
-            "sample_name": ["Sample 1", "Sample 2"],
-            "sample_type": ["Type A", "Type B"],
-            "extra_column": ["Extra 1", "Extra 2"],
-        }
-    )
-
+def test_pandera_dataframe_schema(
+    df,
+    df_missing_sample_type_column,
+    df_changed_order,
+    df_extra_column,
+    df_missing_sample_name_column,
+):
     # schemas
     schema_minimal_set = ln.Schema(
         name="my-schema minimal_set",
@@ -112,7 +143,7 @@ def test_pandera_dataframe_schema():
     # can't miss a required column
     with pytest.raises(ValidationError):
         ln.curators.DataFrameCurator(
-            df_missing_column, schema=schema_minimal_set
+            df_missing_sample_type_column, schema=schema_minimal_set
         ).validate()
     # doesn't care about order
     ln.curators.DataFrameCurator(df_changed_order, schema=schema_minimal_set).validate()
@@ -125,7 +156,7 @@ def test_pandera_dataframe_schema():
             df_extra_column, schema=schema_maximal_set
         ).validate()
     ln.curators.DataFrameCurator(
-        df_missing_column, schema=schema_maximal_set
+        df_missing_sample_type_column, schema=schema_maximal_set
     ).validate()
 
     # ordered_set=True
@@ -141,24 +172,19 @@ def test_pandera_dataframe_schema():
         features=[
             ln.Feature(name="sample_id", dtype=str).save(),
             ln.Feature(name="sample_name", dtype=str).save(),
-            ln.Feature(name="sample_type", dtype=str, required=True).save(),
+            ln.Feature(name="sample_type", dtype=str).with_config(required=True),
         ],
         minimal_set=False,
     ).save()
     # missing "sample_type" column now raises an error
     with pytest.raises(ValidationError):
         ln.curators.DataFrameCurator(
-            df_missing_column, schema=schema_not_minimal_set_require_sample_type
+            df_missing_sample_type_column,
+            schema=schema_not_minimal_set_require_sample_type,
         ).validate()
     # missing a non-required column is fine
     ln.curators.DataFrameCurator(
-        pd.DataFrame(
-            {
-                "sample_id": ["sample1", "sample2"],
-                "sample_type": ["Type A", "Type B"],
-            }
-        ),
-        schema=schema_not_minimal_set_require_sample_type,
+        df_missing_sample_name_column, schema=schema_not_minimal_set_require_sample_type
     ).validate()
 
     # clean up

@@ -332,7 +332,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
 
     _name_field: str = "name"
     _aux_fields: dict[str, tuple[str, type]] = {
-        "0": ("default_value", bool),
+        "0": ("default_value", Any),  # type: ignore
         "1": ("nullable", bool),
         "2": ("coerce_dtype", bool),
     }
@@ -449,13 +449,12 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         nullable = kwargs.pop("nullable", True)  # default value of nullable
         cat_filters = kwargs.pop("cat_filters", None)
         coerce_dtype = kwargs.pop("coerce_dtype", False)
-        required = kwargs.pop("required", False)
         kwargs = process_init_feature_param(args, kwargs)
         super().__init__(*args, **kwargs)
         self.default_value = default_value
         self.nullable = nullable
         self.coerce_dtype = coerce_dtype
-        self.required = required
+        self.required: bool = False
         dtype_str = kwargs.pop("dtype", None)
         if cat_filters:
             assert "|" not in dtype_str  # noqa: S101
@@ -501,6 +500,11 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         super().save(*args, **kwargs)
         return self
 
+    def with_config(self, required: bool = False) -> Feature:
+        """Set required flag."""
+        self.required = required
+        return self
+
     @property
     def default_value(self) -> Any:
         """A default value that overwrites missing values (default `None`).
@@ -515,7 +519,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
             return None
 
     @default_value.setter
-    def default_value(self, value: bool) -> None:
+    def default_value(self, value: str | None) -> None:
         self._aux = self._aux or {}
         self._aux.setdefault("af", {})["0"] = value
 
@@ -566,19 +570,6 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     def coerce_dtype(self, value: bool) -> None:
         self._aux = self._aux or {}
         self._aux.setdefault("af", {})["2"] = value
-
-    @property
-    def required(self) -> bool:
-        """Whether the field is required."""
-        if self._aux is not None and "af" in self._aux and "3" in self._aux["af"]:  # type: ignore
-            return self._aux["af"]["3"]  # type: ignore
-        else:
-            return False
-
-    @required.setter
-    def required(self, value: bool) -> None:
-        self._aux = self._aux or {}
-        self._aux.setdefault("af", {})["3"] = value
 
 
 class FeatureValue(Record, TracksRun):
