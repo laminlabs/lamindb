@@ -400,7 +400,7 @@ class Schema(Record, CanCurate, TracksRun):
         validated_kwargs["uid"] = ids.base62_20()
         super().__init__(**validated_kwargs)
         if features_registry == Feature:
-            self.optional = [f for f in features if not f.required]
+            self.optional = [f for f in features if f.optional]
 
     @classmethod
     def from_values(  # type: ignore
