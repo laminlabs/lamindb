@@ -376,7 +376,7 @@ class DataFrameCurator(Curator):
         schema: Schema,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
-        categoricals = {}
+        categoricals = []
         if schema.n > 0:
             # whether all the columns are required
             required = schema.minimal_set
@@ -415,9 +415,7 @@ class DataFrameCurator(Curator):
                 if feature.dtype.startswith("cat"):
                     # validate categoricals if the column is required or if the column is present
                     if required or feature.name in self._dataset.columns:
-                        categoricals[feature.name] = parse_dtype(feature.dtype)[0][
-                            "field"
-                        ]
+                        categoricals.append(feature)
             self._pandera_schema = pandera.DataFrameSchema(
                 pandera_columns,
                 coerce=schema.coerce_dtype,
@@ -1235,15 +1233,17 @@ class CatManager:
         self._columns_field = columns_field
         self._validate_category_error_messages: str = ""
         self._cat_columns: dict[str, CatColumn] = {}
+        # organism should not be deal with in CatManager but in CatColumn
         # make sure to only fetch organism once at the beginning
-        if organism:
-            self._organism = organism
-        else:
-            fields = list(self._categoricals.values()) + [columns_field]
-            organisms = {
-                get_organism_kwargs(field=field).get("organism") for field in fields
-            }
-            self._organism = organisms.pop() if len(organisms) > 0 else None
+        # if organism:
+        #     self._organism = organism
+        # else:
+        #     fields = list(self._categoricals.values()) + [columns_field]
+        #     organisms = {
+        #         get_organism_kwargs(field=field).get("organism") for field in fields
+        #     }
+        #     self._organism = organisms.pop() if len(organisms) > 0 else None
+        self._organism = "human"
 
     @property
     def non_validated(self) -> dict[str, list[str]]:
@@ -1323,7 +1323,7 @@ class DataFrameCatManager(CatManager):
         self,
         df: pd.DataFrame | Artifact,
         columns: FieldAttr = Feature.name,
-        categoricals: dict[str, FieldAttr] | None = None,
+        categoricals: dict[str, FieldAttr] | list[Feature] | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
@@ -1340,22 +1340,47 @@ class DataFrameCatManager(CatManager):
             categoricals=categoricals,
             sources=sources,
         )
-        for key, field in self._categoricals.items():
-            self._cat_columns[key] = CatColumn(
-                values_getter=lambda k=key: self._dataset[
-                    k
-                ],  # Capture key as default argument
-                values_setter=lambda new_values, k=key: self._dataset.__setitem__(
-                    k, new_values
-                ),
-                field=field,
-                key=key,
-                organism=self._organism,
-                source=self._sources.get(key),
-            )
+        if isinstance(self._categoricals, list):
+            for feature in self._categoricals:
+                result = parse_dtype(feature.dtype)[
+                    0
+                ]  # TODO: support composite dtypes for categoricals
+                key = feature.name
+                field = result["field"]
+                self._cat_columns[key] = CatColumn(
+                    values_getter=lambda k=key: self._dataset[
+                        k
+                    ],  # Capture key as default argument
+                    values_setter=lambda new_values, k=key: self._dataset.__setitem__(
+                        k, new_values
+                    ),
+                    field=field,
+                    key=key,
+                    organism=self._organism,
+                    source=self._sources.get(key),
+                )
+        else:
+            # below is for backward compat of ln.Curator.from_dataframe()
+            for key, field in self._categoricals.items():
+                self._cat_columns[key] = CatColumn(
+                    values_getter=lambda k=key: self._dataset[
+                        k
+                    ],  # Capture key as default argument
+                    values_setter=lambda new_values, k=key: self._dataset.__setitem__(
+                        k, new_values
+                    ),
+                    field=field,
+                    key=key,
+                    organism=self._organism,
+                    source=self._sources.get(key),
+                )
         if columns == Feature.name:
+            if isinstance(self._categoricals, list):
+                values = [feature.name for feature in self._categoricals]
+            else:
+                values = list(self._categoricals.keys())
             self._cat_columns["columns"] = CatColumn(
-                values_getter=self._categoricals.keys(),
+                values_getter=values,
                 field=self._columns_field,
                 key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
                 organism=self._organism,
