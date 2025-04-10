@@ -342,6 +342,8 @@ class Schema(Record, CanCurate, TracksRun):
             else:
                 itype = itype_compare
             n_features = len(features)
+            if features_registry == Feature:
+                [f for f in features if f.optional]
         else:
             n_features = -1
         if dtype is None:
@@ -399,8 +401,7 @@ class Schema(Record, CanCurate, TracksRun):
             self._slots = components
         validated_kwargs["uid"] = ids.base62_20()
         super().__init__(**validated_kwargs)
-        if features_registry == Feature:
-            self.optional = [f for f in features if f.optional]
+        self.optional = Feature.objects.none()
 
     @classmethod
     def from_values(  # type: ignore
@@ -603,7 +604,8 @@ class Schema(Record, CanCurate, TracksRun):
     def optional(self, value: list[Record]) -> None:
         """Set optional features."""
         self._aux = self._aux or {}
-        self._aux.setdefault("af", {})["1"] = [feature.uid for feature in value]
+        if len(value) > 0:
+            self._aux.setdefault("af", {})["1"] = [feature.uid for feature in value]
 
     # @property
     # def index_feature(self) -> None | Feature:
