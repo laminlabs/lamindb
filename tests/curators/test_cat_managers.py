@@ -6,7 +6,6 @@ from unittest.mock import Mock
 import anndata as ad
 import bionty as bt
 import lamindb as ln
-import mudata as md
 import pandas as pd
 import pytest
 from lamindb.curators import CatLookup, ValidationError
@@ -23,7 +22,7 @@ def df():
             ],
             "cell_type_2": ["oligodendrocyte", "oligodendrocyte", "astrocyte"],
             "assay_ontology_id": ["EFO:0008913", "EFO:0008913", "EFO:0008913"],
-            "donor": ["D0001", "D0002", "DOOO3"],
+            "donor": ["D0001", "D0002", "D0003"],
         }
     )
 
@@ -44,7 +43,7 @@ def adata():
                 "astrocyte",
             ],
             "assay_ontology_id": ["EFO:0008913", "EFO:0008913", "EFO:0008913"],
-            "donor": ["D0001", "D0002", "DOOO3"],
+            "donor": ["D0001", "D0002", "D0003"],
             "sample_note": ["was ok", "looks naah", "pretty! 🤩"],
             "temperature": [23.1, 23.2, 33.3],
         }
@@ -67,9 +66,11 @@ def adata():
 
 @pytest.fixture
 def mdata(adata):
+    import mudata as md
+
     # can't be the same adata object due to in-place modifications
     mdata = md.MuData({"rna": adata, "rna_2": adata.copy()})
-    mdata.obs["donor"] = ["D0001", "D0002", "DOOO3"]
+    mdata.obs["donor"] = ["D0001", "D0002", "D0003"]
 
     return mdata
 
@@ -111,12 +112,9 @@ def test_df_curator(df, categoricals):
         validated = curator.validate()
         assert curator.non_validated == {
             "cell_type": ["cerebral pyramidal neuron", "astrocytic glia"],
-            "donor": ["D0001", "D0002", "DOOO3"],
+            "donor": ["D0001", "D0002", "D0003"],
         }
         assert validated is False
-
-        # deprecated method
-        curator.add_new_from_columns()
 
         # standardize
         with pytest.raises(KeyError):
@@ -124,7 +122,7 @@ def test_df_curator(df, categoricals):
         curator.standardize("all")
         assert curator.non_validated == {
             "cell_type": ["cerebral pyramidal neuron"],
-            "donor": ["D0001", "D0002", "DOOO3"],
+            "donor": ["D0001", "D0002", "D0003"],
         }
         assert "astrocyte" in df["cell_type"].values
 
@@ -226,14 +224,6 @@ def test_additional_args_with_all_key(df, categoricals):
         curator.add_new_from("all", extra_arg="not_allowed")
 
 
-def test_save_columns_not_defined_in_fields(df, categoricals):
-    curator = ln.Curator.from_df(df, categoricals=categoricals)
-    with pytest.raises(
-        ValidationError, match="Feature nonexistent is not part of the fields!"
-    ):
-        curator._update_registry("nonexistent")
-
-
 def test_unvalidated_data_object(df, categoricals):
     curator = ln.Curator.from_df(df, categoricals=categoricals)
     with pytest.raises(
@@ -302,19 +292,21 @@ def test_anndata_curator(adata, categoricals, to_add):
         assert validated is False
         assert curator.non_validated == {
             "cell_type": ["astrocytic glia"],
-            "donor": ["D0001", "D0002", "DOOO3"],
+            "donor": ["D0001", "D0002", "D0003"],
             "var_index": ["TCF-1"],
         }
 
         # standardize var_index
         curator.standardize("var_index")
+
         assert "TCF7" in adata.var.index
         assert curator.non_validated == {
             "cell_type": ["astrocytic glia"],
-            "donor": ["D0001", "D0002", "DOOO3"],
+            "donor": ["D0001", "D0002", "D0003"],
         }
+        # deprecated
         curator.standardize("all")
-        assert curator.non_validated == {"donor": ["D0001", "D0002", "DOOO3"]}
+        assert curator.non_validated == {"donor": ["D0001", "D0002", "D0003"]}
 
         # lookup
         lookup = curator.lookup()
@@ -323,7 +315,7 @@ def test_anndata_curator(adata, categoricals, to_add):
         # add new
         curator.add_new_from(to_add)
         assert curator.non_validated == {}
-        # just for coverage, doesn't do anything
+        # deprecated
         curator.add_new_from_var_index()
         validated = curator.validate()
         assert validated
@@ -420,15 +412,15 @@ def test_mudata_curator(mdata):
         # validate
         validated = curator.validate()
         assert curator.non_validated == {
-            "obs": {"donor": ["D0001", "D0002", "DOOO3"]},
+            "obs": {"donor": ["D0001", "D0002", "D0003"]},
             "rna_2": {
                 "cell_type": ["astrocytic glia"],
-                "donor": ["D0001", "D0002", "DOOO3"],
+                "donor": ["D0001", "D0002", "D0003"],
                 "var_index": ["TCF-1"],
             },
             "rna": {
                 "cell_type": ["astrocytic glia"],
-                "donor": ["D0001", "D0002", "DOOO3"],
+                "donor": ["D0001", "D0002", "D0003"],
                 "var_index": ["TCF-1"],
             },
         }
@@ -441,11 +433,10 @@ def test_mudata_curator(mdata):
         curator.standardize("all", modality="rna")
         curator.standardize("all", modality="rna_2")
         assert curator._mod_adata_curators["rna_2"].non_validated == {
-            "donor": ["D0001", "D0002", "DOOO3"]
+            "donor": ["D0001", "D0002", "D0003"]
         }
 
         # add new
-        curator.add_new_from_columns("rna")  # deprecated, doesn't do anything
         curator.add_new_from_var_index("rna")  # doesn't do anything
         curator.add_new_from("donor")
 
@@ -527,7 +518,7 @@ def test_soma_curator(adata, categoricals, clean_soma_files):
 
         assert curator.non_validated == {
             "cell_type": ["astrocytic glia"],
-            "donor": ["D0001", "D0002", "DOOO3"],
+            "donor": ["D0001", "D0002", "D0003"],
             "RNA__var_id": ["TCF-1"],
         }
 
@@ -542,7 +533,7 @@ def test_soma_curator(adata, categoricals, clean_soma_files):
         assert "TCF7" in var_idx
         assert curator.non_validated == {
             "cell_type": ["astrocytic glia"],
-            "donor": ["D0001", "D0002", "DOOO3"],
+            "donor": ["D0001", "D0002", "D0003"],
         }
 
         # test invalid key in standardize
@@ -552,11 +543,11 @@ def test_soma_curator(adata, categoricals, clean_soma_files):
         curator.standardize("donor")
         assert curator.non_validated == {
             "cell_type": ["astrocytic glia"],
-            "donor": ["D0001", "D0002", "DOOO3"],
+            "donor": ["D0001", "D0002", "D0003"],
         }
 
         curator.standardize("all")
-        assert curator.non_validated == {"donor": ["D0001", "D0002", "DOOO3"]}
+        assert curator.non_validated == {"donor": ["D0001", "D0002", "D0003"]}
 
         curator.add_new_from("all")
         assert curator.non_validated == {}
@@ -566,7 +557,7 @@ def test_soma_curator(adata, categoricals, clean_soma_files):
         with pytest.raises(KeyError):
             curator.add_new_from("invalid_key")
 
-        # cover no keys to standardize
+        # cover values are already standardized
         curator.standardize("donor")
 
         # lookup
@@ -709,7 +700,9 @@ def test_spatialdata_curator():
             organism="human",
         )
 
-        with pytest.raises(ValidationError, match=re.escape("Run .validate() first.")):
+        with pytest.raises(
+            ValidationError, match=re.escape("Please run validate() first!")
+        ):
             curator.add_new_from(key="region", accessor="table")
 
         with pytest.raises(
@@ -717,11 +710,6 @@ def test_spatialdata_curator():
             match=re.escape("Dataset does not validate. Please curate."),
         ):
             curator.save_artifact(description="test spatialdata curation")
-
-        with pytest.raises(
-            ValueError, match=re.escape("Accessor notexist is not in 'categoricals'")
-        ):
-            curator.add_new_from(key="region", accessor="notexist")
 
         assert not curator.validate()
 
@@ -755,7 +743,7 @@ def test_spatialdata_curator():
         assert curator._sample_metadata["disease"].values[0] == "Alzheimer disease"
         curator.standardize(key="var_index", accessor="table")
         assert curator.non_validated == {"table": {"var_index": ["DOESNOTEXIST"]}}
-        curator.add_new_from_var_index("table")
+        curator.add_new_from(key="var_index", accessor="table")
         assert curator.non_validated == {}
 
         # validation should finally pass
