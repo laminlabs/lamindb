@@ -84,7 +84,7 @@ def history_migration_state():
     HistoryMigrationState.objects.all().delete()
 
 
-def test_updating_history_triggers_installs_table_state(fake_db, fake_cursor):
+def test_updating_history_triggers_installs_table_state(fake_db):
     assert len(set(HistoryTableState.objects.all())) == 0
 
     installer = PostgresHistoryRecordingTriggerInstaller(connection=fake_db)
@@ -96,6 +96,30 @@ def test_updating_history_triggers_installs_table_state(fake_db, fake_cursor):
 
     new_table_states = set(HistoryTableState.objects.all())
 
+    assert len(new_table_states) == 3
+    assert {ts.table_name for ts in new_table_states} == {
+        "table_a",
+        "table_b",
+        "table_c",
+    }
+    assert all(ts.backfilled is False for ts in new_table_states)
+
+
+def test_update_history_triggers_only_install_table_state_once(fake_db):
+    assert len(set(HistoryTableState.objects.all())) == 0
+
+    installer = PostgresHistoryRecordingTriggerInstaller(connection=fake_db)
+
+    installer._get_db_tables = MagicMock(return_value={"table_a", "table_b", "table_c"})
+    installer.install_triggers = MagicMock(return_value=None)
+
+    # Run update_history_triggers() twice.
+    installer.update_history_triggers(update_all=True)
+    installer.update_history_triggers(update_all=True)
+
+    new_table_states = set(HistoryTableState.objects.all())
+
+    # There should only be one table state per table, even though we've run more than once.
     assert len(new_table_states) == 3
     assert {ts.table_name for ts in new_table_states} == {
         "table_a",

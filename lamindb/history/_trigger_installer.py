@@ -66,7 +66,7 @@ class HistoryRecordingTriggerInstaller(ABC):
         table_states_to_add = [
             HistoryTableState(table_name=t, backfilled=False)
             for t in tables
-            if tables not in existing_tables
+            if t not in existing_tables
         ]
 
         HistoryTableState.objects.bulk_create(table_states_to_add)
@@ -253,7 +253,7 @@ WHERE
                 foreign_key_uid_var = f"fkey_{column}_uid"
 
                 foreign_key_uid_variables.append(f"""
-DECLARE {foreign_key_uid_var} varchar(8) :=
+DECLARE {foreign_key_uid_var} varchar(20) :=
 (
     SELECT uid FROM {key_constraint.target_table}
     WHERE {primary_key_lookup_clauses}
@@ -269,7 +269,7 @@ CREATE OR REPLACE FUNCTION {function_name}()
     LANGUAGE PLPGSQL
 AS $$
 DECLARE latest_migration_id smallint := (
-    SELECT MAX(migration_history_id)
+    SELECT MAX(id)
     FROM lamindb_historymigrationstate
 );
 DECLARE table_id smallint := (
@@ -282,7 +282,7 @@ DECLARE history_triggers_locked bool := (SELECT EXISTS(SELECT locked FROM lamind
 {" ".join(foreign_key_uid_variables)}
 DECLARE row_data jsonb;
 DECLARE event_type int2;
-DECLARE record_uid varchar;
+DECLARE record_uid varchar(20);
 
 BEGIN
     IF NOT history_triggers_locked THEN
@@ -303,7 +303,7 @@ BEGIN
         END IF;
 
         INSERT INTO lamindb_history
-            (id, migration_history_id, table_id, record_uid, record_data, event_type, created_at)
+            (id, history_migration_state_id, table_id, record_uid, record_data, event_type, created_at)
         VALUES
             (gen_random_uuid(), latest_migration_id, table_id, record_uid, row_data, event_type, now());
     END IF;

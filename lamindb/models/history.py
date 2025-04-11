@@ -38,13 +38,13 @@ class History(models.Model):
     """Stores the edit history for all LaminDB tables."""
 
     seqno = models.AutoField(primary_key=True)
-    migration_history_id = models.ForeignKey(
+    history_migration_state = models.ForeignKey(
         HistoryMigrationState, on_delete=models.PROTECT
     )
-    table_id = models.ForeignKey(HistoryTableState, on_delete=models.PROTECT)
+    table = models.ForeignKey(HistoryTableState, on_delete=models.PROTECT)
     id = models.UUIDField()
     # Many-to-many tables don't have row UIDs, so this needs to be nullable.
-    record_uid = models.CharField(max_length=8, null=True)
+    record_uid = models.CharField(max_length=20, null=True)
     record_data = models.JSONField(null=True)
     event_type = models.PositiveSmallIntegerField()
     created_at = models.DateTimeField()
