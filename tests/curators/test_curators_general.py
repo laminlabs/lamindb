@@ -150,14 +150,12 @@ def test_pandera_dataframe_schema(
     # extra column is fine
     ln.curators.DataFrameCurator(df_extra_column, schema=schema_minimal_set).validate()
 
-    # minimal_set=False
+    # minimal_set=False, maximal_set=True
     with pytest.raises(ValidationError):
         ln.curators.DataFrameCurator(
-            df_extra_column, schema=schema_maximal_set
+            df_extra_column,
+            schema=schema_maximal_set,  # extra column is not allowed
         ).validate()
-    ln.curators.DataFrameCurator(
-        df_missing_sample_type_column, schema=schema_maximal_set
-    ).validate()
 
     # ordered_set=True
     with pytest.raises(ValidationError):
@@ -168,7 +166,7 @@ def test_pandera_dataframe_schema(
     # default=True (require) for a single feature when minimal_set=False
     # note this modifies the "sample_type" feature to be required
     schema_optional_sample_name = ln.Schema(
-        name="my-schema minimal_set require sample_type",
+        name="my-schema optional sample_name",
         features=[
             ln.Feature(name="sample_id", dtype=str).save(),
             ln.Feature(name="sample_name", dtype=str).save().with_config(optional=True),
@@ -181,7 +179,7 @@ def test_pandera_dataframe_schema(
             df_missing_sample_type_column,
             schema=schema_optional_sample_name,
         ).validate()
-    # missing a optional column is fine
+    # missing optional column "sample_name" is fine
     ln.curators.DataFrameCurator(
         df_missing_sample_name_column, schema=schema_optional_sample_name
     ).validate()

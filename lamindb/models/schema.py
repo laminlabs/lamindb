@@ -325,6 +325,7 @@ class Schema(Record, CanCurate, TracksRun):
         maximal_set: bool = kwargs.pop("maximal_set", False)
         slot: str | None = kwargs.pop("slot", None)
         coerce_dtype: bool | None = kwargs.pop("coerce_dtype", None)
+        optional = Feature.objects.none()
 
         if kwargs:
             raise ValueError(
@@ -343,7 +344,9 @@ class Schema(Record, CanCurate, TracksRun):
                 itype = itype_compare
             n_features = len(features)
             if features_registry == Feature:
-                [f for f in features if hasattr(f, "optional") and f.optional]
+                optional = [
+                    f for f in features if hasattr(f, "optional") and f.optional
+                ]
         else:
             n_features = -1
         if dtype is None:
@@ -387,6 +390,7 @@ class Schema(Record, CanCurate, TracksRun):
             logger.important(f"returning existing schema with same hash: {schema}")
             init_self_from_db(self, schema)
             update_attributes(self, validated_kwargs)
+            self.optional = optional
             return None
         self._components: dict[str, Schema] = {}
         if features:
@@ -401,7 +405,7 @@ class Schema(Record, CanCurate, TracksRun):
             self._slots = components
         validated_kwargs["uid"] = ids.base62_20()
         super().__init__(**validated_kwargs)
-        self.optional = Feature.objects.none()
+        self.optional = optional
 
     @classmethod
     def from_values(  # type: ignore
@@ -591,9 +595,8 @@ class Schema(Record, CanCurate, TracksRun):
     def optional(self) -> QuerySet:
         """Optional features."""
         if self._aux is not None and "af" in self._aux and "1" in self._aux["af"]:  # type: ignore
-            feature_uids = self._aux["af"]["1"]
             return (
-                self.members.filter(uid__in=feature_uids)
+                self.members.filter(uid__in=self._aux["af"]["1"])
                 .order_by("links_schema__id")
                 .all()
             )

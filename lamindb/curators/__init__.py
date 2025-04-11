@@ -386,7 +386,7 @@ class DataFrameCurator(Curator):
                     optional=feature.uid in optional_feature_uids
                 )
                 required = (
-                    feature.optional
+                    not feature.optional
                     if feature.optional is not None
                     else schema.minimal_set
                 )
