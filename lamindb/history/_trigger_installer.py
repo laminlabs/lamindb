@@ -5,11 +5,12 @@ from dataclasses import dataclass
 from typing import Literal
 
 from django.apps import apps
+from django.db import transaction
 from django.db.backends.base.base import BaseDatabaseWrapper
 from django.db.backends.utils import CursorWrapper
 from lamin_utils import logger
 
-from lamindb.models.history import HistoryLock
+from lamindb.models.history import HistoryLock, HistoryTableState
 
 
 class HistoryEventTypes(enum.Enum):
@@ -25,6 +26,8 @@ class HistoryEventTypes(enum.Enum):
 EXCLUDED_TABLES = [
     "lamindb_history",
     "lamindb_historylock",
+    "lamindb_historytablestate",
+    "lamindb_historymigrationstate",
     "django_content_type",
     "django_migrations",
 ]
@@ -35,47 +38,90 @@ class HistoryRecordingTriggerInstaller(ABC):
 
     def __init__(self, connection: BaseDatabaseWrapper):
         self.connection = connection
-        self._cursor = None
-
-    @property
-    def cursor(self) -> CursorWrapper:
-        if self._cursor is None:
-            self._cursor = self.connection.cursor()
-
-        return self._cursor
 
     @abstractmethod
-    def install_triggers(self, table: str):
+    def install_triggers(self, table: str, cursor: CursorWrapper):
         raise NotImplementedError()
 
     @abstractmethod
-    def get_tables_with_installed_triggers(self) -> set[str]:
+    def get_tables_with_installed_triggers(self, cursor: CursorWrapper) -> set[str]:
         raise NotImplementedError()
+
+    def _update_history_table_state(self, tables: set[str]):
+        existing_tables = set(
+            HistoryTableState.objects.filter(table_name__in=tables).values_list(
+                "table_name", flat=True
+            )
+        )
+
+        table_states_to_add = [
+            HistoryTableState(table_name=t, backfilled=False)
+            for t in tables
+            if tables not in existing_tables
+        ]
+
+        HistoryTableState.objects.bulk_create(table_states_to_add)
+
+    def _update_migration_state(self, cursor: CursorWrapper):
+        cursor.execute("""
+WITH
+-- Get current migration state
+current_state AS (
+    SELECT jsonb_agg(t) AS state FROM (
+        SELECT
+            MAX(CAST(SUBSTRING(name FROM '^([0-9]+)_') AS INTEGER)) as migration_id,
+            app
+        FROM django_migrations
+        GROUP BY app
+    ) t
+),
+-- Get latest stored state
+latest_state AS (
+    SELECT migration_history_id AS state
+    FROM lamindb_historymigrationstate
+    ORDER BY id DESC
+    LIMIT 1
+)
+INSERT INTO lamindb_historymigrationstate (migration_history_id)
+SELECT current_state.state
+FROM current_state
+WHERE NOT EXISTS (
+    SELECT 1 FROM latest_state WHERE latest_state.state = current_state.state
+)
+AND current_state.state IS NOT NULL;
+""")
 
     def update_history_triggers(self, update_all: bool = False):
-        # Ensure that the history lock exists
-        HistoryLock.load()
+        with transaction.atomic():
+            # Ensure that the history lock exists
+            HistoryLock.load()
+            tables = self._get_db_tables()
+            self._update_history_table_state(tables)
 
-        tables = self._get_db_tables()
+            cursor = self.connection.cursor()
 
-        tables_with_installed_triggers = self.get_tables_with_installed_triggers()
-        tables_missing_triggers = tables.difference(tables_with_installed_triggers)
+            self._update_migration_state(cursor)
 
-        if update_all:
-            tables_to_update = tables
-        else:
-            tables_to_update = tables_missing_triggers
+            tables_with_installed_triggers = self.get_tables_with_installed_triggers(
+                cursor
+            )
+            tables_missing_triggers = tables.difference(tables_with_installed_triggers)
 
-        for table in tables_to_update:
-            if table not in EXCLUDED_TABLES:
-                logger.info(f"Installing history recording triggers for {table}")
-                self.install_triggers(table)
+            if update_all:
+                tables_to_update = tables
+            else:
+                tables_to_update = tables_missing_triggers
+
+            for table in tables_to_update:
+                if table not in EXCLUDED_TABLES:
+                    logger.info(f"Installing history recording triggers for {table}")
+                    self.install_triggers(table, cursor)
 
     def _get_db_tables(self) -> set[str]:
         """Get the schema and table names for all tables in the database for which we might want to track history."""
         all_models = apps.get_models()
 
-        tables = set()
+        tables: set[str] = set()
 
         for model in all_models:
             # Record the model's underlying table, as well as
@@ -110,8 +156,10 @@ class PostgresHistoryRecordingTriggerInstaller(HistoryRecordingTriggerInstaller)
     def __init__(self, connection: BaseDatabaseWrapper):
         super().__init__(connection=connection)
 
-    def _get_table_key_constraints(self, table: str) -> list[KeyConstraint]:
-        self.cursor.execute(
+    def _get_table_key_constraints(
+        self, table: str, cursor: CursorWrapper
+    ) -> list[KeyConstraint]:
+        cursor.execute(
             """
 SELECT
     tc.constraint_type,
@@ -131,22 +179,22 @@ WHERE
             (table,),
         )
 
-        keys = self.cursor.fetchall()
+        keys = cursor.fetchall()
 
         return [
             KeyConstraint(constraint_type=k[0], source_column=k[1], target_table=k[2])
             for k in keys
         ]
 
-    def _get_column_names(self, table: str) -> set[str]:
-        self.cursor.execute(
+    def _get_column_names(self, table: str, cursor: CursorWrapper) -> set[str]:
+        cursor.execute(
             "SELECT column_name FROM information_schema.columns WHERE TABLE_NAME = %s ORDER BY ordinal_position",
             (table,),
         )
 
-        return {r[0] for r in self.cursor.fetchall()}
+        return {r[0] for r in cursor.fetchall()}
 
-    def install_triggers(self, table: str):
+    def install_triggers(self, table: str, cursor: CursorWrapper):
         if not self.VALID_TABLE_NAME_REGEX.match(table):
             raise ValueError(
                 f"Table name '{table}' doesn't look like a valid PostgreSQL table name"
@@ -157,7 +205,7 @@ WHERE
 
         function_name = f"lamindb_history_{table}_fn"
 
-        key_constraints = self._get_table_key_constraints(table)
+        key_constraints = self._get_table_key_constraints(table, cursor)
 
         primary_keys: set[str] = {
             c.source_column
@@ -170,7 +218,7 @@ WHERE
             if c.constraint_type == "FOREIGN KEY"
         }
 
-        table_columns = self._get_column_names(table)
+        table_columns = self._get_column_names(table, cursor)
 
         json_object_parts: list[str] = []
         foreign_key_uid_variables = []
@@ -179,7 +227,9 @@ WHERE
             if column in foreign_key_constraints:
                 key_constraint = foreign_key_constraints[column]
 
-                if "uid" not in self._get_column_names(key_constraint.target_table):
+                if "uid" not in self._get_column_names(
+                    key_constraint.target_table, cursor
+                ):
                     raise ValueError(
                         f"Table '{table}' has a foreign key to '{key_constraint.target_table}' "
                         "that doesn't have a 'uid' column, so it's not clear what we need to "
@@ -202,20 +252,21 @@ WHERE
             else:
                 json_object_parts.extend([f"'{column}'", f"NEW.{column}"])
 
-        self.cursor.execute(
+        cursor.execute(
             f"""
 CREATE OR REPLACE FUNCTION {function_name}()
     RETURNS TRIGGER
     LANGUAGE PLPGSQL
 AS $$
-DECLARE latest_migration jsonb := (
-SELECT jsonb_agg(t) FROM (
-    SELECT
-        MAX(CAST(SUBSTRING(name FROM '^([0-9]+)_') AS INTEGER)) as migration_id,
-        app
-    FROM django_migrations
-    GROUP BY app
-) t
+DECLARE latest_migration_id smallint := (
+    SELECT MAX(migration_history_id)
+    FROM lamindb_historymigrationstate
+);
+DECLARE table_id smallint := (
+    SELECT id
+    FROM lamindb_historytablestate
+    WHERE table_name='{table}'
+    LIMIT 1
 );
 DECLARE history_triggers_locked bool := (SELECT EXISTS(SELECT locked FROM lamindb_historylock LIMIT 1) AND (SELECT locked FROM lamindb_historylock LIMIT 1));
 {" ".join(foreign_key_uid_variables)}
@@ -241,9 +292,9 @@ BEGIN
         END IF;
 
         INSERT INTO lamindb_history
-            (id, migration_history_id, table_name, record_uid, record_data, event_type, created_at)
+            (id, migration_history_id, table_id, record_uid, record_data, event_type, created_at)
         VALUES
-            (gen_random_uuid(), latest_migration, '{table}', record_uid, row_data, event_type, now());
+            (gen_random_uuid(), latest_migration_id, table_id, record_uid, row_data, event_type, now());
     END IF;
     RETURN NEW;
 END;
@@ -256,15 +307,15 @@ $$
                 f"lamindb_history_{table}_{history_event_type.name.lower()}_tr"
             )
 
-            self.cursor.execute(f"""
+            cursor.execute(f"""
             CREATE OR REPLACE TRIGGER {trigger_name}
             AFTER {history_event_type.name}
             ON {table}
             FOR EACH ROW EXECUTE PROCEDURE {function_name}();
             """)
 
-    def get_tables_with_installed_triggers(self) -> set[str]:
-        self.cursor.execute("""
+    def get_tables_with_installed_triggers(self, cursor: CursorWrapper) -> set[str]:
+        cursor.execute("""
 SELECT
     DISTINCT event_object_table
 FROM information_schema.triggers
@@ -272,7 +323,7 @@ WHERE trigger_name like 'lamindb_history_%';
 """)
         tables = set()
 
-        rows = self.cursor.fetchall()
+        rows = cursor.fetchall()
 
         for row in rows:
             table_name = row[0]
@@ -285,13 +336,13 @@ class SQLiteHistoryRecordingTriggerInstaller(HistoryRecordingTriggerInstaller):
     def __init__(self, connection: BaseDatabaseWrapper):
         super().__init__(connection=connection)
 
-    def get_tables_with_installed_triggers(self) -> set[str]:
+    def get_tables_with_installed_triggers(self, cursor: CursorWrapper) -> set[str]:
         logger.warning(
             "No triggers are installed since we're running against a SQLite backend"
         )
         return set()
 
-    def install_triggers(self, table: str):
+    def install_triggers(self, table: str, cursor: CursorWrapper):
         logger.warning(
             f"Skipping trigger installation for table {'.'.join(table)} "
             "because we're running against a SQLite backend"
