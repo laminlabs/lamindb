@@ -30,6 +30,15 @@ EXCLUDED_TABLES = [
     "lamindb_historymigrationstate",
     "django_content_type",
     "django_migrations",
+    # Skipping these temporarily
+    "lamindb_schemaparam",
+    "lamindb_artifactparamvalue",
+    "lamindb_param",
+    "lamindb_paramvalue",
+    "lamindb_runparamvalue",
+    "lamindb_rundata",
+    "lamindb_artifactfeaturevalue",
+    "lamindb_flextabledata",
 ]
 
 
@@ -114,7 +123,9 @@ AND current_state.state IS NOT NULL;
 
             for table in tables_to_update:
                 if table not in EXCLUDED_TABLES:
-                    logger.info(f"Installing history recording triggers for {table}")
+                    logger.important(
+                        f"Installing history recording triggers for {table}"
+                    )
                     self.install_triggers(table, cursor)
 
     def _get_db_tables(self) -> set[str]:
@@ -242,18 +253,17 @@ WHERE
                 foreign_key_uid_var = f"fkey_{column}_uid"
 
                 foreign_key_uid_variables.append(f"""
-                    DECLARE {foreign_key_uid_var} varchar(8) :=
-                    (
-                      SELECT uid FROM {key_constraint.target_table}
-                      WHERE {primary_key_lookup_clauses}
-                    );
+DECLARE {foreign_key_uid_var} varchar(8) :=
+(
+    SELECT uid FROM {key_constraint.target_table}
+    WHERE {primary_key_lookup_clauses}
+);
                     """)  # noqa: S608
                 json_object_parts.extend([f"'{column}._uid'", foreign_key_uid_var])
             else:
                 json_object_parts.extend([f"'{column}'", f"NEW.{column}"])
 
-        cursor.execute(
-            f"""
+        create_trigger_function_command = f"""
 CREATE OR REPLACE FUNCTION {function_name}()
     RETURNS TRIGGER
     LANGUAGE PLPGSQL
@@ -270,13 +280,14 @@ DECLARE table_id smallint := (
 );
 DECLARE history_triggers_locked bool := (SELECT EXISTS(SELECT locked FROM lamindb_historylock LIMIT 1) AND (SELECT locked FROM lamindb_historylock LIMIT 1));
 {" ".join(foreign_key_uid_variables)}
+DECLARE row_data jsonb;
+DECLARE event_type int2;
+DECLARE record_uid varchar;
+
 BEGIN
     IF NOT history_triggers_locked THEN
-        row_data jsonb;
-        event_type int2;
-        record_uid varchar(8);
 
-        IF TG_OP = 'DELETE' THEN
+        IF (TG_OP = 'DELETE') THEN
             row_data := NULL;
             record_uid := {"OLD.uid" if "uid" in table_columns else "NULL"};
             event_type := {HistoryEventTypes.DELETE.value};
@@ -284,11 +295,11 @@ BEGIN
             row_data := jsonb_build_object({", ".join(json_object_parts)});
             record_uid := {"NEW.uid" if "uid" in table_columns else "NULL"};
 
-            IF TG_OP = 'INSERT' THEN
+            IF (TG_OP = 'INSERT') THEN
                 event_type := {HistoryEventTypes.INSERT.value};
-            ELSE IF TG_OP = 'UPDATE' THEN
+            ELSIF (TG_OP = 'UPDATE') THEN
                 event_type := {HistoryEventTypes.UPDATE.value};
-            END;
+            END IF;
         END IF;
 
         INSERT INTO lamindb_history
@@ -300,7 +311,8 @@ BEGIN
 END;
 $$
 """  # noqa: S608
-        )
+        logger.debug(create_trigger_function_command)
+        cursor.execute(create_trigger_function_command)
 
         for history_event_type in HistoryEventTypes:
             trigger_name = (
