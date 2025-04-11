@@ -19,8 +19,15 @@ class HistoryEventTypes(enum.Enum):
 
 
 # Certain tables must be excluded from history triggers to avoid
-# creating infinite loops of triggering.
-EXCLUDED_TABLES = ["lamindb_history", "lamindb_historylock"]
+# creating infinite loops of triggering. Others we're excluding
+# because their state is managed by LaminDB's underlying Django
+# machinery.
+EXCLUDED_TABLES = [
+    "lamindb_history",
+    "lamindb_historylock",
+    "django_content_type",
+    "django_migrations",
+]
 
 
 class HistoryRecordingTriggerInstaller(ABC):
