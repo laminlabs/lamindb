@@ -1,6 +1,8 @@
 import enum
 import re
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Literal
 
 from django.apps import apps
 from django.db.backends.base.base import BaseDatabaseWrapper
@@ -26,6 +28,14 @@ class HistoryRecordingTriggerInstaller(ABC):
 
     def __init__(self, connection: BaseDatabaseWrapper):
         self.connection = connection
+        self._cursor = None
+
+    @property
+    def cursor(self) -> CursorWrapper:
+        if self._cursor is None:
+            self._cursor = self.connection.cursor()
+
+        return self._cursor
 
     @abstractmethod
     def install_triggers(self, table: str):
@@ -75,6 +85,15 @@ class HistoryRecordingTriggerInstaller(ABC):
         return {t for t in tables if not t.startswith("django_")}
 
 
+@dataclass
+class KeyConstraint:
+    """Simple encapsulation of one of a table's key constraints."""
+
+    constraint_type: Literal["PRIMARY KEY", "FOREIGN KEY"]
+    source_column: str
+    target_table: str
+
+
 class PostgresHistoryRecordingTriggerInstaller(HistoryRecordingTriggerInstaller):
     # Since we're creating triggers and functions based on table names,
     # it's probably a good idea to check that those table names are valid
@@ -84,85 +103,41 @@ class PostgresHistoryRecordingTriggerInstaller(HistoryRecordingTriggerInstaller)
     def __init__(self, connection: BaseDatabaseWrapper):
         super().__init__(connection=connection)
 
-    def _install_trigger(
-        self,
-        table: str,
-        history_event_type: HistoryEventTypes,
-        function_body_sql: str,
-        cursor: CursorWrapper,
-    ):
-        function_name = f"lamindb_history_{table}_{history_event_type.name.lower()}_fn"
-        trigger_name = f"lamindb_history_{table}_{history_event_type.name.lower()}_tr"
-
-        cursor.execute(
-            f"""
-CREATE OR REPLACE FUNCTION {function_name}()
-    RETURNS TRIGGER
-    LANGUAGE PLPGSQL
-AS $$
-DECLARE latest_migration int := (SELECT
-        CAST(SUBSTRING(name FROM '^(\\d+)') AS INTEGER)
-    FROM django_migrations
-    WHERE app = 'lamindb'
-    ORDER BY CAST(SUBSTRING(name FROM '^(\\d+)') AS INTEGER) DESC
-    LIMIT 1);
-DECLARE history_triggers_locked bool := (SELECT EXISTS(SELECT locked FROM lamindb_historylock LIMIT 1) AND (SELECT locked FROM lamindb_historylock LIMIT 1));
-BEGIN
-    IF NOT history_triggers_locked THEN
-        {function_body_sql}
-    END IF;
-    RETURN NEW;
-END;
-$$
-""",  # noqa: S608
-            (table, history_event_type.value),  # noqa: S608
+    def _get_table_key_constraints(self, table: str) -> list[KeyConstraint]:
+        self.cursor.execute(
+            """
+SELECT
+    tc.constraint_type,
+    kcu.column_name AS source_column,
+    ccu.table_name AS target_table
+FROM
+    information_schema.table_constraints AS tc
+    JOIN information_schema.key_column_usage AS kcu
+      ON tc.constraint_name = kcu.constraint_name
+      AND tc.table_schema = kcu.table_schema
+    JOIN information_schema.constraint_column_usage AS ccu
+      ON ccu.constraint_name = tc.constraint_name
+      AND ccu.table_schema = tc.table_schema
+WHERE
+    tc.table_name = %s and constraint_type in ('PRIMARY KEY', 'FOREIGN KEY');
+""",
+            (table,),
         )
 
-        cursor.execute(f"""
-        CREATE OR REPLACE TRIGGER {trigger_name}
-        AFTER {history_event_type.name}
-        ON {table}
-        FOR EACH ROW EXECUTE PROCEDURE {function_name}();
-        """)
+        keys = self.cursor.fetchall()
 
-    def _install_insert_trigger(self, table: str, cursor: CursorWrapper) -> str:
-        return self._install_trigger(
-            table=table,
-            history_event_type=HistoryEventTypes.INSERT,
-            function_body_sql="""
-        INSERT INTO lamindb_history
-        (id, migration_history_id, table_name, record_id, record_data, event_type, created_at)
-        VALUES
-        (gen_random_uuid(), latest_migration, %s, NEW.id, row_to_json(NEW), %s, now());
-        """,
-            cursor=cursor,
+        return [
+            KeyConstraint(constraint_type=k[0], source_column=k[1], target_table=k[2])
+            for k in keys
+        ]
+
+    def _get_column_names(self, table: str) -> set[str]:
+        self.cursor.execute(
+            "SELECT column_name FROM information_schema.columns WHERE TABLE_NAME = %s ORDER BY ordinal_position",
+            (table,),
         )
 
-    def _install_update_trigger(self, table: str, cursor: CursorWrapper):
-        return self._install_trigger(
-            table=table,
-            history_event_type=HistoryEventTypes.UPDATE,
-            function_body_sql="""
-        INSERT INTO lamindb_history
-        (id, migration_history_id, table_name, record_id, record_data, event_type, created_at)
-        VALUES
-        (gen_random_uuid(), latest_migration, %s, NEW.id, row_to_json(NEW), %s, now());
-        """,
-            cursor=cursor,
-        )
-
-    def _install_delete_trigger(self, table: str, cursor: CursorWrapper):
-        return self._install_trigger(
-            table=table,
-            history_event_type=HistoryEventTypes.DELETE,
-            function_body_sql="""
-        INSERT INTO lamindb_history
-        (id, migration_history_id, table_name, record_id, record_data, event_type, created_at)
-        VALUES
-        (gen_random_uuid(), latest_migration, %s, OLD.id, NULL, %s, now());
-        """,
-            cursor=cursor,
-        )
+        return {r[0] for r in self.cursor.fetchall()}
 
     def install_triggers(self, table: str):
         if not self.VALID_TABLE_NAME_REGEX.match(table):
@@ -170,24 +145,119 @@ $$
                 f"Table name '{table}' doesn't look like a valid PostgreSQL table name"
             )
 
-        cursor = self.connection.cursor()
-
-        # TODO: should we be extracting the primary key from info schema as well?
-        # The assumption that all tables are keyed off 'id' seems brittle.
-
         # TODO: migration_history_id is only capturing the latest migration from
         # the `lamindb` app, and isn't taking bionty, etc into account.
 
-        self._install_insert_trigger(table, cursor)
-        self._install_update_trigger(table, cursor)
-        self._install_delete_trigger(table, cursor)
+        function_name = f"lamindb_history_{table}_fn"
 
-        print("Trigger functions installed")
+        key_constraints = self._get_table_key_constraints(table)
+
+        primary_keys: set[str] = {
+            c.source_column
+            for c in key_constraints
+            if c.constraint_type == "PRIMARY KEY"
+        }
+        foreign_key_constraints: dict[str, KeyConstraint] = {
+            c.source_column: c
+            for c in key_constraints
+            if c.constraint_type == "FOREIGN KEY"
+        }
+
+        table_columns = self._get_column_names(table)
+
+        json_object_parts: list[str] = []
+        foreign_key_uid_variables = []
+
+        for column in table_columns.difference(primary_keys):
+            if column in foreign_key_constraints:
+                key_constraint = foreign_key_constraints[column]
+
+                if "uid" not in self._get_column_names(key_constraint.target_table):
+                    raise ValueError(
+                        f"Table '{table}' has a foreign key to '{key_constraint.target_table}' "
+                        "that doesn't have a 'uid' column, so it's not clear what we need to "
+                        f"serialize when storing {table}'s history"
+                    )
+
+                primary_key_lookup_clauses = " AND ".join(
+                    f"{c} = NEW.{c}" for c in primary_keys
+                )
+                foreign_key_uid_var = f"fkey_{column}_uid"
+
+                foreign_key_uid_variables.append(f"""
+                    DECLARE {foreign_key_uid_var} varchar(8) :=
+                    (
+                      SELECT uid FROM {key_constraint.target_table}
+                      WHERE {primary_key_lookup_clauses}
+                    );
+                    """)  # noqa: S608
+                json_object_parts.extend([f"'{column}._uid'", foreign_key_uid_var])
+            else:
+                json_object_parts.extend([f"'{column}'", f"NEW.{column}"])
+
+        self.cursor.execute(
+            f"""
+CREATE OR REPLACE FUNCTION {function_name}()
+    RETURNS TRIGGER
+    LANGUAGE PLPGSQL
+AS $$
+DECLARE latest_migration jsonb := (
+SELECT jsonb_agg(t) FROM (
+    SELECT
+        MAX(CAST(SUBSTRING(name FROM '^([0-9]+)_') AS INTEGER)) as migration_id,
+        app
+    FROM django_migrations
+    GROUP BY app
+) t
+);
+DECLARE history_triggers_locked bool := (SELECT EXISTS(SELECT locked FROM lamindb_historylock LIMIT 1) AND (SELECT locked FROM lamindb_historylock LIMIT 1));
+{" ".join(foreign_key_uid_variables)}
+BEGIN
+    IF NOT history_triggers_locked THEN
+        row_data jsonb;
+        event_type int2;
+        record_uid varchar(8);
+
+        IF TG_OP = 'DELETE' THEN
+            row_data := NULL;
+            record_uid := {"OLD.uid" if "uid" in table_columns else "NULL"};
+            event_type := {HistoryEventTypes.DELETE.value};
+        ELSE
+            row_data := jsonb_build_object({", ".join(json_object_parts)});
+            record_uid := {"NEW.uid" if "uid" in table_columns else "NULL"};
+
+            IF TG_OP = 'INSERT' THEN
+                event_type := {HistoryEventTypes.INSERT.value};
+            ELSE IF TG_OP = 'UPDATE' THEN
+                event_type := {HistoryEventTypes.UPDATE.value};
+            END;
+        END IF;
+
+        INSERT INTO lamindb_history
+            (id, migration_history_id, table_name, record_uid, record_data, event_type, created_at)
+        VALUES
+            (gen_random_uuid(), latest_migration, '{table}', record_uid, row_data, event_type, now());
+    END IF;
+    RETURN NEW;
+END;
+$$
+"""  # noqa: S608
+        )
+
+        for history_event_type in HistoryEventTypes:
+            trigger_name = (
+                f"lamindb_history_{table}_{history_event_type.name.lower()}_tr"
+            )
+
+            self.cursor.execute(f"""
+            CREATE OR REPLACE TRIGGER {trigger_name}
+            AFTER {history_event_type.name}
+            ON {table}
+            FOR EACH ROW EXECUTE PROCEDURE {function_name}();
+            """)
 
     def get_tables_with_installed_triggers(self) -> set[str]:
-        cursor = self.connection.cursor()
-
-        cursor.execute("""
+        self.cursor.execute("""
 SELECT
     DISTINCT event_object_table
 FROM information_schema.triggers
@@ -195,7 +265,7 @@ WHERE trigger_name like 'lamindb_history_%';
 """)
         tables = set()
 
-        rows = cursor.fetchall()
+        rows = self.cursor.fetchall()
 
         for row in rows:
             table_name = row[0]

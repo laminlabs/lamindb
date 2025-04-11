@@ -5,13 +5,14 @@ class History(models.Model):
     """Stores the edit history for all LaminDB tables."""
 
     seqno = models.AutoField(primary_key=True)
-    migration_history_id = models.BigIntegerField()
+    migration_history_id = models.JSONField()
     id = models.UUIDField()
-    table_name = models.CharField(max_length=100)
-    record_id = models.BigIntegerField()
+    table_name = models.CharField(max_length=255)
+    # Many-to-many tables don't have row UIDs, so this needs to be nullable.
+    record_uid = models.CharField(max_length=8, null=True)
     record_data = models.JSONField(null=True)
     event_type = models.PositiveSmallIntegerField()
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField()
 
     class Meta:
         verbose_name = "Edit History"
