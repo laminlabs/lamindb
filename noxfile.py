@@ -151,19 +151,26 @@ def install_ci(session, group):
     elif group == "permissions":
         run(
             session,
+            "uv pip install --system --no-deps ./laminhub/rest-hub/laminhub_rest/hubmodule",
+        )
+        # check that just installing psycopg (psycopg3) doesn't break fine-grained access
+        # comment out for now, this is also tested in lamindb-setup hub-local
+        # run(session, "uv pip install --system psycopg[binary]")
+
+    extras = "," + extras if extras != "" else extras
+    run(session, f"uv pip install --system -e .[dev{extras}]")
+
+    if group == "permissions":
+        # have to install after lamindb installation
+        # because lamindb downgrades django
+        run(
+            session,
             "uv pip install --system sentry_sdk line_profiler setuptools wheel==0.45.1 flit",
         )
         run(
             session,
             "uv pip install --system -e ./laminhub/rest-hub --no-build-isolation",
         )
-        run(
-            session,
-            "uv pip install --system -e ./laminhub/rest-hub/laminhub_rest/hubmodule",
-        )
-
-    extras = "," + extras if extras != "" else extras
-    run(session, f"uv pip install --system -e .[dev{extras}]")
     # on the release branch, do not use submodules but run with pypi install
     # only exception is the docs group which should always use the submodule
     # to push docs fixes fast
@@ -274,7 +281,9 @@ def test(session, group):
             f"pytest {coverage_args} tests/curators --durations=50",
         )
     elif group == "cli":
-        run(session, f"pytest {coverage_args} ./sub/lamin-cli/tests --durations=50")
+        run(
+            session, f"pytest {coverage_args} ./sub/lamin-cli/tests/core --durations=50"
+        )
     elif group == "permissions":
         run(session, f"pytest {coverage_args} ./tests/permissions")
     # move artifacts into right place
