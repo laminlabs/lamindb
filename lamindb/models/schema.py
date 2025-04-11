@@ -80,6 +80,21 @@ def validate_features(features: list[Record]) -> Record:
     return next(iter(feature_types))  # return value in set of cardinality 1
 
 
+def get_features_config(
+    features: list[Record] | tuple[Record, dict],
+) -> tuple[list[Record], list[tuple[Record, dict]]]:
+    """Get features and their config from the return of feature.with_config."""
+    features_list = []
+    configs = []
+    for feature in features:
+        if isinstance(feature, tuple):
+            features_list.append(feature[0])
+            configs.append(feature)
+        else:
+            features_list.append(feature)
+    return features_list, configs  # type: ignore
+
+
 class Schema(Record, CanCurate, TracksRun):
     """Schemas.
 
@@ -104,9 +119,9 @@ class Schema(Record, CanCurate, TracksRun):
         type: `Schema | None = None` A type.
         is_type: `bool = False` Distinguish types from instances of the type.
         otype: `str | None = None` An object type to define the structure of a composite schema.
-        minimal_set: `bool = True` Whether the schema contains a minimal set of linked features.
+        minimal_set: `bool = True` Whether all features linked to the schema are required.
         ordered_set: `bool = False` Whether features are required to be ordered.
-        maximal_set: `bool = False` If `True`, no additional features are allowed.
+        maximal_set: `bool = False` If `True`, no additional features are allowed to be present in the dataset.
         slot: `str | None = None` The slot name when this schema is used as a component in a
             composite schema.
         coerce_dtype: `bool = False` When True, attempts to coerce values to the specified dtype
@@ -137,23 +152,46 @@ class Schema(Record, CanCurate, TracksRun):
         :meth:`~lamindb.Schema.from_df`
             Create from dataframe columns.
 
-    Examples:
+    Example::
 
-        Create a schema (feature set) from df with types:
+        import lamindb as ln
+        import bionty as bt
+        import pandas as pd
 
-        >>> df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
-        >>> schema = ln.Schema.from_df(df)
+        # Create a schema (feature set) from df with types:
+        df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
+        schema = ln.Schema.from_df(df)
 
-        Create a schema (feature set) from features:
+        # Create a schema (feature set) from features
+        features = [ln.Feature(name=feat, dtype="float").save() for feat in ["feat1", "feat2"]]
+        schema = ln.Schema(features)
 
-        >>> features = [ln.Feature(name=feat, dtype="float").save() for feat in ["feat1", "feat2"]]
-        >>> schema = ln.Schema(features)
+        # Create a schema (feature set) from identifier values
+        schema = ln.Schema.from_values(
+            adata.var["ensemble_id"],
+            field=Gene.ensembl_gene_id,
+            organism="mouse",
+        ).save()
 
-        Create a schema (feature set) from identifier values:
+        # Create a schema with required features
+        schema = ln.Schema(
+            name="my-schema",
+            features=[
+                ln.Feature(name="feat1", dtype=str).save(),
+                ln.Feature(name="feat2", dtype=int).save(),
+                ln.Feature(name="feat3", dtype=bt.CellType).save(),
+            ],
+        ).save()
 
-        >>> import bionty as bt
-        >>> schema = ln.Schema.from_values(adata.var["ensemble_id"], Gene.ensembl_gene_id, organism="mouse").save()
-
+        # Create a schema with an optional feature feat2
+        schema = ln.Schema(
+            name="my-schema",
+            features=[
+                ln.Feature(name="feat1", dtype=str).save(),
+                ln.Feature(name="feat2", dtype=int).save().with_config(optional=True),
+                ln.Feature(name="feat3", dtype=bt.CellType).save(),
+            ],
+        ).save()
     """
 
     class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
@@ -213,20 +251,15 @@ class Schema(Record, CanCurate, TracksRun):
     For a composite schema, the hash of hashes.
     """
     minimal_set: bool = BooleanField(default=True, db_index=True, editable=False)
-    """Deprecated. Use `optional` instead.
-
-    Whether the schema contains a minimal set of linked features (default `True`).
-
-    If `False`, no features are linked to this schema.
-
-    If `True`, features are linked and considered as a minimally required set in validation.
-    """
+    """Whether all features linked to the schema are required (default `True`)."""
     ordered_set: bool = BooleanField(default=False, db_index=True, editable=False)
     """Whether features are required to be ordered (default `False`)."""
     maximal_set: bool = BooleanField(default=False, db_index=True, editable=False)
-    """If `False`, additional features are allowed (default `False`).
+    """Whether all features present in the dataset must be in the schema (default `False`).
 
-    If `True`, the the minimal set is a maximal set and no additional features are allowed.
+    If `False`, additional features are allowed to be present in the dataset.
+
+    If `True`, no additional features are allowed to be present in the dataset.
     """
     components: Schema = ManyToManyField(
         "self", through="SchemaComponent", symmetrical=False, related_name="composites"
@@ -325,7 +358,7 @@ class Schema(Record, CanCurate, TracksRun):
         maximal_set: bool = kwargs.pop("maximal_set", False)
         slot: str | None = kwargs.pop("slot", None)
         coerce_dtype: bool | None = kwargs.pop("coerce_dtype", None)
-        optional = Feature.objects.none()
+        optional_features = []
 
         if kwargs:
             raise ValueError(
@@ -336,6 +369,7 @@ class Schema(Record, CanCurate, TracksRun):
             )
 
         if features:
+            features, configs = get_features_config(features)
             features_registry = validate_features(features)
             itype_compare = features_registry.__get_name_with_module__()
             if itype is not None:
@@ -344,8 +378,10 @@ class Schema(Record, CanCurate, TracksRun):
                 itype = itype_compare
             n_features = len(features)
             if features_registry == Feature:
-                optional = [
-                    f for f in features if hasattr(f, "optional") and f.optional
+                optional_features = [
+                    (config[0], config[1].get("optional"))
+                    for config in configs
+                    if config[1].get("optional") is not None
                 ]
         else:
             n_features = -1
@@ -390,7 +426,7 @@ class Schema(Record, CanCurate, TracksRun):
             logger.important(f"returning existing schema with same hash: {schema}")
             init_self_from_db(self, schema)
             update_attributes(self, validated_kwargs)
-            self.optional = optional
+            self.update_optional(optional_features)
             return None
         self._components: dict[str, Schema] = {}
         if features:
@@ -405,7 +441,7 @@ class Schema(Record, CanCurate, TracksRun):
             self._slots = components
         validated_kwargs["uid"] = ids.base62_20()
         super().__init__(**validated_kwargs)
-        self.optional = optional
+        self.update_optional(optional_features)
 
     @classmethod
     def from_values(  # type: ignore
@@ -435,13 +471,16 @@ class Schema(Record, CanCurate, TracksRun):
         Raises:
             ValidationError: If some values are not valid.
 
-        Examples:
+        Example::
 
-            >>> features = [ln.Feature(name=feat, dtype="str").save() for feat in ["feat11", "feat21"]]
-            >>> schema = ln.Schema.from_values(features)
+            import lamindb as ln
+            import bionty as bt
 
-            >>> genes = ["ENSG00000139618", "ENSG00000198786"]
-            >>> schema = ln.Schema.from_values(features, bt.Gene.ensembl_gene_id, "float")
+            features = [ln.Feature(name=feat, dtype="str").save() for feat in ["feat11", "feat21"]]
+            schema = ln.Schema.from_values(features)
+
+            genes = ["ENSG00000139618", "ENSG00000198786"]
+            schema = ln.Schema.from_values(features, bt.Gene.ensembl_gene_id, "float")
         """
         if not isinstance(field, FieldAttr):
             raise TypeError(
@@ -591,9 +630,8 @@ class Schema(Record, CanCurate, TracksRun):
         self._aux = self._aux or {}
         self._aux.setdefault("af", {})["0"] = value
 
-    @property
-    def optional(self) -> QuerySet:
-        """Optional features."""
+    def get_optional(self) -> QuerySet:
+        """Optional features specified in Schema."""
         if self._aux is not None and "af" in self._aux and "1" in self._aux["af"]:  # type: ignore
             return (
                 self.members.filter(uid__in=self._aux["af"]["1"])
@@ -603,12 +641,18 @@ class Schema(Record, CanCurate, TracksRun):
         else:
             return Feature.objects.none()  # empty QuerySet
 
-    @optional.setter
-    def optional(self, value: list[Record]) -> None:
-        """Set optional features."""
+    def update_optional(self, features: list[tuple[Feature, bool]]) -> None:
+        """Update optional features."""
         self._aux = self._aux or {}
-        if len(value) > 0:
-            self._aux.setdefault("af", {})["1"] = [feature.uid for feature in value]
+        if len(features) > 0:
+            optional_uids = self.get_optional().list("uid")
+            for feature, optional in features:
+                if optional and feature.uid not in optional_uids:
+                    if "1" not in self._aux.setdefault("af", {}):
+                        self._aux["af"]["1"] = []
+                    self._aux.setdefault("af", {})["1"].append(feature.uid)
+                elif not optional and feature.uid in optional_uids:
+                    self._aux["af"]["1"].remove(feature.uid)
 
     # @property
     # def index_feature(self) -> None | Feature:
@@ -645,7 +689,9 @@ class Schema(Record, CanCurate, TracksRun):
     def slots(self) -> dict[str, Schema]:
         """Slots.
 
-        Examples::
+        Example::
+
+            import lamindb as ln
 
             # define composite schema
             anndata_schema = ln.Schema(

@@ -454,7 +454,6 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         self.default_value = default_value
         self.nullable = nullable
         self.coerce_dtype = coerce_dtype
-        self.optional: bool | None = None
         dtype_str = kwargs.pop("dtype", None)
         if cat_filters:
             assert "|" not in dtype_str  # noqa: S101
@@ -500,10 +499,9 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         super().save(*args, **kwargs)
         return self
 
-    def with_config(self, optional: bool | None = None) -> Feature:
-        """Set required flag."""
-        self.optional = optional
-        return self
+    def with_config(self, optional: bool | None = None) -> tuple[Feature, dict]:
+        """Pass addtional configurations to the schema."""
+        return self, {"optional": optional}
 
     @property
     def default_value(self) -> Any:

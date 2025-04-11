@@ -163,8 +163,7 @@ def test_pandera_dataframe_schema(
             df_changed_order, schema=schema_ordered_set
         ).validate()
 
-    # default=True (require) for a single feature when minimal_set=False
-    # note this modifies the "sample_type" feature to be required
+    # optional=True for a single feature
     schema_optional_sample_name = ln.Schema(
         name="my-schema optional sample_name",
         features=[
@@ -184,6 +183,46 @@ def test_pandera_dataframe_schema(
         df_missing_sample_name_column, schema=schema_optional_sample_name
     ).validate()
 
+    # when minimal_set=False, set a single feature to be required via optional=False
+    schema_require_sample_type = ln.Schema(
+        name="my-schema require sample_type",
+        features=[
+            ln.Feature(name="sample_id", dtype=str).save(),
+            ln.Feature(name="sample_name", dtype=str).save(),
+            ln.Feature(name="sample_type", dtype=str)
+            .save()
+            .with_config(optional=False),  # required
+        ],
+        minimal_set=False,
+    ).save()
+    # missing required "sample_type" column raises an error
+    with pytest.raises(ValidationError):
+        ln.curators.DataFrameCurator(
+            df_missing_sample_type_column,
+            schema=schema_require_sample_type,
+        ).validate()
+
     # clean up
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
+
+
+def test_schema_update_optionals():
+    schema = ln.Schema(
+        name="my-schema",
+        features=[
+            ln.Feature(name="sample_id", dtype=str).save(),
+            ln.Feature(name="sample_name", dtype=str).save().with_config(optional=True),
+            ln.Feature(name="sample_type", dtype=str).save(),
+        ],
+    ).save()
+    assert schema.get_optional().list("name") == ["sample_name"]
+
+    # set sample_name to required, sample_type to optional
+    schema.update_optional(
+        [
+            (ln.Feature.get(name="sample_name"), False),
+            (ln.Feature.get(name="sample_type"), True),
+        ]
+    )
+    assert schema.get_optional().list("name") == ["sample_type"]
