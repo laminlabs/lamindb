@@ -378,11 +378,15 @@ class DataFrameCurator(Curator):
         super().__init__(dataset=dataset, schema=schema)
         categoricals = {}
         if schema.n > 0:
-            # whether all the columns are required
-            required = schema.minimal_set
             # populate features
             pandera_columns = {}
+            optional_feature_uids = schema.get_optional().list("uid")
             for feature in schema.features.all():
+                required = (
+                    feature.uid not in optional_feature_uids
+                    if schema.minimal_set
+                    else feature.uid in optional_feature_uids
+                )
                 if feature.dtype in {"int", "float", "num"}:
                     dtype = (
                         self._dataset[feature.name].dtype
