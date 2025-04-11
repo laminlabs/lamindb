@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import builtins
 import hashlib
+import os
 import signal
 import sys
 import threading
@@ -314,6 +315,8 @@ class Context:
         if instance_settings.dialect == "postgresql" and "read" in instance_settings.db:
             logger.warning("skipping track(), connected in read-only mode")
             return None
+        if project is None:
+            project = os.environ.get("LAMIN_CURRENT_PROJECT")
         if project is not None:
             project_record = Project.filter(
                 Q(name=project) | Q(uid=project)
@@ -532,27 +535,28 @@ class Context:
                 for aux_transform in transforms:
                     if aux_transform.key in self._path.as_posix():
                         key = aux_transform.key
+                        # first part of the if condition: no version bump, second part: version bump
                         if (
-                            # has to be the same user
-                            aux_transform.created_by_id == ln_setup.settings.user.id
-                            and (
-                                # if the transform source code wasn't yet saved
+                            # if a user hasn't yet saved the transform source code, needs to be same user
+                            (
                                 aux_transform.source_code is None
-                                # if the transform source code is unchanged
-                                # if aux_transform.type == "notebook", we anticipate the user makes changes to the notebook source code
-                                # in an interactive session, hence we *pro-actively bump* the version number by setting `revises`
-                                # in the second part of the if condition even though the source code is unchanged at point of running track()
-                                or (
-                                    aux_transform.hash == hash
-                                    and aux_transform.type != "notebook"
-                                )
+                                and aux_transform.created_by_id
+                                == ln_setup.settings.user.id
+                            )
+                            # if the transform source code is unchanged
+                            # if aux_transform.type == "notebook", we anticipate the user makes changes to the notebook source code
+                            # in an interactive session, hence we *pro-actively bump* the version number by setting `revises`
+                            # in the second part of the if condition even though the source code is unchanged at point of running track()
+                            or (
+                                aux_transform.hash == hash
+                                and aux_transform.type != "notebook"
                             )
                         ):
                             uid = aux_transform.uid
                             target_transform = aux_transform
                         else:
                             uid = f"{aux_transform.uid[:-4]}{increment_base62(aux_transform.uid[-4:])}"
-                            message = f"there already is a {aux_transform.type} with `key` '{aux_transform.key}'"
+                            message = f"there already is a {aux_transform.type} with key '{aux_transform.key}'"
                             if (
                                 aux_transform.hash == hash
                                 and aux_transform.type == "notebook"
