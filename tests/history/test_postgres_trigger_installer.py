@@ -294,3 +294,25 @@ def test_install_triggers_with_foreign_keys(fake_db, fake_cursor):
     # We should be adding the declared variable to jsonb_build_object someplace, with a marker
     # on the object's key to indicate that it's a UID reference
     assert "'table_b_id._uid', fkey_table_b_id_uid" in create_function_sql
+
+
+def test_foreign_key_to_table_without_uid_fails(fake_db, fake_cursor):
+    installer = PostgresHistoryRecordingTriggerInstaller(connection=fake_db)
+    installer._get_db_tables = MagicMock(return_value={"table_a", "table_b"})
+
+    fake_cursor._add_constraint("table_a", "PRIMARY KEY", "id", "table_a")
+    fake_cursor._add_constraint("table_a", "FOREIGN KEY", "table_b_id", "table_b")
+    fake_cursor._set_column_names("table_a", ["id", "uid", "table_b_id", "foo"])
+    fake_cursor._set_column_names("table_b", ["id", "bar"])
+    fake_cursor._set_tables_with_triggers(["table_b"])
+
+    with pytest.raises(ValueError):
+        installer.update_history_triggers()
+
+
+def test_sql_injectable_table_names_fail(fake_cursor):
+    installer = PostgresHistoryRecordingTriggerInstaller(connection=fake_db)
+    installer._get_db_tables = MagicMock(return_value={"table_a", "table_b"})
+
+    with pytest.raises(ValueError):
+        installer.install_triggers("bad_tabl; DROP TABLE foo", fake_cursor)
