@@ -21,6 +21,10 @@ def test_history_lock_toggling():
 
     assert history_lock.locked
 
+    history_lock.unlock()
+
+    assert not history_lock.locked
+
 
 def test_history_lock_is_a_singleton():
     history_lock = HistoryLock.load()
