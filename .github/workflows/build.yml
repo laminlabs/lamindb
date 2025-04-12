@@ -27,7 +27,7 @@ jobs:
       - id: set-matrix
         shell: bash
         run: |
-          BASE_GROUPS=$(jq -n -c '["unit-core", "unit-storage", "tutorial", "guide", "biology", "faq", "storage", "cli", "permissions"]')
+          BASE_GROUPS=$(jq -n -c '["unit-core", "unit-storage", "unit-history", "tutorial", "guide", "biology", "faq", "storage", "cli", "permissions"]')
 
           if [[ "${{ github.event_name }}" == "push" || "${{ steps.changes.outputs.curator }}" == "true" ]]; then
             # Run everything on push or when curator paths change
@@ -79,7 +79,7 @@ jobs:
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: cache postgres
-        if: ${{ matrix.group == 'faq' || matrix.group == 'unit-core' || matrix.group == 'unit-storage' || matrix.group == 'permissions'}}
+        if: ${{ matrix.group == 'faq' || matrix.group == 'unit-core' || matrix.group == 'unit-storage' || matrix.group == 'unit-history' || matrix.group == 'permissions'}}
         id: cache-postgres
         uses: actions/cache@v4
         with:

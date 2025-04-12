@@ -67,6 +67,7 @@ def install(session):
     [
         "unit-core",
         "unit-storage",
+        "unit-history",
         "tutorial",
         "guide",
         "biology",
@@ -98,6 +99,8 @@ def install_ci(session, group):
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system scanpy")
         run(session, "uv pip install --system tiledbsoma")
+    elif group == "unit-history":
+        extras += "bionty"
     elif group == "tutorial":
         extras += "jupyter,bionty"
         run(session, "uv pip install --system huggingface_hub")
@@ -224,6 +227,7 @@ def configure_coverage(session) -> None:
     [
         "unit-core",
         "unit-storage",
+        "unit-history",
         "curator",
         "tutorial",
         "guide",
@@ -248,6 +252,8 @@ def test(session, group):
         )
     elif group == "unit-storage":
         run(session, f"pytest {coverage_args} ./tests/storage --durations=50")
+    elif group == "unit-history":
+        run(session, f"pytest {coverage_args} ./tests/history --durations=50")
     elif group == "tutorial":
         run(session, "lamin logout")
         run(

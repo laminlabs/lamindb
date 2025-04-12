@@ -1,0 +1,1 @@
+from ._trigger_installer import create_history_recording_trigger_installer
