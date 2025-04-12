@@ -216,6 +216,8 @@ filterwarnings = [
 [tool.coverage.report]
 exclude_lines = [
     "if TYPE_CHECKING:",
+    "@abstractmethod",
+    "@abc.abstractmethod"
 ]
 
 [tool.coverage.run]
