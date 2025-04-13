@@ -1512,10 +1512,12 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             - Guide: :doc:`docs:registries`
             - Method in `Record` base class: :meth:`~lamindb.models.Record.get`
 
-        Examples::
+        Examples:
 
-            artifact = ln.Artifact.get("tCUkRcaEjTjhtozp0000")
-            artifact = ln.Arfifact.get(key="my_datasets/my_file.parquet")
+            ::
+
+                artifact = ln.Artifact.get("tCUkRcaEjTjhtozp0000")
+                artifact = ln.Arfifact.get(key="my_datasets/my_file.parquet")
         """
         from .query_set import QuerySet
 

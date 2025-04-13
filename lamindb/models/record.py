@@ -488,10 +488,12 @@ class Registry(ModelBase):
             - Guide: :doc:`docs:registries`
             - Django documentation: `Queries <https://docs.djangoproject.com/en/stable/topics/db/queries/>`__
 
-        Examples::
+        Examples:
 
-            ulabel = ln.ULabel.get("FvtpPJLJ")
-            ulabel = ln.ULabel.get(name="my-label")
+            ::
+
+                ulabel = ln.ULabel.get("FvtpPJLJ")
+                ulabel = ln.ULabel.get(name="my-label")
         """
         from .query_set import QuerySet
 
