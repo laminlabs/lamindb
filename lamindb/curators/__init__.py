@@ -3139,11 +3139,13 @@ def save_artifact(
     if cat_columns is None:
         cat_columns = {}
 
-    print(cat_columns)
-
     # annotate with labels
-    for cat_column in cat_columns.values():
-        if cat_column._field.field.model == Feature:
+    for key, cat_column in cat_columns.items():
+        if (
+            cat_column._field.field.model == Feature
+            or key == "columns"
+            or key == "var_index"
+        ):
             continue
         add_labels(
             artifact,

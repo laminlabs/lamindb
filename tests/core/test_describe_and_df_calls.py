@@ -74,7 +74,6 @@ def test_curate_df():
             "cell_type_by_expert": bt.CellType.name,
             "cell_type_by_model": bt.CellType.name,
         },
-        organism="human",
     )
     artifact = curator.save_artifact(key="example_datasets/dataset1.h5ad")
     artifact.features.add_values(adata.uns)
@@ -88,7 +87,6 @@ def test_curate_df():
             "perturbation": ln.ULabel.name,
             "cell_type_by_model": bt.CellType.name,
         },
-        organism="human",
     )
     artifact2 = curator.save_artifact(key="example_datasets/dataset2.h5ad")
     artifact2.features.add_values(adata2.uns)
@@ -165,7 +163,7 @@ def test_curate_df():
 
     # dataset section
     int_features_node = description_tree.children[1]
-    assert int_features_node.label.plain == "Dataset features/.feature_sets"
+    assert int_features_node.label.plain == "Dataset features"
     assert len(int_features_node.children) == 2
     assert len(int_features_node.children[0].label.rows) == 3
     assert len(int_features_node.children[0].label.columns) == 3
