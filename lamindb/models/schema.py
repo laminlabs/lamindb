@@ -297,6 +297,8 @@ class Schema(Record, CanCurate, TracksRun):
     For a composite schema, the hash of hashes.
     """
     minimal_set: bool = BooleanField(default=True, db_index=True, editable=False)
+    """Deprecated. Use `feature.with_config(optional=True)` to specify non-required features.
+    Whether all features present in the dataset must be in the schema (default `True`)."""
     ordered_set: bool = BooleanField(default=False, db_index=True, editable=False)
     """Whether features are required to be ordered (default `False`)."""
     maximal_set: bool = BooleanField(default=False, db_index=True, editable=False)
@@ -397,6 +399,12 @@ class Schema(Record, CanCurate, TracksRun):
         type: Feature | None = kwargs.pop("type", None)
         is_type: bool = kwargs.pop("is_type", False)
         otype: str | None = kwargs.pop("otype", None)
+        # minimal_set is deprecated
+        if "minimal_set" in kwargs:
+            logger.warning(
+                "the argument `minimal_set` is deprecated and ignored! Use `feature.with_config(optional=True)` to specify non-required features."
+            )
+        kwargs.pop("minimal_set", True)
         ordered_set: bool = kwargs.pop("ordered_set", False)
         maximal_set: bool = kwargs.pop("maximal_set", False)
         slot: str | None = kwargs.pop("slot", None)
