@@ -105,12 +105,14 @@ class CatLookup:
 
     def __init__(
         self,
-        categoricals: dict[str, FieldAttr],
+        categoricals: list[Feature] | dict[str, FieldAttr],
         slots: dict[str, FieldAttr] = None,
         public: bool = False,
         sources: dict[str, Record] | None = None,
     ) -> None:
         slots = slots or {}
+        if isinstance(categoricals, list):
+            categoricals = {cat.name: cat for cat in categoricals}
         self._categoricals = {**categoricals, **slots}
         self._public = public
         self._sources = sources
