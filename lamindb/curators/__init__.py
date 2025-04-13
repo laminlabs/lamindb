@@ -311,7 +311,7 @@ class SlotsCurator(Curator):
         for curator in self._slots.values():
             for key, cat_column in curator._cat_manager._cat_columns.items():
                 cat_columns[key] = cat_column
-        return save_artifact(  # type: ignore
+        return annotate_artifact(  # type: ignore
             self._artifact,
             index_field=self._var_fields,
             schema=self._schema,
@@ -534,7 +534,7 @@ class DataFrameCurator(Curator):
         )
         self._artifact.schema = self._schema
         self._artifact.save()
-        return save_artifact(  # type: ignore
+        return annotate_artifact(  # type: ignore
             self._artifact,
             index_field=result["field"],
             schema=self._schema,
@@ -645,7 +645,7 @@ class AnnDataCurator(SlotsCurator):
         )
         self._artifact.schema = self._schema
         self._artifact.save()
-        return save_artifact(  # type: ignore
+        return annotate_artifact(  # type: ignore
             self._artifact,
             cat_columns=(
                 self.slots["obs"]._cat_manager._cat_columns
@@ -1347,7 +1347,7 @@ class CatManager:
                     "data must be one of pd.Dataframe, AnnData, MuData, SpatialData."
                 )
             self._artifact = artifact.save()
-        save_artifact(  # type: ignore
+        annotate_artifact(  # type: ignore
             self._artifact,
             index_field=self._columns_field,
             cat_columns=self._cat_columns,
@@ -2106,7 +2106,7 @@ class SpatialDataCatManager(CatManager):
         self._artifact = Artifact.from_spatialdata(
             self._dataset, key=key, description=description, revises=revises, run=run
         ).save()
-        return save_artifact(
+        return annotate_artifact(
             self._artifact,
             index_field=self.var_index,
             sample_metadata_key=self._sample_metadata_key,
@@ -3126,7 +3126,7 @@ def get_organism_kwargs(
     return {}
 
 
-def save_artifact(
+def annotate_artifact(
     artifact: Artifact,
     *,
     schema: Schema | None = None,
