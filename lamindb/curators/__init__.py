@@ -531,6 +531,7 @@ class DataFrameCurator(Curator):
             self._artifact,
             index_field=result["field"],
             schema=self._schema,
+            cat_columns=self._cat_manager._cat_columns,
         )
 
 
