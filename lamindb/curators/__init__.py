@@ -510,16 +510,12 @@ class DataFrameCurator(Curator):
         if not self._is_validated:
             self.validate()  # raises ValidationError if doesn't validate
         result = parse_cat_dtype(self._schema.itype, is_itype=True)
+        self._artifact = Artifact.from_df(
+            self._dataset, key=key, description=description, revises=revises, run=run
+        )
         return save_artifact(  # type: ignore
-            self._dataset,
-            description=description,
-            cat_columns=self._cat_manager._cat_columns,
+            self,
             index_field=result["field"],
-            key=key,
-            artifact=self._artifact,
-            revises=revises,
-            run=run,
-            schema=self._schema,
         )
 
 
@@ -622,7 +618,6 @@ class AnnDataCurator(SlotsCurator):
         if not self._is_validated:
             self.validate()
         return save_artifact(  # type: ignore
-            self._dataset,
             description=description,
             cat_columns=self.slots["obs"]._cat_manager._cat_columns
             if "obs" in self.slots
