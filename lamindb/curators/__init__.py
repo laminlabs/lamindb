@@ -286,7 +286,7 @@ class SlotsCurator(Curator):
         if not self._is_validated:
             self.validate()
 
-        elif data_is_mudata(self._dataset):
+        if data_is_mudata(self._dataset):
             self._artifact = Artifact.from_mudata(
                 self._dataset,
                 key=key,
@@ -305,10 +305,15 @@ class SlotsCurator(Curator):
         self._artifact.schema = self._schema
         self._artifact.save()
         # default implementation for MuDataCurator and SpatialDataCurator
+        cat_columns = {}
+        for curator in self._slots.values():
+            for key, cat_column in curator._cat_manager._cat_columns.items():
+                cat_columns[key] = cat_column
         return save_artifact(  # type: ignore
             self._artifact,
             index_field=self._var_fields,
             schema=self._schema,
+            cat_columns=cat_columns,
         )
 
 
@@ -3131,6 +3136,8 @@ def save_artifact(
 
     if cat_columns is None:
         cat_columns = {}
+
+    print(cat_columns)
 
     # annotate with labels
     for cat_column in cat_columns.values():
