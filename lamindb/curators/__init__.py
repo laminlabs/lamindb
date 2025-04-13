@@ -1306,10 +1306,8 @@ class DataFrameCatManager(CatManager):
         df: pd.DataFrame | Artifact,
         columns: FieldAttr = Feature.name,
         categoricals: dict[str, FieldAttr] | None = None,
-        verbosity: str = "hint",
         sources: dict[str, Record] | None = None,
     ) -> None:
-        settings.verbosity = verbosity
         self._non_validated = None
         super().__init__(
             dataset=df,
@@ -1434,7 +1432,6 @@ class AnnDataCatManager(CatManager):
         var_index: FieldAttr | None = None,
         categoricals: dict[str, FieldAttr] | None = None,
         obs_columns: FieldAttr = Feature.name,
-        verbosity: str = "hint",
         sources: dict[str, Record] | None = None,
     ) -> None:
         if isinstance(var_index, str):
@@ -1464,7 +1461,6 @@ class AnnDataCatManager(CatManager):
             df=self._adata.obs,
             categoricals=self.categoricals,
             columns=obs_columns,
-            verbosity=verbosity,
             sources=self._sources,
         )
         self._cat_columns = self._obs_df_curator._cat_columns.copy()
@@ -1578,7 +1574,6 @@ class MuDataCatManager(CatManager):
         mdata: MuData | Artifact,
         var_index: dict[str, FieldAttr] | None = None,
         categoricals: dict[str, FieldAttr] | None = None,
-        verbosity: str = "hint",
         sources: dict[str, Record] | None = None,
     ) -> None:
         super().__init__(
@@ -1593,14 +1588,12 @@ class MuDataCatManager(CatManager):
         self._verify_modality(self._var_fields.keys())
         self._obs_fields = self._parse_categoricals(categoricals or {})
         self._modalities = set(self._var_fields.keys()) | set(self._obs_fields.keys())
-        self._verbosity = verbosity
         self._obs_df_curator = None
         if "obs" in self._modalities:
             self._obs_df_curator = DataFrameCatManager(
                 df=self._dataset.obs,
                 columns=Feature.name,
                 categoricals=self._obs_fields.get("obs", {}),
-                verbosity=verbosity,
                 sources=self._sources.get("obs"),
             )
         self._mod_adata_curators = {
@@ -1608,7 +1601,6 @@ class MuDataCatManager(CatManager):
                 data=self._dataset[modality],
                 var_index=var_index.get(modality),
                 categoricals=self._obs_fields.get(modality),
-                verbosity=verbosity,
                 sources=self._sources.get(modality),
             )
             for modality in self._modalities
@@ -1774,7 +1766,6 @@ class SpatialDataCatManager(CatManager):
         sdata: Any,
         var_index: dict[str, FieldAttr],
         categoricals: dict[str, dict[str, FieldAttr]] | None = None,
-        verbosity: str = "hint",
         sources: dict[str, dict[str, Record]] | None = None,
         *,
         sample_metadata_key: str | None = "sample",
@@ -1796,7 +1787,6 @@ class SpatialDataCatManager(CatManager):
         self._table_keys = set(self._var_fields.keys()) | set(
             self._categoricals.keys() - {self._sample_metadata_key}
         )
-        self._verbosity = verbosity
         self._sample_df_curator = None
         if self._sample_metadata_key is not None:
             self._sample_metadata = self._sdata.get_attrs(
@@ -1847,7 +1837,6 @@ class SpatialDataCatManager(CatManager):
                 df=self._sample_metadata,
                 columns=Feature.name,
                 categoricals=self._categoricals.get(self._sample_metadata_key, {}),
-                verbosity=verbosity,
                 sources=self._sources.get(self._sample_metadata_key),
             )
         self._table_adata_curators = {
@@ -1855,7 +1844,6 @@ class SpatialDataCatManager(CatManager):
                 data=self._sdata[table],
                 var_index=var_index.get(table),
                 categoricals=self._categoricals.get(table),
-                verbosity=verbosity,
                 sources=self._sources.get(table),
             )
             for table in self._table_keys
@@ -2460,7 +2448,6 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         schema_version: Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0"] = "5.2.0",
         defaults: dict[str, str] = None,
         extra_sources: dict[str, Record] = None,
-        verbosity: str = "hint",
     ) -> None:
         """CELLxGENE schema curator.
 
@@ -2473,7 +2460,6 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
             extra_sources: A dictionary mapping ``.obs.columns`` to Source records.
                 These extra sources are joined with the CELLxGENE fixed sources.
                 Use this parameter when subclassing.
-            verbosity: The verbosity level.
         """
         import bionty as bt
 
@@ -2509,7 +2495,6 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
             data=adata,
             var_index=bt.Gene.ensembl_gene_id,
             categoricals=categoricals,
-            verbosity=verbosity,
             sources=sources,
         )
 
@@ -2785,7 +2770,6 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
         pert_time: bool = True,
         *,
         cxg_schema_version: Literal["5.0.0", "5.1.0", "5.2.0"] = "5.2.0",
-        verbosity: str = "hint",
     ):
         """Initialize the curator with configuration and validation settings."""
         self._pert_time = pert_time
@@ -2800,7 +2784,6 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
             defaults=categoricals_defaults,
             extra_sources=self._configure_sources(adata),
             schema_version=cxg_schema_version,
-            verbosity=verbosity,
         )
 
     def _configure_categoricals(self, adata: ad.AnnData):
@@ -3298,7 +3281,6 @@ def from_df(
     df: pd.DataFrame,
     categoricals: dict[str, FieldAttr] | None = None,
     columns: FieldAttr = Feature.name,
-    verbosity: str = "hint",
     organism: str | None = None,
 ) -> DataFrameCatManager:
     if organism is not None:
@@ -3307,7 +3289,6 @@ def from_df(
         df=df,
         categoricals=categoricals,
         columns=columns,
-        verbosity=verbosity,
     )
 
 
@@ -3318,7 +3299,6 @@ def from_anndata(
     var_index: FieldAttr,
     categoricals: dict[str, FieldAttr] | None = None,
     obs_columns: FieldAttr = Feature.name,
-    verbosity: str = "hint",
     organism: str | None = None,
     sources: dict[str, Record] | None = None,
 ) -> AnnDataCatManager:
@@ -3329,7 +3309,6 @@ def from_anndata(
         var_index=var_index,
         categoricals=categoricals,
         obs_columns=obs_columns,
-        verbosity=verbosity,
         sources=sources,
     )
 
@@ -3340,7 +3319,6 @@ def from_mudata(
     mdata: MuData | UPathStr,
     var_index: dict[str, dict[str, FieldAttr]],
     categoricals: dict[str, FieldAttr] | None = None,
-    verbosity: str = "hint",
     organism: str | None = None,
 ) -> MuDataCatManager:
     if not is_package_installed("mudata"):
@@ -3351,7 +3329,6 @@ def from_mudata(
         mdata=mdata,
         var_index=var_index,
         categoricals=categoricals,
-        verbosity=verbosity,
     )
 
 
@@ -3384,7 +3361,6 @@ def from_spatialdata(
     categoricals: dict[str, dict[str, FieldAttr]] | None = None,
     organism: str | None = None,
     sources: dict[str, dict[str, Record]] | None = None,
-    verbosity: str = "hint",
     *,
     sample_metadata_key: str = "sample",
 ):
@@ -3396,7 +3372,6 @@ def from_spatialdata(
         sdata=sdata,
         var_index=var_index,
         categoricals=categoricals,
-        verbosity=verbosity,
         sources=sources,
         sample_metadata_key=sample_metadata_key,
     )
