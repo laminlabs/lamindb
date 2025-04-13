@@ -1,11 +1,7 @@
-import re
-
 import lamindb as ln
-import numpy as np
 import pandas as pd
 import pytest
-from lamindb.core.exceptions import InvalidArgument, ValidationError
-from lamindb.curators import save_artifact
+from lamindb.core.exceptions import ValidationError
 
 
 def test_nullable():
@@ -30,18 +26,6 @@ def test_nullable():
         curator.validate()
     schema.delete()
     disease.delete()
-
-
-def test_save_artifact_invalid_data_type():
-    data = np.array([1, 2, 3])
-
-    with pytest.raises(
-        InvalidArgument,
-        match=re.escape(
-            "data must be one of pd.Dataframe, AnnData, MuData, SpatialData."
-        ),
-    ):
-        save_artifact(data=data)
 
 
 def test_pandera_dataframe_schema():

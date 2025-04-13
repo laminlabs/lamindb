@@ -1342,6 +1342,7 @@ class CatManager:
         save_artifact(  # type: ignore
             self._artifact,
             index_field=self._columns_field,
+            cat_columns=self._cat_columns,
         )
         return self._artifact
 
