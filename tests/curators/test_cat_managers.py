@@ -727,6 +727,8 @@ def test_spatialdata_curator():
 
         # save & associated features
         artifact = curator.save_artifact(description="blob spatialdata")
+        # the two below tests broke in https://github.com/laminlabs/lamindb/pull/2650
+        # but only for the legacy curator
         # assert (
         #     artifact.features.get_values()["assay"] == "Visium Spatial Gene Expression"
         # )
