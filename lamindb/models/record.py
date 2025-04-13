@@ -1444,11 +1444,13 @@ def transfer_to_default_db(
 def track_current_key_and_name_values(record: Record):
     from lamindb.models import Artifact
 
+    # below, we're using __dict__ to avoid triggering the refresh from the database
+    # which can lead to a recursion
     if isinstance(record, Artifact):
-        record._old_key = record.key
-        record._old_suffix = record.suffix
+        record._old_key = record.__dict__.get("key")
+        record._old_suffix = record.__dict__.get("suffix")
     elif hasattr(record, "_name_field"):
-        record._old_name = getattr(record, record._name_field)
+        record._old_name = record.__dict__.get(record._name_field)
 
 
 def check_name_change(record: Record):
@@ -1482,9 +1484,6 @@ def check_name_change(record: Record):
                     label_ref_is_name=True, **{f"{registry.lower()}_id": record.pk}
                 )
                 .exclude(feature_id=None)  # must have a feature
-                .exclude(
-                    feature_ref_is_name=None
-                )  # must be linked via Curator and therefore part of a schema
                 .distinct()
             )
             artifact_ids = linked_records.list("artifact__uid")

@@ -418,5 +418,6 @@ def test_spatialdata_curator(
         "['table'].var",
         "['table'].obs",
     }
+    assert artifact.features.get_values()["assay"] == "Visium Spatial Gene Expression"
 
     artifact.delete(permanent=True)
