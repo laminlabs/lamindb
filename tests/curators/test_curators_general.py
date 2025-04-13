@@ -110,8 +110,8 @@ def test_pandera_dataframe_schema(
     df_missing_sample_name_column,
 ):
     # schemas
-    schema_minimal_set = ln.Schema(
-        name="my-schema minimal_set",
+    schema_all_required = ln.Schema(
+        name="my-schema all required",
         features=[
             ln.Feature(name="sample_id", dtype=str).save(),
             ln.Feature(name="sample_name", dtype=str).save(),
@@ -125,7 +125,6 @@ def test_pandera_dataframe_schema(
             ln.Feature(name="sample_name", dtype=str).save(),
             ln.Feature(name="sample_type", dtype=str).save(),
         ],
-        minimal_set=False,
         maximal_set=True,
     ).save()
     schema_ordered_set = ln.Schema(
@@ -138,32 +137,34 @@ def test_pandera_dataframe_schema(
         ordered_set=True,
     ).save()
 
-    # minimal_set=True
-    ln.curators.DataFrameCurator(df, schema=schema_minimal_set).validate()
+    # all three columns are required
+    ln.curators.DataFrameCurator(df, schema=schema_all_required).validate()
     # can't miss a required column
     with pytest.raises(ValidationError):
         ln.curators.DataFrameCurator(
-            df_missing_sample_type_column, schema=schema_minimal_set
+            df_missing_sample_type_column, schema=schema_all_required
         ).validate()
     # doesn't care about order
-    ln.curators.DataFrameCurator(df_changed_order, schema=schema_minimal_set).validate()
+    ln.curators.DataFrameCurator(
+        df_changed_order, schema=schema_all_required
+    ).validate()
     # extra column is fine
-    ln.curators.DataFrameCurator(df_extra_column, schema=schema_minimal_set).validate()
+    ln.curators.DataFrameCurator(df_extra_column, schema=schema_all_required).validate()
 
-    # minimal_set=False, maximal_set=True
+    # maximal_set=True, extra column is not allowed
     with pytest.raises(ValidationError):
         ln.curators.DataFrameCurator(
             df_extra_column,
             schema=schema_maximal_set,  # extra column is not allowed
         ).validate()
 
-    # ordered_set=True
+    # ordered_set=True, order matters
     with pytest.raises(ValidationError):
         ln.curators.DataFrameCurator(
             df_changed_order, schema=schema_ordered_set
         ).validate()
 
-    # optional=True for a single feature
+    # a feature is optional
     schema_optional_sample_name = ln.Schema(
         name="my-schema optional sample_name",
         features=[
@@ -183,29 +184,6 @@ def test_pandera_dataframe_schema(
         df_missing_sample_name_column, schema=schema_optional_sample_name
     ).validate()
 
-    # when minimal_set=False, set a single feature to be required via optional=False
-    schema_require_sample_type = ln.Schema(
-        name="my-schema only require sample_type",
-        features=[
-            ln.Feature(name="sample_id", dtype=str).save(),
-            ln.Feature(name="sample_name", dtype=str).save(),
-            ln.Feature(name="sample_type", dtype=str)
-            .save()
-            .with_config(optional=False),  # required
-        ],
-        minimal_set=False,
-    ).save()
-    # missing required "sample_type" column raises an error
-    with pytest.raises(ValidationError):
-        ln.curators.DataFrameCurator(
-            df_missing_sample_type_column,
-            schema=schema_require_sample_type,
-        ).validate()
-    # missing optional column "sample_name" is fine
-    ln.curators.DataFrameCurator(
-        df_missing_sample_name_column, schema=schema_require_sample_type
-    ).validate()
-
     # clean up
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
@@ -222,14 +200,21 @@ def test_schema_optionals():
     ).save()
     assert schema.optionals.get().list("name") == ["sample_name"]
 
-    # set sample_name to required, sample_type to optional
+    # set sample_type to optional
+    with pytest.raises(
+        TypeError,
+        match=re.escape("features must be a list of Feature records!"),
+    ):
+        schema.optionals.set("test")
     schema.optionals.set([ln.Feature.get(name="sample_type")])
     assert schema.optionals.get().list("name") == ["sample_type"]
-
-    # set sample_name and sample_type to optional
-    schema.optionals.set(
-        [ln.Feature.get(name="sample_name"), ln.Feature.get(name="sample_type")]
-    )
+    # add sample_name to optionals
+    with pytest.raises(
+        TypeError,
+        match=re.escape("features must be a list of Feature records!"),
+    ):
+        schema.optionals.add("test")
+    schema.optionals.add(ln.Feature.get(name="sample_name"))
     assert schema.optionals.get().list("name") == ["sample_name", "sample_type"]
 
     # clean up

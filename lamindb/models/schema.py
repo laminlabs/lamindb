@@ -118,6 +118,10 @@ class SchemaOptionals:
 
     def set(self, features: list[Feature]) -> None:
         """Set the optional features."""
+        if not isinstance(features, list) or not all(
+            isinstance(f, Feature) for f in features
+        ):
+            raise TypeError("features must be a list of Feature records!")
         self.schema._aux = self.schema._aux or {}
         if len(features) > 0:
             self.schema._aux.setdefault("af", {})["1"] = [f.uid for f in features]
@@ -127,6 +131,8 @@ class SchemaOptionals:
         self.schema._aux = self.schema._aux or {}
         if not isinstance(features, list):
             features = [features]
+        if not all(isinstance(f, Feature) for f in features):
+            raise TypeError("features must be a list of Feature records!")
         if len(features) > 0:
             if "1" not in self.schema._aux.setdefault("af", {}):
                 self.set(features)
@@ -157,7 +163,6 @@ class Schema(Record, CanCurate, TracksRun):
         type: `Schema | None = None` A type.
         is_type: `bool = False` Distinguish types from instances of the type.
         otype: `str | None = None` An object type to define the structure of a composite schema.
-        minimal_set: `bool = True` Whether all features linked to the schema are required.
         ordered_set: `bool = False` Whether features are required to be ordered.
         maximal_set: `bool = False` If `True`, no additional features are allowed to be present in the dataset.
         slot: `str | None = None` The slot name when this schema is used as a component in a
@@ -289,7 +294,6 @@ class Schema(Record, CanCurate, TracksRun):
     For a composite schema, the hash of hashes.
     """
     minimal_set: bool = BooleanField(default=True, db_index=True, editable=False)
-    """Whether all features linked to the schema are required (default `True`)."""
     ordered_set: bool = BooleanField(default=False, db_index=True, editable=False)
     """Whether features are required to be ordered (default `False`)."""
     maximal_set: bool = BooleanField(default=False, db_index=True, editable=False)
@@ -353,7 +357,6 @@ class Schema(Record, CanCurate, TracksRun):
         type: Schema | None = None,
         is_type: bool = False,
         otype: str | None = None,
-        minimal_set: bool = True,
         ordered_set: bool = False,
         maximal_set: bool = False,
         slot: str | None = None,
@@ -391,7 +394,6 @@ class Schema(Record, CanCurate, TracksRun):
         type: Feature | None = kwargs.pop("type", None)
         is_type: bool = kwargs.pop("is_type", False)
         otype: str | None = kwargs.pop("otype", None)
-        minimal_set: bool = kwargs.pop("minimal_set", True)
         ordered_set: bool = kwargs.pop("ordered_set", False)
         maximal_set: bool = kwargs.pop("maximal_set", False)
         slot: str | None = kwargs.pop("slot", None)
@@ -402,7 +404,7 @@ class Schema(Record, CanCurate, TracksRun):
             raise ValueError(
                 f"Unexpected keyword arguments: {', '.join(kwargs.keys())}\n"
                 "Valid arguments are: features, description, dtype, itype, type, "
-                "is_type, otype, minimal_set, ordered_set, maximal_set, "
+                "is_type, otype, ordered_set, maximal_set, "
                 "slot, validated_by, coerce_dtype"
             )
 
@@ -443,7 +445,6 @@ class Schema(Record, CanCurate, TracksRun):
             "otype": otype,
             "n": n_features,
             "itype": itype_str,
-            "minimal_set": minimal_set,
             "ordered_set": ordered_set,
             "maximal_set": maximal_set,
         }
