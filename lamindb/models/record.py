@@ -1482,9 +1482,6 @@ def check_name_change(record: Record):
                     label_ref_is_name=True, **{f"{registry.lower()}_id": record.pk}
                 )
                 .exclude(feature_id=None)  # must have a feature
-                .exclude(
-                    feature_ref_is_name=None
-                )  # must be linked via Curator and therefore part of a schema
                 .distinct()
             )
             artifact_ids = linked_records.list("artifact__uid")
