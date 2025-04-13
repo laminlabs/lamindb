@@ -513,7 +513,7 @@ class DataFrameCurator(Curator):
         return save_artifact(  # type: ignore
             self._dataset,
             description=description,
-            fields=self._cat_manager.categoricals,
+            cat_columns=self._cat_manager._cat_columns,
             index_field=result["field"],
             key=key,
             artifact=self._artifact,
@@ -928,6 +928,7 @@ class CatColumn:
         key: str,
         values_setter: Callable | None = None,
         source: Record | None = None,
+        feature: Feature | None = None,
     ) -> None:
         self._values_getter = values_getter
         self._values_setter = values_setter
@@ -938,6 +939,9 @@ class CatColumn:
         self._validated: None | list[str] = None
         self._non_validated: None | list[str] = None
         self._synonyms: None | dict[str, str] = None
+        self.feature = feature
+        self.labels = None
+        self.label_ref_is_name = field.field.name == field.field.model._name_field
 
     @property
     def values(self):
@@ -1109,13 +1113,15 @@ class CatColumn:
         # inspect the non-validated values from public (BioRecord only)
         values_validated = []
         if hasattr(registry, "public"):
-            public_records = registry.from_values(
+            validated_records = registry.from_values(
                 non_validated,
                 field=self._field,
                 mute=True,
                 **kwargs_current,
             )
-            values_validated += [getattr(r, field_name) for r in public_records]
+            values_validated += [getattr(r, field_name) for r in validated_records]
+
+        self.labels = validated_records
 
         # logging messages
         non_validated_hint_print = f'.add_new_from("{self._key}")'
@@ -1285,7 +1291,7 @@ class CatManager:
             self._dataset,
             key=key,
             description=description,
-            fields=self.categoricals,
+            cat_columns=self._cat_columns,
             index_field=self._columns_field,
             artifact=self._artifact,
             revises=revises,
@@ -1303,7 +1309,7 @@ class DataFrameCatManager(CatManager):
         self,
         df: pd.DataFrame | Artifact,
         columns: FieldAttr = Feature.name,
-        categoricals: dict[str, FieldAttr] | list[Feature] | None = None,
+        categoricals: list[Feature] | dict[str, FieldAttr] | None = None,
         sources: dict[str, Record] | None = None,
     ) -> None:
         self._non_validated = None
@@ -1330,9 +1336,10 @@ class DataFrameCatManager(CatManager):
                     field=field,
                     key=key,
                     source=self._sources.get(key),
+                    feature=feature,
                 )
         else:
-            # below is for backward compat of ln.Curator.from_dataframe()
+            # below is for backward compat of ln.Curator.from_df()
             for key, field in self._categoricals.items():
                 self._cat_columns[key] = CatColumn(
                     values_getter=lambda k=key: self._dataset[
@@ -1344,6 +1351,7 @@ class DataFrameCatManager(CatManager):
                     field=field,
                     key=key,
                     source=self._sources.get(key),
+                    feature=Feature.get(name=key),
                 )
         if columns == Feature.name:
             if isinstance(self._categoricals, list):
@@ -2044,7 +2052,7 @@ class SpatialDataCatManager(CatManager):
         return save_artifact(
             self._sdata,
             description=description,
-            fields=self.categoricals,
+            cat_columns=self._cat_columns,
             index_field=self.var_index,
             key=key,
             artifact=self._artifact,
@@ -3071,7 +3079,7 @@ def get_organism_kwargs(
 def save_artifact(
     data: pd.DataFrame | ScverseDataStructures,
     *,
-    fields: dict[str, FieldAttr] | dict[str, dict[str, FieldAttr]],
+    cat_columns: dict[str, CatColumn],
     index_field: FieldAttr | dict[str, FieldAttr] | None = None,
     description: str | None = None,
     key: str | None = None,
@@ -3102,19 +3110,19 @@ def save_artifact(
     if artifact is None:
         if isinstance(data, pd.DataFrame):
             artifact = Artifact.from_df(
-                data, description=description, key=key, revises=revises, run=run
+                data, key=key, description=description, revises=revises, run=run
             )
         elif isinstance(data, AnnData):
             artifact = Artifact.from_anndata(
-                data, description=description, key=key, revises=revises, run=run
+                data, key=key, description=description, revises=revises, run=run
             )
         elif data_is_mudata(data):
             artifact = Artifact.from_mudata(
-                data, description=description, key=key, revises=revises, run=run
+                data, key=key, description=description, revises=revises, run=run
             )
         elif data_is_spatialdata(data):
             artifact = Artifact.from_spatialdata(
-                data, description=description, key=key, revises=revises, run=run
+                data, key=key, description=description, revises=revises, run=run
             )
         else:
             raise InvalidArgument(  # pragma: no cover
@@ -3122,44 +3130,21 @@ def save_artifact(
             )
     artifact.save()
 
-    def _add_labels(
-        data: pd.DataFrame | ScverseDataStructures,
-        artifact: Artifact,
-        fields: dict[str, FieldAttr],
-        feature_ref_is_name: bool | None = None,
-    ):
-        features = Feature.lookup().dict()
-        for key, field in fields.items():
-            feature = features.get(key)
-            registry = field.field.model
-            # we don't need source here because all records are already in the DB
-            df = data if isinstance(data, pd.DataFrame) else data.obs
-            # multi-value columns are separated by "|"
-            if not df[key].isna().all() and df[key].str.contains("|").any():
-                values = df[key].str.split("|").explode().unique()
-            else:
-                values = df[key].unique()
-            labels = registry.from_values(values, field=field)
-            if len(labels) == 0:
-                continue
-            label_ref_is_name = None
-            if hasattr(registry, "_name_field"):
-                label_ref_is_name = field.field.name == registry._name_field
-            add_labels(
-                artifact,
-                records=labels,
-                feature=feature,
-                feature_ref_is_name=feature_ref_is_name,
-                label_ref_is_name=label_ref_is_name,
-                from_curator=True,
-            )
+    # annotate with labels
+    for cat_column in cat_columns.values():
+        add_labels(
+            artifact,
+            records=cat_column.labels,
+            feature=cat_column.feature,
+            feature_ref_is_name=_ref_is_name(index_field),
+            label_ref_is_name=cat_column.label_ref_is_name,
+            from_curator=True,
+        )
 
+    # annotate with inferred feature sets
     match artifact.otype:
         case "DataFrame":
             artifact.features._add_set_from_df(field=index_field)  # type: ignore
-            _add_labels(
-                data, artifact, fields, feature_ref_is_name=_ref_is_name(index_field)
-            )
         case "AnnData":
             if schema is not None and "uns" in schema.slots:
                 uns_field = parse_cat_dtype(schema.slots["uns"].itype, is_itype=True)[
@@ -3170,63 +3155,13 @@ def save_artifact(
             artifact.features._add_set_from_anndata(  # type: ignore
                 var_field=index_field, uns_field=uns_field
             )
-            _add_labels(
-                data, artifact, fields, feature_ref_is_name=_ref_is_name(index_field)
-            )
         case "MuData":
             artifact.features._add_set_from_mudata(var_fields=index_field)  # type: ignore
-            for modality, modality_fields in fields.items():
-                column_field_modality = index_field.get(modality)
-                if modality == "obs":
-                    _add_labels(
-                        data,
-                        artifact,
-                        modality_fields,
-                        feature_ref_is_name=(
-                            None
-                            if column_field_modality is None
-                            else _ref_is_name(column_field_modality)
-                        ),
-                    )
-                else:
-                    _add_labels(
-                        data[modality],
-                        artifact,
-                        modality_fields,
-                        feature_ref_is_name=(
-                            None
-                            if column_field_modality is None
-                            else _ref_is_name(column_field_modality)
-                        ),
-                    )
         case "SpatialData":
             artifact.features._add_set_from_spatialdata(  # type: ignore
                 sample_metadata_key=kwargs.get("sample_metadata_key", "sample"),
                 var_fields=index_field,
             )
-            sample_metadata_key = kwargs.get("sample_metadata_key", "sample")
-            for accessor, accessor_fields in fields.items():
-                column_field = index_field.get(accessor)
-                if accessor == sample_metadata_key:
-                    _add_labels(
-                        data.get_attrs(
-                            key=sample_metadata_key, return_as="df", flatten=True
-                        ),
-                        artifact,
-                        accessor_fields,
-                        feature_ref_is_name=(
-                            None if column_field is None else _ref_is_name(column_field)
-                        ),
-                    )
-                else:
-                    _add_labels(
-                        data.tables[accessor],
-                        artifact,
-                        accessor_fields,
-                        feature_ref_is_name=(
-                            None if column_field is None else _ref_is_name(column_field)
-                        ),
-                    )
         case _:
             raise NotImplementedError  # pragma: no cover
 
