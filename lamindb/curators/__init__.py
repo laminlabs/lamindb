@@ -1338,7 +1338,7 @@ class CatManager:
                 raise InvalidArgument(  # pragma: no cover
                     "data must be one of pd.Dataframe, AnnData, MuData, SpatialData."
                 )
-        self._artifact = artifact.save()
+            self._artifact = artifact.save()
         save_artifact(  # type: ignore
             self._artifact,
             index_field=self._columns_field,
