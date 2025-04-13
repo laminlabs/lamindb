@@ -941,7 +941,11 @@ class CatColumn:
         self._synonyms: None | dict[str, str] = None
         self.feature = feature
         self.labels = None
-        self.label_ref_is_name = field.field.name == field.field.model._name_field
+        if hasattr(field.field.model, "_name_field"):
+            label_ref_is_name = field.field.name == field.field.model._name_field
+        else:
+            label_ref_is_name = field.field.name == "name"
+        self.label_ref_is_name = label_ref_is_name
 
     @property
     def values(self):
