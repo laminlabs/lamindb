@@ -636,7 +636,7 @@ class AnnDataCurator(SlotsCurator):
         self._artifact = Artifact.from_anndata(
             self._dataset, key=key, description=description, revises=revises, run=run
         )
-        self._artifact.schema = Schema
+        self._artifact.schema = self._schema
         self._artifact.save()
         return save_artifact(  # type: ignore
             self._artifact,
