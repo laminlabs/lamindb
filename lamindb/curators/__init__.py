@@ -112,7 +112,10 @@ class CatLookup:
     ) -> None:
         slots = slots or {}
         if isinstance(categoricals, list):
-            categoricals = {cat.name: cat for cat in categoricals}
+            categoricals = {
+                feature.name: parse_dtype(feature.dtype)[0]["field"]
+                for feature in categoricals
+            }
         self._categoricals = {**categoricals, **slots}
         self._public = public
         self._sources = sources
