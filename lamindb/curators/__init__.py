@@ -1318,6 +1318,29 @@ class DataFrameCatManager(CatManager):
             categoricals=categoricals,
             sources=sources,
         )
+        if columns == Feature.name:
+            if isinstance(self._categoricals, list):
+                values = [feature.name for feature in self._categoricals]
+            else:
+                values = list(self._categoricals.keys())
+            self._cat_columns["columns"] = CatColumn(
+                values_getter=values,
+                field=self._columns_field,
+                key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
+                source=self._sources.get("columns"),
+            )
+            self._cat_columns["columns"].validate()
+        else:
+            # NOTE: for var_index right now
+            self._cat_columns["columns"] = CatColumn(
+                values_getter=lambda: self._dataset.columns,  # lambda ensures the inplace update
+                values_setter=lambda new_values: setattr(
+                    self._dataset, "columns", pd.Index(new_values)
+                ),
+                field=self._columns_field,
+                key="columns",
+                source=self._sources.get("columns"),
+            )
         if isinstance(self._categoricals, list):
             for feature in self._categoricals:
                 result = parse_dtype(feature.dtype)[
@@ -1352,28 +1375,6 @@ class DataFrameCatManager(CatManager):
                     source=self._sources.get(key),
                     feature=Feature.get(name=key),
                 )
-        if columns == Feature.name:
-            if isinstance(self._categoricals, list):
-                values = [feature.name for feature in self._categoricals]
-            else:
-                values = list(self._categoricals.keys())
-            self._cat_columns["columns"] = CatColumn(
-                values_getter=values,
-                field=self._columns_field,
-                key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
-                source=self._sources.get("columns"),
-            )
-        else:
-            # NOTE: for var_index right now
-            self._cat_columns["columns"] = CatColumn(
-                values_getter=lambda: self._dataset.columns,  # lambda ensures the inplace update
-                values_setter=lambda new_values: setattr(
-                    self._dataset, "columns", pd.Index(new_values)
-                ),
-                field=self._columns_field,
-                key="columns",
-                source=self._sources.get("columns"),
-            )
 
     def lookup(self, public: bool = False) -> CatLookup:
         """Lookup categories.
@@ -3134,6 +3135,8 @@ def save_artifact(
 
     # annotate with labels
     for cat_column in cat_columns.values():
+        if cat_column._field.field.model == Feature:
+            continue
         add_labels(
             artifact,
             records=cat_column.labels,

@@ -146,6 +146,8 @@ def test_df_curator(df, categoricals):
 
         artifact = curator.save_artifact(description="test-curate-df")
 
+        artifact.describe()
+
         assert (
             artifact.cell_types.through.filter(artifact_id=artifact.id)
             .df()["label_ref_is_name"]
