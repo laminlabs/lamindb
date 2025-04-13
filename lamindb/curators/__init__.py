@@ -621,14 +621,12 @@ class AnnDataCurator(SlotsCurator):
         """{}"""  # noqa: D415
         if not self._is_validated:
             self.validate()
-        if "obs" in self.slots:
-            categoricals = self.slots["obs"]._cat_manager.categoricals
-        else:
-            categoricals = {}
         return save_artifact(  # type: ignore
             self._dataset,
             description=description,
-            fields=categoricals,
+            cat_columns=self.slots["obs"]._cat_manager._cat_columns
+            if "obs" in self.slots
+            else {},
             index_field=(
                 parse_cat_dtype(self.slots["var"]._schema.itype, is_itype=True)["field"]
                 if "var" in self._slots
@@ -3141,6 +3139,7 @@ def save_artifact(
     for cat_column in cat_columns.values():
         if cat_column._field.field.model == Feature:
             continue
+        print("hello", cat_column._key)
         add_labels(
             artifact,
             records=cat_column.labels,
