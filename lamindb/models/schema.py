@@ -86,13 +86,16 @@ def get_features_config(
     """Get features and their config from the return of feature.with_config."""
     features_list = []
     configs = []
-    for feature in features:
-        if isinstance(feature, tuple):
-            features_list.append(feature[0])
-            configs.append(feature)
-        else:
-            features_list.append(feature)
-    return features_list, configs  # type: ignore
+    try:
+        for feature in features:
+            if isinstance(feature, tuple):
+                features_list.append(feature[0])
+                configs.append(feature)
+            else:
+                features_list.append(feature)
+        return features_list, configs  # type: ignore
+    except TypeError:
+        return features, configs  # type: ignore
 
 
 class SchemaOptionals:
@@ -463,7 +466,6 @@ class Schema(Record, CanCurate, TracksRun):
             logger.important(f"returning existing schema with same hash: {schema}")
             init_self_from_db(self, schema)
             update_attributes(self, validated_kwargs)
-            self.optionals = SchemaOptionals(self)
             self.optionals.set(optional_features)
             return None
         self._components: dict[str, Schema] = {}
@@ -479,7 +481,6 @@ class Schema(Record, CanCurate, TracksRun):
             self._slots = components
         validated_kwargs["uid"] = ids.base62_20()
         super().__init__(**validated_kwargs)
-        self.optionals = SchemaOptionals(self)
         self.optionals.set(optional_features)
 
     @classmethod
@@ -728,6 +729,11 @@ class Schema(Record, CanCurate, TracksRun):
             }
             return self._slots
         return {}
+
+    @property
+    def optionals(self) -> SchemaOptionals:
+        """Optional features."""
+        return SchemaOptionals(self)
 
     def describe(self, return_str=False) -> None | str:
         """Describe schema."""
