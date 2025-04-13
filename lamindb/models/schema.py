@@ -623,18 +623,20 @@ class Schema(Record, CanCurate, TracksRun):
     def slots(self) -> dict[str, Schema]:
         """Slots.
 
-        Examples::
+        Examples:
 
-            # define composite schema
-            anndata_schema = ln.Schema(
-                name="small_dataset1_anndata_schema",
-                otype="AnnData",
-                components={"obs": obs_schema, "var": var_schema},
-            ).save()
+            ::
 
-            # access slots
-            anndata_schema.slots
-            # {'obs': <Schema: obs_schema>, 'var': <Schema: var_schema>}
+                # define composite schema
+                anndata_schema = ln.Schema(
+                    name="small_dataset1_anndata_schema",
+                    otype="AnnData",
+                    components={"obs": obs_schema, "var": var_schema},
+                ).save()
+
+                # access slots
+                anndata_schema.slots
+                # {'obs': <Schema: obs_schema>, 'var': <Schema: var_schema>}
         """
         if hasattr(self, "_slots"):
             return self._slots
