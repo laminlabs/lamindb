@@ -185,7 +185,7 @@ def test_pandera_dataframe_schema(
 
     # when minimal_set=False, set a single feature to be required via optional=False
     schema_require_sample_type = ln.Schema(
-        name="my-schema require sample_type",
+        name="my-schema only require sample_type",
         features=[
             ln.Feature(name="sample_id", dtype=str).save(),
             ln.Feature(name="sample_name", dtype=str).save(),
@@ -201,13 +201,17 @@ def test_pandera_dataframe_schema(
             df_missing_sample_type_column,
             schema=schema_require_sample_type,
         ).validate()
+    # missing optional column "sample_name" is fine
+    ln.curators.DataFrameCurator(
+        df_missing_sample_name_column, schema=schema_require_sample_type
+    ).validate()
 
     # clean up
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
 
 
-def test_schema_update_optionals():
+def test_schema_optionals():
     schema = ln.Schema(
         name="my-schema",
         features=[
@@ -216,13 +220,18 @@ def test_schema_update_optionals():
             ln.Feature(name="sample_type", dtype=str).save(),
         ],
     ).save()
-    assert schema.get_optional().list("name") == ["sample_name"]
+    assert schema.optionals.get().list("name") == ["sample_name"]
 
     # set sample_name to required, sample_type to optional
-    schema.update_optional(
-        [
-            (ln.Feature.get(name="sample_name"), False),
-            (ln.Feature.get(name="sample_type"), True),
-        ]
+    schema.optionals.set([ln.Feature.get(name="sample_type")])
+    assert schema.optionals.get().list("name") == ["sample_type"]
+
+    # set sample_name and sample_type to optional
+    schema.optionals.set(
+        [ln.Feature.get(name="sample_name"), ln.Feature.get(name="sample_type")]
     )
-    assert schema.get_optional().list("name") == ["sample_type"]
+    assert schema.optionals.get().list("name") == ["sample_name", "sample_type"]
+
+    # clean up
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()

@@ -95,6 +95,44 @@ def get_features_config(
     return features_list, configs  # type: ignore
 
 
+class SchemaOptionals:
+    """Manage and access optional features in a schema."""
+
+    def __init__(self, schema) -> None:
+        self.schema = schema
+
+    def get(self) -> QuerySet:
+        """Get the optional features."""
+        if (
+            self.schema._aux is not None
+            and "af" in self.schema._aux
+            and "1" in self.schema._aux["af"]
+        ):  # type: ignore
+            return (
+                self.schema.members.filter(uid__in=self.schema._aux["af"]["1"])
+                .order_by("links_schema__id")
+                .all()
+            )
+        else:
+            return Feature.objects.none()  # empty QuerySet
+
+    def set(self, features: list[Feature]) -> None:
+        """Set the optional features."""
+        self.schema._aux = self.schema._aux or {}
+        if len(features) > 0:
+            self.schema._aux.setdefault("af", {})["1"] = [f.uid for f in features]
+
+    def add(self, features: Feature | list[Feature]) -> None:
+        """Add feature to the optional features."""
+        self.schema._aux = self.schema._aux or {}
+        if not isinstance(features, list):
+            features = [features]
+        if len(features) > 0:
+            if "1" not in self.schema._aux.setdefault("af", {}):
+                self.set(features)
+            self.schema._aux.setdefault("af", {})["1"].extend([f.uid for f in features])
+
+
 class Schema(Record, CanCurate, TracksRun):
     """Schemas.
 
@@ -379,9 +417,7 @@ class Schema(Record, CanCurate, TracksRun):
             n_features = len(features)
             if features_registry == Feature:
                 optional_features = [
-                    (config[0], config[1].get("optional"))
-                    for config in configs
-                    if config[1].get("optional") is not None
+                    config[0] for config in configs if config[1].get("optional")
                 ]
         else:
             n_features = -1
@@ -426,7 +462,8 @@ class Schema(Record, CanCurate, TracksRun):
             logger.important(f"returning existing schema with same hash: {schema}")
             init_self_from_db(self, schema)
             update_attributes(self, validated_kwargs)
-            self.update_optional(optional_features)
+            self.optionals = SchemaOptionals(self)
+            self.optionals.set(optional_features)
             return None
         self._components: dict[str, Schema] = {}
         if features:
@@ -441,7 +478,8 @@ class Schema(Record, CanCurate, TracksRun):
             self._slots = components
         validated_kwargs["uid"] = ids.base62_20()
         super().__init__(**validated_kwargs)
-        self.update_optional(optional_features)
+        self.optionals = SchemaOptionals(self)
+        self.optionals.set(optional_features)
 
     @classmethod
     def from_values(  # type: ignore
@@ -630,30 +668,6 @@ class Schema(Record, CanCurate, TracksRun):
         self._aux = self._aux or {}
         self._aux.setdefault("af", {})["0"] = value
 
-    def get_optional(self) -> QuerySet:
-        """Optional features specified in Schema."""
-        if self._aux is not None and "af" in self._aux and "1" in self._aux["af"]:  # type: ignore
-            return (
-                self.members.filter(uid__in=self._aux["af"]["1"])
-                .order_by("links_schema__id")
-                .all()
-            )
-        else:
-            return Feature.objects.none()  # empty QuerySet
-
-    def update_optional(self, features: list[tuple[Feature, bool]]) -> None:
-        """Update optional features."""
-        self._aux = self._aux or {}
-        if len(features) > 0:
-            optional_uids = self.get_optional().list("uid")
-            for feature, optional in features:
-                if optional and feature.uid not in optional_uids:
-                    if "1" not in self._aux.setdefault("af", {}):
-                        self._aux["af"]["1"] = []
-                    self._aux.setdefault("af", {})["1"].append(feature.uid)
-                elif not optional and feature.uid in optional_uids:
-                    self._aux["af"]["1"].remove(feature.uid)
-
     # @property
     # def index_feature(self) -> None | Feature:
     #     # index_feature: `Record | None = None` A :class:`~lamindb.Feature` to validate the index of a `DataFrame`.
@@ -790,3 +804,4 @@ delattr(Schema, "validated_by_id")  # we don't want to expose these
 delattr(Schema, "validated_schemas")  # we don't want to expose these
 delattr(Schema, "composite")  # we don't want to expose these
 delattr(Schema, "composite_id")  # we don't want to expose these
+delattr(Schema, "minimal_set")  # we don't want to expose these

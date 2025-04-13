@@ -501,7 +501,9 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
 
     def with_config(self, optional: bool | None = None) -> tuple[Feature, dict]:
         """Pass addtional configurations to the schema."""
-        return self, {"optional": optional}
+        if optional is not None:
+            return self, {"optional": optional}
+        return self, {}
 
     @property
     def default_value(self) -> Any:
