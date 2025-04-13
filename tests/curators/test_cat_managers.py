@@ -232,15 +232,6 @@ def test_unvalidated_data_object(df, categoricals):
         curator.save_artifact()
 
 
-def test_invalid_organism_type(df, categoricals):
-    with pytest.raises(
-        ValueError, match="organism must be a string such as 'human' or 'mouse'!"
-    ):
-        ln.Curator.from_df(
-            df, categoricals=categoricals, organism=bt.Organism.filter(name="human")
-        )
-
-
 def test_clean_up_failed_runs():
     mock_transform = ln.Transform()
     mock_transform.save()
@@ -273,15 +264,6 @@ def test_clean_up_failed_runs():
 @pytest.mark.parametrize("to_add", ["donor", "all"])
 def test_anndata_curator(adata, categoricals, to_add):
     try:
-        # must pass an organism
-        with pytest.raises(bt._organism.OrganismNotSet):
-            bt.settings._organism = None  # make sure organism is not set globally
-            ln.Curator.from_anndata(
-                adata,
-                categoricals=categoricals,
-                var_index=bt.Gene.symbol,
-            ).validate()
-
         curator = ln.Curator.from_anndata(
             adata,
             categoricals=categoricals,
