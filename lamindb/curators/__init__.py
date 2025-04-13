@@ -105,12 +105,17 @@ class CatLookup:
 
     def __init__(
         self,
-        categoricals: dict[str, FieldAttr],
+        categoricals: list[Feature] | dict[str, FieldAttr],
         slots: dict[str, FieldAttr] = None,
         public: bool = False,
         sources: dict[str, Record] | None = None,
     ) -> None:
         slots = slots or {}
+        if isinstance(categoricals, list):
+            categoricals = {
+                feature.name: parse_dtype(feature.dtype)[0]["field"]
+                for feature in categoricals
+            }
         self._categoricals = {**categoricals, **slots}
         self._public = public
         self._sources = sources
@@ -258,7 +263,7 @@ class SlotsCurator(Curator):
         # in form of {table/modality_key: var_field}
         self._var_fields: dict[str, FieldAttr] = {}
         # in form of {table/modality_key: categoricals}
-        self._categoricals: dict[str, dict[str, FieldAttr]] = {}
+        self._cat_columns: dict[str, dict[str, CatColumn]] = {}
 
     @property
     @doc_args(SLOTS_DOCSTRING)
@@ -286,17 +291,34 @@ class SlotsCurator(Curator):
         if not self._is_validated:
             self.validate()
 
+        if data_is_mudata(self._dataset):
+            self._artifact = Artifact.from_mudata(
+                self._dataset,
+                key=key,
+                description=description,
+                revises=revises,
+                run=run,
+            )
+        elif data_is_spatialdata(self._dataset):
+            self._artifact = Artifact.from_spatialdata(
+                self._dataset,
+                key=key,
+                description=description,
+                revises=revises,
+                run=run,
+            )
+        self._artifact.schema = self._schema
+        self._artifact.save()
         # default implementation for MuDataCurator and SpatialDataCurator
-        return save_artifact(  # type: ignore
-            self._dataset,
-            key=key,
-            description=description,
-            fields=self._categoricals,
+        cat_columns = {}
+        for curator in self._slots.values():
+            for key, cat_column in curator._cat_manager._cat_columns.items():
+                cat_columns[key] = cat_column
+        return annotate_artifact(  # type: ignore
+            self._artifact,
             index_field=self._var_fields,
-            artifact=self._artifact,
-            revises=revises,
-            run=run,
             schema=self._schema,
+            cat_columns=cat_columns,
         )
 
 
@@ -370,7 +392,7 @@ class DataFrameCurator(Curator):
         schema: Schema,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
-        categoricals = {}
+        categoricals = []
         if schema.n > 0:
             # whether all the columns are required
             required = schema.minimal_set
@@ -409,9 +431,7 @@ class DataFrameCurator(Curator):
                 if feature.dtype.startswith("cat"):
                     # validate categoricals if the column is required or if the column is present
                     if required or feature.name in self._dataset.columns:
-                        categoricals[feature.name] = parse_dtype(feature.dtype)[0][
-                            "field"
-                        ]
+                        categoricals.append(feature)
             self._pandera_schema = pandera.DataFrameSchema(
                 pandera_columns,
                 coerce=schema.coerce_dtype,
@@ -512,16 +532,16 @@ class DataFrameCurator(Curator):
         if not self._is_validated:
             self.validate()  # raises ValidationError if doesn't validate
         result = parse_cat_dtype(self._schema.itype, is_itype=True)
-        return save_artifact(  # type: ignore
-            self._dataset,
-            description=description,
-            fields=self._cat_manager.categoricals,
+        self._artifact = Artifact.from_df(
+            self._dataset, key=key, description=description, revises=revises, run=run
+        )
+        self._artifact.schema = self._schema
+        self._artifact.save()
+        return annotate_artifact(  # type: ignore
+            self._artifact,
             index_field=result["field"],
-            key=key,
-            artifact=self._artifact,
-            revises=revises,
-            run=run,
             schema=self._schema,
+            cat_columns=self._cat_manager._cat_columns,
         )
 
 
@@ -623,23 +643,23 @@ class AnnDataCurator(SlotsCurator):
         """{}"""  # noqa: D415
         if not self._is_validated:
             self.validate()
-        if "obs" in self.slots:
-            categoricals = self.slots["obs"]._cat_manager.categoricals
-        else:
-            categoricals = {}
-        return save_artifact(  # type: ignore
-            self._dataset,
-            description=description,
-            fields=categoricals,
+        self._artifact = Artifact.from_anndata(
+            self._dataset, key=key, description=description, revises=revises, run=run
+        )
+        self._artifact.schema = self._schema
+        self._artifact.save()
+        return annotate_artifact(  # type: ignore
+            self._artifact,
+            cat_columns=(
+                self.slots["obs"]._cat_manager._cat_columns
+                if "obs" in self.slots
+                else {}
+            ),
             index_field=(
                 parse_cat_dtype(self.slots["var"]._schema.itype, is_itype=True)["field"]
                 if "var" in self._slots
                 else None
             ),
-            key=key,
-            artifact=self._artifact,
-            revises=revises,
-            run=run,
             schema=self._schema,
         )
 
@@ -650,14 +670,14 @@ def _assign_var_fields_categoricals_multimodal(
     slot: str,
     slot_schema: Schema,
     var_fields: dict[str, FieldAttr],
-    categoricals: dict[str, dict[str, FieldAttr]],
+    cat_columns: dict[str, dict[str, CatColumn]],
     slots: dict[str, DataFrameCurator],
 ) -> None:
     """Assigns var_fields and categoricals for multimodal data curators."""
     if modality is not None:
         # Makes sure that all tables are present
         var_fields[modality] = None
-        categoricals[modality] = {}
+        cat_columns[modality] = {}
 
     if slot_type == "var":
         var_field = parse_cat_dtype(slot_schema.itype, is_itype=True)["field"]
@@ -668,12 +688,12 @@ def _assign_var_fields_categoricals_multimodal(
             # Note that this is NOT nested since the nested key is always "var"
             var_fields[modality] = var_field
     else:
-        obs_fields = slots[slot]._cat_manager.categoricals
+        obs_fields = slots[slot]._cat_manager._cat_columns
         if modality is None:
-            categoricals[slot] = obs_fields
+            cat_columns[slot] = obs_fields
         else:
             # Note that this is NOT nested since the nested key is always "obs"
-            categoricals[modality] = obs_fields
+            cat_columns[modality] = obs_fields
 
 
 class MuDataCurator(SlotsCurator):
@@ -784,7 +804,7 @@ class MuDataCurator(SlotsCurator):
                 slot=slot,
                 slot_schema=slot_schema,
                 var_fields=self._var_fields,
-                categoricals=self._categoricals,
+                cat_columns=self._cat_columns,
                 slots=self._slots,
             )
 
@@ -904,7 +924,7 @@ class SpatialDataCurator(SlotsCurator):
                 slot=slot,
                 slot_schema=slot_schema,
                 var_fields=self._var_fields,
-                categoricals=self._categoricals,
+                cat_columns=self._cat_columns,
                 slots=self._slots,
             )
 
@@ -930,6 +950,7 @@ class CatColumn:
         key: str,
         values_setter: Callable | None = None,
         source: Record | None = None,
+        feature: Feature | None = None,
     ) -> None:
         self._values_getter = values_getter
         self._values_setter = values_setter
@@ -940,6 +961,13 @@ class CatColumn:
         self._validated: None | list[str] = None
         self._non_validated: None | list[str] = None
         self._synonyms: None | dict[str, str] = None
+        self.feature = feature
+        self.labels = None
+        if hasattr(field.field.model, "_name_field"):
+            label_ref_is_name = field.field.name == field.field.model._name_field
+        else:
+            label_ref_is_name = field.field.name == "name"
+        self.label_ref_is_name = label_ref_is_name
 
     @property
     def values(self):
@@ -1028,6 +1056,7 @@ class CatColumn:
                 logger.success(
                     f'added {len(labels_saved_public)} record{s} {colors.green("from_public")} with {model_field} for "{self._key}": {_format_values(labels_saved_public)}'
                 )
+        self.labels = existing_and_public_records
 
         # save parent labels for ulabels, for example a parent label "project" for label "project001"
         if registry == ULabel and field_name == "name":
@@ -1283,18 +1312,49 @@ class CatManager:
             if not self._is_validated:  # need to raise error manually
                 raise ValidationError("Dataset does not validate. Please curate.")
 
-        self._artifact = save_artifact(  # type: ignore
-            self._dataset,
-            key=key,
-            description=description,
-            fields=self.categoricals,
+        if self._artifact is None:
+            if isinstance(self._dataset, pd.DataFrame):
+                artifact = Artifact.from_df(
+                    self._dataset,
+                    key=key,
+                    description=description,
+                    revises=revises,
+                    run=run,
+                )
+            elif isinstance(self._dataset, AnnData):
+                artifact = Artifact.from_anndata(
+                    self._dataset,
+                    key=key,
+                    description=description,
+                    revises=revises,
+                    run=run,
+                )
+            elif data_is_mudata(self._dataset):
+                artifact = Artifact.from_mudata(
+                    self._dataset,
+                    key=key,
+                    description=description,
+                    revises=revises,
+                    run=run,
+                )
+            elif data_is_spatialdata(self._dataset):
+                artifact = Artifact.from_spatialdata(
+                    self._dataset,
+                    key=key,
+                    description=description,
+                    revises=revises,
+                    run=run,
+                )
+            else:
+                raise InvalidArgument(  # pragma: no cover
+                    "data must be one of pd.Dataframe, AnnData, MuData, SpatialData."
+                )
+            self._artifact = artifact.save()
+        annotate_artifact(  # type: ignore
+            self._artifact,
             index_field=self._columns_field,
-            artifact=self._artifact,
-            revises=revises,
-            run=run,
-            schema=None,
+            cat_columns=self._cat_columns,
         )
-
         return self._artifact
 
 
@@ -1305,7 +1365,7 @@ class DataFrameCatManager(CatManager):
         self,
         df: pd.DataFrame | Artifact,
         columns: FieldAttr = Feature.name,
-        categoricals: dict[str, FieldAttr] | None = None,
+        categoricals: list[Feature] | dict[str, FieldAttr] | None = None,
         sources: dict[str, Record] | None = None,
     ) -> None:
         self._non_validated = None
@@ -1315,25 +1375,18 @@ class DataFrameCatManager(CatManager):
             categoricals=categoricals,
             sources=sources,
         )
-        for key, field in self._categoricals.items():
-            self._cat_columns[key] = CatColumn(
-                values_getter=lambda k=key: self._dataset[
-                    k
-                ],  # Capture key as default argument
-                values_setter=lambda new_values, k=key: self._dataset.__setitem__(
-                    k, new_values
-                ),
-                field=field,
-                key=key,
-                source=self._sources.get(key),
-            )
         if columns == Feature.name:
+            if isinstance(self._categoricals, list):
+                values = [feature.name for feature in self._categoricals]
+            else:
+                values = list(self._categoricals.keys())
             self._cat_columns["columns"] = CatColumn(
-                values_getter=self._categoricals.keys(),
+                values_getter=values,
                 field=self._columns_field,
                 key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
                 source=self._sources.get("columns"),
             )
+            self._cat_columns["columns"].validate()
         else:
             # NOTE: for var_index right now
             self._cat_columns["columns"] = CatColumn(
@@ -1345,6 +1398,40 @@ class DataFrameCatManager(CatManager):
                 key="columns",
                 source=self._sources.get("columns"),
             )
+        if isinstance(self._categoricals, list):
+            for feature in self._categoricals:
+                result = parse_dtype(feature.dtype)[
+                    0
+                ]  # TODO: support composite dtypes for categoricals
+                key = feature.name
+                field = result["field"]
+                self._cat_columns[key] = CatColumn(
+                    values_getter=lambda k=key: self._dataset[
+                        k
+                    ],  # Capture key as default argument
+                    values_setter=lambda new_values, k=key: self._dataset.__setitem__(
+                        k, new_values
+                    ),
+                    field=field,
+                    key=key,
+                    source=self._sources.get(key),
+                    feature=feature,
+                )
+        else:
+            # below is for backward compat of ln.Curator.from_df()
+            for key, field in self._categoricals.items():
+                self._cat_columns[key] = CatColumn(
+                    values_getter=lambda k=key: self._dataset[
+                        k
+                    ],  # Capture key as default argument
+                    values_setter=lambda new_values, k=key: self._dataset.__setitem__(
+                        k, new_values
+                    ),
+                    field=field,
+                    key=key,
+                    source=self._sources.get(key),
+                    feature=Feature.get(name=key),
+                )
 
     def lookup(self, public: bool = False) -> CatLookup:
         """Lookup categories.
@@ -2019,16 +2106,12 @@ class SpatialDataCatManager(CatManager):
             if not self._is_validated:
                 raise ValidationError("Dataset does not validate. Please curate.")
 
-        return save_artifact(
-            self._sdata,
-            description=description,
-            fields=self.categoricals,
+        self._artifact = Artifact.from_spatialdata(
+            self._dataset, key=key, description=description, revises=revises, run=run
+        ).save()
+        return annotate_artifact(
+            self._artifact,
             index_field=self.var_index,
-            key=key,
-            artifact=self._artifact,
-            revises=revises,
-            run=run,
-            schema=None,
             sample_metadata_key=self._sample_metadata_key,
         )
 
@@ -3046,98 +3129,40 @@ def get_organism_kwargs(
     return {}
 
 
-def save_artifact(
-    data: pd.DataFrame | ScverseDataStructures,
+def annotate_artifact(
+    artifact: Artifact,
     *,
-    fields: dict[str, FieldAttr] | dict[str, dict[str, FieldAttr]],
-    index_field: FieldAttr | dict[str, FieldAttr] | None = None,
-    description: str | None = None,
-    key: str | None = None,
-    artifact: Artifact | None = None,
-    revises: Artifact | None = None,
-    run: Run | None = None,
     schema: Schema | None = None,
+    cat_columns: dict[str, CatColumn] | None = None,
+    index_field: FieldAttr | dict[str, FieldAttr] | None = None,
     **kwargs,
 ) -> Artifact:
-    """Save all metadata with an Artifact.
-
-    Args:
-        data: The object to save.
-        fields: A dictionary mapping obs_column to registry_field.
-        index_field: The registry field to validate variables index against.
-        description: A description of the artifact.
-        key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
-        artifact: A already registered artifact. Passing this will not save a new artifact from data.
-        revises: Previous version of the artifact. Triggers a revision.
-        run: The run that creates the artifact.
-        schema: The Schema to associate with the Artifact.
-
-    Returns:
-        The saved Artifact.
-    """
     from ..models.artifact import add_labels
 
-    if artifact is None:
-        if isinstance(data, pd.DataFrame):
-            artifact = Artifact.from_df(
-                data, description=description, key=key, revises=revises, run=run
-            )
-        elif isinstance(data, AnnData):
-            artifact = Artifact.from_anndata(
-                data, description=description, key=key, revises=revises, run=run
-            )
-        elif data_is_mudata(data):
-            artifact = Artifact.from_mudata(
-                data, description=description, key=key, revises=revises, run=run
-            )
-        elif data_is_spatialdata(data):
-            artifact = Artifact.from_spatialdata(
-                data, description=description, key=key, revises=revises, run=run
-            )
-        else:
-            raise InvalidArgument(  # pragma: no cover
-                "data must be one of pd.Dataframe, AnnData, MuData, SpatialData."
-            )
-    artifact.save()
+    if cat_columns is None:
+        cat_columns = {}
 
-    def _add_labels(
-        data: pd.DataFrame | ScverseDataStructures,
-        artifact: Artifact,
-        fields: dict[str, FieldAttr],
-        feature_ref_is_name: bool | None = None,
-    ):
-        features = Feature.lookup().dict()
-        for key, field in fields.items():
-            feature = features.get(key)
-            registry = field.field.model
-            # we don't need source here because all records are already in the DB
-            df = data if isinstance(data, pd.DataFrame) else data.obs
-            # multi-value columns are separated by "|"
-            if not df[key].isna().all() and df[key].str.contains("|").any():
-                values = df[key].str.split("|").explode().unique()
-            else:
-                values = df[key].unique()
-            labels = registry.from_values(values, field=field)
-            if len(labels) == 0:
-                continue
-            label_ref_is_name = None
-            if hasattr(registry, "_name_field"):
-                label_ref_is_name = field.field.name == registry._name_field
-            add_labels(
-                artifact,
-                records=labels,
-                feature=feature,
-                feature_ref_is_name=feature_ref_is_name,
-                label_ref_is_name=label_ref_is_name,
-                from_curator=True,
-            )
+    # annotate with labels
+    for key, cat_column in cat_columns.items():
+        if (
+            cat_column._field.field.model == Feature
+            or key == "columns"
+            or key == "var_index"
+        ):
+            continue
+        add_labels(
+            artifact,
+            records=cat_column.labels,
+            feature=cat_column.feature,
+            feature_ref_is_name=None,  # do not need anymore
+            label_ref_is_name=cat_column.label_ref_is_name,
+            from_curator=True,
+        )
 
+    # annotate with inferred feature sets
     match artifact.otype:
         case "DataFrame":
             artifact.features._add_set_from_df(field=index_field)  # type: ignore
-            _add_labels(
-                data, artifact, fields, feature_ref_is_name=_ref_is_name(index_field)
-            )
         case "AnnData":
             if schema is not None and "uns" in schema.slots:
                 uns_field = parse_cat_dtype(schema.slots["uns"].itype, is_itype=True)[
@@ -3148,68 +3173,15 @@ def save_artifact(
             artifact.features._add_set_from_anndata(  # type: ignore
                 var_field=index_field, uns_field=uns_field
             )
-            _add_labels(
-                data, artifact, fields, feature_ref_is_name=_ref_is_name(index_field)
-            )
         case "MuData":
             artifact.features._add_set_from_mudata(var_fields=index_field)  # type: ignore
-            for modality, modality_fields in fields.items():
-                column_field_modality = index_field.get(modality)
-                if modality == "obs":
-                    _add_labels(
-                        data,
-                        artifact,
-                        modality_fields,
-                        feature_ref_is_name=(
-                            None
-                            if column_field_modality is None
-                            else _ref_is_name(column_field_modality)
-                        ),
-                    )
-                else:
-                    _add_labels(
-                        data[modality],
-                        artifact,
-                        modality_fields,
-                        feature_ref_is_name=(
-                            None
-                            if column_field_modality is None
-                            else _ref_is_name(column_field_modality)
-                        ),
-                    )
         case "SpatialData":
             artifact.features._add_set_from_spatialdata(  # type: ignore
                 sample_metadata_key=kwargs.get("sample_metadata_key", "sample"),
                 var_fields=index_field,
             )
-            sample_metadata_key = kwargs.get("sample_metadata_key", "sample")
-            for accessor, accessor_fields in fields.items():
-                column_field = index_field.get(accessor)
-                if accessor == sample_metadata_key:
-                    _add_labels(
-                        data.get_attrs(
-                            key=sample_metadata_key, return_as="df", flatten=True
-                        ),
-                        artifact,
-                        accessor_fields,
-                        feature_ref_is_name=(
-                            None if column_field is None else _ref_is_name(column_field)
-                        ),
-                    )
-                else:
-                    _add_labels(
-                        data.tables[accessor],
-                        artifact,
-                        accessor_fields,
-                        feature_ref_is_name=(
-                            None if column_field is None else _ref_is_name(column_field)
-                        ),
-                    )
         case _:
             raise NotImplementedError  # pragma: no cover
-
-    artifact.schema = schema
-    artifact.save()
 
     slug = ln_setup.settings.instance.slug
     if ln_setup.settings.instance.is_remote:  # pdagma: no cover

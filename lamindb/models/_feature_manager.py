@@ -446,8 +446,6 @@ def describe_features(
         dataset_tree = tree.add(
             Text.assemble(
                 ("Dataset features", "bold bright_magenta"),
-                ("/", "dim"),
-                (".feature_sets", "dim bold"),
             )
         )
         for child in int_features_tree_children:
