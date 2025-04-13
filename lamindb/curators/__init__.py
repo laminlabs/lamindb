@@ -3147,7 +3147,7 @@ def save_artifact(
             artifact,
             records=cat_column.labels,
             feature=cat_column.feature,
-            feature_ref_is_name=_ref_is_name(index_field),
+            feature_ref_is_name=None,  # do not need anymore
             label_ref_is_name=cat_column.label_ref_is_name,
             from_curator=True,
         )
