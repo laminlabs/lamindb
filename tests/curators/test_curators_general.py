@@ -41,7 +41,7 @@ def test_save_artifact_invalid_data_type():
             "data must be one of pd.Dataframe, AnnData, MuData, SpatialData."
         ),
     ):
-        save_artifact(data=data, fields={"field1": "attr1"})
+        save_artifact(data=data)
 
 
 def test_pandera_dataframe_schema():

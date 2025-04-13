@@ -1030,6 +1030,7 @@ class CatColumn:
                 logger.success(
                     f'added {len(labels_saved_public)} record{s} {colors.green("from_public")} with {model_field} for "{self._key}": {_format_values(labels_saved_public)}'
                 )
+        self.labels = existing_and_public_records
 
         # save parent labels for ulabels, for example a parent label "project" for label "project001"
         if registry == ULabel and field_name == "name":
@@ -1113,15 +1114,13 @@ class CatColumn:
         # inspect the non-validated values from public (BioRecord only)
         values_validated = []
         if hasattr(registry, "public"):
-            validated_records = registry.from_values(
+            public_records = registry.from_values(
                 non_validated,
                 field=self._field,
                 mute=True,
                 **kwargs_current,
             )
-            values_validated += [getattr(r, field_name) for r in validated_records]
-
-        self.labels = validated_records
+            values_validated += [getattr(r, field_name) for r in public_records]
 
         # logging messages
         non_validated_hint_print = f'.add_new_from("{self._key}")'
@@ -3079,7 +3078,7 @@ def get_organism_kwargs(
 def save_artifact(
     data: pd.DataFrame | ScverseDataStructures,
     *,
-    cat_columns: dict[str, CatColumn],
+    cat_columns: dict[str, CatColumn] | None = None,
     index_field: FieldAttr | dict[str, FieldAttr] | None = None,
     description: str | None = None,
     key: str | None = None,
@@ -3129,6 +3128,9 @@ def save_artifact(
                 "data must be one of pd.Dataframe, AnnData, MuData, SpatialData."
             )
     artifact.save()
+
+    if cat_columns is None:
+        cat_columns = {}
 
     # annotate with labels
     for cat_column in cat_columns.values():
