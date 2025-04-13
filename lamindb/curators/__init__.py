@@ -108,22 +108,18 @@ class CatLookup:
         categoricals: dict[str, FieldAttr],
         slots: dict[str, FieldAttr] = None,
         public: bool = False,
-        organism: str | None = None,
         sources: dict[str, Record] | None = None,
     ) -> None:
         slots = slots or {}
         self._categoricals = {**categoricals, **slots}
         self._public = public
-        self._organism = organism
         self._sources = sources
 
     def __getattr__(self, name):
         if name in self._categoricals:
             registry = self._categoricals[name].field.model
             if self._public and hasattr(registry, "public"):
-                return registry.public(
-                    organism=self._organism, source=self._sources.get(name)
-                ).lookup()
+                return registry.public(source=self._sources.get(name)).lookup()
             else:
                 return registry.lookup()
         raise AttributeError(
@@ -134,9 +130,7 @@ class CatLookup:
         if name in self._categoricals:
             registry = self._categoricals[name].field.model
             if self._public and hasattr(registry, "public"):
-                return registry.public(
-                    organism=self._organism, source=self._sources.get(name)
-                ).lookup()
+                return registry.public(source=self._sources.get(name)).lookup()
             else:
                 return registry.lookup()
         raise AttributeError(
@@ -926,7 +920,6 @@ class CatColumn:
         field: The field to validate against.
         key: The name of the column to validate. Only used for logging.
         values_setter: A callable that sets the values.
-        organism: The organism to validate against.
         source: The source to validate against.
     """
 
@@ -936,15 +929,14 @@ class CatColumn:
         field: FieldAttr,
         key: str,
         values_setter: Callable | None = None,
-        organism: str | None = None,
         source: Record | None = None,
     ) -> None:
         self._values_getter = values_getter
         self._values_setter = values_setter
         self._field = field
         self._key = key
-        self._organism = organism
         self._source = source
+        self._organism = None
         self._validated: None | list[str] = None
         self._non_validated: None | list[str] = None
         self._synonyms: None | dict[str, str] = None
@@ -1219,7 +1211,7 @@ class CatManager:
     - non-validated values can be accessed via `DataFrameCurator.cat.add_new_from()` :meth:`~lamindb.curators.DataFrameCatManager.non_validated` and addressed manually
     """
 
-    def __init__(self, *, dataset, categoricals, sources, organism, columns_field=None):
+    def __init__(self, *, dataset, categoricals, sources, columns_field=None):
         # the below is shared with Curator
         self._artifact: Artifact = None  # pass the dataset as an artifact
         self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
@@ -1235,15 +1227,6 @@ class CatManager:
         self._columns_field = columns_field
         self._validate_category_error_messages: str = ""
         self._cat_columns: dict[str, CatColumn] = {}
-        # make sure to only fetch organism once at the beginning
-        if organism:
-            self._organism = organism
-        else:
-            fields = list(self._categoricals.values()) + [columns_field]
-            organisms = {
-                get_organism_kwargs(field=field).get("organism") for field in fields
-            }
-            self._organism = organisms.pop() if len(organisms) > 0 else None
 
     @property
     def non_validated(self) -> dict[str, list[str]]:
@@ -1310,7 +1293,6 @@ class CatManager:
             revises=revises,
             run=run,
             schema=None,
-            organism=self._organism,
         )
 
         return self._artifact
@@ -1325,18 +1307,13 @@ class DataFrameCatManager(CatManager):
         columns: FieldAttr = Feature.name,
         categoricals: dict[str, FieldAttr] | None = None,
         verbosity: str = "hint",
-        organism: str | None = None,
         sources: dict[str, Record] | None = None,
     ) -> None:
-        if organism is not None and not isinstance(organism, str):
-            raise ValueError("organism must be a string such as 'human' or 'mouse'!")
-
         settings.verbosity = verbosity
         self._non_validated = None
         super().__init__(
             dataset=df,
             columns_field=columns,
-            organism=organism,
             categoricals=categoricals,
             sources=sources,
         )
@@ -1350,7 +1327,6 @@ class DataFrameCatManager(CatManager):
                 ),
                 field=field,
                 key=key,
-                organism=self._organism,
                 source=self._sources.get(key),
             )
         if columns == Feature.name:
@@ -1358,7 +1334,6 @@ class DataFrameCatManager(CatManager):
                 values_getter=self._categoricals.keys(),
                 field=self._columns_field,
                 key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
-                organism=self._organism,
                 source=self._sources.get("columns"),
             )
         else:
@@ -1370,7 +1345,6 @@ class DataFrameCatManager(CatManager):
                 ),
                 field=self._columns_field,
                 key="columns",
-                organism=self._organism,
                 source=self._sources.get("columns"),
             )
 
@@ -1384,23 +1358,11 @@ class DataFrameCatManager(CatManager):
             categoricals=self._categoricals,
             slots={"columns": self._columns_field},
             public=public,
-            organism=self._organism,
             sources=self._sources,
         )
 
     def validate(self) -> bool:
-        """Validate variables and categorical observations.
-
-        This method also registers the validated records in the current instance:
-        - from public sources
-
-        Args:
-            organism: The organism name.
-
-        Returns:
-            Whether the DataFrame is validated.
-        """
-        # add all validated records to the current instance
+        """Validate variables and categorical observations."""
         self._validate_category_error_messages = ""  # reset the error messages
 
         validated = True
@@ -1437,7 +1399,6 @@ class DataFrameCatManager(CatManager):
 
         Args:
             key: The key referencing the slot in the DataFrame from which to draw terms.
-            organism: The organism name.
             **kwargs: Additional keyword arguments to pass to create new records
         """
         if len(kwargs) > 0 and key == "all":
@@ -1474,7 +1435,6 @@ class AnnDataCatManager(CatManager):
         categoricals: dict[str, FieldAttr] | None = None,
         obs_columns: FieldAttr = Feature.name,
         verbosity: str = "hint",
-        organism: str | None = None,
         sources: dict[str, Record] | None = None,
     ) -> None:
         if isinstance(var_index, str):
@@ -1497,7 +1457,6 @@ class AnnDataCatManager(CatManager):
             dataset=data,
             categoricals=categoricals,
             sources=self._sources,
-            organism=organism,
             columns_field=var_index,
         )
         self._adata = self._dataset
@@ -1506,7 +1465,6 @@ class AnnDataCatManager(CatManager):
             categoricals=self.categoricals,
             columns=obs_columns,
             verbosity=verbosity,
-            organism=None,
             sources=self._sources,
         )
         self._cat_columns = self._obs_df_curator._cat_columns.copy()
@@ -1518,7 +1476,6 @@ class AnnDataCatManager(CatManager):
                 ),
                 field=self._var_field,
                 key="var_index",
-                organism=self._organism,
                 source=self._sources.get("var_index"),
             )
 
@@ -1542,7 +1499,6 @@ class AnnDataCatManager(CatManager):
             categoricals=self._obs_fields,
             slots={"columns": self._columns_field, "var_index": self._var_field},
             public=public,
-            organism=self._organism,
             sources=self._sources,
         )
 
@@ -1551,7 +1507,6 @@ class AnnDataCatManager(CatManager):
 
         Args:
             key: The key referencing the slot in the DataFrame from which to draw terms.
-            organism: The organism name.
             **kwargs: Additional keyword arguments to pass to create new records
         """
         if key == "all":
@@ -1568,7 +1523,6 @@ class AnnDataCatManager(CatManager):
         """Update variable records.
 
         Args:
-            organism: The organism name.
             **kwargs: Additional keyword arguments to pass to create new records.
         """
         self.add_new_from(key="var_index", **kwargs)
@@ -1577,9 +1531,6 @@ class AnnDataCatManager(CatManager):
         """Validate categories.
 
         This method also registers the validated records in the current instance.
-
-        Args:
-            organism: The organism name.
 
         Returns:
             Whether the AnnData object is validated.
@@ -1628,14 +1579,12 @@ class MuDataCatManager(CatManager):
         var_index: dict[str, FieldAttr] | None = None,
         categoricals: dict[str, FieldAttr] | None = None,
         verbosity: str = "hint",
-        organism: str | None = None,
         sources: dict[str, Record] | None = None,
     ) -> None:
         super().__init__(
             dataset=mdata,
             categoricals={},
             sources=sources,
-            organism=organism,
         )
         self._columns_field = (
             var_index or {}
@@ -1653,7 +1602,6 @@ class MuDataCatManager(CatManager):
                 categoricals=self._obs_fields.get("obs", {}),
                 verbosity=verbosity,
                 sources=self._sources.get("obs"),
-                organism=organism,
             )
         self._mod_adata_curators = {
             modality: AnnDataCatManager(
@@ -1662,7 +1610,6 @@ class MuDataCatManager(CatManager):
                 categoricals=self._obs_fields.get(modality),
                 verbosity=verbosity,
                 sources=self._sources.get(modality),
-                organism=organism,
             )
             for modality in self._modalities
             if modality != "obs"
@@ -1739,7 +1686,6 @@ class MuDataCatManager(CatManager):
                 **{f"{k}_var_index": v for k, v in self._var_fields.items()},
             },
             public=public,
-            organism=self._organism,
             sources=self._sources,
         )
 
@@ -1749,7 +1695,6 @@ class MuDataCatManager(CatManager):
 
         Args:
             modality: The modality name.
-            organism: The organism name.
             **kwargs: Additional keyword arguments to pass to create new records.
         """
         self._mod_adata_curators[modality].add_new_from(key="var_index", **kwargs)
@@ -1765,7 +1710,6 @@ class MuDataCatManager(CatManager):
         Args:
             key: The key referencing the slot in the DataFrame.
             modality: The modality name.
-            organism: The organism name.
             **kwargs: Additional keyword arguments to pass to create new records.
         """
         modality = modality or "obs"
@@ -1831,7 +1775,6 @@ class SpatialDataCatManager(CatManager):
         var_index: dict[str, FieldAttr],
         categoricals: dict[str, dict[str, FieldAttr]] | None = None,
         verbosity: str = "hint",
-        organism: str | None = None,
         sources: dict[str, dict[str, Record]] | None = None,
         *,
         sample_metadata_key: str | None = "sample",
@@ -1840,7 +1783,6 @@ class SpatialDataCatManager(CatManager):
             dataset=sdata,
             categoricals={},
             sources=sources,
-            organism=organism,
         )
         if isinstance(sdata, Artifact):
             self._sdata = sdata.load()
@@ -1907,7 +1849,6 @@ class SpatialDataCatManager(CatManager):
                 categoricals=self._categoricals.get(self._sample_metadata_key, {}),
                 verbosity=verbosity,
                 sources=self._sources.get(self._sample_metadata_key),
-                organism=organism,
             )
         self._table_adata_curators = {
             table: AnnDataCatManager(
@@ -1916,7 +1857,6 @@ class SpatialDataCatManager(CatManager):
                 categoricals=self._categoricals.get(table),
                 verbosity=verbosity,
                 sources=self._sources.get(table),
-                organism=organism,
             )
             for table in self._table_keys
         }
@@ -1972,7 +1912,6 @@ class SpatialDataCatManager(CatManager):
             categoricals=cat_values_dict,
             slots={"accessors": cat_values_dict.keys()},
             public=public,
-            organism=self._organism,
             sources=self._sources,
         )
 
@@ -1982,7 +1921,6 @@ class SpatialDataCatManager(CatManager):
 
         Args:
             table: The table key.
-            organism: The organism name.
             **kwargs: Additional keyword arguments to pass to create new records.
         """
         if table in self.non_validated.keys():
@@ -2050,9 +1988,6 @@ class SpatialDataCatManager(CatManager):
         This method also registers the validated records in the current instance:
         - from public sources
 
-        Args:
-            organism: The organism name.
-
         Returns:
             Whether the SpatialData object is validated.
         """
@@ -2106,7 +2041,6 @@ class SpatialDataCatManager(CatManager):
             revises=revises,
             run=run,
             schema=None,
-            organism=self._organism,
             sample_metadata_key=self._sample_metadata_key,
         )
 
@@ -2120,7 +2054,6 @@ class TiledbsomaCatManager(CatManager):
         var_index: dict[str, tuple[str, FieldAttr]],
         categoricals: dict[str, FieldAttr] | None = None,
         obs_columns: FieldAttr = Feature.name,
-        organism: str | None = None,
         sources: dict[str, Record] | None = None,
     ):
         self._obs_fields = categoricals or {}
@@ -2132,7 +2065,6 @@ class TiledbsomaCatManager(CatManager):
         else:
             self._dataset = UPath(experiment_uri)
             self._artifact = None
-        self._organism = organism
         self._sources = sources or {}
 
         self._is_validated: bool | None = False
@@ -2206,7 +2138,6 @@ class TiledbsomaCatManager(CatManager):
             values_getter=register_columns,
             field=self._columns_field,
             key="columns",
-            organism=self._organism,
             source=self._sources.get("columns"),
         )
         cat_column.add_new()
@@ -2231,7 +2162,6 @@ class TiledbsomaCatManager(CatManager):
                     values_getter=var_ms_values,
                     field=field,
                     key=var_ms_key,
-                    organism=self._organism,
                     source=self._sources.get(var_ms_key),
                 )
                 cat_column.validate()
@@ -2254,7 +2184,6 @@ class TiledbsomaCatManager(CatManager):
                     values_getter=values,
                     field=field,
                     key=key,
-                    organism=self._organism,
                     source=self._sources.get(key),
                 )
                 cat_column.validate()
@@ -2309,7 +2238,6 @@ class TiledbsomaCatManager(CatManager):
                 values_getter=values,
                 field=field,
                 key=k,
-                organism=self._organism,
                 source=self._sources.get(k),
             )
             cat_column.add_new()
@@ -2344,7 +2272,6 @@ class TiledbsomaCatManager(CatManager):
             categoricals=self._obs_fields,
             slots={"columns": self._columns_field, **self._var_fields_flat},
             public=public,
-            organism=self._organism,
             sources=self._sources,
         )
 
@@ -2385,7 +2312,6 @@ class TiledbsomaCatManager(CatManager):
                 values_getter=values,
                 field=field,
                 key=k,
-                organism=self._organism,
                 source=self._sources.get(k),
             )
             cat_column.validate()
@@ -2474,14 +2400,12 @@ class TiledbsomaCatManager(CatManager):
                 df=mock_df,
                 field=self._columns_field,
                 mute=True,
-                organism=self._organism,
             )
         for ms in self._var_fields:
             var_key, var_field = self._var_fields[ms]
             feature_sets[f"{ms}__var"] = Schema.from_values(
                 values=self._validated_values[f"{ms}__{var_key}"],
                 field=var_field,
-                organism=self._organism,
                 raise_validation_error=False,
             )
         artifact._staged_feature_sets = feature_sets
@@ -2494,7 +2418,6 @@ class TiledbsomaCatManager(CatManager):
             labels = registry.from_values(
                 values=self._validated_values[key],
                 field=field,
-                organism=self._organism,
             )
             if len(labels) == 0:
                 continue
@@ -2533,7 +2456,6 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         self,
         adata: ad.AnnData,
         categoricals: dict[str, FieldAttr] | None = None,
-        organism: Literal["human", "mouse"] = "human",
         *,
         schema_version: Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0"] = "5.2.0",
         defaults: dict[str, str] = None,
@@ -2546,7 +2468,6 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
             adata: Path to or AnnData object to curate against the CELLxGENE schema.
             categoricals: A dictionary mapping ``.obs.columns`` to a registry field.
                 The CELLxGENE Curator maps against the required CELLxGENE fields by default.
-            organism: The organism name. CELLxGENE restricts it to 'human' and 'mouse'.
             schema_version: The CELLxGENE schema version to curate against.
             defaults: Default values that are set if columns or column values are missing.
             extra_sources: A dictionary mapping ``.obs.columns`` to Source records.
@@ -2573,6 +2494,7 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         categoricals = _restrict_obs_fields(adata.obs, categoricals)
 
         # Configure sources
+        organism: Literal["human", "mouse"] = "human"
         sources = _create_sources(categoricals, schema_version, organism)
         self.schema_version = schema_version
         self.schema_reference = f"https://github.com/chanzuckerberg/single-cell-curation/blob/main/schema/{schema_version}/schema.md"
@@ -2588,7 +2510,6 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
             var_index=bt.Gene.ensembl_gene_id,
             categoricals=categoricals,
             verbosity=verbosity,
-            organism=organism,
             sources=sources,
         )
 
@@ -2877,7 +2798,6 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
             adata=adata,
             categoricals=categoricals,
             defaults=categoricals_defaults,
-            organism=organism,
             extra_sources=self._configure_sources(adata),
             schema_version=cxg_schema_version,
             verbosity=verbosity,
@@ -3149,7 +3069,6 @@ def save_artifact(
     fields: dict[str, FieldAttr] | dict[str, dict[str, FieldAttr]],
     index_field: FieldAttr | dict[str, FieldAttr] | None = None,
     description: str | None = None,
-    organism: str | None = None,
     key: str | None = None,
     artifact: Artifact | None = None,
     revises: Artifact | None = None,
@@ -3164,7 +3083,6 @@ def save_artifact(
         fields: A dictionary mapping obs_column to registry_field.
         index_field: The registry field to validate variables index against.
         description: A description of the artifact.
-        organism: The organism name.
         key: A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
         artifact: A already registered artifact. Passing this will not save a new artifact from data.
         revises: Previous version of the artifact. Triggers a revision.
@@ -3210,14 +3128,13 @@ def save_artifact(
             feature = features.get(key)
             registry = field.field.model
             # we don't need source here because all records are already in the DB
-            filter_kwargs = get_current_filter_kwargs(registry, {"organism": organism})
             df = data if isinstance(data, pd.DataFrame) else data.obs
             # multi-value columns are separated by "|"
             if not df[key].isna().all() and df[key].str.contains("|").any():
                 values = df[key].str.split("|").explode().unique()
             else:
                 values = df[key].unique()
-            labels = registry.from_values(values, field=field, **filter_kwargs)
+            labels = registry.from_values(values, field=field)
             if len(labels) == 0:
                 continue
             label_ref_is_name = None
@@ -3234,7 +3151,7 @@ def save_artifact(
 
     match artifact.otype:
         case "DataFrame":
-            artifact.features._add_set_from_df(field=index_field, organism=organism)  # type: ignore
+            artifact.features._add_set_from_df(field=index_field)  # type: ignore
             _add_labels(
                 data, artifact, fields, feature_ref_is_name=_ref_is_name(index_field)
             )
@@ -3246,15 +3163,13 @@ def save_artifact(
             else:
                 uns_field = None
             artifact.features._add_set_from_anndata(  # type: ignore
-                var_field=index_field, uns_field=uns_field, organism=organism
+                var_field=index_field, uns_field=uns_field
             )
             _add_labels(
                 data, artifact, fields, feature_ref_is_name=_ref_is_name(index_field)
             )
         case "MuData":
-            artifact.features._add_set_from_mudata(  # type: ignore
-                var_fields=index_field, organism=organism
-            )
+            artifact.features._add_set_from_mudata(var_fields=index_field)  # type: ignore
             for modality, modality_fields in fields.items():
                 column_field_modality = index_field.get(modality)
                 if modality == "obs":
@@ -3283,7 +3198,6 @@ def save_artifact(
             artifact.features._add_set_from_spatialdata(  # type: ignore
                 sample_metadata_key=kwargs.get("sample_metadata_key", "sample"),
                 var_fields=index_field,
-                organism=organism,
             )
             sample_metadata_key = kwargs.get("sample_metadata_key", "sample")
             for accessor, accessor_fields in fields.items():
@@ -3387,12 +3301,13 @@ def from_df(
     verbosity: str = "hint",
     organism: str | None = None,
 ) -> DataFrameCatManager:
+    if organism is not None:
+        logger.warning("organism is ignored, define it on the dtype level")
     return DataFrameCatManager(
         df=df,
         categoricals=categoricals,
         columns=columns,
         verbosity=verbosity,
-        organism=organism,
     )
 
 
@@ -3407,13 +3322,14 @@ def from_anndata(
     organism: str | None = None,
     sources: dict[str, Record] | None = None,
 ) -> AnnDataCatManager:
+    if organism is not None:
+        logger.warning("organism is ignored, define it on the dtype level")
     return AnnDataCatManager(
         data=data,
         var_index=var_index,
         categoricals=categoricals,
         obs_columns=obs_columns,
         verbosity=verbosity,
-        organism=organism,
         sources=sources,
     )
 
@@ -3429,13 +3345,13 @@ def from_mudata(
 ) -> MuDataCatManager:
     if not is_package_installed("mudata"):
         raise ImportError("Please install mudata: pip install mudata")
-
+    if organism is not None:
+        logger.warning("organism is ignored, define it on the dtype level")
     return MuDataCatManager(
         mdata=mdata,
         var_index=var_index,
         categoricals=categoricals,
         verbosity=verbosity,
-        organism=organism,
     )
 
 
@@ -3449,12 +3365,13 @@ def from_tiledbsoma(
     organism: str | None = None,
     sources: dict[str, Record] | None = None,
 ) -> TiledbsomaCatManager:
+    if organism is not None:
+        logger.warning("organism is ignored, define it on the dtype level")
     return TiledbsomaCatManager(
         experiment_uri=experiment_uri,
         var_index=var_index,
         categoricals=categoricals,
         obs_columns=obs_columns,
-        organism=organism,
         sources=sources,
     )
 
@@ -3473,13 +3390,13 @@ def from_spatialdata(
 ):
     if not is_package_installed("spatialdata"):
         raise ImportError("Please install spatialdata: pip install spatialdata")
-
+    if organism is not None:
+        logger.warning("organism is ignored, define it on the dtype level")
     return SpatialDataCatManager(
         sdata=sdata,
         var_index=var_index,
         categoricals=categoricals,
         verbosity=verbosity,
-        organism=organism,
         sources=sources,
         sample_metadata_key=sample_metadata_key,
     )
