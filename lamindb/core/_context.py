@@ -3,6 +3,7 @@ from __future__ import annotations
 import builtins
 import hashlib
 import os
+import re
 import signal
 import sys
 import threading
@@ -96,6 +97,55 @@ def pretty_pypackages(dependencies: dict) -> str:
             deps_list.append(pkg)
     deps_list.sort()
     return " ".join(deps_list)
+
+
+def notebook_to_script(  # type: ignore
+    transform: Transform, notebook_path: Path, script_path: Path | None = None
+) -> None | str:
+    import jupytext
+
+    notebook = jupytext.read(notebook_path)
+    py_content = jupytext.writes(notebook, fmt="py:percent")
+    # remove global metadata header
+    py_content = re.sub(r"^# ---\n.*?# ---\n\n", "", py_content, flags=re.DOTALL)
+    # replace title
+    py_content = py_content.replace(f"# # {transform.description}", "#")
+    if script_path is None:
+        return py_content
+    else:
+        script_path.write_text(py_content)
+
+
+def _calculate_source_hash(
+    filepath: Path, transform: Transform
+) -> tuple[str | None, str | None]:
+    """Calculate the hash and hash_type of a notebook or script.
+
+    For ``.ipynb`` files, calculates the hash of the canonical ``.py`` representation including the transform title.
+    """
+    if filepath.suffix == ".ipynb":
+        source_code_path = ln_setup.settings.cache_dir / filepath.name.replace(
+            ".ipynb", ".py"
+        )
+        try:
+            notebook_to_script(
+                transform=transform,
+                notebook_path=filepath,
+                script_path=source_code_path,
+            )
+            hash_value, hash_type = hash_file(source_code_path)
+            return hash_value, hash_type
+        finally:
+            if source_code_path.exists():
+                try:
+                    source_code_path.unlink()
+                except OSError as unlink_e:
+                    logger.warning(
+                        f"Could not remove temporary file {source_code_path}: {unlink_e}"
+                    )
+    else:
+        # For non-notebook files, hash directly
+        return hash_file(filepath)
 
 
 class LogStreamHandler:
@@ -521,18 +571,18 @@ class Context:
 
             # we need to traverse from greater depth to shorter depth so that we match better matches first
             transforms = (
-                Transform.filter(key__endswith=self._path.name, is_latest=True)
+                Transform.filter(is_latest=True)
                 .annotate(slash_count=SlashCount("key"))
                 .order_by("-slash_count")
             )
             uid = f"{base62_12()}0000"
             key = self._path.name
             target_transform = None
-            hash, _ = hash_file(self._path)
             if len(transforms) != 0:
                 message = ""
                 found_key = False
                 for aux_transform in transforms:
+                    hash, _ = _calculate_source_hash(self._path, aux_transform)
                     if aux_transform.key in self._path.as_posix():
                         key = aux_transform.key
                         # first part of the if condition: no version bump, second part: version bump
@@ -572,14 +622,27 @@ class Context:
                         found_key = True
                         break
                 if not found_key:
-                    plural_s = "s" if len(transforms) > 1 else ""
-                    transforms_str = "\n".join(
-                        [
-                            f"    {transform.uid} → {transform.key}"
-                            for transform in transforms
-                        ]
-                    )
-                    message = f"ignoring transform{plural_s} with same filename:\n{transforms_str}"
+                    # Try to find existing Transform with the same hash
+                    all_transforms_with_hash = Transform.filter(
+                        hash__isnull=False
+                    ).all()
+
+                    for tf in all_transforms_with_hash:
+                        current_hash, _ = _calculate_source_hash(self._path, tf)
+                        if current_hash == tf.hash:
+                            target_transform = tf
+                            found_key = True
+                            break
+
+                    if not found_key:
+                        plural_s = "s" if len(transforms) > 1 else ""
+                        transforms_str = "\n".join(
+                            [
+                                f"    {transform.uid} → {transform.key}"
+                                for transform in transforms
+                            ]
+                        )
+                        message = f"ignoring transform{plural_s} with same filename:\n{transforms_str}"
                 if message != "":
                     logger.important(message)
             self.uid, transform = uid, target_transform
@@ -664,7 +727,9 @@ class Context:
                     # in an interactive session, hence we pro-actively bump the version number
                     bump_revision = True
                 else:
-                    hash, _ = hash_file(self._path)  # ignore hash_type for now
+                    hash, _ = _calculate_source_hash(
+                        self._path, transform
+                    )  # ignore hash_type for now
                     if hash != transform.hash:
                         bump_revision = True
                     else:

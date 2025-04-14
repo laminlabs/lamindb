@@ -11,6 +11,7 @@ from lamin_utils import logger
 from lamin_utils._logger import LEVEL_TO_COLORS, LEVEL_TO_ICONS, RESET_COLOR
 from lamindb_setup.core.hashing import hash_file
 
+from lamindb.core._context import _calculate_source_hash
 from lamindb.models import Artifact, Run, Transform
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
@@ -159,26 +160,7 @@ def notebook_to_report(notebook_path: Path, output_path: Path) -> None:
     output_path.write_text(html, encoding="utf-8")
 
 
-def notebook_to_script(  # type: ignore
-    transform: Transform, notebook_path: Path, script_path: Path | None = None
-) -> None | str:
-    import jupytext
-
-    notebook = jupytext.read(notebook_path)
-    py_content = jupytext.writes(notebook, fmt="py:percent")
-    # remove global metadata header
-    py_content = re.sub(r"^# ---\n.*?# ---\n\n", "", py_content, flags=re.DOTALL)
-    # replace title
-    py_content = py_content.replace(f"# # {transform.description}", "#")
-    if script_path is None:
-        return py_content
-    else:
-        script_path.write_text(py_content)
-
-
 def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
-    import re
-
     cleaned_content = file_path.read_text()
     # remove title from content
     pattern_title = r"<title>(.*?)</title>"
@@ -306,11 +288,6 @@ def save_context_core(
             ".ipynb", ".html"
         )
         notebook_to_report(filepath, report_path)
-        # write the source code
-        source_code_path = ln_setup.settings.cache_dir / filepath.name.replace(
-            ".ipynb", ".py"
-        )
-        notebook_to_script(transform, filepath, source_code_path)
     elif is_r_notebook:
         if filepath.with_suffix(".nb.html").exists():
             report_path = filepath.with_suffix(".nb.html")
@@ -337,7 +314,10 @@ def save_context_core(
     ln.settings.creation.artifact_silence_missing_run_warning = True
     # save source code
     if save_source_code_and_report:
-        hash, _ = hash_file(source_code_path)  # ignore hash_type for now
+        hash, _ = _calculate_source_hash(
+            filepath, transform
+        )  # ignore hash_type for now
+
         if transform.hash is not None:
             # check if the hash of the transform source code matches
             # (for scripts, we already run the same logic in track() - we can deduplicate the call at some point)
