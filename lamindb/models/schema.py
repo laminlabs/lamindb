@@ -98,10 +98,6 @@ def get_features_config(
         return features, configs  # type: ignore
 
 
-# SCHEMA_MODE_ENCODE = {"passed-only": 0, "all-itype": 1}
-# SCHEMA_MODE_DECODE = {0: "passed-only", 1: "all-itype"}
-
-
 class SchemaOptionals:
     """Manage and access optional features in a schema."""
 
@@ -168,11 +164,13 @@ class Schema(Record, CanCurate, TracksRun):
             a set upon instantiation. If you'd like to pass values, use
             :meth:`~lamindb.Schema.from_values` or
             :meth:`~lamindb.Schema.from_df`.
-        components: `dict[str, Schema] | None = None` A dictionary mapping component names to
-            their corresponding :class:`~lamindb.Schema` objects for composite schemas.
+        components: `dict[str, Schema] | None = None` A dictionary mapping slot names to
+            components. A component is itself a :class:`~lamindb.Schema` object.
         name: `str | None = None` A name.
         description: `str | None = None` A description.
         itype: `str | None = None` The feature identifier type (e.g. :class:`~lamindb.Feature`, :class:`~bionty.Gene`, ...).
+        flexible: `bool | None = None` Whether to include any feature of the same `itype` in validation
+            and annotation. If no features are passed, defaults to `True`, otherwise to `False.
         type: `Schema | None = None` A type.
         is_type: `bool = False` Distinguish types from instances of the type.
         otype: `str | None = None` An object type to define the structure of a composite schema.
@@ -183,8 +181,6 @@ class Schema(Record, CanCurate, TracksRun):
             See :attr:`~lamindb.Schema.optionals` for more-fine-grained control.
         ordered_set: `bool = False` Whether features are required to be ordered.
         maximal_set: `bool = False` If `True`, no additional features are allowed.
-        slot: `str | None = None` The slot name when this schema is used as a component in a
-            composite schema.
         coerce_dtype: `bool = False` When True, attempts to coerce values to the specified dtype
             during validation, see :attr:`~lamindb.Schema.coerce_dtype`.
 
@@ -208,7 +204,7 @@ class Schema(Record, CanCurate, TracksRun):
         :meth:`~lamindb.Schema.from_df`
             Create from dataframe columns.
 
-    Example:
+    Examples:
 
         ::
 
@@ -254,11 +250,6 @@ class Schema(Record, CanCurate, TracksRun):
             ).save()
     """
 
-    # below is an idea for a potential future mode argument
-    # mode: `Literal["passed-only", "all-itype"] | None = None`
-    #     If `None`, uses `"validate-passed"` if features are passed and `"all-itype"` otherwise.
-    #     If `"passed-only"`, only those features that are passed in the schema construction are validated and annotated.
-    #     If `"all-itype"`, all features with compliant feature identifiers are validated, and all categorical features among these are annotated.
     class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
@@ -266,7 +257,7 @@ class Schema(Record, CanCurate, TracksRun):
     _aux_fields: dict[str, tuple[str, type]] = {
         "0": ("coerce_dtype", bool),
         "1": ("optionals", list[str]),
-        # "2": ("mode_code", int),  # encoding of schema mode
+        "2": ("flexible", bool),
     }
 
     id: int = models.AutoField(primary_key=True)
@@ -387,7 +378,6 @@ class Schema(Record, CanCurate, TracksRun):
         otype: str | None = None,
         ordered_set: bool = False,
         maximal_set: bool = False,
-        slot: str | None = None,
         coerce_dtype: bool = False,
     ): ...
 
@@ -418,6 +408,7 @@ class Schema(Record, CanCurate, TracksRun):
         name: str | None = kwargs.pop("name", None)
         description: str | None = kwargs.pop("description", None)
         itype: str | Record | DeferredAttribute | None = kwargs.pop("itype", None)
+        flexible: bool | None = kwargs.pop("flexible", None)
         type: Feature | None = kwargs.pop("type", None)
         is_type: bool = kwargs.pop("is_type", False)
         otype: str | None = kwargs.pop("otype", None)
@@ -425,7 +416,6 @@ class Schema(Record, CanCurate, TracksRun):
         minimal_set: bool = kwargs.pop("minimal_set", True)
         ordered_set: bool = kwargs.pop("ordered_set", False)
         maximal_set: bool = kwargs.pop("maximal_set", False)
-        slot: str | None = kwargs.pop("slot", None)
         coerce_dtype: bool | None = kwargs.pop("coerce_dtype", None)
         optional_features = []
 
@@ -434,9 +424,11 @@ class Schema(Record, CanCurate, TracksRun):
                 f"Unexpected keyword arguments: {', '.join(kwargs.keys())}\n"
                 "Valid arguments are: features, description, dtype, itype, type, "
                 "is_type, otype, minimal_set, ordered_set, maximal_set, "
-                "slot, validated_by, coerce_dtype"
+                "coerce_dtype"
             )
         optional_features = []
+        if itype is not None:
+            itype = serialize_dtype(itype, is_itype=True)
         if features:
             features, configs = get_features_config(features)
             features_registry = validate_features(features)
@@ -456,6 +448,8 @@ class Schema(Record, CanCurate, TracksRun):
             dtype = None if itype is not None and itype == "Feature" else NUMBER_TYPE
         else:
             dtype = get_type_str(dtype)
+        if flexible is None:
+            flexible = n_features < 0
         components: dict[str, Schema]
         if components:
             itype = "Composite"
@@ -489,8 +483,8 @@ class Schema(Record, CanCurate, TracksRun):
                 for arg in hash_args
                 if validated_kwargs[arg] is not None
             }
-            # if mode != "passed-only":
-            #     union_set.add(f"mode:{SCHEMA_MODE_ENCODE[mode]}")
+            if flexible != n_features < 0:
+                union_set.add(f"flexible:{flexible}")
             if features:
                 union_set = union_set.union({feature.uid for feature in features})
             if optional_features:
@@ -499,7 +493,6 @@ class Schema(Record, CanCurate, TracksRun):
                 )
             hash = hash_set(union_set)
         validated_kwargs["hash"] = hash
-        validated_kwargs["slot"] = slot
         schema = Schema.filter(hash=hash).one_or_none()
         if schema is not None:
             logger.important(f"returning existing schema with same hash: {schema}")
@@ -521,6 +514,7 @@ class Schema(Record, CanCurate, TracksRun):
         validated_kwargs["uid"] = ids.base62_20()
         super().__init__(**validated_kwargs)
         self.optionals.set(optional_features)
+        self.flexible = flexible
 
     @classmethod
     def from_values(  # type: ignore
@@ -711,21 +705,19 @@ class Schema(Record, CanCurate, TracksRun):
         self._aux = self._aux or {}
         self._aux.setdefault("af", {})["0"] = value
 
-    # @property
-    # def mode(self) -> Literal["passed-only", "all-itype"]:
-    #     """Indicates how to handle validation and annotation in case features are not defined."""
-    #     if self._aux is not None and "af" in self._aux and "2" in self._aux["af"]:  # type: ignore
-    #         return SCHEMA_MODE_DECODE[self._aux["af"]["2"]]  # type: ignore
-    #     else:
-    #         return "passed-only"
+    @property
+    def flexible(self) -> bool:
+        """Indicates how to handle validation and annotation in case features are not defined."""
+        if self._aux is not None and "af" in self._aux and "2" in self._aux["af"]:  # type: ignore
+            return self._aux["af"]["2"]  # type: ignore
+        else:
+            return self.n < 0
 
-    # @mode.setter
-    # def mode(self, value: Literal["passed-only", "all-itype"]) -> None:
-    #     if value not in ["passed-only", "all-itype"]:
-    #         raise ValueError("mode must be either 'passed-only' or 'all-itype'")
-    #     if value == "all-itype":
-    #         self._aux = self._aux or {}
-    #         self._aux.setdefault("af", {})["2"] = SCHEMA_MODE_ENCODE[value]
+    @flexible.setter
+    def flexible(self, value: bool) -> None:
+        if value != self.n < 0:
+            self._aux = self._aux or {}
+            self._aux.setdefault("af", {})["2"] = value
 
     # @property
     # def index_feature(self) -> None | Feature:
