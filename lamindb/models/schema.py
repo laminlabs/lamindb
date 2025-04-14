@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, overload
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import numpy as np
 from django.db import models
@@ -152,9 +152,11 @@ class SchemaOptionals:
 class Schema(Record, CanCurate, TracksRun):
     """Schemas.
 
-    The simplest schema is a feature set such as the set of columns of a `DataFrame`.
+    A simple schema is a feature set such as the set of columns of a `DataFrame`.
 
     A composite schema has multiple components, e.g., for an `AnnData`, one schema for `obs` and another one for `var`.
+
+    A schema can also merely define abstract constraints or instructions for dataset validation & annotation.
 
     Args:
         features: `Iterable[Record] | None = None` An iterable of :class:`~lamindb.Feature`
@@ -166,13 +168,15 @@ class Schema(Record, CanCurate, TracksRun):
             their corresponding :class:`~lamindb.Schema` objects for composite schemas.
         name: `str | None = None` A name.
         description: `str | None = None` A description.
-        dtype: `str | None = None` The simple type. Defaults to
-            `None` for sets of :class:`~lamindb.Feature` records.
-            Otherwise defaults to `"num"` (e.g., for sets of :class:`~bionty.Gene`).
+        mode: `Literal["validate-passed", "validate-all-annotate-all-cat"] | None = None`
+            If `None`, uses `"validate-passed"` if features are passed and `"validate-all-annotate-all-cat"` otherwise.
         itype: `str | None = None` The feature identifier type (e.g. :class:`~lamindb.Feature`, :class:`~bionty.Gene`, ...).
         type: `Schema | None = None` A type.
         is_type: `bool = False` Distinguish types from instances of the type.
         otype: `str | None = None` An object type to define the structure of a composite schema.
+        dtype: `str | None = None` The simple type. Defaults to
+            `None` for sets of :class:`~lamindb.Feature` records.
+            Otherwise defaults to `"num"` (e.g., for sets of :class:`~bionty.Gene`).
         minimal_set: `bool = True` Whether all passed features are to be considered required by default.
             See :attr:`~lamindb.Schema.optionals` for more-fine-grained control.
         ordered_set: `bool = False` Whether features are required to be ordered.
@@ -185,20 +189,15 @@ class Schema(Record, CanCurate, TracksRun):
     .. dropdown:: Why does LaminDB model schemas, not just features?
 
         1. Performance: Imagine you measure the same panel of 20k transcripts in
-           1M samples. By modeling the panel as a feature set, you can link all
-           your artifacts against one feature set and only need to store 1M
+           1M samples. By modeling the panel as a schema, you can link all
+           your artifacts against one schema and only need to store 1M
            instead of 1M x 20k = 20B links.
         2. Interpretation: Model protein panels, gene panels, etc.
-        3. Data integration: Feature sets provide the information that determines whether two datasets can be meaningfully concatenated.
-
-        These reasons do not hold for label sets. Hence, LaminDB does not model label sets.
+        3. Data integration: Schemas provide the information that determines whether two datasets can be meaningfully concatenated.
 
     Note:
 
-        A feature set can be identified by the `hash` of its feature uids.
-        It's stored in the `.hash` field.
-
-        A `slot` provides a string key to access feature sets. For instance, for the schema of an
+        A `slot` provides a string key to access schema components. For instance, for the schema of an
         `AnnData` object, it would be `'obs'` for `adata.obs`.
 
     See Also:
@@ -248,7 +247,8 @@ class Schema(Record, CanCurate, TracksRun):
     _name_field: str = "name"
     _aux_fields: dict[str, tuple[str, type]] = {
         "0": ("coerce_dtype", bool),
-        "1": ("_index_feature_uid", str),
+        "1": ("optionals", str),
+        "2": ("mode", str),
     }
 
     id: int = models.AutoField(primary_key=True)
@@ -261,11 +261,6 @@ class Schema(Record, CanCurate, TracksRun):
     """A description."""
     n = IntegerField()
     """Number of features in the set."""
-    dtype: str | None = CharField(max_length=64, null=True, editable=False)
-    """Data type, e.g., "num", "float", "int". Is `None` for :class:`~lamindb.Feature`.
-
-    For :class:`~lamindb.Feature`, types are expected to be heterogeneous and defined on a per-feature level.
-    """
     itype: str | None = CharField(
         max_length=120, db_index=True, null=True, editable=False
     )
@@ -291,6 +286,11 @@ class Schema(Record, CanCurate, TracksRun):
     """Distinguish types from instances of the type."""
     otype: str | None = CharField(max_length=64, db_index=True, null=True)
     """Default Python object type, e.g., DataFrame, AnnData."""
+    dtype: str | None = CharField(max_length=64, null=True, editable=False)
+    """Data type, e.g., "num", "float", "int". Is `None` for :class:`~lamindb.Feature`.
+
+    For :class:`~lamindb.Feature`, types are expected to be heterogeneous and defined on a per-feature level.
+    """
     hash: str | None = CharField(
         max_length=HASH_LENGTH, db_index=True, null=True, editable=False
     )
@@ -362,6 +362,7 @@ class Schema(Record, CanCurate, TracksRun):
         components: dict[str, Schema] | None = None,
         name: str | None = None,
         description: str | None = None,
+        mode: Literal["validate-passed", "validate-all-annotate-all-cat"] | None = None,
         dtype: str | None = None,
         itype: str | Registry | FieldAttr | None = None,
         type: Schema | None = None,
@@ -399,11 +400,14 @@ class Schema(Record, CanCurate, TracksRun):
         components: dict[str, Schema] = kwargs.pop("components", {})
         name: str | None = kwargs.pop("name", None)
         description: str | None = kwargs.pop("description", None)
-        dtype: str | None = kwargs.pop("dtype", None)
+        mode: Literal["validate-passed", "validate-all-annotate-all-cat"] | None = (
+            kwargs.pop("mode", None)
+        )
         itype: str | Record | DeferredAttribute | None = kwargs.pop("itype", None)
         type: Feature | None = kwargs.pop("type", None)
         is_type: bool = kwargs.pop("is_type", False)
         otype: str | None = kwargs.pop("otype", None)
+        dtype: str | None = kwargs.pop("dtype", None)
         minimal_set: bool = kwargs.pop("minimal_set", True)
         ordered_set: bool = kwargs.pop("ordered_set", False)
         maximal_set: bool = kwargs.pop("maximal_set", False)
@@ -414,7 +418,7 @@ class Schema(Record, CanCurate, TracksRun):
         if kwargs:
             raise ValueError(
                 f"Unexpected keyword arguments: {', '.join(kwargs.keys())}\n"
-                "Valid arguments are: features, description, dtype, itype, type, "
+                "Valid arguments are: features, description, mode, dtype, itype, type, "
                 "is_type, otype, minimal_set, ordered_set, maximal_set, "
                 "slot, validated_by, coerce_dtype"
             )
@@ -447,6 +451,11 @@ class Schema(Record, CanCurate, TracksRun):
             itype_str = serialize_dtype(itype, is_itype=True)
         else:
             itype_str = itype
+        if mode is None:
+            if features:
+                mode = "validate-passed"
+            else:
+                mode = "validate-all-annotate-all-cat"
         validated_kwargs = {
             "name": name,
             "description": description,
@@ -466,7 +475,13 @@ class Schema(Record, CanCurate, TracksRun):
             hash = hash_set({component.hash for component in components.values()})
         else:
             hash_args = ["dtype", "itype", "minimal_set", "ordered_set", "maximal_set"]
-            union_set = {str(validated_kwargs[arg]) for arg in hash_args}
+            union_set = {
+                str(validated_kwargs[arg])
+                for arg in hash_args
+                if validated_kwargs[arg] is not None
+            }
+            if mode != "validate-passed":
+                union_set.add(mode)
             if features:
                 union_set = union_set.union({feature.uid for feature in features})
             if optional_features:
@@ -497,6 +512,7 @@ class Schema(Record, CanCurate, TracksRun):
         validated_kwargs["uid"] = ids.base62_20()
         super().__init__(**validated_kwargs)
         self.optionals.set(optional_features)
+        self.mode = mode
 
     @classmethod
     def from_values(  # type: ignore
@@ -686,6 +702,26 @@ class Schema(Record, CanCurate, TracksRun):
     def coerce_dtype(self, value: bool) -> None:
         self._aux = self._aux or {}
         self._aux.setdefault("af", {})["0"] = value
+
+    @property
+    def mode(self) -> Literal["validate-passed", "validate-all-annotate-all-cat"]:
+        """Indicates how to handle validation and annotation in case features are not defined."""
+        if self._aux is not None and "af" in self._aux and "0" in self._aux["af"]:  # type: ignore
+            return self._aux["af"]["2"]  # type: ignore
+        else:
+            return "validate-passed"
+
+    @mode.setter
+    def mode(
+        self, value: Literal["validate-passed", "validate-all-annotate-all-cat"]
+    ) -> None:
+        if value not in ["validate-passed", "validate-all-annotate-all-cat"]:
+            raise ValueError(
+                "mode must be either 'validate-passed' or 'validate-all-annotate-all-cat'"
+            )
+        if value == "validate-all-annotate-all-cat":
+            self._aux = self._aux or {}
+            self._aux.setdefault("af", {})["2"] = value
 
     # @property
     # def index_feature(self) -> None | Feature:
