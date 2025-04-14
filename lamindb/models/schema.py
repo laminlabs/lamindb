@@ -104,18 +104,25 @@ class SchemaOptionals:
     def __init__(self, schema) -> None:
         self.schema = schema
 
-    def get(self) -> QuerySet:
-        """Get the optional features."""
+    def get_uids(self) -> list[str]:
+        """Get the uids of the optional features.
+
+        Does not an additional query to the database.
+        """
         if (
             self.schema._aux is not None
             and "af" in self.schema._aux
             and "1" in self.schema._aux["af"]
-        ):  # type: ignore
-            return (
-                self.schema.members.filter(uid__in=self.schema._aux["af"]["1"])
-                .order_by("links_schema__id")
-                .all()
-            )
+        ):
+            return self.schema._aux["af"]["1"]
+        else:
+            return []
+
+    def get(self) -> QuerySet:
+        """Get the optional features."""
+        uids = self.get_uids()
+        if uids:
+            return Feature.objects.filter(uid__in=uids).order_by("links_schema__id")
         else:
             return Feature.objects.none()  # empty QuerySet
 
@@ -166,8 +173,9 @@ class Schema(Record, CanCurate, TracksRun):
         type: `Schema | None = None` A type.
         is_type: `bool = False` Distinguish types from instances of the type.
         otype: `str | None = None` An object type to define the structure of a composite schema.
+        minimal_set: `bool = True` Whether all passed features are to be considered required by default.
         ordered_set: `bool = False` Whether features are required to be ordered.
-        maximal_set: `bool = False` If `True`, no additional features are allowed to be present in the dataset.
+        maximal_set: `bool = False` If `True`, no additional features are allowed.
         slot: `str | None = None` The slot name when this schema is used as a component in a
             composite schema.
         coerce_dtype: `bool = False` When True, attempts to coerce values to the specified dtype
@@ -299,8 +307,11 @@ class Schema(Record, CanCurate, TracksRun):
     For a composite schema, the hash of hashes.
     """
     minimal_set: bool = BooleanField(default=True, db_index=True, editable=False)
-    """Deprecated. Use `feature.with_config(optional=True)` to specify non-required features.
-    Whether all features present in the dataset must be in the schema (default `True`)."""
+    """Whether all passed features are to be considered required by default (default `True`).
+
+    Note that features that are explicitly marked as `optional` via `feature.with_config(optional=True)`
+    are **not* required even if this `minimal_set` is true.
+    """
     ordered_set: bool = BooleanField(default=False, db_index=True, editable=False)
     """Whether features are required to be ordered (default `False`)."""
     maximal_set: bool = BooleanField(default=False, db_index=True, editable=False)
@@ -401,12 +412,7 @@ class Schema(Record, CanCurate, TracksRun):
         type: Feature | None = kwargs.pop("type", None)
         is_type: bool = kwargs.pop("is_type", False)
         otype: str | None = kwargs.pop("otype", None)
-        # minimal_set is deprecated
-        if "minimal_set" in kwargs:
-            logger.warning(
-                "the argument `minimal_set` is deprecated and ignored! Use `feature.with_config(optional=True)` to specify non-required features."
-            )
-        kwargs.pop("minimal_set", True)
+        minimal_set: bool = kwargs.pop("minimal_set", True)
         ordered_set: bool = kwargs.pop("ordered_set", False)
         maximal_set: bool = kwargs.pop("maximal_set", False)
         slot: str | None = kwargs.pop("slot", None)
@@ -417,7 +423,7 @@ class Schema(Record, CanCurate, TracksRun):
             raise ValueError(
                 f"Unexpected keyword arguments: {', '.join(kwargs.keys())}\n"
                 "Valid arguments are: features, description, dtype, itype, type, "
-                "is_type, otype, ordered_set, maximal_set, "
+                "is_type, otype, minimal_set, ordered_set, maximal_set, "
                 "slot, validated_by, coerce_dtype"
             )
 
@@ -458,17 +464,20 @@ class Schema(Record, CanCurate, TracksRun):
             "otype": otype,
             "n": n_features,
             "itype": itype_str,
+            "minimal_set": minimal_set,
             "ordered_set": ordered_set,
             "maximal_set": maximal_set,
         }
         if coerce_dtype:
             validated_kwargs["_aux"] = {"af": {"0": coerce_dtype}}
-        if features:
+        if features and name is None:
             hash = hash_set({feature.uid for feature in features})
         elif components:
             hash = hash_set({component.hash for component in components.values()})
         else:
-            hash = hash_set({str(value) for value in validated_kwargs.values()})
+            settings_set = {str(value) for value in validated_kwargs.values()}
+            features_set = {feature.uid for feature in features}
+            hash = hash_set(settings_set.union(features_set))
         validated_kwargs["hash"] = hash
         validated_kwargs["slot"] = slot
         schema = Schema.filter(hash=hash).one_or_none()
@@ -521,16 +530,18 @@ class Schema(Record, CanCurate, TracksRun):
         Raises:
             ValidationError: If some values are not valid.
 
-        Example::
+        Example:
 
-            import lamindb as ln
-            import bionty as bt
+            ::
 
-            features = [ln.Feature(name=feat, dtype="str").save() for feat in ["feat11", "feat21"]]
-            schema = ln.Schema.from_values(features)
+                import lamindb as ln
+                import bionty as bt
 
-            genes = ["ENSG00000139618", "ENSG00000198786"]
-            schema = ln.Schema.from_values(features, bt.Gene.ensembl_gene_id, "float")
+                features = [ln.Feature(name=feat, dtype="str").save() for feat in ["feat11", "feat21"]]
+                schema = ln.Schema.from_values(features)
+
+                genes = ["ENSG00000139618", "ENSG00000198786"]
+                schema = ln.Schema.from_values(features, bt.Gene.ensembl_gene_id, "float")
         """
         if not isinstance(field, FieldAttr):
             raise TypeError(
@@ -821,4 +832,3 @@ delattr(Schema, "validated_by_id")  # we don't want to expose these
 delattr(Schema, "validated_schemas")  # we don't want to expose these
 delattr(Schema, "composite")  # we don't want to expose these
 delattr(Schema, "composite_id")  # we don't want to expose these
-delattr(Schema, "minimal_set")  # we don't want to expose these
