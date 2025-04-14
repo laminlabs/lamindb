@@ -206,46 +206,46 @@ class Schema(Record, CanCurate, TracksRun):
 
     Examples:
 
-        ::
+        Create schemas::
 
             import lamindb as ln
             import bionty as bt
             import pandas as pd
 
-            # Create a schema from a dataframe
+            # From a dataframe
             df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
             schema = ln.Schema.from_df(df)
 
-            # Create a schema from features
+            # From explicitly defined features
             schema = ln.Schema(
                 features=[
                     ln.Feature(name="required_feature", dtype=str).save(),
                 ],
             ).save()
 
-            # Create a schema by merely defining an identifier type
+            # By merely constraining an identifier type
             schema = ln.Schema(itype=bt.Gene.ensembl_gene_id)
 
-            # Create a schema with a required features but also validate features that match the identifier type
+            # A combination of the above
             schema = ln.Schema(
                 features=[
                     ln.Feature(name="required_feature", dtype=str).save(),
                 ],
-                itype=ln.Feature,
+                flexible=True,
             ).save()
 
-            # Create a schema by parsing & validating identifier values
+            # By parsing & validating identifier values
             schema = ln.Schema.from_values(
                 adata.var["ensemble_id"],
                 field=bt.Gene.ensembl_gene_id,
                 organism="mouse",
             ).save()
 
-            # Create a schema and mark a feature as optional
+            # Mark a single feature as optional and ignore other features of the same identifier type
             schema = ln.Schema(
                 features=[
                     ln.Feature(name="required_feature", dtype=str).save(),
-                    ln.Feature(name="feat2", dtype=int).save().with_config(optional=True),
+                    ln.Feature(name="feature2", dtype=int).save().with_config(optional=True),
                 ],
             ).save()
     """
