@@ -221,11 +221,22 @@ class Schema(Record, CanCurate, TracksRun):
             schema = ln.Schema.from_df(df)
 
             # Create a schema from features
-            features = [ln.Feature(name=feat, dtype="float").save() for feat in ["feat1", "feat2"]]
-            schema = ln.Schema(features)
+            schema = ln.Schema(
+                features=[
+                    ln.Feature(name="required_feature", dtype=str).save(),
+                ],
+            ).save()
 
             # Create a schema by merely defining an identifier type
             schema = ln.Schema(itype=bt.Gene.ensembl_gene_id)
+
+            # Create a schema with a required features but also validate features that match the identifier type
+            schema = ln.Schema(
+                features=[
+                    ln.Feature(name="required_feature", dtype=str).save(),
+                ],
+                itype=ln.Feature,
+            ).save()
 
             # Create a schema by parsing & validating identifier values
             schema = ln.Schema.from_values(
@@ -237,7 +248,7 @@ class Schema(Record, CanCurate, TracksRun):
             # Create a schema and mark a feature as optional
             schema = ln.Schema(
                 features=[
-                    ln.Feature(name="feat1", dtype=str).save(),
+                    ln.Feature(name="required_feature", dtype=str).save(),
                     ln.Feature(name="feat2", dtype=int).save().with_config(optional=True),
                 ],
             ).save()
