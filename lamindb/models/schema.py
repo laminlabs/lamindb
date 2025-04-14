@@ -168,8 +168,8 @@ class Schema(Record, CanCurate, TracksRun):
             their corresponding :class:`~lamindb.Schema` objects for composite schemas.
         name: `str | None = None` A name.
         description: `str | None = None` A description.
-        mode: `Literal["validate-passed", "validate-all-annotate-all-cat"] | None = None`
-            If `None`, uses `"validate-passed"` if features are passed and `"validate-all-annotate-all-cat"` otherwise.
+        mode: `Literal["validate-passed", "validate-all-annotate-cat"] | None = None`
+            If `None`, uses `"validate-passed"` if features are passed and `"validate-all-annotate-cat"` otherwise.
         itype: `str | None = None` The feature identifier type (e.g. :class:`~lamindb.Feature`, :class:`~bionty.Gene`, ...).
         type: `Schema | None = None` A type.
         is_type: `bool = False` Distinguish types from instances of the type.
@@ -362,7 +362,7 @@ class Schema(Record, CanCurate, TracksRun):
         components: dict[str, Schema] | None = None,
         name: str | None = None,
         description: str | None = None,
-        mode: Literal["validate-passed", "validate-all-annotate-all-cat"] | None = None,
+        mode: Literal["validate-passed", "validate-all-annotate-cat"] | None = None,
         dtype: str | None = None,
         itype: str | Registry | FieldAttr | None = None,
         type: Schema | None = None,
@@ -400,7 +400,7 @@ class Schema(Record, CanCurate, TracksRun):
         components: dict[str, Schema] = kwargs.pop("components", {})
         name: str | None = kwargs.pop("name", None)
         description: str | None = kwargs.pop("description", None)
-        mode: Literal["validate-passed", "validate-all-annotate-all-cat"] | None = (
+        mode: Literal["validate-passed", "validate-all-annotate-cat"] | None = (
             kwargs.pop("mode", None)
         )
         itype: str | Record | DeferredAttribute | None = kwargs.pop("itype", None)
@@ -455,7 +455,7 @@ class Schema(Record, CanCurate, TracksRun):
             if features:
                 mode = "validate-passed"
             else:
-                mode = "validate-all-annotate-all-cat"
+                mode = "validate-all-annotate-cat"
         validated_kwargs = {
             "name": name,
             "description": description,
@@ -704,7 +704,7 @@ class Schema(Record, CanCurate, TracksRun):
         self._aux.setdefault("af", {})["0"] = value
 
     @property
-    def mode(self) -> Literal["validate-passed", "validate-all-annotate-all-cat"]:
+    def mode(self) -> Literal["validate-passed", "validate-all-annotate-cat"]:
         """Indicates how to handle validation and annotation in case features are not defined."""
         if self._aux is not None and "af" in self._aux and "0" in self._aux["af"]:  # type: ignore
             return self._aux["af"]["2"]  # type: ignore
@@ -713,13 +713,13 @@ class Schema(Record, CanCurate, TracksRun):
 
     @mode.setter
     def mode(
-        self, value: Literal["validate-passed", "validate-all-annotate-all-cat"]
+        self, value: Literal["validate-passed", "validate-all-annotate-cat"]
     ) -> None:
-        if value not in ["validate-passed", "validate-all-annotate-all-cat"]:
+        if value not in ["validate-passed", "validate-all-annotate-cat"]:
             raise ValueError(
-                "mode must be either 'validate-passed' or 'validate-all-annotate-all-cat'"
+                "mode must be either 'validate-passed' or 'validate-all-annotate-cat'"
             )
-        if value == "validate-all-annotate-all-cat":
+        if value == "validate-all-annotate-cat":
             self._aux = self._aux or {}
             self._aux.setdefault("af", {})["2"] = value
 
