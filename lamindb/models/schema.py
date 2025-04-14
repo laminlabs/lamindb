@@ -168,8 +168,8 @@ class Schema(Record, CanCurate, TracksRun):
             their corresponding :class:`~lamindb.Schema` objects for composite schemas.
         name: `str | None = None` A name.
         description: `str | None = None` A description.
-        mode: `Literal["validate-passed", "validate-all-annotate-cat"] | None = None`
-            If `None`, uses `"validate-passed"` if features are passed and `"validate-all-annotate-cat"` otherwise.
+        mode: `Literal["passed-only", "all-itype"] | None = None`
+            If `None`, uses `"passed-only"` if features are passed and `"all-itype"` otherwise.
         itype: `str | None = None` The feature identifier type (e.g. :class:`~lamindb.Feature`, :class:`~bionty.Gene`, ...).
         type: `Schema | None = None` A type.
         is_type: `bool = False` Distinguish types from instances of the type.
@@ -362,7 +362,7 @@ class Schema(Record, CanCurate, TracksRun):
         components: dict[str, Schema] | None = None,
         name: str | None = None,
         description: str | None = None,
-        mode: Literal["validate-passed", "validate-all-annotate-cat"] | None = None,
+        mode: Literal["passed-only", "all-itype"] | None = None,
         dtype: str | None = None,
         itype: str | Registry | FieldAttr | None = None,
         type: Schema | None = None,
@@ -400,9 +400,7 @@ class Schema(Record, CanCurate, TracksRun):
         components: dict[str, Schema] = kwargs.pop("components", {})
         name: str | None = kwargs.pop("name", None)
         description: str | None = kwargs.pop("description", None)
-        mode: Literal["validate-passed", "validate-all-annotate-cat"] | None = (
-            kwargs.pop("mode", None)
-        )
+        mode: Literal["passed-only", "all-itype"] | None = kwargs.pop("mode", None)
         itype: str | Record | DeferredAttribute | None = kwargs.pop("itype", None)
         type: Feature | None = kwargs.pop("type", None)
         is_type: bool = kwargs.pop("is_type", False)
@@ -453,9 +451,9 @@ class Schema(Record, CanCurate, TracksRun):
             itype_str = itype
         if mode is None:
             if features:
-                mode = "validate-passed"
+                mode = "passed-only"
             else:
-                mode = "validate-all-annotate-cat"
+                mode = "all-itype"
         validated_kwargs = {
             "name": name,
             "description": description,
@@ -480,7 +478,7 @@ class Schema(Record, CanCurate, TracksRun):
                 for arg in hash_args
                 if validated_kwargs[arg] is not None
             }
-            if mode != "validate-passed":
+            if mode != "passed-only":
                 union_set.add(mode)
             if features:
                 union_set = union_set.union({feature.uid for feature in features})
@@ -704,22 +702,18 @@ class Schema(Record, CanCurate, TracksRun):
         self._aux.setdefault("af", {})["0"] = value
 
     @property
-    def mode(self) -> Literal["validate-passed", "validate-all-annotate-cat"]:
+    def mode(self) -> Literal["passed-only", "all-itype"]:
         """Indicates how to handle validation and annotation in case features are not defined."""
         if self._aux is not None and "af" in self._aux and "2" in self._aux["af"]:  # type: ignore
             return self._aux["af"]["2"]  # type: ignore
         else:
-            return "validate-passed"
+            return "passed-only"
 
     @mode.setter
-    def mode(
-        self, value: Literal["validate-passed", "validate-all-annotate-cat"]
-    ) -> None:
-        if value not in ["validate-passed", "validate-all-annotate-cat"]:
-            raise ValueError(
-                "mode must be either 'validate-passed' or 'validate-all-annotate-cat'"
-            )
-        if value == "validate-all-annotate-cat":
+    def mode(self, value: Literal["passed-only", "all-itype"]) -> None:
+        if value not in ["passed-only", "all-itype"]:
+            raise ValueError("mode must be either 'passed-only' or 'all-itype'")
+        if value == "all-itype":
             self._aux = self._aux or {}
             self._aux.setdefault("af", {})["2"] = value
 
