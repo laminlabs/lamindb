@@ -170,7 +170,7 @@ class Schema(Record, CanCurate, TracksRun):
         description: `str | None = None` A description.
         itype: `str | None = None` The feature identifier type (e.g. :class:`~lamindb.Feature`, :class:`~bionty.Gene`, ...).
         flexible: `bool | None = None` Whether to include any feature of the same `itype` in validation
-            and annotation. If no features are passed, defaults to `True`, otherwise to `False.
+            and annotation. If no features are passed, defaults to `True`, otherwise to `False`.
         type: `Schema | None = None` A type.
         is_type: `bool = False` Distinguish types from instances of the type.
         otype: `str | None = None` An object type to define the structure of a composite schema.
