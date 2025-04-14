@@ -310,7 +310,7 @@ class Schema(Record, CanCurate, TracksRun):
     """Whether all passed features are to be considered required by default (default `True`).
 
     Note that features that are explicitly marked as `optional` via `feature.with_config(optional=True)`
-    are **not* required even if this `minimal_set` is true.
+    are **not** required even if this `minimal_set` is true.
     """
     ordered_set: bool = BooleanField(default=False, db_index=True, editable=False)
     """Whether features are required to be ordered (default `False`)."""
