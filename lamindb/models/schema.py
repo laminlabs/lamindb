@@ -744,7 +744,7 @@ class Schema(Record, CanCurate, TracksRun):
 
     @flexible.setter
     def flexible(self, value: bool) -> None:
-        if value != self.n < 0:
+        if value != (self.n < 0):
             self._aux = self._aux or {}
             self._aux.setdefault("af", {})["2"] = value
 

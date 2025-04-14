@@ -235,6 +235,7 @@ def test_dataframe_curator_validate_all_annotate_cat(small_dataset1_schema):
     """Do not pass any features."""
 
     schema = ln.Schema(itype=ln.Feature).save()
+    assert schema.flexible
     df = datasets.small_dataset1(otype="DataFrame")
     curator = ln.curators.DataFrameCurator(df, schema)
     artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
@@ -262,6 +263,7 @@ def test_dataframe_curator_validate_all_annotate_cat2(small_dataset1_schema):
         features=[ln.Feature.get(name="perturbation")],
         flexible=True,
     ).save()
+    assert schema.flexible
     df = datasets.small_dataset1(otype="DataFrame")
     curator = ln.curators.DataFrameCurator(df, schema)
     artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
