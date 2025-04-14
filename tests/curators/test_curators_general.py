@@ -111,6 +111,7 @@ def test_pandera_dataframe_schema(
             ln.Feature(name="sample_name", dtype=str).save(),
             ln.Feature(name="sample_type", dtype=str).save(),
         ],
+        minimal_set=False,
         maximal_set=True,
     ).save()
     schema_ordered_set = ln.Schema(
@@ -123,7 +124,7 @@ def test_pandera_dataframe_schema(
         ordered_set=True,
     ).save()
 
-    # all three columns are required
+    # minimal_set=True, all three columns are required
     ln.curators.DataFrameCurator(df, schema=schema_all_required).validate()
     # can't miss a required column
     with pytest.raises(ValidationError):
@@ -143,6 +144,10 @@ def test_pandera_dataframe_schema(
             df_extra_column,
             schema=schema_maximal_set,  # extra column is not allowed
         ).validate()
+    # minimal_set=False, missing column is allowed
+    ln.curators.DataFrameCurator(
+        df_missing_sample_type_column, schema=schema_maximal_set
+    ).validate()
 
     # ordered_set=True, order matters
     with pytest.raises(ValidationError):
