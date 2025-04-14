@@ -394,11 +394,20 @@ class DataFrameCurator(Curator):
         super().__init__(dataset=dataset, schema=schema)
         categoricals = []
         features = []
+        feature_ids: set[int] = set()
         if schema.mode == "validate-all-annotate-cat":
-            print(self._dataset.columns)
             features += Feature.filter(name__in=self._dataset.columns).list()
+            feature_ids = {feature.id for feature in features}
         if schema.n > 0:
-            features += schema.features.all().list()
+            schema_features = schema.features.all().list()
+            if feature_ids:
+                features.extend(
+                    feature
+                    for feature in schema_features
+                    if feature.id not in feature_ids
+                )
+            else:
+                features.extend(schema_features)
         if features:
             # populate features
             pandera_columns = {}

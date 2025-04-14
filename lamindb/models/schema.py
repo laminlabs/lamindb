@@ -247,7 +247,7 @@ class Schema(Record, CanCurate, TracksRun):
     _name_field: str = "name"
     _aux_fields: dict[str, tuple[str, type]] = {
         "0": ("coerce_dtype", bool),
-        "1": ("optionals", str),
+        "1": ("optionals", list[str]),
         "2": ("mode", str),
     }
 
