@@ -707,7 +707,36 @@ class Schema(Record, CanCurate, TracksRun):
 
     @property
     def flexible(self) -> bool:
-        """Indicates how to handle validation and annotation in case features are not defined."""
+        """Indicates how to handle validation and annotation in case features are not defined.
+
+        Examples:
+
+            Make a rigid schema flexible::
+
+                schema = ln.Schema.get(name="my_schema")
+                schema.flexible = True
+                schema.save()
+
+            During schema creation::
+
+                # if you're not passing features but just defining the itype, defaults to flexible = True
+                schema = ln.Schema(itype=ln.Feature).save()
+                assert not schema.flexible
+
+                # if you're passing features, defaults to flexible = False
+                schema = ln.Schema(
+                    features=[ln.Feature(name="my_required_feature", dtype=int).save()],
+                )
+                assert not schema.flexible
+
+                # you can also validate & annotate features in addition to those that you're explicitly defining:
+                schema = ln.Schema(
+                    features=[ln.Feature(name="my_required_feature", dtype=int).save()],
+                    flexible=True,
+                )
+                assert schema.flexible
+
+        """
         if self._aux is not None and "af" in self._aux and "2" in self._aux["af"]:  # type: ignore
             return self._aux["af"]["2"]  # type: ignore
         else:
