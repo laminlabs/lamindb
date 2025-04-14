@@ -169,7 +169,9 @@ class Schema(Record, CanCurate, TracksRun):
         name: `str | None = None` A name.
         description: `str | None = None` A description.
         mode: `Literal["passed-only", "all-itype"] | None = None`
-            If `None`, uses `"passed-only"` if features are passed and `"all-itype"` otherwise.
+            If `None`, uses `"validate-passed"` if features are passed and `"all-itype"` otherwise.
+            If `"passed-only"`, only those features that are passed in the schema construction are validated and annotated.
+            If `"all-itype"`, all features with compliant feature identifiers are validated, and all categorical features among these are annotated.
         itype: `str | None = None` The feature identifier type (e.g. :class:`~lamindb.Feature`, :class:`~bionty.Gene`, ...).
         type: `Schema | None = None` A type.
         is_type: `bool = False` Distinguish types from instances of the type.
