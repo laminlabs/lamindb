@@ -80,6 +80,75 @@ def validate_features(features: list[Record]) -> Record:
     return next(iter(feature_types))  # return value in set of cardinality 1
 
 
+def get_features_config(
+    features: list[Record] | tuple[Record, dict],
+) -> tuple[list[Record], list[tuple[Record, dict]]]:
+    """Get features and their config from the return of feature.with_config."""
+    features_list = []
+    configs = []
+    try:
+        for feature in features:
+            if isinstance(feature, tuple):
+                features_list.append(feature[0])
+                configs.append(feature)
+            else:
+                features_list.append(feature)
+        return features_list, configs  # type: ignore
+    except TypeError:
+        return features, configs  # type: ignore
+
+
+class SchemaOptionals:
+    """Manage and access optional features in a schema."""
+
+    def __init__(self, schema) -> None:
+        self.schema = schema
+
+    def get_uids(self) -> list[str]:
+        """Get the uids of the optional features.
+
+        Does **not** need an additional query to the database, while `get()` does.
+        """
+        if (
+            self.schema._aux is not None
+            and "af" in self.schema._aux
+            and "1" in self.schema._aux["af"]
+        ):
+            return self.schema._aux["af"]["1"]
+        else:
+            return []
+
+    def get(self) -> QuerySet:
+        """Get the optional features."""
+        uids = self.get_uids()
+        if uids:
+            return Feature.objects.filter(uid__in=uids).order_by("links_schema__id")
+        else:
+            return Feature.objects.none()  # empty QuerySet
+
+    def set(self, features: list[Feature]) -> None:
+        """Set the optional features."""
+        if not isinstance(features, list) or not all(
+            isinstance(f, Feature) for f in features
+        ):
+            raise TypeError("features must be a list of Feature records!")
+        self.schema._aux = self.schema._aux or {}
+        if len(features) > 0:
+            self.schema._aux.setdefault("af", {})["1"] = [f.uid for f in features]
+
+    def add(self, features: Feature | list[Feature]) -> None:
+        """Add feature to the optional features."""
+        self.schema._aux = self.schema._aux or {}
+        if not isinstance(features, list):
+            features = [features]
+        if not all(isinstance(f, Feature) for f in features):
+            raise TypeError("features must be a list of Feature records!")
+        if len(features) > 0:
+            if "1" not in self.schema._aux.setdefault("af", {}):
+                self.set(features)
+            self.schema._aux.setdefault("af", {})["1"].extend([f.uid for f in features])
+
+
 class Schema(Record, CanCurate, TracksRun):
     """Schemas.
 
@@ -104,7 +173,8 @@ class Schema(Record, CanCurate, TracksRun):
         type: `Schema | None = None` A type.
         is_type: `bool = False` Distinguish types from instances of the type.
         otype: `str | None = None` An object type to define the structure of a composite schema.
-        minimal_set: `bool = True` Whether the schema contains a minimal set of linked features.
+        minimal_set: `bool = True` Whether all passed features are to be considered required by default.
+            See :attr:`~lamindb.Schema.optionals` for more-fine-grained control.
         ordered_set: `bool = False` Whether features are required to be ordered.
         maximal_set: `bool = False` If `True`, no additional features are allowed.
         slot: `str | None = None` The slot name when this schema is used as a component in a
@@ -137,23 +207,39 @@ class Schema(Record, CanCurate, TracksRun):
         :meth:`~lamindb.Schema.from_df`
             Create from dataframe columns.
 
-    Examples:
+    Example:
 
-        Create a schema (feature set) from df with types:
+        ::
 
-        >>> df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
-        >>> schema = ln.Schema.from_df(df)
+            import lamindb as ln
+            import bionty as bt
+            import pandas as pd
 
-        Create a schema (feature set) from features:
+            # Create a schema from a dataframe
+            df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
+            schema = ln.Schema.from_df(df)
 
-        >>> features = [ln.Feature(name=feat, dtype="float").save() for feat in ["feat1", "feat2"]]
-        >>> schema = ln.Schema(features)
+            # Create a schema from features
+            features = [ln.Feature(name=feat, dtype="float").save() for feat in ["feat1", "feat2"]]
+            schema = ln.Schema(features)
 
-        Create a schema (feature set) from identifier values:
+            # Create a schema by merely defining an identifier type
+            schema = ln.Schema(itype=bt.Gene.ensembl_gene_id)
 
-        >>> import bionty as bt
-        >>> schema = ln.Schema.from_values(adata.var["ensemble_id"], Gene.ensembl_gene_id, organism="mouse").save()
+            # Create a schema by parsing & validating identifier values
+            schema = ln.Schema.from_values(
+                adata.var["ensemble_id"],
+                field=bt.Gene.ensembl_gene_id,
+                organism="mouse",
+            ).save()
 
+            # Create a schema and mark a feature as optional
+            schema = ln.Schema(
+                features=[
+                    ln.Feature(name="feat1", dtype=str).save(),
+                    ln.Feature(name="feat2", dtype=int).save().with_config(optional=True),
+                ],
+            ).save()
     """
 
     class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
@@ -213,18 +299,19 @@ class Schema(Record, CanCurate, TracksRun):
     For a composite schema, the hash of hashes.
     """
     minimal_set: bool = BooleanField(default=True, db_index=True, editable=False)
-    """Whether the schema contains a minimal set of linked features (default `True`).
+    """Whether all passed features are to be considered required by default (default `True`).
 
-    If `False`, no features are linked to this schema.
-
-    If `True`, features are linked and considered as a minimally required set in validation.
+    Note that features that are explicitly marked as `optional` via `feature.with_config(optional=True)`
+    are **not** required even if this `minimal_set` is true.
     """
     ordered_set: bool = BooleanField(default=False, db_index=True, editable=False)
     """Whether features are required to be ordered (default `False`)."""
     maximal_set: bool = BooleanField(default=False, db_index=True, editable=False)
-    """If `False`, additional features are allowed (default `False`).
+    """Whether all features present in the dataset must be in the schema (default `False`).
 
-    If `True`, the the minimal set is a maximal set and no additional features are allowed.
+    If `False`, additional features are allowed to be present in the dataset.
+
+    If `True`, no additional features are allowed to be present in the dataset.
     """
     components: Schema = ManyToManyField(
         "self", through="SchemaComponent", symmetrical=False, related_name="composites"
@@ -280,7 +367,6 @@ class Schema(Record, CanCurate, TracksRun):
         type: Schema | None = None,
         is_type: bool = False,
         otype: str | None = None,
-        minimal_set: bool = True,
         ordered_set: bool = False,
         maximal_set: bool = False,
         slot: str | None = None,
@@ -323,6 +409,7 @@ class Schema(Record, CanCurate, TracksRun):
         maximal_set: bool = kwargs.pop("maximal_set", False)
         slot: str | None = kwargs.pop("slot", None)
         coerce_dtype: bool | None = kwargs.pop("coerce_dtype", None)
+        optional_features = []
 
         if kwargs:
             raise ValueError(
@@ -331,8 +418,9 @@ class Schema(Record, CanCurate, TracksRun):
                 "is_type, otype, minimal_set, ordered_set, maximal_set, "
                 "slot, validated_by, coerce_dtype"
             )
-
+        optional_features = []
         if features:
+            features, configs = get_features_config(features)
             features_registry = validate_features(features)
             itype_compare = features_registry.__get_name_with_module__()
             if itype is not None:
@@ -340,6 +428,10 @@ class Schema(Record, CanCurate, TracksRun):
             else:
                 itype = itype_compare
             n_features = len(features)
+            if features_registry == Feature:
+                optional_features = [
+                    config[0] for config in configs if config[1].get("optional")
+                ]
         else:
             n_features = -1
         if dtype is None:
@@ -359,8 +451,8 @@ class Schema(Record, CanCurate, TracksRun):
             "name": name,
             "description": description,
             "type": type,
-            "dtype": dtype,
             "is_type": is_type,
+            "dtype": dtype,
             "otype": otype,
             "n": n_features,
             "itype": itype_str,
@@ -370,12 +462,18 @@ class Schema(Record, CanCurate, TracksRun):
         }
         if coerce_dtype:
             validated_kwargs["_aux"] = {"af": {"0": coerce_dtype}}
-        if features:
-            hash = hash_set({feature.uid for feature in features})
-        elif components:
+        if components:
             hash = hash_set({component.hash for component in components.values()})
         else:
-            hash = hash_set({str(value) for value in validated_kwargs.values()})
+            hash_args = ["dtype", "itype", "minimal_set", "ordered_set", "maximal_set"]
+            union_set = {str(validated_kwargs[arg]) for arg in hash_args}
+            if features:
+                union_set = union_set.union({feature.uid for feature in features})
+            if optional_features:
+                union_set = union_set.union(
+                    {f"optional:{feature.uid}" for feature in optional_features}
+                )
+            hash = hash_set(union_set)
         validated_kwargs["hash"] = hash
         validated_kwargs["slot"] = slot
         schema = Schema.filter(hash=hash).one_or_none()
@@ -383,6 +481,7 @@ class Schema(Record, CanCurate, TracksRun):
             logger.important(f"returning existing schema with same hash: {schema}")
             init_self_from_db(self, schema)
             update_attributes(self, validated_kwargs)
+            self.optionals.set(optional_features)
             return None
         self._components: dict[str, Schema] = {}
         if features:
@@ -397,6 +496,7 @@ class Schema(Record, CanCurate, TracksRun):
             self._slots = components
         validated_kwargs["uid"] = ids.base62_20()
         super().__init__(**validated_kwargs)
+        self.optionals.set(optional_features)
 
     @classmethod
     def from_values(  # type: ignore
@@ -426,13 +526,18 @@ class Schema(Record, CanCurate, TracksRun):
         Raises:
             ValidationError: If some values are not valid.
 
-        Examples:
+        Example:
 
-            >>> features = [ln.Feature(name=feat, dtype="str").save() for feat in ["feat11", "feat21"]]
-            >>> schema = ln.Schema.from_values(features)
+            ::
 
-            >>> genes = ["ENSG00000139618", "ENSG00000198786"]
-            >>> schema = ln.Schema.from_values(features, bt.Gene.ensembl_gene_id, "float")
+                import lamindb as ln
+                import bionty as bt
+
+                features = [ln.Feature(name=feat, dtype="str").save() for feat in ["feat11", "feat21"]]
+                schema = ln.Schema.from_values(features)
+
+                genes = ["ENSG00000139618", "ENSG00000198786"]
+                schema = ln.Schema.from_values(features, bt.Gene.ensembl_gene_id, "float")
         """
         if not isinstance(field, FieldAttr):
             raise TypeError(
@@ -579,11 +684,8 @@ class Schema(Record, CanCurate, TracksRun):
 
     @coerce_dtype.setter
     def coerce_dtype(self, value: bool) -> None:
-        if self._aux is None:  # type: ignore
-            self._aux = {}  # type: ignore
-        if "af" not in self._aux:
-            self._aux["af"] = {}
-        self._aux["af"]["0"] = value
+        self._aux = self._aux or {}
+        self._aux.setdefault("af", {})["0"] = value
 
     # @property
     # def index_feature(self) -> None | Feature:
@@ -604,11 +706,8 @@ class Schema(Record, CanCurate, TracksRun):
 
     # @_index_feature_uid.setter
     # def _index_feature_uid(self, value: str) -> None:
-    #     if self._aux is None:
-    #         self._aux = {}
-    #     if "af" not in self._aux:
-    #         self._aux["af"] = {}
-    #     self._aux["af"]["1"] = value
+    #     self._aux = self._aux or {}
+    #     self._aux.setdefault("af", {})["0"] = value
 
     @property
     @deprecated("itype")
@@ -647,6 +746,44 @@ class Schema(Record, CanCurate, TracksRun):
             }
             return self._slots
         return {}
+
+    @property
+    def optionals(self) -> SchemaOptionals:
+        """Manage optional features.
+
+        Example:
+
+            ::
+
+                # a schema with optional "sample_name"
+                schema_optional_sample_name = ln.Schema(
+                    features=[
+                        ln.Feature(name="sample_id", dtype=str).save(),  # required
+                        ln.Feature(name="sample_name", dtype=str).save().with_config(optional=True),  # optional
+                    ],
+                ).save()
+
+                # raise ValidationError since `sample_id` is required
+                ln.curators.DataFrameCurator(
+                    pd.DataFrame(
+                        {
+                        "sample_name": ["Sample 1", "Sample 2"],
+                        }
+                    ),
+                    schema=schema_optional_sample_name).validate()
+                )
+
+                # passes because an optional column is missing
+                ln.curators.DataFrameCurator(
+                    pd.DataFrame(
+                        {
+                        "sample_id": ["sample1", "sample2"],
+                        }
+                    ),
+                    schema=schema_optional_sample_name).validate()
+                )
+        """
+        return SchemaOptionals(self)
 
     def describe(self, return_str=False) -> None | str:
         """Describe schema."""

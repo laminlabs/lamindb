@@ -21,6 +21,7 @@
    FeatureValue
    InspectResult
    ValidateFields
+   SchemaOptionals
 
 """
 
@@ -75,5 +76,11 @@ from .project import (
 )
 from .record import Migration
 from .run import RunParamValue
-from .schema import SchemaFeature, SchemaParam, ArtifactSchema, SchemaComponent
+from .schema import (
+    SchemaFeature,
+    SchemaParam,
+    ArtifactSchema,
+    SchemaComponent,
+    SchemaOptionals,
+)
 from .ulabel import ArtifactULabel, TransformULabel, RunULabel, CollectionULabel
