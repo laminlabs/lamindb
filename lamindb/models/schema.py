@@ -205,22 +205,22 @@ class Schema(Record, CanCurate, TracksRun):
             import lamindb as ln
             import bionty as bt
             import pandas as pd
-    
+
             # Create a schema (feature set) from df with types:
             df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
             schema = ln.Schema.from_df(df)
-    
+
             # Create a schema (feature set) from features
             features = [ln.Feature(name=feat, dtype="float").save() for feat in ["feat1", "feat2"]]
             schema = ln.Schema(features)
-    
+
             # Create a schema (feature set) from identifier values
             schema = ln.Schema.from_values(
                 adata.var["ensemble_id"],
                 field=Gene.ensembl_gene_id,
                 organism="mouse",
             ).save()
-    
+
             # Create a schema with required features
             schema = ln.Schema(
                 name="my-schema",
@@ -230,7 +230,7 @@ class Schema(Record, CanCurate, TracksRun):
                     ln.Feature(name="feat3", dtype=bt.CellType).save(),
                 ],
             ).save()
-    
+
             # Create a schema with an optional feature feat2
             schema = ln.Schema(
                 name="my-schema",
