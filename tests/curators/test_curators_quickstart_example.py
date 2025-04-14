@@ -231,6 +231,58 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     artifact.delete(permanent=True)
 
 
+def test_dataframe_curator_validate_all_annotate_cat(small_dataset1_schema):
+    """Do not pass any features."""
+
+    schema = ln.Schema(itype=ln.Feature).save()
+    assert schema.flexible
+    df = datasets.small_dataset1(otype="DataFrame")
+    curator = ln.curators.DataFrameCurator(df, schema)
+    artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
+    assert set(artifact.features.get_values()["perturbation"]) == {
+        "DMSO",
+        "IFNG",
+    }
+    assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
+        "CD8-positive, alpha-beta T cell",
+        "B cell",
+    }
+    assert set(artifact.features.get_values()["cell_type_by_model"]) == {
+        "T cell",
+        "B cell",
+    }
+    artifact.delete(permanent=True)
+    schema.delete()
+
+
+def test_dataframe_curator_validate_all_annotate_cat2(small_dataset1_schema):
+    """Combine half-specifying features, half not."""
+
+    schema = ln.Schema(
+        itype=ln.Feature,
+        features=[ln.Feature.get(name="perturbation")],
+        flexible=True,
+    ).save()
+    assert schema.flexible
+    df = datasets.small_dataset1(otype="DataFrame")
+    curator = ln.curators.DataFrameCurator(df, schema)
+    artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
+    assert set(artifact.features.get_values()["perturbation"]) == {
+        "DMSO",
+        "IFNG",
+    }
+    assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
+        "CD8-positive, alpha-beta T cell",
+        "B cell",
+    }
+    assert set(artifact.features.get_values()["cell_type_by_model"]) == {
+        "T cell",
+        "B cell",
+    }
+    artifact.delete(permanent=True)
+    schema.delete()
+
+
 def test_anndata_curator(small_dataset1_schema: ln.Schema):
     """Test AnnData curator implementation."""
 

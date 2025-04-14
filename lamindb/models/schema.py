@@ -152,9 +152,11 @@ class SchemaOptionals:
 class Schema(Record, CanCurate, TracksRun):
     """Schemas.
 
-    The simplest schema is a feature set such as the set of columns of a `DataFrame`.
+    A simple schema is a feature set such as the set of columns of a `DataFrame`.
 
     A composite schema has multiple components, e.g., for an `AnnData`, one schema for `obs` and another one for `var`.
+
+    A schema can also merely define abstract constraints or instructions for dataset validation & annotation.
 
     Args:
         features: `Iterable[Record] | None = None` An iterable of :class:`~lamindb.Feature`
@@ -162,43 +164,38 @@ class Schema(Record, CanCurate, TracksRun):
             a set upon instantiation. If you'd like to pass values, use
             :meth:`~lamindb.Schema.from_values` or
             :meth:`~lamindb.Schema.from_df`.
-        components: `dict[str, Schema] | None = None` A dictionary mapping component names to
-            their corresponding :class:`~lamindb.Schema` objects for composite schemas.
+        components: `dict[str, Schema] | None = None` A dictionary mapping slot names to
+            components. A component is itself a :class:`~lamindb.Schema` object.
         name: `str | None = None` A name.
         description: `str | None = None` A description.
-        dtype: `str | None = None` The simple type. Defaults to
-            `None` for sets of :class:`~lamindb.Feature` records.
-            Otherwise defaults to `"num"` (e.g., for sets of :class:`~bionty.Gene`).
         itype: `str | None = None` The feature identifier type (e.g. :class:`~lamindb.Feature`, :class:`~bionty.Gene`, ...).
+        flexible: `bool | None = None` Whether to include any feature of the same `itype` in validation
+            and annotation. If no features are passed, defaults to `True`, otherwise to `False`.
         type: `Schema | None = None` A type.
         is_type: `bool = False` Distinguish types from instances of the type.
         otype: `str | None = None` An object type to define the structure of a composite schema.
+        dtype: `str | None = None` The simple type. Defaults to
+            `None` for sets of :class:`~lamindb.Feature` records.
+            Otherwise defaults to `"num"` (e.g., for sets of :class:`~bionty.Gene`).
         minimal_set: `bool = True` Whether all passed features are to be considered required by default.
             See :attr:`~lamindb.Schema.optionals` for more-fine-grained control.
         ordered_set: `bool = False` Whether features are required to be ordered.
         maximal_set: `bool = False` If `True`, no additional features are allowed.
-        slot: `str | None = None` The slot name when this schema is used as a component in a
-            composite schema.
         coerce_dtype: `bool = False` When True, attempts to coerce values to the specified dtype
             during validation, see :attr:`~lamindb.Schema.coerce_dtype`.
 
     .. dropdown:: Why does LaminDB model schemas, not just features?
 
         1. Performance: Imagine you measure the same panel of 20k transcripts in
-           1M samples. By modeling the panel as a feature set, you can link all
-           your artifacts against one feature set and only need to store 1M
+           1M samples. By modeling the panel as a schema, you can link all
+           your artifacts against one schema and only need to store 1M
            instead of 1M x 20k = 20B links.
         2. Interpretation: Model protein panels, gene panels, etc.
-        3. Data integration: Feature sets provide the information that determines whether two datasets can be meaningfully concatenated.
-
-        These reasons do not hold for label sets. Hence, LaminDB does not model label sets.
+        3. Data integration: Schemas provide the information that determines whether two datasets can be meaningfully concatenated.
 
     Note:
 
-        A feature set can be identified by the `hash` of its feature uids.
-        It's stored in the `.hash` field.
-
-        A `slot` provides a string key to access feature sets. For instance, for the schema of an
+        A `slot` provides a string key to access schema components. For instance, for the schema of an
         `AnnData` object, it would be `'obs'` for `adata.obs`.
 
     See Also:
@@ -207,37 +204,48 @@ class Schema(Record, CanCurate, TracksRun):
         :meth:`~lamindb.Schema.from_df`
             Create from dataframe columns.
 
-    Example:
+    Examples:
 
-        ::
+        Create schemas::
 
             import lamindb as ln
             import bionty as bt
             import pandas as pd
 
-            # Create a schema from a dataframe
+            # From a dataframe
             df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
             schema = ln.Schema.from_df(df)
 
-            # Create a schema from features
-            features = [ln.Feature(name=feat, dtype="float").save() for feat in ["feat1", "feat2"]]
-            schema = ln.Schema(features)
+            # From explicitly defined features
+            schema = ln.Schema(
+                features=[
+                    ln.Feature(name="required_feature", dtype=str).save(),
+                ],
+            ).save()
 
-            # Create a schema by merely defining an identifier type
+            # By merely constraining an identifier type
             schema = ln.Schema(itype=bt.Gene.ensembl_gene_id)
 
-            # Create a schema by parsing & validating identifier values
+            # A combination of the above
+            schema = ln.Schema(
+                features=[
+                    ln.Feature(name="required_feature", dtype=str).save(),
+                ],
+                flexible=True,
+            ).save()
+
+            # By parsing & validating identifier values
             schema = ln.Schema.from_values(
                 adata.var["ensemble_id"],
                 field=bt.Gene.ensembl_gene_id,
                 organism="mouse",
             ).save()
 
-            # Create a schema and mark a feature as optional
+            # Mark a single feature as optional and ignore other features of the same identifier type
             schema = ln.Schema(
                 features=[
-                    ln.Feature(name="feat1", dtype=str).save(),
-                    ln.Feature(name="feat2", dtype=int).save().with_config(optional=True),
+                    ln.Feature(name="required_feature", dtype=str).save(),
+                    ln.Feature(name="feature2", dtype=int).save().with_config(optional=True),
                 ],
             ).save()
     """
@@ -248,7 +256,8 @@ class Schema(Record, CanCurate, TracksRun):
     _name_field: str = "name"
     _aux_fields: dict[str, tuple[str, type]] = {
         "0": ("coerce_dtype", bool),
-        "1": ("_index_feature_uid", str),
+        "1": ("optionals", list[str]),
+        "2": ("flexible", bool),
     }
 
     id: int = models.AutoField(primary_key=True)
@@ -261,11 +270,6 @@ class Schema(Record, CanCurate, TracksRun):
     """A description."""
     n = IntegerField()
     """Number of features in the set."""
-    dtype: str | None = CharField(max_length=64, null=True, editable=False)
-    """Data type, e.g., "num", "float", "int". Is `None` for :class:`~lamindb.Feature`.
-
-    For :class:`~lamindb.Feature`, types are expected to be heterogeneous and defined on a per-feature level.
-    """
     itype: str | None = CharField(
         max_length=120, db_index=True, null=True, editable=False
     )
@@ -291,6 +295,11 @@ class Schema(Record, CanCurate, TracksRun):
     """Distinguish types from instances of the type."""
     otype: str | None = CharField(max_length=64, db_index=True, null=True)
     """Default Python object type, e.g., DataFrame, AnnData."""
+    dtype: str | None = CharField(max_length=64, null=True, editable=False)
+    """Data type, e.g., "num", "float", "int". Is `None` for :class:`~lamindb.Feature`.
+
+    For :class:`~lamindb.Feature`, types are expected to be heterogeneous and defined on a per-feature level.
+    """
     hash: str | None = CharField(
         max_length=HASH_LENGTH, db_index=True, null=True, editable=False
     )
@@ -369,7 +378,6 @@ class Schema(Record, CanCurate, TracksRun):
         otype: str | None = None,
         ordered_set: bool = False,
         maximal_set: bool = False,
-        slot: str | None = None,
         coerce_dtype: bool = False,
     ): ...
 
@@ -399,15 +407,15 @@ class Schema(Record, CanCurate, TracksRun):
         components: dict[str, Schema] = kwargs.pop("components", {})
         name: str | None = kwargs.pop("name", None)
         description: str | None = kwargs.pop("description", None)
-        dtype: str | None = kwargs.pop("dtype", None)
         itype: str | Record | DeferredAttribute | None = kwargs.pop("itype", None)
+        flexible: bool | None = kwargs.pop("flexible", None)
         type: Feature | None = kwargs.pop("type", None)
         is_type: bool = kwargs.pop("is_type", False)
         otype: str | None = kwargs.pop("otype", None)
+        dtype: str | None = kwargs.pop("dtype", None)
         minimal_set: bool = kwargs.pop("minimal_set", True)
         ordered_set: bool = kwargs.pop("ordered_set", False)
         maximal_set: bool = kwargs.pop("maximal_set", False)
-        slot: str | None = kwargs.pop("slot", None)
         coerce_dtype: bool | None = kwargs.pop("coerce_dtype", None)
         optional_features = []
 
@@ -416,9 +424,11 @@ class Schema(Record, CanCurate, TracksRun):
                 f"Unexpected keyword arguments: {', '.join(kwargs.keys())}\n"
                 "Valid arguments are: features, description, dtype, itype, type, "
                 "is_type, otype, minimal_set, ordered_set, maximal_set, "
-                "slot, validated_by, coerce_dtype"
+                "coerce_dtype"
             )
         optional_features = []
+        if itype is not None:
+            itype = serialize_dtype(itype, is_itype=True)
         if features:
             features, configs = get_features_config(features)
             features_registry = validate_features(features)
@@ -438,6 +448,8 @@ class Schema(Record, CanCurate, TracksRun):
             dtype = None if itype is not None and itype == "Feature" else NUMBER_TYPE
         else:
             dtype = get_type_str(dtype)
+        if flexible is None:
+            flexible = n_features < 0
         components: dict[str, Schema]
         if components:
             itype = "Composite"
@@ -466,7 +478,13 @@ class Schema(Record, CanCurate, TracksRun):
             hash = hash_set({component.hash for component in components.values()})
         else:
             hash_args = ["dtype", "itype", "minimal_set", "ordered_set", "maximal_set"]
-            union_set = {str(validated_kwargs[arg]) for arg in hash_args}
+            union_set = {
+                str(validated_kwargs[arg])
+                for arg in hash_args
+                if validated_kwargs[arg] is not None
+            }
+            if flexible != n_features < 0:
+                union_set.add(f"flexible:{flexible}")
             if features:
                 union_set = union_set.union({feature.uid for feature in features})
             if optional_features:
@@ -475,7 +493,6 @@ class Schema(Record, CanCurate, TracksRun):
                 )
             hash = hash_set(union_set)
         validated_kwargs["hash"] = hash
-        validated_kwargs["slot"] = slot
         schema = Schema.filter(hash=hash).one_or_none()
         if schema is not None:
             logger.important(f"returning existing schema with same hash: {schema}")
@@ -497,6 +514,7 @@ class Schema(Record, CanCurate, TracksRun):
         validated_kwargs["uid"] = ids.base62_20()
         super().__init__(**validated_kwargs)
         self.optionals.set(optional_features)
+        self.flexible = flexible
 
     @classmethod
     def from_values(  # type: ignore
@@ -686,6 +704,49 @@ class Schema(Record, CanCurate, TracksRun):
     def coerce_dtype(self, value: bool) -> None:
         self._aux = self._aux or {}
         self._aux.setdefault("af", {})["0"] = value
+
+    @property
+    def flexible(self) -> bool:
+        """Indicates how to handle validation and annotation in case features are not defined.
+
+        Examples:
+
+            Make a rigid schema flexible::
+
+                schema = ln.Schema.get(name="my_schema")
+                schema.flexible = True
+                schema.save()
+
+            During schema creation::
+
+                # if you're not passing features but just defining the itype, defaults to flexible = True
+                schema = ln.Schema(itype=ln.Feature).save()
+                assert not schema.flexible
+
+                # if you're passing features, defaults to flexible = False
+                schema = ln.Schema(
+                    features=[ln.Feature(name="my_required_feature", dtype=int).save()],
+                )
+                assert not schema.flexible
+
+                # you can also validate & annotate features in addition to those that you're explicitly defining:
+                schema = ln.Schema(
+                    features=[ln.Feature(name="my_required_feature", dtype=int).save()],
+                    flexible=True,
+                )
+                assert schema.flexible
+
+        """
+        if self._aux is not None and "af" in self._aux and "2" in self._aux["af"]:  # type: ignore
+            return self._aux["af"]["2"]  # type: ignore
+        else:
+            return self.n < 0
+
+    @flexible.setter
+    def flexible(self, value: bool) -> None:
+        if value != (self.n < 0):
+            self._aux = self._aux or {}
+            self._aux.setdefault("af", {})["2"] = value
 
     # @property
     # def index_feature(self) -> None | Feature:

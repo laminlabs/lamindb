@@ -393,12 +393,29 @@ class DataFrameCurator(Curator):
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
         categoricals = []
+        features = []
+        feature_ids: set[int] = set()
+        if schema.flexible and isinstance(dataset, pd.DataFrame):
+            features += Feature.filter(name__in=self._dataset.keys()).list()
+            feature_ids = {feature.id for feature in features}
         if schema.n > 0:
+            schema_features = schema.features.all().list()
+            if feature_ids:
+                features.extend(
+                    feature
+                    for feature in schema_features
+                    if feature.id not in feature_ids
+                )
+            else:
+                features.extend(schema_features)
+        else:
+            assert schema.itype is not None  # noqa: S101
+        if features:
             # populate features
             pandera_columns = {}
             if schema.minimal_set:
                 optional_feature_uids = set(schema.optionals.get_uids())
-            for feature in schema.features.all():
+            for feature in features:
                 if schema.minimal_set:
                     required = feature.uid not in optional_feature_uids
                 else:
@@ -442,8 +459,6 @@ class DataFrameCurator(Curator):
                 strict=schema.maximal_set,
                 ordered=schema.ordered_set,
             )
-        else:
-            assert schema.itype is not None  # noqa: S101
         self._cat_manager = DataFrameCatManager(
             self._dataset,
             columns=parse_cat_dtype(schema.itype, is_itype=True)["field"],
