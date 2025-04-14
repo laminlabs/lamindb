@@ -107,7 +107,7 @@ class SchemaOptionals:
     def get_uids(self) -> list[str]:
         """Get the uids of the optional features.
 
-        Does not an additional query to the database.
+        Does **not** need an additional query to the database, while `get()` does.
         """
         if (
             self.schema._aux is not None
@@ -174,6 +174,7 @@ class Schema(Record, CanCurate, TracksRun):
         is_type: `bool = False` Distinguish types from instances of the type.
         otype: `str | None = None` An object type to define the structure of a composite schema.
         minimal_set: `bool = True` Whether all passed features are to be considered required by default.
+            See :attr:`~lamindb.Schema.optionals` for more-fine-grained control.
         ordered_set: `bool = False` Whether features are required to be ordered.
         maximal_set: `bool = False` If `True`, no additional features are allowed.
         slot: `str | None = None` The slot name when this schema is used as a component in a
@@ -214,38 +215,29 @@ class Schema(Record, CanCurate, TracksRun):
             import bionty as bt
             import pandas as pd
 
-            # Create a schema (feature set) from df with types:
+            # Create a schema from a dataframe
             df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
             schema = ln.Schema.from_df(df)
 
-            # Create a schema (feature set) from features
+            # Create a schema from features
             features = [ln.Feature(name=feat, dtype="float").save() for feat in ["feat1", "feat2"]]
             schema = ln.Schema(features)
 
-            # Create a schema (feature set) from identifier values
+            # Create a schema by merely defining an identifier type
+            schema = ln.Schema(itype=bt.Gene.ensembl_gene_id)
+
+            # Create a schema by parsing & validating identifier values
             schema = ln.Schema.from_values(
                 adata.var["ensemble_id"],
-                field=Gene.ensembl_gene_id,
+                field=bt.Gene.ensembl_gene_id,
                 organism="mouse",
             ).save()
 
-            # Create a schema with required features
+            # Create a schema and mark a feature as optional
             schema = ln.Schema(
-                name="my-schema",
-                features=[
-                    ln.Feature(name="feat1", dtype=str).save(),
-                    ln.Feature(name="feat2", dtype=int).save(),
-                    ln.Feature(name="feat3", dtype=bt.CellType).save(),
-                ],
-            ).save()
-
-            # Create a schema with an optional feature feat2
-            schema = ln.Schema(
-                name="my-schema",
                 features=[
                     ln.Feature(name="feat1", dtype=str).save(),
                     ln.Feature(name="feat2", dtype=int).save().with_config(optional=True),
-                    ln.Feature(name="feat3", dtype=bt.CellType).save(),
                 ],
             ).save()
     """
@@ -757,7 +749,40 @@ class Schema(Record, CanCurate, TracksRun):
 
     @property
     def optionals(self) -> SchemaOptionals:
-        """Optional features."""
+        """Manage optional features.
+
+        Example:
+
+            ::
+
+                # a schema with optional "sample_name"
+                schema_optional_sample_name = ln.Schema(
+                    features=[
+                        ln.Feature(name="sample_id", dtype=str).save(),  # required
+                        ln.Feature(name="sample_name", dtype=str).save().with_config(optional=True),  # optional
+                    ],
+                ).save()
+
+                # raise ValidationError since `sample_id` is required
+                ln.curators.DataFrameCurator(
+                    pd.DataFrame(
+                        {
+                        "sample_name": ["Sample 1", "Sample 2"],
+                        }
+                    ),
+                    schema=schema_optional_sample_name).validate()
+                )
+
+                # passes because an optional column is missing
+                ln.curators.DataFrameCurator(
+                    pd.DataFrame(
+                        {
+                        "sample_id": ["sample1", "sample2"],
+                        }
+                    ),
+                    schema=schema_optional_sample_name).validate()
+                )
+        """
         return SchemaOptionals(self)
 
     def describe(self, return_str=False) -> None | str:
