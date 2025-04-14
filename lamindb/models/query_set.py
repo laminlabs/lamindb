@@ -631,15 +631,7 @@ class QuerySet(models.QuerySet):
         """Suggest available fields if an unknown field was passed."""
         if "Cannot resolve keyword" in str(error):
             field = str(error).split("'")[1]
-            fields = ", ".join(
-                sorted(
-                    f.name
-                    for f in self.model._meta.get_fields()
-                    if not f.name.startswith("_")
-                    and not f.name.startswith("links_")
-                    and not f.name.endswith("_id")
-                )
-            )
+            fields = ", ".join(self.model.__get_available_fields__())
             raise FieldError(
                 f"Unknown field '{field}'. Available fields: {fields}"
             ) from None

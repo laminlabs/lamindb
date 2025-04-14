@@ -1524,6 +1524,32 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         return QuerySet(model=cls).get(idlike, **expressions)
 
     @classmethod
+    def filter(
+        cls,
+        *queries,
+        **expressions,
+    ) -> Artifact:
+        """Query a set of artifacts.
+
+        Args:
+            *queries: `Q` expressions.
+            **expressions: Features, fields, and values passed using the Django query syntax.
+
+        See Also:
+            - Guide: :doc:`docs:registries`
+
+        Examples:
+
+            ::
+
+                artifact = ln.Artifact.get("tCUkRcaEjTjhtozp0000")
+                artifact = ln.Arfifact.get(key="my_datasets/my_file.parquet")
+        """
+        from .query_set import QuerySet
+
+        return QuerySet(model=cls).filter(*queries, **expressions)
+
+    @classmethod
     def from_df(
         cls,
         df: pd.DataFrame,
