@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, overload
+from typing import TYPE_CHECKING, Any, overload
 
 import numpy as np
 from django.db import models
@@ -98,8 +98,8 @@ def get_features_config(
         return features, configs  # type: ignore
 
 
-SCHEMA_MODE_ENCODE = {"passed-only": 0, "all-itype": 1}
-SCHEMA_MODE_DECODE = {0: "passed-only", 1: "all-itype"}
+# SCHEMA_MODE_ENCODE = {"passed-only": 0, "all-itype": 1}
+# SCHEMA_MODE_DECODE = {0: "passed-only", 1: "all-itype"}
 
 
 class SchemaOptionals:
@@ -172,10 +172,6 @@ class Schema(Record, CanCurate, TracksRun):
             their corresponding :class:`~lamindb.Schema` objects for composite schemas.
         name: `str | None = None` A name.
         description: `str | None = None` A description.
-        mode: `Literal["passed-only", "all-itype"] | None = None`
-            If `None`, uses `"validate-passed"` if features are passed and `"all-itype"` otherwise.
-            If `"passed-only"`, only those features that are passed in the schema construction are validated and annotated.
-            If `"all-itype"`, all features with compliant feature identifiers are validated, and all categorical features among these are annotated.
         itype: `str | None = None` The feature identifier type (e.g. :class:`~lamindb.Feature`, :class:`~bionty.Gene`, ...).
         type: `Schema | None = None` A type.
         is_type: `bool = False` Distinguish types from instances of the type.
@@ -247,6 +243,11 @@ class Schema(Record, CanCurate, TracksRun):
             ).save()
     """
 
+    # below is an idea for a potential future mode argument
+    # mode: `Literal["passed-only", "all-itype"] | None = None`
+    #     If `None`, uses `"validate-passed"` if features are passed and `"all-itype"` otherwise.
+    #     If `"passed-only"`, only those features that are passed in the schema construction are validated and annotated.
+    #     If `"all-itype"`, all features with compliant feature identifiers are validated, and all categorical features among these are annotated.
     class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
@@ -254,7 +255,7 @@ class Schema(Record, CanCurate, TracksRun):
     _aux_fields: dict[str, tuple[str, type]] = {
         "0": ("coerce_dtype", bool),
         "1": ("optionals", list[str]),
-        "2": ("mode_code", int),  # encoding of schema mode
+        # "2": ("mode_code", int),  # encoding of schema mode
     }
 
     id: int = models.AutoField(primary_key=True)
@@ -368,7 +369,6 @@ class Schema(Record, CanCurate, TracksRun):
         components: dict[str, Schema] | None = None,
         name: str | None = None,
         description: str | None = None,
-        mode: Literal["passed-only", "all-itype"] | None = None,
         dtype: str | None = None,
         itype: str | Registry | FieldAttr | None = None,
         type: Schema | None = None,
@@ -406,7 +406,6 @@ class Schema(Record, CanCurate, TracksRun):
         components: dict[str, Schema] = kwargs.pop("components", {})
         name: str | None = kwargs.pop("name", None)
         description: str | None = kwargs.pop("description", None)
-        mode: Literal["passed-only", "all-itype"] | None = kwargs.pop("mode", None)
         itype: str | Record | DeferredAttribute | None = kwargs.pop("itype", None)
         type: Feature | None = kwargs.pop("type", None)
         is_type: bool = kwargs.pop("is_type", False)
@@ -422,7 +421,7 @@ class Schema(Record, CanCurate, TracksRun):
         if kwargs:
             raise ValueError(
                 f"Unexpected keyword arguments: {', '.join(kwargs.keys())}\n"
-                "Valid arguments are: features, description, mode, dtype, itype, type, "
+                "Valid arguments are: features, description, dtype, itype, type, "
                 "is_type, otype, minimal_set, ordered_set, maximal_set, "
                 "slot, validated_by, coerce_dtype"
             )
@@ -455,11 +454,6 @@ class Schema(Record, CanCurate, TracksRun):
             itype_str = serialize_dtype(itype, is_itype=True)
         else:
             itype_str = itype
-        if mode is None:
-            if features:
-                mode = "passed-only"
-            else:
-                mode = "all-itype"
         validated_kwargs = {
             "name": name,
             "description": description,
@@ -484,8 +478,8 @@ class Schema(Record, CanCurate, TracksRun):
                 for arg in hash_args
                 if validated_kwargs[arg] is not None
             }
-            if mode != "passed-only":
-                union_set.add(f"mode:{SCHEMA_MODE_ENCODE[mode]}")
+            # if mode != "passed-only":
+            #     union_set.add(f"mode:{SCHEMA_MODE_ENCODE[mode]}")
             if features:
                 union_set = union_set.union({feature.uid for feature in features})
             if optional_features:
@@ -516,7 +510,6 @@ class Schema(Record, CanCurate, TracksRun):
         validated_kwargs["uid"] = ids.base62_20()
         super().__init__(**validated_kwargs)
         self.optionals.set(optional_features)
-        self.mode = mode
 
     @classmethod
     def from_values(  # type: ignore
@@ -707,21 +700,21 @@ class Schema(Record, CanCurate, TracksRun):
         self._aux = self._aux or {}
         self._aux.setdefault("af", {})["0"] = value
 
-    @property
-    def mode(self) -> Literal["passed-only", "all-itype"]:
-        """Indicates how to handle validation and annotation in case features are not defined."""
-        if self._aux is not None and "af" in self._aux and "2" in self._aux["af"]:  # type: ignore
-            return SCHEMA_MODE_DECODE[self._aux["af"]["2"]]  # type: ignore
-        else:
-            return "passed-only"
+    # @property
+    # def mode(self) -> Literal["passed-only", "all-itype"]:
+    #     """Indicates how to handle validation and annotation in case features are not defined."""
+    #     if self._aux is not None and "af" in self._aux and "2" in self._aux["af"]:  # type: ignore
+    #         return SCHEMA_MODE_DECODE[self._aux["af"]["2"]]  # type: ignore
+    #     else:
+    #         return "passed-only"
 
-    @mode.setter
-    def mode(self, value: Literal["passed-only", "all-itype"]) -> None:
-        if value not in ["passed-only", "all-itype"]:
-            raise ValueError("mode must be either 'passed-only' or 'all-itype'")
-        if value == "all-itype":
-            self._aux = self._aux or {}
-            self._aux.setdefault("af", {})["2"] = SCHEMA_MODE_ENCODE[value]
+    # @mode.setter
+    # def mode(self, value: Literal["passed-only", "all-itype"]) -> None:
+    #     if value not in ["passed-only", "all-itype"]:
+    #         raise ValueError("mode must be either 'passed-only' or 'all-itype'")
+    #     if value == "all-itype":
+    #         self._aux = self._aux or {}
+    #         self._aux.setdefault("af", {})["2"] = SCHEMA_MODE_ENCODE[value]
 
     # @property
     # def index_feature(self) -> None | Feature:
