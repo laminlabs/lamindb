@@ -1,3 +1,5 @@
+import re
+
 import lamindb as ln
 import pandas as pd
 import pytest
