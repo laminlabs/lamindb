@@ -678,7 +678,7 @@ class Schema(Record, CanCurate, TracksRun):
             # save the feature
             feature = Feature(
                 name=field_name,
-                dtype=dtype,
+                dtype=get_type_str(dtype),
                 nullable=nullable,
                 default_value=default_value
                 if has_default and default_value is not None
@@ -691,6 +691,62 @@ class Schema(Record, CanCurate, TracksRun):
                 features.append(feature)
 
         return Schema(name=schema_name, features=features)  # type: ignore
+
+    def to_pydantic(self, base_class=None):
+        """Convert a lamindb Schema to a Pydantic v2+ model.
+
+            base_class: Type, optional
+                Base class for the Pydantic model (defaults to pydantic.BaseModel)
+
+        Returns:
+            A Pydantic model class
+        """
+        from typing import Literal
+
+        from pydantic import BaseModel, Field, create_model
+
+        from .feature import parse_dtype
+
+        if base_class is None:
+            base_class = BaseModel
+
+        self.optionals.get()
+
+        fields = {}
+        for feature in self.features:
+            # create literal from records
+            if feature.dtype.startswith("cat"):
+                dtype_result = parse_dtype(feature.dtype)
+                queryset = dtype_result["registry"].filter()
+                if dtype_result["subtype_str"]:
+                    queryset = queryset.filter(type__name=dtype_result["subtype_str"])
+                allowed_values = queryset.list(dtype_result["field_str"])
+                py_type = Literal[tuple(allowed_values)]
+            else:
+                py_type = feature.dtype
+
+            if feature.nullable:
+                py_type = py_type | None
+
+            # Create a field with metadata
+            field_info = {}
+            # add default value if it exists
+            if hasattr(feature, "default_value") and feature.default_value is not None:
+                field_info["default"] = feature.default_value
+
+            # create the field
+            if field_info:
+                fields[feature.name] = (py_type, Field(**field_info))
+            else:
+                fields[feature.name] = (py_type, ...)
+
+        # create the Pydantic model
+        return create_model(
+            self.name.replace(" ", ""),  # Remove spaces for class name
+            __base__=base_class,
+            __config__=type("Config", (), {"title": self.name}),
+            **fields,
+        )
 
     def save(self, *args, **kwargs) -> Schema:
         """Save."""
