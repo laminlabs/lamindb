@@ -396,7 +396,7 @@ class DataFrameCurator(Curator):
         features = []
         feature_ids: set[int] = set()
         if schema.mode == "validate-all-annotate-cat":
-            features += Feature.filter(name__in=self._dataset.columns).list()
+            features += Feature.filter(name__in=self._dataset.keys()).list()
             feature_ids = {feature.id for feature in features}
         if schema.n > 0:
             schema_features = schema.features.all().list()

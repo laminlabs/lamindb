@@ -300,6 +300,7 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
             uns_schema = ln.Schema(
                 name="flexible_uns_schema",
                 itype=ln.Feature,
+                mode="validate-passed",
             ).save()
             components["uns"] = uns_schema
 
