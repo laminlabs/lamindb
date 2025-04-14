@@ -426,7 +426,7 @@ class Schema(Record, CanCurate, TracksRun):
                 "is_type, otype, minimal_set, ordered_set, maximal_set, "
                 "slot, validated_by, coerce_dtype"
             )
-
+        optional_features = []
         if features:
             features, configs = get_features_config(features)
             features_registry = validate_features(features)
@@ -459,8 +459,8 @@ class Schema(Record, CanCurate, TracksRun):
             "name": name,
             "description": description,
             "type": type,
-            "dtype": dtype,
             "is_type": is_type,
+            "dtype": dtype,
             "otype": otype,
             "n": n_features,
             "itype": itype_str,
@@ -470,14 +470,18 @@ class Schema(Record, CanCurate, TracksRun):
         }
         if coerce_dtype:
             validated_kwargs["_aux"] = {"af": {"0": coerce_dtype}}
-        if features and name is None:
-            hash = hash_set({feature.uid for feature in features})
-        elif components:
+        if components:
             hash = hash_set({component.hash for component in components.values()})
         else:
-            settings_set = {str(value) for value in validated_kwargs.values()}
-            features_set = {feature.uid for feature in features}
-            hash = hash_set(settings_set.union(features_set))
+            hash_args = ["dtype", "itype", "minimal_set", "ordered_set", "maximal_set"]
+            union_set = {str(validated_kwargs[arg]) for arg in hash_args}
+            if features:
+                union_set = union_set.union({feature.uid for feature in features})
+            if optional_features:
+                union_set = union_set.union(
+                    {f"optional:{feature.uid}" for feature in optional_features}
+                )
+            hash = hash_set(union_set)
         validated_kwargs["hash"] = hash
         validated_kwargs["slot"] = slot
         schema = Schema.filter(hash=hash).one_or_none()
