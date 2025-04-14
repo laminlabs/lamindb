@@ -170,7 +170,7 @@ class Schema(Record, CanCurate, TracksRun):
         description: `str | None = None` A description.
         mode: `Literal["validate-passed", "validate-all-annotate-cat"] | None = None`
             If `None`, uses `"validate-passed"` if features are passed and `"validate-all-annotate-cat"` otherwise.
-        itype: `str | None = "Feature"` The feature identifier type (e.g. :class:`~lamindb.Feature`, :class:`~bionty.Gene`, ...).
+        itype: `str | None = None` The feature identifier type (e.g. :class:`~lamindb.Feature`, :class:`~bionty.Gene`, ...).
         type: `Schema | None = None` A type.
         is_type: `bool = False` Distinguish types from instances of the type.
         otype: `str | None = None` An object type to define the structure of a composite schema.
@@ -364,7 +364,7 @@ class Schema(Record, CanCurate, TracksRun):
         description: str | None = None,
         mode: Literal["validate-passed", "validate-all-annotate-cat"] | None = None,
         dtype: str | None = None,
-        itype: str | Registry | FieldAttr | None = "Feature",
+        itype: str | Registry | FieldAttr | None = None,
         type: Schema | None = None,
         is_type: bool = False,
         otype: str | None = None,
@@ -403,7 +403,7 @@ class Schema(Record, CanCurate, TracksRun):
         mode: Literal["validate-passed", "validate-all-annotate-cat"] | None = (
             kwargs.pop("mode", None)
         )
-        itype: str | Record | DeferredAttribute | None = kwargs.pop("itype", "Feature")
+        itype: str | Record | DeferredAttribute | None = kwargs.pop("itype", None)
         type: Feature | None = kwargs.pop("type", None)
         is_type: bool = kwargs.pop("is_type", False)
         otype: str | None = kwargs.pop("otype", None)

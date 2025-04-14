@@ -408,6 +408,8 @@ class DataFrameCurator(Curator):
                 )
             else:
                 features.extend(schema_features)
+        else:
+            assert schema.itype is not None  # noqa: S101
         if features:
             # populate features
             pandera_columns = {}
