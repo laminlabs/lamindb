@@ -485,7 +485,7 @@ class Schema(Record, CanCurate, TracksRun):
                 if validated_kwargs[arg] is not None
             }
             if mode != "passed-only":
-                union_set.add(mode)
+                union_set.add(f"mode:{SCHEMA_MODE_ENCODE[mode]}")
             if features:
                 union_set = union_set.union({feature.uid for feature in features})
             if optional_features:
