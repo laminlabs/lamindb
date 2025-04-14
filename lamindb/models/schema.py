@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, overload
+from typing import TYPE_CHECKING, Any, Literal, Union, overload
 
 import numpy as np
 from django.db import models
@@ -40,6 +40,7 @@ from .record import (
     update_attributes,
 )
 from .run import Param, TracksRun, TracksUpdates
+from .ulabel import ULabel
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -639,6 +640,131 @@ class Schema(Record, CanCurate, TracksRun):
                 otype="DataFrame",
             )
         return schema
+
+    @classmethod
+    def from_pydantic(cls, model_class, dtypes: dict, **kwargs) -> Schema:
+        """Convert a Pydantic v2+ model to a lamindb Schema.
+
+        Args:
+            model_class : Type[BaseModel]
+                The Pydantic model class to convert
+            dtypes : dict
+                Map Pydantic field names to lamindb dtypes
+
+        Returns:
+            ln.Schema
+                The created lamindb Schema object
+        """
+        # use the title from model_config if available, otherwise use class name
+        schema_name = getattr(model_class.model_config, "title", model_class.__name__)
+
+        features = []
+        # get field info using Pydantic v2's model_fields
+        fields_dict = model_class.model_fields
+
+        for field_name, field_info in fields_dict.items():
+            # skip internal fields
+            if field_name.startswith("_"):
+                continue
+            field_type = field_info.annotation
+            # determine if field is nullable based on if it's Optional (Union with None)
+            nullable = False
+            if getattr(field_type, "__origin__", None) == Union:
+                args = field_type.__args__
+                if type(None) in args:
+                    nullable = True
+                    # extract the actual type from the Union
+                    field_type = next(arg for arg in args if arg is not type(None))
+
+            # get default value if it exists
+            default_value = getattr(field_info, "default", None)
+            has_default = default_value is not None
+
+            # if default is None and field is not nullable, this isn't a true default
+            if default_value is None and not nullable:
+                has_default = False
+
+            # a field is required if it has no default value
+            # this is independent of whether it's nullable
+            required = not has_default
+
+            if getattr(field_type, "__origin__", None) == Literal:
+                dtype = dtypes.get(field_name, ULabel)  # default to ULabel
+            else:
+                dtype = dtypes.get(field_name, field_type)
+
+            # save the feature
+            feature = Feature(
+                name=field_name,
+                dtype=get_type_str(dtype),
+                nullable=nullable,
+                default_value=default_value
+                if has_default and default_value is not None
+                else None,
+            ).save()
+
+            if not required:
+                features.append(feature.with_config(optional=True))
+            else:
+                features.append(feature)
+
+        return Schema(name=schema_name, features=features)  # type: ignore
+
+    def to_pydantic(self, base_class=None):
+        """Convert a lamindb Schema to a Pydantic v2+ model.
+
+            base_class: Type, optional
+                Base class for the Pydantic model (defaults to pydantic.BaseModel)
+
+        Returns:
+            A Pydantic model class
+        """
+        from typing import Literal
+
+        from pydantic import BaseModel, Field, create_model
+
+        from .feature import parse_dtype
+
+        if base_class is None:
+            base_class = BaseModel
+
+        self.optionals.get()
+
+        fields = {}
+        for feature in self.features:
+            # create literal from records
+            if feature.dtype.startswith("cat"):
+                dtype_result = parse_dtype(feature.dtype)
+                queryset = dtype_result["registry"].filter()
+                if dtype_result["subtype_str"]:
+                    queryset = queryset.filter(type__name=dtype_result["subtype_str"])
+                allowed_values = queryset.list(dtype_result["field_str"])
+                py_type = Literal[tuple(allowed_values)]
+            else:
+                py_type = feature.dtype
+
+            if feature.nullable:
+                py_type = py_type | None
+
+            # Create a field with metadata
+            field_info = {}
+            # add default value if it exists
+            if hasattr(feature, "default_value") and feature.default_value is not None:
+                field_info["default"] = feature.default_value
+
+            # create the field
+            if field_info:
+                fields[feature.name] = (py_type, Field(**field_info))
+            else:
+                fields[feature.name] = (py_type, ...)
+
+        # create the Pydantic model
+        return create_model(
+            self.name.replace(" ", ""),  # Remove spaces for class name
+            __base__=base_class,
+            __config__=type("Config", (), {"title": self.name}),
+            **fields,
+        )
 
     def save(self, *args, **kwargs) -> Schema:
         """Save."""
