@@ -234,7 +234,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
 def test_dataframe_curator_validate_all_annotate_cat(small_dataset1_schema):
     """Do not pass any features."""
 
-    schema = ln.Schema(mode="all-itype", itype=ln.Feature).save()
+    schema = ln.Schema(itype=ln.Feature).save()
     df = datasets.small_dataset1(otype="DataFrame")
     curator = ln.curators.DataFrameCurator(df, schema)
     artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
@@ -258,7 +258,7 @@ def test_dataframe_curator_validate_all_annotate_cat2(small_dataset1_schema):
     """Combine half-specifying features, half not."""
 
     schema = ln.Schema(
-        mode="all-itype",
+        itype=ln.Feature,
         features=[ln.Feature.get(name="perturbation")],
     ).save()
     df = datasets.small_dataset1(otype="DataFrame")
