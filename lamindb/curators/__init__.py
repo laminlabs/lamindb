@@ -395,6 +395,7 @@ class DataFrameCurator(Curator):
         categoricals = []
         features = []
         if schema.mode == "validate-all-annotate-cat":
+            print(self._dataset.columns)
             features += Feature.filter(name__in=self._dataset.columns).list()
         if schema.n > 0:
             features += schema.features.all().list()
@@ -447,8 +448,6 @@ class DataFrameCurator(Curator):
                 strict=schema.maximal_set,
                 ordered=schema.ordered_set,
             )
-        else:
-            assert schema.itype is not None  # noqa: S101
         self._cat_manager = DataFrameCatManager(
             self._dataset,
             columns=parse_cat_dtype(schema.itype, is_itype=True)["field"],
