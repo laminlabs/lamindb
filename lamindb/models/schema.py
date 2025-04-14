@@ -98,6 +98,10 @@ def get_features_config(
         return features, configs  # type: ignore
 
 
+SCHEMA_MODE_ENCODE = {"passed-only": 0, "all-itype": 1}
+SCHEMA_MODE_DECODE = {0: "passed-only", 1: "all-itype"}
+
+
 class SchemaOptionals:
     """Manage and access optional features in a schema."""
 
@@ -250,7 +254,7 @@ class Schema(Record, CanCurate, TracksRun):
     _aux_fields: dict[str, tuple[str, type]] = {
         "0": ("coerce_dtype", bool),
         "1": ("optionals", list[str]),
-        "2": ("mode", str),
+        "2": ("mode_code", int),  # encoding of schema mode
     }
 
     id: int = models.AutoField(primary_key=True)
@@ -707,7 +711,7 @@ class Schema(Record, CanCurate, TracksRun):
     def mode(self) -> Literal["passed-only", "all-itype"]:
         """Indicates how to handle validation and annotation in case features are not defined."""
         if self._aux is not None and "af" in self._aux and "2" in self._aux["af"]:  # type: ignore
-            return self._aux["af"]["2"]  # type: ignore
+            return SCHEMA_MODE_DECODE[self._aux["af"]["2"]]  # type: ignore
         else:
             return "passed-only"
 
@@ -717,7 +721,7 @@ class Schema(Record, CanCurate, TracksRun):
             raise ValueError("mode must be either 'passed-only' or 'all-itype'")
         if value == "all-itype":
             self._aux = self._aux or {}
-            self._aux.setdefault("af", {})["2"] = value
+            self._aux.setdefault("af", {})["2"] = SCHEMA_MODE_ENCODE[value]
 
     # @property
     # def index_feature(self) -> None | Feature:
