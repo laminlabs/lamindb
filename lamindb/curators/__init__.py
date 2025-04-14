@@ -393,12 +393,17 @@ class DataFrameCurator(Curator):
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
         categoricals = []
+        features = []
+        if schema.mode == "validate-all-annotate-cat":
+            features += Feature.filter(name__in=self._dataset.columns).list()
         if schema.n > 0:
+            features += schema.features.all().list()
+        if features:
             # populate features
             pandera_columns = {}
             if schema.minimal_set:
                 optional_feature_uids = set(schema.optionals.get_uids())
-            for feature in schema.features.all():
+            for feature in features:
                 if schema.minimal_set:
                     required = feature.uid not in optional_feature_uids
                 else:
