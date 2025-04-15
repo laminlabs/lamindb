@@ -1532,6 +1532,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         description: str | None = None,
         run: Run | None = None,
         revises: Artifact | None = None,
+        schema: Schema | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from `DataFrame`, validate & link features.
@@ -1543,6 +1544,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
+            schema: A schema to validate & annotate.
 
         See Also:
             :meth:`~lamindb.Collection`
@@ -1575,6 +1577,13 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             **kwargs,
         )
         artifact.n_observations = len(df)
+        if schema is not None:
+            from ..curators import DataFrameCurator
+
+            curator = DataFrameCurator(artifact, schema)
+            curator.validate()
+            artifact.schema = schema
+            artifact._curator = curator
         return artifact
 
     @classmethod
@@ -2450,6 +2459,10 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 local_path_cache,
             )
             logger.important(f"moved local artifact to cache: {local_path_cache}")
+        if hasattr(self, "_curator"):
+            curator = self._curator
+            delattr(self, "_curator")
+            curator.save_artifact()
         return self
 
     def restore(self) -> None:

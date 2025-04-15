@@ -395,7 +395,7 @@ class DataFrameCurator(Curator):
         categoricals = []
         features = []
         feature_ids: set[int] = set()
-        if schema.flexible and isinstance(dataset, pd.DataFrame):
+        if schema.flexible and isinstance(self._dataset, pd.DataFrame):
             features += Feature.filter(name__in=self._dataset.keys()).list()
             feature_ids = {feature.id for feature in features}
         if schema.n > 0:
@@ -551,11 +551,17 @@ class DataFrameCurator(Curator):
         if not self._is_validated:
             self.validate()  # raises ValidationError if doesn't validate
         result = parse_cat_dtype(self._schema.itype, is_itype=True)
-        self._artifact = Artifact.from_df(
-            self._dataset, key=key, description=description, revises=revises, run=run
-        )
-        self._artifact.schema = self._schema
-        self._artifact.save()
+        if self._artifact is None:
+            self._artifact = Artifact.from_df(
+                self._dataset,
+                key=key,
+                description=description,
+                revises=revises,
+                run=run,
+            )
+            self._artifact.schema = self._schema
+            self._artifact.save()
+        print("annotating with", self._cat_manager._cat_columns)
         return annotate_artifact(  # type: ignore
             self._artifact,
             index_field=result["field"],
