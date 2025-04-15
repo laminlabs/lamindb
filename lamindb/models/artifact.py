@@ -1574,15 +1574,20 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             ):
                 return filter_base(Param, **expressions)
             else:
-                if sum(features_validated) > sum(params_validated):
-                    message = f"feature names: {np.array(keys_normalized)[~features_validated]}"
-                else:
-                    message = (
-                        f"param names: {np.array(keys_normalized)[~params_validated]}"
+                if sum(features_validated) < sum(params_validated):
+                    params = ", ".join(
+                        sorted(np.array(keys_normalized)[~params_validated])
                     )
+                    message = f"param names: {params}"
+                else:
+                    features = ", ".join(
+                        sorted(np.array(keys_normalized)[~params_validated])
+                    )
+                    message = f"feature names: {features}"
+                fields = ", ".join(sorted(cls.__get_available_fields__()))
                 raise InvalidArgument(
-                    f"You can query either by available fields: {Artifact.__get_available_fields__()}"
-                    f"\n or fix invalid {message}"
+                    f"You can query either by available fields: {fields}\n"
+                    f"Or fix invalid {message}"
                 )
         else:
             return QuerySet(model=cls).filter(*queries, **expressions)
