@@ -1087,10 +1087,6 @@ class CatColumn:
                 )
         self.labels = existing_and_public_records
 
-        # save parent labels for ulabels, for example a parent label "project" for label "project001"
-        if registry == ULabel and field_name == "name":
-            _save_ulabels_type(values, field=self._field, key=self._key)
-
         # non-validated records from the default instance
         non_validated_labels = [
             i for i in values if i not in existing_and_public_labels
@@ -1136,9 +1132,6 @@ class CatColumn:
             logger.success(
                 f'added {len(values)} record{s} with {model_field} for "{self._key}": {_format_values(values)}'
             )
-        # save parent labels for ulabels, for example a parent label "project" for label "project001"
-        if registry == ULabel and field_name == "name":
-            _save_ulabels_type(values, field=self._field, key=self._key)
 
     def _validate(
         self,
@@ -3232,20 +3225,6 @@ def _flatten_unique(series: pd.Series[list[Any] | Any]) -> list[Any]:
             result.add(item)
 
     return list(result)
-
-
-def _save_ulabels_type(values: list[str], field: FieldAttr, key: str) -> None:
-    """Save the ULabel type of the given labels."""
-    registry = field.field.model
-    assert registry == ULabel  # noqa: S101
-    all_records = registry.filter(**{field.field.name: list(values)}).all()
-    # so `tissue_type` becomes `TissueType`
-    type_name = "".join([i.capitalize() for i in key.lower().split("_")])
-    ulabel_type = registry.filter(name=type_name, is_type=True).one_or_none()
-    if ulabel_type is None:
-        ulabel_type = registry(name=type_name, is_type=True).save()
-        logger.important(f"Created a ULabel type: {ulabel_type}")
-    all_records.update(type=ulabel_type)
 
 
 def _save_organism(name: str):
