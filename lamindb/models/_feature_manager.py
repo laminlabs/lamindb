@@ -313,6 +313,9 @@ def describe_features(
             fs_data = _get_schemas_postgres(self, related_data=related_data)
             for fs_id, (slot, data) in fs_data.items():
                 for registry_str, feature_names in data.items():
+                    # prevent projects show up as features
+                    if registry_str == "Project":
+                        continue
                     schema = Schema.objects.using(self._state.db).get(id=fs_id)
                     schema_data[slot] = (schema, feature_names)
                     for feature_name in feature_names:
