@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, overload
 
+import numpy as np
 from django.db import models
 from django.db.models import (
     CASCADE,
@@ -19,7 +20,7 @@ from lamindb.base.fields import (
     ForeignKey,
 )
 from lamindb.base.users import current_user_id
-from lamindb.errors import ValidationError
+from lamindb.errors import InvalidArgument, ValidationError
 
 from ..base.ids import base62_20
 from .can_curate import CanCurate
@@ -33,6 +34,7 @@ if TYPE_CHECKING:
     from .artifact import Artifact
     from .collection import Collection
     from .project import Project
+    from .query_set import QuerySet
     from .schema import Schema
     from .transform import Transform
     from .ulabel import ULabel
@@ -537,6 +539,56 @@ class Run(Record):
         """Delete."""
         delete_run_artifacts(self)
         super().delete()
+
+    @classmethod
+    def filter(
+        cls,
+        *queries,
+        **expressions,
+    ) -> QuerySet:
+        """Query a set of artifacts.
+
+        Args:
+            *queries: `Q` expressions.
+            **expressions: Params, fields, and values passed via the Django query syntax.
+
+        See Also:
+            - Guide: :doc:`docs:registries`
+
+        Examples:
+
+            Query by fields::
+
+                ln.Run.filter(key="my_datasets/my_file.parquet")
+
+            Query by params::
+
+                ln.Run.filter(hyperparam_x=100)
+        """
+        from ._feature_manager import filter_base
+        from .query_set import QuerySet
+
+        if expressions:
+            keys_normalized = [key.split("__")[0] for key in expressions]
+            field_or_feature_or_param = keys_normalized[0].split("__")[0]
+            if field_or_feature_or_param in Run.__get_available_fields__():
+                return QuerySet(model=cls).filter(*queries, **expressions)
+            elif all(
+                params_validated := Param.validate(
+                    keys_normalized, field="name", mute=True
+                )
+            ):
+                return filter_base(Param, **expressions)
+            else:
+                params = ", ".join(sorted(np.array(keys_normalized)[~params_validated]))
+                message = f"param names: {params}"
+                fields = ", ".join(sorted(cls.__get_available_fields__()))
+                raise InvalidArgument(
+                    f"You can query either by available fields: {fields}\n"
+                    f"Or fix invalid {message}"
+                )
+        else:
+            return QuerySet(model=cls).filter(*queries, **expressions)
 
 
 def delete_run_artifacts(run: Run) -> None:

@@ -1530,12 +1530,12 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         cls,
         *queries,
         **expressions,
-    ) -> Artifact:
+    ) -> QuerySet:
         """Query a set of artifacts.
 
         Args:
             *queries: `Q` expressions.
-            **expressions: Features, fields, and values passed using the Django query syntax.
+            **expressions: Features, params, fields via the Django query syntax.
 
         See Also:
             - Guide: :doc:`docs:registries`
@@ -1544,15 +1544,15 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             Query by fields::
 
-                artifact = ln.Arfifact.filter(key="my_datasets/my_file.parquet")
+                ln.Arfifact.filter(key="my_datasets/my_file.parquet")
 
             Query by features::
 
-                artifact = ln.Arfifact.filter(cell_type_by_model__name="T cell")
+                ln.Arfifact.filter(cell_type_by_model__name="T cell")
 
             Query by params::
 
-                artifact = ln.Arfifact.filter(hyperparam_x=100)
+                ln.Arfifact.filter(hyperparam_x=100)
         """
         from .query_set import QuerySet
 
