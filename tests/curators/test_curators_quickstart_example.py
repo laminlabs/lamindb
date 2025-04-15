@@ -334,7 +334,9 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
             assert isinstance(curator.slots["obs"], ln.curators.DataFrameCurator)
         if add_comp == "uns":
             assert isinstance(curator.slots["uns"], ln.curators.DataFrameCurator)
-        artifact = curator.save_artifact(key="example_datasets/dataset1.h5ad")
+        artifact = ln.Artifact.from_anndata(
+            adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+        ).save()
         assert artifact.schema == anndata_schema
         assert artifact.features.slots["var"].n == 3  # 3 genes get linked
         if add_comp == "obs":
@@ -462,9 +464,9 @@ def test_spatialdata_curator(
         curator.validate()
     spatialdata.tables["table"].var.drop(index="ENSG00000999999", inplace=True)
 
-    # TODO: shouldn't need to re-init the curator
-    curator = ln.curators.SpatialDataCurator(spatialdata, spatialdata_schema)
-    artifact = curator.save_artifact(key="example_datasets/spatialdata1.zarr")
+    artifact = ln.Artifact.from_spatialdata(
+        spatialdata, key="example_datasets/spatialdata1.zarr", schema=spatialdata_schema
+    ).save()
     assert artifact.schema == spatialdata_schema
     assert artifact.features.slots.keys() == {
         "sample",

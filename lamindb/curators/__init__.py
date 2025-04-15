@@ -241,6 +241,7 @@ class Curator:
         pass  # pragma: no cover
 
 
+# default implementation for MuDataCurator and SpatialDataCurator
 class SlotsCurator(Curator):
     """Curator for a dataset with slots.
 
@@ -290,26 +291,25 @@ class SlotsCurator(Curator):
         """{}"""  # noqa: D415
         if not self._is_validated:
             self.validate()
-
-        if data_is_mudata(self._dataset):
-            self._artifact = Artifact.from_mudata(
-                self._dataset,
-                key=key,
-                description=description,
-                revises=revises,
-                run=run,
-            )
-        elif data_is_spatialdata(self._dataset):
-            self._artifact = Artifact.from_spatialdata(
-                self._dataset,
-                key=key,
-                description=description,
-                revises=revises,
-                run=run,
-            )
-        self._artifact.schema = self._schema
-        self._artifact.save()
-        # default implementation for MuDataCurator and SpatialDataCurator
+        if self._artifact is None:
+            if data_is_mudata(self._dataset):
+                self._artifact = Artifact.from_mudata(
+                    self._dataset,
+                    key=key,
+                    description=description,
+                    revises=revises,
+                    run=run,
+                )
+            elif data_is_spatialdata(self._dataset):
+                self._artifact = Artifact.from_spatialdata(
+                    self._dataset,
+                    key=key,
+                    description=description,
+                    revises=revises,
+                    run=run,
+                )
+            self._artifact.schema = self._schema
+            self._artifact.save()
         cat_columns = {}
         for curator in self._slots.values():
             for key, cat_column in curator._cat_manager._cat_columns.items():
@@ -561,7 +561,6 @@ class DataFrameCurator(Curator):
             )
             self._artifact.schema = self._schema
             self._artifact.save()
-        print("annotating with", self._cat_manager._cat_columns)
         return annotate_artifact(  # type: ignore
             self._artifact,
             index_field=result["field"],
@@ -668,11 +667,16 @@ class AnnDataCurator(SlotsCurator):
         """{}"""  # noqa: D415
         if not self._is_validated:
             self.validate()
-        self._artifact = Artifact.from_anndata(
-            self._dataset, key=key, description=description, revises=revises, run=run
-        )
-        self._artifact.schema = self._schema
-        self._artifact.save()
+        if self._artifact is None:
+            self._artifact = Artifact.from_anndata(
+                self._dataset,
+                key=key,
+                description=description,
+                revises=revises,
+                run=run,
+            )
+            self._artifact.schema = self._schema
+            self._artifact.save()
         return annotate_artifact(  # type: ignore
             self._artifact,
             cat_columns=(

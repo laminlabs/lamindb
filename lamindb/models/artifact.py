@@ -1595,6 +1595,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         description: str | None = None,
         run: Run | None = None,
         revises: Artifact | None = None,
+        schema: Schema | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from ``AnnData``, validate & link features.
@@ -1606,6 +1607,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
+            schema: A schema to validate & annotate.
 
         See Also:
 
@@ -1647,6 +1649,13 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             # and the proper path through create_path for cloud paths
             obj_for_obs = artifact.path
         artifact.n_observations = _anndata_n_observations(obj_for_obs)
+        if schema is not None:
+            from ..curators import AnnDataCurator
+
+            curator = AnnDataCurator(artifact, schema)
+            curator.validate()
+            artifact.schema = schema
+            artifact._curator = curator
         return artifact
 
     @classmethod
@@ -1658,6 +1667,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         description: str | None = None,
         run: Run | None = None,
         revises: Artifact | None = None,
+        schema: Schema | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from ``MuData``, validate & link features.
@@ -1669,6 +1679,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
+            schema: A schema to validate & annotate.
 
         See Also:
             :meth:`~lamindb.Collection`
@@ -1697,6 +1708,13 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         )
         if not isinstance(mdata, UPathStr):
             artifact.n_observations = mdata.n_obs
+        if schema is not None:
+            from ..curators import MuDataCurator
+
+            curator = MuDataCurator(artifact, schema)
+            curator.validate()
+            artifact.schema = schema
+            artifact._curator = curator
         return artifact
 
     @classmethod
@@ -1708,6 +1726,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         description: str | None = None,
         run: Run | None = None,
         revises: Artifact | None = None,
+        schema: Schema | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from ``SpatialData``, validate & link features.
@@ -1719,6 +1738,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
+             schema: A schema to validate & annotate.
 
         See Also:
             :meth:`~lamindb.Collection`
@@ -1748,6 +1768,13 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         )
         # ill-defined https://scverse.zulipchat.com/#narrow/channel/315824-spatial/topic/How.20to.20calculate.20the.20number.20of.20observations.3F
         # artifact.n_observations = ...
+        if schema is not None:
+            from ..curators import SpatialDataCurator
+
+            curator = SpatialDataCurator(artifact, schema)
+            curator.validate()
+            artifact.schema = schema
+            artifact._curator = curator
         return artifact
 
     @classmethod
