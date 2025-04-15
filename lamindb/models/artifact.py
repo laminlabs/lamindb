@@ -958,53 +958,27 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         revises: `Artifact | None = None` Previous version of the artifact. Is an alternative way to passing `key` to trigger a new version.
         run: `Run | None = None` The run that creates the artifact.
 
-    .. dropdown:: Typical storage formats & their API accessors
-
-        Arrays:
-
-        - Table: `.csv`, `.tsv`, `.parquet`, `.ipc` ⟷ `DataFrame`, `pyarrow.Table`
-        - Annotated matrix: `.h5ad`, `.h5mu`, `.zrad` ⟷ `AnnData`, `MuData`
-        - Generic array: HDF5 group, zarr group, TileDB store ⟷ HDF5, zarr, TileDB loaders
-
-        Non-arrays:
-
-        - Image: `.jpg`, `.png` ⟷ `np.ndarray`, ...
-        - Fastq: `.fastq` ⟷ /
-        - VCF: `.vcf` ⟷ /
-        - QC: `.html` ⟷ /
-
-        You'll find these values in the `suffix` & `accessor` fields.
-
-        LaminDB makes some default choices (e.g., serialize a `DataFrame` as a `.parquet` file).
-
-    See Also:
-        :class:`~lamindb.Storage`
-            Storage locations for artifacts.
-        :class:`~lamindb.Collection`
-            Collections of artifacts.
-        :meth:`~lamindb.Artifact.from_df`
-            Create an artifact from a `DataFrame`.
-        :meth:`~lamindb.Artifact.from_anndata`
-            Create an artifact from an `AnnData`.
-
     Examples:
 
-        Create an artifact by passing `key`:
+        Create an artifact **from a local file or folder**::
 
-        >>> artifact = ln.Artifact("./my_file.parquet", key="example_datasets/my_file.parquet").save()
-        >>> artifact = ln.Artifact("./my_folder", key="project1/my_folder").save()
+            artifact = ln.Artifact("./my_file.parquet", key="example_datasets/my_file.parquet").save()
+            artifact = ln.Artifact("./my_folder", key="project1/my_folder").save()
 
-        Calling `.save()` uploads the file to the default storage location of your lamindb instance.
-        (If it's a local instance, the "upload" is a mere copy operation.)
+        Calling `.save()` copies or uploads the file to the default storage location of your lamindb instance.
+        If you create an artifact **from a remote file or folder**, lamindb merely registers the S3 `key` and avoids copying the data::
 
-        If your artifact is already in the cloud, lamindb auto-populates the `key` field based on the S3 key and there is no upload:
+            artifact = ln.Artifact("s3://my_bucket/my_folder/my_file.csv").save()
 
-        >>> artifact = ln.Artifact("s3://my_bucket/my_folder/my_file.csv").save()
+        If you want to **validate & annotate** an array, pass a `schema` to one of the `.from_df()`, `.from_anndata()`, ... constructors::
 
-        You can make a new version of the artifact with `key = "example_datasets/my_file.parquet"`
+            schema = ln.Schema(itype=ln.Feature)  # a schema that merely enforces that feature names exist in the Feature registry
+            artifact = ln.Artifact.from_df("./my_file.parquet", key="my_dataset.parquet", schema=schema).save()  # validated and annotated
 
-        >>> artifact_v2 = ln.Artifact("./my_file.parquet", key="example_datasets/my_file.parquet").save()
-        >>> artifact_v2.versions.df()  # see all versions
+        You can make a **new version** of an artifact by passing an existing `key`::
+
+            artifact_v2 = ln.Artifact("./my_file.parquet", key="example_datasets/my_file.parquet").save()
+            artifact_v2.versions.df()  # see all versions
 
         .. dropdown:: Why does the API look this way?
 
@@ -1027,18 +1001,48 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 bucket = quilt3.Bucket('mybucket')
                 bucket.put_file('hello.txt', '/tmp/hello.txt')
 
-        Sometimes you want to avoid mapping the artifact into a file hierarchy, and you can then _just_ populate `description` instead:
+        Sometimes you want to **avoid mapping the artifact into a path hierarchy**, and you only pass `description`::
 
-        >>> artifact = ln.Artifact("s3://my_bucket/my_folder", description="My folder").save()
-        >>> artifact = ln.Artifact("./my_local_folder", description="My local folder").save()
+            artifact = ln.Artifact("./my_folder", description="My folder").save()
+            artifact_v2 = ln.Artifact("./my_folder", revises=old_artifact).save()  # need to version based on `revises`, a shared description does not trigger a new version
 
-        Because you can then not use `key`-based versioning you have to pass `revises` to make a new artifact version:
+    Notes:
 
-        >>> artifact_v2 = ln.Artifact("./my_file.parquet", revises=old_artifact).save()
+        .. dropdown:: Typical storage formats & their API accessors
 
-        If an artifact with the exact same hash already exists, `Artifact()` returns the existing artifact. In concurrent workloads where
-        the same artifact is created multiple times, `Artifact()` doesn't yet return the existing artifact but creates a new one; `.save()` however
-        detects the duplication and will return the existing artifact.
+            Arrays:
+
+            - Table: `.csv`, `.tsv`, `.parquet`, `.ipc` ⟷ `DataFrame`, `pyarrow.Table`
+            - Annotated matrix: `.h5ad`, `.h5mu`, `.zrad` ⟷ `AnnData`, `MuData`
+            - Generic array: HDF5 group, zarr group, TileDB store ⟷ HDF5, zarr, TileDB loaders
+
+            Non-arrays:
+
+            - Image: `.jpg`, `.png` ⟷ `np.ndarray`, ...
+            - Fastq: `.fastq` ⟷ /
+            - VCF: `.vcf` ⟷ /
+            - QC: `.html` ⟷ /
+
+            You'll find these values in the `suffix` & `accessor` fields.
+
+            LaminDB makes some default choices (e.g., serialize a `DataFrame` as a `.parquet` file).
+
+        .. dropdown:: Will artifacts get duplicated?
+
+            If an artifact with the exact same hash already exists, `Artifact()` returns the existing artifact.
+
+            In concurrent workloads where the same artifact is created repeatedly at the exact same time, `.save()`
+            detects the duplication and will return the existing artifact.
+
+    See Also:
+        :class:`~lamindb.Storage`
+            Storage locations for artifacts.
+        :class:`~lamindb.Collection`
+            Collections of artifacts.
+        :meth:`~lamindb.Artifact.from_df`
+            Create an artifact from a `DataFrame`.
+        :meth:`~lamindb.Artifact.from_anndata`
+            Create an artifact from an `AnnData`.
 
     """
 
@@ -1050,6 +1054,8 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     params: ParamManager = ParamManagerArtifact  # type: ignore
     """Param manager.
+
+    What features are for dataset-like artifacts, parameters are for model-like artifacts & runs.
 
     Example::
 
@@ -1067,9 +1073,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     features: FeatureManager = FeatureManager  # type: ignore
     """Feature manager.
 
-    Features denote dataset dimensions, i.e., the variables that measure labels & numbers.
+    Typically, you annotate a dataset with features by defining a `Schema` and passing it to the `Artifact` constructor.
 
-    Annotate with features & values::
+    Here is how to do annotate an artifact ad hoc::
 
        artifact.features.add_values({
             "species": organism,  # here, organism is an Organism record
@@ -1078,9 +1084,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             "experiment": "Experiment 1"
        })
 
-    Query for features & values::
+    Query artifacts by features::
 
-        ln.Artifact.features.filter(scientist="Barbara McClintock")
+        ln.Artifact.filter(scientist="Barbara McClintock")
 
     Features may or may not be part of the artifact content in storage. For
     instance, the :class:`~lamindb.Curator` flow validates the columns of a
