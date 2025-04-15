@@ -646,7 +646,7 @@ def __getitem__(self, slot) -> QuerySet:
     return getattr(schema, self._accessor_by_registry[orm_name]).all()
 
 
-def filter_base(cls, **expression):
+def filter_base(cls, _skip_validation: bool = True, **expression):
     from .artifact import Artifact
 
     if cls is FeatureManager:
@@ -656,11 +656,12 @@ def filter_base(cls, **expression):
         model = Param
         value_model = ParamValue
     keys_normalized = [key.split("__")[0] for key in expression]
-    validated = model.validate(keys_normalized, field="name", mute=True)
-    if sum(validated) != len(keys_normalized):
-        raise ValidationError(
-            f"Some keys in the filter expression are not registered as features: {np.array(keys_normalized)[~validated]}"
-        )
+    if _skip_validation:
+        validated = model.validate(keys_normalized, field="name", mute=True)
+        if sum(validated) != len(keys_normalized):
+            raise ValidationError(
+                f"Some keys in the filter expression are not registered as features: {np.array(keys_normalized)[~validated]}"
+            )
     new_expression = {}
     features = model.filter(name__in=keys_normalized).all().distinct()
     feature_param = "param" if model is Param else "feature"
@@ -726,24 +727,24 @@ def filter_base(cls, **expression):
 @deprecated("registry classmethod")
 def filter(cls, **expression) -> QuerySet:
     """Query artifacts by features."""
-    return filter_base(cls, **expression)
+    return filter_base(cls, _skip_validation=False, **expression)
 
 
 @classmethod  # type: ignore
 @deprecated("registry classmethod")
 def get(cls, **expression) -> Record:
     """Query a single artifact by feature."""
-    return filter_base(cls, **expression).one()
+    return filter_base(cls, _skip_validation=False, **expression).one()
 
 
 @property  # type: ignore
 def slots(self) -> dict[str, Schema]:
     """Schema by slot.
 
-    Example:
+    Example::
 
-        >>> artifact.features.slots
-        {'var': <Schema: var>, 'obs': <Schema: obs>}
+        artifact.features.slots
+        #> {'var': <Schema: var>, 'obs': <Schema: obs>}
     """
     if self._slots is None:
         self._slots = get_schema_by_slot_(self._host)
