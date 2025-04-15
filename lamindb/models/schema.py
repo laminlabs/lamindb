@@ -477,6 +477,7 @@ class Schema(Record, CanCurate, TracksRun):
         if components:
             hash = hash_set({component.hash for component in components.values()})
         else:
+            # we do not want pure informational annotations like otype, name, type, is_type, otype to be part of the hash
             hash_args = ["dtype", "itype", "minimal_set", "ordered_set", "maximal_set"]
             union_set = {
                 str(validated_kwargs[arg])
@@ -636,7 +637,6 @@ class Schema(Record, CanCurate, TracksRun):
                 features=validated_features,
                 name=name,
                 dtype=get_type_str(dtype),
-                otype="DataFrame",
             )
         return schema
 
