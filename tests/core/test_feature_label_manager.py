@@ -200,7 +200,6 @@ Here is how to create ulabels for them:
 
     assert ln.Artifact.get(_feature_values__value=27.2)
 
-    print(artifact.features.get_values())
     assert artifact.features.get_values() == {
         "disease": {"Alzheimer disease", "atopic eczema"},
         "experiment": {"Experiment 1", "Experiment 2"},
