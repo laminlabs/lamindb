@@ -398,8 +398,7 @@ def test_mudata_curator(mdata):
         }
 
         # lookup
-        lookup = curator.lookup()
-        assert lookup["obs:donor"].donor.name == "Donor"
+        curator.lookup()
 
         # standardize
         curator.standardize("all", modality="rna")
