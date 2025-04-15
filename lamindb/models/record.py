@@ -186,8 +186,7 @@ def update_attributes(record: Record, attributes: dict[str, str]):
         if (
             getattr(record, key) != value
             and value is not None
-            and key != "dtype"
-            and key != "_aux"
+            and key not in {"dtype", "otype", "_aux"}
         ):
             logger.warning(f"updated {key} from {getattr(record, key)} to {value}")
             setattr(record, key, value)
