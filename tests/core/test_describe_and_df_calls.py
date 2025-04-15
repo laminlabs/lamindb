@@ -54,14 +54,12 @@ def test_curate_df():
     ln.Feature(name="cell_type_by_model", dtype="cat[bionty.CellType]").save()
     # dataset-level metadata
     ln.Feature(name="temperature", dtype="float").save()
-    ln.Feature(name="study", dtype="cat[ULabel]").save()
+    ln.Feature(name="experiment", dtype="cat[ULabel]").save()
     ln.Feature(name="date_of_study", dtype="date").save()
     ln.Feature(name="study_note", dtype="str").save()
     ## Permissible values for categoricals
     ln.ULabel.from_values(["DMSO", "IFNG"], create=True).save()
-    ln.ULabel.from_values(
-        ["Candidate marker study 1", "Candidate marker study 2"], create=True
-    ).save()
+    ln.ULabel.from_values(["Experiment 1", "Experiment 2"], create=True).save()
     bt.CellType.from_values(["B cell", "T cell"], create=True).save()
 
     ## Ingest dataset1
@@ -128,7 +126,7 @@ def test_curate_df():
         "description": [None, None],
         "cell_type_by_expert": [np.nan, {"CD8-positive, alpha-beta T cell", "B cell"}],
         "cell_type_by_model": [{"T cell", "B cell"}, {"T cell", "B cell"}],
-        "study": [{"Candidate marker study 2"}, {"Candidate marker study 1"}],
+        "experiment": [{"Experiment 2"}, {"Experiment 1"}],
         "perturbation": [{"IFNG", "DMSO"}, {"IFNG", "DMSO"}],
         "temperature": [{21.6}, np.nan],
         "study_note": [
@@ -210,7 +208,7 @@ def test_curate_df():
     assert len(ext_features_node.children[0].label.columns) == 3
     assert len(ext_features_node.children[0].label.rows) == 4
     assert ext_features_node.children[0].label.columns[0]._cells == [
-        "study",
+        "experiment",
         "date_of_study",
         "study_note",
         "temperature",
@@ -222,7 +220,7 @@ def test_curate_df():
     assert ext_features_node.children[0].label.columns[1]._cells[2].plain == "str"
     assert ext_features_node.children[0].label.columns[1]._cells[3].plain == "float"
     assert ext_features_node.children[0].label.columns[2]._cells == [
-        "Candidate marker study 1",
+        "Experiment 1",
         "2024-12-01",
         "We had a great time performing this study and the results look compelling.",
         "21.6",
@@ -241,7 +239,7 @@ def test_curate_df():
     assert labels_node.children[0].label.columns[1]._cells[1].plain == "ULabel"
     assert labels_node.children[0].label.columns[2]._cells == [
         "B cell, T cell, CD8-positive, alpha-beta T cell",
-        "DMSO, IFNG, Candidate marker study 1",
+        "DMSO, IFNG, Experiment 1",
     ]
 
     artifact.delete(permanent=True)
