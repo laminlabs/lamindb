@@ -717,9 +717,9 @@ def filter_base(cls, **expression):
             # https://laminlabs.slack.com/archives/C04FPE8V01W/p1688328084810609
             raise NotImplementedError
     if cls == FeatureManager or cls == ParamManagerArtifact:
-        return Artifact.filter(**new_expression)
+        return Artifact.objects.filter(**new_expression)
     elif cls == ParamManagerRun:
-        return Run.filter(**new_expression)
+        return Run.objects.filter(**new_expression)
 
 
 @classmethod  # type: ignore
