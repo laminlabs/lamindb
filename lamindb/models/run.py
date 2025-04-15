@@ -578,7 +578,7 @@ class Run(Record):
                     keys_normalized, field="name", mute=True
                 )
             ):
-                return filter_base(Param, **expressions)
+                return filter_base(ParamManagerRun, **expressions)
             else:
                 params = ", ".join(sorted(np.array(keys_normalized)[~params_validated]))
                 message = f"param names: {params}"

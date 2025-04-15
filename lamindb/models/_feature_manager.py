@@ -646,7 +646,7 @@ def __getitem__(self, slot) -> QuerySet:
     return getattr(schema, self._accessor_by_registry[orm_name]).all()
 
 
-def filter_base(cls, _skip_validation: bool = True, **expression):
+def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
     from .artifact import Artifact
 
     if cls is FeatureManager:

@@ -1572,7 +1572,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                     keys_normalized, field="name", mute=True
                 )
             ):
-                return filter_base(Param, **expressions)
+                return filter_base(ParamManagerArtifact, **expressions)
             else:
                 if sum(features_validated) < sum(params_validated):
                     params = ", ".join(
