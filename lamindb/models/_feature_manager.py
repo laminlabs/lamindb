@@ -1100,7 +1100,7 @@ def _add_set_from_df(
 ):
     """Add feature set corresponding to column names of DataFrame."""
     assert self._host.otype == "DataFrame"  # noqa: S101
-    df = self._host.load()
+    df = self._host.load(is_run_input=False)
     schema = Schema.from_df(
         df=df,
         field=field,
@@ -1123,7 +1123,7 @@ def _add_set_from_anndata(
     assert self._host.otype == "AnnData"  # noqa: S101
 
     # parse and register features
-    adata = self._host.load()
+    adata = self._host.load(is_run_input=False)
     feature_sets = parse_staged_feature_sets_from_anndata(
         adata,
         var_field=var_field,
@@ -1166,7 +1166,7 @@ def _add_set_from_mudata(
     assert self._host.otype == "MuData"  # noqa: S101
 
     # parse and register features
-    mdata = self._host.load()
+    mdata = self._host.load(is_run_input=False)
     feature_sets = {}
 
     obs_features = Feature.from_values(mdata.obs.columns)  # type: ignore
@@ -1202,7 +1202,7 @@ def _add_set_from_spatialdata(
     assert self._host.otype == "SpatialData"  # noqa: S101
 
     # parse and register features
-    sdata = self._host.load()
+    sdata = self._host.load(is_run_input=False)
     feature_sets = {}
 
     # sample features
