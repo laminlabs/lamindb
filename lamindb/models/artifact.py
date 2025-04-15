@@ -1075,7 +1075,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             "species": organism,  # here, organism is an Organism record
             "scientist": ['Barbara McClintock', 'Edgar Anderson'],
             "temperature": 27.6,
-            "study": "Candidate marker study"
+            "experiment": "Experiment 1"
        })
 
     Query for features & values::
@@ -1096,22 +1096,22 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         To annotate with labels, you typically use the registry-specific accessors,
         for instance :attr:`~lamindb.Artifact.ulabels`::
 
-            candidate_marker_study = ln.ULabel(name="Candidate marker study").save()
-            artifact.ulabels.add(candidate_marker_study)
+            experiment = ln.ULabel(name="Experiment 1").save()
+            artifact.ulabels.add(experiment)
 
         Similarly, you query based on these accessors::
 
-            ln.Artifact.filter(ulabels__name="Candidate marker study").all()
+            ln.Artifact.filter(ulabels__name="Experiment 1").all()
 
         Unlike the registry-specific accessors, the `.labels` accessor provides
         a way of associating labels with features::
 
-            study = ln.Feature(name="study", dtype="cat").save()
-            artifact.labels.add(candidate_marker_study, feature=study)
+            experiment = ln.Feature(name="experiment", dtype="cat").save()
+            artifact.labels.add(experiment, feature=study)
 
         Note that the above is equivalent to::
 
-            artifact.features.add_values({"study": candidate_marker_study})
+            artifact.features.add_values({"experiment": experiment})
         """
         from ._label_manager import LabelManager
 

@@ -22,7 +22,7 @@ def small_dataset1_schema():
 
     # in next iteration for attrs
     ln.Feature(name="temperature", dtype=float).save()
-    # ln.Feature(name="study", dtype="cat[ULabel]").save()
+    # ln.Feature(name="experiment", dtype="cat[ULabel]").save()
     # ln.Feature(name="date_of_study", dtype="date").save()
     # ln.Feature(name="study_note", dtype="str").save()
 
