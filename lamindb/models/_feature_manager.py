@@ -656,7 +656,7 @@ def filter_base(cls, _skip_validation: bool = True, **expression):
         model = Param
         value_model = ParamValue
     keys_normalized = [key.split("__")[0] for key in expression]
-    if _skip_validation:
+    if not _skip_validation:
         validated = model.validate(keys_normalized, field="name", mute=True)
         if sum(validated) != len(keys_normalized):
             raise ValidationError(
@@ -724,14 +724,14 @@ def filter_base(cls, _skip_validation: bool = True, **expression):
 
 
 @classmethod  # type: ignore
-@deprecated("registry classmethod")
+@deprecated("the filter() registry classmethod")
 def filter(cls, **expression) -> QuerySet:
     """Query artifacts by features."""
     return filter_base(cls, _skip_validation=False, **expression)
 
 
 @classmethod  # type: ignore
-@deprecated("registry classmethod")
+@deprecated("the filter() registry classmethod")
 def get(cls, **expression) -> Record:
     """Query a single artifact by feature."""
     return filter_base(cls, _skip_validation=False, **expression).one()
