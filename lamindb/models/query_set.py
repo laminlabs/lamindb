@@ -110,8 +110,6 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
             if parts[0] not in {
                 "transform",
                 "visibility",
-                "schemas",
-                "artifacts",
             }:
                 warnings.warn(
                     f"{name_mappings[parts[0]]} is deprecated, please query for {parts[0]} instead",

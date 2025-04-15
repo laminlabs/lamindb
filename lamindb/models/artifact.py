@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Union, overload
 
 import fsspec
 import lamindb_setup as ln_setup
+import numpy as np
 import pandas as pd
 from anndata import AnnData
 from django.db import connections, models
@@ -67,6 +68,7 @@ from ._feature_manager import (
     ParamManager,
     ParamManagerArtifact,
     add_label_feature_links,
+    filter_base,
     get_label_links,
 )
 from ._is_versioned import IsVersioned
@@ -84,7 +86,7 @@ from .record import (
     _get_record_kwargs,
     record_repr,
 )
-from .run import ParamValue, Run, TracksRun, TracksUpdates, User
+from .run import Param, ParamValue, Run, TracksRun, TracksUpdates, User
 from .schema import Schema
 from .ulabel import ULabel
 
@@ -1540,14 +1542,50 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         Examples:
 
-            ::
+            Query by fields::
 
-                artifact = ln.Artifact.get("tCUkRcaEjTjhtozp0000")
-                artifact = ln.Arfifact.get(key="my_datasets/my_file.parquet")
+                artifact = ln.Arfifact.filter(key="my_datasets/my_file.parquet")
+
+            Query by features::
+
+                artifact = ln.Arfifact.filter(cell_type_by_model__name="T cell")
+
+            Query by params::
+
+                artifact = ln.Arfifact.filter(hyperparam_x=100)
         """
         from .query_set import QuerySet
 
-        return QuerySet(model=cls).filter(*queries, **expressions)
+        if expressions:
+            keys_normalized = [key.split("__")[0] for key in expressions]
+            field_or_feature_or_param = keys_normalized[0].split("__")[0]
+            if field_or_feature_or_param in Artifact.__get_available_fields__():
+                return QuerySet(model=cls).filter(*queries, **expressions)
+            elif all(
+                features_validated := Feature.validate(
+                    keys_normalized, field="name", mute=True
+                )
+            ):
+                return filter_base(FeatureManager, **expressions)
+            elif all(
+                params_validated := Param.validate(
+                    keys_normalized, field="name", mute=True
+                )
+            ):
+                return filter_base(Param, **expressions)
+            else:
+                if sum(features_validated) > sum(params_validated):
+                    message = f"feature names: {np.array(keys_normalized)[~features_validated]}"
+                else:
+                    message = (
+                        f"param names: {np.array(keys_normalized)[~params_validated]}"
+                    )
+                raise InvalidArgument(
+                    f"You can query either by available fields: {Artifact.__get_available_fields__()}"
+                    f"\n or fix invalid {message}"
+                )
+        else:
+            return QuerySet(model=cls).filter(*queries, **expressions)
 
     @classmethod
     def from_df(

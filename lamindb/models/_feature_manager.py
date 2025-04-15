@@ -723,12 +723,14 @@ def filter_base(cls, **expression):
 
 
 @classmethod  # type: ignore
+@deprecated("registry classmethod")
 def filter(cls, **expression) -> QuerySet:
     """Query artifacts by features."""
     return filter_base(cls, **expression)
 
 
 @classmethod  # type: ignore
+@deprecated("registry classmethod")
 def get(cls, **expression) -> Record:
     """Query a single artifact by feature."""
     return filter_base(cls, **expression).one()
