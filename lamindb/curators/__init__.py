@@ -339,6 +339,8 @@ def check_dtype(expected_type) -> Callable:
             is_valid = pd.api.types.is_float_dtype(series.dtype)
         elif expected_type == "num":
             is_valid = pd.api.types.is_numeric_dtype(series.dtype)
+        elif expected_type.startswith("list["):
+            is_valid = pd.api.types.is_list_like(series)
         return is_valid
 
     return check_function
@@ -420,7 +422,9 @@ class DataFrameCurator(Curator):
                     required = feature.uid not in optional_feature_uids
                 else:
                     required = False
-                if feature.dtype in {"int", "float", "num"}:
+                if feature.dtype in {"int", "float", "num"} or feature.dtype.startswith(
+                    "list["
+                ):
                     dtype = (
                         self._dataset[feature.name].dtype
                         if feature.name in self._dataset.columns
