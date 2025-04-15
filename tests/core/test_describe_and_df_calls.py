@@ -220,7 +220,7 @@ def test_curate_df():
     assert ext_features_node.children[0].label.columns[1]._cells[2].plain == "str"
     assert ext_features_node.children[0].label.columns[1]._cells[3].plain == "float"
     assert ext_features_node.children[0].label.columns[2]._cells == [
-        "Candidate marker study 1",
+        "Experiment 1",
         "2024-12-01",
         "We had a great time performing this study and the results look compelling.",
         "21.6",
@@ -239,7 +239,7 @@ def test_curate_df():
     assert labels_node.children[0].label.columns[1]._cells[1].plain == "ULabel"
     assert labels_node.children[0].label.columns[2]._cells == [
         "B cell, T cell, CD8-positive, alpha-beta T cell",
-        "DMSO, IFNG, Candidate marker study 1",
+        "DMSO, IFNG, Experiment 1",
     ]
 
     artifact.delete(permanent=True)
