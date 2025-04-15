@@ -684,6 +684,9 @@ class Registry(ModelBase):
                 and not f.name.startswith("links_")
                 and not f.name.endswith("_id")
             }
+            if cls.__name__ == "Artifact":
+                cls._available_fields.add("visibility")
+                cls._available_fields.add("transform")
         return cls._available_fields
 
 
