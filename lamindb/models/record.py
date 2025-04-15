@@ -759,8 +759,8 @@ class BasicRecord(models.Model, metaclass=Registry):
                             )
                             if isinstance(self, Schema):
                                 if existing_record.hash != kwargs["hash"]:
-                                    raise ValueError(
-                                        f"Schema name is already in use by schema with uid '{existing_record.uid}', please choose a different name."
+                                    logger.warning(
+                                        f"You're updating schema {existing_record.uid}, which might already have been used to validate datasets. Be careful."
                                     )
                             init_self_from_db(self, existing_record)
                             update_attributes(self, kwargs)
