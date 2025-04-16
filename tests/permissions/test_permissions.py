@@ -155,6 +155,12 @@ def test_write_role():
     ln.ULabel(name="new label team default space").save()
 
 
+def test_token_reset():
+    db_token_manager.reset()
+
+    ln.ULabel.filter()
+
+
 # below is an integration test that should run last
 def test_lamin_dev():
     script_path = Path(__file__).parent.resolve() / "scripts/check_lamin_dev.py"
