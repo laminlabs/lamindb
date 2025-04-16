@@ -158,7 +158,7 @@ def test_write_role():
 def test_token_reset():
     db_token_manager.reset()
 
-    ln.ULabel.filter()
+    assert ln.ULabel.filter().count() == 0
 
 
 # below is an integration test that should run last
