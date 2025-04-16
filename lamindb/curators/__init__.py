@@ -453,7 +453,11 @@ class DataFrameCurator(Curator):
                 else:
                     required = False
                 # series.dtype is "object" if the column has mixed types, e.g. [["a", "b"], "a", "b"]
-                is_type_object = self._dataset[feature.name].dtype == "object"
+                is_type_object = (
+                    False
+                    if feature.name not in self._dataset.columns
+                    else self._dataset[feature.name].dtype == "object"
+                )
                 if feature.dtype in {"int", "float", "num"} or is_type_object:
                     dtype = (
                         self._dataset[feature.name].dtype
@@ -3264,17 +3268,23 @@ def annotate_artifact(
     return artifact
 
 
-def _flatten_unique(series: pd.Series[list[Any] | Any]) -> list[Any]:
-    """Flatten a Pandas series containing lists or single items into a unique list of elements."""
-    result = set()
+def _flatten_unique(series: pd.Series) -> list[Any]:
+    """Flatten a Pandas series containing lists or single items into a unique list of elements, preserving order."""
+    seen = set()
+    result = []
 
     for item in series:
         if isinstance(item, list):
-            result.update(item)
+            for element in item:
+                if element not in seen:
+                    seen.add(element)
+                    result.append(element)
         else:
-            result.add(item)
+            if item not in seen:
+                seen.add(item)
+                result.append(item)
 
-    return list(result)
+    return result
 
 
 def _save_organism(name: str):
