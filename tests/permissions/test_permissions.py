@@ -8,7 +8,7 @@ import lamindb as ln
 import psycopg2
 import pytest
 from django.db import transaction
-from django.db.utils import ProgrammingError
+from django.db.utils import DataError, ProgrammingError
 from jwt_utils import sign_jwt
 from lamindb_setup.core.django import DBToken, db_token_manager
 from psycopg2.extensions import adapt
@@ -158,7 +158,10 @@ def test_write_role():
 def test_token_reset():
     db_token_manager.reset()
 
-    assert ln.ULabel.filter().count() == 0
+    # app.account_id is not set
+    # invalid input syntax for type uuid: ""
+    with pytest.raises(DataError):
+        ln.ULabel.filter().count()
 
 
 # below is an integration test that should run last
