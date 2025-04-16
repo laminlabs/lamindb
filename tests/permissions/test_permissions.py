@@ -163,6 +163,10 @@ def test_token_reset():
     with pytest.raises(DataError):
         ln.ULabel.filter().count()
 
+    with pytest.raises(DataError):
+        with transaction.atomic():
+            ln.ULabel.filter().count()
+
 
 # below is an integration test that should run last
 def test_lamin_dev():
