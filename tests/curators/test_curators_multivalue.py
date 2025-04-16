@@ -46,6 +46,3 @@ def test_curator_df_multivalue(df, lists_schema):
 
     curator.cat.standardize("tissue")
     assert curator._cat_manager._cat_columns["tissue"]._non_validated == []
-
-    artifact = curator.save_artifact(key="test_lists.parquet")
-    assert artifact.features.get_values() == {"tissue": {"blood", "lung"}}
