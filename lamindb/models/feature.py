@@ -62,8 +62,6 @@ def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
                     cat_single_dtype_str, related_registries
                 )
                 result.append(single_result)
-    elif dtype_str.startswith("list["):
-        return []
     elif dtype_str not in allowed_dtypes:
         raise ValueError(
             f"dtype is '{dtype_str}' but has to be one of {FEATURE_DTYPES}!"
@@ -154,9 +152,6 @@ def serialize_dtype(
         and dtype.__name__ in FEATURE_DTYPES
     ):
         dtype_str = dtype.__name__
-    elif isinstance(dtype, str) and dtype.startswith("list["):
-        assert dtype.replace("list[", "").rstrip("]") in FEATURE_DTYPES  # noqa: S101
-        dtype_str = dtype
     elif isinstance(dtype, (ExtensionDtype, np.dtype)):
         dtype_str = serialize_pandas_dtype(dtype)
     else:
