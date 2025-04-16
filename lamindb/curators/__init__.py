@@ -322,26 +322,56 @@ class SlotsCurator(Curator):
         )
 
 
+def _is_type_or_list_of_type(value, expected_type):
+    """Helper function to check if a value is either of expected_type or a list of that type, or a mix of both in a nested structure."""
+    if isinstance(value, list):
+        # handle nested lists recursively
+        return all(_is_type_or_list_of_type(item, expected_type) for item in value)
+    return isinstance(value, expected_type)
+
+
 def check_dtype(expected_type) -> Callable:
     """Creates a check function for Pandera that validates a column's dtype.
 
+    Supports both standard dtype checking and mixed list/single values for
+    the same type. For example, a column with expected_type 'float' would
+    also accept a mix of float values and lists of floats.
+
     Args:
-        expected_type: String identifier for the expected type ('int', 'float', or 'num')
+        expected_type: String identifier for the expected type ('int', 'float', 'num', 'str')
 
     Returns:
-        A function that checks if a series has the expected dtype
+        A function that checks if a series has the expected dtype or contains mixed types
     """
 
     def check_function(series):
-        if expected_type == "int":
-            is_valid = pd.api.types.is_integer_dtype(series.dtype)
-        elif expected_type == "float":
-            is_valid = pd.api.types.is_float_dtype(series.dtype)
-        elif expected_type == "num":
-            is_valid = pd.api.types.is_numeric_dtype(series.dtype)
-        elif expected_type.startswith("list["):
-            is_valid = pd.api.types.is_list_like(series)
-        return is_valid
+        # first check if the series is entirely of the expected dtype (fast path)
+        if expected_type == "int" and pd.api.types.is_integer_dtype(series.dtype):
+            return True
+        elif expected_type == "float" and pd.api.types.is_float_dtype(series.dtype):
+            return True
+        elif expected_type == "num" and pd.api.types.is_numeric_dtype(series.dtype):
+            return True
+        elif expected_type == "str" and pd.api.types.is_string_dtype(series.dtype):
+            return True
+
+        # if we're here, it might be a mixed column with object dtype
+        # need to check each value individually
+        if series.dtype == "object":
+            if expected_type == "int":
+                return series.apply(lambda x: _is_type_or_list_of_type(x, int)).all()
+            elif expected_type == "float":
+                return series.apply(lambda x: _is_type_or_list_of_type(x, float)).all()
+            elif expected_type == "num":
+                # for numeric, accept either int or float
+                return series.apply(
+                    lambda x: _is_type_or_list_of_type(x, (int, float))
+                ).all()
+            elif expected_type == "str":
+                return series.apply(lambda x: _is_type_or_list_of_type(x, str)).all()
+
+        # if we get here, the validation failed
+        return False
 
     return check_function
 
@@ -422,9 +452,9 @@ class DataFrameCurator(Curator):
                     required = feature.uid not in optional_feature_uids
                 else:
                     required = False
-                if feature.dtype in {"int", "float", "num"} or feature.dtype.startswith(
-                    "list["
-                ):
+                # series.dtype is "object" if the column has mixed types, e.g. [["a", "b"], "a", "b"]
+                is_type_object = self._dataset[feature.name].dtype == "object"
+                if feature.dtype in {"int", "float", "num"} or is_type_object:
                     dtype = (
                         self._dataset[feature.name].dtype
                         if feature.name in self._dataset.columns
@@ -433,7 +463,11 @@ class DataFrameCurator(Curator):
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
                         checks=pandera.Check(
-                            check_dtype(feature.dtype),
+                            check_dtype(
+                                "str"
+                                if feature.dtype.startswith("cat")
+                                else feature.dtype
+                            ),
                             element_wise=False,
                             error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}': got {dtype}",
                         ),
@@ -1025,10 +1059,20 @@ class CatColumn:
 
     def _replace_synonyms(self) -> list[str]:
         """Replace synonyms in the column with standardized values."""
+
+        def process_value(value, syn_mapper):
+            """Helper function to process values recursively."""
+            if isinstance(value, list):
+                # Handle list - recursively process each item
+                return [process_value(item, syn_mapper) for item in value]
+            else:
+                # Handle single value
+                return syn_mapper.get(value, value)
+
         syn_mapper = self._synonyms
         # replace the values in df
         std_values = self.values.map(
-            lambda unstd_val: syn_mapper.get(unstd_val, unstd_val)
+            lambda unstd_val: process_value(unstd_val, syn_mapper)
         )
         # remove the standardized values from self.non_validated
         non_validated = [i for i in self._non_validated if i not in syn_mapper]
@@ -1058,13 +1102,16 @@ class CatColumn:
         filter_kwargs = get_current_filter_kwargs(
             registry, {"organism": self._organism, "source": self._source}
         )
-        values = [i for i in self.values if isinstance(i, str) and i]
+        values = [i for i in self.values if isinstance(i, str | list) and i]
         if not values:
             return [], []
 
+        # if a value is a list, we need to flatten it
+        str_values = _flatten_unique(values)
+
         # inspect the default instance and save validated records from public
         existing_and_public_records = registry.from_values(
-            list(values), field=self._field, **filter_kwargs, mute=True
+            str_values, field=self._field, **filter_kwargs, mute=True
         )
         existing_and_public_labels = [
             getattr(r, field_name) for r in existing_and_public_records
@@ -1091,9 +1138,9 @@ class CatColumn:
                 )
         self.labels = existing_and_public_records
 
-        # non-validated records from the default instance
+        # non-validated labels
         non_validated_labels = [
-            i for i in values if i not in existing_and_public_labels
+            i for i in str_values if i not in existing_and_public_labels
         ]
 
         # validated, non-validated
@@ -3217,7 +3264,6 @@ def annotate_artifact(
     return artifact
 
 
-# TODO: need this function to support mutli-value columns
 def _flatten_unique(series: pd.Series[list[Any] | Any]) -> list[Any]:
     """Flatten a Pandas series containing lists or single items into a unique list of elements."""
     result = set()
