@@ -453,12 +453,12 @@ class DataFrameCurator(Curator):
                 else:
                     required = False
                 # series.dtype is "object" if the column has mixed types, e.g. [["a", "b"], "a", "b"]
-                is_type_object = (
+                are_lists = (
                     False
                     if feature.name not in self._dataset.columns
-                    else self._dataset[feature.name].dtype == "object"
+                    else isinstance(self._dataset[feature.name][0], list)
                 )
-                if feature.dtype in {"int", "float", "num"} or is_type_object:
+                if feature.dtype in {"int", "float", "num"} or are_lists:
                     dtype = (
                         self._dataset[feature.name].dtype
                         if feature.name in self._dataset.columns
