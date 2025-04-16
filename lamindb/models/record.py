@@ -63,7 +63,6 @@ from lamindb_setup.core._settings_store import instance_settings_file
 from lamindb_setup.core.django import db_token_manager
 from lamindb_setup.core.upath import extract_suffix_from_path
 
-from lamindb.base import deprecated
 from lamindb.base.fields import (
     CharField,
     DateTimeField,
@@ -187,8 +186,7 @@ def update_attributes(record: Record, attributes: dict[str, str]):
         if (
             getattr(record, key) != value
             and value is not None
-            and key != "dtype"
-            and key != "_aux"
+            and key not in {"dtype", "otype", "_aux"}
         ):
             logger.warning(f"updated {key} from {getattr(record, key)} to {value}")
             setattr(record, key, value)
@@ -370,6 +368,8 @@ class Registry(ModelBase):
 
     Note: `Registry` inherits from Django's `ModelBase`.
     """
+
+    _available_fields: set[str] = None
 
     def __new__(cls, name, bases, attrs, **kwargs):
         new_class = super().__new__(cls, name, bases, attrs, **kwargs)
@@ -666,10 +666,6 @@ class Registry(ModelBase):
             module_name = "core"
         return module_name
 
-    @deprecated("__get_module_name__")
-    def __get_schema_name__(cls) -> str:
-        return cls.__get_module_name__()
-
     def __get_name_with_module__(cls) -> str:
         module_name = cls.__get_module_name__()
         if module_name == "core":
@@ -678,9 +674,19 @@ class Registry(ModelBase):
             module_prefix = f"{module_name}."
         return f"{module_prefix}{cls.__name__}"
 
-    @deprecated("__get_name_with_module__")
-    def __get_name_with_schema__(cls) -> str:
-        return cls.__get_name_with_module__()
+    def __get_available_fields__(cls) -> set[str]:
+        if cls._available_fields is None:
+            cls._available_fields = {
+                f.name
+                for f in cls._meta.get_fields()
+                if not f.name.startswith("_")
+                and not f.name.startswith("links_")
+                and not f.name.endswith("_id")
+            }
+            if cls.__name__ == "Artifact":
+                cls._available_fields.add("visibility")
+                cls._available_fields.add("transform")
+        return cls._available_fields
 
 
 class BasicRecord(models.Model, metaclass=Registry):

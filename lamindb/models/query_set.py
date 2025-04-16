@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-import warnings
 from collections import UserList
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
@@ -75,49 +74,28 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
     from lamindb.models import (
         Artifact,
         Collection,
-        Schema,
         Transform,
     )
 
     if queryset.model in {Collection, Transform}:
         name_mappings = {
-            "name": "key",
-            "visibility": "_branch_code",  # for convenience (and backward compat <1.0)
+            "visibility": "_branch_code",
         }
     elif queryset.model == Artifact:
         name_mappings = {
-            "n_objects": "n_files",
-            "visibility": "_branch_code",  # for convenience (and backward compat <1.0)
-            "transform": "run__transform",  # for convenience (and backward compat <1.0)
-            "type": "kind",
-            "_accessor": "otype",
-        }
-    elif queryset.model == Schema:
-        name_mappings = {
-            "registry": "itype",
+            "visibility": "_branch_code",
+            "transform": "run__transform",
         }
     else:
         return expressions
     was_list = False
     if isinstance(expressions, list):
-        # make a dummy dictionary
         was_list = True
         expressions = {field: True for field in expressions}
     mapped = {}
     for field, value in expressions.items():
         parts = field.split("__")
         if parts[0] in name_mappings:
-            if parts[0] not in {
-                "transform",
-                "visibility",
-                "schemas",
-                "artifacts",
-            }:
-                warnings.warn(
-                    f"{name_mappings[parts[0]]} is deprecated, please query for {parts[0]} instead",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
             new_field = name_mappings[parts[0]] + (
                 "__" + "__".join(parts[1:]) if len(parts) > 1 else ""
             )
@@ -631,15 +609,7 @@ class QuerySet(models.QuerySet):
         """Suggest available fields if an unknown field was passed."""
         if "Cannot resolve keyword" in str(error):
             field = str(error).split("'")[1]
-            fields = ", ".join(
-                sorted(
-                    f.name
-                    for f in self.model._meta.get_fields()
-                    if not f.name.startswith("_")
-                    and not f.name.startswith("links_")
-                    and not f.name.endswith("_id")
-                )
-            )
+            fields = ", ".join(sorted(self.model.__get_available_fields__()))
             raise FieldError(
                 f"Unknown field '{field}'. Available fields: {fields}"
             ) from None

@@ -85,7 +85,7 @@ def _from_values(
             print_values = colors.yellow(_format_values(unmapped_values))
             n_nonval = colors.yellow(f"{len(unmapped_values)} non-validated")
             if not mute:
-                logger.warning(
+                logger.info(
                     f"{colors.red('did not create')} {registry.__name__} record{s} for "
                     f"{n_nonval} {colors.italic(f'{field.field.name}{s}')}: {print_values}"  # type: ignore
                 )
