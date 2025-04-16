@@ -7,7 +7,7 @@ import hubmodule.models as hm
 import lamindb as ln
 import psycopg2
 import pytest
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.utils import DataError, ProgrammingError
 from jwt_utils import sign_jwt
 from lamindb_setup.core.django import DBToken, db_token_manager
@@ -28,6 +28,12 @@ db_token_manager.set(db_token)
 
 
 def test_fine_grained_permissions_account():
+    # just check that the token was setup
+    with connection.cursor() as cur:
+        cur.execute("SELECT current_setting('app.account_id');")
+        account_id = cur.fetchall()[0][0]
+    assert account_id == user_uuid
+
     # check select
     assert ln.ULabel.filter().count() == 3
     assert ln.Project.filter().count() == 2
