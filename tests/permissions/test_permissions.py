@@ -47,7 +47,10 @@ def test_authentication():
             (token,),
         )
     # check that jwt user can't set arbitrary account_id manually
-    with connection.connection.cursor() as cur:
+    with (
+        pytest.raises(psycopg2.errors.RaiseException),
+        connection.connection.cursor() as cur,
+    ):
         cur.execute(
             """
             CREATE TEMP TABLE account_id(val uuid PRIMARY KEY) ON COMMIT DROP;
