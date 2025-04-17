@@ -8,7 +8,7 @@ import lamindb as ln
 import psycopg2
 import pytest
 from django.db import connection, transaction
-from django.db.utils import DataError, ProgrammingError
+from django.db.utils import ProgrammingError
 from jwt_utils import sign_jwt
 from lamindb_setup.core.django import DBToken, db_token_manager
 from psycopg2.extensions import adapt
@@ -32,7 +32,7 @@ def test_fine_grained_permissions_account():
     with connection.cursor() as cur:
         cur.execute("SELECT get_account_id();")
         account_id = cur.fetchall()[0][0]
-    assert account_id == user_uuid
+    assert account_id.hex == user_uuid
 
     # check select
     assert ln.ULabel.filter().count() == 3
@@ -164,12 +164,12 @@ def test_write_role():
 def test_token_reset():
     db_token_manager.reset()
 
-    # app.account_id is not set
-    # invalid input syntax for type uuid: ""
-    with pytest.raises(DataError):
+    # account_id is not set
+    # so pg_temp doesn't exist
+    with pytest.raises(psycopg2.errors.UndefinedTable):
         ln.ULabel.filter().count()
 
-    with pytest.raises(DataError):
+    with pytest.raises(psycopg2.errors.UndefinedTable):
         with transaction.atomic():
             ln.ULabel.filter().count()
 
