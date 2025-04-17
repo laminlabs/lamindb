@@ -46,6 +46,16 @@ def test_authentication():
             """,
             (token,),
         )
+    # check that jwt user can't set arbitrary account_id manually
+    with connection.connection.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TEMP TABLE account_id(val uuid PRIMARY KEY) ON COMMIT DROP;
+            INSERT INTO account_id(val) VALUES (gen_random_uuid());
+            SELECT get_account_id();
+            """,
+            (token,),
+        )
 
 
 def test_fine_grained_permissions_account():
@@ -184,9 +194,8 @@ def test_token_reset():
     with pytest.raises(ProgrammingError):
         ln.ULabel.filter().count()
 
-    with pytest.raises(ProgrammingError):
-        with transaction.atomic():
-            ln.ULabel.filter().count()
+    with pytest.raises(ProgrammingError), transaction.atomic():
+        ln.ULabel.filter().count()
 
 
 # below is an integration test that should run last
