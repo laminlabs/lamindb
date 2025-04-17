@@ -166,10 +166,10 @@ def test_token_reset():
 
     # account_id is not set
     # so pg_temp doesn't exist
-    with pytest.raises(psycopg2.errors.UndefinedTable):
+    with pytest.raises(ProgrammingError):
         ln.ULabel.filter().count()
 
-    with pytest.raises(psycopg2.errors.UndefinedTable):
+    with pytest.raises(ProgrammingError):
         with transaction.atomic():
             ln.ULabel.filter().count()
 
