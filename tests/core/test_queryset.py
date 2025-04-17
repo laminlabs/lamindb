@@ -8,6 +8,7 @@ import lamindb as ln
 import pytest
 from django.core.exceptions import FieldError
 from lamindb.base.users import current_user_id
+from lamindb.errors import InvalidArgument
 from lamindb.models.query_set import DoesNotExist
 
 
@@ -107,13 +108,12 @@ def test_filter_related_field_name():
 
 
 def test_filter_unknown_field():
-    with pytest.raises(
-        FieldError,
-        match=re.escape(
-            "Unknown field 'nonexistent'. Available fields: cell_lines, cell_markers, cell_types, collections, created_at, created_by, description, developmental_stages, diseases, ethnicities, experimental_factors, feature_sets, genes, hash, id, input_of_runs, is_latest, key, kind, n_files, n_observations, organisms, otype, pathways, phenotypes, projects, proteins, references, run, schema, size, space, storage, suffix, tissues, uid, ulabels, updated_at, version"
-        ),
-    ):
+    with pytest.raises(InvalidArgument) as error:
         ln.Artifact.filter(nonexistent="value").all()
+    assert error.exconly() == (
+        "lamindb.errors.InvalidArgument: You can query either by available fields: cell_lines, cell_markers, cell_types, collections, created_at, created_by, description, developmental_stages, diseases, ethnicities, experimental_factors, feature_sets, genes, hash, id, input_of_runs, is_latest, key, kind, n_files, n_observations, organisms, otype, pathways, phenotypes, projects, proteins, references, run, schema, size, space, storage, suffix, tissues, transform, uid, ulabels, updated_at, version, visibility\n"
+        "Or fix invalid feature names: nonexistent"
+    )
 
 
 def test_get_id_type_error():
@@ -137,7 +137,7 @@ def test_get_unknown_field():
     with pytest.raises(
         FieldError,
         match=re.escape(
-            "Unknown field 'nonexistent'. Available fields: cell_lines, cell_markers, cell_types, collections, created_at, created_by, description, developmental_stages, diseases, ethnicities, experimental_factors, feature_sets, genes, hash, id, input_of_runs, is_latest, key, kind, n_files, n_observations, organisms, otype, pathways, phenotypes, projects, proteins, references, run, schema, size, space, storage, suffix, tissues, uid, ulabels, updated_at, version"
+            "Unknown field 'nonexistent'. Available fields: cell_lines, cell_markers, cell_types, collections, created_at, created_by, description, developmental_stages, diseases, ethnicities, experimental_factors, feature_sets, genes, hash, id, input_of_runs, is_latest, key, kind, n_files, n_observations, organisms, otype, pathways, phenotypes, projects, proteins, references, run, schema, size, space, storage, suffix, tissues, transform, uid, ulabels, updated_at, version, visibility"
         ),
     ):
         ln.Artifact.get(nonexistent="value")

@@ -22,7 +22,7 @@ def small_dataset1_schema():
 
     # in next iteration for attrs
     ln.Feature(name="temperature", dtype=float).save()
-    # ln.Feature(name="study", dtype="cat[ULabel]").save()
+    # ln.Feature(name="experiment", dtype="cat[ULabel]").save()
     # ln.Feature(name="date_of_study", dtype="date").save()
     # ln.Feature(name="study_note", dtype="str").save()
 
@@ -231,6 +231,59 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     artifact.delete(permanent=True)
 
 
+def test_dataframe_curator_validate_all_annotate_cat(small_dataset1_schema):
+    """Do not pass any features."""
+
+    schema = ln.Schema(itype=ln.Feature).save()
+    assert schema.flexible
+    df = datasets.small_dataset1(otype="DataFrame")
+    artifact = ln.Artifact.from_df(
+        df, key="example_datasets/dataset1.parquet", schema=schema
+    ).save()
+    assert set(artifact.features.get_values()["perturbation"]) == {
+        "DMSO",
+        "IFNG",
+    }
+    assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
+        "CD8-positive, alpha-beta T cell",
+        "B cell",
+    }
+    assert set(artifact.features.get_values()["cell_type_by_model"]) == {
+        "T cell",
+        "B cell",
+    }
+    artifact.delete(permanent=True)
+    schema.delete()
+
+
+def test_dataframe_curator_validate_all_annotate_cat2(small_dataset1_schema):
+    """Combine half-specifying features, half not."""
+
+    schema = ln.Schema(
+        itype=ln.Feature,
+        features=[ln.Feature.get(name="perturbation")],
+        flexible=True,
+    ).save()
+    assert schema.flexible
+    df = datasets.small_dataset1(otype="DataFrame")
+    curator = ln.curators.DataFrameCurator(df, schema)
+    artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
+    assert set(artifact.features.get_values()["perturbation"]) == {
+        "DMSO",
+        "IFNG",
+    }
+    assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
+        "CD8-positive, alpha-beta T cell",
+        "B cell",
+    }
+    assert set(artifact.features.get_values()["cell_type_by_model"]) == {
+        "T cell",
+        "B cell",
+    }
+    artifact.delete(permanent=True)
+    schema.delete()
+
+
 def test_anndata_curator(small_dataset1_schema: ln.Schema):
     """Test AnnData curator implementation."""
 
@@ -281,7 +334,9 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
             assert isinstance(curator.slots["obs"], ln.curators.DataFrameCurator)
         if add_comp == "uns":
             assert isinstance(curator.slots["uns"], ln.curators.DataFrameCurator)
-        artifact = curator.save_artifact(key="example_datasets/dataset1.h5ad")
+        artifact = ln.Artifact.from_anndata(
+            adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+        ).save()
         assert artifact.schema == anndata_schema
         assert artifact.features.slots["var"].n == 3  # 3 genes get linked
         if add_comp == "obs":
@@ -409,14 +464,15 @@ def test_spatialdata_curator(
         curator.validate()
     spatialdata.tables["table"].var.drop(index="ENSG00000999999", inplace=True)
 
-    # TODO: shouldn't need to re-init the curator
-    curator = ln.curators.SpatialDataCurator(spatialdata, spatialdata_schema)
-    artifact = curator.save_artifact(key="example_datasets/spatialdata1.zarr")
+    artifact = ln.Artifact.from_spatialdata(
+        spatialdata, key="example_datasets/spatialdata1.zarr", schema=spatialdata_schema
+    ).save()
     assert artifact.schema == spatialdata_schema
     assert artifact.features.slots.keys() == {
         "sample",
         "['table'].var",
         "['table'].obs",
     }
+    assert artifact.features.get_values()["assay"] == "Visium Spatial Gene Expression"
 
     artifact.delete(permanent=True)

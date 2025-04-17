@@ -313,6 +313,9 @@ def describe_features(
             fs_data = _get_schemas_postgres(self, related_data=related_data)
             for fs_id, (slot, data) in fs_data.items():
                 for registry_str, feature_names in data.items():
+                    # prevent projects show up as features
+                    if registry_str == "Project":
+                        continue
                     schema = Schema.objects.using(self._state.db).get(id=fs_id)
                     schema_data[slot] = (schema, feature_names)
                     for feature_name in feature_names:
@@ -446,8 +449,6 @@ def describe_features(
         dataset_tree = tree.add(
             Text.assemble(
                 ("Dataset features", "bold bright_magenta"),
-                ("/", "dim"),
-                (".feature_sets", "dim bold"),
             )
         )
         for child in int_features_tree_children:
@@ -648,7 +649,7 @@ def __getitem__(self, slot) -> QuerySet:
     return getattr(schema, self._accessor_by_registry[orm_name]).all()
 
 
-def filter_base(cls, **expression):
+def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
     from .artifact import Artifact
 
     if cls is FeatureManager:
@@ -658,11 +659,12 @@ def filter_base(cls, **expression):
         model = Param
         value_model = ParamValue
     keys_normalized = [key.split("__")[0] for key in expression]
-    validated = model.validate(keys_normalized, field="name", mute=True)
-    if sum(validated) != len(keys_normalized):
-        raise ValidationError(
-            f"Some keys in the filter expression are not registered as features: {np.array(keys_normalized)[~validated]}"
-        )
+    if not _skip_validation:
+        validated = model.validate(keys_normalized, field="name", mute=True)
+        if sum(validated) != len(keys_normalized):
+            raise ValidationError(
+                f"Some keys in the filter expression are not registered as features: {np.array(keys_normalized)[~validated]}"
+            )
     new_expression = {}
     features = model.filter(name__in=keys_normalized).all().distinct()
     feature_param = "param" if model is Param else "feature"
@@ -719,31 +721,33 @@ def filter_base(cls, **expression):
             # https://laminlabs.slack.com/archives/C04FPE8V01W/p1688328084810609
             raise NotImplementedError
     if cls == FeatureManager or cls == ParamManagerArtifact:
-        return Artifact.filter(**new_expression)
+        return Artifact.objects.filter(**new_expression)
     elif cls == ParamManagerRun:
-        return Run.filter(**new_expression)
+        return Run.objects.filter(**new_expression)
 
 
 @classmethod  # type: ignore
+@deprecated("the filter() registry classmethod")
 def filter(cls, **expression) -> QuerySet:
     """Query artifacts by features."""
-    return filter_base(cls, **expression)
+    return filter_base(cls, _skip_validation=False, **expression)
 
 
 @classmethod  # type: ignore
+@deprecated("the filter() registry classmethod")
 def get(cls, **expression) -> Record:
     """Query a single artifact by feature."""
-    return filter_base(cls, **expression).one()
+    return filter_base(cls, _skip_validation=False, **expression).one()
 
 
 @property  # type: ignore
 def slots(self) -> dict[str, Schema]:
     """Schema by slot.
 
-    Example:
+    Example::
 
-        >>> artifact.features.slots
-        {'var': <Schema: var>, 'obs': <Schema: obs>}
+        artifact.features.slots
+        #> {'var': <Schema: var>, 'obs': <Schema: obs>}
     """
     if self._slots is None:
         self._slots = get_schema_by_slot_(self._host)
@@ -1096,7 +1100,7 @@ def _add_set_from_df(
 ):
     """Add feature set corresponding to column names of DataFrame."""
     assert self._host.otype == "DataFrame"  # noqa: S101
-    df = self._host.load()
+    df = self._host.load(is_run_input=False)
     schema = Schema.from_df(
         df=df,
         field=field,
@@ -1119,7 +1123,7 @@ def _add_set_from_anndata(
     assert self._host.otype == "AnnData"  # noqa: S101
 
     # parse and register features
-    adata = self._host.load()
+    adata = self._host.load(is_run_input=False)
     feature_sets = parse_staged_feature_sets_from_anndata(
         adata,
         var_field=var_field,
@@ -1162,7 +1166,7 @@ def _add_set_from_mudata(
     assert self._host.otype == "MuData"  # noqa: S101
 
     # parse and register features
-    mdata = self._host.load()
+    mdata = self._host.load(is_run_input=False)
     feature_sets = {}
 
     obs_features = Feature.from_values(mdata.obs.columns)  # type: ignore
@@ -1198,7 +1202,7 @@ def _add_set_from_spatialdata(
     assert self._host.otype == "SpatialData"  # noqa: S101
 
     # parse and register features
-    sdata = self._host.load()
+    sdata = self._host.load(is_run_input=False)
     feature_sets = {}
 
     # sample features

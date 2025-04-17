@@ -58,12 +58,11 @@ from lamindb_setup._connect_instance import (
     update_db_using_local,
 )
 from lamindb_setup.core._docs import doc_args
-from lamindb_setup.core._hub_core import access_db, connect_instance_hub
+from lamindb_setup.core._hub_core import connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
-from lamindb_setup.core.django import db_token_manager
+from lamindb_setup.core.django import DBToken, db_token_manager
 from lamindb_setup.core.upath import extract_suffix_from_path
 
-from lamindb.base import deprecated
 from lamindb.base.fields import (
     CharField,
     DateTimeField,
@@ -187,8 +186,7 @@ def update_attributes(record: Record, attributes: dict[str, str]):
         if (
             getattr(record, key) != value
             and value is not None
-            and key != "dtype"
-            and key != "_aux"
+            and key not in {"dtype", "otype", "_aux"}
         ):
             logger.warning(f"updated {key} from {getattr(record, key)} to {value}")
             setattr(record, key, value)
@@ -371,6 +369,8 @@ class Registry(ModelBase):
     Note: `Registry` inherits from Django's `ModelBase`.
     """
 
+    _available_fields: set[str] = None
+
     def __new__(cls, name, bases, attrs, **kwargs):
         new_class = super().__new__(cls, name, bases, attrs, **kwargs)
         return new_class
@@ -488,10 +488,12 @@ class Registry(ModelBase):
             - Guide: :doc:`docs:registries`
             - Django documentation: `Queries <https://docs.djangoproject.com/en/stable/topics/db/queries/>`__
 
-        Examples::
+        Examples:
 
-            ulabel = ln.ULabel.get("FvtpPJLJ")
-            ulabel = ln.ULabel.get(name="my-label")
+            ::
+
+                ulabel = ln.ULabel.get("FvtpPJLJ")
+                ulabel = ln.ULabel.get(name="my-label")
         """
         from .query_set import QuerySet
 
@@ -629,7 +631,7 @@ class Registry(ModelBase):
                 iresult["fine_grained_access"] and iresult["db_permissions"] == "jwt"
             )
             # access_db can take both: the dict from connect_instance_hub and isettings
-            into_access_db = iresult
+            into_db_token = iresult
         else:
             isettings = load_instance_settings(settings_file)
             source_modules = isettings.modules
@@ -642,7 +644,7 @@ class Registry(ModelBase):
                 isettings._fine_grained_access and isettings._db_permissions == "jwt"
             )
             # access_db can take both: the dict from connect_instance_hub and isettings
-            into_access_db = isettings
+            into_db_token = isettings
 
         target_modules = setup_settings.instance.modules
         if not (missing_members := source_modules - target_modules):
@@ -653,7 +655,7 @@ class Registry(ModelBase):
 
         add_db_connection(db, instance)
         if is_fine_grained_access:
-            db_token = access_db(into_access_db)
+            db_token = DBToken(into_db_token)
             db_token_manager.set(db_token, instance)
         return QuerySet(model=cls, using=instance)
 
@@ -664,10 +666,6 @@ class Registry(ModelBase):
             module_name = "core"
         return module_name
 
-    @deprecated("__get_module_name__")
-    def __get_schema_name__(cls) -> str:
-        return cls.__get_module_name__()
-
     def __get_name_with_module__(cls) -> str:
         module_name = cls.__get_module_name__()
         if module_name == "core":
@@ -676,9 +674,19 @@ class Registry(ModelBase):
             module_prefix = f"{module_name}."
         return f"{module_prefix}{cls.__name__}"
 
-    @deprecated("__get_name_with_module__")
-    def __get_name_with_schema__(cls) -> str:
-        return cls.__get_name_with_module__()
+    def __get_available_fields__(cls) -> set[str]:
+        if cls._available_fields is None:
+            cls._available_fields = {
+                f.name
+                for f in cls._meta.get_fields()
+                if not f.name.startswith("_")
+                and not f.name.startswith("links_")
+                and not f.name.endswith("_id")
+            }
+            if cls.__name__ == "Artifact":
+                cls._available_fields.add("visibility")
+                cls._available_fields.add("transform")
+        return cls._available_fields
 
 
 class BasicRecord(models.Model, metaclass=Registry):
@@ -757,8 +765,8 @@ class BasicRecord(models.Model, metaclass=Registry):
                             )
                             if isinstance(self, Schema):
                                 if existing_record.hash != kwargs["hash"]:
-                                    raise ValueError(
-                                        f"Schema name is already in use by schema with uid '{existing_record.uid}', please choose a different name."
+                                    logger.warning(
+                                        f"You're updating schema {existing_record.uid}, which might already have been used to validate datasets. Be careful."
                                     )
                             init_self_from_db(self, existing_record)
                             update_attributes(self, kwargs)
@@ -1442,11 +1450,13 @@ def transfer_to_default_db(
 def track_current_key_and_name_values(record: Record):
     from lamindb.models import Artifact
 
+    # below, we're using __dict__ to avoid triggering the refresh from the database
+    # which can lead to a recursion
     if isinstance(record, Artifact):
-        record._old_key = record.key
-        record._old_suffix = record.suffix
+        record._old_key = record.__dict__.get("key")
+        record._old_suffix = record.__dict__.get("suffix")
     elif hasattr(record, "_name_field"):
-        record._old_name = getattr(record, record._name_field)
+        record._old_name = record.__dict__.get(record._name_field)
 
 
 def check_name_change(record: Record):
@@ -1480,9 +1490,6 @@ def check_name_change(record: Record):
                     label_ref_is_name=True, **{f"{registry.lower()}_id": record.pk}
                 )
                 .exclude(feature_id=None)  # must have a feature
-                .exclude(
-                    feature_ref_is_name=None
-                )  # must be linked via Curator and therefore part of a schema
                 .distinct()
             )
             artifact_ids = linked_records.list("artifact__uid")

@@ -325,11 +325,13 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             artifact: An artifact to add to the collection.
             run: The run that creates the new version of the collection.
 
-        Examples::
+        Examples:
 
-            collection_v1 = ln.Collection(artifact, key="My collection").save()
-            collection_v2 = collection.append(another_artifact)  # returns a new version of the collection
-            collection_v2.save()  # save the new version
+            ::
+
+                collection_v1 = ln.Collection(artifact, key="My collection").save()
+                collection_v2 = collection.append(another_artifact)  # returns a new version of the collection
+                collection_v2.save()  # save the new version
 
         """
         return Collection(  # type: ignore

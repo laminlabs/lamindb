@@ -1,4 +1,5 @@
 import subprocess
+import time
 from pathlib import Path
 from uuid import uuid4
 
@@ -6,18 +7,33 @@ import hubmodule.models as hm
 import lamindb as ln
 import psycopg2
 import pytest
-from django.db import transaction
-from django.db.utils import ProgrammingError
+from django.db import connection, transaction
+from django.db.utils import DataError, ProgrammingError
 from jwt_utils import sign_jwt
-from lamindb_setup.core.django import db_token_manager
+from lamindb_setup.core.django import DBToken, db_token_manager
+from psycopg2.extensions import adapt
 
 pgurl = "postgresql://postgres:pwd@0.0.0.0:5432/pgtest"  # admin db connection url
+
 user_uuid = ln.setup.settings.user._uuid.hex
-token = sign_jwt(pgurl, {"account_id": user_uuid})
-db_token_manager.set(token)
+expiration = time.time() + 2000
+token = sign_jwt(pgurl, {"account_id": user_uuid, "exp": expiration})
+# init an instance of DBToken manually
+db_token = DBToken({})
+db_token._token = token
+db_token._token_query = f"SELECT set_token({adapt(token).getquoted().decode()}, true);"
+db_token._expiration = expiration
+
+db_token_manager.set(db_token)
 
 
 def test_fine_grained_permissions_account():
+    # just check that the token was setup
+    with connection.cursor() as cur:
+        cur.execute("SELECT current_setting('app.token');")
+        current_token = cur.fetchall()[0][0]
+    assert current_token == token
+
     # check select
     assert ln.ULabel.filter().count() == 3
     assert ln.Project.filter().count() == 2
@@ -143,6 +159,19 @@ def test_write_role():
         )
 
     ln.ULabel(name="new label team default space").save()
+
+
+def test_token_reset():
+    db_token_manager.reset()
+
+    # app.account_id is not set
+    # invalid input syntax for type uuid: ""
+    with pytest.raises(DataError):
+        ln.ULabel.filter().count()
+
+    with pytest.raises(DataError):
+        with transaction.atomic():
+            ln.ULabel.filter().count()
 
 
 # below is an integration test that should run last

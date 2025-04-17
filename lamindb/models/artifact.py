@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Union, overload
 
 import fsspec
 import lamindb_setup as ln_setup
+import numpy as np
 import pandas as pd
 from anndata import AnnData
 from django.db import connections, models
@@ -67,6 +68,7 @@ from ._feature_manager import (
     ParamManager,
     ParamManagerArtifact,
     add_label_feature_links,
+    filter_base,
     get_label_links,
 )
 from ._is_versioned import IsVersioned
@@ -84,7 +86,7 @@ from .record import (
     _get_record_kwargs,
     record_repr,
 )
-from .run import ParamValue, Run, TracksRun, TracksUpdates, User
+from .run import Param, ParamValue, Run, TracksRun, TracksUpdates, User
 from .schema import Schema
 from .ulabel import ULabel
 
@@ -956,53 +958,27 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         revises: `Artifact | None = None` Previous version of the artifact. Is an alternative way to passing `key` to trigger a new version.
         run: `Run | None = None` The run that creates the artifact.
 
-    .. dropdown:: Typical storage formats & their API accessors
-
-        Arrays:
-
-        - Table: `.csv`, `.tsv`, `.parquet`, `.ipc` ⟷ `DataFrame`, `pyarrow.Table`
-        - Annotated matrix: `.h5ad`, `.h5mu`, `.zrad` ⟷ `AnnData`, `MuData`
-        - Generic array: HDF5 group, zarr group, TileDB store ⟷ HDF5, zarr, TileDB loaders
-
-        Non-arrays:
-
-        - Image: `.jpg`, `.png` ⟷ `np.ndarray`, ...
-        - Fastq: `.fastq` ⟷ /
-        - VCF: `.vcf` ⟷ /
-        - QC: `.html` ⟷ /
-
-        You'll find these values in the `suffix` & `accessor` fields.
-
-        LaminDB makes some default choices (e.g., serialize a `DataFrame` as a `.parquet` file).
-
-    See Also:
-        :class:`~lamindb.Storage`
-            Storage locations for artifacts.
-        :class:`~lamindb.Collection`
-            Collections of artifacts.
-        :meth:`~lamindb.Artifact.from_df`
-            Create an artifact from a `DataFrame`.
-        :meth:`~lamindb.Artifact.from_anndata`
-            Create an artifact from an `AnnData`.
-
     Examples:
 
-        Create an artifact by passing `key`:
+        Create an artifact **from a local file or folder**::
 
-        >>> artifact = ln.Artifact("./my_file.parquet", key="example_datasets/my_file.parquet").save()
-        >>> artifact = ln.Artifact("./my_folder", key="project1/my_folder").save()
+            artifact = ln.Artifact("./my_file.parquet", key="example_datasets/my_file.parquet").save()
+            artifact = ln.Artifact("./my_folder", key="project1/my_folder").save()
 
-        Calling `.save()` uploads the file to the default storage location of your lamindb instance.
-        (If it's a local instance, the "upload" is a mere copy operation.)
+        Calling `.save()` copies or uploads the file to the default storage location of your lamindb instance.
+        If you create an artifact **from a remote file or folder**, lamindb merely registers the S3 `key` and avoids copying the data::
 
-        If your artifact is already in the cloud, lamindb auto-populates the `key` field based on the S3 key and there is no upload:
+            artifact = ln.Artifact("s3://my_bucket/my_folder/my_file.csv").save()
 
-        >>> artifact = ln.Artifact("s3://my_bucket/my_folder/my_file.csv").save()
+        If you want to **validate & annotate** an array, pass a `schema` to one of the `.from_df()`, `.from_anndata()`, ... constructors::
 
-        You can make a new version of the artifact with `key = "example_datasets/my_file.parquet"`
+            schema = ln.Schema(itype=ln.Feature)  # a schema that merely enforces that feature names exist in the Feature registry
+            artifact = ln.Artifact.from_df("./my_file.parquet", key="my_dataset.parquet", schema=schema).save()  # validated and annotated
 
-        >>> artifact_v2 = ln.Artifact("./my_file.parquet", key="example_datasets/my_file.parquet").save()
-        >>> artifact_v2.versions.df()  # see all versions
+        You can make a **new version** of an artifact by passing an existing `key`::
+
+            artifact_v2 = ln.Artifact("./my_file.parquet", key="example_datasets/my_file.parquet").save()
+            artifact_v2.versions.df()  # see all versions
 
         .. dropdown:: Why does the API look this way?
 
@@ -1025,18 +1001,48 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 bucket = quilt3.Bucket('mybucket')
                 bucket.put_file('hello.txt', '/tmp/hello.txt')
 
-        Sometimes you want to avoid mapping the artifact into a file hierarchy, and you can then _just_ populate `description` instead:
+        Sometimes you want to **avoid mapping the artifact into a path hierarchy**, and you only pass `description`::
 
-        >>> artifact = ln.Artifact("s3://my_bucket/my_folder", description="My folder").save()
-        >>> artifact = ln.Artifact("./my_local_folder", description="My local folder").save()
+            artifact = ln.Artifact("./my_folder", description="My folder").save()
+            artifact_v2 = ln.Artifact("./my_folder", revises=old_artifact).save()  # need to version based on `revises`, a shared description does not trigger a new version
 
-        Because you can then not use `key`-based versioning you have to pass `revises` to make a new artifact version:
+    Notes:
 
-        >>> artifact_v2 = ln.Artifact("./my_file.parquet", revises=old_artifact).save()
+        .. dropdown:: Typical storage formats & their API accessors
 
-        If an artifact with the exact same hash already exists, `Artifact()` returns the existing artifact. In concurrent workloads where
-        the same artifact is created multiple times, `Artifact()` doesn't yet return the existing artifact but creates a new one; `.save()` however
-        detects the duplication and will return the existing artifact.
+            Arrays:
+
+            - Table: `.csv`, `.tsv`, `.parquet`, `.ipc` ⟷ `DataFrame`, `pyarrow.Table`
+            - Annotated matrix: `.h5ad`, `.h5mu`, `.zrad` ⟷ `AnnData`, `MuData`
+            - Generic array: HDF5 group, zarr group, TileDB store ⟷ HDF5, zarr, TileDB loaders
+
+            Non-arrays:
+
+            - Image: `.jpg`, `.png` ⟷ `np.ndarray`, ...
+            - Fastq: `.fastq` ⟷ /
+            - VCF: `.vcf` ⟷ /
+            - QC: `.html` ⟷ /
+
+            You'll find these values in the `suffix` & `accessor` fields.
+
+            LaminDB makes some default choices (e.g., serialize a `DataFrame` as a `.parquet` file).
+
+        .. dropdown:: Will artifacts get duplicated?
+
+            If an artifact with the exact same hash already exists, `Artifact()` returns the existing artifact.
+
+            In concurrent workloads where the same artifact is created repeatedly at the exact same time, `.save()`
+            detects the duplication and will return the existing artifact.
+
+    See Also:
+        :class:`~lamindb.Storage`
+            Storage locations for artifacts.
+        :class:`~lamindb.Collection`
+            Collections of artifacts.
+        :meth:`~lamindb.Artifact.from_df`
+            Create an artifact from a `DataFrame`.
+        :meth:`~lamindb.Artifact.from_anndata`
+            Create an artifact from an `AnnData`.
 
     """
 
@@ -1048,6 +1054,8 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     params: ParamManager = ParamManagerArtifact  # type: ignore
     """Param manager.
+
+    What features are for dataset-like artifacts, parameters are for model-like artifacts & runs.
 
     Example::
 
@@ -1065,20 +1073,20 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     features: FeatureManager = FeatureManager  # type: ignore
     """Feature manager.
 
-    Features denote dataset dimensions, i.e., the variables that measure labels & numbers.
+    Typically, you annotate a dataset with features by defining a `Schema` and passing it to the `Artifact` constructor.
 
-    Annotate with features & values::
+    Here is how to do annotate an artifact ad hoc::
 
        artifact.features.add_values({
             "species": organism,  # here, organism is an Organism record
             "scientist": ['Barbara McClintock', 'Edgar Anderson'],
             "temperature": 27.6,
-            "study": "Candidate marker study"
+            "experiment": "Experiment 1"
        })
 
-    Query for features & values::
+    Query artifacts by features::
 
-        ln.Artifact.features.filter(scientist="Barbara McClintock")
+        ln.Artifact.filter(scientist="Barbara McClintock")
 
     Features may or may not be part of the artifact content in storage. For
     instance, the :class:`~lamindb.Curator` flow validates the columns of a
@@ -1094,22 +1102,22 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         To annotate with labels, you typically use the registry-specific accessors,
         for instance :attr:`~lamindb.Artifact.ulabels`::
 
-            candidate_marker_study = ln.ULabel(name="Candidate marker study").save()
-            artifact.ulabels.add(candidate_marker_study)
+            experiment = ln.ULabel(name="Experiment 1").save()
+            artifact.ulabels.add(experiment)
 
         Similarly, you query based on these accessors::
 
-            ln.Artifact.filter(ulabels__name="Candidate marker study").all()
+            ln.Artifact.filter(ulabels__name="Experiment 1").all()
 
         Unlike the registry-specific accessors, the `.labels` accessor provides
         a way of associating labels with features::
 
-            study = ln.Feature(name="study", dtype="cat").save()
-            artifact.labels.add(candidate_marker_study, feature=study)
+            experiment = ln.Feature(name="experiment", dtype="cat").save()
+            artifact.labels.add(experiment, feature=study)
 
         Note that the above is equivalent to::
 
-            artifact.features.add_values({"study": candidate_marker_study})
+            artifact.features.add_values({"experiment": experiment})
         """
         from ._label_manager import LabelManager
 
@@ -1512,14 +1520,83 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             - Guide: :doc:`docs:registries`
             - Method in `Record` base class: :meth:`~lamindb.models.Record.get`
 
-        Examples::
+        Examples:
 
-            artifact = ln.Artifact.get("tCUkRcaEjTjhtozp0000")
-            artifact = ln.Arfifact.get(key="my_datasets/my_file.parquet")
+            ::
+
+                artifact = ln.Artifact.get("tCUkRcaEjTjhtozp0000")
+                artifact = ln.Arfifact.get(key="my_datasets/my_file.parquet")
         """
         from .query_set import QuerySet
 
         return QuerySet(model=cls).get(idlike, **expressions)
+
+    @classmethod
+    def filter(
+        cls,
+        *queries,
+        **expressions,
+    ) -> QuerySet:
+        """Query a set of artifacts.
+
+        Args:
+            *queries: `Q` expressions.
+            **expressions: Features, params, fields via the Django query syntax.
+
+        See Also:
+            - Guide: :doc:`docs:registries`
+
+        Examples:
+
+            Query by fields::
+
+                ln.Arfifact.filter(key="my_datasets/my_file.parquet")
+
+            Query by features::
+
+                ln.Arfifact.filter(cell_type_by_model__name="T cell")
+
+            Query by params::
+
+                ln.Arfifact.filter(hyperparam_x=100)
+        """
+        from .query_set import QuerySet
+
+        if expressions:
+            keys_normalized = [key.split("__")[0] for key in expressions]
+            field_or_feature_or_param = keys_normalized[0].split("__")[0]
+            if field_or_feature_or_param in Artifact.__get_available_fields__():
+                return QuerySet(model=cls).filter(*queries, **expressions)
+            elif all(
+                features_validated := Feature.validate(
+                    keys_normalized, field="name", mute=True
+                )
+            ):
+                return filter_base(FeatureManager, **expressions)
+            elif all(
+                params_validated := Param.validate(
+                    keys_normalized, field="name", mute=True
+                )
+            ):
+                return filter_base(ParamManagerArtifact, **expressions)
+            else:
+                if sum(features_validated) < sum(params_validated):
+                    params = ", ".join(
+                        sorted(np.array(keys_normalized)[~params_validated])
+                    )
+                    message = f"param names: {params}"
+                else:
+                    features = ", ".join(
+                        sorted(np.array(keys_normalized)[~params_validated])
+                    )
+                    message = f"feature names: {features}"
+                fields = ", ".join(sorted(cls.__get_available_fields__()))
+                raise InvalidArgument(
+                    f"You can query either by available fields: {fields}\n"
+                    f"Or fix invalid {message}"
+                )
+        else:
+            return QuerySet(model=cls).filter(*queries, **expressions)
 
     @classmethod
     def from_df(
@@ -1530,6 +1607,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         description: str | None = None,
         run: Run | None = None,
         revises: Artifact | None = None,
+        schema: Schema | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from `DataFrame`, validate & link features.
@@ -1541,6 +1619,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
+            schema: A schema to validate & annotate.
 
         See Also:
             :meth:`~lamindb.Collection`
@@ -1573,6 +1652,13 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             **kwargs,
         )
         artifact.n_observations = len(df)
+        if schema is not None:
+            from ..curators import DataFrameCurator
+
+            curator = DataFrameCurator(artifact, schema)
+            curator.validate()
+            artifact.schema = schema
+            artifact._curator = curator
         return artifact
 
     @classmethod
@@ -1584,6 +1670,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         description: str | None = None,
         run: Run | None = None,
         revises: Artifact | None = None,
+        schema: Schema | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from ``AnnData``, validate & link features.
@@ -1595,6 +1682,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
+            schema: A schema to validate & annotate.
 
         See Also:
 
@@ -1636,6 +1724,13 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             # and the proper path through create_path for cloud paths
             obj_for_obs = artifact.path
         artifact.n_observations = _anndata_n_observations(obj_for_obs)
+        if schema is not None:
+            from ..curators import AnnDataCurator
+
+            curator = AnnDataCurator(artifact, schema)
+            curator.validate()
+            artifact.schema = schema
+            artifact._curator = curator
         return artifact
 
     @classmethod
@@ -1647,6 +1742,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         description: str | None = None,
         run: Run | None = None,
         revises: Artifact | None = None,
+        schema: Schema | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from ``MuData``, validate & link features.
@@ -1658,6 +1754,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
+            schema: A schema to validate & annotate.
 
         See Also:
             :meth:`~lamindb.Collection`
@@ -1686,6 +1783,13 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         )
         if not isinstance(mdata, UPathStr):
             artifact.n_observations = mdata.n_obs
+        if schema is not None:
+            from ..curators import MuDataCurator
+
+            curator = MuDataCurator(artifact, schema)
+            curator.validate()
+            artifact.schema = schema
+            artifact._curator = curator
         return artifact
 
     @classmethod
@@ -1697,6 +1801,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         description: str | None = None,
         run: Run | None = None,
         revises: Artifact | None = None,
+        schema: Schema | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from ``SpatialData``, validate & link features.
@@ -1708,6 +1813,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
+             schema: A schema to validate & annotate.
 
         See Also:
             :meth:`~lamindb.Collection`
@@ -1737,6 +1843,13 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         )
         # ill-defined https://scverse.zulipchat.com/#narrow/channel/315824-spatial/topic/How.20to.20calculate.20the.20number.20of.20observations.3F
         # artifact.n_observations = ...
+        if schema is not None:
+            from ..curators import SpatialDataCurator
+
+            curator = SpatialDataCurator(artifact, schema)
+            curator.validate()
+            artifact.schema = schema
+            artifact._curator = curator
         return artifact
 
     @classmethod
@@ -2448,6 +2561,10 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 local_path_cache,
             )
             logger.important(f"moved local artifact to cache: {local_path_cache}")
+        if hasattr(self, "_curator"):
+            curator = self._curator
+            delattr(self, "_curator")
+            curator.save_artifact()
         return self
 
     def restore(self) -> None:

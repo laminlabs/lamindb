@@ -103,7 +103,7 @@ jobs:
         run: sudo apt-get install libpq-dev
 
       - name: install graphviz
-        if: ${{ matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology' }}
+        if: ${{ matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology' || matrix.group == 'faq'}}
         run: sudo apt-get -y install graphviz
 
       - run: nox -s lint

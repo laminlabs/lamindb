@@ -3,6 +3,7 @@
 ```{toctree}
 :maxdepth: 1
 
+faq/pydantic-pandera
 faq/idempotency
 faq/acid
 faq/track-run-inputs

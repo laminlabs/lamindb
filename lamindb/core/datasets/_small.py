@@ -44,7 +44,7 @@ def small_dataset1(
     # define the dataset-level metadata
     metadata = {
         "temperature": 21.6,
-        "study": "Candidate marker study 1",
+        "experiment": "Experiment 1",
         "date_of_study": "2024-12-01",
         "study_note": "We had a great time performing this study and the results look compelling.",
     }
@@ -78,7 +78,7 @@ def small_dataset2(
     }
     metadata = {
         "temperature": 22.6,
-        "study": "Candidate marker study 2",
+        "experiment": "Experiment 2",
         "date_of_study": "2025-02-13",
     }
     dataset_df = pd.DataFrame(
