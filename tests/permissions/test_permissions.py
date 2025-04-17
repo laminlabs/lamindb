@@ -34,7 +34,11 @@ def test_authentication():
         account_id = cur.fetchall()[0][0]
     assert account_id.hex == user_uuid
     # test that auth can't be hijacked
-    with connection.connection.cursor() as cur:
+    # false table created before
+    with (
+        pytest.raises(psycopg2.errors.DuplicateTable),
+        connection.connection.cursor() as cur,
+    ):
         cur.execute(
             """
             CREATE TEMP TABLE account_id(val uuid PRIMARY KEY) ON COMMIT DROP;
