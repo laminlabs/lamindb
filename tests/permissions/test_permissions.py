@@ -33,6 +33,15 @@ def test_authentication():
         cur.execute("SELECT get_account_id();")
         account_id = cur.fetchall()[0][0]
     assert account_id.hex == user_uuid
+    # test that auth can't be hijacked
+    with connection.connection.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TEMP TABLE account_id(val uuid PRIMARY KEY) ON COMMIT DROP;
+            SELECT set_token(%s);
+            """,
+            (token,),
+        )
 
 
 def test_fine_grained_permissions_account():
