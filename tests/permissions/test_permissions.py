@@ -27,13 +27,15 @@ db_token._expiration = expiration
 db_token_manager.set(db_token)
 
 
-def test_fine_grained_permissions_account():
+def test_authentication():
     # just check that the token was setup
     with connection.cursor() as cur:
         cur.execute("SELECT get_account_id();")
         account_id = cur.fetchall()[0][0]
     assert account_id.hex == user_uuid
 
+
+def test_fine_grained_permissions_account():
     # check select
     assert ln.ULabel.filter().count() == 3
     assert ln.Project.filter().count() == 2
