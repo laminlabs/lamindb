@@ -30,9 +30,9 @@ db_token_manager.set(db_token)
 def test_fine_grained_permissions_account():
     # just check that the token was setup
     with connection.cursor() as cur:
-        cur.execute("SELECT current_setting('app.account_id');")
-        account_id = cur.fetchall()[0][0]
-    assert account_id == user_uuid
+        cur.execute("SELECT current_setting('app.token');")
+        current_token = cur.fetchall()[0][0]
+    assert current_token == token
 
     # check select
     assert ln.ULabel.filter().count() == 3
