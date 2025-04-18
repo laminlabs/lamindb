@@ -2399,6 +2399,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             artifact = ln.Artifact.get(key="some.tiledbsoma". is_latest=True)
             artiact.delete() # delete all versions, the data will be deleted or prompted for deletion.
         """
+        # we're *not* running the line below because the case `storage is None` triggers user feedback in one case
+        # storage = True if storage is None else storage
+
         # this first check means an invalid delete fails fast rather than cascading through
         # database and storage permission errors
         if os.getenv("LAMINDB_MULTI_INSTANCE") is None:
@@ -2448,7 +2451,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 storage = False
             # only delete in storage if DB delete is successful
             # DB delete might error because of a foreign key constraint violated etc.
-            if self._overwrite_versions and self.is_latest:
+            if (
+                self._overwrite_versions
+                and self.is_latest
+                and (storage is None or storage)
+            ):
                 # includes self
                 for version in self.versions.all():
                     _delete_skip_storage(version)
