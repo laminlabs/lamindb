@@ -187,10 +187,28 @@ CREATE TABLE IF NOT EXISTS history_table_test_no_uid
     cursor.execute("DROP TABLE IF EXISTS history_table_test_no_uid")
 
 
+@pytest.fixture(scope="function")
+def foreign_key_to_no_uid_table(
+    history_state, no_uid_pg_table
+) -> Generator[str, None, None]:
+    cursor = django_connection.cursor()
+
+    cursor.execute(f"""
+CREATE TABLE IF NOT EXISTS history_table_test_no_uid_fk
+(id SERIAL PRIMARY KEY, primary_id INT, CONSTRAINT fk FOREIGN KEY (primary_id) REFERENCES {no_uid_pg_table}(id));
+""")
+
+    yield "history_table_test_no_uid_fk"
+
+    cursor.execute("DROP TABLE IF EXISTS history_table_test_no_uid_fk")
+
+
 @pytest.mark.pg_integration
-def test_foreign_key_to_table_without_uid_fails(no_uid_pg_table):
+def test_foreign_key_to_table_without_uid_fails(
+    no_uid_pg_table, foreign_key_to_no_uid_table
+):
     with pytest.raises(ValueError):
-        _update_history_triggers({no_uid_pg_table})
+        _update_history_triggers({no_uid_pg_table, foreign_key_to_no_uid_table})
 
 
 def test_sql_injectable_table_names_fail(fake_cursor):
