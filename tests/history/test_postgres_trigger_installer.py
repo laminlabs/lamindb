@@ -26,8 +26,10 @@ class FakeCursor:
     def reset(self):
         self._last_result = None
         self._tables_with_triggers = []
-        self._constraints: dict[str, list[KeyConstraint]] = collections.defaultdict(list)
-        self._column_names: dict[str, str] = {}
+        self._constraints: dict[str, list[KeyConstraint]] = collections.defaultdict(
+            list
+        )
+        self._column_names: dict[str, list[str]] = {}
 
     def _add_constraint(
         self,
@@ -42,7 +44,8 @@ class FakeCursor:
                 constraint_name=f"constraint_{len(self._constraints)}",
                 constraint_type=constraint_type,
                 source_columns=[source_column],
-                target_columns=[target_column], target_table=target_table_name
+                target_columns=[target_column],
+                target_table=target_table_name,
             )
         )
 
@@ -60,11 +63,21 @@ class FakeCursor:
 
             constraints = self._constraints[table_name]
 
-            self._last_result: list[tuple] = []
+            self._last_result = []
 
             for c in constraints:
-                for (source_column, target_column) in zip(c.source_columns, c.target_columns):
-                    self._last_result.append((c.constraint_name, c.constraint_type, source_column, target_column, c.target_table))
+                for source_column, target_column in zip(
+                    c.source_columns, c.target_columns
+                ):
+                    self._last_result.append(
+                        (
+                            c.constraint_name,
+                            c.constraint_type,
+                            source_column,
+                            target_column,
+                            c.target_table,
+                        )
+                    )
 
         elif "SELECT column_name FROM information_schema.columns" in query:
             self._last_result = [(c,) for c in self._column_names[parameters[0]]]
@@ -295,10 +308,7 @@ def test_install_triggers_with_foreign_keys(fake_db, fake_cursor):
     ]
 
     # We should be declaring a variable that's extracting the UID from table_b
-    assert any(
-        d.strip().startswith("DECLARE _lamin_fkey_0")
-        for d in declarations
-    )
+    assert any(d.strip().startswith("DECLARE _lamin_fkey_0") for d in declarations)
 
     # We should be adding the declared variable to jsonb_build_object someplace, with a marker
     # on the object's key to indicate that it's a UID reference

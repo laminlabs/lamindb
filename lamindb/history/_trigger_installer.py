@@ -156,6 +156,7 @@ AND current_state.state IS NOT NULL;
 @dataclass
 class KeyConstraint:
     """Simple encapsulation of one of a table's key constraints."""
+
     constraint_name: str
     constraint_type: Literal["PRIMARY KEY", "FOREIGN KEY"]
 
@@ -207,7 +208,13 @@ WHERE
         foreign_key_constraints: dict[str, KeyConstraint] = {}
 
         for k in keys:
-            constraint_name, constraint_type, source_column, target_column, target_table = k
+            (
+                constraint_name,
+                constraint_type,
+                source_column,
+                target_column,
+                target_table,
+            ) = k
 
             if constraint_type == "PRIMARY KEY":
                 if primary_key_constraint is None:
@@ -216,7 +223,7 @@ WHERE
                         constraint_type=constraint_type,
                         source_columns=[],
                         target_columns=[],
-                        target_table=target_table
+                        target_table=target_table,
                     )
 
                 primary_key_constraint.source_columns.append(source_column)
@@ -228,19 +235,24 @@ WHERE
                         constraint_type="FOREIGN KEY",
                         source_columns=[],
                         target_columns=[],
-                        target_table=target_table
+                        target_table=target_table,
                     )
 
-                foreign_key_constraints[constraint_name].source_columns.append(source_column)
-                foreign_key_constraints[constraint_name].target_columns.append(target_column)
+                foreign_key_constraints[constraint_name].source_columns.append(
+                    source_column
+                )
+                foreign_key_constraints[constraint_name].target_columns.append(
+                    target_column
+                )
             else:
                 raise ValueError(f"Unhandled constraint type '{constraint_type}'")
 
         if primary_key_constraint is None:
-            raise ValueError(f"Expected table {table} to have a primary key, but found none")
+            raise ValueError(
+                f"Expected table {table} to have a primary key, but found none"
+            )
 
         return (primary_key_constraint, list(foreign_key_constraints.values()))
-
 
     def _get_column_names(self, table: str, cursor: CursorWrapper) -> set[str]:
         cursor.execute(
@@ -250,7 +262,6 @@ WHERE
 
         return {r[0] for r in cursor.fetchall()}
 
-
     def install_triggers(self, table: str, cursor: CursorWrapper):
         if not self.VALID_TABLE_NAME_REGEX.match(table):
             raise ValueError(
@@ -259,19 +270,25 @@ WHERE
 
         function_name = f"lamindb_history_{table}_fn"
 
-        primary_key, foreign_key_constraints = self._get_table_key_constraints(table, cursor)
+        primary_key, foreign_key_constraints = self._get_table_key_constraints(
+            table, cursor
+        )
 
         table_columns = self._get_column_names(table, cursor)
 
         for col in table_columns:
             if col in RESERVED_COLUMNS:
-                raise ValueError(f"Column '{col}' in table {table} has a name that is "
-                                 "reserved by LaminDB for history tracking")
+                raise ValueError(
+                    f"Column '{col}' in table {table} has a name that is "
+                    "reserved by LaminDB for history tracking"
+                )
 
         non_key_columns = table_columns.difference(set(primary_key.source_columns))
 
         for foreign_key_constraint in foreign_key_constraints:
-            non_key_columns.difference_update(set(foreign_key_constraint.source_columns))
+            non_key_columns.difference_update(
+                set(foreign_key_constraint.source_columns)
+            )
 
         # We'll construct the record's data object from a list of keys and values.
         json_object_parts: list[str] = []
@@ -279,7 +296,7 @@ WHERE
         # Foreign-key constraints will require the creation of variables within the function that
         # extract uniquely-identifiable columns from the record to which the foreign key refers.
         # We'll store the declarations of those variables here.
-        foreign_key_uid_variables = {}
+        foreign_key_uid_variables: dict[str, str] = {}
 
         # Any columns that are not part of a key can be added to the record's data directly.
         for column in non_key_columns:
@@ -289,7 +306,9 @@ WHERE
             # Each foreign key constraint must be updated to refer to a set of uniquely identifying
             # columns within the target table.
 
-            target_table_columns = self._get_column_names(foreign_key_constraint.target_table, cursor)
+            target_table_columns = self._get_column_names(
+                foreign_key_constraint.target_table, cursor
+            )
 
             uid_columns = []
 
@@ -314,7 +333,9 @@ WHERE
                 select_clause_parts.extend([f"'{uid_column}'", uid_column])
 
             # Store the table's ID in historytablestate as part of the foreign-key data.
-            source_column_name_array = ','.join(f"'{c}'" for c in foreign_key_constraint.source_columns)
+            source_column_name_array = ",".join(
+                f"'{c}'" for c in foreign_key_constraint.source_columns
+            )
 
             # We'll be creating a JSONB array with three elements:
             #  * the ID of the target table in HistoryTableState
@@ -328,12 +349,13 @@ WHERE
                 ")"
             )
 
-            where_clause = ' AND '.join(f'{target_col} = NEW.{source_col}'
-                                        for source_col, target_col
-                                        in zip(
-                                            foreign_key_constraint.source_columns,
-                                            foreign_key_constraint.target_columns
-                                        ))
+            where_clause = " AND ".join(
+                f"{target_col} = NEW.{source_col}"
+                for source_col, target_col in zip(
+                    foreign_key_constraint.source_columns,
+                    foreign_key_constraint.target_columns,
+                )
+            )
 
             fkey_variable_declaration = f"""
     DECLARE {fkey_variable_name} jsonb :=
@@ -341,14 +363,17 @@ WHERE
     SELECT {select_clause}
     FROM {foreign_key_constraint.target_table}
     WHERE {where_clause};
-    """ # noqa: S608
+    """  # noqa: S608
 
             foreign_key_uid_variables[fkey_variable_name] = fkey_variable_declaration
 
         # Place a list of foreign key constraints at the "end" of the object under a reserved name
-        json_object_parts.extend([
-            f"'{FOREIGN_KEYS_LIST_COLUMN_NAME}'",
-            f"jsonb_build_array({','.join(foreign_key_uid_variables.keys())})"])
+        json_object_parts.extend(
+            [
+                f"'{FOREIGN_KEYS_LIST_COLUMN_NAME}'",
+                f"jsonb_build_array({','.join(foreign_key_uid_variables.keys())})",
+            ]
+        )
 
         create_trigger_function_command = f"""
 CREATE OR REPLACE FUNCTION {function_name}()
