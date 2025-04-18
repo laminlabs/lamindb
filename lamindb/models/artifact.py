@@ -2456,8 +2456,10 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 and self.is_latest
                 and (storage is None or storage)
             ):
-                # includes self
-                for version in self.versions.all():
+                logger.important(
+                    "deleting the entire version family because all versions of this artifact share the same store"
+                )
+                for version in self.versions.all():  # includes self
                     _delete_skip_storage(version)
             else:
                 self._delete_skip_storage()
