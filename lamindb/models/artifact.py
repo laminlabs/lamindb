@@ -2451,13 +2451,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 storage = False
             # only delete in storage if DB delete is successful
             # DB delete might error because of a foreign key constraint violated etc.
-            if (
-                self._overwrite_versions
-                and self.is_latest
-                and (storage is None or storage)
-            ):
+            if self._overwrite_versions and self.is_latest:
                 logger.important(
-                    "deleting the entire version family because all versions of this artifact share the same store"
+                    "deleting all versions of this artifact because they all share the same store"
                 )
                 for version in self.versions.all():  # includes self
                     _delete_skip_storage(version)
@@ -2469,7 +2465,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 delete_in_storage = False
                 if storage:
                     logger.warning(
-                        "Storage argument is ignored; can't delete storage on an previous version"
+                        "storage argument is ignored; can't delete store of a previous version if overwrite_versions is True"
                     )
             elif self.key is None or self._key_is_virtual:
                 # do not ask for confirmation also if storage is None
