@@ -1,15 +1,16 @@
-import collections
-import re
-from typing import Any, Literal, Optional
+from typing import Any, Generator, Optional
+from unittest import mock
 from unittest.mock import MagicMock, Mock
 
 import pytest
 from django.db import connection as django_connection
+from django.db import transaction
 from lamindb.history._trigger_installer import (
-    KeyConstraint,
+    FOREIGN_KEYS_LIST_COLUMN_NAME,
+    HistoryEventTypes,
     PostgresHistoryRecordingTriggerInstaller,
 )
-from lamindb.models.history import HistoryMigrationState, HistoryTableState
+from lamindb.models.history import History, HistoryMigrationState, HistoryTableState
 
 
 def create_spy(obj, method_name):
@@ -26,31 +27,6 @@ class FakeCursor:
     def reset(self):
         self._last_result = None
         self._tables_with_triggers = []
-        self._constraints: dict[str, list[KeyConstraint]] = collections.defaultdict(
-            list
-        )
-        self._column_names: dict[str, list[str]] = {}
-
-    def _add_constraint(
-        self,
-        table_name: str,
-        constraint_type: Literal["PRIMARY KEY", "FOREIGN KEY"],
-        source_column: str,
-        target_column: str,
-        target_table_name: str,
-    ):
-        self._constraints[table_name].append(
-            KeyConstraint(
-                constraint_name=f"constraint_{len(self._constraints)}",
-                constraint_type=constraint_type,
-                source_columns=[source_column],
-                target_columns=[target_column],
-                target_table=target_table_name,
-            )
-        )
-
-    def _set_column_names(self, table_name: str, column_names: list[str]):
-        self._column_names[table_name] = column_names
 
     def _set_tables_with_triggers(self, tables: list[str]):
         self._tables_with_triggers = tables
@@ -58,29 +34,6 @@ class FakeCursor:
     def execute(self, query, parameters: Optional[list[Any]] = None):
         if "DISTINCT event_object_table" in query:
             self._last_result = [(t,) for t in self._tables_with_triggers]
-        elif "tc.table_name = %s" in query:
-            table_name = parameters[0]
-
-            constraints = self._constraints[table_name]
-
-            self._last_result = []
-
-            for c in constraints:
-                for source_column, target_column in zip(
-                    c.source_columns, c.target_columns
-                ):
-                    self._last_result.append(
-                        (
-                            c.constraint_name,
-                            c.constraint_type,
-                            source_column,
-                            target_column,
-                            c.target_table,
-                        )
-                    )
-
-        elif "SELECT column_name FROM information_schema.columns" in query:
-            self._last_result = [(c,) for c in self._column_names[parameters[0]]]
 
     def fetchall(self):
         return self._last_result
@@ -102,24 +55,16 @@ def fake_db(fake_cursor):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def history_table_state():
-    # Make sure we're not polluting other tests with HistoryTableState created by
-    # any given test.
+def history_state():
+    # Clean up after any tests that modify history
+    History.objects.all().delete()
     HistoryTableState.objects.all().delete()
+    HistoryMigrationState.objects.all().delete()
 
     yield
 
+    History.objects.all().delete()
     HistoryTableState.objects.all().delete()
-
-
-@pytest.fixture(scope="function", autouse=True)
-def history_migration_state():
-    # Make sure we're not polluting other tests with HistoryMigrationState created by
-    # any given test.
-    HistoryMigrationState.objects.all().delete()
-
-    yield set()
-
     HistoryMigrationState.objects.all().delete()
 
 
@@ -190,6 +135,7 @@ def test_update_history_triggers_only_install_table_state_once(fake_db, fake_cur
     assert all(ts.backfilled is False for ts in new_table_states)
 
 
+@pytest.mark.pg_integration
 def test_update_triggers_installs_migration_state():
     assert len(set(HistoryMigrationState.objects.all())) == 0
 
@@ -227,106 +173,24 @@ def test_update_history_triggers_skips_existing_triggers(fake_db, fake_cursor):
     installer.install_triggers.assert_called_once_with("table_b", fake_cursor)
 
 
-def test_install_triggers_no_foreign_keys(fake_db, fake_cursor):
-    execute = create_spy(fake_cursor, "execute")
+@pytest.fixture(scope="function")
+def no_uid_pg_table(history_state) -> Generator[str, None, None]:
+    cursor = django_connection.cursor()
 
-    installer = PostgresHistoryRecordingTriggerInstaller(connection=fake_db)
-    installer._get_db_tables = MagicMock(return_value={"table_a", "table_b", "table_c"})
+    cursor.execute("""
+CREATE TABLE IF NOT EXISTS history_table_test_no_uid
+(id SERIAL PRIMARY KEY, str_col VARCHAR(50), bool_col BOOLEAN, int_col INT);
+""")
 
-    fake_cursor._set_tables_with_triggers(["table_b", "table_c"])
-    fake_cursor._add_constraint("table_a", "PRIMARY KEY", "id", "id", "table_a")
-    fake_cursor._set_column_names("table_a", ["id", "uid", "foo", "bar", "baz"])
+    yield "history_table_test_no_uid"
 
-    installer.update_history_triggers()
-
-    create_trigger_calls = [
-        c for c in execute.call_args_list if "CREATE OR REPLACE TRIGGER" in c.args[0]
-    ]
-
-    assert len(create_trigger_calls) == 3
-
-    assert len([c for c in create_trigger_calls if "AFTER INSERT" in c.args[0]]) == 1
-    assert len([c for c in create_trigger_calls if "AFTER UPDATE" in c.args[0]]) == 1
-    assert len([c for c in create_trigger_calls if "AFTER DELETE" in c.args[0]]) == 1
-
-    # Ideally we'd parse the trigger with something like SQLGlot but this'll do for now.
-
-    create_function_calls = [
-        c for c in execute.call_args_list if "CREATE OR REPLACE FUNCTION" in c.args[0]
-    ]
-
-    assert len(create_function_calls) == 1
-
-    create_function_sql = re.sub(
-        r"\s+", " ", create_function_calls[0].args[0].replace("\n", "")
-    )
-
-    declarations = [
-        l for l in create_function_sql.split(";") if l.strip().startswith("DECLARE")
-    ]
-
-    # Make sure we're referencing the right table when declaring table_id
-    assert any("table_id smallint :=" in d and "'table_a'" in d for d in declarations)
+    cursor.execute("DROP TABLE IF EXISTS history_table_test_no_uid")
 
 
-def test_install_triggers_with_foreign_keys(fake_db, fake_cursor):
-    execute = create_spy(fake_cursor, "execute")
-
-    installer = PostgresHistoryRecordingTriggerInstaller(connection=fake_db)
-    installer._get_db_tables = MagicMock(return_value={"table_a", "table_b"})
-
-    fake_cursor._add_constraint("table_a", "PRIMARY KEY", "id", "id", "table_a")
-    fake_cursor._add_constraint("table_a", "FOREIGN KEY", "table_b_id", "id", "table_b")
-    fake_cursor._set_column_names("table_a", ["id", "uid", "table_b_id", "foo"])
-    fake_cursor._set_column_names("table_b", ["id", "uid", "bar"])
-    fake_cursor._set_tables_with_triggers(["table_b"])
-
-    installer.update_history_triggers()
-
-    create_trigger_calls = [
-        c for c in execute.call_args_list if "CREATE OR REPLACE TRIGGER" in c.args[0]
-    ]
-
-    assert len(create_trigger_calls) == 3
-
-    assert len([c for c in create_trigger_calls if "AFTER INSERT" in c.args[0]]) == 1
-    assert len([c for c in create_trigger_calls if "AFTER UPDATE" in c.args[0]]) == 1
-    assert len([c for c in create_trigger_calls if "AFTER DELETE" in c.args[0]]) == 1
-
-    create_function_calls = [
-        c for c in execute.call_args_list if "CREATE OR REPLACE FUNCTION" in c.args[0]
-    ]
-
-    assert len(create_function_calls) == 1
-
-    create_function_sql = re.sub(
-        r"\s+", " ", create_function_calls[0].args[0].replace("\n", "")
-    )
-
-    declarations = [
-        l for l in create_function_sql.split(";") if l.strip().startswith("DECLARE")
-    ]
-
-    # We should be declaring a variable that's extracting the UID from table_b
-    assert any(d.strip().startswith("DECLARE _lamin_fkey_0") for d in declarations)
-
-    # We should be adding the declared variable to jsonb_build_object someplace, with a marker
-    # on the object's key to indicate that it's a UID reference
-    assert "'_lamin_fks', jsonb_build_array(_lamin_fkey_0)" in create_function_sql
-
-
-def test_foreign_key_to_table_without_uid_fails(fake_db, fake_cursor):
-    installer = PostgresHistoryRecordingTriggerInstaller(connection=fake_db)
-    installer._get_db_tables = MagicMock(return_value={"table_a", "table_b"})
-
-    fake_cursor._add_constraint("table_a", "PRIMARY KEY", "id", "id", "table_a")
-    fake_cursor._add_constraint("table_a", "FOREIGN KEY", "table_b_id", "id", "table_b")
-    fake_cursor._set_column_names("table_a", ["id", "uid", "table_b_id", "foo"])
-    fake_cursor._set_column_names("table_b", ["id", "bar"])
-    fake_cursor._set_tables_with_triggers(["table_b"])
-
+@pytest.mark.pg_integration
+def test_foreign_key_to_table_without_uid_fails(no_uid_pg_table):
     with pytest.raises(ValueError):
-        installer.update_history_triggers()
+        _update_history_triggers({no_uid_pg_table})
 
 
 def test_sql_injectable_table_names_fail(fake_cursor):
@@ -335,3 +199,329 @@ def test_sql_injectable_table_names_fail(fake_cursor):
 
     with pytest.raises(ValueError):
         installer.install_triggers("bad_tabl; DROP TABLE foo", fake_cursor)
+
+
+@pytest.fixture(scope="function")
+def simple_pg_table(history_state) -> Generator[str, None, None]:
+    cursor = django_connection.cursor()
+
+    cursor.execute("""
+CREATE TABLE IF NOT EXISTS history_table_test_a
+(id SERIAL PRIMARY KEY, uid VARCHAR(8), str_col VARCHAR(50), bool_col BOOLEAN, int_col INT);
+""")
+
+    yield "history_table_test_a"
+
+    cursor.execute("DROP TABLE IF EXISTS history_table_test_a")
+
+
+def _update_history_triggers(table_list: set[str]):
+    installer = PostgresHistoryRecordingTriggerInstaller(connection=django_connection)
+
+    with mock.patch.object(installer, "_get_db_tables") as get_db_tables:
+        get_db_tables.return_value = table_list
+
+        installer.update_history_triggers()
+
+
+@pytest.mark.pg_integration
+def test_simple_table_trigger(simple_pg_table: str):
+    _update_history_triggers({simple_pg_table})
+
+    cursor = django_connection.cursor()
+
+    cursor.execute("SELECT * FROM pg_trigger WHERE tgname LIKE 'lamindb_history_%';")
+
+    triggers = cursor.fetchall()
+
+    assert len(triggers) == 3
+
+    cursor.execute(
+        f"INSERT INTO {simple_pg_table} (uid, str_col, bool_col, int_col) "  # noqa: S608
+        "VALUES ('abc123', 'hello world', false, 42)"
+    )
+    cursor.execute(
+        f"INSERT INTO {simple_pg_table} (uid, str_col, bool_col, int_col) "  # noqa: S608
+        "VALUES ('def456', 'another row', true, 99)"
+    )
+    cursor.execute(f"UPDATE {simple_pg_table} SET int_col=22 WHERE uid = 'def456'")  # noqa: S608
+    cursor.execute(f"DELETE FROM {simple_pg_table} WHERE uid = 'abc123'")  # noqa: S608
+
+    history = History.objects.all().order_by("seqno")
+
+    assert len(history) == 4
+
+    assert [h.table.table_name == simple_pg_table for h in history]
+
+    assert history[0].record_uid == "abc123"
+    assert history[0].record_data == {
+        "uid": "abc123",
+        "int_col": 42,
+        "str_col": "hello world",
+        "bool_col": False,
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [],
+    }
+    assert history[0].event_type == HistoryEventTypes.INSERT.value
+
+    assert history[1].record_uid == "def456"
+    assert history[1].record_data == {
+        "uid": "def456",
+        "int_col": 99,
+        "str_col": "another row",
+        "bool_col": True,
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [],
+    }
+    assert history[1].event_type == HistoryEventTypes.INSERT.value
+
+    assert history[2].record_uid == "def456"
+    assert history[2].record_data == {
+        "uid": "def456",
+        "int_col": 22,
+        "str_col": "another row",
+        "bool_col": True,
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [],
+    }
+    assert history[2].event_type == HistoryEventTypes.UPDATE.value
+
+    assert history[3].record_uid == "abc123"
+    assert history[3].record_data is None
+    assert history[3].event_type == HistoryEventTypes.DELETE.value
+
+
+@pytest.fixture(scope="function")
+def foreignkey_pg_table(simple_pg_table) -> Generator[str, None, None]:
+    cursor = django_connection.cursor()
+
+    cursor.execute(f"""
+CREATE TABLE IF NOT EXISTS history_table_test_b
+(
+    id SERIAL PRIMARY KEY, uid VARCHAR(8), table_a_id int,
+    CONSTRAINT fk_table_a FOREIGN KEY(table_a_id) REFERENCES {simple_pg_table}(id)
+    ON DELETE CASCADE
+);
+""")
+
+    yield "history_table_test_b"
+
+    cursor.execute("DROP TABLE IF EXISTS history_table_test_b")
+
+
+@pytest.mark.pg_integration
+def test_triggers_with_foreign_keys(simple_pg_table, foreignkey_pg_table):
+    installer = PostgresHistoryRecordingTriggerInstaller(connection=django_connection)
+    installer._get_db_tables = MagicMock(
+        return_value={simple_pg_table, foreignkey_pg_table}
+    )
+
+    installer.update_history_triggers()
+
+    cursor = django_connection.cursor()
+
+    with transaction.atomic():
+        cursor.execute(
+            f"INSERT INTO {simple_pg_table} (uid, str_col, bool_col, int_col) "  # noqa: S608
+            "VALUES ('abc123', 'hello world', false, 42)"
+        )
+        cursor.execute(f"SELECT id FROM {simple_pg_table} WHERE uid = 'abc123'")  # noqa: S608
+        table_a_row_id = cursor.fetchone()[0]
+
+        cursor.execute(
+            f"INSERT INTO {foreignkey_pg_table} (uid, table_a_id) VALUES ('foo333', {table_a_row_id})"  # noqa: S608
+        )
+    cursor.execute(
+        f"INSERT INTO {foreignkey_pg_table} (uid, table_a_id) VALUES ('bar444', NULL)"  # noqa: S608
+    )
+    cursor.execute(f"DELETE FROM {simple_pg_table} WHERE uid = 'abc123'")  # noqa: S608
+
+    history = History.objects.all().order_by("seqno")
+
+    assert len(history) == 5
+
+    assert history[0].table.table_name == simple_pg_table
+    assert history[0].record_uid == "abc123"
+    assert history[0].record_data == {
+        "uid": "abc123",
+        "int_col": 42,
+        "str_col": "hello world",
+        "bool_col": False,
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [],
+    }
+    assert history[0].event_type == HistoryEventTypes.INSERT.value
+
+    assert history[1].table.table_name == foreignkey_pg_table
+    assert history[1].record_uid == "foo333"
+    assert history[1].record_data == {
+        "uid": "foo333",
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [history[0].table.id, ["table_a_id"], {"uid": "abc123"}]
+        ],
+    }
+    assert history[1].event_type == HistoryEventTypes.INSERT.value
+
+    assert history[2].table.table_name == foreignkey_pg_table
+    assert history[2].record_uid == "bar444"
+    assert history[2].event_type == HistoryEventTypes.INSERT.value
+    assert history[2].record_data == {
+        "uid": "bar444",
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [history[0].table_id, ["table_a_id"], {"uid": None}]
+        ],
+    }
+
+    assert history[3].table.table_name == simple_pg_table
+    assert history[3].record_uid == "abc123"
+    assert history[3].event_type == HistoryEventTypes.DELETE.value
+    assert history[3].record_data is None
+
+    assert history[4].table.table_name == foreignkey_pg_table
+    assert history[4].record_uid == "foo333"
+    assert history[4].event_type == HistoryEventTypes.DELETE.value
+    assert history[4].record_data is None
+
+
+@pytest.fixture(scope="function")
+def self_referential_pg_table() -> Generator[str, None, None]:
+    cursor = django_connection.cursor()
+
+    cursor.execute("""
+CREATE TABLE IF NOT EXISTS history_table_test_c
+(
+    id SERIAL PRIMARY KEY, uid VARCHAR(8), parent_id int,
+    CONSTRAINT fk_parent FOREIGN KEY(parent_id) REFERENCES history_table_test_c(id)
+    ON DELETE CASCADE
+);
+""")
+
+    yield "history_table_test_c"
+
+    cursor.execute("DROP TABLE IF EXISTS history_table_test_c")
+
+
+@pytest.mark.pg_integration
+def test_triggers_with_self_references(self_referential_pg_table):
+    installer = PostgresHistoryRecordingTriggerInstaller(connection=django_connection)
+    installer._get_db_tables = MagicMock(return_value={self_referential_pg_table})
+
+    installer.update_history_triggers()
+
+    cursor = django_connection.cursor()
+
+    cursor.execute(
+        f"INSERT INTO {self_referential_pg_table} (uid, parent_id) "  # noqa: S608
+        "VALUES ('abc123', NULL)"
+    )
+    cursor.execute(f"SELECT id FROM {self_referential_pg_table} WHERE uid = 'abc123'")  # noqa: S608
+    parent_row_id = cursor.fetchone()[0]
+    cursor.execute(
+        f"INSERT INTO {self_referential_pg_table} (uid, parent_id) VALUES ('def345', {parent_row_id})"  # noqa: S608
+    )
+
+    history = History.objects.all().order_by("seqno")
+
+    assert len(history) == 2
+
+    assert history[0].table.table_name == self_referential_pg_table
+    assert history[0].record_uid == "abc123"
+    assert history[0].record_data == {
+        "uid": "abc123",
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [history[0].table.id, ["parent_id"], {"uid": None}]
+        ],
+    }
+    assert history[0].event_type == HistoryEventTypes.INSERT.value
+
+    assert history[1].table.table_name == self_referential_pg_table
+    assert history[1].record_uid == "def345"
+    assert history[1].record_data == {
+        "uid": "def345",
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [history[0].table.id, ["parent_id"], {"uid": "abc123"}]
+        ],
+    }
+    assert history[1].event_type == HistoryEventTypes.INSERT.value
+
+
+@pytest.fixture(scope="function")
+def composite_primary_key_table() -> Generator[str, None, None]:
+    cursor = django_connection.cursor()
+
+    cursor.execute("""
+CREATE TABLE IF NOT EXISTS history_table_test_d
+(
+    key_a INT,
+    key_b INT,
+    uid VARCHAR(8),
+    PRIMARY KEY (key_a, key_b)
+);
+""")
+
+    yield "history_table_test_d"
+
+    cursor.execute("DROP TABLE IF EXISTS history_table_test_d")
+
+
+@pytest.fixture(scope="function")
+def composite_foreign_key_table(
+    composite_primary_key_table,
+) -> Generator[str, None, None]:
+    cursor = django_connection.cursor()
+
+    cursor.execute(f"""
+CREATE TABLE IF NOT EXISTS history_table_test_e
+(
+    id SERIAL PRIMARY KEY,
+    table_d_key_a INT,
+    table_d_key_b INT,
+    uid VARCHAR(8),
+    CONSTRAINT fk_parent FOREIGN KEY(table_d_key_a, table_d_key_b) REFERENCES {composite_primary_key_table} (key_a, key_b)
+);
+""")
+
+    yield "history_table_test_e"
+
+    cursor.execute("DROP TABLE IF EXISTS history_table_test_e")
+
+
+@pytest.mark.pg_integration
+def test_triggers_with_composite_primary_key(
+    composite_primary_key_table, composite_foreign_key_table
+):
+    installer = PostgresHistoryRecordingTriggerInstaller(connection=django_connection)
+    installer._get_db_tables = MagicMock(
+        return_value={composite_primary_key_table, composite_foreign_key_table}
+    )
+
+    installer.update_history_triggers()
+
+    cursor = django_connection.cursor()
+
+    cursor.execute(
+        f"INSERT INTO {composite_primary_key_table} (key_a, key_b, uid) "  # noqa: S608
+        "VALUES (42, 21, 'xyz123')"
+    )
+    cursor.execute(
+        f"INSERT INTO {composite_foreign_key_table} (table_d_key_a, table_d_key_b, uid) "  # noqa: S608
+        f"VALUES (42, 21, 'qrs234')"
+    )
+
+    history = History.objects.all().order_by("seqno")
+
+    assert len(history) == 2
+
+    assert history[0].table.table_name == composite_primary_key_table
+    assert history[0].record_uid == "xyz123"
+    assert history[0].record_data == {
+        "uid": "xyz123",
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [],
+    }
+    assert history[0].event_type == HistoryEventTypes.INSERT.value
+
+    assert history[1].table.table_name == composite_foreign_key_table
+    assert history[1].record_uid == "qrs234"
+    assert history[1].record_data == {
+        "uid": "qrs234",
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [history[0].table.id, ["table_d_key_a", "table_d_key_b"], {"uid": "xyz123"}]
+        ],
+    }
+    assert history[1].event_type == HistoryEventTypes.INSERT.value

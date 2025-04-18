@@ -211,7 +211,9 @@ testpaths = [
 filterwarnings = [
     "ignore:Jupyter is migrating its paths to use standard platformdirs:DeprecationWarning"
 ]
-
+markers = [
+    "pg_integration: tests that require an external PostgreSQL instance"
+]
 
 [tool.coverage.report]
 exclude_lines = [

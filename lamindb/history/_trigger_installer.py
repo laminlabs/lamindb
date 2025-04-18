@@ -182,21 +182,28 @@ class PostgresHistoryRecordingTriggerInstaller(HistoryRecordingTriggerInstaller)
         cursor.execute(
             """
 SELECT
-    tc.constraint_name,
-    tc.constraint_type,
-    kcu.column_name AS source_column,
-    ccu.column_name as target_column,
-    ccu.table_name AS target_table
+    tc.conname AS constraint_name,
+    CASE tc.contype
+        WHEN 'p' THEN 'PRIMARY KEY'
+        WHEN 'f' THEN 'FOREIGN KEY'
+    END AS constraint_type,
+    a.attname AS source_column,
+    CASE WHEN tc.contype = 'f' THEN af.attname ELSE NULL END AS target_column,
+    CASE WHEN tc.contype = 'f' THEN tf.relname ELSE NULL END AS target_table
 FROM
-    information_schema.table_constraints AS tc
-    JOIN information_schema.key_column_usage AS kcu
-      ON tc.constraint_name = kcu.constraint_name
-      AND tc.table_schema = kcu.table_schema
-    JOIN information_schema.constraint_column_usage AS ccu
-      ON ccu.constraint_name = tc.constraint_name
-      AND ccu.table_schema = tc.table_schema
+    pg_constraint tc
+    JOIN pg_class t ON t.oid = tc.conrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    JOIN pg_attribute a ON a.attrelid = tc.conrelid AND a.attnum = ANY(tc.conkey)
+    LEFT JOIN pg_class tf ON tf.oid = tc.confrelid
+    LEFT JOIN pg_attribute af ON af.attrelid = tc.confrelid AND
+        af.attnum = tc.confkey[array_position(tc.conkey, a.attnum)]
 WHERE
-    tc.table_name = %s and constraint_type in ('PRIMARY KEY', 'FOREIGN KEY');
+    t.relname = %s
+    AND tc.contype IN ('p', 'f')
+ORDER BY
+    tc.conname,
+    array_position(tc.conkey, a.attnum);
 """,
             (table,),
         )
@@ -328,9 +335,12 @@ WHERE
             fkey_variable_name = f"_lamin_fkey_{len(foreign_key_uid_variables)}"
 
             select_clause_parts = []
+            null_select_clause_parts = []
 
             for uid_column in uid_columns:
-                select_clause_parts.extend([f"'{uid_column}'", uid_column])
+                key_str = f"'{uid_column}'"
+                select_clause_parts.extend([key_str, uid_column])
+                null_select_clause_parts.extend([key_str, "NULL"])
 
             # Store the table's ID in historytablestate as part of the foreign-key data.
             source_column_name_array = ",".join(
@@ -341,14 +351,6 @@ WHERE
             #  * the ID of the target table in HistoryTableState
             #  * the columns in the table that comprise the foreign-key constraint
             #  * the uniquely-identifiable columns in the target table that identify the target record
-            select_clause = (
-                f"jsonb_build_array("  # noqa: S608
-                f"(SELECT id FROM lamindb_historytablestate WHERE table_name='{foreign_key_constraint.target_table}'), "
-                f"jsonb_build_array({source_column_name_array}), "
-                "jsonb_build_object({', '.join(select_clause_parts)})"
-                ")"
-            )
-
             where_clause = " AND ".join(
                 f"{target_col} = NEW.{source_col}"
                 for source_col, target_col in zip(
@@ -358,12 +360,23 @@ WHERE
             )
 
             fkey_variable_declaration = f"""
-    DECLARE {fkey_variable_name} jsonb :=
-    (
-    SELECT {select_clause}
-    FROM {foreign_key_constraint.target_table}
-    WHERE {where_clause};
-    """  # noqa: S608
+DECLARE {fkey_variable_name} jsonb :=
+(
+    SELECT
+    jsonb_build_array(
+        (SELECT id FROM lamindb_historytablestate WHERE table_name='{foreign_key_constraint.target_table}'),
+        jsonb_build_array({source_column_name_array}),
+        coalesce(
+            (
+                SELECT jsonb_build_object({", ".join(select_clause_parts)})
+                FROM {foreign_key_constraint.target_table}
+                WHERE {where_clause}
+            ),
+            jsonb_build_object({", ".join(null_select_clause_parts)})
+        )
+    )
+);
+"""  # noqa: S608
 
             foreign_key_uid_variables[fkey_variable_name] = fkey_variable_declaration
 
