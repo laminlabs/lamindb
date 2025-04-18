@@ -17,6 +17,7 @@ def small_dataset1_schema():
     perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
     ln.ULabel(name="DMSO", type=perturbation).save()
     ln.ULabel(name="IFNG", type=perturbation).save()
+    ln.ULabel.from_values(["sample1", "sample2", "sample3"], create=True).save()
     bt.CellType.from_source(name="B cell").save()
     bt.CellType.from_source(name="T cell").save()
 
@@ -35,6 +36,7 @@ def small_dataset1_schema():
             ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
             ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
         ],
+        index=ln.Feature(name="sample", dtype=ln.ULabel).save(),
     ).save()
 
     yield schema
@@ -209,6 +211,15 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
     artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
 
+    print(artifact.describe())
+    print(small_dataset1_schema.features.df())
+    print(artifact.feature_sets.first().features.df())
+
+    assert set(artifact.features.get_values()["sample"]) == {
+        "sample1",
+        "sample2",
+        "sample3",
+    }
     assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
         "CD8-positive, alpha-beta T cell",
         "B cell",

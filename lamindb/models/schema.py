@@ -17,9 +17,8 @@ from lamindb.base.fields import (
     JSONField,
 )
 from lamindb.base.types import FieldAttr, ListLike
-from lamindb.errors import InvalidArgument
+from lamindb.errors import FieldValidationError, InvalidArgument
 
-from ..base import deprecated
 from ..errors import ValidationError
 from ._relations import (
     dict_related_model_to_related_name,
@@ -36,6 +35,7 @@ from .record import (
     LinkORM,
     Record,
     Registry,
+    _get_record_kwargs,
     init_self_from_db,
     update_attributes,
 )
@@ -83,14 +83,14 @@ def validate_features(features: list[Record]) -> Record:
 def get_features_config(
     features: list[Record] | tuple[Record, dict],
 ) -> tuple[list[Record], list[tuple[Record, dict]]]:
-    """Get features and their config from the return of feature.with_config."""
+    """Get features and their config from the return of feature.with_config()."""
     features_list = []
     configs = []
     try:
         for feature in features:
             if isinstance(feature, tuple):
                 features_list.append(feature[0])
-                configs.append(feature)
+                configs.append(feature)  # store the tuple in configs
             else:
                 features_list.append(feature)
         return features_list, configs  # type: ignore
@@ -164,6 +164,7 @@ class Schema(Record, CanCurate, TracksRun):
             a set upon instantiation. If you'd like to pass values, use
             :meth:`~lamindb.Schema.from_values` or
             :meth:`~lamindb.Schema.from_df`.
+        index: `Feature | None = None` A :class:`~lamindb.Feature` record to validate an index of a `DataFrame`.
         components: `dict[str, Schema] | None = None` A dictionary mapping slot names to
             components. A component is itself a :class:`~lamindb.Schema` object.
         name: `str | None = None` A name.
@@ -258,6 +259,7 @@ class Schema(Record, CanCurate, TracksRun):
         "0": ("coerce_dtype", bool),
         "1": ("optionals", list[str]),
         "2": ("flexible", bool),
+        "3": ("index_feature_uid", str),
     }
 
     id: int = models.AutoField(primary_key=True)
@@ -368,6 +370,7 @@ class Schema(Record, CanCurate, TracksRun):
     def __init__(
         self,
         features: Iterable[Record] | None = None,
+        index: Feature | None = None,
         components: dict[str, Schema] | None = None,
         name: str | None = None,
         description: str | None = None,
@@ -401,9 +404,7 @@ class Schema(Record, CanCurate, TracksRun):
         features: Iterable[Record] | None = (
             args[0] if args else kwargs.pop("features", [])
         )
-        # typing here anticipates transitioning to a ManyToMany
-        # between composites and components similar to feature_sets
-        # in lamindb v2
+        index: Feature | None = kwargs.pop("index", None)
         components: dict[str, Schema] = kwargs.pop("components", {})
         name: str | None = kwargs.pop("name", None)
         description: str | None = kwargs.pop("description", None)
@@ -420,15 +421,17 @@ class Schema(Record, CanCurate, TracksRun):
         optional_features = []
 
         if kwargs:
-            raise ValueError(
-                f"Unexpected keyword arguments: {', '.join(kwargs.keys())}\n"
-                "Valid arguments are: features, description, dtype, itype, type, "
-                "is_type, otype, minimal_set, ordered_set, maximal_set, "
-                "coerce_dtype"
+            valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Schema)])
+            raise FieldValidationError(
+                f"Only {valid_keywords} are valid keyword arguments"
             )
         optional_features = []
         if itype is not None:
             itype = serialize_dtype(itype, is_itype=True)
+        if index is not None:
+            if not isinstance(index, Feature):
+                raise TypeError("index must be a Feature")
+            features.insert(0, index)
         if features:
             features, configs = get_features_config(features)
             features_registry = validate_features(features)
@@ -516,6 +519,8 @@ class Schema(Record, CanCurate, TracksRun):
         super().__init__(**validated_kwargs)
         self.optionals.set(optional_features)
         self.flexible = flexible
+        if index is not None:
+            self._index_feature_uid = index.uid
 
     @classmethod
     def from_values(  # type: ignore
@@ -748,36 +753,26 @@ class Schema(Record, CanCurate, TracksRun):
             self._aux = self._aux or {}
             self._aux.setdefault("af", {})["2"] = value
 
-    # @property
-    # def index_feature(self) -> None | Feature:
-    #     # index_feature: `Record | None = None` A :class:`~lamindb.Feature` to validate the index of a `DataFrame`.
-    #     """The uid of the index feature, if `index_feature` was set."""
-    #     if self._index_feature_uid is None:
-    #         return None
-    #     else:
-    #         return self.features.get(uid=self._index_feature_uid)
-
-    # @property
-    # def _index_feature_uid(self) -> None | str:
-    #     """The uid of the index feature, if `index_feature` was set."""
-    #     if self._aux is not None and "af" in self._aux and "1" in self._aux["af"]:
-    #         return self._aux["af"]["1"]
-    #     else:
-    #         return None
-
-    # @_index_feature_uid.setter
-    # def _index_feature_uid(self, value: str) -> None:
-    #     self._aux = self._aux or {}
-    #     self._aux.setdefault("af", {})["0"] = value
+    @property
+    def index(self) -> None | Feature:
+        """The feature configured to act as index."""
+        if self._index_feature_uid is None:
+            return None
+        else:
+            return self.features.get(uid=self._index_feature_uid)
 
     @property
-    @deprecated("itype")
-    def registry(self) -> str:
-        return self.itype
+    def _index_feature_uid(self) -> None | str:
+        """The uid of the index feature."""
+        if self._aux is not None and "af" in self._aux and "3" in self._aux["af"]:
+            return self._aux["af"]["3"]
+        else:
+            return None
 
-    @registry.setter
-    def registry(self, value) -> None:
-        self.itype = value
+    @_index_feature_uid.setter
+    def _index_feature_uid(self, value: str) -> None:
+        self._aux = self._aux or {}
+        self._aux.setdefault("af", {})["3"] = value
 
     @property
     def slots(self) -> dict[str, Schema]:
