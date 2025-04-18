@@ -1,11 +1,12 @@
+import collections
 import re
-from collections import namedtuple
 from typing import Any, Literal, Optional
 from unittest.mock import MagicMock, Mock
 
 import pytest
 from django.db import connection as django_connection
 from lamindb.history._trigger_installer import (
+    KeyConstraint,
     PostgresHistoryRecordingTriggerInstaller,
 )
 from lamindb.models.history import HistoryMigrationState, HistoryTableState
@@ -18,24 +19,31 @@ def create_spy(obj, method_name):
     return mock
 
 
-Constraint = namedtuple(
-    "Constraint", "source_table_name type column_name target_table_name"
-)
-
-
 class FakeCursor:
     def __init__(self):
         self.reset()
 
+    def reset(self):
+        self._last_result = None
+        self._tables_with_triggers = []
+        self._constraints: dict[str, list[KeyConstraint]] = collections.defaultdict(list)
+        self._column_names: dict[str, str] = {}
+
     def _add_constraint(
         self,
-        table_name,
+        table_name: str,
         constraint_type: Literal["PRIMARY KEY", "FOREIGN KEY"],
-        column_name: str,
+        source_column: str,
+        target_column: str,
         target_table_name: str,
     ):
-        self._constraints.append(
-            Constraint(table_name, constraint_type, column_name, target_table_name)
+        self._constraints[table_name].append(
+            KeyConstraint(
+                constraint_name=f"constraint_{len(self._constraints)}",
+                constraint_type=constraint_type,
+                source_columns=[source_column],
+                target_columns=[target_column], target_table=target_table_name
+            )
         )
 
     def _set_column_names(self, table_name: str, column_names: list[str]):
@@ -48,20 +56,21 @@ class FakeCursor:
         if "DISTINCT event_object_table" in query:
             self._last_result = [(t,) for t in self._tables_with_triggers]
         elif "tc.table_name = %s" in query:
-            self._last_result = [
-                c[1:] for c in self._constraints if c.source_table_name == parameters[0]
-            ]
+            table_name = parameters[0]
+
+            constraints = self._constraints[table_name]
+
+            self._last_result: list[tuple] = []
+
+            for c in constraints:
+                for (source_column, target_column) in zip(c.source_columns, c.target_columns):
+                    self._last_result.append((c.constraint_name, c.constraint_type, source_column, target_column, c.target_table))
+
         elif "SELECT column_name FROM information_schema.columns" in query:
             self._last_result = [(c,) for c in self._column_names[parameters[0]]]
 
     def fetchall(self):
         return self._last_result
-
-    def reset(self):
-        self._last_result = None
-        self._tables_with_triggers = []
-        self._constraints = []
-        self._column_names = {}
 
 
 @pytest.fixture(scope="function")
@@ -212,7 +221,7 @@ def test_install_triggers_no_foreign_keys(fake_db, fake_cursor):
     installer._get_db_tables = MagicMock(return_value={"table_a", "table_b", "table_c"})
 
     fake_cursor._set_tables_with_triggers(["table_b", "table_c"])
-    fake_cursor._add_constraint("table_a", "PRIMARY KEY", "id", "table_a")
+    fake_cursor._add_constraint("table_a", "PRIMARY KEY", "id", "id", "table_a")
     fake_cursor._set_column_names("table_a", ["id", "uid", "foo", "bar", "baz"])
 
     installer.update_history_triggers()
@@ -240,7 +249,7 @@ def test_install_triggers_no_foreign_keys(fake_db, fake_cursor):
     )
 
     declarations = [
-        l for l in create_function_sql.split(";") if l.startswith("DECLARE")
+        l for l in create_function_sql.split(";") if l.strip().startswith("DECLARE")
     ]
 
     # Make sure we're referencing the right table when declaring table_id
@@ -253,8 +262,8 @@ def test_install_triggers_with_foreign_keys(fake_db, fake_cursor):
     installer = PostgresHistoryRecordingTriggerInstaller(connection=fake_db)
     installer._get_db_tables = MagicMock(return_value={"table_a", "table_b"})
 
-    fake_cursor._add_constraint("table_a", "PRIMARY KEY", "id", "table_a")
-    fake_cursor._add_constraint("table_a", "FOREIGN KEY", "table_b_id", "table_b")
+    fake_cursor._add_constraint("table_a", "PRIMARY KEY", "id", "id", "table_a")
+    fake_cursor._add_constraint("table_a", "FOREIGN KEY", "table_b_id", "id", "table_b")
     fake_cursor._set_column_names("table_a", ["id", "uid", "table_b_id", "foo"])
     fake_cursor._set_column_names("table_b", ["id", "uid", "bar"])
     fake_cursor._set_tables_with_triggers(["table_b"])
@@ -282,26 +291,26 @@ def test_install_triggers_with_foreign_keys(fake_db, fake_cursor):
     )
 
     declarations = [
-        l for l in create_function_sql.split(";") if l.startswith("DECLARE")
+        l for l in create_function_sql.split(";") if l.strip().startswith("DECLARE")
     ]
 
     # We should be declaring a variable that's extracting the UID from table_b
     assert any(
-        d.startswith("DECLARE fkey_table_b_id_uid") and "SELECT uid FROM table_b" in d
+        d.strip().startswith("DECLARE _lamin_fkey_0")
         for d in declarations
     )
 
     # We should be adding the declared variable to jsonb_build_object someplace, with a marker
     # on the object's key to indicate that it's a UID reference
-    assert "'table_b_id._uid', fkey_table_b_id_uid" in create_function_sql
+    assert "'_lamin_fks', jsonb_build_array(_lamin_fkey_0)" in create_function_sql
 
 
 def test_foreign_key_to_table_without_uid_fails(fake_db, fake_cursor):
     installer = PostgresHistoryRecordingTriggerInstaller(connection=fake_db)
     installer._get_db_tables = MagicMock(return_value={"table_a", "table_b"})
 
-    fake_cursor._add_constraint("table_a", "PRIMARY KEY", "id", "table_a")
-    fake_cursor._add_constraint("table_a", "FOREIGN KEY", "table_b_id", "table_b")
+    fake_cursor._add_constraint("table_a", "PRIMARY KEY", "id", "id", "table_a")
+    fake_cursor._add_constraint("table_a", "FOREIGN KEY", "table_b_id", "id", "table_b")
     fake_cursor._set_column_names("table_a", ["id", "uid", "table_b_id", "foo"])
     fake_cursor._set_column_names("table_b", ["id", "bar"])
     fake_cursor._set_tables_with_triggers(["table_b"])

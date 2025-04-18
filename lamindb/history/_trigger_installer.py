@@ -19,6 +19,10 @@ class HistoryEventTypes(enum.Enum):
     DELETE = 2
 
 
+FOREIGN_KEYS_LIST_COLUMN_NAME = "_lamin_fks"
+
+RESERVED_COLUMNS: tuple[str] = (FOREIGN_KEYS_LIST_COLUMN_NAME,)
+
 # Certain tables must be excluded from history triggers to avoid
 # creating infinite loops of triggering. Others we're excluding
 # because their state is managed by LaminDB's underlying Django
@@ -152,9 +156,13 @@ AND current_state.state IS NOT NULL;
 @dataclass
 class KeyConstraint:
     """Simple encapsulation of one of a table's key constraints."""
-
+    constraint_name: str
     constraint_type: Literal["PRIMARY KEY", "FOREIGN KEY"]
-    source_column: str
+
+    # These need to be a list to account for composite primary keys
+    source_columns: list[str]
+    target_columns: list[str]
+
     target_table: str
 
 
@@ -169,12 +177,14 @@ class PostgresHistoryRecordingTriggerInstaller(HistoryRecordingTriggerInstaller)
 
     def _get_table_key_constraints(
         self, table: str, cursor: CursorWrapper
-    ) -> list[KeyConstraint]:
+    ) -> tuple[KeyConstraint, list[KeyConstraint]]:
         cursor.execute(
             """
 SELECT
+    tc.constraint_name,
     tc.constraint_type,
     kcu.column_name AS source_column,
+    ccu.column_name as target_column,
     ccu.table_name AS target_table
 FROM
     information_schema.table_constraints AS tc
@@ -192,10 +202,45 @@ WHERE
 
         keys = cursor.fetchall()
 
-        return [
-            KeyConstraint(constraint_type=k[0], source_column=k[1], target_table=k[2])
-            for k in keys
-        ]
+        primary_key_constraint = None
+
+        foreign_key_constraints: dict[str, KeyConstraint] = {}
+
+        for k in keys:
+            constraint_name, constraint_type, source_column, target_column, target_table = k
+
+            if constraint_type == "PRIMARY KEY":
+                if primary_key_constraint is None:
+                    primary_key_constraint = KeyConstraint(
+                        constraint_name=constraint_name,
+                        constraint_type=constraint_type,
+                        source_columns=[],
+                        target_columns=[],
+                        target_table=target_table
+                    )
+
+                primary_key_constraint.source_columns.append(source_column)
+                primary_key_constraint.target_columns.append(target_column)
+            elif constraint_type == "FOREIGN KEY":
+                if constraint_name not in foreign_key_constraints:
+                    foreign_key_constraints[constraint_name] = KeyConstraint(
+                        constraint_name=constraint_name,
+                        constraint_type="FOREIGN KEY",
+                        source_columns=[],
+                        target_columns=[],
+                        target_table=target_table
+                    )
+
+                foreign_key_constraints[constraint_name].source_columns.append(source_column)
+                foreign_key_constraints[constraint_name].target_columns.append(target_column)
+            else:
+                raise ValueError(f"Unhandled constraint type '{constraint_type}'")
+
+        if primary_key_constraint is None:
+            raise ValueError(f"Expected table {table} to have a primary key, but found none")
+
+        return (primary_key_constraint, list(foreign_key_constraints.values()))
+
 
     def _get_column_names(self, table: str, cursor: CursorWrapper) -> set[str]:
         cursor.execute(
@@ -205,63 +250,105 @@ WHERE
 
         return {r[0] for r in cursor.fetchall()}
 
+
     def install_triggers(self, table: str, cursor: CursorWrapper):
         if not self.VALID_TABLE_NAME_REGEX.match(table):
             raise ValueError(
                 f"Table name '{table}' doesn't look like a valid PostgreSQL table name"
             )
 
-        # TODO: migration_history_id is only capturing the latest migration from
-        # the `lamindb` app, and isn't taking bionty, etc into account.
-
         function_name = f"lamindb_history_{table}_fn"
 
-        key_constraints = self._get_table_key_constraints(table, cursor)
-
-        primary_keys: set[str] = {
-            c.source_column
-            for c in key_constraints
-            if c.constraint_type == "PRIMARY KEY"
-        }
-        foreign_key_constraints: dict[str, KeyConstraint] = {
-            c.source_column: c
-            for c in key_constraints
-            if c.constraint_type == "FOREIGN KEY"
-        }
+        primary_key, foreign_key_constraints = self._get_table_key_constraints(table, cursor)
 
         table_columns = self._get_column_names(table, cursor)
 
+        for col in table_columns:
+            if col in RESERVED_COLUMNS:
+                raise ValueError(f"Column '{col}' in table {table} has a name that is "
+                                 "reserved by LaminDB for history tracking")
+
+        non_key_columns = table_columns.difference(set(primary_key.source_columns))
+
+        for foreign_key_constraint in foreign_key_constraints:
+            non_key_columns.difference_update(set(foreign_key_constraint.source_columns))
+
+        # We'll construct the record's data object from a list of keys and values.
         json_object_parts: list[str] = []
-        foreign_key_uid_variables = []
 
-        for column in table_columns.difference(primary_keys):
-            if column in foreign_key_constraints:
-                key_constraint = foreign_key_constraints[column]
+        # Foreign-key constraints will require the creation of variables within the function that
+        # extract uniquely-identifiable columns from the record to which the foreign key refers.
+        # We'll store the declarations of those variables here.
+        foreign_key_uid_variables = {}
 
-                if "uid" not in self._get_column_names(
-                    key_constraint.target_table, cursor
-                ):
-                    raise ValueError(
-                        f"Table '{table}' has a foreign key to '{key_constraint.target_table}' "
-                        "that doesn't have a 'uid' column, so it's not clear what we need to "
-                        f"serialize when storing {table}'s history"
-                    )
+        # Any columns that are not part of a key can be added to the record's data directly.
+        for column in non_key_columns:
+            json_object_parts.extend([f"'{column}'", f"NEW.{column}"])
 
-                primary_key_lookup_clauses = " AND ".join(
-                    f"{c} = NEW.{c}" for c in primary_keys
-                )
-                foreign_key_uid_var = f"fkey_{column}_uid"
+        for foreign_key_constraint in foreign_key_constraints:
+            # Each foreign key constraint must be updated to refer to a set of uniquely identifying
+            # columns within the target table.
 
-                foreign_key_uid_variables.append(f"""
-DECLARE {foreign_key_uid_var} varchar(20) :=
-(
-    SELECT uid FROM {key_constraint.target_table}
-    WHERE {primary_key_lookup_clauses}
-);
-                    """)  # noqa: S608
-                json_object_parts.extend([f"'{column}._uid'", foreign_key_uid_var])
+            target_table_columns = self._get_column_names(foreign_key_constraint.target_table, cursor)
+
+            uid_columns = []
+
+            if "uid" in target_table_columns:
+                uid_columns = ["uid"]
             else:
-                json_object_parts.extend([f"'{column}'", f"NEW.{column}"])
+                # We don't know how to extract a unique identifier for this table, so we need to panic.
+                raise ValueError(
+                    f"Table '{table}' has a foreign key '{foreign_key_constraint.source_columns}' "
+                    f"to '{foreign_key_constraint.target_table}'"
+                    "that doesn't have a 'uid' column, so it's not clear what we need to "
+                    f"serialize when storing {table}'s history"
+                )
+
+            # Give foreign-key variables names '_lamin_fkey_0', '_lamin_fkey_1', etc. to avoid
+            # collisions. We'll store the table to which they foreign-key refers in the variable itself.
+            fkey_variable_name = f"_lamin_fkey_{len(foreign_key_uid_variables)}"
+
+            select_clause_parts = []
+
+            for uid_column in uid_columns:
+                select_clause_parts.extend([f"'{uid_column}'", uid_column])
+
+            # Store the table's ID in historytablestate as part of the foreign-key data.
+            source_column_name_array = ','.join(f"'{c}'" for c in foreign_key_constraint.source_columns)
+
+            # We'll be creating a JSONB array with three elements:
+            #  * the ID of the target table in HistoryTableState
+            #  * the columns in the table that comprise the foreign-key constraint
+            #  * the uniquely-identifiable columns in the target table that identify the target record
+            select_clause = (
+                f"jsonb_build_array("  # noqa: S608
+                f"(SELECT id FROM lamindb_historytablestate WHERE table_name='{foreign_key_constraint.target_table}'), "
+                f"jsonb_build_array({source_column_name_array}), "
+                "jsonb_build_object({', '.join(select_clause_parts)})"
+                ")"
+            )
+
+            where_clause = ' AND '.join(f'{target_col} = NEW.{source_col}'
+                                        for source_col, target_col
+                                        in zip(
+                                            foreign_key_constraint.source_columns,
+                                            foreign_key_constraint.target_columns
+                                        ))
+
+            fkey_variable_declaration = f"""
+    DECLARE {fkey_variable_name} jsonb :=
+    (
+    SELECT {select_clause}
+    FROM {foreign_key_constraint.target_table}
+    WHERE {where_clause};
+    """ # noqa: S608
+
+            foreign_key_uid_variables[fkey_variable_name] = fkey_variable_declaration
+
+        # Place a list of foreign key constraints at the "end" of the object under a reserved name
+        json_object_parts.extend([
+            f"'{FOREIGN_KEYS_LIST_COLUMN_NAME}'",
+            f"jsonb_build_array({','.join(foreign_key_uid_variables.keys())})"])
 
         create_trigger_function_command = f"""
 CREATE OR REPLACE FUNCTION {function_name}()
@@ -279,7 +366,7 @@ DECLARE table_id smallint := (
     LIMIT 1
 );
 DECLARE history_triggers_locked bool := (SELECT EXISTS(SELECT locked FROM lamindb_historylock LIMIT 1) AND (SELECT locked FROM lamindb_historylock LIMIT 1));
-{" ".join(foreign_key_uid_variables)}
+{" ".join(foreign_key_uid_variables.values())}
 DECLARE row_data jsonb;
 DECLARE event_type int2;
 DECLARE record_uid varchar(20);
