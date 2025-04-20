@@ -1458,13 +1458,14 @@ class DataFrameCatManager(CatManager):
                     source=self._sources.get(key),
                     feature=feature,
                 )
+            key = "index"
             if index is not None and index.dtype.startswith("cat"):
                 result = parse_dtype(index.dtype)[0]
                 field = result["field"]
                 self._cat_columns[key] = CatColumn(
                     values_getter=self._dataset.index,
                     field=field,
-                    key="index",
+                    key=key,
                     feature=index,
                 )
         else:

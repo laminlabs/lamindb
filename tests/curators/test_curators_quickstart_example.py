@@ -212,8 +212,6 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
 
     print(artifact.describe())
-    print(small_dataset1_schema.features.df())
-    print(artifact.feature_sets.first().features.df())
 
     assert set(artifact.features.get_values()["sample"]) == {
         "sample1",
@@ -230,6 +228,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     }
 
     # a second dataset with missing values
+    ln.ULabel.from_values(["sample4", "sample5", "sample6"], create=True).save()
     df = ln.core.datasets.small_dataset2(otype="DataFrame", gene_symbols_in_index=True)
     curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
     try:
