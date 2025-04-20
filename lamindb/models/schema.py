@@ -213,21 +213,24 @@ class Schema(Record, CanCurate, TracksRun):
             import bionty as bt
             import pandas as pd
 
-            # From explicitly defined features
+            # explicitly define features
             schema = ln.Schema(
                 features=[
                     ln.Feature(name="required_feature", dtype=str).save(),
                 ],
             ).save()
 
-            # By merely constraining an identifier type
+            # merely constrain a feature identifier type like an Ensembl gene id
             schema = ln.Schema(itype=bt.Gene.ensembl_gene_id)
+            # or feature name
+            schema = ln.Schema(itype=ln.Feature)  # is equivalent to ln.Feature.name
 
-            # A combination of the above
+            # a combination of the above
             schema = ln.Schema(
                 features=[
                     ln.Feature(name="required_feature", dtype=str).save(),
                 ],
+                itype=ln.Schema(itype=ln.Feature),
                 flexible=True,
             ).save()
 
@@ -238,7 +241,7 @@ class Schema(Record, CanCurate, TracksRun):
                 features=[
                     ln.Feature(name="required_feature", dtype=str).save(),
                 ],
-                index=ln.Feature(name="sample", dtype=ln.ULabel.save())
+                index=ln.Feature(name="sample", dtype=ln.ULabel).save(),
             ).save()
 
             # mark a single feature as optional and ignore other features of the same identifier type
