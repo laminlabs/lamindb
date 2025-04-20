@@ -207,15 +207,11 @@ class Schema(Record, CanCurate, TracksRun):
 
     Examples:
 
-        Create schemas::
+        The typical way to create a schema::
 
             import lamindb as ln
             import bionty as bt
             import pandas as pd
-
-            # From a dataframe
-            df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
-            schema = ln.Schema.from_df(df)
 
             # From explicitly defined features
             schema = ln.Schema(
@@ -235,6 +231,26 @@ class Schema(Record, CanCurate, TracksRun):
                 flexible=True,
             ).save()
 
+        Passing options to the `Schema` constructor::
+
+            # also validate the index
+            schema = ln.Schema(
+                features=[
+                    ln.Feature(name="required_feature", dtype=str).save(),
+                ],
+                index=ln.Feature(name="sample", dtype=ln.ULabel.save())
+            ).save()
+
+            # mark a single feature as optional and ignore other features of the same identifier type
+            schema = ln.Schema(
+                features=[
+                    ln.Feature(name="required_feature", dtype=str).save(),
+                    ln.Feature(name="feature2", dtype=int).save().with_config(optional=True),
+                ],
+            ).save()
+
+        Alternative constructors::
+
             # By parsing & validating identifier values
             schema = ln.Schema.from_values(
                 adata.var["ensemble_id"],
@@ -242,13 +258,9 @@ class Schema(Record, CanCurate, TracksRun):
                 organism="mouse",
             ).save()
 
-            # Mark a single feature as optional and ignore other features of the same identifier type
-            schema = ln.Schema(
-                features=[
-                    ln.Feature(name="required_feature", dtype=str).save(),
-                    ln.Feature(name="feature2", dtype=int).save().with_config(optional=True),
-                ],
-            ).save()
+            # From a dataframe
+            df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
+            schema = ln.Schema.from_df(df)
     """
 
     class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
