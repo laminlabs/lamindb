@@ -399,7 +399,14 @@ class DataFrameCurator(Curator):
             features += Feature.filter(name__in=self._dataset.keys()).list()
             feature_ids = {feature.id for feature in features}
         if schema.n > 0:
-            schema_features = schema.features.all().list()
+            if schema._index_feature_uid is not None:
+                schema_features = [
+                    feature
+                    for feature in schema.features.all().list()
+                    if feature.uid != schema._index_feature_uid
+                ]
+            else:
+                schema_features = schema.features.all().list()
             if feature_ids:
                 features.extend(
                     feature
@@ -410,7 +417,7 @@ class DataFrameCurator(Curator):
                 features.extend(schema_features)
         else:
             assert schema.itype is not None  # noqa: S101
-        if features:
+        if features or schema._index_feature_uid is not None:
             # populate features
             pandera_columns = {}
             if schema.minimal_set:
@@ -453,16 +460,25 @@ class DataFrameCurator(Curator):
                     # validate categoricals if the column is required or if the column is present
                     if required or feature.name in self._dataset.columns:
                         categoricals.append(feature)
+            if schema._index_feature_uid is not None:
+                # in almost no case, an index should be a categorical dtype in a DataFrame
+                index = pandera.Index(
+                    schema.index.dtype if not feature.dtype.startswith("cat") else str
+                )
+            else:
+                index = None
             self._pandera_schema = pandera.DataFrameSchema(
                 pandera_columns,
                 coerce=schema.coerce_dtype,
                 strict=schema.maximal_set,
                 ordered=schema.ordered_set,
+                index=index,
             )
         self._cat_manager = DataFrameCatManager(
             self._dataset,
             columns=parse_cat_dtype(schema.itype, is_itype=True)["field"],
             categoricals=categoricals,
+            index=schema.index,
         )
 
     @property
@@ -1391,6 +1407,7 @@ class DataFrameCatManager(CatManager):
         columns: FieldAttr = Feature.name,
         categoricals: list[Feature] | dict[str, FieldAttr] | None = None,
         sources: dict[str, Record] | None = None,
+        index: Feature | None = None,
     ) -> None:
         self._non_validated = None
         super().__init__(
@@ -1440,6 +1457,16 @@ class DataFrameCatManager(CatManager):
                     key=key,
                     source=self._sources.get(key),
                     feature=feature,
+                )
+            key = "index"
+            if index is not None and index.dtype.startswith("cat"):
+                result = parse_dtype(index.dtype)[0]
+                field = result["field"]
+                self._cat_columns[key] = CatColumn(
+                    values_getter=self._dataset.index,
+                    field=field,
+                    key=key,
+                    feature=index,
                 )
         else:
             # below is for backward compat of ln.Curator.from_df()
