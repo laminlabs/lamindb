@@ -3213,7 +3213,8 @@ def annotate_artifact(
     # annotate with inferred feature sets
     match artifact.otype:
         case "DataFrame":
-            artifact.features._add_set_from_df(field=index_field)  # type: ignore
+            schema = Schema(features=cat_columns["columns"].labels).save()
+            artifact.feature_sets.add(schema)
         case "AnnData":
             if schema is not None and "uns" in schema.slots:
                 uns_field = parse_cat_dtype(schema.slots["uns"].itype, is_itype=True)[

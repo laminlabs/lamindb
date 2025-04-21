@@ -1092,6 +1092,8 @@ def _add_schema(self, schema: Schema, slot: str) -> None:
         self._slots[slot] = schema  # type: ignore
 
 
+# no longer called from within curator
+# might deprecate in the future?
 def _add_set_from_df(
     self,
     field: FieldAttr = Feature.name,
