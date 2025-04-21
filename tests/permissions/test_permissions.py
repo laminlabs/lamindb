@@ -56,6 +56,14 @@ def test_authentication():
             CREATE TEMP TABLE account_id(val uuid PRIMARY KEY) ON COMMIT DROP;
             INSERT INTO account_id(val) VALUES (gen_random_uuid());
             SELECT get_account_id();
+            """
+        )
+    # check manual insert
+    with connection.connection.cursor() as cur:
+        cur.execute(
+            """
+            SELECT set_token(%s);
+            INSERT INTO account_id(val) VALUES (gen_random_uuid());
             """,
             (token,),
         )
