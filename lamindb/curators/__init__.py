@@ -3214,7 +3214,7 @@ def annotate_artifact(
     match artifact.otype:
         case "DataFrame":
             schema = Schema(features=cat_columns["columns"].labels).save()
-            artifact.feature_sets.add(schema)
+            artifact.feature_sets.add(schema, through_defaults={"slot": "columns"})
         case "AnnData":
             if schema is not None and "uns" in schema.slots:
                 uns_field = parse_cat_dtype(schema.slots["uns"].itype, is_itype=True)[

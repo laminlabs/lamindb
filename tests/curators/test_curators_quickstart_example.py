@@ -213,6 +213,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
 
     print(artifact.describe())
 
+    assert artifact.features.slots["columns"].n == 3
     assert set(artifact.features.get_values()["sample"]) == {
         "sample1",
         "sample2",
