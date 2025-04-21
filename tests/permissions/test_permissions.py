@@ -59,7 +59,10 @@ def test_authentication():
             """
         )
     # check manual insert
-    with connection.connection.cursor() as cur:
+    with (
+        pytest.raises(psycopg2.errors.InsufficientPrivilege),
+        connection.connection.cursor() as cur,
+    ):
         cur.execute(
             """
             SELECT set_token(%s);
