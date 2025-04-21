@@ -421,29 +421,12 @@ def test_create_from_dataframe_using_from_df_and_link_features(df):
     assert artifact.key == "folder/hello.parquet"
     assert artifact._key_is_virtual
     assert artifact.uid in artifact.path.as_posix()
-    artifact.save()
-    # register features from df columns
-    features = ln.Feature.from_df(df)
-    ln.save(features)
-    # link features
-    artifact.features._add_set_from_df()
-    # mere access test right now
-    artifact.features["columns"]
-    schema_queried = artifact.feature_sets.get()  # exactly one
-    feature_list_queried = ln.Feature.filter(schemas=schema_queried).list()
-    feature_list_queried = [feature.name for feature in feature_list_queried]
-    assert set(feature_list_queried) == set(df.columns)
-    artifact.delete(permanent=True, storage=True)
-    schema_queried.delete()
-    ln.Feature.filter(name__in=["feat1", "feat2"]).delete()
 
 
 def test_create_from_anndata_in_memory_and_link_features(get_small_adata):
-    ln.save(
-        bt.Gene.from_values(
-            get_small_adata.var.index, field=bt.Gene.symbol, organism="human"
-        )
-    )
+    bt.Gene.from_values(
+        get_small_adata.var.index, field=bt.Gene.symbol, organism="human"
+    ).save()
     ln.save(ln.Feature.from_df(get_small_adata.obs))
     artifact = ln.Artifact.from_anndata(get_small_adata, description="test")
     assert artifact.otype == "AnnData"
@@ -452,17 +435,7 @@ def test_create_from_anndata_in_memory_and_link_features(get_small_adata):
     artifact.save()
     # check that the local filepath has been cleared
     assert not hasattr(artifact, "_local_filepath")
-    # link features
-    artifact.features._add_set_from_anndata(var_field=bt.Gene.symbol, organism="human")
-    feature_sets_queried = artifact.feature_sets.all()
-    features_queried = ln.Feature.filter(schemas__in=feature_sets_queried).all()
-    assert set(features_queried.list("name")) == set(get_small_adata.obs.columns)
-    genes_queried = bt.Gene.filter(schemas__in=feature_sets_queried).all()
-    assert set(genes_queried.list("symbol")) == set(get_small_adata.var.index)
-    artifact.delete(permanent=True, storage=True)
-    feature_sets_queried.delete()
-    features_queried.delete()
-    genes_queried.delete()
+    artifact.delete(permanent=True)
 
 
 @pytest.mark.parametrize(

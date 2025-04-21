@@ -3222,26 +3222,16 @@ def annotate_artifact(
         )
 
     # annotate with inferred feature sets
-    match artifact.otype:
-        case "DataFrame":
-            feature_set = Schema(features=cat_columns["columns"].labels).save()
-            artifact.feature_sets.add(feature_set, through_defaults={"slot": "columns"})
-        case "AnnData":
-            for slot, slot_curator in curator._slots.items():
-                name = "var_index" if slot == "var" else "columns"
-                feature_set = Schema(
-                    features=slot_curator._cat_manager._cat_columns[name].labels
-                ).save()
-                artifact.feature_sets.add(feature_set, through_defaults={"slot": slot})
-        case "MuData":
-            artifact.features._add_set_from_mudata(var_fields=index_field)  # type: ignore
-        case "SpatialData":
-            artifact.features._add_set_from_spatialdata(  # type: ignore
-                sample_metadata_key=kwargs.get("sample_metadata_key", "sample"),
-                var_fields=index_field,
-            )
-        case _:
-            raise NotImplementedError  # pragma: no cover
+    if artifact.otype == "DataFrame":
+        feature_set = Schema(features=cat_columns["columns"].labels).save()
+        artifact.feature_sets.add(feature_set, through_defaults={"slot": "columns"})
+    else:
+        for slot, slot_curator in curator._slots.items():
+            name = "var_index" if slot == "var" else "columns"
+            feature_set = Schema(
+                features=slot_curator._cat_manager._cat_columns[name].labels
+            ).save()
+            artifact.feature_sets.add(feature_set, through_defaults={"slot": slot})
 
     slug = ln_setup.settings.instance.slug
     if ln_setup.settings.instance.is_remote:  # pdagma: no cover
