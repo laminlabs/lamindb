@@ -317,7 +317,7 @@ class SlotsCurator(Curator):
         return annotate_artifact(  # type: ignore
             self._artifact,
             index_field=self._var_fields,
-            schema=self._schema,
+            curator=self,
             cat_columns=cat_columns,
         )
 
@@ -344,6 +344,7 @@ def check_dtype(expected_type) -> Callable:
     return check_function
 
 
+# this is also currently used as DictCurator
 class DataFrameCurator(Curator):
     # the example in the docstring is tested in test_curators_quickstart_example
     """Curator for `DataFrame`.
@@ -395,7 +396,7 @@ class DataFrameCurator(Curator):
         categoricals = []
         features = []
         feature_ids: set[int] = set()
-        if schema.flexible and isinstance(self._dataset, pd.DataFrame):
+        if schema.flexible:
             features += Feature.filter(name__in=self._dataset.keys()).list()
             feature_ids = {feature.id for feature in features}
         if schema.n > 0:
@@ -417,9 +418,9 @@ class DataFrameCurator(Curator):
                 features.extend(schema_features)
         else:
             assert schema.itype is not None  # noqa: S101
+        pandera_columns = {}
         if features or schema._index_feature_uid is not None:
             # populate features
-            pandera_columns = {}
             if schema.minimal_set:
                 optional_feature_uids = set(schema.optionals.get_uids())
             for feature in features:
@@ -428,11 +429,14 @@ class DataFrameCurator(Curator):
                 else:
                     required = False
                 if feature.dtype in {"int", "float", "num"}:
-                    dtype = (
-                        self._dataset[feature.name].dtype
-                        if feature.name in self._dataset.columns
-                        else None
-                    )
+                    if isinstance(self._dataset, pd.DataFrame):
+                        dtype = (
+                            self._dataset[feature.name].dtype
+                            if feature.name in self._dataset.keys()
+                            else None
+                        )
+                    else:
+                        dtype = None
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
                         checks=pandera.Check(
@@ -458,10 +462,11 @@ class DataFrameCurator(Curator):
                     )
                 if feature.dtype.startswith("cat"):
                     # validate categoricals if the column is required or if the column is present
-                    if required or feature.name in self._dataset.columns:
+                    if required or feature.name in self._dataset.keys():
                         categoricals.append(feature)
             if schema._index_feature_uid is not None:
-                # in almost no case, an index should be a categorical dtype in a DataFrame
+                # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
+                # so, we're typing it as `str` here
                 index = pandera.Index(
                     schema.index.dtype if not feature.dtype.startswith("cat") else str
                 )
@@ -476,7 +481,8 @@ class DataFrameCurator(Curator):
             )
         self._cat_manager = DataFrameCatManager(
             self._dataset,
-            columns=parse_cat_dtype(schema.itype, is_itype=True)["field"],
+            columns_field=parse_cat_dtype(schema.itype, is_itype=True)["field"],
+            columns_names=pandera_columns.keys(),
             categoricals=categoricals,
             index=schema.index,
         )
@@ -580,7 +586,6 @@ class DataFrameCurator(Curator):
         return annotate_artifact(  # type: ignore
             self._artifact,
             index_field=result["field"],
-            schema=self._schema,
             cat_columns=self._cat_manager._cat_columns,
         )
 
@@ -651,7 +656,6 @@ class AnnDataCurator(SlotsCurator):
             raise InvalidArgument("dataset must be AnnData-like.")
         if schema.otype != "AnnData":
             raise InvalidArgument("Schema otype must be 'AnnData'.")
-        # TODO: also support slots other than obs and var
         self._slots = {
             slot: DataFrameCurator(
                 (
@@ -705,7 +709,7 @@ class AnnDataCurator(SlotsCurator):
                 if "var" in self._slots
                 else None
             ),
-            schema=self._schema,
+            curator=self,
         )
 
 
@@ -1073,7 +1077,6 @@ class CatColumn:
         values = [i for i in self.values if isinstance(i, str) and i]
         if not values:
             return [], []
-
         # inspect the default instance and save validated records from public
         existing_and_public_records = registry.from_values(
             list(values), field=self._field, **filter_kwargs, mute=True
@@ -1290,7 +1293,7 @@ class CatManager:
                 )
         self._is_validated: bool = False
         # shared until here
-        self._categoricals = categoricals or {}
+        self._categoricals = categoricals or []
         self._non_validated = None
         self._sources = sources or {}
         self._columns_field = columns_field
@@ -1404,7 +1407,8 @@ class DataFrameCatManager(CatManager):
     def __init__(
         self,
         df: pd.DataFrame | Artifact,
-        columns: FieldAttr = Feature.name,
+        columns_field: FieldAttr = Feature.name,
+        columns_names: Iterable[str] | None = None,
         categoricals: list[Feature] | dict[str, FieldAttr] | None = None,
         sources: dict[str, Record] | None = None,
         index: Feature | None = None,
@@ -1412,22 +1416,26 @@ class DataFrameCatManager(CatManager):
         self._non_validated = None
         super().__init__(
             dataset=df,
-            columns_field=columns,
+            columns_field=columns_field,
             categoricals=categoricals,
             sources=sources,
         )
-        if columns == Feature.name:
-            if isinstance(self._categoricals, list):
-                values = [feature.name for feature in self._categoricals]
+        if columns_field == Feature.name:
+            if not isinstance(self._categoricals, dict):  # new style
+                values = columns_names
             else:
-                values = list(self._categoricals.keys())
+                values = list(self._categoricals.keys())  # backward compat
             self._cat_columns["columns"] = CatColumn(
                 values_getter=values,
                 field=self._columns_field,
                 key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
                 source=self._sources.get("columns"),
             )
+            settings.verbosity = "info"
             self._cat_columns["columns"].validate()
+            if index is not None:
+                # the index should become part of the feature set corresponding to the dataframe
+                self._cat_columns["columns"].labels.insert(0, index)  # type: ignore
         else:
             # NOTE: for var_index right now
             self._cat_columns["columns"] = CatColumn(
@@ -1502,7 +1510,10 @@ class DataFrameCatManager(CatManager):
         self._validate_category_error_messages = ""  # reset the error messages
 
         validated = True
-        for _, cat_column in self._cat_columns.items():
+        for key, cat_column in self._cat_columns.items():
+            if key == "columns":
+                # is already validated at init and through pandera
+                continue
             cat_column.validate()
             validated &= cat_column.is_validated
         self._is_validated = validated
@@ -1598,7 +1609,7 @@ class AnnDataCatManager(CatManager):
         self._obs_df_curator = DataFrameCatManager(
             df=self._adata.obs,
             categoricals=self.categoricals,
-            columns=obs_columns,
+            columns_field=obs_columns,
             sources=self._sources,
         )
         self._cat_columns = self._obs_df_curator._cat_columns.copy()
@@ -1730,7 +1741,7 @@ class MuDataCatManager(CatManager):
         if "obs" in self._modalities:
             self._obs_df_curator = DataFrameCatManager(
                 df=self._dataset.obs,
-                columns=Feature.name,
+                columns_field=Feature.name,
                 categoricals=self._obs_fields.get("obs", {}),
                 sources=self._sources.get("obs"),
             )
@@ -1973,7 +1984,7 @@ class SpatialDataCatManager(CatManager):
         ):
             self._sample_df_curator = DataFrameCatManager(
                 df=self._sample_metadata,
-                columns=Feature.name,
+                columns_field=Feature.name,
                 categoricals=self._categoricals.get(self._sample_metadata_key, {}),
                 sources=self._sources.get(self._sample_metadata_key),
             )
@@ -3183,7 +3194,7 @@ def get_organism_kwargs(
 def annotate_artifact(
     artifact: Artifact,
     *,
-    schema: Schema | None = None,
+    curator: AnnDataCurator | SlotsCurator | None = None,
     cat_columns: dict[str, CatColumn] | None = None,
     index_field: FieldAttr | dict[str, FieldAttr] | None = None,
     **kwargs,
@@ -3213,18 +3224,15 @@ def annotate_artifact(
     # annotate with inferred feature sets
     match artifact.otype:
         case "DataFrame":
-            schema = Schema(features=cat_columns["columns"].labels).save()
-            artifact.feature_sets.add(schema, through_defaults={"slot": "columns"})
+            feature_set = Schema(features=cat_columns["columns"].labels).save()
+            artifact.feature_sets.add(feature_set, through_defaults={"slot": "columns"})
         case "AnnData":
-            if schema is not None and "uns" in schema.slots:
-                uns_field = parse_cat_dtype(schema.slots["uns"].itype, is_itype=True)[
-                    "field"
-                ]
-            else:
-                uns_field = None
-            artifact.features._add_set_from_anndata(  # type: ignore
-                var_field=index_field, uns_field=uns_field
-            )
+            for slot, slot_curator in curator._slots.items():
+                name = "var_index" if slot == "var" else "columns"
+                feature_set = Schema(
+                    features=slot_curator._cat_manager._cat_columns[name].labels
+                ).save()
+                artifact.feature_sets.add(feature_set, through_defaults={"slot": slot})
         case "MuData":
             artifact.features._add_set_from_mudata(var_fields=index_field)  # type: ignore
         case "SpatialData":
@@ -3298,7 +3306,7 @@ def from_df(
     return DataFrameCatManager(
         df=df,
         categoricals=categoricals,
-        columns=columns,
+        columns_field=columns,
     )
 
 
