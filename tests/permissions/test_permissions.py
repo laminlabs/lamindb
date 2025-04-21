@@ -8,7 +8,7 @@ import lamindb as ln
 import psycopg2
 import pytest
 from django.db import connection, transaction
-from django.db.utils import DataError, ProgrammingError
+from django.db.utils import ProgrammingError
 from jwt_utils import sign_jwt
 from lamindb_setup.core.django import DBToken, db_token_manager
 from psycopg2.extensions import adapt
@@ -27,13 +27,52 @@ db_token._expiration = expiration
 db_token_manager.set(db_token)
 
 
-def test_fine_grained_permissions_account():
+def test_authentication():
     # just check that the token was setup
     with connection.cursor() as cur:
-        cur.execute("SELECT current_setting('app.token');")
-        current_token = cur.fetchall()[0][0]
-    assert current_token == token
+        cur.execute("SELECT get_account_id();")
+        account_id = cur.fetchall()[0][0]
+    assert account_id.hex == user_uuid
+    # test that auth can't be hijacked
+    # false table created before
+    with (
+        pytest.raises(psycopg2.errors.DuplicateTable),
+        connection.connection.cursor() as cur,
+    ):
+        cur.execute(
+            """
+            CREATE TEMP TABLE account_id(val uuid PRIMARY KEY) ON COMMIT DROP;
+            SELECT set_token(%s);
+            """,
+            (token,),
+        )
+    # check that jwt user can't set arbitrary account_id manually
+    with (
+        pytest.raises(psycopg2.errors.RaiseException),
+        connection.connection.cursor() as cur,
+    ):
+        cur.execute(
+            """
+            CREATE TEMP TABLE account_id(val uuid PRIMARY KEY) ON COMMIT DROP;
+            INSERT INTO account_id(val) VALUES (gen_random_uuid());
+            SELECT get_account_id();
+            """
+        )
+    # check manual insert
+    with (
+        pytest.raises(psycopg2.errors.InsufficientPrivilege),
+        connection.connection.cursor() as cur,
+    ):
+        cur.execute(
+            """
+            SELECT set_token(%s);
+            INSERT INTO account_id(val) VALUES (gen_random_uuid());
+            """,
+            (token,),
+        )
 
+
+def test_fine_grained_permissions_account():
     # check select
     assert ln.ULabel.filter().count() == 3
     assert ln.Project.filter().count() == 2
@@ -164,14 +203,13 @@ def test_write_role():
 def test_token_reset():
     db_token_manager.reset()
 
-    # app.account_id is not set
-    # invalid input syntax for type uuid: ""
-    with pytest.raises(DataError):
+    # account_id is not set
+    # so pg_temp doesn't exist
+    with pytest.raises(ProgrammingError):
         ln.ULabel.filter().count()
 
-    with pytest.raises(DataError):
-        with transaction.atomic():
-            ln.ULabel.filter().count()
+    with pytest.raises(ProgrammingError), transaction.atomic():
+        ln.ULabel.filter().count()
 
 
 # below is an integration test that should run last
