@@ -1354,13 +1354,22 @@ class CatManager:
 
         if self._artifact is None:
             if isinstance(self._dataset, pd.DataFrame):
-                artifact = Artifact.from_df(
-                    self._dataset,
-                    key=key,
-                    description=description,
-                    revises=revises,
-                    run=run,
-                )
+                if key.endswith(".csv"):
+                    # forms
+                    csv = self._dataset.to_csv(key, index=False)
+                    artifact = Artifact(
+                        csv, key=key, description=description, revises=revises, run=run
+                    )
+                    artifact.otype = "DataFrame"
+                    artifact.n_observations = self._dataset.shape[0]
+                else:
+                    artifact = Artifact.from_df(
+                        self._dataset,
+                        key=key,
+                        description=description,
+                        revises=revises,
+                        run=run,
+                    )
             elif isinstance(self._dataset, AnnData):
                 artifact = Artifact.from_anndata(
                     self._dataset,
