@@ -157,6 +157,9 @@ def check_and_attempt_upload(
             return exception
         # copies (if on-disk) or moves the temporary file (if in-memory) to the cache
         if os.getenv("LAMINDB_MULTI_INSTANCE") is None:
+            # this happens only after the actual upload was performed
+            # we avoid failing here in case any problems happen in copy_or_move_to_cache
+            # because the cache copying or cleanup is not absolutely necessary
             try:
                 copy_or_move_to_cache(artifact, storage_path, cache_path)
             except Exception as e:
