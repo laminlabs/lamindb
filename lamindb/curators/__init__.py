@@ -574,6 +574,7 @@ class DataFrameCurator(Curator):
                 description=description,
                 revises=revises,
                 run=run,
+                format=".csv" if key.endswith(".csv") else None,
             )
             self._artifact.schema = self._schema
             self._artifact.save()
