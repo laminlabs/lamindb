@@ -1354,7 +1354,7 @@ class CatManager:
 
         if self._artifact is None:
             if isinstance(self._dataset, pd.DataFrame):
-                if key.endswith(".csv"):
+                if key and key.endswith(".csv"):
                     # forms
                     csv = self._dataset.to_csv(key, index=False)
                     artifact = Artifact(
