@@ -91,7 +91,8 @@ def test_data_curation(transactions_schema, transactions_dataframe):
     """Test if data curation works properly"""
     curator = ln.curators.DataFrameCurator(transactions_dataframe, transactions_schema)
     assert curator.validate() is None
-    artifact = curator.save_artifact(key="test_transaction_dataset.parquet")
+    artifact = curator.save_artifact(key="test_transaction_dataset.csv")
+    assert artifact.suffix == ".csv"
     artifact.delete(permanent=True)
 
 
