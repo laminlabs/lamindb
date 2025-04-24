@@ -574,6 +574,7 @@ class DataFrameCurator(Curator):
                 description=description,
                 revises=revises,
                 run=run,
+                format=".csv" if key.endswith(".csv") else None,
             )
             self._artifact.schema = self._schema
             self._artifact.save()
@@ -1354,22 +1355,13 @@ class CatManager:
 
         if self._artifact is None:
             if isinstance(self._dataset, pd.DataFrame):
-                if key and key.endswith(".csv"):
-                    # forms
-                    csv = self._dataset.to_csv(key, index=False)
-                    artifact = Artifact(
-                        csv, key=key, description=description, revises=revises, run=run
-                    )
-                    artifact.otype = "DataFrame"
-                    artifact.n_observations = self._dataset.shape[0]
-                else:
-                    artifact = Artifact.from_df(
-                        self._dataset,
-                        key=key,
-                        description=description,
-                        revises=revises,
-                        run=run,
-                    )
+                artifact = Artifact.from_df(
+                    self._dataset,
+                    key=key,
+                    description=description,
+                    revises=revises,
+                    run=run,
+                )
             elif isinstance(self._dataset, AnnData):
                 artifact = Artifact.from_anndata(
                     self._dataset,

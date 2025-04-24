@@ -21,6 +21,7 @@ def infer_suffix(dmem: SupportedDataTypes, format: str | None = None):
     """Infer LaminDB storage file suffix from a data object."""
     if isinstance(dmem, AnnData):
         if format is not None:
+            # should be `.h5ad`, `.`zarr`, or `.anndata.zarr`
             if format not in {"h5ad", "zarr", "anndata.zarr"}:
                 raise ValueError(
                     "Error when specifying AnnData storage format, it should be"
@@ -31,6 +32,8 @@ def infer_suffix(dmem: SupportedDataTypes, format: str | None = None):
         return ".h5ad"
 
     if isinstance(dmem, DataFrame):
+        if format == ".csv":
+            return ".csv"
         return ".parquet"
 
     if with_package_obj(
@@ -79,6 +82,9 @@ def write_to_disk(dmem: SupportedDataTypes, filepath: UPathStr) -> None:
             raise NotImplementedError
 
     if isinstance(dmem, DataFrame):
+        if filepath.suffix == ".csv":
+            dmem.to_csv(filepath)
+            return
         dmem.to_parquet(filepath)
         return
 
