@@ -357,6 +357,7 @@ def save_context_core(
         else:
             transform.source_code = source_code_path.read_text()
             transform.hash = hash
+            transform.is_latest = True
 
     # track run environment
     if run is not None:

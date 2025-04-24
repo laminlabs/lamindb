@@ -116,7 +116,7 @@ def _cache_key_from_artifact_storage(
         artifact._key_is_virtual
         and artifact.key is not None
         and storage_settings is not None
-        and artifact.is_latest
+        and artifact.is_latest  # type: ignore
     ):
         cache_key = (storage_settings.root / artifact.key).path
     return cache_key

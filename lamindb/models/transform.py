@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
 # does not inherit from TracksRun because the Transform
 # is needed to define a run
-class Transform(Record, IsVersioned):
+class Transform(Record, IsVersioned):  # type: ignore
     """Data transformations.
 
     A "transform" can refer to a Python function, a script, a notebook, or a

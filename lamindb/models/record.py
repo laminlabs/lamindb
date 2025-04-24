@@ -79,6 +79,7 @@ from ..errors import (
     ValidationError,
 )
 from ._is_versioned import IsVersioned
+from .transform import Transform
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -87,7 +88,6 @@ if TYPE_CHECKING:
 
     from .artifact import Artifact
     from .run import Run, User
-    from .transform import Transform
 
 
 T = TypeVar("T", bound="Record")
@@ -830,8 +830,20 @@ class BasicRecord(models.Model, metaclass=Registry):
             check_key_change(self)
             check_name_change(self)
             try:
-                # save versioned record in presence of self._revises
-                if isinstance(self, IsVersioned) and self._revises is not None:
+                if isinstance(self, Transform) and self.type == "notebook":
+                    if not self.is_latest and self.source_code is not None:  # type: ignore
+                        self.is_latest = True
+                        if not self.uid.endswith("0000"):
+                            revises = self.versions.first()
+                            revises.is_latest = False
+                            with transaction.atomic():
+                                revises.save()
+                                super().save(*args, **kwargs)  # type: ignore
+                    else:
+                        if self.source_code is None:
+                            self.is_latest = False
+                        super().save(*args, **kwargs)  # type: ignore
+                elif isinstance(self, IsVersioned) and self._revises is not None:
                     assert self._revises.is_latest  # noqa: S101
                     revises = self._revises
                     revises.is_latest = False
