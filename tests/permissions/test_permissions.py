@@ -8,7 +8,7 @@ import lamindb as ln
 import psycopg2
 import pytest
 from django.db import connection, transaction
-from django.db.utils import ProgrammingError
+from django.db.utils import InternalError, ProgrammingError
 from jwt_utils import sign_jwt
 from lamindb_setup.core.django import DBToken, db_token_manager
 from psycopg2.extensions import adapt
@@ -204,12 +204,13 @@ def test_token_reset():
     db_token_manager.reset()
 
     # account_id is not set
-    # so pg_temp doesn't exist
-    with pytest.raises(ProgrammingError):
+    with pytest.raises(InternalError) as error:
         ln.ULabel.filter().count()
+    assert "JWT is not set" in error.exconly()
 
-    with pytest.raises(ProgrammingError), transaction.atomic():
+    with pytest.raises(InternalError) as error, transaction.atomic():
         ln.ULabel.filter().count()
+    assert "JWT is not set" in error.exconly()
 
 
 # below is an integration test that should run last
