@@ -597,6 +597,9 @@ class Registry(ModelBase):
         """
         from .query_set import QuerySet
 
+        # connection already established
+        if instance in connections:
+            return QuerySet(model=cls, using=instance)
         # we're in the default instance
         if instance is None or instance == "default":
             return QuerySet(model=cls, using=None)

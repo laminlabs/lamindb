@@ -3,7 +3,7 @@ import lamindb as ln
 import pandas as pd
 import pytest
 from django.db.utils import IntegrityError
-from lamindb.errors import ValidationError
+from lamindb.errors import FieldValidationError, ValidationError
 from lamindb.models.schema import get_related_name, validate_features
 
 
@@ -137,7 +137,7 @@ def test_validate_features():
 
 
 def test_kwargs():
-    with pytest.raises(ValueError):
+    with pytest.raises(FieldValidationError):
         ln.Schema(x="1", features=[])
 
 
