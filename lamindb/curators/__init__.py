@@ -1394,7 +1394,7 @@ class CatManager:
                     "data must be one of pd.Dataframe, AnnData, MuData, SpatialData."
                 )
             self._artifact = artifact.save()
-        annotate_artifact(  # type: ignore
+        legacy_annotate_artifact(  # type: ignore
             self._artifact,
             index_field=self._columns_field,
             cat_columns=self._cat_columns,
@@ -2172,7 +2172,7 @@ class SpatialDataCatManager(CatManager):
         self._artifact = Artifact.from_spatialdata(
             self._dataset, key=key, description=description, revises=revises, run=run
         ).save()
-        return annotate_artifact(
+        return legacy_annotate_artifact(
             self._artifact,
             index_field=self.var_index,
             sample_metadata_key=self._sample_metadata_key,
@@ -3192,13 +3192,58 @@ def get_organism_kwargs(
     return {}
 
 
+def legacy_annotate_artifact(
+    artifact: Artifact,
+    *,
+    cat_columns: dict[str, CatColumn] | None = None,
+    index_field: FieldAttr | dict[str, FieldAttr] | None = None,
+    **kwargs,
+):
+    from ..models.artifact import add_labels
+
+    if cat_columns is None:
+        cat_columns = {}
+
+    # annotate with labels
+    for key, cat_column in cat_columns.items():
+        if (
+            cat_column._field.field.model == Feature
+            or key == "columns"
+            or key == "var_index"
+        ):
+            continue
+        add_labels(
+            artifact,
+            records=cat_column.labels,
+            feature=cat_column.feature,
+            feature_ref_is_name=None,  # do not need anymore
+            label_ref_is_name=cat_column.label_ref_is_name,
+            from_curator=True,
+        )
+
+    match artifact.otype:
+        case "DataFrame":
+            artifact.features._add_set_from_df(field=index_field)  # type: ignore
+        case "AnnData":
+            artifact.features._add_set_from_anndata(  # type: ignore
+                var_field=index_field,
+            )
+        case "MuData":
+            artifact.features._add_set_from_mudata(var_fields=index_field)  # type: ignore
+        case "SpatialData":
+            artifact.features._add_set_from_spatialdata(  # type: ignore
+                sample_metadata_key=kwargs.get("sample_metadata_key", "sample"),
+                var_fields=index_field,
+            )
+        case _:
+            raise NotImplementedError  # pragma: no cover
+
+
 def annotate_artifact(
     artifact: Artifact,
     *,
     curator: AnnDataCurator | SlotsCurator | None = None,
     cat_columns: dict[str, CatColumn] | None = None,
-    index_field: FieldAttr | dict[str, FieldAttr] | None = None,
-    **kwargs,
 ) -> Artifact:
     from ..models.artifact import add_labels
 
