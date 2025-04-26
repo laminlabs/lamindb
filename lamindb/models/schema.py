@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, overload
+from typing import TYPE_CHECKING, Any, Type, overload
 
 import numpy as np
 from django.db import models
@@ -389,7 +389,7 @@ class Schema(Record, CanCurate, TracksRun):
         components: dict[str, Schema] | None = None,
         name: str | None = None,
         description: str | None = None,
-        dtype: str | None = None,
+        dtype: str | Type[int | float | str] | None = None,  # noqa
         itype: str | Registry | FieldAttr | None = None,
         type: Schema | None = None,
         is_type: bool = False,

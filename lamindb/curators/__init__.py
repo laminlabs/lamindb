@@ -166,10 +166,7 @@ class CatLookup:
 CAT_MANAGER_DOCSTRING = """Manage categoricals by updating registries."""
 
 
-SLOTS_DOCSTRING = """Curator objects by slot.
-
-.. versionadded:: 1.1.1
-"""
+SLOTS_DOCSTRING = """Access sub curators by slot."""
 
 
 VALIDATE_DOCSTRING = """Validate dataset against Schema.
@@ -359,34 +356,11 @@ class DataFrameCurator(Curator):
         dataset: The DataFrame-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
 
-    Example::
+    Example:
 
-        import lamindb as ln
-        import bionty as bt
-
-        # define valid labels
-        perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
-        ln.ULabel(name="DMSO", type=perturbation).save()
-        ln.ULabel(name="IFNG", type=perturbation).save()
-        bt.CellType.from_source(name="B cell").save()
-        bt.CellType.from_source(name="T cell").save()
-
-        # define schema
-        schema = ln.Schema(
-            name="small_dataset1_obs_level_metadata",
-            features=[
-                ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
-                ln.Feature(name="sample_note", dtype=str).save(),
-                ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
-                ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
-            ],
-        ).save()
-
-        # curate a DataFrame
-        df = datasets.small_dataset1(otype="DataFrame")
-        curator = ln.curators.DataFrameCurator(df, schema)
-        artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
-        assert artifact.schema == schema
+        .. literalinclude:: scripts/curate-dataframe.py
+            :language: python
+            :caption: curate-dataframe.py
     """
 
     def __init__(
@@ -599,48 +573,11 @@ class AnnDataCurator(SlotsCurator):
         dataset: The AnnData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
 
-    Example::
+    Example:
 
-        import lamindb as ln
-        import bionty as bt
-
-        # define valid labels
-        perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
-        ln.ULabel(name="DMSO", type=perturbation).save()
-        ln.ULabel(name="IFNG", type=perturbation).save()
-        bt.CellType.from_source(name="B cell").save()
-        bt.CellType.from_source(name="T cell").save()
-
-        # define obs schema
-        obs_schema = ln.Schema(
-            name="small_dataset1_obs_level_metadata",
-            features=[
-                ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
-                ln.Feature(name="sample_note", dtype=str).save(),
-                ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
-                ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
-            ],
-        ).save()
-
-        # define var schema
-        var_schema = ln.Schema(
-            name="scRNA_seq_var_schema",
-            itype=bt.Gene.ensembl_gene_id,
-            dtype=int,
-        ).save()
-
-        # define composite schema
-        anndata_schema = ln.Schema(
-            name="small_dataset1_anndata_schema",
-            otype="AnnData",
-            components={"obs": obs_schema, "var": var_schema},
-        ).save()
-
-        # curate an AnnData
-        adata = ln.core.datasets.small_dataset1(otype="AnnData")
-        curator = ln.curators.AnnDataCurator(adata, anndata_schema)
-        artifact = curator.save_artifact(key="example_datasets/dataset1.h5ad")
-        assert artifact.schema == anndata_schema
+        .. literalinclude:: scripts/curate-anndata.py
+            :language: python
+            :caption: curate-anndata.py
     """
 
     def __init__(
@@ -706,74 +643,17 @@ def _assign_var_fields_categoricals_multimodal(
 
 
 class MuDataCurator(SlotsCurator):
-    # the example in the docstring is tested in test_curators_quickstart_example
     """Curator for `MuData`.
 
     Args:
         dataset: The MuData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
 
-    Example::
+    Example:
 
-        import lamindb as ln
-        import bionty as bt
-
-        # define the global obs schema
-        obs_schema = ln.Schema(
-            name="mudata_papalexi21_subset_obs_schema",
-            features=[
-                ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
-                ln.Feature(name="replicate", dtype="cat[ULabel[Replicate]]").save(),
-            ],
-        ).save()
-
-        # define the ['rna'].obs schema
-        obs_schema_rna = ln.Schema(
-            name="mudata_papalexi21_subset_rna_obs_schema",
-            features=[
-                ln.Feature(name="nCount_RNA", dtype=int).save(),
-                ln.Feature(name="nFeature_RNA", dtype=int).save(),
-                ln.Feature(name="percent.mito", dtype=float).save(),
-            ],
-            coerce_dtype=True,
-        ).save()
-
-        # define the ['hto'].obs schema
-        obs_schema_hto = ln.Schema(
-            name="mudata_papalexi21_subset_hto_obs_schema",
-            features=[
-                ln.Feature(name="nCount_HTO", dtype=int).save(),
-                ln.Feature(name="nFeature_HTO", dtype=int).save(),
-                ln.Feature(name="technique", dtype=bt.ExperimentalFactor).save(),
-            ],
-            coerce_dtype=True,
-        ).save()
-
-        # define ['rna'].var schema
-        var_schema_rna = ln.Schema(
-            name="mudata_papalexi21_subset_rna_var_schema",
-            itype=bt.Gene.symbol,
-            dtype=float,
-        ).save()
-
-        # define composite schema
-        mudata_schema = ln.Schema(
-            name="mudata_papalexi21_subset_mudata_schema",
-            otype="MuData",
-            components={
-                "obs": obs_schema,
-                "rna:obs": obs_schema_rna,
-                "hto:obs": obs_schema_hto,
-                "rna:var": var_schema_rna,
-            },
-        ).save()
-
-        # curate a MuData
-        mdata = ln.core.datasets.mudata_papalexi21_subset()
-        bt.settings.organism = "human" # set the organism
-        curator = ln.curators.MuDataCurator(mdata, mudata_schema)
-        artifact = curator.save_artifact(key="example_datasets/mudata_papalexi21_subset.h5mu")
-        assert artifact.schema == mudata_schema
+        .. literalinclude:: scripts/curate-mudata.py
+            :language: python
+            :caption: curate-mudata.py
     """
 
     def __init__(
@@ -788,7 +668,6 @@ class MuDataCurator(SlotsCurator):
             raise InvalidArgument("Schema otype must be 'MuData'.")
 
         for slot, slot_schema in schema.slots.items():
-            # Assign to _slots
             if ":" in slot:
                 modality, modality_slot = slot.split(":")
                 schema_dataset = self._dataset.__getitem__(modality)
@@ -818,66 +697,17 @@ class MuDataCurator(SlotsCurator):
 
 
 class SpatialDataCurator(SlotsCurator):
-    # the example in the docstring is tested in test_curators_quickstart_example
     """Curator for `SpatialData`.
 
     Args:
         dataset: The SpatialData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
 
-    Example::
+    Example:
 
-        import lamindb as ln
-        import bionty as bt
-
-        # define sample schema
-        sample_schema = ln.Schema(
-            name="blobs_sample_level_metadata",
-            features=[
-                ln.Feature(name="assay", dtype=bt.ExperimentalFactor).save(),
-                ln.Feature(name="disease", dtype=bt.Disease).save(),
-                ln.Feature(name="development_stage", dtype=bt.DevelopmentalStage).save(),
-            ],
-            coerce_dtype=True
-        ).save()
-
-        # define table obs schema
-        blobs_obs_schema = ln.Schema(
-            name="blobs_obs_level_metadata",
-            features=[
-                ln.Feature(name="sample_region", dtype="str").save(),
-            ],
-            coerce_dtype=True
-        ).save()
-
-        # define table var schema
-        blobs_var_schema = ln.Schema(
-            name="blobs_var_schema",
-            itype=bt.Gene.ensembl_gene_id,
-            dtype=int
-        ).save()
-
-        # define composite schema
-        spatialdata_schema = ln.Schema(
-            name="blobs_spatialdata_schema",
-            otype="SpatialData",
-            components={
-                "sample": sample_schema,
-                "table:obs": blobs_obs_schema,
-                "table:var": blobs_var_schema,
-        }).save()
-
-        # curate a SpatialData
-        spatialdata = ln.core.datasets.spatialdata_blobs()
-        curator = ln.curators.SpatialDataCurator(spatialdata, spatialdata_schema)
-        try:
-            curator.validate()
-        except ln.errors.ValidationError as error:
-            print(error)
-
-        # validate again (must pass now) and save artifact
-        artifact = curator.save_artifact(key="example_datasets/spatialdata1.zarr")
-        assert artifact.schema == spatialdata_schema
+        .. literalinclude:: scripts/curate-spatialdata.py
+            :language: python
+            :caption: curate-spatialdata.py
     """
 
     def __init__(
