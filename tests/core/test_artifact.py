@@ -355,14 +355,14 @@ def test_create_from_dataframe(df):
 
 
 def test_create_from_anndata(get_small_adata, adata_file):
-    for _a in [get_small_adata, adata_file]:
-        artifact = ln.Artifact.from_anndata(get_small_adata, description="test1")
+    for i, _a in enumerate([get_small_adata, adata_file]):
+        artifact = ln.Artifact.from_anndata(_a, description="test1")
         assert artifact.description == "test1"
         assert artifact.key is None
         assert artifact.otype == "AnnData"
         assert artifact.kind == "dataset"
         assert artifact.n_observations == 2
-        if _a == get_small_adata:
+        if i == 0:
             assert hasattr(artifact, "_local_filepath")
             artifact.save()
             # check that the local filepath has been cleared
