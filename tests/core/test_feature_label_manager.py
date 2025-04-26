@@ -501,6 +501,16 @@ def test_add_labels_using_anndata(adata):
     )
     artifact.save()
 
+    # link features
+    artifact.features._add_set_from_anndata(var_field=bt.Gene.ensembl_gene_id)
+
+    # check the basic construction of the feature set based on obs
+    schema_obs = artifact.feature_sets.filter(
+        itype="Feature", _links_artifact__slot="obs"
+    ).one()
+    assert schema_obs.n == 4
+    assert "organism" not in schema_obs.features.list("name")
+
     # now, we add organism and run checks
     features = ln.Feature.lookup()
     with pytest.raises(ln.errors.ValidationError):
@@ -512,6 +522,10 @@ def test_add_labels_using_anndata(adata):
     assert organism_link.feature.name == "organism"
     feature = ln.Feature.get(name="organism")
     assert feature.dtype == "cat[bionty.Organism]"
+    schema_obs = artifact.feature_sets.filter(
+        itype="Feature", _links_artifact__slot="obs"
+    ).one()
+    assert schema_obs.n == 4
 
     # now we add cell types & tissues and run checks
     ln.Feature(name="cell_type", dtype="cat").save()
