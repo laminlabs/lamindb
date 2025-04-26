@@ -827,8 +827,8 @@ class SpatialDataCurator(SlotsCurator):
     Example:
 
         .. literalinclude:: scripts/curate-spatialdata.py
-        :language: python
-        :caption: curate-spatialdata.py
+            :language: python
+            :caption: curate-spatialdata.py
     """
 
     def __init__(
