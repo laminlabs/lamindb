@@ -469,10 +469,10 @@ def test_spatialdata_curator(
     with pytest.raises(InvalidArgument):
         ln.curators.SpatialDataCurator(spatialdata, small_dataset1_schema)
 
-    ln.curators.SpatialDataCurator(spatialdata, spatialdata_schema)
-    # with pytest.raises(ln.errors.ValidationError):
-    #     curator.validate()
-    # spatialdata.tables["table"].var.drop(index="ENSG00000999999", inplace=True)
+    curator = ln.curators.SpatialDataCurator(spatialdata, spatialdata_schema)
+    with pytest.raises(ln.errors.ValidationError):
+        curator.validate()
+    spatialdata.tables["table"].var.drop(index="ENSG00000999999", inplace=True)
 
     artifact = ln.Artifact.from_spatialdata(
         spatialdata, key="example_datasets/spatialdata1.zarr", schema=spatialdata_schema
