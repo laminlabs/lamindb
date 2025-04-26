@@ -1413,6 +1413,8 @@ class DataFrameCatManager(CatManager):
             categoricals=categoricals,
             sources=sources,
         )
+        if columns_names is None:
+            columns_names = []
         if columns_field == Feature.name:
             if not isinstance(self._categoricals, dict):  # new style
                 values = columns_names
@@ -1424,7 +1426,6 @@ class DataFrameCatManager(CatManager):
                 key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
                 source=self._sources.get("columns"),
             )
-            settings.verbosity = "info"
             self._cat_columns["columns"].validate()
             if index is not None:
                 # the index should become part of the feature set corresponding to the dataframe

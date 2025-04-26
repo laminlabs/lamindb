@@ -296,6 +296,16 @@ def test_str_var_index(adata):
         )
 
 
+def test_not_passing_categoricals(adata):
+    curator = ln.Curator.from_anndata(
+        adata,
+        var_index=bt.Gene.symbol,
+        organism="human",
+    )
+    validated = curator.validate()
+    assert validated is False
+
+
 def test_anndata_curator_wrong_type(df, categoricals):
     with pytest.raises(TypeError, match="data has to be an AnnData object"):
         ln.Curator.from_anndata(
