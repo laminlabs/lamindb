@@ -356,12 +356,18 @@ def test_create_from_dataframe(df):
 
 def test_create_from_anndata(get_small_adata, adata_file):
     for _a in [get_small_adata, adata_file]:
-        af = ln.Artifact.from_anndata(get_small_adata, description="test1")
-        assert af.description == "test1"
-        assert af.key is None
-        assert af.otype == "AnnData"
-        assert af.kind == "dataset"
-        assert af.n_observations == 2
+        artifact = ln.Artifact.from_anndata(get_small_adata, description="test1")
+        assert artifact.description == "test1"
+        assert artifact.key is None
+        assert artifact.otype == "AnnData"
+        assert artifact.kind == "dataset"
+        assert artifact.n_observations == 2
+        if _a == get_small_adata:
+            assert hasattr(artifact, "_local_filepath")
+            artifact.save()
+            # check that the local filepath has been cleared
+            assert not hasattr(artifact, "_local_filepath")
+            artifact.delete(permanent=True)
 
 
 def test_create_from_mudata(get_small_mdata, mudata_file, adata_file):
@@ -404,38 +410,6 @@ def test_create_from_spatialdata(
         assert af.otype == "SpatialData"
         assert af.kind == "dataset"
         # n_observations not defined
-
-
-def test_create_from_dataframe_using_from_df_and_link_features(df):
-    description = "my description"
-    artifact = ln.Artifact.from_df(
-        df, key="folder/hello.parquet", description=description
-    )
-    with pytest.raises(ValueError):
-        artifact.features["columns"]
-    artifact = ln.Artifact.from_df(df, description=description)
-    # backward compatibility for ln.Artifact to take a DataFrame
-    artifact = ln.Artifact(df, key="folder/hello.parquet", description=description)
-    assert artifact.description == description
-    assert artifact.otype == "DataFrame"
-    assert artifact.key == "folder/hello.parquet"
-    assert artifact._key_is_virtual
-    assert artifact.uid in artifact.path.as_posix()
-
-
-def test_create_from_anndata_in_memory_and_link_features(get_small_adata):
-    bt.Gene.from_values(
-        get_small_adata.var.index, field=bt.Gene.symbol, organism="human"
-    ).save()
-    ln.save(ln.Feature.from_df(get_small_adata.obs))
-    artifact = ln.Artifact.from_anndata(get_small_adata, description="test")
-    assert artifact.otype == "AnnData"
-    assert hasattr(artifact, "_local_filepath")
-    assert artifact.n_observations == get_small_adata.n_obs
-    artifact.save()
-    # check that the local filepath has been cleared
-    assert not hasattr(artifact, "_local_filepath")
-    artifact.delete(permanent=True)
 
 
 @pytest.mark.parametrize(

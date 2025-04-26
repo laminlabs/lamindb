@@ -3191,7 +3191,7 @@ def legacy_annotate_artifact(
     cat_columns: dict[str, CatColumn] | None = None,
     index_field: FieldAttr | dict[str, FieldAttr] | None = None,
     **kwargs,
-):
+) -> Artifact:
     from ..models.artifact import add_labels
 
     if cat_columns is None:

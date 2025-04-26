@@ -300,7 +300,7 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
 
     obs_schema = small_dataset1_schema
 
-    for add_comp in ["uns"]:
+    for add_comp in ["var", "obs", "uns"]:
         var_schema = ln.Schema(
             name="scRNA_seq_var_schema",
             itype=bt.Gene.ensembl_gene_id,
