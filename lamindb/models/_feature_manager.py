@@ -482,59 +482,6 @@ def describe_features(
     return tree
 
 
-def parse_staged_feature_sets_from_anndata(
-    adata: AnnData,
-    var_field: FieldAttr | None = None,
-    obs_field: FieldAttr = Feature.name,
-    uns_field: FieldAttr | None = None,
-    mute: bool = False,
-    organism: str | Record | None = None,
-) -> dict:
-    data_parse = adata
-    if not isinstance(adata, AnnData):  # is a path
-        filepath = create_path(adata)  # returns Path for local
-        if not isinstance(filepath, LocalPathClasses):
-            from lamindb import settings
-            from lamindb.core.storage._backed_access import backed_access
-
-            using_key = settings._using_key
-            data_parse = backed_access(filepath, using_key=using_key)
-        else:
-            data_parse = ad.read_h5ad(filepath, backed="r")
-        type = "float"
-    else:
-        type = "float" if adata.X is None else serialize_pandas_dtype(adata.X.dtype)
-    feature_sets = {}
-    if var_field is not None:
-        schema_var = Schema.from_values(
-            data_parse.var.index,
-            var_field,
-            type=type,
-            mute=mute,
-            organism=organism,
-            raise_validation_error=False,
-        )
-        if schema_var is not None:
-            feature_sets["var"] = schema_var
-    if obs_field is not None and len(data_parse.obs.columns) > 0:
-        schema_obs = Schema.from_df(
-            df=data_parse.obs,
-            field=obs_field,
-            mute=mute,
-            organism=organism,
-        )
-        if schema_obs is not None:
-            feature_sets["obs"] = schema_obs
-    if uns_field is not None and len(data_parse.uns) > 0:
-        validated_features = Feature.from_values(  # type: ignore
-            data_parse.uns.keys(), field=uns_field, organism=organism
-        )
-        if len(validated_features) > 0:
-            schema_uns = Schema(validated_features, dtype=None, otype="dict")
-            feature_sets["uns"] = schema_uns
-    return feature_sets
-
-
 def is_valid_datetime_str(date_string: str) -> bool | str:
     try:
         dt = datetime.fromisoformat(date_string)
@@ -1092,52 +1039,6 @@ def _add_schema(self, schema: Schema, slot: str) -> None:
         self._slots[slot] = schema  # type: ignore
 
 
-def _add_set_from_df(
-    self,
-    field: FieldAttr = Feature.name,
-    organism: str | None = None,
-    mute: bool = False,
-):
-    """Add feature set corresponding to column names of DataFrame."""
-    assert self._host.otype == "DataFrame"  # noqa: S101
-    df = self._host.load(is_run_input=False)
-    schema = Schema.from_df(
-        df=df,
-        field=field,
-        mute=mute,
-        organism=organism,
-    )
-    self._host._staged_feature_sets = {"columns": schema}
-    self._host.save()
-
-
-def _add_set_from_anndata(
-    self,
-    var_field: FieldAttr | None = None,
-    obs_field: FieldAttr | None = Feature.name,
-    uns_field: FieldAttr | None = None,
-    mute: bool = False,
-    organism: str | Record | None = None,
-):
-    """Add features from AnnData."""
-    assert self._host.otype == "AnnData"  # noqa: S101
-
-    # parse and register features
-    adata = self._host.load(is_run_input=False)
-    feature_sets = parse_staged_feature_sets_from_anndata(
-        adata,
-        var_field=var_field,
-        obs_field=obs_field,
-        uns_field=uns_field,
-        mute=mute,
-        organism=organism,
-    )
-
-    # link feature sets
-    self._host._staged_feature_sets = feature_sets
-    self._host.save()
-
-
 def _unify_staged_feature_sets_by_hash(
     feature_sets: MutableMapping[str, Schema],
 ):
@@ -1151,83 +1052,6 @@ def _unify_staged_feature_sets_by_hash(
             unique_values[value_hash] = value
 
     return feature_sets
-
-
-def _add_set_from_mudata(
-    self,
-    var_fields: dict[str, FieldAttr] | None = None,
-    obs_fields: dict[str, FieldAttr] | None = None,
-    mute: bool = False,
-    organism: str | Record | None = None,
-):
-    """Add features from MuData."""
-    if obs_fields is None:
-        obs_fields = {}
-    assert self._host.otype == "MuData"  # noqa: S101
-
-    # parse and register features
-    mdata = self._host.load(is_run_input=False)
-    feature_sets = {}
-
-    obs_features = Feature.from_values(mdata.obs.columns)  # type: ignore
-    if len(obs_features) > 0:
-        feature_sets["obs"] = Schema(features=obs_features)
-    for modality, field in var_fields.items():
-        modality_fs = parse_staged_feature_sets_from_anndata(
-            mdata[modality],
-            var_field=field,
-            obs_field=obs_fields.get(modality, Feature.name),
-            mute=mute,
-            organism=organism,
-        )
-        for k, v in modality_fs.items():
-            feature_sets[f"['{modality}'].{k}"] = v
-
-    # link feature sets
-    self._host._staged_feature_sets = _unify_staged_feature_sets_by_hash(feature_sets)
-    self._host.save()
-
-
-def _add_set_from_spatialdata(
-    self,
-    sample_metadata_key: str,
-    sample_metadata_field: FieldAttr = Feature.name,
-    var_fields: dict[str, FieldAttr] | None = None,
-    obs_fields: dict[str, FieldAttr] | None = None,
-    mute: bool = False,
-    organism: str | Record | None = None,
-):
-    """Add features from SpatialData."""
-    obs_fields, var_fields = obs_fields or {}, var_fields or {}
-    assert self._host.otype == "SpatialData"  # noqa: S101
-
-    # parse and register features
-    sdata = self._host.load(is_run_input=False)
-    feature_sets = {}
-
-    # sample features
-    sample_features = Feature.from_values(
-        sdata.get_attrs(key=sample_metadata_key, return_as="df", flatten=True).columns,
-        field=sample_metadata_field,
-    )  # type: ignore
-    if len(sample_features) > 0:
-        feature_sets[sample_metadata_key] = Schema(features=sample_features)
-
-    # table features
-    for table, field in var_fields.items():
-        table_fs = parse_staged_feature_sets_from_anndata(
-            sdata[table],
-            var_field=field,
-            obs_field=obs_fields.get(table, Feature.name),
-            mute=mute,
-            organism=organism,
-        )
-        for k, v in table_fs.items():
-            feature_sets[f"['{table}'].{k}"] = v
-
-    # link feature sets
-    self._host._staged_feature_sets = _unify_staged_feature_sets_by_hash(feature_sets)
-    self._host.save()
 
 
 def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
@@ -1340,6 +1164,187 @@ def _feature_set_by_slot(self):
     return self.slots
 
 
+# deprecated: feature set parsing
+
+
+def parse_staged_feature_sets_from_anndata(
+    adata: AnnData,
+    var_field: FieldAttr | None = None,
+    obs_field: FieldAttr = Feature.name,
+    uns_field: FieldAttr | None = None,
+    mute: bool = False,
+    organism: str | Record | None = None,
+) -> dict:
+    data_parse = adata
+    if not isinstance(adata, AnnData):  # is a path
+        filepath = create_path(adata)  # returns Path for local
+        if not isinstance(filepath, LocalPathClasses):
+            from lamindb import settings
+            from lamindb.core.storage._backed_access import backed_access
+
+            using_key = settings._using_key
+            data_parse = backed_access(filepath, using_key=using_key)
+        else:
+            data_parse = ad.read_h5ad(filepath, backed="r")
+        type = "float"
+    else:
+        type = "float" if adata.X is None else serialize_pandas_dtype(adata.X.dtype)
+    feature_sets = {}
+    if var_field is not None:
+        schema_var = Schema.from_values(
+            data_parse.var.index,
+            var_field,
+            type=type,
+            mute=mute,
+            organism=organism,
+            raise_validation_error=False,
+        )
+        if schema_var is not None:
+            feature_sets["var"] = schema_var
+    if obs_field is not None and len(data_parse.obs.columns) > 0:
+        schema_obs = Schema.from_df(
+            df=data_parse.obs,
+            field=obs_field,
+            mute=mute,
+            organism=organism,
+        )
+        if schema_obs is not None:
+            feature_sets["obs"] = schema_obs
+    if uns_field is not None and len(data_parse.uns) > 0:
+        validated_features = Feature.from_values(  # type: ignore
+            data_parse.uns.keys(), field=uns_field, organism=organism
+        )
+        if len(validated_features) > 0:
+            schema_uns = Schema(validated_features, dtype=None, otype="dict")
+            feature_sets["uns"] = schema_uns
+    return feature_sets
+
+
+# no longer called from within curator
+# might deprecate in the future?
+def _add_set_from_df(
+    self,
+    field: FieldAttr = Feature.name,
+    organism: str | None = None,
+    mute: bool = False,
+):
+    """Add feature set corresponding to column names of DataFrame."""
+    assert self._host.otype == "DataFrame"  # noqa: S101
+    df = self._host.load(is_run_input=False)
+    schema = Schema.from_df(
+        df=df,
+        field=field,
+        mute=mute,
+        organism=organism,
+    )
+    self._host._staged_feature_sets = {"columns": schema}
+    self._host.save()
+
+
+def _add_set_from_anndata(
+    self,
+    var_field: FieldAttr | None = None,
+    obs_field: FieldAttr | None = Feature.name,
+    uns_field: FieldAttr | None = None,
+    mute: bool = False,
+    organism: str | Record | None = None,
+):
+    """Add features from AnnData."""
+    assert self._host.otype == "AnnData"  # noqa: S101
+
+    # parse and register features
+    adata = self._host.load(is_run_input=False)
+    feature_sets = parse_staged_feature_sets_from_anndata(
+        adata,
+        var_field=var_field,
+        obs_field=obs_field,
+        uns_field=uns_field,
+        mute=mute,
+        organism=organism,
+    )
+
+    # link feature sets
+    self._host._staged_feature_sets = feature_sets
+    self._host.save()
+
+
+def _add_set_from_mudata(
+    self,
+    var_fields: dict[str, FieldAttr] | None = None,
+    obs_fields: dict[str, FieldAttr] | None = None,
+    mute: bool = False,
+    organism: str | Record | None = None,
+):
+    """Add features from MuData."""
+    if obs_fields is None:
+        obs_fields = {}
+    assert self._host.otype == "MuData"  # noqa: S101
+
+    # parse and register features
+    mdata = self._host.load(is_run_input=False)
+    feature_sets = {}
+
+    obs_features = Feature.from_values(mdata.obs.columns)  # type: ignore
+    if len(obs_features) > 0:
+        feature_sets["obs"] = Schema(features=obs_features)
+    for modality, field in var_fields.items():
+        modality_fs = parse_staged_feature_sets_from_anndata(
+            mdata[modality],
+            var_field=field,
+            obs_field=obs_fields.get(modality, Feature.name),
+            mute=mute,
+            organism=organism,
+        )
+        for k, v in modality_fs.items():
+            feature_sets[f"['{modality}'].{k}"] = v
+
+    # link feature sets
+    self._host._staged_feature_sets = _unify_staged_feature_sets_by_hash(feature_sets)
+    self._host.save()
+
+
+def _add_set_from_spatialdata(
+    self,
+    sample_metadata_key: str,
+    sample_metadata_field: FieldAttr = Feature.name,
+    var_fields: dict[str, FieldAttr] | None = None,
+    obs_fields: dict[str, FieldAttr] | None = None,
+    mute: bool = False,
+    organism: str | Record | None = None,
+):
+    """Add features from SpatialData."""
+    obs_fields, var_fields = obs_fields or {}, var_fields or {}
+    assert self._host.otype == "SpatialData"  # noqa: S101
+
+    # parse and register features
+    sdata = self._host.load(is_run_input=False)
+    feature_sets = {}
+
+    # sample features
+    sample_features = Feature.from_values(
+        sdata.get_attrs(key=sample_metadata_key, return_as="df", flatten=True).columns,
+        field=sample_metadata_field,
+    )  # type: ignore
+    if len(sample_features) > 0:
+        feature_sets[sample_metadata_key] = Schema(features=sample_features)
+
+    # table features
+    for table, field in var_fields.items():
+        table_fs = parse_staged_feature_sets_from_anndata(
+            sdata[table],
+            var_field=field,
+            obs_field=obs_fields.get(table, Feature.name),
+            mute=mute,
+            organism=organism,
+        )
+        for k, v in table_fs.items():
+            feature_sets[f"['{table}'].{k}"] = v
+
+    # link feature sets
+    self._host._staged_feature_sets = _unify_staged_feature_sets_by_hash(feature_sets)
+    self._host.save()
+
+
 # mypy: ignore-errors
 FeatureManager.__init__ = __init__
 ParamManager.__init__ = __init__
@@ -1350,15 +1355,7 @@ FeatureManager.get_values = get_values
 FeatureManager.slots = slots
 FeatureManager.add_values = add_values_features
 FeatureManager._add_schema = _add_schema
-FeatureManager.add_schema = add_schema  # deprecated
-FeatureManager.add_feature_set = add_feature_set  # deprecated
-FeatureManager._schema_by_slot = _schema_by_slot  # deprecated
-FeatureManager._feature_set_by_slot = _feature_set_by_slot  # deprecated
 FeatureManager._accessor_by_registry = _accessor_by_registry
-FeatureManager._add_set_from_df = _add_set_from_df
-FeatureManager._add_set_from_anndata = _add_set_from_anndata
-FeatureManager._add_set_from_mudata = _add_set_from_mudata
-FeatureManager._add_set_from_spatialdata = _add_set_from_spatialdata
 FeatureManager._add_from = _add_from
 FeatureManager.filter = filter
 FeatureManager.get = get
@@ -1367,3 +1364,13 @@ FeatureManager.remove_values = remove_values
 ParamManager.add_values = add_values_params
 ParamManager.get_values = get_values
 ParamManager.filter = filter
+
+# deprecated
+FeatureManager._add_set_from_df = _add_set_from_df
+FeatureManager._add_set_from_anndata = _add_set_from_anndata
+FeatureManager._add_set_from_mudata = _add_set_from_mudata
+FeatureManager._add_set_from_spatialdata = _add_set_from_spatialdata
+FeatureManager.add_schema = add_schema
+FeatureManager.add_feature_set = add_feature_set
+FeatureManager._schema_by_slot = _schema_by_slot
+FeatureManager._feature_set_by_slot = _feature_set_by_slot

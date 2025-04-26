@@ -213,6 +213,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
 
     print(artifact.describe())
 
+    assert artifact.features.slots["columns"].n == 5
     assert set(artifact.features.get_values()["sample"]) == {
         "sample1",
         "sample2",
@@ -324,8 +325,8 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
         ).save()
         assert small_dataset1_schema.id is not None, small_dataset1_schema
         assert anndata_schema.slots["var"] == var_schema
-        # if add_comp == "obs":
-        # assert anndata_schema.slots["obs"] == obs_schema, bring back once index is accounted for
+        if add_comp == "obs":
+            assert anndata_schema.slots["obs"] == obs_schema
         if add_comp == "uns":
             assert anndata_schema.slots["uns"] == uns_schema
 
@@ -350,10 +351,10 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
         assert artifact.schema == anndata_schema
         assert artifact.features.slots["var"].n == 3  # 3 genes get linked
         if add_comp == "obs":
-            # assert artifact.features.slots["obs"] == obs_schema
+            assert artifact.features.slots["obs"] == obs_schema
             # deprecated
-            # assert artifact.features._schema_by_slot["obs"] == obs_schema
-            # assert artifact.features._feature_set_by_slot["obs"] == obs_schema
+            assert artifact.features._schema_by_slot["obs"] == obs_schema
+            assert artifact.features._feature_set_by_slot["obs"] == obs_schema
 
             assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
                 "CD8-positive, alpha-beta T cell",
@@ -440,17 +441,18 @@ def test_mudata_curator(
         "hto:obs",
         "rna:var",
     }
+    ln.settings.verbosity = "hint"
     with pytest.raises(ln.errors.ValidationError):
         curator.validate()
     curator.slots["rna:var"].cat.standardize("columns")
     curator.slots["rna:var"].cat.add_new_from("columns")
     artifact = curator.save_artifact(key="mudata_papalexi21_subset.h5mu")
     assert artifact.schema == mudata_schema
-    assert artifact.features.slots.keys() == {
+    assert set(artifact.features.slots.keys()) == {
         "obs",
-        "['rna'].var",
-        "['rna'].obs",
-        "['hto'].obs",
+        "rna:var",
+        "rna:obs",
+        "hto:obs",
     }
 
     artifact.delete(permanent=True)
@@ -480,8 +482,8 @@ def test_spatialdata_curator(
     assert artifact.schema == spatialdata_schema
     assert artifact.features.slots.keys() == {
         "sample",
-        "['table'].var",
-        "['table'].obs",
+        "table:var",
+        "table:obs",
     }
     assert artifact.features.get_values()["assay"] == "Visium Spatial Gene Expression"
 

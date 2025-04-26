@@ -222,35 +222,6 @@ def test_unvalidated_data_object(df, categoricals):
         curator.save_artifact()
 
 
-def test_clean_up_failed_runs():
-    mock_transform = ln.Transform()
-    mock_transform.save()
-    mock_run = ln.Run(mock_transform)
-    mock_run.save()
-    mock_run_2 = ln.Run(mock_transform)
-    mock_run_2.save()
-
-    # Set the default currently used transform and mock run -> these should not be cleaned up
-    from lamindb.core._context import context
-
-    previous_transform = context._transform
-    previous_run = context.run
-
-    context._transform = mock_transform
-    context._run = mock_run
-
-    assert len(ln.Run.filter(transform=mock_transform).all()) == 2
-
-    curator = ln.Curator.from_df(pd.DataFrame())
-    curator.clean_up_failed_runs()
-
-    assert len(ln.Run.filter(transform=mock_transform).all()) == 1
-
-    # Revert to old run context to not infer with tests that need the run context
-    context._transform = previous_transform
-    context._run = previous_run
-
-
 @pytest.mark.parametrize("to_add", ["donor", "all"])
 def test_anndata_curator(adata, categoricals, to_add):
     try:

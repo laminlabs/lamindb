@@ -526,8 +526,6 @@ def test_add_labels_using_anndata(adata):
         itype="Feature", _links_artifact__slot="obs"
     ).one()
     assert schema_obs.n == 4
-    # TODO, write a test that queries the organism feature
-    # assert "organism" in schema_ext.features.list("name")
 
     # now we add cell types & tissues and run checks
     ln.Feature(name="cell_type", dtype="cat").save()
