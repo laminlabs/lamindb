@@ -241,15 +241,14 @@ class Curator:
         pass  # pragma: no cover
 
 
-# default implementation for MuDataCurator and SpatialDataCurator
+# default implementation for AnnDataCurator, MuDataCurator, and SpatialDataCurator
 class SlotsCurator(Curator):
     """Curator for a dataset with slots.
 
     Args:
         dataset: The dataset to validate & annotate.
-        schema: A `Schema` object that defines the validation constraints.
+        schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
 
-    .. versionadded:: 1.3.0
     """
 
     def __init__(
@@ -292,6 +291,14 @@ class SlotsCurator(Curator):
         if not self._is_validated:
             self.validate()
         if self._artifact is None:
+            if data_is_anndata(self._dataset):
+                self._artifact = Artifact.from_anndata(
+                    self._dataset,
+                    key=key,
+                    description=description,
+                    revises=revises,
+                    run=run,
+                )
             if data_is_mudata(self._dataset):
                 self._artifact = Artifact.from_mudata(
                     self._dataset,
@@ -348,13 +355,9 @@ class DataFrameCurator(Curator):
     # the example in the docstring is tested in test_curators_quickstart_example
     """Curator for `DataFrame`.
 
-    See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
-
-    .. versionadded:: 1.1.0
-
     Args:
         dataset: The DataFrame-like object to validate & annotate.
-        schema: A `Schema` object that defines the validation constraints.
+        schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
 
     Example::
 
@@ -592,13 +595,9 @@ class AnnDataCurator(SlotsCurator):
     # the example in the docstring is tested in test_curators_quickstart_example
     """Curator for `AnnData`.
 
-    See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
-
-    .. versionadded:: 1.1.0
-
     Args:
         dataset: The AnnData-like object to validate & annotate.
-        schema: A `Schema` object that defines the validation constraints.
+        schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
 
     Example::
 
@@ -673,38 +672,6 @@ class AnnDataCurator(SlotsCurator):
             ]._cat_manager._cat_columns.pop("columns")
             self._slots["var"]._cat_manager._cat_columns["var_index"]._key = "var_index"
 
-    @doc_args(SAVE_ARTIFACT_DOCSTRING)
-    def save_artifact(
-        self,
-        *,
-        key: str | None = None,
-        description: str | None = None,
-        revises: Artifact | None = None,
-        run: Run | None = None,
-    ) -> Artifact:
-        """{}"""  # noqa: D415
-        if not self._is_validated:
-            self.validate()
-        if self._artifact is None:
-            self._artifact = Artifact.from_anndata(
-                self._dataset,
-                key=key,
-                description=description,
-                revises=revises,
-                run=run,
-            )
-            self._artifact.schema = self._schema
-            self._artifact.save()
-        return annotate_artifact(  # type: ignore
-            self._artifact,
-            cat_columns=(
-                self.slots["obs"]._cat_manager._cat_columns
-                if "obs" in self.slots
-                else {}
-            ),
-            curator=self,
-        )
-
 
 def _assign_var_fields_categoricals_multimodal(
     modality: str | None,
@@ -742,13 +709,9 @@ class MuDataCurator(SlotsCurator):
     # the example in the docstring is tested in test_curators_quickstart_example
     """Curator for `MuData`.
 
-    See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
-
-    .. versionadded:: 1.3.0
-
     Args:
         dataset: The MuData-like object to validate & annotate.
-        schema: A `Schema` object that defines the validation constraints.
+        schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
 
     Example::
 
@@ -858,13 +821,9 @@ class SpatialDataCurator(SlotsCurator):
     # the example in the docstring is tested in test_curators_quickstart_example
     """Curator for `SpatialData`.
 
-    See also :class:`~lamindb.Curator` and :class:`~lamindb.Schema`.
-
-    .. versionadded:: 1.3.0
-
     Args:
         dataset: The SpatialData-like object to validate & annotate.
-        schema: A `Schema` object that defines the validation constraints.
+        schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
 
     Example::
 
