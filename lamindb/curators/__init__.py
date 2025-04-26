@@ -1407,6 +1407,7 @@ class DataFrameCatManager(CatManager):
         index: Feature | None = None,
     ) -> None:
         self._non_validated = None
+        self._index = index
         super().__init__(
             dataset=df,
             columns_field=columns_field,
@@ -1426,10 +1427,6 @@ class DataFrameCatManager(CatManager):
                 key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
                 source=self._sources.get("columns"),
             )
-            self._cat_columns["columns"].validate()
-            if index is not None:
-                # the index should become part of the feature set corresponding to the dataframe
-                self._cat_columns["columns"].labels.insert(0, index)  # type: ignore
         else:
             # NOTE: for var_index right now
             self._cat_columns["columns"] = CatColumn(
@@ -1504,14 +1501,16 @@ class DataFrameCatManager(CatManager):
         self._validate_category_error_messages = ""  # reset the error messages
 
         validated = True
-        for _key, cat_column in self._cat_columns.items():
-            # if key == "columns":
-            #     # is already validated at init and through pandera
-            #     continue
+        for _, cat_column in self._cat_columns.items():
             cat_column.validate()
             validated &= cat_column.is_validated
         self._is_validated = validated
         self._non_validated = {}  # so it's no longer None
+
+        if self._index is not None:
+            # cat_column.validate() populates validated labels
+            # the index should become part of the feature set corresponding to the dataframe
+            self._cat_columns["columns"].labels.insert(0, self._index)  # type: ignore
 
         return self._is_validated
 

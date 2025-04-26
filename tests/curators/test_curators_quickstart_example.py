@@ -211,6 +211,8 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
     artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
 
+    print(artifact.describe())
+
     assert artifact.features.slots["columns"].n == 5
     assert set(artifact.features.get_values()["sample"]) == {
         "sample1",
