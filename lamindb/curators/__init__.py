@@ -1386,6 +1386,8 @@ class DataFrameCatManager(CatManager):
                 key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
                 source=self._sources.get("columns"),
             )
+            if isinstance(self._categoricals, dict):  # backward compat
+                self._cat_columns["columns"].validate()
         else:
             # NOTE: for var_index right now
             self._cat_columns["columns"] = CatColumn(
