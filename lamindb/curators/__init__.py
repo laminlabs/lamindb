@@ -788,7 +788,6 @@ class MuDataCurator(SlotsCurator):
             raise InvalidArgument("Schema otype must be 'MuData'.")
 
         for slot, slot_schema in schema.slots.items():
-            # Assign to _slots
             if ":" in slot:
                 modality, modality_slot = slot.split(":")
                 schema_dataset = self._dataset.__getitem__(modality)
@@ -825,59 +824,11 @@ class SpatialDataCurator(SlotsCurator):
         dataset: The SpatialData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
 
-    Example::
+    Example:
 
-        import lamindb as ln
-        import bionty as bt
-
-        # define sample schema
-        sample_schema = ln.Schema(
-            name="blobs_sample_level_metadata",
-            features=[
-                ln.Feature(name="assay", dtype=bt.ExperimentalFactor).save(),
-                ln.Feature(name="disease", dtype=bt.Disease).save(),
-                ln.Feature(name="development_stage", dtype=bt.DevelopmentalStage).save(),
-            ],
-            coerce_dtype=True
-        ).save()
-
-        # define table obs schema
-        blobs_obs_schema = ln.Schema(
-            name="blobs_obs_level_metadata",
-            features=[
-                ln.Feature(name="sample_region", dtype="str").save(),
-            ],
-            coerce_dtype=True
-        ).save()
-
-        # define table var schema
-        blobs_var_schema = ln.Schema(
-            name="blobs_var_schema",
-            itype=bt.Gene.ensembl_gene_id,
-            dtype=int
-        ).save()
-
-        # define composite schema
-        spatialdata_schema = ln.Schema(
-            name="blobs_spatialdata_schema",
-            otype="SpatialData",
-            components={
-                "sample": sample_schema,
-                "table:obs": blobs_obs_schema,
-                "table:var": blobs_var_schema,
-        }).save()
-
-        # curate a SpatialData
-        spatialdata = ln.core.datasets.spatialdata_blobs()
-        curator = ln.curators.SpatialDataCurator(spatialdata, spatialdata_schema)
-        try:
-            curator.validate()
-        except ln.errors.ValidationError as error:
-            print(error)
-
-        # validate again (must pass now) and save artifact
-        artifact = curator.save_artifact(key="example_datasets/spatialdata1.zarr")
-        assert artifact.schema == spatialdata_schema
+        .. literalinclude:: scripts/curate-spatialdata.py
+        :language: python
+        :caption: curate-spatialdata.py
     """
 
     def __init__(
