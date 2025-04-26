@@ -680,6 +680,7 @@ class Schema(Record, CanCurate, TracksRun):
             bulk_create(links, ignore_conflicts=True)
         if hasattr(self, "_features"):
             assert self.n > 0  # noqa: S101
+            using: bool | None = kwargs.pop("using", None)
             related_name, records = self._features
             # only the following method preserves the order
             # .set() does not preserve the order but orders by
@@ -695,7 +696,7 @@ class Schema(Record, CanCurate, TracksRun):
                 through_model(**{"schema_id": self.id, related_field_id: record.id})
                 for record in records
             ]
-            through_model.objects.bulk_create(links, ignore_conflicts=True)
+            through_model.objects.using(using).bulk_create(links, ignore_conflicts=True)
         return self
 
     @property
