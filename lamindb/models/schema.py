@@ -433,6 +433,7 @@ class Schema(Record, CanCurate, TracksRun):
         ordered_set: bool = kwargs.pop("ordered_set", False)
         maximal_set: bool = kwargs.pop("maximal_set", False)
         coerce_dtype: bool | None = kwargs.pop("coerce_dtype", None)
+        using: bool | None = kwargs.pop("using", None)
         optional_features = []
 
         if kwargs:
@@ -512,7 +513,7 @@ class Schema(Record, CanCurate, TracksRun):
                 )
             hash = hash_set(union_set)
         validated_kwargs["hash"] = hash
-        schema = Schema.filter(hash=hash).one_or_none()
+        schema = Schema.objects.using(using).filter(hash=hash).one_or_none()
         if schema is not None:
             logger.important(f"returning existing schema with same hash: {schema}")
             init_self_from_db(self, schema)
