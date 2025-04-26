@@ -316,7 +316,6 @@ class SlotsCurator(Curator):
                 cat_columns[key] = cat_column
         return annotate_artifact(  # type: ignore
             self._artifact,
-            index_field=self._var_fields,
             curator=self,
             cat_columns=cat_columns,
         )
@@ -572,7 +571,6 @@ class DataFrameCurator(Curator):
         """{}"""  # noqa: D415
         if not self._is_validated:
             self.validate()  # raises ValidationError if doesn't validate
-        result = parse_cat_dtype(self._schema.itype, is_itype=True)
         if self._artifact is None:
             self._artifact = Artifact.from_df(
                 self._dataset,
@@ -586,7 +584,6 @@ class DataFrameCurator(Curator):
             self._artifact.save()
         return annotate_artifact(  # type: ignore
             self._artifact,
-            index_field=result["field"],
             cat_columns=self._cat_manager._cat_columns,
         )
 
@@ -704,11 +701,6 @@ class AnnDataCurator(SlotsCurator):
                 self.slots["obs"]._cat_manager._cat_columns
                 if "obs" in self.slots
                 else {}
-            ),
-            index_field=(
-                parse_cat_dtype(self.slots["var"]._schema.itype, is_itype=True)["field"]
-                if "var" in self._slots
-                else None
             ),
             curator=self,
         )
