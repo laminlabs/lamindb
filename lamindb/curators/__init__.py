@@ -403,11 +403,11 @@ class DataFrameCurator(Curator):
             if schema._index_feature_uid is not None:
                 schema_features = [
                     feature
-                    for feature in schema.features.all().list()
+                    for feature in schema.members.list()
                     if feature.uid != schema._index_feature_uid
                 ]
             else:
-                schema_features = schema.features.all().list()
+                schema_features = schema.members.list()
             if feature_ids:
                 features.extend(
                     feature
@@ -580,6 +580,7 @@ class DataFrameCurator(Curator):
                 description=description,
                 revises=revises,
                 run=run,
+                format=".csv" if key.endswith(".csv") else None,
             )
             self._artifact.schema = self._schema
             self._artifact.save()

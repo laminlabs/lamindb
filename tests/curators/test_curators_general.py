@@ -211,3 +211,27 @@ def test_schema_optionals():
     # clean up
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
+
+
+def test_schema_ordered_set(df):
+    # create features with a different order so that sample_id is not the first
+    ln.Feature(name="sample_name", dtype=str).save()
+    ln.Feature(name="sample_type", dtype=str).save()
+    ln.Feature(name="sample_id", dtype=str).save()
+
+    # create an ordered schema with sample_id as the first feature
+    schema = ln.Schema(
+        name="my-schema",
+        features=[
+            ln.Feature(name="sample_id", dtype=str).save(),
+            ln.Feature(name="sample_name", dtype=str).save(),
+            ln.Feature(name="sample_type", dtype=str).save(),
+        ],
+        ordered_set=True,
+    ).save()
+
+    assert ln.curators.DataFrameCurator(df, schema=schema).validate() is None
+
+    # clean up
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()

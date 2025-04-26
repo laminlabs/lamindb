@@ -37,10 +37,10 @@ class Settings:
     Use ``lamindb.settings`` instead of instantiating this class yourself.
     """
 
-    def __init__(self, git_repo: str | None):
+    def __init__(self):
         self._verbosity_int: int = 1  # warning-level logging
         logger.set_verbosity(self._verbosity_int)
-        self._sync_git_repo: str | None = git_repo
+        self._sync_git_repo: str | None = None
 
     @property
     def creation(self) -> CreationSettings:
@@ -85,13 +85,18 @@ class Settings:
 
         Provide the full git repo URL.
         """
-        return self._sync_git_repo
+        if self._sync_git_repo is not None:
+            return self._sync_git_repo
+        elif os.environ.get("LAMINDB_MULTI_INSTANCE") == "true":
+            return None
+        else:
+            return setup_settings.instance.git_repo
 
     @sync_git_repo.setter
     def sync_git_repo(self, value) -> None:
         """Sync transforms with scripts in git repository.
 
-        For example: `ln.sync_git_repo = https://github.com/laminlabs/redun-lamin`
+        For example: `ln.settings.sync_git_repo = https://github.com/laminlabs/redun-lamin`
         """
         self._sync_git_repo = sanitize_git_repo_url(value)
         if not self._sync_git_repo.startswith("https://"):  # pragma: nocover
@@ -174,9 +179,4 @@ class Settings:
         logger.set_verbosity(verbosity_int)
 
 
-if os.environ.get("LAMINDB_MULTI_INSTANCE") == "true":
-    git_repo = None
-else:
-    git_repo = setup_settings.instance.git_repo
-
-settings = Settings(git_repo=git_repo)
+settings = Settings()
