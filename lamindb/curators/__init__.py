@@ -3238,6 +3238,8 @@ def legacy_annotate_artifact(
         case _:
             raise NotImplementedError  # pragma: no cover
 
+    return artifact
+
 
 def annotate_artifact(
     artifact: Artifact,
