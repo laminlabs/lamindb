@@ -211,8 +211,6 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
     artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
 
-    print(artifact.describe())
-
     assert artifact.features.slots["columns"].n == 5
     assert set(artifact.features.get_values()["sample"]) == {
         "sample1",
@@ -365,7 +363,6 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
                 "B cell",
             }
         if add_comp == "uns":
-            print(artifact.features.slots["uns"].features.df())
             assert artifact.features.slots["uns"].features.first() == ln.Feature.get(
                 name="temperature"
             )
@@ -442,13 +439,13 @@ def test_mudata_curator(
         "hto:obs",
         "rna:var",
     }
-    # with pytest.raises(ln.errors.ValidationError):
-    #     curator.validate()
-    # curator.slots["rna:var"].cat.standardize("columns")
-    # curator.slots["rna:var"].cat.add_new_from("columns")
+    ln.settings.verbosity = "hint"
+    with pytest.raises(ln.errors.ValidationError):
+        curator.validate()
+    curator.slots["rna:var"].cat.standardize("columns")
+    curator.slots["rna:var"].cat.add_new_from("columns")
     artifact = curator.save_artifact(key="mudata_papalexi21_subset.h5mu")
     assert artifact.schema == mudata_schema
-    print(artifact.features.slots.keys())
     assert set(artifact.features.slots.keys()) == {
         "obs",
         "rna:var",

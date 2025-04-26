@@ -1504,10 +1504,10 @@ class DataFrameCatManager(CatManager):
         self._validate_category_error_messages = ""  # reset the error messages
 
         validated = True
-        for key, cat_column in self._cat_columns.items():
-            if key == "columns":
-                # is already validated at init and through pandera
-                continue
+        for _key, cat_column in self._cat_columns.items():
+            # if key == "columns":
+            #     # is already validated at init and through pandera
+            #     continue
             cat_column.validate()
             validated &= cat_column.is_validated
         self._is_validated = validated
