@@ -1050,10 +1050,7 @@ class DataFrameCatManager:
         self._dataset: Any = df  # pass the dataset as a UPathStr or data object
         if isinstance(self._dataset, Artifact):
             self._artifact = self._dataset
-            if self._artifact.otype in {"DataFrame", "AnnData"}:
-                self._dataset = self._dataset.load(
-                    is_run_input=False  # we already track this in the Curator constructor
-                )
+            self._dataset = self._dataset.load(is_run_input=False)
         self._is_validated: bool = False
         self._categoricals = categoricals or []
         self._non_validated = None
