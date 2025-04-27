@@ -60,14 +60,6 @@ Low-level functionality.
    models
    core
 
-Backward compatibility.
-
-.. autosummary::
-   :toctree: .
-
-   FeatureSet
-   Curator
-
 """
 
 # ruff: noqa: I001

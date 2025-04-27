@@ -1089,7 +1089,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         ln.Artifact.filter(scientist="Barbara McClintock")
 
     Features may or may not be part of the artifact content in storage. For
-    instance, the :class:`~lamindb.Curator` flow validates the columns of a
+    instance, the :class:`~lamindb.curators.DataFrameCurator` flow validates the columns of a
     `DataFrame`-like artifact and annotates it with features corresponding to
     these columns. `artifact.features.add_values`, by contrast, does not
     validate the content of the artifact.

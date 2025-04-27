@@ -5,7 +5,7 @@
 
    Curator
    SlotsCurator
-   CatManager
+   CatColumn
    CatLookup
    DataFrameCatManager
 
@@ -21,10 +21,10 @@ import lamindb_setup as ln_setup
 import pandas as pd
 import pandera
 from lamin_utils import colors, logger
-from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 
 if TYPE_CHECKING:
+    from anndata import AnnData
     from mudata import MuData
     from spatialdata import SpatialData
 
@@ -46,7 +46,6 @@ from lamindb.models.feature import parse_dtype, parse_cat_dtype
 from lamindb.models._from_values import _format_values
 
 from ..errors import InvalidArgument, ValidationError
-from anndata import AnnData
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -189,7 +188,7 @@ class Curator:
                 self._dataset = self._dataset.load()
         self._schema: Schema | None = schema
         self._is_validated: bool = False
-        self._cat_manager: CatManager = None  # is None for CatManager curators
+        self._cat_manager: DataFrameCatManager = None  # is None for CatManager curators
 
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> bool | str:
@@ -438,7 +437,7 @@ class DataFrameCurator(Curator):
 
     @property
     @doc_args(CAT_MANAGER_DOCSTRING)
-    def cat(self) -> CatManager:
+    def cat(self) -> DataFrameCatManager:
         """{}"""  # noqa: D415
         return self._cat_manager
 
@@ -910,7 +909,7 @@ class CatColumn:
     def _validate(
         self,
         values: list[str],
-        curator: CatManager | None = None,  # TODO: not yet used
+        curator: DataFrameCatManager | None = None,  # TODO: not yet used
     ) -> tuple[list[str], dict]:
         """Validate ontology terms using LaminDB registries."""
         registry = self._field.field.model
@@ -1025,169 +1024,45 @@ class CatColumn:
         self._non_validated = []
 
 
-class CatManager:
+class DataFrameCatManager:
     """Manage categoricals by updating registries.
 
     This class is accessible from within a `DataFrameCurator` via the `.cat` attribute.
 
-    If you find non-validated values, you have several options:
+    If you find non-validated values, you have two options:
 
-    - new values found in the data can be registered via `DataFrameCurator.cat.add_new_from()` :meth:`~lamindb.curators.DataFrameCatManager.add_new_from`
-    - non-validated values can be accessed via `DataFrameCurator.cat.add_new_from()` :meth:`~lamindb.curators.DataFrameCatManager.non_validated` and addressed manually
+    - new values found in the data can be registered via `DataFrameCurator.cat.add_new_from()` :meth:`~lamindb.curators.core.DataFrameCatManager.add_new_from`
+    - non-validated values can be accessed via `DataFrameCurator.cat.add_new_from()` :meth:`~lamindb.curators.core.DataFrameCatManager.non_validated` and addressed manually
     """
-
-    def __init__(self, *, dataset, categoricals, sources, columns_field=None):
-        # the below is shared with Curator
-        self._artifact: Artifact = None  # pass the dataset as an artifact
-        self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
-        if isinstance(self._dataset, Artifact):
-            self._artifact = self._dataset
-            if self._artifact.otype in {"DataFrame", "AnnData"}:
-                self._dataset = self._dataset.load(
-                    is_run_input=False  # we already track this in the Curator constructor
-                )
-        self._is_validated: bool = False
-        # shared until here
-        self._categoricals = categoricals or []
-        self._non_validated = None
-        self._sources = sources or {}
-        self._columns_field = columns_field
-        self._validate_category_error_messages: str = ""
-        self._cat_columns: dict[str, CatColumn] = {}
-
-    @property
-    def non_validated(self) -> dict[str, list[str]]:
-        """Return the non-validated features and labels."""
-        if self._non_validated is None:
-            raise ValidationError("Please run validate() first!")
-        return {
-            key: cat_column._non_validated
-            for key, cat_column in self._cat_columns.items()
-            if cat_column._non_validated and key != "columns"
-        }
-
-    @property
-    def categoricals(self) -> dict:
-        """Return the columns fields to validate against."""
-        return self._categoricals
-
-    def validate(self) -> bool:
-        """Validate dataset.
-
-        This method also registers the validated records in the current instance.
-
-        Returns:
-            The boolean `True` if the dataset is validated. Otherwise, a string with the error message.
-        """
-        pass  # pragma: no cover
-
-    def standardize(self, key: str) -> None:
-        """Replace synonyms with standardized values.
-
-        Inplace modification of the dataset.
-
-        Args:
-            key: The name of the column to standardize.
-
-        Returns:
-            None
-        """
-        pass  # pragma: no cover
-
-    @deprecated(new_name="Curator.save_artifact()")
-    @doc_args(SAVE_ARTIFACT_DOCSTRING)
-    def save_artifact(
-        self,
-        *,
-        key: str | None = None,
-        description: str | None = None,
-        revises: Artifact | None = None,
-        run: Run | None = None,
-    ) -> Artifact:
-        """{}"""  # noqa: D415
-        # Make sure all labels are saved in the current instance
-        if not self._is_validated:
-            self.validate()  # returns True or False
-            if not self._is_validated:  # need to raise error manually
-                raise ValidationError("Dataset does not validate. Please curate.")
-
-        if self._artifact is None:
-            if isinstance(self._dataset, pd.DataFrame):
-                artifact = Artifact.from_df(
-                    self._dataset,
-                    key=key,
-                    description=description,
-                    revises=revises,
-                    run=run,
-                )
-            elif isinstance(self._dataset, AnnData):
-                artifact = Artifact.from_anndata(
-                    self._dataset,
-                    key=key,
-                    description=description,
-                    revises=revises,
-                    run=run,
-                )
-            elif data_is_mudata(self._dataset):
-                artifact = Artifact.from_mudata(
-                    self._dataset,
-                    key=key,
-                    description=description,
-                    revises=revises,
-                    run=run,
-                )
-            elif data_is_spatialdata(self._dataset):
-                artifact = Artifact.from_spatialdata(
-                    self._dataset,
-                    key=key,
-                    description=description,
-                    revises=revises,
-                    run=run,
-                )
-            else:
-                raise InvalidArgument(  # pragma: no cover
-                    "data must be one of pd.Dataframe, AnnData, MuData, SpatialData."
-                )
-            self._artifact = artifact.save()
-        from ._legacy import legacy_annotate_artifact
-
-        legacy_annotate_artifact(  # type: ignore
-            self._artifact,
-            index_field=self._columns_field,
-            cat_columns=self._cat_columns,
-        )
-        return self._artifact
-
-
-class DataFrameCatManager(CatManager):
-    """Categorical manager for `DataFrame`."""
 
     def __init__(
         self,
         df: pd.DataFrame | Artifact,
         columns_field: FieldAttr = Feature.name,
         columns_names: Iterable[str] | None = None,
-        categoricals: list[Feature] | dict[str, FieldAttr] | None = None,
+        categoricals: list[Feature] | None = None,
         sources: dict[str, Record] | None = None,
         index: Feature | None = None,
     ) -> None:
         self._non_validated = None
         self._index = index
-        super().__init__(
-            dataset=df,
-            columns_field=columns_field,
-            categoricals=categoricals,
-            sources=sources,
-        )
+        self._artifact: Artifact = None  # pass the dataset as an artifact
+        self._dataset: Any = df  # pass the dataset as a UPathStr or data object
+        if isinstance(self._dataset, Artifact):
+            self._artifact = self._dataset
+            self._dataset = self._dataset.load(is_run_input=False)
+        self._is_validated: bool = False
+        self._categoricals = categoricals or []
+        self._non_validated = None
+        self._sources = sources or {}
+        self._columns_field = columns_field
+        self._validate_category_error_messages: str = ""
+        self._cat_columns: dict[str, CatColumn] = {}
         if columns_names is None:
             columns_names = []
         if columns_field == Feature.name:
-            if not isinstance(self._categoricals, dict):  # new style
-                values = columns_names
-            else:
-                values = list(self._categoricals.keys())  # backward compat
             self._cat_columns["columns"] = CatColumn(
-                values_getter=values,
+                values_getter=columns_names,
                 field=self._columns_field,
                 key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
                 source=self._sources.get("columns"),
@@ -1205,50 +1080,50 @@ class DataFrameCatManager(CatManager):
                 key="columns",
                 source=self._sources.get("columns"),
             )
-        if isinstance(self._categoricals, list):
-            for feature in self._categoricals:
-                result = parse_dtype(feature.dtype)[
-                    0
-                ]  # TODO: support composite dtypes for categoricals
-                key = feature.name
-                field = result["field"]
-                self._cat_columns[key] = CatColumn(
-                    values_getter=lambda k=key: self._dataset[
-                        k
-                    ],  # Capture key as default argument
-                    values_setter=lambda new_values, k=key: self._dataset.__setitem__(
-                        k, new_values
-                    ),
-                    field=field,
-                    key=key,
-                    source=self._sources.get(key),
-                    feature=feature,
-                )
+        for feature in self._categoricals:
+            result = parse_dtype(feature.dtype)[
+                0
+            ]  # TODO: support composite dtypes for categoricals
+            key = feature.name
+            field = result["field"]
+            self._cat_columns[key] = CatColumn(
+                values_getter=lambda k=key: self._dataset[
+                    k
+                ],  # Capture key as default argument
+                values_setter=lambda new_values, k=key: self._dataset.__setitem__(
+                    k, new_values
+                ),
+                field=field,
+                key=key,
+                source=self._sources.get(key),
+                feature=feature,
+            )
+        if index is not None and index.dtype.startswith("cat"):
+            result = parse_dtype(index.dtype)[0]
+            field = result["field"]
             key = "index"
-            if index is not None and index.dtype.startswith("cat"):
-                result = parse_dtype(index.dtype)[0]
-                field = result["field"]
-                self._cat_columns[key] = CatColumn(
-                    values_getter=self._dataset.index,
-                    field=field,
-                    key=key,
-                    feature=index,
-                )
-        else:
-            # below is for backward compat of ln.Curator.from_df()
-            for key, field in self._categoricals.items():
-                self._cat_columns[key] = CatColumn(
-                    values_getter=lambda k=key: self._dataset[
-                        k
-                    ],  # Capture key as default argument
-                    values_setter=lambda new_values, k=key: self._dataset.__setitem__(
-                        k, new_values
-                    ),
-                    field=field,
-                    key=key,
-                    source=self._sources.get(key),
-                    feature=Feature.get(name=key),
-                )
+            self._cat_columns[key] = CatColumn(
+                values_getter=self._dataset.index,
+                field=field,
+                key=key,
+                feature=index,
+            )
+
+    @property
+    def non_validated(self) -> dict[str, list[str]]:
+        """Return the non-validated features and labels."""
+        if self._non_validated is None:
+            raise ValidationError("Please run validate() first!")
+        return {
+            key: cat_column._non_validated
+            for key, cat_column in self._cat_columns.items()
+            if cat_column._non_validated and key != "columns"
+        }
+
+    @property
+    def categoricals(self) -> list[Feature]:
+        """The categorical features."""
+        return self._categoricals
 
     def lookup(self, public: bool = False) -> CatLookup:
         """Lookup categories.
@@ -1272,7 +1147,7 @@ class DataFrameCatManager(CatManager):
             cat_column.validate()
             validated &= cat_column.is_validated
         self._is_validated = validated
-        self._non_validated = {}  # so it's no longer None
+        self._non_validated = {}  # type: ignore
 
         if self._index is not None:
             # cat_column.validate() populates validated labels
@@ -1318,18 +1193,6 @@ class DataFrameCatManager(CatManager):
                 self._cat_columns[k].add_new(**kwargs)
         else:
             self._cat_columns[key].add_new(**kwargs)
-
-    @deprecated(
-        new_name="Run.filter(transform=context.run.transform, output_artifacts=None)"
-    )
-    def clean_up_failed_runs(self):
-        """Clean up previous failed runs that don't save any outputs."""
-        from lamindb.core._context import context
-
-        if context.run is not None:
-            Run.filter(transform=context.run.transform, output_artifacts=None).exclude(
-                uid=context.run.uid
-            ).delete()
 
 
 def get_current_filter_kwargs(registry: type[Record], kwargs: dict) -> dict:
