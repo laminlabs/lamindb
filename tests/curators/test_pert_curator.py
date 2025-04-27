@@ -40,7 +40,7 @@ def test_pert_curator():
 
     adata.obs["tissue_type"] = "cell culture"
 
-    curator = ln.curators.PertAnnDataCatManager(adata)
+    curator = ln.curators._legacy.PertAnnDataCatManager(adata)
 
     assert curator.validate() is not True
 
