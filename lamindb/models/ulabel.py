@@ -48,9 +48,8 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     Often, a ulabel is measured *within* a dataset. For instance, an artifact
     might characterize 2 species of the Iris flower (`"setosa"` &
     `"versicolor"`) measured by a `"species"` feature. Use the
-    :class:`~lamindb.Curator` flow to automatically parse, validate, and
-    annotate with labels that are contained in `DataFrame` or `AnnData`
-    artifacts.
+    :class:`~lamindb.curators.DataFrameCurator` flow to automatically parse, validate, and
+    annotate with labels that are contained in `DataFrame`s.
 
     .. note::
 
