@@ -11,9 +11,15 @@ from lamindb_setup.core import deprecated
 from lamindb_setup.core.upath import UPath
 
 from lamindb.core._compat import is_package_installed
+from lamindb.models.artifact import (
+    data_is_anndata,
+    data_is_mudata,
+    data_is_spatialdata,
+)
+
+from ..errors import InvalidArgument
 
 if TYPE_CHECKING:
-    import anndata as ad
     from lamindb_setup.core.types import UPathStr
     from mudata import MuData
     from spatialdata import SpatialData
@@ -29,11 +35,11 @@ from lamindb.models import (
 )
 from lamindb.models.artifact import (
     add_labels,
-    data_is_anndata,
 )
 from lamindb.models._from_values import _format_values
-from .core import CatManager, DataFrameCatManager, CatColumn, CatLookup
+from .core import DataFrameCatManager, CatColumn, CatLookup
 from ..errors import ValidationError
+import anndata as ad
 
 
 def _ref_is_name(field: FieldAttr | None) -> bool | None:
@@ -44,6 +50,137 @@ def _ref_is_name(field: FieldAttr | None) -> bool | None:
         name_field = get_name_field(field.field.model)
         return field.field.name == name_field
     return None
+
+
+class CatManager:
+    """Manage categoricals by updating registries.
+
+    This class is accessible from within a `DataFrameCurator` via the `.cat` attribute.
+
+    If you find non-validated values, you have several options:
+
+    - new values found in the data can be registered via `DataFrameCurator.cat.add_new_from()` :meth:`~lamindb.curators.DataFrameCatManager.add_new_from`
+    - non-validated values can be accessed via `DataFrameCurator.cat.add_new_from()` :meth:`~lamindb.curators.DataFrameCatManager.non_validated` and addressed manually
+    """
+
+    def __init__(self, *, dataset, categoricals, sources, columns_field=None):
+        # the below is shared with Curator
+        self._artifact: Artifact = None  # pass the dataset as an artifact
+        self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
+        if isinstance(self._dataset, Artifact):
+            self._artifact = self._dataset
+            if self._artifact.otype in {"DataFrame", "AnnData"}:
+                self._dataset = self._dataset.load(
+                    is_run_input=False  # we already track this in the Curator constructor
+                )
+        self._is_validated: bool = False
+        # shared until here
+        self._categoricals = categoricals or []
+        self._non_validated = None
+        self._sources = sources or {}
+        self._columns_field = columns_field
+        self._validate_category_error_messages: str = ""
+        self._cat_columns: dict[str, CatColumn] = {}
+
+    @property
+    def non_validated(self) -> dict[str, list[str]]:
+        """Return the non-validated features and labels."""
+        if self._non_validated is None:
+            raise ValidationError("Please run validate() first!")
+        return {
+            key: cat_column._non_validated
+            for key, cat_column in self._cat_columns.items()
+            if cat_column._non_validated and key != "columns"
+        }
+
+    @property
+    def categoricals(self) -> dict:
+        """Return the columns fields to validate against."""
+        return self._categoricals
+
+    def validate(self) -> bool:
+        """Validate dataset.
+
+        This method also registers the validated records in the current instance.
+
+        Returns:
+            The boolean `True` if the dataset is validated. Otherwise, a string with the error message.
+        """
+        pass  # pragma: no cover
+
+    def standardize(self, key: str) -> None:
+        """Replace synonyms with standardized values.
+
+        Inplace modification of the dataset.
+
+        Args:
+            key: The name of the column to standardize.
+
+        Returns:
+            None
+        """
+        pass  # pragma: no cover
+
+    def save_artifact(
+        self,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ) -> Artifact:
+        """{}"""  # noqa: D415
+        # Make sure all labels are saved in the current instance
+        if not self._is_validated:
+            self.validate()  # returns True or False
+            if not self._is_validated:  # need to raise error manually
+                raise ValidationError("Dataset does not validate. Please curate.")
+
+        if self._artifact is None:
+            if isinstance(self._dataset, pd.DataFrame):
+                artifact = Artifact.from_df(
+                    self._dataset,
+                    key=key,
+                    description=description,
+                    revises=revises,
+                    run=run,
+                )
+            elif isinstance(self._dataset, ad.AnnData):
+                artifact = Artifact.from_anndata(
+                    self._dataset,
+                    key=key,
+                    description=description,
+                    revises=revises,
+                    run=run,
+                )
+            elif data_is_mudata(self._dataset):
+                artifact = Artifact.from_mudata(
+                    self._dataset,
+                    key=key,
+                    description=description,
+                    revises=revises,
+                    run=run,
+                )
+            elif data_is_spatialdata(self._dataset):
+                artifact = Artifact.from_spatialdata(
+                    self._dataset,
+                    key=key,
+                    description=description,
+                    revises=revises,
+                    run=run,
+                )
+            else:
+                raise InvalidArgument(  # pragma: no cover
+                    "data must be one of pd.Dataframe, AnnData, MuData, SpatialData."
+                )
+            self._artifact = artifact.save()
+
+        legacy_annotate_artifact(  # type: ignore
+            self._artifact,
+            index_field=self._columns_field,
+            cat_columns=self._cat_columns,
+        )
+        return self._artifact
 
 
 class AnnDataCatManager(CatManager):

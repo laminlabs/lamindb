@@ -25,6 +25,7 @@ from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 
 if TYPE_CHECKING:
+    from anndata import AnnData
     from mudata import MuData
     from spatialdata import SpatialData
 
@@ -46,7 +47,6 @@ from lamindb.models.feature import parse_dtype, parse_cat_dtype
 from lamindb.models._from_values import _format_values
 
 from ..errors import InvalidArgument, ValidationError
-from anndata import AnnData
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -1093,70 +1093,6 @@ class CatManager:
             None
         """
         pass  # pragma: no cover
-
-    @deprecated(new_name="Curator.save_artifact()")
-    @doc_args(SAVE_ARTIFACT_DOCSTRING)
-    def save_artifact(
-        self,
-        *,
-        key: str | None = None,
-        description: str | None = None,
-        revises: Artifact | None = None,
-        run: Run | None = None,
-    ) -> Artifact:
-        """{}"""  # noqa: D415
-        # Make sure all labels are saved in the current instance
-        if not self._is_validated:
-            self.validate()  # returns True or False
-            if not self._is_validated:  # need to raise error manually
-                raise ValidationError("Dataset does not validate. Please curate.")
-
-        if self._artifact is None:
-            if isinstance(self._dataset, pd.DataFrame):
-                artifact = Artifact.from_df(
-                    self._dataset,
-                    key=key,
-                    description=description,
-                    revises=revises,
-                    run=run,
-                )
-            elif isinstance(self._dataset, AnnData):
-                artifact = Artifact.from_anndata(
-                    self._dataset,
-                    key=key,
-                    description=description,
-                    revises=revises,
-                    run=run,
-                )
-            elif data_is_mudata(self._dataset):
-                artifact = Artifact.from_mudata(
-                    self._dataset,
-                    key=key,
-                    description=description,
-                    revises=revises,
-                    run=run,
-                )
-            elif data_is_spatialdata(self._dataset):
-                artifact = Artifact.from_spatialdata(
-                    self._dataset,
-                    key=key,
-                    description=description,
-                    revises=revises,
-                    run=run,
-                )
-            else:
-                raise InvalidArgument(  # pragma: no cover
-                    "data must be one of pd.Dataframe, AnnData, MuData, SpatialData."
-                )
-            self._artifact = artifact.save()
-        from ._legacy import legacy_annotate_artifact
-
-        legacy_annotate_artifact(  # type: ignore
-            self._artifact,
-            index_field=self._columns_field,
-            cat_columns=self._cat_columns,
-        )
-        return self._artifact
 
 
 class DataFrameCatManager(CatManager):
