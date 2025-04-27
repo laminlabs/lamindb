@@ -1064,12 +1064,8 @@ class DataFrameCatManager:
         if columns_names is None:
             columns_names = []
         if columns_field == Feature.name:
-            if not isinstance(self._categoricals, dict):  # new style
-                values = columns_names
-            else:
-                values = list(self._categoricals.keys())  # backward compat
             self._cat_columns["columns"] = CatColumn(
-                values_getter=values,
+                values_getter=columns_names,
                 field=self._columns_field,
                 key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
                 source=self._sources.get("columns"),
@@ -1087,50 +1083,34 @@ class DataFrameCatManager:
                 key="columns",
                 source=self._sources.get("columns"),
             )
-        if isinstance(self._categoricals, list):
-            for feature in self._categoricals:
-                result = parse_dtype(feature.dtype)[
-                    0
-                ]  # TODO: support composite dtypes for categoricals
-                key = feature.name
-                field = result["field"]
-                self._cat_columns[key] = CatColumn(
-                    values_getter=lambda k=key: self._dataset[
-                        k
-                    ],  # Capture key as default argument
-                    values_setter=lambda new_values, k=key: self._dataset.__setitem__(
-                        k, new_values
-                    ),
-                    field=field,
-                    key=key,
-                    source=self._sources.get(key),
-                    feature=feature,
-                )
+        for feature in self._categoricals:
+            result = parse_dtype(feature.dtype)[
+                0
+            ]  # TODO: support composite dtypes for categoricals
+            key = feature.name
+            field = result["field"]
+            self._cat_columns[key] = CatColumn(
+                values_getter=lambda k=key: self._dataset[
+                    k
+                ],  # Capture key as default argument
+                values_setter=lambda new_values, k=key: self._dataset.__setitem__(
+                    k, new_values
+                ),
+                field=field,
+                key=key,
+                source=self._sources.get(key),
+                feature=feature,
+            )
+        if index is not None and index.dtype.startswith("cat"):
+            result = parse_dtype(index.dtype)[0]
+            field = result["field"]
             key = "index"
-            if index is not None and index.dtype.startswith("cat"):
-                result = parse_dtype(index.dtype)[0]
-                field = result["field"]
-                self._cat_columns[key] = CatColumn(
-                    values_getter=self._dataset.index,
-                    field=field,
-                    key=key,
-                    feature=index,
-                )
-        else:
-            # below is for backward compat of ln.Curator.from_df()
-            for key, field in self._categoricals.items():
-                self._cat_columns[key] = CatColumn(
-                    values_getter=lambda k=key: self._dataset[
-                        k
-                    ],  # Capture key as default argument
-                    values_setter=lambda new_values, k=key: self._dataset.__setitem__(
-                        k, new_values
-                    ),
-                    field=field,
-                    key=key,
-                    source=self._sources.get(key),
-                    feature=Feature.get(name=key),
-                )
+            self._cat_columns[key] = CatColumn(
+                values_getter=self._dataset.index,
+                field=field,
+                key=key,
+                feature=index,
+            )
 
     @property
     def non_validated(self) -> dict[str, list[str]]:
