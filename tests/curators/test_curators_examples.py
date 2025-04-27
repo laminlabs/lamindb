@@ -8,7 +8,7 @@ import tiledbsoma
 import tiledbsoma.io
 from lamindb.core import datasets
 from lamindb.core.types import FieldAttr
-from lamindb.errors import InvalidArgument
+from lamindb.errors import InvalidArgument, ValidationError
 
 
 @pytest.fixture(scope="module")
@@ -374,39 +374,42 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
         var_schema.delete()
 
 
-def test_anndata_curator_var_curation():
-    """Test AnnData curator implementation."""
-
+def test_anndata_curator_var_curation_legacy_convention():
     var_schema = ln.Schema(
-        name="scRNA_seq_var_schema",
         itype=bt.Gene.ensembl_gene_id,
         dtype="num",
     ).save()
-
     components = {"var": var_schema}
     anndata_schema = ln.Schema(
         otype="AnnData",
         components=components,
     ).save()
-    assert anndata_schema.slots["var"] == var_schema
-
-    adata = datasets.small_dataset1(otype="AnnData")
-    curator = ln.curators.AnnDataCurator(adata, anndata_schema)
-    assert isinstance(curator.slots["var"], ln.curators.DataFrameCurator)
-    artifact = ln.Artifact.from_anndata(
-        adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
-    ).save()
-    assert artifact.schema == anndata_schema
-    assert artifact.features.slots["var"].n == 3  # 3 genes get linked
-    assert set(artifact.features.slots["var"].members.list("ensembl_gene_id")) == {
-        "ENSG00000153563",
-        "ENSG00000010610",
-        "ENSG00000170458",
-    }
-
-    artifact.delete(permanent=True)
-    anndata_schema.delete()
-    var_schema.delete()
+    for with_gene_typo in [True, False]:
+        adata = datasets.small_dataset1(otype="AnnData", with_gene_typo=with_gene_typo)
+        if with_gene_typo:
+            with pytest.raises(ValidationError) as error:
+                artifact = ln.Artifact.from_anndata(
+                    adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+                ).save()
+            assert error.exconly() == (
+                "lamindb.errors.ValidationError: 1 term not validated in feature 'var_index' in slot 'var': 'GeneTypo'\n"
+                "    → fix typos, remove non-existent values, or save terms via: curator.slots['var'].add_new_from('var_index')"
+            )
+        else:
+            artifact = ln.Artifact.from_anndata(
+                adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+            ).save()
+            assert artifact.features.slots["var"].n == 3  # 3 genes get linked
+            assert set(
+                artifact.features.slots["var"].members.list("ensembl_gene_id")
+            ) == {
+                "ENSG00000153563",
+                "ENSG00000010610",
+                "ENSG00000170458",
+            }
+            artifact.delete(permanent=True)
+            anndata_schema.delete()
+            var_schema.delete()
 
 
 def test_soma_curator(

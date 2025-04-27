@@ -183,7 +183,7 @@ class Curator:
                 "MuData",
                 "SpatialData",
             }:
-                self._dataset = self._dataset.load()
+                self._dataset = self._dataset.load(is_run_input=False)
         self._schema: Schema | None = schema
         self._is_validated: bool = False
         self._cat_manager: DataFrameCatManager = None  # is None for CatManager curators
@@ -325,6 +325,7 @@ class DataFrameCurator(Curator):
     Args:
         dataset: The DataFrame-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
+        slot: Indicate the slot in a composite curator for a composite data structure.
 
     Example:
 
@@ -337,6 +338,7 @@ class DataFrameCurator(Curator):
         self,
         dataset: pd.DataFrame | Artifact,
         schema: Schema,
+        slot: str | None = None,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
         categoricals = []
@@ -431,6 +433,7 @@ class DataFrameCurator(Curator):
             columns_names=pandera_columns.keys(),
             categoricals=categoricals,
             index=schema.index,
+            slot=slot,
         )
 
     @property
@@ -572,6 +575,7 @@ class AnnDataCurator(SlotsCurator):
                     else getattr(self._dataset, slot)
                 ),
                 slot_schema,
+                slot=slot,
             )
             for slot, slot_schema in schema.slots.items()
             if slot in {"obs", "var", "uns"}
@@ -776,6 +780,7 @@ class CatColumn:
         values_setter: Callable | None = None,
         source: Record | None = None,
         feature: Feature | None = None,
+        cat_manager: DataFrameCatManager | None = None,
     ) -> None:
         self._values_getter = values_getter
         self._values_setter = values_setter
@@ -786,6 +791,7 @@ class CatColumn:
         self._validated: None | list[str] = None
         self._non_validated: None | list[str] = None
         self._synonyms: None | dict[str, str] = None
+        self._cat_manager = cat_manager
         self.feature = feature
         self.labels = None
         if hasattr(field.field.model, "_name_field"):
@@ -931,7 +937,6 @@ class CatColumn:
     def _validate(
         self,
         values: list[str],
-        curator: DataFrameCatManager | None = None,  # TODO: not yet used
     ) -> tuple[list[str], dict]:
         """Validate ontology terms using LaminDB registries."""
         registry = self._field.field.model
@@ -966,7 +971,17 @@ class CatColumn:
             values_validated += [getattr(r, field_name) for r in public_records]
 
         # logging messages
-        non_validated_hint_print = f'.add_new_from("{self._key}")'
+        in_slot = (
+            f" in slot '{self._cat_manager._slot}'"
+            if self._cat_manager._slot is not None
+            else ""
+        )
+        slot_prefix = (
+            f"slots['{self._cat_manager._slot}']"
+            if self._cat_manager._slot is not None
+            else ""
+        )
+        non_validated_hint_print = f"curator.{slot_prefix}.add_new_from('{self._key}')"
         non_validated = [i for i in non_validated if i not in values_validated]
         n_non_validated = len(non_validated)
         if n_non_validated == 0:
@@ -976,27 +991,26 @@ class CatColumn:
             )
             return [], {}
         else:
-            are = "is" if n_non_validated == 1 else "are"
             s = "" if n_non_validated == 1 else "s"
             print_values = _format_values(non_validated)
-            warning_message = f"{colors.red(f'{n_non_validated} term{s}')} {are} not validated: {colors.red(print_values)}\n"
+            warning_message = f"{colors.red(f'{n_non_validated} term{s}')} not validated in feature '{self._key}'{in_slot}: {colors.red(print_values)}\n"
             if syn_mapper:
                 s = "" if len(syn_mapper) == 1 else "s"
                 syn_mapper_print = _format_values(
                     [f'"{k}" → "{v}"' for k, v in syn_mapper.items()], sep=""
                 )
                 hint_msg = f'.standardize("{self._key}")'
-                warning_message += f"    {colors.yellow(f'{len(syn_mapper)} synonym{s}')} found: {colors.yellow(syn_mapper_print)}\n    → curate synonyms via {colors.cyan(hint_msg)}"
+                warning_message += f"    {colors.yellow(f'{len(syn_mapper)} synonym{s}')} found: {colors.yellow(syn_mapper_print)}\n    → curate synonyms via: {colors.cyan(hint_msg)}"
             if n_non_validated > len(syn_mapper):
                 if syn_mapper:
                     warning_message += "\n    for remaining terms:\n"
-                warning_message += f"    → fix typos, remove non-existent values, or save terms via {colors.cyan(non_validated_hint_print)}"
+                warning_message += f"    → fix typos, remove non-existent values, or save terms via: {colors.cyan(non_validated_hint_print)}"
 
             if logger.indent == "":
                 _log_mapping_info()
             logger.warning(warning_message)
-            if curator is not None:
-                curator._validate_category_error_messages = strip_ansi_codes(
+            if self._cat_manager is not None:
+                self._cat_manager._validate_category_error_messages = strip_ansi_codes(
                     warning_message
                 )
             logger.indent = ""
@@ -1065,6 +1079,7 @@ class DataFrameCatManager:
         categoricals: list[Feature] | None = None,
         sources: dict[str, Record] | None = None,
         index: Feature | None = None,
+        slot: str | None = None,
     ) -> None:
         self._non_validated = None
         self._index = index
@@ -1080,6 +1095,7 @@ class DataFrameCatManager:
         self._columns_field = columns_field
         self._validate_category_error_messages: str = ""
         self._cat_columns: dict[str, CatColumn] = {}
+        self._slot = slot
         if columns_names is None:
             columns_names = []
         if columns_field == Feature.name:
@@ -1088,6 +1104,7 @@ class DataFrameCatManager:
                 field=self._columns_field,
                 key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
                 source=self._sources.get("columns"),
+                cat_manager=self,
             )
             if isinstance(self._categoricals, dict):  # backward compat
                 self._cat_columns["columns"].validate()
@@ -1101,6 +1118,7 @@ class DataFrameCatManager:
                 field=self._columns_field,
                 key="columns",
                 source=self._sources.get("columns"),
+                cat_manager=self,
             )
         for feature in self._categoricals:
             result = parse_dtype(feature.dtype)[
@@ -1119,6 +1137,7 @@ class DataFrameCatManager:
                 key=key,
                 source=self._sources.get(key),
                 feature=feature,
+                cat_manager=self,
             )
         if index is not None and index.dtype.startswith("cat"):
             result = parse_dtype(index.dtype)[0]
@@ -1129,6 +1148,7 @@ class DataFrameCatManager:
                 field=field,
                 key=key,
                 feature=index,
+                cat_manager=self,
             )
 
     @property

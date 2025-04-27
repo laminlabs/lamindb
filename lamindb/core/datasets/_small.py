@@ -13,14 +13,19 @@ def small_dataset1(
     with_typo: bool = False,
     with_cell_type_synonym: bool = False,
     with_cell_type_typo: bool = False,
+    with_gene_typo: bool = False,
 ) -> pd.DataFrame | ad.AnnData:
     # define the data in the dataset
     # it's a mix of numerical measurements and observation-level metadata
     ifng = "IFNJ" if with_typo else "IFNG"
     if gene_symbols_in_index:
-        var_ids = ["CD8A", "CD4", "CD14"]
+        var_ids = ["CD8A", "CD4", "CD14" if not with_gene_typo else "GeneTypo"]
     else:
-        var_ids = ["ENSG00000153563", "ENSG00000010610", "ENSG00000170458"]
+        var_ids = [
+            "ENSG00000153563",
+            "ENSG00000010610",
+            "ENSG00000170458" if not with_gene_typo else "GeneTypo",
+        ]
     abt_cell = (
         "CD8-pos alpha-beta T cell"
         if with_cell_type_typo
