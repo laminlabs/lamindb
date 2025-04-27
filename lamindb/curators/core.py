@@ -5,7 +5,7 @@
 
    Curator
    SlotsCurator
-   CatManager
+   CatColumn
    CatLookup
    DataFrameCatManager
 
@@ -21,7 +21,6 @@ import lamindb_setup as ln_setup
 import pandas as pd
 import pandera
 from lamin_utils import colors, logger
-from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 
 if TYPE_CHECKING:
@@ -189,7 +188,7 @@ class Curator:
                 self._dataset = self._dataset.load()
         self._schema: Schema | None = schema
         self._is_validated: bool = False
-        self._cat_manager: CatManager = None  # is None for CatManager curators
+        self._cat_manager: DataFrameCatManager = None  # is None for CatManager curators
 
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> bool | str:
@@ -438,7 +437,7 @@ class DataFrameCurator(Curator):
 
     @property
     @doc_args(CAT_MANAGER_DOCSTRING)
-    def cat(self) -> CatManager:
+    def cat(self) -> DataFrameCatManager:
         """{}"""  # noqa: D415
         return self._cat_manager
 
@@ -910,7 +909,7 @@ class CatColumn:
     def _validate(
         self,
         values: list[str],
-        curator: CatManager | None = None,  # TODO: not yet used
+        curator: DataFrameCatManager | None = None,  # TODO: not yet used
     ) -> tuple[list[str], dict]:
         """Validate ontology terms using LaminDB registries."""
         registry = self._field.field.model
@@ -1025,7 +1024,7 @@ class CatColumn:
         self._non_validated = []
 
 
-class CatManager:
+class DataFrameCatManager:
     """Manage categoricals by updating registries.
 
     This class is accessible from within a `DataFrameCurator` via the `.cat` attribute.
@@ -1036,10 +1035,19 @@ class CatManager:
     - non-validated values can be accessed via `DataFrameCurator.cat.add_new_from()` :meth:`~lamindb.curators.DataFrameCatManager.non_validated` and addressed manually
     """
 
-    def __init__(self, *, dataset, categoricals, sources, columns_field=None):
-        # the below is shared with Curator
+    def __init__(
+        self,
+        df: pd.DataFrame | Artifact,
+        columns_field: FieldAttr = Feature.name,
+        columns_names: Iterable[str] | None = None,
+        categoricals: list[Feature] | None = None,
+        sources: dict[str, Record] | None = None,
+        index: Feature | None = None,
+    ) -> None:
+        self._non_validated = None
+        self._index = index
         self._artifact: Artifact = None  # pass the dataset as an artifact
-        self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
+        self._dataset: Any = df  # pass the dataset as a UPathStr or data object
         if isinstance(self._dataset, Artifact):
             self._artifact = self._dataset
             if self._artifact.otype in {"DataFrame", "AnnData"}:
@@ -1047,74 +1055,12 @@ class CatManager:
                     is_run_input=False  # we already track this in the Curator constructor
                 )
         self._is_validated: bool = False
-        # shared until here
         self._categoricals = categoricals or []
         self._non_validated = None
         self._sources = sources or {}
         self._columns_field = columns_field
         self._validate_category_error_messages: str = ""
         self._cat_columns: dict[str, CatColumn] = {}
-
-    @property
-    def non_validated(self) -> dict[str, list[str]]:
-        """Return the non-validated features and labels."""
-        if self._non_validated is None:
-            raise ValidationError("Please run validate() first!")
-        return {
-            key: cat_column._non_validated
-            for key, cat_column in self._cat_columns.items()
-            if cat_column._non_validated and key != "columns"
-        }
-
-    @property
-    def categoricals(self) -> dict:
-        """Return the columns fields to validate against."""
-        return self._categoricals
-
-    def validate(self) -> bool:
-        """Validate dataset.
-
-        This method also registers the validated records in the current instance.
-
-        Returns:
-            The boolean `True` if the dataset is validated. Otherwise, a string with the error message.
-        """
-        pass  # pragma: no cover
-
-    def standardize(self, key: str) -> None:
-        """Replace synonyms with standardized values.
-
-        Inplace modification of the dataset.
-
-        Args:
-            key: The name of the column to standardize.
-
-        Returns:
-            None
-        """
-        pass  # pragma: no cover
-
-
-class DataFrameCatManager(CatManager):
-    """Categorical manager for `DataFrame`."""
-
-    def __init__(
-        self,
-        df: pd.DataFrame | Artifact,
-        columns_field: FieldAttr = Feature.name,
-        columns_names: Iterable[str] | None = None,
-        categoricals: list[Feature] | dict[str, FieldAttr] | None = None,
-        sources: dict[str, Record] | None = None,
-        index: Feature | None = None,
-    ) -> None:
-        self._non_validated = None
-        self._index = index
-        super().__init__(
-            dataset=df,
-            columns_field=columns_field,
-            categoricals=categoricals,
-            sources=sources,
-        )
         if columns_names is None:
             columns_names = []
         if columns_field == Feature.name:
@@ -1186,6 +1132,22 @@ class DataFrameCatManager(CatManager):
                     feature=Feature.get(name=key),
                 )
 
+    @property
+    def non_validated(self) -> dict[str, list[str]]:
+        """Return the non-validated features and labels."""
+        if self._non_validated is None:
+            raise ValidationError("Please run validate() first!")
+        return {
+            key: cat_column._non_validated
+            for key, cat_column in self._cat_columns.items()
+            if cat_column._non_validated and key != "columns"
+        }
+
+    @property
+    def categoricals(self) -> list[Feature]:
+        """The categorical features."""
+        return self._categoricals
+
     def lookup(self, public: bool = False) -> CatLookup:
         """Lookup categories.
 
@@ -1208,7 +1170,7 @@ class DataFrameCatManager(CatManager):
             cat_column.validate()
             validated &= cat_column.is_validated
         self._is_validated = validated
-        self._non_validated = {}  # so it's no longer None
+        self._non_validated = {}  # type: ignore
 
         if self._index is not None:
             # cat_column.validate() populates validated labels
@@ -1254,18 +1216,6 @@ class DataFrameCatManager(CatManager):
                 self._cat_columns[k].add_new(**kwargs)
         else:
             self._cat_columns[key].add_new(**kwargs)
-
-    @deprecated(
-        new_name="Run.filter(transform=context.run.transform, output_artifacts=None)"
-    )
-    def clean_up_failed_runs(self):
-        """Clean up previous failed runs that don't save any outputs."""
-        from lamindb.core._context import context
-
-        if context.run is not None:
-            Run.filter(transform=context.run.transform, output_artifacts=None).exclude(
-                uid=context.run.uid
-            ).delete()
 
 
 def get_current_filter_kwargs(registry: type[Record], kwargs: dict) -> dict:

@@ -16,6 +16,7 @@ from lamindb.models.artifact import (
     data_is_mudata,
     data_is_spatialdata,
 )
+from lamindb.models.feature import parse_dtype
 
 from ..errors import InvalidArgument
 
@@ -37,7 +38,7 @@ from lamindb.models.artifact import (
     add_labels,
 )
 from lamindb.models._from_values import _format_values
-from .core import DataFrameCatManager, CatColumn, CatLookup
+from .core import CatColumn, CatLookup
 from ..errors import ValidationError
 import anndata as ad
 
@@ -181,6 +182,179 @@ class CatManager:
             cat_columns=self._cat_columns,
         )
         return self._artifact
+
+
+class DataFrameCatManager(CatManager):
+    """Categorical manager for `DataFrame`."""
+
+    def __init__(
+        self,
+        df: pd.DataFrame | Artifact,
+        columns_field: FieldAttr = Feature.name,
+        columns_names: Iterable[str] | None = None,
+        categoricals: list[Feature] | dict[str, FieldAttr] | None = None,
+        sources: dict[str, Record] | None = None,
+        index: Feature | None = None,
+    ) -> None:
+        self._non_validated = None
+        self._index = index
+        super().__init__(
+            dataset=df,
+            columns_field=columns_field,
+            categoricals=categoricals,
+            sources=sources,
+        )
+        if columns_names is None:
+            columns_names = []
+        if columns_field == Feature.name:
+            if not isinstance(self._categoricals, dict):  # new style
+                values = columns_names
+            else:
+                values = list(self._categoricals.keys())  # backward compat
+            self._cat_columns["columns"] = CatColumn(
+                values_getter=values,
+                field=self._columns_field,
+                key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
+                source=self._sources.get("columns"),
+            )
+            if isinstance(self._categoricals, dict):  # backward compat
+                self._cat_columns["columns"].validate()
+        else:
+            # NOTE: for var_index right now
+            self._cat_columns["columns"] = CatColumn(
+                values_getter=lambda: self._dataset.columns,  # lambda ensures the inplace update
+                values_setter=lambda new_values: setattr(
+                    self._dataset, "columns", pd.Index(new_values)
+                ),
+                field=self._columns_field,
+                key="columns",
+                source=self._sources.get("columns"),
+            )
+        if isinstance(self._categoricals, list):
+            for feature in self._categoricals:
+                result = parse_dtype(feature.dtype)[
+                    0
+                ]  # TODO: support composite dtypes for categoricals
+                key = feature.name
+                field = result["field"]
+                self._cat_columns[key] = CatColumn(
+                    values_getter=lambda k=key: self._dataset[
+                        k
+                    ],  # Capture key as default argument
+                    values_setter=lambda new_values, k=key: self._dataset.__setitem__(
+                        k, new_values
+                    ),
+                    field=field,
+                    key=key,
+                    source=self._sources.get(key),
+                    feature=feature,
+                )
+            key = "index"
+            if index is not None and index.dtype.startswith("cat"):
+                result = parse_dtype(index.dtype)[0]
+                field = result["field"]
+                self._cat_columns[key] = CatColumn(
+                    values_getter=self._dataset.index,
+                    field=field,
+                    key=key,
+                    feature=index,
+                )
+        else:
+            # below is for backward compat of ln.Curator.from_df()
+            for key, field in self._categoricals.items():
+                self._cat_columns[key] = CatColumn(
+                    values_getter=lambda k=key: self._dataset[
+                        k
+                    ],  # Capture key as default argument
+                    values_setter=lambda new_values, k=key: self._dataset.__setitem__(
+                        k, new_values
+                    ),
+                    field=field,
+                    key=key,
+                    source=self._sources.get(key),
+                    feature=Feature.get(name=key),
+                )
+
+    def lookup(self, public: bool = False) -> CatLookup:
+        """Lookup categories.
+
+        Args:
+            public: If "public", the lookup is performed on the public reference.
+        """
+        return CatLookup(
+            categoricals=self._categoricals,
+            slots={"columns": self._columns_field},
+            public=public,
+            sources=self._sources,
+        )
+
+    def validate(self) -> bool:
+        """Validate variables and categorical observations."""
+        self._validate_category_error_messages = ""  # reset the error messages
+
+        validated = True
+        for _, cat_column in self._cat_columns.items():
+            cat_column.validate()
+            validated &= cat_column.is_validated
+        self._is_validated = validated
+        self._non_validated = {}  # so it's no longer None
+
+        if self._index is not None:
+            # cat_column.validate() populates validated labels
+            # the index should become part of the feature set corresponding to the dataframe
+            self._cat_columns["columns"].labels.insert(0, self._index)  # type: ignore
+
+        return self._is_validated
+
+    def standardize(self, key: str) -> None:
+        """Replace synonyms with standardized values.
+
+        Modifies the input dataset inplace.
+
+        Args:
+            key: The key referencing the column in the DataFrame to standardize.
+        """
+        if self._artifact is not None:
+            raise RuntimeError("can't mutate the dataset when an artifact is passed!")
+
+        if key == "all":
+            logger.warning(
+                "'all' is deprecated, please pass a single key from `.non_validated.keys()` instead!"
+            )
+            for k in self.non_validated.keys():
+                self._cat_columns[k].standardize()
+        else:
+            self._cat_columns[key].standardize()
+
+    def add_new_from(self, key: str, **kwargs):
+        """Add validated & new categories.
+
+        Args:
+            key: The key referencing the slot in the DataFrame from which to draw terms.
+            **kwargs: Additional keyword arguments to pass to create new records
+        """
+        if len(kwargs) > 0 and key == "all":
+            raise ValueError("Cannot pass additional arguments to 'all' key!")
+        if key == "all":
+            logger.warning(
+                "'all' is deprecated, please pass a single key from `.non_validated.keys()` instead!"
+            )
+            for k in self.non_validated.keys():
+                self._cat_columns[k].add_new(**kwargs)
+        else:
+            self._cat_columns[key].add_new(**kwargs)
+
+    @deprecated(
+        new_name="Run.filter(transform=context.run.transform, output_artifacts=None)"
+    )
+    def clean_up_failed_runs(self):
+        """Clean up previous failed runs that don't save any outputs."""
+        from lamindb.core._context import context
+
+        if context.run is not None:
+            Run.filter(transform=context.run.transform, output_artifacts=None).exclude(
+                uid=context.run.uid
+            ).delete()
 
 
 class AnnDataCatManager(CatManager):
