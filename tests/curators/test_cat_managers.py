@@ -8,7 +8,7 @@ import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
-from lamindb.curators import CatLookup, ValidationError
+from lamindb.curators.core import CatLookup, ValidationError
 
 
 @pytest.fixture
