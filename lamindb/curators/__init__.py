@@ -17,4 +17,5 @@ Modules.
 
 """
 
+from ._legacy import PertAnnDataCatManager  # backward compat
 from .core import AnnDataCurator, DataFrameCurator, MuDataCurator, SpatialDataCurator
