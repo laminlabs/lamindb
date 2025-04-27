@@ -565,6 +565,7 @@ class AnnDataCurator(SlotsCurator):
                     getattr(self._dataset, slot).T
                     if slot == "var.T"
                     or (
+                        # backward compat
                         slot == "var"
                         and schema.slots["var"].itype not in {None, "Feature"}
                     )
@@ -649,16 +650,21 @@ class MuDataCurator(SlotsCurator):
             else:
                 modality, modality_slot = None, slot
                 schema_dataset = self._dataset
+            if modality_slot == "var" and schema.slots[slot].itype not in {
+                None,
+                "Feature",
+            }:
+                logger.warning(
+                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                )
             self._slots[slot] = DataFrameCurator(
                 (
                     getattr(schema_dataset, modality_slot).T
                     if modality_slot == "var.T"
                     or (
+                        # backward compat
                         modality_slot == "var"
-                        and schema.slots[
-                            f"{modality}:var" if ":" in slot else "var"
-                        ].itype
-                        not in {None, "Feature"}
+                        and schema.slots[slot].itype not in {None, "Feature"}
                     )
                     else getattr(schema_dataset, modality_slot)
                 ),
@@ -708,6 +714,13 @@ class SpatialDataCurator(SlotsCurator):
             if ":" in slot:
                 table_key, table_slot = slot.split(":")
                 schema_dataset = self._dataset.tables.__getitem__(table_key)
+                if table_slot == "var" and schema.slots[slot].itype not in {
+                    None,
+                    "Feature",
+                }:
+                    logger.warning(
+                        "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                    )
             # sample metadata (does not have a `:` separator)
             else:
                 table_key = None
@@ -720,11 +733,9 @@ class SpatialDataCurator(SlotsCurator):
                     getattr(schema_dataset, table_slot).T
                     if table_slot == "var.T"
                     or (
+                        # backward compat
                         table_slot == "var"
-                        and schema.slots[
-                            f"{table_key}:var" if ":" in slot else "var"
-                        ].itype
-                        not in {None, "Feature"}
+                        and schema.slots[slot].itype not in {None, "Feature"}
                     )
                     else (
                         getattr(schema_dataset, table_slot)
