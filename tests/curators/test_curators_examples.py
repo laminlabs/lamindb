@@ -374,6 +374,41 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
         var_schema.delete()
 
 
+def test_anndata_curator_var_curation():
+    """Test AnnData curator implementation."""
+
+    var_schema = ln.Schema(
+        name="scRNA_seq_var_schema",
+        itype=bt.Gene.ensembl_gene_id,
+        dtype="num",
+    ).save()
+
+    components = {"var": var_schema}
+    anndata_schema = ln.Schema(
+        otype="AnnData",
+        components=components,
+    ).save()
+    assert anndata_schema.slots["var"] == var_schema
+
+    adata = datasets.small_dataset1(otype="AnnData")
+    curator = ln.curators.AnnDataCurator(adata, anndata_schema)
+    assert isinstance(curator.slots["var"], ln.curators.DataFrameCurator)
+    artifact = ln.Artifact.from_anndata(
+        adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+    ).save()
+    assert artifact.schema == anndata_schema
+    assert artifact.features.slots["var"].n == 3  # 3 genes get linked
+    assert set(artifact.features.slots["var"].members.list("ensembl_gene_id")) == {
+        "ENSG00000153563",
+        "ENSG00000010610",
+        "ENSG00000170458",
+    }
+
+    artifact.delete(permanent=True)
+    anndata_schema.delete()
+    var_schema.delete()
+
+
 def test_soma_curator(
     small_dataset1_schema: ln.Schema, curator_params: dict[str, str | FieldAttr]
 ):
