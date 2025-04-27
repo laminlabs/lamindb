@@ -170,8 +170,6 @@ class Curator:
         - :class:`~lamindb.curators.AnnDataCurator`
         - :class:`~lamindb.curators.MuDataCurator`
         - :class:`~lamindb.curators.SpatialDataCurator`
-
-    .. versionadded:: 1.1.0
     """
 
     def __init__(self, dataset: Any, schema: Schema | None = None):
@@ -485,12 +483,12 @@ class DataFrameCurator(Curator):
                     )
 
     def _cat_manager_validate(self) -> None:
-        self._cat_manager.validate()
-        if self._cat_manager._is_validated:
+        self.cat.validate()
+        if self.cat._is_validated:
             self._is_validated = True
         else:
             self._is_validated = False
-            raise ValidationError(self._cat_manager._validate_category_error_messages)
+            raise ValidationError(self.cat._validate_category_error_messages)
 
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
@@ -538,7 +536,6 @@ class DataFrameCurator(Curator):
 
 
 class AnnDataCurator(SlotsCurator):
-    # the example in the docstring is tested in test_curators_quickstart_example
     """Curator for `AnnData`.
 
     Args:
@@ -566,7 +563,8 @@ class AnnDataCurator(SlotsCurator):
             slot: DataFrameCurator(
                 (
                     getattr(self._dataset, slot).T
-                    if slot == "var"
+                    if slot == "var.T"
+                    or (slot == "var" and schema["var"].itype not in {None, "Feature"})
                     else getattr(self._dataset, slot)
                 ),
                 slot_schema,
@@ -574,12 +572,14 @@ class AnnDataCurator(SlotsCurator):
             for slot, slot_schema in schema.slots.items()
             if slot in {"obs", "var", "uns"}
         }
-        # TODO: better way to handle this!
-        if "var" in self._slots:
-            self._slots["var"]._cat_manager._cat_columns["var_index"] = self._slots[
+        if "var" in self._slots and schema["var"].itype not in {None, "Feature"}:
+            logger.warning(
+                "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
+            )
+            self._slots["var"].cat._cat_columns["var_index"] = self._slots[
                 "var"
-            ]._cat_manager._cat_columns.pop("columns")
-            self._slots["var"]._cat_manager._cat_columns["var_index"]._key = "var_index"
+            ].cat._cat_columns.pop("columns")
+            self._slots["var"].cat._cat_columns["var_index"]._key = "var_index"
 
 
 def _assign_var_fields_categoricals_multimodal(
@@ -649,7 +649,11 @@ class MuDataCurator(SlotsCurator):
             self._slots[slot] = DataFrameCurator(
                 (
                     getattr(schema_dataset, modality_slot).T
-                    if modality_slot == "var"
+                    if modality_slot == "var.T"
+                    or (
+                        modality_slot == "var"
+                        and schema["var"].itype not in {None, "Feature"}
+                    )
                     else getattr(schema_dataset, modality_slot)
                 ),
                 slot_schema,
@@ -663,8 +667,6 @@ class MuDataCurator(SlotsCurator):
                 cat_columns=self._cat_columns,
                 slots=self._slots,
             )
-
-        # for consistency with BaseCatManager
         self._columns_field = self._var_fields
 
 
@@ -707,11 +709,14 @@ class SpatialDataCurator(SlotsCurator):
                 schema_dataset = self._dataset.get_attrs(
                     key=sample_metadata_key, return_as="df", flatten=True
                 )
-
             self._slots[slot] = DataFrameCurator(
                 (
                     getattr(schema_dataset, table_slot).T
-                    if table_slot == "var"
+                    if table_slot == "var.T"
+                    or (
+                        table_slot == "var"
+                        and schema["var"].itype not in {None, "Feature"}
+                    )
                     else (
                         getattr(schema_dataset, table_slot)
                         if table_slot != sample_metadata_key
@@ -720,7 +725,6 @@ class SpatialDataCurator(SlotsCurator):
                 ),
                 slot_schema,
             )
-
             _assign_var_fields_categoricals_multimodal(
                 modality=table_key,
                 slot_type=table_slot,
@@ -730,8 +734,6 @@ class SpatialDataCurator(SlotsCurator):
                 cat_columns=self._cat_columns,
                 slots=self._slots,
             )
-
-        # for consistency with BaseCatManager
         self._columns_field = self._var_fields
 
 
