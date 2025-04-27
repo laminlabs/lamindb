@@ -564,7 +564,10 @@ class AnnDataCurator(SlotsCurator):
                 (
                     getattr(self._dataset, slot).T
                     if slot == "var.T"
-                    or (slot == "var" and schema["var"].itype not in {None, "Feature"})
+                    or (
+                        slot == "var"
+                        and schema.slots["var"].itype not in {None, "Feature"}
+                    )
                     else getattr(self._dataset, slot)
                 ),
                 slot_schema,
@@ -572,7 +575,7 @@ class AnnDataCurator(SlotsCurator):
             for slot, slot_schema in schema.slots.items()
             if slot in {"obs", "var", "uns"}
         }
-        if "var" in self._slots and schema["var"].itype not in {None, "Feature"}:
+        if "var" in self._slots and schema.slots["var"].itype not in {None, "Feature"}:
             logger.warning(
                 "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
             )
@@ -652,7 +655,10 @@ class MuDataCurator(SlotsCurator):
                     if modality_slot == "var.T"
                     or (
                         modality_slot == "var"
-                        and schema["var"].itype not in {None, "Feature"}
+                        and schema.slots[
+                            f"{modality}:var" if ":" in slot else "var"
+                        ].itype
+                        not in {None, "Feature"}
                     )
                     else getattr(schema_dataset, modality_slot)
                 ),
@@ -715,7 +721,10 @@ class SpatialDataCurator(SlotsCurator):
                     if table_slot == "var.T"
                     or (
                         table_slot == "var"
-                        and schema["var"].itype not in {None, "Feature"}
+                        and schema.slots[
+                            f"{table_key}:var" if ":" in slot else "var"
+                        ].itype
+                        not in {None, "Feature"}
                     )
                     else (
                         getattr(schema_dataset, table_slot)
