@@ -104,6 +104,88 @@ def mock_transform():
     return mock_transform
 
 
+def test_df_cat_manager(df):
+    try:
+        cat_manager = ln.curators.core.DataFrameCatManager(
+            df,
+            categoricals=[
+                ln.Feature(name="cell_type", dtype=bt.CellType).save(),
+                ln.Feature(name="cell_type_2", dtype=bt.CellType).save(),
+                ln.Feature(
+                    name="assay_ontology_id", dtype=bt.ExperimentalFactor.ontology_id
+                ).save(),
+                ln.Feature(name="donor", dtype=ln.ULabel).save(),
+            ],
+        )
+        with pytest.raises(ValidationError):
+            _ = cat_manager.non_validated
+        validated = cat_manager.validate()
+        assert cat_manager.non_validated == {
+            "cell_type": ["cerebral pyramidal neuron", "astrocytic glia"],
+            "donor": ["D0001", "D0002", "D0003"],
+        }
+        assert validated is False
+
+        # standardize
+        with pytest.raises(KeyError):
+            cat_manager.standardize("nonexistent-key")
+        cat_manager.standardize("all")
+        assert cat_manager.non_validated == {
+            "cell_type": ["cerebral pyramidal neuron"],
+            "donor": ["D0001", "D0002", "D0003"],
+        }
+        assert "astrocyte" in df["cell_type"].values
+
+        # add new
+        cat_manager.add_new_from("donor")
+        assert cat_manager.non_validated == {"cell_type": ["cerebral pyramidal neuron"]}
+
+        # lookup
+        cell_types = cat_manager.lookup(public=True)["cell_type"]
+        df["cell_type"] = df["cell_type"].replace(
+            {
+                "cerebral pyramidal neuron": cell_types.cerebral_cortex_pyramidal_neuron.name
+            }
+        )
+        validated = cat_manager.validate()
+        assert validated is True
+        assert cat_manager.non_validated == {}
+
+        # no need to standardize
+        cat_manager.standardize("cell_type")
+    finally:
+        ln.ULabel.filter().delete()
+        bt.ExperimentalFactor.filter().delete()
+        bt.CellType.filter().delete()
+        ln.Schema.filter().delete()
+
+
+def test_custom_using_invalid_field_lookup(curate_lookup):
+    with pytest.raises(
+        AttributeError, match='"CatLookup" object has no attribute "invalid_field"'
+    ):
+        _ = curate_lookup["invalid_field"]
+
+
+def test_additional_args_with_all_key(df, categoricals):
+    curator = ln.Curator.from_df(df, categoricals=categoricals)
+    with pytest.raises(
+        ValueError, match="Cannot pass additional arguments to 'all' key!"
+    ):
+        curator.add_new_from("all", extra_arg="not_allowed")
+
+
+# below is all deprecated
+
+
+def test_unvalidated_data_object(df, categoricals):
+    curator = ln.Curator.from_df(df, categoricals=categoricals)
+    with pytest.raises(
+        ValidationError, match="Dataset does not validate. Please curate."
+    ):
+        curator.save_artifact()
+
+
 def test_df_curator(df, categoricals):
     try:
         curator = ln.Curator.from_df(df, categoricals=categoricals)
@@ -197,29 +279,6 @@ def test_pass_artifact(df):
         artifact.delete(permanent=True)
         ln.ULabel.filter().delete()
         ln.Schema.filter().delete()
-
-
-def test_custom_using_invalid_field_lookup(curate_lookup):
-    with pytest.raises(
-        AttributeError, match='"CatLookup" object has no attribute "invalid_field"'
-    ):
-        _ = curate_lookup["invalid_field"]
-
-
-def test_additional_args_with_all_key(df, categoricals):
-    curator = ln.Curator.from_df(df, categoricals=categoricals)
-    with pytest.raises(
-        ValueError, match="Cannot pass additional arguments to 'all' key!"
-    ):
-        curator.add_new_from("all", extra_arg="not_allowed")
-
-
-def test_unvalidated_data_object(df, categoricals):
-    curator = ln.Curator.from_df(df, categoricals=categoricals)
-    with pytest.raises(
-        ValidationError, match="Dataset does not validate. Please curate."
-    ):
-        curator.save_artifact()
 
 
 @pytest.mark.parametrize("to_add", ["donor", "all"])
@@ -520,7 +579,7 @@ def test_soma_curator(adata, categoricals, clean_soma_files):
         assert set(artifact.features["obs"].values_list("name", "dtype")) == {
             ("cell_type", "cat[bionty.CellType]"),
             ("cell_type_2", "cat[bionty.CellType]"),
-            ("assay_ontology_id", "cat[bionty.ExperimentalFactor]"),
+            ("assay_ontology_id", "cat[bionty.ExperimentalFactor.ontology_id]"),
             ("donor", "cat[ULabel]"),
             ("sample_note", "str"),
             ("temperature", "float"),

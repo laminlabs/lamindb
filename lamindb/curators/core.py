@@ -1029,10 +1029,10 @@ class DataFrameCatManager:
 
     This class is accessible from within a `DataFrameCurator` via the `.cat` attribute.
 
-    If you find non-validated values, you have several options:
+    If you find non-validated values, you have two options:
 
-    - new values found in the data can be registered via `DataFrameCurator.cat.add_new_from()` :meth:`~lamindb.curators.DataFrameCatManager.add_new_from`
-    - non-validated values can be accessed via `DataFrameCurator.cat.add_new_from()` :meth:`~lamindb.curators.DataFrameCatManager.non_validated` and addressed manually
+    - new values found in the data can be registered via `DataFrameCurator.cat.add_new_from()` :meth:`~lamindb.curators.core.DataFrameCatManager.add_new_from`
+    - non-validated values can be accessed via `DataFrameCurator.cat.add_new_from()` :meth:`~lamindb.curators.core.DataFrameCatManager.non_validated` and addressed manually
     """
 
     def __init__(
