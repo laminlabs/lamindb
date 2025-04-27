@@ -49,7 +49,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     might characterize 2 species of the Iris flower (`"setosa"` &
     `"versicolor"`) measured by a `"species"` feature. Use the
     :class:`~lamindb.curators.DataFrameCurator` flow to automatically parse, validate, and
-    annotate with labels that are contained in `DataFrame`s.
+    annotate with labels that are contained in `DataFrame` objects.
 
     .. note::
 
@@ -81,9 +81,9 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
 
         >>> artifact.ulabels.add(ulabel)
 
-        Query by `ULabel`:
+        Query an artifact by label:
 
-        >>> ln.Artifact.filter(ulabels=train_split)
+        >>> ln.Artifact.filter(ulabels=train_split).df()
     """
 
     class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
