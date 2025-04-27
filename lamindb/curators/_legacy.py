@@ -191,7 +191,7 @@ class DataFrameCatManager(CatManager):
         df: pd.DataFrame | Artifact,
         columns_field: FieldAttr = Feature.name,
         columns_names: Iterable[str] | None = None,
-        categoricals: list[Feature] | dict[str, FieldAttr] | None = None,
+        categoricals: dict[str, FieldAttr] | None = None,
         sources: dict[str, Record] | None = None,
         index: Feature | None = None,
     ) -> None:
