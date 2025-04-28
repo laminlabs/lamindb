@@ -1,11 +1,9 @@
-"""Test datasets.
-
-The mini immuno dataset.
+"""The mini immuno dataset.
 
 .. autosummary::
    :toctree: .
 
-   define_featueres_labels
+   define_features_labels
    get_dataset1
    get_dataset2
 
