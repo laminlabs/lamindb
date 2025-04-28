@@ -295,12 +295,10 @@ def test_dataframe_curator_validate_all_annotate_cat2(small_dataset1_schema):
     schema.delete()
 
 
-def test_anndata_curator(small_dataset1_schema: ln.Schema):
-    """Test AnnData curator implementation."""
-
+def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
     obs_schema = small_dataset1_schema
 
-    for add_comp in ["var", "obs", "uns"]:
+    for add_comp in ["var.T", "obs", "uns"]:
         var_schema = ln.Schema(
             name="scRNA_seq_var_schema",
             itype=bt.Gene.ensembl_gene_id,
@@ -308,7 +306,7 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
         ).save()
 
         # always assume var
-        components = {"var": var_schema}
+        components = {"var.T": var_schema}
         if add_comp == "obs":
             components["obs"] = obs_schema
         if add_comp == "uns":
@@ -324,7 +322,7 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
             components=components,
         ).save()
         assert small_dataset1_schema.id is not None, small_dataset1_schema
-        assert anndata_schema.slots["var"] == var_schema
+        assert anndata_schema.slots["var.T"] == var_schema
         if add_comp == "obs":
             assert anndata_schema.slots["obs"] == obs_schema
         if add_comp == "uns":
@@ -340,7 +338,7 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
 
         adata = datasets.small_dataset1(otype="AnnData")
         curator = ln.curators.AnnDataCurator(adata, anndata_schema)
-        assert isinstance(curator.slots["var"], ln.curators.DataFrameCurator)
+        assert isinstance(curator.slots["var.T"], ln.curators.DataFrameCurator)
         if add_comp == "obs":
             assert isinstance(curator.slots["obs"], ln.curators.DataFrameCurator)
         if add_comp == "uns":
@@ -349,7 +347,7 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
             adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
         ).save()
         assert artifact.schema == anndata_schema
-        assert artifact.features.slots["var"].n == 3  # 3 genes get linked
+        assert artifact.features.slots["var.T"].n == 3  # 3 genes get linked
         if add_comp == "obs":
             assert artifact.features.slots["obs"] == obs_schema
             # deprecated
@@ -374,12 +372,12 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
         var_schema.delete()
 
 
-def test_anndata_curator_var_curation_legacy_convention(ccaplog):
-    var_schema = ln.Schema(
+def test_anndata_curator_varT_curation():
+    varT_schema = ln.Schema(
         itype=bt.Gene.ensembl_gene_id,
-        dtype="num",
     ).save()
-    components = {"var": var_schema}
+    slot = "var.T"
+    components = {slot: varT_schema}
     anndata_schema = ln.Schema(
         otype="AnnData",
         components=components,
@@ -392,8 +390,40 @@ def test_anndata_curator_var_curation_legacy_convention(ccaplog):
                     adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
                 ).save()
             assert error.exconly() == (
-                "lamindb.errors.ValidationError: 1 term not validated in feature 'var_index' in slot 'var': 'GeneTypo'\n"
-                "    → fix typos, remove non-existent values, or save terms via: curator.slots['var'].cat.add_new_from('var_index')"
+                f"lamindb.errors.ValidationError: 1 term not validated in feature 'columns' in slot '{slot}': 'GeneTypo'\n"
+                f"    → fix typos, remove non-existent values, or save terms via: curator.slots['{slot}'].cat.add_new_from('columns')"
+            )
+        else:
+            artifact = ln.Artifact.from_anndata(
+                adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+            ).save()
+            assert artifact.features.slots[slot].n == 3  # 3 genes get linked
+            assert artifact.features.slots[slot].members.df()[
+                "ensembl_gene_id"
+            ].tolist() == ["ENSG00000153563", "ENSG00000010610", "ENSG00000170458"]
+            artifact.delete(permanent=True)
+            anndata_schema.delete()
+            varT_schema.delete()
+
+
+def test_anndata_curator_varT_curation_legacy(ccaplog):
+    varT_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id).save()
+    slot = "var"
+    components = {slot: varT_schema}
+    anndata_schema = ln.Schema(
+        otype="AnnData",
+        components=components,
+    ).save()
+    for with_gene_typo in [True, False]:
+        adata = datasets.small_dataset1(otype="AnnData", with_gene_typo=with_gene_typo)
+        if with_gene_typo:
+            with pytest.raises(ValidationError) as error:
+                artifact = ln.Artifact.from_anndata(
+                    adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+                ).save()
+            assert error.exconly() == (
+                f"lamindb.errors.ValidationError: 1 term not validated in feature 'var_index' in slot '{slot}': 'GeneTypo'\n"
+                f"    → fix typos, remove non-existent values, or save terms via: curator.slots['{slot}'].cat.add_new_from('var_index')"
             )
         else:
             artifact = ln.Artifact.from_anndata(
@@ -403,9 +433,9 @@ def test_anndata_curator_var_curation_legacy_convention(ccaplog):
                 "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 in ccaplog.text
             )
-            assert artifact.features.slots["var"].n == 3  # 3 genes get linked
+            assert artifact.features.slots[slot].n == 3  # 3 genes get linked
             assert set(
-                artifact.features.slots["var"].members.list("ensembl_gene_id")
+                artifact.features.slots[slot].members.df()["ensembl_gene_id"]
             ) == {
                 "ENSG00000153563",
                 "ENSG00000010610",
@@ -413,7 +443,7 @@ def test_anndata_curator_var_curation_legacy_convention(ccaplog):
             }
             artifact.delete(permanent=True)
             anndata_schema.delete()
-            var_schema.delete()
+            varT_schema.delete()
 
 
 def test_soma_curator(

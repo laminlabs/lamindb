@@ -547,9 +547,8 @@ class AnnDataCurator(SlotsCurator):
 
     Example:
 
-        .. literalinclude:: scripts/curate-anndata.py
-            :language: python
-            :caption: curate-anndata.py
+        See :meth:`~lamindb.Artifact.from_anndata`.
+
     """
 
     def __init__(
@@ -565,7 +564,7 @@ class AnnDataCurator(SlotsCurator):
         self._slots = {
             slot: DataFrameCurator(
                 (
-                    getattr(self._dataset, slot).T
+                    getattr(self._dataset, slot.strip(".T")).T
                     if slot == "var.T"
                     or (
                         # backward compat
@@ -578,7 +577,7 @@ class AnnDataCurator(SlotsCurator):
                 slot=slot,
             )
             for slot, slot_schema in schema.slots.items()
-            if slot in {"obs", "var", "uns"}
+            if slot in {"obs", "var", "var.T", "uns"}
         }
         if "var" in self._slots and schema.slots["var"].itype not in {None, "Feature"}:
             logger.warning(
@@ -1099,21 +1098,18 @@ class DataFrameCatManager:
         if columns_field == Feature.name:
             self._cat_columns["columns"] = CatColumn(
                 values_getter=columns_names,
-                field=self._columns_field,
+                field=columns_field,
                 key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
                 source=self._sources.get("columns"),
                 cat_manager=self,
             )
-            if isinstance(self._categoricals, dict):  # backward compat
-                self._cat_columns["columns"].validate()
         else:
-            # NOTE: for var_index right now
             self._cat_columns["columns"] = CatColumn(
                 values_getter=lambda: self._dataset.columns,  # lambda ensures the inplace update
                 values_setter=lambda new_values: setattr(
                     self._dataset, "columns", pd.Index(new_values)
                 ),
-                field=self._columns_field,
+                field=columns_field,
                 key="columns",
                 source=self._sources.get("columns"),
                 cat_manager=self,
@@ -1183,7 +1179,8 @@ class DataFrameCatManager:
         self._validate_category_error_messages = ""  # reset the error messages
 
         validated = True
-        for _, cat_column in self._cat_columns.items():
+        for key, cat_column in self._cat_columns.items():
+            logger.info(f"validating column {key}")
             cat_column.validate()
             validated &= cat_column.is_validated
         self._is_validated = validated
