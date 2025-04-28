@@ -372,49 +372,6 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
         var_schema.delete()
 
 
-def test_anndata_curator_varT_curation_legacy(ccaplog):
-    var_schema = ln.Schema(
-        itype=bt.Gene.ensembl_gene_id,
-        dtype="num",
-    ).save()
-    slot = "var"
-    components = {slot: var_schema}
-    anndata_schema = ln.Schema(
-        otype="AnnData",
-        components=components,
-    ).save()
-    for with_gene_typo in [True, False]:
-        adata = datasets.small_dataset1(otype="AnnData", with_gene_typo=with_gene_typo)
-        if with_gene_typo:
-            with pytest.raises(ValidationError) as error:
-                artifact = ln.Artifact.from_anndata(
-                    adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
-                ).save()
-            assert error.exconly() == (
-                f"lamindb.errors.ValidationError: 1 term not validated in feature 'var_index' in slot '{slot}': 'GeneTypo'\n"
-                f"    → fix typos, remove non-existent values, or save terms via: curator.slots['{slot}'].cat.add_new_from('var_index')"
-            )
-        else:
-            artifact = ln.Artifact.from_anndata(
-                adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
-            ).save()
-            assert (
-                "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
-                in ccaplog.text
-            )
-            assert artifact.features.slots[slot].n == 3  # 3 genes get linked
-            assert set(
-                artifact.features.slots[slot].members.list("ensembl_gene_id")
-            ) == {
-                "ENSG00000153563",
-                "ENSG00000010610",
-                "ENSG00000170458",
-            }
-            artifact.delete(permanent=True)
-            anndata_schema.delete()
-            var_schema.delete()
-
-
 def test_anndata_curator_varT_curation():
     varT_schema = ln.Schema(
         itype=bt.Gene.ensembl_gene_id,
@@ -441,8 +398,48 @@ def test_anndata_curator_varT_curation():
                 adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
             ).save()
             assert artifact.features.slots[slot].n == 3  # 3 genes get linked
+            assert artifact.features.slots[slot].members.df()[
+                "ensembl_gene_id"
+            ].tolist() == [
+                "ENSG00000153563",
+                "ENSG00000010610",
+                "ENSG00000170458",
+            ]
+            artifact.delete(permanent=True)
+            anndata_schema.delete()
+            varT_schema.delete()
+
+
+def test_anndata_curator_varT_curation_legacy(ccaplog):
+    varT_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id).save()
+    slot = "var"
+    components = {slot: varT_schema}
+    anndata_schema = ln.Schema(
+        otype="AnnData",
+        components=components,
+    ).save()
+    for with_gene_typo in [True, False]:
+        adata = datasets.small_dataset1(otype="AnnData", with_gene_typo=with_gene_typo)
+        if with_gene_typo:
+            with pytest.raises(ValidationError) as error:
+                artifact = ln.Artifact.from_anndata(
+                    adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+                ).save()
+            assert error.exconly() == (
+                f"lamindb.errors.ValidationError: 1 term not validated in feature 'var_index' in slot '{slot}': 'GeneTypo'\n"
+                f"    → fix typos, remove non-existent values, or save terms via: curator.slots['{slot}'].cat.add_new_from('var_index')"
+            )
+        else:
+            artifact = ln.Artifact.from_anndata(
+                adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+            ).save()
+            assert (
+                "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                in ccaplog.text
+            )
+            assert artifact.features.slots[slot].n == 3  # 3 genes get linked
             assert set(
-                artifact.features.slots[slot].members.list("ensembl_gene_id")
+                artifact.features.slots[slot].members.df()["ensembl_gene_id"]
             ) == {
                 "ENSG00000153563",
                 "ENSG00000010610",
