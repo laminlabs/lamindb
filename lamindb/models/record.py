@@ -63,7 +63,7 @@ from lamindb_setup.core._settings_store import instance_settings_file
 from lamindb_setup.core.django import DBToken, db_token_manager
 from lamindb_setup.core.upath import extract_suffix_from_path
 
-from lamindb.base.fields import (
+from ..base.fields import (
     CharField,
     DateTimeField,
     ForeignKey,
