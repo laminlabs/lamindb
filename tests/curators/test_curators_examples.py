@@ -400,11 +400,7 @@ def test_anndata_curator_varT_curation():
             assert artifact.features.slots[slot].n == 3  # 3 genes get linked
             assert artifact.features.slots[slot].members.df()[
                 "ensembl_gene_id"
-            ].tolist() == [
-                "ENSG00000153563",
-                "ENSG00000010610",
-                "ENSG00000170458",
-            ]
+            ].tolist() == ["ENSG00000153563", "ENSG00000010610", "ENSG00000170458"]
             artifact.delete(permanent=True)
             anndata_schema.delete()
             varT_schema.delete()
