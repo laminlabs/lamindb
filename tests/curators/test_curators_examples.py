@@ -393,7 +393,7 @@ def test_anndata_curator_var_curation_legacy_convention():
                 ).save()
             assert error.exconly() == (
                 "lamindb.errors.ValidationError: 1 term not validated in feature 'var_index' in slot 'var': 'GeneTypo'\n"
-                "    → fix typos, remove non-existent values, or save terms via: curator.slots['var'].add_new_from('var_index')"
+                "    → fix typos, remove non-existent values, or save terms via: curator.slots['var'].cat.add_new_from('var_index')"
             )
         else:
             artifact = ln.Artifact.from_anndata(

@@ -976,8 +976,10 @@ class CatColumn:
         else:
             slot = None
         in_slot = f" in slot '{slot}'" if slot is not None else ""
-        slot_prefix = f"slots['{slot}']" if slot is not None else ""
-        non_validated_hint_print = f"curator.{slot_prefix}.add_new_from('{self._key}')"
+        slot_prefix = f".slots['{slot}']" if slot is not None else ""
+        non_validated_hint_print = (
+            f"curator{slot_prefix}.cat.add_new_from('{self._key}')"
+        )
         non_validated = [i for i in non_validated if i not in values_validated]
         n_non_validated = len(non_validated)
         if n_non_validated == 0:
