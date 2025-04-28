@@ -30,18 +30,18 @@ if TYPE_CHECKING:
     from lamindb.core.types import ScverseDataStructures
 
 
-def create_zarr_open_obj(
-    storepath: UPathStr, *, check: bool = True
+def get_zarr_store(
+    storepath: UPathStr, *, check: bool = False, create: bool = False
 ) -> str | S3FSMap | FSMap:
     """Creates the correct object that can be used to open a zarr file depending on local or remote location."""
     fs, storepath_str = infer_filesystem(storepath)
 
     if isinstance(fs, LocalFileSystem):
-        open_obj = storepath_str
+        store = storepath_str
     else:
-        open_obj = create_mapper(fs, storepath_str, check=check)
+        store = create_mapper(fs, storepath_str, check=check, create=create)
 
-    return open_obj
+    return store
 
 
 def _identify_zarr_type_from_storage(
@@ -73,10 +73,9 @@ def identify_zarr_type(
     #     return "spatialdata"
     # elif ".anndata" in suffixes:
     #     return "anndata"
-
-    open_obj = create_zarr_open_obj(storepath, check=check)
+    store = get_zarr_store(storepath, check=check)
     try:
-        storage = zarr.open(open_obj, mode="r")
+        storage = zarr.open(store, mode="r")
         return _identify_zarr_type_from_storage(storage)
     except Exception as error:
         logger.warning(
@@ -96,11 +95,10 @@ def load_zarr(
         expected_type: If provided, ensures the zarr store is of this type ("anndata", "mudata", "spatialdata")
                        and raises ValueError if it's not
     """
-    open_obj = create_zarr_open_obj(storepath, check=True)
-
+    store = get_zarr_store(storepath, check=True)
     # Open the storage once
     try:
-        storage = zarr.open(open_obj, mode="r")
+        storage = zarr.open(store, mode="r")
     except Exception as error:
         raise ValueError(f"Could not open zarr store: {error}") from None
 
@@ -112,13 +110,11 @@ def load_zarr(
 
     match actual_type:
         case "anndata":
-            scverse_obj = read_anndata_zarr(open_obj)
+            scverse_obj = read_anndata_zarr(store)
         case "mudata":
-            scverse_obj = with_package("mudata", lambda mod: mod.read_zarr(open_obj))
+            scverse_obj = with_package("mudata", lambda mod: mod.read_zarr(store))
         case "spatialdata":
-            scverse_obj = with_package(
-                "spatialdata", lambda mod: mod.read_zarr(open_obj)
-            )
+            scverse_obj = with_package("spatialdata", lambda mod: mod.read_zarr(store))
         case "unknown" | _:
             raise ValueError(
                 "Unable to determine zarr store format and therefore cannot load Artifact."
@@ -129,9 +125,7 @@ def load_zarr(
 def write_adata_zarr(
     adata: AnnData, storepath: UPathStr, callback=None, chunks=None, **dataset_kwargs
 ) -> None:
-    fs, storepath_str = infer_filesystem(storepath)
-    store = create_mapper(fs, storepath_str, create=True)
-
+    store = get_zarr_store(storepath, create=True)
     f = zarr.open(store, mode="w")
 
     adata.strings_to_categoricals()
