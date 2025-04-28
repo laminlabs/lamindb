@@ -7,9 +7,8 @@ import scipy.sparse as sparse
 import zarr
 from anndata import __version__ as anndata_version
 from anndata._io.specs import write_elem
-from fsspec.implementations.local import LocalFileSystem
 from lamin_utils import logger
-from lamindb_setup.core.upath import S3FSMap, create_mapper, infer_filesystem
+from lamindb_setup.core.upath import LocalPathClasses, S3FSMap, UPath, create_mapper
 from packaging import version
 
 from lamindb.core._compat import with_package
@@ -37,17 +36,16 @@ if TYPE_CHECKING:
 
 
 def get_zarr_store(
-    storepath: UPathStr, *, check: bool = False, create: bool = False
+    path: UPathStr, *, check: bool = False, create: bool = False
 ) -> str | S3FSMap | FSMap | Store:
     """Creates the correct object that can be used to open a zarr file depending on local or remote location."""
-    fs, storepath_str = infer_filesystem(storepath)
-
-    if isinstance(fs, LocalFileSystem):
+    storepath, storepath_str = UPath(path), str(path)
+    if isinstance(storepath, LocalPathClasses):
         store = storepath_str
     elif IS_ZARR_V3:
-        store = zarr.storage.FsspecStore(fs)
+        store = zarr.storage.FsspecStore.from_upath(UPath(storepath, asynchronous=True))
     else:
-        store = create_mapper(fs, storepath_str, check=check, create=create)
+        store = create_mapper(storepath.fs, storepath_str, check=check, create=create)
 
     return store
 
