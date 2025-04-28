@@ -274,8 +274,8 @@ class Schema(Record, CanCurate, TracksRun):
     """A name."""
     description: str | None = CharField(null=True, db_index=True)
     """A description."""
-    n = IntegerField()
-    """Number of features in the set."""
+    n: int = IntegerField()
+    """Number of features in the schema."""
     itype: str | None = CharField(
         max_length=120, db_index=True, null=True, editable=False
     )

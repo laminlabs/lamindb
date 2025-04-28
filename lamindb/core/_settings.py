@@ -9,6 +9,7 @@ from lamindb_setup._set_managed_storage import set_managed_storage
 from lamindb_setup.core._settings import settings as setup_settings
 from lamindb_setup.core._settings_instance import sanitize_git_repo_url
 
+from .subsettings._annotation_settings import AnnotationSettings, annotation_settings
 from .subsettings._creation_settings import CreationSettings, creation_settings
 
 if TYPE_CHECKING:
@@ -34,7 +35,7 @@ VERBOSITY_TO_STR: dict[int, str] = dict(
 class Settings:
     """Settings.
 
-    Use ``lamindb.settings`` instead of instantiating this class yourself.
+    Use `lamindb.settings` instead of instantiating this class yourself.
     """
 
     def __init__(self):
@@ -50,6 +51,15 @@ class Settings:
         searching for records with similar names during creation.
         """
         return creation_settings
+
+    @property
+    def annotation(self) -> AnnotationSettings:
+        """Artifact annotation settings.
+
+        For example, `ln.settings.creation.search_names = False` will disable
+        searching for records with similar names during creation.
+        """
+        return annotation_settings
 
     track_run_inputs: bool = True
     """Track files as input upon `.load()`, `.cache()` and `.open()`.
@@ -104,28 +114,31 @@ class Settings:
 
     @property
     def storage(self) -> StorageSettings:
-        """Default storage location.
+        """Current default storage location for writes.
 
         Examples:
 
-        >>> ln.settings.storage
-        StorageSettings(root='s3://my-bucket', uid='j7MaPxtLxPeE')
+        Retrieve the storage settings::
 
-        >>> ln.settings.storage.root
-        UPath('s3://my-bucket')
+            ln.settings.storage
+            #> StorageSettings(root='s3://my-bucket')
 
-        You can switch the default storage location to another managed storage
-        location by passing a string:
+        Retrieve the storage root::
 
-        >>> ln.settings.storage = "s3://some-bucket"
+            ln.settings.storage.root
+            #> UPath('s3://my-bucket')
 
-        You can also pass additional fsspec kwargs via:
+        You can write artifacts to other storage locations by switching the current default storage location::
 
-        >>> kwargs = dict(
-        >>>     profile="some_profile", # fsspec arg
-        >>>     cache_regions=True # fsspec arg for s3
-        >>> )
-        >>> ln.settings.storage = "s3://some-bucket", kwargs
+            ln.settings.storage = "s3://some-bucket"
+
+        You can also pass additional fsspec kwargs via::
+
+            kwargs = dict(
+                profile="some_profile", # fsspec arg
+                cache_regions=True # fsspec arg for s3
+            )
+            ln.settings.storage = "s3://some-bucket", kwargs
         """
         return self._storage_settings
 

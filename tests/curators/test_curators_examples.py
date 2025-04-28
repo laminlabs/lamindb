@@ -394,14 +394,26 @@ def test_anndata_curator_varT_curation():
                 f"    → fix typos, remove non-existent values, or save terms via: curator.slots['{slot}'].cat.add_new_from('columns')"
             )
         else:
-            artifact = ln.Artifact.from_anndata(
-                adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
-            ).save()
-            assert artifact.features.slots[slot].n == 3  # 3 genes get linked
-            assert artifact.features.slots[slot].members.df()[
-                "ensembl_gene_id"
-            ].tolist() == ["ENSG00000153563", "ENSG00000010610", "ENSG00000170458"]
-            artifact.delete(permanent=True)
+            for n_max_records in [2, 3]:
+                ln.settings.annotation.n_max_records = n_max_records
+                artifact = ln.Artifact.from_anndata(
+                    adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+                ).save()
+                assert artifact.features.slots[slot].n == 3  # 3 genes get linked
+                assert (
+                    artifact.features.slots[slot].itype == "bionty.Gene.ensembl_gene_id"
+                )
+                if n_max_records == 2:
+                    assert not artifact.features.slots[slot].members.exists()
+                else:
+                    assert artifact.features.slots[slot].members.df()[
+                        "ensembl_gene_id"
+                    ].tolist() == [
+                        "ENSG00000153563",
+                        "ENSG00000010610",
+                        "ENSG00000170458",
+                    ]
+                artifact.delete(permanent=True)
             anndata_schema.delete()
             varT_schema.delete()
 
