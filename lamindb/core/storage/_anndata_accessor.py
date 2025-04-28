@@ -345,7 +345,10 @@ if ZARR_INSTALLED:
     # this is needed because accessing zarr.Group.keys() directly is very slow
     @registry.register("zarr")
     def keys(storage: zarr.Group):
-        paths = storage._store.keys()
+        if hasattr(storage, "_sync_iter"):  # zarr v3
+            paths = storage._sync_iter(storage.store.list())
+        else:
+            paths = storage._store.keys()  # zarr v2
 
         attrs_keys: dict[str, list] = {}
         obs_var_arrays = []

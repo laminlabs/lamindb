@@ -21,23 +21,31 @@ if version.parse(anndata_version) < version.parse("0.11.0"):
 else:
     from anndata.io import read_zarr as read_anndata_zarr
 
+if version.parse(zarr.__version__) >= version.parse("3.0.0a0"):
+    IS_ZARR_V3 = True
+    from zarr.abc.store import Store
+else:
+    IS_ZARR_V3 = False
 
 if TYPE_CHECKING:
     from anndata import AnnData
     from fsspec import FSMap
     from lamindb_setup.core.types import UPathStr
+    from zarr.storage import Store
 
     from lamindb.core.types import ScverseDataStructures
 
 
 def get_zarr_store(
     storepath: UPathStr, *, check: bool = False, create: bool = False
-) -> str | S3FSMap | FSMap:
+) -> str | S3FSMap | FSMap | Store:
     """Creates the correct object that can be used to open a zarr file depending on local or remote location."""
     fs, storepath_str = infer_filesystem(storepath)
 
     if isinstance(fs, LocalFileSystem):
         store = storepath_str
+    elif IS_ZARR_V3:
+        store = zarr.storage.FsspecStore(fs)
     else:
         store = create_mapper(fs, storepath_str, check=check, create=create)
 
