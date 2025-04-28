@@ -547,9 +547,9 @@ class AnnDataCurator(SlotsCurator):
 
     Example:
 
-        .. literalinclude:: scripts/curate-anndata.py
+        .. literalinclude:: scripts/curate-anndata-simple.py
             :language: python
-            :caption: curate-anndata.py
+            :caption: curate-anndata-simple.py
     """
 
     def __init__(
