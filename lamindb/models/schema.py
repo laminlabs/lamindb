@@ -185,25 +185,15 @@ class Schema(Record, CanCurate, TracksRun):
         coerce_dtype: `bool = False` When True, attempts to coerce values to the specified dtype
             during validation, see :attr:`~lamindb.Schema.coerce_dtype`.
 
-    .. dropdown:: Why does LaminDB model schemas, not just features?
-
-        1. Performance: Imagine you measure the same panel of 20k transcripts in
-           1M samples. By modeling the panel as a schema, you can link all
-           your artifacts against one schema and only need to store 1M
-           instead of 1M x 20k = 20B links.
-        2. Interpretation: Model protein panels, gene panels, etc.
-        3. Data integration: Schemas provide the information that determines whether two datasets can be meaningfully concatenated.
-
-    Note:
-
-        A `slot` provides a string key to access schema components. For instance, for the schema of an
-        `AnnData` object, it would be `'obs'` for `adata.obs`.
-
     See Also:
-        :meth:`~lamindb.Schema.from_values`
-            Create from values.
-        :meth:`~lamindb.Schema.from_df`
-            Create from dataframe columns.
+        :meth:`~lamindb.Artifact.from_df`
+            Validate & annotate a `DataFrame` with a schema.
+        :meth:`~lamindb.Artifact.from_anndata`
+            Validate & annotate an `AnnData` with a schema.
+        :meth:`~lamindb.Artifact.from_mudata`
+            Validate & annotate an `MuData` with a schema.
+        :meth:`~lamindb.Artifact.from_spatialdata`
+            Validate & annotate a `SpatialData` with a schema.
 
     Examples:
 
@@ -213,19 +203,18 @@ class Schema(Record, CanCurate, TracksRun):
             import bionty as bt
             import pandas as pd
 
-            # explicitly define features
+            # a schema with a single required feature
             schema = ln.Schema(
                 features=[
                     ln.Feature(name="required_feature", dtype=str).save(),
                 ],
             ).save()
 
-            # merely constrain a feature identifier type like an Ensembl gene id
+            # a schema that constrains feature identifiers to be a valid ensembl gene ids or feature names
             schema = ln.Schema(itype=bt.Gene.ensembl_gene_id)
-            # or feature name
-            schema = ln.Schema(itype=ln.Feature)  # is equivalent to ln.Feature.name
+            schema = ln.Schema(itype=ln.Feature)  # is equivalent to itype=ln.Feature.name
 
-            # a combination of the above
+            # a schema that requires a single feature and accepts any other features with valid feature names
             schema = ln.Schema(
                 features=[
                     ln.Feature(name="required_feature", dtype=str).save(),
@@ -252,16 +241,16 @@ class Schema(Record, CanCurate, TracksRun):
                 ],
             ).save()
 
-        Alternative constructors::
+        Alternative constructors (:meth:`~lamindb.Schema.from_values`, :meth:`~lamindb.Schema.from_df`)::
 
-            # By parsing & validating identifier values
+            # parse & validate identifier values
             schema = ln.Schema.from_values(
                 adata.var["ensemble_id"],
                 field=bt.Gene.ensembl_gene_id,
                 organism="mouse",
             ).save()
 
-            # From a dataframe
+            # from a dataframe
             df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
             schema = ln.Schema.from_df(df)
     """
