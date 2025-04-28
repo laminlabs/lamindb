@@ -199,7 +199,7 @@ def test_backed_bad_format(bad_adata_path):
 def test_backed_zarr_not_adata():
     zarr_pth = Path("./not_adata.zarr")
     store = zarr.open(zarr_pth, mode="w")
-    store["test"] = np.array("test")
+    store["test"] = np.array(["test"])
 
     access = backed_access(zarr_pth)
 
