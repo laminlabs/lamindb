@@ -547,9 +547,8 @@ class AnnDataCurator(SlotsCurator):
 
     Example:
 
-        .. literalinclude:: scripts/curate-anndata-simple.py
-            :language: python
-            :caption: curate-anndata-simple.py
+        See :meth:`~lamindb.Artifact.from_anndata`.
+
     """
 
     def __init__(

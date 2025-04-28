@@ -1610,7 +1610,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         schema: Schema | None = None,
         **kwargs,
     ) -> Artifact:
-        """Create from `DataFrame`, validate & link features.
+        """Create from `DataFrame`, optionally validate & annotate.
 
         Args:
             df: A `DataFrame` object.
@@ -1619,7 +1619,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
-            schema: A schema to validate & annotate.
+            schema: A schema that defines how to validate & annotate.
 
         See Also:
             :meth:`~lamindb.Collection`
@@ -1627,19 +1627,14 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             :class:`~lamindb.Feature`
                 Track features.
 
-        Example::
+        Example:
 
-            import lamindb as ln
+            No validation and annotation::
 
-            df = ln.core.datasets.df_iris_in_meter_batch1()
-            df.head()
-            #>   sepal_length sepal_width petal_length petal_width iris_organism_code
-            #> 0        0.051       0.035        0.014       0.002                 0
-            #> 1        0.049       0.030        0.014       0.002                 0
-            #> 2        0.047       0.032        0.013       0.002                 0
-            #> 3        0.046       0.031        0.015       0.002                 0
-            #> 4        0.050       0.036        0.014       0.002                 0
-            artifact = ln.Artifact.from_df(df, key="iris/result_batch1.parquet").save()
+                import lamindb as ln
+
+                df = ln.core.datasets.df_iris_in_meter_batch1()
+                artifact = ln.Artifact.from_df(df, key="iris/result_batch1.parquet").save()
         """
         artifact = Artifact(  # type: ignore
             data=df,
@@ -1673,7 +1668,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         schema: Schema | None = None,
         **kwargs,
     ) -> Artifact:
-        """Create from ``AnnData``, validate & link features.
+        """Create from `AnnData`, optionally validate & annotate.
 
         Args:
             adata: An `AnnData` object or a path of AnnData-like.
@@ -1682,7 +1677,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
-            schema: A schema to validate & annotate.
+            schema: A schema that defines how to validate & annotate.
 
         See Also:
 
@@ -1691,12 +1686,26 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             :class:`~lamindb.Feature`
                 Track features.
 
-        Example::
+        Example:
 
-            import lamindb as ln
+            No validation and annotation::
 
-            adata = ln.core.datasets.anndata_with_obs()
-            artifact = ln.Artifact.from_anndata(adata, key="mini_anndata_with_obs.h5ad").save()
+                import lamindb as ln
+
+                adata = ln.core.datasets.anndata_with_obs()
+                artifact = ln.Artifact.from_anndata(adata, key="mini_anndata_with_obs.h5ad").save()
+
+            With validation and annotation.
+
+            .. literalinclude:: scripts/curate-anndata-simple.py
+                :language: python
+
+            In the example above, we chose to tranpose the `var` DataFrame during annotation, so that we annotate the `var.T` schema, i.e., `[ENSG00000153563, ENSG00000010610, ENSG00000170458]`.
+            If we don't transpose, we'd annotate with the schema of `var`, i.e., `[gene_symbol, gene_type]`.
+
+            .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/gLyfToATM7WUzkWW0001.png
+                :width: 800px
+
         """
         if not data_is_anndata(adata):
             raise ValueError(
@@ -1745,7 +1754,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         schema: Schema | None = None,
         **kwargs,
     ) -> Artifact:
-        """Create from ``MuData``, validate & link features.
+        """Create from `MuData`, optionally validate & annotate.
 
         Args:
             mdata: A `MuData` object.
@@ -1754,7 +1763,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
-            schema: A schema to validate & annotate.
+            schema: A schema that defines how to validate & annotate.
 
         See Also:
             :meth:`~lamindb.Collection`
@@ -1804,16 +1813,16 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         schema: Schema | None = None,
         **kwargs,
     ) -> Artifact:
-        """Create from ``SpatialData``, validate & link features.
+        """Create from `SpatialData`, optionally validate & annotate.
 
         Args:
-            mdata: A `SpatialData` object.
+            sdata: A `SpatialData` object.
             key: A relative path within default storage,
                 e.g., `"myfolder/myfile.zarr"`.
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
-             schema: A schema to validate & annotate.
+            schema: A schema that defines how to validate & annotate.
 
         See Also:
             :meth:`~lamindb.Collection`
@@ -1821,11 +1830,13 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             :class:`~lamindb.Feature`
                 Track features.
 
-        Example::
+        Example:
 
-            import lamindb as ln
+            No validation and annotation::
 
-            artifact = ln.Artifact.from_spatialdata(sdata, key="my_dataset.zarr").save()
+                import lamindb as ln
+
+                artifact = ln.Artifact.from_spatialdata(sdata, key="my_dataset.zarr").save()
         """
         if not data_is_spatialdata(sdata):
             raise ValueError(
