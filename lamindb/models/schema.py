@@ -292,10 +292,7 @@ class Schema(Record, CanCurate, TracksRun):
     )
     """A registry that stores feature identifiers used in this schema, e.g., `'Feature'` or `'bionty.Gene'`.
 
-    Depending on the registry, `.members` stores, e.g., `Feature` or `bionty.Gene` records.
-
-    .. versionchanged:: 1.0.0
-        Was called `registry` before.
+    Depending on `itype`, `.members` stores, e.g., `Feature` or `bionty.Gene` records.
     """
     type: Schema | None = ForeignKey("self", PROTECT, null=True, related_name="records")
     """Type of schema.

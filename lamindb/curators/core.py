@@ -170,8 +170,6 @@ class Curator:
         - :class:`~lamindb.curators.AnnDataCurator`
         - :class:`~lamindb.curators.MuDataCurator`
         - :class:`~lamindb.curators.SpatialDataCurator`
-
-    .. versionadded:: 1.1.0
     """
 
     def __init__(self, dataset: Any, schema: Schema | None = None):
@@ -185,7 +183,7 @@ class Curator:
                 "MuData",
                 "SpatialData",
             }:
-                self._dataset = self._dataset.load()
+                self._dataset = self._dataset.load(is_run_input=False)
         self._schema: Schema | None = schema
         self._is_validated: bool = False
         self._cat_manager: DataFrameCatManager = None  # is None for CatManager curators
@@ -327,6 +325,7 @@ class DataFrameCurator(Curator):
     Args:
         dataset: The DataFrame-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
+        slot: Indicate the slot in a composite curator for a composite data structure.
 
     Example:
 
@@ -339,6 +338,7 @@ class DataFrameCurator(Curator):
         self,
         dataset: pd.DataFrame | Artifact,
         schema: Schema,
+        slot: str | None = None,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
         categoricals = []
@@ -433,6 +433,7 @@ class DataFrameCurator(Curator):
             columns_names=pandera_columns.keys(),
             categoricals=categoricals,
             index=schema.index,
+            slot=slot,
         )
 
     @property
@@ -485,12 +486,12 @@ class DataFrameCurator(Curator):
                     )
 
     def _cat_manager_validate(self) -> None:
-        self._cat_manager.validate()
-        if self._cat_manager._is_validated:
+        self.cat.validate()
+        if self.cat._is_validated:
             self._is_validated = True
         else:
             self._is_validated = False
-            raise ValidationError(self._cat_manager._validate_category_error_messages)
+            raise ValidationError(self.cat._validate_category_error_messages)
 
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
@@ -538,7 +539,6 @@ class DataFrameCurator(Curator):
 
 
 class AnnDataCurator(SlotsCurator):
-    # the example in the docstring is tested in test_curators_quickstart_example
     """Curator for `AnnData`.
 
     Args:
@@ -566,20 +566,28 @@ class AnnDataCurator(SlotsCurator):
             slot: DataFrameCurator(
                 (
                     getattr(self._dataset, slot).T
-                    if slot == "var"
+                    if slot == "var.T"
+                    or (
+                        # backward compat
+                        slot == "var"
+                        and schema.slots["var"].itype not in {None, "Feature"}
+                    )
                     else getattr(self._dataset, slot)
                 ),
                 slot_schema,
+                slot=slot,
             )
             for slot, slot_schema in schema.slots.items()
             if slot in {"obs", "var", "uns"}
         }
-        # TODO: better way to handle this!
-        if "var" in self._slots:
-            self._slots["var"]._cat_manager._cat_columns["var_index"] = self._slots[
+        if "var" in self._slots and schema.slots["var"].itype not in {None, "Feature"}:
+            logger.warning(
+                "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
+            )
+            self._slots["var"].cat._cat_columns["var_index"] = self._slots[
                 "var"
-            ]._cat_manager._cat_columns.pop("columns")
-            self._slots["var"]._cat_manager._cat_columns["var_index"]._key = "var_index"
+            ].cat._cat_columns.pop("columns")
+            self._slots["var"].cat._cat_columns["var_index"]._key = "var_index"
 
 
 def _assign_var_fields_categoricals_multimodal(
@@ -646,10 +654,22 @@ class MuDataCurator(SlotsCurator):
             else:
                 modality, modality_slot = None, slot
                 schema_dataset = self._dataset
+            if modality_slot == "var" and schema.slots[slot].itype not in {
+                None,
+                "Feature",
+            }:
+                logger.warning(
+                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                )
             self._slots[slot] = DataFrameCurator(
                 (
                     getattr(schema_dataset, modality_slot).T
-                    if modality_slot == "var"
+                    if modality_slot == "var.T"
+                    or (
+                        # backward compat
+                        modality_slot == "var"
+                        and schema.slots[slot].itype not in {None, "Feature"}
+                    )
                     else getattr(schema_dataset, modality_slot)
                 ),
                 slot_schema,
@@ -663,8 +683,6 @@ class MuDataCurator(SlotsCurator):
                 cat_columns=self._cat_columns,
                 slots=self._slots,
             )
-
-        # for consistency with BaseCatManager
         self._columns_field = self._var_fields
 
 
@@ -700,6 +718,13 @@ class SpatialDataCurator(SlotsCurator):
             if ":" in slot:
                 table_key, table_slot = slot.split(":")
                 schema_dataset = self._dataset.tables.__getitem__(table_key)
+                if table_slot == "var" and schema.slots[slot].itype not in {
+                    None,
+                    "Feature",
+                }:
+                    logger.warning(
+                        "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                    )
             # sample metadata (does not have a `:` separator)
             else:
                 table_key = None
@@ -707,11 +732,15 @@ class SpatialDataCurator(SlotsCurator):
                 schema_dataset = self._dataset.get_attrs(
                     key=sample_metadata_key, return_as="df", flatten=True
                 )
-
             self._slots[slot] = DataFrameCurator(
                 (
                     getattr(schema_dataset, table_slot).T
-                    if table_slot == "var"
+                    if table_slot == "var.T"
+                    or (
+                        # backward compat
+                        table_slot == "var"
+                        and schema.slots[slot].itype not in {None, "Feature"}
+                    )
                     else (
                         getattr(schema_dataset, table_slot)
                         if table_slot != sample_metadata_key
@@ -720,7 +749,6 @@ class SpatialDataCurator(SlotsCurator):
                 ),
                 slot_schema,
             )
-
             _assign_var_fields_categoricals_multimodal(
                 modality=table_key,
                 slot_type=table_slot,
@@ -730,8 +758,6 @@ class SpatialDataCurator(SlotsCurator):
                 cat_columns=self._cat_columns,
                 slots=self._slots,
             )
-
-        # for consistency with BaseCatManager
         self._columns_field = self._var_fields
 
 
@@ -754,6 +780,7 @@ class CatColumn:
         values_setter: Callable | None = None,
         source: Record | None = None,
         feature: Feature | None = None,
+        cat_manager: DataFrameCatManager | None = None,
     ) -> None:
         self._values_getter = values_getter
         self._values_setter = values_setter
@@ -764,6 +791,7 @@ class CatColumn:
         self._validated: None | list[str] = None
         self._non_validated: None | list[str] = None
         self._synonyms: None | dict[str, str] = None
+        self._cat_manager = cat_manager
         self.feature = feature
         self.labels = None
         if hasattr(field.field.model, "_name_field"):
@@ -909,7 +937,6 @@ class CatColumn:
     def _validate(
         self,
         values: list[str],
-        curator: DataFrameCatManager | None = None,  # TODO: not yet used
     ) -> tuple[list[str], dict]:
         """Validate ontology terms using LaminDB registries."""
         registry = self._field.field.model
@@ -944,7 +971,15 @@ class CatColumn:
             values_validated += [getattr(r, field_name) for r in public_records]
 
         # logging messages
-        non_validated_hint_print = f'.add_new_from("{self._key}")'
+        if self._cat_manager is not None:
+            slot = self._cat_manager._slot
+        else:
+            slot = None
+        in_slot = f" in slot '{slot}'" if slot is not None else ""
+        slot_prefix = f".slots['{slot}']" if slot is not None else ""
+        non_validated_hint_print = (
+            f"curator{slot_prefix}.cat.add_new_from('{self._key}')"
+        )
         non_validated = [i for i in non_validated if i not in values_validated]
         n_non_validated = len(non_validated)
         if n_non_validated == 0:
@@ -954,27 +989,26 @@ class CatColumn:
             )
             return [], {}
         else:
-            are = "is" if n_non_validated == 1 else "are"
             s = "" if n_non_validated == 1 else "s"
             print_values = _format_values(non_validated)
-            warning_message = f"{colors.red(f'{n_non_validated} term{s}')} {are} not validated: {colors.red(print_values)}\n"
+            warning_message = f"{colors.red(f'{n_non_validated} term{s}')} not validated in feature '{self._key}'{in_slot}: {colors.red(print_values)}\n"
             if syn_mapper:
                 s = "" if len(syn_mapper) == 1 else "s"
                 syn_mapper_print = _format_values(
                     [f'"{k}" → "{v}"' for k, v in syn_mapper.items()], sep=""
                 )
                 hint_msg = f'.standardize("{self._key}")'
-                warning_message += f"    {colors.yellow(f'{len(syn_mapper)} synonym{s}')} found: {colors.yellow(syn_mapper_print)}\n    → curate synonyms via {colors.cyan(hint_msg)}"
+                warning_message += f"    {colors.yellow(f'{len(syn_mapper)} synonym{s}')} found: {colors.yellow(syn_mapper_print)}\n    → curate synonyms via: {colors.cyan(hint_msg)}"
             if n_non_validated > len(syn_mapper):
                 if syn_mapper:
                     warning_message += "\n    for remaining terms:\n"
-                warning_message += f"    → fix typos, remove non-existent values, or save terms via {colors.cyan(non_validated_hint_print)}"
+                warning_message += f"    → fix typos, remove non-existent values, or save terms via: {colors.cyan(non_validated_hint_print)}"
 
             if logger.indent == "":
                 _log_mapping_info()
             logger.warning(warning_message)
-            if curator is not None:
-                curator._validate_category_error_messages = strip_ansi_codes(
+            if self._cat_manager is not None:
+                self._cat_manager._validate_category_error_messages = strip_ansi_codes(
                     warning_message
                 )
             logger.indent = ""
@@ -1043,6 +1077,7 @@ class DataFrameCatManager:
         categoricals: list[Feature] | None = None,
         sources: dict[str, Record] | None = None,
         index: Feature | None = None,
+        slot: str | None = None,
     ) -> None:
         self._non_validated = None
         self._index = index
@@ -1058,6 +1093,7 @@ class DataFrameCatManager:
         self._columns_field = columns_field
         self._validate_category_error_messages: str = ""
         self._cat_columns: dict[str, CatColumn] = {}
+        self._slot = slot
         if columns_names is None:
             columns_names = []
         if columns_field == Feature.name:
@@ -1066,6 +1102,7 @@ class DataFrameCatManager:
                 field=self._columns_field,
                 key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
                 source=self._sources.get("columns"),
+                cat_manager=self,
             )
             if isinstance(self._categoricals, dict):  # backward compat
                 self._cat_columns["columns"].validate()
@@ -1079,6 +1116,7 @@ class DataFrameCatManager:
                 field=self._columns_field,
                 key="columns",
                 source=self._sources.get("columns"),
+                cat_manager=self,
             )
         for feature in self._categoricals:
             result = parse_dtype(feature.dtype)[
@@ -1097,6 +1135,7 @@ class DataFrameCatManager:
                 key=key,
                 source=self._sources.get(key),
                 feature=feature,
+                cat_manager=self,
             )
         if index is not None and index.dtype.startswith("cat"):
             result = parse_dtype(index.dtype)[0]
@@ -1107,6 +1146,7 @@ class DataFrameCatManager:
                 field=field,
                 key=key,
                 feature=index,
+                cat_manager=self,
             )
 
     @property

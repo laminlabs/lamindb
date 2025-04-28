@@ -8,7 +8,7 @@ import tiledbsoma
 import tiledbsoma.io
 from lamindb.core import datasets
 from lamindb.core.types import FieldAttr
-from lamindb.errors import InvalidArgument
+from lamindb.errors import InvalidArgument, ValidationError
 
 
 @pytest.fixture(scope="module")
@@ -372,6 +372,48 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
         artifact.delete(permanent=True)
         anndata_schema.delete()
         var_schema.delete()
+
+
+def test_anndata_curator_var_curation_legacy_convention(ccaplog):
+    var_schema = ln.Schema(
+        itype=bt.Gene.ensembl_gene_id,
+        dtype="num",
+    ).save()
+    components = {"var": var_schema}
+    anndata_schema = ln.Schema(
+        otype="AnnData",
+        components=components,
+    ).save()
+    for with_gene_typo in [True, False]:
+        adata = datasets.small_dataset1(otype="AnnData", with_gene_typo=with_gene_typo)
+        if with_gene_typo:
+            with pytest.raises(ValidationError) as error:
+                artifact = ln.Artifact.from_anndata(
+                    adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+                ).save()
+            assert error.exconly() == (
+                "lamindb.errors.ValidationError: 1 term not validated in feature 'var_index' in slot 'var': 'GeneTypo'\n"
+                "    → fix typos, remove non-existent values, or save terms via: curator.slots['var'].cat.add_new_from('var_index')"
+            )
+        else:
+            artifact = ln.Artifact.from_anndata(
+                adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+            ).save()
+            assert (
+                "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                in ccaplog.text
+            )
+            assert artifact.features.slots["var"].n == 3  # 3 genes get linked
+            assert set(
+                artifact.features.slots["var"].members.list("ensembl_gene_id")
+            ) == {
+                "ENSG00000153563",
+                "ENSG00000010610",
+                "ENSG00000170458",
+            }
+            artifact.delete(permanent=True)
+            anndata_schema.delete()
+            var_schema.delete()
 
 
 def test_soma_curator(
