@@ -374,7 +374,7 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
         var_schema.delete()
 
 
-def test_anndata_curator_var_curation_legacy_convention():
+def test_anndata_curator_var_curation_legacy_convention(ccaplog):
     var_schema = ln.Schema(
         itype=bt.Gene.ensembl_gene_id,
         dtype="num",
@@ -399,6 +399,10 @@ def test_anndata_curator_var_curation_legacy_convention():
             artifact = ln.Artifact.from_anndata(
                 adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
             ).save()
+            assert (
+                "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                in ccaplog.text
+            )
             assert artifact.features.slots["var"].n == 3  # 3 genes get linked
             assert set(
                 artifact.features.slots["var"].members.list("ensembl_gene_id")
