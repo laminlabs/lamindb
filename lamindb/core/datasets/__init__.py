@@ -1,12 +1,17 @@
 """Test datasets.
 
+The mini immuno dataset.
+
+.. autosummary::
+   :toctree: .
+
+   mini_immuno
+
 Small in-memory datasets.
 
 .. autosummary::
    :toctree: .
 
-   small_dataset1
-   small_dataset2
    anndata_with_obs
 
 Files.
@@ -59,6 +64,7 @@ Other.
    fake_bio_notebook_titles
 """
 
+from . import mini_immuno
 from ._core import (
     anndata_file_pbmc68k_test,
     anndata_human_immune_cells,
@@ -88,7 +94,8 @@ from ._core import (
 from ._fake import fake_bio_notebook_titles
 from ._small import (
     anndata_with_obs,
-    small_dataset1,
-    small_dataset2,
     small_dataset3_cellxgene,
 )
+
+small_dataset1 = mini_immuno.get_dataset1  # backward compat
+small_dataset2 = mini_immuno.get_dataset2  # backward compat

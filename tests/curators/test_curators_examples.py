@@ -322,7 +322,7 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
             components=components,
         ).save()
         assert small_dataset1_schema.id is not None, small_dataset1_schema
-        assert anndata_schema.slots["var"] == var_schema
+        assert anndata_schema.slots["var.T"] == var_schema
         if add_comp == "obs":
             assert anndata_schema.slots["obs"] == obs_schema
         if add_comp == "uns":
@@ -338,7 +338,7 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
 
         adata = datasets.small_dataset1(otype="AnnData")
         curator = ln.curators.AnnDataCurator(adata, anndata_schema)
-        assert isinstance(curator.slots["var"], ln.curators.DataFrameCurator)
+        assert isinstance(curator.slots["var.T"], ln.curators.DataFrameCurator)
         if add_comp == "obs":
             assert isinstance(curator.slots["obs"], ln.curators.DataFrameCurator)
         if add_comp == "uns":
@@ -347,7 +347,7 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
             adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
         ).save()
         assert artifact.schema == anndata_schema
-        assert artifact.features.slots["var"].n == 3  # 3 genes get linked
+        assert artifact.features.slots["var.T"].n == 3  # 3 genes get linked
         if add_comp == "obs":
             assert artifact.features.slots["obs"] == obs_schema
             # deprecated
@@ -398,11 +398,10 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
             artifact = ln.Artifact.from_anndata(
                 adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
             ).save()
-            if slot == "var":
-                assert (
-                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
-                    in ccaplog.text
-                )
+            assert (
+                "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                in ccaplog.text
+            )
             assert artifact.features.slots[slot].n == 3  # 3 genes get linked
             assert set(
                 artifact.features.slots[slot].members.list("ensembl_gene_id")
