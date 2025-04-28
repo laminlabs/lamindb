@@ -25,7 +25,7 @@ from lamindb.core.storage._tiledbsoma import (
     _soma_store_n_observations,
     _tiledb_config_s3,
 )
-from lamindb.core.storage._zarr import load_zarr, write_adata_zarr
+from lamindb.core.storage._zarr import load_zarr
 from lamindb.core.storage.objects import infer_suffix, write_to_disk
 from lamindb.integrations import save_tiledbsoma_experiment
 
@@ -62,11 +62,8 @@ def test_anndata_io():
 
     adata = load_h5ad(test_file)
 
-    def callback(*args, **kwargs):
-        pass
-
     zarr_path = test_file.with_suffix(".zarr")
-    write_adata_zarr(adata, zarr_path, callback)
+    adata.write_zarr(zarr_path)
 
     adata = load_zarr(zarr_path, "anndata")
 
@@ -81,11 +78,8 @@ def test_backed_access(adata_format):
     if adata_format == "zarr":
         adata = load_h5ad(fp)
 
-        def callback(*args, **kwargs):
-            pass
-
         fp = fp.with_suffix(".zarr")
-        write_adata_zarr(adata, fp, callback)
+        adata.write_zarr(fp)
         del adata
         # remove encoding information to check correctness of backed accessor
         store = zarr.open(fp)
@@ -205,7 +199,7 @@ def test_backed_bad_format(bad_adata_path):
 def test_backed_zarr_not_adata():
     zarr_pth = Path("./not_adata.zarr")
     store = zarr.open(zarr_pth, mode="w")
-    store["test"] = "test"
+    store["test"] = np.array("test")
 
     access = backed_access(zarr_pth)
 
