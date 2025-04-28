@@ -1312,16 +1312,17 @@ def annotate_artifact(
 
     # annotate with inferred schemas aka feature sets
     if artifact.otype == "DataFrame":
-        feature_set = Schema(features=cat_columns["columns"].labels)
+        features = cat_columns["columns"].labels
+        feature_set = Schema(features=features)
         if (
             feature_set._state.adding
-            and len(cat_columns["columns"].labels) > settings.annotation.n_max_records
+            and len(features) > settings.annotation.n_max_records
         ):
             logger.important(
-                f"not annotating with {len(cat_columns['columns'].labels)} features for schema as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
+                f"not annotating with {len(features)} features for schema as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
             )
-            feature_set = Schema(itype=artifact.schema.itype)
-            feature_set.n = len(cat_columns["columns"].labels)
+            itype = parse_cat_dtype(artifact.schema.itype, is_itype=True)["field"]
+            feature_set = Schema(itype=itype, n=len(features))
         artifact.feature_sets.add(
             feature_set.save(), through_defaults={"slot": "columns"}
         )
@@ -1329,7 +1330,10 @@ def annotate_artifact(
         for slot, slot_curator in curator._slots.items():
             name = "var_index" if slot == "var" else "columns"
             features = slot_curator._cat_manager._cat_columns[name].labels
-            feature_set = Schema(features=features)
+            itype = parse_cat_dtype(artifact.schema.slots[slot].itype, is_itype=True)[
+                "field"
+            ]
+            feature_set = Schema(features=features, itype=itype)
             if (
                 feature_set._state.adding
                 and len(features) > settings.annotation.n_max_records
@@ -1337,12 +1341,7 @@ def annotate_artifact(
                 logger.important(
                     f"not annotating with {len(features)} features for schema as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
                 )
-                feature_set = Schema(
-                    itype=parse_cat_dtype(
-                        artifact.schema.slots[slot].itype, is_itype=True
-                    )["field"]
-                )
-                feature_set.n = len(features)
+                feature_set = Schema(itype=itype, n=len(features))
             artifact.feature_sets.add(
                 feature_set.save(), through_defaults={"slot": slot}
             )

@@ -394,7 +394,7 @@ def test_anndata_curator_varT_curation():
                 f"    → fix typos, remove non-existent values, or save terms via: curator.slots['{slot}'].cat.add_new_from('columns')"
             )
         else:
-            for n_max_records in [2, 3]:
+            for n_max_records in [2, 4]:
                 ln.settings.annotation.n_max_records = n_max_records
                 artifact = ln.Artifact.from_anndata(
                     adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema

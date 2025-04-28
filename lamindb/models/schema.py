@@ -18,6 +18,7 @@ from lamindb.base.fields import (
 )
 from lamindb.base.types import FieldAttr, ListLike
 from lamindb.errors import FieldValidationError, InvalidArgument
+from lamindb.models.feature import parse_cat_dtype
 
 from ..errors import ValidationError
 from ._relations import (
@@ -383,6 +384,7 @@ class Schema(Record, CanCurate, TracksRun):
         ordered_set: bool = False,
         maximal_set: bool = False,
         coerce_dtype: bool = False,
+        n: int | None = None,
     ): ...
 
     @overload
@@ -419,6 +421,7 @@ class Schema(Record, CanCurate, TracksRun):
         ordered_set: bool = kwargs.pop("ordered_set", False)
         maximal_set: bool = kwargs.pop("maximal_set", False)
         coerce_dtype: bool | None = kwargs.pop("coerce_dtype", None)
+        n_features: int | None = kwargs.pop("n", None)
         optional_features = []
 
         if kwargs:
@@ -438,15 +441,16 @@ class Schema(Record, CanCurate, TracksRun):
             features_registry = validate_features(features)
             itype_compare = features_registry.__get_name_with_module__()
             if itype is not None:
-                assert itype == itype_compare, str(itype_compare)  # noqa: S101
+                assert itype.startswith(itype_compare), str(itype_compare)  # noqa: S101
             else:
                 itype = itype_compare
+            assert n_features is None, "do not pass `n` if features are passed"  # noqa: S101
             n_features = len(features)
             if features_registry == Feature:
                 optional_features = [
                     config[0] for config in configs if config[1].get("optional")
                 ]
-        else:
+        elif n_features is None:
             n_features = -1
         if dtype is None:
             dtype = None if itype is not None and itype == "Feature" else NUMBER_TYPE
@@ -867,7 +871,7 @@ def get_type_str(dtype: str | None) -> str | None:
 
 def _get_related_name(self: Schema) -> str:
     related_models = dict_related_model_to_related_name(self, instance=self._state.db)
-    related_name = related_models.get(self.itype)
+    related_name = related_models.get(parse_cat_dtype(self.itype)["registry_str"])
     return related_name
 
 
