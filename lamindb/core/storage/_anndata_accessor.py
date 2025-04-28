@@ -348,7 +348,7 @@ if ZARR_INSTALLED:
         if hasattr(storage, "_sync_iter"):  # zarr v3
             paths = storage._sync_iter(storage.store.list())
         else:
-            paths = storage._store.keys()  # zarr v2
+            paths = storage.store.keys()  # zarr v2
 
         attrs_keys: dict[str, list] = {}
         obs_var_arrays = []
