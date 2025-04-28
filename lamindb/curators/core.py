@@ -971,16 +971,12 @@ class CatColumn:
             values_validated += [getattr(r, field_name) for r in public_records]
 
         # logging messages
-        in_slot = (
-            f" in slot '{self._cat_manager._slot}'"
-            if self._cat_manager._slot is not None
-            else ""
-        )
-        slot_prefix = (
-            f"slots['{self._cat_manager._slot}']"
-            if self._cat_manager._slot is not None
-            else ""
-        )
+        if self._cat_manager is not None:
+            slot = self._cat_manager._slot
+        else:
+            slot = None
+        in_slot = f" in slot '{slot}'" if slot is not None else ""
+        slot_prefix = f"slots['{slot}']" if slot is not None else ""
         non_validated_hint_print = f"curator.{slot_prefix}.add_new_from('{self._key}')"
         non_validated = [i for i in non_validated if i not in values_validated]
         n_non_validated = len(non_validated)
