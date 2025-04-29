@@ -37,7 +37,7 @@ from lamindb.models.artifact import (
     add_labels,
 )
 from lamindb.models._from_values import _format_values
-from .core import CatColumn, CatLookup
+from .core import CatLookup, CatVector
 from ..errors import ValidationError
 import anndata as ad
 
@@ -80,7 +80,7 @@ class CatManager:
         self._sources = sources or {}
         self._columns_field = columns_field
         self._validate_category_error_messages: str = ""
-        self._cat_columns: dict[str, CatColumn] = {}
+        self._cat_vectors: dict[str, CatVector] = {}
 
     @property
     def non_validated(self) -> dict[str, list[str]]:
@@ -88,9 +88,9 @@ class CatManager:
         if self._non_validated is None:
             raise ValidationError("Please run validate() first!")
         return {
-            key: cat_column._non_validated
-            for key, cat_column in self._cat_columns.items()
-            if cat_column._non_validated and key != "columns"
+            key: cat_vector._non_validated
+            for key, cat_vector in self._cat_vectors.items()
+            if cat_vector._non_validated and key != "columns"
         }
 
     @property
@@ -178,7 +178,7 @@ class CatManager:
         legacy_annotate_artifact(  # type: ignore
             self._artifact,
             index_field=self._columns_field,
-            cat_columns=self._cat_columns,
+            cat_vectors=self._cat_vectors,
         )
         return self._artifact
 
@@ -207,17 +207,17 @@ class DataFrameCatManager(CatManager):
             columns_names = []
         if columns_field == Feature.name:
             values = list(self._categoricals.keys())  # backward compat
-            self._cat_columns["columns"] = CatColumn(
+            self._cat_vectors["columns"] = CatVector(
                 values_getter=values,
                 field=self._columns_field,
                 key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
                 source=self._sources.get("columns"),
             )
             if isinstance(self._categoricals, dict):  # backward compat
-                self._cat_columns["columns"].validate()
+                self._cat_vectors["columns"].validate()
         else:
             # NOTE: for var_index right now
-            self._cat_columns["columns"] = CatColumn(
+            self._cat_vectors["columns"] = CatVector(
                 values_getter=lambda: self._dataset.columns,  # lambda ensures the inplace update
                 values_setter=lambda new_values: setattr(
                     self._dataset, "columns", pd.Index(new_values)
@@ -227,7 +227,7 @@ class DataFrameCatManager(CatManager):
                 source=self._sources.get("columns"),
             )
         for key, field in self._categoricals.items():
-            self._cat_columns[key] = CatColumn(
+            self._cat_vectors[key] = CatVector(
                 values_getter=lambda k=key: self._dataset[
                     k
                 ],  # Capture key as default argument
@@ -258,16 +258,16 @@ class DataFrameCatManager(CatManager):
         self._validate_category_error_messages = ""  # reset the error messages
 
         validated = True
-        for _, cat_column in self._cat_columns.items():
-            cat_column.validate()
-            validated &= cat_column.is_validated
+        for _, cat_vector in self._cat_vectors.items():
+            cat_vector.validate()
+            validated &= cat_vector.is_validated
         self._is_validated = validated
         self._non_validated = {}  # so it's no longer None
 
         if self._index is not None:
-            # cat_column.validate() populates validated labels
+            # cat_vector.validate() populates validated labels
             # the index should become part of the feature set corresponding to the dataframe
-            self._cat_columns["columns"].labels.insert(0, self._index)  # type: ignore
+            self._cat_vectors["columns"].labels.insert(0, self._index)  # type: ignore
 
         return self._is_validated
 
@@ -287,9 +287,9 @@ class DataFrameCatManager(CatManager):
                 "'all' is deprecated, please pass a single key from `.non_validated.keys()` instead!"
             )
             for k in self.non_validated.keys():
-                self._cat_columns[k].standardize()
+                self._cat_vectors[k].standardize()
         else:
-            self._cat_columns[key].standardize()
+            self._cat_vectors[key].standardize()
 
     def add_new_from(self, key: str, **kwargs):
         """Add validated & new categories.
@@ -305,9 +305,9 @@ class DataFrameCatManager(CatManager):
                 "'all' is deprecated, please pass a single key from `.non_validated.keys()` instead!"
             )
             for k in self.non_validated.keys():
-                self._cat_columns[k].add_new(**kwargs)
+                self._cat_vectors[k].add_new(**kwargs)
         else:
-            self._cat_columns[key].add_new(**kwargs)
+            self._cat_vectors[key].add_new(**kwargs)
 
     @deprecated(
         new_name="Run.filter(transform=context.run.transform, output_artifacts=None)"
@@ -362,9 +362,9 @@ class AnnDataCatManager(CatManager):
             columns_field=obs_columns,
             sources=self._sources,
         )
-        self._cat_columns = self._obs_df_curator._cat_columns.copy()
+        self._cat_vectors = self._obs_df_curator._cat_vectors.copy()
         if var_index is not None:
-            self._cat_columns["var_index"] = CatColumn(
+            self._cat_vectors["var_index"] = CatVector(
                 values_getter=lambda: self._adata.var.index,
                 values_setter=lambda new_values: setattr(
                     self._adata.var, "index", pd.Index(new_values)
@@ -409,9 +409,9 @@ class AnnDataCatManager(CatManager):
                 "'all' is deprecated, please pass a single key from `.non_validated.keys()` instead!"
             )
             for k in self.non_validated.keys():
-                self._cat_columns[k].add_new(**kwargs)
+                self._cat_vectors[k].add_new(**kwargs)
         else:
-            self._cat_columns[key].add_new(**kwargs)
+            self._cat_vectors[key].add_new(**kwargs)
 
     @deprecated(new_name="add_new_from('var_index')")
     def add_new_from_var_index(self, **kwargs):
@@ -433,9 +433,9 @@ class AnnDataCatManager(CatManager):
         self._validate_category_error_messages = ""  # reset the error messages
 
         validated = True
-        for _, cat_column in self._cat_columns.items():
-            cat_column.validate()
-            validated &= cat_column.is_validated
+        for _, cat_vector in self._cat_vectors.items():
+            cat_vector.validate()
+            validated &= cat_vector.is_validated
 
         self._non_validated = {}  # so it's no longer None
         self._is_validated = validated
@@ -459,9 +459,9 @@ class AnnDataCatManager(CatManager):
                 "'all' is deprecated, please pass a single key from `.non_validated.keys()` instead!"
             )
             for k in self.non_validated.keys():
-                self._cat_columns[k].standardize()
+                self._cat_vectors[k].standardize()
         else:
-            self._cat_columns[key].standardize()
+            self._cat_vectors[key].standardize()
 
 
 @deprecated(new_name="MuDataCurator")
@@ -1017,13 +1017,13 @@ class TiledbsomaCatManager(CatManager):
         # register obs columns' names
         register_columns = list(self._obs_fields.keys())
         # register categorical keys as features
-        cat_column = CatColumn(
+        cat_vector = CatVector(
             values_getter=register_columns,
             field=self._columns_field,
             key="columns",
             source=self._sources.get("columns"),
         )
-        cat_column.add_new()
+        cat_vector.add_new()
 
     def validate(self):
         """Validate categories."""
@@ -1041,14 +1041,14 @@ class TiledbsomaCatManager(CatManager):
                 var_ms_values = (
                     var_ms.read(column_names=[key]).concat()[key].to_pylist()
                 )
-                cat_column = CatColumn(
+                cat_vector = CatVector(
                     values_getter=var_ms_values,
                     field=field,
                     key=var_ms_key,
                     source=self._sources.get(var_ms_key),
                 )
-                cat_column.validate()
-                non_val = cat_column._non_validated
+                cat_vector.validate()
+                non_val = cat_vector._non_validated
                 if len(non_val) > 0:
                     validated = False
                     self._non_validated_values[var_ms_key] = non_val
@@ -1063,14 +1063,14 @@ class TiledbsomaCatManager(CatManager):
                 values = pa.compute.unique(
                     obs.read(column_names=[key]).concat()[key]
                 ).to_pylist()
-                cat_column = CatColumn(
+                cat_vector = CatVector(
                     values_getter=values,
                     field=field,
                     key=key,
                     source=self._sources.get(key),
                 )
-                cat_column.validate()
-                non_val = cat_column._non_validated
+                cat_vector.validate()
+                non_val = cat_vector._non_validated
                 if len(non_val) > 0:
                     validated = False
                     self._non_validated_values[key] = non_val
@@ -1117,13 +1117,13 @@ class TiledbsomaCatManager(CatManager):
             values, field = self._non_validated_values_field(k)
             if len(values) == 0:
                 continue
-            cat_column = CatColumn(
+            cat_vector = CatVector(
                 values_getter=values,
                 field=field,
                 key=k,
                 source=self._sources.get(k),
             )
-            cat_column.add_new()
+            cat_vector.add_new()
             # update non-validated values list but keep the key there
             # it will be removed by .validate()
             if k in self._non_validated_values:
@@ -1191,14 +1191,14 @@ class TiledbsomaCatManager(CatManager):
             else:
                 slot = lambda experiment: experiment.obs
                 slot_key = k
-            cat_column = CatColumn(
+            cat_vector = CatVector(
                 values_getter=values,
                 field=field,
                 key=k,
                 source=self._sources.get(k),
             )
-            cat_column.validate()
-            syn_mapper = cat_column._synonyms
+            cat_vector.validate()
+            syn_mapper = cat_vector._synonyms
             if (n_syn_mapper := len(syn_mapper)) == 0:
                 continue
 
@@ -1898,29 +1898,29 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
 def legacy_annotate_artifact(
     artifact: Artifact,
     *,
-    cat_columns: dict[str, CatColumn] | None = None,
+    cat_vectors: dict[str, CatVector] | None = None,
     index_field: FieldAttr | dict[str, FieldAttr] | None = None,
     **kwargs,
 ) -> Artifact:
     from ..models.artifact import add_labels
 
-    if cat_columns is None:
-        cat_columns = {}
+    if cat_vectors is None:
+        cat_vectors = {}
 
     # annotate with labels
-    for key, cat_column in cat_columns.items():
+    for key, cat_vector in cat_vectors.items():
         if (
-            cat_column._field.field.model == Feature
+            cat_vector._field.field.model == Feature
             or key == "columns"
             or key == "var_index"
         ):
             continue
         add_labels(
             artifact,
-            records=cat_column.labels,
-            feature=cat_column.feature,
+            records=cat_vector.records,
+            feature=cat_vector.feature,
             feature_ref_is_name=None,  # do not need anymore
-            label_ref_is_name=cat_column.label_ref_is_name,
+            label_ref_is_name=cat_vector.label_ref_is_name,
             from_curator=True,
         )
 
