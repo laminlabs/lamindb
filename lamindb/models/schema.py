@@ -674,7 +674,9 @@ class Schema(Record, CanCurate, TracksRun):
             # .set() does not preserve the order but orders by
             # the feature primary key
             through_model = getattr(self, related_name).through
-            related_model_split = self.itype.split(".")
+            related_model_split = parse_cat_dtype(self.itype, is_itype=True)[
+                "registry_str"
+            ].split(".")
             if len(related_model_split) == 1:
                 related_field = related_model_split[0].lower()
             else:
