@@ -16,7 +16,7 @@ from lamindb_setup.core._docs import doc_args
 
 from ..errors import DoesNotExist
 from ._is_versioned import IsVersioned
-from .can_curate import CanCurate
+from .can_curate import CanCurate, _inspect, _standardize, _validate
 from .query_manager import _lookup, _search
 from .record import Record
 
@@ -617,10 +617,6 @@ class BasicQuerySet(models.QuerySet):
         else:
             raise ValueError("Record isn't subclass of `lamindb.core.IsVersioned`")
 
-    # -------------------------------------------------------------------------------------
-    # CanCurate
-    # -------------------------------------------------------------------------------------
-
     @doc_args(_search.__doc__)
     def search(self, string: str, **kwargs):
         """{}"""  # noqa: D415
@@ -631,18 +627,18 @@ class BasicQuerySet(models.QuerySet):
         """{}"""  # noqa: D415
         return _lookup(cls=self, field=field, **kwargs)
 
+    # -------------------------------------------------------------------------------------
+    # CanCurate
+    # -------------------------------------------------------------------------------------
+
     @doc_args(CanCurate.validate.__doc__)
     def validate(self, values: ListLike, field: str | StrField | None = None, **kwargs):
         """{}"""  # noqa: D415
-        from .can_curate import _validate
-
         return _validate(cls=self, values=values, field=field, **kwargs)
 
     @doc_args(CanCurate.inspect.__doc__)
     def inspect(self, values: ListLike, field: str | StrField | None = None, **kwargs):
         """{}"""  # noqa: D415
-        from .can_curate import _inspect
-
         return _inspect(cls=self, values=values, field=field, **kwargs)
 
     @doc_args(CanCurate.standardize.__doc__)
@@ -650,8 +646,6 @@ class BasicQuerySet(models.QuerySet):
         self, values: Iterable, field: str | StrField | None = None, **kwargs
     ):
         """{}"""  # noqa: D415
-        from .can_curate import _standardize
-
         return _standardize(cls=self, values=values, field=field, **kwargs)
 
 
