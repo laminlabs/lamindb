@@ -21,7 +21,7 @@ from typing import (
 import dj_database_url
 import lamindb_setup as ln_setup
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db import IntegrityError, connections, models, transaction
+from django.db import IntegrityError, ProgrammingError, connections, models, transaction
 from django.db.models import (
     CASCADE,
     PROTECT,
@@ -70,11 +70,12 @@ from lamindb.base.fields import (
     JSONField,
     TextField,
 )
-from lamindb.base.types import FieldAttr, StrField
-from lamindb.errors import FieldValidationError
 
+from ..base.types import FieldAttr, StrField
 from ..errors import (
+    FieldValidationError,
     InvalidArgument,
+    NoWriteAccess,
     RecordNameChangeIntegrityError,
     ValidationError,
 )
@@ -843,20 +844,33 @@ class BasicRecord(models.Model, metaclass=Registry):
                 # save unversioned record
                 else:
                     super().save(*args, **kwargs)
-            except IntegrityError as e:
+            except (IntegrityError, ProgrammingError) as e:
                 error_msg = str(e)
                 # two possible error messages for hash duplication
                 # "duplicate key value violates unique constraint"
                 # "UNIQUE constraint failed"
                 if (
-                    "UNIQUE constraint failed" in error_msg
-                    or "duplicate key value violates unique constraint" in error_msg
-                ) and "hash" in error_msg:
+                    isinstance(e, IntegrityError)
+                    and "hash" in error_msg
+                    and (
+                        "UNIQUE constraint failed" in error_msg
+                        or "duplicate key value violates unique constraint" in error_msg
+                    )
+                ):
                     pre_existing_record = self.__class__.get(hash=self.hash)
                     logger.warning(
                         f"returning {self.__class__.__name__.lower()} with same hash: {pre_existing_record}"
                     )
                     init_self_from_db(self, pre_existing_record)
+                elif (
+                    isinstance(e, ProgrammingError)
+                    and hasattr(self, "space")
+                    and "new row violates row-level security policy" in error_msg
+                ):
+                    raise NoWriteAccess(
+                        f"You’re not allowed to write to the space '{self.space.name}'.\n"
+                        "Please contact an administrator of the space if you need write access."
+                    ) from e
                 else:
                     raise
             # call the below in case a user makes more updates to the record
