@@ -304,7 +304,8 @@ class Context:
 
             If you want to ensure a single version history across renames of the notebook or script, pass the auto-generated `uid` that you'll find in the logs::
 
-                ln.track("Onv04I53OgtT0000")  # example uid, the last four characters encode the version of the transform
+                ln.track("Onv04I53OgtT0000")  # <-- example uid, the last four characters encode the version of the transform
+                ln.track("Onv04I53OgtT")  # <-- recommendation: let lamindb handle versioning for you and only pass the first 12 characters
 
         """
         from lamindb.models import Project, Space
@@ -504,6 +505,40 @@ class Context:
                 pass
         return path, description
 
+    def _process_aux_transform(
+        self, aux_transform: Transform
+    ) -> tuple[str, Transform | None]:
+        # first part of the if condition: no version bump, second part: version bump
+        if (
+            # if a user hasn't yet saved the transform source code, needs to be same user
+            (
+                aux_transform.source_code is None
+                and aux_transform.created_by_id == ln_setup.settings.user.id
+            )
+            # if the transform source code is unchanged
+            # if aux_transform.type == "notebook", we anticipate the user makes changes to the notebook source code
+            # in an interactive session, hence we *pro-actively bump* the version number by setting `revises`
+            # in the second part of the if condition even though the source code is unchanged at point of running track()
+            or (aux_transform.hash == hash and aux_transform.type != "notebook")
+        ):
+            uid = aux_transform.uid
+            return uid, aux_transform
+        else:
+            uid = f"{aux_transform.uid[:-4]}{increment_base62(aux_transform.uid[-4:])}"
+            message = f"there already is a {aux_transform.type} with key '{aux_transform.key}'"
+            if aux_transform.hash == hash and aux_transform.type == "notebook":
+                message += " -- anticipating changes"
+            elif aux_transform.hash != hash:
+                message += (
+                    ""  # could log "source code changed", but this seems too much
+                )
+            elif aux_transform.created_by_id != ln_setup.settings.user.id:
+                message += (
+                    f" -- {aux_transform.created_by.handle} already works on this draft"
+                )
+            message += f", creating new version '{uid}'"
+            return uid, None
+
     def _create_or_load_transform(
         self,
         *,
@@ -535,40 +570,9 @@ class Context:
                 for aux_transform in transforms:
                     if aux_transform.key in self._path.as_posix():
                         key = aux_transform.key
-                        # first part of the if condition: no version bump, second part: version bump
-                        if (
-                            # if a user hasn't yet saved the transform source code, needs to be same user
-                            (
-                                aux_transform.source_code is None
-                                and aux_transform.created_by_id
-                                == ln_setup.settings.user.id
-                            )
-                            # if the transform source code is unchanged
-                            # if aux_transform.type == "notebook", we anticipate the user makes changes to the notebook source code
-                            # in an interactive session, hence we *pro-actively bump* the version number by setting `revises`
-                            # in the second part of the if condition even though the source code is unchanged at point of running track()
-                            or (
-                                aux_transform.hash == hash
-                                and aux_transform.type != "notebook"
-                            )
-                        ):
-                            uid = aux_transform.uid
-                            target_transform = aux_transform
-                        else:
-                            uid = f"{aux_transform.uid[:-4]}{increment_base62(aux_transform.uid[-4:])}"
-                            message = f"there already is a {aux_transform.type} with key '{aux_transform.key}'"
-                            if (
-                                aux_transform.hash == hash
-                                and aux_transform.type == "notebook"
-                            ):
-                                message += " -- anticipating changes"
-                            elif aux_transform.hash != hash:
-                                message += ""  # could log "source code changed", but this seems too much
-                            elif (
-                                aux_transform.created_by_id != ln_setup.settings.user.id
-                            ):
-                                message += f" -- {aux_transform.created_by.handle} already works on this draft"
-                            message += f", creating new version '{uid}'"
+                        uid, target_transform = self._process_aux_transform(
+                            aux_transform
+                        )
                         found_key = True
                         break
                 if not found_key:
@@ -584,7 +588,7 @@ class Context:
                     logger.important(message)
             self.uid, transform = uid, target_transform
         # the user did pass the uid
-        else:
+        elif len(self.uid) == 16:
             transform = Transform.filter(uid=self.uid).one_or_none()
             if transform is not None:
                 if transform.key not in self._path.as_posix():
@@ -599,6 +603,21 @@ class Context:
                     key = transform.key  # type: ignore
             else:
                 key = self._path.name
+        else:
+            assert len(self.uid) == 12, "stem uid must be 12 characters long"  # noqa: S101
+            aux_transform = (
+                Transform.filter(uid__startswith=self.uid)
+                .order_by("-created_at")
+                .first()
+            )
+            if aux_transform is not None:
+                key = aux_transform.key
+                uid, target_transform = self._process_aux_transform(aux_transform)
+            else:
+                uid = f"{self.uid}0000"
+                target_transform = None
+                key = self._path.name
+            self.uid, transform = uid, target_transform
         if self.version is not None:
             # test inconsistent version passed
             if (
@@ -610,15 +629,16 @@ class Context:
                     f"✗ please pass consistent version: ln.context.version = '{transform.version}'"  # type: ignore
                 )
             # test whether version was already used for another member of the family
-            suid, vuid = (self.uid[:-4], self.uid[-4:])
-            transform = Transform.filter(
-                uid__startswith=suid, version=self.version
-            ).one_or_none()
-            if transform is not None and vuid != transform.uid[-4:]:
-                better_version = bump_version_function(self.version)
-                raise SystemExit(
-                    f"✗ version '{self.version}' is already taken by Transform('{transform.uid}'); please set another version, e.g., ln.context.version = '{better_version}'"
-                )
+            if len(self.uid) == 16:
+                suid, vuid = (self.uid[:-4], self.uid[-4:])
+                transform = Transform.filter(
+                    uid__startswith=suid, version=self.version
+                ).one_or_none()
+                if transform is not None and vuid != transform.uid[-4:]:
+                    better_version = bump_version_function(self.version)
+                    raise SystemExit(
+                        f"✗ version '{self.version}' is already taken by Transform('{transform.uid}'); please set another version, e.g., ln.context.version = '{better_version}'"
+                    )
         # make a new transform record
         if transform is None:
             assert key is not None  # noqa: S101
