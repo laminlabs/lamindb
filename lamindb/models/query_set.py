@@ -14,11 +14,11 @@ from django.db.models.fields.related import ForeignObjectRel
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 
-from lamindb.models._is_versioned import IsVersioned
-from lamindb.models.record import Record
-
 from ..errors import DoesNotExist
+from ._is_versioned import IsVersioned
 from .can_curate import CanCurate
+from .query_manager import _lookup, _search
+from .record import Record
 
 if TYPE_CHECKING:
     from lamindb.base.types import ListLike, StrField
@@ -621,18 +621,14 @@ class BasicQuerySet(models.QuerySet):
     # CanCurate
     # -------------------------------------------------------------------------------------
 
-    @doc_args(Record.search.__doc__)
+    @doc_args(_search.__doc__)
     def search(self, string: str, **kwargs):
         """{}"""  # noqa: D415
-        from .record import _search
-
         return _search(cls=self, string=string, **kwargs)
 
-    @doc_args(Record.lookup.__doc__)
+    @doc_args(_lookup.__doc__)
     def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
         """{}"""  # noqa: D415
-        from .record import _lookup
-
         return _lookup(cls=self, field=field, **kwargs)
 
     @doc_args(CanCurate.validate.__doc__)
