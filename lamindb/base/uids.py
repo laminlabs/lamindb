@@ -27,6 +27,15 @@ n       p_collision
 1B      2e-04
 ======= ===========
 
+16 base62 characters:
+
+======= ===========
+n       p_collision
+======= ===========
+1e8     2e-06
+1e9     2e-04
+======= ===========
+
 20 base62 characters (62**20=7e+35) roughly matches UUID (2*122=5e+36):
 
 ======= ===========
