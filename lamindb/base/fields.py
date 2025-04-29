@@ -25,7 +25,6 @@
    PositiveSmallIntegerField
    SmallIntegerField
    GenericIPAddressField
-   ImageField
    DurationField
    CharField
    TextField
