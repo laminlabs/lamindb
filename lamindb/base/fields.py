@@ -1,3 +1,36 @@
+"""Fields.
+
+.. autosummary::
+   :toctree: .
+
+   CharField
+   TextField
+   ForeignKey
+   BooleanField
+   DateField
+   DateTimeField
+   BigIntegerField
+   IntegerField
+   OneToOneField
+   FloatField
+   DecimalField
+   BinaryField
+   JSONField
+   EmailField
+   TimeField
+   SlugField
+   URLField
+   UUIDField
+   PositiveIntegerField
+   PositiveSmallIntegerField
+   SmallIntegerField
+   GenericIPAddressField
+   ImageField
+   DurationField
+   CharField
+   TextField
+"""
+
 from django.db import models
 
 
@@ -252,28 +285,6 @@ class GenericIPAddressField(models.GenericIPAddressField):
     """Custom `GenericIPAddressField` with default values for `blank`.
 
     Django default values for `GenericIPAddressField` are `blank=False`.
-    """
-
-    def __init__(self, *args, **kwargs):
-        kwargs.setdefault("blank", True)
-        super().__init__(*args, **kwargs)
-
-
-class FileField(models.FileField):
-    """Custom `FileField` with default values for `blank`.
-
-    Django default values for `FileField` are `blank=False`.
-    """
-
-    def __init__(self, *args, **kwargs):
-        kwargs.setdefault("blank", True)
-        super().__init__(*args, **kwargs)
-
-
-class ImageField(models.ImageField):
-    """Custom `ImageField` with default values for `blank`.
-
-    Django default values for `ImageField` are `blank=False`.
     """
 
     def __init__(self, *args, **kwargs):
