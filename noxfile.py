@@ -94,7 +94,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system xarray-dataclasses")
         run(session, "uv pip install --system spatialdata")
     elif group == "unit-storage":
-        extras += "zarr,bionty"
+        extras += "zarr_v3,bionty"
         # tiledbsoma dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system scanpy")
