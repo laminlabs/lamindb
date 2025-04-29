@@ -1,43 +1,65 @@
 """A data framework for biology.
 
-Tracking notebooks, scripts & functions.
+Data lineage
+============
+
+When running a notebook or script, calling `track()` initiates tracking code + inputs, outputs & environment of a run.
 
 .. autosummary::
    :toctree: .
 
    track
    finish
+
+A function decorated with `@tracked()` logs code + inputs, outputs & environment of runs.
+
+.. autosummary::
+   :toctree: .
+
    tracked
 
-Registries.
+Registries
+==========
+
+Managing artifacts and transforms
+---------------------------------
 
 .. autosummary::
    :toctree: .
 
    Artifact
+   Storage
    Transform
    Run
+
+Validating and annotating artifacts
+-----------------------------------
+
+.. autosummary::
+   :toctree: .
+
    ULabel
-   User
-   Storage
    Feature
-   Schema
    Param
+   Schema
+
+Managing projects
+-----------------
+
+.. autosummary::
+   :toctree: .
+
+   User
    Collection
    Project
    Space
    Reference
    Person
 
-Curators & integrations.
+Other key functionality
+=======================
 
-.. autosummary::
-   :toctree: .
-
-   curators
-   integrations
-
-Key functionality.
+Functions and classes.
 
 .. autosummary::
    :toctree: .
@@ -47,18 +69,31 @@ Key functionality.
    save
    UPath
    settings
+   context
 
-Low-level functionality.
+Curators and integrations.
 
 .. autosummary::
    :toctree: .
 
-   context
+   curators
+   integrations
+
+Low-level functionality
+=======================
+
+You'll typically not need to import the following modules directly.
+
+.. autosummary::
+   :toctree: .
+
+   curators
+   integrations
    errors
    setup
    base
-   models
    core
+   models
 
 """
 

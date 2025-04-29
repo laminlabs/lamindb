@@ -275,7 +275,7 @@ class Context:
         new_run: bool | None = None,
         path: str | None = None,
     ) -> None:
-        """Track a global run in your compute session.
+        """Track a run of your notebook or script.
 
         - sets :attr:`~lamindb.core.Context.transform` &
           :attr:`~lamindb.core.Context.run` by creating or loading `Transform` &
@@ -685,10 +685,10 @@ class Context:
         self._transform = transform
 
     def finish(self, ignore_non_consecutive: None | bool = None) -> None:
-        """Finish a tracked run.
+        """Finish the run and write a run report.
 
         - writes a timestamp: `run.finished_at`
-        - saves the source code: `transform.source_code`
+        - saves the source code if it is not yet saved: `transform.source_code`
         - saves a run report: `run.report`
 
         When called in the last cell of a notebook:
