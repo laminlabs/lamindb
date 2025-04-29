@@ -870,7 +870,7 @@ class BasicRecord(models.Model, metaclass=Registry):
                     raise NoWriteAccess(
                         f"You’re not allowed to write to the space '{self.space.name}'.\n"
                         "Please contact an administrator of the space if you need write access."
-                    ) from e
+                    ) from None
                 else:
                     raise
             # call the below in case a user makes more updates to the record
