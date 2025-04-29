@@ -23,12 +23,6 @@ import pandera
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 
-if TYPE_CHECKING:
-    from anndata import AnnData
-    from mudata import MuData
-    from spatialdata import SpatialData
-
-    from lamindb.models import Record
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.models import (
     Artifact,
@@ -37,19 +31,23 @@ from lamindb.models import (
     Run,
     Schema,
 )
+from lamindb.models._from_values import _format_values
 from lamindb.models.artifact import (
     data_is_anndata,
     data_is_mudata,
     data_is_spatialdata,
 )
-from lamindb.models.feature import parse_dtype, parse_cat_dtype
-from lamindb.models._from_values import _format_values
+from lamindb.models.feature import parse_cat_dtype, parse_dtype
 
 from ..errors import InvalidArgument, ValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from typing import Any
+
+    from anndata import AnnData
+    from mudata import MuData
+    from spatialdata import SpatialData
 
     from lamindb.models.query_set import RecordList
 
@@ -1284,6 +1282,7 @@ def annotate_artifact(
     curator: AnnDataCurator | SlotsCurator | None = None,
     cat_columns: dict[str, CatColumn] | None = None,
 ) -> Artifact:
+    from .. import settings
     from ..models.artifact import add_labels
 
     if cat_columns is None:
@@ -1297,6 +1296,11 @@ def annotate_artifact(
             or key == "var_index"
         ):
             continue
+        if len(cat_column.labels) > settings.annotation.n_max_records:
+            logger.important(
+                f"not annotating with {len(cat_column.labels)} labels for feature {key} as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
+            )
+            continue
         add_labels(
             artifact,
             records=cat_column.labels,
@@ -1306,17 +1310,41 @@ def annotate_artifact(
             from_curator=True,
         )
 
-    # annotate with inferred feature sets
+    # annotate with inferred schemas aka feature sets
     if artifact.otype == "DataFrame":
-        feature_set = Schema(features=cat_columns["columns"].labels).save()
-        artifact.feature_sets.add(feature_set, through_defaults={"slot": "columns"})
+        features = cat_columns["columns"].labels
+        feature_set = Schema(features=features)
+        if (
+            feature_set._state.adding
+            and len(features) > settings.annotation.n_max_records
+        ):
+            logger.important(
+                f"not annotating with {len(features)} features for schema as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
+            )
+            itype = parse_cat_dtype(artifact.schema.itype, is_itype=True)["field"]
+            feature_set = Schema(itype=itype, n=len(features))
+        artifact.feature_sets.add(
+            feature_set.save(), through_defaults={"slot": "columns"}
+        )
     else:
         for slot, slot_curator in curator._slots.items():
             name = "var_index" if slot == "var" else "columns"
-            feature_set = Schema(
-                features=slot_curator._cat_manager._cat_columns[name].labels
-            ).save()
-            artifact.feature_sets.add(feature_set, through_defaults={"slot": slot})
+            features = slot_curator._cat_manager._cat_columns[name].labels
+            itype = parse_cat_dtype(artifact.schema.slots[slot].itype, is_itype=True)[
+                "field"
+            ]
+            feature_set = Schema(features=features, itype=itype)
+            if (
+                feature_set._state.adding
+                and len(features) > settings.annotation.n_max_records
+            ):
+                logger.important(
+                    f"not annotating with {len(features)} features for schema as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
+                )
+                feature_set = Schema(itype=itype, n=len(features))
+            artifact.feature_sets.add(
+                feature_set.save(), through_defaults={"slot": slot}
+            )
 
     slug = ln_setup.settings.instance.slug
     if ln_setup.settings.instance.is_remote:  # pdagma: no cover

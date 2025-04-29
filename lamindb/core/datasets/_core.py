@@ -322,8 +322,6 @@ def anndata_human_immune_cells(
 
         import lamindb as ln
 
-        verbosity = ln.settings.verbosity
-        ln.settings.verbosity = "error"
         ln.save(
             bt.Gene.from_values(
                 adata.var.index, field="ensembl_gene_id", organism="human"
@@ -339,7 +337,6 @@ def anndata_human_immune_cells(
         ln.Feature(name="donor", dtype=[ln.ULabel]).save()  # type: ignore
         bt.ExperimentalFactor.from_source(ontology_id="EFO:0008913").save()
         ln.save([ln.ULabel(name=name) for name in adata.obs.donor.unique()])
-        ln.settings.verbosity = verbosity
     return adata
 
 

@@ -980,6 +980,10 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             artifact_v2 = ln.Artifact("./my_file.parquet", key="example_datasets/my_file.parquet").save()
             artifact_v2.versions.df()  # see all versions
 
+        You can write artifacts to other storage locations by switching the current default storage location (:attr:`~lamindb.core.Settings.storage`)::
+
+            ln.settings.storage = "s3://some-bucket"
+
         .. dropdown:: Why does the API look this way?
 
             It's inspired by APIs building on AWS S3.
