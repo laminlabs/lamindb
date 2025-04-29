@@ -94,3 +94,14 @@ class UpdateContext(SystemExit):
     """Transform settings require update."""
 
     pass
+
+
+# -------------------------------------------------------------------------------------
+# record
+# -------------------------------------------------------------------------------------
+
+
+class NoWriteAccess(Exception):
+    """No write access to a space."""
+
+    pass
