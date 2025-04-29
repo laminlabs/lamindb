@@ -165,18 +165,18 @@ def serialize_dtype(
         elif not isinstance(dtype, list):
             raise ValueError(error_message.format(dtype))
         dtype_str = ""
-        for single_dtype in dtype:
-            if not isinstance(single_dtype, Registry) and not isinstance(
-                single_dtype, DeferredAttribute
+        for one_dtype in dtype:
+            if not isinstance(one_dtype, Registry) and not isinstance(
+                one_dtype, DeferredAttribute
             ):
-                raise ValueError(error_message.format(single_dtype))
-            if isinstance(single_dtype, Registry):
-                dtype_str += single_dtype.__get_name_with_module__() + "|"
+                raise ValueError(error_message.format(one_dtype))
+            if isinstance(one_dtype, Registry):
+                dtype_str += one_dtype.__get_name_with_module__() + "|"
             else:
+                name = one_dtype.field.name
+                field_ext = f".{name}" if name != "name" else ""
                 dtype_str += (
-                    single_dtype.field.model.__get_name_with_module__()
-                    + f".{single_dtype.field.name}"
-                    + "|"
+                    one_dtype.field.model.__get_name_with_module__() + field_ext + "|"
                 )
         dtype_str = dtype_str.rstrip("|")
         if not is_itype:

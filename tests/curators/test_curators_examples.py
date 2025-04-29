@@ -211,8 +211,6 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
     artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
 
-    print(artifact.describe())
-
     assert artifact.features.slots["columns"].n == 5
     assert set(artifact.features.get_values()["sample"]) == {
         "sample1",
@@ -373,6 +371,7 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
 
 
 def test_anndata_curator_varT_curation():
+    ln.Schema.filter(itype="bionty.Gene.ensembl_gene_id").delete()
     varT_schema = ln.Schema(
         itype=bt.Gene.ensembl_gene_id,
     ).save()
