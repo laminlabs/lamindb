@@ -103,7 +103,7 @@ try:
 except ImportError:
 
     def identify_zarr_type(storepath):  # type: ignore
-        raise ImportError("Please install zarr: pip install zarr")
+        raise ImportError("Please install zarr: pip install 'lamindb[zarr]'")
 
 
 if TYPE_CHECKING:
