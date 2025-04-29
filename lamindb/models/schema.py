@@ -871,7 +871,9 @@ def get_type_str(dtype: str | None) -> str | None:
 
 def _get_related_name(self: Schema) -> str:
     related_models = dict_related_model_to_related_name(self, instance=self._state.db)
-    related_name = related_models.get(parse_cat_dtype(self.itype)["registry_str"])
+    related_name = related_models.get(
+        parse_cat_dtype(self.itype, is_itype=True)["registry_str"]
+    )
     return related_name
 
 
