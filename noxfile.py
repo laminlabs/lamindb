@@ -82,7 +82,7 @@ def install(session):
 def install_ci(session, group):
     extras = ""
     if group == "unit-core":
-        extras += "bionty,gcp,zarr,fcs,jupyter"
+        extras += "bionty,gcp,fcs,jupyter"
         run(session, "uv pip install --system huggingface_hub")
         # tiledbsoma dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
@@ -94,7 +94,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system xarray-dataclasses")
         run(session, "uv pip install --system spatialdata")
     elif group == "unit-storage":
-        extras += "zarr_v3,bionty"
+        extras += "bionty"
         # tiledbsoma dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system scanpy")
@@ -107,22 +107,22 @@ def install_ci(session, group):
         run(session, "uv pip install --system huggingface_hub")
         run(session, "uv pip install --system polars")
     elif group == "guide":
-        extras += "bionty,zarr,jupyter"
+        extras += "bionty,jupyter"
         run(session, "uv pip install --system scanpy mudata spatialdata")
     elif group == "biology":
         extras += "bionty,fcs,jupyter"
         run(session, "uv pip install --system ipywidgets")
     elif group == "faq":
-        extras += "bionty,jupyter,zarr"
+        extras += "bionty,jupyter"
     elif group == "storage":
-        extras += "zarr,bionty,jupyter"
+        extras += "bionty,jupyter"
         run(
             session,
             "uv pip install --system --no-deps ./sub/wetlab",
         )
         run(session, "uv pip install --system vitessce")
     elif group == "curator":
-        extras += "zarr,jupyter,bionty"
+        extras += "jupyter,bionty"
         run(
             session,
             "uv pip install --system --no-deps ./sub/wetlab",
@@ -136,7 +136,7 @@ def install_ci(session, group):
         )
         run(session, "uv pip install --system tiledbsoma")
     elif group == "docs":
-        extras += "bionty,zarr"
+        extras += "bionty"
         # spatialdata dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system xarray-dataclasses")
