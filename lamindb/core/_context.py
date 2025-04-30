@@ -62,6 +62,8 @@ def get_notebook_path() -> tuple[Path, str]:
     path = None
     try:
         path, env = get_notebook_path(return_env=True)
+    except ValueError as ve:
+        raise ve
     except Exception:
         raise RuntimeError(msg_path_failed) from None
     if path is None:
