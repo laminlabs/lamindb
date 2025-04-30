@@ -3,7 +3,7 @@
 Data lineage
 ============
 
-When running a notebook or script, calling `track()` initiates tracking code + inputs, outputs & environment of a run.
+Track inputs, outputs & environment of a script or notebook run.
 
 .. autosummary::
    :toctree: .
@@ -11,7 +11,7 @@ When running a notebook or script, calling `track()` initiates tracking code + i
    track
    finish
 
-A function decorated with `@tracked()` logs code + inputs, outputs & environment of runs.
+Decorate a function with `@tracked()` to track inputs, outputs & environment of function executions.
 
 .. autosummary::
    :toctree: .
@@ -21,8 +21,7 @@ A function decorated with `@tracked()` logs code + inputs, outputs & environment
 Registries
 ==========
 
-Managing artifacts and transforms
----------------------------------
+Manage artifacts and transforms.
 
 .. autosummary::
    :toctree: .
@@ -32,8 +31,7 @@ Managing artifacts and transforms
    Transform
    Run
 
-Validating and annotating artifacts
------------------------------------
+Validate and annotate artifacts.
 
 .. autosummary::
    :toctree: .
@@ -43,8 +41,7 @@ Validating and annotating artifacts
    Param
    Schema
 
-Managing projects
------------------
+Manage projects.
 
 .. autosummary::
    :toctree: .
@@ -56,8 +53,8 @@ Managing projects
    Reference
    Person
 
-Other key functionality
-=======================
+Other
+=====
 
 Functions and classes.
 
@@ -79,10 +76,7 @@ Curators and integrations.
    curators
    integrations
 
-Low-level functionality
-=======================
-
-You'll typically not need to import the following modules directly.
+Low-level functionality.
 
 .. autosummary::
    :toctree: .
