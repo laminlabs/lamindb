@@ -360,6 +360,7 @@ def save_context_core(
         else:
             transform.source_code = source_code_path.read_text()
             transform.hash = transform_hash
+        print(transform_hash, source_code_path)
 
     # track run environment
     if run is not None:

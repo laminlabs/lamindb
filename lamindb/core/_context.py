@@ -388,7 +388,14 @@ class Context:
             self._transform = transform_exists
 
         if new_run is None:  # for notebooks, default to loading latest runs
-            new_run = False if self._transform.type == "notebook" else True  # type: ignore
+            new_run = (
+                False
+                if (
+                    self._transform.type == "notebook"
+                    and self._notebook_runner != "nbconvert"
+                )
+                else True
+            )  # type: ignore
 
         run = None
         if not new_run:  # try loading latest run by same user
@@ -718,6 +725,7 @@ class Context:
                 )
             # check whether transform source code was already saved
             if transform_was_saved:
+                print(transform_hash, transform.hash)
                 bump_revision = False
                 if (
                     transform.type == "notebook"
@@ -736,7 +744,10 @@ class Context:
                 if bump_revision:
                     change_type = (
                         "re-running notebook with already-saved source code"
-                        if transform.type == "notebook"
+                        if (
+                            transform.type == "notebook"
+                            and self._notebook_runner != "nbconvert"
+                        )
                         else "source code changed"
                     )
                     raise UpdateContext(
