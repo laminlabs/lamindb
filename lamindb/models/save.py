@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
 
 def save(records: Iterable[Record], ignore_conflicts: bool | None = False) -> None:
-    """Bulk save to registries & storage.
+    """Bulk save records.
 
     Note:
 

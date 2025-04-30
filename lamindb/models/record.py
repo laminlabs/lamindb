@@ -946,7 +946,7 @@ class BasicRecord(models.Model, metaclass=Registry):
 
 
 class Space(BasicRecord):
-    """Spaces.
+    """Spaces to restrict access to records to specific users or teams.
 
     You can use spaces to restrict access to records within an instance.
 
