@@ -160,7 +160,7 @@ def notebook_to_report(notebook_path: Path, output_path: Path) -> None:
 
 
 def notebook_to_script(  # type: ignore
-    transform: Transform, notebook_path: Path, script_path: Path | None = None
+    title: str, notebook_path: Path, script_path: Path | None = None
 ) -> None | str:
     import jupytext
 
@@ -169,7 +169,7 @@ def notebook_to_script(  # type: ignore
     # remove global metadata header
     py_content = re.sub(r"^# ---\n.*?# ---\n\n", "", py_content, flags=re.DOTALL)
     # replace title
-    py_content = py_content.replace(f"# # {transform.description}", "#")
+    py_content = py_content.replace(f"# # {title}", "#")
     if script_path is None:
         return py_content
     else:
@@ -313,7 +313,7 @@ def save_context_core(
         source_code_path = ln_setup.settings.cache_dir / filepath.name.replace(
             ".ipynb", ".py"
         )
-        notebook_to_script(transform, filepath, source_code_path)
+        notebook_to_script(transform.description, filepath, source_code_path)
     elif is_r_notebook:
         if filepath.with_suffix(".nb.html").exists():
             report_path = filepath.with_suffix(".nb.html")
@@ -340,18 +340,18 @@ def save_context_core(
     ln.settings.creation.artifact_silence_missing_run_warning = True
     # save source code
     if save_source_code_and_report:
-        hash, _ = hash_file(source_code_path)  # ignore hash_type for now
+        transform_hash, _ = hash_file(source_code_path)  # ignore hash_type for now
         if transform.hash is not None:
             # check if the hash of the transform source code matches
             # (for scripts, we already run the same logic in track() - we can deduplicate the call at some point)
-            if hash != transform.hash:
+            if transform_hash != transform.hash:
                 response = input(
                     f"You are about to overwrite existing source code (hash '{transform.hash}') for Transform('{transform.uid}')."
                     f" Proceed? (y/n)"
                 )
                 if response == "y":
                     transform.source_code = source_code_path.read_text()
-                    transform.hash = hash
+                    transform.hash = transform_hash
                 else:
                     logger.warning("Please re-run `ln.track()` to make a new version")
                     return "rerun-the-notebook"
@@ -359,7 +359,7 @@ def save_context_core(
                 logger.debug("source code is already saved")
         else:
             transform.source_code = source_code_path.read_text()
-            transform.hash = hash
+            transform.hash = transform_hash
 
     # track run environment
     if run is not None:

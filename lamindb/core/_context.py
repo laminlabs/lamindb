@@ -509,29 +509,41 @@ class Context:
         return path, description
 
     def _process_aux_transform(
-        self, aux_transform: Transform
+        self,
+        aux_transform: Transform,
+        transform_hash: str,
     ) -> tuple[str, Transform | None, str]:
         # first part of the if condition: no version bump, second part: version bump
+        message = ""
         if (
-            # if a user hasn't yet saved the transform source code, needs to be same user
+            # if a user hasn't yet saved the transform source code AND is the same user
             (
                 aux_transform.source_code is None
                 and aux_transform.created_by_id == ln_setup.settings.user.id
             )
             # if the transform source code is unchanged
             # if aux_transform.type == "notebook", we anticipate the user makes changes to the notebook source code
-            # in an interactive session, hence we *pro-actively bump* the version number by setting `revises`
+            # in an interactive session, hence we *pro-actively bump* the version number by setting `revises` / 'nbconvert' execution is NOT interactive
             # in the second part of the if condition even though the source code is unchanged at point of running track()
-            or (aux_transform.hash == hash and aux_transform.type != "notebook")
+            or (
+                aux_transform.hash == transform_hash
+                and (
+                    aux_transform.type != "notebook"
+                    or self._notebook_runner == "nbconvert"
+                )
+            )
         ):
             uid = aux_transform.uid
             return uid, aux_transform, None
         else:
             uid = f"{aux_transform.uid[:-4]}{increment_base62(aux_transform.uid[-4:])}"
             message = f"there already is a {aux_transform.type} with key '{aux_transform.key}'"
-            if aux_transform.hash == hash and aux_transform.type == "notebook":
+            if (
+                aux_transform.hash == transform_hash
+                and aux_transform.type == "notebook"
+            ):
                 message += " -- anticipating changes"
-            elif aux_transform.hash != hash:
+            elif aux_transform.hash != transform_hash:
                 message += (
                     ""  # could log "source code changed", but this seems too much
                 )
@@ -550,8 +562,22 @@ class Context:
         transform_ref_type: str | None = None,
         transform_type: TransformType = None,
     ):
-        # the user did not pass the uid
-        if self.uid is None:
+        from .._finish import notebook_to_script
+
+        if not self._path.suffix == ".ipynb":
+            transform_hash, _ = hash_file(self._path)
+        else:
+            # need to convert to stripped py:percent format for hashing
+            source_code_path = ln_setup.settings.cache_dir / self._path.name.replace(
+                ".ipynb", ".py"
+            )
+            notebook_to_script(description, self._path, source_code_path)
+            transform_hash, _ = hash_file(source_code_path)
+        # see whether we find a transform with the exact same hash
+        aux_transform = Transform.filter(hash=transform_hash).one_or_none()
+        # if the user did not pass a uid and there is no matching aux_transform
+        # need to search for the transform based on the filename
+        if self.uid is None and aux_transform is None:
 
             class SlashCount(Func):
                 template = "LENGTH(%(expressions)s) - LENGTH(REPLACE(%(expressions)s, '/', ''))"
@@ -566,7 +592,6 @@ class Context:
             uid = f"{base62_12()}0000"
             key = self._path.name
             target_transform = None
-            hash, _ = hash_file(self._path)
             if len(transforms) != 0:
                 message = ""
                 found_key = False
@@ -574,7 +599,7 @@ class Context:
                     if aux_transform.key in self._path.as_posix():
                         key = aux_transform.key
                         uid, target_transform, message = self._process_aux_transform(
-                            aux_transform
+                            aux_transform, transform_hash
                         )
                         found_key = True
                         break
@@ -591,7 +616,7 @@ class Context:
                     logger.important(message)
             self.uid, transform = uid, target_transform
         # the user did pass the uid
-        elif len(self.uid) == 16:
+        elif self.uid is not None and len(self.uid) == 16:
             transform = Transform.filter(uid=self.uid).one_or_none()
             if transform is not None:
                 if transform.key not in self._path.as_posix():
@@ -607,14 +632,15 @@ class Context:
             else:
                 key = self._path.name
         else:
-            assert len(self.uid) == 12, (  # noqa: S101
-                "uid must be 12 (stem) or 16 (full) characters long"
-            )
-            aux_transform = (
-                Transform.filter(uid__startswith=self.uid)
-                .order_by("-created_at")
-                .first()
-            )
+            if self.uid is not None:
+                assert len(self.uid) == 12, (  # noqa: S101
+                    "uid must be 12 (stem) or 16 (full) characters long"
+                )
+                aux_transform = (
+                    Transform.filter(uid__startswith=self.uid)
+                    .order_by("-created_at")
+                    .first()
+                )
             if aux_transform is not None:
                 if aux_transform.key.endswith(self._path.name):
                     key = aux_transform.key
@@ -623,7 +649,7 @@ class Context:
                         aux_transform.key.split("/")[:-1] + [self._path.name]
                     )
                 uid, target_transform, message = self._process_aux_transform(
-                    aux_transform
+                    aux_transform, transform_hash
                 )
                 if message != "":
                     logger.important(message)
@@ -693,13 +719,15 @@ class Context:
             # check whether transform source code was already saved
             if transform_was_saved:
                 bump_revision = False
-                if transform.type == "notebook":
+                if (
+                    transform.type == "notebook"
+                    and self._notebook_runner != "nbconvert"
+                ):
                     # we anticipate the user makes changes to the notebook source code
                     # in an interactive session, hence we pro-actively bump the version number
                     bump_revision = True
                 else:
-                    hash, _ = hash_file(self._path)  # ignore hash_type for now
-                    if hash != transform.hash:
+                    if transform_hash != transform.hash:
                         bump_revision = True
                     else:
                         self._logging_message_track += (
