@@ -218,6 +218,7 @@ def _lookup(
     )
 
 
+# this is the default (._default_manager and ._base_manager) for lamindb models
 class QueryManager(Manager):
     """Manage queries through fields.
 
@@ -304,4 +305,6 @@ class QueryManager(Manager):
     def get_queryset(self):
         from .query_set import BasicQuerySet
 
+        # QueryManager returns BasicQuerySet because it is problematic to redefine .filter and .get
+        # for a query set used by the default manager
         return BasicQuerySet(model=self.model, using=self._db, hints=self._hints)

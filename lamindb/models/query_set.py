@@ -662,6 +662,9 @@ class BasicQuerySet(models.QuerySet):
         return _standardize(cls=self, values=values, field=field, **kwargs)
 
 
+# this differs from BasicQuerySet only in .filter and .get
+# QueryManager returns BasicQuerySet because it is problematic to redefine .filter and .get
+# for a query set used by the default manager
 class QuerySet(BasicQuerySet):
     """Sets of records returned by queries.
 
