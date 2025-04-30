@@ -280,12 +280,9 @@ class Context:
     ) -> None:
         """Track a global run in your compute session.
 
-        - sets :attr:`~lamindb.core.Context.transform` &
-          :attr:`~lamindb.core.Context.run` by creating or loading `Transform` &
-          `Run` records
-        - writes compute environment to prepare populating: `run.environment`
-        - if :attr:`~lamindb.core.Settings.sync_git_repo` is set, checks whether a script-like
-          transform exists in a git repository and links it
+        Populates the global run :class:`~lamindb.context` by managing `Transform` & `Run` records and caching the compute environment.
+
+        If :attr:`~lamindb.core.Settings.sync_git_repo` is set, checks whether a script-like transform exists in a git repository and links it.
 
         Args:
             transform: A transform `uid` or record. If `None`, manages the `transform` based on the script or notebook that calls `ln.track()`.
