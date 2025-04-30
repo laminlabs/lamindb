@@ -268,7 +268,7 @@ class Context:
         """Managed run of context."""
         return self._run
 
-    def track(
+    def _track(
         self,
         transform: str | Transform | None = None,
         *,
@@ -756,7 +756,7 @@ class Context:
                 self._logging_message_track += f"loaded Transform('{transform.uid}')"
         self._transform = transform
 
-    def finish(self, ignore_non_consecutive: None | bool = None) -> None:
+    def _finish(self, ignore_non_consecutive: None | bool = None) -> None:
         """Finish a tracked run.
 
         - writes a timestamp: `run.finished_at`
@@ -818,6 +818,14 @@ class Context:
         self._transform = None
         self._version = None
         self._description = None
+
+    @deprecated("ln.track()")
+    def track(self, *args, **kwargs):
+        return self._track(*args, **kwargs)
+
+    @deprecated("ln.finish()")
+    def finish(self, *args, **kwargs):
+        return self._finish(*args, **kwargs)
 
 
 context: Context = Context()

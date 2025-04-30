@@ -115,15 +115,8 @@ if _check_instance_setup(from_module="lamindb"):
     from . import integrations
     from . import curators
 
-    track = context.track
-    finish = context.finish
-    settings.__doc__ = """Global settings (:class:`~lamindb.core.Settings`)."""
-    context.__doc__ = """Global run context (:class:`~lamindb.core.Context`).
-
-    Note that you can access:
-
-    - `ln.context.track()` as `ln.track()`
-    - `ln.context.finish()` as `ln.finish()`
-
-    """
+    track = context._track
+    finish = context._finish
+    settings.__doc__ = """Global live settings (:class:`~lamindb.core.Settings`)."""
+    context.__doc__ = """Global run context (:class:`~lamindb.core.Context`)."""
     from django.db.models import Q
