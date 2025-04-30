@@ -738,6 +738,10 @@ class Context:
                     )
             else:
                 self._logging_message_track += f"loaded Transform('{transform.uid}')"
+        if self.uid is None:
+            logger.important(
+                f"to ensure one version history across file renames, pass {transform.uid[:-4]} to `track()`: ln.track('{transform.uid[:-4]}')"
+            )
         self._transform = transform
 
     def _finish(self, ignore_non_consecutive: None | bool = None) -> None:
