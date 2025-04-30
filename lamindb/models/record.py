@@ -586,7 +586,7 @@ class Registry(ModelBase):
             into_db_token = isettings
 
         target_modules = setup_settings.instance.modules
-        if not (missing_members := source_modules - target_modules):
+        if missing_members := source_modules - target_modules:
             logger.warning(
                 f"source modules has additional modules: {missing_members}\n"
                 "consider mounting these registry modules to transfer all metadata"
