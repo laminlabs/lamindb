@@ -401,7 +401,8 @@ def save_context_core(
     # track report and set is_consecutive
     if save_source_code_and_report:
         if run is not None:
-            if report_path is not None:
+            # do not save a run report if executing through nbconvert
+            if report_path is not None and notebook_runner != "nbconvert":
                 if is_r_notebook:
                     title_text, report_path = clean_r_notebook_html(report_path)
                     if title_text is not None:
@@ -435,6 +436,8 @@ def save_context_core(
                     f"saved transform.latest_run.report: {transform.latest_run.report}"
                 )
             run._is_consecutive = is_consecutive
+        if report_path is not None and notebook_runner == "nbconvert":
+            logger.important(f"to save the notebook html, run: lamin save {filepath}")
 
     # save both run & transform records if we arrive here
     if run is not None:
