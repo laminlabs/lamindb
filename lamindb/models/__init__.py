@@ -56,7 +56,7 @@ from .collection import Collection, CollectionArtifact
 from .project import Person, Project, Reference
 from .flextable import FlexTable, RunData
 from .query_manager import QueryManager
-from .query_set import QuerySet, RecordList
+from .query_set import BasicQuerySet, QuerySet, RecordList
 from .has_parents import HasParents
 from datetime import datetime as _datetime
 
