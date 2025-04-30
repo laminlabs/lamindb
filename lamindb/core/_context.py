@@ -180,20 +180,7 @@ class LogStreamTracker:
 class Context:
     """Run context.
 
-    Enables convenient data lineage tracking by managing a transform & run
-    upon :meth:`~lamindb.core.Context.track` & :meth:`~lamindb.core.Context.finish`.
-
-    Guide: :doc:`/track`
-
-    Examples:
-
-        Is typically used via the global :class:`~lamindb.context` object via `ln.track()` and `ln.finish()`:
-
-        >>> import lamindb as ln
-        >>> ln.track()
-        >>> # do things
-        >>> ln.finish()
-
+    Is the book keeper for :meth:`~lamindb.core.Context.track`.
     """
 
     def __init__(self):
@@ -203,7 +190,7 @@ class Context:
         self._transform: Transform | None = None
         self._run: Run | None = None
         self._path: Path | None = None
-        """A local path to the script that's running."""
+        """A local path to the script or notebook that's running."""
         self._project: Project | None = None
         self._space: Space | None = None
         self._logging_message_track: str = ""
@@ -301,12 +288,12 @@ class Context:
                 ln.track()
                 #> → created Transform('Onv04I53OgtT0000'), started new Run('dpSfd7Ds...') at 2025-04-25 11:00:03 UTC
 
-            To ensure one version history for a script or notebook across renaming events, pass the auto-generated `uid` from the logs::
+            Ensure one version history across file renames::
 
-                ln.track("Onv04I53OgtT")      # <-- recommended: let lamindb handle versioning and pass the first 12 characters of the transform uid
-                ln.track("Onv04I53OgtT0000")  # <-- enforce version: pass the full uid, which encodes the version in the last four characters
+                ln.track("Onv04I53OgtT")      # <-- recommended: pass first 12 characters of transform uid
+                ln.track("Onv04I53OgtT0000")  # <-- enforce version: pass full uid (last four digits encode version)
 
-            Guide: :doc:`/track`
+            More examples: :doc:`/track`
         """
         from lamindb.models import Project, Space
 
