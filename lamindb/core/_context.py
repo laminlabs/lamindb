@@ -272,7 +272,7 @@ class Context:
         If :attr:`~lamindb.core.Settings.sync_git_repo` is set, checks whether a script-like transform exists in a git repository and links it.
 
         Args:
-            transform: A transform `uid` or record. If `None`, manages the `transform` based on the script or notebook that calls `ln.track()`.
+            transform: A transform (stem) `uid` (or record). If `None`, auto-creates a `transform` with its `uid`.
             project: A project `name` or `uid` for labeling entities created during the run.
             space: A space `name` or `uid` for creating entities during the run. This doesn't affect bionty entities given they should typically be commonly accessible.
             params: A dictionary of parameters to track for the run.
@@ -287,11 +287,12 @@ class Context:
 
                 ln.track()
                 #> → created Transform('Onv04I53OgtT0000'), started new Run('dpSfd7Ds...') at 2025-04-25 11:00:03 UTC
+                #> • to ensure one version history across script renames, run: ln.track('Onv04I53OgtT', ...)
 
             Ensure one version history across file renames::
 
-                ln.track("Onv04I53OgtT")      # <-- recommended: pass first 12 characters of transform uid
-                ln.track("Onv04I53OgtT0000")  # <-- enforce version: pass full uid (last four digits encode version)
+                ln.track("Onv04I53OgtT")
+                #> → created Transform('Onv04I53OgtT0000'), started new Run('dpSfd7Ds...') at 2025-04-25 11:00:03 UTC
 
             More examples: :doc:`/track`
         """
