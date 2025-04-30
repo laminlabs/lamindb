@@ -287,8 +287,6 @@ class Context:
         - if :attr:`~lamindb.core.Settings.sync_git_repo` is set, checks whether a script-like
           transform exists in a git repository and links it
 
-        Guide: :doc:`/track`
-
         Args:
             transform: A transform `uid` or record. If `None`, manages the `transform` based on the script or notebook that calls `ln.track()`.
             project: A project `name` or `uid` for labeling entities created during the run.
@@ -304,12 +302,14 @@ class Context:
             To track the run of a notebook or script, call::
 
                 ln.track()
+                #> → created Transform('Onv04I53OgtT0000'), started new Run('dpSfd7Ds...') at 2025-04-25 11:00:03 UTC
 
-            If you want to ensure a single version history across renames of the notebook or script, pass the auto-generated `uid` that you'll find in the logs::
+            To ensure one version history for a script or notebook across renaming events, pass the auto-generated `uid` from the logs::
 
-                ln.track("Onv04I53OgtT0000")  # <-- example uid, the last four characters encode the version of the transform
-                ln.track("Onv04I53OgtT")  # <-- recommendation: let lamindb handle versioning for you and only pass the first 12 characters
+                ln.track("Onv04I53OgtT")      # <-- recommended: let lamindb handle versioning and pass the first 12 characters of the transform uid
+                ln.track("Onv04I53OgtT0000")  # <-- enforce version: pass the full uid, which encodes the version in the last four characters
 
+            Guide: :doc:`/track`
         """
         from lamindb.models import Project, Space
 
