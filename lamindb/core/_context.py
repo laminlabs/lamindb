@@ -555,6 +555,7 @@ class Context:
     ):
         from .._finish import notebook_to_script
 
+        uid_was_none = self.uid is None
         if not self._path.suffix == ".ipynb":
             transform_hash, _ = hash_file(self._path)
         else:
@@ -645,7 +646,7 @@ class Context:
                 if message != "":
                     logger.important(message)
             else:
-                uid = f"{self.uid}0000"
+                uid = f"{self.uid}0000" if self.uid is not None else None
                 target_transform = None
                 key = self._path.name
             self.uid, transform = uid, target_transform
@@ -660,7 +661,7 @@ class Context:
                     f"✗ please pass consistent version: ln.context.version = '{transform.version}'"  # type: ignore
                 )
             # test whether version was already used for another member of the family
-            if len(self.uid) == 16:
+            if self.uid is not None and len(self.uid) == 16:
                 suid, vuid = (self.uid[:-4], self.uid[-4:])
                 transform = Transform.filter(
                     uid__startswith=suid, version=self.version
@@ -738,7 +739,7 @@ class Context:
                     )
             else:
                 self._logging_message_track += f"loaded Transform('{transform.uid}')"
-        if self.uid is None:
+        if uid_was_none:
             logger.important(
                 f"to ensure one version history across file renames, pass {transform.uid[:-4]} to `track()`: ln.track('{transform.uid[:-4]}')"
             )
