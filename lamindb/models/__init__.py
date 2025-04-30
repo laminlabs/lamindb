@@ -6,6 +6,7 @@
    BasicRecord
    Record
    Registry
+   BasicQuerySet
    QuerySet
    QueryManager
    RecordList

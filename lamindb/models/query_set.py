@@ -510,6 +510,19 @@ def process_extra_columns(
 
 
 class BasicQuerySet(models.QuerySet):
+    """Sets of records returned by queries.
+
+    See Also:
+
+        `django QuerySet <https://docs.djangoproject.com/en/4.2/ref/models/querysets/>`__
+
+    Examples:
+
+        >>> ULabel(name="my label").save()
+        >>> queryset = ULabel.filter(name="my label")
+        >>> queryset
+    """
+
     @doc_args(Record.df.__doc__)
     def df(
         self,
@@ -651,6 +664,8 @@ class BasicQuerySet(models.QuerySet):
 
 class QuerySet(BasicQuerySet):
     """Sets of records returned by queries.
+
+    Implements additional filtering capabilities.
 
     See Also:
 
