@@ -620,11 +620,6 @@ class Context:
                         aux_transform.key.split("/")[:-1] + [self._path.name]
                     )
                 uid, target_transform = self._process_aux_transform(aux_transform)
-                if target_transform is None:
-                    # if target_transform is not None, we print this logging message further down
-                    self._logging_message_track += (
-                        f"renaming transform {aux_transform.key} to {key}"
-                    )
             else:
                 uid = f"{self.uid}0000"
                 target_transform = None
