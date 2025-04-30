@@ -22,7 +22,7 @@ def test_run_after_rename_no_uid():
         notebook_dir / "with-title-initialized-consecutive-finish-not-last-cell.ipynb"
     )
     result = subprocess.run(  # noqa: S602
-        f"lamin save {notebook_path}",
+        f"jupyter nbconvert --to notebook --inplace --execute {notebook_path}",
         shell=True,
         capture_output=True,
     )
