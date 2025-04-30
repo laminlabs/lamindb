@@ -725,7 +725,6 @@ class Context:
                 )
             # check whether transform source code was already saved
             if transform_was_saved:
-                print(transform_hash, transform.hash)
                 bump_revision = False
                 if (
                     transform.type == "notebook"
