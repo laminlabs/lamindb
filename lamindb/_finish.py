@@ -244,6 +244,7 @@ def save_context_core(
     ignore_non_consecutive: bool | None = None,
     from_cli: bool = False,
     is_retry: bool = False,
+    notebook_runner: str | None = None,
 ) -> str | None:
     import lamindb as ln
     from lamindb.models import (
@@ -259,7 +260,9 @@ def save_context_core(
     source_code_path = filepath
     report_path: Path | None = None
     save_source_code_and_report = True
-    if is_run_from_ipython:  # python notebooks in interactive session
+    if (
+        is_run_from_ipython and notebook_runner != "nbconvert"
+    ):  # python notebooks in interactive session
         import nbproject
 
         # it might be that the user modifies the title just before ln.finish()

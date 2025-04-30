@@ -54,19 +54,19 @@ def get_uid_ext(version: str) -> str:
     return encodebytes(hashlib.md5(version.encode()).digest())[:4]  # noqa: S324
 
 
-def get_notebook_path() -> Path:
+def get_notebook_path() -> tuple[Path, str]:
     from nbproject.dev._jupyter_communicate import (
         notebook_path as get_notebook_path,
     )
 
     path = None
     try:
-        path = get_notebook_path()
+        path, env = get_notebook_path(return_env=True)
     except Exception:
         raise RuntimeError(msg_path_failed) from None
     if path is None:
         raise RuntimeError(msg_path_failed) from None
-    return Path(path)
+    return Path(path), env
 
 
 # from https://stackoverflow.com/questions/61901628
@@ -208,6 +208,7 @@ class Context:
         self._logging_message_imports: str = ""
         self._stream_tracker: LogStreamTracker = LogStreamTracker()
         self._is_finish_retry: bool = False
+        self._notebook_runner: str | None = None
 
     @property
     def transform(self) -> Transform | None:
@@ -473,7 +474,7 @@ class Context:
         path_str: str | None,
     ) -> tuple[Path, str | None]:
         if path_str is None:
-            path = get_notebook_path()
+            path, self._notebook_runner = get_notebook_path()
         else:
             path = Path(path_str)
         description = None
@@ -759,6 +760,7 @@ class Context:
             finished_at=True,
             ignore_non_consecutive=ignore_non_consecutive,
             is_retry=self._is_finish_retry,
+            notebook_runner=self._notebook_runner,
         )
         if return_code == "retry":
             self._is_finish_retry = True
