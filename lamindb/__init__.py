@@ -3,7 +3,7 @@
 Data lineage
 ============
 
-Track inputs, outputs & environment of a script or notebook run.
+Track inputs, outputs & environment of a notebook or script run.
 
 .. autosummary::
    :toctree: .
