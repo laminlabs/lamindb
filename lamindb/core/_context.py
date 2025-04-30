@@ -604,7 +604,9 @@ class Context:
             else:
                 key = self._path.name
         else:
-            assert len(self.uid) == 12, "stem uid must be 12 characters long"  # noqa: S101
+            assert len(self.uid) == 12, (  # noqa: S101
+                "uid must be 12 (stem) or 16 (full) characters long"
+            )
             aux_transform = (
                 Transform.filter(uid__startswith=self.uid)
                 .order_by("-created_at")
