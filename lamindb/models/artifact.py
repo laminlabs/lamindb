@@ -984,27 +984,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             ln.settings.storage = "s3://some-bucket"
 
-        .. dropdown:: Why does the API look this way?
-
-            It's inspired by APIs building on AWS S3.
-
-            Both boto3 and quilt select a bucket (a storage location in LaminDB) and define a target path through a `key` argument.
-
-            In `boto3 <https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/bucket/upload_file.html>`__::
-
-                # signature: S3.Bucket.upload_file(filepath, key)
-                import boto3
-                s3 = boto3.resource('s3')
-                bucket = s3.Bucket('mybucket')
-                bucket.upload_file('/tmp/hello.txt', 'hello.txt')
-
-            In `quilt3 <https://docs.quiltdata.com/api-reference/bucket>`__::
-
-                # signature: quilt3.Bucket.put_file(key, filepath)
-                import quilt3
-                bucket = quilt3.Bucket('mybucket')
-                bucket.put_file('hello.txt', '/tmp/hello.txt')
-
         Sometimes you want to **avoid mapping the artifact into a path hierarchy**, and you only pass `description`::
 
             artifact = ln.Artifact("./my_folder", description="My folder").save()
@@ -1037,6 +1016,27 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             In concurrent workloads where the same artifact is created repeatedly at the exact same time, `.save()`
             detects the duplication and will return the existing artifact.
+
+        .. dropdown:: Why does the constructor look the way it looks?
+
+            It's inspired by APIs building on AWS S3.
+
+            Both boto3 and quilt select a bucket (a storage location in LaminDB) and define a target path through a `key` argument.
+
+            In `boto3 <https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/bucket/upload_file.html>`__::
+
+                # signature: S3.Bucket.upload_file(filepath, key)
+                import boto3
+                s3 = boto3.resource('s3')
+                bucket = s3.Bucket('mybucket')
+                bucket.upload_file('/tmp/hello.txt', 'hello.txt')
+
+            In `quilt3 <https://docs.quiltdata.com/api-reference/bucket>`__::
+
+                # signature: quilt3.Bucket.put_file(key, filepath)
+                import quilt3
+                bucket = quilt3.Bucket('mybucket')
+                bucket.put_file('hello.txt', '/tmp/hello.txt')
 
     See Also:
         :class:`~lamindb.Storage`

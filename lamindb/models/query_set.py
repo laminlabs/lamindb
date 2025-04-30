@@ -14,11 +14,11 @@ from django.db.models.fields.related import ForeignObjectRel
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 
-from lamindb.models._is_versioned import IsVersioned
-from lamindb.models.record import Record
-
 from ..errors import DoesNotExist
-from .can_curate import CanCurate
+from ._is_versioned import IsVersioned
+from .can_curate import CanCurate, _inspect, _standardize, _validate
+from .query_manager import _lookup, _search
+from .record import Record
 
 if TYPE_CHECKING:
     from lamindb.base.types import ListLike, StrField
@@ -509,7 +509,7 @@ def process_extra_columns(
     return result
 
 
-class QuerySet(models.QuerySet):
+class BasicQuerySet(models.QuerySet):
     """Sets of records returned by queries.
 
     See Also:
@@ -581,7 +581,7 @@ class QuerySet(models.QuerySet):
                 logger.important(f"deleting {record}")
                 record.delete(*args, **kwargs)
         else:
-            self._delete_base_class(*args, **kwargs)
+            super().delete(*args, **kwargs)
 
     def list(self, field: str | None = None) -> list[Record]:
         """Populate a list with the results.
@@ -604,6 +604,82 @@ class QuerySet(models.QuerySet):
         if len(self) == 0:
             return None
         return self[0]
+
+    def one(self) -> Record:
+        """Exactly one result. Raises error if there are more or none."""
+        return one_helper(self)
+
+    def one_or_none(self) -> Record | None:
+        """At most one result. Returns it if there is one, otherwise returns ``None``.
+
+        Examples:
+            >>> ULabel.filter(name="benchmark").one_or_none()
+            >>> ULabel.filter(name="non existing label").one_or_none()
+        """
+        if len(self) == 0:
+            return None
+        elif len(self) == 1:
+            return self[0]
+        else:
+            raise MultipleResultsFound(self.all())
+
+    def latest_version(self) -> QuerySet:
+        """Filter every version family by latest version."""
+        if issubclass(self.model, IsVersioned):
+            return self.filter(is_latest=True)
+        else:
+            raise ValueError("Record isn't subclass of `lamindb.core.IsVersioned`")
+
+    @doc_args(_search.__doc__)
+    def search(self, string: str, **kwargs):
+        """{}"""  # noqa: D415
+        return _search(cls=self, string=string, **kwargs)
+
+    @doc_args(_lookup.__doc__)
+    def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
+        """{}"""  # noqa: D415
+        return _lookup(cls=self, field=field, **kwargs)
+
+    # -------------------------------------------------------------------------------------
+    # CanCurate
+    # -------------------------------------------------------------------------------------
+
+    @doc_args(CanCurate.validate.__doc__)
+    def validate(self, values: ListLike, field: str | StrField | None = None, **kwargs):
+        """{}"""  # noqa: D415
+        return _validate(cls=self, values=values, field=field, **kwargs)
+
+    @doc_args(CanCurate.inspect.__doc__)
+    def inspect(self, values: ListLike, field: str | StrField | None = None, **kwargs):
+        """{}"""  # noqa: D415
+        return _inspect(cls=self, values=values, field=field, **kwargs)
+
+    @doc_args(CanCurate.standardize.__doc__)
+    def standardize(
+        self, values: Iterable, field: str | StrField | None = None, **kwargs
+    ):
+        """{}"""  # noqa: D415
+        return _standardize(cls=self, values=values, field=field, **kwargs)
+
+
+# this differs from BasicQuerySet only in .filter and .get
+# QueryManager returns BasicQuerySet because it is problematic to redefine .filter and .get
+# for a query set used by the default manager
+class QuerySet(BasicQuerySet):
+    """Sets of records returned by queries.
+
+    Implements additional filtering capabilities.
+
+    See Also:
+
+        `django QuerySet <https://docs.djangoproject.com/en/4.2/ref/models/querysets/>`__
+
+    Examples:
+
+        >>> ULabel(name="my label").save()
+        >>> queryset = ULabel.filter(name="my label")
+        >>> queryset
+    """
 
     def _handle_unknown_field(self, error: FieldError) -> None:
         """Suggest available fields if an unknown field was passed."""
@@ -657,88 +733,3 @@ class QuerySet(models.QuerySet):
             except FieldError as e:
                 self._handle_unknown_field(e)
         return self
-
-    def one(self) -> Record:
-        """Exactly one result. Raises error if there are more or none."""
-        return one_helper(self)
-
-    def one_or_none(self) -> Record | None:
-        """At most one result. Returns it if there is one, otherwise returns ``None``.
-
-        Examples:
-            >>> ULabel.filter(name="benchmark").one_or_none()
-            >>> ULabel.filter(name="non existing label").one_or_none()
-        """
-        if len(self) == 0:
-            return None
-        elif len(self) == 1:
-            return self[0]
-        else:
-            raise MultipleResultsFound(self.all())
-
-    def latest_version(self) -> QuerySet:
-        """Filter every version family by latest version."""
-        if issubclass(self.model, IsVersioned):
-            return self.filter(is_latest=True)
-        else:
-            raise ValueError("Record isn't subclass of `lamindb.core.IsVersioned`")
-
-
-# -------------------------------------------------------------------------------------
-# CanCurate
-# -------------------------------------------------------------------------------------
-
-
-@doc_args(Record.search.__doc__)
-def search(self, string: str, **kwargs):
-    """{}"""  # noqa: D415
-    from .record import _search
-
-    return _search(cls=self, string=string, **kwargs)
-
-
-@doc_args(Record.lookup.__doc__)
-def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
-    """{}"""  # noqa: D415
-    from .record import _lookup
-
-    return _lookup(cls=self, field=field, **kwargs)
-
-
-@doc_args(CanCurate.validate.__doc__)
-def validate(self, values: ListLike, field: str | StrField | None = None, **kwargs):
-    """{}"""  # noqa: D415
-    from .can_curate import _validate
-
-    return _validate(cls=self, values=values, field=field, **kwargs)
-
-
-@doc_args(CanCurate.inspect.__doc__)
-def inspect(self, values: ListLike, field: str | StrField | None = None, **kwargs):
-    """{}"""  # noqa: D415
-    from .can_curate import _inspect
-
-    return _inspect(cls=self, values=values, field=field, **kwargs)
-
-
-@doc_args(CanCurate.standardize.__doc__)
-def standardize(self, values: Iterable, field: str | StrField | None = None, **kwargs):
-    """{}"""  # noqa: D415
-    from .can_curate import _standardize
-
-    return _standardize(cls=self, values=values, field=field, **kwargs)
-
-
-models.QuerySet.df = QuerySet.df
-models.QuerySet.list = QuerySet.list
-models.QuerySet.first = QuerySet.first
-models.QuerySet.one = QuerySet.one
-models.QuerySet.one_or_none = QuerySet.one_or_none
-models.QuerySet.latest_version = QuerySet.latest_version
-models.QuerySet.search = search
-models.QuerySet.lookup = lookup
-models.QuerySet.validate = validate
-models.QuerySet.inspect = inspect
-models.QuerySet.standardize = standardize
-models.QuerySet._delete_base_class = models.QuerySet.delete
-models.QuerySet.delete = QuerySet.delete

@@ -347,7 +347,7 @@ class ParamValue(Record):
 
 
 class Run(Record):
-    """Runs.
+    """Runs of transforms such as the execution of a script.
 
     A registry to store runs of transforms, such as an executation of a script.
 

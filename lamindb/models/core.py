@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 
 class Storage(Record, TracksRun, TracksUpdates):
-    """Storage locations.
+    """Storage locations of artifacts such as S3 buckets or local directories.
 
     A storage location is either a directory/folder (local or in the cloud) or
     an entire S3/GCP bucket.

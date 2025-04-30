@@ -1,3 +1,35 @@
+"""Fields.
+
+.. autosummary::
+   :toctree: .
+
+   CharField
+   TextField
+   ForeignKey
+   BooleanField
+   DateField
+   DateTimeField
+   BigIntegerField
+   IntegerField
+   OneToOneField
+   FloatField
+   DecimalField
+   BinaryField
+   JSONField
+   EmailField
+   TimeField
+   SlugField
+   URLField
+   UUIDField
+   PositiveIntegerField
+   PositiveSmallIntegerField
+   SmallIntegerField
+   GenericIPAddressField
+   DurationField
+   CharField
+   TextField
+"""
+
 from django.db import models
 
 
@@ -35,6 +67,14 @@ class ForeignKey(models.ForeignKey):
     def __init__(self, *args, **kwargs):
         kwargs.setdefault("blank", True)
         super().__init__(*args, **kwargs)
+
+
+# fix doc string that otherwise errors
+ForeignKey.get_extra_descriptor_filter.__doc__ = (
+    ForeignKey.get_extra_descriptor_filter.__doc__.replace(
+        ".filter(**kwargs)", "`.filter(**kwargs)`"
+    )
+)
 
 
 class BooleanField(models.BooleanField):
@@ -252,28 +292,6 @@ class GenericIPAddressField(models.GenericIPAddressField):
     """Custom `GenericIPAddressField` with default values for `blank`.
 
     Django default values for `GenericIPAddressField` are `blank=False`.
-    """
-
-    def __init__(self, *args, **kwargs):
-        kwargs.setdefault("blank", True)
-        super().__init__(*args, **kwargs)
-
-
-class FileField(models.FileField):
-    """Custom `FileField` with default values for `blank`.
-
-    Django default values for `FileField` are `blank=False`.
-    """
-
-    def __init__(self, *args, **kwargs):
-        kwargs.setdefault("blank", True)
-        super().__init__(*args, **kwargs)
-
-
-class ImageField(models.ImageField):
-    """Custom `ImageField` with default values for `blank`.
-
-    Django default values for `ImageField` are `blank=False`.
     """
 
     def __init__(self, *args, **kwargs):

@@ -151,7 +151,7 @@ class SchemaOptionals:
 
 
 class Schema(Record, CanCurate, TracksRun):
-    """Schemas.
+    """Schemas of datasets such as the set of columns of a `DataFrame`.
 
     A simple schema is a feature set such as the set of columns of a `DataFrame`.
 
