@@ -69,6 +69,14 @@ class ForeignKey(models.ForeignKey):
         super().__init__(*args, **kwargs)
 
 
+# fix doc string that otherwise errors
+ForeignKey.get_extra_descriptor_filter.__doc__ = (
+    ForeignKey.get_extra_descriptor_filter.__doc__.replace(
+        ".filter(**kwargs)", "`.filter(**kwargs)`"
+    )
+)
+
+
 class BooleanField(models.BooleanField):
     """Custom `BooleanField` with default values for `blank` and `default`.
 
