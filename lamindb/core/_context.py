@@ -508,7 +508,7 @@ class Context:
 
     def _process_aux_transform(
         self, aux_transform: Transform
-    ) -> tuple[str, Transform | None]:
+    ) -> tuple[str, Transform | None, str]:
         # first part of the if condition: no version bump, second part: version bump
         if (
             # if a user hasn't yet saved the transform source code, needs to be same user
@@ -523,7 +523,7 @@ class Context:
             or (aux_transform.hash == hash and aux_transform.type != "notebook")
         ):
             uid = aux_transform.uid
-            return uid, aux_transform
+            return uid, aux_transform, None
         else:
             uid = f"{aux_transform.uid[:-4]}{increment_base62(aux_transform.uid[-4:])}"
             message = f"there already is a {aux_transform.type} with key '{aux_transform.key}'"
@@ -538,7 +538,7 @@ class Context:
                     f" -- {aux_transform.created_by.handle} already works on this draft"
                 )
             message += f", creating new version '{uid}'"
-            return uid, None
+            return uid, None, message
 
     def _create_or_load_transform(
         self,
@@ -571,7 +571,7 @@ class Context:
                 for aux_transform in transforms:
                     if aux_transform.key in self._path.as_posix():
                         key = aux_transform.key
-                        uid, target_transform = self._process_aux_transform(
+                        uid, target_transform, message = self._process_aux_transform(
                             aux_transform
                         )
                         found_key = True
@@ -620,7 +620,11 @@ class Context:
                     key = "/".join(
                         aux_transform.key.split("/")[:-1] + [self._path.name]
                     )
-                uid, target_transform = self._process_aux_transform(aux_transform)
+                uid, target_transform, message = self._process_aux_transform(
+                    aux_transform
+                )
+                if message != "":
+                    logger.important(message)
             else:
                 uid = f"{self.uid}0000"
                 target_transform = None
