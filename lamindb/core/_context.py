@@ -326,6 +326,9 @@ class Context:
         if transform is not None and isinstance(transform, str):
             self.uid = transform
             transform = None
+            uid_was_none = False
+        else:
+            uid_was_none = True
         self._path = None
         if transform is None:
             description = None
@@ -426,6 +429,14 @@ class Context:
         logger.important(self._logging_message_track)
         if self._logging_message_imports:
             logger.important(self._logging_message_imports)
+        if uid_was_none:
+            notebook_or_script = (
+                "notebook" if self._transform.type == "notebook" else "script"
+            )
+            r_or_python = "." if self._path.suffix in {".py", ".ipynb"} else "$"
+            logger.important_hint(
+                f"to ensure one version history across {notebook_or_script} renames, run: ln{r_or_python}track('{self.transform.uid[:-4]}', ...)"
+            )
 
     def _track_source_code(
         self,
@@ -525,7 +536,7 @@ class Context:
             )
         ):
             uid = aux_transform.uid
-            return uid, aux_transform, None
+            return uid, aux_transform, message
         else:
             uid = f"{aux_transform.uid[:-4]}{increment_base62(aux_transform.uid[-4:])}"
             message = f"there already is a {aux_transform.type} with key '{aux_transform.key}'"
@@ -555,7 +566,6 @@ class Context:
     ):
         from .._finish import notebook_to_script
 
-        uid_was_none = self.uid is None
         if not self._path.suffix == ".ipynb":
             transform_hash, _ = hash_file(self._path)
         else:
@@ -739,10 +749,6 @@ class Context:
                     )
             else:
                 self._logging_message_track += f"loaded Transform('{transform.uid}')"
-        if uid_was_none:
-            logger.important(
-                f"to ensure one version history across file renames, pass {transform.uid[:-4]} to `track()`: ln.track('{transform.uid[:-4]}')"
-            )
         self._transform = transform
 
     def _finish(self, ignore_non_consecutive: None | bool = None) -> None:
