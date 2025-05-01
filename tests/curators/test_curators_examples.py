@@ -552,7 +552,7 @@ def spatialdata_blobs_schema():
         },
     ).save()
 
-    yield spatialdata_schema_legacy
+    yield spatialdata_schema_legacy, spatialdata_schema_new
 
     from lamindb.models import SchemaComponent
 
@@ -572,25 +572,29 @@ def spatialdata_blobs_schema():
 def test_spatialdata_curator(
     spatialdata_blobs_schema: ln.Schema,
 ):
-    spatialdata_schema = spatialdata_blobs_schema
+    spatialdata_schema_legacy, spatialdata_schema_new = spatialdata_blobs_schema
     spatialdata = ln.core.datasets.spatialdata_blobs()
 
     # wrong dataset
     with pytest.raises(InvalidArgument):
         ln.curators.SpatialDataCurator(pd.DataFrame(), spatialdata_blobs_schema)
     # wrong schema
-    # with pytest.raises(InvalidArgument):
-    #     ln.curators.SpatialDataCurator(spatialdata, small_dataset1_schema)
+    with pytest.raises(InvalidArgument):
+        ln.curators.SpatialDataCurator(
+            spatialdata, spatialdata_schema_legacy.slots["sample"]
+        )
 
-    curator = ln.curators.SpatialDataCurator(spatialdata, spatialdata_schema)
+    curator = ln.curators.SpatialDataCurator(spatialdata, spatialdata_schema_legacy)
     with pytest.raises(ln.errors.ValidationError):
         curator.validate()
     spatialdata.tables["table"].var.drop(index="ENSG00000999999", inplace=True)
 
     artifact = ln.Artifact.from_spatialdata(
-        spatialdata, key="example_datasets/spatialdata1.zarr", schema=spatialdata_schema
+        spatialdata,
+        key="example_datasets/spatialdata1.zarr",
+        schema=spatialdata_schema_legacy,
     ).save()
-    assert artifact.schema == spatialdata_schema
+    assert artifact.schema == spatialdata_schema_legacy
     assert artifact.features.slots.keys() == {
         "sample",
         "table:var.T",
