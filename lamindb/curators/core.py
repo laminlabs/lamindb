@@ -691,13 +691,7 @@ class SpatialDataCurator(SlotsCurator):
 
     Example:
 
-        .. literalinclude:: scripts/define_schema_spatialdata.py
-            :language: python
-            :caption: define_schema_spatialdata.py
-
-        .. literalinclude:: scripts/curate_spatialdata.py
-            :language: python
-            :caption: curate_spatialdata.py
+        See :meth:`~lamindb.Artifact.from_spatialdata`.
     """
 
     def __init__(
