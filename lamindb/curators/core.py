@@ -739,7 +739,6 @@ class SpatialDataCurator(SlotsCurator):
                     )
                     else getattr(slot_object, sub_slot)
                 )
-                print(slot, data_object)
             elif len(split_result) == 1 or (
                 len(split_result) > 1 and split_result[0] == "attrs"
             ):
@@ -758,7 +757,6 @@ class SpatialDataCurator(SlotsCurator):
                     sub_slot = split_result[1]
                     data_object = self._dataset.attrs[split_result[1]]
                 data_object = pd.DataFrame([data_object])
-                print(slot, data_object)
             self._slots[slot] = DataFrameCurator(data_object, slot_schema)
             _assign_var_fields_categoricals_multimodal(
                 modality=table_key,
