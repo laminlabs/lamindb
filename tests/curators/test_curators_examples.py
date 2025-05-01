@@ -636,7 +636,6 @@ def test_spatialdata_curator(
     │   sample_region       str
     └── table:var.T • 2     [bionty.Gene.ens…
         BRCA2               num
-        BRAF                num
-"""
+        BRAF                num"""
     )
     artifact.delete(permanent=True)
