@@ -1841,6 +1841,16 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 import lamindb as ln
 
                 artifact = ln.Artifact.from_spatialdata(sdata, key="my_dataset.zarr").save()
+
+            With validation and annotation.
+
+            .. literalinclude:: scripts/define_schema_spatialdata.py
+                :language: python
+                :caption: define_schema_spatialdata.py
+
+            .. literalinclude:: scripts/curate_spatialdata.py
+                :language: python
+                :caption: curate_spatialdata.py
         """
         if not data_is_spatialdata(sdata):
             raise ValueError(
