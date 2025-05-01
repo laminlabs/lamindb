@@ -70,11 +70,13 @@ def get_dataset1(
     with_cell_type_synonym: bool = False,
     with_cell_type_typo: bool = False,
     with_gene_typo: bool = False,
+    with_wrong_subtype: bool = False,
 ) -> pd.DataFrame | ad.AnnData:
     """A small tabular dataset measuring expression & metadata."""
     # define the data in the dataset
     # it's a mix of numerical measurements and observation-level metadata
     ifng = "IFNJ" if with_typo else "IFNG"
+    thing = "ulabel_but_not_perturbation" if with_wrong_subtype else "DMSO"
     if gene_symbols_in_index:
         var_ids = ["CD8A", "CD4", "CD14" if not with_gene_typo else "GeneTypo"]
     else:
@@ -92,7 +94,7 @@ def get_dataset1(
         var_ids[0]: [1, 2, 3],
         var_ids[1]: [3, 4, 5],
         var_ids[2]: [5, 6, 7],
-        "perturbation": pd.Categorical(["DMSO", ifng, "DMSO"]),
+        "perturbation": pd.Categorical(["DMSO", ifng, thing]),
         "sample_note": ["was ok", "looks naah", "pretty! 🤩"],
         "cell_type_by_expert": pd.Categorical(
             ["B-cell" if with_cell_type_synonym else "B cell", abt_cell, abt_cell]

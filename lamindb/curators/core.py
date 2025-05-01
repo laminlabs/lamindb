@@ -18,6 +18,7 @@ import re
 from typing import TYPE_CHECKING, Any, Callable
 
 import lamindb_setup as ln_setup
+import numpy as np
 import pandas as pd
 import pandera
 from lamin_utils import colors, logger
@@ -788,6 +789,7 @@ class CatVector:
         source: Record | None = None,
         feature: Feature | None = None,
         cat_manager: DataFrameCatManager | None = None,
+        subtype_str: str = "",
     ) -> None:
         self._values_getter = values_getter
         self._values_setter = values_setter
@@ -798,6 +800,8 @@ class CatVector:
         self._validated: None | list[str] = None
         self._non_validated: None | list[str] = None
         self._synonyms: None | dict[str, str] = None
+        self._subtype_str = subtype_str
+        self._subtype_query_set = None
         self._cat_manager = cat_manager
         self.feature = feature
         self.records = None
@@ -867,41 +871,56 @@ class CatVector:
         if not values:
             return [], []
         # inspect the default instance and save validated records from public
-        existing_and_public_records = registry.from_values(
-            list(values), field=self._field, **filter_kwargs, mute=True
-        )
-        existing_and_public_labels = [
-            getattr(r, field_name) for r in existing_and_public_records
-        ]
-        # public records that are not already in the database
-        public_records = [r for r in existing_and_public_records if r._state.adding]
-        # here we check to only save the public records if they are from the specified source
-        # we check the uid because r.source and source can be from different instances
-        if self._source:
-            public_records = [
-                r for r in public_records if r.source.uid == self._source.uid
+        if self._subtype_str != "":
+            self._subtype_query_set = registry.get(name=self._subtype_str).records.all()
+            values_array = np.array(values)
+            validated_mask = self._subtype_query_set.validate(  # type: ignore
+                values_array, field=self._field, **filter_kwargs, mute=True
+            )
+            validated_labels, non_validated_labels = (
+                values_array[validated_mask],
+                values_array[~validated_mask],
+            )
+            records = registry.from_values(
+                validated_labels, field=self._field, **filter_kwargs, mute=True
+            )
+        else:
+            existing_and_public_records = registry.from_values(
+                list(values), field=self._field, **filter_kwargs, mute=True
+            )
+            existing_and_public_labels = [
+                getattr(r, field_name) for r in existing_and_public_records
             ]
-        if len(public_records) > 0:
-            logger.info(f"saving validated records of '{self._key}'")
-            ln_save(public_records)
-            labels_saved_public = [getattr(r, field_name) for r in public_records]
-            # log the saved public labels
-            # the term "transferred" stresses that this is always in the context of transferring
-            # labels from a public ontology or a different instance to the present instance
-            if len(labels_saved_public) > 0:
-                s = "s" if len(labels_saved_public) > 1 else ""
-                logger.success(
-                    f'added {len(labels_saved_public)} record{s} {colors.green("from_public")} with {model_field} for "{self._key}": {_format_values(labels_saved_public)}'
-                )
-        self.records = existing_and_public_records
+            # public records that are not already in the database
+            public_records = [r for r in existing_and_public_records if r._state.adding]
+            # here we check to only save the public records if they are from the specified source
+            # we check the uid because r.source and source can be from different instances
+            if self._source:
+                public_records = [
+                    r for r in public_records if r.source.uid == self._source.uid
+                ]
+            if len(public_records) > 0:
+                logger.info(f"saving validated records of '{self._key}'")
+                ln_save(public_records)
+                labels_saved_public = [getattr(r, field_name) for r in public_records]
+                # log the saved public labels
+                # the term "transferred" stresses that this is always in the context of transferring
+                # labels from a public ontology or a different instance to the present instance
+                if len(labels_saved_public) > 0:
+                    s = "s" if len(labels_saved_public) > 1 else ""
+                    logger.success(
+                        f'added {len(labels_saved_public)} record{s} {colors.green("from_public")} with {model_field} for "{self._key}": {_format_values(labels_saved_public)}'
+                    )
+                    # non-validated records from the default instance
+            non_validated_labels = [
+                i for i in values if i not in existing_and_public_labels
+            ]
+            validated_labels = existing_and_public_labels
+            records = existing_and_public_records
 
-        # non-validated records from the default instance
-        non_validated_labels = [
-            i for i in values if i not in existing_and_public_labels
-        ]
-
+        self.records = records
         # validated, non-validated
-        return existing_and_public_labels, non_validated_labels
+        return validated_labels, non_validated_labels
 
     def _add_new(
         self,
@@ -960,7 +979,10 @@ class CatVector:
         )
 
         # inspect values from the default instance, excluding public
-        inspect_result = registry.inspect(
+        registry_or_queryset = registry
+        if self._subtype_query_set is not None:
+            registry_or_queryset = self._subtype_query_set
+        inspect_result = registry_or_queryset.inspect(
             values, field=self._field, mute=True, from_source=False, **kwargs_current
         )
         non_validated = inspect_result.non_validated
@@ -1010,7 +1032,8 @@ class CatVector:
                 if syn_mapper:
                     warning_message += "\n    for remaining terms:\n"
                 warning_message += f"    → fix typos, remove non-existent values, or save terms via: {colors.cyan(non_validated_hint_print)}"
-
+                if self._subtype_query_set is not None:
+                    warning_message += f"\n    → a valid label for subtype '{self._subtype_str}' has to be one of {self._subtype_query_set.list('name')}"
             if logger.indent == "":
                 _log_mapping_info()
             logger.warning(warning_message)
@@ -1128,6 +1151,7 @@ class DataFrameCatManager:
             ]  # TODO: support composite dtypes for categoricals
             key = feature.name
             field = result["field"]
+            subtype_str = result["subtype_str"]
             self._cat_vectors[key] = CatVector(
                 values_getter=lambda k=key: self._dataset[
                     k
@@ -1140,6 +1164,7 @@ class DataFrameCatManager:
                 source=self._sources.get(key),
                 feature=feature,
                 cat_manager=self,
+                subtype_str=subtype_str,
             )
         if index is not None and index.dtype.startswith("cat"):
             result = parse_dtype(index.dtype)[0]

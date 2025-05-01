@@ -17,6 +17,7 @@ def small_dataset1_schema():
     perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
     ln.ULabel(name="DMSO", type=perturbation).save()
     ln.ULabel(name="IFNG", type=perturbation).save()
+    ln.ULabel(name="ulabel_but_not_perturbation").save()
     ln.ULabel.from_values(["sample1", "sample2", "sample3"], create=True).save()
     bt.CellType.from_source(name="B cell").save()
     bt.CellType.from_source(name="T cell").save()
@@ -31,7 +32,7 @@ def small_dataset1_schema():
     schema = ln.Schema(
         name="small_dataset1_obs_level_metadata",
         features=[
-            ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
+            ln.Feature(name="perturbation", dtype=perturbation).save(),
             ln.Feature(name="sample_note", dtype=str).save(),
             ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
             ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
@@ -136,6 +137,7 @@ def mudata_papalexi21_subset_schema():
 def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     """Test DataFrame curator implementation."""
 
+    # invalid simple dtype (float)
     feature_to_fail = ln.Feature(name="treatment_time_h", dtype=float).save()
     schema = ln.Schema(
         name="small_dataset1_obs_level_metadata_v2",
@@ -147,7 +149,6 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
             feature_to_fail,
         ],
     ).save()
-
     df = datasets.small_dataset1(otype="DataFrame")
     curator = ln.curators.DataFrameCurator(df, schema)
     with pytest.raises(ln.errors.ValidationError) as error:
@@ -158,6 +159,32 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     )
     schema.delete()
     feature_to_fail.delete()
+
+    # Wrong subtype
+    df = datasets.small_dataset1(otype="DataFrame", with_wrong_subtype=True)
+    curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
+    with pytest.raises(ln.errors.ValidationError) as error:
+        curator.validate()
+    assert (
+        error.exconly()
+        == """lamindb.errors.ValidationError: 1 term not validated in feature 'perturbation': 'ulabel_but_not_perturbation'
+    → fix typos, remove non-existent values, or save terms via: curator.cat.add_new_from('perturbation')
+    → a valid label for subtype 'Perturbation' has to be one of ['DMSO', 'IFNG']"""
+    )
+
+    # Typo
+    df = datasets.small_dataset1(otype="DataFrame", with_typo=True)
+    curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
+    with pytest.raises(ln.errors.ValidationError) as error:
+        curator.validate()
+    assert (
+        error.exconly()
+        == """lamindb.errors.ValidationError: 1 term not validated in feature 'perturbation': 'IFNJ'
+    → fix typos, remove non-existent values, or save terms via: curator.cat.add_new_from('perturbation')
+    → a valid label for subtype 'Perturbation' has to be one of ['DMSO', 'IFNG']"""
+    )
+
+    df = datasets.small_dataset1(otype="DataFrame")
     curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
     artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
 
