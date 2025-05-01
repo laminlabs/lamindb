@@ -36,7 +36,7 @@ def small_dataset1_schema():
             ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
             ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
         ],
-        index=ln.Feature(name="sample", dtype=ln.ULabel).save(),
+        index=ln.Feature(name="sample_label", dtype=ln.ULabel).save(),
     ).save()
 
     yield schema
@@ -133,56 +133,6 @@ def mudata_papalexi21_subset_schema():
     bt.ExperimentalFactor.filter().delete()
 
 
-@pytest.fixture(scope="module")
-def spatialdata_blobs_schema():
-    sample_schema = ln.Schema(
-        name="blobs_sample_level_metadata",
-        features=[
-            ln.Feature(name="assay", dtype=bt.ExperimentalFactor).save(),
-            ln.Feature(name="disease", dtype=bt.Disease).save(),
-            ln.Feature(name="developmental_stage", dtype=bt.DevelopmentalStage).save(),
-        ],
-        coerce_dtype=True,
-    ).save()
-
-    blobs_obs_schema = ln.Schema(
-        name="blobs_obs_level_metadata",
-        features=[
-            ln.Feature(name="sample_region", dtype="str").save(),
-        ],
-        coerce_dtype=True,
-    ).save()
-
-    blobs_var_schema = ln.Schema(
-        name="visium_var_schema", itype=bt.Gene.ensembl_gene_id, dtype=int
-    ).save()
-
-    spatialdata_schema = ln.Schema(
-        name="blobs_spatialdata_schema",
-        otype="SpatialData",
-        components={
-            "sample": sample_schema,
-            "table:obs": blobs_obs_schema,
-            "table:var": blobs_var_schema,
-        },
-    ).save()
-
-    yield spatialdata_schema
-
-    from lamindb.models import SchemaComponent
-
-    SchemaComponent.filter().delete()
-    spatialdata_schema.delete()
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
-    bt.Gene.filter().delete()
-    ln.ULabel.filter(type__isnull=False).delete()
-    ln.ULabel.filter().delete()
-    bt.ExperimentalFactor.filter().delete()
-    bt.DevelopmentalStage.filter().delete()
-    bt.Disease.filter().delete()
-
-
 def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     """Test DataFrame curator implementation."""
 
@@ -212,7 +162,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
 
     assert artifact.features.slots["columns"].n == 5
-    assert set(artifact.features.get_values()["sample"]) == {
+    assert set(artifact.features.get_values()["sample_label"]) == {
         "sample1",
         "sample2",
         "sample3",
@@ -541,10 +491,63 @@ def test_mudata_curator(
     artifact.delete(permanent=True)
 
 
+@pytest.fixture(scope="module")
+def spatialdata_blobs_schema():
+    import sys
+    from pathlib import Path
+
+    docs_path = Path.cwd() / "docs" / "scripts"
+    sys.path.append(str(docs_path))
+
+    from define_schema_spatialdata import (
+        attrs_schema,
+        obs_schema,
+        sample_schema,
+        tech_schema,
+        varT_schema,
+    )
+
+    spatialdata_schema_legacy = ln.Schema(
+        otype="SpatialData",
+        components={
+            "bio": sample_schema,
+            "table:obs": obs_schema,
+            "table:var": varT_schema,
+        },
+    ).save()
+
+    spatialdata_schema_new = ln.Schema(
+        otype="SpatialData",
+        components={
+            "attrs:sample": sample_schema,
+            "attrs:tech": tech_schema,
+            "attrs": attrs_schema,
+            "table:obs": obs_schema,
+            "table:var.T": varT_schema,
+        },
+    ).save()
+
+    yield spatialdata_schema_legacy, spatialdata_schema_new
+
+    from lamindb.models import SchemaComponent
+
+    SchemaComponent.filter().delete()
+    spatialdata_schema_legacy.delete()
+    spatialdata_schema_new.delete()
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
+    bt.Gene.filter().delete()
+    ln.ULabel.filter(type__isnull=False).delete()
+    ln.ULabel.filter().delete()
+    bt.ExperimentalFactor.filter().delete()
+    bt.DevelopmentalStage.filter().delete()
+    bt.Disease.filter().delete()
+
+
 def test_spatialdata_curator(
-    spatialdata_blobs_schema: ln.Schema, small_dataset1_schema: ln.Schema
+    spatialdata_blobs_schema: ln.Schema,
 ):
-    spatialdata_schema = spatialdata_blobs_schema
+    spatialdata_schema_legacy, spatialdata_schema_new = spatialdata_blobs_schema
     spatialdata = ln.core.datasets.spatialdata_blobs()
 
     # wrong dataset
@@ -552,22 +555,59 @@ def test_spatialdata_curator(
         ln.curators.SpatialDataCurator(pd.DataFrame(), spatialdata_blobs_schema)
     # wrong schema
     with pytest.raises(InvalidArgument):
-        ln.curators.SpatialDataCurator(spatialdata, small_dataset1_schema)
+        ln.curators.SpatialDataCurator(
+            spatialdata, spatialdata_schema_legacy.slots["bio"]
+        )
 
-    curator = ln.curators.SpatialDataCurator(spatialdata, spatialdata_schema)
+    curator = ln.curators.SpatialDataCurator(spatialdata, spatialdata_schema_legacy)
     with pytest.raises(ln.errors.ValidationError):
         curator.validate()
     spatialdata.tables["table"].var.drop(index="ENSG00000999999", inplace=True)
 
     artifact = ln.Artifact.from_spatialdata(
-        spatialdata, key="example_datasets/spatialdata1.zarr", schema=spatialdata_schema
+        spatialdata,
+        key="example_datasets/spatialdata1.zarr",
+        schema=spatialdata_schema_legacy,
     ).save()
-    assert artifact.schema == spatialdata_schema
+    assert artifact.schema == spatialdata_schema_legacy
     assert artifact.features.slots.keys() == {
-        "sample",
+        "bio",
         "table:var",
         "table:obs",
     }
-    assert artifact.features.get_values()["assay"] == "Visium Spatial Gene Expression"
+    assert artifact.features.get_values()["disease"] == "Alzheimer disease"
+    artifact.delete(permanent=True)
 
+    artifact = ln.Artifact.from_spatialdata(
+        spatialdata,
+        key="example_datasets/spatialdata1.zarr",
+        schema=spatialdata_schema_new,
+    ).save()
+    assert artifact.schema == spatialdata_schema_new
+    assert artifact.features.slots.keys() == {
+        "attrs:bio",
+        "attrs:tech",
+        "attrs",
+        "tables:table:obs",
+        "tables:table:var.T",
+    }
+    assert artifact.features.get_values()["assay"] == "Visium Spatial Gene Expression"
+    assert (
+        artifact.features.describe(return_str=True)
+        == """Artifact .zarr/SpatialData
+└── Dataset features
+    ├── attrs:bio • 2       [Feature]
+    │   developmental_sta…  cat[bionty.Devel…  adult stage
+    │   disease             cat[bionty.Disea…  Alzheimer disease
+    ├── attrs:tech • 1      [Feature]
+    │   assay               cat[bionty.Exper…  Visium Spatial Gene Expression
+    ├── attrs • 2           [Feature]
+    │   bio                 dict
+    │   tech                dict
+    ├── tables:table:obs …  [Feature]
+    │   sample_region       str
+    └── tables:table:var.…  [bionty.Gene.ens…
+        BRCA2               num
+        BRAF                num"""
+    )
     artifact.delete(permanent=True)

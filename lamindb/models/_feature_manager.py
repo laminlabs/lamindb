@@ -42,7 +42,7 @@ from ._describe import (
     TYPE_WIDTH,
     VALUES_WIDTH,
     describe_header,
-    print_rich_tree,
+    format_rich_tree,
 )
 from ._django import get_artifact_with_related
 from ._label_manager import _get_labels, describe_labels
@@ -572,8 +572,12 @@ def __init__(self, host: Artifact | Collection | Run):
 
 
 def __repr__(self) -> str:
+    return describe(self)
+
+
+def describe(self, return_str: bool = False) -> str | None:
     tree = describe_features(self._host, print_params=(self.__class__ == ParamManager))  # type: ignore
-    return print_rich_tree(tree, fallback="no linked features")
+    return format_rich_tree(tree, fallback="no linked features", return_str=return_str)
 
 
 def get_values(self) -> dict[str, Any]:
@@ -1350,6 +1354,8 @@ FeatureManager.__init__ = __init__
 ParamManager.__init__ = __init__
 FeatureManager.__repr__ = __repr__
 ParamManager.__repr__ = __repr__
+FeatureManager.describe = describe
+ParamManager.describe = describe
 FeatureManager.__getitem__ = __getitem__
 FeatureManager.get_values = get_values
 FeatureManager.slots = slots
