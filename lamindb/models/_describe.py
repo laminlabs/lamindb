@@ -58,7 +58,8 @@ def format_rich_tree(
         if strip_ansi:
             ansi_escape = re.compile(r"\x1b(?:\[[0-9;]*[a-zA-Z]|\(B)")
             result = ansi_escape.sub("", result)
-
+        # rstrip trailing whitespace on every line
+        result = "\n".join(line.rstrip() for line in result.splitlines())
         return result
 
     try:
