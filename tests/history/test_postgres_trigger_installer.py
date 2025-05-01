@@ -1,3 +1,4 @@
+import json
 from typing import TYPE_CHECKING, Generator, cast
 from unittest.mock import ANY, MagicMock
 
@@ -317,9 +318,8 @@ def test_simple_table_trigger(simple_pg_table: str):
 
     assert [h.table.table_name == simple_pg_table for h in history]
 
-    assert history[0].record_uid == "abc123"
+    assert history[0].record_uid == json.dumps(["abc123"])
     assert history[0].record_data == {
-        "uid": "abc123",
         "int_col": 42,
         "str_col": "hello world",
         "bool_col": False,
@@ -327,9 +327,8 @@ def test_simple_table_trigger(simple_pg_table: str):
     }
     assert history[0].event_type == HistoryEventTypes.INSERT.value
 
-    assert history[1].record_uid == "def456"
+    assert history[1].record_uid == json.dumps(["def456"])
     assert history[1].record_data == {
-        "uid": "def456",
         "int_col": 99,
         "str_col": "another row",
         "bool_col": True,
@@ -337,9 +336,8 @@ def test_simple_table_trigger(simple_pg_table: str):
     }
     assert history[1].event_type == HistoryEventTypes.INSERT.value
 
-    assert history[2].record_uid == "def456"
+    assert history[2].record_uid == json.dumps(["def456"])
     assert history[2].record_data == {
-        "uid": "def456",
         "int_col": 22,
         "str_col": "another row",
         "bool_col": True,
@@ -347,7 +345,7 @@ def test_simple_table_trigger(simple_pg_table: str):
     }
     assert history[2].event_type == HistoryEventTypes.UPDATE.value
 
-    assert history[3].record_uid == "abc123"
+    assert history[3].record_uid == json.dumps(["abc123"])
     assert history[3].record_data is None
     assert history[3].event_type == HistoryEventTypes.DELETE.value
 
@@ -399,9 +397,8 @@ def test_triggers_with_foreign_keys(simple_pg_table, foreignkey_pg_table):
     assert len(history) == 5
 
     assert history[0].table.table_name == simple_pg_table
-    assert history[0].record_uid == "abc123"
+    assert history[0].record_uid == json.dumps(["abc123"])
     assert history[0].record_data == {
-        "uid": "abc123",
         "int_col": 42,
         "str_col": "hello world",
         "bool_col": False,
@@ -410,9 +407,8 @@ def test_triggers_with_foreign_keys(simple_pg_table, foreignkey_pg_table):
     assert history[0].event_type == HistoryEventTypes.INSERT.value
 
     assert history[1].table.table_name == foreignkey_pg_table
-    assert history[1].record_uid == "foo333"
+    assert history[1].record_uid == json.dumps(["foo333"])
     assert history[1].record_data == {
-        "uid": "foo333",
         FOREIGN_KEYS_LIST_COLUMN_NAME: [
             [history[0].table.id, ["table_a_id"], {"uid": "abc123"}]
         ],
@@ -420,22 +416,21 @@ def test_triggers_with_foreign_keys(simple_pg_table, foreignkey_pg_table):
     assert history[1].event_type == HistoryEventTypes.INSERT.value
 
     assert history[2].table.table_name == foreignkey_pg_table
-    assert history[2].record_uid == "bar444"
+    assert history[2].record_uid == json.dumps(["bar444"])
     assert history[2].event_type == HistoryEventTypes.INSERT.value
     assert history[2].record_data == {
-        "uid": "bar444",
         FOREIGN_KEYS_LIST_COLUMN_NAME: [
-            [history[0].table, ["table_a_id"], {"uid": None}]
+            [history[0].table.id, ["table_a_id"], {"uid": None}]
         ],
     }
 
     assert history[3].table.table_name == simple_pg_table
-    assert history[3].record_uid == "abc123"
+    assert history[3].record_uid == json.dumps(["abc123"])
     assert history[3].event_type == HistoryEventTypes.DELETE.value
     assert history[3].record_data is None
 
     assert history[4].table.table_name == foreignkey_pg_table
-    assert history[4].record_uid == "foo333"
+    assert history[4].record_uid == json.dumps(["foo333"])
     assert history[4].event_type == HistoryEventTypes.DELETE.value
     assert history[4].record_data is None
 
@@ -483,9 +478,8 @@ def test_triggers_with_self_references(self_referential_pg_table):
     assert len(history) == 2
 
     assert history[0].table.table_name == self_referential_pg_table
-    assert history[0].record_uid == "abc123"
+    assert history[0].record_uid == json.dumps(["abc123"])
     assert history[0].record_data == {
-        "uid": "abc123",
         FOREIGN_KEYS_LIST_COLUMN_NAME: [
             [history[0].table.id, ["parent_id"], {"uid": None}]
         ],
@@ -493,9 +487,8 @@ def test_triggers_with_self_references(self_referential_pg_table):
     assert history[0].event_type == HistoryEventTypes.INSERT.value
 
     assert history[1].table.table_name == self_referential_pg_table
-    assert history[1].record_uid == "def345"
+    assert history[1].record_uid == json.dumps(["def345"])
     assert history[1].record_data == {
-        "uid": "def345",
         FOREIGN_KEYS_LIST_COLUMN_NAME: [
             [history[0].table.id, ["parent_id"], {"uid": "abc123"}]
         ],
@@ -566,17 +559,15 @@ def test_triggers_with_composite_primary_key(
     assert len(history) == 2
 
     assert history[0].table.table_name == composite_primary_key_table
-    assert history[0].record_uid == "xyz123"
+    assert history[0].record_uid == json.dumps(["xyz123"])
     assert history[0].record_data == {
-        "uid": "xyz123",
         FOREIGN_KEYS_LIST_COLUMN_NAME: [],
     }
     assert history[0].event_type == HistoryEventTypes.INSERT.value
 
     assert history[1].table.table_name == composite_foreign_key_table
-    assert history[1].record_uid == "qrs234"
+    assert history[1].record_uid == json.dumps(["qrs234"])
     assert history[1].record_data == {
-        "uid": "qrs234",
         FOREIGN_KEYS_LIST_COLUMN_NAME: [
             [history[0].table.id, ["table_d_key_a", "table_d_key_b"], {"uid": "xyz123"}]
         ],

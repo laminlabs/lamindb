@@ -3,13 +3,13 @@ import re
 from abc import ABC, abstractmethod
 from typing import Any
 
-from django.db import transaction
+from django.db import models, transaction
 from django.db.backends.base.base import BaseDatabaseWrapper
 from django.db.backends.utils import CursorWrapper
 from lamin_utils import logger
 from typing_extensions import override
 
-from lamindb.models.history import HistoryLock, HistoryTableState
+from lamindb.models.history import HistoryLock, HistoryMigrationState, HistoryTableState
 
 from ._db_metadata_wrapper import (
     DatabaseMetadataWrapper,
@@ -82,34 +82,45 @@ class HistoryRecordingTriggerInstaller(ABC):
         HistoryTableState.objects.bulk_create(table_states_to_add)
 
     def _update_migration_state(self, cursor: CursorWrapper):
-        # FIXME this needs to run off Django if it's going to be in here.
-        cursor.execute("""
-WITH
--- Get current migration state
-current_state AS (
-    SELECT jsonb_agg(t) AS state FROM (
-        SELECT
-            MAX(CAST(SUBSTRING(name FROM '^([0-9]+)_') AS INTEGER)) as migration_id,
-            app
-        FROM django_migrations
-        GROUP BY app
-    ) t
-),
--- Get latest stored state
-latest_state AS (
-    SELECT migration_history_id AS state
-    FROM lamindb_historymigrationstate
-    ORDER BY id DESC
-    LIMIT 1
-)
-INSERT INTO lamindb_historymigrationstate (migration_history_id)
-SELECT current_state.state
-FROM current_state
-WHERE NOT EXISTS (
-    SELECT 1 FROM latest_state WHERE latest_state.state = current_state.state
-)
-AND current_state.state IS NOT NULL;
-""")
+        class DjangoMigration(models.Model):
+            app = models.CharField(max_length=255)
+            name = models.CharField(max_length=255)
+            applied = models.DateTimeField()
+
+            class Meta:
+                managed = False  # Tell Django not to manage this table
+                db_table = "django_migrations"  # Specify the actual table name
+
+        app_migrations = {}
+
+        for app in DjangoMigration.objects.values_list("app", flat=True).distinct():
+            migrations = DjangoMigration.objects.filter(app=app)
+            max_migration_id = 0
+
+            for migration in migrations:
+                # Extract the number from the migration name
+                match = re.match(r"^([0-9]+)_", migration.name)  # type: ignore
+                if match:
+                    migration_id = int(match.group(1))
+                    max_migration_id = max(max_migration_id, migration_id)
+
+            app_migrations[app] = max_migration_id
+
+        current_state = [
+            {"migration_id": mig_id, "app": app}
+            for app, mig_id in sorted(app_migrations.items())
+        ]
+
+        try:
+            latest_state = HistoryMigrationState.objects.order_by("-id").first()
+            latest_state_json = (
+                latest_state.migration_history_id if latest_state else None
+            )
+        except HistoryMigrationState.DoesNotExist:
+            latest_state_json = None
+
+        if current_state and current_state != latest_state_json:
+            HistoryMigrationState.objects.create(migration_history_id=current_state)
 
     def update_history_triggers(self, update_all: bool = False):
         with transaction.atomic():
@@ -155,9 +166,26 @@ class PostgresTriggerBuilder:
         self.cursor = cursor
 
         self._variables: dict[str, tuple[str, str | None]] = {}
+        self._variable_order: list[str] = []
 
     def declare_variable(self, name: str, type: str, declaration: str | None = None):
-        self._variables[name] = (type, declaration)
+        if name not in self._variables:
+            self._variables[name] = (type, declaration)
+            self._variable_order.append(name)
+
+    def _build_variable_declaration(self, name: str) -> str:
+        variable_type, declaration = self._variables[name]
+
+        if declaration is None:
+            return f"DECLARE {name} {variable_type};"
+        else:
+            return f"DECLARE {name} {variable_type} := ({declaration});"
+
+    def _build_variable_declarations(self) -> str:
+        """Build variable declarations in the order in which they were declared."""
+        return "\n".join(
+            self._build_variable_declaration(name) for name in self._variable_order
+        )
 
     def _build_jsonb_array(self, items: list[str]) -> str:
         return f"jsonb_build_array({', '.join(items)})"
@@ -246,7 +274,7 @@ class PostgresTriggerBuilder:
 
         # Since we're recording the record's UID, we don't need to store the UID columns in the
         # data object as well.
-        non_key_columns.difference_update(uid_columns)
+        non_key_columns.difference_update(uid_columns[self.table])
 
         record_data: dict[str | int, Any] = {}
 
@@ -313,7 +341,9 @@ class PostgresTriggerBuilder:
         source_columns_lookup_array = self._build_jsonb_array(
             [
                 table_id,
-                self._build_jsonb_array(foreign_key_constraint.source_columns),
+                self._build_jsonb_array(
+                    [f"'{c}'" for c in foreign_key_constraint.source_columns]
+                ),
                 uid_lookup_variable,
             ]
         )
@@ -329,9 +359,18 @@ class PostgresTriggerBuilder:
     def add_foreign_key_uid_lookup_variable(
         self, foreign_key_constraint: KeyConstraint
     ) -> str:
-        uid_columns = self.db_metadata.get_uid_columns(
+        uid_column_map = self.db_metadata.get_uid_columns(
             table=foreign_key_constraint.target_table, cursor=self.cursor
         )
+
+        if len(uid_column_map) > 1:
+            raise ValueError(
+                f"Table {self.table} has a foreign-key relationship "
+                f"with {foreign_key_constraint}, which appears to be a "
+                "many-to-many table. This is not currently supported."
+            )
+
+        uid_columns = list(uid_column_map.values())[0]
 
         where_clause = " AND ".join(
             f"{target_col} = NEW.{source_col}"
@@ -375,28 +414,19 @@ coalesce(
 
         self.declare_variable(
             name="latest_migration_id",
-            type="jsonb",
-            declaration="SELECT migration_history_id AS state FROM lamindb_historymigrationstate ORDER BY id DESC LIMIT 1",
+            type="smallint",
+            declaration="SELECT MAX(id) FROM lamindb_historymigrationstate",
         )
 
+        table_id_var = self.add_table_id_variable(table=self.table)
         self.declare_variable(name="record_data", type="jsonb")
         self.declare_variable(name="event_type", type="int2")
         self.declare_variable(name="record_uid", type="jsonb")
 
-        variable_declarations = "\n".join(
-            f"DECLARE {v_name} {v_type} := ({v_declaration});"
-            if v_declaration is not None
-            else f"DECLARE {v_name} {v_type};"
-            for (v_name, (v_type, v_declaration)) in self._variables.items()
-        )
+        # Build the function body so that any variables created as a side-effect of constructing
+        # record data get populated.
 
-        return f"""
-CREATE OR REPLACE FUNCTION {self.function_name}()
-    RETURNS TRIGGER
-    LANGUAGE PLPGSQL
-AS $$
-{variable_declarations}
-BEGIN
+        function_body = f"""
     IF NOT history_triggers_locked THEN
         IF (TG_OP = 'DELETE') THEN
             record_data := NULL;
@@ -416,8 +446,20 @@ BEGIN
         INSERT INTO lamindb_history
             (id, history_migration_state_id, table_id, record_uid, record_data, event_type, created_at)
         VALUES
-            (gen_random_uuid(), latest_migration_id, table_id, record_uid, record_data, event_type, now());
+            (gen_random_uuid(), latest_migration_id, {table_id_var}, record_uid, record_data, event_type, now());
     END IF;
+    RETURN NEW;
+"""  # noqa: S608
+
+        # Build the actual function declaration
+        return f"""
+CREATE OR REPLACE FUNCTION {self.function_name}()
+    RETURNS TRIGGER
+    LANGUAGE PLPGSQL
+AS $$
+{self._build_variable_declarations()}
+BEGIN
+{function_body}
 END;
 $$
 """  # noqa: S608
