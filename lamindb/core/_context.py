@@ -437,8 +437,11 @@ class Context:
             r_or_python = "."
             if self._path is not None:
                 r_or_python = "." if self._path.suffix in {".py", ".ipynb"} else "$"
+            project_str = f", project={project}" if project is not None else ""
+            space_str = f", space={space}" if space is not None else ""
+            kwargs_str = f"{project_str}{space_str}"
             logger.important_hint(
-                f"to ensure one version history across {notebook_or_script} renames, run: ln{r_or_python}track('{self.transform.uid[:-4]}', ...)"
+                f"recommendation: to identify the {notebook_or_script} across renames, pass the uid: ln{r_or_python}track('{self.transform.uid[:-4]}'{kwargs_str})"
             )
 
     def _track_source_code(
