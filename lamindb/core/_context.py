@@ -434,7 +434,9 @@ class Context:
             notebook_or_script = (
                 "notebook" if self._transform.type == "notebook" else "script"
             )
-            r_or_python = "." if self._path.suffix in {".py", ".ipynb"} else "$"
+            r_or_python = "."
+            if self._path is not None:
+                r_or_python = "." if self._path.suffix in {".py", ".ipynb"} else "$"
             logger.important_hint(
                 f"to ensure one version history across {notebook_or_script} renames, run: ln{r_or_python}track('{self.transform.uid[:-4]}', ...)"
             )
