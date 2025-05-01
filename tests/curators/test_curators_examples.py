@@ -537,7 +537,7 @@ def spatialdata_blobs_schema():
         components={
             "sample": sample_schema,
             "table:obs": blobs_obs_schema,
-            "table:var.T": blobs_var_schema,
+            "table:var": blobs_var_schema,
         },
     ).save()
 
@@ -597,9 +597,46 @@ def test_spatialdata_curator(
     assert artifact.schema == spatialdata_schema_legacy
     assert artifact.features.slots.keys() == {
         "sample",
-        "table:var.T",
+        "table:var",
         "table:obs",
     }
     assert artifact.features.get_values()["assay"] == "Visium Spatial Gene Expression"
+    artifact.delete(permanent=True)
 
+    artifact = ln.Artifact.from_spatialdata(
+        spatialdata,
+        key="example_datasets/spatialdata1.zarr",
+        schema=spatialdata_schema_new,
+    ).save()
+    assert artifact.schema == spatialdata_schema_new
+    assert artifact.features.slots.keys() == {
+        "attrs:sample",
+        "attrs:tech",
+        "attrs",
+        "table:obs",
+        "table:var.T",
+    }
+    assert artifact.features.get_values()["assay"] == "Visium Spatial Gene Expression"
+    assert (
+        artifact.features.describe(return_str=True)
+        == """Artifact .zarr/SpatialData
+└── Dataset features
+    ├── attrs:sample • 3    [Feature]
+    │   assay               cat[bionty.Exper…  Visium Spatial Gene Expression
+    │   developmental_sta…  cat[bionty.Devel…  adult stage
+    │   disease             cat[bionty.Disea…  Alzheimer disease
+    ├── attrs:tech • 2      [Feature]
+    │   name                str
+    │   type                str
+    ├── attrs • 3           [Feature]
+    │   random_int          int
+    │   sample              dict
+    │   tech                dict
+    ├── table:obs • 1       [Feature]
+    │   sample_region       str
+    └── table:var.T • 2     [bionty.Gene.ens…
+        BRCA2               num
+        BRAF                num
+"""
+    )
     artifact.delete(permanent=True)

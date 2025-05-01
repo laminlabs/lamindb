@@ -759,15 +759,15 @@ def _describe_sqlite(self, print_types: bool = False):  # for artifact & collect
         return tree
 
 
-def describe_artifact_collection(self):  # for artifact & collection
-    from ._describe import print_rich_tree
+def describe_artifact_collection(self, return_str: bool = False) -> str | None:
+    from ._describe import format_rich_tree
 
     if not self._state.adding and connections[self._state.db].vendor == "postgresql":
         tree = _describe_postgres(self)
     else:
         tree = _describe_sqlite(self)
 
-    print_rich_tree(tree)
+    return format_rich_tree(tree, return_str=return_str)
 
 
 def validate_feature(feature: Feature, records: list[Record]) -> None:
@@ -2597,14 +2597,13 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         self._branch_code = 1
         self.save()
 
-    def describe(self) -> None:
-        """Describe relations of record.
+    def describe(self, return_str: bool = False) -> None:
+        """Describe record including linked records.
 
-        Example::
-
-            artifact.describe()
+        Args:
+            return_str: Return a string instead of printing.
         """
-        return describe_artifact_collection(self)
+        return describe_artifact_collection(self, return_str=return_str)
 
     def _populate_subsequent_runs(self, run: Run) -> None:
         _populate_subsequent_runs_(self, run)
