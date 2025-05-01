@@ -691,9 +691,13 @@ class SpatialDataCurator(SlotsCurator):
 
     Example:
 
-        .. literalinclude:: scripts/curate-spatialdata.py
+        .. literalinclude:: scripts/define_schema_spatialdata.py
             :language: python
-            :caption: curate-spatialdata.py
+            :caption: define_schema_spatialdata.py
+
+        .. literalinclude:: scripts/curate_spatialdata.py
+            :language: python
+            :caption: curate_spatialdata.py
     """
 
     def __init__(

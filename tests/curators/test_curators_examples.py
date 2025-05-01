@@ -499,7 +499,7 @@ def spatialdata_blobs_schema():
     docs_path = Path.cwd() / "docs" / "scripts"
     sys.path.append(str(docs_path))
 
-    from schema_spatialdata import (
+    from define_schema_spatialdata import (
         attrs_schema,
         obs_schema,
         sample_schema,
