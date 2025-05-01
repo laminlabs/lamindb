@@ -80,7 +80,6 @@ def format_rich_tree(
         # be careful to test this on a terminal
         console = Console(force_terminal=True)
         console.print(tree)
-        return None
 
     return None
 
