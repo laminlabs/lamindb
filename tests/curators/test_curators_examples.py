@@ -588,8 +588,8 @@ def test_spatialdata_curator(
         "attrs:bio",
         "attrs:tech",
         "attrs",
-        "table:obs",
-        "table:var.T",
+        "tables:table:obs",
+        "tables:table:var.T",
     }
     assert artifact.features.get_values()["assay"] == "Visium Spatial Gene Expression"
     assert (
@@ -604,9 +604,9 @@ def test_spatialdata_curator(
     ├── attrs • 2           [Feature]
     │   bio                 dict
     │   tech                dict
-    ├── table:obs • 1       [Feature]
+    ├── tables:table:obs …  [Feature]
     │   sample_region       str
-    └── table:var.T • 2     [bionty.Gene.ens…
+    └── tables:table:var.…  [bionty.Gene.ens…
         BRCA2               num
         BRAF                num"""
     )
