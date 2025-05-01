@@ -493,51 +493,26 @@ def test_mudata_curator(
 
 @pytest.fixture(scope="module")
 def spatialdata_blobs_schema():
-    attrs_schema = ln.Schema(
-        features=[
-            ln.Feature(name="random_int", dtype=int).save(),
-            ln.Feature(
-                name="sample", dtype=dict
-            ).save(),  # .with_config(annotate=False),
-            ln.Feature(name="tech", dtype=dict).save(),  # .with_config(annotate=False),
-        ],
-    ).save()
+    import sys
+    from pathlib import Path
 
-    sample_schema = ln.Schema(
-        features=[
-            ln.Feature(
-                name="assay", dtype=bt.ExperimentalFactor, coerce_dtype=True
-            ).save(),
-            ln.Feature(name="disease", dtype=bt.Disease, coerce_dtype=True).save(),
-            ln.Feature(
-                name="developmental_stage",
-                dtype=bt.DevelopmentalStage,
-                coerce_dtype=True,
-            ).save(),
-        ],
-    ).save()
+    docs_path = Path.cwd() / "docs" / "scripts"
+    sys.path.append(str(docs_path))
 
-    tech_schema = ln.Schema(
-        features=[
-            ln.Feature(name="name", dtype=str).save(),
-            ln.Feature(name="type", dtype=str).save(),
-        ],
-    ).save()
-
-    blobs_obs_schema = ln.Schema(
-        features=[
-            ln.Feature(name="sample_region", dtype="str").save(),
-        ],
-    ).save()
-
-    blobs_var_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id, dtype=int).save()
+    from schema_spatialdata import (
+        attrs_schema,
+        obs_schema,
+        sample_schema,
+        tech_schema,
+        varT_schema,
+    )
 
     spatialdata_schema_legacy = ln.Schema(
         otype="SpatialData",
         components={
-            "sample": sample_schema,
-            "table:obs": blobs_obs_schema,
-            "table:var": blobs_var_schema,
+            "bio": sample_schema,
+            "table:obs": obs_schema,
+            "table:var": varT_schema,
         },
     ).save()
 
@@ -547,8 +522,8 @@ def spatialdata_blobs_schema():
             "attrs:sample": sample_schema,
             "attrs:tech": tech_schema,
             "attrs": attrs_schema,
-            "table:obs": blobs_obs_schema,
-            "table:var.T": blobs_var_schema,
+            "table:obs": obs_schema,
+            "table:var.T": varT_schema,
         },
     ).save()
 
@@ -581,7 +556,7 @@ def test_spatialdata_curator(
     # wrong schema
     with pytest.raises(InvalidArgument):
         ln.curators.SpatialDataCurator(
-            spatialdata, spatialdata_schema_legacy.slots["sample"]
+            spatialdata, spatialdata_schema_legacy.slots["bio"]
         )
 
     curator = ln.curators.SpatialDataCurator(spatialdata, spatialdata_schema_legacy)
@@ -596,11 +571,11 @@ def test_spatialdata_curator(
     ).save()
     assert artifact.schema == spatialdata_schema_legacy
     assert artifact.features.slots.keys() == {
-        "sample",
+        "bio",
         "table:var",
         "table:obs",
     }
-    assert artifact.features.get_values()["assay"] == "Visium Spatial Gene Expression"
+    assert artifact.features.get_values()["disease"] == "Alzheimer disease"
     artifact.delete(permanent=True)
 
     artifact = ln.Artifact.from_spatialdata(
@@ -610,7 +585,7 @@ def test_spatialdata_curator(
     ).save()
     assert artifact.schema == spatialdata_schema_new
     assert artifact.features.slots.keys() == {
-        "attrs:sample",
+        "attrs:bio",
         "attrs:tech",
         "attrs",
         "table:obs",
@@ -621,16 +596,13 @@ def test_spatialdata_curator(
         artifact.features.describe(return_str=True)
         == """Artifact .zarr/SpatialData
 └── Dataset features
-    ├── attrs:sample • 3    [Feature]
-    │   assay               cat[bionty.Exper…  Visium Spatial Gene Expression
+    ├── attrs:bio • 2       [Feature]
     │   developmental_sta…  cat[bionty.Devel…  adult stage
     │   disease             cat[bionty.Disea…  Alzheimer disease
-    ├── attrs:tech • 2      [Feature]
-    │   name                str
-    │   type                str
-    ├── attrs • 3           [Feature]
-    │   random_int          int
-    │   sample              dict
+    ├── attrs:tech • 1      [Feature]
+    │   assay               cat[bionty.Exper…  Visium Spatial Gene Expression
+    ├── attrs • 2           [Feature]
+    │   bio                 dict
     │   tech                dict
     ├── table:obs • 1       [Feature]
     │   sample_region       str

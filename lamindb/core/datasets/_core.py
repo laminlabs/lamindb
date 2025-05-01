@@ -557,14 +557,12 @@ def spatialdata_blobs() -> SpatialData:
     from spatialdata.datasets import blobs
 
     sdata = blobs()
-    sdata.attrs["sample"] = {
-        "assay": "Visium Spatial Gene Expression",
+    sdata.attrs["bio"] = {
         "disease": "Alzheimer disease",
         "developmental_stage": "adult stage",
     }
     sdata.attrs["tech"] = {
-        "name": "10x Genomics Visium",
-        "type": "Visium Spatial Gene Expression",
+        "assay": "Visium Spatial Gene Expression",
     }
     sdata.attrs["random_int"] = 20
     sdata.tables["table"].var.index = [
