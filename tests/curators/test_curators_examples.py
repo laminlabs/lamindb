@@ -133,55 +133,6 @@ def mudata_papalexi21_subset_schema():
     bt.ExperimentalFactor.filter().delete()
 
 
-@pytest.fixture(scope="module")
-def spatialdata_blobs_schema():
-    sample_schema = ln.Schema(
-        features=[
-            ln.Feature(
-                name="assay", dtype=bt.ExperimentalFactor, coerce_dtype=True
-            ).save(),
-            ln.Feature(name="disease", dtype=bt.Disease, coerce_dtype=True).save(),
-            ln.Feature(
-                name="developmental_stage",
-                dtype=bt.DevelopmentalStage,
-                coerce_dtype=True,
-            ).save(),
-        ],
-    ).save()
-
-    blobs_obs_schema = ln.Schema(
-        features=[
-            ln.Feature(name="sample_region", dtype="str").save(),
-        ],
-    ).save()
-
-    blobs_var_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id, dtype=int).save()
-
-    spatialdata_schema = ln.Schema(
-        otype="SpatialData",
-        components={
-            "sample": sample_schema,
-            "table:obs": blobs_obs_schema,
-            "table:var.T": blobs_var_schema,
-        },
-    ).save()
-
-    yield spatialdata_schema
-
-    from lamindb.models import SchemaComponent
-
-    SchemaComponent.filter().delete()
-    spatialdata_schema.delete()
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
-    bt.Gene.filter().delete()
-    ln.ULabel.filter(type__isnull=False).delete()
-    ln.ULabel.filter().delete()
-    bt.ExperimentalFactor.filter().delete()
-    bt.DevelopmentalStage.filter().delete()
-    bt.Disease.filter().delete()
-
-
 def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     """Test DataFrame curator implementation."""
 
@@ -538,6 +489,84 @@ def test_mudata_curator(
     }
 
     artifact.delete(permanent=True)
+
+
+@pytest.fixture(scope="module")
+def spatialdata_blobs_schema():
+    attrs_schema = ln.Schema(
+        features=[
+            ln.Feature(name="random_int", dtype=int).save(),
+            ln.Feature(
+                name="sample", dtype=dict
+            ).save(),  # .with_config(annotate=False),
+            ln.Feature(name="tech", dtype=dict).save(),  # .with_config(annotate=False),
+        ],
+    ).save()
+
+    sample_schema = ln.Schema(
+        features=[
+            ln.Feature(
+                name="assay", dtype=bt.ExperimentalFactor, coerce_dtype=True
+            ).save(),
+            ln.Feature(name="disease", dtype=bt.Disease, coerce_dtype=True).save(),
+            ln.Feature(
+                name="developmental_stage",
+                dtype=bt.DevelopmentalStage,
+                coerce_dtype=True,
+            ).save(),
+        ],
+    ).save()
+
+    tech_schema = ln.Schema(
+        features=[
+            ln.Feature(name="name", dtype=str).save(),
+            ln.Feature(name="type", dtype=str).save(),
+        ],
+    ).save()
+
+    blobs_obs_schema = ln.Schema(
+        features=[
+            ln.Feature(name="sample_region", dtype="str").save(),
+        ],
+    ).save()
+
+    blobs_var_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id, dtype=int).save()
+
+    spatialdata_schema_legacy = ln.Schema(
+        otype="SpatialData",
+        components={
+            "sample": sample_schema,
+            "table:obs": blobs_obs_schema,
+            "table:var.T": blobs_var_schema,
+        },
+    ).save()
+
+    spatialdata_schema_new = ln.Schema(
+        otype="SpatialData",
+        components={
+            "attrs:sample": sample_schema,
+            "attrs:tech": tech_schema,
+            "attrs": attrs_schema,
+            "table:obs": blobs_obs_schema,
+            "table:var.T": blobs_var_schema,
+        },
+    ).save()
+
+    yield spatialdata_schema_legacy
+
+    from lamindb.models import SchemaComponent
+
+    SchemaComponent.filter().delete()
+    spatialdata_schema_legacy.delete()
+    spatialdata_schema_new.delete()
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
+    bt.Gene.filter().delete()
+    ln.ULabel.filter(type__isnull=False).delete()
+    ln.ULabel.filter().delete()
+    bt.ExperimentalFactor.filter().delete()
+    bt.DevelopmentalStage.filter().delete()
+    bt.Disease.filter().delete()
 
 
 def test_spatialdata_curator(

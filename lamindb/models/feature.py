@@ -152,6 +152,8 @@ def serialize_dtype(
         and dtype.__name__ in FEATURE_DTYPES
     ):
         dtype_str = dtype.__name__
+    elif dtype is dict:
+        dtype_str = "dict"
     elif isinstance(dtype, (ExtensionDtype, np.dtype)):
         dtype_str = serialize_pandas_dtype(dtype)
     else:

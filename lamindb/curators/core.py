@@ -710,44 +710,59 @@ class SpatialDataCurator(SlotsCurator):
             raise InvalidArgument("Schema otype must be 'SpatialData'.")
 
         for slot, slot_schema in schema.slots.items():
-            # Assign to _slots
-            if ":" in slot:
-                table_key, table_slot = slot.split(":")
-                schema_dataset = self._dataset.tables.__getitem__(table_key)
-                if table_slot == "var" and schema.slots[slot].itype not in {
+            split_result = slot.split(":")
+            if (len(split_result) == 2 and split_result[0] == "table") or (
+                len(split_result) == 3 and split_result[0] == "tables"
+            ):
+                if len(split_result) == 2:
+                    table_key, sub_slot = split_result
+                    logger.warning(
+                        f"please prefix slot {slot} with 'tables:' going forward"
+                    )
+                else:
+                    table_key, sub_slot = split_result[1], split_result[2]
+                slot_object = self._dataset.tables.__getitem__(table_key)
+                if sub_slot == "var" and schema.slots[slot].itype not in {
                     None,
                     "Feature",
                 }:
                     logger.warning(
                         "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
                     )
-            # sample metadata (does not have a `:` separator)
-            else:
-                table_key = None
-                table_slot = slot
-                schema_dataset = self._dataset.get_attrs(
-                    key=sample_metadata_key, return_as="df", flatten=True
-                )
-            self._slots[slot] = DataFrameCurator(
-                (
-                    getattr(schema_dataset, table_slot.rstrip(".T")).T
-                    if table_slot == "var.T"
+                data_object = (
+                    getattr(slot_object, sub_slot.rstrip(".T")).T
+                    if sub_slot == "var.T"
                     or (
                         # backward compat
-                        table_slot == "var"
+                        sub_slot == "var"
                         and schema.slots[slot].itype not in {None, "Feature"}
                     )
-                    else (
-                        getattr(schema_dataset, table_slot)
-                        if table_slot != sample_metadata_key
-                        else schema_dataset
-                    )  # just take the schema_dataset if it's the sample metadata key
-                ),
-                slot_schema,
-            )
+                    else getattr(slot_object, sub_slot)
+                )
+                print(slot, data_object)
+            elif len(split_result) == 1 or (
+                len(split_result) > 1 and split_result[0] == "attrs"
+            ):
+                table_key = None
+                if len(split_result) == 1:
+                    if split_result[0] != "attrs":
+                        logger.warning(
+                            f"please prefix slot {slot} with 'attrs:' going forward"
+                        )
+                        sub_slot = slot
+                        data_object = self._dataset.attrs[slot]
+                    else:
+                        sub_slot = "attrs"
+                        data_object = self._dataset.attrs
+                elif len(split_result) == 2:
+                    sub_slot = split_result[1]
+                    data_object = self._dataset.attrs[split_result[1]]
+                data_object = pd.DataFrame([data_object])
+                print(slot, data_object)
+            self._slots[slot] = DataFrameCurator(data_object, slot_schema)
             _assign_var_fields_categoricals_multimodal(
                 modality=table_key,
-                slot_type=table_slot,
+                slot_type=sub_slot,
                 slot=slot,
                 slot_schema=slot_schema,
                 var_fields=self._var_fields,
