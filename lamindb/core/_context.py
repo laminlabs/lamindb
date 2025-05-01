@@ -54,19 +54,21 @@ def get_uid_ext(version: str) -> str:
     return encodebytes(hashlib.md5(version.encode()).digest())[:4]  # noqa: S324
 
 
-def get_notebook_path() -> Path:
+def get_notebook_path() -> tuple[Path, str]:
     from nbproject.dev._jupyter_communicate import (
         notebook_path as get_notebook_path,
     )
 
     path = None
     try:
-        path = get_notebook_path()
-    except Exception:
-        raise RuntimeError(msg_path_failed) from None
+        path, env = get_notebook_path(return_env=True)
+    except ValueError as ve:
+        raise ve
+    except Exception as error:
+        raise RuntimeError(msg_path_failed) from error
     if path is None:
         raise RuntimeError(msg_path_failed) from None
-    return Path(path)
+    return Path(path), env
 
 
 # from https://stackoverflow.com/questions/61901628
@@ -178,20 +180,7 @@ class LogStreamTracker:
 class Context:
     """Run context.
 
-    Enables convenient data lineage tracking by managing a transform & run
-    upon :meth:`~lamindb.core.Context.track` & :meth:`~lamindb.core.Context.finish`.
-
-    Guide: :doc:`/track`
-
-    Examples:
-
-        Is typically used via the global :class:`~lamindb.context` object via `ln.track()` and `ln.finish()`:
-
-        >>> import lamindb as ln
-        >>> ln.track()
-        >>> # do things
-        >>> ln.finish()
-
+    Is the book keeper for :meth:`~lamindb.core.Context.track`.
     """
 
     def __init__(self):
@@ -201,13 +190,14 @@ class Context:
         self._transform: Transform | None = None
         self._run: Run | None = None
         self._path: Path | None = None
-        """A local path to the script that's running."""
+        """A local path to the script or notebook that's running."""
         self._project: Project | None = None
         self._space: Space | None = None
         self._logging_message_track: str = ""
         self._logging_message_imports: str = ""
         self._stream_tracker: LogStreamTracker = LogStreamTracker()
         self._is_finish_retry: bool = False
+        self._notebook_runner: str | None = None
 
     @property
     def transform(self) -> Transform | None:
@@ -265,7 +255,7 @@ class Context:
         """Managed run of context."""
         return self._run
 
-    def track(
+    def _track(
         self,
         transform: str | Transform | None = None,
         *,
@@ -277,17 +267,12 @@ class Context:
     ) -> None:
         """Track a run of your notebook or script.
 
-        - sets :attr:`~lamindb.core.Context.transform` &
-          :attr:`~lamindb.core.Context.run` by creating or loading `Transform` &
-          `Run` records
-        - writes compute environment to prepare populating: `run.environment`
-        - if :attr:`~lamindb.core.Settings.sync_git_repo` is set, checks whether a script-like
-          transform exists in a git repository and links it
+        Populates the global run :class:`~lamindb.context` by managing `Transform` & `Run` records and caching the compute environment.
 
-        Guide: :doc:`/track`
+        If :attr:`~lamindb.core.Settings.sync_git_repo` is set, checks whether a script-like transform exists in a git repository and links it.
 
         Args:
-            transform: A transform `uid` or record. If `None`, manages the `transform` based on the script or notebook that calls `ln.track()`.
+            transform: A transform (stem) `uid` (or record). If `None`, auto-creates a `transform` with its `uid`.
             project: A project `name` or `uid` for labeling entities created during the run.
             space: A space `name` or `uid` for creating entities during the run. This doesn't affect bionty entities given they should typically be commonly accessible.
             params: A dictionary of parameters to track for the run.
@@ -301,11 +286,15 @@ class Context:
             To track the run of a notebook or script, call::
 
                 ln.track()
+                #> → created Transform('Onv04I53OgtT0000'), started new Run('dpSfd7Ds...') at 2025-04-25 11:00:03 UTC
+                #> • to ensure one version history across script renames, run: ln.track('Onv04I53OgtT', ...)
 
-            If you want to ensure a single version history across renames of the notebook or script, pass the auto-generated `uid` that you'll find in the logs::
+            Ensure one version history across file renames::
 
-                ln.track("Onv04I53OgtT0000")  # example uid, the last four characters encode the version of the transform
+                ln.track("Onv04I53OgtT")
+                #> → created Transform('Onv04I53OgtT0000'), started new Run('dpSfd7Ds...') at 2025-04-25 11:00:03 UTC
 
+            More examples: :doc:`/track`
         """
         from lamindb.models import Project, Space
 
@@ -338,6 +327,9 @@ class Context:
         if transform is not None and isinstance(transform, str):
             self.uid = transform
             transform = None
+            uid_was_none = False
+        else:
+            uid_was_none = True
         self._path = None
         if transform is None:
             description = None
@@ -384,7 +376,14 @@ class Context:
             self._transform = transform_exists
 
         if new_run is None:  # for notebooks, default to loading latest runs
-            new_run = False if self._transform.type == "notebook" else True  # type: ignore
+            new_run = (
+                False
+                if (
+                    self._transform.type == "notebook"
+                    and self._notebook_runner != "nbconvert"
+                )
+                else True
+            )  # type: ignore
 
         run = None
         if not new_run:  # try loading latest run by same user
@@ -431,6 +430,16 @@ class Context:
         logger.important(self._logging_message_track)
         if self._logging_message_imports:
             logger.important(self._logging_message_imports)
+        if uid_was_none:
+            notebook_or_script = (
+                "notebook" if self._transform.type == "notebook" else "script"
+            )
+            r_or_python = "."
+            if self._path is not None:
+                r_or_python = "." if self._path.suffix in {".py", ".ipynb"} else "$"
+            logger.important_hint(
+                f"to ensure one version history across {notebook_or_script} renames, run: ln{r_or_python}track('{self.transform.uid[:-4]}', ...)"
+            )
 
     def _track_source_code(
         self,
@@ -472,7 +481,7 @@ class Context:
         path_str: str | None,
     ) -> tuple[Path, str | None]:
         if path_str is None:
-            path = get_notebook_path()
+            path, self._notebook_runner = get_notebook_path()
         else:
             path = Path(path_str)
         description = None
@@ -504,6 +513,52 @@ class Context:
                 pass
         return path, description
 
+    def _process_aux_transform(
+        self,
+        aux_transform: Transform,
+        transform_hash: str,
+    ) -> tuple[str, Transform | None, str]:
+        # first part of the if condition: no version bump, second part: version bump
+        message = ""
+        if (
+            # if a user hasn't yet saved the transform source code AND is the same user
+            (
+                aux_transform.source_code is None
+                and aux_transform.created_by_id == ln_setup.settings.user.id
+            )
+            # if the transform source code is unchanged
+            # if aux_transform.type == "notebook", we anticipate the user makes changes to the notebook source code
+            # in an interactive session, hence we *pro-actively bump* the version number by setting `revises` / 'nbconvert' execution is NOT interactive
+            # in the second part of the if condition even though the source code is unchanged at point of running track()
+            or (
+                aux_transform.hash == transform_hash
+                and (
+                    aux_transform.type != "notebook"
+                    or self._notebook_runner == "nbconvert"
+                )
+            )
+        ):
+            uid = aux_transform.uid
+            return uid, aux_transform, message
+        else:
+            uid = f"{aux_transform.uid[:-4]}{increment_base62(aux_transform.uid[-4:])}"
+            message = f"there already is a {aux_transform.type} with key '{aux_transform.key}'"
+            if (
+                aux_transform.hash == transform_hash
+                and aux_transform.type == "notebook"
+            ):
+                message += " -- anticipating changes"
+            elif aux_transform.hash != transform_hash:
+                message += (
+                    ""  # could log "source code changed", but this seems too much
+                )
+            elif aux_transform.created_by_id != ln_setup.settings.user.id:
+                message += (
+                    f" -- {aux_transform.created_by.handle} already works on this draft"
+                )
+            message += f", creating new version '{uid}'"
+            return uid, None, message
+
     def _create_or_load_transform(
         self,
         *,
@@ -512,8 +567,22 @@ class Context:
         transform_ref_type: str | None = None,
         transform_type: TransformType = None,
     ):
-        # the user did not pass the uid
-        if self.uid is None:
+        from .._finish import notebook_to_script
+
+        if not self._path.suffix == ".ipynb":
+            transform_hash, _ = hash_file(self._path)
+        else:
+            # need to convert to stripped py:percent format for hashing
+            source_code_path = ln_setup.settings.cache_dir / self._path.name.replace(
+                ".ipynb", ".py"
+            )
+            notebook_to_script(description, self._path, source_code_path)
+            transform_hash, _ = hash_file(source_code_path)
+        # see whether we find a transform with the exact same hash
+        aux_transform = Transform.filter(hash=transform_hash).one_or_none()
+        # if the user did not pass a uid and there is no matching aux_transform
+        # need to search for the transform based on the filename
+        if self.uid is None and aux_transform is None:
 
             class SlashCount(Func):
                 template = "LENGTH(%(expressions)s) - LENGTH(REPLACE(%(expressions)s, '/', ''))"
@@ -528,47 +597,15 @@ class Context:
             uid = f"{base62_12()}0000"
             key = self._path.name
             target_transform = None
-            hash, _ = hash_file(self._path)
             if len(transforms) != 0:
                 message = ""
                 found_key = False
                 for aux_transform in transforms:
                     if aux_transform.key in self._path.as_posix():
                         key = aux_transform.key
-                        # first part of the if condition: no version bump, second part: version bump
-                        if (
-                            # if a user hasn't yet saved the transform source code, needs to be same user
-                            (
-                                aux_transform.source_code is None
-                                and aux_transform.created_by_id
-                                == ln_setup.settings.user.id
-                            )
-                            # if the transform source code is unchanged
-                            # if aux_transform.type == "notebook", we anticipate the user makes changes to the notebook source code
-                            # in an interactive session, hence we *pro-actively bump* the version number by setting `revises`
-                            # in the second part of the if condition even though the source code is unchanged at point of running track()
-                            or (
-                                aux_transform.hash == hash
-                                and aux_transform.type != "notebook"
-                            )
-                        ):
-                            uid = aux_transform.uid
-                            target_transform = aux_transform
-                        else:
-                            uid = f"{aux_transform.uid[:-4]}{increment_base62(aux_transform.uid[-4:])}"
-                            message = f"there already is a {aux_transform.type} with key '{aux_transform.key}'"
-                            if (
-                                aux_transform.hash == hash
-                                and aux_transform.type == "notebook"
-                            ):
-                                message += " -- anticipating changes"
-                            elif aux_transform.hash != hash:
-                                message += ""  # could log "source code changed", but this seems too much
-                            elif (
-                                aux_transform.created_by_id != ln_setup.settings.user.id
-                            ):
-                                message += f" -- {aux_transform.created_by.handle} already works on this draft"
-                            message += f", creating new version '{uid}'"
+                        uid, target_transform, message = self._process_aux_transform(
+                            aux_transform, transform_hash
+                        )
                         found_key = True
                         break
                 if not found_key:
@@ -584,7 +621,7 @@ class Context:
                     logger.important(message)
             self.uid, transform = uid, target_transform
         # the user did pass the uid
-        else:
+        elif self.uid is not None and len(self.uid) == 16:
             transform = Transform.filter(uid=self.uid).one_or_none()
             if transform is not None:
                 if transform.key not in self._path.as_posix():
@@ -599,6 +636,33 @@ class Context:
                     key = transform.key  # type: ignore
             else:
                 key = self._path.name
+        else:
+            if self.uid is not None:
+                assert len(self.uid) == 12, (  # noqa: S101
+                    "uid must be 12 (stem) or 16 (full) characters long"
+                )
+                aux_transform = (
+                    Transform.filter(uid__startswith=self.uid)
+                    .order_by("-created_at")
+                    .first()
+                )
+            if aux_transform is not None:
+                if aux_transform.key.endswith(self._path.name):
+                    key = aux_transform.key
+                else:
+                    key = "/".join(
+                        aux_transform.key.split("/")[:-1] + [self._path.name]
+                    )
+                uid, target_transform, message = self._process_aux_transform(
+                    aux_transform, transform_hash
+                )
+                if message != "":
+                    logger.important(message)
+            else:
+                uid = f"{self.uid}0000" if self.uid is not None else None
+                target_transform = None
+                key = self._path.name
+            self.uid, transform = uid, target_transform
         if self.version is not None:
             # test inconsistent version passed
             if (
@@ -610,15 +674,16 @@ class Context:
                     f"✗ please pass consistent version: ln.context.version = '{transform.version}'"  # type: ignore
                 )
             # test whether version was already used for another member of the family
-            suid, vuid = (self.uid[:-4], self.uid[-4:])
-            transform = Transform.filter(
-                uid__startswith=suid, version=self.version
-            ).one_or_none()
-            if transform is not None and vuid != transform.uid[-4:]:
-                better_version = bump_version_function(self.version)
-                raise SystemExit(
-                    f"✗ version '{self.version}' is already taken by Transform('{transform.uid}'); please set another version, e.g., ln.context.version = '{better_version}'"
-                )
+            if self.uid is not None and len(self.uid) == 16:
+                suid, vuid = (self.uid[:-4], self.uid[-4:])
+                transform = Transform.filter(
+                    uid__startswith=suid, version=self.version
+                ).one_or_none()
+                if transform is not None and vuid != transform.uid[-4:]:
+                    better_version = bump_version_function(self.version)
+                    raise SystemExit(
+                        f"✗ version '{self.version}' is already taken by Transform('{transform.uid}'); please set another version, e.g., ln.context.version = '{better_version}'"
+                    )
         # make a new transform record
         if transform is None:
             assert key is not None  # noqa: S101
@@ -659,13 +724,15 @@ class Context:
             # check whether transform source code was already saved
             if transform_was_saved:
                 bump_revision = False
-                if transform.type == "notebook":
+                if (
+                    transform.type == "notebook"
+                    and self._notebook_runner != "nbconvert"
+                ):
                     # we anticipate the user makes changes to the notebook source code
                     # in an interactive session, hence we pro-actively bump the version number
                     bump_revision = True
                 else:
-                    hash, _ = hash_file(self._path)  # ignore hash_type for now
-                    if hash != transform.hash:
+                    if transform_hash != transform.hash:
                         bump_revision = True
                     else:
                         self._logging_message_track += (
@@ -674,7 +741,10 @@ class Context:
                 if bump_revision:
                     change_type = (
                         "re-running notebook with already-saved source code"
-                        if transform.type == "notebook"
+                        if (
+                            transform.type == "notebook"
+                            and self._notebook_runner != "nbconvert"
+                        )
                         else "source code changed"
                     )
                     raise UpdateContext(
@@ -684,7 +754,7 @@ class Context:
                 self._logging_message_track += f"loaded Transform('{transform.uid}')"
         self._transform = transform
 
-    def finish(self, ignore_non_consecutive: None | bool = None) -> None:
+    def _finish(self, ignore_non_consecutive: None | bool = None) -> None:
         """Finish the run and write a run report.
 
         - writes a timestamp: `run.finished_at`
@@ -732,6 +802,7 @@ class Context:
             finished_at=True,
             ignore_non_consecutive=ignore_non_consecutive,
             is_retry=self._is_finish_retry,
+            notebook_runner=self._notebook_runner,
         )
         if return_code == "retry":
             self._is_finish_retry = True
@@ -745,6 +816,14 @@ class Context:
         self._transform = None
         self._version = None
         self._description = None
+
+    @deprecated("ln.track()")
+    def track(self, *args, **kwargs):
+        return self._track(*args, **kwargs)
+
+    @deprecated("ln.finish()")
+    def finish(self, *args, **kwargs):
+        return self._finish(*args, **kwargs)
 
 
 context: Context = Context()
