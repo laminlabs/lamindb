@@ -36,7 +36,7 @@ def small_dataset1_schema():
             ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
             ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
         ],
-        index=ln.Feature(name="sample", dtype=ln.ULabel).save(),
+        index=ln.Feature(name="sample_label", dtype=ln.ULabel).save(),
     ).save()
 
     yield schema
@@ -162,7 +162,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
 
     assert artifact.features.slots["columns"].n == 5
-    assert set(artifact.features.get_values()["sample"]) == {
+    assert set(artifact.features.get_values()["sample_label"]) == {
         "sample1",
         "sample2",
         "sample3",
