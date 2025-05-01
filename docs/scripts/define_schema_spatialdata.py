@@ -41,7 +41,7 @@ sdata_schema = ln.Schema(
         "attrs:bio": sample_schema,
         "attrs:tech": tech_schema,
         "attrs": attrs_schema,
-        "table:obs": obs_schema,
-        "table:var.T": varT_schema,
+        "tables:table:obs": obs_schema,
+        "tables:table:var.T": varT_schema,
     },
 ).save()
