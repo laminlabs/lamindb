@@ -287,7 +287,7 @@ class Context:
 
                 ln.track()
                 #> → created Transform('Onv04I53OgtT0000'), started new Run('dpSfd7Ds...') at 2025-04-25 11:00:03 UTC
-                #> • to ensure one version history across script renames, run: ln.track('Onv04I53OgtT', ...)
+                #> • recommendation: to identify the notebook across renames, pass the uid: ln.track('Onv04I53OgtT')
 
             Ensure one version history across file renames::
 
