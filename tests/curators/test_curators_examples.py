@@ -136,34 +136,33 @@ def mudata_papalexi21_subset_schema():
 @pytest.fixture(scope="module")
 def spatialdata_blobs_schema():
     sample_schema = ln.Schema(
-        name="blobs_sample_level_metadata",
         features=[
-            ln.Feature(name="assay", dtype=bt.ExperimentalFactor).save(),
-            ln.Feature(name="disease", dtype=bt.Disease).save(),
-            ln.Feature(name="developmental_stage", dtype=bt.DevelopmentalStage).save(),
+            ln.Feature(
+                name="assay", dtype=bt.ExperimentalFactor, coerce_dtype=True
+            ).save(),
+            ln.Feature(name="disease", dtype=bt.Disease, coerce_dtype=True).save(),
+            ln.Feature(
+                name="developmental_stage",
+                dtype=bt.DevelopmentalStage,
+                coerce_dtype=True,
+            ).save(),
         ],
-        coerce_dtype=True,
     ).save()
 
     blobs_obs_schema = ln.Schema(
-        name="blobs_obs_level_metadata",
         features=[
             ln.Feature(name="sample_region", dtype="str").save(),
         ],
-        coerce_dtype=True,
     ).save()
 
-    blobs_var_schema = ln.Schema(
-        name="visium_var_schema", itype=bt.Gene.ensembl_gene_id, dtype=int
-    ).save()
+    blobs_var_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id, dtype=int).save()
 
     spatialdata_schema = ln.Schema(
-        name="blobs_spatialdata_schema",
         otype="SpatialData",
         components={
             "sample": sample_schema,
             "table:obs": blobs_obs_schema,
-            "table:var": blobs_var_schema,
+            "table:var.T": blobs_var_schema,
         },
     ).save()
 
@@ -565,7 +564,7 @@ def test_spatialdata_curator(
     assert artifact.schema == spatialdata_schema
     assert artifact.features.slots.keys() == {
         "sample",
-        "table:var",
+        "table:var.T",
         "table:obs",
     }
     assert artifact.features.get_values()["assay"] == "Visium Spatial Gene Expression"

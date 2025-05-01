@@ -659,7 +659,7 @@ class MuDataCurator(SlotsCurator):
                 )
             self._slots[slot] = DataFrameCurator(
                 (
-                    getattr(schema_dataset, modality_slot).T
+                    getattr(schema_dataset, modality_slot.rstrip(".T")).T
                     if modality_slot == "var.T"
                     or (
                         # backward compat
@@ -730,7 +730,7 @@ class SpatialDataCurator(SlotsCurator):
                 )
             self._slots[slot] = DataFrameCurator(
                 (
-                    getattr(schema_dataset, table_slot).T
+                    getattr(schema_dataset, table_slot.rstrip(".T")).T
                     if table_slot == "var.T"
                     or (
                         # backward compat
