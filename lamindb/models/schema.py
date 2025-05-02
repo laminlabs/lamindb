@@ -592,7 +592,9 @@ class Schema(Record, CanCurate, TracksRun):
                 assert itype.startswith(itype_compare), str(itype_compare)  # noqa: S101
             else:
                 itype = itype_compare
-            assert n_features is None, "do not pass `n` if features are passed"  # noqa: S101
+            if n_features is not None:
+                if n_features != len(features):
+                    logger.important(f"updating to n {len(features)} features")
             n_features = len(features)
             if features_registry == Feature:
                 optional_features = [
@@ -784,6 +786,38 @@ class Schema(Record, CanCurate, TracksRun):
         """Save."""
         from .save import bulk_create
 
+        if not self._state.adding:
+            features = (
+                self._features[1] if hasattr(self, "_features") else self.members.list()
+            )
+            _, validated_kwargs, _, _, _ = self._validate_kwargs_calculate_hash(
+                features=features,
+                index=None,  # need to pass None here as otherwise counting double
+                slots=self._slots if hasattr(self, "_slots") else self.slots,
+                name=self.name,
+                description=self.description,
+                itype=self.itype,
+                flexible=self.flexible,
+                type=self.type,
+                is_type=self.is_type,
+                otype=self.otype,
+                dtype=self.dtype,
+                minimal_set=self.minimal_set,
+                ordered_set=self.ordered_set,
+                maximal_set=self.maximal_set,
+                coerce_dtype=self.coerce_dtype,
+                n_features=self.n,
+            )
+            if validated_kwargs["hash"] != self.hash:
+                from .artifact import Artifact
+
+                datasets = Artifact.filter(schema=self).all()
+                if datasets.exists():
+                    logger.warning(
+                        f"you updated the schema hash and might invalidate datasets that were previously validated with this schema: {datasets.list('uid')}"
+                    )
+                self.hash = validated_kwargs["hash"]
+                self.n = validated_kwargs["n"]
         super().save(*args, **kwargs)
         if hasattr(self, "_slots"):
             # analogous to save_schema_links in core._data.py
@@ -818,6 +852,7 @@ class Schema(Record, CanCurate, TracksRun):
                 for record in records
             ]
             through_model.objects.using(using).bulk_create(links, ignore_conflicts=True)
+            delattr(self, "_features")
         return self
 
     @property

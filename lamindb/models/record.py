@@ -663,7 +663,6 @@ class BasicRecord(models.Model, metaclass=Registry):
                 from ..core._settings import settings
                 from .can_curate import CanCurate
                 from .collection import Collection
-                from .schema import Schema
                 from .transform import Transform
 
                 validate_fields(self, kwargs)
@@ -707,11 +706,6 @@ class BasicRecord(models.Model, metaclass=Registry):
                                 f"returning existing {self.__class__.__name__} record with same"
                                 f" {name_field}{version_comment}: '{kwargs[name_field]}'"
                             )
-                            if isinstance(self, Schema):
-                                if existing_record.hash != kwargs["hash"]:
-                                    logger.warning(
-                                        f"You're updating schema {existing_record.uid}, which might already have been used to validate datasets. Be careful."
-                                    )
                             init_self_from_db(self, existing_record)
                             update_attributes(self, kwargs)
                             return None
