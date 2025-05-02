@@ -382,7 +382,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             if df_suffix not in PYARROW_SUFFIXES:
                 raise ValueError(
                     f"{df_suffix} files are not supported by pyarrow, "
-                    f"they should have one of these formats: {' '.join(PYARROW_SUFFIXES)}."
+                    f"they should have one of these formats: {', '.join(PYARROW_SUFFIXES)}."
                 )
             # this checks that the filesystem is the same for all paths
             # this is a requirement of pyarrow.dataset.dataset
@@ -399,7 +399,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             if df_suffix not in POLARS_SUFFIXES:
                 raise ValueError(
                     f"{df_suffix} files are not supported by polars, "
-                    f"they should have one of these formats: {' '.join(POLARS_SUFFIXES)}."
+                    f"they should have one of these formats: {', '.join(POLARS_SUFFIXES)}."
                 )
             dataset = _open_polars_lazy_df(paths, **kwargs)
         else:
