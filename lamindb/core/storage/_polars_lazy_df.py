@@ -18,7 +18,7 @@ def _open_polars_lazy_df(paths: UPath | list[UPath], **kwargs):
     scans = {
         ".parquet": pl.scan_parquet,
         ".csv": pl.scan_csv,
-        ".nbjson": pl.scan_nbjson,
+        ".ndjson": pl.scan_ndjson,
         ".ipc": pl.scan_ipc,
     }
 
