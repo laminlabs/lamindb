@@ -373,9 +373,14 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         df_suffix = _df_storage_suffix(paths)
 
         if df_suffix is None:
-            suffixes_str = ", ".join({path.suffix for path in paths})
+            suffixes = set()
+            for path in paths:
+                if path.protocol not in {"http", "https"} and path.is_dir():
+                    suffixes.update(p.suffix for p in path.rglob("*") if p.suffix != "")
+                else:
+                    suffixes.add(path.suffix)
             raise ValueError(
-                f"The artifacts in the collection have different file formats: {suffixes_str}."
+                f"The artifacts in the collection have different file formats: {', '.join(suffixes)}."
             )
 
         if df_engine == "pyarrow":
