@@ -346,7 +346,7 @@ class Schema(Record, CanCurate, TracksRun):
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
     uid: str = CharField(editable=False, unique=True, db_index=True, max_length=20)
-    """A universal id (hash of the set of feature values)."""
+    """A universal id."""
     name: str | None = CharField(max_length=150, null=True, db_index=True)
     """A name."""
     description: str | None = CharField(null=True, db_index=True)
