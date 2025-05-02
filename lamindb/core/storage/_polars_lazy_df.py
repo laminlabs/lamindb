@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from pathlib import Path
 
 from upath import UPath
 
@@ -20,7 +21,7 @@ def _open_polars_lazy_df(paths: UPath | list[UPath], **kwargs):
     }
 
     path_list = []
-    if isinstance(paths, UPath):
+    if isinstance(paths, Path):
         paths = [paths]
     for path in paths:
         # assume http is always a file
