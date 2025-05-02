@@ -871,7 +871,9 @@ class CatVector:
         if not values:
             return [], []
         # inspect the default instance and save validated records from public
-        if self._subtype_str != "":
+        if (
+            self._subtype_str != "" and "__" not in self._subtype_str
+        ):  # not for general filter expressions
             self._subtype_query_set = registry.get(name=self._subtype_str).records.all()
             values_array = np.array(values)
             validated_mask = self._subtype_query_set.validate(  # type: ignore
@@ -1354,7 +1356,7 @@ def annotate_artifact(
             and len(features) > settings.annotation.n_max_records
         ):
             logger.important(
-                f"not annotating with {len(features)} features for schema as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
+                f"not annotating with {len(features)} features as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
             )
             itype = parse_cat_dtype(artifact.schema.itype, is_itype=True)["field"]
             feature_set = Schema(itype=itype, n=len(features))
@@ -1374,7 +1376,7 @@ def annotate_artifact(
                 and len(features) > settings.annotation.n_max_records
             ):
                 logger.important(
-                    f"not annotating with {len(features)} features for schema as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
+                    f"not annotating with {len(features)} features for slot {slot} as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
                 )
                 feature_set = Schema(itype=itype, n=len(features))
             artifact.feature_sets.add(
