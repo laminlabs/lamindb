@@ -351,18 +351,18 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         is_run_input: bool | None = None,
         **kwargs,
     ) -> PyArrowDataset | Iterator[PolarsLazyFrame]:
-        """Return a cloud-backed pyarrow Dataset.
+        """Open a dataset for streaming.
 
         Works for `pyarrow` and `polars` compatible formats.
 
         Args:
             df_engine: Which module to use for lazy loading of a dataframe
-                from `pyarrow` or `polars` compatible formats (`.parquet` etc).
+                from `pyarrow` or `polars` compatible formats (`.parquet`, `.csv`, `.ipc` etc).
             is_run_input: Whether to track this artifact as run input.
             **kwargs: Keyword arguments for `pyarrow.dataset.dataset` or `polars.scan_*` functions.
 
         Notes:
-            For more info, see tutorial: :doc:`/arrays`.
+            For more info, see guide: :doc:`/arrays`.
         """
         if self._state.adding:
             artifacts = self._artifacts

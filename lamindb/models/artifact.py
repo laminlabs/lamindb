@@ -2162,7 +2162,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         | PyArrowDataset
         | Iterator[PolarsLazyFrame]
     ):
-        """Return a cloud-backed data object.
+        """Open a dataset for streaming.
 
         Works for `AnnData` (`.h5ad` and `.zarr`), generic `hdf5` and `zarr`,
         `tiledbsoma` objects (`.tiledbsoma`), `pyarrow` or `polars` compatible formats.
@@ -2171,13 +2171,15 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             mode: can only be `"w"` (write mode) for `tiledbsoma` stores,
                 otherwise should be always `"r"` (read-only mode).
             df_engine: Which module to use for lazy loading of a dataframe
-                from `pyarrow` or `polars` compatible formats (`.parquet` etc).
+                from `pyarrow` or `polars` compatible formats (`.parquet`, `.csv`, `.ipc` etc).
+                This has no effect if the artifact is not a dataframe, i.e.
+                if it is an `AnnData,` `hdf5`, `zarr` or `tiledbsoma` object.
             is_run_input: Whether to track this artifact as run input.
             **kwargs: Keyword arguments for the accessor, i.e. `h5py` or `zarr` connection,
-                `pyarrow.dataset.dataset`.
+                `pyarrow.dataset.dataset`, `polars.scan_*` function.
 
         Notes:
-            For more info, see tutorial: :doc:`/arrays`.
+            For more info, see guide: :doc:`/arrays`.
 
         Example::
 
@@ -2190,6 +2192,10 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             #> AnnDataAccessor object with n_obs × n_vars = 70 × 765
             #>     constructed for the AnnData object pbmc68k.h5ad
             #>     ...
+            artifact = ln.Artifact.get(key=lndb-storage/df.parquet)
+            artifact.open()
+            #> pyarrow._dataset.FileSystemDataset
+
         """
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(INCONSISTENT_STATE_MSG)
