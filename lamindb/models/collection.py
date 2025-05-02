@@ -376,10 +376,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         if df_suffix is None:
             suffixes = set()
             for path in paths:
-                if (
-                    getattr(path, "protocol", None) not in {"http", "https"}
-                    and path.is_dir()
-                ):
+                if path.protocol not in {"http", "https"} and path.is_dir():
                     suffixes.update(p.suffix for p in path.rglob("*") if p.suffix != "")
                 else:
                     suffixes.add(path.suffix)
