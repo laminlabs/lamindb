@@ -477,7 +477,7 @@ def test_backed_pyarrow_collection():
     artifact2 = ln.Artifact(shard2, key="df2.parquet").save()
     artifact3 = ln.Artifact("mini.csv", key="mini.csv").save()
     artifact4 = ln.Artifact(
-        "https://raw.githubusercontent.com/laminlabs/lamindb/refs/heads/main/README.md"
+        "https://lamindb-test.s3.amazonaws.com/schmidt22-crispra-gws-IFNG.csv"
     ).save()
 
     collection1 = ln.Collection([artifact1, artifact2], key="parquet_col")
@@ -494,7 +494,7 @@ def test_backed_pyarrow_collection():
         "ValueError: The artifacts in the collection have different file formats"
     )
 
-    collection3 = ln.Collection([artifact1, artifact4], key="s3_http_col").save()
+    collection3 = ln.Collection([artifact3, artifact4], key="s3_http_col").save()
     with pytest.raises(ValueError) as err:
         collection3.open()
     assert err.exconly().startswith(
