@@ -1365,7 +1365,12 @@ def annotate_artifact(
         )
     else:
         for slot, slot_curator in curator._slots.items():
-            name = "var_index" if slot == "var" else "columns"
+            # var_index is backward compat (2025-05-01)
+            name = (
+                "var_index"
+                if (slot == "var" and "var_index" in slot_curator.cat._cat_vectors)
+                else "columns"
+            )
             features = slot_curator.cat._cat_vectors[name].records
             itype = parse_cat_dtype(artifact.schema.slots[slot].itype, is_itype=True)[
                 "field"
