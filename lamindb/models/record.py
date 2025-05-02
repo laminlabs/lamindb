@@ -648,7 +648,8 @@ class BasicRecord(models.Model, metaclass=Registry):
         if not args:
             if (
                 issubclass(self.__class__, Record)
-                and not self.__class__.__name__ == "Storage"
+                and not self.__class__.__name__
+                == {"Storage", "ULabel", "Feature", "Schema", "Param"}
                 # do not save bionty entities in restricted spaces by default
                 and self.__class__.__module__ != "bionty.models"
             ):
