@@ -216,16 +216,22 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
 
     # update schema
     assert small_dataset1_schema.n == 5
+    orig_hash = small_dataset1_schema.hash
     small_dataset1_schema.features.add(feature_to_fail)
     assert small_dataset1_schema.n == 5
+    assert small_dataset1_schema.hash == orig_hash
     small_dataset1_schema.save()
     assert small_dataset1_schema.n == 6
-
+    assert small_dataset1_schema.hash != orig_hash
     assert (
         "you updated the schema hash and might invalidate datasets that were previously validated with this schema:"
         in ccaplog.text
     )
-
+    small_dataset1_schema.features.remove(feature_to_fail)
+    small_dataset1_schema.save()
+    assert small_dataset1_schema.n == 5
+    assert small_dataset1_schema.hash == orig_hash
+    feature_to_fail.delete()
     artifact.delete(permanent=True)
 
 
