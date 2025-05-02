@@ -1701,7 +1701,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             With validation and annotation.
 
-            .. literalinclude:: scripts/curate-anndata-simple.py
+            .. literalinclude:: scripts/curate_anndata_simple.py
                 :language: python
 
             In the example above, we chose to tranpose the `var` DataFrame during annotation, so that we annotate the `var.T` schema, i.e., `[ENSG00000153563, ENSG00000010610, ENSG00000170458]`.
@@ -1846,11 +1846,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             .. literalinclude:: scripts/define_schema_spatialdata.py
                 :language: python
-                :caption: define_schema_spatialdata.py
 
             .. literalinclude:: scripts/curate_spatialdata.py
                 :language: python
-                :caption: curate_spatialdata.py
         """
         if not data_is_spatialdata(sdata):
             raise ValueError(
