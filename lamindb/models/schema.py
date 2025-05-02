@@ -512,7 +512,7 @@ class Schema(Record, CanCurate, TracksRun):
             raise FieldValidationError(
                 f"Only {valid_keywords} are valid keyword arguments"
             )
-        validated_kwargs, optional_features, features_registry = (
+        validated_kwargs, optional_features, features_registry, flexible = (
             self._validate_kwargs_calculate_hash(
                 features=features,
                 index=index,
@@ -576,6 +576,7 @@ class Schema(Record, CanCurate, TracksRun):
         n_features: int | None,
     ):
         optional_features = []
+        features_registry: Registry = None
         if itype is not None:
             itype = serialize_dtype(itype, is_itype=True)
         if index is not None:
@@ -647,7 +648,7 @@ class Schema(Record, CanCurate, TracksRun):
                 )
             hash = hash_set(union_set)
         validated_kwargs["hash"] = hash
-        return validated_kwargs, optional_features, features_registry
+        return validated_kwargs, optional_features, features_registry, flexible
 
     @classmethod
     def from_values(  # type: ignore
