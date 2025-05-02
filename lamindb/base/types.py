@@ -49,6 +49,7 @@ Dtype = Literal[
     "bool",  # boolean
     "date",  # date
     "datetime",  # datetime
+    "dict",  # dictionary
     "object",  # this is a pandas input dtype, we're only using it for complicated types, not for strings
 ]
 """Data type.
@@ -68,6 +69,7 @@ float         `"float"`     `float64 | float32 | float16 | float8 | ...`
 string        `"str"`       `object`
 datetime      `"datetime"`  `datetime`
 date          `"date"`      `date`
+dictionary    `"dict"`      `object`
 ============  ============  =================================================
 
 Categoricals
