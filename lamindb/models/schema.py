@@ -7,6 +7,9 @@ from django.db import models
 from django.db.models import CASCADE, PROTECT, ManyToManyField
 from lamin_utils import logger
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_set
+from rich.table import Table
+from rich.text import Text
+from rich.tree import Tree
 
 from lamindb.base import ids
 from lamindb.base.fields import (
@@ -21,6 +24,7 @@ from lamindb.errors import FieldValidationError, InvalidArgument
 from lamindb.models.feature import parse_cat_dtype
 
 from ..errors import ValidationError
+from ._describe import format_rich_tree, highlight_time
 from ._relations import (
     dict_related_model_to_related_name,
     get_related_name,
@@ -97,6 +101,83 @@ def get_features_config(
         return features_list, configs  # type: ignore
     except TypeError:
         return features, configs  # type: ignore
+
+
+def describe_schema(self: Schema) -> Tree:
+    """Create a rich tree visualization of a Schema with its features."""
+    otype = self.otype if hasattr(self, "otype") and self.otype else ""
+    tree = Tree(
+        Text.assemble((self.__class__.__name__, "bold"), (f" {otype}", "bold dim")),
+        guide_style="dim",  # dim the connecting lines
+    )
+
+    tree.add(f".uid = '{self.uid}'")
+    tree.add(f".name = '{self.name}'")
+    if self.description:
+        tree.add(f".description = '{self.description}'")
+    if self.itype:
+        tree.add(f".itype = '{self.itype}'")
+    if self.type:
+        tree.add(f".type = '{self.type}'")
+    tree.add(f".ordered_set = {self.ordered_set}")
+    tree.add(f".maximal_set = {self.maximal_set}")
+    if hasattr(self, "created_by") and self.created_by:
+        tree.add(
+            Text.assemble(
+                ".created_by = ",
+                (
+                    self.created_by.handle
+                    if self.created_by.name is None
+                    else f"{self.created_by.handle} ({self.created_by.name})"
+                ),
+            )
+        )
+    if hasattr(self, "created_at") and self.created_at:
+        tree.add(Text.assemble(".created_at = ", highlight_time(str(self.created_at))))
+
+    members = self.members
+
+    # Add features section
+    features = tree.add(
+        Text.assemble(
+            (self.itype, "violet"),
+            (" • ", "dim"),
+            (str(members.count()), "pink1"),
+        )
+    )
+
+    if hasattr(self, "members") and self.members.count() > 0:
+        # create a table for the features
+        feature_table = Table(
+            show_header=True, header_style="dim", box=None, pad_edge=False
+        )
+
+        # Add columns
+        feature_table.add_column("name", style="", no_wrap=True)
+        feature_table.add_column("dtype", style="", no_wrap=True)
+        feature_table.add_column("optional", style="", no_wrap=True)
+        feature_table.add_column("nullable", style="", no_wrap=True)
+        feature_table.add_column("coerce_dtype", style="", no_wrap=True)
+        feature_table.add_column("default_value", style="", no_wrap=True)
+
+        # Add rows for each member
+        optionals = self.optionals.get()
+        for member in self.members:
+            feature_table.add_row(
+                member.name,
+                Text(
+                    str(member.dtype)
+                ),  # needs to be wrapped in Text to display correctly
+                "✓" if optionals.filter(uid=member.uid).exists() else "✗",
+                "✓" if member.nullable else "✗",
+                "✓" if member.coerce_dtype else "✗",
+                str(member.default_value) if member.default_value else "unset",
+            )
+
+        # Add the table to the features branch
+        features.add(feature_table)
+
+    return tree
 
 
 class SchemaOptionals:
@@ -864,6 +945,11 @@ class Schema(Record, CanCurate, TracksRun):
             message + "\nslots:"
             for slot, schema in self.slots.items():
                 message += f"\n    {slot}: " + str(schema)
+        else:
+            tree = describe_schema(self)
+            return format_rich_tree(
+                tree, fallback="no linked features", return_str=return_str
+            )
         if return_str:
             return message
         else:
