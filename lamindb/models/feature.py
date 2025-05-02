@@ -157,8 +157,12 @@ def serialize_dtype(
         dtype_str = dtype.__name__
     elif dtype is dict:
         dtype_str = "dict"
-    elif is_itype and dtype == "Feature":
-        dtype_str = "Feature"
+    elif is_itype and isinstance(dtype, str):
+        if dtype != "Feature":
+            parse_cat_dtype(
+                dtype_str=dtype, is_itype=True
+            )  # throws an error if invalid
+        dtype_str = dtype
     elif isinstance(dtype, (ExtensionDtype, np.dtype)):
         dtype_str = serialize_pandas_dtype(dtype)
     else:
