@@ -30,6 +30,8 @@ def define_features_labels() -> None:
     if str(docs_path) not in sys.path:
         sys.path.append(str(docs_path))
 
+    import define_mini_immuno_features_labels  # noqa
+
 
 def get_dataset1(
     otype: Literal["DataFrame", "AnnData"] = "DataFrame",

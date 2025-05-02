@@ -1,16 +1,10 @@
 import lamindb as ln
-import bionty as bt
 
 # define features and labels
 ln.core.datasets.mini_immuno.define_features_labels()
 
 # define a schema
-obs_schema = ln.Schema(itype=ln.Feature).save()
-varT_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id).save()
-schema = ln.Schema(
-    otype="AnnData",
-    slots={"obs": obs_schema, "var.T": varT_schema},
-).save()
+schema = ln.schemas.anndata.ensembl_gene_ids_and_valid_features_in_obs()
 
 # curate an AnnData
 adata = ln.core.datasets.mini_immuno.get_dataset1(otype="AnnData")
