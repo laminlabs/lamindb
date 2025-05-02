@@ -15,10 +15,20 @@ def _open_polars_lazy_df(paths: UPath | list[UPath], **kwargs):
     if isinstance(paths, UPath):
         paths = [paths]
 
-    open_files = [path.open(mode="rb") for path in paths]
+    scans = {
+        ".parquet": pl.scan_parquet,
+        ".csv": pl.scan_csv,
+        ".nbjson": pl.scan_nbjson,
+        ".ipc": pl.scan_ipc,
+    }
+
+    open_files = []
 
     try:
-        yield pl.scan_parquet(open_files, **kwargs)
+        for path in paths:
+            open_files.append(path.open(mode="rb"))
+
+        yield scans[paths[0].suffix](open_files, **kwargs)
     finally:
         for open_file in open_files:
             open_file.close()
