@@ -7,7 +7,7 @@ import pytest
 from lamindb.core.datasets import small_dataset1
 from lamindb.errors import DoesNotExist, ValidationError
 from lamindb.models._feature_manager import describe_features
-from lamindb.models._label_manager import print_rich_tree
+from lamindb.models._label_manager import format_rich_tree
 from lamindb.models.artifact import add_labels
 
 
@@ -214,7 +214,7 @@ Here is how to create ulabels for them:
     }
     # hard to test because of italic formatting
     tree = describe_features(artifact)
-    print_rich_tree(tree)
+    format_rich_tree(tree)
     assert tree.label.plain == "Artifact .h5ad/AnnData"
     assert tree.children[0].label.plain == "Linked features"
     assert len(tree.children[0].children[0].label.columns) == 3
@@ -526,8 +526,6 @@ def test_add_labels_using_anndata(adata):
         itype="Feature", _links_artifact__slot="obs"
     ).one()
     assert schema_obs.n == 4
-    # TODO, write a test that queries the organism feature
-    # assert "organism" in schema_ext.features.list("name")
 
     # now we add cell types & tissues and run checks
     ln.Feature(name="cell_type", dtype="cat").save()

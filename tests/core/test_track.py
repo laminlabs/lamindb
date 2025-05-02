@@ -115,6 +115,7 @@ def test_create_or_load_transform():
     context.uid = uid
     context.version = version
     context._path = Path("my-test-transform-create-or-load.py")
+    context._path.touch(exist_ok=True)
     context._create_or_load_transform(
         description=title,
         transform_type="notebook",
@@ -141,6 +142,7 @@ def test_create_or_load_transform():
     ln.context._uid = None
     ln.context._run = None
     ln.context._transform = None
+    ln.context._path.unlink()
     ln.context._path = None
 
 

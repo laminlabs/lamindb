@@ -24,7 +24,7 @@ from ._describe import (
     TYPE_WIDTH,
     VALUES_WIDTH,
     describe_header,
-    print_rich_tree,
+    format_rich_tree,
 )
 from ._django import get_artifact_with_related, get_related_model
 from ._relations import dict_related_model_to_related_name
@@ -182,8 +182,14 @@ class LabelManager:
         self._host = host
 
     def __repr__(self) -> str:
+        return self.describe(return_str=True)
+
+    def describe(self, return_str=True) -> str:
+        """Describe the labels."""
         tree = describe_labels(self._host)
-        return print_rich_tree(tree, fallback="no linked labels")
+        return format_rich_tree(
+            tree, fallback="no linked labels", return_str=return_str
+        )
 
     def add(
         self,

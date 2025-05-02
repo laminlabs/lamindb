@@ -48,9 +48,8 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     Often, a ulabel is measured *within* a dataset. For instance, an artifact
     might characterize 2 species of the Iris flower (`"setosa"` &
     `"versicolor"`) measured by a `"species"` feature. Use the
-    :class:`~lamindb.Curator` flow to automatically parse, validate, and
-    annotate with labels that are contained in `DataFrame` or `AnnData`
-    artifacts.
+    :class:`~lamindb.curators.DataFrameCurator` flow to automatically parse, validate, and
+    annotate with labels that are contained in `DataFrame` objects.
 
     .. note::
 
@@ -82,9 +81,9 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
 
         >>> artifact.ulabels.add(ulabel)
 
-        Query by `ULabel`:
+        Query an artifact by label:
 
-        >>> ln.Artifact.filter(ulabels=train_split)
+        >>> ln.Artifact.filter(ulabels=train_split).df()
     """
 
     class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
@@ -176,6 +175,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
         description: str | None = kwargs.pop("description", None)
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
+        _skip_validation = kwargs.pop("_skip_validation", False)
         if len(kwargs) > 0:
             valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(ULabel)])
             raise FieldValidationError(
@@ -188,6 +188,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
             description=description,
             reference=reference,
             reference_type=reference_type,
+            _skip_validation=_skip_validation,
         )
 
 

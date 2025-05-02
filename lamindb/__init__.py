@@ -1,43 +1,62 @@
 """A data framework for biology.
 
-Tracking notebooks, scripts & functions.
+Data lineage
+============
+
+Track inputs, outputs & environment of a notebook or script run.
 
 .. autosummary::
    :toctree: .
 
    track
    finish
+
+Decorate a function with `@tracked()` to track inputs, outputs & environment of function executions.
+
+.. autosummary::
+   :toctree: .
+
    tracked
 
-Registries.
+Registries
+==========
+
+Manage artifacts and transforms.
 
 .. autosummary::
    :toctree: .
 
    Artifact
+   Storage
    Transform
    Run
+
+Validate and annotate artifacts.
+
+.. autosummary::
+   :toctree: .
+
    ULabel
-   User
-   Storage
    Feature
-   Schema
    Param
+   Schema
+
+Manage projects.
+
+.. autosummary::
+   :toctree: .
+
+   User
    Collection
    Project
    Space
    Reference
    Person
 
-Curators & integrations.
+Other
+=====
 
-.. autosummary::
-   :toctree: .
-
-   curators
-   integrations
-
-Key functionality.
+Functions and classes.
 
 .. autosummary::
    :toctree: .
@@ -47,32 +66,34 @@ Key functionality.
    save
    UPath
    settings
+   context
+
+Curators and integrations.
+
+.. autosummary::
+   :toctree: .
+
+   curators
+   integrations
 
 Low-level functionality.
 
 .. autosummary::
    :toctree: .
 
-   context
+   curators
+   integrations
    errors
    setup
    base
-   models
    core
-
-Backward compatibility.
-
-.. autosummary::
-   :toctree: .
-
-   FeatureSet
-   Curator
+   models
 
 """
 
 # ruff: noqa: I001
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
-__version__ = "1.4.0"
+__version__ = "1.5rc1"
 
 import warnings
 
@@ -100,7 +121,7 @@ if _check_instance_setup(from_module="lamindb"):
     from ._view import view
     from .core._context import context
     from .core._settings import settings
-    from .curators import CatManager as Curator
+    from .curators._legacy import CatManager as Curator
     from .models import (
         Artifact,
         Collection,
@@ -123,15 +144,8 @@ if _check_instance_setup(from_module="lamindb"):
     from . import integrations
     from . import curators
 
-    track = context.track
-    finish = context.finish
-    settings.__doc__ = """Global settings (:class:`~lamindb.core.Settings`)."""
-    context.__doc__ = """Global run context (:class:`~lamindb.core.Context`).
-
-    Note that you can access:
-
-    - `ln.context.track()` as `ln.track()`
-    - `ln.context.finish()` as `ln.finish()`
-
-    """
+    track = context._track
+    finish = context._finish
+    settings.__doc__ = """Global live settings (:class:`~lamindb.core.Settings`)."""
+    context.__doc__ = """Global run context (:class:`~lamindb.core.Context`)."""
     from django.db.models import Q

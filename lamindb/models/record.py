@@ -5,7 +5,6 @@ import inspect
 import re
 import sys
 from collections import defaultdict
-from functools import reduce
 from itertools import chain
 from pathlib import PurePosixPath
 from typing import (
@@ -21,36 +20,15 @@ from typing import (
 import dj_database_url
 import lamindb_setup as ln_setup
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db import IntegrityError, connections, models, transaction
-from django.db.models import (
-    CASCADE,
-    PROTECT,
-    Field,
-    IntegerField,
-    Manager,
-    Q,
-    QuerySet,
-    Value,
-)
+from django.db import IntegrityError, ProgrammingError, connections, models, transaction
+from django.db.models import CASCADE, PROTECT, Field, Manager, QuerySet
 from django.db.models.base import ModelBase
 from django.db.models.fields.related import (
     ManyToManyField,
     ManyToManyRel,
     ManyToOneRel,
 )
-from django.db.models.functions import Cast, Coalesce
-from django.db.models.lookups import (
-    Contains,
-    Exact,
-    IContains,
-    IExact,
-    IRegex,
-    IStartsWith,
-    Regex,
-    StartsWith,
-)
 from lamin_utils import colors, logger
-from lamin_utils._lookup import Lookup
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._connect_instance import (
     get_owner_name_from_identifier,
@@ -63,22 +41,22 @@ from lamindb_setup.core._settings_store import instance_settings_file
 from lamindb_setup.core.django import DBToken, db_token_manager
 from lamindb_setup.core.upath import extract_suffix_from_path
 
-from lamindb.base.fields import (
+from ..base.fields import (
     CharField,
     DateTimeField,
     ForeignKey,
     JSONField,
-    TextField,
 )
-from lamindb.base.types import FieldAttr, StrField
-from lamindb.errors import FieldValidationError
-
+from ..base.types import FieldAttr, StrField
 from ..errors import (
+    FieldValidationError,
     InvalidArgument,
+    NoWriteAccess,
     RecordNameChangeIntegrityError,
     ValidationError,
 )
 from ._is_versioned import IsVersioned
+from .query_manager import QueryManager, _lookup, _search
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -183,13 +161,14 @@ def init_self_from_db(self: Record, existing_record: Record):
 
 def update_attributes(record: Record, attributes: dict[str, str]):
     for key, value in attributes.items():
-        if (
-            getattr(record, key) != value
-            and value is not None
-            and key not in {"dtype", "otype", "_aux"}
-        ):
-            logger.warning(f"updated {key} from {getattr(record, key)} to {value}")
-            setattr(record, key, value)
+        if getattr(record, key) != value and value is not None:
+            if key not in {"uid", "dtype", "otype", "_aux"}:
+                logger.warning(f"updated {key} from {getattr(record, key)} to {value}")
+                setattr(record, key, value)
+            else:
+                logger.warning(
+                    f"ignoring new value {value} for {key}, keeping {getattr(record, key)}"
+                )
 
 
 def validate_literal_fields(record: Record, kwargs) -> None:
@@ -412,36 +391,13 @@ class Registry(ModelBase):
     def __repr__(cls) -> str:
         return registry_repr(cls)
 
+    @doc_args(_lookup.__doc__)
     def lookup(
         cls,
         field: StrField | None = None,
         return_field: StrField | None = None,
     ) -> NamedTuple:
-        """Return an auto-complete object for a field.
-
-        Args:
-            field: The field to look up the values for. Defaults to first string field.
-            return_field: The field to return. If `None`, returns the whole record.
-
-        Returns:
-            A `NamedTuple` of lookup information of the field values with a
-            dictionary converter.
-
-        See Also:
-            :meth:`~lamindb.models.Record.search`
-
-        Examples:
-            >>> import bionty as bt
-            >>> bt.settings.organism = "human"
-            >>> bt.Gene.from_source(symbol="ADGB-DT").save()
-            >>> lookup = bt.Gene.lookup()
-            >>> lookup.adgb_dt
-            >>> lookup_dict = lookup.dict()
-            >>> lookup_dict['ADGB-DT']
-            >>> lookup_by_ensembl_id = bt.Gene.lookup(field="ensembl_gene_id")
-            >>> genes.ensg00000002745
-            >>> lookup_return_symbols = bt.Gene.lookup(field="ensembl_gene_id", return_field="symbol")
-        """
+        """{}"""  # noqa: D415
         return _lookup(cls=cls, field=field, return_field=return_field)
 
     def filter(cls, *queries, **expressions) -> QuerySet:
@@ -541,6 +497,7 @@ class Registry(ModelBase):
             query_set = query_set.order_by("-updated_at")
         return query_set[:limit].df(include=include, features=features)
 
+    @doc_args(_search.__doc__)
     def search(
         cls,
         string: str,
@@ -549,27 +506,7 @@ class Registry(ModelBase):
         limit: int | None = 20,
         case_sensitive: bool = False,
     ) -> QuerySet:
-        """Search.
-
-        Args:
-            string: The input string to match against the field ontology values.
-            field: The field or fields to search. Search all string fields by default.
-            limit: Maximum amount of top results to return.
-            case_sensitive: Whether the match is case sensitive.
-
-        Returns:
-            A sorted `DataFrame` of search results with a score in column `score`.
-            If `return_queryset` is `True`.  `QuerySet`.
-
-        See Also:
-            :meth:`~lamindb.models.Record.filter`
-            :meth:`~lamindb.models.Record.lookup`
-
-        Examples:
-            >>> ulabels = ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name")
-            >>> ln.save(ulabels)
-            >>> ln.ULabel.search("ULabel2")
-        """
+        """{}"""  # noqa: D415
         return _search(
             cls=cls,
             string=string,
@@ -650,7 +587,7 @@ class Registry(ModelBase):
             into_db_token = isettings
 
         target_modules = setup_settings.instance.modules
-        if not (missing_members := source_modules - target_modules):
+        if missing_members := source_modules - target_modules:
             logger.warning(
                 f"source modules has additional modules: {missing_members}\n"
                 "consider mounting these registry modules to transfer all metadata"
@@ -700,15 +637,19 @@ class BasicRecord(models.Model, metaclass=Registry):
     It's mainly used for LinkORMs and similar.
     """
 
+    objects = QueryManager()
+
     class Meta:
         abstract = True
+        base_manager_name = "objects"
 
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
         if not args:
             if (
                 issubclass(self.__class__, Record)
-                and not self.__class__.__name__ == "Storage"
+                and self.__class__.__name__
+                not in {"Storage", "ULabel", "Feature", "Schema", "Param"}
                 # do not save bionty entities in restricted spaces by default
                 and self.__class__.__module__ != "bionty.models"
             ):
@@ -722,7 +663,6 @@ class BasicRecord(models.Model, metaclass=Registry):
                 from ..core._settings import settings
                 from .can_curate import CanCurate
                 from .collection import Collection
-                from .schema import Schema
                 from .transform import Transform
 
                 validate_fields(self, kwargs)
@@ -766,11 +706,6 @@ class BasicRecord(models.Model, metaclass=Registry):
                                 f"returning existing {self.__class__.__name__} record with same"
                                 f" {name_field}{version_comment}: '{kwargs[name_field]}'"
                             )
-                            if isinstance(self, Schema):
-                                if existing_record.hash != kwargs["hash"]:
-                                    logger.warning(
-                                        f"You're updating schema {existing_record.uid}, which might already have been used to validate datasets. Be careful."
-                                    )
                             init_self_from_db(self, existing_record)
                             update_attributes(self, kwargs)
                             return None
@@ -843,20 +778,33 @@ class BasicRecord(models.Model, metaclass=Registry):
                 # save unversioned record
                 else:
                     super().save(*args, **kwargs)
-            except IntegrityError as e:
+            except (IntegrityError, ProgrammingError) as e:
                 error_msg = str(e)
                 # two possible error messages for hash duplication
                 # "duplicate key value violates unique constraint"
                 # "UNIQUE constraint failed"
                 if (
-                    "UNIQUE constraint failed" in error_msg
-                    or "duplicate key value violates unique constraint" in error_msg
-                ) and "hash" in error_msg:
+                    isinstance(e, IntegrityError)
+                    and "hash" in error_msg
+                    and (
+                        "UNIQUE constraint failed" in error_msg
+                        or "duplicate key value violates unique constraint" in error_msg
+                    )
+                ):
                     pre_existing_record = self.__class__.get(hash=self.hash)
                     logger.warning(
                         f"returning {self.__class__.__name__.lower()} with same hash: {pre_existing_record}"
                     )
                     init_self_from_db(self, pre_existing_record)
+                elif (
+                    isinstance(e, ProgrammingError)
+                    and hasattr(self, "space")
+                    and "new row violates row-level security policy" in error_msg
+                ):
+                    raise NoWriteAccess(
+                        f"You’re not allowed to write to the space '{self.space.name}'.\n"
+                        "Please contact an administrator of the space if you need write access."
+                    ) from None
                 else:
                     raise
             # call the below in case a user makes more updates to the record
@@ -932,7 +880,7 @@ class BasicRecord(models.Model, metaclass=Registry):
 
 
 class Space(BasicRecord):
-    """Spaces.
+    """Spaces to restrict access to records to specific users or teams.
 
     You can use spaces to restrict access to records within an instance.
 
@@ -1111,146 +1059,6 @@ def _get_record_kwargs(record_class) -> list[tuple[str, str]]:
         return params
 
     return []
-
-
-def _search(
-    cls,
-    string: str,
-    *,
-    field: StrField | list[StrField] | None = None,
-    limit: int | None = 20,
-    case_sensitive: bool = False,
-    truncate_string: bool = False,
-) -> QuerySet:
-    if string is None:
-        raise ValueError("Cannot search for None value! Please pass a valid string.")
-
-    input_queryset = (
-        cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.objects.all()
-    )
-    registry = input_queryset.model
-    name_field = getattr(registry, "_name_field", "name")
-    if field is None:
-        fields = [
-            field.name
-            for field in registry._meta.fields
-            if field.get_internal_type() in {"CharField", "TextField"}
-        ]
-    else:
-        if not isinstance(field, list):
-            fields_input = [field]
-        else:
-            fields_input = field
-        fields = []
-        for field in fields_input:
-            if not isinstance(field, str):
-                try:
-                    fields.append(field.field.name)
-                except AttributeError as error:
-                    raise TypeError(
-                        "Please pass a Record string field, e.g., `CellType.name`!"
-                    ) from error
-            else:
-                fields.append(field)
-
-    if truncate_string:
-        if (len_string := len(string)) > 5:
-            n_80_pct = int(len_string * 0.8)
-            string = string[:n_80_pct]
-
-    string = string.strip()
-    string_escape = re.escape(string)
-
-    exact_lookup = Exact if case_sensitive else IExact
-    regex_lookup = Regex if case_sensitive else IRegex
-    contains_lookup = Contains if case_sensitive else IContains
-
-    ranks = []
-    contains_filters = []
-    for field in fields:
-        field_expr = Coalesce(
-            Cast(field, output_field=TextField()),
-            Value(""),
-            output_field=TextField(),
-        )
-        # exact rank
-        exact_expr = exact_lookup(field_expr, string)
-        exact_rank = Cast(exact_expr, output_field=IntegerField()) * 200
-        ranks.append(exact_rank)
-        # exact synonym
-        synonym_expr = regex_lookup(field_expr, rf"(?:^|.*\|){string_escape}(?:\|.*|$)")
-        synonym_rank = Cast(synonym_expr, output_field=IntegerField()) * 200
-        ranks.append(synonym_rank)
-        # match as sub-phrase
-        sub_expr = regex_lookup(
-            field_expr, rf"(?:^|.*[ \|\.,;:]){string_escape}(?:[ \|\.,;:].*|$)"
-        )
-        sub_rank = Cast(sub_expr, output_field=IntegerField()) * 10
-        ranks.append(sub_rank)
-        # startswith and avoid matching string with " " on the right
-        # mostly for truncated
-        startswith_expr = regex_lookup(
-            field_expr, rf"(?:^|.*\|){string_escape}[^ ]*(?:\|.*|$)"
-        )
-        startswith_rank = Cast(startswith_expr, output_field=IntegerField()) * 8
-        ranks.append(startswith_rank)
-        # match as sub-phrase from the left, mostly for truncated
-        right_expr = regex_lookup(field_expr, rf"(?:^|.*[ \|]){string_escape}.*")
-        right_rank = Cast(right_expr, output_field=IntegerField()) * 2
-        ranks.append(right_rank)
-        # match as sub-phrase from the right
-        left_expr = regex_lookup(field_expr, rf".*{string_escape}(?:$|[ \|\.,;:].*)")
-        left_rank = Cast(left_expr, output_field=IntegerField()) * 2
-        ranks.append(left_rank)
-        # simple contains filter
-        contains_expr = contains_lookup(field_expr, string)
-        contains_filter = Q(contains_expr)
-        contains_filters.append(contains_filter)
-        # also rank by contains
-        contains_rank = Cast(contains_expr, output_field=IntegerField())
-        ranks.append(contains_rank)
-        # additional rule for truncated strings
-        # weight matches from the beginning of the string higher
-        # sometimes whole words get truncated and startswith_expr is not enough
-        if truncate_string and field == name_field:
-            startswith_lookup = StartsWith if case_sensitive else IStartsWith
-            name_startswith_expr = startswith_lookup(field_expr, string)
-            name_startswith_rank = (
-                Cast(name_startswith_expr, output_field=IntegerField()) * 2
-            )
-            ranks.append(name_startswith_rank)
-
-    ranked_queryset = (
-        input_queryset.filter(reduce(lambda a, b: a | b, contains_filters))
-        .alias(rank=sum(ranks))
-        .order_by("-rank")
-    )
-
-    return ranked_queryset[:limit]
-
-
-def _lookup(
-    cls,
-    field: StrField | None = None,
-    return_field: StrField | None = None,
-    using_key: str | None = None,
-) -> NamedTuple:
-    """{}"""  # noqa: D415
-    queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.objects.all()
-    field = get_name_field(registry=queryset.model, field=field)
-
-    return Lookup(
-        records=queryset,
-        values=[i.get(field) for i in queryset.values()],
-        tuple_name=cls.__class__.__name__,
-        prefix="ln",
-    ).lookup(
-        return_field=(
-            get_name_field(registry=queryset.model, field=return_field)
-            if return_field is not None
-            else None
-        )
-    )
 
 
 def get_name_field(
