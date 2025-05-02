@@ -15,4 +15,4 @@ spatialdata.tables["table"].var.drop(index="ENSG00000999999", inplace=True)
 artifact = ln.Artifact.from_spatialdata(
     spatialdata, key="example_datasets/spatialdata1.zarr", schema=sdata_schema
 )
-assert artifact.schema == sdata_schema
+artifact.describe()
