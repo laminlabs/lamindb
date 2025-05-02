@@ -25,6 +25,7 @@ from lamindb.base.fields import (
 from ..base.ids import base62_20
 from ..core._mapped_collection import MappedCollection
 from ..core.storage._backed_access import _df_storage_suffix
+from ..core.storage._polars_lazy_df import POLARS_SUFFIXES, _open_polars_lazy_df
 from ..core.storage._pyarrow_dataset import PYARROW_SUFFIXES, _open_pyarrow_dataset
 from ..errors import FieldValidationError
 from ..models._is_versioned import process_revises
@@ -49,7 +50,7 @@ from .record import (
 from .run import Run, TracksRun, TracksUpdates
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Iterator
 
     from pyarrow.dataset import Dataset as PyArrowDataset
 
@@ -343,10 +344,21 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             run=run,
         )
 
-    def open(self, is_run_input: bool | None = None) -> PyArrowDataset:
+    def open(
+        self,
+        df_engine: Literal["pyarrow", "polars"] = "pyarrow",
+        is_run_input: bool | None = None,
+        **kwargs,
+    ) -> PyArrowDataset | Iterator:
         """Return a cloud-backed pyarrow Dataset.
 
-        Works for `pyarrow` compatible formats.
+        Works for `pyarrow` and `polars` compatible formats.
+
+        Args:
+            df_engine: Which module to use for lazy loading of a dataframe
+                from `pyarrow` or `polars` compatible formats (`.parquet` etc).
+            is_run_input: Whether to track this artifact as run input.
+            **kwargs: Keyword arguments for `pyarrow.dataset.dataset` or `polars.scan_*` functions.
 
         Notes:
             For more info, see tutorial: :doc:`/arrays`.
@@ -357,28 +369,44 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         else:
             artifacts = self.ordered_artifacts.all()
         paths = [artifact.path for artifact in artifacts]
-        # this checks that the filesystem is the same for all paths
-        # this is a requirement of pyarrow.dataset.dataset
-        fs = paths[0].fs
-        for path in paths[1:]:
-            # this assumes that the filesystems are cached by fsspec
-            if path.fs is not fs:
+
+        df_suffix = _df_storage_suffix(paths)
+
+        if df_suffix is None:
+            suffixes_str = ", ".join({path.suffix for path in paths})
+            raise ValueError(
+                f"The artifacts in the collection have different file formats: {suffixes_str}."
+            )
+
+        if df_engine == "pyarrow":
+            if df_suffix not in PYARROW_SUFFIXES:
                 raise ValueError(
-                    "The collection has artifacts with different filesystems, this is not supported."
+                    f"{df_suffix} files are not supported by pyarrow, "
+                    f"they should have one of these formats: {' '.join(PYARROW_SUFFIXES)}."
                 )
-        if _df_storage_suffix(paths) not in PYARROW_SUFFIXES:
-            suffixes = {path.suffix for path in paths}
-            suffixes_str = ", ".join(suffixes)
-            err_msg = (
-                "This collection is not compatible with pyarrow.dataset.dataset(), "
+            # this checks that the filesystem is the same for all paths
+            # this is a requirement of pyarrow.dataset.dataset
+            fs = paths[0].fs
+            for path in paths[1:]:
+                # this assumes that the filesystems are cached by fsspec
+                if path.fs is not fs:
+                    raise ValueError(
+                        "The collection has artifacts with different filesystems, "
+                        "this is not supported."
+                    )
+            dataset = _open_pyarrow_dataset(paths, **kwargs)
+        elif df_engine == "polars":
+            if df_suffix not in POLARS_SUFFIXES:
+                raise ValueError(
+                    f"{df_suffix} files are not supported by polars, "
+                    f"they should have one of these formats: {' '.join(POLARS_SUFFIXES)}."
+                )
+            dataset = _open_polars_lazy_df(paths, **kwargs)
+        else:
+            raise ValueError(
+                f"Unknown df_engine: {df_engine}. It should be 'pyarrow' or 'polars'."
             )
-            err_msg += (
-                f"the artifacts have incompatible file types: {suffixes_str}"
-                if len(suffixes) > 1
-                else f"the file type {suffixes_str} is not supported by pyarrow."
-            )
-            raise ValueError(err_msg)
-        dataset = _open_pyarrow_dataset(paths)
+
         # track only if successful
         _track_run_input(self, is_run_input)
         return dataset
