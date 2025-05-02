@@ -579,7 +579,7 @@ class AnnDataCurator(SlotsCurator):
         }
         if "var" in self._slots and schema.slots["var"].itype not in {None, "Feature"}:
             logger.warning(
-                "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
             )
             self._slots["var"].cat._cat_vectors["var_index"] = self._slots[
                 "var"
@@ -656,7 +656,7 @@ class MuDataCurator(SlotsCurator):
                 "Feature",
             }:
                 logger.warning(
-                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 )
             self._slots[slot] = DataFrameCurator(
                 (
@@ -726,7 +726,7 @@ class SpatialDataCurator(SlotsCurator):
                     "Feature",
                 }:
                     logger.warning(
-                        "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                        "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                     )
                 data_object = (
                     getattr(slot_object, sub_slot.rstrip(".T")).T

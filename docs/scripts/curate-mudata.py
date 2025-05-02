@@ -42,7 +42,7 @@ var_schema_rna = ln.Schema(
 mudata_schema = ln.Schema(
     name="mudata_papalexi21_subset_mudata_schema",
     otype="MuData",
-    components={
+    slots={
         "obs": obs_schema,
         "rna:obs": obs_schema_rna,
         "hto:obs": obs_schema_hto,

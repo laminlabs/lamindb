@@ -37,7 +37,7 @@ varT_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id).save()
 sdata_schema = ln.Schema(
     name="spatialdata_blobs_schema",
     otype="SpatialData",
-    components={
+    slots={
         "attrs:bio": sample_schema,
         "attrs:tech": tech_schema,
         "attrs": attrs_schema,
