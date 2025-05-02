@@ -155,7 +155,7 @@ class Schema(Record, CanCurate, TracksRun):
 
     A simple schema is a feature set such as the set of columns of a `DataFrame`.
 
-    A composite schema has multiple components, e.g., for an `AnnData`, one schema for `obs` and another one for `var`.
+    A composite schema has multiple slots, e.g., for an `AnnData`, one schema for slot `obs` and another one for `var`.
 
     A schema can also merely define abstract constraints or instructions for dataset validation & annotation.
 
@@ -166,8 +166,8 @@ class Schema(Record, CanCurate, TracksRun):
             :meth:`~lamindb.Schema.from_values` or
             :meth:`~lamindb.Schema.from_df`.
         index: `Feature | None = None` A :class:`~lamindb.Feature` record to validate an index of a `DataFrame`.
-        components: `dict[str, Schema] | None = None` A dictionary mapping slot names to
-            components. A component is itself a :class:`~lamindb.Schema` object.
+        slots: `dict[str, Schema] | None = None` A dictionary mapping slot names to
+            :class:`~lamindb.Schema` objects.
         name: `str | None = None` A name.
         description: `str | None = None` A description.
         itype: `str | None = None` The feature identifier type (e.g. :class:`~lamindb.Feature`, :class:`~bionty.Gene`, ...).
@@ -373,7 +373,7 @@ class Schema(Record, CanCurate, TracksRun):
         self,
         features: Iterable[Record] | None = None,
         index: Feature | None = None,
-        components: dict[str, Schema] | None = None,
+        slots: dict[str, Schema] | None = None,
         name: str | None = None,
         description: str | None = None,
         dtype: str | Type[int | float | str] | None = None,  # noqa
@@ -408,7 +408,7 @@ class Schema(Record, CanCurate, TracksRun):
             args[0] if args else kwargs.pop("features", [])
         )
         index: Feature | None = kwargs.pop("index", None)
-        components: dict[str, Schema] = kwargs.pop("components", {})
+        slots: dict[str, Schema] = kwargs.pop("slots", {})
         name: str | None = kwargs.pop("name", None)
         description: str | None = kwargs.pop("description", None)
         itype: str | Record | DeferredAttribute | None = kwargs.pop("itype", None)
@@ -422,6 +422,13 @@ class Schema(Record, CanCurate, TracksRun):
         maximal_set: bool = kwargs.pop("maximal_set", False)
         coerce_dtype: bool | None = kwargs.pop("coerce_dtype", None)
         n_features: int | None = kwargs.pop("n", None)
+        # backward compat
+        if not slots:
+            if "components" in kwargs:
+                logger.warning(
+                    "`components` as a keyword argument is deprecated, please use `slots` instead"
+                )
+                slots = kwargs["components"]
         optional_features = []
 
         if kwargs:
@@ -458,8 +465,8 @@ class Schema(Record, CanCurate, TracksRun):
             dtype = get_type_str(dtype)
         if flexible is None:
             flexible = n_features < 0
-        components: dict[str, Schema]
-        if components:
+        slots: dict[str, Schema]
+        if slots:
             itype = "Composite"
             if otype is None:
                 raise InvalidArgument("Please pass otype != None for composite schemas")
@@ -482,8 +489,8 @@ class Schema(Record, CanCurate, TracksRun):
         }
         if coerce_dtype:
             validated_kwargs["_aux"] = {"af": {"0": coerce_dtype}}
-        if components:
-            hash = hash_set({component.hash for component in components.values()})
+        if slots:
+            hash = hash_set({component.hash for component in slots.values()})
         else:
             # we do not want pure informational annotations like otype, name, type, is_type, otype to be part of the hash
             hash_args = ["dtype", "itype", "minimal_set", "ordered_set", "maximal_set"]
@@ -509,17 +516,16 @@ class Schema(Record, CanCurate, TracksRun):
             update_attributes(self, validated_kwargs)
             self.optionals.set(optional_features)
             return None
-        self._components: dict[str, Schema] = {}
+        self._slots: dict[str, Schema] = {}
         if features:
             self._features = (get_related_name(features_registry), features)  # type: ignore
-        elif components:
-            for slot, component in components.items():
+        elif slots:
+            for slot_key, component in slots.items():
                 if component._state.adding:
                     raise InvalidArgument(
-                        f"component {slot} {component} must be saved before use"
+                        f"schema for {slot_key} {component} must be saved before use"
                     )
-            self._components = components
-            self._slots = components
+            self._slots = slots
         validated_kwargs["uid"] = ids.base62_20()
         super().__init__(**validated_kwargs)
         self.optionals.set(optional_features)
@@ -655,11 +661,11 @@ class Schema(Record, CanCurate, TracksRun):
         from .save import bulk_create
 
         super().save(*args, **kwargs)
-        if hasattr(self, "_components"):
+        if hasattr(self, "_slots"):
             # analogous to save_schema_links in core._data.py
             # which is called to save feature sets in artifact.save()
             links = []
-            for slot, component in self._components.items():
+            for slot, component in self._slots.items():
                 kwargs = {
                     "composite_id": self.id,
                     "component_id": component.id,
@@ -793,7 +799,7 @@ class Schema(Record, CanCurate, TracksRun):
                 anndata_schema = ln.Schema(
                     name="small_dataset1_anndata_schema",
                     otype="AnnData",
-                    components={"obs": obs_schema, "var": var_schema},
+                    slots={"obs": obs_schema, "var": var_schema},
                 ).save()
 
                 # access slots
