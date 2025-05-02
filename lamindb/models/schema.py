@@ -47,8 +47,6 @@ from .record import (
 from .run import Param, TracksRun, TracksUpdates
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-
     import pandas as pd
     from django.db.models.query_utils import DeferredAttribute
 
@@ -241,11 +239,8 @@ class Schema(Record, CanCurate, TracksRun):
     A schema can also merely define abstract constraints or instructions for dataset validation & annotation.
 
     Args:
-        features: `Iterable[Record] | None = None` An iterable of :class:`~lamindb.Feature`
-            records to hash, e.g., `[Feature(...), Feature(...)]`. Is turned into
-            a set upon instantiation. If you'd like to pass values, use
-            :meth:`~lamindb.Schema.from_values` or
-            :meth:`~lamindb.Schema.from_df`.
+        features: `list[Record] | list[tuple[Feature, dict]] | None = None` A list of feature
+            records, e.g., `[Feature(...), Feature(...)]` or features with their config, e.g., `[Feature(...).with_config(optional=True)]`.
         index: `Feature | None = None` A :class:`~lamindb.Feature` record to validate an index of a `DataFrame`.
         slots: `dict[str, Schema] | None = None` A dictionary mapping slot names to
             :class:`~lamindb.Schema` objects.
@@ -351,7 +346,7 @@ class Schema(Record, CanCurate, TracksRun):
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
     uid: str = CharField(editable=False, unique=True, db_index=True, max_length=20)
-    """A universal id (hash of the set of feature values)."""
+    """A universal id."""
     name: str | None = CharField(max_length=150, null=True, db_index=True)
     """A name."""
     description: str | None = CharField(null=True, db_index=True)
@@ -452,7 +447,7 @@ class Schema(Record, CanCurate, TracksRun):
     @overload
     def __init__(
         self,
-        features: Iterable[Record] | None = None,
+        features: list[Record] | list[tuple[Feature, dict]] | None = None,
         index: Feature | None = None,
         slots: dict[str, Schema] | None = None,
         name: str | None = None,
@@ -485,9 +480,7 @@ class Schema(Record, CanCurate, TracksRun):
         if len(args) > 1:
             raise ValueError("Only one non-keyword arg allowed: features")
 
-        features: Iterable[Record] | None = (
-            args[0] if args else kwargs.pop("features", [])
-        )
+        features: list[Record] | None = args[0] if args else kwargs.pop("features", [])
         index: Feature | None = kwargs.pop("index", None)
         slots: dict[str, Schema] = kwargs.pop("slots", {})
         name: str | None = kwargs.pop("name", None)
@@ -511,16 +504,83 @@ class Schema(Record, CanCurate, TracksRun):
                     "`components` as a keyword argument is deprecated, please use `slots` instead"
                 )
                 slots = kwargs["components"]
-        optional_features = []
-
         if kwargs:
             valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Schema)])
             raise FieldValidationError(
                 f"Only {valid_keywords} are valid keyword arguments"
             )
+        features, validated_kwargs, optional_features, features_registry, flexible = (
+            self._validate_kwargs_calculate_hash(
+                features=features,
+                index=index,
+                slots=slots,
+                name=name,
+                description=description,
+                itype=itype,
+                flexible=flexible,
+                type=type,
+                is_type=is_type,
+                otype=otype,
+                dtype=dtype,
+                minimal_set=minimal_set,
+                ordered_set=ordered_set,
+                maximal_set=maximal_set,
+                coerce_dtype=coerce_dtype,
+                n_features=n_features,
+            )
+        )
+        schema = (
+            Schema.objects.using(using)
+            .filter(hash=validated_kwargs["hash"])
+            .one_or_none()
+        )
+        if schema is not None:
+            logger.important(f"returning existing schema with same hash: {schema}")
+            init_self_from_db(self, schema)
+            update_attributes(self, validated_kwargs)
+            self.optionals.set(optional_features)
+            return None
+        self._slots: dict[str, Schema] = {}
+        if features:
+            self._features = (get_related_name(features_registry), features)  # type: ignore
+        elif slots:
+            for slot_key, component in slots.items():
+                if component._state.adding:
+                    raise InvalidArgument(
+                        f"schema for {slot_key} {component} must be saved before use"
+                    )
+            self._slots = slots
+        validated_kwargs["uid"] = ids.base62_20()
+        super().__init__(**validated_kwargs)
+        self.optionals.set(optional_features)
+        self.flexible = flexible
+        if index is not None:
+            self._index_feature_uid = index.uid
+
+    def _validate_kwargs_calculate_hash(
+        self,
+        features: list[Record],
+        index: Feature | None,
+        slots: dict[str, Schema],
+        name: str | None,
+        description: str | None,
+        itype: str | Record | DeferredAttribute | None,
+        flexible: bool | None,
+        type: Feature | None,
+        is_type: bool,
+        otype: str | None,
+        dtype: str | None,
+        minimal_set: bool,
+        ordered_set: bool,
+        maximal_set: bool,
+        coerce_dtype: bool | None,
+        n_features: int | None,
+    ) -> tuple[list[Feature], dict[str, Any], list[Feature], Registry, bool]:
         optional_features = []
+        features_registry: Registry = None
         if itype is not None:
-            itype = serialize_dtype(itype, is_itype=True)
+            if itype != "Composite":
+                itype = serialize_dtype(itype, is_itype=True)
         if index is not None:
             if not isinstance(index, Feature):
                 raise TypeError("index must be a Feature")
@@ -533,7 +593,9 @@ class Schema(Record, CanCurate, TracksRun):
                 assert itype.startswith(itype_compare), str(itype_compare)  # noqa: S101
             else:
                 itype = itype_compare
-            assert n_features is None, "do not pass `n` if features are passed"  # noqa: S101
+            if n_features is not None:
+                if n_features != len(features):
+                    logger.important(f"updating to n {len(features)} features")
             n_features = len(features)
             if features_registry == Feature:
                 optional_features = [
@@ -547,7 +609,6 @@ class Schema(Record, CanCurate, TracksRun):
             dtype = get_type_str(dtype)
         if flexible is None:
             flexible = n_features < 0
-        slots: dict[str, Schema]
         if slots:
             itype = "Composite"
             if otype is None:
@@ -572,7 +633,7 @@ class Schema(Record, CanCurate, TracksRun):
         if coerce_dtype:
             validated_kwargs["_aux"] = {"af": {"0": coerce_dtype}}
         if slots:
-            hash = hash_set({component.hash for component in slots.values()})
+            schema_hash = hash_set({component.hash for component in slots.values()})
         else:
             # we do not want pure informational annotations like otype, name, type, is_type, otype to be part of the hash
             hash_args = ["dtype", "itype", "minimal_set", "ordered_set", "maximal_set"]
@@ -589,31 +650,15 @@ class Schema(Record, CanCurate, TracksRun):
                 union_set = union_set.union(
                     {f"optional:{feature.uid}" for feature in optional_features}
                 )
-            hash = hash_set(union_set)
-        validated_kwargs["hash"] = hash
-        schema = Schema.objects.using(using).filter(hash=hash).one_or_none()
-        if schema is not None:
-            logger.important(f"returning existing schema with same hash: {schema}")
-            init_self_from_db(self, schema)
-            update_attributes(self, validated_kwargs)
-            self.optionals.set(optional_features)
-            return None
-        self._slots: dict[str, Schema] = {}
-        if features:
-            self._features = (get_related_name(features_registry), features)  # type: ignore
-        elif slots:
-            for slot_key, component in slots.items():
-                if component._state.adding:
-                    raise InvalidArgument(
-                        f"schema for {slot_key} {component} must be saved before use"
-                    )
-            self._slots = slots
-        validated_kwargs["uid"] = ids.base62_20()
-        super().__init__(**validated_kwargs)
-        self.optionals.set(optional_features)
-        self.flexible = flexible
-        if index is not None:
-            self._index_feature_uid = index.uid
+            schema_hash = hash_set(union_set)
+        validated_kwargs["hash"] = schema_hash
+        return (
+            features,
+            validated_kwargs,
+            optional_features,
+            features_registry,
+            flexible,
+        )
 
     @classmethod
     def from_values(  # type: ignore
@@ -718,7 +763,7 @@ class Schema(Record, CanCurate, TracksRun):
                 df.columns, field=field, organism=organism
             )
             schema = Schema(
-                validated_features, name=name, dtype=None, otype="DataFrame"
+                list(validated_features), name=name, dtype=None, otype="DataFrame"
             )
         else:
             dtypes = [col.dtype for (_, col) in df.loc[:, validated].items()]
@@ -732,7 +777,7 @@ class Schema(Record, CanCurate, TracksRun):
                 source=source,
             )
             schema = Schema(
-                features=validated_features,
+                features=list(validated_features),
                 name=name,
                 dtype=get_type_str(dtype),
             )
@@ -742,6 +787,40 @@ class Schema(Record, CanCurate, TracksRun):
         """Save."""
         from .save import bulk_create
 
+        if not self._state.adding:
+            features = (
+                self._features[1]
+                if hasattr(self, "_features")
+                else (self.members.list() if self.members.exists() else [])
+            )
+            _, validated_kwargs, _, _, _ = self._validate_kwargs_calculate_hash(
+                features=features,
+                index=None,  # need to pass None here as otherwise counting double
+                slots=self._slots if hasattr(self, "_slots") else self.slots,
+                name=self.name,
+                description=self.description,
+                itype=self.itype,
+                flexible=self.flexible,
+                type=self.type,
+                is_type=self.is_type,
+                otype=self.otype,
+                dtype=self.dtype,
+                minimal_set=self.minimal_set,
+                ordered_set=self.ordered_set,
+                maximal_set=self.maximal_set,
+                coerce_dtype=self.coerce_dtype,
+                n_features=self.n,
+            )
+            if validated_kwargs["hash"] != self.hash:
+                from .artifact import Artifact
+
+                datasets = Artifact.filter(schema=self).all()
+                if datasets.exists():
+                    logger.warning(
+                        f"you updated the schema hash and might invalidate datasets that were previously validated with this schema: {datasets.list('uid')}"
+                    )
+                self.hash = validated_kwargs["hash"]
+                self.n = validated_kwargs["n"]
         super().save(*args, **kwargs)
         if hasattr(self, "_slots"):
             # analogous to save_schema_links in core._data.py
@@ -776,6 +855,7 @@ class Schema(Record, CanCurate, TracksRun):
                 for record in records
             ]
             through_model.objects.using(using).bulk_create(links, ignore_conflicts=True)
+            delattr(self, "_features")
         return self
 
     @property
@@ -785,6 +865,8 @@ class Schema(Record, CanCurate, TracksRun):
             # this should return a queryset and not a list...
             # need to fix this
             return self._features[1]
+        if self.itype == "Composite":
+            return Feature.objects.none()
         related_name = self._get_related_name()
         if related_name is None:
             related_name = "features"

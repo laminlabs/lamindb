@@ -143,7 +143,7 @@ def parse_cat_dtype(
 
 
 def serialize_dtype(
-    dtype: Registry | Record | FieldAttr | list[Record] | list[Registry],
+    dtype: Registry | Record | FieldAttr | list[Record] | list[Registry] | str,
     is_itype: bool = False,
 ) -> str:
     """Converts a data type object into its string representation."""
@@ -157,6 +157,12 @@ def serialize_dtype(
         dtype_str = dtype.__name__
     elif dtype is dict:
         dtype_str = "dict"
+    elif is_itype and isinstance(dtype, str):
+        if dtype not in "Feature":
+            parse_cat_dtype(
+                dtype_str=dtype, is_itype=True
+            )  # throws an error if invalid
+        dtype_str = dtype
     elif isinstance(dtype, (ExtensionDtype, np.dtype)):
         dtype_str = serialize_pandas_dtype(dtype)
     else:
