@@ -1,20 +1,23 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Literal
 
 from anndata._io.specs.registry import get_spec
 
 from ._anndata_accessor import AnnDataAccessor, StorageType, registry
+from ._polars_lazy_df import POLARS_SUFFIXES, _open_polars_lazy_df
 from ._pyarrow_dataset import PYARROW_SUFFIXES, _open_pyarrow_dataset
 from ._tiledbsoma import _open_tiledbsoma
 from .paths import filepath_from_artifact
 
 if TYPE_CHECKING:
+    from collection.abc import Iterator
     from fsspec.core import OpenFile
     from pyarrow.dataset import Dataset as PyArrowDataset
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
+    from tiledbsoma import Measurement as SOMAMeasurement
     from upath import UPath
 
     from lamindb.models.artifact import Artifact
@@ -69,10 +72,17 @@ class BackedAccessor:
 def backed_access(
     artifact_or_filepath: Artifact | UPath,
     mode: str = "r",
+    df_engine: Literal["pyarrow", "polars"] = "pyarrow",
     using_key: str | None = None,
     **kwargs,
 ) -> (
-    AnnDataAccessor | BackedAccessor | SOMACollection | SOMAExperiment | PyArrowDataset
+    AnnDataAccessor
+    | BackedAccessor
+    | SOMACollection
+    | SOMAExperiment
+    | SOMAMeasurement
+    | PyArrowDataset
+    | Iterator
 ):
     from lamindb.models import Artifact
 
@@ -97,12 +107,30 @@ def backed_access(
         conn, storage = registry.open("h5py", objectpath, mode=mode, **kwargs)
     elif suffix == ".zarr":
         conn, storage = registry.open("zarr", objectpath, mode=mode, **kwargs)
-    elif _df_storage_suffix(objectpath) in PYARROW_SUFFIXES:
-        return _open_pyarrow_dataset(objectpath, **kwargs)
+    elif (df_suffix := _df_storage_suffix(objectpath)) in set(PYARROW_SUFFIXES).union(
+        POLARS_SUFFIXES
+    ):
+        if df_engine == "pyarrow":
+            if df_suffix not in PYARROW_SUFFIXES:
+                raise ValueError(
+                    f"{df_suffix} files are not supported by pyarrow, try with df_engine='polars'."
+                )
+            return _open_pyarrow_dataset(objectpath, **kwargs)
+        elif df_engine == "polars":
+            if df_suffix not in POLARS_SUFFIXES:
+                raise ValueError(
+                    f"{df_suffix} files are not supported by polars, try with df_engine='pyarrow'."
+                )
+            return _open_polars_lazy_df(objectpath, **kwargs)
+        else:
+            raise ValueError(
+                f"Unknown df_engine: {df_engine}. It should be 'pyarrow' or 'polars'."
+            )
     else:
         raise ValueError(
             "The object should have .h5, .hdf5, .h5ad, .zarr, .tiledbsoma suffix "
-            f"or be compatible with pyarrow.dataset.dataset, instead of being {suffix} object."
+            f"be compatible with pyarrow.dataset.dataset or polars.scan_* functions, "
+            f"instead of being {suffix} object."
         )
 
     is_anndata = suffix == ".h5ad" or get_spec(storage).encoding_type == "anndata"

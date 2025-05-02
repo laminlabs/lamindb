@@ -12,8 +12,12 @@ def _open_polars_lazy_df(paths: UPath | list[UPath], **kwargs):
     except ImportError as ie:
         raise ImportError("Please install polars: pip install polars") from ie
 
-    if isinstance(paths, UPath):
-        paths = [paths]
+    if isinstance(paths, list):
+        path_list = paths
+    elif paths.is_dir():
+        path_list = [path for path in paths.rglob("*") if path.suffix != ""]
+    else:
+        path_list = [paths]
 
     scans = {
         ".parquet": pl.scan_parquet,
@@ -25,10 +29,10 @@ def _open_polars_lazy_df(paths: UPath | list[UPath], **kwargs):
     open_files = []
 
     try:
-        for path in paths:
+        for path in path_list:
             open_files.append(path.open(mode="rb"))
 
-        yield scans[paths[0].suffix](open_files, **kwargs)
+        yield scans[path_list[0].suffix](open_files, **kwargs)
     finally:
         for open_file in open_files:
             open_file.close()
