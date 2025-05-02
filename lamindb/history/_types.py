@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Optional
 
 
 @dataclass
@@ -24,9 +24,11 @@ class KeyConstraint:
     target_table: str
 
 
-# Record UIDs are a mapping from table name to a list of column names.
-# When we actually store history, we'll store table IDs instead of names.
-# For most tables, record UIDs will look like {<table's ID>: [list of table's
-# UID columns]}. For many-to-many tables, the record's UID will be a mapping
-# of the linked tables' IDs to their respective UID columns.
-UIDColumns = dict[str, list[str]]
+@dataclass
+class TableUID:
+    source_table_name: str
+    uid_columns: list[str]
+    key_constraint: Optional[KeyConstraint]
+
+
+UIDColumns = list[TableUID]

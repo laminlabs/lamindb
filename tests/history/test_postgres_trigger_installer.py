@@ -13,6 +13,7 @@ from lamindb.history._trigger_installer import (
     HistoryEventTypes,
     PostgresHistoryRecordingTriggerInstaller,
 )
+from lamindb.history._types import TableUID, UIDColumns
 from lamindb.models.history import History, HistoryMigrationState, HistoryTableState
 from typing_extensions import override
 
@@ -30,6 +31,7 @@ class FakeMetadataWrapper(PostgresDatabaseMetadataWrapper):
         self._tables_with_triggers = set()
         self._db_tables = set()
         self._many_to_many_tables = set()
+        self._uid_columns: dict[str, UIDColumns] = {}
 
     @override
     def get_tables_with_installed_triggers(self, cursor: CursorWrapper) -> set[str]:
@@ -51,6 +53,16 @@ class FakeMetadataWrapper(PostgresDatabaseMetadataWrapper):
 
     def set_many_to_many_db_tables(self, tables: set[str]):
         self._many_to_many_tables = tables
+
+    @override
+    def get_uid_columns(self, table: str, cursor: CursorWrapper) -> UIDColumns:
+        if table in self._uid_columns:
+            return self._uid_columns[table]
+        else:
+            return super().get_uid_columns(table, cursor)
+
+    def set_uid_columns(self, table: str, uid_columns: UIDColumns):
+        self._uid_columns[table] = uid_columns
 
 
 def fetch_row_id_by_uid(
@@ -300,7 +312,9 @@ CREATE TABLE IF NOT EXISTS history_table_test_a
 
 
 def _update_history_triggers(
-    table_list: set[str], many_to_many_tables: set[str] | None = None
+    table_list: set[str],
+    many_to_many_tables: set[str] | None = None,
+    uid_columns: dict[str, UIDColumns] | None = None,
 ):
     fake_db_metadata = FakeMetadataWrapper()
     fake_db_metadata.set_db_tables(table_list)
@@ -308,6 +322,10 @@ def _update_history_triggers(
 
     if many_to_many_tables is not None:
         fake_db_metadata.set_many_to_many_db_tables(many_to_many_tables)
+
+    if uid_columns is not None:
+        for table, uid_columns_for_table in uid_columns.items():
+            fake_db_metadata.set_uid_columns(table, uid_columns_for_table)
 
     installer = PostgresHistoryRecordingTriggerInstaller(
         connection=django_connection, db_metadata=fake_db_metadata
@@ -738,11 +756,300 @@ def test_triggers_with_many_to_many_tables(
     assert history[4].event_type == HistoryEventTypes.DELETE.value
 
 
-@pytest.mark.pg_integration
-def test_triggers_with_compound_table_uid():
-    pass
+@pytest.fixture(scope="function")
+def compound_uid_table() -> Generator[str, None, None]:
+    cursor = django_connection.cursor()
+
+    cursor.execute("""
+CREATE TABLE IF NOT EXISTS compound_uid_test
+(
+    id SERIAL PRIMARY KEY,
+    uid_1 VARCHAR(8),
+    uid_2 VARCHAR(8)
+);
+""")
+
+    yield "compound_uid_test"
+
+    cursor.execute("DROP TABLE IF EXISTS compound_uid_test")
+
+
+@pytest.fixture(scope="function")
+def compound_uid_child(compound_uid_table) -> Generator[str, None, None]:
+    cursor = django_connection.cursor()
+
+    cursor.execute(f"""
+CREATE TABLE IF NOT EXISTS compound_uid_child_test
+(
+    id SERIAL PRIMARY KEY,
+    uid VARCHAR(8),
+    parent_id INT,
+    CONSTRAINT fk FOREIGN KEY(parent_id) REFERENCES {compound_uid_table} (id)
+);
+""")
+
+    yield "compound_uid_child_test"
+
+    cursor.execute("DROP TABLE IF EXISTS compound_uid_child_test")
 
 
 @pytest.mark.pg_integration
-def test_triggers_with_foreign_key_to_compound_table_uid():
-    pass
+def test_triggers_with_compound_table_uid(compound_uid_table, compound_uid_child):
+    _update_history_triggers(
+        table_list={compound_uid_table, compound_uid_child},
+        uid_columns={
+            compound_uid_table: [
+                TableUID(
+                    source_table_name=compound_uid_table,
+                    uid_columns=["uid_1", "uid_2"],
+                    key_constraint=None,
+                )
+            ]
+        },
+    )
+
+    cursor = django_connection.cursor()
+
+    cursor.execute(
+        f"INSERT INTO {compound_uid_table} (uid_1, uid_2) "  # noqa: S608
+        "VALUES ('badf00d', 'dadb0d')"
+    )
+
+    row_id = fetch_row_id_by_uid(
+        table=compound_uid_table,
+        id_columns=["id"],
+        uid_columns={"uid_1": "badf00d", "uid_2": "dadb0d"},
+        cursor=cursor,
+    )[0]
+
+    cursor.execute(
+        f"INSERT INTO {compound_uid_child} (uid, parent_id) VALUES ('abc123', {row_id})"  # noqa: S608
+    )
+
+    cursor.execute(
+        f"INSERT INTO {compound_uid_child} (uid, parent_id) VALUES ('def456', NULL)"  # noqa: S608
+    )
+
+    cursor.execute(f"DELETE FROM {compound_uid_child} WHERE uid = 'abc123'")  # noqa: S608
+    cursor.execute(
+        f"DELETE FROM {compound_uid_table} WHERE uid_1 = 'badf00d' AND uid_2 = 'dadb0d'"  # noqa: S608
+    )
+
+    history = History.objects.all().order_by("seqno")
+
+    assert len(history) == 5
+
+    assert history[0].table.table_name == compound_uid_table
+    assert history[0].record_uid == ["badf00d", "dadb0d"]
+    assert history[0].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [],
+    }
+    assert history[0].event_type == HistoryEventTypes.INSERT.value
+
+    assert history[1].table.table_name == compound_uid_child
+    assert history[1].record_uid == ["abc123"]
+    assert history[1].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [
+                history[0].table.id,
+                ["parent_id"],
+                {"uid_1": "badf00d", "uid_2": "dadb0d"},
+            ]
+        ],
+    }
+    assert history[1].event_type == HistoryEventTypes.INSERT.value
+
+    assert history[2].table.table_name == compound_uid_child
+    assert history[2].record_uid == ["def456"]
+    assert history[2].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [history[0].table.id, ["parent_id"], {"uid_1": None, "uid_2": None}]
+        ],
+    }
+    assert history[2].event_type == HistoryEventTypes.INSERT.value
+
+    assert history[3].table.table_name == compound_uid_child
+    assert history[3].record_uid == ["abc123"]
+    assert history[3].record_data is None
+    assert history[3].event_type == HistoryEventTypes.DELETE.value
+
+    assert history[4].table.table_name == compound_uid_table
+    assert history[4].record_uid == ["badf00d", "dadb0d"]
+    assert history[4].record_data is None
+    assert history[4].event_type == HistoryEventTypes.DELETE.value
+
+
+@pytest.fixture(scope="function")
+def compound_uid_many_to_many(compound_uid_table) -> Generator[str, None, None]:
+    cursor = django_connection.cursor()
+
+    cursor.execute(f"""
+CREATE TABLE IF NOT EXISTS compound_uid_many_to_many_test
+(
+    id SERIAL PRIMARY KEY,
+    table_a_id INT,
+    table_b_id INT,
+    CONSTRAINT fk_a FOREIGN KEY(table_a_id) REFERENCES {compound_uid_table} (id),
+    CONSTRAINT fk_b FOREIGN KEY(table_b_id) REFERENCES {compound_uid_table} (id)
+
+);
+""")
+
+    yield "compound_uid_many_to_many_test"
+
+    cursor.execute("DROP TABLE IF EXISTS compound_uid_many_to_many_test")
+
+
+@pytest.mark.pg_integration
+def test_triggers_many_to_many_to_compound_uid_with_self_links(
+    compound_uid_table, compound_uid_many_to_many
+):
+    _update_history_triggers(
+        table_list={compound_uid_table, compound_uid_many_to_many},
+        many_to_many_tables={compound_uid_many_to_many},
+        uid_columns={
+            compound_uid_table: [
+                TableUID(
+                    source_table_name=compound_uid_table,
+                    uid_columns=["uid_1", "uid_2"],
+                    key_constraint=None,
+                )
+            ]
+        },
+    )
+
+    cursor = django_connection.cursor()
+
+    cursor.execute(
+        f"INSERT INTO {compound_uid_table} (uid_1, uid_2) "  # noqa: S608
+        "VALUES ('rec1_1', 'rec1_2')"
+    )
+
+    cursor.execute(
+        f"INSERT INTO {compound_uid_table} (uid_1, uid_2) "  # noqa: S608
+        "VALUES ('rec2_1', 'rec2_2')"
+    )
+
+    rec_1_id = fetch_row_id_by_uid(
+        table=compound_uid_table,
+        id_columns=["id"],
+        uid_columns={"uid_1": "rec1_1", "uid_2": "rec1_2"},
+        cursor=cursor,
+    )[0]
+    rec_2_id = fetch_row_id_by_uid(
+        table=compound_uid_table,
+        id_columns=["id"],
+        uid_columns={"uid_1": "rec2_1", "uid_2": "rec2_2"},
+        cursor=cursor,
+    )[0]
+
+    cursor.execute(
+        f"INSERT INTO {compound_uid_many_to_many} (table_a_id, table_b_id) VALUES ({rec_1_id}, {rec_2_id})"  # noqa: S608
+    )
+    cursor.execute(
+        f"INSERT INTO {compound_uid_many_to_many} (table_a_id, table_b_id) VALUES (NULL, {rec_1_id})"  # noqa: S608
+    )
+    cursor.execute(
+        f"INSERT INTO {compound_uid_many_to_many} (table_a_id, table_b_id) VALUES ({rec_2_id}, NULL)"  # noqa: S608
+    )
+    cursor.execute(
+        f"INSERT INTO {compound_uid_many_to_many} (table_a_id, table_b_id) VALUES (NULL, NULL)"  # noqa: S608
+    )
+
+    cursor.execute(
+        f"DELETE FROM {compound_uid_many_to_many} WHERE table_a_id = {rec_1_id} AND table_b_id = {rec_2_id}"  # noqa: S608
+    )
+
+    history = History.objects.all().order_by("seqno")
+
+    assert len(history) == 7
+
+    assert history[0].table.table_name == compound_uid_table
+    assert history[0].record_uid == ["rec1_1", "rec1_2"]
+    assert history[0].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [],
+    }
+    assert history[0].event_type == HistoryEventTypes.INSERT.value
+
+    assert history[1].table.table_name == compound_uid_table
+    assert history[1].record_uid == ["rec2_1", "rec2_2"]
+    assert history[1].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [],
+    }
+    assert history[1].event_type == HistoryEventTypes.INSERT.value
+
+    assert history[2].table.table_name == compound_uid_many_to_many
+    assert history[2].record_uid == [
+        [history[0].table.id, ["table_a_id"], {"uid_1": "rec1_1", "uid_2": "rec1_2"}],
+        [history[0].table.id, ["table_b_id"], {"uid_1": "rec2_1", "uid_2": "rec2_2"}],
+    ]
+    assert history[2].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [
+                history[0].table.id,
+                ["table_a_id"],
+                {"uid_1": "rec1_1", "uid_2": "rec1_2"},
+            ],
+            [
+                history[0].table.id,
+                ["table_b_id"],
+                {"uid_1": "rec2_1", "uid_2": "rec2_2"},
+            ],
+        ]
+    }
+    assert history[2].event_type == HistoryEventTypes.INSERT.value
+
+    assert history[3].table.table_name == compound_uid_many_to_many
+    assert history[3].record_uid == [
+        [history[0].table.id, ["table_a_id"], {"uid_1": None, "uid_2": None}],
+        [history[0].table.id, ["table_b_id"], {"uid_1": "rec1_1", "uid_2": "rec1_2"}],
+    ]
+    assert history[3].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [history[0].table.id, ["table_a_id"], {"uid_1": None, "uid_2": None}],
+            [
+                history[0].table.id,
+                ["table_b_id"],
+                {"uid_1": "rec1_1", "uid_2": "rec1_2"},
+            ],
+        ]
+    }
+    assert history[3].event_type == HistoryEventTypes.INSERT.value
+
+    assert history[4].table.table_name == compound_uid_many_to_many
+    assert history[4].record_uid == [
+        [history[0].table.id, ["table_a_id"], {"uid_1": "rec2_1", "uid_2": "rec2_2"}],
+        [history[0].table.id, ["table_b_id"], {"uid_1": None, "uid_2": None}],
+    ]
+    assert history[4].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [
+                history[0].table.id,
+                ["table_a_id"],
+                {"uid_1": "rec2_1", "uid_2": "rec2_2"},
+            ],
+            [history[0].table.id, ["table_b_id"], {"uid_1": None, "uid_2": None}],
+        ]
+    }
+    assert history[4].event_type == HistoryEventTypes.INSERT.value
+
+    assert history[5].table.table_name == compound_uid_many_to_many
+    assert history[5].record_uid == [
+        [history[0].table.id, ["table_a_id"], {"uid_1": None, "uid_2": None}],
+        [history[0].table.id, ["table_b_id"], {"uid_1": None, "uid_2": None}],
+    ]
+    assert history[5].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [history[0].table.id, ["table_a_id"], {"uid_1": None, "uid_2": None}],
+            [history[0].table.id, ["table_b_id"], {"uid_1": None, "uid_2": None}],
+        ]
+    }
+    assert history[5].event_type == HistoryEventTypes.INSERT.value
+
+    assert history[6].table.table_name == compound_uid_many_to_many
+    assert history[6].record_uid == [
+        [history[0].table.id, ["table_a_id"], {"uid_1": "rec1_1", "uid_2": "rec1_2"}],
+        [history[0].table.id, ["table_b_id"], {"uid_1": "rec2_1", "uid_2": "rec2_2"}],
+    ]
+    assert history[6].record_data is None
+    assert history[6].event_type == HistoryEventTypes.DELETE.value

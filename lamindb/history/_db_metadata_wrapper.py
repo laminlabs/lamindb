@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
+from copy import deepcopy
 
 from django.apps import apps
 from django.db.backends.utils import CursorWrapper
 from django.db.models import ManyToManyField
 from typing_extensions import override
 
-from ._types import KeyConstraint, UIDColumns
+from ._types import KeyConstraint, TableUID, UIDColumns
 
 
 class DatabaseMetadataWrapper(ABC):
@@ -70,20 +71,32 @@ class DatabaseMetadataWrapper(ABC):
         """Get the UID columns for a given table."""
         if table in ("lamindb_paramvalue", "lamindb_featurevalue"):
             # Param and feature values should be uniquely identifiable by their value and hash
-            return {table: ["value", "created_at"]}
+            return [
+                TableUID(
+                    source_table_name=table,
+                    uid_columns=["value", "created_at"],
+                    key_constraint=None,
+                )
+            ]
         else:
             column_names = self.get_column_names(table, cursor)
 
             # If the table has a 'uid' column, use that
             if "uid" in column_names:
-                return {table: ["uid"]}
+                return [
+                    TableUID(
+                        source_table_name=table,
+                        uid_columns=["uid"],
+                        key_constraint=None,
+                    )
+                ]
 
             # Many-to-many tables are defined by the UIDs of the records pointed to by their
             # foreign-key constraints.
 
             many_to_many_tables = self.get_many_to_many_db_tables()
 
-            uid_columns = {}
+            uid_columns: UIDColumns = []
 
             if table in many_to_many_tables:
                 _, foreign_key_constraints = self.get_table_key_constraints(
@@ -95,7 +108,16 @@ class DatabaseMetadataWrapper(ABC):
                         table=constraint.target_table, cursor=cursor
                     )
 
-                    uid_columns.update(constraint_uid_columns)
+                    if len(constraint_uid_columns) > 1:
+                        raise ValueError(
+                            "Many-to-many tables that reference other many-to-many tables aren't supported. "
+                            f"'{table}' references '{constraint.target_table}', and both are many-to-many"
+                        )
+
+                    table_uid_for_constraint = deepcopy(constraint_uid_columns[0])
+                    table_uid_for_constraint.key_constraint = constraint
+
+                    uid_columns.append(table_uid_for_constraint)
 
                 return uid_columns
 

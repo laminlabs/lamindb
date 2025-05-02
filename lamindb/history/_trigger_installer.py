@@ -171,6 +171,8 @@ class PostgresTriggerBuilder:
         self._variables: dict[str, tuple[str, str | None]] = {}
         self._variable_order: list[str] = []
 
+        self._record_uid: dict[bool, str] = {}
+
     def declare_variable(self, name: str, type: str, declaration: str | None = None):
         if name not in self._variables:
             self._variables[name] = (type, declaration)
@@ -208,11 +210,26 @@ class PostgresTriggerBuilder:
         return f"jsonb_build_object({', '.join(str(x) for x in parts)})"
 
     def _build_record_uid(self, is_delete: bool) -> str:
-        uid_columns: UIDColumns = self.db_metadata.get_uid_columns(
+        # Cache record UID computation
+        if is_delete not in self._record_uid:
+            self._record_uid[is_delete] = self._build_record_uid_inner(is_delete)
+
+        return self._record_uid[is_delete]
+
+    def _build_record_uid_inner(self, is_delete: bool) -> str:
+        uid_columns_list: UIDColumns = self.db_metadata.get_uid_columns(
             table=self.table, cursor=self.cursor
         )
 
-        if len(uid_columns) == 1:
+        if len(uid_columns_list) == 1:
+            table_uid = uid_columns_list[0]
+
+            if table_uid.source_table_name != self.table:
+                raise ValueError(
+                    f"Expected UID column for standard table {self.table} "
+                    f"to refer to its own columns, but it refers to those of table {table_uid.source_table_name}"
+                )
+
             # This table's UID is determined solely by its own columns
             if is_delete:
                 table_name_in_trigger = "OLD"
@@ -222,7 +239,7 @@ class PostgresTriggerBuilder:
             return self._build_jsonb_array(
                 [
                     f"{table_name_in_trigger}.{column}"
-                    for column in uid_columns[self.table]
+                    for column in table_uid.uid_columns
                 ]
             )
         else:
@@ -232,22 +249,21 @@ class PostgresTriggerBuilder:
             # [foreign table ID, list of columns for the foreign key constraint, UID fields for the foreign-keyed table].
             record_uid: list[str] = []
 
-            _, foreign_key_constraints = self.db_metadata.get_table_key_constraints(
-                table=self.table, cursor=self.cursor
-            )
+            for table_uid in uid_columns_list:
+                table_id_var = self.add_table_id_variable(table_uid.source_table_name)
 
-            constraints_by_target_table = {
-                c.target_table: c for c in foreign_key_constraints
-            }
+                foreign_key_constraint = table_uid.key_constraint
 
-            for fkey_table_name in uid_columns.keys():
-                table_id_var = self.add_table_id_variable(fkey_table_name)
-
-                foreign_key_constraint = constraints_by_target_table[fkey_table_name]
+                if foreign_key_constraint is None:
+                    raise ValueError(
+                        f"Expected UID for '{self.table}'s referent '{table_uid.source_table_name}' to "
+                        "have an associated key constraint, but it didn't"
+                    )
 
                 fkey_uid_lookup_variable = self.add_foreign_key_uid_lookup_variable(
                     foreign_key_constraint=foreign_key_constraint, is_delete=is_delete
                 )
+
                 record_uid.append(
                     self._build_jsonb_array(
                         [
@@ -267,7 +283,7 @@ class PostgresTriggerBuilder:
 
     def _build_record_data(self) -> str:
         table_columns = self.db_metadata.get_column_names(self.table, self.cursor)
-        uid_columns = self.db_metadata.get_uid_columns(self.table, self.cursor)
+        uid_columns_list = self.db_metadata.get_uid_columns(self.table, self.cursor)
         primary_key, foreign_key_constraints = (
             self.db_metadata.get_table_key_constraints(self.table, self.cursor)
         )
@@ -294,8 +310,9 @@ class PostgresTriggerBuilder:
 
         # Since we're recording the record's UID, we don't need to store the UID columns in the
         # data object as well.
-        if self.table in uid_columns:
-            non_key_columns.difference_update(uid_columns[self.table])
+        if len(uid_columns_list) == 1:
+            table_uid = uid_columns_list[0]
+            non_key_columns.difference_update(table_uid.uid_columns)
 
         record_data: dict[str | int, Any] = {}
 
@@ -387,18 +404,18 @@ class PostgresTriggerBuilder:
     ) -> str:
         source_record = "OLD" if is_delete else "NEW"
 
-        uid_column_map = self.db_metadata.get_uid_columns(
+        uid_column_list = self.db_metadata.get_uid_columns(
             table=foreign_key_constraint.target_table, cursor=self.cursor
         )
 
-        if len(uid_column_map) > 1:
+        if len(uid_column_list) > 1:
             raise ValueError(
-                f"Table {self.table} has a foreign-key relationship "
-                f"with {foreign_key_constraint}, which appears to be a "
+                f"Table '{self.table}' has a foreign-key relationship "
+                f"with '{foreign_key_constraint.target_table}', which appears to be a "
                 "many-to-many table. This is not currently supported."
             )
 
-        uid_columns = list(uid_column_map.values())[0]
+        table_uid = uid_column_list[0]
 
         where_clause = " AND ".join(
             f"{target_col} = {source_record}.{source_col}"
@@ -418,11 +435,11 @@ class PostgresTriggerBuilder:
             f"""
 coalesce(
     (
-        SELECT {self._build_jsonb_object({c: c for c in uid_columns})}
+        SELECT {self._build_jsonb_object({c: c for c in table_uid.uid_columns})}
         FROM {foreign_key_constraint.target_table}
         WHERE {where_clause}
     ),
-    {self._build_jsonb_object(dict.fromkeys(uid_columns, "NULL"))}
+    {self._build_jsonb_object(dict.fromkeys(table_uid.uid_columns, "NULL"))}
 )
 """,  # noqa: S608
         )
