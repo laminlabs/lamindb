@@ -1,9 +1,9 @@
 import lamindb as ln
 
-schema = ln.schemas.dataframe.valid_features()
-
-# curate a DataFrame
+ln.core.datasets.mini_immuno.define_features_labels()
 df = ln.core.datasets.small_dataset1(otype="DataFrame")
-curator = ln.curators.DataFrameCurator(df, schema)
-artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
-assert artifact.schema == schema
+schema = ln.schemas.dataframe.valid_features()
+artifact = ln.Artifact.from_df(
+    df, key="example_datasets/dataset1.parquet", schema=schema
+).save()
+artifact.describe()

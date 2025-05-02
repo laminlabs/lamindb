@@ -1350,19 +1350,20 @@ def annotate_artifact(
     # annotate with inferred schemas aka feature sets
     if artifact.otype == "DataFrame":
         features = cat_vectors["columns"].records
-        feature_set = Schema(features=features)
-        if (
-            feature_set._state.adding
-            and len(features) > settings.annotation.n_max_records
-        ):
-            logger.important(
-                f"not annotating with {len(features)} features as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
+        if features is not None:
+            feature_set = Schema(features=features)
+            if (
+                feature_set._state.adding
+                and len(features) > settings.annotation.n_max_records
+            ):
+                logger.important(
+                    f"not annotating with {len(features)} features as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
+                )
+                itype = parse_cat_dtype(artifact.schema.itype, is_itype=True)["field"]
+                feature_set = Schema(itype=itype, n=len(features))
+            artifact.feature_sets.add(
+                feature_set.save(), through_defaults={"slot": "columns"}
             )
-            itype = parse_cat_dtype(artifact.schema.itype, is_itype=True)["field"]
-            feature_set = Schema(itype=itype, n=len(features))
-        artifact.feature_sets.add(
-            feature_set.save(), through_defaults={"slot": "columns"}
-        )
     else:
         for slot, slot_curator in curator._slots.items():
             # var_index is backward compat (2025-05-01)
