@@ -24,6 +24,18 @@ class HistoryEventTypes(enum.Enum):
     DELETE = 2
 
 
+class DjangoMigration(models.Model):
+    """This model class allows us to access the migrations table using normal Django syntax."""
+
+    app = models.CharField(max_length=255)
+    name = models.CharField(max_length=255)
+    applied = models.DateTimeField()
+
+    class Meta:
+        managed = False  # Tell Django not to manage this table
+        db_table = "django_migrations"  # Specify the actual table name
+
+
 FOREIGN_KEYS_LIST_COLUMN_NAME = "_lamin_fks"
 
 RESERVED_COLUMNS: tuple[str] = (FOREIGN_KEYS_LIST_COLUMN_NAME,)
@@ -82,15 +94,6 @@ class HistoryRecordingTriggerInstaller(ABC):
         HistoryTableState.objects.bulk_create(table_states_to_add)
 
     def _update_migration_state(self, cursor: CursorWrapper):
-        class DjangoMigration(models.Model):
-            app = models.CharField(max_length=255)
-            name = models.CharField(max_length=255)
-            applied = models.DateTimeField()
-
-            class Meta:
-                managed = False  # Tell Django not to manage this table
-                db_table = "django_migrations"  # Specify the actual table name
-
         app_migrations = {}
 
         for app in DjangoMigration.objects.values_list("app", flat=True).distinct():
@@ -190,11 +193,13 @@ class PostgresTriggerBuilder:
     def _build_jsonb_array(self, items: list[str]) -> str:
         return f"jsonb_build_array({', '.join(items)})"
 
-    def _build_jsonb_object(self, obj: dict[str | int, Any]) -> str:
+    def _build_jsonb_object(
+        self, obj: dict[str | int, Any], escape_keys: bool = True
+    ) -> str:
         parts = []
 
         for key, value in obj.items():
-            if not isinstance(key, int):
+            if escape_keys and not isinstance(key, int):
                 key = f"'{key}'"
 
             parts.append(key)
@@ -221,8 +226,11 @@ class PostgresTriggerBuilder:
                 ]
             )
         else:
-            # This table's UID is the composition of the UIDs of the tables it's referencing
-            record_uid: dict[str | int, Any] = {}
+            # This table's UID is the composition of the UIDs of the tables it's referencing.
+            # Since it's possible to have multiple foreign-key references to the same table,
+            # we'll store the UID as a list of three-tuples, each of which is
+            # [foreign table ID, list of columns for the foreign key constraint, UID fields for the foreign-keyed table].
+            record_uid: list[str] = []
 
             _, foreign_key_constraints = self.db_metadata.get_table_key_constraints(
                 table=self.table, cursor=self.cursor
@@ -235,17 +243,29 @@ class PostgresTriggerBuilder:
             for fkey_table_name in uid_columns.keys():
                 table_id_var = self.add_table_id_variable(fkey_table_name)
 
+                foreign_key_constraint = constraints_by_target_table[fkey_table_name]
+
                 fkey_uid_lookup_variable = self.add_foreign_key_uid_lookup_variable(
-                    foreign_key_constraint=constraints_by_target_table[fkey_table_name]
+                    foreign_key_constraint=foreign_key_constraint, is_delete=is_delete
+                )
+                record_uid.append(
+                    self._build_jsonb_array(
+                        [
+                            table_id_var,
+                            self._build_jsonb_array(
+                                [
+                                    f"'{c}'"
+                                    for c in foreign_key_constraint.source_columns
+                                ]
+                            ),
+                            fkey_uid_lookup_variable,
+                        ]
+                    )
                 )
 
-                record_uid[table_id_var] = fkey_uid_lookup_variable
+            return self._build_jsonb_array(record_uid)
 
-            return self._build_jsonb_object(record_uid)
-
-    def _build_record_data(
-        self,
-    ) -> str:
+    def _build_record_data(self) -> str:
         table_columns = self.db_metadata.get_column_names(self.table, self.cursor)
         uid_columns = self.db_metadata.get_uid_columns(self.table, self.cursor)
         primary_key, foreign_key_constraints = (
@@ -274,7 +294,8 @@ class PostgresTriggerBuilder:
 
         # Since we're recording the record's UID, we don't need to store the UID columns in the
         # data object as well.
-        non_key_columns.difference_update(uid_columns[self.table])
+        if self.table in uid_columns:
+            non_key_columns.difference_update(uid_columns[self.table])
 
         record_data: dict[str | int, Any] = {}
 
@@ -285,7 +306,7 @@ class PostgresTriggerBuilder:
         # Place a list of foreign key constraints at the "end" of the object under a reserved name
         fkey_source_columns_variables = [
             self.add_foreign_key_source_columns_variable(
-                foreign_key_constraint=foreign_key_constraint
+                foreign_key_constraint=foreign_key_constraint, is_delete=False
             )
             for foreign_key_constraint in foreign_key_constraints
         ]
@@ -315,7 +336,7 @@ class PostgresTriggerBuilder:
         return variable_name
 
     def add_foreign_key_source_columns_variable(
-        self, foreign_key_constraint: KeyConstraint
+        self, foreign_key_constraint: KeyConstraint, is_delete: bool
     ) -> str:
         # Foreign-key constraints will require the creation of variables within the function that
         # extract uniquely-identifiable columns from the record to which the foreign key refers.
@@ -324,15 +345,12 @@ class PostgresTriggerBuilder:
         table_id = self.add_table_id_variable(foreign_key_constraint.target_table)
 
         uid_lookup_variable = self.add_foreign_key_uid_lookup_variable(
-            foreign_key_constraint
+            foreign_key_constraint, is_delete=is_delete
         )
 
         # Give foreign-key variables names '_lamin_fkey_ref_0', '_lamin_fkey_ref_1', etc. to avoid
         # collisions. We'll store the table to which they foreign-key refers in the variable itself.
-        var_sequence_number = len(
-            [v for v in self._variables.keys() if v.startswith("_lamin_fkey_ref_")]
-        )
-        variable_name = f"_lamin_fkey_ref_{var_sequence_number}"
+        variable_name = self._create_unique_variable_name("_lamin_fkey_ref")
 
         # We'll be creating a JSONB array with three elements:
         #  * the ID of the target table in HistoryTableState
@@ -356,9 +374,19 @@ class PostgresTriggerBuilder:
 
         return variable_name
 
+    def _create_unique_variable_name(self, prefix: str) -> str:
+        var_sequence_number = len(
+            [v for v in self._variables.keys() if v.startswith(prefix)]
+        )
+        variable_name = f"{prefix}_{var_sequence_number}"
+
+        return variable_name
+
     def add_foreign_key_uid_lookup_variable(
-        self, foreign_key_constraint: KeyConstraint
+        self, foreign_key_constraint: KeyConstraint, is_delete: bool
     ) -> str:
+        source_record = "OLD" if is_delete else "NEW"
+
         uid_column_map = self.db_metadata.get_uid_columns(
             table=foreign_key_constraint.target_table, cursor=self.cursor
         )
@@ -373,14 +401,16 @@ class PostgresTriggerBuilder:
         uid_columns = list(uid_column_map.values())[0]
 
         where_clause = " AND ".join(
-            f"{target_col} = NEW.{source_col}"
+            f"{target_col} = {source_record}.{source_col}"
             for source_col, target_col in zip(
                 foreign_key_constraint.source_columns,
                 foreign_key_constraint.target_columns,
             )
         )
 
-        variable_name = f"_fkey_uid_{foreign_key_constraint.target_table}"
+        variable_name = self._create_unique_variable_name(
+            prefix="_fkey_uid_d" if is_delete else "_fkey_uid"
+        )
 
         self.declare_variable(
             variable_name,

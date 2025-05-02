@@ -44,7 +44,7 @@ class History(models.Model):
     table = models.ForeignKey(HistoryTableState, on_delete=models.PROTECT)
     id = models.UUIDField()
     # Many-to-many tables don't have row UIDs, so this needs to be nullable.
-    record_uid = models.CharField(max_length=20, null=True)
+    record_uid = models.JSONField(null=True)
     record_data = models.JSONField(null=True)
     event_type = models.PositiveSmallIntegerField()
     created_at = models.DateTimeField()

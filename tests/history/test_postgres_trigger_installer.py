@@ -1,4 +1,3 @@
-import json
 from typing import TYPE_CHECKING, Generator, cast
 from unittest.mock import ANY, MagicMock
 
@@ -30,6 +29,7 @@ class FakeMetadataWrapper(PostgresDatabaseMetadataWrapper):
         super().__init__()
         self._tables_with_triggers = set()
         self._db_tables = set()
+        self._many_to_many_tables = set()
 
     @override
     def get_tables_with_installed_triggers(self, cursor: CursorWrapper) -> set[str]:
@@ -44,6 +44,28 @@ class FakeMetadataWrapper(PostgresDatabaseMetadataWrapper):
 
     def set_db_tables(self, tables: set[str]):
         self._db_tables = tables
+
+    @override
+    def get_many_to_many_db_tables(self) -> set[str]:
+        return self._many_to_many_tables
+
+    def set_many_to_many_db_tables(self, tables: set[str]):
+        self._many_to_many_tables = tables
+
+
+def fetch_row_id_by_uid(
+    table: str,
+    id_columns: list[str],
+    uid_columns: dict[str, str],
+    cursor: CursorWrapper,
+) -> list[int]:
+    where_clause = " AND ".join(f"{k} = '{v}'" for (k, v) in uid_columns.items())
+
+    cursor.execute(f"SELECT {', '.join(id_columns)} FROM {table} WHERE {where_clause}")  # noqa: S608
+    row = cursor.fetchone()
+    assert row is not None
+
+    return [int(r) for r in row]
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -277,10 +299,15 @@ CREATE TABLE IF NOT EXISTS history_table_test_a
     cursor.execute("DROP TABLE IF EXISTS history_table_test_a")
 
 
-def _update_history_triggers(table_list: set[str]):
+def _update_history_triggers(
+    table_list: set[str], many_to_many_tables: set[str] | None = None
+):
     fake_db_metadata = FakeMetadataWrapper()
     fake_db_metadata.set_db_tables(table_list)
     fake_db_metadata.set_tables_with_installed_triggers(set())
+
+    if many_to_many_tables is not None:
+        fake_db_metadata.set_many_to_many_db_tables(many_to_many_tables)
 
     installer = PostgresHistoryRecordingTriggerInstaller(
         connection=django_connection, db_metadata=fake_db_metadata
@@ -318,7 +345,7 @@ def test_simple_table_trigger(simple_pg_table: str):
 
     assert [h.table.table_name == simple_pg_table for h in history]
 
-    assert history[0].record_uid == json.dumps(["abc123"])
+    assert history[0].record_uid == ["abc123"]
     assert history[0].record_data == {
         "int_col": 42,
         "str_col": "hello world",
@@ -327,7 +354,7 @@ def test_simple_table_trigger(simple_pg_table: str):
     }
     assert history[0].event_type == HistoryEventTypes.INSERT.value
 
-    assert history[1].record_uid == json.dumps(["def456"])
+    assert history[1].record_uid == ["def456"]
     assert history[1].record_data == {
         "int_col": 99,
         "str_col": "another row",
@@ -336,7 +363,7 @@ def test_simple_table_trigger(simple_pg_table: str):
     }
     assert history[1].event_type == HistoryEventTypes.INSERT.value
 
-    assert history[2].record_uid == json.dumps(["def456"])
+    assert history[2].record_uid == ["def456"]
     assert history[2].record_data == {
         "int_col": 22,
         "str_col": "another row",
@@ -345,7 +372,7 @@ def test_simple_table_trigger(simple_pg_table: str):
     }
     assert history[2].event_type == HistoryEventTypes.UPDATE.value
 
-    assert history[3].record_uid == json.dumps(["abc123"])
+    assert history[3].record_uid == ["abc123"]
     assert history[3].record_data is None
     assert history[3].event_type == HistoryEventTypes.DELETE.value
 
@@ -379,10 +406,13 @@ def test_triggers_with_foreign_keys(simple_pg_table, foreignkey_pg_table):
             f"INSERT INTO {simple_pg_table} (uid, str_col, bool_col, int_col) "  # noqa: S608
             "VALUES ('abc123', 'hello world', false, 42)"
         )
-        cursor.execute(f"SELECT id FROM {simple_pg_table} WHERE uid = 'abc123'")  # noqa: S608
-        table_a_row = cursor.fetchone()
-        assert table_a_row is not None
-        table_a_row_id = table_a_row[0]
+
+        table_a_row_id = fetch_row_id_by_uid(
+            table=simple_pg_table,
+            id_columns=["id"],
+            uid_columns={"uid": "abc123"},
+            cursor=cursor,
+        )[0]
 
         cursor.execute(
             f"INSERT INTO {foreignkey_pg_table} (uid, table_a_id) VALUES ('foo333', {table_a_row_id})"  # noqa: S608
@@ -397,7 +427,7 @@ def test_triggers_with_foreign_keys(simple_pg_table, foreignkey_pg_table):
     assert len(history) == 5
 
     assert history[0].table.table_name == simple_pg_table
-    assert history[0].record_uid == json.dumps(["abc123"])
+    assert history[0].record_uid == ["abc123"]
     assert history[0].record_data == {
         "int_col": 42,
         "str_col": "hello world",
@@ -407,7 +437,7 @@ def test_triggers_with_foreign_keys(simple_pg_table, foreignkey_pg_table):
     assert history[0].event_type == HistoryEventTypes.INSERT.value
 
     assert history[1].table.table_name == foreignkey_pg_table
-    assert history[1].record_uid == json.dumps(["foo333"])
+    assert history[1].record_uid == ["foo333"]
     assert history[1].record_data == {
         FOREIGN_KEYS_LIST_COLUMN_NAME: [
             [history[0].table.id, ["table_a_id"], {"uid": "abc123"}]
@@ -416,7 +446,7 @@ def test_triggers_with_foreign_keys(simple_pg_table, foreignkey_pg_table):
     assert history[1].event_type == HistoryEventTypes.INSERT.value
 
     assert history[2].table.table_name == foreignkey_pg_table
-    assert history[2].record_uid == json.dumps(["bar444"])
+    assert history[2].record_uid == ["bar444"]
     assert history[2].event_type == HistoryEventTypes.INSERT.value
     assert history[2].record_data == {
         FOREIGN_KEYS_LIST_COLUMN_NAME: [
@@ -425,12 +455,12 @@ def test_triggers_with_foreign_keys(simple_pg_table, foreignkey_pg_table):
     }
 
     assert history[3].table.table_name == simple_pg_table
-    assert history[3].record_uid == json.dumps(["abc123"])
+    assert history[3].record_uid == ["abc123"]
     assert history[3].event_type == HistoryEventTypes.DELETE.value
     assert history[3].record_data is None
 
     assert history[4].table.table_name == foreignkey_pg_table
-    assert history[4].record_uid == json.dumps(["foo333"])
+    assert history[4].record_uid == ["foo333"]
     assert history[4].event_type == HistoryEventTypes.DELETE.value
     assert history[4].record_data is None
 
@@ -463,11 +493,12 @@ def test_triggers_with_self_references(self_referential_pg_table):
         f"INSERT INTO {self_referential_pg_table} (uid, parent_id) "  # noqa: S608
         "VALUES ('abc123', NULL)"
     )
-    cursor.execute(f"SELECT id FROM {self_referential_pg_table} WHERE uid = 'abc123'")  # noqa: S608
-
-    parent_row = cursor.fetchone()
-    assert parent_row is not None
-    parent_row_id = parent_row[0]
+    parent_row_id = fetch_row_id_by_uid(
+        table=self_referential_pg_table,
+        id_columns=["id"],
+        uid_columns={"uid": "abc123"},
+        cursor=cursor,
+    )[0]
 
     cursor.execute(
         f"INSERT INTO {self_referential_pg_table} (uid, parent_id) VALUES ('def345', {parent_row_id})"  # noqa: S608
@@ -478,7 +509,7 @@ def test_triggers_with_self_references(self_referential_pg_table):
     assert len(history) == 2
 
     assert history[0].table.table_name == self_referential_pg_table
-    assert history[0].record_uid == json.dumps(["abc123"])
+    assert history[0].record_uid == ["abc123"]
     assert history[0].record_data == {
         FOREIGN_KEYS_LIST_COLUMN_NAME: [
             [history[0].table.id, ["parent_id"], {"uid": None}]
@@ -487,7 +518,7 @@ def test_triggers_with_self_references(self_referential_pg_table):
     assert history[0].event_type == HistoryEventTypes.INSERT.value
 
     assert history[1].table.table_name == self_referential_pg_table
-    assert history[1].record_uid == json.dumps(["def345"])
+    assert history[1].record_uid == ["def345"]
     assert history[1].record_data == {
         FOREIGN_KEYS_LIST_COLUMN_NAME: [
             [history[0].table.id, ["parent_id"], {"uid": "abc123"}]
@@ -559,17 +590,159 @@ def test_triggers_with_composite_primary_key(
     assert len(history) == 2
 
     assert history[0].table.table_name == composite_primary_key_table
-    assert history[0].record_uid == json.dumps(["xyz123"])
+    assert history[0].record_uid == ["xyz123"]
     assert history[0].record_data == {
         FOREIGN_KEYS_LIST_COLUMN_NAME: [],
     }
     assert history[0].event_type == HistoryEventTypes.INSERT.value
 
     assert history[1].table.table_name == composite_foreign_key_table
-    assert history[1].record_uid == json.dumps(["qrs234"])
+    assert history[1].record_uid == ["qrs234"]
     assert history[1].record_data == {
         FOREIGN_KEYS_LIST_COLUMN_NAME: [
             [history[0].table.id, ["table_d_key_a", "table_d_key_b"], {"uid": "xyz123"}]
         ],
     }
     assert history[1].event_type == HistoryEventTypes.INSERT.value
+
+
+@pytest.fixture(scope="function")
+def many_to_many_table(
+    composite_primary_key_table, self_referential_pg_table
+) -> Generator[str, None, None]:
+    cursor = django_connection.cursor()
+
+    cursor.execute(f"""
+CREATE TABLE IF NOT EXISTS history_table_many_to_many_test
+(
+    id SERIAL PRIMARY KEY,
+    composite_key_a INT,
+    composite_key_b INT,
+    self_ref_id INT,
+    CONSTRAINT fk_one FOREIGN KEY(composite_key_a, composite_key_b) REFERENCES {composite_primary_key_table} (key_a, key_b),
+    CONSTRAINT fk_two FOREIGN KEY(self_ref_id) REFERENCES {self_referential_pg_table} (id)
+);
+""")
+
+    yield "history_table_many_to_many_test"
+
+    cursor.execute("DROP TABLE IF EXISTS history_table_many_to_many_test")
+
+
+@pytest.mark.pg_integration
+def test_triggers_with_many_to_many_tables(
+    many_to_many_table, composite_primary_key_table, self_referential_pg_table
+):
+    _update_history_triggers(
+        table_list={
+            composite_primary_key_table,
+            self_referential_pg_table,
+            many_to_many_table,
+        },
+        many_to_many_tables={many_to_many_table},
+    )
+
+    cursor = django_connection.cursor()
+
+    cursor.execute(
+        f"INSERT INTO {composite_primary_key_table} (key_a, key_b, uid) "  # noqa: S608
+        "VALUES (42, 21, 'xyz123')"
+    )
+
+    cursor.execute(
+        f"INSERT INTO {self_referential_pg_table} (uid, parent_id) "  # noqa: S608
+        "VALUES ('abc123', NULL)"
+    )
+
+    composite_row_id = fetch_row_id_by_uid(
+        table=composite_primary_key_table,
+        id_columns=["key_a", "key_b"],
+        uid_columns={"uid": "xyz123"},
+        cursor=cursor,
+    )
+    self_ref_row_id = fetch_row_id_by_uid(
+        table=self_referential_pg_table,
+        id_columns=["id"],
+        uid_columns={"uid": "abc123"},
+        cursor=cursor,
+    )[0]
+
+    cursor.execute(
+        f"INSERT INTO {many_to_many_table} (composite_key_a, composite_key_b, self_ref_id) VALUES ({composite_row_id[0]}, {composite_row_id[1]}, {self_ref_row_id})"  # noqa: S608
+    )
+
+    cursor.execute(
+        f"DELETE FROM {many_to_many_table} WHERE self_ref_id={self_ref_row_id}"  # noqa: S608
+    )
+
+    cursor.execute(
+        f"DELETE FROM {self_referential_pg_table} WHERE id={self_ref_row_id}"  # noqa: S608
+    )
+
+    history = History.objects.all().order_by("seqno")
+
+    assert len(history) == 5
+
+    assert history[0].table.table_name == composite_primary_key_table
+    assert history[0].record_uid == ["xyz123"]
+    assert history[0].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [],
+    }
+    assert history[0].event_type == HistoryEventTypes.INSERT.value
+
+    assert history[1].table.table_name == self_referential_pg_table
+    assert history[1].record_uid == ["abc123"]
+    assert history[1].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [history[1].table.id, ["parent_id"], {"uid": None}]
+        ]
+    }
+    assert history[1].event_type == HistoryEventTypes.INSERT.value
+
+    assert history[2].table.table_name == many_to_many_table
+    assert history[2].record_uid == [
+        [
+            history[0].table.id,
+            ["composite_key_a", "composite_key_b"],
+            {"uid": "xyz123"},
+        ],
+        [history[1].table.id, ["self_ref_id"], {"uid": "abc123"}],
+    ]
+    assert history[2].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [
+                history[0].table.id,
+                ["composite_key_a", "composite_key_b"],
+                {"uid": "xyz123"},
+            ],
+            [history[1].table.id, ["self_ref_id"], {"uid": "abc123"}],
+        ]
+    }
+    assert history[2].event_type == HistoryEventTypes.INSERT.value
+
+    assert history[3].table.table_name == many_to_many_table
+    assert history[3].record_uid == [
+        [
+            history[0].table.id,
+            ["composite_key_a", "composite_key_b"],
+            {"uid": "xyz123"},
+        ],
+        [history[1].table.id, ["self_ref_id"], {"uid": "abc123"}],
+    ]
+    assert history[3].record_data is None
+    assert history[3].event_type == HistoryEventTypes.DELETE.value
+
+    assert history[4].table.table_name == self_referential_pg_table
+    assert history[4].record_uid == ["abc123"]
+    assert history[4].record_data is None
+    assert history[4].event_type == HistoryEventTypes.DELETE.value
+
+
+@pytest.mark.pg_integration
+def test_triggers_with_compound_table_uid():
+    pass
+
+
+@pytest.mark.pg_integration
+def test_triggers_with_foreign_key_to_compound_table_uid():
+    pass

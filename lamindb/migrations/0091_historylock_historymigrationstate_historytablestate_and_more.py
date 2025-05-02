@@ -45,7 +45,7 @@ class Migration(migrations.Migration):
             fields=[
                 ("seqno", models.AutoField(primary_key=True, serialize=False)),
                 ("id", models.UUIDField()),
-                ("record_uid", models.CharField(max_length=20, null=True)),
+                ("record_uid", models.JSONField(null=True)),
                 ("record_data", models.JSONField(null=True)),
                 ("event_type", models.PositiveSmallIntegerField()),
                 ("created_at", models.DateTimeField()),
