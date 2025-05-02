@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Callable
 from anndata._io.specs.registry import get_spec
 
 from ._anndata_accessor import AnnDataAccessor, StorageType, registry
-from ._pyarrow_dataset import _is_pyarrow_dataset, _open_pyarrow_dataset
+from ._pyarrow_dataset import PYARROW_SUFFIXES, _open_pyarrow_dataset
 from ._tiledbsoma import _open_tiledbsoma
 from .paths import filepath_from_artifact
 
@@ -97,7 +97,7 @@ def backed_access(
         conn, storage = registry.open("h5py", objectpath, mode=mode, **kwargs)
     elif suffix == ".zarr":
         conn, storage = registry.open("zarr", objectpath, mode=mode, **kwargs)
-    elif _is_pyarrow_dataset(objectpath):
+    elif _df_dataset_suffix(objectpath) in PYARROW_SUFFIXES:
         return _open_pyarrow_dataset(objectpath, **kwargs)
     else:
         raise ValueError(
@@ -112,3 +112,29 @@ def backed_access(
         return AnnDataAccessor(conn, storage, name)
     else:
         return BackedAccessor(conn, storage)
+
+
+def _df_dataset_suffix(paths: UPath | list[UPath]) -> str | None:
+    # it is assumed here that the paths exist
+    # we don't check here that the filesystem is the same
+    # but this is a requirement for pyarrow.dataset.dataset
+    if isinstance(paths, list):
+        path_list = paths
+    elif paths.is_dir():
+        path_list = [path for path in paths.rglob("*") if path.suffix != ""]
+    else:
+        path_list = [paths]
+    suffix = None
+    for path in path_list:
+        path_suffixes = path.suffixes
+        # this doesn't work for externally gzipped files, REMOVE LATER
+        path_suffix = (
+            path_suffixes[-2]
+            if len(path_suffixes) > 1 and ".gz" in path_suffixes
+            else path.suffix
+        )
+        if suffix is None:
+            suffix = path_suffix
+        elif path_suffix != suffix:
+            return None
+    return suffix

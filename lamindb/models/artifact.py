@@ -48,6 +48,10 @@ from ..core.storage import (
     write_to_disk,
 )
 from ..core.storage._anndata_accessor import _anndata_n_observations
+from ..core.storage._backed_access import (
+    _track_writes_factory,
+    backed_access,
+)
 from ..core.storage._pyarrow_dataset import PYARROW_SUFFIXES
 from ..core.storage._tiledbsoma import _soma_n_observations
 from ..core.storage.paths import (
@@ -2212,10 +2216,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             )
 
         from lamindb import settings
-        from lamindb.core.storage._backed_access import (
-            _track_writes_factory,
-            backed_access,
-        )
 
         using_key = settings._using_key
         filepath, cache_key = filepath_cache_key_from_artifact(
