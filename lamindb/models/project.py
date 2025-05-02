@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 
 
 class Person(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
-    """People.
+    """People such as authors of a study or collaborators in a project.
 
     This registry is distinct from `User` and exists for project management.
 

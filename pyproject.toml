@@ -16,7 +16,7 @@ classifiers = [
 ]
 dependencies = [
     # Lamin PINNED packages
-    "lamin_utils==0.13.11",
+    "lamin_utils==0.14.0",
     "lamin_cli==1.3.0",
     "lamindb_setup[aws]==1.5.1",
     # others
@@ -44,7 +44,7 @@ gcp = [
     "lamindb_setup[gcp]",
 ]
 jupyter = [
-    "nbproject==0.11.0",  # keep pinning
+    "nbproject==0.11.1",  # keep pinning
     "jupytext",
     "nbconvert>=7.2.1", # avoid lxml[html_clean] dependency
     "mistune!=3.1.0",  # there is a bug in it

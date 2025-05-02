@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 # does not inherit from TracksRun because the Transform
 # is needed to define a run
 class Transform(Record, IsVersioned):
-    """Data transformations.
+    """Data transformations such as scripts, notebooks, functions, or pipelines.
 
     A "transform" can refer to a Python function, a script, a notebook, or a
     pipeline. If you execute a transform, you generate a run
@@ -280,7 +280,7 @@ class Transform(Record, IsVersioned):
             update_attributes(self, {"description": description})
             return None
         if revises is not None and key is not None and revises.key != key:
-            logger.warning(f"renaming transform '{revises.key}' to {key}")
+            logger.important(f"renaming transform {revises.key} to {key}")
         new_uid, version, key, description, revises = process_revises(
             revises, version, key, description, Transform
         )

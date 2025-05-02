@@ -96,13 +96,13 @@ def test_fine_grained_permissions_account():
     ulabel.space = space
     ulabel.save()
     # should fail
-    with pytest.raises(ProgrammingError):
+    with pytest.raises(ln.errors.NoWriteAccess):
         ln.ULabel(name="new label fail").save()
     for space_name in ["select access", "no access"]:
         space = ln.models.Space.get(name=space_name)
         ulabel = ln.ULabel(name="new label fail")
         ulabel.space = space
-        with pytest.raises(ProgrammingError):
+        with pytest.raises(ln.errors.NoWriteAccess):
             ulabel.save()
     # check update
     # should succeed
@@ -113,12 +113,12 @@ def test_fine_grained_permissions_account():
     # should fail
     ulabel = ln.ULabel.get(name="select_ulabel")
     ulabel.name = "select_ulabel update"
-    with pytest.raises(ProgrammingError):
+    with pytest.raises(ln.errors.NoWriteAccess):
         ulabel.save()
     # default space
     ulabel = ln.ULabel.get(name="default_space_ulabel")
     ulabel.name = "default_space_ulabel update"
-    with pytest.raises(ProgrammingError):
+    with pytest.raises(ln.errors.NoWriteAccess):
         ulabel.save()
     # check link tables
     # check insert

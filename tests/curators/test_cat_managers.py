@@ -8,7 +8,7 @@ import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
-from lamindb.curators import CatLookup, ValidationError
+from lamindb.curators.core import CatLookup, ValidationError
 
 
 @pytest.fixture
@@ -104,6 +104,88 @@ def mock_transform():
     return mock_transform
 
 
+def test_df_cat_manager(df):
+    try:
+        cat_manager = ln.curators.core.DataFrameCatManager(
+            df,
+            categoricals=[
+                ln.Feature(name="cell_type", dtype=bt.CellType).save(),
+                ln.Feature(name="cell_type_2", dtype=bt.CellType).save(),
+                ln.Feature(
+                    name="assay_ontology_id", dtype=bt.ExperimentalFactor.ontology_id
+                ).save(),
+                ln.Feature(name="donor", dtype=ln.ULabel).save(),
+            ],
+        )
+        with pytest.raises(ValidationError):
+            _ = cat_manager.non_validated
+        validated = cat_manager.validate()
+        assert cat_manager.non_validated == {
+            "cell_type": ["cerebral pyramidal neuron", "astrocytic glia"],
+            "donor": ["D0001", "D0002", "D0003"],
+        }
+        assert validated is False
+
+        # standardize
+        with pytest.raises(KeyError):
+            cat_manager.standardize("nonexistent-key")
+        cat_manager.standardize("all")
+        assert cat_manager.non_validated == {
+            "cell_type": ["cerebral pyramidal neuron"],
+            "donor": ["D0001", "D0002", "D0003"],
+        }
+        assert "astrocyte" in df["cell_type"].values
+
+        # add new
+        cat_manager.add_new_from("donor")
+        assert cat_manager.non_validated == {"cell_type": ["cerebral pyramidal neuron"]}
+
+        # lookup
+        cell_types = cat_manager.lookup(public=True)["cell_type"]
+        df["cell_type"] = df["cell_type"].replace(
+            {
+                "cerebral pyramidal neuron": cell_types.cerebral_cortex_pyramidal_neuron.name
+            }
+        )
+        validated = cat_manager.validate()
+        assert validated is True
+        assert cat_manager.non_validated == {}
+
+        # no need to standardize
+        cat_manager.standardize("cell_type")
+    finally:
+        ln.ULabel.filter().delete()
+        bt.ExperimentalFactor.filter().delete()
+        bt.CellType.filter().delete()
+        ln.Schema.filter().delete()
+
+
+def test_custom_using_invalid_field_lookup(curate_lookup):
+    with pytest.raises(
+        AttributeError, match='"CatLookup" object has no attribute "invalid_field"'
+    ):
+        _ = curate_lookup["invalid_field"]
+
+
+def test_additional_args_with_all_key(df, categoricals):
+    curator = ln.Curator.from_df(df, categoricals=categoricals)
+    with pytest.raises(
+        ValueError, match="Cannot pass additional arguments to 'all' key!"
+    ):
+        curator.add_new_from("all", extra_arg="not_allowed")
+
+
+# below is all deprecated
+
+
+def test_unvalidated_data_object(df, categoricals):
+    curator = ln.Curator.from_df(df, categoricals=categoricals)
+    with pytest.raises(
+        ValidationError, match="Dataset does not validate. Please curate."
+    ):
+        curator.save_artifact()
+
+
 def test_df_curator(df, categoricals):
     try:
         curator = ln.Curator.from_df(df, categoricals=categoricals)
@@ -197,58 +279,6 @@ def test_pass_artifact(df):
         artifact.delete(permanent=True)
         ln.ULabel.filter().delete()
         ln.Schema.filter().delete()
-
-
-def test_custom_using_invalid_field_lookup(curate_lookup):
-    with pytest.raises(
-        AttributeError, match='"CatLookup" object has no attribute "invalid_field"'
-    ):
-        _ = curate_lookup["invalid_field"]
-
-
-def test_additional_args_with_all_key(df, categoricals):
-    curator = ln.Curator.from_df(df, categoricals=categoricals)
-    with pytest.raises(
-        ValueError, match="Cannot pass additional arguments to 'all' key!"
-    ):
-        curator.add_new_from("all", extra_arg="not_allowed")
-
-
-def test_unvalidated_data_object(df, categoricals):
-    curator = ln.Curator.from_df(df, categoricals=categoricals)
-    with pytest.raises(
-        ValidationError, match="Dataset does not validate. Please curate."
-    ):
-        curator.save_artifact()
-
-
-def test_clean_up_failed_runs():
-    mock_transform = ln.Transform()
-    mock_transform.save()
-    mock_run = ln.Run(mock_transform)
-    mock_run.save()
-    mock_run_2 = ln.Run(mock_transform)
-    mock_run_2.save()
-
-    # Set the default currently used transform and mock run -> these should not be cleaned up
-    from lamindb.core._context import context
-
-    previous_transform = context._transform
-    previous_run = context.run
-
-    context._transform = mock_transform
-    context._run = mock_run
-
-    assert len(ln.Run.filter(transform=mock_transform).all()) == 2
-
-    curator = ln.Curator.from_df(pd.DataFrame())
-    curator.clean_up_failed_runs()
-
-    assert len(ln.Run.filter(transform=mock_transform).all()) == 1
-
-    # Revert to old run context to not infer with tests that need the run context
-    context._transform = previous_transform
-    context._run = previous_run
 
 
 @pytest.mark.parametrize("to_add", ["donor", "all"])
@@ -549,7 +579,7 @@ def test_soma_curator(adata, categoricals, clean_soma_files):
         assert set(artifact.features["obs"].values_list("name", "dtype")) == {
             ("cell_type", "cat[bionty.CellType]"),
             ("cell_type_2", "cat[bionty.CellType]"),
-            ("assay_ontology_id", "cat[bionty.ExperimentalFactor]"),
+            ("assay_ontology_id", "cat[bionty.ExperimentalFactor.ontology_id]"),
             ("donor", "cat[ULabel]"),
             ("sample_note", "str"),
             ("temperature", "float"),

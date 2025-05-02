@@ -7,7 +7,9 @@ Modules:
 .. autosummary::
    :toctree: .
 
+   uids
    types
+   fields
 
 Utils:
 
@@ -21,4 +23,4 @@ Utils:
 
 from lamindb_setup.core import deprecated, doc_args
 
-from . import types
+from . import fields, types, uids

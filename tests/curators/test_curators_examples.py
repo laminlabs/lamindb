@@ -8,7 +8,7 @@ import tiledbsoma
 import tiledbsoma.io
 from lamindb.core import datasets
 from lamindb.core.types import FieldAttr
-from lamindb.errors import InvalidArgument
+from lamindb.errors import InvalidArgument, ValidationError
 
 
 @pytest.fixture(scope="module")
@@ -17,6 +17,7 @@ def small_dataset1_schema():
     perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
     ln.ULabel(name="DMSO", type=perturbation).save()
     ln.ULabel(name="IFNG", type=perturbation).save()
+    ln.ULabel(name="ulabel_but_not_perturbation").save()
     ln.ULabel.from_values(["sample1", "sample2", "sample3"], create=True).save()
     bt.CellType.from_source(name="B cell").save()
     bt.CellType.from_source(name="T cell").save()
@@ -31,12 +32,12 @@ def small_dataset1_schema():
     schema = ln.Schema(
         name="small_dataset1_obs_level_metadata",
         features=[
-            ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
+            ln.Feature(name="perturbation", dtype=perturbation).save(),
             ln.Feature(name="sample_note", dtype=str).save(),
             ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
             ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
         ],
-        index=ln.Feature(name="sample", dtype=ln.ULabel).save(),
+        index=ln.Feature(name="sample_label", dtype=ln.ULabel).save(),
     ).save()
 
     yield schema
@@ -133,59 +134,10 @@ def mudata_papalexi21_subset_schema():
     bt.ExperimentalFactor.filter().delete()
 
 
-@pytest.fixture(scope="module")
-def spatialdata_blobs_schema():
-    sample_schema = ln.Schema(
-        name="blobs_sample_level_metadata",
-        features=[
-            ln.Feature(name="assay", dtype=bt.ExperimentalFactor).save(),
-            ln.Feature(name="disease", dtype=bt.Disease).save(),
-            ln.Feature(name="developmental_stage", dtype=bt.DevelopmentalStage).save(),
-        ],
-        coerce_dtype=True,
-    ).save()
-
-    blobs_obs_schema = ln.Schema(
-        name="blobs_obs_level_metadata",
-        features=[
-            ln.Feature(name="sample_region", dtype="str").save(),
-        ],
-        coerce_dtype=True,
-    ).save()
-
-    blobs_var_schema = ln.Schema(
-        name="visium_var_schema", itype=bt.Gene.ensembl_gene_id, dtype=int
-    ).save()
-
-    spatialdata_schema = ln.Schema(
-        name="blobs_spatialdata_schema",
-        otype="SpatialData",
-        components={
-            "sample": sample_schema,
-            "table:obs": blobs_obs_schema,
-            "table:var": blobs_var_schema,
-        },
-    ).save()
-
-    yield spatialdata_schema
-
-    from lamindb.models import SchemaComponent
-
-    SchemaComponent.filter().delete()
-    spatialdata_schema.delete()
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
-    bt.Gene.filter().delete()
-    ln.ULabel.filter(type__isnull=False).delete()
-    ln.ULabel.filter().delete()
-    bt.ExperimentalFactor.filter().delete()
-    bt.DevelopmentalStage.filter().delete()
-    bt.Disease.filter().delete()
-
-
 def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     """Test DataFrame curator implementation."""
 
+    # invalid simple dtype (float)
     feature_to_fail = ln.Feature(name="treatment_time_h", dtype=float).save()
     schema = ln.Schema(
         name="small_dataset1_obs_level_metadata_v2",
@@ -197,7 +149,6 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
             feature_to_fail,
         ],
     ).save()
-
     df = datasets.small_dataset1(otype="DataFrame")
     curator = ln.curators.DataFrameCurator(df, schema)
     with pytest.raises(ln.errors.ValidationError) as error:
@@ -208,12 +159,37 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     )
     schema.delete()
     feature_to_fail.delete()
+
+    # Wrong subtype
+    df = datasets.small_dataset1(otype="DataFrame", with_wrong_subtype=True)
+    curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
+    with pytest.raises(ln.errors.ValidationError) as error:
+        curator.validate()
+    assert (
+        error.exconly()
+        == """lamindb.errors.ValidationError: 1 term not validated in feature 'perturbation': 'ulabel_but_not_perturbation'
+    → fix typos, remove non-existent values, or save terms via: curator.cat.add_new_from('perturbation')
+    → a valid label for subtype 'Perturbation' has to be one of ['DMSO', 'IFNG']"""
+    )
+
+    # Typo
+    df = datasets.small_dataset1(otype="DataFrame", with_typo=True)
+    curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
+    with pytest.raises(ln.errors.ValidationError) as error:
+        curator.validate()
+    assert (
+        error.exconly()
+        == """lamindb.errors.ValidationError: 1 term not validated in feature 'perturbation': 'IFNJ'
+    → fix typos, remove non-existent values, or save terms via: curator.cat.add_new_from('perturbation')
+    → a valid label for subtype 'Perturbation' has to be one of ['DMSO', 'IFNG']"""
+    )
+
+    df = datasets.small_dataset1(otype="DataFrame")
     curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
     artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
 
-    print(artifact.describe())
-
-    assert set(artifact.features.get_values()["sample"]) == {
+    assert artifact.features.slots["columns"].n == 5
+    assert set(artifact.features.get_values()["sample_label"]) == {
         "sample1",
         "sample2",
         "sample3",
@@ -294,12 +270,10 @@ def test_dataframe_curator_validate_all_annotate_cat2(small_dataset1_schema):
     schema.delete()
 
 
-def test_anndata_curator(small_dataset1_schema: ln.Schema):
-    """Test AnnData curator implementation."""
-
+def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
     obs_schema = small_dataset1_schema
 
-    for add_comp in ["var", "obs", "uns"]:
+    for add_comp in ["var.T", "obs", "uns"]:
         var_schema = ln.Schema(
             name="scRNA_seq_var_schema",
             itype=bt.Gene.ensembl_gene_id,
@@ -307,7 +281,7 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
         ).save()
 
         # always assume var
-        components = {"var": var_schema}
+        components = {"var.T": var_schema}
         if add_comp == "obs":
             components["obs"] = obs_schema
         if add_comp == "uns":
@@ -323,9 +297,9 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
             components=components,
         ).save()
         assert small_dataset1_schema.id is not None, small_dataset1_schema
-        assert anndata_schema.slots["var"] == var_schema
-        # if add_comp == "obs":
-        # assert anndata_schema.slots["obs"] == obs_schema, bring back once index is accounted for
+        assert anndata_schema.slots["var.T"] == var_schema
+        if add_comp == "obs":
+            assert anndata_schema.slots["obs"] == obs_schema
         if add_comp == "uns":
             assert anndata_schema.slots["uns"] == uns_schema
 
@@ -339,7 +313,7 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
 
         adata = datasets.small_dataset1(otype="AnnData")
         curator = ln.curators.AnnDataCurator(adata, anndata_schema)
-        assert isinstance(curator.slots["var"], ln.curators.DataFrameCurator)
+        assert isinstance(curator.slots["var.T"], ln.curators.DataFrameCurator)
         if add_comp == "obs":
             assert isinstance(curator.slots["obs"], ln.curators.DataFrameCurator)
         if add_comp == "uns":
@@ -348,12 +322,12 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
             adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
         ).save()
         assert artifact.schema == anndata_schema
-        assert artifact.features.slots["var"].n == 3  # 3 genes get linked
+        assert artifact.features.slots["var.T"].n == 3  # 3 genes get linked
         if add_comp == "obs":
-            # assert artifact.features.slots["obs"] == obs_schema
+            assert artifact.features.slots["obs"] == obs_schema
             # deprecated
-            # assert artifact.features._schema_by_slot["obs"] == obs_schema
-            # assert artifact.features._feature_set_by_slot["obs"] == obs_schema
+            assert artifact.features._schema_by_slot["obs"] == obs_schema
+            assert artifact.features._feature_set_by_slot["obs"] == obs_schema
 
             assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
                 "CD8-positive, alpha-beta T cell",
@@ -371,6 +345,93 @@ def test_anndata_curator(small_dataset1_schema: ln.Schema):
         artifact.delete(permanent=True)
         anndata_schema.delete()
         var_schema.delete()
+
+
+def test_anndata_curator_varT_curation():
+    ln.Schema.filter(itype="bionty.Gene.ensembl_gene_id").delete()
+    varT_schema = ln.Schema(
+        itype=bt.Gene.ensembl_gene_id,
+    ).save()
+    slot = "var.T"
+    components = {slot: varT_schema}
+    anndata_schema = ln.Schema(
+        otype="AnnData",
+        components=components,
+    ).save()
+    for with_gene_typo in [True, False]:
+        adata = datasets.small_dataset1(otype="AnnData", with_gene_typo=with_gene_typo)
+        if with_gene_typo:
+            with pytest.raises(ValidationError) as error:
+                artifact = ln.Artifact.from_anndata(
+                    adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+                ).save()
+            assert error.exconly() == (
+                f"lamindb.errors.ValidationError: 1 term not validated in feature 'columns' in slot '{slot}': 'GeneTypo'\n"
+                f"    → fix typos, remove non-existent values, or save terms via: curator.slots['{slot}'].cat.add_new_from('columns')"
+            )
+        else:
+            for n_max_records in [2, 4]:
+                ln.settings.annotation.n_max_records = n_max_records
+                artifact = ln.Artifact.from_anndata(
+                    adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+                ).save()
+                assert artifact.features.slots[slot].n == 3  # 3 genes get linked
+                assert (
+                    artifact.features.slots[slot].itype == "bionty.Gene.ensembl_gene_id"
+                )
+                if n_max_records == 2:
+                    assert not artifact.features.slots[slot].members.exists()
+                else:
+                    assert artifact.features.slots[slot].members.df()[
+                        "ensembl_gene_id"
+                    ].tolist() == [
+                        "ENSG00000153563",
+                        "ENSG00000010610",
+                        "ENSG00000170458",
+                    ]
+                artifact.delete(permanent=True)
+            anndata_schema.delete()
+            varT_schema.delete()
+
+
+def test_anndata_curator_varT_curation_legacy(ccaplog):
+    varT_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id).save()
+    slot = "var"
+    components = {slot: varT_schema}
+    anndata_schema = ln.Schema(
+        otype="AnnData",
+        components=components,
+    ).save()
+    for with_gene_typo in [True, False]:
+        adata = datasets.small_dataset1(otype="AnnData", with_gene_typo=with_gene_typo)
+        if with_gene_typo:
+            with pytest.raises(ValidationError) as error:
+                artifact = ln.Artifact.from_anndata(
+                    adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+                ).save()
+            assert error.exconly() == (
+                f"lamindb.errors.ValidationError: 1 term not validated in feature 'var_index' in slot '{slot}': 'GeneTypo'\n"
+                f"    → fix typos, remove non-existent values, or save terms via: curator.slots['{slot}'].cat.add_new_from('var_index')"
+            )
+        else:
+            artifact = ln.Artifact.from_anndata(
+                adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+            ).save()
+            assert (
+                "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                in ccaplog.text
+            )
+            assert artifact.features.slots[slot].n == 3  # 3 genes get linked
+            assert set(
+                artifact.features.slots[slot].members.df()["ensembl_gene_id"]
+            ) == {
+                "ENSG00000153563",
+                "ENSG00000010610",
+                "ENSG00000170458",
+            }
+            artifact.delete(permanent=True)
+            anndata_schema.delete()
+            varT_schema.delete()
 
 
 def test_soma_curator(
@@ -440,26 +501,80 @@ def test_mudata_curator(
         "hto:obs",
         "rna:var",
     }
+    ln.settings.verbosity = "hint"
     with pytest.raises(ln.errors.ValidationError):
         curator.validate()
     curator.slots["rna:var"].cat.standardize("columns")
     curator.slots["rna:var"].cat.add_new_from("columns")
     artifact = curator.save_artifact(key="mudata_papalexi21_subset.h5mu")
     assert artifact.schema == mudata_schema
-    assert artifact.features.slots.keys() == {
+    assert set(artifact.features.slots.keys()) == {
         "obs",
-        "['rna'].var",
-        "['rna'].obs",
-        "['hto'].obs",
+        "rna:var",
+        "rna:obs",
+        "hto:obs",
     }
 
     artifact.delete(permanent=True)
 
 
+@pytest.fixture(scope="module")
+def spatialdata_blobs_schema():
+    import sys
+    from pathlib import Path
+
+    docs_path = Path.cwd() / "docs" / "scripts"
+    sys.path.append(str(docs_path))
+
+    from define_schema_spatialdata import (
+        attrs_schema,
+        obs_schema,
+        sample_schema,
+        tech_schema,
+        varT_schema,
+    )
+
+    spatialdata_schema_legacy = ln.Schema(
+        otype="SpatialData",
+        components={
+            "bio": sample_schema,
+            "table:obs": obs_schema,
+            "table:var": varT_schema,
+        },
+    ).save()
+
+    spatialdata_schema_new = ln.Schema(
+        otype="SpatialData",
+        components={
+            "attrs:sample": sample_schema,
+            "attrs:tech": tech_schema,
+            "attrs": attrs_schema,
+            "table:obs": obs_schema,
+            "table:var.T": varT_schema,
+        },
+    ).save()
+
+    yield spatialdata_schema_legacy, spatialdata_schema_new
+
+    from lamindb.models import SchemaComponent
+
+    SchemaComponent.filter().delete()
+    spatialdata_schema_legacy.delete()
+    spatialdata_schema_new.delete()
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
+    bt.Gene.filter().delete()
+    ln.ULabel.filter(type__isnull=False).delete()
+    ln.ULabel.filter().delete()
+    bt.ExperimentalFactor.filter().delete()
+    bt.DevelopmentalStage.filter().delete()
+    bt.Disease.filter().delete()
+
+
 def test_spatialdata_curator(
-    spatialdata_blobs_schema: ln.Schema, small_dataset1_schema: ln.Schema
+    spatialdata_blobs_schema: ln.Schema,
 ):
-    spatialdata_schema = spatialdata_blobs_schema
+    spatialdata_schema_legacy, spatialdata_schema_new = spatialdata_blobs_schema
     spatialdata = ln.core.datasets.spatialdata_blobs()
 
     # wrong dataset
@@ -467,22 +582,59 @@ def test_spatialdata_curator(
         ln.curators.SpatialDataCurator(pd.DataFrame(), spatialdata_blobs_schema)
     # wrong schema
     with pytest.raises(InvalidArgument):
-        ln.curators.SpatialDataCurator(spatialdata, small_dataset1_schema)
+        ln.curators.SpatialDataCurator(
+            spatialdata, spatialdata_schema_legacy.slots["bio"]
+        )
 
-    curator = ln.curators.SpatialDataCurator(spatialdata, spatialdata_schema)
+    curator = ln.curators.SpatialDataCurator(spatialdata, spatialdata_schema_legacy)
     with pytest.raises(ln.errors.ValidationError):
         curator.validate()
     spatialdata.tables["table"].var.drop(index="ENSG00000999999", inplace=True)
 
     artifact = ln.Artifact.from_spatialdata(
-        spatialdata, key="example_datasets/spatialdata1.zarr", schema=spatialdata_schema
+        spatialdata,
+        key="example_datasets/spatialdata1.zarr",
+        schema=spatialdata_schema_legacy,
     ).save()
-    assert artifact.schema == spatialdata_schema
+    assert artifact.schema == spatialdata_schema_legacy
     assert artifact.features.slots.keys() == {
-        "sample",
-        "['table'].var",
-        "['table'].obs",
+        "bio",
+        "table:var",
+        "table:obs",
+    }
+    assert artifact.features.get_values()["disease"] == "Alzheimer disease"
+    artifact.delete(permanent=True)
+
+    artifact = ln.Artifact.from_spatialdata(
+        spatialdata,
+        key="example_datasets/spatialdata1.zarr",
+        schema=spatialdata_schema_new,
+    ).save()
+    assert artifact.schema == spatialdata_schema_new
+    assert artifact.features.slots.keys() == {
+        "attrs:bio",
+        "attrs:tech",
+        "attrs",
+        "tables:table:obs",
+        "tables:table:var.T",
     }
     assert artifact.features.get_values()["assay"] == "Visium Spatial Gene Expression"
-
+    assert (
+        artifact.features.describe(return_str=True)
+        == """Artifact .zarr/SpatialData
+└── Dataset features
+    ├── attrs:bio • 2       [Feature]
+    │   developmental_sta…  cat[bionty.Devel…  adult stage
+    │   disease             cat[bionty.Disea…  Alzheimer disease
+    ├── attrs:tech • 1      [Feature]
+    │   assay               cat[bionty.Exper…  Visium Spatial Gene Expression
+    ├── attrs • 2           [Feature]
+    │   bio                 dict
+    │   tech                dict
+    ├── tables:table:obs …  [Feature]
+    │   sample_region       str
+    └── tables:table:var.…  [bionty.Gene.ens…
+        BRCA2               num
+        BRAF                num"""
+    )
     artifact.delete(permanent=True)

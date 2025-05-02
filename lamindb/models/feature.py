@@ -143,40 +143,44 @@ def parse_cat_dtype(
 
 
 def serialize_dtype(
-    dtype: Record | FieldAttr | list[Record], is_itype: bool = False
+    dtype: Registry | Record | FieldAttr | list[Record] | list[Registry],
+    is_itype: bool = False,
 ) -> str:
     """Converts a data type object into its string representation."""
+    from .ulabel import ULabel
+
     if (
         not isinstance(dtype, list)
         and hasattr(dtype, "__name__")
         and dtype.__name__ in FEATURE_DTYPES
     ):
         dtype_str = dtype.__name__
+    elif dtype is dict:
+        dtype_str = "dict"
     elif isinstance(dtype, (ExtensionDtype, np.dtype)):
         dtype_str = serialize_pandas_dtype(dtype)
     else:
-        error_message = (
-            "dtype has to be a record, a record field, or a list of records, not {}"
-        )
-        if isinstance(dtype, Registry):
-            dtype = [dtype]
-        elif isinstance(dtype, DeferredAttribute):
+        error_message = "dtype has to be a registry, a ulabel subtype, a registry field, or a list of registries or fields, not {}"
+        if isinstance(dtype, (Registry, DeferredAttribute, ULabel)):
             dtype = [dtype]
         elif not isinstance(dtype, list):
             raise ValueError(error_message.format(dtype))
         dtype_str = ""
-        for single_dtype in dtype:
-            if not isinstance(single_dtype, Registry) and not isinstance(
-                single_dtype, DeferredAttribute
-            ):
-                raise ValueError(error_message.format(single_dtype))
-            if isinstance(single_dtype, Registry):
-                dtype_str += single_dtype.__get_name_with_module__() + "|"
+        for one_dtype in dtype:
+            if not isinstance(one_dtype, (Registry, DeferredAttribute, ULabel)):
+                raise ValueError(error_message.format(one_dtype))
+            if isinstance(one_dtype, Registry):
+                dtype_str += one_dtype.__get_name_with_module__() + "|"
+            elif isinstance(one_dtype, ULabel):
+                assert one_dtype.is_type, (  # noqa: S101
+                    f"ulabel has to be a type if acting as dtype, {one_dtype} has `is_type` False"
+                )
+                dtype_str += f"ULabel[{one_dtype.name}]"
             else:
+                name = one_dtype.field.name
+                field_ext = f".{name}" if name != "name" else ""
                 dtype_str += (
-                    single_dtype.field.model.__get_name_with_module__()
-                    + f".{single_dtype.field.name}"
-                    + "|"
+                    one_dtype.field.model.__get_name_with_module__() + field_ext + "|"
                 )
         dtype_str = dtype_str.rstrip("|")
         if not is_itype:

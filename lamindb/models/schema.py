@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, overload
+from typing import TYPE_CHECKING, Any, Type, overload
 
 import numpy as np
 from django.db import models
@@ -18,6 +18,7 @@ from lamindb.base.fields import (
 )
 from lamindb.base.types import FieldAttr, ListLike
 from lamindb.errors import FieldValidationError, InvalidArgument
+from lamindb.models.feature import parse_cat_dtype
 
 from ..errors import ValidationError
 from ._relations import (
@@ -150,7 +151,7 @@ class SchemaOptionals:
 
 
 class Schema(Record, CanCurate, TracksRun):
-    """Schemas.
+    """Schemas of datasets such as the set of columns of a `DataFrame`.
 
     A simple schema is a feature set such as the set of columns of a `DataFrame`.
 
@@ -185,25 +186,15 @@ class Schema(Record, CanCurate, TracksRun):
         coerce_dtype: `bool = False` When True, attempts to coerce values to the specified dtype
             during validation, see :attr:`~lamindb.Schema.coerce_dtype`.
 
-    .. dropdown:: Why does LaminDB model schemas, not just features?
-
-        1. Performance: Imagine you measure the same panel of 20k transcripts in
-           1M samples. By modeling the panel as a schema, you can link all
-           your artifacts against one schema and only need to store 1M
-           instead of 1M x 20k = 20B links.
-        2. Interpretation: Model protein panels, gene panels, etc.
-        3. Data integration: Schemas provide the information that determines whether two datasets can be meaningfully concatenated.
-
-    Note:
-
-        A `slot` provides a string key to access schema components. For instance, for the schema of an
-        `AnnData` object, it would be `'obs'` for `adata.obs`.
-
     See Also:
-        :meth:`~lamindb.Schema.from_values`
-            Create from values.
-        :meth:`~lamindb.Schema.from_df`
-            Create from dataframe columns.
+        :meth:`~lamindb.Artifact.from_df`
+            Validate & annotate a `DataFrame` with a schema.
+        :meth:`~lamindb.Artifact.from_anndata`
+            Validate & annotate an `AnnData` with a schema.
+        :meth:`~lamindb.Artifact.from_mudata`
+            Validate & annotate an `MuData` with a schema.
+        :meth:`~lamindb.Artifact.from_spatialdata`
+            Validate & annotate a `SpatialData` with a schema.
 
     Examples:
 
@@ -213,19 +204,18 @@ class Schema(Record, CanCurate, TracksRun):
             import bionty as bt
             import pandas as pd
 
-            # explicitly define features
+            # a schema with a single required feature
             schema = ln.Schema(
                 features=[
                     ln.Feature(name="required_feature", dtype=str).save(),
                 ],
             ).save()
 
-            # merely constrain a feature identifier type like an Ensembl gene id
+            # a schema that constrains feature identifiers to be a valid ensembl gene ids or feature names
             schema = ln.Schema(itype=bt.Gene.ensembl_gene_id)
-            # or feature name
-            schema = ln.Schema(itype=ln.Feature)  # is equivalent to ln.Feature.name
+            schema = ln.Schema(itype=ln.Feature)  # is equivalent to itype=ln.Feature.name
 
-            # a combination of the above
+            # a schema that requires a single feature and accepts any other features with valid feature names
             schema = ln.Schema(
                 features=[
                     ln.Feature(name="required_feature", dtype=str).save(),
@@ -252,16 +242,16 @@ class Schema(Record, CanCurate, TracksRun):
                 ],
             ).save()
 
-        Alternative constructors::
+        Alternative constructors (:meth:`~lamindb.Schema.from_values`, :meth:`~lamindb.Schema.from_df`)::
 
-            # By parsing & validating identifier values
+            # parse & validate identifier values
             schema = ln.Schema.from_values(
                 adata.var["ensemble_id"],
                 field=bt.Gene.ensembl_gene_id,
                 organism="mouse",
             ).save()
 
-            # From a dataframe
+            # from a dataframe
             df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
             schema = ln.Schema.from_df(df)
     """
@@ -285,17 +275,14 @@ class Schema(Record, CanCurate, TracksRun):
     """A name."""
     description: str | None = CharField(null=True, db_index=True)
     """A description."""
-    n = IntegerField()
-    """Number of features in the set."""
+    n: int = IntegerField()
+    """Number of features in the schema."""
     itype: str | None = CharField(
         max_length=120, db_index=True, null=True, editable=False
     )
     """A registry that stores feature identifiers used in this schema, e.g., `'Feature'` or `'bionty.Gene'`.
 
-    Depending on the registry, `.members` stores, e.g., `Feature` or `bionty.Gene` records.
-
-    .. versionchanged:: 1.0.0
-        Was called `registry` before.
+    Depending on `itype`, `.members` stores, e.g., `Feature` or `bionty.Gene` records.
     """
     type: Schema | None = ForeignKey("self", PROTECT, null=True, related_name="records")
     """Type of schema.
@@ -389,7 +376,7 @@ class Schema(Record, CanCurate, TracksRun):
         components: dict[str, Schema] | None = None,
         name: str | None = None,
         description: str | None = None,
-        dtype: str | None = None,
+        dtype: str | Type[int | float | str] | None = None,  # noqa
         itype: str | Registry | FieldAttr | None = None,
         type: Schema | None = None,
         is_type: bool = False,
@@ -397,6 +384,7 @@ class Schema(Record, CanCurate, TracksRun):
         ordered_set: bool = False,
         maximal_set: bool = False,
         coerce_dtype: bool = False,
+        n: int | None = None,
     ): ...
 
     @overload
@@ -434,6 +422,7 @@ class Schema(Record, CanCurate, TracksRun):
         maximal_set: bool = kwargs.pop("maximal_set", False)
         coerce_dtype: bool | None = kwargs.pop("coerce_dtype", None)
         using: bool | None = kwargs.pop("using", None)
+        n_features: int | None = kwargs.pop("n", None)
         optional_features = []
 
         if kwargs:
@@ -453,15 +442,16 @@ class Schema(Record, CanCurate, TracksRun):
             features_registry = validate_features(features)
             itype_compare = features_registry.__get_name_with_module__()
             if itype is not None:
-                assert itype == itype_compare, str(itype_compare)  # noqa: S101
+                assert itype.startswith(itype_compare), str(itype_compare)  # noqa: S101
             else:
                 itype = itype_compare
+            assert n_features is None, "do not pass `n` if features are passed"  # noqa: S101
             n_features = len(features)
             if features_registry == Feature:
                 optional_features = [
                     config[0] for config in configs if config[1].get("optional")
                 ]
-        else:
+        elif n_features is None:
             n_features = -1
         if dtype is None:
             dtype = None if itype is not None and itype == "Feature" else NUMBER_TYPE
@@ -686,7 +676,9 @@ class Schema(Record, CanCurate, TracksRun):
             # .set() does not preserve the order but orders by
             # the feature primary key
             through_model = getattr(self, related_name).through
-            related_model_split = self.itype.split(".")
+            related_model_split = parse_cat_dtype(self.itype, is_itype=True)[
+                "registry_str"
+            ].split(".")
             if len(related_model_split) == 1:
                 related_field = related_model_split[0].lower()
             else:
@@ -883,7 +875,9 @@ def get_type_str(dtype: str | None) -> str | None:
 
 def _get_related_name(self: Schema) -> str:
     related_models = dict_related_model_to_related_name(self, instance=self._state.db)
-    related_name = related_models.get(self.itype)
+    related_name = related_models.get(
+        parse_cat_dtype(self.itype, is_itype=True)["registry_str"]
+    )
     return related_name
 
 

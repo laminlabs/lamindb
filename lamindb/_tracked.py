@@ -26,7 +26,7 @@ def get_current_tracked_run() -> Run | None:
 
 
 def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Mark a function as tracked with this decorator.
+    """Track function runs.
 
     You will be able to see inputs, outputs, and parameters of the function in the data lineage graph.
 

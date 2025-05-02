@@ -160,7 +160,7 @@ def notebook_to_report(notebook_path: Path, output_path: Path) -> None:
 
 
 def notebook_to_script(  # type: ignore
-    transform: Transform, notebook_path: Path, script_path: Path | None = None
+    title: str, notebook_path: Path, script_path: Path | None = None
 ) -> None | str:
     import jupytext
 
@@ -169,7 +169,7 @@ def notebook_to_script(  # type: ignore
     # remove global metadata header
     py_content = re.sub(r"^# ---\n.*?# ---\n\n", "", py_content, flags=re.DOTALL)
     # replace title
-    py_content = py_content.replace(f"# # {transform.description}", "#")
+    py_content = py_content.replace(f"# # {title}", "#")
     if script_path is None:
         return py_content
     else:
@@ -244,6 +244,7 @@ def save_context_core(
     ignore_non_consecutive: bool | None = None,
     from_cli: bool = False,
     is_retry: bool = False,
+    notebook_runner: str | None = None,
 ) -> str | None:
     import lamindb as ln
     from lamindb.models import (
@@ -259,7 +260,9 @@ def save_context_core(
     source_code_path = filepath
     report_path: Path | None = None
     save_source_code_and_report = True
-    if is_run_from_ipython:  # python notebooks in interactive session
+    if (
+        is_run_from_ipython and notebook_runner != "nbconvert"
+    ):  # python notebooks in interactive session
         import nbproject
 
         # it might be that the user modifies the title just before ln.finish()
@@ -310,7 +313,7 @@ def save_context_core(
         source_code_path = ln_setup.settings.cache_dir / filepath.name.replace(
             ".ipynb", ".py"
         )
-        notebook_to_script(transform, filepath, source_code_path)
+        notebook_to_script(transform.description, filepath, source_code_path)
     elif is_r_notebook:
         if filepath.with_suffix(".nb.html").exists():
             report_path = filepath.with_suffix(".nb.html")
@@ -337,18 +340,18 @@ def save_context_core(
     ln.settings.creation.artifact_silence_missing_run_warning = True
     # save source code
     if save_source_code_and_report:
-        hash, _ = hash_file(source_code_path)  # ignore hash_type for now
+        transform_hash, _ = hash_file(source_code_path)  # ignore hash_type for now
         if transform.hash is not None:
             # check if the hash of the transform source code matches
             # (for scripts, we already run the same logic in track() - we can deduplicate the call at some point)
-            if hash != transform.hash:
+            if transform_hash != transform.hash:
                 response = input(
                     f"You are about to overwrite existing source code (hash '{transform.hash}') for Transform('{transform.uid}')."
                     f" Proceed? (y/n)"
                 )
                 if response == "y":
                     transform.source_code = source_code_path.read_text()
-                    transform.hash = hash
+                    transform.hash = transform_hash
                 else:
                     logger.warning("Please re-run `ln.track()` to make a new version")
                     return "rerun-the-notebook"
@@ -356,7 +359,7 @@ def save_context_core(
                 logger.debug("source code is already saved")
         else:
             transform.source_code = source_code_path.read_text()
-            transform.hash = hash
+            transform.hash = transform_hash
 
     # track run environment
     if run is not None:
@@ -398,7 +401,8 @@ def save_context_core(
     # track report and set is_consecutive
     if save_source_code_and_report:
         if run is not None:
-            if report_path is not None:
+            # do not save a run report if executing through nbconvert
+            if report_path is not None and notebook_runner != "nbconvert":
                 if is_r_notebook:
                     title_text, report_path = clean_r_notebook_html(report_path)
                     if title_text is not None:
@@ -432,6 +436,8 @@ def save_context_core(
                     f"saved transform.latest_run.report: {transform.latest_run.report}"
                 )
             run._is_consecutive = is_consecutive
+        if report_path is not None and notebook_runner == "nbconvert":
+            logger.important(f"to save the notebook html, run: lamin save {filepath}")
 
     # save both run & transform records if we arrive here
     if run is not None:

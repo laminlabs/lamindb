@@ -5,21 +5,21 @@ import numpy as np
 def test_cxg_curator():
     schema_version = "5.2.0"
     adata = ln.core.datasets.small_dataset3_cellxgene()
-    curator = ln.curators.CellxGeneAnnDataCatManager(
+    curator = ln.curators._legacy.CellxGeneAnnDataCatManager(
         adata, schema_version=schema_version
     )
 
     adata.obs.rename(columns={"donor": "donor_id"}, inplace=True)
-    curator = ln.curators.CellxGeneAnnDataCatManager(
+    curator = ln.curators._legacy.CellxGeneAnnDataCatManager(
         adata,
-        defaults=ln.curators.CellxGeneAnnDataCatManager.cxg_categoricals_defaults,
+        defaults=ln.curators._legacy.CellxGeneAnnDataCatManager.cxg_categoricals_defaults,
         schema_version=schema_version,
     )
     assert not curator.validate()
 
     adata = adata[:, ~adata.var.index.isin(curator.non_validated["var_index"])]
     adata.obs["tissue"] = adata.obs["tissue"].cat.rename_categories({"lungg": "lung"})
-    curator = ln.curators.CellxGeneAnnDataCatManager(
+    curator = ln.curators._legacy.CellxGeneAnnDataCatManager(
         adata, schema_version=schema_version
     )
     assert curator.validate()
