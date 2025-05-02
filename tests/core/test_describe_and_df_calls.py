@@ -73,7 +73,7 @@ def test_curate_df():
             "cell_type_by_model": bt.CellType.name,
         },
     )
-    artifact = curator.save_artifact(key="example_datasets/dataset1.h5ad")
+    artifact = curator.save_artifact(key="examples/dataset1.h5ad")
     artifact.features.add_values(adata.uns)
 
     # Ingest dataset2
@@ -86,18 +86,18 @@ def test_curate_df():
             "cell_type_by_model": bt.CellType.name,
         },
     )
-    artifact2 = curator.save_artifact(key="example_datasets/dataset2.h5ad")
+    artifact2 = curator.save_artifact(key="examples/dataset2.h5ad")
     artifact2.features.add_values(adata2.uns)
 
     # Test df(include=[...])
     df = (
-        ln.Artifact.filter(key__startswith="example_datasets/dataset", suffix=".h5ad")
+        ln.Artifact.filter(key__startswith="examples/dataset", suffix=".h5ad")
         .order_by("-key")
         .df(include=["feature_sets__hash", "feature_sets__name"])
         .drop(["uid"], axis=1)
     )
     expected_data = {
-        "key": ["example_datasets/dataset2.h5ad", "example_datasets/dataset1.h5ad"],
+        "key": ["examples/dataset2.h5ad", "examples/dataset1.h5ad"],
         "description": [None, None],
         "feature_sets__hash": [
             set(artifact2.feature_sets.all().values_list("hash", flat=True)),
@@ -113,7 +113,7 @@ def test_curate_df():
     # we want it to only affect the artifact query (even though here, it won't change the result as both artifacts have the IFNG label)
     df = (
         ln.Artifact.filter(
-            key__startswith="example_datasets/dataset",
+            key__startswith="examples/dataset",
             suffix=".h5ad",
             ulabels__name="IFNG",
         )
@@ -122,7 +122,7 @@ def test_curate_df():
         .drop(["uid"], axis=1)
     )
     expected_data = {
-        "key": ["example_datasets/dataset2.h5ad", "example_datasets/dataset1.h5ad"],
+        "key": ["examples/dataset2.h5ad", "examples/dataset1.h5ad"],
         "description": [None, None],
         "cell_type_by_expert": [np.nan, {"CD8-positive, alpha-beta T cell", "B cell"}],
         "cell_type_by_model": [{"T cell", "B cell"}, {"T cell", "B cell"}],
@@ -151,7 +151,7 @@ def test_curate_df():
     general_node = description_tree.children[0]
     assert general_node.label.plain == "General"
     assert general_node.children[0].label == f".uid = '{artifact.uid}'"
-    assert general_node.children[1].label == ".key = 'example_datasets/dataset1.h5ad'"
+    assert general_node.children[1].label == ".key = 'examples/dataset1.h5ad'"
     assert ".size = " in general_node.children[2].label
     assert ".hash = " in general_node.children[3].label
     assert general_node.children[4].label.plain == ".n_observations = 3"

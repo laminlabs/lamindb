@@ -962,7 +962,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         Create an artifact **from a local file or folder**::
 
-            artifact = ln.Artifact("./my_file.parquet", key="example_datasets/my_file.parquet").save()
+            artifact = ln.Artifact("./my_file.parquet", key="examples/my_file.parquet").save()
             artifact = ln.Artifact("./my_folder", key="project1/my_folder").save()
 
         Calling `.save()` copies or uploads the file to the default storage location of your lamindb instance.
@@ -977,7 +977,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         You can make a **new version** of an artifact by passing an existing `key`::
 
-            artifact_v2 = ln.Artifact("./my_file.parquet", key="example_datasets/my_file.parquet").save()
+            artifact_v2 = ln.Artifact("./my_file.parquet", key="examples/my_file.parquet").save()
             artifact_v2.versions.df()  # see all versions
 
         You can write artifacts to other storage locations by switching the current default storage location (:attr:`~lamindb.core.Settings.storage`)::
@@ -1529,7 +1529,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             ::
 
                 artifact = ln.Artifact.get("tCUkRcaEjTjhtozp0000")
-                artifact = ln.Arfifact.get(key="my_datasets/my_file.parquet")
+                artifact = ln.Arfifact.get(key="examples/my_file.parquet")
         """
         from .query_set import QuerySet
 
@@ -1554,7 +1554,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             Query by fields::
 
-                ln.Arfifact.filter(key="my_datasets/my_file.parquet")
+                ln.Arfifact.filter(key="examples/my_file.parquet")
 
             Query by features::
 
@@ -1638,7 +1638,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 import lamindb as ln
 
                 df = ln.core.datasets.mini_immuno.get_dataset1()
-                artifact = ln.Artifact.from_df(df, key="example_datasets/dataset1.parquet").save()
+                artifact = ln.Artifact.from_df(df, key="examples/dataset1.parquet").save()
 
             With validation and annotation.
 

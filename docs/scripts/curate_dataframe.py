@@ -22,5 +22,5 @@ schema = ln.Schema(
 # curate a DataFrame
 df = ln.core.datasets.small_dataset1(otype="DataFrame")
 curator = ln.curators.DataFrameCurator(df, schema)
-artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
+artifact = curator.save_artifact(key="examples/dataset1.parquet")
 assert artifact.schema == schema

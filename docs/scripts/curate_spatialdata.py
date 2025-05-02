@@ -13,6 +13,6 @@ spatialdata.tables["table"].var.drop(index="ENSG00000999999", inplace=True)
 
 # validate again (must pass now) and save artifact
 artifact = ln.Artifact.from_spatialdata(
-    spatialdata, key="example_datasets/spatialdata1.zarr", schema=sdata_schema
+    spatialdata, key="examples/spatialdata1.zarr", schema=sdata_schema
 )
 artifact.describe()

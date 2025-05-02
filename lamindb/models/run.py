@@ -559,7 +559,7 @@ class Run(Record):
 
             Query by fields::
 
-                ln.Run.filter(key="my_datasets/my_file.parquet")
+                ln.Run.filter(key="examples/my_file.parquet")
 
             Query by params::
 
