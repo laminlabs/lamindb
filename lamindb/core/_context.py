@@ -276,7 +276,7 @@ class Context:
             project: A project `name` or `uid` for labeling entities created during the run.
             space: A space `name` or `uid` to identify where potentially sensitive entities are created during the run.
                 This doesn't affect `Storage`, `ULabel`, `Feature`, `Schema`, `Param` and bionty entities as these provide mere structure that should typically be commonly accessible.
-                If you want to manually move entities to a different space, set the `.space` field (:doc:`access`).
+                If you want to manually move entities to a different space, set the `.space` field (:doc:`docs:access`).
             params: A dictionary of parameters to track for the run.
             new_run: If `False`, loads the latest run of transform
                 (default notebook), if `True`, creates new run (default non-notebook).
