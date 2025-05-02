@@ -24,7 +24,7 @@ from lamindb.base.fields import (
 
 from ..base.ids import base62_20
 from ..core._mapped_collection import MappedCollection
-from ..core.storage._backed_access import _df_dataset_suffix
+from ..core.storage._backed_access import _df_storage_suffix
 from ..core.storage._pyarrow_dataset import PYARROW_SUFFIXES, _open_pyarrow_dataset
 from ..errors import FieldValidationError
 from ..models._is_versioned import process_revises
@@ -366,7 +366,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
                 raise ValueError(
                     "The collection has artifacts with different filesystems, this is not supported."
                 )
-        if _df_dataset_suffix(paths) not in PYARROW_SUFFIXES:
+        if _df_storage_suffix(paths) not in PYARROW_SUFFIXES:
             suffixes = {path.suffix for path in paths}
             suffixes_str = ", ".join(suffixes)
             err_msg = (

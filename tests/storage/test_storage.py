@@ -16,12 +16,10 @@ from lamindb.core.storage._anndata_accessor import _anndata_n_observations
 from lamindb.core.storage._backed_access import (
     AnnDataAccessor,
     BackedAccessor,
+    _df_storage_suffix,
     backed_access,
 )
-from lamindb.core.storage._pyarrow_dataset import (
-    _is_pyarrow_dataset,
-    _open_pyarrow_dataset,
-)
+from lamindb.core.storage._pyarrow_dataset import _open_pyarrow_dataset
 from lamindb.core.storage._tiledbsoma import (
     _open_tiledbsoma,
     _soma_store_n_observations,
@@ -470,7 +468,7 @@ def test_backed_pyarrow_collection():
     df[:2].to_parquet(shard1, engine="pyarrow")
     df[2:].to_parquet(shard2, engine="pyarrow")
     # test checking and opening local paths
-    assert not _is_pyarrow_dataset([shard1, ln.UPath("some.csv")])
+    assert _df_storage_suffix([shard1, ln.UPath("some.csv")]) is None
     assert _open_pyarrow_dataset([shard1, shard2]).to_table().to_pandas().equals(df)
 
     ln.core.datasets.file_mini_csv()

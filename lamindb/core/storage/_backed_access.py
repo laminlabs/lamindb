@@ -97,7 +97,7 @@ def backed_access(
         conn, storage = registry.open("h5py", objectpath, mode=mode, **kwargs)
     elif suffix == ".zarr":
         conn, storage = registry.open("zarr", objectpath, mode=mode, **kwargs)
-    elif _df_dataset_suffix(objectpath) in PYARROW_SUFFIXES:
+    elif _df_storage_suffix(objectpath) in PYARROW_SUFFIXES:
         return _open_pyarrow_dataset(objectpath, **kwargs)
     else:
         raise ValueError(
@@ -115,7 +115,7 @@ def backed_access(
 
 
 # returns a single suffix if all the paths have the same suffix or None otherwise
-def _df_dataset_suffix(paths: UPath | list[UPath]) -> str | None:
+def _df_storage_suffix(paths: UPath | list[UPath]) -> str | None:
     # it is assumed here that the paths exist
     # we don't check here that the filesystem is the same
     # but this is a requirement for pyarrow.dataset.dataset
