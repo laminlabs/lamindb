@@ -9,7 +9,7 @@ obs_schema = ln.Schema(itype=ln.Feature).save()
 varT_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id).save()
 schema = ln.Schema(
     otype="AnnData",
-    components={"obs": obs_schema, "var.T": varT_schema},
+    slots={"obs": obs_schema, "var.T": varT_schema},
 ).save()
 
 # curate an AnnData

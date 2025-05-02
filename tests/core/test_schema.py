@@ -224,7 +224,7 @@ def test_schema_components(small_dataset1_schema: ln.Schema):
         ln.Schema(
             name="small_dataset1_anndata_schema",
             otype="AnnData",
-            components={"obs": obs_schema, "var": var_schema},
+            slots={"obs": obs_schema, "var": var_schema},
         ).save()
     except ln.errors.InvalidArgument:
         assert (
@@ -235,7 +235,7 @@ def test_schema_components(small_dataset1_schema: ln.Schema):
     anndata_schema = ln.Schema(
         name="small_dataset1_anndata_schema",
         otype="AnnData",
-        components={"obs": obs_schema, "var": var_schema},
+        slots={"obs": obs_schema, "var": var_schema},
     ).save()
 
     var_schema2 = ln.Schema(
