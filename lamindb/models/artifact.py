@@ -1704,8 +1704,13 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             .. literalinclude:: scripts/curate_anndata_simple.py
                 :language: python
 
-            In the example above, we chose to tranpose the `var` DataFrame during annotation, so that we annotate the `var.T` schema, i.e., `[ENSG00000153563, ENSG00000010610, ENSG00000170458]`.
-            If we don't transpose, we'd annotate with the schema of `var`, i.e., `[gene_symbol, gene_type]`.
+            Under-the-hood, this used the following schema::
+
+            .. literalinclude:: scripts/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py
+            :language: python
+
+            This schema tranposes the `var` DataFrame during curation, so that one validates and annotates the `var.T` schema, i.e., `[ENSG00000153563, ENSG00000010610, ENSG00000170458]`.
+            If one doesn't transpose, one would annotate with the schema of `var`, i.e., `[gene_symbol, gene_type]`.
 
             .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/gLyfToATM7WUzkWW0001.png
                 :width: 800px
