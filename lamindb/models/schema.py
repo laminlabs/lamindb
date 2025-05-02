@@ -421,6 +421,7 @@ class Schema(Record, CanCurate, TracksRun):
         ordered_set: bool = kwargs.pop("ordered_set", False)
         maximal_set: bool = kwargs.pop("maximal_set", False)
         coerce_dtype: bool | None = kwargs.pop("coerce_dtype", None)
+        using: bool | None = kwargs.pop("using", None)
         n_features: int | None = kwargs.pop("n", None)
         optional_features = []
 
@@ -502,7 +503,7 @@ class Schema(Record, CanCurate, TracksRun):
                 )
             hash = hash_set(union_set)
         validated_kwargs["hash"] = hash
-        schema = Schema.filter(hash=hash).one_or_none()
+        schema = Schema.objects.using(using).filter(hash=hash).one_or_none()
         if schema is not None:
             logger.important(f"returning existing schema with same hash: {schema}")
             init_self_from_db(self, schema)
@@ -669,6 +670,7 @@ class Schema(Record, CanCurate, TracksRun):
             bulk_create(links, ignore_conflicts=True)
         if hasattr(self, "_features"):
             assert self.n > 0  # noqa: S101
+            using: bool | None = kwargs.pop("using", None)
             related_name, records = self._features
             # only the following method preserves the order
             # .set() does not preserve the order but orders by
@@ -686,7 +688,7 @@ class Schema(Record, CanCurate, TracksRun):
                 through_model(**{"schema_id": self.id, related_field_id: record.id})
                 for record in records
             ]
-            through_model.objects.bulk_create(links, ignore_conflicts=True)
+            through_model.objects.using(using).bulk_create(links, ignore_conflicts=True)
         return self
 
     @property
