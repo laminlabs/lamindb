@@ -1,7 +1,11 @@
+from __future__ import annotations
+
 from contextlib import contextmanager
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from upath import UPath
+if TYPE_CHECKING:
+    from upath import UPath
 
 POLARS_SUFFIXES = (".parquet", ".csv", ".ndjson", ".ipc")
 
