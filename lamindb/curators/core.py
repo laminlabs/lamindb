@@ -579,7 +579,7 @@ class AnnDataCurator(SlotsCurator):
         }
         if "var" in self._slots and schema.slots["var"].itype not in {None, "Feature"}:
             logger.warning(
-                "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
             )
             self._slots["var"].cat._cat_vectors["var_index"] = self._slots[
                 "var"
@@ -656,7 +656,7 @@ class MuDataCurator(SlotsCurator):
                 "Feature",
             }:
                 logger.warning(
-                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 )
             self._slots[slot] = DataFrameCurator(
                 (
@@ -726,7 +726,7 @@ class SpatialDataCurator(SlotsCurator):
                     "Feature",
                 }:
                     logger.warning(
-                        "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                        "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                     )
                 data_object = (
                     getattr(slot_object, sub_slot.rstrip(".T")).T
@@ -871,7 +871,9 @@ class CatVector:
         if not values:
             return [], []
         # inspect the default instance and save validated records from public
-        if self._subtype_str != "":
+        if (
+            self._subtype_str != "" and "__" not in self._subtype_str
+        ):  # not for general filter expressions
             self._subtype_query_set = registry.get(name=self._subtype_str).records.all()
             values_array = np.array(values)
             validated_mask = self._subtype_query_set.validate(  # type: ignore
@@ -1354,7 +1356,7 @@ def annotate_artifact(
             and len(features) > settings.annotation.n_max_records
         ):
             logger.important(
-                f"not annotating with {len(features)} features for schema as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
+                f"not annotating with {len(features)} features as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
             )
             itype = parse_cat_dtype(artifact.schema.itype, is_itype=True)["field"]
             feature_set = Schema(itype=itype, n=len(features))
@@ -1363,7 +1365,12 @@ def annotate_artifact(
         )
     else:
         for slot, slot_curator in curator._slots.items():
-            name = "var_index" if slot == "var" else "columns"
+            # var_index is backward compat (2025-05-01)
+            name = (
+                "var_index"
+                if (slot == "var" and "var_index" in slot_curator.cat._cat_vectors)
+                else "columns"
+            )
             features = slot_curator.cat._cat_vectors[name].records
             itype = parse_cat_dtype(artifact.schema.slots[slot].itype, is_itype=True)[
                 "field"
@@ -1374,7 +1381,7 @@ def annotate_artifact(
                 and len(features) > settings.annotation.n_max_records
             ):
                 logger.important(
-                    f"not annotating with {len(features)} features for schema as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
+                    f"not annotating with {len(features)} features for slot {slot} as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
                 )
                 feature_set = Schema(itype=itype, n=len(features))
             artifact.feature_sets.add(

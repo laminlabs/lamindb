@@ -320,15 +320,27 @@ def describe_features(
                     schema_data[slot] = (schema, feature_names)
                     for feature_name in feature_names:
                         feature_data[feature_name] = (slot, registry_str)
+            schema_data.update(
+                {
+                    slot: (schema, schema.n)
+                    for slot, schema in get_schema_by_slot_(self).items()
+                    if slot not in schema_data
+                }
+            )
         else:
             for slot, schema in get_schema_by_slot_(self).items():
                 features = schema.members
-                # features.first() is a lot slower than features[0] here
-                name_field = get_name_field(features[0])
-                feature_names = list(features.values_list(name_field, flat=True)[:20])
-                schema_data[slot] = (schema, feature_names)
-                for feature_name in feature_names:
-                    feature_data[feature_name] = (slot, schema.itype)
+                if features.exists():
+                    # features.first() is a lot slower than features[0] here
+                    name_field = get_name_field(features[0])
+                    feature_names = list(
+                        features.values_list(name_field, flat=True)[:20]
+                    )
+                    schema_data[slot] = (schema, feature_names)
+                    for feature_name in feature_names:
+                        feature_data[feature_name] = (slot, schema.itype)
+                else:
+                    schema_data[slot] = (schema, schema.n)
 
     internal_feature_names: dict[str, str] = {}
     if isinstance(self, Artifact):
@@ -400,38 +412,44 @@ def describe_features(
         internal_feature_labels_slot.setdefault(slot, []).append(feature_row)
 
     int_features_tree_children = []
-    for slot, (schema, feature_names) in schema_data.items():
-        if slot in internal_feature_labels_slot:
-            # add internal Feature features with labels
-            feature_rows = internal_feature_labels_slot[slot]
-            # add internal Feature features without labels
-            feature_rows += [
-                (
-                    feature_name,
-                    Text(str(internal_feature_names.get(feature_name)), style="dim"),
-                    "",
-                )
-                for feature_name in feature_names
-                if feature_name and feature_name not in internal_feature_labels
-            ]
+    for slot, (schema, feature_names_or_n) in schema_data.items():
+        if isinstance(feature_names_or_n, int):
+            feature_rows = []
         else:
-            # add internal non-Feature features without labels
-            feature_rows = [
-                (
-                    feature_name,
-                    Text(
-                        str(
-                            internal_feature_names.get(feature_name)
-                            if feature_name in internal_feature_names
-                            else schema.dtype
+            feature_names = feature_names_or_n
+            if slot in internal_feature_labels_slot:
+                # add internal Feature features with labels
+                feature_rows = internal_feature_labels_slot[slot]
+                # add internal Feature features without labels
+                feature_rows += [
+                    (
+                        feature_name,
+                        Text(
+                            str(internal_feature_names.get(feature_name)), style="dim"
                         ),
-                        style="dim",
-                    ),
-                    "",
-                )
-                for feature_name in feature_names
-                if feature_name
-            ]
+                        "",
+                    )
+                    for feature_name in feature_names
+                    if feature_name and feature_name not in internal_feature_labels
+                ]
+            else:
+                # add internal non-Feature features without labels
+                feature_rows = [
+                    (
+                        feature_name,
+                        Text(
+                            str(
+                                internal_feature_names.get(feature_name)
+                                if feature_name in internal_feature_names
+                                else schema.dtype
+                            ),
+                            style="dim",
+                        ),
+                        "",
+                    )
+                    for feature_name in feature_names
+                    if feature_name
+                ]
         int_features_tree_children.append(
             _create_feature_table(
                 Text.assemble(
@@ -572,7 +590,7 @@ def __init__(self, host: Artifact | Collection | Run):
 
 
 def __repr__(self) -> str:
-    return describe(self)
+    return describe(self, return_str=True)  # type: ignore
 
 
 def describe(self, return_str: bool = False) -> str | None:

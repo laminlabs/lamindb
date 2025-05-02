@@ -448,9 +448,10 @@ def save_context_core(
         # the hash existed and we're actually back to the previous version
         # hence, this was in fact a run of the previous transform rather than of
         # the new transform
-        # this can happen in interactive notebooks if the user makes no change to the notebook
+        # this can happen in interactively executed notebooks with a pro-active version bump in case it turns out that the user didn't make a change to the notebook
         run.transform = transform
         run.save()
+        ln.Transform.get(transform_id_prior_to_save).delete()
 
     # finalize
     if not from_cli and run is not None:

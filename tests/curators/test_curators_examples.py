@@ -115,7 +115,7 @@ def mudata_papalexi21_subset_schema():
     mudata_schema = ln.Schema(
         name="mudata_papalexi21_subset_mudata_schema",
         otype="MuData",
-        components={
+        slots={
             "obs": obs_schema,
             "rna:obs": obs_schema_rna,
             "hto:obs": obs_schema_hto,
@@ -294,7 +294,7 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
         anndata_schema = ln.Schema(
             name="small_dataset1_anndata_schema",
             otype="AnnData",
-            components=components,
+            slots=components,
         ).save()
         assert small_dataset1_schema.id is not None, small_dataset1_schema
         assert anndata_schema.slots["var.T"] == var_schema
@@ -356,7 +356,7 @@ def test_anndata_curator_varT_curation():
     components = {slot: varT_schema}
     anndata_schema = ln.Schema(
         otype="AnnData",
-        components=components,
+        slots=components,
     ).save()
     for with_gene_typo in [True, False]:
         adata = datasets.small_dataset1(otype="AnnData", with_gene_typo=with_gene_typo)
@@ -400,7 +400,7 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
     components = {slot: varT_schema}
     anndata_schema = ln.Schema(
         otype="AnnData",
-        components=components,
+        slots=components,
     ).save()
     for with_gene_typo in [True, False]:
         adata = datasets.small_dataset1(otype="AnnData", with_gene_typo=with_gene_typo)
@@ -418,7 +418,7 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
                 adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
             ).save()
             assert (
-                "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: components={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 in ccaplog.text
             )
             assert artifact.features.slots[slot].n == 3  # 3 genes get linked
@@ -471,7 +471,7 @@ def test_anndata_curator_no_var(small_dataset1_schema: ln.Schema):
     anndata_schema_no_var = ln.Schema(
         name="small_dataset1_anndata_schema_no_var",
         otype="AnnData",
-        components={"obs": small_dataset1_schema},
+        slots={"obs": small_dataset1_schema},
     ).save()
     assert small_dataset1_schema.id is not None, small_dataset1_schema
     adata = datasets.small_dataset1(otype="AnnData")
@@ -536,7 +536,7 @@ def spatialdata_blobs_schema():
 
     spatialdata_schema_legacy = ln.Schema(
         otype="SpatialData",
-        components={
+        slots={
             "bio": sample_schema,
             "table:obs": obs_schema,
             "table:var": varT_schema,
@@ -545,7 +545,7 @@ def spatialdata_blobs_schema():
 
     spatialdata_schema_new = ln.Schema(
         otype="SpatialData",
-        components={
+        slots={
             "attrs:sample": sample_schema,
             "attrs:tech": tech_schema,
             "attrs": attrs_schema,
