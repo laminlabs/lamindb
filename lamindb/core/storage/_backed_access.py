@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Literal
 
 from anndata._io.specs.registry import get_spec
+from upath import UPath
 
 from ._anndata_accessor import AnnDataAccessor, StorageType, registry
 from ._polars_lazy_df import POLARS_SUFFIXES, _open_polars_lazy_df
@@ -19,7 +20,6 @@ if TYPE_CHECKING:
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
     from tiledbsoma import Measurement as SOMAMeasurement
-    from upath import UPath
 
     from lamindb.models.artifact import Artifact
 
@@ -148,13 +148,16 @@ def _df_storage_suffix(paths: UPath | list[UPath]) -> str | None:
     # it is assumed here that the paths exist
     # we don't check here that the filesystem is the same
     # but this is a requirement for pyarrow.dataset.dataset
-    if isinstance(paths, list):
-        path_list = paths
-    # assume http is always a file
-    elif paths.protocol not in {"http", "https"} and paths.is_dir():
-        path_list = [path for path in paths.rglob("*") if path.suffix != ""]
-    else:
-        path_list = [paths]
+    path_list = []
+    if isinstance(paths, UPath):
+        paths = [paths]
+    for path in paths:
+        # assume http is always a file
+        if getattr(path, "protocol", None) not in {"http", "https"} and path.is_dir():
+            path_list += [p for p in path.rglob("*") if p.suffix != ""]
+        else:
+            path_list.append(path)
+
     suffix = None
     for path in path_list:
         path_suffixes = path.suffixes

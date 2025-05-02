@@ -24,7 +24,7 @@ def _open_polars_lazy_df(paths: UPath | list[UPath], **kwargs):
         paths = [paths]
     for path in paths:
         # assume http is always a file
-        if path.protocol not in {"http", "https"} and path.is_dir():
+        if getattr(path, "protocol", None) not in {"http", "https"} and path.is_dir():
             path_list += [p for p in path.rglob("*") if p.suffix != ""]
         else:
             path_list.append(path)

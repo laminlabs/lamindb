@@ -491,7 +491,7 @@ def test_backed_pyarrow_collection():
     with pytest.raises(ValueError) as err:
         collection2.open()
     assert err.exconly().startswith(
-        "ValueError: This collection is not compatible with pyarrow.dataset.dataset()"
+        "ValueError: The artifacts in the collection have different file formats"
     )
 
     collection3 = ln.Collection([artifact1, artifact4], key="s3_http_col").save()
