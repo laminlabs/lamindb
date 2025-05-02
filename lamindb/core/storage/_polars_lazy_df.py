@@ -12,19 +12,22 @@ def _open_polars_lazy_df(paths: UPath | list[UPath], **kwargs):
     except ImportError as ie:
         raise ImportError("Please install polars: pip install polars") from ie
 
-    if isinstance(paths, list):
-        path_list = paths
-    elif paths.is_dir():
-        path_list = [path for path in paths.rglob("*") if path.suffix != ""]
-    else:
-        path_list = [paths]
-
     scans = {
         ".parquet": pl.scan_parquet,
         ".csv": pl.scan_csv,
         ".ndjson": pl.scan_ndjson,
         ".ipc": pl.scan_ipc,
     }
+
+    path_list = []
+    if isinstance(paths, UPath):
+        paths = [paths]
+    for path in paths:
+        # assume http is always a file
+        if path.protocol not in {"http", "https"} and path.is_dir():
+            path_list += [p for p in path.rglob("*") if p.suffix != ""]
+        else:
+            path_list.append(path)
 
     open_files = []
 

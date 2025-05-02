@@ -149,7 +149,8 @@ def _df_storage_suffix(paths: UPath | list[UPath]) -> str | None:
     # but this is a requirement for pyarrow.dataset.dataset
     if isinstance(paths, list):
         path_list = paths
-    elif paths.is_dir():
+    # assume http is always a file
+    elif paths.protocol not in {"http", "https"} and paths.is_dir():
         path_list = [path for path in paths.rglob("*") if path.suffix != ""]
     else:
         path_list = [paths]
