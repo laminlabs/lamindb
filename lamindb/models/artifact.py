@@ -110,9 +110,8 @@ except ImportError:
 
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Iterator
 
-    from collection.abc import Iterator
     from mudata import MuData  # noqa: TC004
     from pyarrow.dataset import Dataset as PyArrowDataset
     from spatialdata import SpatialData  # noqa: TC004

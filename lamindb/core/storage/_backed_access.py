@@ -12,7 +12,8 @@ from ._tiledbsoma import _open_tiledbsoma
 from .paths import filepath_from_artifact
 
 if TYPE_CHECKING:
-    from collection.abc import Iterator
+    from collections.abc import Iterator
+
     from fsspec.core import OpenFile
     from pyarrow.dataset import Dataset as PyArrowDataset
     from tiledbsoma import Collection as SOMACollection
