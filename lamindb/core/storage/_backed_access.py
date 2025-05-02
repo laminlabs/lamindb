@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from fsspec.core import OpenFile
+    from polars import LazyFrame as PolarsLazyFrame
     from pyarrow.dataset import Dataset as PyArrowDataset
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
@@ -84,7 +85,7 @@ def backed_access(
     | SOMAExperiment
     | SOMAMeasurement
     | PyArrowDataset
-    | Iterator
+    | Iterator[PolarsLazyFrame]
 ):
     from lamindb.models import Artifact
 

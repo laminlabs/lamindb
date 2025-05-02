@@ -52,6 +52,7 @@ from .run import Run, TracksRun, TracksUpdates
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
+    from polars import LazyFrame as PolarsLazyFrame
     from pyarrow.dataset import Dataset as PyArrowDataset
 
     from ..core.storage import UPath
@@ -349,7 +350,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         df_engine: Literal["pyarrow", "polars"] = "pyarrow",
         is_run_input: bool | None = None,
         **kwargs,
-    ) -> PyArrowDataset | Iterator:
+    ) -> PyArrowDataset | Iterator[PolarsLazyFrame]:
         """Return a cloud-backed pyarrow Dataset.
 
         Works for `pyarrow` and `polars` compatible formats.

@@ -5,13 +5,18 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from polars import LazyFrame as PolarsLazyFrame
     from upath import UPath
 
 POLARS_SUFFIXES = (".parquet", ".csv", ".ndjson", ".ipc")
 
 
 @contextmanager
-def _open_polars_lazy_df(paths: UPath | list[UPath], **kwargs):
+def _open_polars_lazy_df(
+    paths: UPath | list[UPath], **kwargs
+) -> Iterator[PolarsLazyFrame]:
     try:
         import polars as pl
     except ImportError as ie:

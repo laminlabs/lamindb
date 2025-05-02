@@ -113,6 +113,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
     from mudata import MuData  # noqa: TC004
+    from polars import LazyFrame as PolarsLazyFrame
     from pyarrow.dataset import Dataset as PyArrowDataset
     from spatialdata import SpatialData  # noqa: TC004
     from tiledbsoma import Collection as SOMACollection
@@ -2159,7 +2160,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         | SOMAExperiment
         | SOMAMeasurement
         | PyArrowDataset
-        | Iterator
+        | Iterator[PolarsLazyFrame]
     ):
         """Return a cloud-backed data object.
 
