@@ -239,11 +239,8 @@ class Schema(Record, CanCurate, TracksRun):
     A schema can also merely define abstract constraints or instructions for dataset validation & annotation.
 
     Args:
-        features: `list[Record] | None = None` An iterable of :class:`~lamindb.Feature`
-            records to hash, e.g., `[Feature(...), Feature(...)]`. Is turned into
-            a set upon instantiation. If you'd like to pass values, use
-            :meth:`~lamindb.Schema.from_values` or
-            :meth:`~lamindb.Schema.from_df`.
+        features: `list[Record] | list[tuple[Feature, dict]] | None = None` A list of feature
+            records, e.g., `[Feature(...), Feature(...)]` or features with their config, e.g., `[Feature(...).with_config(optional=True)]`.
         index: `Feature | None = None` A :class:`~lamindb.Feature` record to validate an index of a `DataFrame`.
         slots: `dict[str, Schema] | None = None` A dictionary mapping slot names to
             :class:`~lamindb.Schema` objects.
@@ -450,7 +447,7 @@ class Schema(Record, CanCurate, TracksRun):
     @overload
     def __init__(
         self,
-        features: list[Record] | None = None,
+        features: list[Record] | list[tuple[Feature, dict]] | None = None,
         index: Feature | None = None,
         slots: dict[str, Schema] | None = None,
         name: str | None = None,
@@ -512,7 +509,7 @@ class Schema(Record, CanCurate, TracksRun):
             raise FieldValidationError(
                 f"Only {valid_keywords} are valid keyword arguments"
             )
-        validated_kwargs, optional_features, features_registry, flexible = (
+        features, validated_kwargs, optional_features, features_registry, flexible = (
             self._validate_kwargs_calculate_hash(
                 features=features,
                 index=index,
@@ -578,7 +575,7 @@ class Schema(Record, CanCurate, TracksRun):
         maximal_set: bool,
         coerce_dtype: bool | None,
         n_features: int | None,
-    ):
+    ) -> tuple[list[Feature], dict[str, Any], list[Feature], Registry, bool]:
         optional_features = []
         features_registry: Registry = None
         if itype is not None:
@@ -652,7 +649,13 @@ class Schema(Record, CanCurate, TracksRun):
                 )
             schema_hash = hash_set(union_set)
         validated_kwargs["hash"] = schema_hash
-        return validated_kwargs, optional_features, features_registry, flexible
+        return (
+            features,
+            validated_kwargs,
+            optional_features,
+            features_registry,
+            flexible,
+        )
 
     @classmethod
     def from_values(  # type: ignore
