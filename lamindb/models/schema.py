@@ -532,7 +532,11 @@ class Schema(Record, CanCurate, TracksRun):
                 n_features=n_features,
             )
         )
-        schema = Schema.objects.using(using).filter(hash=hash).one_or_none()
+        schema = (
+            Schema.objects.using(using)
+            .filter(hash=validated_kwargs["hash"])
+            .one_or_none()
+        )
         if schema is not None:
             logger.important(f"returning existing schema with same hash: {schema}")
             init_self_from_db(self, schema)
@@ -629,7 +633,7 @@ class Schema(Record, CanCurate, TracksRun):
         if coerce_dtype:
             validated_kwargs["_aux"] = {"af": {"0": coerce_dtype}}
         if slots:
-            hash = hash_set({component.hash for component in slots.values()})
+            schema_hash = hash_set({component.hash for component in slots.values()})
         else:
             # we do not want pure informational annotations like otype, name, type, is_type, otype to be part of the hash
             hash_args = ["dtype", "itype", "minimal_set", "ordered_set", "maximal_set"]
@@ -646,8 +650,8 @@ class Schema(Record, CanCurate, TracksRun):
                 union_set = union_set.union(
                     {f"optional:{feature.uid}" for feature in optional_features}
                 )
-            hash = hash_set(union_set)
-        validated_kwargs["hash"] = hash
+            schema_hash = hash_set(union_set)
+        validated_kwargs["hash"] = schema_hash
         return validated_kwargs, optional_features, features_registry, flexible
 
     @classmethod
