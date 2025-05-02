@@ -51,15 +51,9 @@ EXCLUDED_TABLES = [
     "lamindb_historymigrationstate",
     "django_content_type",
     "django_migrations",
-    # Skipping these temporarily
-    "lamindb_schemaparam",
-    "lamindb_artifactparamvalue",
-    "lamindb_param",
-    "lamindb_paramvalue",
-    "lamindb_runparamvalue",
-    "lamindb_rundata",
-    "lamindb_artifactfeaturevalue",
+    # FIXME what to do with these?
     "lamindb_flextabledata",
+    "lamindb_rundata",
 ]
 
 

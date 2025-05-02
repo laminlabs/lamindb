@@ -78,6 +78,14 @@ class DatabaseMetadataWrapper(ABC):
                     key_constraint=None,
                 )
             ]
+        elif table == "lamindb_param":
+            return [
+                TableUID(
+                    source_table_name=table,
+                    uid_columns=["name", "dtype", "created_at"],
+                    key_constraint=None,
+                )
+            ]
         else:
             column_names = self.get_column_names(table, cursor)
 

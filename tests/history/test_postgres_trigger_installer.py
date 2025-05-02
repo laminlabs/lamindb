@@ -1053,3 +1053,40 @@ def test_triggers_many_to_many_to_compound_uid_with_self_links(
     ]
     assert history[6].record_data is None
     assert history[6].event_type == HistoryEventTypes.DELETE.value
+
+
+@pytest.mark.pg_integration
+def test_history_install_triggers_on_existing_lamindb_models():
+    cursor = django_connection.cursor()
+
+    try:
+        installer = PostgresHistoryRecordingTriggerInstaller(
+            connection=django_connection, db_metadata=PostgresDatabaseMetadataWrapper()
+        )
+        installer.update_history_triggers()
+    finally:
+        # Drop all history triggers
+        cursor.execute("""
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN
+        SELECT
+            tgname AS trigger_name,
+            relname AS table_name,
+            nspname AS schema_name
+        FROM pg_trigger t
+        JOIN pg_class c ON t.tgrelid = c.oid
+        JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE tgname LIKE 'lamindb_history%'
+          AND NOT tgisinternal
+    LOOP
+        EXECUTE format('DROP TRIGGER %I ON %I.%I;',
+                      r.trigger_name, r.schema_name, r.table_name);
+        RAISE NOTICE 'Dropped trigger % on %.%',
+                    r.trigger_name, r.schema_name, r.table_name;
+    END LOOP;
+END;
+$$;
+                       """)
