@@ -503,7 +503,7 @@ class Schema(Record, CanCurate, TracksRun):
                 logger.warning(
                     "`components` as a keyword argument is deprecated, please use `slots` instead"
                 )
-                slots = kwargs["components"]
+                slots = kwargs.pop("components")
         if kwargs:
             valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Schema)])
             raise FieldValidationError(
