@@ -638,3 +638,7 @@ def test_spatialdata_curator(
         BRAF                num"""
     )
     artifact.delete(permanent=True)
+
+
+# def test_update_schema(small_dataset1_schema):
+#
