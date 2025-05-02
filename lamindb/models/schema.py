@@ -579,7 +579,8 @@ class Schema(Record, CanCurate, TracksRun):
         optional_features = []
         features_registry: Registry = None
         if itype is not None:
-            itype = serialize_dtype(itype, is_itype=True)
+            if itype != "Composite":
+                itype = serialize_dtype(itype, is_itype=True)
         if index is not None:
             if not isinstance(index, Feature):
                 raise TypeError("index must be a Feature")
@@ -788,7 +789,9 @@ class Schema(Record, CanCurate, TracksRun):
 
         if not self._state.adding:
             features = (
-                self._features[1] if hasattr(self, "_features") else self.members.list()
+                self._features[1]
+                if hasattr(self, "_features")
+                else (self.members.list() if self.members.exists() else [])
             )
             _, validated_kwargs, _, _, _ = self._validate_kwargs_calculate_hash(
                 features=features,
@@ -862,6 +865,8 @@ class Schema(Record, CanCurate, TracksRun):
             # this should return a queryset and not a list...
             # need to fix this
             return self._features[1]
+        if self.itype == "Composite":
+            return Feature.objects.none()
         related_name = self._get_related_name()
         if related_name is None:
             related_name = "features"

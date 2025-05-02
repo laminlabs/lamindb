@@ -158,7 +158,7 @@ def serialize_dtype(
     elif dtype is dict:
         dtype_str = "dict"
     elif is_itype and isinstance(dtype, str):
-        if dtype != "Feature":
+        if dtype not in "Feature":
             parse_cat_dtype(
                 dtype_str=dtype, is_itype=True
             )  # throws an error if invalid
