@@ -8,7 +8,9 @@ schema = ln.schemas.anndata.ensembl_gene_ids_and_valid_features_in_obs()
 
 # curate an AnnData
 adata = ln.core.datasets.mini_immuno.get_dataset1(otype="AnnData")
-artifact = ln.Artifact.from_anndata(adata, schema=schema).save()
+artifact = ln.Artifact.from_anndata(
+    adata, key="my_datasets/mini_immuno.h5ad", schema=schema
+).save()
 assert artifact.schema == schema
 assert artifact.features.slots["var.T"].members.df()["ensembl_gene_id"].tolist() == [
     "ENSG00000153563",
