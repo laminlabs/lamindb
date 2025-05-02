@@ -76,7 +76,6 @@ def format_rich_tree(
     except (NameError, ImportError):
         pass
 
-    # If not printed through IPython
     if not printed:
         # be careful to test this on a terminal
         console = Console(force_terminal=True)

@@ -416,6 +416,7 @@ def describe_features(
         if isinstance(feature_names_or_n, int):
             feature_rows = []
         else:
+            feature_names = feature_names_or_n
             if slot in internal_feature_labels_slot:
                 # add internal Feature features with labels
                 feature_rows = internal_feature_labels_slot[slot]
@@ -589,7 +590,7 @@ def __init__(self, host: Artifact | Collection | Run):
 
 
 def __repr__(self) -> str:
-    return describe(self)
+    return describe(self, return_str=True)  # type: ignore
 
 
 def describe(self, return_str: bool = False) -> str | None:
