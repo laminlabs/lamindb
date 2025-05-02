@@ -1637,8 +1637,24 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
                 import lamindb as ln
 
-                df = ln.core.datasets.df_iris_in_meter_batch1()
-                artifact = ln.Artifact.from_df(df, key="iris/result_batch1.parquet").save()
+                df = ln.core.datasets.mini_immuno.get_dataset1()
+                artifact = ln.Artifact.from_df(df, key="example_datasets/dataset1.parquet").save()
+
+            With validation and annotation.
+
+            .. literalinclude:: scripts/curate_dataframe_simple.py
+               :language: python
+
+            Under-the-hood, this used the following schema.
+
+            .. literalinclude:: scripts/define_valid_features.py
+               :language: python
+
+            Valid features & labels were defined as:
+
+            .. literalinclude:: scripts/define_mini_immuno_features_labels.py
+               :language: python
+
         """
         artifact = Artifact(  # type: ignore
             data=df,
@@ -1702,18 +1718,18 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             With validation and annotation.
 
             .. literalinclude:: scripts/curate_anndata_simple.py
-                :language: python
+               :language: python
 
-            Under-the-hood, this used the following schema::
+            Under-the-hood, this used the following schema.
 
             .. literalinclude:: scripts/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py
-            :language: python
+               :language: python
 
             This schema tranposes the `var` DataFrame during curation, so that one validates and annotates the `var.T` schema, i.e., `[ENSG00000153563, ENSG00000010610, ENSG00000170458]`.
             If one doesn't transpose, one would annotate with the schema of `var`, i.e., `[gene_symbol, gene_type]`.
 
             .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/gLyfToATM7WUzkWW0001.png
-                :width: 800px
+               :width: 800px
 
         """
         if not data_is_anndata(adata):
