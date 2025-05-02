@@ -320,6 +320,13 @@ def describe_features(
                     schema_data[slot] = (schema, feature_names)
                     for feature_name in feature_names:
                         feature_data[feature_name] = (slot, registry_str)
+            schema_data.update(
+                {
+                    slot: (schema, schema.n)
+                    for slot, schema in get_schema_by_slot_(self).items()
+                    if slot not in schema_data
+                }
+            )
         else:
             for slot, schema in get_schema_by_slot_(self).items():
                 features = schema.members
