@@ -114,6 +114,7 @@ def backed_access(
         return BackedAccessor(conn, storage)
 
 
+# returns a single suffix if all the paths have the same suffix or None otherwise
 def _df_dataset_suffix(paths: UPath | list[UPath]) -> str | None:
     # it is assumed here that the paths exist
     # we don't check here that the filesystem is the same
