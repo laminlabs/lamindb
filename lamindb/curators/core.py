@@ -327,9 +327,9 @@ class DataFrameCurator(Curator):
 
     Example:
 
-        .. literalinclude:: scripts/curate-dataframe.py
+        .. literalinclude:: scripts/curate_dataframe.py
             :language: python
-            :caption: curate-dataframe.py
+            :caption: curate_dataframe.py
     """
 
     def __init__(
