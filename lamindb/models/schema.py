@@ -496,7 +496,7 @@ class Schema(Record, CanCurate, TracksRun):
         minimal_set: bool = kwargs.pop("minimal_set", True)
         ordered_set: bool = kwargs.pop("ordered_set", False)
         maximal_set: bool = kwargs.pop("maximal_set", False)
-        coerce_dtype: bool | None = kwargs.pop("coerce_dtype", None)
+        coerce_dtype: bool | None = kwargs.pop("coerce_dtype", False)
         using: bool | None = kwargs.pop("using", None)
         n_features: int | None = kwargs.pop("n", None)
         # backward compat
@@ -582,7 +582,7 @@ class Schema(Record, CanCurate, TracksRun):
         minimal_set: bool,
         ordered_set: bool,
         maximal_set: bool,
-        coerce_dtype: bool | None,
+        coerce_dtype: bool,
         n_features: int | None,
     ) -> tuple[list[Feature], dict[str, Any], list[Feature], Registry, bool, list[str]]:
         optional_features = []
@@ -669,10 +669,7 @@ class Schema(Record, CanCurate, TracksRun):
             # only include in hash if not default so that it's backward compatible with records for which flexible was never set
             if flexible != flexible_default:
                 list_for_hashing.append(f"{HASH_CODE['flexible']}={flexible}")
-            if (
-                coerce_dtype is not None
-                and coerce_dtype_default != coerce_dtype_default
-            ):
+            if coerce_dtype_default != coerce_dtype_default:
                 list_for_hashing.append(f"{HASH_CODE['coerce_dtype']}={coerce_dtype}")
             if n_features != n_features_default:
                 list_for_hashing.append(f"{HASH_CODE['n']}={n_features}")
