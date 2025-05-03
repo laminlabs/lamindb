@@ -556,6 +556,7 @@ class Schema(Record, CanCurate, TracksRun):
             .filter(hash=validated_kwargs["hash"])
             .one_or_none()
         )
+        self._list_for_hashing = list_for_hashing
         if schema is not None:
             logger.important(f"returning existing schema with same hash: {schema}")
             init_self_from_db(self, schema)
@@ -563,7 +564,6 @@ class Schema(Record, CanCurate, TracksRun):
             self.optionals.set(optional_features)
             return None
         self._slots: dict[str, Schema] = {}
-        self._list_for_hashing = list_for_hashing
         if features:
             self._features = (get_related_name(features_registry), features)  # type: ignore
         elif slots:

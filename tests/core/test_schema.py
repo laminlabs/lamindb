@@ -392,6 +392,35 @@ def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
     var_schema.delete()
 
 
+def test_mini_immuno_schema_flexible(mini_immuno_schema_flexible):
+    schema = ln.Schema(
+        name="Mini immuno schema",
+        features=[
+            ln.Feature.get(name="perturbation"),
+            ln.Feature.get(name="cell_type_by_model"),
+            ln.Feature.get(name="assay_oid"),
+            ln.Feature.get(name="donor"),
+            ln.Feature.get(name="concentration"),
+            ln.Feature.get(name="treatment_time_h"),
+        ],
+        flexible=True,  # _additional_ columns in a dataframe are validated & annotated
+    )
+    assert schema.name == "Mini immuno schema"
+    assert schema.itype == "Feature"
+    assert (
+        schema._list_for_hashing[:6]
+        == [
+            "b=Feature",
+            "c=True",
+            "d=False",
+            "e=False",
+            "f=True",
+            "h=6",
+            "j=HASH_OF_FEATURE_UIDS",  # this last hash is not deterministic in a unit test
+        ][:6]
+    )
+
+
 def test_schemas_dataframe():
     # test on the Python level after record creation -- no saving!
     schema = ln.Schema(name="valid_features", itype=ln.Feature)
