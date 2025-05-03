@@ -909,7 +909,11 @@ class Schema(Record, CanCurate, TracksRun):
 
     @property
     def members(self) -> QuerySet:
-        """A queryset for the individual records of the set."""
+        """A queryset for the individual records in the feature set underlying the schema.
+
+        Unlike `schema.features`, `schema.genes`, `schema.proteins`, etc., this queryset is ordered and
+        doesn't require knowledge of the entity.
+        """
         if self._state.adding:
             # this should return a queryset and not a list...
             # need to fix this
