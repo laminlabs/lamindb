@@ -154,7 +154,7 @@ def test_edge_cases():
 
 
 @pytest.fixture(scope="module")
-def small_dataset1_schema():
+def mini_immuno_schema_flexible():
     schema = ln.core.datasets.mini_immuno.define_mini_immuno_schema_flexible()
 
     yield schema
@@ -168,15 +168,15 @@ def small_dataset1_schema():
 
 
 def test_schema_update_implicit_through_name_equality(
-    small_dataset1_schema: ln.Schema,
+    mini_immuno_schema_flexible: ln.Schema,
     ccaplog,
 ):
     df = pd.DataFrame({"a": [1]})
     artifact = ln.Artifact.from_df(df, key="test_artifact.parquet").save()
-    artifact.schema = small_dataset1_schema
+    artifact.schema = mini_immuno_schema_flexible
     artifact.save()
 
-    orig_hash = small_dataset1_schema.hash
+    orig_hash = mini_immuno_schema_flexible.hash
     warning_message = "you updated the schema hash and might invalidate datasets that were previously validated with this schema:"
 
     # different numbers of features -------------------------------------------
@@ -249,57 +249,57 @@ def test_schema_update_implicit_through_name_equality(
 
 
 def test_schema_update(
-    small_dataset1_schema: ln.Schema,
+    mini_immuno_schema_flexible: ln.Schema,
     ccaplog,
 ):
     df = pd.DataFrame({"a": [1]})
     artifact = ln.Artifact.from_df(df, key="test_artifact.parquet").save()
-    artifact.schema = small_dataset1_schema
+    artifact.schema = mini_immuno_schema_flexible
     artifact.save()
 
     # store original hash
 
-    orig_hash = small_dataset1_schema.hash
+    orig_hash = mini_immuno_schema_flexible.hash
     warning_message = "you updated the schema hash and might invalidate datasets that were previously validated with this schema:"
 
     # add a feature -------------------------------------------
 
     feature_to_add = ln.Feature(name="sample_note", dtype=str).save()
-    assert small_dataset1_schema.n == 6
-    small_dataset1_schema.features.add(feature_to_add)
-    small_dataset1_schema.save()
-    assert small_dataset1_schema.n == 7
-    assert small_dataset1_schema.hash != orig_hash
+    assert mini_immuno_schema_flexible.n == 6
+    mini_immuno_schema_flexible.features.add(feature_to_add)
+    mini_immuno_schema_flexible.save()
+    assert mini_immuno_schema_flexible.n == 7
+    assert mini_immuno_schema_flexible.hash != orig_hash
     assert ccaplog.text.count(warning_message) == 1
 
     # remove the feature again
-    small_dataset1_schema.features.remove(feature_to_add)
-    small_dataset1_schema.save()
+    mini_immuno_schema_flexible.features.remove(feature_to_add)
+    mini_immuno_schema_flexible.save()
     assert ccaplog.text.count(warning_message) == 2
-    assert small_dataset1_schema.n == 6
-    assert small_dataset1_schema.hash == orig_hash
+    assert mini_immuno_schema_flexible.n == 6
+    assert mini_immuno_schema_flexible.hash == orig_hash
     feature_to_add.delete()
 
     # change is flexible (an auxiliary field) --------------------------------
 
-    assert small_dataset1_schema.flexible
-    small_dataset1_schema.flexible = False
-    assert small_dataset1_schema.hash == orig_hash
-    small_dataset1_schema.save()
-    assert small_dataset1_schema.hash != orig_hash
+    assert mini_immuno_schema_flexible.flexible
+    mini_immuno_schema_flexible.flexible = False
+    assert mini_immuno_schema_flexible.hash == orig_hash
+    mini_immuno_schema_flexible.save()
+    assert mini_immuno_schema_flexible.hash != orig_hash
     assert ccaplog.text.count(warning_message) == 3
 
     # restore original setting
-    small_dataset1_schema.flexible = True
-    small_dataset1_schema.save()
+    mini_immuno_schema_flexible.flexible = True
+    mini_immuno_schema_flexible.save()
     assert ccaplog.text.count(warning_message) == 4
-    assert small_dataset1_schema.hash == orig_hash
+    assert mini_immuno_schema_flexible.hash == orig_hash
 
     artifact.delete(permanent=True)
 
 
-def test_schema_components(small_dataset1_schema: ln.Schema):
-    obs_schema = small_dataset1_schema
+def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
+    obs_schema = mini_immuno_schema_flexible
     var_schema = ln.Schema(
         name="scRNA_seq_var_schema",
         itype=bt.Gene.ensembl_gene_id,
