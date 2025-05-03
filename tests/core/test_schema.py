@@ -275,7 +275,7 @@ def test_schema_components(small_dataset1_schema: ln.Schema):
 
 
 def test_schemas_dataframe():
-    schema = ln.schemas.dataframe.valid_features()
+    schema = ln.schemas.simple.valid_features()
     assert schema.name == "valid_features"
     assert schema.itype == "Feature"
     assert schema.hash == "g2J9bi8LKs3KVM0SU4hU9w"

@@ -1,7 +1,7 @@
 import lamindb as ln
 import bionty as bt
 
-obs_schema = ln.schemas.dataframe.valid_features()
+obs_schema = ln.schemas.simple.valid_features()
 varT_schema = ln.Schema(
     name="valid_ensembl_gene_ids", itype=bt.Gene.ensembl_gene_id
 ).save()
