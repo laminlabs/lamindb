@@ -1,3 +1,12 @@
+"""Simple schemas (dataframes, dictionaries).
+
+.. autosummary::
+   :toctree: .
+
+   valid_features
+
+"""
+
 from .. import Schema
 
 

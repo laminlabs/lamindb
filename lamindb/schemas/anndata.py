@@ -1,3 +1,12 @@
+"""AnnData schemas.
+
+.. autosummary::
+   :toctree: .
+
+   ensembl_gene_ids_and_valid_features_in_obs
+
+"""
+
 from .. import Schema
 
 

@@ -272,3 +272,21 @@ def test_schema_components(small_dataset1_schema: ln.Schema):
     anndata_schema.delete()
     var_schema2.delete()
     var_schema.delete()
+
+
+def test_schemas_dataframe():
+    schema = ln.schemas.dataframe.valid_features()
+    assert schema.name == "valid_features"
+    assert schema.itype == "Feature"
+    assert schema.hash == "g2J9bi8LKs3KVM0SU4hU9w"
+
+
+def test_schemas_anndata():
+    schema = ln.schemas.anndata.ensembl_gene_ids_and_valid_features_in_obs()
+    assert schema.name == "anndata_ensembl_gene_ids_and_valid_features_in_obs"
+    assert schema.itype == "Composite"
+    assert schema.hash == "WYdFo-hBgr6jAHQHqh4ZtA"
+    varT_schema = schema.slots["var.T"]
+    assert varT_schema.name == "valid_ensembl_gene_ids"
+    assert varT_schema.itype == "bionty.Gene.ensembl_gene_id"
+    assert varT_schema.hash == "mwsFierZLqdZlNlg7vcGJg"

@@ -1,3 +1,11 @@
-"""Schemas."""
+"""Schemas.
 
-from . import anndata, dataframe
+.. autosummary::
+   :toctree: .
+
+   anndata
+   simple
+
+"""
+
+from . import anndata, simple
