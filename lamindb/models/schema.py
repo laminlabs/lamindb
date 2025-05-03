@@ -984,11 +984,24 @@ class Schema(Record, CanCurate, TracksRun):
 
     @property
     def index(self) -> None | Feature:
-        """The feature configured to act as index."""
+        """The feature configured to act as index.
+
+        To unset it, set `schema.index` to `None`.
+        """
         if self._index_feature_uid is None:
             return None
         else:
             return self.features.get(uid=self._index_feature_uid)
+
+    @index.setter
+    def index(self, value: None | Feature) -> None:
+        if value is None:
+            current_index = self.index
+            self.features.remove(current_index)
+            self._index_feature_uid = value
+        else:
+            self.features.add(value)
+            self._index_feature_uid = value.uid
 
     @property
     def _index_feature_uid(self) -> None | str:
@@ -999,9 +1012,12 @@ class Schema(Record, CanCurate, TracksRun):
             return None
 
     @_index_feature_uid.setter
-    def _index_feature_uid(self, value: str) -> None:
+    def _index_feature_uid(self, value: str | None) -> None:
         self._aux = self._aux or {}
-        self._aux.setdefault("af", {})["3"] = value
+        if value is None:
+            self._aux.get("af", {}).pop("3")
+        else:
+            self._aux.setdefault("af", {})["3"] = value
 
     @property
     def slots(self) -> dict[str, Schema]:

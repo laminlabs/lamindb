@@ -267,23 +267,22 @@ def test_schema_update(
     assert mini_immuno_schema_flexible.n == 6
     mini_immuno_schema_flexible.features.add(feature_to_add)
     mini_immuno_schema_flexible.save()
-    assert mini_immuno_schema_flexible.n == 7
     assert mini_immuno_schema_flexible.hash != orig_hash
+    assert mini_immuno_schema_flexible.n == 7
     assert ccaplog.text.count(warning_message) == 1
 
     # remove the feature again
     mini_immuno_schema_flexible.features.remove(feature_to_add)
     mini_immuno_schema_flexible.save()
+    assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 2
     assert mini_immuno_schema_flexible.n == 6
-    assert mini_immuno_schema_flexible.hash == orig_hash
     feature_to_add.delete()
 
     # change is flexible (an auxiliary field) --------------------------------
 
     assert mini_immuno_schema_flexible.flexible
     mini_immuno_schema_flexible.flexible = False
-    assert mini_immuno_schema_flexible.hash == orig_hash
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash != orig_hash
     assert ccaplog.text.count(warning_message) == 3
@@ -291,14 +290,13 @@ def test_schema_update(
     # restore original setting
     mini_immuno_schema_flexible.flexible = True
     mini_immuno_schema_flexible.save()
-    assert ccaplog.text.count(warning_message) == 4
     assert mini_immuno_schema_flexible.hash == orig_hash
+    assert ccaplog.text.count(warning_message) == 4
 
     # change coerce_dtype (an auxiliary field) --------------------------------
 
     assert not mini_immuno_schema_flexible.coerce_dtype
     mini_immuno_schema_flexible.coerce_dtype = True
-    assert mini_immuno_schema_flexible.hash == orig_hash
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash != orig_hash
     assert ccaplog.text.count(warning_message) == 5
@@ -306,8 +304,24 @@ def test_schema_update(
     # restore original setting
     mini_immuno_schema_flexible.coerce_dtype = False
     mini_immuno_schema_flexible.save()
-    assert ccaplog.text.count(warning_message) == 6
     assert mini_immuno_schema_flexible.hash == orig_hash
+    assert ccaplog.text.count(warning_message) == 6
+
+    # add an index --------------------------------
+
+    index_feature = ln.Feature(name="immuno_sample", dtype=str).save()
+    mini_immuno_schema_flexible.index = index_feature
+    mini_immuno_schema_flexible.save()
+    assert mini_immuno_schema_flexible.hash != orig_hash
+    assert mini_immuno_schema_flexible.n == 7
+    assert ccaplog.text.count(warning_message) == 7
+
+    # remove the index
+    mini_immuno_schema_flexible.index = None
+    mini_immuno_schema_flexible.save()
+    assert mini_immuno_schema_flexible.n == 6
+    assert mini_immuno_schema_flexible.hash == orig_hash
+    assert ccaplog.text.count(warning_message) == 8
 
     artifact.delete(permanent=True)
 
