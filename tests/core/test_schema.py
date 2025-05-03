@@ -201,25 +201,45 @@ def test_schema_update(
     artifact = ln.Artifact.from_df(df, key="test_artifact.parquet").save()
     artifact.schema = small_dataset1_schema
     artifact.save()
+
+    # store original hash
+
+    orig_hash = small_dataset1_schema.hash
+    warning_message = "you updated the schema hash and might invalidate datasets that were previously validated with this schema:"
+
+    # add a feature -------------------------------------------
+
     feature_to_add = ln.Feature(name="sample_note", dtype=str).save()
     assert small_dataset1_schema.n == 6
-    orig_hash = small_dataset1_schema.hash
     small_dataset1_schema.features.add(feature_to_add)
-    assert small_dataset1_schema.n == 6
-    assert small_dataset1_schema.hash == orig_hash
     small_dataset1_schema.save()
     assert small_dataset1_schema.n == 7
     assert small_dataset1_schema.hash != orig_hash
-    small_dataset1_schema.save()
-    assert (
-        "you updated the schema hash and might invalidate datasets that were previously validated with this schema:"
-        in ccaplog.text
-    )
+    assert ccaplog.text.count(warning_message) == 1
+
+    # remove the feature again
     small_dataset1_schema.features.remove(feature_to_add)
     small_dataset1_schema.save()
+    assert ccaplog.text.count(warning_message) == 2
     assert small_dataset1_schema.n == 6
     assert small_dataset1_schema.hash == orig_hash
     feature_to_add.delete()
+
+    # change is flexible (an auxiliary field) --------------------------------
+
+    assert small_dataset1_schema.flexible
+    small_dataset1_schema.flexible = False
+    assert small_dataset1_schema.hash == orig_hash
+    small_dataset1_schema.save()
+    assert small_dataset1_schema.hash != orig_hash
+    assert ccaplog.text.count(warning_message) == 3
+
+    # restore original setting
+    small_dataset1_schema.flexible = True
+    small_dataset1_schema.save()
+    assert ccaplog.text.count(warning_message) == 4
+    assert small_dataset1_schema.hash == orig_hash
+
     artifact.delete(permanent=True)
 
 

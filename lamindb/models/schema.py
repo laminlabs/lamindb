@@ -249,6 +249,7 @@ class Schema(Record, CanCurate, TracksRun):
         itype: `str | None = None` The feature identifier type (e.g. :class:`~lamindb.Feature`, :class:`~bionty.Gene`, ...).
         flexible: `bool | None = None` Whether to include any feature of the same `itype` in validation
             and annotation. If no features are passed, defaults to `True`, otherwise to `False`.
+            This means that if you explicitly pass features, any additional features will be disregarded during validation & annotation.
         type: `Schema | None = None` A type.
         is_type: `bool = False` Distinguish types from instances of the type.
         otype: `str | None = None` An object type to define the structure of a composite schema.
@@ -291,7 +292,7 @@ class Schema(Record, CanCurate, TracksRun):
             schema = ln.Schema(itype=bt.Gene.ensembl_gene_id)
             schema = ln.Schema(itype=ln.Feature)  # is equivalent to itype=ln.Feature.name
 
-            # a schema that requires a single feature and accepts any other features with valid feature names
+            # a schema that requires a single feature but also validates & annotates any additional features with valid feature names
             schema = ln.Schema(
                 features=[
                     ln.Feature(name="required_feature", dtype=str).save(),
@@ -608,8 +609,9 @@ class Schema(Record, CanCurate, TracksRun):
             dtype = None if itype is not None and itype == "Feature" else NUMBER_TYPE
         else:
             dtype = get_type_str(dtype)
+        flexible_default = n_features < 0
         if flexible is None:
-            flexible = n_features < 0
+            flexible = flexible_default
         if slots:
             itype = "Composite"
             if otype is None:
@@ -643,7 +645,8 @@ class Schema(Record, CanCurate, TracksRun):
                 for arg in hash_args
                 if validated_kwargs[arg] is not None
             }
-            if flexible != n_features < 0:
+            # only include in hash if not default so that it's backward compatible with records for which flexible was never set
+            if flexible != flexible_default:
                 union_set.add(f"flexible:{flexible}")
             if features:
                 union_set = union_set.union({feature.uid for feature in features})
@@ -794,6 +797,7 @@ class Schema(Record, CanCurate, TracksRun):
                 if hasattr(self, "_features")
                 else (self.members.list() if self.members.exists() else [])
             )
+            print("flexible", self.flexible)
             _, validated_kwargs, _, _, _ = self._validate_kwargs_calculate_hash(
                 features=features,
                 index=None,  # need to pass None here as otherwise counting double
@@ -924,13 +928,14 @@ class Schema(Record, CanCurate, TracksRun):
         if self._aux is not None and "af" in self._aux and "2" in self._aux["af"]:  # type: ignore
             return self._aux["af"]["2"]  # type: ignore
         else:
-            return self.n < 0
+            return (
+                self.n < 0
+            )  # is the flexible default, needed for backward compat if flexible was never set
 
     @flexible.setter
     def flexible(self, value: bool) -> None:
-        if value != (self.n < 0):
-            self._aux = self._aux or {}
-            self._aux.setdefault("af", {})["2"] = value
+        self._aux = self._aux or {}
+        self._aux.setdefault("af", {})["2"] = value
 
     @property
     def index(self) -> None | Feature:
