@@ -452,11 +452,12 @@ class Schema(Record, CanCurate, TracksRun):
         slots: dict[str, Schema] | None = None,
         name: str | None = None,
         description: str | None = None,
-        dtype: str | Type[int | float | str] | None = None,  # noqa
         itype: str | Registry | FieldAttr | None = None,
+        flexible: bool | None = None,
         type: Schema | None = None,
         is_type: bool = False,
         otype: str | None = None,
+        dtype: str | Type[int | float | str] | None = None,  # noqa
         ordered_set: bool = False,
         maximal_set: bool = False,
         coerce_dtype: bool = False,

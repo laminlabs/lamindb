@@ -11,10 +11,13 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import anndata as ad
 import pandas as pd
+
+if TYPE_CHECKING:
+    from lamindb.models import Schema
 
 
 def define_features_labels() -> None:
@@ -31,6 +34,27 @@ def define_features_labels() -> None:
         sys.path.append(str(docs_path))
 
     import define_mini_immuno_features_labels  # noqa
+
+
+def define_mini_immuno_schema_flexible() -> Schema:
+    """Features & labels to validate the mini immuno datasets.
+
+    .. literalinclude:: scripts/define_mini_immuno_schema_flexible.py
+        :language: python
+    """
+    import sys
+    from pathlib import Path
+
+    from lamindb.models import Schema
+
+    docs_path = Path(__file__).parent.parent.parent.parent / "docs" / "scripts"
+    if str(docs_path) not in sys.path:
+        sys.path.append(str(docs_path))
+
+    define_features_labels()
+    import define_mini_immuno_schema_flexible  # noqa
+
+    return Schema.get(name="Mini immuno schema")
 
 
 def get_dataset1(
@@ -109,6 +133,9 @@ def get_dataset2(
         var_ids[2]: [4, 2, 3],
         "perturbation": pd.Categorical(["DMSO", "IFNG", "IFNG"]),
         "cell_type_by_model": pd.Categorical(["B cell", "T cell", "T cell"]),
+        "concentration": ["0.1%", "200 nM", "0.1%"],
+        "treatment_time_h": [24, 24, 6],
+        "donor": ["D0003", "D0003", "D0004"],
     }
     metadata = {
         "temperature": 22.6,

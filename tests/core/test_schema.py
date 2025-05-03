@@ -155,29 +155,7 @@ def test_edge_cases():
 
 @pytest.fixture(scope="module")
 def small_dataset1_schema():
-    # define labels
-    perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
-    ln.ULabel(name="DMSO", type=perturbation).save()
-    ln.ULabel(name="IFNG", type=perturbation).save()
-    bt.CellType.from_source(name="B cell").save()
-    bt.CellType.from_source(name="T cell").save()
-
-    # in next iteration for attrs
-    # ln.Feature(name="temperature", dtype="float").save()
-    # ln.Feature(name="experiment", dtype="cat[ULabel]").save()
-    # ln.Feature(name="date_of_study", dtype="date").save()
-    # ln.Feature(name="study_note", dtype="str").save()
-
-    # define schema
-    schema = ln.Schema(
-        name="small_dataset1_obs_level_metadata",
-        features=[
-            ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
-            ln.Feature(name="sample_note", dtype=str).save(),
-            ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
-            ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
-        ],
-    ).save()
+    schema = ln.core.datasets.mini_immuno.define_mini_immuno_schema_flexible()
 
     yield schema
 
@@ -194,10 +172,10 @@ def test_schema_update_implicit_through_name_equality(
     ccaplog,
 ):
     ln.Schema(
-        name="small_dataset1_obs_level_metadata",
+        name="Mini immuno schema",
         features=[
             ln.Feature.get(name="perturbation"),
-            ln.Feature.get(name="sample_note"),
+            ln.Feature.get(name="donor"),
         ],
     ).save()
 
@@ -206,31 +184,37 @@ def test_schema_update_implicit_through_name_equality(
         in ccaplog.text
     )
 
+    ln.core.datasets.mini_immuno.define_mini_immuno_schema_flexible()
+
 
 def test_schema_update(
     small_dataset1_schema: ln.Schema,
     ccaplog,
 ):
-    # update schema
-    feature_to_add = ln.Feature(name="treatment_time_h", dtype=float).save()
-    assert small_dataset1_schema.n == 5
+    df = pd.DataFrame({"a": [1]})
+    artifact = ln.Artifact.from_df(df, key="test_artifact.parquet").save()
+    artifact.schema = small_dataset1_schema
+    artifact.save()
+    feature_to_add = ln.Feature(name="sample_note", dtype=str).save()
+    assert small_dataset1_schema.n == 6
     orig_hash = small_dataset1_schema.hash
     small_dataset1_schema.features.add(feature_to_add)
-    assert small_dataset1_schema.n == 5
+    assert small_dataset1_schema.n == 6
     assert small_dataset1_schema.hash == orig_hash
     small_dataset1_schema.save()
-    assert small_dataset1_schema.n == 6
+    assert small_dataset1_schema.n == 7
     assert small_dataset1_schema.hash != orig_hash
+    small_dataset1_schema.save()
     assert (
         "you updated the schema hash and might invalidate datasets that were previously validated with this schema:"
         in ccaplog.text
     )
     small_dataset1_schema.features.remove(feature_to_add)
     small_dataset1_schema.save()
-    assert small_dataset1_schema.n == 5
+    assert small_dataset1_schema.n == 6
     assert small_dataset1_schema.hash == orig_hash
-
     feature_to_add.delete()
+    artifact.delete(permanent=True)
 
 
 def test_schema_components(small_dataset1_schema: ln.Schema):
