@@ -286,7 +286,9 @@ def test_schemas_anndata():
     assert schema.name == "anndata_ensembl_gene_ids_and_valid_features_in_obs"
     assert schema.itype == "Composite"
     assert schema.hash == "WYdFo-hBgr6jAHQHqh4ZtA"
+    # obs_schema = schema.slots["obs"]  # = valid_features
     varT_schema = schema.slots["var.T"]
     assert varT_schema.name == "valid_ensembl_gene_ids"
     assert varT_schema.itype == "bionty.Gene.ensembl_gene_id"
     assert varT_schema.hash == "mwsFierZLqdZlNlg7vcGJg"
+    schema.delete()
