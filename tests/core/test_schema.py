@@ -294,6 +294,21 @@ def test_schema_update(
     assert ccaplog.text.count(warning_message) == 4
     assert mini_immuno_schema_flexible.hash == orig_hash
 
+    # change coerce_dtype (an auxiliary field) --------------------------------
+
+    assert not mini_immuno_schema_flexible.coerce_dtype
+    mini_immuno_schema_flexible.coerce_dtype = True
+    assert mini_immuno_schema_flexible.hash == orig_hash
+    mini_immuno_schema_flexible.save()
+    assert mini_immuno_schema_flexible.hash != orig_hash
+    assert ccaplog.text.count(warning_message) == 5
+
+    # restore original setting
+    mini_immuno_schema_flexible.coerce_dtype = False
+    mini_immuno_schema_flexible.save()
+    assert ccaplog.text.count(warning_message) == 6
+    assert mini_immuno_schema_flexible.hash == orig_hash
+
     artifact.delete(permanent=True)
 
 

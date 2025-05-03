@@ -669,7 +669,7 @@ class Schema(Record, CanCurate, TracksRun):
             # only include in hash if not default so that it's backward compatible with records for which flexible was never set
             if flexible != flexible_default:
                 list_for_hashing.append(f"{HASH_CODE['flexible']}={flexible}")
-            if coerce_dtype_default != coerce_dtype_default:
+            if coerce_dtype != coerce_dtype_default:
                 list_for_hashing.append(f"{HASH_CODE['coerce_dtype']}={coerce_dtype}")
             if n_features != n_features_default:
                 list_for_hashing.append(f"{HASH_CODE['n']}={n_features}")
