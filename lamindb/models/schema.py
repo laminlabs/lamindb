@@ -207,7 +207,7 @@ class SchemaOptionals:
             return Feature.objects.none()  # empty QuerySet
 
     def set(self, features: list[Feature]) -> None:
-        """Set the optional features."""
+        """Set the optional features (overwrites whichever schemas are currently optional)."""
         if not isinstance(features, list) or not all(
             isinstance(f, Feature) for f in features
         ):
@@ -216,8 +216,20 @@ class SchemaOptionals:
         if len(features) > 0:
             self.schema._aux.setdefault("af", {})["1"] = [f.uid for f in features]
 
+    def remove(self, features: Feature | list[Feature]) -> None:
+        """Make one or multiple features required by removing them from the set of optional features."""
+        if not isinstance(features, list):
+            features = [features]
+        if not all(isinstance(f, Feature) for f in features):
+            raise TypeError("features must be a list of Feature records!")
+        if len(features) > 0:
+            self.schema._aux = self.schema._aux or {}
+            if "1" in self.schema._aux.get("af", {}):
+                for feature in features:
+                    self.schema._aux["af"]["1"].remove(feature.uid)
+
     def add(self, features: Feature | list[Feature]) -> None:
-        """Add feature to the optional features."""
+        """Make one or multiple features optional by adding them to the set of optional features."""
         self.schema._aux = self.schema._aux or {}
         if not isinstance(features, list):
             features = [features]
@@ -226,7 +238,10 @@ class SchemaOptionals:
         if len(features) > 0:
             if "1" not in self.schema._aux.setdefault("af", {}):
                 self.set(features)
-            self.schema._aux.setdefault("af", {})["1"].extend([f.uid for f in features])
+            else:
+                self.schema._aux.setdefault("af", {})["1"].extend(
+                    [f.uid for f in features]
+                )
 
 
 class Schema(Record, CanCurate, TracksRun):
@@ -584,6 +599,7 @@ class Schema(Record, CanCurate, TracksRun):
         maximal_set: bool,
         coerce_dtype: bool,
         n_features: int | None,
+        optional_features_manual: list[Feature] | None = None,
     ) -> tuple[list[Feature], dict[str, Any], list[Feature], Registry, bool, list[str]]:
         optional_features = []
         features_registry: Registry = None
@@ -610,6 +626,10 @@ class Schema(Record, CanCurate, TracksRun):
                 optional_features = [
                     config[0] for config in configs if config[1].get("optional")
                 ]
+                if optional_features:
+                    assert optional_features_manual is None  # noqa: S101
+                if not optional_features and optional_features_manual is not None:
+                    optional_features = optional_features_manual
         elif n_features is None:
             n_features = -1
         if dtype is None:
@@ -854,6 +874,7 @@ class Schema(Record, CanCurate, TracksRun):
                     maximal_set=self.maximal_set,
                     coerce_dtype=self.coerce_dtype,
                     n_features=self.n,
+                    optional_features_manual=self.optionals.get(),
                 )
             )
             if validated_kwargs["hash"] != self.hash:
