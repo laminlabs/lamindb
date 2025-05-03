@@ -1364,7 +1364,9 @@ def annotate_artifact(
     if artifact.otype == "DataFrame":
         features = cat_vectors["columns"].records
         if features is not None:
-            feature_set = Schema(features=features)
+            feature_set = Schema(
+                features=features, coerce_dtype=artifact.schema.coerce_dtype
+            )  # TODO: add more defaults from validating schema
             if (
                 feature_set._state.adding
                 and len(features) > settings.annotation.n_max_records
