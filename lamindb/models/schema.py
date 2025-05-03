@@ -6,7 +6,7 @@ import numpy as np
 from django.db import models
 from django.db.models import CASCADE, PROTECT, ManyToManyField
 from lamin_utils import logger
-from lamindb_setup.core.hashing import HASH_LENGTH, hash_set
+from lamindb_setup.core.hashing import HASH_LENGTH, hash_set, hash_string
 from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
@@ -511,25 +511,30 @@ class Schema(Record, CanCurate, TracksRun):
             raise FieldValidationError(
                 f"Only {valid_keywords} are valid keyword arguments"
             )
-        features, validated_kwargs, optional_features, features_registry, flexible = (
-            self._validate_kwargs_calculate_hash(
-                features=features,
-                index=index,
-                slots=slots,
-                name=name,
-                description=description,
-                itype=itype,
-                flexible=flexible,
-                type=type,
-                is_type=is_type,
-                otype=otype,
-                dtype=dtype,
-                minimal_set=minimal_set,
-                ordered_set=ordered_set,
-                maximal_set=maximal_set,
-                coerce_dtype=coerce_dtype,
-                n_features=n_features,
-            )
+        (
+            features,
+            validated_kwargs,
+            optional_features,
+            features_registry,
+            flexible,
+            set_for_hashing,
+        ) = self._validate_kwargs_calculate_hash(
+            features=features,
+            index=index,
+            slots=slots,
+            name=name,
+            description=description,
+            itype=itype,
+            flexible=flexible,
+            type=type,
+            is_type=is_type,
+            otype=otype,
+            dtype=dtype,
+            minimal_set=minimal_set,
+            ordered_set=ordered_set,
+            maximal_set=maximal_set,
+            coerce_dtype=coerce_dtype,
+            n_features=n_features,
         )
         schema = (
             Schema.objects.using(using)
@@ -543,6 +548,7 @@ class Schema(Record, CanCurate, TracksRun):
             self.optionals.set(optional_features)
             return None
         self._slots: dict[str, Schema] = {}
+        self._set_for_hashing = set_for_hashing
         if features:
             self._features = (get_related_name(features_registry), features)  # type: ignore
         elif slots:
@@ -577,7 +583,7 @@ class Schema(Record, CanCurate, TracksRun):
         maximal_set: bool,
         coerce_dtype: bool | None,
         n_features: int | None,
-    ) -> tuple[list[Feature], dict[str, Any], list[Feature], Registry, bool]:
+    ) -> tuple[list[Feature], dict[str, Any], list[Feature], Registry, bool, set[str]]:
         optional_features = []
         features_registry: Registry = None
         if itype is not None:
@@ -636,25 +642,40 @@ class Schema(Record, CanCurate, TracksRun):
         if coerce_dtype:
             validated_kwargs["_aux"] = {"af": {"0": coerce_dtype}}
         if slots:
-            schema_hash = hash_set({component.hash for component in slots.values()})
+            list_for_hashing = [component.hash for component in slots.values()]
         else:
             # we do not want pure informational annotations like otype, name, type, is_type, otype to be part of the hash
             hash_args = ["dtype", "itype", "minimal_set", "ordered_set", "maximal_set"]
-            union_set = {
-                str(validated_kwargs[arg])
+            list_for_hashing = [
+                f"{arg}={validated_kwargs[arg]}"
                 for arg in hash_args
                 if validated_kwargs[arg] is not None
-            }
+            ]
             # only include in hash if not default so that it's backward compatible with records for which flexible was never set
             if flexible != flexible_default:
-                union_set.add(f"flexible:{flexible}")
+                list_for_hashing.append(f"flexible={flexible}")
             if features:
-                union_set = union_set.union({feature.uid for feature in features})
-            if optional_features:
-                union_set = union_set.union(
-                    {f"optional:{feature.uid}" for feature in optional_features}
-                )
-            schema_hash = hash_set(union_set)
+                if optional_features:
+                    feature_list_for_hashing = [
+                        feature.uid
+                        if feature not in set(optional_features)
+                        else f"{feature.uid}(optional)"
+                        for feature in features
+                    ]
+                else:
+                    feature_list_for_hashing = [feature.uid for feature in features]
+                # order matters if ordered_set is True
+                if ordered_set:
+                    features_hash = hash_string(":".join(feature_list_for_hashing))
+                else:
+                    features_hash = hash_string(
+                        ":".join(sorted(feature_list_for_hashing))
+                    )
+                list_for_hashing.append(f"features_hash={features_hash}")
+        set_for_hashing = set(list_for_hashing)
+        schema_hash = hash_set(
+            set_for_hashing
+        )  # also sorts again, can improve in the future
         validated_kwargs["hash"] = schema_hash
         return (
             features,
@@ -662,6 +683,7 @@ class Schema(Record, CanCurate, TracksRun):
             optional_features,
             features_registry,
             flexible,
+            set_for_hashing,
         )
 
     @classmethod
@@ -797,24 +819,25 @@ class Schema(Record, CanCurate, TracksRun):
                 if hasattr(self, "_features")
                 else (self.members.list() if self.members.exists() else [])
             )
-            print("flexible", self.flexible)
-            _, validated_kwargs, _, _, _ = self._validate_kwargs_calculate_hash(
-                features=features,
-                index=None,  # need to pass None here as otherwise counting double
-                slots=self._slots if hasattr(self, "_slots") else self.slots,
-                name=self.name,
-                description=self.description,
-                itype=self.itype,
-                flexible=self.flexible,
-                type=self.type,
-                is_type=self.is_type,
-                otype=self.otype,
-                dtype=self.dtype,
-                minimal_set=self.minimal_set,
-                ordered_set=self.ordered_set,
-                maximal_set=self.maximal_set,
-                coerce_dtype=self.coerce_dtype,
-                n_features=self.n,
+            _, validated_kwargs, _, _, _, set_for_hashing = (
+                self._validate_kwargs_calculate_hash(
+                    features=features,
+                    index=None,  # need to pass None here as otherwise counting double
+                    slots=self._slots if hasattr(self, "_slots") else self.slots,
+                    name=self.name,
+                    description=self.description,
+                    itype=self.itype,
+                    flexible=self.flexible,
+                    type=self.type,
+                    is_type=self.is_type,
+                    otype=self.otype,
+                    dtype=self.dtype,
+                    minimal_set=self.minimal_set,
+                    ordered_set=self.ordered_set,
+                    maximal_set=self.maximal_set,
+                    coerce_dtype=self.coerce_dtype,
+                    n_features=self.n,
+                )
             )
             if validated_kwargs["hash"] != self.hash:
                 from .artifact import Artifact
@@ -826,6 +849,7 @@ class Schema(Record, CanCurate, TracksRun):
                     )
                 self.hash = validated_kwargs["hash"]
                 self.n = validated_kwargs["n"]
+            self._set_for_hashing = set_for_hashing
         super().save(*args, **kwargs)
         if hasattr(self, "_slots"):
             # analogous to save_schema_links in core._data.py

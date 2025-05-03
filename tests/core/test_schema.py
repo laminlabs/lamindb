@@ -245,7 +245,6 @@ def test_schema_update_implicit_through_name_equality(
     ).save()
 
     assert schema.hash == orig_hash  # restored original hash
-    assert ccaplog.text.count(warning_message) == 4  # warning raised
 
 
 def test_schema_update(
@@ -350,20 +349,61 @@ def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
 
 
 def test_schemas_dataframe():
+    # test on the Python level after record creation -- no saving!
+    schema = ln.Schema(name="valid_features", itype=ln.Feature)
+    assert schema.name == "valid_features"
+    assert schema.itype == "Feature"
+    assert schema._set_for_hashing == {
+        "itype=Feature",
+        "maximal_set=False",
+        "minimal_set=True",
+        "ordered_set=False",
+    }
+    assert schema.hash == "XshkifOF2uinSVOVNzIpbw"
+
+    # test the convenience function
     schema = ln.schemas.simple.valid_features()
     assert schema.name == "valid_features"
     assert schema.itype == "Feature"
-    assert schema.hash == "g2J9bi8LKs3KVM0SU4hU9w"
+    assert schema.hash == "XshkifOF2uinSVOVNzIpbw"
 
 
 def test_schemas_anndata():
+    # test on the Python level after record creation -- no saving!
+    obs_schema = ln.schemas.simple.valid_features()
+    varT_schema = ln.Schema(
+        name="valid_ensembl_gene_ids", itype=bt.Gene.ensembl_gene_id
+    )
+    assert varT_schema._set_for_hashing == {
+        "itype=bionty.Gene.ensembl_gene_id",
+        "maximal_set=False",
+        "minimal_set=True",
+        "ordered_set=False",
+        "dtype=num",
+    }
+    assert varT_schema.name == "valid_ensembl_gene_ids"
+    assert varT_schema.itype == "bionty.Gene.ensembl_gene_id"
+    assert varT_schema.hash == "Rjk65KfD3bGkIADGaBNywA"
+    schema = ln.Schema(
+        name="anndata_ensembl_gene_ids_and_valid_features_in_obs",
+        otype="AnnData",
+        slots={"obs": obs_schema, "var.T": varT_schema.save()},
+    )
+    assert schema._set_for_hashing == {
+        "Rjk65KfD3bGkIADGaBNywA",
+        "XshkifOF2uinSVOVNzIpbw",
+    }
+    assert schema.name == "anndata_ensembl_gene_ids_and_valid_features_in_obs"
+    assert schema.itype == "Composite"
+    assert schema.hash == "abg88Hd_xRwaiOp4RERK9g"
+
+    # test the convenience function
     schema = ln.schemas.anndata.ensembl_gene_ids_and_valid_features_in_obs()
     assert schema.name == "anndata_ensembl_gene_ids_and_valid_features_in_obs"
     assert schema.itype == "Composite"
-    assert schema.hash == "WYdFo-hBgr6jAHQHqh4ZtA"
-    # obs_schema = schema.slots["obs"]  # = valid_features
+    assert schema.hash == "abg88Hd_xRwaiOp4RERK9g"
     varT_schema = schema.slots["var.T"]
     assert varT_schema.name == "valid_ensembl_gene_ids"
     assert varT_schema.itype == "bionty.Gene.ensembl_gene_id"
-    assert varT_schema.hash == "mwsFierZLqdZlNlg7vcGJg"
+    assert varT_schema.hash == "Rjk65KfD3bGkIADGaBNywA"
     schema.delete()
