@@ -1642,7 +1642,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             With validation and annotation.
 
-            .. literalinclude:: scripts/curate_dataframe_simple.py
+            .. literalinclude:: scripts/curate_dataframe_flexible.py
                :language: python
 
             Under-the-hood, this used the following schema.
@@ -1717,7 +1717,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             With validation and annotation.
 
-            .. literalinclude:: scripts/curate_anndata_simple.py
+            .. literalinclude:: scripts/curate_anndata_flexible.py
                :language: python
 
             Under-the-hood, this used the following schema.

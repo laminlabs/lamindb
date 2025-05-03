@@ -189,19 +189,48 @@ def small_dataset1_schema():
     bt.CellType.filter().delete()
 
 
-def test_schema_recreation_with_same_name_different_hash(
+def test_schema_update_implicit_through_name_equality(
     small_dataset1_schema: ln.Schema,
+    ccaplog,
 ):
-    try:
-        ln.Schema(
-            name="small_dataset1_obs_level_metadata",
-            features=[
-                ln.Feature.get(name="perturbation"),
-                ln.Feature.get(name="sample_note"),
-            ],
-        ).save()
-    except ValueError as error:
-        assert str(error).startswith("Schema name is already in use by schema with uid")
+    ln.Schema(
+        name="small_dataset1_obs_level_metadata",
+        features=[
+            ln.Feature.get(name="perturbation"),
+            ln.Feature.get(name="sample_note"),
+        ],
+    ).save()
+
+    assert (
+        "you updated the schema hash and might invalidate datasets that were previously validated with this schema:"
+        in ccaplog.text
+    )
+
+
+def test_schema_update(
+    small_dataset1_schema: ln.Schema,
+    ccaplog,
+):
+    # update schema
+    feature_to_add = ln.Feature(name="treatment_time_h", dtype=float).save()
+    assert small_dataset1_schema.n == 5
+    orig_hash = small_dataset1_schema.hash
+    small_dataset1_schema.features.add(feature_to_add)
+    assert small_dataset1_schema.n == 5
+    assert small_dataset1_schema.hash == orig_hash
+    small_dataset1_schema.save()
+    assert small_dataset1_schema.n == 6
+    assert small_dataset1_schema.hash != orig_hash
+    assert (
+        "you updated the schema hash and might invalidate datasets that were previously validated with this schema:"
+        in ccaplog.text
+    )
+    small_dataset1_schema.features.remove(feature_to_add)
+    small_dataset1_schema.save()
+    assert small_dataset1_schema.n == 5
+    assert small_dataset1_schema.hash == orig_hash
+
+    feature_to_add.delete()
 
 
 def test_schema_components(small_dataset1_schema: ln.Schema):

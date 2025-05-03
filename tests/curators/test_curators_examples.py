@@ -158,6 +158,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
         == "lamindb.errors.ValidationError: Column 'treatment_time_h' failed series or dataframe validator 0: <Check check_function: Column 'treatment_time_h' failed dtype check for 'float': got int64>"
     )
     schema.delete()
+    feature_to_fail.delete()
 
     # Wrong subtype
     df = datasets.small_dataset1(otype="DataFrame", with_wrong_subtype=True)
@@ -213,25 +214,6 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
         assert str(error).startswith("column 'sample_note' not in dataframe")
     curator.standardize()
     curator.validate()
-
-    # update schema
-    assert small_dataset1_schema.n == 5
-    orig_hash = small_dataset1_schema.hash
-    small_dataset1_schema.features.add(feature_to_fail)
-    assert small_dataset1_schema.n == 5
-    assert small_dataset1_schema.hash == orig_hash
-    small_dataset1_schema.save()
-    assert small_dataset1_schema.n == 6
-    assert small_dataset1_schema.hash != orig_hash
-    assert (
-        "you updated the schema hash and might invalidate datasets that were previously validated with this schema:"
-        in ccaplog.text
-    )
-    small_dataset1_schema.features.remove(feature_to_fail)
-    small_dataset1_schema.save()
-    assert small_dataset1_schema.n == 5
-    assert small_dataset1_schema.hash == orig_hash
-    feature_to_fail.delete()
     artifact.delete(permanent=True)
 
 
