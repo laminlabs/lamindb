@@ -327,9 +327,22 @@ class DataFrameCurator(Curator):
 
     Example:
 
-        .. literalinclude:: scripts/curate_dataframe.py
+        For simple example using a flexible schema, see :meth:`~lamindb.Artifact.from_df`.
+
+        Here is an example that enforces a minimal set of columns in the dataframe.
+
+        .. literalinclude:: scripts/curate_dataframe_minimal.py
             :language: python
-            :caption: curate_dataframe.py
+
+        Under-the-hood, this used the following schema.
+
+        .. literalinclude:: scripts/define_mini_immuno_schema_flexible.py
+            :language: python
+
+        Valid features & labels were defined as:
+
+        .. literalinclude:: scripts/define_mini_immuno_features_labels.py
+            :language: python
     """
 
     def __init__(
