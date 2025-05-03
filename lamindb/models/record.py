@@ -162,7 +162,7 @@ def init_self_from_db(self: Record, existing_record: Record):
 def update_attributes(record: Record, attributes: dict[str, str]):
     for key, value in attributes.items():
         if getattr(record, key) != value and value is not None:
-            if key not in {"uid", "dtype", "otype", "_aux"}:
+            if key not in {"uid", "dtype", "otype", "hash", "_aux"}:
                 logger.warning(f"updated {key} from {getattr(record, key)} to {value}")
                 setattr(record, key, value)
             else:

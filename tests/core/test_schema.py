@@ -171,6 +171,11 @@ def test_schema_update_implicit_through_name_equality(
     small_dataset1_schema: ln.Schema,
     ccaplog,
 ):
+    df = pd.DataFrame({"a": [1]})
+    artifact = ln.Artifact.from_df(df, key="test_artifact.parquet").save()
+    artifact.schema = small_dataset1_schema
+    artifact.save()
+
     ln.Schema(
         name="Mini immuno schema",
         features=[
@@ -185,6 +190,7 @@ def test_schema_update_implicit_through_name_equality(
     )
 
     ln.core.datasets.mini_immuno.define_mini_immuno_schema_flexible()
+    artifact.delete(permanent=True)
 
 
 def test_schema_update(
