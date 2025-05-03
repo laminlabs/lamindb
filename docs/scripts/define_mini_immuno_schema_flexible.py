@@ -10,5 +10,5 @@ schema = ln.Schema(
         ln.Feature.get(name="concentration"),
         ln.Feature.get(name="treatment_time_h"),
     ],
-    flexible=True,
+    flexible=True,  # _additional_ columns in a dataframe are validated & annotated
 ).save()

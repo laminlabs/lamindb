@@ -7,5 +7,5 @@ try:
     artifact = ln.Artifact.from_df(
         df, key="examples/dataset1.parquet", schema=schema
     ).save()
-except ln.errors.ValidationError as e:
-    print(e)
+except ln.errors.ValidationError as error:
+    print(error)
