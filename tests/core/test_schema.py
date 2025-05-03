@@ -176,7 +176,12 @@ def test_schema_update_implicit_through_name_equality(
     artifact.schema = small_dataset1_schema
     artifact.save()
 
-    ln.Schema(
+    orig_hash = small_dataset1_schema.hash
+    warning_message = "you updated the schema hash and might invalidate datasets that were previously validated with this schema:"
+
+    # different numbers of features -------------------------------------------
+
+    schema = ln.Schema(
         name="Mini immuno schema",
         features=[
             ln.Feature.get(name="perturbation"),
@@ -184,13 +189,63 @@ def test_schema_update_implicit_through_name_equality(
         ],
     ).save()
 
-    assert (
-        "you updated the schema hash and might invalidate datasets that were previously validated with this schema:"
-        in ccaplog.text
-    )
+    assert schema.hash != orig_hash
+    assert ccaplog.text.count(warning_message) == 1
 
+    # change is flexible (an auxiliary field) --------------------------------
+
+    schema = ln.Schema(
+        name="Mini immuno schema",
+        features=[
+            ln.Feature.get(name="perturbation"),
+            ln.Feature.get(name="cell_type_by_model"),
+            ln.Feature.get(name="assay_oid"),
+            ln.Feature.get(name="donor"),
+            ln.Feature.get(name="concentration"),
+            ln.Feature.get(name="treatment_time_h"),
+        ],
+        flexible=True,
+    ).save()
+
+    assert schema.hash == orig_hash  # restored original hash
+    assert ccaplog.text.count(warning_message) == 2  # warning raised
+
+    schema = ln.Schema(
+        name="Mini immuno schema",
+        features=[
+            ln.Feature.get(name="perturbation"),
+            ln.Feature.get(name="cell_type_by_model"),
+            ln.Feature.get(name="assay_oid"),
+            ln.Feature.get(name="donor"),
+            ln.Feature.get(name="concentration"),
+            ln.Feature.get(name="treatment_time_h"),
+        ],
+        flexible=False,
+    ).save()
+
+    assert schema.hash != orig_hash
+    assert ccaplog.text.count(warning_message) == 3  # warning raised
     ln.core.datasets.mini_immuno.define_mini_immuno_schema_flexible()
+
     artifact.delete(permanent=True)
+
+    # restore original hash  --------------------------------
+
+    schema = ln.Schema(
+        name="Mini immuno schema",
+        features=[
+            ln.Feature.get(name="perturbation"),
+            ln.Feature.get(name="cell_type_by_model"),
+            ln.Feature.get(name="assay_oid"),
+            ln.Feature.get(name="donor"),
+            ln.Feature.get(name="concentration"),
+            ln.Feature.get(name="treatment_time_h"),
+        ],
+        flexible=True,
+    ).save()
+
+    assert schema.hash == orig_hash  # restored original hash
+    assert ccaplog.text.count(warning_message) == 4  # warning raised
 
 
 def test_schema_update(

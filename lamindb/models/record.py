@@ -166,8 +166,13 @@ def update_attributes(record: Record, attributes: dict[str, str]):
                 logger.warning(f"updated {key} from {getattr(record, key)} to {value}")
                 setattr(record, key, value)
             else:
+                hash_message = (
+                    "recomputing on .save()"
+                    if key == "hash"
+                    else f"keeping {getattr(record, key)}"
+                )
                 logger.warning(
-                    f"ignoring new value {value} for {key}, keeping {getattr(record, key)}"
+                    f"ignoring tentative value {value} for {key}, {hash_message}"
                 )
 
 
