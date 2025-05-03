@@ -331,7 +331,7 @@ class DataFrameCurator(Curator):
 
         Here is an example that enforces a minimal set of columns in the dataframe.
 
-        .. literalinclude:: scripts/curate_dataframe_minimal.py
+        .. literalinclude:: scripts/curate_dataframe_minimal_errors.py
             :language: python
 
         Under-the-hood, this used the following schema.
