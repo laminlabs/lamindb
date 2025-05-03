@@ -6,7 +6,7 @@ import numpy as np
 from django.db import models
 from django.db.models import CASCADE, PROTECT, ManyToManyField
 from lamin_utils import logger
-from lamindb_setup.core.hashing import HASH_LENGTH, hash_set, hash_string
+from lamindb_setup.core.hashing import HASH_LENGTH, hash_string
 from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
@@ -517,7 +517,7 @@ class Schema(Record, CanCurate, TracksRun):
             optional_features,
             features_registry,
             flexible,
-            set_for_hashing,
+            list_for_hashing,
         ) = self._validate_kwargs_calculate_hash(
             features=features,
             index=index,
@@ -548,7 +548,7 @@ class Schema(Record, CanCurate, TracksRun):
             self.optionals.set(optional_features)
             return None
         self._slots: dict[str, Schema] = {}
-        self._set_for_hashing = set_for_hashing
+        self._list_for_hashing = list_for_hashing
         if features:
             self._features = (get_related_name(features_registry), features)  # type: ignore
         elif slots:
@@ -560,6 +560,7 @@ class Schema(Record, CanCurate, TracksRun):
             self._slots = slots
         validated_kwargs["uid"] = ids.base62_20()
         super().__init__(**validated_kwargs)
+        # manipulating aux fields is easier after calling super().__init__()
         self.optionals.set(optional_features)
         self.flexible = flexible
         if index is not None:
@@ -583,7 +584,7 @@ class Schema(Record, CanCurate, TracksRun):
         maximal_set: bool,
         coerce_dtype: bool | None,
         n_features: int | None,
-    ) -> tuple[list[Feature], dict[str, Any], list[Feature], Registry, bool, set[str]]:
+    ) -> tuple[list[Feature], dict[str, Any], list[Feature], Registry, bool, list[str]]:
         optional_features = []
         features_registry: Registry = None
         if itype is not None:
@@ -639,27 +640,48 @@ class Schema(Record, CanCurate, TracksRun):
             "ordered_set": ordered_set,
             "maximal_set": maximal_set,
         }
+        n_features_default = -1
+        coerce_dtype_default = False
         if coerce_dtype:
             validated_kwargs["_aux"] = {"af": {"0": coerce_dtype}}
         if slots:
             list_for_hashing = [component.hash for component in slots.values()]
         else:
+            HASH_CODE = {
+                "dtype": "a",
+                "itype": "b",
+                "minimal_set": "c",
+                "ordered_set": "d",
+                "maximal_set": "e",
+                "flexible": "f",
+                "coerce_dtype": "g",
+                "n": "h",
+                "optional": "i",
+                "features_hash": "j",
+            }
             # we do not want pure informational annotations like otype, name, type, is_type, otype to be part of the hash
             hash_args = ["dtype", "itype", "minimal_set", "ordered_set", "maximal_set"]
             list_for_hashing = [
-                f"{arg}={validated_kwargs[arg]}"
+                f"{HASH_CODE[arg]}={validated_kwargs[arg]}"
                 for arg in hash_args
                 if validated_kwargs[arg] is not None
             ]
             # only include in hash if not default so that it's backward compatible with records for which flexible was never set
             if flexible != flexible_default:
-                list_for_hashing.append(f"flexible={flexible}")
+                list_for_hashing.append(f"{HASH_CODE['flexible']}={flexible}")
+            if (
+                coerce_dtype is not None
+                and coerce_dtype_default != coerce_dtype_default
+            ):
+                list_for_hashing.append(f"{HASH_CODE['coerce_dtype']}={coerce_dtype}")
+            if n_features != n_features_default:
+                list_for_hashing.append(f"{HASH_CODE['n']}={n_features}")
             if features:
                 if optional_features:
                     feature_list_for_hashing = [
                         feature.uid
                         if feature not in set(optional_features)
-                        else f"{feature.uid}(optional)"
+                        else f"{feature.uid}({HASH_CODE['optional']})"
                         for feature in features
                     ]
                 else:
@@ -671,11 +693,9 @@ class Schema(Record, CanCurate, TracksRun):
                     features_hash = hash_string(
                         ":".join(sorted(feature_list_for_hashing))
                     )
-                list_for_hashing.append(f"features_hash={features_hash}")
-        set_for_hashing = set(list_for_hashing)
-        schema_hash = hash_set(
-            set_for_hashing
-        )  # also sorts again, can improve in the future
+                list_for_hashing.append(f"{HASH_CODE['features_hash']}={features_hash}")
+        self._list_for_hashing = sorted(list_for_hashing)
+        schema_hash = hash_string(":".join(self._list_for_hashing))
         validated_kwargs["hash"] = schema_hash
         return (
             features,
@@ -683,7 +703,7 @@ class Schema(Record, CanCurate, TracksRun):
             optional_features,
             features_registry,
             flexible,
-            set_for_hashing,
+            list_for_hashing,
         )
 
     @classmethod
@@ -819,7 +839,7 @@ class Schema(Record, CanCurate, TracksRun):
                 if hasattr(self, "_features")
                 else (self.members.list() if self.members.exists() else [])
             )
-            _, validated_kwargs, _, _, _, set_for_hashing = (
+            _, validated_kwargs, _, _, _, list_for_hashing = (
                 self._validate_kwargs_calculate_hash(
                     features=features,
                     index=None,  # need to pass None here as otherwise counting double
@@ -849,7 +869,7 @@ class Schema(Record, CanCurate, TracksRun):
                     )
                 self.hash = validated_kwargs["hash"]
                 self.n = validated_kwargs["n"]
-            self._set_for_hashing = set_for_hashing
+            self._list_for_hashing = list_for_hashing
         super().save(*args, **kwargs)
         if hasattr(self, "_slots"):
             # analogous to save_schema_links in core._data.py
