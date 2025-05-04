@@ -289,7 +289,7 @@ class Context:
 
                 ln.track()
                 #> → created Transform('Onv04I53OgtT0000'), started new Run('dpSfd7Ds...') at 2025-04-25 11:00:03 UTC
-                #> • recommendation: to identify the notebook across renames, pass the uid: ln.track('Onv04I53OgtT')
+                #> • recommendation: to identify the notebook across renames, pass the uid: ln.track("Onv04I53OgtT")
 
             Ensure one version history across file renames::
 
@@ -443,7 +443,7 @@ class Context:
             space_str = f", space='{space}'" if space is not None else ""
             kwargs_str = f"{project_str}{space_str}"
             logger.important_hint(
-                f"recommendation: to identify the {notebook_or_script} across renames, pass the uid: ln{r_or_python}track('{self.transform.uid[:-4]}'{kwargs_str})"
+                f'recommendation: to identify the {notebook_or_script} across renames, pass the uid: ln{r_or_python}track("{self.transform.uid[:-4]}"{kwargs_str})'
             )
 
     def _track_source_code(
