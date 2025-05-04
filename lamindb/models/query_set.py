@@ -406,8 +406,7 @@ def reshape_annotate_result(
     extra_columns = extra_columns or {}
 
     # Initialize result with basic fields
-    result = df[field_names].drop_duplicates(subset=["id"])
-
+    result = df[field_names]
     # Process features if requested
     if features:
         # Handle _feature_values if columns exist
@@ -418,7 +417,10 @@ def reshape_annotate_result(
                 for col in feature_values.columns:
                     if col in result.columns:
                         continue
-                    result.insert(4, col, feature_values[col])
+                    result = result.join(
+                        feature_values.set_index("id"),
+                        on="id",
+                    )
 
         # Handle links features if they exist
         links_features = [
@@ -434,7 +436,7 @@ def reshape_annotate_result(
     if extra_columns:
         result = process_extra_columns(df, result, extra_columns)
 
-    return result
+    return result.drop_duplicates(subset=["id"])
 
 
 def process_feature_values(
@@ -567,14 +569,10 @@ class BasicQuerySet(models.QuerySet):
         else:
             queryset = self
 
-        print("annotate_kwargs", annotate_kwargs)
-        print("running", field_names, list(annotate_kwargs.keys()))
         df = pd.DataFrame(queryset.values(*field_names, *list(annotate_kwargs.keys())))
         if len(df) == 0:
             df = pd.DataFrame({}, columns=field_names)
             return df
-        print(df)
-        print(df.shape)
         time = logger.debug("finished creating first dataframe", time=time)
         extra_cols = analyze_lookup_cardinality(self.model, include)  # type: ignore
         time = logger.debug("finished analyze_lookup_cardinality", time=time)
