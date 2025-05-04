@@ -362,7 +362,10 @@ class Schema(Record, CanCurate, TracksRun):
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
     uid: str = CharField(editable=False, unique=True, db_index=True, max_length=20)
-    """A universal id."""
+    """A universal id.
+
+    Before lamindb 1.5, it was 20 char long. Since lamindb 1.5, it is 16 char long.
+    """
     name: str | None = CharField(max_length=150, null=True, db_index=True)
     """A name."""
     description: str | None = CharField(null=True, db_index=True)
@@ -573,7 +576,7 @@ class Schema(Record, CanCurate, TracksRun):
                         f"schema for {slot_key} {component} must be saved before use"
                     )
             self._slots = slots
-        validated_kwargs["uid"] = ids.base62_20()
+        validated_kwargs["uid"] = ids.base62_16()
         super().__init__(**validated_kwargs)
         # manipulating aux fields is easier after calling super().__init__()
         self.optionals.set(optional_features)

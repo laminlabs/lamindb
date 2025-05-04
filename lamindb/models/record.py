@@ -261,9 +261,12 @@ def validate_fields(record: Record, kwargs):
             "uid"
         ).max_length  # triggers FieldDoesNotExist
         if len(kwargs["uid"]) != uid_max_length:  # triggers KeyError
-            raise ValidationError(
-                f"`uid` must be exactly {uid_max_length} characters long, got {len(kwargs['uid'])}."
-            )
+            if not (
+                record.__class__ is Schema and len(kwargs["uid"]) == 16
+            ):  # no error for schema
+                raise ValidationError(
+                    f"`uid` must be exactly {uid_max_length} characters long, got {len(kwargs['uid'])}."
+                )
     # validate is_type
     if "is_type" in kwargs and "name" in kwargs and kwargs["is_type"]:
         if kwargs["name"].endswith("s"):
