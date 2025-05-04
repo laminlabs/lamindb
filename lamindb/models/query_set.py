@@ -288,7 +288,7 @@ def get_feature_annotate_kwargs(show_features: bool | list[str]) -> dict[str, An
 
     features = Feature.filter()
     if isinstance(show_features, list):
-        features.filter(name__in=show_features)
+        features = features.filter(name__in=show_features)
     # Get the categorical features
     cat_feature_types = {
         feature.dtype.replace("cat[", "").replace("]", "")
@@ -541,7 +541,6 @@ class BasicQuerySet(models.QuerySet):
 
         annotate_kwargs = {}
         if features:
-            time = logger.debug("start feature_annotate_kwargs", time=time)
             feature_annotate_kwargs = get_feature_annotate_kwargs(features)
             time = logger.debug("finished feature_annotate_kwargs", time=time)
             annotate_kwargs.update(feature_annotate_kwargs)
@@ -551,33 +550,41 @@ class BasicQuerySet(models.QuerySet):
             annotate_kwargs.update(include_kwargs)
         if annotate_kwargs:
             id_subquery = self.values("id")
-            time = logger.debug("get id values", time=time)
+            time = logger.debug("finished get id values", time=time)
             # for annotate, we want the queryset without filters so that joins don't affect the annotations
             query_set_without_filters = self.model.objects.filter(
                 id__in=Subquery(id_subquery)
             )
-            time = logger.debug("get query_set_without_filters", time=time)
+            time = logger.debug("finished get query_set_without_filters", time=time)
             if self.query.order_by:
                 # Apply the same ordering to the new queryset
                 query_set_without_filters = query_set_without_filters.order_by(
                     *self.query.order_by
                 )
-                time = logger.debug("order by", time=time)
+                time = logger.debug("finished order by", time=time)
             queryset = query_set_without_filters.annotate(**annotate_kwargs)
             time = logger.debug("finished annotate", time=time)
         else:
             queryset = self
 
+        print("annotate_kwargs", annotate_kwargs)
+        print("running", field_names, list(annotate_kwargs.keys()))
         df = pd.DataFrame(queryset.values(*field_names, *list(annotate_kwargs.keys())))
         if len(df) == 0:
             df = pd.DataFrame({}, columns=field_names)
             return df
+        print(df)
+        print(df.shape)
+        time = logger.debug("finished creating first dataframe", time=time)
         extra_cols = analyze_lookup_cardinality(self.model, include)  # type: ignore
+        time = logger.debug("finished analyze_lookup_cardinality", time=time)
         df_reshaped = reshape_annotate_result(field_names, df, extra_cols, features)
+        time = logger.debug("finished reshape_annotate_result", time=time)
         pk_name = self.model._meta.pk.name
         pk_column_name = pk_name if pk_name in df.columns else f"{pk_name}_id"
         if pk_column_name in df_reshaped.columns:
             df_reshaped = df_reshaped.set_index(pk_column_name)
+        time = logger.debug("finished set_index", time=time)
         return df_reshaped
 
     def delete(self, *args, **kwargs):
