@@ -154,30 +154,8 @@ def test_edge_cases():
 
 
 @pytest.fixture(scope="module")
-def small_dataset1_schema():
-    # define labels
-    perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
-    ln.ULabel(name="DMSO", type=perturbation).save()
-    ln.ULabel(name="IFNG", type=perturbation).save()
-    bt.CellType.from_source(name="B cell").save()
-    bt.CellType.from_source(name="T cell").save()
-
-    # in next iteration for attrs
-    # ln.Feature(name="temperature", dtype="float").save()
-    # ln.Feature(name="experiment", dtype="cat[ULabel]").save()
-    # ln.Feature(name="date_of_study", dtype="date").save()
-    # ln.Feature(name="study_note", dtype="str").save()
-
-    # define schema
-    schema = ln.Schema(
-        name="small_dataset1_obs_level_metadata",
-        features=[
-            ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
-            ln.Feature(name="sample_note", dtype=str).save(),
-            ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
-            ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
-        ],
-    ).save()
+def mini_immuno_schema_flexible():
+    schema = ln.core.datasets.mini_immuno.define_mini_immuno_schema_flexible()
 
     yield schema
 
@@ -189,23 +167,182 @@ def small_dataset1_schema():
     bt.CellType.filter().delete()
 
 
-def test_schema_recreation_with_same_name_different_hash(
-    small_dataset1_schema: ln.Schema,
+def test_schema_update_implicit_through_name_equality(
+    mini_immuno_schema_flexible: ln.Schema,
+    ccaplog,
 ):
-    try:
-        ln.Schema(
-            name="small_dataset1_obs_level_metadata",
-            features=[
-                ln.Feature.get(name="perturbation"),
-                ln.Feature.get(name="sample_note"),
-            ],
-        ).save()
-    except ValueError as error:
-        assert str(error).startswith("Schema name is already in use by schema with uid")
+    df = pd.DataFrame({"a": [1]})
+    artifact = ln.Artifact.from_df(df, key="test_artifact.parquet").save()
+    artifact.schema = mini_immuno_schema_flexible
+    artifact.save()
+
+    orig_hash = mini_immuno_schema_flexible.hash
+    warning_message = "you updated the schema hash and might invalidate datasets that were previously validated with this schema:"
+
+    # different numbers of features -------------------------------------------
+
+    schema = ln.Schema(
+        name="Mini immuno schema",
+        features=[
+            ln.Feature.get(name="perturbation"),
+            ln.Feature.get(name="donor"),
+        ],
+    ).save()
+
+    assert schema.hash != orig_hash
+    assert ccaplog.text.count(warning_message) == 1
+
+    # change is flexible (an auxiliary field) --------------------------------
+
+    schema = ln.Schema(
+        name="Mini immuno schema",
+        features=[
+            ln.Feature.get(name="perturbation"),
+            ln.Feature.get(name="cell_type_by_model"),
+            ln.Feature.get(name="assay_oid"),
+            ln.Feature.get(name="donor"),
+            ln.Feature.get(name="concentration"),
+            ln.Feature.get(name="treatment_time_h"),
+        ],
+        flexible=True,
+    ).save()
+
+    assert schema.hash == orig_hash  # restored original hash
+    assert ccaplog.text.count(warning_message) == 2  # warning raised
+
+    schema = ln.Schema(
+        name="Mini immuno schema",
+        features=[
+            ln.Feature.get(name="perturbation"),
+            ln.Feature.get(name="cell_type_by_model"),
+            ln.Feature.get(name="assay_oid"),
+            ln.Feature.get(name="donor"),
+            ln.Feature.get(name="concentration"),
+            ln.Feature.get(name="treatment_time_h"),
+        ],
+        flexible=False,
+    ).save()
+
+    assert schema.hash != orig_hash
+    assert ccaplog.text.count(warning_message) == 3  # warning raised
+    ln.core.datasets.mini_immuno.define_mini_immuno_schema_flexible()
+
+    artifact.delete(permanent=True)
+
+    # restore original hash  --------------------------------
+
+    schema = ln.Schema(
+        name="Mini immuno schema",
+        features=[
+            ln.Feature.get(name="perturbation"),
+            ln.Feature.get(name="cell_type_by_model"),
+            ln.Feature.get(name="assay_oid"),
+            ln.Feature.get(name="donor"),
+            ln.Feature.get(name="concentration"),
+            ln.Feature.get(name="treatment_time_h"),
+        ],
+        flexible=True,
+    ).save()
+
+    assert schema.hash == orig_hash  # restored original hash
 
 
-def test_schema_components(small_dataset1_schema: ln.Schema):
-    obs_schema = small_dataset1_schema
+def test_schema_update(
+    mini_immuno_schema_flexible: ln.Schema,
+    ccaplog,
+):
+    df = pd.DataFrame({"a": [1]})
+    artifact = ln.Artifact.from_df(df, key="test_artifact.parquet").save()
+    artifact.schema = mini_immuno_schema_flexible
+    artifact.save()
+
+    # store original hash
+
+    orig_hash = mini_immuno_schema_flexible.hash
+    warning_message = "you updated the schema hash and might invalidate datasets that were previously validated with this schema:"
+
+    # add a feature -------------------------------------------
+
+    feature_to_add = ln.Feature(name="sample_note", dtype=str).save()
+    assert mini_immuno_schema_flexible.n == 6
+    mini_immuno_schema_flexible.features.add(feature_to_add)
+    mini_immuno_schema_flexible.save()
+    assert mini_immuno_schema_flexible.hash != orig_hash
+    assert mini_immuno_schema_flexible.n == 7
+    assert ccaplog.text.count(warning_message) == 1
+
+    # remove the feature again
+    mini_immuno_schema_flexible.features.remove(feature_to_add)
+    mini_immuno_schema_flexible.save()
+    assert mini_immuno_schema_flexible.hash == orig_hash
+    assert ccaplog.text.count(warning_message) == 2
+    assert mini_immuno_schema_flexible.n == 6
+    feature_to_add.delete()
+
+    # change is flexible (an auxiliary field) --------------------------------
+
+    assert mini_immuno_schema_flexible.flexible
+    mini_immuno_schema_flexible.flexible = False
+    mini_immuno_schema_flexible.save()
+    assert mini_immuno_schema_flexible.hash != orig_hash
+    assert ccaplog.text.count(warning_message) == 3
+
+    # restore original setting
+    mini_immuno_schema_flexible.flexible = True
+    mini_immuno_schema_flexible.save()
+    assert mini_immuno_schema_flexible.hash == orig_hash
+    assert ccaplog.text.count(warning_message) == 4
+
+    # change coerce_dtype (an auxiliary field) --------------------------------
+
+    assert not mini_immuno_schema_flexible.coerce_dtype
+    mini_immuno_schema_flexible.coerce_dtype = True
+    mini_immuno_schema_flexible.save()
+    assert mini_immuno_schema_flexible.hash != orig_hash
+    assert ccaplog.text.count(warning_message) == 5
+
+    # restore original setting
+    mini_immuno_schema_flexible.coerce_dtype = False
+    mini_immuno_schema_flexible.save()
+    assert mini_immuno_schema_flexible.hash == orig_hash
+    assert ccaplog.text.count(warning_message) == 6
+
+    # add an index --------------------------------
+
+    index_feature = ln.Feature(name="immuno_sample", dtype=str).save()
+    mini_immuno_schema_flexible.index = index_feature
+    mini_immuno_schema_flexible.save()
+    assert mini_immuno_schema_flexible.hash != orig_hash
+    assert mini_immuno_schema_flexible.n == 7
+    assert ccaplog.text.count(warning_message) == 7
+
+    # remove the index
+    mini_immuno_schema_flexible.index = None
+    mini_immuno_schema_flexible.save()
+    assert mini_immuno_schema_flexible.n == 6
+    assert mini_immuno_schema_flexible.hash == orig_hash
+    assert ccaplog.text.count(warning_message) == 8
+    index_feature.delete()
+
+    # make a feature optional --------------------------------
+
+    required_feature = mini_immuno_schema_flexible.features.first()
+    mini_immuno_schema_flexible.optionals.add(required_feature)
+    mini_immuno_schema_flexible.save()
+    assert mini_immuno_schema_flexible.hash != orig_hash
+    assert ccaplog.text.count(warning_message) == 9
+
+    # make it required again
+    mini_immuno_schema_flexible.optionals.remove(required_feature)
+    mini_immuno_schema_flexible.save()
+    assert mini_immuno_schema_flexible.hash == orig_hash
+    assert ccaplog.text.count(warning_message) == 10
+
+    artifact.delete(permanent=True)
+
+
+def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
+    obs_schema = mini_immuno_schema_flexible
     var_schema = ln.Schema(
         name="scRNA_seq_var_schema",
         itype=bt.Gene.ensembl_gene_id,
@@ -253,3 +390,93 @@ def test_schema_components(small_dataset1_schema: ln.Schema):
     anndata_schema.delete()
     var_schema2.delete()
     var_schema.delete()
+
+
+def test_mini_immuno_schema_flexible(mini_immuno_schema_flexible):
+    schema = ln.Schema(
+        name="Mini immuno schema",
+        features=[
+            ln.Feature.get(name="perturbation"),
+            ln.Feature.get(name="cell_type_by_model"),
+            ln.Feature.get(name="assay_oid"),
+            ln.Feature.get(name="donor"),
+            ln.Feature.get(name="concentration"),
+            ln.Feature.get(name="treatment_time_h"),
+        ],
+        flexible=True,  # _additional_ columns in a dataframe are validated & annotated
+    )
+    assert schema.name == "Mini immuno schema"
+    assert schema.itype == "Feature"
+    assert (
+        schema._list_for_hashing[:6]
+        == [
+            "b=Feature",
+            "c=True",
+            "d=False",
+            "e=False",
+            "f=True",
+            "h=6",
+            "j=HASH_OF_FEATURE_UIDS",  # this last hash is not deterministic in a unit test
+        ][:6]
+    )
+
+
+def test_schemas_dataframe():
+    # test on the Python level after record creation -- no saving!
+    schema = ln.Schema(name="valid_features", itype=ln.Feature)
+    assert schema.name == "valid_features"
+    assert schema.itype == "Feature"
+    assert schema._list_for_hashing == [
+        "b=Feature",
+        "c=True",
+        "d=False",
+        "e=False",
+    ]
+    assert schema.hash == "kMi7B_N88uu-YnbTLDU-DA"
+
+    # test the convenience function
+    schema = ln.schemas.simple.valid_features()
+    assert schema.name == "valid_features"
+    assert schema.itype == "Feature"
+    assert schema.hash == "kMi7B_N88uu-YnbTLDU-DA"
+
+
+def test_schemas_anndata():
+    # test on the Python level after record creation -- no saving!
+    obs_schema = ln.schemas.simple.valid_features()
+    varT_schema = ln.Schema(
+        name="valid_ensembl_gene_ids", itype=bt.Gene.ensembl_gene_id
+    )
+    assert varT_schema._list_for_hashing == [
+        "a=num",
+        "b=bionty.Gene.ensembl_gene_id",
+        "c=True",
+        "d=False",
+        "e=False",
+    ]
+    assert varT_schema.name == "valid_ensembl_gene_ids"
+    assert varT_schema.itype == "bionty.Gene.ensembl_gene_id"
+    assert varT_schema.hash == "1gocc_TJ1RU2bMwDRK-WUA"
+    schema = ln.Schema(
+        name="anndata_ensembl_gene_ids_and_valid_features_in_obs",
+        otype="AnnData",
+        slots={"obs": obs_schema, "var.T": varT_schema.save()},
+    )
+    assert schema._list_for_hashing == [
+        "kMi7B_N88uu-YnbTLDU-DA",
+        "1gocc_TJ1RU2bMwDRK-WUA",
+    ]
+    assert schema.name == "anndata_ensembl_gene_ids_and_valid_features_in_obs"
+    assert schema.itype == "Composite"
+    assert schema.hash == "GTxxM36n9tocphLfdbNt9g"
+
+    # test the convenience function
+    schema = ln.schemas.anndata.ensembl_gene_ids_and_valid_features_in_obs()
+    assert schema.name == "anndata_ensembl_gene_ids_and_valid_features_in_obs"
+    assert schema.itype == "Composite"
+    assert schema.hash == "GTxxM36n9tocphLfdbNt9g"
+    varT_schema = schema.slots["var.T"]
+    assert varT_schema.name == "valid_ensembl_gene_ids"
+    assert varT_schema.itype == "bionty.Gene.ensembl_gene_id"
+    assert varT_schema.hash == "1gocc_TJ1RU2bMwDRK-WUA"
+    schema.delete()

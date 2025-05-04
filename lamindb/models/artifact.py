@@ -962,7 +962,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         Create an artifact **from a local file or folder**::
 
-            artifact = ln.Artifact("./my_file.parquet", key="example_datasets/my_file.parquet").save()
+            artifact = ln.Artifact("./my_file.parquet", key="examples/my_file.parquet").save()
             artifact = ln.Artifact("./my_folder", key="project1/my_folder").save()
 
         Calling `.save()` copies or uploads the file to the default storage location of your lamindb instance.
@@ -977,7 +977,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         You can make a **new version** of an artifact by passing an existing `key`::
 
-            artifact_v2 = ln.Artifact("./my_file.parquet", key="example_datasets/my_file.parquet").save()
+            artifact_v2 = ln.Artifact("./my_file.parquet", key="examples/my_file.parquet").save()
             artifact_v2.versions.df()  # see all versions
 
         You can write artifacts to other storage locations by switching the current default storage location (:attr:`~lamindb.core.Settings.storage`)::
@@ -1529,7 +1529,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             ::
 
                 artifact = ln.Artifact.get("tCUkRcaEjTjhtozp0000")
-                artifact = ln.Arfifact.get(key="my_datasets/my_file.parquet")
+                artifact = ln.Arfifact.get(key="examples/my_file.parquet")
         """
         from .query_set import QuerySet
 
@@ -1554,7 +1554,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             Query by fields::
 
-                ln.Arfifact.filter(key="my_datasets/my_file.parquet")
+                ln.Arfifact.filter(key="examples/my_file.parquet")
 
             Query by features::
 
@@ -1637,8 +1637,24 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
                 import lamindb as ln
 
-                df = ln.core.datasets.df_iris_in_meter_batch1()
-                artifact = ln.Artifact.from_df(df, key="iris/result_batch1.parquet").save()
+                df = ln.core.datasets.mini_immuno.get_dataset1()
+                artifact = ln.Artifact.from_df(df, key="examples/dataset1.parquet").save()
+
+            With validation and annotation.
+
+            .. literalinclude:: scripts/curate_dataframe_flexible.py
+               :language: python
+
+            Under-the-hood, this used the following schema.
+
+            .. literalinclude:: scripts/define_valid_features.py
+               :language: python
+
+            Valid features & labels were defined as:
+
+            .. literalinclude:: scripts/define_mini_immuno_features_labels.py
+               :language: python
+
         """
         artifact = Artifact(  # type: ignore
             data=df,
@@ -1701,14 +1717,19 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             With validation and annotation.
 
-            .. literalinclude:: scripts/curate-anndata-simple.py
-                :language: python
+            .. literalinclude:: scripts/curate_anndata_flexible.py
+               :language: python
 
-            In the example above, we chose to tranpose the `var` DataFrame during annotation, so that we annotate the `var.T` schema, i.e., `[ENSG00000153563, ENSG00000010610, ENSG00000170458]`.
-            If we don't transpose, we'd annotate with the schema of `var`, i.e., `[gene_symbol, gene_type]`.
+            Under-the-hood, this used the following schema.
+
+            .. literalinclude:: scripts/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py
+               :language: python
+
+            This schema tranposes the `var` DataFrame during curation, so that one validates and annotates the `var.T` schema, i.e., `[ENSG00000153563, ENSG00000010610, ENSG00000170458]`.
+            If one doesn't transpose, one would annotate with the schema of `var`, i.e., `[gene_symbol, gene_type]`.
 
             .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/gLyfToATM7WUzkWW0001.png
-                :width: 800px
+               :width: 800px
 
         """
         if not data_is_anndata(adata):
@@ -1846,11 +1867,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             .. literalinclude:: scripts/define_schema_spatialdata.py
                 :language: python
-                :caption: define_schema_spatialdata.py
 
             .. literalinclude:: scripts/curate_spatialdata.py
                 :language: python
-                :caption: curate_spatialdata.py
         """
         if not data_is_spatialdata(sdata):
             raise ValueError(

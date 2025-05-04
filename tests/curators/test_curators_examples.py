@@ -158,6 +158,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
         == "lamindb.errors.ValidationError: Column 'treatment_time_h' failed series or dataframe validator 0: <Check check_function: Column 'treatment_time_h' failed dtype check for 'float': got int64>"
     )
     schema.delete()
+    feature_to_fail.delete()
 
     # Wrong subtype
     df = datasets.small_dataset1(otype="DataFrame", with_wrong_subtype=True)
@@ -185,7 +186,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
 
     df = datasets.small_dataset1(otype="DataFrame")
     curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
-    artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
+    artifact = curator.save_artifact(key="examples/dataset1.parquet")
 
     assert artifact.schema == small_dataset1_schema
     assert artifact.features.slots["columns"].n == 5
@@ -213,25 +214,6 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
         assert str(error).startswith("column 'sample_note' not in dataframe")
     curator.standardize()
     curator.validate()
-
-    # update schema
-    assert small_dataset1_schema.n == 5
-    orig_hash = small_dataset1_schema.hash
-    small_dataset1_schema.features.add(feature_to_fail)
-    assert small_dataset1_schema.n == 5
-    assert small_dataset1_schema.hash == orig_hash
-    small_dataset1_schema.save()
-    assert small_dataset1_schema.n == 6
-    assert small_dataset1_schema.hash != orig_hash
-    assert (
-        "you updated the schema hash and might invalidate datasets that were previously validated with this schema:"
-        in ccaplog.text
-    )
-    small_dataset1_schema.features.remove(feature_to_fail)
-    small_dataset1_schema.save()
-    assert small_dataset1_schema.n == 5
-    assert small_dataset1_schema.hash == orig_hash
-    feature_to_fail.delete()
     artifact.delete(permanent=True)
 
 
@@ -242,7 +224,7 @@ def test_dataframe_curator_validate_all_annotate_cat(small_dataset1_schema):
     assert schema.flexible
     df = datasets.small_dataset1(otype="DataFrame")
     artifact = ln.Artifact.from_df(
-        df, key="example_datasets/dataset1.parquet", schema=schema
+        df, key="examples/dataset1.parquet", schema=schema
     ).save()
     assert set(artifact.features.get_values()["perturbation"]) == {
         "DMSO",
@@ -271,7 +253,7 @@ def test_dataframe_curator_validate_all_annotate_cat2(small_dataset1_schema):
     assert schema.flexible
     df = datasets.small_dataset1(otype="DataFrame")
     curator = ln.curators.DataFrameCurator(df, schema)
-    artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
+    artifact = curator.save_artifact(key="examples/dataset1.parquet")
     assert set(artifact.features.get_values()["perturbation"]) == {
         "DMSO",
         "IFNG",
@@ -337,7 +319,7 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
         if add_comp == "uns":
             assert isinstance(curator.slots["uns"], ln.curators.DataFrameCurator)
         artifact = ln.Artifact.from_anndata(
-            adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+            adata, key="examples/dataset1.h5ad", schema=anndata_schema
         ).save()
         assert artifact.schema == anndata_schema
         assert artifact.features.slots["var.T"].n == 3  # 3 genes get linked
@@ -381,7 +363,7 @@ def test_anndata_curator_varT_curation():
         if with_gene_typo:
             with pytest.raises(ValidationError) as error:
                 artifact = ln.Artifact.from_anndata(
-                    adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+                    adata, key="examples/dataset1.h5ad", schema=anndata_schema
                 ).save()
             assert error.exconly() == (
                 f"lamindb.errors.ValidationError: 1 term not validated in feature 'columns' in slot '{slot}': 'GeneTypo'\n"
@@ -391,7 +373,7 @@ def test_anndata_curator_varT_curation():
             for n_max_records in [2, 4]:
                 ln.settings.annotation.n_max_records = n_max_records
                 artifact = ln.Artifact.from_anndata(
-                    adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+                    adata, key="examples/dataset1.h5ad", schema=anndata_schema
                 ).save()
                 assert artifact.features.slots[slot].n == 3  # 3 genes get linked
                 assert (
@@ -425,7 +407,7 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
         if with_gene_typo:
             with pytest.raises(ValidationError) as error:
                 artifact = ln.Artifact.from_anndata(
-                    adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+                    adata, key="examples/dataset1.h5ad", schema=anndata_schema
                 ).save()
             assert error.exconly() == (
                 f"lamindb.errors.ValidationError: 1 term not validated in feature 'var_index' in slot '{slot}': 'GeneTypo'\n"
@@ -433,7 +415,7 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
             )
         else:
             artifact = ln.Artifact.from_anndata(
-                adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+                adata, key="examples/dataset1.h5ad", schema=anndata_schema
             ).save()
             assert (
                 "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
@@ -466,7 +448,7 @@ def test_soma_curator(
         var_index={"RNA": ("var_id", bt.Gene.ensembl_gene_id)},
         **curator_params,
     )
-    artifact = curator.save_artifact(key="example_datasets/dataset1.tiledbsoma")
+    artifact = curator.save_artifact(key="examples/dataset1.tiledbsoma")
     # artifact.features.add_values(adata.uns)
 
     assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
@@ -494,7 +476,7 @@ def test_anndata_curator_no_var(small_dataset1_schema: ln.Schema):
     assert small_dataset1_schema.id is not None, small_dataset1_schema
     adata = datasets.small_dataset1(otype="AnnData")
     curator = ln.curators.AnnDataCurator(adata, anndata_schema_no_var)
-    artifact = curator.save_artifact(key="example_datasets/dataset1_no_var.h5ad")
+    artifact = curator.save_artifact(key="examples/dataset1_no_var.h5ad")
     artifact.delete(permanent=True)
     anndata_schema_no_var.delete()
 
@@ -611,7 +593,7 @@ def test_spatialdata_curator(
 
     artifact = ln.Artifact.from_spatialdata(
         spatialdata,
-        key="example_datasets/spatialdata1.zarr",
+        key="examples/spatialdata1.zarr",
         schema=spatialdata_schema_legacy,
     ).save()
     assert artifact.schema == spatialdata_schema_legacy
@@ -625,7 +607,7 @@ def test_spatialdata_curator(
 
     artifact = ln.Artifact.from_spatialdata(
         spatialdata,
-        key="example_datasets/spatialdata1.zarr",
+        key="examples/spatialdata1.zarr",
         schema=spatialdata_schema_new,
     ).save()
     assert artifact.schema == spatialdata_schema_new

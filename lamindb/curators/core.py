@@ -327,9 +327,22 @@ class DataFrameCurator(Curator):
 
     Example:
 
-        .. literalinclude:: scripts/curate-dataframe.py
+        For simple example using a flexible schema, see :meth:`~lamindb.Artifact.from_df`.
+
+        Here is an example that enforces a minimal set of columns in the dataframe.
+
+        .. literalinclude:: scripts/curate_dataframe_minimal_errors.py
             :language: python
-            :caption: curate-dataframe.py
+
+        Under-the-hood, this used the following schema.
+
+        .. literalinclude:: scripts/define_mini_immuno_schema_flexible.py
+            :language: python
+
+        Valid features & labels were defined as:
+
+        .. literalinclude:: scripts/define_mini_immuno_features_labels.py
+            :language: python
     """
 
     def __init__(
@@ -1350,19 +1363,22 @@ def annotate_artifact(
     # annotate with inferred schemas aka feature sets
     if artifact.otype == "DataFrame":
         features = cat_vectors["columns"].records
-        feature_set = Schema(features=features)
-        if (
-            feature_set._state.adding
-            and len(features) > settings.annotation.n_max_records
-        ):
-            logger.important(
-                f"not annotating with {len(features)} features as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
+        if features is not None:
+            feature_set = Schema(
+                features=features, coerce_dtype=artifact.schema.coerce_dtype
+            )  # TODO: add more defaults from validating schema
+            if (
+                feature_set._state.adding
+                and len(features) > settings.annotation.n_max_records
+            ):
+                logger.important(
+                    f"not annotating with {len(features)} features as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
+                )
+                itype = parse_cat_dtype(artifact.schema.itype, is_itype=True)["field"]
+                feature_set = Schema(itype=itype, n=len(features))
+            artifact.feature_sets.add(
+                feature_set.save(), through_defaults={"slot": "columns"}
             )
-            itype = parse_cat_dtype(artifact.schema.itype, is_itype=True)["field"]
-            feature_set = Schema(itype=itype, n=len(features))
-        artifact.feature_sets.add(
-            feature_set.save(), through_defaults={"slot": "columns"}
-        )
     else:
         for slot, slot_curator in curator._slots.items():
             # var_index is backward compat (2025-05-01)

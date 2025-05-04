@@ -11,56 +11,50 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import anndata as ad
 import pandas as pd
 
+if TYPE_CHECKING:
+    from lamindb.models import Schema
+
 
 def define_features_labels() -> None:
-    """Features & labels to validate the mini immuno dataset.
+    """Features & labels to validate the mini immuno datasets.
 
-    The function runs this code::
-
-        import lamindb as ln
-        import bionty as bt
-
-        # define labels
-        perturbation_type = ln.ULabel(name="Perturbation", is_type=True).save()
-        ln.ULabel(name="DMSO", type=perturbation_type).save()
-        ln.ULabel(name="IFNG", type=perturbation_type).save()
-        bt.CellType.from_source(name="B cell").save()
-        bt.CellType.from_source(name="T cell").save()
-
-        # define features
-        ln.Feature(name="perturbation", dtype=ln.ULabel).save()
-        ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()
-        ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()
-        ln.Feature(name="assay_oid", dtype=bt.ExperimentalFactor.ontology_id).save()
-        ln.Feature(name="donor", dtype=str, nullable=True).save()
-        ln.Feature(name="concentration", dtype=str).save()
-        ln.Feature(name="treatment_time_h", dtype="num", coerce_dtype=True).save()
-
+    .. literalinclude:: scripts/define_mini_immuno_features_labels.py
+        :language: python
     """
-    import bionty as bt
+    import sys
+    from pathlib import Path
 
-    import lamindb as ln
+    docs_path = Path(__file__).parent.parent.parent.parent / "docs" / "scripts"
+    if str(docs_path) not in sys.path:
+        sys.path.append(str(docs_path))
 
-    # define valid labels
-    perturbation_type = ln.ULabel(name="Perturbation", is_type=True).save()
-    ln.ULabel(name="DMSO", type=perturbation_type).save()
-    ln.ULabel(name="IFNG", type=perturbation_type).save()
-    bt.CellType.from_source(name="B cell").save()
-    bt.CellType.from_source(name="T cell").save()
+    import define_mini_immuno_features_labels  # noqa
 
-    # define valid features
-    ln.Feature(name="perturbation", dtype=ln.ULabel).save()
-    ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()
-    ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()
-    ln.Feature(name="assay_oid", dtype=bt.ExperimentalFactor.ontology_id).save()
-    ln.Feature(name="donor", dtype=str, nullable=True).save()
-    ln.Feature(name="concentration", dtype=str).save()
-    ln.Feature(name="treatment_time_h", dtype="num", coerce_dtype=True).save()
+
+def define_mini_immuno_schema_flexible() -> Schema:
+    """Features & labels to validate the mini immuno datasets.
+
+    .. literalinclude:: scripts/define_mini_immuno_schema_flexible.py
+        :language: python
+    """
+    import sys
+    from pathlib import Path
+
+    from lamindb.models import Schema
+
+    docs_path = Path(__file__).parent.parent.parent.parent / "docs" / "scripts"
+    if str(docs_path) not in sys.path:
+        sys.path.append(str(docs_path))
+
+    define_features_labels()
+    import define_mini_immuno_schema_flexible  # noqa
+
+    return Schema.get(name="Mini immuno schema")
 
 
 def get_dataset1(
@@ -139,6 +133,9 @@ def get_dataset2(
         var_ids[2]: [4, 2, 3],
         "perturbation": pd.Categorical(["DMSO", "IFNG", "IFNG"]),
         "cell_type_by_model": pd.Categorical(["B cell", "T cell", "T cell"]),
+        "concentration": ["0.1%", "200 nM", "0.1%"],
+        "treatment_time_h": [24, 24, 6],
+        "donor": ["D0003", "D0003", "D0004"],
     }
     metadata = {
         "temperature": 22.6,

@@ -25,7 +25,7 @@ def test_cxg_curator():
     assert curator.validate()
 
     artifact = curator.save_artifact(
-        key=f"my_datasets/dataset-curated-against-cxg-{curator.schema_version}.h5ad"
+        key=f"examples/dataset-curated-against-cxg-{curator.schema_version}.h5ad"
     )
     title = "Cross-tissue immune cell analysis reveals tissue-specific features in humans (for test demo only)"
 

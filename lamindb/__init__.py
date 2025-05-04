@@ -81,6 +81,7 @@ Low-level functionality.
 .. autosummary::
    :toctree: .
 
+   schemas
    curators
    integrations
    errors
@@ -143,6 +144,7 @@ if _check_instance_setup(from_module="lamindb"):
     from . import core
     from . import integrations
     from . import curators
+    from . import schemas
 
     track = context._track
     finish = context._finish
