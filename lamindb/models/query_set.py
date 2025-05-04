@@ -539,23 +539,30 @@ class BasicQuerySet(models.QuerySet):
 
         annotate_kwargs = {}
         if features:
-            annotate_kwargs.update(get_feature_annotate_kwargs(features))
+            time = logger.debug("start feature_annotate_kwargs")
+            feature_annotate_kwargs = get_feature_annotate_kwargs(features)
+            time = logger.debug("finished feature_annotate_kwargs", time=time)
+            annotate_kwargs.update(feature_annotate_kwargs)
         if include:
             include = include.copy()[::-1]  # type: ignore
             include_kwargs = {s: F(s) for s in include if s not in field_names}
             annotate_kwargs.update(include_kwargs)
         if annotate_kwargs:
             id_subquery = self.values("id")
+            time = logger.debug("get id values", time=time)
             # for annotate, we want the queryset without filters so that joins don't affect the annotations
             query_set_without_filters = self.model.objects.filter(
                 id__in=Subquery(id_subquery)
             )
+            time = logger.debug("get query_set_without_filters", time=time)
             if self.query.order_by:
                 # Apply the same ordering to the new queryset
                 query_set_without_filters = query_set_without_filters.order_by(
                     *self.query.order_by
                 )
+                time = logger.debug("order by", time=time)
             queryset = query_set_without_filters.annotate(**annotate_kwargs)
+            time = logger.debug("finished annotate", time=time)
         else:
             queryset = self
 
