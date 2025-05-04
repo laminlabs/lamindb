@@ -286,13 +286,13 @@ def get_feature_annotate_kwargs(show_features: bool | list[str]) -> dict[str, An
         Feature,
     )
 
-    features = Feature.filter()
+    feature_qs = Feature.filter()
     if isinstance(show_features, list):
-        features = features.filter(name__in=show_features)
+        feature_qs = feature_qs.filter(name__in=show_features)
     # Get the categorical features
     cat_feature_types = {
         feature.dtype.replace("cat[", "").replace("]", "")
-        for feature in features
+        for feature in feature_qs
         if feature.dtype.startswith("cat[")
     }
     # Get relationships of labels and features
