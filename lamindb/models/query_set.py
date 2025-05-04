@@ -4,6 +4,7 @@ import re
 from collections import UserList
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, Union
 
 import pandas as pd
@@ -530,6 +531,7 @@ class BasicQuerySet(models.QuerySet):
         features: bool | list[str] = False,
     ) -> pd.DataFrame:
         """{}"""  # noqa: D415
+        time = datetime.now(timezone.utc)
         if include is None:
             include = []
         elif isinstance(include, str):
@@ -539,7 +541,7 @@ class BasicQuerySet(models.QuerySet):
 
         annotate_kwargs = {}
         if features:
-            time = logger.debug("start feature_annotate_kwargs")
+            time = logger.debug("start feature_annotate_kwargs", time=time)
             feature_annotate_kwargs = get_feature_annotate_kwargs(features)
             time = logger.debug("finished feature_annotate_kwargs", time=time)
             annotate_kwargs.update(feature_annotate_kwargs)
