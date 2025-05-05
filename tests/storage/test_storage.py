@@ -16,7 +16,7 @@ from lamindb.core.storage._anndata_accessor import _anndata_n_observations
 from lamindb.core.storage._backed_access import (
     AnnDataAccessor,
     BackedAccessor,
-    _df_storage_suffix,
+    _flat_suffixes,
     backed_access,
 )
 from lamindb.core.storage._pyarrow_dataset import _open_pyarrow_dataset
@@ -480,7 +480,7 @@ def test_open_dataframe_collection():
     df[:2].to_parquet(shard1, engine="pyarrow")
     df[2:].to_parquet(shard2, engine="pyarrow")
     # test checking and opening local paths
-    assert _df_storage_suffix([shard1, ln.UPath("some.csv")]) is None
+    assert _flat_suffixes([shard1, ln.UPath("some.csv")]) == {".parquet", ".csv"}
     assert _open_pyarrow_dataset([shard1, shard2]).to_table().to_pandas().equals(df)
 
     ln.core.datasets.file_mini_csv()

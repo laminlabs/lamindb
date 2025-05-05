@@ -110,9 +110,9 @@ def backed_access(
         conn, storage = registry.open("h5py", objectpath, mode=mode, **kwargs)
     elif suffix == ".zarr":
         conn, storage = registry.open("zarr", objectpath, mode=mode, **kwargs)
-    elif (df_suffix := _df_storage_suffix(objectpath)) in set(PYARROW_SUFFIXES).union(
-        POLARS_SUFFIXES
-    ):
+    elif len(df_suffixes := _flat_suffixes(objectpath)) == 1 and (
+        df_suffix := df_suffixes.pop()
+    ) in set(PYARROW_SUFFIXES).union(POLARS_SUFFIXES):
         if engine == "pyarrow":
             if df_suffix not in PYARROW_SUFFIXES:
                 raise ValueError(
@@ -145,8 +145,7 @@ def backed_access(
         return BackedAccessor(conn, storage)
 
 
-# returns a single suffix if all the paths have the same suffix or None otherwise
-def _df_storage_suffix(paths: UPath | list[UPath]) -> str | None:
+def _flat_suffixes(paths: UPath | list[UPath]) -> set[str]:
     # it is assumed here that the paths exist
     # we don't check here that the filesystem is the same
     # but this is a requirement for pyarrow.dataset.dataset
@@ -160,7 +159,7 @@ def _df_storage_suffix(paths: UPath | list[UPath]) -> str | None:
         else:
             path_list.append(path)
 
-    suffix = None
+    suffixes = set()
     for path in path_list:
         path_suffixes = path.suffixes
         # this doesn't work for externally gzipped files, REMOVE LATER
@@ -169,8 +168,5 @@ def _df_storage_suffix(paths: UPath | list[UPath]) -> str | None:
             if len(path_suffixes) > 1 and ".gz" in path_suffixes
             else path.suffix
         )
-        if suffix is None:
-            suffix = path_suffix
-        elif path_suffix != suffix:
-            return None
-    return suffix
+        suffixes.add(path_suffix)
+    return suffixes

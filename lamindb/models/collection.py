@@ -24,7 +24,7 @@ from lamindb.base.fields import (
 
 from ..base.ids import base62_20
 from ..core._mapped_collection import MappedCollection
-from ..core.storage._backed_access import _df_storage_suffix
+from ..core.storage._backed_access import _flat_suffixes
 from ..core.storage._polars_lazy_df import POLARS_SUFFIXES, _open_polars_lazy_df
 from ..core.storage._pyarrow_dataset import PYARROW_SUFFIXES, _open_pyarrow_dataset
 from ..errors import FieldValidationError
@@ -372,18 +372,12 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             artifacts = self.ordered_artifacts.all()
         paths = [artifact.path for artifact in artifacts]
 
-        df_suffix = _df_storage_suffix(paths)
-
-        if df_suffix is None:
-            suffixes = set()
-            for path in paths:
-                if path.protocol not in {"http", "https"} and path.is_dir():
-                    suffixes.update(p.suffix for p in path.rglob("*") if p.suffix != "")
-                else:
-                    suffixes.add(path.suffix)
+        df_suffixes = _flat_suffixes(paths)
+        if len(df_suffixes) > 1:
             raise ValueError(
-                f"The artifacts in the collection have different file formats: {', '.join(suffixes)}."
+                f"The artifacts in the collection have different file formats: {', '.join(df_suffixes)}."
             )
+        df_suffix = df_suffixes.pop()
 
         if engine == "pyarrow":
             if df_suffix not in PYARROW_SUFFIXES:
