@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, Union
 import pandas as pd
 from django.core.exceptions import FieldError
 from django.db import models
-from django.db.models import F, ForeignKey, ManyToManyField, Subquery
+from django.db.models import F, ForeignKey, ManyToManyField, Q, Subquery
 from django.db.models.fields.related import ForeignObjectRel
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
@@ -240,7 +240,9 @@ class RecordList(UserList, Generic[T]):
 
 
 def get_basic_field_names(
-    qs: QuerySet, include: list[str], features: bool | list[str] = False
+    qs: QuerySet,
+    include: list[str],
+    features_input: bool | list[str],
 ) -> list[str]:
     exclude_field_names = ["updated_at"]
     field_names = [
@@ -272,23 +274,36 @@ def get_basic_field_names(
     if field_names[0] != "uid" and "uid" in field_names:
         field_names.remove("uid")
         field_names.insert(0, "uid")
-    if include or features:
-        subset_field_names = field_names[:4]
+    if (
+        include or features_input
+    ):  # if there is features_input, reduce fields to just the first 3
+        subset_field_names = field_names[:3]
         intersection = set(field_names) & set(include)
         subset_field_names += list(intersection)
         field_names = subset_field_names
     return field_names
 
 
-def get_feature_annotate_kwargs(show_features: bool | list[str]) -> dict[str, Any]:
+def get_feature_annotate_kwargs(
+    features: bool | list[str] | None,
+) -> tuple[dict[str, Any], list[str], QuerySet]:
     from lamindb.models import (
         Artifact,
         Feature,
     )
 
     feature_qs = Feature.filter()
-    if isinstance(show_features, list):
-        feature_qs = feature_qs.filter(name__in=show_features)
+    if isinstance(features, list):
+        feature_qs = feature_qs.filter(name__in=features)
+        feature_names = features
+    else:  # features is True -- only consider categorical features from ULabel and non-categorical features
+        feature_qs = feature_qs.filter(
+            Q(~Q(dtype__startswith="cat[")) | Q(dtype__startswith="cat[ULabel")
+        )
+        feature_names = feature_qs.list("name")
+        logger.important(
+            f"queried for all categorical features with dtype 'cat[ULabel...'] and non-categorical features: ({len(feature_names)}) {feature_names}"
+        )
     # Get the categorical features
     cat_feature_types = {
         feature.dtype.replace("cat[", "").replace("]", "")
@@ -328,7 +343,7 @@ def get_feature_annotate_kwargs(show_features: bool | list[str]) -> dict[str, An
         "_feature_values__feature__name"
     )
     annotate_kwargs["_feature_values__value"] = F("_feature_values__value")
-    return annotate_kwargs
+    return annotate_kwargs, feature_names, feature_qs
 
 
 # https://claude.ai/share/16280046-6ae5-4f6a-99ac-dec01813dc3c
@@ -382,44 +397,59 @@ def analyze_lookup_cardinality(
     return result
 
 
+def reorder_subset_columns_in_df(df: pd.DataFrame, column_order: list[str], position=3):
+    valid_columns = [col for col in column_order if col in df.columns]
+    all_cols = df.columns.tolist()
+    remaining_cols = [col for col in all_cols if col not in valid_columns]
+    new_order = remaining_cols[:position] + valid_columns + remaining_cols[position:]
+    return df[new_order]
+
+
 # https://lamin.ai/laminlabs/lamindata/transform/BblTiuKxsb2g0003
 # https://claude.ai/chat/6ea2498c-944d-4e7a-af08-29e5ddf637d2
 def reshape_annotate_result(
-    field_names: list[str],
     df: pd.DataFrame,
-    extra_columns: dict[str, str] | None = None,
-    features: bool | list[str] = False,
+    field_names: list[str],
+    cols_from_include: dict[str, str] | None,
+    feature_names: list[str],
+    feature_qs: QuerySet | None,
 ) -> pd.DataFrame:
-    """Reshapes experimental data with optional feature handling.
+    """Reshapes tidy table to wide format.
 
-    Parameters:
-    field_names: List of basic fields to include in result
-    df: Input dataframe with experimental data
-    extra_columns: Dict specifying additional columns to process with types ('one' or 'many')
-                  e.g., {'ulabels__name': 'many', 'created_by__name': 'one'}
-    features: If False, skip feature processing. If True, process all features.
-             If list of strings, only process specified features.
-
-    Returns:
-    DataFrame with reshaped data
+    Args:
+        field_names: List of basic fields to include in result
+        df: Input dataframe with experimental data
+        extra_columns: Dict specifying additional columns to process with types ('one' or 'many')
+            e.g., {'ulabels__name': 'many', 'created_by__name': 'one'}
+        feature_names: Feature names.
     """
-    extra_columns = extra_columns or {}
+    cols_from_include = cols_from_include or {}
 
-    # Initialize result with basic fields
+    def extract_single_element(s):
+        if len(s) != 1:
+            logger.warning(
+                f"expected single value because `feature.observational_unit == 'Artifact'` but got set {len(s)} elements: {s}"
+            )
+        return next(iter(s))
+
+    # initialize result with basic fields
     result = df[field_names]
-    # Process features if requested
-    if features:
-        # Handle _feature_values if columns exist
+    # process features if requested
+    if feature_names:
+        # handle feature_values
         feature_cols = ["_feature_values__feature__name", "_feature_values__value"]
         if all(col in df.columns for col in feature_cols):
-            feature_values = process_feature_values(df, features)
+            feature_values = df.groupby(["id", "_feature_values__feature__name"])[
+                "_feature_values__value"
+            ].agg(set)
+            feature_values = feature_values.unstack().reset_index()
             if not feature_values.empty:
                 result = result.join(
                     feature_values.set_index("id"),
                     on="id",
                 )
 
-        # Handle links features if they exist
+        # handle categorical features
         links_features = [
             col
             for col in df.columns
@@ -427,32 +457,25 @@ def reshape_annotate_result(
         ]
 
         if links_features:
-            result = process_links_features(df, result, links_features, features)
+            result = process_links_features(df, result, links_features, feature_names)
 
-    # Process extra columns
-    if extra_columns:
-        result = process_extra_columns(df, result, extra_columns)
+        # artifact-level vs. observation-level features
+        artifact_level_features = [
+            feature.name
+            for feature in feature_qs
+            if feature.observational_unit == "Artifact"
+        ]
+        if artifact_level_features:
+            for col in artifact_level_features:
+                result[col] = result[col].apply(extract_single_element)
+
+        # sort columns
+        result = reorder_subset_columns_in_df(result, feature_names)
+
+    if cols_from_include:
+        result = process_cols_from_include(df, result, cols_from_include)
 
     return result.drop_duplicates(subset=["id"])
-
-
-def process_feature_values(
-    df: pd.DataFrame, features: bool | list[str]
-) -> pd.DataFrame:
-    """Process _feature_values columns."""
-    feature_values = df.groupby(["id", "_feature_values__feature__name"])[
-        "_feature_values__value"
-    ].agg(set)
-
-    # Filter features if specific ones requested
-    if isinstance(features, list):
-        feature_values = feature_values[
-            feature_values.index.get_level_values(
-                "_feature_values__feature__name"
-            ).isin(features)
-        ]
-
-    return feature_values.unstack().reset_index()
 
 
 def process_links_features(
@@ -493,7 +516,7 @@ def process_links_features(
     return result
 
 
-def process_extra_columns(
+def process_cols_from_include(
     df: pd.DataFrame, result: pd.DataFrame, extra_columns: dict[str, str]
 ) -> pd.DataFrame:
     """Process additional columns based on their specified types."""
@@ -514,33 +537,38 @@ class BasicQuerySet(models.QuerySet):
 
     See Also:
 
-        `django QuerySet <https://docs.djangoproject.com/en/4.2/ref/models/querysets/>`__
+        `django QuerySet <https://docs.djangoproject.com/en/stable/ref/models/querysets/>`__
 
     Examples:
 
-        >>> ULabel(name="my label").save()
-        >>> queryset = ULabel.filter(name="my label")
-        >>> queryset
+        Any filter statement produces a query set::
+
+            queryset = Registry.filter(name__startswith="keyword")
     """
 
     @doc_args(Record.df.__doc__)
     def df(
         self,
         include: str | list[str] | None = None,
-        features: bool | list[str] = False,
+        features: bool | list[str] | None = None,
     ) -> pd.DataFrame:
         """{}"""  # noqa: D415
         time = datetime.now(timezone.utc)
         if include is None:
-            include = []
+            include_input = []
         elif isinstance(include, str):
-            include = [include]
-        include = get_backward_compat_filter_kwargs(self, include)
-        field_names = get_basic_field_names(self, include, features)  # type: ignore
+            include_input = [include]
+        features_input = [] if features is None else features
+        include = get_backward_compat_filter_kwargs(self, include_input)
+        field_names = get_basic_field_names(self, include_input, features_input)
 
         annotate_kwargs = {}
+        feature_names: list[str] = []
+        feature_qs = None
         if features:
-            feature_annotate_kwargs = get_feature_annotate_kwargs(features)
+            feature_annotate_kwargs, feature_names, feature_qs = (
+                get_feature_annotate_kwargs(features)
+            )
             time = logger.debug("finished feature_annotate_kwargs", time=time)
             annotate_kwargs.update(feature_annotate_kwargs)
         if include:
@@ -571,15 +599,17 @@ class BasicQuerySet(models.QuerySet):
             df = pd.DataFrame({}, columns=field_names)
             return df
         time = logger.debug("finished creating first dataframe", time=time)
-        extra_cols = analyze_lookup_cardinality(self.model, include)  # type: ignore
+        cols_from_include = analyze_lookup_cardinality(self.model, include)  # type: ignore
         time = logger.debug("finished analyze_lookup_cardinality", time=time)
-        df_reshaped = reshape_annotate_result(field_names, df, extra_cols, features)
+        df_reshaped = reshape_annotate_result(
+            df, field_names, cols_from_include, feature_names, feature_qs
+        )
         time = logger.debug("finished reshape_annotate_result", time=time)
         pk_name = self.model._meta.pk.name
         pk_column_name = pk_name if pk_name in df.columns else f"{pk_name}_id"
         if pk_column_name in df_reshaped.columns:
             df_reshaped = df_reshaped.set_index(pk_column_name)
-        time = logger.debug("finished set_index", time=time)
+        time = logger.debug("finished", time=time)
         return df_reshaped
 
     def delete(self, *args, **kwargs):

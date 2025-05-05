@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import importlib
-from typing import TYPE_CHECKING, Any, get_args, overload
+from typing import TYPE_CHECKING, Any, Literal, get_args, overload
 
 import numpy as np
 import pandas as pd
@@ -580,6 +580,25 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     def coerce_dtype(self, value: bool) -> None:
         self._aux = self._aux or {}
         self._aux.setdefault("af", {})["2"] = value
+
+    @property
+    def observational_unit(self) -> Literal["Artifact", "Observation"]:
+        """The observational unit on which the feature is typically measured.
+
+        Currently, we only make a distinction between artifact-level and observation-level features.
+
+        For example, a feature `"ml_split"` that stores `"test"` & `"train"` labels is typically defined on the dataset level.
+        When accessing `artifact.features.get_values(["ml_split"])`, you expect a single value, either `"test"` or `"train"`.
+
+        However, when accessing an artifact annotation with a feature that's defined on the observation-level, say `"cell_type"`, you expect a set of values. So,
+        `artifact.features.get_values(["cell_type_from_expert"])` should return a set: `{"T cell", "B cell"}`.
+
+        Note: This attribute might in the future be used to distinguish different types of observational units (e.g. single cells vs. physical samples vs. study subjects etc.).
+        """
+        if self._expect_many:
+            return "Observation"
+        else:
+            return "Artifact"
 
 
 class FeatureValue(Record, TracksRun):
