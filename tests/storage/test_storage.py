@@ -519,7 +519,7 @@ def test_open_dataframe_collection():
     with pytest.raises(ValueError) as err:
         collection3.open()
     assert err.exconly().startswith(
-        "ValueError: The collection has artifacts with different filesystems, this is not supported."
+        "ValueError: The collection has artifacts with different filesystems, this is not supported"
     )
 
     shard1.unlink()
