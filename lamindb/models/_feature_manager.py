@@ -645,7 +645,6 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
             comparator = f"__{split_key[1]}"
         feature = features.get(name=normalized_key)
         if not feature.dtype.startswith("cat"):
-            expression = {feature_param: feature, f"value{comparator}": value}
             if comparator == "__isnull":
                 if cls == FeatureManager:
                     from .artifact import ArtifactFeatureValue
@@ -657,9 +656,14 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
                             ).values("artifact_id")
                         )
                     )
-            else:
-                feature_value = value_model.filter(**expression)
-                new_expression[f"_{feature_param}_values__in"] = feature_value
+            if comparator in {"__startswith", "__contains"}:
+                logger.important(
+                    f"currently not supporting `{comparator}`, using `__icontains` instead"
+                )
+                comparator = "__icontains"
+            expression = {feature_param: feature, f"value{comparator}": value}
+            feature_values = value_model.filter(**expression)
+            new_expression[f"_{feature_param}_values__id__in"] = feature_values
         elif isinstance(value, (str, Record, bool)):
             if comparator == "__isnull":
                 if cls == FeatureManager:
