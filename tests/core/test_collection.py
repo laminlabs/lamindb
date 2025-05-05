@@ -110,10 +110,10 @@ def test_from_inconsistent_artifacts(df, adata):
     collection.cache()
     assert set(ln.context.run.input_collections.all()) == {collection}
     # loading will throw an error here
-    with pytest.raises(RuntimeError) as error:
+    with pytest.raises(ValueError) as error:
         collection.load()
     assert str(error.exconly()).startswith(
-        "RuntimeError: Can only load collections where all artifacts have the same suffix"
+        "ValueError: Can only load collections where all artifacts have the same suffix"
     )
     collection.describe()
     collection.delete(permanent=True)
