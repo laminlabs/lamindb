@@ -24,9 +24,7 @@ from lamindb.base.fields import (
 
 from ..base.ids import base62_20
 from ..core._mapped_collection import MappedCollection
-from ..core.storage._backed_access import _flat_suffixes
-from ..core.storage._polars_lazy_df import POLARS_SUFFIXES, _open_polars_lazy_df
-from ..core.storage._pyarrow_dataset import PYARROW_SUFFIXES, _open_pyarrow_dataset
+from ..core.storage._backed_access import _open_dataframe
 from ..errors import FieldValidationError
 from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned
@@ -372,45 +370,10 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             artifacts = self.ordered_artifacts.all()
         paths = [artifact.path for artifact in artifacts]
 
-        df_suffixes = _flat_suffixes(paths)
-        if len(df_suffixes) > 1:
-            raise ValueError(
-                f"The artifacts in the collection have different file formats: {', '.join(df_suffixes)}."
-            )
-        df_suffix = df_suffixes.pop()
-
-        if engine == "pyarrow":
-            if df_suffix not in PYARROW_SUFFIXES:
-                raise ValueError(
-                    f"{df_suffix} files are not supported by pyarrow, "
-                    f"they should have one of these formats: {', '.join(PYARROW_SUFFIXES)}."
-                )
-            # this checks that the filesystem is the same for all paths
-            # this is a requirement of pyarrow.dataset.dataset
-            fs = paths[0].fs
-            for path in paths[1:]:
-                # this assumes that the filesystems are cached by fsspec
-                if path.fs is not fs:
-                    raise ValueError(
-                        "The collection has artifacts with different filesystems, "
-                        "this is not supported."
-                    )
-            dataset = _open_pyarrow_dataset(paths, **kwargs)
-        elif engine == "polars":
-            if df_suffix not in POLARS_SUFFIXES:
-                raise ValueError(
-                    f"{df_suffix} files are not supported by polars, "
-                    f"they should have one of these formats: {', '.join(POLARS_SUFFIXES)}."
-                )
-            dataset = _open_polars_lazy_df(paths, **kwargs)
-        else:
-            raise ValueError(
-                f"Unknown engine: {engine}. It should be 'pyarrow' or 'polars'."
-            )
-
+        dataframe = _open_dataframe(paths, engine=engine, **kwargs)
         # track only if successful
         _track_run_input(self, is_run_input)
-        return dataset
+        return dataframe
 
     def mapped(
         self,
