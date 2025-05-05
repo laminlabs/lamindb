@@ -217,6 +217,14 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
     artifact.delete(permanent=True)
 
 
+def test_dataframe_curator_index():
+    """Test validating a DataFrame index."""
+    df = datasets.small_dataset1(otype="DataFrame")
+    schema = ln.Schema(index=ln.Feature(name="test", dtype="str").save()).save()
+    curator = ln.curators.DataFrameCurator(df, schema)
+    curator.validate()
+
+
 def test_dataframe_curator_validate_all_annotate_cat(small_dataset1_schema):
     """Do not pass any features."""
 

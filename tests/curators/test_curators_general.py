@@ -235,3 +235,11 @@ def test_schema_ordered_set(df):
     # clean up
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
+
+
+def test_schema_new_genes():
+    pass
+
+
+def test_schema_mismatch_ensembl_symbols():
+    pass

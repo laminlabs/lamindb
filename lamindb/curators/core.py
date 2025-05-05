@@ -427,7 +427,9 @@ class DataFrameCurator(Curator):
                 # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
                 # so, we're typing it as `str` here
                 index = pandera.Index(
-                    schema.index.dtype if not feature.dtype.startswith("cat") else str
+                    schema.index.dtype
+                    if not schema.index.dtype.startswith("cat")
+                    else str
                 )
             else:
                 index = None
@@ -1237,7 +1239,10 @@ class DataFrameCatManager:
         if self._index is not None:
             # cat_vector.validate() populates validated labels
             # the index should become part of the feature set corresponding to the dataframe
-            self._cat_vectors["columns"].records.insert(0, self._index)  # type: ignore
+            if self._cat_vectors["columns"].records is not None:
+                self._cat_vectors["columns"].records.insert(0, self._index)  # type: ignore
+            else:
+                self._cat_vectors["columns"].records = [self._index]  # type: ignore
 
         return self._is_validated
 
