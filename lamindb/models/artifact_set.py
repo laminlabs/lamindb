@@ -29,7 +29,7 @@ def _check_ordered_artifacts(qs: QuerySet):
         )
 
 
-class ArtifactQuerySet(Iterable):
+class ArtifactSet(Iterable):
     def load(
         self,
         join: Literal["inner", "outer"] = "outer",
