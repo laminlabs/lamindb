@@ -547,7 +547,9 @@ class Context:
             return uid, aux_transform, message
         else:
             uid = f"{aux_transform.uid[:-4]}{increment_base62(aux_transform.uid[-4:])}"
-            message = f"there already is a {aux_transform.type} with key '{aux_transform.key}'"
+            message = (
+                f"found {aux_transform.type} {aux_transform.key}, making new version"
+            )
             if (
                 aux_transform.hash == transform_hash
                 and aux_transform.type == "notebook"
@@ -561,7 +563,6 @@ class Context:
                 message += (
                     f" -- {aux_transform.created_by.handle} already works on this draft"
                 )
-            message += f", creating new version '{uid}'"
             return uid, None, message
 
     def _create_or_load_transform(
