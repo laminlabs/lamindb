@@ -255,26 +255,25 @@ class Schema(Record, CanCurate, TracksRun):
 
     Args:
         features: `list[Record] | list[tuple[Feature, dict]] | None = None` A list of feature
-            records, e.g., `[Feature(...), Feature(...)]` or features with their config, e.g., `[Feature(...).with_config(optional=True)]`.
+            records, e.g., `[Feature(...), Feature(...)]` or Features with their config, e.g., `[Feature(...).with_config(optional=True)]`.
         index: `Feature | None = None` A :class:`~lamindb.Feature` record to validate an index of a `DataFrame`.
-        slots: `dict[str, Schema] | None = None` A dictionary mapping slot names to
-            :class:`~lamindb.Schema` objects.
+        slots: `dict[str, Schema] | None = None` A dictionary mapping slot names to :class:`~lamindb.Schema` objects.
         name: `str | None = None` A name.
         description: `str | None = None` A description.
         itype: `str | None = None` The feature identifier type (e.g. :class:`~lamindb.Feature`, :class:`~bionty.Gene`, ...).
         flexible: `bool | None = None` Whether to include any feature of the same `itype` in validation
-            and annotation. If no features are passed, defaults to `True`, otherwise to `False`.
-            This means that if you explicitly pass features, any additional features will be disregarded during validation & annotation.
+            and annotation. If no Features are passed, defaults to `True`, otherwise to `False`.
+            This means that if you explicitly pass Features, any additional Features will be disregarded during validation & annotation.
         type: `Schema | None = None` A type.
         is_type: `bool = False` Distinguish types from instances of the type.
         otype: `str | None = None` An object type to define the structure of a composite schema.
         dtype: `str | None = None` The simple type. Defaults to
             `None` for sets of :class:`~lamindb.Feature` records.
             Otherwise defaults to `"num"` (e.g., for sets of :class:`~bionty.Gene`).
-        minimal_set: `bool = True` Whether all passed features are to be considered required by default.
+        minimal_set: `bool = True` Whether all passed Features are required by default.
             See :attr:`~lamindb.Schema.optionals` for more-fine-grained control.
-        ordered_set: `bool = False` Whether features are required to be ordered.
-        maximal_set: `bool = False` If `True`, no additional features are allowed.
+        ordered_set: `bool = False` Whether Features are required to be ordered.
+        maximal_set: `bool = False` If `True`, no additional Features are allowed.
         coerce_dtype: `bool = False` When True, attempts to coerce values to the specified dtype
             during validation, see :attr:`~lamindb.Schema.coerce_dtype`.
 

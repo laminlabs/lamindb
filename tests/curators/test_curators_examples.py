@@ -157,6 +157,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
         error.exconly()
         == "lamindb.errors.ValidationError: Column 'treatment_time_h' failed series or dataframe validator 0: <Check check_function: Column 'treatment_time_h' failed dtype check for 'float': got int64>"
     )
+
     schema.delete()
     feature_to_fail.delete()
 
@@ -214,6 +215,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
         assert str(error).startswith("column 'sample_note' not in dataframe")
     curator.standardize()
     curator.validate()
+
     artifact.delete(permanent=True)
 
 
@@ -305,6 +307,8 @@ def test_schema_new_genes(ccaplog):
         in ccaplog.text
     )
 
+    schema.delete()
+
 
 def test_schema_no_match_ensembl():
     df = pd.DataFrame(
@@ -327,6 +331,8 @@ def test_schema_no_match_ensembl():
         == """lamindb.errors.ValidationError: 2 terms not validated in feature 'index': 'ENSG00999000001', 'ENSG00999000002'
     → fix typos, remove non-existent values, or save terms via: curator.cat.add_new_from('index')"""
     )
+
+    schema.delete()
 
 
 def test_schema_mixed_ensembl_symbols(ccaplog):
@@ -355,6 +361,8 @@ def test_schema_mixed_ensembl_symbols(ccaplog):
     curator.validate()
 
     assert "2 terms not validated in feature 'index': 'BRCA2', 'TP53'" in ccaplog.text
+
+    schema.delete()
 
 
 def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
@@ -476,7 +484,9 @@ def test_anndata_curator_varT_curation():
                         "ENSG00000010610",
                         "ENSG00000170458",
                     ]
+
                 artifact.delete(permanent=True)
+
             anndata_schema.delete()
             varT_schema.delete()
 
@@ -516,7 +526,9 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
                 "ENSG00000010610",
                 "ENSG00000170458",
             }
+
             artifact.delete(permanent=True)
+
             anndata_schema.delete()
             varT_schema.delete()
 
@@ -548,6 +560,7 @@ def test_soma_curator(
     }
 
     assert artifact._key_is_virtual
+
     artifact.delete(permanent=True)
     shutil.rmtree("./small_dataset1.tiledbsoma")
 
@@ -563,6 +576,7 @@ def test_anndata_curator_no_var(small_dataset1_schema: ln.Schema):
     assert small_dataset1_schema.id is not None, small_dataset1_schema
     adata = datasets.small_dataset1(otype="AnnData")
     curator = ln.curators.AnnDataCurator(adata, anndata_schema_no_var)
+
     artifact = curator.save_artifact(key="examples/dataset1_no_var.h5ad")
     artifact.delete(permanent=True)
     anndata_schema_no_var.delete()
@@ -724,4 +738,5 @@ def test_spatialdata_curator(
         BRCA2               num
         BRAF                num"""
     )
+
     artifact.delete(permanent=True)

@@ -480,8 +480,3 @@ def test_schemas_anndata():
     assert varT_schema.itype == "bionty.Gene.ensembl_gene_id"
     assert varT_schema.hash == "1gocc_TJ1RU2bMwDRK-WUA"
     schema.delete()
-
-
-def test_additional_var_values():
-    """Test additional features when varT analogously to having more obs features."""
-    pass

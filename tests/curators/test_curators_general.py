@@ -1,5 +1,6 @@
 import re
 
+import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
@@ -235,3 +236,23 @@ def test_schema_ordered_set(df):
     # clean up
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
+
+
+def test_schema_minimal_set_var(df):
+    adata = ln.core.datasets.mini_immuno.get_dataset1(otype="AnnData")
+
+    var_schema = ln.Schema(
+        itype=bt.Gene.ensembl_gene_id,
+    ).save()
+    schema = ln.Schema(otype="AnnData", slots={"var": var_schema}).save()
+    curator = ln.curators.AnnDataCurator(adata, schema)
+    curator.validate()
+
+
+def test_schema_maximal_set_var(df):
+    adata = ln.core.datasets.mini_immuno.get_dataset1(otype="AnnData")
+
+    var_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id).save()
+    schema = ln.Schema(otype="AnnData", slots={"var": var_schema}).save()
+    curator = ln.curators.AnnDataCurator(adata, schema)
+    curator.validate()

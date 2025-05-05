@@ -205,6 +205,69 @@ class Curator:
         # constructor signature
         pass  # pragma: no cover
 
+    def __repr__(self) -> str:
+        from lamin_utils import colors
+
+        if self._schema is not None:
+            # Schema might have different attributes, handle with care
+            if hasattr(self._schema, "name") and self._schema.name:
+                schema_str = colors.italic(self._schema.name)
+            elif hasattr(self._schema, "uid"):
+                schema_str = colors.italic(f"uid={self._schema.uid}")
+            elif hasattr(self._schema, "id"):
+                schema_str = colors.italic(f"id={self._schema.id}")
+            else:
+                schema_str = colors.italic("unnamed")
+
+            # Add schema type info if available
+            if hasattr(self._schema, "otype") and self._schema.otype:
+                schema_str += f" ({self._schema.otype})"
+        else:
+            schema_str = colors.warning("None")
+
+        status_str = ""
+        if self._is_validated:
+            status_str = f", {colors.green('validated')}"
+        else:
+            status_str = f", {colors.yellow('unvalidated')}"
+
+        cls_name = colors.green(self.__class__.__name__)
+
+        # Get additional info based on curator type
+        extra_info = ""
+        if hasattr(self, "_slots") and self._slots:
+            # For SlotsCurator and its subclasses
+            slots_count = len(self._slots)
+            if slots_count > 0:
+                slot_names = list(self._slots.keys())
+                if len(slot_names) <= 3:
+                    extra_info = f", slots: {slot_names}"
+                else:
+                    extra_info = f", slots: [{', '.join(slot_names[:3])}... +{len(slot_names) - 3} more]"
+        elif (
+            cls_name == "DataFrameCurator"
+            and hasattr(self, "cat")
+            and hasattr(self.cat, "_categoricals")
+        ):
+            # For DataFrameCurator
+            cat_count = len(getattr(self.cat, "_categoricals", []))
+            if cat_count > 0:
+                extra_info = f", categorical_features={cat_count}"
+
+        artifact_info = ""
+        if self._artifact is not None:
+            artifact_uid = getattr(self._artifact, "uid", str(self._artifact))
+            short_uid = (
+                str(artifact_uid)[:8] + "..."
+                if len(str(artifact_uid)) > 8
+                else str(artifact_uid)
+            )
+            artifact_info = f", artifact: {colors.italic(short_uid)}"
+
+        return (
+            f"{cls_name}{artifact_info}(Schema: {schema_str}{extra_info}{status_str})"
+        )
+
 
 # default implementation for AnnDataCurator, MuDataCurator, and SpatialDataCurator
 class SlotsCurator(Curator):
