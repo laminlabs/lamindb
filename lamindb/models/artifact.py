@@ -313,7 +313,7 @@ def get_stat_or_artifact(
     else:
         result = (
             Artifact.objects.using(instance)
-            .filter(Q(hash=hash) | Q(key=key, storage=settings.storage))
+            .filter(Q(hash=hash) | Q(key=key, storage=settings.storage.record))
             .order_by("-created_at")
             .all()
         )

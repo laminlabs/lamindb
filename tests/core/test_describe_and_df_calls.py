@@ -136,16 +136,14 @@ def test_curate_df():
         "key": ["examples/dataset2.h5ad", "examples/dataset1.h5ad"],
         "cell_type_by_expert": [np.nan, {"CD8-positive, alpha-beta T cell", "B cell"}],
         "cell_type_by_model": [{"T cell", "B cell"}, {"T cell", "B cell"}],
-        "experiment": [{"Experiment 2"}, {"Experiment 1"}],
+        "experiment": ["Experiment 2", "Experiment 1"],
         "perturbation": [{"IFNG", "DMSO"}, {"IFNG", "DMSO"}],
-        "temperature": [{22.6}, {21.6}],
+        "temperature": [22.6, 21.6],
         "study_note": [
             np.nan,
-            {
-                "We had a great time performing this study and the results look compelling."
-            },
+            "We had a great time performing this study and the results look compelling.",
         ],
-        "date_of_study": [{"2025-02-13"}, {"2024-12-01"}],
+        "date_of_study": ["2025-02-13", "2024-12-01"],
     }
     expected_df = pd.DataFrame(expected_data)
     check_df_equality(df, expected_df)
