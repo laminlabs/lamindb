@@ -9,8 +9,6 @@ from ..core._mapped_collection import MappedCollection
 from ..core.storage._backed_access import _open_dataframe
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
-
     from anndata import AnnData
     from django.models import QuerySet
     from pandas import DataFrame
