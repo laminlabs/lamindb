@@ -431,6 +431,8 @@ def reshape_annotate_result(
     cols_from_include = cols_from_include or {}
 
     def extract_single_element(s):
+        if not hasattr(s, "__len__"):  # is NaN or other scalar
+            return s
         if len(s) != 1:
             logger.warning(
                 f"expected single value because `feature.observational_unit == 'Artifact'` but got set {len(s)} elements: {s}"

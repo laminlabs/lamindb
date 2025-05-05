@@ -13,7 +13,7 @@ import pandas as pd
 from anndata import AnnData
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connections
-from django.db.models import Aggregate
+from django.db.models import Aggregate, Subquery
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_set
 from lamindb_setup.core.upath import create_path
@@ -646,49 +646,65 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
         feature = features.get(name=normalized_key)
         if not feature.dtype.startswith("cat"):
             expression = {feature_param: feature, f"value{comparator}": value}
-            feature_value = value_model.filter(**expression)
-            new_expression[f"_{feature_param}_values__in"] = feature_value
-        elif isinstance(value, (str, Record)):
-            # because SQL is sensitive to whether querying with __in or not
-            # and might return multiple equivalent records for the latter
-            # we distinguish cases in which we have multiple label matches vs. one
-            label = None
-            labels = None
-            if isinstance(value, str):
-                # we need the comparator here because users might query like so
-                # ln.Artifact.features.filter(experiment__contains="Experi")
-                expression = {f"name{comparator}": value}
-                labels = ULabel.filter(**expression).all()
-                if len(labels) == 0:
-                    raise DoesNotExist(
-                        f"Did not find a ULabel matching `name{comparator}={value}`"
+            if comparator == "__isnull":
+                if cls == FeatureManager:
+                    from .artifact import ArtifactFeatureValue
+
+                    return Artifact.objects.exclude(
+                        id__in=Subquery(
+                            ArtifactFeatureValue.objects.filter(
+                                featurevalue__feature=feature
+                            ).values("artifact_id")
+                        )
                     )
-                elif len(labels) == 1:
-                    label = labels[0]
-            elif isinstance(value, Record):
-                label = value
-            label_registry = (
-                label.__class__ if label is not None else labels[0].__class__
-            )
-            accessor_name = (
-                label_registry.artifacts.through.artifact.field._related_name
-            )
-            new_expression[f"{accessor_name}__feature"] = feature
-            if label is not None:
-                # simplified query if we have exactly one label
-                new_expression[
-                    f"{accessor_name}__{label_registry.__name__.lower()}"
-                ] = label
             else:
-                new_expression[
-                    f"{accessor_name}__{label_registry.__name__.lower()}__in"
-                ] = labels
-        else:
+                feature_value = value_model.filter(**expression)
+                new_expression[f"_{feature_param}_values__in"] = feature_value
+        elif isinstance(value, (str, Record, bool)):
+            if comparator == "__isnull":
+                if cls == FeatureManager:
+                    return Artifact.objects.exclude(links_ulabel__feature=feature)
+            else:
+                # because SQL is sensitive to whether querying with __in or not
+                # and might return multiple equivalent records for the latter
+                # we distinguish cases in which we have multiple label matches vs. one
+                label = None
+                labels = None
+                if isinstance(value, str):
+                    # we need the comparator here because users might query like so
+                    # ln.Artifact.features.filter(experiment__contains="Experi")
+                    expression = {f"name{comparator}": value}
+                    labels = ULabel.filter(**expression).all()
+                    if len(labels) == 0:
+                        raise DoesNotExist(
+                            f"Did not find a ULabel matching `name{comparator}={value}`"
+                        )
+                    elif len(labels) == 1:
+                        label = labels[0]
+                elif isinstance(value, Record):
+                    label = value
+                label_registry = (
+                    label.__class__ if label is not None else labels[0].__class__
+                )
+                accessor_name = (
+                    label_registry.artifacts.through.artifact.field._related_name
+                )
+                new_expression[f"{accessor_name}__feature"] = feature
+                if label is not None:
+                    # simplified query if we have exactly one label
+                    new_expression[
+                        f"{accessor_name}__{label_registry.__name__.lower()}"
+                    ] = label
+                else:
+                    new_expression[
+                        f"{accessor_name}__{label_registry.__name__.lower()}__in"
+                    ] = labels
             # if passing a list of records, we want to
             # find artifacts that are annotated by all of them at the same
             # time; hence, we don't want the __in construct that we use to match strings
             # https://laminlabs.slack.com/archives/C04FPE8V01W/p1688328084810609
-            raise NotImplementedError
+    if not (new_expression):
+        raise NotImplementedError
     if cls == FeatureManager or cls == ParamManagerArtifact:
         return Artifact.objects.filter(**new_expression)
     elif cls == ParamManagerRun:
