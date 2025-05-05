@@ -347,17 +347,18 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
 
     def open(
         self,
-        df_engine: Literal["pyarrow", "polars"] = "pyarrow",
+        engine: Literal["pyarrow", "polars"] = "pyarrow",
         is_run_input: bool | None = None,
         **kwargs,
     ) -> PyArrowDataset | Iterator[PolarsLazyFrame]:
         """Open a dataset for streaming.
 
-        Works for `pyarrow` and `polars` compatible formats.
+        Works for `pyarrow` and `polars` compatible formats
+        (`.parquet`, `.csv`, `.ipc` etc. files or directories with such files).
 
         Args:
-            df_engine: Which module to use for lazy loading of a dataframe
-                from `pyarrow` or `polars` compatible formats (`.parquet`, `.csv`, `.ipc` etc).
+            engine: Which module to use for lazy loading of a dataframe
+                from `pyarrow` or `polars` compatible formats.
             is_run_input: Whether to track this artifact as run input.
             **kwargs: Keyword arguments for `pyarrow.dataset.dataset` or `polars.scan_*` functions.
 
@@ -384,7 +385,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
                 f"The artifacts in the collection have different file formats: {', '.join(suffixes)}."
             )
 
-        if df_engine == "pyarrow":
+        if engine == "pyarrow":
             if df_suffix not in PYARROW_SUFFIXES:
                 raise ValueError(
                     f"{df_suffix} files are not supported by pyarrow, "
@@ -401,7 +402,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
                         "this is not supported."
                     )
             dataset = _open_pyarrow_dataset(paths, **kwargs)
-        elif df_engine == "polars":
+        elif engine == "polars":
             if df_suffix not in POLARS_SUFFIXES:
                 raise ValueError(
                     f"{df_suffix} files are not supported by polars, "
@@ -410,7 +411,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             dataset = _open_polars_lazy_df(paths, **kwargs)
         else:
             raise ValueError(
-                f"Unknown df_engine: {df_engine}. It should be 'pyarrow' or 'polars'."
+                f"Unknown engine: {engine}. It should be 'pyarrow' or 'polars'."
             )
 
         # track only if successful

@@ -439,15 +439,15 @@ def test_open_dataframe_artifact():
     # remove cache
     artifact_file.cache().unlink()
     # pyarrow
-    ds = artifact_file.open(df_engine="pyarrow")
+    ds = artifact_file.open(engine="pyarrow")
     assert ds.to_table().to_pandas().equals(df)
     # polars
-    with artifact_file.open(df_engine="polars") as ldf:
+    with artifact_file.open(engine="polars") as ldf:
         assert ldf.collect().to_pandas().equals(df)
-    # wrong df_engine
+    # wrong engine
     with pytest.raises(ValueError) as err:
-        artifact_file.open(df_engine="some-other-engine")
-    assert err.exconly().startswith("ValueError: Unknown df_engine")
+        artifact_file.open(engine="some-other-engine")
+    assert err.exconly().startswith("ValueError: Unknown engine")
     # check as partitioned folder
     df.to_parquet("save_df", engine="pyarrow", partition_cols=["feat1"])
     assert Path("save_df").is_dir()
@@ -462,7 +462,7 @@ def test_open_dataframe_artifact():
     ds = artifact_folder.open()
     assert ds.to_table().to_pandas().equals(df[["feat2"]])
     # polars
-    with artifact_folder.open(df_engine="polars") as ldf:
+    with artifact_folder.open(engine="polars") as ldf:
         assert ldf.collect().to_pandas().equals(df[["feat2"]])
 
     artifact_file.delete(permanent=True)
@@ -494,19 +494,19 @@ def test_open_dataframe_collection():
 
     collection1 = ln.Collection([artifact1, artifact2], key="parquet_col")
     # before saving
-    # df_engine="pyarrow" by default
+    # engine="pyarrow" by default
     assert collection1.open().to_table().to_pandas().equals(df)
     # after saving
     collection1.save()
     # pyarrow
-    assert collection1.open(df_engine="pyarrow").to_table().to_pandas().equals(df)
+    assert collection1.open(engine="pyarrow").to_table().to_pandas().equals(df)
     # polars
-    with collection1.open(df_engine="polars") as ldf:
+    with collection1.open(engine="polars") as ldf:
         assert ldf.collect().to_pandas().equals(df)
     # wrong engine
     with pytest.raises(ValueError) as err:
-        collection1.open(df_engine="some-other-engine")
-    assert err.exconly().startswith("ValueError: Unknown df_engine")
+        collection1.open(engine="some-other-engine")
+    assert err.exconly().startswith("ValueError: Unknown engine")
     # different file formats
     collection2 = ln.Collection([artifact1, artifact3], key="parquet_csv_col").save()
     with pytest.raises(ValueError) as err:

@@ -2150,7 +2150,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     def open(
         self,
         mode: str = "r",
-        df_engine: Literal["pyarrow", "polars"] = "pyarrow",
+        engine: Literal["pyarrow", "polars"] = "pyarrow",
         is_run_input: bool | None = None,
         **kwargs,
     ) -> (
@@ -2165,13 +2165,14 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         """Open a dataset for streaming.
 
         Works for `AnnData` (`.h5ad` and `.zarr`), generic `hdf5` and `zarr`,
-        `tiledbsoma` objects (`.tiledbsoma`), `pyarrow` or `polars` compatible formats.
+        `tiledbsoma` objects (`.tiledbsoma`), `pyarrow` or `polars` compatible formats
+        (`.parquet`, `.csv`, `.ipc` etc. files or directories with such files).
 
         Args:
             mode: can only be `"w"` (write mode) for `tiledbsoma` stores,
                 otherwise should be always `"r"` (read-only mode).
-            df_engine: Which module to use for lazy loading of a dataframe
-                from `pyarrow` or `polars` compatible formats (`.parquet`, `.csv`, `.ipc` etc).
+            engine: Which module to use for lazy loading of a dataframe
+                from `pyarrow` or `polars` compatible formats.
                 This has no effect if the artifact is not a dataframe, i.e.
                 if it is an `AnnData,` `hdf5`, `zarr` or `tiledbsoma` object.
             is_run_input: Whether to track this artifact as run input.
@@ -2253,7 +2254,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         if open_cache:
             try:
                 access = backed_access(
-                    localpath, mode, df_engine, using_key=using_key, **kwargs
+                    localpath, mode, engine, using_key=using_key, **kwargs
                 )
             except Exception as e:
                 if isinstance(filepath, LocalPathClasses) or isinstance(e, ImportError):
@@ -2262,7 +2263,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                     f"The cache might be corrupted: {e}. Trying to open directly."
                 )
                 access = backed_access(
-                    filepath, mode, df_engine, using_key=using_key, **kwargs
+                    filepath, mode, engine, using_key=using_key, **kwargs
                 )
                 # happens only if backed_access has been successful
                 # delete the corrupted cache
@@ -2272,7 +2273,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                     localpath.unlink(missing_ok=True)
         else:
             access = backed_access(
-                filepath, mode, df_engine, using_key=using_key, **kwargs
+                filepath, mode, engine, using_key=using_key, **kwargs
             )
             if is_tiledbsoma_w:
 

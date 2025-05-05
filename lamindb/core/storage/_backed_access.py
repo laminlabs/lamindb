@@ -75,7 +75,7 @@ class BackedAccessor:
 def backed_access(
     artifact_or_filepath: Artifact | UPath,
     mode: str = "r",
-    df_engine: Literal["pyarrow", "polars"] = "pyarrow",
+    engine: Literal["pyarrow", "polars"] = "pyarrow",
     using_key: str | None = None,
     **kwargs,
 ) -> (
@@ -113,21 +113,21 @@ def backed_access(
     elif (df_suffix := _df_storage_suffix(objectpath)) in set(PYARROW_SUFFIXES).union(
         POLARS_SUFFIXES
     ):
-        if df_engine == "pyarrow":
+        if engine == "pyarrow":
             if df_suffix not in PYARROW_SUFFIXES:
                 raise ValueError(
-                    f"{df_suffix} files are not supported by pyarrow, try with df_engine='polars'."
+                    f"{df_suffix} files are not supported by pyarrow, try with engine='polars'."
                 )
             return _open_pyarrow_dataset(objectpath, **kwargs)
-        elif df_engine == "polars":
+        elif engine == "polars":
             if df_suffix not in POLARS_SUFFIXES:
                 raise ValueError(
-                    f"{df_suffix} files are not supported by polars, try with df_engine='pyarrow'."
+                    f"{df_suffix} files are not supported by polars, try with engine='pyarrow'."
                 )
             return _open_polars_lazy_df(objectpath, **kwargs)
         else:
             raise ValueError(
-                f"Unknown df_engine: {df_engine}. It should be 'pyarrow' or 'polars'."
+                f"Unknown engine: {engine}. It should be 'pyarrow' or 'polars'."
             )
     else:
         raise ValueError(
