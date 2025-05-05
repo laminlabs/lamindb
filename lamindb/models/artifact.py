@@ -5,7 +5,7 @@ import os
 import shutil
 from collections import defaultdict
 from pathlib import Path, PurePath, PurePosixPath
-from typing import TYPE_CHECKING, Any, Union, overload
+from typing import TYPE_CHECKING, Any, Literal, Union, overload
 
 import fsspec
 import lamindb_setup as ln_setup
@@ -48,6 +48,11 @@ from ..core.storage import (
     write_to_disk,
 )
 from ..core.storage._anndata_accessor import _anndata_n_observations
+from ..core.storage._backed_access import (
+    _track_writes_factory,
+    backed_access,
+)
+from ..core.storage._polars_lazy_df import POLARS_SUFFIXES
 from ..core.storage._pyarrow_dataset import PYARROW_SUFFIXES
 from ..core.storage._tiledbsoma import _soma_n_observations
 from ..core.storage.paths import (
@@ -105,9 +110,10 @@ except ImportError:
 
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Iterator
 
     from mudata import MuData  # noqa: TC004
+    from polars import LazyFrame as PolarsLazyFrame
     from pyarrow.dataset import Dataset as PyArrowDataset
     from spatialdata import SpatialData  # noqa: TC004
     from tiledbsoma import Collection as SOMACollection
@@ -2161,29 +2167,39 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         self._old_suffix = self.suffix
 
     def open(
-        self, mode: str = "r", is_run_input: bool | None = None, **kwargs
-    ) -> Union[
-        AnnDataAccessor,
-        BackedAccessor,
-        SOMACollection,
-        SOMAExperiment,
-        SOMAMeasurement,
-        PyArrowDataset,
-    ]:
-        """Return a cloud-backed data object.
+        self,
+        mode: str = "r",
+        engine: Literal["pyarrow", "polars"] = "pyarrow",
+        is_run_input: bool | None = None,
+        **kwargs,
+    ) -> (
+        AnnDataAccessor
+        | BackedAccessor
+        | SOMACollection
+        | SOMAExperiment
+        | SOMAMeasurement
+        | PyArrowDataset
+        | Iterator[PolarsLazyFrame]
+    ):
+        """Open a dataset for streaming.
 
         Works for `AnnData` (`.h5ad` and `.zarr`), generic `hdf5` and `zarr`,
-        `tiledbsoma` objects (`.tiledbsoma`), `pyarrow` compatible formats.
+        `tiledbsoma` objects (`.tiledbsoma`), `pyarrow` or `polars` compatible formats
+        (`.parquet`, `.csv`, `.ipc` etc. files or directories with such files).
 
         Args:
             mode: can only be `"w"` (write mode) for `tiledbsoma` stores,
                 otherwise should be always `"r"` (read-only mode).
+            engine: Which module to use for lazy loading of a dataframe
+                from `pyarrow` or `polars` compatible formats.
+                This has no effect if the artifact is not a dataframe, i.e.
+                if it is an `AnnData,` `hdf5`, `zarr` or `tiledbsoma` object.
             is_run_input: Whether to track this artifact as run input.
             **kwargs: Keyword arguments for the accessor, i.e. `h5py` or `zarr` connection,
-                `pyarrow.dataset.dataset`.
+                `pyarrow.dataset.dataset`, `polars.scan_*` function.
 
         Notes:
-            For more info, see tutorial: :doc:`/arrays`.
+            For more info, see guide: :doc:`/arrays`.
 
         Example::
 
@@ -2196,6 +2212,10 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             #> AnnDataAccessor object with n_obs × n_vars = 70 × 765
             #>     constructed for the AnnData object pbmc68k.h5ad
             #>     ...
+            artifact = ln.Artifact.get(key="lndb-storage/df.parquet")
+            artifact.open()
+            #> pyarrow._dataset.FileSystemDataset
+
         """
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(INCONSISTENT_STATE_MSG)
@@ -2203,6 +2223,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         h5_suffixes = [".h5", ".hdf5", ".h5ad"]
         h5_suffixes += [s + ".gz" for s in h5_suffixes]
         # ignore empty suffix for now
+        df_suffixes = tuple(set(PYARROW_SUFFIXES).union(POLARS_SUFFIXES))
         suffixes = (
             (
                 "",
@@ -2211,7 +2232,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 ".tiledbsoma",
             )
             + tuple(h5_suffixes)
-            + PYARROW_SUFFIXES
+            + df_suffixes
             + tuple(
                 s + ".gz" for s in PYARROW_SUFFIXES
             )  # this doesn't work for externally gzipped files, REMOVE LATER
@@ -2219,10 +2240,10 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         if self.suffix not in suffixes:
             raise ValueError(
                 "Artifact should have a zarr, h5, tiledbsoma object"
-                " or a compatible `pyarrow.dataset.dataset` directory"
+                " or a compatible `pyarrow.dataset.dataset` or `polars.scan_*` directory"
                 " as the underlying data, please use one of the following suffixes"
                 f" for the object name: {', '.join(suffixes[1:])}."
-                f" Or no suffix for a folder with {', '.join(PYARROW_SUFFIXES)} files"
+                f" Or no suffix for a folder with {', '.join(df_suffixes)} files"
                 " (no mixing allowed)."
             )
         if self.suffix != ".tiledbsoma" and self.key != "soma" and mode != "r":
@@ -2231,10 +2252,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             )
 
         from lamindb import settings
-        from lamindb.core.storage._backed_access import (
-            _track_writes_factory,
-            backed_access,
-        )
 
         using_key = settings._using_key
         filepath, cache_key = filepath_cache_key_from_artifact(
@@ -2255,14 +2272,18 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             ) and not filepath.synchronize(localpath, just_check=True)
         if open_cache:
             try:
-                access = backed_access(localpath, mode, using_key, **kwargs)
+                access = backed_access(
+                    localpath, mode, engine, using_key=using_key, **kwargs
+                )
             except Exception as e:
-                if isinstance(filepath, LocalPathClasses):
+                if isinstance(filepath, LocalPathClasses) or isinstance(e, ImportError):
                     raise e
                 logger.warning(
                     f"The cache might be corrupted: {e}. Trying to open directly."
                 )
-                access = backed_access(filepath, mode, using_key, **kwargs)
+                access = backed_access(
+                    filepath, mode, engine, using_key=using_key, **kwargs
+                )
                 # happens only if backed_access has been successful
                 # delete the corrupted cache
                 if localpath.is_dir():
@@ -2270,7 +2291,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 else:
                     localpath.unlink(missing_ok=True)
         else:
-            access = backed_access(filepath, mode, using_key, **kwargs)
+            access = backed_access(
+                filepath, mode, engine, using_key=using_key, **kwargs
+            )
             if is_tiledbsoma_w:
 
                 def finalize():

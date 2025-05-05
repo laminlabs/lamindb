@@ -102,9 +102,11 @@ def install_ci(session, group):
         run(
             session, "uv pip install --system tiledbsoma<1.16.2"
         )  # not compatible yet with 1.16.2
+        run(session, "uv pip install --system polars")
     elif group == "tutorial":
         extras += "jupyter,bionty"
         run(session, "uv pip install --system huggingface_hub")
+        run(session, "uv pip install --system polars")
     elif group == "guide":
         extras += "bionty,zarr,jupyter"
         run(session, "uv pip install --system scanpy mudata spatialdata")
