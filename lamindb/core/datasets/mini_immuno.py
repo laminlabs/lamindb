@@ -64,6 +64,7 @@ def get_dataset1(
     with_cell_type_synonym: bool = False,
     with_cell_type_typo: bool = False,
     with_gene_typo: bool = False,
+    with_outdated_gene: bool = False,
     with_wrong_subtype: bool = False,
     with_index_type_mismatch: bool = False,
 ) -> pd.DataFrame | ad.AnnData:
