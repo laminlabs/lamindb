@@ -798,7 +798,6 @@ def _add_values(
     assert all(isinstance(key, str) for key in keys)  # noqa: S101
     registry = feature_param_field.field.model
     is_param = registry == Param
-    model = Param if is_param else Feature
     value_model = ParamValue if is_param else FeatureValue
     model_name = "Param" if is_param else "Feature"
     if is_param:
@@ -811,11 +810,9 @@ def _add_values(
                 raise ValidationError(
                     "Can only set features for dataset-like artifacts."
                 )
-    validated = registry.validate(keys, field=feature_param_field, mute=True)
-    keys_array = np.array(keys)
-    keys_array[validated]
-    if validated.sum() != len(keys):
-        not_validated_keys = keys_array[~validated]
+    records = registry.from_values(keys, field=feature_param_field, mute=True)
+    if len(records) != len(keys):
+        not_validated_keys = [key for key in keys if key not in records.list("name")]
         not_validated_keys_dtype_message = [
             (key, infer_feature_type_convert_json(key, features_values[key]))
             for key in not_validated_keys
@@ -844,8 +841,8 @@ def _add_values(
     features_labels = defaultdict(list)
     _feature_values = []
     not_validated_values = []
-    for key, value in features_values.items():
-        feature = model.get(name=key)
+    for i, (key, value) in enumerate(features_values.items()):
+        feature = records[i]
         inferred_type, converted_value, _ = infer_feature_type_convert_json(
             key,
             value,
@@ -920,6 +917,18 @@ def _add_values(
             f"Here is how to create ulabels for them:\n\n{hint}"
         )
         raise ValidationError(msg)
+    # set observational unit correctly
+    if not is_param:
+        if not all(not record._expect_many for record in records):
+            updated_features = []
+            for record in records:
+                if not record._expect_many:
+                    record._expect_many = False
+                    record.save()
+                    updated_features.append(record.name)
+            logger.important(
+                f"changed observational unit to Artifact for features: {','.join(updated_features)}"
+            )
     # bulk add all links
     if features_labels:
         add_label_feature_links(self, features_labels)
