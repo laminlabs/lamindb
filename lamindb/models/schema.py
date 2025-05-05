@@ -861,7 +861,7 @@ class Schema(Record, CanCurate, TracksRun):
             )
             _, validated_kwargs, _, _, _, list_for_hashing = (
                 self._validate_kwargs_calculate_hash(
-                    features=features,
+                    features=features,  # type: ignore
                     index=None,  # need to pass None here as otherwise counting double
                     slots=self._slots if hasattr(self, "_slots") else self.slots,
                     name=self.name,

@@ -363,15 +363,15 @@ class DataFrameCurator(Curator):
                 schema_features = [
                     feature
                     for feature in schema.members.list()
-                    if feature.uid != schema._index_feature_uid
+                    if feature.uid != schema._index_feature_uid  # type: ignore
                 ]
             else:
-                schema_features = schema.members.list()
+                schema_features = schema.members.list()  # type: ignore
             if feature_ids:
                 features.extend(
                     feature
                     for feature in schema_features
-                    if feature.id not in feature_ids
+                    if feature.id not in feature_ids  # type: ignore
                 )
             else:
                 features.extend(schema_features)

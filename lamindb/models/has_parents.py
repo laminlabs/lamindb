@@ -520,14 +520,14 @@ def _get_all_child_runs(data: Artifact | Collection) -> list:
             run_inputs_outputs += [(r, outputs_run)]
 
             child_runs.update(
-                Run.filter(
+                Run.filter(  # type: ignore
                     **{f"input_{name}s__uid__in": [i.uid for i in outputs_run]}
                 ).list()
             )
             # for artifacts, also include collections in the lineage
             if name == "artifact":
                 child_runs.update(
-                    Run.filter(
+                    Run.filter(  # type: ignore
                         input_collections__uid__in=[i.uid for i in outputs_run]
                     ).list()
                 )

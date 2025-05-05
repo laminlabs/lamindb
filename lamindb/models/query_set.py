@@ -227,6 +227,11 @@ class RecordList(UserList, Generic[T]):
         values = [record.__dict__ for record in self.data]
         return pd.DataFrame(values, columns=keys)
 
+    def list(
+        self, field: str
+    ) -> list[str]:  # meaningful to be parallel with list() in QuerySet
+        return [getattr(record, field) for record in self.data]
+
     def one(self) -> T:
         """Exactly one result. Throws error if there are more or none."""
         return one_helper(self)
@@ -624,8 +629,10 @@ class BasicQuerySet(models.QuerySet):
         else:
             super().delete(*args, **kwargs)
 
-    def list(self, field: str | None = None) -> list[Record]:
-        """Populate a list with the results.
+    def list(self, field: str | None = None) -> list[Record] | list[str]:
+        """Populate an (unordered) list with the results.
+
+        Note that the order in this list is only meaningful if you ordered the underlying query set with `.order_by()`.
 
         Examples:
             >>> queryset.list()  # list of records
@@ -634,7 +641,7 @@ class BasicQuerySet(models.QuerySet):
         if field is None:
             return list(self)
         else:
-            return list(self.values_list(field, flat=True))
+            return self.values_list(field, flat=True)
 
     def first(self) -> Record | None:
         """If non-empty, the first result in the query set, otherwise ``None``.

@@ -832,7 +832,7 @@ def _add_values(
         ]
         hint = "\n".join(elements)
         msg = (
-            f"These keys could not be validated: {not_validated_keys.tolist()}\n"
+            f"These keys could not be validated: {not_validated_keys}\n"
             f"Here is how to create a {model_name.lower()}:\n\n{hint}"
         )
         raise ValidationError(msg)

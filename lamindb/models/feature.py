@@ -583,7 +583,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
 
     @property
     def observational_unit(self) -> Literal["Artifact", "Observation"]:
-        """The observational unit on which the feature is measured.
+        """Default observational unit on which the feature is measured.
 
         Currently, we only make a distinction between artifact-level and observation-level features.
 
