@@ -516,7 +516,7 @@ def process_links_features(
         for feature_name in feature_names:
             mask = df[feature_col] == feature_name
             feature_values = df[mask].groupby("id")[value_col].agg(set)
-            result.insert(4, feature_name, result["id"].map(feature_values))
+            result.insert(3, feature_name, result["id"].map(feature_values))
 
     return result
 
@@ -532,7 +532,7 @@ def process_cols_from_include(
             continue
 
         values = df.groupby("id")[col].agg(set if col_type == "many" else "first")
-        result.insert(4, col, result["id"].map(values))
+        result.insert(3, col, result["id"].map(values))
 
     return result
 
