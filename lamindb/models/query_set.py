@@ -526,9 +526,9 @@ class BasicQuerySet(models.QuerySet):
     def __new__(cls, model=None, query=None, using=None, hints=None):
         from lamindb.models import Artifact, ArtifactSet
 
-        # is the model is Artifact, create a new class
-        # for BasicQuerySet or QuerySet that inherits from ArtifactSet
-        # this allows to add artifact specific functionality to all classes
+        # If the model is Artifact, create a new class
+        # for BasicQuerySet or QuerySet that inherits from ArtifactSet.
+        # This allows to add artifact specific functionality to all classes
         # inheriting from BasicQuerySet
         if model is Artifact and not issubclass(cls, ArtifactSet):
             new_cls = type("Artifact" + cls.__name__, (cls, ArtifactSet), {})
