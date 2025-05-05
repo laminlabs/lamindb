@@ -325,7 +325,7 @@ def test_schema_no_match_ensembl():
     assert (
         error.exconly()
         == """lamindb.errors.ValidationError: 2 terms not validated in feature 'index': 'ENSG00999000001', 'ENSG00999000002'
-    → fix typos, remove non-existent values, or save terms via: curator.cat.add_new_from('perturbation')
+    → fix typos, remove non-existent values, or save terms via: curator.cat.add_new_from('index')
     → a valid label for subtype 'Perturbation' has to be one of ['DMSO', 'IFNG']"""
     )
 
