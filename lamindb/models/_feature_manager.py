@@ -929,7 +929,7 @@ def _add_values(
                     updated_features.append(record.name)
             if any(updated_features):
                 logger.important(
-                    f"changed observational unit to Artifact for features: {','.join(updated_features)}"
+                    f"changed observational unit to Artifact for features: {', '.join(updated_features)}"
                 )
     # bulk add all links
     if features_labels:
