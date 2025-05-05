@@ -842,9 +842,9 @@ def _add_values(
     _feature_values = []
     not_validated_values = []
     for feature in records:
-        key, value = feature.name, dictionary[feature.name]
+        value = dictionary[feature.name]
         inferred_type, converted_value, _ = infer_feature_type_convert_json(
-            key,
+            feature.name,
             value,
             mute=True,
             str_as_ulabel=str_as_ulabel,
@@ -852,19 +852,19 @@ def _add_values(
         if feature.dtype == "num":
             if inferred_type not in {"int", "float"}:
                 raise TypeError(
-                    f"Value for feature '{key}' with type {feature.dtype} must be a number"
+                    f"Value for feature '{feature.name}' with type {feature.dtype} must be a number"
                 )
         elif feature.dtype.startswith("cat"):
             if inferred_type != "?":
                 if not (inferred_type.startswith("cat") or isinstance(value, Record)):
                     raise TypeError(
-                        f"Value for feature '{key}' with type '{feature.dtype}' must be a string or record."
+                        f"Value for feature '{feature.name}' with type '{feature.dtype}' must be a string or record."
                     )
         elif (feature.dtype == "str" and feature.dtype not in inferred_type) or (
             feature.dtype != "str" and feature.dtype != inferred_type
         ):
             raise ValidationError(
-                f"Expected dtype for '{key}' is '{feature.dtype}', got '{inferred_type}'"
+                f"Expected dtype for '{feature.name}' is '{feature.dtype}', got '{inferred_type}'"
             )
         if not feature.dtype.startswith("cat"):
             filter_kwargs = {model_name.lower(): feature, "value": converted_value}
