@@ -2276,7 +2276,8 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                     localpath, mode, engine, using_key=using_key, **kwargs
                 )
             except Exception as e:
-                # also ignore ValueError here because such errors most probably just imply an incorrect argument
+                # also ignore ValueError here because
+                # such errors most probably just imply an incorrect argument
                 if isinstance(filepath, LocalPathClasses) or isinstance(
                     e, (ImportError, ValueError)
                 ):
