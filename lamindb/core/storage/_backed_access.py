@@ -189,7 +189,7 @@ def _open_dataframe(
             if path.fs is not fs:
                 raise ValueError(
                     "The collection has artifacts with different filesystems, "
-                    "this is not supported."
+                    "this is not supported by pyarrow."
                 )
         dataframe = _open_pyarrow_dataset(paths, **kwargs)
     elif engine == "polars":
