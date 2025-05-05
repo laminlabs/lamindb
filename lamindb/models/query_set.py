@@ -529,7 +529,9 @@ class BasicQuerySet(models.QuerySet):
         # If the model is Artifact, create a new class
         # for BasicQuerySet or QuerySet that inherits from ArtifactSet.
         # This allows to add artifact specific functionality to all classes
-        # inheriting from BasicQuerySet
+        # inheriting from BasicQuerySet.
+        # Thus all query sets of artifacts (and only of artifacts)
+        # will have functions from ArtifactSet.
         if model is Artifact and not issubclass(cls, ArtifactSet):
             new_cls = type("Artifact" + cls.__name__, (cls, ArtifactSet), {})
         else:
