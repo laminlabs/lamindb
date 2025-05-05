@@ -163,6 +163,9 @@ def _open_dataframe(
     engine: Literal["pyarrow", "polars"] = "pyarrow",
     **kwargs,
 ) -> PyArrowDataset | Iterator[PolarsLazyFrame]:
+    if isinstance(paths, Path):
+        paths = [paths]
+
     df_suffix: str
     if suffix is None:
         df_suffixes = _flat_suffixes(paths)
