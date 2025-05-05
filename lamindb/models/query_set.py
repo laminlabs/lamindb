@@ -563,6 +563,8 @@ class BasicQuerySet(models.QuerySet):
             include_input = []
         elif isinstance(include, str):
             include_input = [include]
+        else:
+            include_input = include
         features_input = [] if features is None else features
         include = get_backward_compat_filter_kwargs(self, include_input)
         field_names = get_basic_field_names(self, include_input, features_input)
@@ -576,9 +578,9 @@ class BasicQuerySet(models.QuerySet):
             )
             time = logger.debug("finished feature_annotate_kwargs", time=time)
             annotate_kwargs.update(feature_annotate_kwargs)
-        if include:
-            include = include.copy()[::-1]  # type: ignore
-            include_kwargs = {s: F(s) for s in include if s not in field_names}
+        if include_input:
+            include_input = include_input.copy()[::-1]  # type: ignore
+            include_kwargs = {s: F(s) for s in include_input if s not in field_names}
             annotate_kwargs.update(include_kwargs)
         if annotate_kwargs:
             id_subquery = self.values("id")
@@ -604,7 +606,7 @@ class BasicQuerySet(models.QuerySet):
             df = pd.DataFrame({}, columns=field_names)
             return df
         time = logger.debug("finished creating first dataframe", time=time)
-        cols_from_include = analyze_lookup_cardinality(self.model, include)  # type: ignore
+        cols_from_include = analyze_lookup_cardinality(self.model, include_input)  # type: ignore
         time = logger.debug("finished analyze_lookup_cardinality", time=time)
         df_reshaped = reshape_annotate_result(
             df, field_names, cols_from_include, feature_names, feature_qs
