@@ -163,9 +163,6 @@ def _open_dataframe(
     engine: Literal["pyarrow", "polars"] = "pyarrow",
     **kwargs,
 ) -> PyArrowDataset | Iterator[PolarsLazyFrame]:
-    if isinstance(paths, Path):
-        paths = [paths]
-
     df_suffix: str
     if suffix is None:
         df_suffixes = _flat_suffixes(paths)
@@ -186,14 +183,15 @@ def _open_dataframe(
             )
         # this checks that the filesystem is the same for all paths
         # this is a requirement of pyarrow.dataset.dataset
-        fs = getattr(paths[0], "fs", None)
-        for path in paths[1:]:
-            # this assumes that the filesystems are cached by fsspec
-            if getattr(path, "fs", None) is not fs:
-                raise ValueError(
-                    "The collection has artifacts with different filesystems, "
-                    "this is not supported by pyarrow."
-                )
+        if not isinstance(paths, Path):  # is a list then
+            fs = getattr(paths[0], "fs", None)
+            for path in paths[1:]:
+                # this assumes that the filesystems are cached by fsspec
+                if getattr(path, "fs", None) is not fs:
+                    raise ValueError(
+                        "The collection has artifacts with different filesystems, "
+                        "this is not supported by pyarrow."
+                    )
         dataframe = _open_pyarrow_dataset(paths, **kwargs)
     elif engine == "polars":
         if df_suffix not in POLARS_SUFFIXES:
