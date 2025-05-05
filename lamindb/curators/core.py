@@ -848,7 +848,7 @@ class CatVector:
         """Return whether the column is validated."""
         # ensembl gene IDs pass even if they were not validated
         # this is a simple solution to the ensembl gene version problem
-        if self._field.name == "ensembl_gene_id":
+        if self._field.field.attname == "ensembl_gene_id":
             # if none of the ensembl gene ids were validated, we are probably not looking at ensembl gene IDs
             if len(self.values) == len(self._non_validated):
                 return False
