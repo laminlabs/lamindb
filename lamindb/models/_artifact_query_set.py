@@ -10,6 +10,8 @@ if TYPE_CHECKING:
     from polars import LazyFrame as PolarsLazyFrame
     from pyarrow.dataset import Dataset as PyArrowDataset
 
+    from ..core._mapped_collection import MappedCollection
+
 
 class ArtifactQuerySet:
     def load(
@@ -26,4 +28,21 @@ class ArtifactQuerySet:
         is_run_input: bool | None = None,
         **kwargs,
     ) -> PyArrowDataset | Iterator[PolarsLazyFrame]:
+        pass
+
+    def mapped(
+        self,
+        layers_keys: str | list[str] | None = None,
+        obs_keys: str | list[str] | None = None,
+        obsm_keys: str | list[str] | None = None,
+        obs_filter: dict[str, str | list[str]] | None = None,
+        join: Literal["inner", "outer"] | None = "inner",
+        encode_labels: bool | list[str] = True,
+        unknown_label: str | dict[str, str] | None = None,
+        cache_categories: bool = True,
+        parallel: bool = False,
+        dtype: str | None = None,
+        stream: bool = False,
+        is_run_input: bool | None = None,
+    ) -> MappedCollection:
         pass
