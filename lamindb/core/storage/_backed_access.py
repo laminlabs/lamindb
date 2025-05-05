@@ -183,10 +183,10 @@ def _open_dataframe(
             )
         # this checks that the filesystem is the same for all paths
         # this is a requirement of pyarrow.dataset.dataset
-        fs = paths[0].fs
+        fs = getattr(paths[0], "fs", None)
         for path in paths[1:]:
             # this assumes that the filesystems are cached by fsspec
-            if path.fs is not fs:
+            if getattr(path, "fs", None) is not fs:
                 raise ValueError(
                     "The collection has artifacts with different filesystems, "
                     "this is not supported by pyarrow."
