@@ -414,13 +414,10 @@ def reshape_annotate_result(
         if all(col in df.columns for col in feature_cols):
             feature_values = process_feature_values(df, features)
             if not feature_values.empty:
-                for col in feature_values.columns:
-                    if col in result.columns:
-                        continue
-                    result = result.join(
-                        feature_values.set_index("id"),
-                        on="id",
-                    )
+                result = result.join(
+                    feature_values.set_index("id"),
+                    on="id",
+                )
 
         # Handle links features if they exist
         links_features = [
