@@ -79,7 +79,11 @@ def get_dataset1(
         var_ids = [
             "ENSG00000153563",
             "ENSG00000010610",
-            "ENSG00000170458" if not with_gene_typo else "GeneTypo",
+            "ENSG00000170458"
+            if not with_gene_typo
+            else "GeneTypo"
+            if not with_outdated_gene
+            else "ENSG00000278198",
         ]
     abt_cell = (
         "CD8-pos alpha-beta T cell"
