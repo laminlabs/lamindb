@@ -238,11 +238,13 @@ def test_schema_ordered_set(df):
     ln.Feature.filter().delete()
 
 
-def test_schema_minimal_set_var(df):
+def test_schema_no_minimal_set_var(df):
+    """If minimal_set is False, invalid ensembl gene IDs are allowed."""
     adata = ln.core.datasets.mini_immuno.get_dataset1(otype="AnnData")
 
     var_schema = ln.Schema(
         itype=bt.Gene.ensembl_gene_id,
+        minimal_set=False,  # Default is True
     ).save()
     schema = ln.Schema(otype="AnnData", slots={"var": var_schema}).save()
     curator = ln.curators.AnnDataCurator(adata, schema)
@@ -250,9 +252,17 @@ def test_schema_minimal_set_var(df):
 
 
 def test_schema_maximal_set_var(df):
+    """If maximal_set is True, invalid ensembl gene IDs are not allowed."""
     adata = ln.core.datasets.mini_immuno.get_dataset1(otype="AnnData")
+    adata.var_names = [adata.var_names[0], adata.var_names[1], "NOT_VALID_ENSEMBL"]
 
-    var_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id).save()
-    schema = ln.Schema(otype="AnnData", slots={"var": var_schema}).save()
+    var_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id, maximal_set=True).save()
+    schema = ln.Schema(otype="AnnData", slots={"var.T": var_schema}).save()
+
     curator = ln.curators.AnnDataCurator(adata, schema)
-    curator.validate()
+    with pytest.raises(ValidationError) as error:
+        curator.validate()
+    assert error.exconly() == (
+        "lamindb.errors.ValidationError: 1 term not validated in feature 'columns' in slot 'var.T': 'NOT_VALID_ENSEMBL'\n"
+        "    → fix typos, remove non-existent values, or save terms via: curator.slots['var.T'].cat.add_new_from('columns')"
+    )

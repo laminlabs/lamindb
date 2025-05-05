@@ -510,6 +510,7 @@ class DataFrameCurator(Curator):
             categoricals=categoricals,
             index=schema.index,
             slot=slot,
+            schema_maximal_set=schema.maximal_set,
         )
 
     @property
@@ -869,6 +870,7 @@ class CatVector:
         feature: Feature | None = None,
         cat_manager: DataFrameCatManager | None = None,
         subtype_str: str = "",
+        maximal_set: bool = False,
     ) -> None:
         self._values_getter = values_getter
         self._values_setter = values_setter
@@ -884,6 +886,7 @@ class CatVector:
         self._cat_manager = cat_manager
         self.feature = feature
         self.records = None
+        self._maximal_set = maximal_set
         if hasattr(field.field.model, "_name_field"):
             label_ref_is_name = field.field.name == field.field.model._name_field
         else:
@@ -914,6 +917,8 @@ class CatVector:
         if self._field.field.attname == "ensembl_gene_id":
             # if none of the ensembl gene ids were validated, we are probably not looking at ensembl gene IDs
             if len(self.values) == len(self._non_validated):
+                return False
+            elif len(self._non_validated) != 0 and self._maximal_set:
                 return False
             return True
         else:
@@ -1212,6 +1217,7 @@ class DataFrameCatManager:
         sources: dict[str, Record] | None = None,
         index: Feature | None = None,
         slot: str | None = None,
+        schema_maximal_set: bool = False,
     ) -> None:
         self._non_validated = None
         self._index = index
@@ -1228,6 +1234,8 @@ class DataFrameCatManager:
         self._validate_category_error_messages: str = ""
         self._cat_vectors: dict[str, CatVector] = {}
         self._slot = slot
+        self._maximal_set = schema_maximal_set
+
         if columns_names is None:
             columns_names = []
         if columns_field == Feature.name:
@@ -1237,6 +1245,7 @@ class DataFrameCatManager:
                 key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
                 source=self._sources.get("columns"),
                 cat_manager=self,
+                maximal_set=self._maximal_set,
             )
         else:
             self._cat_vectors["columns"] = CatVector(
@@ -1248,6 +1257,7 @@ class DataFrameCatManager:
                 key="columns",
                 source=self._sources.get("columns"),
                 cat_manager=self,
+                maximal_set=self._maximal_set,
             )
         for feature in self._categoricals:
             result = parse_dtype(feature.dtype)[
@@ -1269,6 +1279,7 @@ class DataFrameCatManager:
                 feature=feature,
                 cat_manager=self,
                 subtype_str=subtype_str,
+                maximal_set=self._maximal_set,
             )
         if index is not None and index.dtype.startswith("cat"):
             result = parse_dtype(index.dtype)[0]
@@ -1280,6 +1291,7 @@ class DataFrameCatManager:
                 key=key,
                 feature=index,
                 cat_manager=self,
+                maximal_set=self._maximal_set,
             )
 
     @property

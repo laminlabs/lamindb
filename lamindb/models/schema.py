@@ -273,7 +273,7 @@ class Schema(Record, CanCurate, TracksRun):
         minimal_set: `bool = True` Whether all passed Features are required by default.
             See :attr:`~lamindb.Schema.optionals` for more-fine-grained control.
         ordered_set: `bool = False` Whether Features are required to be ordered.
-        maximal_set: `bool = False` If `True`, no additional Features are allowed.
+        maximal_set: `bool = False` Whether additional Features are allowed.
         coerce_dtype: `bool = False` When True, attempts to coerce values to the specified dtype
             during validation, see :attr:`~lamindb.Schema.coerce_dtype`.
 
@@ -477,6 +477,7 @@ class Schema(Record, CanCurate, TracksRun):
         otype: str | None = None,
         dtype: str | Type[int | float | str] | None = None,  # noqa
         ordered_set: bool = False,
+        minimal_set: bool = True,
         maximal_set: bool = False,
         coerce_dtype: bool = False,
         n: int | None = None,
