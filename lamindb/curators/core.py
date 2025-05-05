@@ -500,6 +500,7 @@ class DataFrameCurator(Curator):
 
     def _cat_manager_validate(self) -> None:
         self.cat.validate()
+
         if self.cat._is_validated:
             self._is_validated = True
         else:
@@ -845,7 +846,15 @@ class CatVector:
     @property
     def is_validated(self) -> bool:
         """Return whether the column is validated."""
-        return len(self._non_validated) == 0
+        # ensembl gene IDs pass even if they were not validated
+        # this is a simple solution to the ensembl gene version problem
+        if self._field.name == "ensembl_gene_id":
+            # if none of the ensembl gene ids were validated, we are probably not looking at ensembl gene IDs
+            if len(self.values) == len(self._non_validated):
+                return False
+            return True
+        else:
+            return len(self._non_validated) == 0
 
     def _replace_synonyms(self) -> list[str]:
         """Replace synonyms in the column with standardized values."""
@@ -871,6 +880,20 @@ class CatVector:
                 f'standardized {n} synonym{s} in "{self._key}": {colors.green(syn_mapper_print)}'
             )
         return std_values
+
+    def __repr__(self) -> str:
+        if self._non_validated is None:
+            status = "unvalidated"
+        else:
+            status = (
+                "validated"
+                if len(self._non_validated) == 0
+                else f"non-validated ({len(self._non_validated)})"
+            )
+
+        field_name = getattr(self._field, "name", str(self._field))
+        values_count = len(self.values) if hasattr(self.values, "__len__") else "?"
+        return f"CatVector(key='{self._key}', field='{field_name}', values={values_count}, {status})"
 
     def _add_validated(self) -> tuple[list, list]:
         """Save features or labels records in the default instance."""
@@ -1066,6 +1089,7 @@ class CatVector:
         # add source-validated values to the registry
         self._validated, self._non_validated = self._add_validated()
         self._non_validated, self._synonyms = self._validate(values=self._non_validated)
+
         # always register new Features if they are columns
         if self._key == "columns" and self._field == Feature.name:
             self.add_new()

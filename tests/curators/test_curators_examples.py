@@ -281,6 +281,83 @@ def test_dataframe_curator_validate_all_annotate_cat2(small_dataset1_schema):
     schema.delete()
 
 
+def test_schema_new_genes(ccaplog):
+    df = pd.DataFrame(
+        index=pd.Index(
+            [
+                "ENSG00000139618",  # BRCA2
+                "ENSG00000141510",  # TP53
+                "ENSG00999000001",  # Invalid ID
+                "ENSG00999000002",  # Invalid ID
+            ],
+            name="ensembl",
+        )
+    )
+    schema = ln.Schema(
+        index=ln.Feature(name="ensembl", dtype=bt.Gene.ensembl_gene_id).save()
+    ).save()
+    curator = ln.curators.DataFrameCurator(df, schema)
+    curator.validate()
+    assert curator._is_validated
+
+    assert (
+        "2 terms not validated in feature 'index': 'ENSG00999000001', 'ENSG00999000002'"
+        in ccaplog.text
+    )
+
+
+def test_schema_no_match_ensembl():
+    df = pd.DataFrame(
+        index=pd.Index(
+            [
+                "ENSG99999999998",  # Invalid ID
+                "ENSG99999999999",  # Invalid ID
+            ],
+            name="ensembl",
+        )
+    )
+    schema = ln.Schema(
+        index=ln.Feature(name="ensembl", dtype=bt.Gene.ensembl_gene_id).save()
+    ).save()
+    curator = ln.curators.DataFrameCurator(df, schema)
+    with pytest.raises(ln.errors.ValidationError) as error:
+        curator.validate()
+    assert (
+        error.exconly()
+        == """lamindb.errors.ValidationError: 2 terms not validated in feature 'index': 'ENSG00999000001', 'ENSG00999000002'
+    → fix typos, remove non-existent values, or save terms via: curator.cat.add_new_from('perturbation')
+    → a valid label for subtype 'Perturbation' has to be one of ['DMSO', 'IFNG']"""
+    )
+
+
+def test_schema_mixed_ensembl_symbols(ccaplog):
+    """Quite some datasets have mixed ensembl gene IDs and symbols.
+
+    The expected behavior is that an error is raised when such a dataset is encountered because
+    currently lamindb does not support validating values against a union of Fields.
+
+    The current behavior is that these cases automatically pass.
+    """
+    df = pd.DataFrame(
+        index=pd.Index(
+            [
+                "ENSG00000139618",
+                "ENSG00000141510",
+                "BRCA2",  # symbol
+                "TP53",  # symbol
+            ],
+            name="ensembl",
+        )
+    )
+    schema = ln.Schema(
+        index=ln.Feature(name="ensembl", dtype=bt.Gene.ensembl_gene_id).save()
+    ).save()
+    curator = ln.curators.DataFrameCurator(df, schema)
+    curator.validate()
+
+    assert "2 terms not validated in feature 'index': 'BRCA2', 'TP53'" in ccaplog.text
+
+
 def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
     obs_schema = small_dataset1_schema
 
