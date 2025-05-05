@@ -98,7 +98,6 @@ def test_curate_df():
     )
     expected_data = {
         "key": ["examples/dataset2.h5ad", "examples/dataset1.h5ad"],
-        "description": [None, None],
         "feature_sets__hash": [
             set(artifact2.feature_sets.all().values_list("hash", flat=True)),
             set(artifact.feature_sets.all().values_list("hash", flat=True)),
@@ -123,7 +122,6 @@ def test_curate_df():
     )
     expected_data = {
         "key": ["examples/dataset2.h5ad", "examples/dataset1.h5ad"],
-        "description": [None, None],
         "cell_type_by_expert": [np.nan, {"CD8-positive, alpha-beta T cell", "B cell"}],
         "cell_type_by_model": [{"T cell", "B cell"}, {"T cell", "B cell"}],
         "experiment": [{"Experiment 2"}, {"Experiment 1"}],
