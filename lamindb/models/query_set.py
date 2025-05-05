@@ -643,7 +643,8 @@ class BasicQuerySet(models.QuerySet):
         if field is None:
             return list(self)
         else:
-            return self.values_list(field, flat=True)
+            # list casting is necessary because values_list does not return a list
+            return list(self.values_list(field, flat=True))
 
     def first(self) -> Record | None:
         """If non-empty, the first result in the query set, otherwise ``None``.
