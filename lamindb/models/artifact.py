@@ -2193,7 +2193,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             #> AnnDataAccessor object with n_obs × n_vars = 70 × 765
             #>     constructed for the AnnData object pbmc68k.h5ad
             #>     ...
-            artifact = ln.Artifact.get(key=lndb-storage/df.parquet)
+            artifact = ln.Artifact.get(key="lndb-storage/df.parquet")
             artifact.open()
             #> pyarrow._dataset.FileSystemDataset
 
