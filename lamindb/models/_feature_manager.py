@@ -790,8 +790,8 @@ def _add_values(
     from .artifact import Artifact
 
     # rename to distinguish from the values inside the dict
-    features_values = values
-    keys = features_values.keys()
+    dictionary = values
+    keys = dictionary.keys()
     if isinstance(keys, DICT_KEYS_TYPE):
         keys = list(keys)  # type: ignore
     # deal with other cases later
@@ -814,7 +814,7 @@ def _add_values(
     if len(records) != len(keys):
         not_validated_keys = [key for key in keys if key not in records.list("name")]
         not_validated_keys_dtype_message = [
-            (key, infer_feature_type_convert_json(key, features_values[key]))
+            (key, infer_feature_type_convert_json(key, dictionary[key]))
             for key in not_validated_keys
         ]
         run = get_current_tracked_run()
@@ -841,8 +841,8 @@ def _add_values(
     features_labels = defaultdict(list)
     _feature_values = []
     not_validated_values = []
-    for i, (key, value) in enumerate(features_values.items()):
-        feature = records[i]
+    for feature in records:
+        key, value = feature.name, dictionary[feature.name]
         inferred_type, converted_value, _ = infer_feature_type_convert_json(
             key,
             value,
