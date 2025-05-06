@@ -444,9 +444,7 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
 
 def test_anndata_curator_varT_curation():
     ln.Schema.filter(itype="bionty.Gene.ensembl_gene_id").delete()
-    varT_schema = ln.Schema(
-        itype=bt.Gene.ensembl_gene_id,
-    ).save()
+    varT_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id, maximal_set=True).save()
     slot = "var.T"
     components = {slot: varT_schema}
     anndata_schema = ln.Schema(
@@ -492,9 +490,9 @@ def test_anndata_curator_varT_curation():
 
 
 def test_anndata_curator_varT_curation_legacy(ccaplog):
-    varT_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id).save()
+    varT_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id, maximal_set=True).save()
     slot = "var"
-    components = {slot: varT_schema}
+    components = {"var": varT_schema}
     anndata_schema = ln.Schema(
         otype="AnnData",
         slots=components,

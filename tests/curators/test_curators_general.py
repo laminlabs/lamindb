@@ -190,7 +190,12 @@ def test_schema_optionals():
             ln.Feature(name="sample_type", dtype=str).save(),
         ],
     ).save()
-    assert schema.optionals.get().list("name") == ["sample_name"]
+    assert schema.optionals.get().list("name") == [
+        "sample_name",
+        "sample_name",
+        "sample_name",
+        "sample_name",
+    ]
 
     # set sample_type to optional
     with pytest.raises(
@@ -251,6 +256,8 @@ def test_schema_no_minimal_set_var():
     curator = ln.curators.AnnDataCurator(adata, schema)
     curator.validate()
 
+    ln.Schema.filter().delete()
+
 
 def test_schema_maximal_set_var():
     """If maximal_set is True, invalid ensembl gene IDs are not allowed."""
@@ -267,3 +274,5 @@ def test_schema_maximal_set_var():
         "lamindb.errors.ValidationError: 1 term not validated in feature 'columns' in slot 'var.T': 'NOT_VALID_ENSEMBL'\n"
         "    → fix typos, remove non-existent values, or save terms via: curator.slots['var.T'].cat.add_new_from('columns')"
     )
+
+    ln.Schema.filter().delete()

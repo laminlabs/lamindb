@@ -32,7 +32,7 @@ obs_schema = ln.Schema(
     ],
 ).save()
 
-varT_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id).save()
+varT_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id, maximal_set=True).save()
 
 sdata_schema = ln.Schema(
     name="spatialdata_blobs_schema",
