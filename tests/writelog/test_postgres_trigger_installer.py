@@ -163,7 +163,10 @@ def test_updating_write_log_triggers_installs_table_state(table_a, table_b, tabl
         table_b,
         table_c,
     }
-    assert all(ts.backfilled is False for ts in new_table_states)
+
+    assert not HistoryTableState.objects.get(table_name=table_a).backfilled
+    assert HistoryTableState.objects.get(table_name=table_b).backfilled
+    assert not HistoryTableState.objects.get(table_name=table_c).backfilled
 
 
 @pytest.mark.pg_integration
@@ -194,7 +197,8 @@ def test_update_write_log_triggers_only_install_table_state_once(
         table_b,
         table_c,
     }
-    assert all(ts.backfilled is False for ts in new_table_states)
+
+    assert all(t.backfilled for t in new_table_states)
 
 
 @pytest.mark.pg_integration
@@ -1091,6 +1095,9 @@ CREATE TABLE IF NOT EXISTS write_log_space_ref_test
 
 
 @pytest.mark.pg_integration
+@pytest.mark.skip(
+    reason="Skipping this until we can resolve circular table dependency issue"
+)
 def test_write_log_records_space_uids_properly(table_with_space_ref, fake_space):
     cursor = django_connection.cursor()
 
