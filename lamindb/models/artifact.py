@@ -317,10 +317,9 @@ def get_stat_or_artifact(
         result = Artifact.objects.using(instance).filter(hash=hash).all()
         artifact_with_same_hash_exists = len(result) > 0
     else:
-        storage_id = settings.storage.id
         result = (
             Artifact.objects.using(instance)
-            .filter(Q(hash=hash) | Q(key=key, storage_id=storage_id))
+            .filter(Q(hash=hash) | Q(key=key, storage=settings.storage.record))
             .order_by("-created_at")
             .all()
         )

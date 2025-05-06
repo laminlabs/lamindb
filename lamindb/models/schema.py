@@ -244,6 +244,13 @@ class SchemaOptionals:
                 )
 
 
+KNOWN_SCHEMAS = {
+    "kMi7B_N88uu-YnbTLDU-DA": "0000000000000000",  # valid_features
+    "1gocc_TJ1RU2bMwDRK-WUA": "0000000000000001",  # valid_ensembl_gene_ids
+    "GTxxM36n9tocphLfdbNt9g": "0000000000000002",  # anndata_ensembl_gene_ids_and_valid_features_in_obs
+}
+
+
 class Schema(Record, CanCurate, TracksRun):
     """Schemas of datasets such as the set of columns of a `DataFrame`.
 
@@ -576,7 +583,10 @@ class Schema(Record, CanCurate, TracksRun):
                         f"schema for {slot_key} {component} must be saved before use"
                     )
             self._slots = slots
-        validated_kwargs["uid"] = ids.base62_16()
+        if validated_kwargs["hash"] in KNOWN_SCHEMAS:
+            validated_kwargs["uid"] = KNOWN_SCHEMAS[validated_kwargs["hash"]]
+        else:
+            validated_kwargs["uid"] = ids.base62_16()
         super().__init__(**validated_kwargs)
         # manipulating aux fields is easier after calling super().__init__()
         self.optionals.set(optional_features)
@@ -861,7 +871,7 @@ class Schema(Record, CanCurate, TracksRun):
             )
             _, validated_kwargs, _, _, _, list_for_hashing = (
                 self._validate_kwargs_calculate_hash(
-                    features=features,
+                    features=features,  # type: ignore
                     index=None,  # need to pass None here as otherwise counting double
                     slots=self._slots if hasattr(self, "_slots") else self.slots,
                     name=self.name,
