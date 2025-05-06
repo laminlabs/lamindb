@@ -2276,7 +2276,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                     localpath, mode, engine, using_key=using_key, **kwargs
                 )
             except Exception as e:
-                if isinstance(filepath, LocalPathClasses) or isinstance(e, ImportError):
+                # also ignore ValueError here because
+                # such errors most probably just imply an incorrect argument
+                if isinstance(filepath, LocalPathClasses) or isinstance(
+                    e, (ImportError, ValueError)
+                ):
                     raise e
                 logger.warning(
                     f"The cache might be corrupted: {e}. Trying to open directly."
