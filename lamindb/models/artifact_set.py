@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 
 def _check_ordered_artifacts(qs: QuerySet):
-    from ._artifact import Artifact
+    from .artifact import Artifact
 
     if qs.model != Artifact:
         raise ValueError("A query set should consist of artifacts to be opened.")
@@ -53,7 +53,7 @@ class ArtifactSet(Iterable):
         is_run_input: bool | None = None,
         **kwargs,
     ) -> PyArrowDataset | Iterator[PolarsLazyFrame]:
-        from ._artifact import Artifact, _track_run_input
+        from .artifact import Artifact, _track_run_input
 
         _check_ordered_artifacts(self)
 
@@ -80,7 +80,7 @@ class ArtifactSet(Iterable):
         stream: bool = False,
         is_run_input: bool | None = None,
     ) -> MappedCollection:
-        from ._artifact import Artifact, _track_run_input
+        from .artifact import Artifact, _track_run_input
 
         _check_ordered_artifacts(self)
 
