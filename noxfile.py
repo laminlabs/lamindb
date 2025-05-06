@@ -86,9 +86,7 @@ def install_ci(session, group):
         # tiledbsoma dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system scanpy")
-        run(
-            session, "uv pip install --system tiledbsoma<1.16.2"
-        )  # test TiledbsomaCatManager
+        run(session, "uv pip install --system tiledbsoma")  # test TiledbsomaCatManager
         run(session, "uv pip install --system mudata")
         # spatialdata dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
@@ -99,9 +97,7 @@ def install_ci(session, group):
         # tiledbsoma dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system scanpy")
-        run(
-            session, "uv pip install --system tiledbsoma<1.16.2"
-        )  # not compatible yet with 1.16.2
+        run(session, "uv pip install --system tiledbsoma")
         run(session, "uv pip install --system polars")
     elif group == "tutorial":
         extras += "jupyter,bionty"
