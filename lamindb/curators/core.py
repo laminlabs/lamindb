@@ -911,16 +911,19 @@ class CatVector:
 
     @property
     def is_validated(self) -> bool:
-        """Return whether the vector is validated."""
-        # We allow additional, unvalidated values except for the following cases
-        # if none of the values were validated, the user might have provided the wrong Feature
-        # if len(self.values) == len(self._non_validated):
-        #    return False
-        # if maximal set, we do not allow additional unvalidated genes
-        if len(self._non_validated) != 0 and self._maximal_set:
-            return False
-        else:
+        """Whether the vector is validated."""
+        # ensembl gene IDs pass even if they were not validated
+        # this is a simple solution to the ensembl gene version problem
+        if self._field.field.attname == "ensembl_gene_id":
+            # if none of the ensembl gene ids were validated, we are probably not looking at ensembl gene IDs
+            if len(self.values) == len(self._non_validated):
+                return False
+            # if maximal set, we do not allow additional unvalidated genes
+            elif len(self._non_validated) != 0 and self._maximal_set:
+                return False
             return True
+        else:
+            return len(self._non_validated) == 0
 
     def _replace_synonyms(self) -> list[str]:
         """Replace synonyms in the vector with standardized values."""
