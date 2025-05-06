@@ -245,35 +245,31 @@ class SchemaOptionals:
 
 
 class Schema(Record, CanCurate, TracksRun):
-    """Schemas of datasets such as the set of columns of a `DataFrame`.
+    """A schema is a feature set, such as the set of columns of a `DataFrame`.
 
-    A simple schema is a feature set such as the set of columns of a `DataFrame`.
-
-    A composite schema has multiple slots, e.g., for an `AnnData`, one schema for slot `obs` and another one for `var`.
-
-    A schema can also merely define abstract constraints or instructions for dataset validation & annotation.
+    Composite schemas can have multiple slots, e.g., for an `AnnData`, one schema for slot `obs` and another one for `var`.
 
     Args:
-        features: `list[Record] | list[tuple[Feature, dict]] | None = None` A list of feature
+        features: `list[Record] | list[tuple[Feature, dict]] | None = None` Feature
             records, e.g., `[Feature(...), Feature(...)]` or Features with their config, e.g., `[Feature(...).with_config(optional=True)]`.
         index: `Feature | None = None` A :class:`~lamindb.Feature` record to validate an index of a `DataFrame`.
         slots: `dict[str, Schema] | None = None` A dictionary mapping slot names to :class:`~lamindb.Schema` objects.
-        name: `str | None = None` A name.
-        description: `str | None = None` A description.
-        itype: `str | None = None` The feature identifier type (e.g. :class:`~lamindb.Feature`, :class:`~bionty.Gene`, ...).
+        name: `str | None = None` Name of the Schema.
+        description: `str | None = None` Description of the Schema.
         flexible: `bool | None = None` Whether to include any feature of the same `itype` in validation
             and annotation. If no Features are passed, defaults to `True`, otherwise to `False`.
             This means that if you explicitly pass Features, any additional Features will be disregarded during validation & annotation.
-        type: `Schema | None = None` A type.
-        is_type: `bool = False` Distinguish types from instances of the type.
-        otype: `str | None = None` An object type to define the structure of a composite schema.
-        dtype: `str | None = None` The simple type. Defaults to
-            `None` for sets of :class:`~lamindb.Feature` records.
-            Otherwise defaults to `"num"` (e.g., for sets of :class:`~bionty.Gene`).
+        type: `Schema | None = None` Type of Schema to group measurements by.
+            Define types like `ln.Schema(name="ProteinPanel", is_type=True)`.
+        is_type: `bool = False` Whether the Schema is a Type.
+        itype: `str | None = None` The feature identifier type (e.g. :class:`~lamindb.Feature`, :class:`~bionty.Gene`, ...).
+        otype: `str | None = None` An object type to define the structure of a composite schema (e.g., DataFrame, AnnData).
+        dtype: `str | None = None` The simple type (e.g., "num", "float", "int").
+            Defaults to `None` for sets of :class:`~lamindb.Feature` records and to `"num"` (e.g., for sets of :class:`~bionty.Gene`) otherwise.
         minimal_set: `bool = True` Whether all passed Features are required by default.
             See :attr:`~lamindb.Schema.optionals` for more-fine-grained control.
-        ordered_set: `bool = False` Whether Features are required to be ordered.
         maximal_set: `bool = False` Whether additional Features are allowed.
+        ordered_set: `bool = False` Whether Features are required to be ordered.
         coerce_dtype: `bool = False` When True, attempts to coerce values to the specified dtype
             during validation, see :attr:`~lamindb.Schema.coerce_dtype`.
 
@@ -371,13 +367,6 @@ class Schema(Record, CanCurate, TracksRun):
     """A description."""
     n: int = IntegerField()
     """Number of features in the schema."""
-    itype: str | None = CharField(
-        max_length=120, db_index=True, null=True, editable=False
-    )
-    """A registry that stores feature identifiers used in this schema, e.g., `'Feature'` or `'bionty.Gene'`.
-
-    Depending on `itype`, `.members` stores, e.g., `Feature` or `bionty.Gene` records.
-    """
     type: Schema | None = ForeignKey("self", PROTECT, null=True, related_name="records")
     """Type of schema.
 
@@ -391,6 +380,13 @@ class Schema(Record, CanCurate, TracksRun):
     """Records of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
+    itype: str | None = CharField(
+        max_length=120, db_index=True, null=True, editable=False
+    )
+    """A registry that stores feature identifiers used in this schema, e.g., `'Feature'` or `'bionty.Gene'`.
+
+    Depending on `itype`, `.members` stores, e.g., `Feature` or `bionty.Gene` records.
+    """
     otype: str | None = CharField(max_length=64, db_index=True, null=True)
     """Default Python object type, e.g., DataFrame, AnnData."""
     dtype: str | None = CharField(max_length=64, null=True, editable=False)
