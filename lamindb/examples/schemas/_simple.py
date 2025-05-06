@@ -10,7 +10,7 @@ def valid_features() -> Schema:
     import subprocess
     from pathlib import Path
 
-    docs_path = Path(__file__).parent.parent.parent / "docs" / "scripts"
+    docs_path = Path(__file__).parent.parent.parent.parent / "docs" / "scripts"
     subprocess.run(
         ["python", str(docs_path / "define_valid_features.py")],
         check=True,

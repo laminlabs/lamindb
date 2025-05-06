@@ -299,6 +299,10 @@ Here is how to create ulabels for them:
     assert "date_of_experiment" not in values
     assert "Alzheimer disease" not in values["disease"]
 
+    # test annotate with dictionaries multiple times
+    ln.Feature(name="study_metadata", dtype=dict).save()
+    artifact.features.add_values({"study_metadata": {"detail1": "123", "detail2": 1}})
+
     # delete everything we created
     artifact.delete(permanent=True)
     ln.ULabel.filter().all().delete()

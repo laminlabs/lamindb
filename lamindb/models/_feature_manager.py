@@ -888,7 +888,7 @@ def _add_values(
             )
         if not feature.dtype.startswith("cat"):
             filter_kwargs = {model_name.lower(): feature, "value": converted_value}
-            feature_value = value_model.get_or_create(**filter_kwargs).one_or_none()
+            feature_value, _ = value_model.get_or_create(**filter_kwargs)
             _feature_values.append(feature_value)
         else:
             if isinstance(value, Record) or (
@@ -957,7 +957,9 @@ def _add_values(
         if to_insert_feature_values:
             save(to_insert_feature_values)
         dict_typed_features = [
-            record for record in _feature_values if record.feature.dtype == "dict"
+            record.feature
+            for record in _feature_values
+            if record.feature.dtype == "dict"
         ]
         if is_param:
             LinkORM = self._host._param_values.through
@@ -967,15 +969,16 @@ def _add_values(
             valuefield_id = "featurevalue_id"
         host_class_lower = self._host.__class__.__get_name_with_module__().lower()
         if dict_typed_features:
+            # delete all previously existing anotations with dictionaries
             kwargs = {
                 f"links_{host_class_lower}__{host_class_lower}_id": self._host.id,
-                "hash__isnull": False,
                 "feature__in": dict_typed_features,
             }
             try:
                 value_model.filter(**kwargs).all().delete()
             except ProtectedError:
                 pass
+        # add new feature links
         links = [
             LinkORM(
                 **{
