@@ -76,7 +76,7 @@ def test_curate_df():
         },
     )
     artifact = curator.save_artifact(key="examples/dataset1.h5ad")
-    d1 = {"study_metadata": {"a": "123", "b": 1}}
+    d1 = {"study_metadata": {"detail1": "123", "detail2": 1}}
     dataset_metadata = adata.uns
     dataset_metadata.update(d1)
     artifact.features.add_values(dataset_metadata)
@@ -93,7 +93,7 @@ def test_curate_df():
         },
     )
     artifact2 = curator.save_artifact(key="examples/dataset2.h5ad")
-    d2 = {"study_metadata": {"a": "456", "b": 2}}
+    d2 = {"study_metadata": {"detail1": "456", "detail2": 2}}
     dataset_metadata = adata2.uns
     dataset_metadata.update(d2)
     artifact2.features.add_values(dataset_metadata)
@@ -152,7 +152,10 @@ def test_curate_df():
             "We had a great time performing this study and the results look compelling.",
         ],
         "date_of_study": ["2025-02-13", "2024-12-01"],
-        "study_metadata": [{"a": "456", "b": 2}, {"a": "123", "b": 1}],
+        "study_metadata": [
+            {"detail1": "456", "detail2": 2},
+            {"detail1": "123", "detail2": 1},
+        ],
     }
     expected_df = pd.DataFrame(expected_data)
     check_df_equality(df, expected_df)
@@ -193,7 +196,7 @@ def test_curate_df():
 └── Linked features
     └── experiment          cat[ULabel]        Experiment 1
         date_of_study       date               2024-12-01
-        study_metadata      dict               {'a': '123', 'b': 1}
+        study_metadata      dict               {'detail1': '123', 'detail2': 1}
         study_note          str                We had a great time performing t…
         temperature         float              21.6"""
     )
