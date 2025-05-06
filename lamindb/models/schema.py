@@ -245,7 +245,7 @@ class SchemaOptionals:
 
 
 class Schema(Record, CanCurate, TracksRun):
-    """A schema is a feature set, such as the set of columns of a `DataFrame`.
+    """Schemas of a dataset such as the set of columns of a `DataFrame`.
 
     Composite schemas can have multiple slots, e.g., for an `AnnData`, one schema for slot `obs` and another one for `var`.
 
@@ -383,7 +383,7 @@ class Schema(Record, CanCurate, TracksRun):
     itype: str | None = CharField(
         max_length=120, db_index=True, null=True, editable=False
     )
-    """A registry that stores feature identifiers used in this schema, e.g., `'Feature'` or `'bionty.Gene'`.
+    """A registry that stores feature identifier types used in this schema, e.g., `'Feature'` or `'bionty.Gene'`.
 
     Depending on `itype`, `.members` stores, e.g., `Feature` or `bionty.Gene` records.
     """

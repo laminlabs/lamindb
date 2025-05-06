@@ -850,7 +850,7 @@ class SpatialDataCurator(SlotsCurator):
 
 
 class CatVector:
-    """Categorical column for `DataFrame`.
+    """Categorical vector for `DataFrame`.
 
     Args:
         values_getter: A callable or iterable that returns the values to validate.
@@ -870,7 +870,7 @@ class CatVector:
         feature: Feature | None = None,
         cat_manager: DataFrameCatManager | None = None,
         subtype_str: str = "",
-        maximal_set: bool = False,
+        maximal_set: bool = False,  # Passed during validation. Whether unvalidated categoricals cause validation failure.
     ) -> None:
         self._values_getter = values_getter
         self._values_setter = values_setter
@@ -911,7 +911,7 @@ class CatVector:
 
     @property
     def is_validated(self) -> bool:
-        """Return whether the column is validated."""
+        """Return whether the vector is validated."""
         # ensembl gene IDs pass even if they were not validated
         # this is a simple solution to the ensembl gene version problem
         if self._field.field.attname == "ensembl_gene_id":
@@ -926,7 +926,7 @@ class CatVector:
             return len(self._non_validated) == 0
 
     def _replace_synonyms(self) -> list[str]:
-        """Replace synonyms in the column with standardized values."""
+        """Replace synonyms in the vector with standardized values."""
         syn_mapper = self._synonyms
         # replace the values in df
         std_values = self.values.map(
@@ -1154,7 +1154,7 @@ class CatVector:
             return non_validated, syn_mapper
 
     def validate(self) -> None:
-        """Validate the column."""
+        """Validate the vector."""
         # add source-validated values to the registry
         self._validated, self._non_validated = self._add_validated()
         self._non_validated, self._synonyms = self._validate(values=self._non_validated)
@@ -1164,7 +1164,7 @@ class CatVector:
             self.add_new()
 
     def standardize(self) -> None:
-        """Standardize the column."""
+        """Standardize the vector."""
         registry = self._field.field.model
         if not hasattr(registry, "standardize"):
             return self.values
