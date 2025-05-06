@@ -469,9 +469,12 @@ def reshape_annotate_result(
             return next(iter(s))
 
         for feature in feature_qs:
-            # TODO: make dependent on feature._expect_many through
-            # lambda x: extract_single_element(x, feature)
-            result[feature.name] = result[feature.name].apply(extract_single_element)
+            if feature.name in result.columns:
+                # TODO: make dependent on feature._expect_many through
+                # lambda x: extract_single_element(x, feature)
+                result[feature.name] = result[feature.name].apply(
+                    extract_single_element
+                )
 
         # sort columns
         result = reorder_subset_columns_in_df(result, feature_names)
