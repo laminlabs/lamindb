@@ -150,9 +150,10 @@ class HistoryRecordingTriggerInstaller(ABC):
 
 class PostgresTriggerBuilder:
     # Since we're creating triggers and functions based on table names,
-    # it's probably a good idea to check that those table names are valid
+    # it's probably a good idea to check that those names are valid
     # to mitigate the potential for SQL injection.
     VALID_TABLE_NAME_REGEX = re.compile("^[a-z_][a-z0-9_$]*$")
+    VALID_VARIABLE_NAME_REGEX = re.compile("^[a-z_0-9]+$")
 
     def __init__(
         self, table: str, db_metadata: DatabaseMetadataWrapper, cursor: CursorWrapper
@@ -168,6 +169,12 @@ class PostgresTriggerBuilder:
         self._record_uid: dict[bool, str] = {}
 
     def declare_variable(self, name: str, type: str, declaration: str | None = None):
+        if not self.VALID_VARIABLE_NAME_REGEX.match(name):
+            raise ValueError(f"'{name}' is not a valid Postgres variable name")
+
+        if type not in ("int", "int2", "smallint", "bool", "jsonb"):
+            raise ValueError(f"Unknown variable type '{type}'")
+
         if name not in self._variables:
             self._variables[name] = (type, declaration)
             self._variable_order.append(name)
@@ -338,6 +345,8 @@ class PostgresTriggerBuilder:
         variable_name = f"_table_name_{table_id}"
 
         if variable_name not in self._variables:
+            self._validate_table_name(table)
+
             self.declare_variable(
                 variable_name,
                 "smallint",
@@ -423,6 +432,8 @@ class PostgresTriggerBuilder:
             prefix="_fkey_uid_d" if is_delete else "_fkey_uid"
         )
 
+        self._validate_table_name(foreign_key_constraint.target_table)
+
         self.declare_variable(
             variable_name,
             "jsonb",
@@ -440,11 +451,14 @@ coalesce(
 
         return variable_name
 
-    def build(self) -> str:
-        if not self.VALID_TABLE_NAME_REGEX.match(self.table):
+    def _validate_table_name(self, table_name: str):
+        if not self.VALID_TABLE_NAME_REGEX.match(table_name):
             raise ValueError(
-                f"Table name '{self.table}' doesn't look like a valid PostgreSQL table name"
+                f"Table name '{table_name}' doesn't look like a valid PostgreSQL table name"
             )
+
+    def build(self) -> str:
+        self._validate_table_name(self.table)
 
         self.declare_variable(
             name="history_triggers_locked",
