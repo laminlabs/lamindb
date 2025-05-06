@@ -935,20 +935,20 @@ def _add_values(
             f"Here is how to create ulabels for them:\n\n{hint}"
         )
         raise ValidationError(msg)
-    # set observational unit correctly
-    if not is_param:
-        # check if _expect_many is false for _all_ records
-        if any(record._expect_many for record in records):
-            updated_features = []
-            for record in records:
-                if record._expect_many:
-                    record._expect_many = False
-                    record.save()
-                    updated_features.append(record.name)
-            if any(updated_features):
-                logger.important(
-                    f"changed observational unit to Artifact for features: {', '.join(updated_features)}"
-                )
+    # TODO: create an explicit version of this
+    # if not is_param:
+    #     # check if _expect_many is false for _all_ records
+    #     if any(record._expect_many for record in records):
+    #         updated_features = []
+    #         for record in records:
+    #             if record._expect_many:
+    #                 record._expect_many = False
+    #                 record.save()
+    #                 updated_features.append(record.name)
+    #         if any(updated_features):
+    #             logger.important(
+    #                 f"changed observational unit to Artifact for features: {', '.join(updated_features)}"
+    #             )
     # bulk add all links
     if features_labels:
         add_label_feature_links(self, features_labels)

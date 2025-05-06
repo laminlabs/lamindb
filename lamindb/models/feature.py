@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import importlib
-from typing import TYPE_CHECKING, Any, Literal, get_args, overload
+from typing import TYPE_CHECKING, Any, get_args, overload
 
 import numpy as np
 import pandas as pd
@@ -581,28 +581,29 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         self._aux = self._aux or {}
         self._aux.setdefault("af", {})["2"] = value
 
-    @property
-    def observational_unit(self) -> Literal["Artifact", "Observation"]:
-        """Default observational unit on which the feature is measured.
+    # we'll enable this later
+    # @property
+    # def observational_unit(self) -> Literal["Artifact", "Observation"]:
+    #     """Default observational unit on which the feature is measured.
 
-        Currently, we only make a distinction between artifact-level and observation-level features.
+    #     Currently, we only make a distinction between artifact-level and observation-level features.
 
-        For example, a feature `"ml_split"` that stores `"test"` & `"train"` labels is typically defined on the artifact level.
-        When accessing `artifact.features.get_values(["ml_split"])`, you expect a single value, either `"test"` or `"train"`.
+    #     For example, a feature `"ml_split"` that stores `"test"` & `"train"` labels is typically defined on the artifact level.
+    #     When accessing `artifact.features.get_values(["ml_split"])`, you expect a single value, either `"test"` or `"train"`.
 
-        However, when accessing an artifact annotation with a feature that's defined on the observation-level, say `"cell_type"`, you expect a set of values. So,
-        `artifact.features.get_values(["cell_type_from_expert"])` should return a set: `{"T cell", "B cell"}`.
+    #     However, when accessing an artifact annotation with a feature that's defined on the observation-level, say `"cell_type"`, you expect a set of values. So,
+    #     `artifact.features.get_values(["cell_type_from_expert"])` should return a set: `{"T cell", "B cell"}`.
 
-        The value of `observational_unit` is currently auto-managed: if using `artifact.featueres.add_values()`,
-        it will be set to `Artifact`. In a curator, the value depends on whether it's an artifact- or observation-level slot
-        (e.g. `.uns` is artifact-level in `AnnData` whereas `.obs` is observation-level).
+    #     The value of `observational_unit` is currently auto-managed: if using `artifact.featueres.add_values()`,
+    #     it will be set to `Artifact`. In a curator, the value depends on whether it's an artifact- or observation-level slot
+    #     (e.g. `.uns` is artifact-level in `AnnData` whereas `.obs` is observation-level).
 
-        Note: This attribute might in the future be used to distinguish different types of observational units (e.g. single cells vs. physical samples vs. study subjects etc.).
-        """
-        if self._expect_many:
-            return "Observation"  # this here might be replaced with the specific observational unit
-        else:
-            return "Artifact"
+    #     Note: This attribute might in the future be used to distinguish different types of observational units (e.g. single cells vs. physical samples vs. study subjects etc.).
+    #     """
+    #     if self._expect_many:
+    #         return "Observation"  # this here might be replaced with the specific observational unit
+    #     else:
+    #         return "Artifact"
 
 
 class FeatureValue(Record, TracksRun):

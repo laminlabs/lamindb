@@ -430,15 +430,6 @@ def reshape_annotate_result(
     """
     cols_from_include = cols_from_include or {}
 
-    def extract_single_element(s):
-        if not hasattr(s, "__len__"):  # is NaN or other scalar
-            return s
-        if len(s) != 1:
-            logger.warning(
-                f"expected single value because `feature.observational_unit == 'Artifact'` but got set {len(s)} elements: {s}"
-            )
-        return next(iter(s))
-
     # initialize result with basic fields
     result = df[field_names]
     # process features if requested
@@ -466,15 +457,21 @@ def reshape_annotate_result(
         if links_features:
             result = process_links_features(df, result, links_features, feature_names)
 
-        # artifact-level vs. observation-level features
-        artifact_level_features = [
-            feature.name
-            for feature in feature_qs
-            if feature.observational_unit == "Artifact"
-        ]
-        if artifact_level_features:
-            for col in artifact_level_features:
-                result[col] = result[col].apply(extract_single_element)
+        def extract_single_element(s):
+            if not hasattr(s, "__len__"):  # is NaN or other scalar
+                return s
+            if len(s) != 1:
+                # TODO: below should depend on feature._expect_many
+                # logger.warning(
+                #     f"expected single value because `feature._expect_many is False` but got set {len(s)} elements: {s}"
+                # )
+                return s
+            return next(iter(s))
+
+        for feature in feature_qs:
+            # TODO: make dependent on feature._expect_many through
+            # lambda x: extract_single_element(x, feature)
+            result[feature.name] = result[feature.name].apply(extract_single_element)
 
         # sort columns
         result = reorder_subset_columns_in_df(result, feature_names)

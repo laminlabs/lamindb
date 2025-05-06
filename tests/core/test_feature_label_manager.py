@@ -153,7 +153,6 @@ Here is how to create a feature:
     }
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values(features)
-    print(error.exconly())
     assert (
         error.exconly()
         == """\
@@ -173,7 +172,6 @@ Here is how to create a feature:
 
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values(features)
-    print(error.exconly())
     assert (
         error.exconly()
         == """\
@@ -287,6 +285,8 @@ Here is how to create ulabels for them:
     # test comparator
     assert artifact == ln.Artifact.filter(experiment__contains="ment 1").one()
     # due to the __in comparator, we get the same artifact twice below
+    # print(ln.Artifact.df(features=["experiment"]))
+    # print(ln.Artifact.filter(experiment__contains="Experi").df(features=["experiment"]))
     assert len(ln.Artifact.filter(experiment__contains="Experi").all()) == 2
     assert ln.Artifact.filter(temperature__lt=21).one_or_none() is None
     assert len(ln.Artifact.filter(temperature__gt=21).all()) >= 1
