@@ -473,7 +473,9 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             >>> mapped = collection.mapped(obs_keys=["cell_type", "batch"])
             >>> dl = DataLoader(mapped, batch_size=128, shuffle=True)
             >>> # also works for query sets of artifacts, '...' represents some filtering condition
+            >>> # additional filtering on artifacts of the collection
             >>> mapped = collection.artifacts.filter(...).order_by("-created_at").mapped()
+            >>> # or directly from a query set of artifacts
             >>> mapped = ln.Artifact.filter(..., otype="AnnData").order_by("-created_at").mapped()
         """
         path_list = []
