@@ -81,7 +81,7 @@ Low-level functionality.
 .. autosummary::
    :toctree: .
 
-Examples:
+   examples
    curators
    integrations
    errors
