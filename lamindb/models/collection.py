@@ -405,6 +405,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
 
         dataframe = _open_dataframe(paths, engine=engine, **kwargs)
         # track only if successful
+        # is it really needed if tracking is done in self.ordered_artifacts.all()? - Sergei
         _track_run_input(self, is_run_input)
         return dataframe
 
@@ -429,8 +430,8 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         <https://pytorch.org/docs/stable/data.html#map-style-datasets>`__ by
         virtually concatenating `AnnData` arrays.
 
-        If your `AnnData` collection is in the cloud, move them into a local
-        cache first via :meth:`~lamindb.Collection.cache`.
+        By default (`stream=False`) `AnnData` arrays are moved into a local
+        cache first.
 
         `__getitem__` of the `MappedCollection` object takes a single integer index
         and returns a dictionary with the observation data sample for this index from
@@ -442,7 +443,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
 
             For a guide, see :doc:`docs:scrna-mappedcollection`.
 
-            This method currently only works for collections of `AnnData` artifacts.
+            This method currently only works for collections or query sets of `AnnData` artifacts.
 
         Args:
             layers_keys: Keys from the ``.layers`` slot. ``layers_keys=None`` or ``"X"`` in the list
@@ -471,6 +472,9 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             >>> ds = ln.Collection.get(description="my collection")
             >>> mapped = collection.mapped(obs_keys=["cell_type", "batch"])
             >>> dl = DataLoader(mapped, batch_size=128, shuffle=True)
+            >>> # also works for query sets of artifacts, '...' represents some filtering condition
+            >>> mapped = collection.artifacts.filter(...).order_by("-created_at").mapped()
+            >>> mapped = ln.Artifact.filter(..., otype="AnnData").order_by("-created_at").mapped()
         """
         path_list = []
         if self._state.adding:
@@ -500,6 +504,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             dtype,
         )
         # track only if successful
+        # is it really needed if tracking is done in self.ordered_artifacts.all()? - Sergei
         _track_run_input(self, is_run_input)
         return ds
 
@@ -516,6 +521,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         path_list = []
         for artifact in self.ordered_artifacts.all():
             path_list.append(artifact.cache())
+        # is it really needed if tracking is done in self.ordered_artifacts.all()? - Sergei
         _track_run_input(self, is_run_input)
         return path_list
 
@@ -533,6 +539,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         artifacts = self.ordered_artifacts.all()
         concat_object = _load_concat_artifacts(artifacts, join, **kwargs)
         # only call it here because there might be errors during load or concat
+        # is it really needed if tracking is done in self.ordered_artifacts.all()? - Sergei
         _track_run_input(self, is_run_input)
         return concat_object
 

@@ -4,11 +4,12 @@ from collections.abc import Iterable, Iterator
 from typing import TYPE_CHECKING, Literal
 
 from lamin_utils import logger
+from lamindb_setup.core._docs import doc_args
 
 from ..core._mapped_collection import MappedCollection
 from ..core.storage._backed_access import _open_dataframe
 from .artifact import Artifact, _track_run_input
-from .collection import _load_concat_artifacts
+from .collection import Collection, _load_concat_artifacts
 
 if TYPE_CHECKING:
     from anndata import AnnData
@@ -36,12 +37,14 @@ class ArtifactSet(Iterable):
         >>> artifacts # an instance of ArtifactQuerySet inheriting from ArtifactSet
     """
 
+    @doc_args(Collection.load.__doc__)
     def load(
         self,
         join: Literal["inner", "outer"] = "outer",
         is_run_input: bool | None = None,
         **kwargs,
     ) -> DataFrame | AnnData:
+        """{}"""  # noqa: D415
         if not self.ordered:  # type: ignore
             logger.warning(UNORDERED_WARNING)
 
@@ -51,12 +54,14 @@ class ArtifactSet(Iterable):
         _track_run_input(artifacts, is_run_input)
         return concat_object
 
+    @doc_args(Collection.open.__doc__)
     def open(
         self,
         engine: Literal["pyarrow", "polars"] = "pyarrow",
         is_run_input: bool | None = None,
         **kwargs,
     ) -> PyArrowDataset | Iterator[PolarsLazyFrame]:
+        """{}"""  # noqa: D415
         if not self.ordered:  # type: ignore
             logger.warning(UNORDERED_WARNING)
 
@@ -68,6 +73,7 @@ class ArtifactSet(Iterable):
         _track_run_input(artifacts, is_run_input)
         return dataframe
 
+    @doc_args(Collection.mapped.__doc__)
     def mapped(
         self,
         layers_keys: str | list[str] | None = None,
@@ -83,6 +89,7 @@ class ArtifactSet(Iterable):
         stream: bool = False,
         is_run_input: bool | None = None,
     ) -> MappedCollection:
+        """{}"""  # noqa: D415
         if not self.ordered:  # type: ignore
             logger.warning(UNORDERED_WARNING)
 
