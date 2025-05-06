@@ -28,8 +28,8 @@ UNORDERED_WARNING = (
 class ArtifactSet(Iterable):
     """Abstract class representing sets of artifacts returned by queries.
 
-    This class automatically extends {class}`~lamindb.models.BasicQuerySet`
-    and {class}`~lamindb.models.QuerySet` when the base model is {class}`~lamindb.Artifact`.
+    This class automatically extends :class:`~lamindb.models.BasicQuerySet`
+    and :class:`~lamindb.models.QuerySet` when the base model is :class:`~lamindb.Artifact`.
 
     Examples:
 
