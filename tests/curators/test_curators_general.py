@@ -238,9 +238,10 @@ def test_schema_ordered_set(df):
     ln.Feature.filter().delete()
 
 
-def test_schema_no_minimal_set_var(df):
+def test_schema_no_minimal_set_var():
     """If minimal_set is False, invalid ensembl gene IDs are allowed."""
     adata = ln.core.datasets.mini_immuno.get_dataset1(otype="AnnData")
+    adata.var_names = [adata.var_names[0], adata.var_names[1], "NOT_VALID_ENSEMBL"]
 
     var_schema = ln.Schema(
         itype=bt.Gene.ensembl_gene_id,
@@ -251,7 +252,7 @@ def test_schema_no_minimal_set_var(df):
     curator.validate()
 
 
-def test_schema_maximal_set_var(df):
+def test_schema_maximal_set_var():
     """If maximal_set is True, invalid ensembl gene IDs are not allowed."""
     adata = ln.core.datasets.mini_immuno.get_dataset1(otype="AnnData")
     adata.var_names = [adata.var_names[0], adata.var_names[1], "NOT_VALID_ENSEMBL"]

@@ -328,7 +328,7 @@ def test_schema_no_match_ensembl():
         curator.validate()
     assert (
         error.exconly()
-        == """lamindb.errors.ValidationError: 2 terms not validated in feature 'index': 'ENSG00999000001', 'ENSG00999000002'
+        == """lamindb.errors.ValidationError: 2 terms not validated in feature 'index': 'ENSG99999999998', 'ENSG99999999999'
     → fix typos, remove non-existent values, or save terms via: curator.cat.add_new_from('index')"""
     )
 
