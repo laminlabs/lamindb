@@ -252,7 +252,7 @@ class Schema(Record, CanCurate, TracksRun):
     Args:
         features: `list[Record] | list[tuple[Feature, dict]] | None = None` Feature
             records, e.g., `[Feature(...), Feature(...)]` or Features with their config, e.g., `[Feature(...).with_config(optional=True)]`.
-        index: `Feature | None = None` A :class:`~lamindb.Feature` record to validate an index of a `DataFrame`.
+        index: `Feature | None = None` A :class:`~lamindb.Feature` record to validate an index of a `DataFrame` and therefore also, e.g., `AnnData` obs and var indices.
         slots: `dict[str, Schema] | None = None` A dictionary mapping slot names to :class:`~lamindb.Schema` objects.
         name: `str | None = None` Name of the Schema.
         description: `str | None = None` Description of the Schema.
