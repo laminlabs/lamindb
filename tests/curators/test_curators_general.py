@@ -257,16 +257,17 @@ def test_schema_ordered_set(df):
     ln.Feature.filter().delete()
 
 
-def test_schema_no_minimal_set_var():
-    """If minimal_set is False, invalid ensembl gene IDs are allowed."""
+@pytest.mark.parametrize("minimal_set", [True, False])
+def test_schema_minimal_set_var_allowed(minimal_set):
+    """Independent of the value of minimal_set, invalid ensembl gene IDs are allowed."""
     adata = ln.core.datasets.mini_immuno.get_dataset1(otype="AnnData")
     adata.var_names = [adata.var_names[0], adata.var_names[1], "NOT_VALID_ENSEMBL"]
 
     var_schema = ln.Schema(
         itype=bt.Gene.ensembl_gene_id,
-        minimal_set=False,
+        minimal_set=minimal_set,
     ).save()
-    schema = ln.Schema(otype="AnnData", slots={"var": var_schema}).save()
+    schema = ln.Schema(otype="AnnData", slots={"var.T": var_schema}).save()
     curator = ln.curators.AnnDataCurator(adata, schema)
     curator.validate()
 
