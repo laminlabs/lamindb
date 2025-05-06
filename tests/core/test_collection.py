@@ -115,6 +115,12 @@ def test_from_inconsistent_artifacts(df, adata):
     assert str(error.exconly()).startswith(
         "ValueError: Can only load collections where all artifacts have the same suffix"
     )
+    # test through query set
+    with pytest.raises(ValueError) as error:
+        collection.artifacts.all().load()
+    assert str(error.exconly()).startswith(
+        "ValueError: Can only load collections where all artifacts have the same suffix"
+    )
     collection.describe()
     collection.delete(permanent=True)
     artifact1.delete(permanent=True)
@@ -141,6 +147,10 @@ def test_from_consistent_artifacts(adata, adata2):
     adata_joined = collection.load()
     assert "artifact_uid" in adata_joined.obs.columns
     assert artifact1.uid in adata_joined.obs.artifact_uid.cat.categories
+    # test from query set through collection
+    adata_joined = collection.artifacts.order_by("-created_at").load()
+    assert "artifact_uid" in adata_joined.obs.columns
+    assert artifact1.uid in adata_joined.obs.artifact_uid.cat.categories
 
     # re-run with hash-based lookup
     collection2 = ln.Collection([artifact1, artifact2], name="My test 1", run=run)
@@ -155,7 +165,7 @@ def test_from_consistent_artifacts(adata, adata2):
     ln.Feature.filter().delete()
 
 
-def test_collection_mapped(adata, adata2):
+def test_mapped(adata, adata2):
     # prepare test data
     adata.strings_to_categoricals()
     adata.obs["feat2"] = adata.obs["feat1"]
@@ -282,6 +292,12 @@ def test_collection_mapped(adata, adata2):
     assert ls_ds.shape == (4, 3)
     assert ls_ds.original_shapes[0] == (2, 3) and ls_ds.original_shapes[1] == (2, 3)
     ls_ds.close()
+    # test with QuerySet
+    query_set = ln.Artifact.filter(description__in=["Part one", "Part two"])
+    with query_set.mapped() as ls_ds:
+        assert ls_ds.shape == (4, 3)
+    with query_set.order_by("created_at").mapped(stream=True) as ls_ds:
+        assert ls_ds.shape == (4, 3)
 
     with collection.mapped(obs_keys="feat1", stream=True) as ls_ds:
         assert len(ls_ds[0]) == 3 and len(ls_ds[2]) == 3
