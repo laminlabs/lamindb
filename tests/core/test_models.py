@@ -1,11 +1,6 @@
-import re
 import textwrap
 
-
-def _strip_ansi(text: str) -> str:
-    """Remove ANSI escape sequences from a string."""
-    ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
-    return ansi_escape.sub("", text)
+from conftest import _strip_ansi
 
 
 def test_registry__repr__param():

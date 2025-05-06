@@ -1,15 +1,16 @@
 import re
+import textwrap
 
 import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
+from conftest import _strip_ansi
 from lamindb.core.exceptions import ValidationError
 
 
 @pytest.fixture
 def df():
-    # DataFrames
     return pd.DataFrame(
         {
             "sample_id": ["sample1", "sample2"],
@@ -21,7 +22,6 @@ def df():
 
 @pytest.fixture
 def df_missing_sample_type_column():
-    # missing a column
     return pd.DataFrame(
         {
             "sample_id": ["sample1", "sample2"],
@@ -41,8 +41,7 @@ def df_missing_sample_name_column():
 
 
 @pytest.fixture
-def df_changed_order():
-    # changed columns order
+def df_changed_col_order():
     return pd.DataFrame(
         {
             "sample_name": ["Sample 1", "Sample 2"],
@@ -54,7 +53,6 @@ def df_changed_order():
 
 @pytest.fixture
 def df_extra_column():
-    # additional column
     return pd.DataFrame(
         {
             "sample_id": ["sample1", "sample2"],
@@ -63,6 +61,24 @@ def df_extra_column():
             "extra_column": ["Extra 1", "Extra 2"],
         }
     )
+
+
+def test_curator__repr__(df):
+    schema = ln.Schema(
+        name="sample schema",
+        features=[ln.Feature(name="sample_id", dtype="str").save()],
+    ).save()
+    curator = ln.curators.DataFrameCurator(df, schema)
+
+    expected_repr = textwrap.dedent("""\
+    DataFrameCurator(Schema: sample schema, unvalidated)
+    """).strip()
+
+    actual_repr = _strip_ansi(repr(curator))
+    print(actual_repr)
+    assert actual_repr.strip() == expected_repr.strip()
+
+    schema.delete()
 
 
 def test_nullable():
@@ -93,7 +109,7 @@ def test_nullable():
 def test_pandera_dataframe_schema(
     df,
     df_missing_sample_type_column,
-    df_changed_order,
+    df_changed_col_order,
     df_extra_column,
     df_missing_sample_name_column,
 ):
@@ -135,7 +151,7 @@ def test_pandera_dataframe_schema(
         ).validate()
     # doesn't care about order
     ln.curators.DataFrameCurator(
-        df_changed_order, schema=schema_all_required
+        df_changed_col_order, schema=schema_all_required
     ).validate()
     # extra column is fine
     ln.curators.DataFrameCurator(df_extra_column, schema=schema_all_required).validate()
@@ -154,7 +170,7 @@ def test_pandera_dataframe_schema(
     # ordered_set=True, order matters
     with pytest.raises(ValidationError):
         ln.curators.DataFrameCurator(
-            df_changed_order, schema=schema_ordered_set
+            df_changed_col_order, schema=schema_ordered_set
         ).validate()
 
     # a feature is optional

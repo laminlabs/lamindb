@@ -1,3 +1,4 @@
+import re
 import shutil
 
 import lamindb_setup as ln_setup
@@ -25,3 +26,9 @@ def ccaplog(caplog):
 
     # Clean up at the end of the session
     logger.removeHandler(caplog.handler)
+
+
+def _strip_ansi(text: str) -> str:
+    """Remove ANSI escape sequences from a string."""
+    ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+    return ansi_escape.sub("", text)
