@@ -676,7 +676,7 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
                 labels = None
                 if isinstance(value, str):
                     # we need the comparator here because users might query like so
-                    # ln.Artifact.features.filter(experiment__contains="Experi")
+                    # ln.Artifact.filter(experiment__contains="Experi")
                     expression = {f"name{comparator}": value}
                     labels = ULabel.filter(**expression).all()
                     if len(labels) == 0:

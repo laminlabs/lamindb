@@ -265,9 +265,7 @@ Here is how to create ulabels for them:
     }
 
     with pytest.raises(ValidationError) as error:
-        ln.Artifact.features.filter(
-            temperature_with_typo=100.0, project="project_1"
-        ).one()
+        ln.Artifact.filter(temperature_with_typo=100.0, project="project_1").one()
     assert error.exconly().startswith(
         "lamindb.errors.ValidationError: Some keys in the filter expression are not registered as features:"
     )
@@ -275,11 +273,9 @@ Here is how to create ulabels for them:
     ln.Artifact.features.get(temperature=100.0)
     ln.Artifact.features.get(project="project_1")
     ln.Artifact.features.get(is_validated=True)
-    ln.Artifact.features.filter(
-        temperature=100.0, project="project_1", donor="U0123"
-    ).one()
+    ln.Artifact.filter(temperature=100.0, project="project_1", donor="U0123").one()
     # for bionty
-    assert artifact == ln.Artifact.features.filter(disease=diseases[0]).one()
+    assert artifact == ln.Artifact.filter(disease=diseases[0]).one()
 
     # test not finding the ULabel
     with pytest.raises(DoesNotExist) as error:
@@ -289,11 +285,11 @@ Here is how to create ulabels for them:
     )
 
     # test comparator
-    assert artifact == ln.Artifact.features.filter(experiment__contains="ment 1").one()
+    assert artifact == ln.Artifact.filter(experiment__contains="ment 1").one()
     # due to the __in comparator, we get the same artifact twice below
-    assert len(ln.Artifact.features.filter(experiment__contains="Experi").all()) == 2
-    assert ln.Artifact.features.filter(temperature__lt=21).one_or_none() is None
-    assert len(ln.Artifact.features.filter(temperature__gt=21).all()) >= 1
+    assert len(ln.Artifact.filter(experiment__contains="Experi").all()) == 2
+    assert ln.Artifact.filter(temperature__lt=21).one_or_none() is None
+    assert len(ln.Artifact.filter(temperature__gt=21).all()) >= 1
 
     # test remove_values
     artifact.features.remove_values("date_of_experiment")
