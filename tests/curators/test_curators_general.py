@@ -85,6 +85,7 @@ def test_nullable():
         # match=re.escape("1 term is not validated: 'asthma'"),  # TODO: need the message
     ):
         curator.validate()
+
     schema.delete()
     disease.delete()
 
@@ -192,9 +193,6 @@ def test_schema_optionals():
     ).save()
     assert schema.optionals.get().list("name") == [
         "sample_name",
-        "sample_name",
-        "sample_name",
-        "sample_name",
     ]
 
     # set sample_type to optional
@@ -256,7 +254,8 @@ def test_schema_no_minimal_set_var():
     curator = ln.curators.AnnDataCurator(adata, schema)
     curator.validate()
 
-    ln.Schema.filter().delete()
+    # clean up
+    schema.delete()
 
 
 def test_schema_maximal_set_var():
@@ -275,4 +274,5 @@ def test_schema_maximal_set_var():
         "    → fix typos, remove non-existent values, or save terms via: curator.slots['var.T'].cat.add_new_from('columns')"
     )
 
-    ln.Schema.filter().delete()
+    # clean up
+    schema.delete()
