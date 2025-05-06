@@ -10,23 +10,16 @@ from ..core.storage._backed_access import _open_dataframe
 
 if TYPE_CHECKING:
     from anndata import AnnData
-    from django.models import QuerySet
     from pandas import DataFrame
     from polars import LazyFrame as PolarsLazyFrame
     from pyarrow.dataset import Dataset as PyArrowDataset
     from upath import UPath
 
 
-def _check_ordered_artifacts(qs: QuerySet):
-    from .artifact import Artifact
-
-    if qs.model != Artifact:
-        raise ValueError("A query set should consist of artifacts to be opened.")
-    if not qs.ordered:
-        logger.warning(
-            "this query set is unordered, consider using `.order_by()` first "
-            "to avoid opening the artifacts in an arbitrary order"
-        )
+UNORDERED_WARNING = (
+    "this query set is unordered, consider using `.order_by()` first "
+    "to avoid opening the artifacts in an arbitrary order"
+)
 
 
 class ArtifactSet(Iterable):
@@ -39,7 +32,8 @@ class ArtifactSet(Iterable):
         from .artifact import Artifact, _track_run_input
         from .collection import _load_concat_artifacts
 
-        _check_ordered_artifacts(self)
+        if not self.ordered:  # type: ignore
+            logger.warning(UNORDERED_WARNING)
 
         artifacts: list[Artifact] = list(self)
         concat_object = _load_concat_artifacts(artifacts, join, **kwargs)
@@ -55,7 +49,8 @@ class ArtifactSet(Iterable):
     ) -> PyArrowDataset | Iterator[PolarsLazyFrame]:
         from .artifact import Artifact, _track_run_input
 
-        _check_ordered_artifacts(self)
+        if not self.ordered:  # type: ignore
+            logger.warning(UNORDERED_WARNING)
 
         artifacts: list[Artifact] = list(self)
         paths: list[UPath] = [artifact.path for artifact in artifacts]
@@ -82,7 +77,8 @@ class ArtifactSet(Iterable):
     ) -> MappedCollection:
         from .artifact import Artifact, _track_run_input
 
-        _check_ordered_artifacts(self)
+        if not self.ordered:  # type: ignore
+            logger.warning(UNORDERED_WARNING)
 
         artifacts: list[Artifact] = []
         paths: list[UPath] = []
