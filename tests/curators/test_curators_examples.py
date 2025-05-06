@@ -222,12 +222,22 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
 def test_dataframe_curator_index():
     """Test validating a DataFrame index."""
     df = datasets.small_dataset1(otype="DataFrame", with_index_type_mismatch=True)
-    schema = ln.Schema(index=ln.Feature(name="test", dtype="str").save()).save()
+    feature = ln.Feature(name="test", dtype="str").save()
+    schema = ln.Schema(index=feature).save()
     curator = ln.curators.DataFrameCurator(df, schema)
-    try:
+
+    with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
-    except ln.errors.ValidationError as error:
-        assert str(error).startswith("expected series 'None' to have type str")
+    assert (
+        error.exconly()
+        == """lamindb.errors.ValidationError: expected series 'None' to have type str:\n
+        failure cases:\n
+              index failure_case\n
+              0      2            0"""
+    )
+
+    schema.delete()
+    feature.delete()
 
 
 def test_dataframe_curator_validate_all_annotate_cat(small_dataset1_schema):
@@ -295,8 +305,9 @@ def test_schema_new_genes(ccaplog):
             name="ensembl",
         )
     )
+    feature = ln.Feature(name="ensembl", dtype=bt.Gene.ensembl_gene_id).save()
     schema = ln.Schema(
-        index=ln.Feature(name="ensembl", dtype=bt.Gene.ensembl_gene_id).save()
+        index=feature,
     ).save()
     curator = ln.curators.DataFrameCurator(df, schema)
     curator.validate()
@@ -308,6 +319,7 @@ def test_schema_new_genes(ccaplog):
     )
 
     schema.delete()
+    feature.delete()
 
 
 def test_schema_no_match_ensembl():
