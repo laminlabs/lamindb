@@ -176,6 +176,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
         _skip_validation = kwargs.pop("_skip_validation", False)
+        _aux = kwargs.pop("_aux", None)
         if len(kwargs) > 0:
             valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(ULabel)])
             raise FieldValidationError(
@@ -189,6 +190,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
             reference=reference,
             reference_type=reference_type,
             _skip_validation=_skip_validation,
+            _aux=_aux,
         )
 
 
