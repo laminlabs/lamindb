@@ -1,13 +1,14 @@
-"""Core library.
-
-Modules:
+"""Examples.
 
 .. autosummary::
    :toctree: .
 
    ingest_mini_immuno_datasets
+   schemas
 
 """
+
+from . import schemas
 
 
 def ingest_mini_immuno_datasets():

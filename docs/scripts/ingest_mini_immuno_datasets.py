@@ -18,7 +18,7 @@ ln.ULabel.from_values(["DMSO", "IFNG"], create=True).save()
 ln.ULabel.from_values(["Experiment 1", "Experiment 2"], create=True).save()
 bt.CellType.from_values(["B cell", "T cell"], create=True).save()
 
-schema = ln.schemas.anndata.ensembl_gene_ids_and_valid_features_in_obs()
+schema = ln.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs()
 
 ## Ingest dataset1
 adata = ln.core.datasets.mini_immuno.get_dataset1(otype="AnnData")

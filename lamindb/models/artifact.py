@@ -2698,9 +2698,11 @@ def _save_skip_storage(artifact, **kwargs) -> None:
 
 class ArtifactFeatureValue(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
-    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="+")
+    artifact: Artifact = ForeignKey(
+        Artifact, CASCADE, related_name="links_featurevalue"
+    )
     # we follow the lower() case convention rather than snake case for link models
-    featurevalue = ForeignKey(FeatureValue, PROTECT, related_name="+")
+    featurevalue = ForeignKey(FeatureValue, PROTECT, related_name="links_artifact")
 
     class Meta:
         unique_together = ("artifact", "featurevalue")
@@ -2708,9 +2710,11 @@ class ArtifactFeatureValue(BasicRecord, LinkORM, TracksRun):
 
 class ArtifactParamValue(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
-    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="+")
+    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_paramvalue")
     # we follow the lower() case convention rather than snake case for link models
-    paramvalue: ParamValue = ForeignKey(ParamValue, PROTECT, related_name="+")
+    paramvalue: ParamValue = ForeignKey(
+        ParamValue, PROTECT, related_name="links_artifact"
+    )
 
     class Meta:
         unique_together = ("artifact", "paramvalue")

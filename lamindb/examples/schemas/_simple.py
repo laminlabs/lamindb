@@ -1,13 +1,4 @@
-"""Simple schemas (dataframes, dictionaries).
-
-.. autosummary::
-   :toctree: .
-
-   valid_features
-
-"""
-
-from .. import Schema
+from ... import Schema
 
 
 def valid_features() -> Schema:
@@ -16,13 +7,13 @@ def valid_features() -> Schema:
     .. literalinclude:: scripts/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py
         :language: python
     """
-    import sys
+    import subprocess
     from pathlib import Path
 
     docs_path = Path(__file__).parent.parent.parent / "docs" / "scripts"
-    if str(docs_path) not in sys.path:
-        sys.path.append(str(docs_path))
-
-    import define_valid_features  # noqa
+    subprocess.run(
+        ["python", str(docs_path / "define_valid_features.py")],
+        check=True,
+    )
 
     return Schema.get(name="valid_features")

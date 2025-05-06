@@ -13,7 +13,7 @@ import pandas as pd
 from anndata import AnnData
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connections
-from django.db.models import Aggregate, Subquery
+from django.db.models import Aggregate, ProtectedError, Subquery
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_set
 from lamindb_setup.core.upath import create_path
@@ -888,9 +888,7 @@ def _add_values(
             )
         if not feature.dtype.startswith("cat"):
             filter_kwargs = {model_name.lower(): feature, "value": converted_value}
-            feature_value = value_model.filter(**filter_kwargs).one_or_none()
-            if feature_value is None:
-                feature_value = value_model(**filter_kwargs)
+            feature_value = value_model.get_or_create(**filter_kwargs).one_or_none()
             _feature_values.append(feature_value)
         else:
             if isinstance(value, Record) or (
@@ -953,17 +951,35 @@ def _add_values(
     if features_labels:
         add_label_feature_links(self, features_labels)
     if _feature_values:
-        save(_feature_values)
+        to_insert_feature_values = [
+            record for record in _feature_values if record._state.adding
+        ]
+        if to_insert_feature_values:
+            save(to_insert_feature_values)
+        dict_typed_features = [
+            record for record in _feature_values if record.feature.dtype == "dict"
+        ]
         if is_param:
             LinkORM = self._host._param_values.through
             valuefield_id = "paramvalue_id"
         else:
             LinkORM = self._host._feature_values.through
             valuefield_id = "featurevalue_id"
+        host_class_lower = self._host.__class__.__get_name_with_module__().lower()
+        if dict_typed_features:
+            kwargs = {
+                f"links_{host_class_lower}__{host_class_lower}_id": self._host.id,
+                "hash__isnull": False,
+                "feature__in": dict_typed_features,
+            }
+            try:
+                value_model.filter(**kwargs).all().delete()
+            except ProtectedError:
+                pass
         links = [
             LinkORM(
                 **{
-                    f"{self._host.__class__.__get_name_with_module__().lower()}_id": self._host.id,
+                    f"{host_class_lower}_id": self._host.id,
                     valuefield_id: feature_value.id,
                 }
             )
