@@ -293,7 +293,7 @@ def test_mapped(adata, adata2):
     assert ls_ds.original_shapes[0] == (2, 3) and ls_ds.original_shapes[1] == (2, 3)
     ls_ds.close()
     # test with QuerySet
-    query_set = ln.Artifact.filter(description__in=["Part one", "Part two"])
+    query_set = ln.Artifact.filter(key__in=["part_one.h5ad", "part_two.zarr"])
     with query_set.mapped() as ls_ds:
         assert ls_ds.shape == (4, 3)
     with query_set.order_by("created_at").mapped(stream=True) as ls_ds:
