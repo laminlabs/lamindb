@@ -928,10 +928,8 @@ def _add_values(
                     (feature, label_record) for label_record in label_records
                 ]
     if not_validated_values:
-        hint = (
-            f"  ulabels = ln.ULabel.from_values({not_validated_values}, create=True)\n"
-            f"  ln.save(ulabels)"
-        )
+        not_validated_values.sort()
+        hint = f"  ulabels = ln.ULabel.from_values({not_validated_values}, create=True).save()\n"
         msg = (
             f"These values could not be validated: {not_validated_values}\n"
             f"Here is how to create ulabels for them:\n\n{hint}"

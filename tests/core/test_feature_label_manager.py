@@ -177,17 +177,15 @@ Here is how to create a feature:
     assert (
         error.exconly()
         == """\
-lamindb.errors.ValidationError: These values could not be validated: ['Experiment 2', 'project_1', 'T Cell', 'U0123']
+lamindb.errors.ValidationError: These values could not be validated: ['Experiment 2', 'T Cell', 'U0123', 'project_1']
 Here is how to create ulabels for them:
 
-  ulabels = ln.ULabel.from_values(['Experiment 2', 'project_1', 'T Cell', 'U0123'], create=True)
-  ln.save(ulabels)"""
+  ulabels = ln.ULabel.from_values(['Experiment 2', 'T Cell', 'U0123', 'project_1'], create=True).save()"""
     )
 
-    ulabels = ln.ULabel.from_values(
+    ln.ULabel.from_values(
         ["Experiment 2", "project_1", "T Cell", "U0123"], create=True
-    )
-    ln.save(ulabels)
+    ).save()
 
     artifact.features.add_values(features)
     assert set(artifact._feature_values.all().values_list("value", flat=True)) == {
