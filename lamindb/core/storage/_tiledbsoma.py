@@ -217,8 +217,12 @@ def save_tiledbsoma_experiment(
         n_observations = adata_objects[0].n_obs
 
     logger.important(f"Writing the tiledbsoma store to {storepath_str}")
+    experiment_exists: bool | None = None
     for adata_obj in adata_objects:
-        if soma.Experiment.exists(storepath_str, context=ctx):
+        # do not recheck if True
+        if not experiment_exists and (resize_experiment or prepare_experiment):
+            experiment_exists = soma.Experiment.exists(storepath_str, context=ctx)
+        if experiment_exists:
             # both can only happen if registration_mapping is not None
             if resize_experiment:
                 soma_io.resize_experiment(
