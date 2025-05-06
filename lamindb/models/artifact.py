@@ -317,10 +317,9 @@ def get_stat_or_artifact(
         result = Artifact.objects.using(instance).filter(hash=hash).all()
         artifact_with_same_hash_exists = len(result) > 0
     else:
-        storage_id = settings.storage.id
         result = (
             Artifact.objects.using(instance)
-            .filter(Q(hash=hash) | Q(key=key, storage_id=storage_id))
+            .filter(Q(hash=hash) | Q(key=key, storage=settings.storage.record))
             .order_by("-created_at")
             .all()
         )
@@ -2276,7 +2275,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                     localpath, mode, engine, using_key=using_key, **kwargs
                 )
             except Exception as e:
-                if isinstance(filepath, LocalPathClasses) or isinstance(e, ImportError):
+                # also ignore ValueError here because
+                # such errors most probably just imply an incorrect argument
+                if isinstance(filepath, LocalPathClasses) or isinstance(
+                    e, (ImportError, ValueError)
+                ):
                     raise e
                 logger.warning(
                     f"The cache might be corrupted: {e}. Trying to open directly."

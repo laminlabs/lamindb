@@ -153,7 +153,6 @@ Here is how to create a feature:
     }
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values(features)
-    print(error.exconly())
     assert (
         error.exconly()
         == """\
@@ -173,21 +172,18 @@ Here is how to create a feature:
 
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values(features)
-    print(error.exconly())
     assert (
         error.exconly()
         == """\
-lamindb.errors.ValidationError: These values could not be validated: ['Experiment 2', 'project_1', 'T Cell', 'U0123']
+lamindb.errors.ValidationError: These values could not be validated: ['Experiment 2', 'T Cell', 'U0123', 'project_1']
 Here is how to create ulabels for them:
 
-  ulabels = ln.ULabel.from_values(['Experiment 2', 'project_1', 'T Cell', 'U0123'], create=True)
-  ln.save(ulabels)"""
+  ulabels = ln.ULabel.from_values(['Experiment 2', 'T Cell', 'U0123', 'project_1'], create=True).save()"""
     )
 
-    ulabels = ln.ULabel.from_values(
+    ln.ULabel.from_values(
         ["Experiment 2", "project_1", "T Cell", "U0123"], create=True
-    )
-    ln.save(ulabels)
+    ).save()
 
     artifact.features.add_values(features)
     assert set(artifact._feature_values.all().values_list("value", flat=True)) == {
@@ -266,22 +262,18 @@ Here is how to create ulabels for them:
         "2024-12-01T00:00:00",
     }
 
-    with pytest.raises(ValidationError) as error:
-        ln.Artifact.features.filter(
-            temperature_with_typo=100.0, project="project_1"
-        ).one()
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        ln.Artifact.filter(temperature_with_typo=100.0, project="project_1").one()
     assert error.exconly().startswith(
-        "lamindb.errors.ValidationError: Some keys in the filter expression are not registered as features:"
+        "lamindb.errors.InvalidArgument: You can query either by available fields:"
     )
 
     ln.Artifact.features.get(temperature=100.0)
     ln.Artifact.features.get(project="project_1")
     ln.Artifact.features.get(is_validated=True)
-    ln.Artifact.features.filter(
-        temperature=100.0, project="project_1", donor="U0123"
-    ).one()
+    ln.Artifact.filter(temperature=100.0, project="project_1", donor="U0123").one()
     # for bionty
-    assert artifact == ln.Artifact.features.filter(disease=diseases[0]).one()
+    assert artifact == ln.Artifact.filter(disease=diseases[0]).one()
 
     # test not finding the ULabel
     with pytest.raises(DoesNotExist) as error:
@@ -291,11 +283,13 @@ Here is how to create ulabels for them:
     )
 
     # test comparator
-    assert artifact == ln.Artifact.features.filter(experiment__contains="ment 1").one()
+    assert artifact == ln.Artifact.filter(experiment__contains="ment 1").one()
     # due to the __in comparator, we get the same artifact twice below
-    assert len(ln.Artifact.features.filter(experiment__contains="Experi").all()) == 2
-    assert ln.Artifact.features.filter(temperature__lt=21).one_or_none() is None
-    assert len(ln.Artifact.features.filter(temperature__gt=21).all()) >= 1
+    # print(ln.Artifact.df(features=["experiment"]))
+    # print(ln.Artifact.filter(experiment__contains="Experi").df(features=["experiment"]))
+    assert len(ln.Artifact.filter(experiment__contains="Experi").all()) == 2
+    assert ln.Artifact.filter(temperature__lt=21).one_or_none() is None
+    assert len(ln.Artifact.filter(temperature__gt=21).all()) >= 1
 
     # test remove_values
     artifact.features.remove_values("date_of_experiment")
