@@ -553,6 +553,21 @@ class BasicQuerySet(models.QuerySet):
             queryset = Registry.filter(name__startswith="keyword")
     """
 
+    def __new__(cls, model=None, query=None, using=None, hints=None):
+        from lamindb.models import Artifact, ArtifactSet
+
+        # If the model is Artifact, create a new class
+        # for BasicQuerySet or QuerySet that inherits from ArtifactSet.
+        # This allows to add artifact specific functionality to all classes
+        # inheriting from BasicQuerySet.
+        # Thus all query sets of artifacts (and only of artifacts)
+        # will have functions from ArtifactSet.
+        if model is Artifact and not issubclass(cls, ArtifactSet):
+            new_cls = type("Artifact" + cls.__name__, (cls, ArtifactSet), {})
+        else:
+            new_cls = cls
+        return object.__new__(new_cls)
+
     @doc_args(Record.df.__doc__)
     def df(
         self,
@@ -731,7 +746,7 @@ class QuerySet(BasicQuerySet):
 
         >>> ULabel(name="my label").save()
         >>> queryset = ULabel.filter(name="my label")
-        >>> queryset
+        >>> queryset # an instance of QuerySet
     """
 
     def _handle_unknown_field(self, error: FieldError) -> None:
