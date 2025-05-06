@@ -7,6 +7,8 @@ from lamin_utils import logger
 
 from ..core._mapped_collection import MappedCollection
 from ..core.storage._backed_access import _open_dataframe
+from .artifact import Artifact, _track_run_input
+from .collection import _load_concat_artifacts
 
 if TYPE_CHECKING:
     from anndata import AnnData
@@ -23,15 +25,23 @@ UNORDERED_WARNING = (
 
 
 class ArtifactSet(Iterable):
+    """Abstract class representing sets of artifacts returned by queries.
+
+    This class automatically extends {class}`~lamindb.models.BasicQuerySet`
+    and {class}`~lamindb.models.QuerySet` when the base model is {class}`~lamindb.Artifact`.
+
+    Examples:
+
+        >>> artifacts = ln.Artifact.filter(otype="AnnData")
+        >>> artifacts # an instance of ArtifactQuerySet inheriting from ArtifactSet
+    """
+
     def load(
         self,
         join: Literal["inner", "outer"] = "outer",
         is_run_input: bool | None = None,
         **kwargs,
     ) -> DataFrame | AnnData:
-        from .artifact import Artifact, _track_run_input
-        from .collection import _load_concat_artifacts
-
         if not self.ordered:  # type: ignore
             logger.warning(UNORDERED_WARNING)
 
@@ -47,8 +57,6 @@ class ArtifactSet(Iterable):
         is_run_input: bool | None = None,
         **kwargs,
     ) -> PyArrowDataset | Iterator[PolarsLazyFrame]:
-        from .artifact import Artifact, _track_run_input
-
         if not self.ordered:  # type: ignore
             logger.warning(UNORDERED_WARNING)
 
@@ -75,8 +83,6 @@ class ArtifactSet(Iterable):
         stream: bool = False,
         is_run_input: bool | None = None,
     ) -> MappedCollection:
-        from .artifact import Artifact, _track_run_input
-
         if not self.ordered:  # type: ignore
             logger.warning(UNORDERED_WARNING)
 

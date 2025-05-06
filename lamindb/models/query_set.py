@@ -519,8 +519,8 @@ class BasicQuerySet(models.QuerySet):
     Examples:
 
         >>> ULabel(name="my label").save()
-        >>> queryset = ULabel.filter(name="my label")
-        >>> queryset
+        >>> queryset = ULabel.objects.filter(name="my label")
+        >>> queryset # an instance of BasicQuerySet
     """
 
     def __new__(cls, model=None, query=None, using=None, hints=None):
@@ -693,7 +693,7 @@ class QuerySet(BasicQuerySet):
 
         >>> ULabel(name="my label").save()
         >>> queryset = ULabel.filter(name="my label")
-        >>> queryset
+        >>> queryset # an instance of QuerySet
     """
 
     def _handle_unknown_field(self, error: FieldError) -> None:

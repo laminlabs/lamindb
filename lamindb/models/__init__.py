@@ -8,6 +8,7 @@
    Registry
    BasicQuerySet
    QuerySet
+   ArtifactSet
    QueryManager
    RecordList
    FeatureManager
