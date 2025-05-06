@@ -64,7 +64,9 @@ def get_dataset1(
     with_cell_type_synonym: bool = False,
     with_cell_type_typo: bool = False,
     with_gene_typo: bool = False,
+    with_outdated_gene: bool = False,
     with_wrong_subtype: bool = False,
+    with_index_type_mismatch: bool = False,
 ) -> pd.DataFrame | ad.AnnData:
     """A small tabular dataset measuring expression & metadata."""
     # define the data in the dataset
@@ -77,7 +79,11 @@ def get_dataset1(
         var_ids = [
             "ENSG00000153563",
             "ENSG00000010610",
-            "ENSG00000170458" if not with_gene_typo else "GeneTypo",
+            "ENSG00000170458"
+            if not with_gene_typo
+            else "GeneTypo"
+            if not with_outdated_gene
+            else "ENSG00000278198",
         ]
     abt_cell = (
         "CD8-pos alpha-beta T cell"
@@ -107,7 +113,12 @@ def get_dataset1(
         "study_note": "We had a great time performing this study and the results look compelling.",
     }
     # the dataset as DataFrame
-    dataset_df = pd.DataFrame(dataset_dict, index=["sample1", "sample2", "sample3"])
+    dataset_df = pd.DataFrame(
+        dataset_dict,
+        index=["sample1", "sample2", 0]  # type: ignore
+        if with_index_type_mismatch
+        else ["sample1", "sample2", "sample3"],
+    )
     if otype == "DataFrame":
         for key, value in metadata.items():
             dataset_df.attrs[key] = value
