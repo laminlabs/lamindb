@@ -209,7 +209,7 @@ class Curator:
         from lamin_utils import colors
 
         if self._schema is not None:
-            # Schema might have different attributes, handle with care
+            # Schema might have different attributes
             if hasattr(self._schema, "name") and self._schema.name:
                 schema_str = colors.italic(self._schema.name)
             elif hasattr(self._schema, "uid"):
@@ -918,6 +918,7 @@ class CatVector:
             # if none of the ensembl gene ids were validated, we are probably not looking at ensembl gene IDs
             if len(self.values) == len(self._non_validated):
                 return False
+            # if maximal set, we do not allow additional unvalidated genes
             elif len(self._non_validated) != 0 and self._maximal_set:
                 return False
             return True

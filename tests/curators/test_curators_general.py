@@ -248,7 +248,7 @@ def test_schema_no_minimal_set_var():
 
     var_schema = ln.Schema(
         itype=bt.Gene.ensembl_gene_id,
-        minimal_set=False,  # Default is True
+        minimal_set=False,
     ).save()
     schema = ln.Schema(otype="AnnData", slots={"var": var_schema}).save()
     curator = ln.curators.AnnDataCurator(adata, schema)

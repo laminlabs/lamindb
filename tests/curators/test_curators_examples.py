@@ -492,7 +492,7 @@ def test_anndata_curator_varT_curation():
 def test_anndata_curator_varT_curation_legacy(ccaplog):
     varT_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id, maximal_set=True).save()
     slot = "var"
-    components = {"var": varT_schema}
+    components = {slot: varT_schema}
     anndata_schema = ln.Schema(
         otype="AnnData",
         slots=components,

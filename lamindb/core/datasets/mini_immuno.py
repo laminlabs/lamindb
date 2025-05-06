@@ -115,9 +115,9 @@ def get_dataset1(
     # the dataset as DataFrame
     dataset_df = pd.DataFrame(
         dataset_dict,
-        index=["sample1", "sample2", "sample3"]
-        if not with_index_type_mismatch
-        else ["sample1", "sample2", 0],  # type: ignore
+        index=["sample1", "sample2", 0]  # type: ignore
+        if with_index_type_mismatch
+        else ["sample1", "sample2", "sample3"],
     )
     if otype == "DataFrame":
         for key, value in metadata.items():
