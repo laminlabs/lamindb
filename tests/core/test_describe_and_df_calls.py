@@ -2,7 +2,6 @@ import bionty as bt
 import lamindb as ln
 import numpy as np
 import pandas as pd
-from lamindb.core import datasets
 from lamindb.models.artifact import _describe_postgres
 
 
@@ -46,50 +45,9 @@ def check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame):
 # parallels the `registries` guide
 # please also see the test_querset.py tests
 def test_curate_df():
-    ## Create a more complex case
-    # observation-level metadata
-    ln.Feature(name="perturbation", dtype="cat[ULabel]").save()
-    ln.Feature(name="sample_note", dtype="str").save()
-    ln.Feature(name="cell_type_by_expert", dtype="cat[bionty.CellType]").save()
-    ln.Feature(name="cell_type_by_model", dtype="cat[bionty.CellType]").save()
-    # dataset-level metadata
-    ln.Feature(name="temperature", dtype="float").save()
-    ln.Feature(name="experiment", dtype="cat[ULabel]").save()
-    ln.Feature(name="date_of_study", dtype="date").save()
-    ln.Feature(name="study_note", dtype="str").save()
-    ## Permissible values for categoricals
-    ln.ULabel.from_values(["DMSO", "IFNG"], create=True).save()
-    ln.ULabel.from_values(["Experiment 1", "Experiment 2"], create=True).save()
-    bt.CellType.from_values(["B cell", "T cell"], create=True).save()
-
-    ## Ingest dataset1
-    adata = datasets.small_dataset1(otype="AnnData")
-    curator = ln.Curator.from_anndata(
-        adata,
-        var_index=bt.Gene.ensembl_gene_id,
-        categoricals={
-            "perturbation": ln.ULabel.name,
-            "cell_type_by_expert": bt.CellType.name,
-            "cell_type_by_model": bt.CellType.name,
-        },
-    )
-    artifact = curator.save_artifact(key="examples/dataset1.h5ad")
-    artifact.features.add_values(adata.uns)
-    print("dataset1", adata.uns)
-
-    # Ingest dataset2
-    adata2 = datasets.small_dataset2(otype="AnnData")
-    curator = ln.Curator.from_anndata(
-        adata2,
-        var_index=bt.Gene.ensembl_gene_id,
-        categoricals={
-            "perturbation": ln.ULabel.name,
-            "cell_type_by_model": bt.CellType.name,
-        },
-    )
-    artifact2 = curator.save_artifact(key="examples/dataset2.h5ad")
-    artifact2.features.add_values(adata2.uns)
-    print("dataset2", adata2.uns)
+    ln.examples.ingest_mini_immuno_datasets()
+    artifact = ln.Artifact.get(key="examples/dataset1.h5ad")
+    artifact2 = ln.Artifact.get(key="examples/dataset2.h5ad")
 
     # Test df(include=[...])
     df = (
@@ -144,6 +102,10 @@ def test_curate_df():
             "We had a great time performing this study and the results look compelling.",
         ],
         "date_of_study": ["2025-02-13", "2024-12-01"],
+        "study_metadata": [
+            {"detail1": "456", "detail2": 2},
+            {"detail1": "123", "detail2": 1},
+        ],
     }
     expected_df = pd.DataFrame(expected_data)
     check_df_equality(df, expected_df)
@@ -168,71 +130,26 @@ def test_curate_df():
     assert ".created_at = " in general_node.children[7].label.plain
 
     # dataset section
-    int_features_node = description_tree.children[1]
-    assert int_features_node.label.plain == "Dataset features"
-    assert len(int_features_node.children) == 2
-    assert len(int_features_node.children[0].label.rows) == 3
-    assert len(int_features_node.children[0].label.columns) == 3
-    assert int_features_node.children[0].label.columns[0].header.plain == "var • 3"
-    assert int_features_node.children[0].label.columns[0]._cells == [
-        "CD8A",
-        "CD4",
-        "CD14",
-    ]
     assert (
-        int_features_node.children[0].label.columns[1].header.plain == "[bionty.Gene]"
+        artifact.features.describe(return_str=True)
+        == """Artifact .h5ad/AnnData
+├── Dataset features
+│   ├── obs • 4             [Feature]
+│   │   cell_type_by_expe…  cat[bionty.CellT…  B cell, CD8-positive, alpha-beta…
+│   │   cell_type_by_model  cat[bionty.CellT…  B cell, T cell
+│   │   perturbation        cat[ULabel]        DMSO, IFNG
+│   │   sample_note         str
+│   └── var.T • 3           [bionty.Gene.ens…
+│       CD8A                num
+│       CD4                 num
+│       CD14                num
+└── Linked features
+    └── experiment          cat[ULabel]        Experiment 1
+        date_of_study       date               2024-12-01
+        study_metadata      dict               {'detail1': '123', 'detail2': 1}
+        study_note          str                We had a great time performing t…
+        temperature         float              21.6"""
     )
-    assert int_features_node.children[0].label.columns[1]._cells[0].plain == "int"
-    assert int_features_node.children[1].label.columns[0].header.plain == "obs • 4"
-    assert int_features_node.children[1].label.columns[0]._cells == [
-        "cell_type_by_expert",
-        "cell_type_by_model",
-        "perturbation",
-        "sample_note",
-    ]
-    assert int_features_node.children[1].label.columns[1].header.plain == "[Feature]"
-    assert (
-        int_features_node.children[1].label.columns[1]._cells[0].plain
-        == "cat[bionty.CellType]"
-    )
-    assert (
-        int_features_node.children[1].label.columns[1]._cells[1].plain
-        == "cat[bionty.CellType]"
-    )
-    assert (
-        int_features_node.children[1].label.columns[1]._cells[2].plain == "cat[ULabel]"
-    )
-    assert int_features_node.children[1].label.columns[2]._cells == [
-        "B cell, CD8-positive, alpha-beta T cell",
-        "B cell, T cell",
-        "DMSO, IFNG",
-        "",
-    ]
-
-    # external features section
-    ext_features_node = description_tree.children[2]
-    assert ext_features_node.label.plain == "Linked features"
-    assert len(ext_features_node.children) == 1
-    assert len(ext_features_node.children[0].label.columns) == 3
-    assert len(ext_features_node.children[0].label.rows) == 4
-    assert ext_features_node.children[0].label.columns[0]._cells == [
-        "experiment",
-        "date_of_study",
-        "study_note",
-        "temperature",
-    ]
-    assert (
-        ext_features_node.children[0].label.columns[1]._cells[0].plain == "cat[ULabel]"
-    )
-    assert ext_features_node.children[0].label.columns[1]._cells[1].plain == "date"
-    assert ext_features_node.children[0].label.columns[1]._cells[2].plain == "str"
-    assert ext_features_node.children[0].label.columns[1]._cells[3].plain == "float"
-    assert ext_features_node.children[0].label.columns[2]._cells == [
-        "Experiment 1",
-        "2024-12-01",
-        "We had a great time performing this study and the results look compelling.",
-        "21.6",
-    ]
 
     # labels section
     labels_node = description_tree.children[3].label
@@ -252,6 +169,7 @@ def test_curate_df():
 
     artifact.delete(permanent=True)
     artifact2.delete(permanent=True)
+    ln.Schema.get(name="anndata_ensembl_gene_ids_and_valid_features_in_obs").delete()
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
     bt.Gene.filter().delete()

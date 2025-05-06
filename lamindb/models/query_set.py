@@ -437,10 +437,25 @@ def reshape_annotate_result(
         # handle feature_values
         feature_cols = ["_feature_values__feature__name", "_feature_values__value"]
         if all(col in df.columns for col in feature_cols):
-            feature_values = df.groupby(["id", "_feature_values__feature__name"])[
+            # Create two separate dataframes - one for dict values and one for non-dict values
+            is_dict = df["_feature_values__value"].apply(lambda x: isinstance(x, dict))
+            dict_df, non_dict_df = df[is_dict], df[~is_dict]
+
+            # Process non-dict values using set aggregation
+            non_dict_features = non_dict_df.groupby(
+                ["id", "_feature_values__feature__name"]
+            )["_feature_values__value"].agg(set)
+
+            # Process dict values using first aggregation
+            dict_features = dict_df.groupby(["id", "_feature_values__feature__name"])[
                 "_feature_values__value"
-            ].agg(set)
-            feature_values = feature_values.unstack().reset_index()
+            ].agg("first")
+
+            # Combine the results
+            combined_features = pd.concat([non_dict_features, dict_features])
+
+            # Unstack and reset index
+            feature_values = combined_features.unstack().reset_index()
             if not feature_values.empty:
                 result = result.join(
                     feature_values.set_index("id"),

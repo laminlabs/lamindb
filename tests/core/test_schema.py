@@ -435,7 +435,7 @@ def test_schemas_dataframe():
     assert schema.hash == "kMi7B_N88uu-YnbTLDU-DA"
 
     # test the convenience function
-    schema = ln.schemas.simple.valid_features()
+    schema = ln.examples.schemas.valid_features()
     assert schema.uid == "0000000000000000"
     assert schema.name == "valid_features"
     assert schema.itype == "Feature"
@@ -444,7 +444,7 @@ def test_schemas_dataframe():
 
 def test_schemas_anndata():
     # test on the Python level after record creation -- no saving!
-    obs_schema = ln.schemas.simple.valid_features()
+    obs_schema = ln.examples.schemas.valid_features()
     varT_schema = ln.Schema(
         name="valid_ensembl_gene_ids", itype=bt.Gene.ensembl_gene_id
     )
@@ -472,7 +472,7 @@ def test_schemas_anndata():
     assert schema.hash == "GTxxM36n9tocphLfdbNt9g"
 
     # test the convenience function
-    schema = ln.schemas.anndata.ensembl_gene_ids_and_valid_features_in_obs()
+    schema = ln.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs()
     assert schema.uid == "0000000000000002"
     assert schema.name == "anndata_ensembl_gene_ids_and_valid_features_in_obs"
     assert schema.itype == "Composite"
