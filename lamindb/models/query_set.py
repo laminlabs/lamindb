@@ -4,12 +4,13 @@ import re
 from collections import UserList
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, Union
 
 import pandas as pd
 from django.core.exceptions import FieldError
 from django.db import models
-from django.db.models import F, ForeignKey, ManyToManyField, Subquery
+from django.db.models import F, ForeignKey, ManyToManyField, Q, Subquery
 from django.db.models.fields.related import ForeignObjectRel
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
@@ -226,6 +227,11 @@ class RecordList(UserList, Generic[T]):
         values = [record.__dict__ for record in self.data]
         return pd.DataFrame(values, columns=keys)
 
+    def list(
+        self, field: str
+    ) -> list[str]:  # meaningful to be parallel with list() in QuerySet
+        return [getattr(record, field) for record in self.data]
+
     def one(self) -> T:
         """Exactly one result. Throws error if there are more or none."""
         return one_helper(self)
@@ -239,7 +245,9 @@ class RecordList(UserList, Generic[T]):
 
 
 def get_basic_field_names(
-    qs: QuerySet, include: list[str], features: bool | list[str] = False
+    qs: QuerySet,
+    include: list[str],
+    features_input: bool | list[str],
 ) -> list[str]:
     exclude_field_names = ["updated_at"]
     field_names = [
@@ -271,27 +279,40 @@ def get_basic_field_names(
     if field_names[0] != "uid" and "uid" in field_names:
         field_names.remove("uid")
         field_names.insert(0, "uid")
-    if include or features:
-        subset_field_names = field_names[:4]
+    if (
+        include or features_input
+    ):  # if there is features_input, reduce fields to just the first 3
+        subset_field_names = field_names[:3]
         intersection = set(field_names) & set(include)
         subset_field_names += list(intersection)
         field_names = subset_field_names
     return field_names
 
 
-def get_feature_annotate_kwargs(show_features: bool | list[str]) -> dict[str, Any]:
+def get_feature_annotate_kwargs(
+    features: bool | list[str] | None,
+) -> tuple[dict[str, Any], list[str], QuerySet]:
     from lamindb.models import (
         Artifact,
         Feature,
     )
 
-    features = Feature.filter()
-    if isinstance(show_features, list):
-        features.filter(name__in=show_features)
+    feature_qs = Feature.filter()
+    if isinstance(features, list):
+        feature_qs = feature_qs.filter(name__in=features)
+        feature_names = features
+    else:  # features is True -- only consider categorical features from ULabel and non-categorical features
+        feature_qs = feature_qs.filter(
+            Q(~Q(dtype__startswith="cat[")) | Q(dtype__startswith="cat[ULabel")
+        )
+        feature_names = feature_qs.list("name")
+        logger.important(
+            f"queried for all categorical features with dtype 'cat[ULabel...'] and non-categorical features: ({len(feature_names)}) {feature_names}"
+        )
     # Get the categorical features
     cat_feature_types = {
         feature.dtype.replace("cat[", "").replace("]", "")
-        for feature in features
+        for feature in feature_qs
         if feature.dtype.startswith("cat[")
     }
     # Get relationships of labels and features
@@ -327,7 +348,7 @@ def get_feature_annotate_kwargs(show_features: bool | list[str]) -> dict[str, An
         "_feature_values__feature__name"
     )
     annotate_kwargs["_feature_values__value"] = F("_feature_values__value")
-    return annotate_kwargs
+    return annotate_kwargs, feature_names, feature_qs
 
 
 # https://claude.ai/share/16280046-6ae5-4f6a-99ac-dec01813dc3c
@@ -381,45 +402,52 @@ def analyze_lookup_cardinality(
     return result
 
 
+def reorder_subset_columns_in_df(df: pd.DataFrame, column_order: list[str], position=3):
+    valid_columns = [col for col in column_order if col in df.columns]
+    all_cols = df.columns.tolist()
+    remaining_cols = [col for col in all_cols if col not in valid_columns]
+    new_order = remaining_cols[:position] + valid_columns + remaining_cols[position:]
+    return df[new_order]
+
+
 # https://lamin.ai/laminlabs/lamindata/transform/BblTiuKxsb2g0003
 # https://claude.ai/chat/6ea2498c-944d-4e7a-af08-29e5ddf637d2
 def reshape_annotate_result(
-    field_names: list[str],
     df: pd.DataFrame,
-    extra_columns: dict[str, str] | None = None,
-    features: bool | list[str] = False,
+    field_names: list[str],
+    cols_from_include: dict[str, str] | None,
+    feature_names: list[str],
+    feature_qs: QuerySet | None,
 ) -> pd.DataFrame:
-    """Reshapes experimental data with optional feature handling.
+    """Reshapes tidy table to wide format.
 
-    Parameters:
-    field_names: List of basic fields to include in result
-    df: Input dataframe with experimental data
-    extra_columns: Dict specifying additional columns to process with types ('one' or 'many')
-                  e.g., {'ulabels__name': 'many', 'created_by__name': 'one'}
-    features: If False, skip feature processing. If True, process all features.
-             If list of strings, only process specified features.
-
-    Returns:
-    DataFrame with reshaped data
+    Args:
+        field_names: List of basic fields to include in result
+        df: Input dataframe with experimental data
+        extra_columns: Dict specifying additional columns to process with types ('one' or 'many')
+            e.g., {'ulabels__name': 'many', 'created_by__name': 'one'}
+        feature_names: Feature names.
     """
-    extra_columns = extra_columns or {}
+    cols_from_include = cols_from_include or {}
 
-    # Initialize result with basic fields
-    result = df[field_names].drop_duplicates(subset=["id"])
-
-    # Process features if requested
-    if features:
-        # Handle _feature_values if columns exist
+    # initialize result with basic fields
+    result = df[field_names]
+    # process features if requested
+    if feature_names:
+        # handle feature_values
         feature_cols = ["_feature_values__feature__name", "_feature_values__value"]
         if all(col in df.columns for col in feature_cols):
-            feature_values = process_feature_values(df, features)
+            feature_values = df.groupby(["id", "_feature_values__feature__name"])[
+                "_feature_values__value"
+            ].agg(set)
+            feature_values = feature_values.unstack().reset_index()
             if not feature_values.empty:
-                for col in feature_values.columns:
-                    if col in result.columns:
-                        continue
-                    result.insert(4, col, feature_values[col])
+                result = result.join(
+                    feature_values.set_index("id"),
+                    on="id",
+                )
 
-        # Handle links features if they exist
+        # handle categorical features
         links_features = [
             col
             for col in df.columns
@@ -427,32 +455,34 @@ def reshape_annotate_result(
         ]
 
         if links_features:
-            result = process_links_features(df, result, links_features, features)
+            result = process_links_features(df, result, links_features, feature_names)
 
-    # Process extra columns
-    if extra_columns:
-        result = process_extra_columns(df, result, extra_columns)
+        def extract_single_element(s):
+            if not hasattr(s, "__len__"):  # is NaN or other scalar
+                return s
+            if len(s) != 1:
+                # TODO: below should depend on feature._expect_many
+                # logger.warning(
+                #     f"expected single value because `feature._expect_many is False` but got set {len(s)} elements: {s}"
+                # )
+                return s
+            return next(iter(s))
 
-    return result
+        for feature in feature_qs:
+            if feature.name in result.columns:
+                # TODO: make dependent on feature._expect_many through
+                # lambda x: extract_single_element(x, feature)
+                result[feature.name] = result[feature.name].apply(
+                    extract_single_element
+                )
 
+        # sort columns
+        result = reorder_subset_columns_in_df(result, feature_names)
 
-def process_feature_values(
-    df: pd.DataFrame, features: bool | list[str]
-) -> pd.DataFrame:
-    """Process _feature_values columns."""
-    feature_values = df.groupby(["id", "_feature_values__feature__name"])[
-        "_feature_values__value"
-    ].agg(set)
+    if cols_from_include:
+        result = process_cols_from_include(df, result, cols_from_include)
 
-    # Filter features if specific ones requested
-    if isinstance(features, list):
-        feature_values = feature_values[
-            feature_values.index.get_level_values(
-                "_feature_values__feature__name"
-            ).isin(features)
-        ]
-
-    return feature_values.unstack().reset_index()
+    return result.drop_duplicates(subset=["id"])
 
 
 def process_links_features(
@@ -488,12 +518,12 @@ def process_links_features(
         for feature_name in feature_names:
             mask = df[feature_col] == feature_name
             feature_values = df[mask].groupby("id")[value_col].agg(set)
-            result.insert(4, feature_name, result["id"].map(feature_values))
+            result.insert(3, feature_name, result["id"].map(feature_values))
 
     return result
 
 
-def process_extra_columns(
+def process_cols_from_include(
     df: pd.DataFrame, result: pd.DataFrame, extra_columns: dict[str, str]
 ) -> pd.DataFrame:
     """Process additional columns based on their specified types."""
@@ -504,7 +534,7 @@ def process_extra_columns(
             continue
 
         values = df.groupby("id")[col].agg(set if col_type == "many" else "first")
-        result.insert(4, col, result["id"].map(values))
+        result.insert(3, col, result["id"].map(values))
 
     return result
 
@@ -514,48 +544,77 @@ class BasicQuerySet(models.QuerySet):
 
     See Also:
 
-        `django QuerySet <https://docs.djangoproject.com/en/4.2/ref/models/querysets/>`__
+        `django QuerySet <https://docs.djangoproject.com/en/stable/ref/models/querysets/>`__
 
     Examples:
 
-        >>> ULabel(name="my label").save()
-        >>> queryset = ULabel.filter(name="my label")
-        >>> queryset
+        Any filter statement produces a query set::
+
+            queryset = Registry.filter(name__startswith="keyword")
     """
+
+    def __new__(cls, model=None, query=None, using=None, hints=None):
+        from lamindb.models import Artifact, ArtifactSet
+
+        # If the model is Artifact, create a new class
+        # for BasicQuerySet or QuerySet that inherits from ArtifactSet.
+        # This allows to add artifact specific functionality to all classes
+        # inheriting from BasicQuerySet.
+        # Thus all query sets of artifacts (and only of artifacts)
+        # will have functions from ArtifactSet.
+        if model is Artifact and not issubclass(cls, ArtifactSet):
+            new_cls = type("Artifact" + cls.__name__, (cls, ArtifactSet), {})
+        else:
+            new_cls = cls
+        return object.__new__(new_cls)
 
     @doc_args(Record.df.__doc__)
     def df(
         self,
         include: str | list[str] | None = None,
-        features: bool | list[str] = False,
+        features: bool | list[str] | None = None,
     ) -> pd.DataFrame:
         """{}"""  # noqa: D415
+        time = datetime.now(timezone.utc)
         if include is None:
-            include = []
+            include_input = []
         elif isinstance(include, str):
-            include = [include]
-        include = get_backward_compat_filter_kwargs(self, include)
-        field_names = get_basic_field_names(self, include, features)  # type: ignore
+            include_input = [include]
+        else:
+            include_input = include
+        features_input = [] if features is None else features
+        include = get_backward_compat_filter_kwargs(self, include_input)
+        field_names = get_basic_field_names(self, include_input, features_input)
 
         annotate_kwargs = {}
+        feature_names: list[str] = []
+        feature_qs = None
         if features:
-            annotate_kwargs.update(get_feature_annotate_kwargs(features))
-        if include:
-            include = include.copy()[::-1]  # type: ignore
-            include_kwargs = {s: F(s) for s in include if s not in field_names}
+            feature_annotate_kwargs, feature_names, feature_qs = (
+                get_feature_annotate_kwargs(features)
+            )
+            time = logger.debug("finished feature_annotate_kwargs", time=time)
+            annotate_kwargs.update(feature_annotate_kwargs)
+        if include_input:
+            include_input = include_input.copy()[::-1]  # type: ignore
+            include_kwargs = {s: F(s) for s in include_input if s not in field_names}
             annotate_kwargs.update(include_kwargs)
         if annotate_kwargs:
             id_subquery = self.values("id")
+            time = logger.debug("finished get id values", time=time)
             # for annotate, we want the queryset without filters so that joins don't affect the annotations
             query_set_without_filters = self.model.objects.filter(
                 id__in=Subquery(id_subquery)
             )
+            time = logger.debug("finished get query_set_without_filters", time=time)
             if self.query.order_by:
                 # Apply the same ordering to the new queryset
                 query_set_without_filters = query_set_without_filters.order_by(
                     *self.query.order_by
                 )
+                time = logger.debug("finished order by", time=time)
             queryset = query_set_without_filters.annotate(**annotate_kwargs)
+            time = logger.debug("finished annotate", time=time)
         else:
             queryset = self
 
@@ -563,12 +622,18 @@ class BasicQuerySet(models.QuerySet):
         if len(df) == 0:
             df = pd.DataFrame({}, columns=field_names)
             return df
-        extra_cols = analyze_lookup_cardinality(self.model, include)  # type: ignore
-        df_reshaped = reshape_annotate_result(field_names, df, extra_cols, features)
+        time = logger.debug("finished creating first dataframe", time=time)
+        cols_from_include = analyze_lookup_cardinality(self.model, include_input)  # type: ignore
+        time = logger.debug("finished analyze_lookup_cardinality", time=time)
+        df_reshaped = reshape_annotate_result(
+            df, field_names, cols_from_include, feature_names, feature_qs
+        )
+        time = logger.debug("finished reshape_annotate_result", time=time)
         pk_name = self.model._meta.pk.name
         pk_column_name = pk_name if pk_name in df.columns else f"{pk_name}_id"
         if pk_column_name in df_reshaped.columns:
             df_reshaped = df_reshaped.set_index(pk_column_name)
+        time = logger.debug("finished", time=time)
         return df_reshaped
 
     def delete(self, *args, **kwargs):
@@ -583,8 +648,10 @@ class BasicQuerySet(models.QuerySet):
         else:
             super().delete(*args, **kwargs)
 
-    def list(self, field: str | None = None) -> list[Record]:
-        """Populate a list with the results.
+    def list(self, field: str | None = None) -> list[Record] | list[str]:
+        """Populate an (unordered) list with the results.
+
+        Note that the order in this list is only meaningful if you ordered the underlying query set with `.order_by()`.
 
         Examples:
             >>> queryset.list()  # list of records
@@ -593,6 +660,7 @@ class BasicQuerySet(models.QuerySet):
         if field is None:
             return list(self)
         else:
+            # list casting is necessary because values_list does not return a list
             return list(self.values_list(field, flat=True))
 
     def first(self) -> Record | None:
@@ -678,7 +746,7 @@ class QuerySet(BasicQuerySet):
 
         >>> ULabel(name="my label").save()
         >>> queryset = ULabel.filter(name="my label")
-        >>> queryset
+        >>> queryset # an instance of QuerySet
     """
 
     def _handle_unknown_field(self, error: FieldError) -> None:

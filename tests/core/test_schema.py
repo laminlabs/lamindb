@@ -436,6 +436,7 @@ def test_schemas_dataframe():
 
     # test the convenience function
     schema = ln.schemas.simple.valid_features()
+    assert schema.uid == "0000000000000000"
     assert schema.name == "valid_features"
     assert schema.itype == "Feature"
     assert schema.hash == "kMi7B_N88uu-YnbTLDU-DA"
@@ -472,10 +473,12 @@ def test_schemas_anndata():
 
     # test the convenience function
     schema = ln.schemas.anndata.ensembl_gene_ids_and_valid_features_in_obs()
+    assert schema.uid == "0000000000000002"
     assert schema.name == "anndata_ensembl_gene_ids_and_valid_features_in_obs"
     assert schema.itype == "Composite"
     assert schema.hash == "GTxxM36n9tocphLfdbNt9g"
     varT_schema = schema.slots["var.T"]
+    assert varT_schema.uid == "0000000000000001"
     assert varT_schema.name == "valid_ensembl_gene_ids"
     assert varT_schema.itype == "bionty.Gene.ensembl_gene_id"
     assert varT_schema.hash == "1gocc_TJ1RU2bMwDRK-WUA"

@@ -289,7 +289,7 @@ class Context:
 
                 ln.track()
                 #> → created Transform('Onv04I53OgtT0000'), started new Run('dpSfd7Ds...') at 2025-04-25 11:00:03 UTC
-                #> • recommendation: to identify the notebook across renames, pass the uid: ln.track('Onv04I53OgtT')
+                #> • recommendation: to identify the notebook across renames, pass the uid: ln.track("Onv04I53OgtT")
 
             Ensure one version history across file renames::
 
@@ -439,11 +439,14 @@ class Context:
             r_or_python = "."
             if self._path is not None:
                 r_or_python = "." if self._path.suffix in {".py", ".ipynb"} else "$"
-            project_str = f", project='{project}'" if project is not None else ""
-            space_str = f", space='{space}'" if space is not None else ""
-            kwargs_str = f"{project_str}{space_str}"
+            project_str = f', project="{project}"' if project is not None else ""
+            space_str = f', space="{space}"' if space is not None else ""
+            params_str = (
+                ", params={...}" if params is not None else ""
+            )  # do not put the values because typically parameterized by user
+            kwargs_str = f"{project_str}{space_str}{params_str}"
             logger.important_hint(
-                f"recommendation: to identify the {notebook_or_script} across renames, pass the uid: ln{r_or_python}track('{self.transform.uid[:-4]}'{kwargs_str})"
+                f'recommendation: to identify the {notebook_or_script} across renames, pass the uid: ln{r_or_python}track("{self.transform.uid[:-4]}"{kwargs_str})'
             )
 
     def _track_source_code(
@@ -547,7 +550,9 @@ class Context:
             return uid, aux_transform, message
         else:
             uid = f"{aux_transform.uid[:-4]}{increment_base62(aux_transform.uid[-4:])}"
-            message = f"there already is a {aux_transform.type} with key '{aux_transform.key}'"
+            message = (
+                f"found {aux_transform.type} {aux_transform.key}, making new version"
+            )
             if (
                 aux_transform.hash == transform_hash
                 and aux_transform.type == "notebook"
@@ -561,7 +566,6 @@ class Context:
                 message += (
                     f" -- {aux_transform.created_by.handle} already works on this draft"
                 )
-            message += f", creating new version '{uid}'"
             return uid, None, message
 
     def _create_or_load_transform(

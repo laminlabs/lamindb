@@ -75,6 +75,7 @@ def test_curate_df():
     )
     artifact = curator.save_artifact(key="examples/dataset1.h5ad")
     artifact.features.add_values(adata.uns)
+    print("dataset1", adata.uns)
 
     # Ingest dataset2
     adata2 = datasets.small_dataset2(otype="AnnData")
@@ -88,6 +89,7 @@ def test_curate_df():
     )
     artifact2 = curator.save_artifact(key="examples/dataset2.h5ad")
     artifact2.features.add_values(adata2.uns)
+    print("dataset2", adata2.uns)
 
     # Test df(include=[...])
     df = (
@@ -98,7 +100,6 @@ def test_curate_df():
     )
     expected_data = {
         "key": ["examples/dataset2.h5ad", "examples/dataset1.h5ad"],
-        "description": [None, None],
         "feature_sets__hash": [
             set(artifact2.feature_sets.all().values_list("hash", flat=True)),
             set(artifact.feature_sets.all().values_list("hash", flat=True)),
@@ -108,7 +109,7 @@ def test_curate_df():
     expected_df = pd.DataFrame(expected_data)
     check_df_equality(df, expected_df)
 
-    # Test df(features=True)
+    # Test df with features
     # test that the ulabels filter DOES NOT affect joining the annotations
     # we want it to only affect the artifact query (even though here, it won't change the result as both artifacts have the IFNG label)
     df = (
@@ -118,24 +119,31 @@ def test_curate_df():
             ulabels__name="IFNG",
         )
         .order_by("-key")
-        .df(features=True)
+        .df(
+            features=[
+                "cell_type_by_expert",
+                "cell_type_by_model",
+                "experiment",
+                "perturbation",
+                "temperature",
+                "study_note",
+                "date_of_study",
+            ]
+        )
         .drop(["uid"], axis=1)
     )
     expected_data = {
         "key": ["examples/dataset2.h5ad", "examples/dataset1.h5ad"],
-        "description": [None, None],
         "cell_type_by_expert": [np.nan, {"CD8-positive, alpha-beta T cell", "B cell"}],
         "cell_type_by_model": [{"T cell", "B cell"}, {"T cell", "B cell"}],
-        "experiment": [{"Experiment 2"}, {"Experiment 1"}],
+        "experiment": ["Experiment 2", "Experiment 1"],
         "perturbation": [{"IFNG", "DMSO"}, {"IFNG", "DMSO"}],
-        "temperature": [{21.6}, np.nan],
+        "temperature": [22.6, 21.6],
         "study_note": [
-            {
-                "We had a great time performing this study and the results look compelling."
-            },
             np.nan,
+            "We had a great time performing this study and the results look compelling.",
         ],
-        "date_of_study": [{"2024-12-01"}, np.nan],
+        "date_of_study": ["2025-02-13", "2024-12-01"],
     }
     expected_df = pd.DataFrame(expected_data)
     check_df_equality(df, expected_df)

@@ -232,7 +232,7 @@ def test_run_scripts():
     print(result.stderr.decode())
     assert result.returncode == 0
     assert f"{transform.stem_uid}" in result.stdout.decode()
-    assert "creating new version" not in result.stdout.decode()
+    assert "making new version" not in result.stdout.decode()
 
     transform.source_code = "dummy"
     transform.save()
@@ -247,7 +247,7 @@ def test_run_scripts():
     print(result.stderr.decode())
     assert result.returncode == 0
     assert f"{transform.stem_uid}" in result.stdout.decode()
-    assert "creating new version" in result.stdout.decode()
+    assert "making new version" in result.stdout.decode()
 
 
 def test_run_external_script():
