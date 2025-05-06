@@ -110,7 +110,7 @@ def save_tiledbsoma_experiment(
 ) -> Artifact:
     """Write `AnnData` to `tiledbsoma.Experiment`.
 
-    Reads `AnnData` objects, writes them to `tiledbsoma.Experiment`, creates & saves an {class}`~lamindb.Artifact`.
+    Reads `AnnData` objects, writes them to `tiledbsoma.Experiment`, creates & saves an :class:`~lamindb.Artifact`.
 
     Populates a column `lamin_run_uid` column in `obs` with the current `run.uid`.
 
