@@ -2,7 +2,6 @@ import bionty as bt
 import lamindb as ln
 import numpy as np
 import pandas as pd
-from lamindb.core import datasets
 from lamindb.models.artifact import _describe_postgres
 
 
@@ -46,51 +45,9 @@ def check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame):
 # parallels the `registries` guide
 # please also see the test_querset.py tests
 def test_curate_df():
-    ## Create a more complex case
-    # observation-level metadata
-    ln.Feature(name="perturbation", dtype="cat[ULabel]").save()
-    ln.Feature(name="sample_note", dtype="str").save()
-    ln.Feature(name="cell_type_by_expert", dtype="cat[bionty.CellType]").save()
-    ln.Feature(name="cell_type_by_model", dtype="cat[bionty.CellType]").save()
-    # dataset-level metadata
-    ln.Feature(name="temperature", dtype="float").save()
-    ln.Feature(name="experiment", dtype="cat[ULabel]").save()
-    ln.Feature(name="date_of_study", dtype="date").save()
-    ln.Feature(name="study_note", dtype="str").save()
-    ln.Feature(name="study_metadata", dtype=dict).save()
-
-    ## Permissible values for categoricals
-    ln.ULabel.from_values(["DMSO", "IFNG"], create=True).save()
-    ln.ULabel.from_values(["Experiment 1", "Experiment 2"], create=True).save()
-    bt.CellType.from_values(["B cell", "T cell"], create=True).save()
-
-    schema = ln.schemas.anndata.ensembl_gene_ids_and_valid_features_in_obs()
-
-    ## Ingest dataset1
-    adata = datasets.small_dataset1(otype="AnnData")
-    artifact = ln.Artifact.from_anndata(
-        adata,
-        key="examples/dataset1.h5ad",
-        schema=schema,
-    ).save()
-    d1 = {"study_metadata": {"detail1": "123", "detail2": 1}}
-    dataset_metadata = adata.uns
-    dataset_metadata.update(d1)
-    artifact.features.add_values(dataset_metadata)
-    print("dataset1", adata.uns)
-
-    # Ingest dataset2
-    adata2 = datasets.small_dataset2(otype="AnnData")
-    artifact2 = ln.Artifact.from_anndata(
-        adata,
-        key="examples/dataset2.h5ad",
-        schema=schema,
-    ).save()
-    d2 = {"study_metadata": {"detail1": "456", "detail2": 2}}
-    dataset_metadata = adata2.uns
-    dataset_metadata.update(d2)
-    artifact2.features.add_values(dataset_metadata)
-    print("dataset2", adata2.uns)
+    ln.examples.ingest_mini_immuno_datasets()
+    artifact = ln.Artifact.get(key="examples/dataset1.h5ad")
+    artifact2 = ln.Artifact.get(key="examples/dataset2.h5ad")
 
     # Test df(include=[...])
     df = (
@@ -177,15 +134,15 @@ def test_curate_df():
         artifact.features.describe(return_str=True)
         == """Artifact .h5ad/AnnData
 ├── Dataset features
-│   ├── var • 3             [bionty.Gene]
-│   │   CD8A                int
-│   │   CD4                 int
-│   │   CD14                int
-│   └── obs • 4             [Feature]
-│       cell_type_by_expe…  cat[bionty.CellT…  B cell, CD8-positive, alpha-beta…
-│       cell_type_by_model  cat[bionty.CellT…  B cell, T cell
-│       perturbation        cat[ULabel]        DMSO, IFNG
-│       sample_note         str
+│   ├── obs • 4             [Feature]
+│   │   cell_type_by_expe…  cat[bionty.CellT…  B cell, CD8-positive, alpha-beta…
+│   │   cell_type_by_model  cat[bionty.CellT…  B cell, T cell
+│   │   perturbation        cat[ULabel]        DMSO, IFNG
+│   │   sample_note         str
+│   └── var.T • 3           [bionty.Gene.ens…
+│       CD8A                num
+│       CD4                 num
+│       CD14                num
 └── Linked features
     └── experiment          cat[ULabel]        Experiment 1
         date_of_study       date               2024-12-01
@@ -212,6 +169,7 @@ def test_curate_df():
 
     artifact.delete(permanent=True)
     artifact2.delete(permanent=True)
+    ln.Schema.get(name="anndata_ensembl_gene_ids_and_valid_features_in_obs").delete()
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
     bt.Gene.filter().delete()
