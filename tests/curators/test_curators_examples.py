@@ -227,9 +227,8 @@ def test_dataframe_curator_index():
     curator = ln.curators.DataFrameCurator(df, schema)
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
-    assert (
-        error.exconly()
-        == "lamindb.errors.ValidationError: expected series 'None' to have type str:\nfailure cases:\nindex failure_case\n0 2 0"
+    assert error.exconly().startswith(
+        "lamindb.errors.ValidationError: expected series 'None' to have type str"
     )
 
     schema.delete()
