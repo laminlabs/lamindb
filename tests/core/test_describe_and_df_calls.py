@@ -64,18 +64,15 @@ def test_curate_df():
     ln.ULabel.from_values(["Experiment 1", "Experiment 2"], create=True).save()
     bt.CellType.from_values(["B cell", "T cell"], create=True).save()
 
+    schema = ln.schemas.anndata.ensembl_gene_ids_and_valid_features_in_obs()
+
     ## Ingest dataset1
     adata = datasets.small_dataset1(otype="AnnData")
-    curator = ln.Curator.from_anndata(
+    artifact = ln.Artifact.from_anndata(
         adata,
-        var_index=bt.Gene.ensembl_gene_id,
-        categoricals={
-            "perturbation": ln.ULabel.name,
-            "cell_type_by_expert": bt.CellType.name,
-            "cell_type_by_model": bt.CellType.name,
-        },
-    )
-    artifact = curator.save_artifact(key="examples/dataset1.h5ad")
+        key="examples/dataset1.h5ad",
+        schema=schema,
+    ).save()
     d1 = {"study_metadata": {"detail1": "123", "detail2": 1}}
     dataset_metadata = adata.uns
     dataset_metadata.update(d1)
@@ -84,15 +81,11 @@ def test_curate_df():
 
     # Ingest dataset2
     adata2 = datasets.small_dataset2(otype="AnnData")
-    curator = ln.Curator.from_anndata(
-        adata2,
-        var_index=bt.Gene.ensembl_gene_id,
-        categoricals={
-            "perturbation": ln.ULabel.name,
-            "cell_type_by_model": bt.CellType.name,
-        },
-    )
-    artifact2 = curator.save_artifact(key="examples/dataset2.h5ad")
+    artifact2 = ln.Artifact.from_anndata(
+        adata,
+        key="examples/dataset2.h5ad",
+        schema=schema,
+    ).save()
     d2 = {"study_metadata": {"detail1": "456", "detail2": 2}}
     dataset_metadata = adata2.uns
     dataset_metadata.update(d2)
