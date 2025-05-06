@@ -957,9 +957,9 @@ def _add_values(
         if to_insert_feature_values:
             save(to_insert_feature_values)
         dict_typed_features = [
-            record.feature
+            getattr(record, model_name.lower())
             for record in _feature_values
-            if record.feature.dtype == "dict"
+            if getattr(record, model_name.lower()).dtype == "dict"
         ]
         if is_param:
             LinkORM = self._host._param_values.through
@@ -972,7 +972,7 @@ def _add_values(
             # delete all previously existing anotations with dictionaries
             kwargs = {
                 f"links_{host_class_lower}__{host_class_lower}_id": self._host.id,
-                "feature__in": dict_typed_features,
+                f"{model_name.lower()}__in": dict_typed_features,
             }
             try:
                 value_model.filter(**kwargs).all().delete()
