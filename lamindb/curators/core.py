@@ -914,10 +914,10 @@ class CatVector:
         """Return whether the vector is validated."""
         # We allow additional, unvalidated values except for the following cases
         # if none of the values were validated, the user might have provided the wrong Feature
-        if len(self.values) == len(self._non_validated):
-            return False
+        # if len(self.values) == len(self._non_validated):
+        #    return False
         # if maximal set, we do not allow additional unvalidated genes
-        elif len(self._non_validated) != 0 and self._maximal_set:
+        if len(self._non_validated) != 0 and self._maximal_set:
             return False
         else:
             return True
