@@ -264,10 +264,10 @@ Here is how to create ulabels for them:
         "2024-12-01T00:00:00",
     }
 
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ln.errors.InvalidArgument) as error:
         ln.Artifact.filter(temperature_with_typo=100.0, project="project_1").one()
     assert error.exconly().startswith(
-        "lamindb.errors.ValidationError: Some keys in the filter expression are not registered as features:"
+        "lamindb.errors.InvalidArgument: You can query either by available fields:"
     )
 
     ln.Artifact.features.get(temperature=100.0)
