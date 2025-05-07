@@ -17,7 +17,6 @@ from django.db.models import CASCADE, PROTECT, Q
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage_in_instance
-from lamindb_setup.core import doc_args
 from lamindb_setup.core._settings_storage import init_storage
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dir, hash_file
 from lamindb_setup.core.types import UPathStr
@@ -98,8 +97,6 @@ from .ulabel import ULabel
 WARNING_RUN_TRANSFORM = "no run & transform got linked, call `ln.track()` & re-run"
 
 WARNING_NO_INPUT = "run input wasn't tracked, call `ln.track()` and re-run"
-
-DEBUG_KWARGS_DOC = "**kwargs: Internal arguments for debugging."
 
 try:
     from ..core.storage._zarr import identify_zarr_type
@@ -2397,7 +2394,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         _track_run_input(self, is_run_input)
         return access_memory
 
-    @doc_args(DEBUG_KWARGS_DOC)
     def cache(
         self, *, is_run_input: bool | None = None, mute: bool = False, **kwargs
     ) -> Path:
@@ -2410,7 +2406,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         Args:
             mute: Silence logging of caching progress.
             is_run_input: Whether to track this artifact as run input.
-            {}
 
         Example::
 
@@ -2560,13 +2555,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 if delete_msg != "did-not-delete":
                     logger.success(f"deleted {colors.yellow(f'{path}')}")
 
-    @doc_args(DEBUG_KWARGS_DOC)
     def save(self, upload: bool | None = None, **kwargs) -> Artifact:
         """Save to database & storage.
 
         Args:
             upload: Trigger upload to cloud storage in instances with hybrid storage mode.
-            {}
 
         Example::
 

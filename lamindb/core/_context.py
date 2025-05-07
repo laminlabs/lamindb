@@ -259,8 +259,8 @@ class Context:
         self,
         transform: str | Transform | None = None,
         *,
-        project: str | None = None,
-        space: str | None = None,
+        project: str | Project | None = None,
+        space: str | Space | None = None,
         params: dict | None = None,
         new_run: bool | None = None,
         path: str | None = None,
@@ -273,9 +273,10 @@ class Context:
 
         Args:
             transform: A transform (stem) `uid` (or record). If `None`, auto-creates a `transform` with its `uid`.
-            project: A project `name` or `uid` for labeling entities created during the run.
-            space: A space `name` or `uid` to identify where potentially sensitive entities are created during the run.
-                This doesn't affect `Storage`, `ULabel`, `Feature`, `Schema`, `Param` and bionty entities as these provide mere structure that should typically be commonly accessible.
+            project: A project, its `name` or `uid` for labeling entities created during the run.
+            space: A restricted space, its `name` or `uid` for creating sensitive entities are created during the run.
+                The default is the common `"All"` space that every LaminDB instance has.
+                The `space` argument doesn't affect `Storage`, `ULabel`, `Feature`, `Schema`, `Param` and bionty entities as these provide structure that should typically be commonly accessible.
                 If you want to manually move entities to a different space, set the `.space` field (:doc:`docs:access`).
             params: A dictionary of parameters to track for the run.
             new_run: If `False`, loads the latest run of transform
