@@ -310,20 +310,32 @@ class Context:
         if project is None:
             project = os.environ.get("LAMIN_CURRENT_PROJECT")
         if project is not None:
-            project_record = Project.filter(
-                Q(name=project) | Q(uid=project)
-            ).one_or_none()
-            if project_record is None:
-                raise InvalidArgument(
-                    f"Project '{project}' not found, either create it with `ln.Project(name='...').save()` or fix typos."
+            if isinstance(project, Project):
+                assert project._state.adding is False, (  # noqa: S101
+                    "Project must be saved before passing it to track()"
                 )
+                project_record = project
+            else:
+                project_record = Project.filter(
+                    Q(name=project) | Q(uid=project)
+                ).one_or_none()
+                if project_record is None:
+                    raise InvalidArgument(
+                        f"Project '{project}' not found, either create it with `ln.Project(name='...').save()` or fix typos."
+                    )
             self._project = project_record
         if space is not None:
-            space_record = Space.filter(Q(name=space) | Q(uid=space)).one_or_none()
-            if space_record is None:
-                raise InvalidArgument(
-                    f"Space '{space}', please check on the hub UI whether you have the correct `uid` or `name`."
+            if isinstance(space, Space):
+                assert space._state.adding is False, (  # noqa: S101
+                    "Space must be saved before passing it to track()"
                 )
+                space_record = space
+            else:
+                space_record = Space.filter(Q(name=space) | Q(uid=space)).one_or_none()
+                if space_record is None:
+                    raise InvalidArgument(
+                        f"Space '{space}', please check on the hub UI whether you have the correct `uid` or `name`."
+                    )
             self._space = space_record
         self._logging_message_track = ""
         self._logging_message_imports = ""
