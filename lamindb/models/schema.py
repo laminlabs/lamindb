@@ -538,7 +538,6 @@ class Schema(Record, CanCurate, TracksRun):
             optional_features,
             features_registry,
             flexible,
-            list_for_hashing,
         ) = self._validate_kwargs_calculate_hash(
             features=features,
             index=index,
@@ -562,7 +561,6 @@ class Schema(Record, CanCurate, TracksRun):
             .filter(hash=validated_kwargs["hash"])
             .one_or_none()
         )
-        self._list_for_hashing = list_for_hashing
         if schema is not None:
             logger.important(f"returning existing schema with same hash: {schema}")
             init_self_from_db(self, schema)
@@ -609,7 +607,7 @@ class Schema(Record, CanCurate, TracksRun):
         coerce_dtype: bool,
         n_features: int | None,
         optional_features_manual: list[Feature] | None = None,
-    ) -> tuple[list[Feature], dict[str, Any], list[Feature], Registry, bool, list[str]]:
+    ) -> tuple[list[Feature], dict[str, Any], list[Feature], Registry, bool]:
         optional_features = []
         features_registry: Registry = None
         if itype is not None:
@@ -729,7 +727,6 @@ class Schema(Record, CanCurate, TracksRun):
             optional_features,
             features_registry,
             flexible,
-            list_for_hashing,
         )
 
     @classmethod
@@ -865,26 +862,24 @@ class Schema(Record, CanCurate, TracksRun):
                 if hasattr(self, "_features")
                 else (self.members.list() if self.members.exists() else [])
             )
-            _, validated_kwargs, _, _, _, list_for_hashing = (
-                self._validate_kwargs_calculate_hash(
-                    features=features,  # type: ignore
-                    index=None,  # need to pass None here as otherwise counting double
-                    slots=self._slots if hasattr(self, "_slots") else self.slots,
-                    name=self.name,
-                    description=self.description,
-                    itype=self.itype,
-                    flexible=self.flexible,
-                    type=self.type,
-                    is_type=self.is_type,
-                    otype=self.otype,
-                    dtype=self.dtype,
-                    minimal_set=self.minimal_set,
-                    ordered_set=self.ordered_set,
-                    maximal_set=self.maximal_set,
-                    coerce_dtype=self.coerce_dtype,
-                    n_features=self.n,
-                    optional_features_manual=self.optionals.get(),
-                )
+            _, validated_kwargs, _, _, _ = self._validate_kwargs_calculate_hash(
+                features=features,  # type: ignore
+                index=None,  # need to pass None here as otherwise counting double
+                slots=self.slots,
+                name=self.name,
+                description=self.description,
+                itype=self.itype,
+                flexible=self.flexible,
+                type=self.type,
+                is_type=self.is_type,
+                otype=self.otype,
+                dtype=self.dtype,
+                minimal_set=self.minimal_set,
+                ordered_set=self.ordered_set,
+                maximal_set=self.maximal_set,
+                coerce_dtype=self.coerce_dtype,
+                n_features=self.n,
+                optional_features_manual=self.optionals.get(),
             )
             if validated_kwargs["hash"] != self.hash:
                 from .artifact import Artifact
@@ -896,7 +891,6 @@ class Schema(Record, CanCurate, TracksRun):
                     )
                 self.hash = validated_kwargs["hash"]
                 self.n = validated_kwargs["n"]
-            self._list_for_hashing = list_for_hashing
         super().save(*args, **kwargs)
         if hasattr(self, "_slots"):
             # analogous to save_schema_links in core._data.py
@@ -910,6 +904,7 @@ class Schema(Record, CanCurate, TracksRun):
                 }
                 links.append(Schema.components.through(**kwargs))
             bulk_create(links, ignore_conflicts=True)
+            delattr(self, "_slots")
         if hasattr(self, "_features"):
             assert self.n > 0  # noqa: S101
             using: bool | None = kwargs.pop("using", None)
@@ -1188,7 +1183,7 @@ class SchemaComponent(BasicRecord, LinkORM, TracksRun):
     slot: str | None = CharField(null=True)
 
     class Meta:
-        unique_together = (("composite", "component"), ("composite", "slot"))
+        unique_together = (("composite", "slot", "component"), ("composite", "slot"))
 
 
 Schema._get_related_name = _get_related_name

@@ -464,8 +464,8 @@ def test_schemas_anndata():
         slots={"obs": obs_schema, "var.T": varT_schema.save()},
     )
     assert schema._list_for_hashing == [
-        "kMi7B_N88uu-YnbTLDU-DA",
         "1gocc_TJ1RU2bMwDRK-WUA",
+        "kMi7B_N88uu-YnbTLDU-DA",
     ]
     assert schema.name == "anndata_ensembl_gene_ids_and_valid_features_in_obs"
     assert schema.itype == "Composite"
