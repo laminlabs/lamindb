@@ -439,7 +439,7 @@ class Schema(Record, CanCurate, TracksRun):
     artifacts: Artifact
     """The artifacts that measure a feature set that matches this schema."""
     validated_artifacts: Artifact
-    """The artifacts that were validated against this schema with a :class:`~lamindb.curators.Curator`."""
+    """The artifacts that were validated against this schema with a :class:`~lamindb.curators.core.Curator`."""
     projects: Project
     """Linked projects."""
     _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
@@ -457,7 +457,7 @@ class Schema(Record, CanCurate, TracksRun):
     # For instance, the set of measured features might be a superset of the minimally required set of features.
     # """
     # validated_schemas: Schema
-    # """The schemas that were validated against this schema with a :class:`~lamindb.curators.Curator`."""
+    # """The schemas that were validated against this schema with a :class:`~lamindb.curators.core.Curator`."""
     composite: Schema | None = ForeignKey(
         "self", PROTECT, related_name="+", default=None, null=True
     )
