@@ -597,7 +597,7 @@ class Registry(ModelBase):
         target_modules = setup_settings.instance.modules
         if missing_members := source_modules - target_modules:
             logger.warning(
-                f"source modules has additional modules: {missing_members}\n"
+                f"source instance has additional modules: {missing_members}\n"
                 "consider mounting these registry modules to transfer all metadata"
             )
 
@@ -839,7 +839,7 @@ class BasicRecord(models.Model, metaclass=Registry):
                 self.features._add_from(self_on_db, transfer_logs=transfer_logs)
                 self.labels.add_from(self_on_db, transfer_logs=transfer_logs)
             for k, v in transfer_logs.items():
-                if k != "run":
+                if k != "run" and len(v) > 0:
                     logger.important(f"{k} records: {', '.join(v)}")
 
         if (
