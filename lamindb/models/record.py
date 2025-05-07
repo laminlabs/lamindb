@@ -596,9 +596,8 @@ class Registry(ModelBase):
 
         target_modules = setup_settings.instance.modules
         if missing_members := source_modules - target_modules:
-            logger.warning(
-                f"source instance has additional modules: {missing_members}\n"
-                "consider mounting these registry modules to transfer all metadata"
+            logger.info(
+                f"in transfer, source lamindb instance has additional modules: {', '.join(missing_members)}"
             )
 
         add_db_connection(db, instance)

@@ -836,7 +836,7 @@ class SpatialDataCurator(SlotsCurator):
                     sub_slot = split_result[1]
                     data_object = self._dataset.attrs[split_result[1]]
                 data_object = pd.DataFrame([data_object])
-            self._slots[slot] = DataFrameCurator(data_object, slot_schema)
+            self._slots[slot] = DataFrameCurator(data_object, slot_schema, slot)
             _assign_var_fields_categoricals_multimodal(
                 modality=table_key,
                 slot_type=sub_slot,
@@ -1330,7 +1330,7 @@ class DataFrameCatManager:
 
         validated = True
         for key, cat_vector in self._cat_vectors.items():
-            logger.info(f"validating column {key}")
+            logger.info(f"validating vector {key}")
             cat_vector.validate()
             validated &= cat_vector.is_validated
         self._is_validated = validated
@@ -1493,6 +1493,9 @@ def annotate_artifact(
                 else "columns"
             )
             features = slot_curator.cat._cat_vectors[name].records
+            if features is None:
+                logger.warning(f"no features found for slot {slot}")
+                continue
             itype = parse_cat_dtype(artifact.schema.slots[slot].itype, is_itype=True)[
                 "field"
             ]
