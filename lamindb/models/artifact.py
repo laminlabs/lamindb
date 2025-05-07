@@ -2756,7 +2756,7 @@ def _track_run_input(
                 # record is on another db
                 # we have to save the record into the current db with
                 # the run being attached to a transfer transform
-                logger.important(
+                logger.info(
                     f"completing transfer to track {data.__class__.__name__}('{data.uid[:8]}...') as input"
                 )
                 data.save()
