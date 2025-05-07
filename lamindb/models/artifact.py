@@ -1236,7 +1236,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         default=None,
         related_name="validated_artifacts",
     )
-    """The schema that validated this artifact in a :class:`~lamindb.curators.Curator`."""
+    """The schema that validated this artifact in a :class:`~lamindb.curators.core.Curator`."""
     feature_sets: Schema = models.ManyToManyField(
         Schema, related_name="artifacts", through="ArtifactSchema"
     )
