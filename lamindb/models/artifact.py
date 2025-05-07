@@ -2757,7 +2757,7 @@ def _track_run_input(
                 # we have to save the record into the current db with
                 # the run being attached to a transfer transform
                 logger.important(
-                    f"completing transfer to track {data.__class__.__name__}('{data.uid[:8]}') as input"
+                    f"completing transfer to track {data.__class__.__name__}('{data.uid[:8]}...') as input"
                 )
                 data.save()
                 is_valid = True

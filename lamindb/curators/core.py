@@ -510,7 +510,7 @@ class DataFrameCurator(Curator):
             categoricals=categoricals,
             index=schema.index,
             slot=slot,
-            schema_maximal_set=schema.maximal_set,
+            maximal_set=schema.maximal_set,
         )
 
     @property
@@ -1210,7 +1210,7 @@ class DataFrameCatManager:
         sources: dict[str, Record] | None = None,
         index: Feature | None = None,
         slot: str | None = None,
-        schema_maximal_set: bool = False,
+        maximal_set: bool = False,
     ) -> None:
         self._non_validated = None
         self._index = index
@@ -1227,7 +1227,7 @@ class DataFrameCatManager:
         self._validate_category_error_messages: str = ""
         self._cat_vectors: dict[str, CatVector] = {}
         self._slot = slot
-        self._maximal_set = schema_maximal_set
+        self._maximal_set = maximal_set
 
         if columns_names is None:
             columns_names = []
@@ -1272,7 +1272,6 @@ class DataFrameCatManager:
                 feature=feature,
                 cat_manager=self,
                 subtype_str=subtype_str,
-                maximal_set=self._maximal_set,
             )
         if index is not None and index.dtype.startswith("cat"):
             result = parse_dtype(index.dtype)[0]
@@ -1284,7 +1283,6 @@ class DataFrameCatManager:
                 key=key,
                 feature=index,
                 cat_manager=self,
-                maximal_set=self._maximal_set,
             )
 
     @property
