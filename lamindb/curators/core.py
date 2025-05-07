@@ -1078,11 +1078,6 @@ class CatVector:
         field_name = self._field.field.name
         model_field = f"{registry.__name__}.{field_name}"
 
-        def _log_mapping_info():
-            logger.indent = ""
-            logger.info(f'mapping "{self._key}" on {colors.italic(model_field)}')
-            logger.indent = "  "
-
         kwargs_current = get_current_filter_kwargs(
             registry, {"organism": self._organism, "source": self._source}
         )
@@ -1121,7 +1116,6 @@ class CatVector:
         non_validated = [i for i in non_validated if i not in values_validated]
         n_non_validated = len(non_validated)
         if n_non_validated == 0:
-            logger.indent = ""
             logger.success(
                 f'"{self._key}" is validated against {colors.italic(model_field)}'
             )
@@ -1143,14 +1137,12 @@ class CatVector:
                 warning_message += f"    → fix typos, remove non-existent values, or save terms via: {colors.cyan(non_validated_hint_print)}"
                 if self._subtype_query_set is not None:
                     warning_message += f"\n    → a valid label for subtype '{self._subtype_str}' has to be one of {self._subtype_query_set.list('name')}"
-            if logger.indent == "":
-                _log_mapping_info()
+            logger.info(f'mapping "{self._key}" on {colors.italic(model_field)}')
             logger.warning(warning_message)
             if self._cat_manager is not None:
                 self._cat_manager._validate_category_error_messages = strip_ansi_codes(
                     warning_message
                 )
-            logger.indent = ""
             return non_validated, syn_mapper
 
     def validate(self) -> None:
