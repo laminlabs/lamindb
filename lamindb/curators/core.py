@@ -850,27 +850,20 @@ class SpatialDataCurator(SlotsCurator):
 
 
 class CatVector:
-    """Categorical vector for `DataFrame`.
-
-    Args:
-        values_getter: A callable or iterable that returns the values to validate.
-        field: The field to validate against.
-        key: The name of the column to validate. Only used for logging.
-        values_setter: A callable that sets the values.
-        source: The source to validate against.
-    """
+    """Vector with categorical values."""
 
     def __init__(
         self,
-        values_getter: Callable | Iterable[str],
-        field: FieldAttr,
-        key: str,
-        values_setter: Callable | None = None,
-        source: Record | None = None,
+        values_getter: Callable
+        | Iterable[str],  # A callable or iterable that returns the values to validate.
+        field: FieldAttr,  # The field to validate against.
+        key: str,  # The name of the vector to validate. Only used for logging.
+        values_setter: Callable | None = None,  # A callable that sets the values.
+        source: Record | None = None,  # The ontology source to validate against.
         feature: Feature | None = None,
         cat_manager: DataFrameCatManager | None = None,
         subtype_str: str = "",
-        maximal_set: bool = False,  # Passed during validation. Whether unvalidated categoricals cause validation failure.
+        maximal_set: bool = True,  # whether unvalidated categoricals cause validation failure.
     ) -> None:
         self._values_getter = values_getter
         self._values_setter = values_setter
@@ -912,18 +905,13 @@ class CatVector:
     @property
     def is_validated(self) -> bool:
         """Whether the vector is validated."""
-        # ensembl gene IDs pass even if they were not validated
-        # this is a simple solution to the ensembl gene version problem
-        if self._field.field.attname == "ensembl_gene_id":
-            # if none of the ensembl gene ids were validated, we are probably not looking at ensembl gene IDs
-            if len(self.values) == len(self._non_validated):
-                return False
-            # if maximal set, we do not allow additional unvalidated genes
-            elif len(self._non_validated) != 0 and self._maximal_set:
-                return False
-            return True
-        else:
-            return len(self._non_validated) == 0
+        # if nothing was validated, something likely is fundamentally wrong
+        if len(self.values) == len(self._non_validated):
+            return False
+        # if maximal_set is True, we do not allow unvalidated categories
+        elif len(self._non_validated) != 0 and self._maximal_set:
+            return False
+        return True
 
     def _replace_synonyms(self) -> list[str]:
         """Replace synonyms in the vector with standardized values."""
