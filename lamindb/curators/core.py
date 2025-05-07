@@ -906,12 +906,19 @@ class CatVector:
     def is_validated(self) -> bool:
         """Whether the vector is validated."""
         # if nothing was validated, something likely is fundamentally wrong
-        if len(self.values) == len(self._non_validated):
-            return False
-        # if maximal_set is True, we do not allow unvalidated categories
-        elif len(self._non_validated) != 0 and self._maximal_set:
-            return False
-        return True
+        # should probably add a setting `at_least_one_validated`
+        result = True
+        if len(self.values) > 0 and len(self.values) == len(self._non_validated):
+            result = False
+        # len(self._non_validated) != 0
+        #     if maximal_set is True, return False
+        #     if maximal_set is False, return True
+        # len(self._non_validated) == 0
+        #     return True
+        if len(self._non_validated) != 0:
+            if self._maximal_set:
+                result = False
+        return result
 
     def _replace_synonyms(self) -> list[str]:
         """Replace synonyms in the vector with standardized values."""
