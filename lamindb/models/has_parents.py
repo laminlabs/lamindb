@@ -236,6 +236,24 @@ def view_parents(
             children=True,
             attr_name=attr_name,
         )
+        # Rename the columns to swap source and target
+        df_edges_children = df_edges_children.rename(
+            columns={
+                "source": "temp_target",
+                "source_label": "temp_target_label",
+                "source_record": "temp_target_record",
+                "target": "source",
+                "target_label": "source_label",
+                "target_record": "source_record",
+            }
+        )
+        df_edges_children = df_edges_children.rename(
+            columns={
+                "temp_target": "target",
+                "temp_target_label": "target_label",
+                "temp_target_record": "target_record",
+            }
+        )
         if df_edges_children is not None:
             if df_edges is not None:
                 df_edges = pd.concat(
