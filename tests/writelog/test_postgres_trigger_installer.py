@@ -33,6 +33,7 @@ class FakeMetadataWrapper(PostgresDatabaseMetadataWrapper):
         self._db_tables = set()
         self._many_to_many_tables = set()
         self._uid_columns: dict[str, UIDColumns] = {}
+        self._is_aux_artifact: dict[tuple[str, ...], bool] = {}
 
     @override
     def get_tables_with_installed_triggers(self, cursor: CursorWrapper) -> set[str]:
@@ -54,6 +55,19 @@ class FakeMetadataWrapper(PostgresDatabaseMetadataWrapper):
 
     def set_many_to_many_db_tables(self, tables: set[str]):
         self._many_to_many_tables = tables
+
+    @override
+    def is_auxiliary_artifact(
+        self, source_table: str, target_table: str, foreign_key_fields: list[str]
+    ) -> bool:
+        return self._is_aux_artifact.get(
+            (source_table, target_table, *foreign_key_fields), False
+        )
+
+    def set_is_auxiliary_artifact(
+        self, source_table: str, target_table: str, foreign_key_fields: list[str]
+    ):
+        self._is_aux_artifact[(source_table, target_table, *foreign_key_fields)] = True
 
     @override
     def get_uid_columns(self, table: str, cursor: CursorWrapper) -> UIDColumns:
@@ -1283,9 +1297,6 @@ def test_self_referential_backfill(self_referential_pg_table):
 
 
 @pytest.mark.pg_integration
-@pytest.mark.skip(
-    reason="Skipping this until we can resolve circular table dependency issue"
-)
 def test_write_log_records_space_uids_properly(table_with_space_ref, fake_space):
     cursor = django_connection.cursor()
 

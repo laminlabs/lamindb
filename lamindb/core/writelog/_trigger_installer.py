@@ -191,6 +191,16 @@ class WriteLogRecordingTriggerInstaller(ABC):
                 if foreign_key.target_table not in table_dependencies:
                     table_dependencies[foreign_key.target_table] = set()
 
+                # If an auxilliary table foreign-keys to a non-auxilliary one,
+                # there's no real dependency because the foreign-keyed field will
+                # always be NULL, so we can skip it.
+                if self.db_metadata.is_auxiliary_artifact(
+                    source_table=table,
+                    target_table=foreign_key.target_table,
+                    foreign_key_fields=foreign_key.source_columns,
+                ):
+                    continue
+
                 table_dependencies[foreign_key.target_table].add(table)
 
         table_backfill_order = topological_sort(table_dependencies)
@@ -201,6 +211,10 @@ class WriteLogRecordingTriggerInstaller(ABC):
             )
 
         for table in table_backfill_order:
+            # Don't backfill a table if we aren't installing history triggers on it.
+            if table in EXCLUDED_TABLES:
+                continue
+
             table_state = HistoryTableState.objects.get(table_name=table)
 
             if table_state.backfilled:

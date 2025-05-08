@@ -67,6 +67,21 @@ class DatabaseMetadataWrapper(ABC):
 
         return many_to_many_tables
 
+    def is_auxiliary_artifact(
+        self, source_table: str, target_table: str, foreign_key_fields: list[str]
+    ) -> bool:
+        if source_table == "lamindb_run" and target_table == "lamindb_artifact":
+            return True
+
+        if (
+            source_table == "lamindb_artifact"
+            and target_table == "lamindb_run"
+            and foreign_key_fields == ["run_id"]
+        ):
+            return True
+
+        return False
+
     def get_uid_columns(self, table: str, cursor: CursorWrapper) -> UIDColumns:
         """Get the UID columns for a given table."""
         if table in ("lamindb_paramvalue", "lamindb_featurevalue"):
