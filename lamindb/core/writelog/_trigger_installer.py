@@ -65,8 +65,12 @@ EXCLUDED_TABLES = [
 ]
 
 
-def get_trigger_function_name(table: str) -> str:
+def get_history_recording_function_name(table: str) -> str:
     return f"lamindb_writelog_{table}_fn"
+
+
+def get_trigger_function_name(table: str) -> str:
+    return f"{get_history_recording_function_name(table=table)}_trf"
 
 
 class WriteLogRecordingTriggerInstaller(ABC):
@@ -225,13 +229,7 @@ BEGIN
         FROM {table}
     LOOP
         -- Call the trigger function for each row
-        PERFORM {get_trigger_function_name(table)}(
-            NULL,       -- TG_RELID
-            NULL,       -- TG_RELATION_NAME
-            'INSERT',   -- TG_OP
-            NULL,       -- OLD record
-            r           -- NEW record
-        );
+    PERFORM {get_history_recording_function_name(table)}(NULL, r, 'INSERT');
     END LOOP;
 END $$;
 """)  # noqa: S608
@@ -319,19 +317,12 @@ BEGIN
         RAISE EXCEPTION 'No matching record found';
     END IF;
 
-    PERFORM {get_trigger_function_name(table)}(
-        NULL,       -- TG_RELID
-        NULL,       -- TG_RELATION_NAME
-        'INSERT',   -- TG_OP
-        NULL,       -- OLD record
-        r           -- NEW record
-    );
-    END LOOP;
+    PERFORM {get_history_recording_function_name(table)}(NULL, r, 'INSERT');
 END $$;
 """)  # noqa: S608
 
 
-class PostgresTriggerBuilder:
+class PostgresHistoryRecordingFunctionBuilder:
     # Since we're creating triggers and functions based on table names,
     # it's probably a good idea to check that those names are valid
     # to mitigate the potential for SQL injection.
@@ -342,7 +333,7 @@ class PostgresTriggerBuilder:
         self, table: str, db_metadata: DatabaseMetadataWrapper, cursor: CursorWrapper
     ):
         self.table = table
-        self.function_name = get_trigger_function_name(table)
+        self.function_name = get_history_recording_function_name(table)
         self.db_metadata = db_metadata
         self.cursor = cursor
 
@@ -436,9 +427,9 @@ class PostgresTriggerBuilder:
 
             # This table's UID is determined solely by its own columns
             if is_delete:
-                table_name_in_trigger = "OLD"
+                table_name_in_trigger = "old_record"
             else:
-                table_name_in_trigger = "NEW"
+                table_name_in_trigger = "new_record"
 
             return self._build_jsonb_array(
                 [
@@ -522,7 +513,7 @@ class PostgresTriggerBuilder:
 
         # Any columns that are not part of a key can be added to the record's data directly.
         for column in non_key_columns:
-            record_data[column] = f"NEW.{column}"
+            record_data[column] = f"new_record.{column}"
 
         # Place a list of foreign key constraints at the "end" of the object under a reserved name
         fkey_source_columns_variables = [
@@ -613,7 +604,7 @@ class PostgresTriggerBuilder:
     def add_foreign_key_uid_lookup_variable(
         self, foreign_key_constraint: KeyConstraint, is_delete: bool
     ) -> str:
-        source_record = "OLD" if is_delete else "NEW"
+        source_record = "old_record" if is_delete else "new_record"
 
         uid_column_list = self.db_metadata.get_uid_columns(
             table=foreign_key_constraint.target_table, cursor=self.cursor
@@ -665,7 +656,7 @@ coalesce(
                 f"Table name '{table_name}' doesn't look like a valid PostgreSQL table name"
             )
 
-    def build(self) -> str:
+    def build_function(self) -> str:
         self._validate_table_name(self.table)
 
         self.declare_variable(
@@ -693,7 +684,7 @@ coalesce(
 
         function_body = f"""
     IF NOT write_log_triggers_locked THEN
-        IF (TG_OP = 'DELETE') THEN
+        IF (trigger_op = 'DELETE') THEN
             record_data := NULL;
             record_uid := {self._build_record_uid(is_delete=True)};
             event_type := {WriteLogEventTypes.DELETE.value};
@@ -703,9 +694,9 @@ coalesce(
             record_uid := {self._build_record_uid(is_delete=False)};
             space_uid := ({self._build_space_uid(is_delete=False)});
 
-            IF (TG_OP = 'INSERT') THEN
+            IF (trigger_op = 'INSERT') THEN
                 event_type := {WriteLogEventTypes.INSERT.value};
-            ELSIF (TG_OP = 'UPDATE') THEN
+            ELSIF (trigger_op = 'UPDATE') THEN
                 event_type := {WriteLogEventTypes.UPDATE.value};
             END IF;
         END IF;
@@ -739,20 +730,19 @@ coalesce(
                 now()
             );
     END IF;
-    RETURN NEW;
+    RETURN new_record;
 """  # noqa: S608
 
         # Build the actual function declaration
         return f"""
-CREATE OR REPLACE FUNCTION {self.function_name}()
-    RETURNS TRIGGER
-    LANGUAGE PLPGSQL
+CREATE OR REPLACE FUNCTION {self.function_name}(old_record RECORD, new_record RECORD, trigger_op TEXT)
+    RETURNS RECORD
 AS $$
 {self._build_variable_declarations()}
 BEGIN
 {function_body}
 END;
-$$
+$$ LANGUAGE PLPGSQL;
 """  # noqa: S608
 
 
@@ -784,14 +774,31 @@ $$ LANGUAGE plpgsql;
     def install_triggers(self, table: str, cursor: CursorWrapper):
         self._install_base62_function(cursor)
 
-        trigger_builder = PostgresTriggerBuilder(
+        trigger_builder = PostgresHistoryRecordingFunctionBuilder(
             table=table, db_metadata=self.db_metadata, cursor=cursor
         )
 
-        create_trigger_function_command = trigger_builder.build()
+        # Create the function that powers the trigger.
+        create_function_command = trigger_builder.build_function()
 
-        logger.debug(create_trigger_function_command)
-        cursor.execute(create_trigger_function_command)
+        logger.debug(create_function_command)
+        cursor.execute(create_function_command)
+
+        # Create a trigger function that wraps the function we just created.
+        trigger_function_name = get_history_recording_function_name(table=table)
+
+        create_cursor_function_command = f"""
+CREATE OR REPLACE FUNCTION {trigger_function_name}()
+    RETURNS TRIGGER
+    LANGUAGE PLPGSQL
+AS $$
+BEGIN
+    RETURN {get_history_recording_function_name(table=table)}(OLD, NEW, TG_OP);
+END;
+$$
+"""
+        logger.debug(create_cursor_function_command)
+        cursor.execute(create_cursor_function_command)
 
         for write_log_event_type in WriteLogEventTypes:
             trigger_name = (
@@ -802,7 +809,7 @@ $$ LANGUAGE plpgsql;
             CREATE OR REPLACE TRIGGER {trigger_name}
             AFTER {write_log_event_type.name}
             ON {table}
-            FOR EACH ROW EXECUTE PROCEDURE {trigger_builder.function_name}();
+            FOR EACH ROW EXECUTE PROCEDURE {trigger_function_name}();
             """)
 
 

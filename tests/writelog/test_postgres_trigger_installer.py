@@ -1094,6 +1094,77 @@ CREATE TABLE IF NOT EXISTS write_log_space_ref_test
     cursor.execute("DROP TABLE IF EXISTS write_log_space_ref_test")
 
 
+@pytest.fixture(scope="function")
+def backfill_table_a(history_state):
+    table_name = "backfill_table_a"
+
+    cursor = django_connection.cursor()
+
+    cursor.execute(f"""
+CREATE TABLE IF NOT EXISTS {table_name}
+(
+    id SERIAL PRIMARY KEY,
+    uid VARCHAR(20),
+    data VARCHAR(100)
+);
+""")
+
+    yield table_name
+
+    cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
+
+
+@pytest.fixture(scope="function")
+def backfill_table_b(history_state, backfill_table_a):
+    table_name = "backfill_table_b"
+
+    cursor = django_connection.cursor()
+
+    cursor.execute(f"""
+CREATE TABLE IF NOT EXISTS {table_name}
+(
+    id SERIAL PRIMARY KEY,
+    uid VARCHAR(20),
+    table_a_id INT,
+    data VARCHAR(100),
+    CONSTRAINT fk FOREIGN KEY (table_a_id) REFERENCES {backfill_table_a}(id)
+);
+""")
+
+    yield table_name
+
+    cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
+
+
+@pytest.mark.pg_integration
+def test_simple_backfill(backfill_table_a, backfill_table_b):
+    cursor = django_connection.cursor()
+
+    # Populate the tables with some pre-existing data.
+    cursor.execute(
+        f"INSERT INTO {backfill_table_a} (uid, data) VALUES ('badf00d1234', 'mydata')"  # noqa: S608
+    )
+    cursor.execute(
+        f"INSERT INTO {backfill_table_a} (uid, data) VALUES ('deadbeef456', 'moredata')"  # noqa: S608
+    )
+
+    table_a_id = fetch_row_id_by_uid(
+        backfill_table_a, ["id"], {"uid": "badf00d1234"}, cursor
+    )
+
+    cursor.execute(
+        f"INSERT INTO {backfill_table_b} (uid, table_a_id, data) VALUES ('m00m00m00', {table_a_id[0]}, 'yetmoredata')"  # noqa: S608
+    )
+
+    _update_history_triggers(table_list={backfill_table_a, backfill_table_b})
+
+    history = History.objects.all().order_by("seqno")
+
+    assert len(history) == 3
+
+    # FIXME finish
+
+
 @pytest.mark.pg_integration
 @pytest.mark.skip(
     reason="Skipping this until we can resolve circular table dependency issue"
