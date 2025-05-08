@@ -2367,7 +2367,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             # SpatialData's __repr__ method attempts to access information from the old path
             # Therefore, we need to update the in-memory path to the now moved Artifact storage path
             if access_memory.__class__.__name__ == "SpatialData":
-                access_memory.path = self.path
+                access_memory.path = self._cache_path
         else:
             filepath, cache_key = filepath_cache_key_from_artifact(
                 self, using_key=settings._using_key
