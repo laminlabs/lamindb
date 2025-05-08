@@ -91,7 +91,7 @@ def describe_header(self: Artifact | Collection | Run) -> Tree:
         )
     if hasattr(self, "_branch_code"):
         if self._branch_code == 0:  # type: ignore
-            logger.warning("This artifact is hidden.")
+            logger.warning("This artifact is archived.")
         elif self._branch_code == -1:  # type: ignore
             logger.warning("This artifact is in the trash.")
     # initialize tree

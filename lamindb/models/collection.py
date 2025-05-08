@@ -24,7 +24,7 @@ from lamindb.base.fields import (
 
 from ..base.ids import base62_20
 from ..core._mapped_collection import MappedCollection
-from ..core.storage._pyarrow_dataset import _is_pyarrow_dataset, _open_pyarrow_dataset
+from ..core.storage._backed_access import _open_dataframe
 from ..errors import FieldValidationError
 from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned
@@ -48,8 +48,9 @@ from .record import (
 from .run import Run, TracksRun, TracksUpdates
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Iterator
 
+    from polars import LazyFrame as PolarsLazyFrame
     from pyarrow.dataset import Dataset as PyArrowDataset
 
     from ..core.storage import UPath
@@ -92,6 +93,39 @@ if TYPE_CHECKING:
 #             features = features_registry.filter(id__in=feature_ids)
 #             feature_sets_union[slot] = Schema(features, dtype=schema_1.dtype)
 #         return feature_sets_union
+
+
+def _load_concat_artifacts(
+    artifacts: list[Artifact], join: Literal["inner", "outer"] = "outer", **kwargs
+) -> pd.DataFrame | ad.AnnData:
+    suffixes = {artifact.suffix for artifact in artifacts}
+    # Why is that? - Sergei
+    if len(suffixes) != 1:
+        raise ValueError(
+            "Can only load collections where all artifacts have the same suffix"
+        )
+
+    # because we're tracking data flow on the collection-level, here, we don't
+    # want to track it on the artifact-level
+    first_object = artifacts[0].load(is_run_input=False)
+    is_dataframe = isinstance(first_object, pd.DataFrame)
+    is_anndata = isinstance(first_object, ad.AnnData)
+    if not is_dataframe and not is_anndata:
+        raise ValueError(f"Unable to concatenate {suffixes.pop()} objects.")
+
+    objects = [first_object]
+    artifact_uids = [artifacts[0].uid]
+    for artifact in artifacts[1:]:
+        objects.append(artifact.load(is_run_input=False))
+        artifact_uids.append(artifact.uid)
+
+    if is_dataframe:
+        concat_object = pd.concat(objects, join=join, **kwargs)
+    elif is_anndata:
+        label = kwargs.pop("label", "artifact_uid")
+        keys = kwargs.pop("keys", artifact_uids)
+        concat_object = ad.concat(objects, join=join, label=label, keys=keys, **kwargs)
+    return concat_object
 
 
 class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
@@ -342,13 +376,25 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             run=run,
         )
 
-    def open(self, is_run_input: bool | None = None) -> PyArrowDataset:
-        """Return a cloud-backed pyarrow Dataset.
+    def open(
+        self,
+        engine: Literal["pyarrow", "polars"] = "pyarrow",
+        is_run_input: bool | None = None,
+        **kwargs,
+    ) -> PyArrowDataset | Iterator[PolarsLazyFrame]:
+        """Open a dataset for streaming.
 
-        Works for `pyarrow` compatible formats.
+        Works for `pyarrow` and `polars` compatible formats
+        (`.parquet`, `.csv`, `.ipc` etc. files or directories with such files).
+
+        Args:
+            engine: Which module to use for lazy loading of a dataframe
+                from `pyarrow` or `polars` compatible formats.
+            is_run_input: Whether to track this artifact as run input.
+            **kwargs: Keyword arguments for `pyarrow.dataset.dataset` or `polars.scan_*` functions.
 
         Notes:
-            For more info, see tutorial: :doc:`/arrays`.
+            For more info, see guide: :doc:`/arrays`.
         """
         if self._state.adding:
             artifacts = self._artifacts
@@ -356,31 +402,12 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         else:
             artifacts = self.ordered_artifacts.all()
         paths = [artifact.path for artifact in artifacts]
-        # this checks that the filesystem is the same for all paths
-        # this is a requirement of pyarrow.dataset.dataset
-        fs = paths[0].fs
-        for path in paths[1:]:
-            # this assumes that the filesystems are cached by fsspec
-            if path.fs is not fs:
-                raise ValueError(
-                    "The collection has artifacts with different filesystems, this is not supported."
-                )
-        if not _is_pyarrow_dataset(paths):
-            suffixes = {path.suffix for path in paths}
-            suffixes_str = ", ".join(suffixes)
-            err_msg = (
-                "This collection is not compatible with pyarrow.dataset.dataset(), "
-            )
-            err_msg += (
-                f"the artifacts have incompatible file types: {suffixes_str}"
-                if len(suffixes) > 1
-                else f"the file type {suffixes_str} is not supported by pyarrow."
-            )
-            raise ValueError(err_msg)
-        dataset = _open_pyarrow_dataset(paths)
+
+        dataframe = _open_dataframe(paths, engine=engine, **kwargs)
         # track only if successful
+        # is it really needed if tracking is done in self.ordered_artifacts.all()? - Sergei
         _track_run_input(self, is_run_input)
-        return dataset
+        return dataframe
 
     def mapped(
         self,
@@ -403,8 +430,8 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         <https://pytorch.org/docs/stable/data.html#map-style-datasets>`__ by
         virtually concatenating `AnnData` arrays.
 
-        If your `AnnData` collection is in the cloud, move them into a local
-        cache first via :meth:`~lamindb.Collection.cache`.
+        By default (`stream=False`) `AnnData` arrays are moved into a local
+        cache first.
 
         `__getitem__` of the `MappedCollection` object takes a single integer index
         and returns a dictionary with the observation data sample for this index from
@@ -416,7 +443,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
 
             For a guide, see :doc:`docs:scrna-mappedcollection`.
 
-            This method currently only works for collections of `AnnData` artifacts.
+            This method currently only works for collections or query sets of `AnnData` artifacts.
 
         Args:
             layers_keys: Keys from the ``.layers`` slot. ``layers_keys=None`` or ``"X"`` in the list
@@ -445,6 +472,11 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             >>> ds = ln.Collection.get(description="my collection")
             >>> mapped = collection.mapped(obs_keys=["cell_type", "batch"])
             >>> dl = DataLoader(mapped, batch_size=128, shuffle=True)
+            >>> # also works for query sets of artifacts, '...' represents some filtering condition
+            >>> # additional filtering on artifacts of the collection
+            >>> mapped = collection.artifacts.all().filter(...).order_by("-created_at").mapped()
+            >>> # or directly from a query set of artifacts
+            >>> mapped = ln.Artifact.filter(..., otype="AnnData").order_by("-created_at").mapped()
         """
         path_list = []
         if self._state.adding:
@@ -474,6 +506,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
             dtype,
         )
         # track only if successful
+        # is it really needed if tracking is done in self.ordered_artifacts.all()? - Sergei
         _track_run_input(self, is_run_input)
         return ds
 
@@ -490,6 +523,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         path_list = []
         for artifact in self.ordered_artifacts.all():
             path_list.append(artifact.cache())
+        # is it really needed if tracking is done in self.ordered_artifacts.all()? - Sergei
         _track_run_input(self, is_run_input)
         return path_list
 
@@ -498,29 +532,16 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         join: Literal["inner", "outer"] = "outer",
         is_run_input: bool | None = None,
         **kwargs,
-    ) -> Any:
-        """Stage and load to memory.
+    ) -> pd.DataFrame | ad.AnnData:
+        """Cache and load to memory.
 
-        Returns in-memory representation if possible such as a concatenated `DataFrame` or `AnnData` object.
+        Returns an in-memory concatenated `DataFrame` or `AnnData` object.
         """
         # cannot call _track_run_input here, see comment further down
-        all_artifacts = self.ordered_artifacts.all()
-        suffixes = [artifact.suffix for artifact in all_artifacts]
-        if len(set(suffixes)) != 1:
-            raise RuntimeError(
-                "Can only load collections where all artifacts have the same suffix"
-            )
-        # because we're tracking data flow on the collection-level, here, we don't
-        # want to track it on the artifact-level
-        objects = [artifact.load(is_run_input=False) for artifact in all_artifacts]
-        artifact_uids = [artifact.uid for artifact in all_artifacts]
-        if isinstance(objects[0], pd.DataFrame):
-            concat_object = pd.concat(objects, join=join)
-        elif isinstance(objects[0], ad.AnnData):
-            concat_object = ad.concat(
-                objects, join=join, label="artifact_uid", keys=artifact_uids
-            )
-        # only call it here because there might be errors during concat
+        artifacts = self.ordered_artifacts.all()
+        concat_object = _load_concat_artifacts(artifacts, join, **kwargs)
+        # only call it here because there might be errors during load or concat
+        # is it really needed if tracking is done in self.ordered_artifacts.all()? - Sergei
         _track_run_input(self, is_run_input)
         return concat_object
 

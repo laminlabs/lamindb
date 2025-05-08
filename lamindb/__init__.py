@@ -81,6 +81,7 @@ Low-level functionality.
 .. autosummary::
    :toctree: .
 
+   examples
    curators
    integrations
    errors
@@ -93,7 +94,7 @@ Low-level functionality.
 
 # ruff: noqa: I001
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
-__version__ = "1.5rc1"
+__version__ = "1.5.1"
 
 import warnings
 
@@ -143,6 +144,7 @@ if _check_instance_setup(from_module="lamindb"):
     from . import core
     from . import integrations
     from . import curators
+    from . import examples
 
     track = context._track
     finish = context._finish

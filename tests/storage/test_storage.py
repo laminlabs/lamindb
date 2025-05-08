@@ -16,12 +16,10 @@ from lamindb.core.storage._anndata_accessor import _anndata_n_observations
 from lamindb.core.storage._backed_access import (
     AnnDataAccessor,
     BackedAccessor,
+    _flat_suffixes,
     backed_access,
 )
-from lamindb.core.storage._pyarrow_dataset import (
-    _is_pyarrow_dataset,
-    _open_pyarrow_dataset,
-)
+from lamindb.core.storage._pyarrow_dataset import _open_pyarrow_dataset
 from lamindb.core.storage._tiledbsoma import (
     _open_tiledbsoma,
     _soma_store_n_observations,
@@ -424,7 +422,7 @@ def test_tiledb_config():
     assert tiledb_config["vfs.s3.region"] == ""
 
 
-def test_backed_pyarrow_artifact():
+def test_open_dataframe_artifact():
     previous_storage = ln.setup.settings.storage.root_as_str
     ln.settings.storage = "s3://lamindb-test/storage"
 
@@ -440,8 +438,16 @@ def test_backed_pyarrow_artifact():
     assert ds.to_table().to_pandas().equals(df)
     # remove cache
     artifact_file.cache().unlink()
-    ds = artifact_file.open()
+    # pyarrow
+    ds = artifact_file.open(engine="pyarrow")
     assert ds.to_table().to_pandas().equals(df)
+    # polars
+    with artifact_file.open(engine="polars") as ldf:
+        assert ldf.collect().to_pandas().equals(df)
+    # wrong engine
+    with pytest.raises(ValueError) as err:
+        artifact_file.open(engine="some-other-engine")
+    assert err.exconly().startswith("ValueError: Unknown engine")
     # check as partitioned folder
     df.to_parquet("save_df", engine="pyarrow", partition_cols=["feat1"])
     assert Path("save_df").is_dir()
@@ -452,8 +458,12 @@ def test_backed_pyarrow_artifact():
     assert ds.to_table().to_pandas().equals(df[["feat2"]])
     # remove cache
     shutil.rmtree(artifact_folder.cache())
+    # pyarrow
     ds = artifact_folder.open()
     assert ds.to_table().to_pandas().equals(df[["feat2"]])
+    # polars
+    with artifact_folder.open(engine="polars") as ldf:
+        assert ldf.collect().to_pandas().equals(df[["feat2"]])
 
     artifact_file.delete(permanent=True)
     artifact_folder.delete(permanent=True)
@@ -461,7 +471,7 @@ def test_backed_pyarrow_artifact():
     ln.settings.storage = previous_storage
 
 
-def test_backed_pyarrow_collection():
+def test_open_dataframe_collection():
     ln.settings.storage = "s3://lamindb-test/storage"
 
     df = pd.DataFrame({"feat1": [0, 0, 1, 1], "feat2": [6, 7, 8, 9]})
@@ -470,7 +480,7 @@ def test_backed_pyarrow_collection():
     df[:2].to_parquet(shard1, engine="pyarrow")
     df[2:].to_parquet(shard2, engine="pyarrow")
     # test checking and opening local paths
-    assert not _is_pyarrow_dataset([shard1, ln.UPath("some.csv")])
+    assert _flat_suffixes([shard1, ln.UPath("some.csv")]) == {".parquet", ".csv"}
     assert _open_pyarrow_dataset([shard1, shard2]).to_table().to_pandas().equals(df)
 
     ln.core.datasets.file_mini_csv()
@@ -479,28 +489,37 @@ def test_backed_pyarrow_collection():
     artifact2 = ln.Artifact(shard2, key="df2.parquet").save()
     artifact3 = ln.Artifact("mini.csv", key="mini.csv").save()
     artifact4 = ln.Artifact(
-        "https://raw.githubusercontent.com/laminlabs/lamindb/refs/heads/main/README.md"
+        "https://lamindb-test.s3.amazonaws.com/schmidt22-crispra-gws-IFNG.csv"
     ).save()
 
     collection1 = ln.Collection([artifact1, artifact2], key="parquet_col")
     # before saving
+    # engine="pyarrow" by default
     assert collection1.open().to_table().to_pandas().equals(df)
     # after saving
     collection1.save()
-    assert collection1.open().to_table().to_pandas().equals(df)
-
+    # pyarrow
+    assert collection1.open(engine="pyarrow").to_table().to_pandas().equals(df)
+    # polars
+    with collection1.open(engine="polars") as ldf:
+        assert ldf.collect().to_pandas().equals(df)
+    # wrong engine
+    with pytest.raises(ValueError) as err:
+        collection1.open(engine="some-other-engine")
+    assert err.exconly().startswith("ValueError: Unknown engine")
+    # different file formats
     collection2 = ln.Collection([artifact1, artifact3], key="parquet_csv_col").save()
     with pytest.raises(ValueError) as err:
         collection2.open()
     assert err.exconly().startswith(
-        "ValueError: This collection is not compatible with pyarrow.dataset.dataset()"
+        "ValueError: The artifacts in the collection have different file formats"
     )
-
-    collection3 = ln.Collection([artifact1, artifact4], key="s3_http_col").save()
+    # different filesystems with pyarrow
+    collection3 = ln.Collection([artifact3, artifact4], key="s3_http_col").save()
     with pytest.raises(ValueError) as err:
         collection3.open()
     assert err.exconly().startswith(
-        "ValueError: The collection has artifacts with different filesystems, this is not supported."
+        "ValueError: The collection has artifacts with different filesystems, this is not supported"
     )
 
     shard1.unlink()

@@ -157,7 +157,9 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
         error.exconly()
         == "lamindb.errors.ValidationError: Column 'treatment_time_h' failed series or dataframe validator 0: <Check check_function: Column 'treatment_time_h' failed dtype check for 'float': got int64>"
     )
+
     schema.delete()
+    feature_to_fail.delete()
 
     # Wrong subtype
     df = datasets.small_dataset1(otype="DataFrame", with_wrong_subtype=True)
@@ -185,7 +187,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
 
     df = datasets.small_dataset1(otype="DataFrame")
     curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
-    artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
+    artifact = curator.save_artifact(key="examples/dataset1.parquet")
 
     assert artifact.schema == small_dataset1_schema
     assert artifact.features.slots["columns"].n == 5
@@ -214,25 +216,23 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
     curator.standardize()
     curator.validate()
 
-    # update schema
-    assert small_dataset1_schema.n == 5
-    orig_hash = small_dataset1_schema.hash
-    small_dataset1_schema.features.add(feature_to_fail)
-    assert small_dataset1_schema.n == 5
-    assert small_dataset1_schema.hash == orig_hash
-    small_dataset1_schema.save()
-    assert small_dataset1_schema.n == 6
-    assert small_dataset1_schema.hash != orig_hash
-    assert (
-        "you updated the schema hash and might invalidate datasets that were previously validated with this schema:"
-        in ccaplog.text
-    )
-    small_dataset1_schema.features.remove(feature_to_fail)
-    small_dataset1_schema.save()
-    assert small_dataset1_schema.n == 5
-    assert small_dataset1_schema.hash == orig_hash
-    feature_to_fail.delete()
     artifact.delete(permanent=True)
+
+
+def test_dataframe_curator_index():
+    """Test validating a DataFrame index."""
+    df = datasets.small_dataset1(otype="DataFrame", with_index_type_mismatch=True)
+    feature = ln.Feature(name="test", dtype="str").save()
+    schema = ln.Schema(index=feature).save()
+    curator = ln.curators.DataFrameCurator(df, schema)
+    with pytest.raises(ln.errors.ValidationError) as error:
+        curator.validate()
+    assert error.exconly().startswith(
+        "lamindb.errors.ValidationError: expected series 'None' to have type str"
+    )
+
+    schema.delete()
+    feature.delete()
 
 
 def test_dataframe_curator_validate_all_annotate_cat(small_dataset1_schema):
@@ -242,7 +242,7 @@ def test_dataframe_curator_validate_all_annotate_cat(small_dataset1_schema):
     assert schema.flexible
     df = datasets.small_dataset1(otype="DataFrame")
     artifact = ln.Artifact.from_df(
-        df, key="example_datasets/dataset1.parquet", schema=schema
+        df, key="examples/dataset1.parquet", schema=schema
     ).save()
     assert set(artifact.features.get_values()["perturbation"]) == {
         "DMSO",
@@ -271,7 +271,7 @@ def test_dataframe_curator_validate_all_annotate_cat2(small_dataset1_schema):
     assert schema.flexible
     df = datasets.small_dataset1(otype="DataFrame")
     curator = ln.curators.DataFrameCurator(df, schema)
-    artifact = curator.save_artifact(key="example_datasets/dataset1.parquet")
+    artifact = curator.save_artifact(key="examples/dataset1.parquet")
     assert set(artifact.features.get_values()["perturbation"]) == {
         "DMSO",
         "IFNG",
@@ -285,6 +285,95 @@ def test_dataframe_curator_validate_all_annotate_cat2(small_dataset1_schema):
         "B cell",
     }
     artifact.delete(permanent=True)
+    schema.delete()
+
+
+def test_schema_new_genes(ccaplog):
+    df = pd.DataFrame(
+        index=pd.Index(
+            [
+                "ENSG00000139618",  # BRCA2
+                "ENSG00000141510",  # TP53
+                "ENSG00999000001",  # Invalid ID
+                "ENSG00999000002",  # Invalid ID
+            ],
+            name="ensembl",
+        )
+    )
+    feature = ln.Feature(name="ensembl", dtype=bt.Gene.ensembl_gene_id).save()
+    schema = ln.Schema(index=feature).save()
+    curator = ln.curators.DataFrameCurator(df, schema)
+    with pytest.raises(ln.errors.ValidationError) as error:
+        curator.validate()
+    assert error.exconly().startswith(
+        "lamindb.errors.ValidationError: 2 terms not validated in feature 'index': 'ENSG00999000001', 'ENSG00999000002'"
+    )
+
+    assert (
+        "2 terms not validated in feature 'index': 'ENSG00999000001', 'ENSG00999000002'"
+        in ccaplog.text
+    )
+
+    schema.delete()
+    feature.delete()
+
+
+def test_schema_no_match_ensembl():
+    df = pd.DataFrame(
+        index=pd.Index(
+            [
+                "ENSG99999999998",  # Invalid ID
+                "ENSG99999999999",  # Invalid ID
+            ],
+            name="ensembl",
+        )
+    )
+    schema = ln.Schema(
+        index=ln.Feature(name="ensembl", dtype=bt.Gene.ensembl_gene_id).save()
+    ).save()
+    curator = ln.curators.DataFrameCurator(df, schema)
+    with pytest.raises(ln.errors.ValidationError) as error:
+        curator.validate()
+    assert (
+        error.exconly()
+        == """lamindb.errors.ValidationError: 2 terms not validated in feature 'index': 'ENSG99999999998', 'ENSG99999999999'
+    → fix typos, remove non-existent values, or save terms via: curator.cat.add_new_from('index')"""
+    )
+
+    schema.delete()
+
+
+def test_schema_mixed_ensembl_symbols(ccaplog):
+    """Quite some datasets have mixed ensembl gene IDs and symbols.
+
+    The expected behavior is that an error is raised when such a dataset is encountered because
+    currently lamindb does not support validating values against a union of Fields.
+
+    The current behavior is that these cases automatically pass.
+    """
+    df = pd.DataFrame(
+        index=pd.Index(
+            [
+                "ENSG00000139618",
+                "ENSG00000141510",
+                "BRCA2",  # symbol
+                "TP53",  # symbol
+            ],
+            name="ensembl",
+        )
+    )
+    schema = ln.Schema(
+        index=ln.Feature(name="ensembl", dtype=bt.Gene.ensembl_gene_id).save()
+    ).save()
+    curator = ln.curators.DataFrameCurator(df, schema)
+    with pytest.raises(ln.errors.ValidationError) as error:
+        curator.validate()
+    assert error.exconly().startswith(
+        "lamindb.errors.ValidationError: 2 terms not validated in feature 'index': 'BRCA2', 'TP53'"
+    )
+
+    assert "2 terms not validated in feature 'index': 'BRCA2', 'TP53'" in ccaplog.text
+
     schema.delete()
 
 
@@ -337,7 +426,7 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
         if add_comp == "uns":
             assert isinstance(curator.slots["uns"], ln.curators.DataFrameCurator)
         artifact = ln.Artifact.from_anndata(
-            adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+            adata, key="examples/dataset1.h5ad", schema=anndata_schema
         ).save()
         assert artifact.schema == anndata_schema
         assert artifact.features.slots["var.T"].n == 3  # 3 genes get linked
@@ -367,9 +456,7 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
 
 def test_anndata_curator_varT_curation():
     ln.Schema.filter(itype="bionty.Gene.ensembl_gene_id").delete()
-    varT_schema = ln.Schema(
-        itype=bt.Gene.ensembl_gene_id,
-    ).save()
+    varT_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id, maximal_set=True).save()
     slot = "var.T"
     components = {slot: varT_schema}
     anndata_schema = ln.Schema(
@@ -381,7 +468,7 @@ def test_anndata_curator_varT_curation():
         if with_gene_typo:
             with pytest.raises(ValidationError) as error:
                 artifact = ln.Artifact.from_anndata(
-                    adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+                    adata, key="examples/dataset1.h5ad", schema=anndata_schema
                 ).save()
             assert error.exconly() == (
                 f"lamindb.errors.ValidationError: 1 term not validated in feature 'columns' in slot '{slot}': 'GeneTypo'\n"
@@ -391,7 +478,7 @@ def test_anndata_curator_varT_curation():
             for n_max_records in [2, 4]:
                 ln.settings.annotation.n_max_records = n_max_records
                 artifact = ln.Artifact.from_anndata(
-                    adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+                    adata, key="examples/dataset1.h5ad", schema=anndata_schema
                 ).save()
                 assert artifact.features.slots[slot].n == 3  # 3 genes get linked
                 assert (
@@ -407,13 +494,15 @@ def test_anndata_curator_varT_curation():
                         "ENSG00000010610",
                         "ENSG00000170458",
                     ]
+
                 artifact.delete(permanent=True)
+
             anndata_schema.delete()
             varT_schema.delete()
 
 
 def test_anndata_curator_varT_curation_legacy(ccaplog):
-    varT_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id).save()
+    varT_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id, maximal_set=True).save()
     slot = "var"
     components = {slot: varT_schema}
     anndata_schema = ln.Schema(
@@ -425,7 +514,7 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
         if with_gene_typo:
             with pytest.raises(ValidationError) as error:
                 artifact = ln.Artifact.from_anndata(
-                    adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+                    adata, key="examples/dataset1.h5ad", schema=anndata_schema
                 ).save()
             assert error.exconly() == (
                 f"lamindb.errors.ValidationError: 1 term not validated in feature 'var_index' in slot '{slot}': 'GeneTypo'\n"
@@ -433,7 +522,7 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
             )
         else:
             artifact = ln.Artifact.from_anndata(
-                adata, key="example_datasets/dataset1.h5ad", schema=anndata_schema
+                adata, key="examples/dataset1.h5ad", schema=anndata_schema
             ).save()
             assert (
                 "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
@@ -447,7 +536,9 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
                 "ENSG00000010610",
                 "ENSG00000170458",
             }
+
             artifact.delete(permanent=True)
+
             anndata_schema.delete()
             varT_schema.delete()
 
@@ -466,7 +557,7 @@ def test_soma_curator(
         var_index={"RNA": ("var_id", bt.Gene.ensembl_gene_id)},
         **curator_params,
     )
-    artifact = curator.save_artifact(key="example_datasets/dataset1.tiledbsoma")
+    artifact = curator.save_artifact(key="examples/dataset1.tiledbsoma")
     # artifact.features.add_values(adata.uns)
 
     assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
@@ -479,6 +570,7 @@ def test_soma_curator(
     }
 
     assert artifact._key_is_virtual
+
     artifact.delete(permanent=True)
     shutil.rmtree("./small_dataset1.tiledbsoma")
 
@@ -494,7 +586,8 @@ def test_anndata_curator_no_var(small_dataset1_schema: ln.Schema):
     assert small_dataset1_schema.id is not None, small_dataset1_schema
     adata = datasets.small_dataset1(otype="AnnData")
     curator = ln.curators.AnnDataCurator(adata, anndata_schema_no_var)
-    artifact = curator.save_artifact(key="example_datasets/dataset1_no_var.h5ad")
+
+    artifact = curator.save_artifact(key="examples/dataset1_no_var.h5ad")
     artifact.delete(permanent=True)
     anndata_schema_no_var.delete()
 
@@ -520,8 +613,7 @@ def test_mudata_curator(
         "rna:var",
     }
     ln.settings.verbosity = "hint"
-    with pytest.raises(ln.errors.ValidationError):
-        curator.validate()
+    curator.validate()
     curator.slots["rna:var"].cat.standardize("columns")
     curator.slots["rna:var"].cat.add_new_from("columns")
     artifact = curator.save_artifact(key="mudata_papalexi21_subset.h5mu")
@@ -611,7 +703,7 @@ def test_spatialdata_curator(
 
     artifact = ln.Artifact.from_spatialdata(
         spatialdata,
-        key="example_datasets/spatialdata1.zarr",
+        key="examples/spatialdata1.zarr",
         schema=spatialdata_schema_legacy,
     ).save()
     assert artifact.schema == spatialdata_schema_legacy
@@ -625,7 +717,7 @@ def test_spatialdata_curator(
 
     artifact = ln.Artifact.from_spatialdata(
         spatialdata,
-        key="example_datasets/spatialdata1.zarr",
+        key="examples/spatialdata1.zarr",
         schema=spatialdata_schema_new,
     ).save()
     assert artifact.schema == spatialdata_schema_new
@@ -655,4 +747,5 @@ def test_spatialdata_curator(
         BRCA2               num
         BRAF                num"""
     )
+
     artifact.delete(permanent=True)

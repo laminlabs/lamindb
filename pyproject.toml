@@ -135,6 +135,9 @@ lint.ignore = [
     "D106",
     # Missing docstring in __init__
     "D107",
+    "D405",
+    "D214",
+    "D416",
     ## Disable one in each pair of mutually incompatible rules
     # We don’t want a blank line before a class docstring
     "D203",

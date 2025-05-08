@@ -205,6 +205,69 @@ class Curator:
         # constructor signature
         pass  # pragma: no cover
 
+    def __repr__(self) -> str:
+        from lamin_utils import colors
+
+        if self._schema is not None:
+            # Schema might have different attributes
+            if hasattr(self._schema, "name") and self._schema.name:
+                schema_str = colors.italic(self._schema.name)
+            elif hasattr(self._schema, "uid"):
+                schema_str = colors.italic(f"uid={self._schema.uid}")
+            elif hasattr(self._schema, "id"):
+                schema_str = colors.italic(f"id={self._schema.id}")
+            else:
+                schema_str = colors.italic("unnamed")
+
+            # Add schema type info if available
+            if hasattr(self._schema, "otype") and self._schema.otype:
+                schema_str += f" ({self._schema.otype})"
+        else:
+            schema_str = colors.warning("None")
+
+        status_str = ""
+        if self._is_validated:
+            status_str = f", {colors.green('validated')}"
+        else:
+            status_str = f", {colors.yellow('unvalidated')}"
+
+        cls_name = colors.green(self.__class__.__name__)
+
+        # Get additional info based on curator type
+        extra_info = ""
+        if hasattr(self, "_slots") and self._slots:
+            # For SlotsCurator and its subclasses
+            slots_count = len(self._slots)
+            if slots_count > 0:
+                slot_names = list(self._slots.keys())
+                if len(slot_names) <= 3:
+                    extra_info = f", slots: {slot_names}"
+                else:
+                    extra_info = f", slots: [{', '.join(slot_names[:3])}... +{len(slot_names) - 3} more]"
+        elif (
+            cls_name == "DataFrameCurator"
+            and hasattr(self, "cat")
+            and hasattr(self.cat, "_categoricals")
+        ):
+            # For DataFrameCurator
+            cat_count = len(getattr(self.cat, "_categoricals", []))
+            if cat_count > 0:
+                extra_info = f", categorical_features={cat_count}"
+
+        artifact_info = ""
+        if self._artifact is not None:
+            artifact_uid = getattr(self._artifact, "uid", str(self._artifact))
+            short_uid = (
+                str(artifact_uid)[:8] + "..."
+                if len(str(artifact_uid)) > 8
+                else str(artifact_uid)
+            )
+            artifact_info = f", artifact: {colors.italic(short_uid)}"
+
+        return (
+            f"{cls_name}{artifact_info}(Schema: {schema_str}{extra_info}{status_str})"
+        )
+
 
 # default implementation for AnnDataCurator, MuDataCurator, and SpatialDataCurator
 class SlotsCurator(Curator):
@@ -327,9 +390,22 @@ class DataFrameCurator(Curator):
 
     Example:
 
-        .. literalinclude:: scripts/curate-dataframe.py
+        For simple example using a flexible schema, see :meth:`~lamindb.Artifact.from_df`.
+
+        Here is an example that enforces a minimal set of columns in the dataframe.
+
+        .. literalinclude:: scripts/curate_dataframe_minimal_errors.py
             :language: python
-            :caption: curate-dataframe.py
+
+        Under-the-hood, this used the following schema.
+
+        .. literalinclude:: scripts/define_mini_immuno_schema_flexible.py
+            :language: python
+
+        Valid features & labels were defined as:
+
+        .. literalinclude:: scripts/define_mini_immuno_features_labels.py
+            :language: python
     """
 
     def __init__(
@@ -350,15 +426,15 @@ class DataFrameCurator(Curator):
                 schema_features = [
                     feature
                     for feature in schema.members.list()
-                    if feature.uid != schema._index_feature_uid
+                    if feature.uid != schema._index_feature_uid  # type: ignore
                 ]
             else:
-                schema_features = schema.members.list()
+                schema_features = schema.members.list()  # type: ignore
             if feature_ids:
                 features.extend(
                     feature
                     for feature in schema_features
-                    if feature.id not in feature_ids
+                    if feature.id not in feature_ids  # type: ignore
                 )
             else:
                 features.extend(schema_features)
@@ -414,7 +490,9 @@ class DataFrameCurator(Curator):
                 # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
                 # so, we're typing it as `str` here
                 index = pandera.Index(
-                    schema.index.dtype if not feature.dtype.startswith("cat") else str
+                    schema.index.dtype
+                    if not schema.index.dtype.startswith("cat")
+                    else str
                 )
             else:
                 index = None
@@ -432,6 +510,7 @@ class DataFrameCurator(Curator):
             categoricals=categoricals,
             index=schema.index,
             slot=slot,
+            maximal_set=schema.maximal_set,
         )
 
     @property
@@ -485,6 +564,7 @@ class DataFrameCurator(Curator):
 
     def _cat_manager_validate(self) -> None:
         self.cat.validate()
+
         if self.cat._is_validated:
             self._is_validated = True
         else:
@@ -756,7 +836,7 @@ class SpatialDataCurator(SlotsCurator):
                     sub_slot = split_result[1]
                     data_object = self._dataset.attrs[split_result[1]]
                 data_object = pd.DataFrame([data_object])
-            self._slots[slot] = DataFrameCurator(data_object, slot_schema)
+            self._slots[slot] = DataFrameCurator(data_object, slot_schema, slot)
             _assign_var_fields_categoricals_multimodal(
                 modality=table_key,
                 slot_type=sub_slot,
@@ -770,26 +850,20 @@ class SpatialDataCurator(SlotsCurator):
 
 
 class CatVector:
-    """Categorical column for `DataFrame`.
-
-    Args:
-        values_getter: A callable or iterable that returns the values to validate.
-        field: The field to validate against.
-        key: The name of the column to validate. Only used for logging.
-        values_setter: A callable that sets the values.
-        source: The source to validate against.
-    """
+    """Vector with categorical values."""
 
     def __init__(
         self,
-        values_getter: Callable | Iterable[str],
-        field: FieldAttr,
-        key: str,
-        values_setter: Callable | None = None,
-        source: Record | None = None,
+        values_getter: Callable
+        | Iterable[str],  # A callable or iterable that returns the values to validate.
+        field: FieldAttr,  # The field to validate against.
+        key: str,  # The name of the vector to validate. Only used for logging.
+        values_setter: Callable | None = None,  # A callable that sets the values.
+        source: Record | None = None,  # The ontology source to validate against.
         feature: Feature | None = None,
         cat_manager: DataFrameCatManager | None = None,
         subtype_str: str = "",
+        maximal_set: bool = True,  # whether unvalidated categoricals cause validation failure.
     ) -> None:
         self._values_getter = values_getter
         self._values_setter = values_setter
@@ -805,6 +879,7 @@ class CatVector:
         self._cat_manager = cat_manager
         self.feature = feature
         self.records = None
+        self._maximal_set = maximal_set
         if hasattr(field.field.model, "_name_field"):
             label_ref_is_name = field.field.name == field.field.model._name_field
         else:
@@ -829,11 +904,24 @@ class CatVector:
 
     @property
     def is_validated(self) -> bool:
-        """Return whether the column is validated."""
-        return len(self._non_validated) == 0
+        """Whether the vector is validated."""
+        # if nothing was validated, something likely is fundamentally wrong
+        # should probably add a setting `at_least_one_validated`
+        result = True
+        if len(self.values) > 0 and len(self.values) == len(self._non_validated):
+            result = False
+        # len(self._non_validated) != 0
+        #     if maximal_set is True, return False
+        #     if maximal_set is False, return True
+        # len(self._non_validated) == 0
+        #     return True
+        if len(self._non_validated) != 0:
+            if self._maximal_set:
+                result = False
+        return result
 
     def _replace_synonyms(self) -> list[str]:
-        """Replace synonyms in the column with standardized values."""
+        """Replace synonyms in the vector with standardized values."""
         syn_mapper = self._synonyms
         # replace the values in df
         std_values = self.values.map(
@@ -856,6 +944,20 @@ class CatVector:
                 f'standardized {n} synonym{s} in "{self._key}": {colors.green(syn_mapper_print)}'
             )
         return std_values
+
+    def __repr__(self) -> str:
+        if self._non_validated is None:
+            status = "unvalidated"
+        else:
+            status = (
+                "validated"
+                if len(self._non_validated) == 0
+                else f"non-validated ({len(self._non_validated)})"
+            )
+
+        field_name = getattr(self._field, "name", str(self._field))
+        values_count = len(self.values) if hasattr(self.values, "__len__") else "?"
+        return f"CatVector(key='{self._key}', field='{field_name}', values={values_count}, {status})"
 
     def _add_validated(self) -> tuple[list, list]:
         """Save features or labels records in the default instance."""
@@ -971,11 +1073,6 @@ class CatVector:
         field_name = self._field.field.name
         model_field = f"{registry.__name__}.{field_name}"
 
-        def _log_mapping_info():
-            logger.indent = ""
-            logger.info(f'mapping "{self._key}" on {colors.italic(model_field)}')
-            logger.indent = "  "
-
         kwargs_current = get_current_filter_kwargs(
             registry, {"organism": self._organism, "source": self._source}
         )
@@ -1014,7 +1111,6 @@ class CatVector:
         non_validated = [i for i in non_validated if i not in values_validated]
         n_non_validated = len(non_validated)
         if n_non_validated == 0:
-            logger.indent = ""
             logger.success(
                 f'"{self._key}" is validated against {colors.italic(model_field)}'
             )
@@ -1036,27 +1132,26 @@ class CatVector:
                 warning_message += f"    → fix typos, remove non-existent values, or save terms via: {colors.cyan(non_validated_hint_print)}"
                 if self._subtype_query_set is not None:
                     warning_message += f"\n    → a valid label for subtype '{self._subtype_str}' has to be one of {self._subtype_query_set.list('name')}"
-            if logger.indent == "":
-                _log_mapping_info()
+            logger.info(f'mapping "{self._key}" on {colors.italic(model_field)}')
             logger.warning(warning_message)
             if self._cat_manager is not None:
                 self._cat_manager._validate_category_error_messages = strip_ansi_codes(
                     warning_message
                 )
-            logger.indent = ""
             return non_validated, syn_mapper
 
     def validate(self) -> None:
-        """Validate the column."""
+        """Validate the vector."""
         # add source-validated values to the registry
         self._validated, self._non_validated = self._add_validated()
         self._non_validated, self._synonyms = self._validate(values=self._non_validated)
+
         # always register new Features if they are columns
         if self._key == "columns" and self._field == Feature.name:
             self.add_new()
 
     def standardize(self) -> None:
-        """Standardize the column."""
+        """Standardize the vector."""
         registry = self._field.field.model
         if not hasattr(registry, "standardize"):
             return self.values
@@ -1110,6 +1205,7 @@ class DataFrameCatManager:
         sources: dict[str, Record] | None = None,
         index: Feature | None = None,
         slot: str | None = None,
+        maximal_set: bool = False,
     ) -> None:
         self._non_validated = None
         self._index = index
@@ -1126,6 +1222,8 @@ class DataFrameCatManager:
         self._validate_category_error_messages: str = ""
         self._cat_vectors: dict[str, CatVector] = {}
         self._slot = slot
+        self._maximal_set = maximal_set
+
         if columns_names is None:
             columns_names = []
         if columns_field == Feature.name:
@@ -1135,6 +1233,7 @@ class DataFrameCatManager:
                 key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
                 source=self._sources.get("columns"),
                 cat_manager=self,
+                maximal_set=self._maximal_set,
             )
         else:
             self._cat_vectors["columns"] = CatVector(
@@ -1146,6 +1245,7 @@ class DataFrameCatManager:
                 key="columns",
                 source=self._sources.get("columns"),
                 cat_manager=self,
+                maximal_set=self._maximal_set,
             )
         for feature in self._categoricals:
             result = parse_dtype(feature.dtype)[
@@ -1215,7 +1315,7 @@ class DataFrameCatManager:
 
         validated = True
         for key, cat_vector in self._cat_vectors.items():
-            logger.info(f"validating column {key}")
+            logger.info(f"validating vector {key}")
             cat_vector.validate()
             validated &= cat_vector.is_validated
         self._is_validated = validated
@@ -1224,7 +1324,10 @@ class DataFrameCatManager:
         if self._index is not None:
             # cat_vector.validate() populates validated labels
             # the index should become part of the feature set corresponding to the dataframe
-            self._cat_vectors["columns"].records.insert(0, self._index)  # type: ignore
+            if self._cat_vectors["columns"].records is not None:
+                self._cat_vectors["columns"].records.insert(0, self._index)  # type: ignore
+            else:
+                self._cat_vectors["columns"].records = [self._index]  # type: ignore
 
         return self._is_validated
 
@@ -1350,19 +1453,22 @@ def annotate_artifact(
     # annotate with inferred schemas aka feature sets
     if artifact.otype == "DataFrame":
         features = cat_vectors["columns"].records
-        feature_set = Schema(features=features)
-        if (
-            feature_set._state.adding
-            and len(features) > settings.annotation.n_max_records
-        ):
-            logger.important(
-                f"not annotating with {len(features)} features as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
+        if features is not None:
+            feature_set = Schema(
+                features=features, coerce_dtype=artifact.schema.coerce_dtype
+            )  # TODO: add more defaults from validating schema
+            if (
+                feature_set._state.adding
+                and len(features) > settings.annotation.n_max_records
+            ):
+                logger.important(
+                    f"not annotating with {len(features)} features as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
+                )
+                itype = parse_cat_dtype(artifact.schema.itype, is_itype=True)["field"]
+                feature_set = Schema(itype=itype, n=len(features))
+            artifact.feature_sets.add(
+                feature_set.save(), through_defaults={"slot": "columns"}
             )
-            itype = parse_cat_dtype(artifact.schema.itype, is_itype=True)["field"]
-            feature_set = Schema(itype=itype, n=len(features))
-        artifact.feature_sets.add(
-            feature_set.save(), through_defaults={"slot": "columns"}
-        )
     else:
         for slot, slot_curator in curator._slots.items():
             # var_index is backward compat (2025-05-01)
@@ -1372,6 +1478,9 @@ def annotate_artifact(
                 else "columns"
             )
             features = slot_curator.cat._cat_vectors[name].records
+            if features is None:
+                logger.warning(f"no features found for slot {slot}")
+                continue
             itype = parse_cat_dtype(artifact.schema.slots[slot].itype, is_itype=True)[
                 "field"
             ]

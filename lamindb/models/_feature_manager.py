@@ -13,7 +13,7 @@ import pandas as pd
 from anndata import AnnData
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connections
-from django.db.models import Aggregate
+from django.db.models import Aggregate, ProtectedError, Subquery
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_set
 from lamindb_setup.core.upath import create_path
@@ -49,7 +49,7 @@ from ._label_manager import _get_labels, describe_labels
 from ._relations import (
     dict_related_model_to_related_name,
 )
-from .feature import Feature, FeatureValue
+from .feature import Feature, FeatureValue, parse_dtype
 from .record import Record
 from .run import Param, ParamManager, ParamManagerRun, ParamValue, Run
 from .ulabel import ULabel
@@ -645,50 +645,86 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
             comparator = f"__{split_key[1]}"
         feature = features.get(name=normalized_key)
         if not feature.dtype.startswith("cat"):
+            if comparator == "__isnull":
+                if cls == FeatureManager:
+                    from .artifact import ArtifactFeatureValue
+
+                    if value:  # True
+                        return Artifact.objects.exclude(
+                            id__in=Subquery(
+                                ArtifactFeatureValue.objects.filter(
+                                    featurevalue__feature=feature
+                                ).values("artifact_id")
+                            )
+                        )
+                    else:
+                        return Artifact.objects.exclude(
+                            id__in=Subquery(
+                                ArtifactFeatureValue.objects.filter(
+                                    featurevalue__feature=feature
+                                ).values("artifact_id")
+                            )
+                        )
+            if comparator in {"__startswith", "__contains"}:
+                logger.important(
+                    f"currently not supporting `{comparator}`, using `__icontains` instead"
+                )
+                comparator = "__icontains"
             expression = {feature_param: feature, f"value{comparator}": value}
-            feature_value = value_model.filter(**expression)
-            new_expression[f"_{feature_param}_values__in"] = feature_value
-        elif isinstance(value, (str, Record)):
-            # because SQL is sensitive to whether querying with __in or not
-            # and might return multiple equivalent records for the latter
-            # we distinguish cases in which we have multiple label matches vs. one
-            label = None
-            labels = None
-            if isinstance(value, str):
-                # we need the comparator here because users might query like so
-                # ln.Artifact.features.filter(experiment__contains="Experi")
-                expression = {f"name{comparator}": value}
-                labels = ULabel.filter(**expression).all()
-                if len(labels) == 0:
-                    raise DoesNotExist(
-                        f"Did not find a ULabel matching `name{comparator}={value}`"
-                    )
-                elif len(labels) == 1:
-                    label = labels[0]
-            elif isinstance(value, Record):
-                label = value
-            label_registry = (
-                label.__class__ if label is not None else labels[0].__class__
-            )
-            accessor_name = (
-                label_registry.artifacts.through.artifact.field._related_name
-            )
-            new_expression[f"{accessor_name}__feature"] = feature
-            if label is not None:
-                # simplified query if we have exactly one label
-                new_expression[
-                    f"{accessor_name}__{label_registry.__name__.lower()}"
-                ] = label
+            feature_values = value_model.filter(**expression)
+            new_expression[f"_{feature_param}_values__id__in"] = feature_values
+        elif isinstance(value, (str, Record, bool)):
+            if comparator == "__isnull":
+                if cls == FeatureManager:
+                    result = parse_dtype(feature.dtype)[0]
+                    kwargs = {
+                        f"links_{result['registry'].__name__.lower()}__feature": feature
+                    }
+                    if value:  # True
+                        return Artifact.objects.exclude(**kwargs)
+                    else:
+                        return Artifact.objects.filter(**kwargs)
             else:
-                new_expression[
-                    f"{accessor_name}__{label_registry.__name__.lower()}__in"
-                ] = labels
-        else:
+                # because SQL is sensitive to whether querying with __in or not
+                # and might return multiple equivalent records for the latter
+                # we distinguish cases in which we have multiple label matches vs. one
+                label = None
+                labels = None
+                if isinstance(value, str):
+                    # we need the comparator here because users might query like so
+                    # ln.Artifact.filter(experiment__contains="Experi")
+                    expression = {f"name{comparator}": value}
+                    labels = ULabel.filter(**expression).all()
+                    if len(labels) == 0:
+                        raise DoesNotExist(
+                            f"Did not find a ULabel matching `name{comparator}={value}`"
+                        )
+                    elif len(labels) == 1:
+                        label = labels[0]
+                elif isinstance(value, Record):
+                    label = value
+                label_registry = (
+                    label.__class__ if label is not None else labels[0].__class__
+                )
+                accessor_name = (
+                    label_registry.artifacts.through.artifact.field._related_name
+                )
+                new_expression[f"{accessor_name}__feature"] = feature
+                if label is not None:
+                    # simplified query if we have exactly one label
+                    new_expression[
+                        f"{accessor_name}__{label_registry.__name__.lower()}"
+                    ] = label
+                else:
+                    new_expression[
+                        f"{accessor_name}__{label_registry.__name__.lower()}__in"
+                    ] = labels
             # if passing a list of records, we want to
             # find artifacts that are annotated by all of them at the same
             # time; hence, we don't want the __in construct that we use to match strings
             # https://laminlabs.slack.com/archives/C04FPE8V01W/p1688328084810609
-            raise NotImplementedError
+    if not (new_expression):
+        raise NotImplementedError
     if cls == FeatureManager or cls == ParamManagerArtifact:
         return Artifact.objects.filter(**new_expression)
     elif cls == ParamManagerRun:
@@ -790,15 +826,14 @@ def _add_values(
     from .artifact import Artifact
 
     # rename to distinguish from the values inside the dict
-    features_values = values
-    keys = features_values.keys()
+    dictionary = values
+    keys = dictionary.keys()
     if isinstance(keys, DICT_KEYS_TYPE):
         keys = list(keys)  # type: ignore
     # deal with other cases later
     assert all(isinstance(key, str) for key in keys)  # noqa: S101
     registry = feature_param_field.field.model
     is_param = registry == Param
-    model = Param if is_param else Feature
     value_model = ParamValue if is_param else FeatureValue
     model_name = "Param" if is_param else "Feature"
     if is_param:
@@ -811,13 +846,11 @@ def _add_values(
                 raise ValidationError(
                     "Can only set features for dataset-like artifacts."
                 )
-    validated = registry.validate(keys, field=feature_param_field, mute=True)
-    keys_array = np.array(keys)
-    keys_array[validated]
-    if validated.sum() != len(keys):
-        not_validated_keys = keys_array[~validated]
+    records = registry.from_values(keys, field=feature_param_field, mute=True)
+    if len(records) != len(keys):
+        not_validated_keys = [key for key in keys if key not in records.list("name")]
         not_validated_keys_dtype_message = [
-            (key, infer_feature_type_convert_json(key, features_values[key]))
+            (key, infer_feature_type_convert_json(key, dictionary[key]))
             for key in not_validated_keys
         ]
         run = get_current_tracked_run()
@@ -835,7 +868,7 @@ def _add_values(
         ]
         hint = "\n".join(elements)
         msg = (
-            f"These keys could not be validated: {not_validated_keys.tolist()}\n"
+            f"These keys could not be validated: {not_validated_keys}\n"
             f"Here is how to create a {model_name.lower()}:\n\n{hint}"
         )
         raise ValidationError(msg)
@@ -844,10 +877,10 @@ def _add_values(
     features_labels = defaultdict(list)
     _feature_values = []
     not_validated_values = []
-    for key, value in features_values.items():
-        feature = model.get(name=key)
+    for feature in records:
+        value = dictionary[feature.name]
         inferred_type, converted_value, _ = infer_feature_type_convert_json(
-            key,
+            feature.name,
             value,
             mute=True,
             str_as_ulabel=str_as_ulabel,
@@ -855,25 +888,23 @@ def _add_values(
         if feature.dtype == "num":
             if inferred_type not in {"int", "float"}:
                 raise TypeError(
-                    f"Value for feature '{key}' with type {feature.dtype} must be a number"
+                    f"Value for feature '{feature.name}' with type {feature.dtype} must be a number"
                 )
         elif feature.dtype.startswith("cat"):
             if inferred_type != "?":
                 if not (inferred_type.startswith("cat") or isinstance(value, Record)):
                     raise TypeError(
-                        f"Value for feature '{key}' with type '{feature.dtype}' must be a string or record."
+                        f"Value for feature '{feature.name}' with type '{feature.dtype}' must be a string or record."
                     )
         elif (feature.dtype == "str" and feature.dtype not in inferred_type) or (
             feature.dtype != "str" and feature.dtype != inferred_type
         ):
             raise ValidationError(
-                f"Expected dtype for '{key}' is '{feature.dtype}', got '{inferred_type}'"
+                f"Expected dtype for '{feature.name}' is '{feature.dtype}', got '{inferred_type}'"
             )
         if not feature.dtype.startswith("cat"):
             filter_kwargs = {model_name.lower(): feature, "value": converted_value}
-            feature_value = value_model.filter(**filter_kwargs).one_or_none()
-            if feature_value is None:
-                feature_value = value_model(**filter_kwargs)
+            feature_value, _ = value_model.get_or_create(**filter_kwargs)
             _feature_values.append(feature_value)
         else:
             if isinstance(value, Record) or (
@@ -911,30 +942,63 @@ def _add_values(
                     (feature, label_record) for label_record in label_records
                 ]
     if not_validated_values:
-        hint = (
-            f"  ulabels = ln.ULabel.from_values({not_validated_values}, create=True)\n"
-            f"  ln.save(ulabels)"
-        )
+        not_validated_values.sort()
+        hint = f"  ulabels = ln.ULabel.from_values({not_validated_values}, create=True).save()\n"
         msg = (
             f"These values could not be validated: {not_validated_values}\n"
             f"Here is how to create ulabels for them:\n\n{hint}"
         )
         raise ValidationError(msg)
+    # TODO: create an explicit version of this
+    # if not is_param:
+    #     # check if _expect_many is false for _all_ records
+    #     if any(record._expect_many for record in records):
+    #         updated_features = []
+    #         for record in records:
+    #             if record._expect_many:
+    #                 record._expect_many = False
+    #                 record.save()
+    #                 updated_features.append(record.name)
+    #         if any(updated_features):
+    #             logger.important(
+    #                 f"changed observational unit to Artifact for features: {', '.join(updated_features)}"
+    #             )
     # bulk add all links
     if features_labels:
         add_label_feature_links(self, features_labels)
     if _feature_values:
-        save(_feature_values)
+        to_insert_feature_values = [
+            record for record in _feature_values if record._state.adding
+        ]
+        if to_insert_feature_values:
+            save(to_insert_feature_values)
+        dict_typed_features = [
+            getattr(record, model_name.lower())
+            for record in _feature_values
+            if getattr(record, model_name.lower()).dtype == "dict"
+        ]
         if is_param:
             LinkORM = self._host._param_values.through
             valuefield_id = "paramvalue_id"
         else:
             LinkORM = self._host._feature_values.through
             valuefield_id = "featurevalue_id"
+        host_class_lower = self._host.__class__.__get_name_with_module__().lower()
+        if dict_typed_features:
+            # delete all previously existing anotations with dictionaries
+            kwargs = {
+                f"links_{host_class_lower}__{host_class_lower}_id": self._host.id,
+                f"{model_name.lower()}__in": dict_typed_features,
+            }
+            try:
+                value_model.filter(**kwargs).all().delete()
+            except ProtectedError:
+                pass
+        # add new feature links
         links = [
             LinkORM(
                 **{
-                    f"{self._host.__class__.__get_name_with_module__().lower()}_id": self._host.id,
+                    f"{host_class_lower}_id": self._host.id,
                     valuefield_id: feature_value.id,
                 }
             )

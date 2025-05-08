@@ -559,7 +559,7 @@ class Run(Record):
 
             Query by fields::
 
-                ln.Run.filter(key="my_datasets/my_file.parquet")
+                ln.Run.filter(key="examples/my_file.parquet")
 
             Query by params::
 
@@ -614,9 +614,9 @@ def delete_run_artifacts(run: Run) -> None:
 
 class RunParamValue(BasicRecord, LinkORM):
     id: int = models.BigAutoField(primary_key=True)
-    run: Run = ForeignKey(Run, CASCADE, related_name="+")
+    run: Run = ForeignKey(Run, CASCADE, related_name="links_paramvalue")
     # we follow the lower() case convention rather than snake case for link models
-    paramvalue: ParamValue = ForeignKey(ParamValue, PROTECT, related_name="+")
+    paramvalue: ParamValue = ForeignKey(ParamValue, PROTECT, related_name="links_run")
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )

@@ -162,12 +162,17 @@ def init_self_from_db(self: Record, existing_record: Record):
 def update_attributes(record: Record, attributes: dict[str, str]):
     for key, value in attributes.items():
         if getattr(record, key) != value and value is not None:
-            if key not in {"uid", "dtype", "otype", "_aux"}:
+            if key not in {"uid", "dtype", "otype", "hash"}:
                 logger.warning(f"updated {key} from {getattr(record, key)} to {value}")
                 setattr(record, key, value)
             else:
+                hash_message = (
+                    "recomputing on .save()"
+                    if key == "hash"
+                    else f"keeping {getattr(record, key)}"
+                )
                 logger.warning(
-                    f"ignoring new value {value} for {key}, keeping {getattr(record, key)}"
+                    f"ignoring tentative value {value} for {key}, {hash_message}"
                 )
 
 
@@ -256,9 +261,12 @@ def validate_fields(record: Record, kwargs):
             "uid"
         ).max_length  # triggers FieldDoesNotExist
         if len(kwargs["uid"]) != uid_max_length:  # triggers KeyError
-            raise ValidationError(
-                f"`uid` must be exactly {uid_max_length} characters long, got {len(kwargs['uid'])}."
-            )
+            if not (
+                record.__class__ is Schema and len(kwargs["uid"]) == 16
+            ):  # no error for schema
+                raise ValidationError(
+                    f"`uid` must be exactly {uid_max_length} characters long, got {len(kwargs['uid'])}."
+                )
     # validate is_type
     if "is_type" in kwargs and "name" in kwargs and kwargs["is_type"]:
         if kwargs["name"].endswith("s"):
@@ -588,9 +596,8 @@ class Registry(ModelBase):
 
         target_modules = setup_settings.instance.modules
         if missing_members := source_modules - target_modules:
-            logger.warning(
-                f"source modules has additional modules: {missing_members}\n"
-                "consider mounting these registry modules to transfer all metadata"
+            logger.info(
+                f"in transfer, source lamindb instance has additional modules: {', '.join(missing_members)}"
             )
 
         add_db_connection(db, instance)
@@ -831,7 +838,7 @@ class BasicRecord(models.Model, metaclass=Registry):
                 self.features._add_from(self_on_db, transfer_logs=transfer_logs)
                 self.labels.add_from(self_on_db, transfer_logs=transfer_logs)
             for k, v in transfer_logs.items():
-                if k != "run":
+                if k != "run" and len(v) > 0:
                     logger.important(f"{k} records: {', '.join(v)}")
 
         if (

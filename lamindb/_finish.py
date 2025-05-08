@@ -99,7 +99,7 @@ def save_run_logs(run: Run, save_run: bool = False) -> None:
         artifact = Artifact(  # type: ignore
             logs_path,
             description=f"log streams of run {run.uid}",
-            _branch_code=0,
+            kind="__lamindb__",
             run=False,
         )
         artifact.save(upload=True, print_progress=False)
@@ -370,14 +370,14 @@ def save_context_core(
                 logger.important("run.environment is already saved, ignoring")
                 overwrite_env = False
             if overwrite_env:
-                hash, _ = hash_file(env_path)
-                artifact = ln.Artifact.filter(hash=hash, _branch_code=0).one_or_none()
+                env_hash, _ = hash_file(env_path)
+                artifact = ln.Artifact.objects.filter(hash=env_hash).one_or_none()
                 new_env_artifact = artifact is None
                 if new_env_artifact:
                     artifact = ln.Artifact(  # type: ignore
                         env_path,
                         description="requirements.txt",
-                        _branch_code=0,
+                        kind="__lamindb__",
                         run=False,
                     )
                     artifact.save(upload=True, print_progress=False)
@@ -424,7 +424,7 @@ def save_context_core(
                     report_file = ln.Artifact(  # type: ignore
                         report_path,
                         description=f"Report of run {run.uid}",
-                        _branch_code=0,  # hidden file
+                        kind="__lamindb__",  # hidden file
                         run=False,
                     )
                     report_file.save(upload=True, print_progress=False)

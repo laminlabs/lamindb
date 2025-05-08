@@ -5,7 +5,7 @@ import os
 import shutil
 from collections import defaultdict
 from pathlib import Path, PurePath, PurePosixPath
-from typing import TYPE_CHECKING, Any, Union, overload
+from typing import TYPE_CHECKING, Any, Literal, Union, overload
 
 import fsspec
 import lamindb_setup as ln_setup
@@ -17,7 +17,6 @@ from django.db.models import CASCADE, PROTECT, Q
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage_in_instance
-from lamindb_setup.core import doc_args
 from lamindb_setup.core._settings_storage import init_storage
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dir, hash_file
 from lamindb_setup.core.types import UPathStr
@@ -48,6 +47,11 @@ from ..core.storage import (
     write_to_disk,
 )
 from ..core.storage._anndata_accessor import _anndata_n_observations
+from ..core.storage._backed_access import (
+    _track_writes_factory,
+    backed_access,
+)
+from ..core.storage._polars_lazy_df import POLARS_SUFFIXES
 from ..core.storage._pyarrow_dataset import PYARROW_SUFFIXES
 from ..core.storage._tiledbsoma import _soma_n_observations
 from ..core.storage.paths import (
@@ -94,8 +98,6 @@ WARNING_RUN_TRANSFORM = "no run & transform got linked, call `ln.track()` & re-r
 
 WARNING_NO_INPUT = "run input wasn't tracked, call `ln.track()` and re-run"
 
-DEBUG_KWARGS_DOC = "**kwargs: Internal arguments for debugging."
-
 try:
     from ..core.storage._zarr import identify_zarr_type
 except ImportError:
@@ -105,9 +107,10 @@ except ImportError:
 
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Iterator
 
     from mudata import MuData  # noqa: TC004
+    from polars import LazyFrame as PolarsLazyFrame
     from pyarrow.dataset import Dataset as PyArrowDataset
     from spatialdata import SpatialData  # noqa: TC004
     from tiledbsoma import Collection as SOMACollection
@@ -311,10 +314,9 @@ def get_stat_or_artifact(
         result = Artifact.objects.using(instance).filter(hash=hash).all()
         artifact_with_same_hash_exists = len(result) > 0
     else:
-        storage_id = settings.storage.id
         result = (
             Artifact.objects.using(instance)
-            .filter(Q(hash=hash) | Q(key=key, storage_id=storage_id))
+            .filter(Q(hash=hash) | Q(key=key, storage=settings.storage.record))
             .order_by("-created_at")
             .all()
         )
@@ -909,7 +911,7 @@ def add_labels(
         for registry_name, records in records_by_registry.items():
             if not from_curator and feature.name in internal_features:
                 raise ValidationError(
-                    "Cannot manually annotate internal feature with label. Please use ln.Curator"
+                    "Cannot manually annotate a feature measured *within* the dataset. Please use a Curator."
                 )
             if registry_name not in feature.dtype:
                 if not feature.dtype.startswith("cat"):
@@ -962,7 +964,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         Create an artifact **from a local file or folder**::
 
-            artifact = ln.Artifact("./my_file.parquet", key="example_datasets/my_file.parquet").save()
+            artifact = ln.Artifact("./my_file.parquet", key="examples/my_file.parquet").save()
             artifact = ln.Artifact("./my_folder", key="project1/my_folder").save()
 
         Calling `.save()` copies or uploads the file to the default storage location of your lamindb instance.
@@ -977,7 +979,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         You can make a **new version** of an artifact by passing an existing `key`::
 
-            artifact_v2 = ln.Artifact("./my_file.parquet", key="example_datasets/my_file.parquet").save()
+            artifact_v2 = ln.Artifact("./my_file.parquet", key="examples/my_file.parquet").save()
             artifact_v2.versions.df()  # see all versions
 
         You can write artifacts to other storage locations by switching the current default storage location (:attr:`~lamindb.core.Settings.storage`)::
@@ -1231,7 +1233,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         default=None,
         related_name="validated_artifacts",
     )
-    """The schema that validated this artifact in a :class:`~lamindb.curators.Curator`."""
+    """The schema that validated this artifact in a :class:`~lamindb.curators.core.Curator`."""
     feature_sets: Schema = models.ManyToManyField(
         Schema, related_name="artifacts", through="ArtifactSchema"
     )
@@ -1529,7 +1531,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             ::
 
                 artifact = ln.Artifact.get("tCUkRcaEjTjhtozp0000")
-                artifact = ln.Arfifact.get(key="my_datasets/my_file.parquet")
+                artifact = ln.Arfifact.get(key="examples/my_file.parquet")
         """
         from .query_set import QuerySet
 
@@ -1554,7 +1556,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             Query by fields::
 
-                ln.Arfifact.filter(key="my_datasets/my_file.parquet")
+                ln.Arfifact.filter(key="examples/my_file.parquet")
 
             Query by features::
 
@@ -1637,8 +1639,24 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
                 import lamindb as ln
 
-                df = ln.core.datasets.df_iris_in_meter_batch1()
-                artifact = ln.Artifact.from_df(df, key="iris/result_batch1.parquet").save()
+                df = ln.core.datasets.mini_immuno.get_dataset1()
+                artifact = ln.Artifact.from_df(df, key="examples/dataset1.parquet").save()
+
+            With validation and annotation.
+
+            .. literalinclude:: scripts/curate_dataframe_flexible.py
+               :language: python
+
+            Under-the-hood, this used the following schema.
+
+            .. literalinclude:: scripts/define_valid_features.py
+               :language: python
+
+            Valid features & labels were defined as:
+
+            .. literalinclude:: scripts/define_mini_immuno_features_labels.py
+               :language: python
+
         """
         artifact = Artifact(  # type: ignore
             data=df,
@@ -1701,14 +1719,19 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             With validation and annotation.
 
-            .. literalinclude:: scripts/curate-anndata-simple.py
-                :language: python
+            .. literalinclude:: scripts/curate_anndata_flexible.py
+               :language: python
 
-            In the example above, we chose to tranpose the `var` DataFrame during annotation, so that we annotate the `var.T` schema, i.e., `[ENSG00000153563, ENSG00000010610, ENSG00000170458]`.
-            If we don't transpose, we'd annotate with the schema of `var`, i.e., `[gene_symbol, gene_type]`.
+            Under-the-hood, this used the following schema.
+
+            .. literalinclude:: scripts/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py
+               :language: python
+
+            This schema tranposes the `var` DataFrame during curation, so that one validates and annotates the `var.T` schema, i.e., `[ENSG00000153563, ENSG00000010610, ENSG00000170458]`.
+            If one doesn't transpose, one would annotate with the schema of `var`, i.e., `[gene_symbol, gene_type]`.
 
             .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/gLyfToATM7WUzkWW0001.png
-                :width: 800px
+               :width: 800px
 
         """
         if not data_is_anndata(adata):
@@ -1846,11 +1869,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             .. literalinclude:: scripts/define_schema_spatialdata.py
                 :language: python
-                :caption: define_schema_spatialdata.py
 
             .. literalinclude:: scripts/curate_spatialdata.py
                 :language: python
-                :caption: curate_spatialdata.py
         """
         if not data_is_spatialdata(sdata):
             raise ValueError(
@@ -2142,29 +2163,39 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         self._old_suffix = self.suffix
 
     def open(
-        self, mode: str = "r", is_run_input: bool | None = None, **kwargs
-    ) -> Union[
-        AnnDataAccessor,
-        BackedAccessor,
-        SOMACollection,
-        SOMAExperiment,
-        SOMAMeasurement,
-        PyArrowDataset,
-    ]:
-        """Return a cloud-backed data object.
+        self,
+        mode: str = "r",
+        engine: Literal["pyarrow", "polars"] = "pyarrow",
+        is_run_input: bool | None = None,
+        **kwargs,
+    ) -> (
+        AnnDataAccessor
+        | BackedAccessor
+        | SOMACollection
+        | SOMAExperiment
+        | SOMAMeasurement
+        | PyArrowDataset
+        | Iterator[PolarsLazyFrame]
+    ):
+        """Open a dataset for streaming.
 
         Works for `AnnData` (`.h5ad` and `.zarr`), generic `hdf5` and `zarr`,
-        `tiledbsoma` objects (`.tiledbsoma`), `pyarrow` compatible formats.
+        `tiledbsoma` objects (`.tiledbsoma`), `pyarrow` or `polars` compatible formats
+        (`.parquet`, `.csv`, `.ipc` etc. files or directories with such files).
 
         Args:
             mode: can only be `"w"` (write mode) for `tiledbsoma` stores,
                 otherwise should be always `"r"` (read-only mode).
+            engine: Which module to use for lazy loading of a dataframe
+                from `pyarrow` or `polars` compatible formats.
+                This has no effect if the artifact is not a dataframe, i.e.
+                if it is an `AnnData,` `hdf5`, `zarr` or `tiledbsoma` object.
             is_run_input: Whether to track this artifact as run input.
             **kwargs: Keyword arguments for the accessor, i.e. `h5py` or `zarr` connection,
-                `pyarrow.dataset.dataset`.
+                `pyarrow.dataset.dataset`, `polars.scan_*` function.
 
         Notes:
-            For more info, see tutorial: :doc:`/arrays`.
+            For more info, see guide: :doc:`/arrays`.
 
         Example::
 
@@ -2177,6 +2208,10 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             #> AnnDataAccessor object with n_obs × n_vars = 70 × 765
             #>     constructed for the AnnData object pbmc68k.h5ad
             #>     ...
+            artifact = ln.Artifact.get(key="lndb-storage/df.parquet")
+            artifact.open()
+            #> pyarrow._dataset.FileSystemDataset
+
         """
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(INCONSISTENT_STATE_MSG)
@@ -2184,6 +2219,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         h5_suffixes = [".h5", ".hdf5", ".h5ad"]
         h5_suffixes += [s + ".gz" for s in h5_suffixes]
         # ignore empty suffix for now
+        df_suffixes = tuple(set(PYARROW_SUFFIXES).union(POLARS_SUFFIXES))
         suffixes = (
             (
                 "",
@@ -2192,7 +2228,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 ".tiledbsoma",
             )
             + tuple(h5_suffixes)
-            + PYARROW_SUFFIXES
+            + df_suffixes
             + tuple(
                 s + ".gz" for s in PYARROW_SUFFIXES
             )  # this doesn't work for externally gzipped files, REMOVE LATER
@@ -2200,10 +2236,10 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         if self.suffix not in suffixes:
             raise ValueError(
                 "Artifact should have a zarr, h5, tiledbsoma object"
-                " or a compatible `pyarrow.dataset.dataset` directory"
+                " or a compatible `pyarrow.dataset.dataset` or `polars.scan_*` directory"
                 " as the underlying data, please use one of the following suffixes"
                 f" for the object name: {', '.join(suffixes[1:])}."
-                f" Or no suffix for a folder with {', '.join(PYARROW_SUFFIXES)} files"
+                f" Or no suffix for a folder with {', '.join(df_suffixes)} files"
                 " (no mixing allowed)."
             )
         if self.suffix != ".tiledbsoma" and self.key != "soma" and mode != "r":
@@ -2212,10 +2248,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             )
 
         from lamindb import settings
-        from lamindb.core.storage._backed_access import (
-            _track_writes_factory,
-            backed_access,
-        )
 
         using_key = settings._using_key
         filepath, cache_key = filepath_cache_key_from_artifact(
@@ -2236,14 +2268,22 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             ) and not filepath.synchronize(localpath, just_check=True)
         if open_cache:
             try:
-                access = backed_access(localpath, mode, using_key, **kwargs)
+                access = backed_access(
+                    localpath, mode, engine, using_key=using_key, **kwargs
+                )
             except Exception as e:
-                if isinstance(filepath, LocalPathClasses):
+                # also ignore ValueError here because
+                # such errors most probably just imply an incorrect argument
+                if isinstance(filepath, LocalPathClasses) or isinstance(
+                    e, (ImportError, ValueError)
+                ):
                     raise e
                 logger.warning(
                     f"The cache might be corrupted: {e}. Trying to open directly."
                 )
-                access = backed_access(filepath, mode, using_key, **kwargs)
+                access = backed_access(
+                    filepath, mode, engine, using_key=using_key, **kwargs
+                )
                 # happens only if backed_access has been successful
                 # delete the corrupted cache
                 if localpath.is_dir():
@@ -2251,7 +2291,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 else:
                     localpath.unlink(missing_ok=True)
         else:
-            access = backed_access(filepath, mode, using_key, **kwargs)
+            access = backed_access(
+                filepath, mode, engine, using_key=using_key, **kwargs
+            )
             if is_tiledbsoma_w:
 
                 def finalize():
@@ -2318,6 +2360,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         if hasattr(self, "_memory_rep") and self._memory_rep is not None:
             access_memory = self._memory_rep
+            # SpatialData objects zarr stores are moved when saved
+            # SpatialData's __repr__ method attempts to access information from the old path
+            # Therefore, we need to update the in-memory path to the now moved Artifact storage path
+            if access_memory.__class__.__name__ == "SpatialData":
+                access_memory.path = self._cache_path
         else:
             filepath, cache_key = filepath_cache_key_from_artifact(
                 self, using_key=settings._using_key
@@ -2350,9 +2397,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 access_memory = load_to_memory(cache_path, **kwargs)
         # only call if load is successfull
         _track_run_input(self, is_run_input)
+
         return access_memory
 
-    @doc_args(DEBUG_KWARGS_DOC)
     def cache(
         self, *, is_run_input: bool | None = None, mute: bool = False, **kwargs
     ) -> Path:
@@ -2365,7 +2412,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         Args:
             mute: Silence logging of caching progress.
             is_run_input: Whether to track this artifact as run input.
-            {}
 
         Example::
 
@@ -2515,13 +2561,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 if delete_msg != "did-not-delete":
                     logger.success(f"deleted {colors.yellow(f'{path}')}")
 
-    @doc_args(DEBUG_KWARGS_DOC)
     def save(self, upload: bool | None = None, **kwargs) -> Artifact:
         """Save to database & storage.
 
         Args:
             upload: Trigger upload to cloud storage in instances with hybrid storage mode.
-            {}
 
         Example::
 
@@ -2653,9 +2697,11 @@ def _save_skip_storage(artifact, **kwargs) -> None:
 
 class ArtifactFeatureValue(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
-    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="+")
+    artifact: Artifact = ForeignKey(
+        Artifact, CASCADE, related_name="links_featurevalue"
+    )
     # we follow the lower() case convention rather than snake case for link models
-    featurevalue = ForeignKey(FeatureValue, PROTECT, related_name="+")
+    featurevalue = ForeignKey(FeatureValue, PROTECT, related_name="links_artifact")
 
     class Meta:
         unique_together = ("artifact", "featurevalue")
@@ -2663,9 +2709,11 @@ class ArtifactFeatureValue(BasicRecord, LinkORM, TracksRun):
 
 class ArtifactParamValue(BasicRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
-    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="+")
+    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_paramvalue")
     # we follow the lower() case convention rather than snake case for link models
-    paramvalue: ParamValue = ForeignKey(ParamValue, PROTECT, related_name="+")
+    paramvalue: ParamValue = ForeignKey(
+        ParamValue, PROTECT, related_name="links_artifact"
+    )
 
     class Meta:
         unique_together = ("artifact", "paramvalue")
@@ -2714,8 +2762,8 @@ def _track_run_input(
                 # record is on another db
                 # we have to save the record into the current db with
                 # the run being attached to a transfer transform
-                logger.important(
-                    f"completing transfer to track {data.__class__.__name__}('{data.uid[:8]}') as input"
+                logger.info(
+                    f"completing transfer to track {data.__class__.__name__}('{data.uid[:8]}...') as input"
                 )
                 data.save()
                 is_valid = True

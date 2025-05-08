@@ -11,56 +11,50 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import anndata as ad
 import pandas as pd
 
+if TYPE_CHECKING:
+    from lamindb.models import Schema
+
 
 def define_features_labels() -> None:
-    """Features & labels to validate the mini immuno dataset.
+    """Features & labels to validate the mini immuno datasets.
 
-    The function runs this code::
-
-        import lamindb as ln
-        import bionty as bt
-
-        # define labels
-        perturbation_type = ln.ULabel(name="Perturbation", is_type=True).save()
-        ln.ULabel(name="DMSO", type=perturbation_type).save()
-        ln.ULabel(name="IFNG", type=perturbation_type).save()
-        bt.CellType.from_source(name="B cell").save()
-        bt.CellType.from_source(name="T cell").save()
-
-        # define features
-        ln.Feature(name="perturbation", dtype=ln.ULabel).save()
-        ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()
-        ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()
-        ln.Feature(name="assay_oid", dtype=bt.ExperimentalFactor.ontology_id).save()
-        ln.Feature(name="donor", dtype=str, nullable=True).save()
-        ln.Feature(name="concentration", dtype=str).save()
-        ln.Feature(name="treatment_time_h", dtype="num", coerce_dtype=True).save()
-
+    .. literalinclude:: scripts/define_mini_immuno_features_labels.py
+        :language: python
     """
-    import bionty as bt
+    import sys
+    from pathlib import Path
 
-    import lamindb as ln
+    docs_path = Path(__file__).parent.parent.parent.parent / "docs" / "scripts"
+    if str(docs_path) not in sys.path:
+        sys.path.append(str(docs_path))
 
-    # define valid labels
-    perturbation_type = ln.ULabel(name="Perturbation", is_type=True).save()
-    ln.ULabel(name="DMSO", type=perturbation_type).save()
-    ln.ULabel(name="IFNG", type=perturbation_type).save()
-    bt.CellType.from_source(name="B cell").save()
-    bt.CellType.from_source(name="T cell").save()
+    import define_mini_immuno_features_labels  # noqa
 
-    # define valid features
-    ln.Feature(name="perturbation", dtype=ln.ULabel).save()
-    ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()
-    ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()
-    ln.Feature(name="assay_oid", dtype=bt.ExperimentalFactor.ontology_id).save()
-    ln.Feature(name="donor", dtype=str, nullable=True).save()
-    ln.Feature(name="concentration", dtype=str).save()
-    ln.Feature(name="treatment_time_h", dtype="num", coerce_dtype=True).save()
+
+def define_mini_immuno_schema_flexible() -> Schema:
+    """Features & labels to validate the mini immuno datasets.
+
+    .. literalinclude:: scripts/define_mini_immuno_schema_flexible.py
+        :language: python
+    """
+    import sys
+    from pathlib import Path
+
+    from lamindb.models import Schema
+
+    docs_path = Path(__file__).parent.parent.parent.parent / "docs" / "scripts"
+    if str(docs_path) not in sys.path:
+        sys.path.append(str(docs_path))
+
+    define_features_labels()
+    import define_mini_immuno_schema_flexible  # noqa
+
+    return Schema.get(name="Mini immuno schema")
 
 
 def get_dataset1(
@@ -70,7 +64,9 @@ def get_dataset1(
     with_cell_type_synonym: bool = False,
     with_cell_type_typo: bool = False,
     with_gene_typo: bool = False,
+    with_outdated_gene: bool = False,
     with_wrong_subtype: bool = False,
+    with_index_type_mismatch: bool = False,
 ) -> pd.DataFrame | ad.AnnData:
     """A small tabular dataset measuring expression & metadata."""
     # define the data in the dataset
@@ -83,7 +79,11 @@ def get_dataset1(
         var_ids = [
             "ENSG00000153563",
             "ENSG00000010610",
-            "ENSG00000170458" if not with_gene_typo else "GeneTypo",
+            "ENSG00000170458"
+            if not with_gene_typo
+            else "GeneTypo"
+            if not with_outdated_gene
+            else "ENSG00000278198",
         ]
     abt_cell = (
         "CD8-pos alpha-beta T cell"
@@ -113,7 +113,12 @@ def get_dataset1(
         "study_note": "We had a great time performing this study and the results look compelling.",
     }
     # the dataset as DataFrame
-    dataset_df = pd.DataFrame(dataset_dict, index=["sample1", "sample2", "sample3"])
+    dataset_df = pd.DataFrame(
+        dataset_dict,
+        index=["sample1", "sample2", 0]  # type: ignore
+        if with_index_type_mismatch
+        else ["sample1", "sample2", "sample3"],
+    )
     if otype == "DataFrame":
         for key, value in metadata.items():
             dataset_df.attrs[key] = value
@@ -139,6 +144,9 @@ def get_dataset2(
         var_ids[2]: [4, 2, 3],
         "perturbation": pd.Categorical(["DMSO", "IFNG", "IFNG"]),
         "cell_type_by_model": pd.Categorical(["B cell", "T cell", "T cell"]),
+        "concentration": ["0.1%", "200 nM", "0.1%"],
+        "treatment_time_h": [24, 24, 6],
+        "donor": ["D0003", "D0003", "D0004"],
     }
     metadata = {
         "temperature": 22.6,

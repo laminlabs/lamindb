@@ -8,6 +8,7 @@
    Registry
    BasicQuerySet
    QuerySet
+   ArtifactSet
    QueryManager
    RecordList
    FeatureManager
@@ -57,6 +58,7 @@ from .project import Person, Project, Reference
 from .flextable import FlexTable, RunData
 from .query_manager import QueryManager
 from .query_set import BasicQuerySet, QuerySet, RecordList
+from .artifact_set import ArtifactSet
 from .has_parents import HasParents
 from datetime import datetime as _datetime
 

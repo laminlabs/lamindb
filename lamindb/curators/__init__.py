@@ -5,8 +5,8 @@
 
    DataFrameCurator
    AnnDataCurator
-   MuDataCurator
    SpatialDataCurator
+   MuDataCurator
 
 Modules.
 

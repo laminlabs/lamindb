@@ -259,8 +259,8 @@ class Context:
         self,
         transform: str | Transform | None = None,
         *,
-        project: str | None = None,
-        space: str | None = None,
+        project: str | Project | None = None,
+        space: str | Space | None = None,
         params: dict | None = None,
         new_run: bool | None = None,
         path: str | None = None,
@@ -273,9 +273,10 @@ class Context:
 
         Args:
             transform: A transform (stem) `uid` (or record). If `None`, auto-creates a `transform` with its `uid`.
-            project: A project `name` or `uid` for labeling entities created during the run.
-            space: A space `name` or `uid` to identify where potentially sensitive entities are created during the run.
-                This doesn't affect `Storage`, `ULabel`, `Feature`, `Schema`, `Param` and bionty entities as these provide mere structure that should typically be commonly accessible.
+            project: A project, its `name` or `uid` for labeling entities created during the run.
+            space: A restricted space, its `name` or `uid` for creating sensitive entities are created during the run.
+                The default is the common `"All"` space that every LaminDB instance has.
+                The `space` argument doesn't affect `Storage`, `ULabel`, `Feature`, `Schema`, `Param` and bionty entities as these provide structure that should typically be commonly accessible.
                 If you want to manually move entities to a different space, set the `.space` field (:doc:`docs:access`).
             params: A dictionary of parameters to track for the run.
             new_run: If `False`, loads the latest run of transform
@@ -289,7 +290,7 @@ class Context:
 
                 ln.track()
                 #> → created Transform('Onv04I53OgtT0000'), started new Run('dpSfd7Ds...') at 2025-04-25 11:00:03 UTC
-                #> • recommendation: to identify the notebook across renames, pass the uid: ln.track('Onv04I53OgtT')
+                #> • recommendation: to identify the notebook across renames, pass the uid: ln.track("Onv04I53OgtT")
 
             Ensure one version history across file renames::
 
@@ -309,20 +310,32 @@ class Context:
         if project is None:
             project = os.environ.get("LAMIN_CURRENT_PROJECT")
         if project is not None:
-            project_record = Project.filter(
-                Q(name=project) | Q(uid=project)
-            ).one_or_none()
-            if project_record is None:
-                raise InvalidArgument(
-                    f"Project '{project}' not found, either create it with `ln.Project(name='...').save()` or fix typos."
+            if isinstance(project, Project):
+                assert project._state.adding is False, (  # noqa: S101
+                    "Project must be saved before passing it to track()"
                 )
+                project_record = project
+            else:
+                project_record = Project.filter(
+                    Q(name=project) | Q(uid=project)
+                ).one_or_none()
+                if project_record is None:
+                    raise InvalidArgument(
+                        f"Project '{project}' not found, either create it with `ln.Project(name='...').save()` or fix typos."
+                    )
             self._project = project_record
         if space is not None:
-            space_record = Space.filter(Q(name=space) | Q(uid=space)).one_or_none()
-            if space_record is None:
-                raise InvalidArgument(
-                    f"Space '{space}', please check on the hub UI whether you have the correct `uid` or `name`."
+            if isinstance(space, Space):
+                assert space._state.adding is False, (  # noqa: S101
+                    "Space must be saved before passing it to track()"
                 )
+                space_record = space
+            else:
+                space_record = Space.filter(Q(name=space) | Q(uid=space)).one_or_none()
+                if space_record is None:
+                    raise InvalidArgument(
+                        f"Space '{space}', please check on the hub UI whether you have the correct `uid` or `name`."
+                    )
             self._space = space_record
         self._logging_message_track = ""
         self._logging_message_imports = ""
@@ -439,11 +452,14 @@ class Context:
             r_or_python = "."
             if self._path is not None:
                 r_or_python = "." if self._path.suffix in {".py", ".ipynb"} else "$"
-            project_str = f", project='{project}'" if project is not None else ""
-            space_str = f", space='{space}'" if space is not None else ""
-            kwargs_str = f"{project_str}{space_str}"
+            project_str = f', project="{project}"' if project is not None else ""
+            space_str = f', space="{space}"' if space is not None else ""
+            params_str = (
+                ", params={...}" if params is not None else ""
+            )  # do not put the values because typically parameterized by user
+            kwargs_str = f"{project_str}{space_str}{params_str}"
             logger.important_hint(
-                f"recommendation: to identify the {notebook_or_script} across renames, pass the uid: ln{r_or_python}track('{self.transform.uid[:-4]}'{kwargs_str})"
+                f'recommendation: to identify the {notebook_or_script} across renames, pass the uid: ln{r_or_python}track("{self.transform.uid[:-4]}"{kwargs_str})'
             )
 
     def _track_source_code(
@@ -547,7 +563,9 @@ class Context:
             return uid, aux_transform, message
         else:
             uid = f"{aux_transform.uid[:-4]}{increment_base62(aux_transform.uid[-4:])}"
-            message = f"there already is a {aux_transform.type} with key '{aux_transform.key}'"
+            message = (
+                f"found {aux_transform.type} {aux_transform.key}, making new version"
+            )
             if (
                 aux_transform.hash == transform_hash
                 and aux_transform.type == "notebook"
@@ -561,7 +579,6 @@ class Context:
                 message += (
                     f" -- {aux_transform.created_by.handle} already works on this draft"
                 )
-            message += f", creating new version '{uid}'"
             return uid, None, message
 
     def _create_or_load_transform(
