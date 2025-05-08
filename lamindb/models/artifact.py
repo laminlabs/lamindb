@@ -2363,6 +2363,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         if hasattr(self, "_memory_rep") and self._memory_rep is not None:
             access_memory = self._memory_rep
+            # SpatialData objects zarr stores are moved when saved
+            # SpatialData's __repr__ method attempts to access information from the old path
+            # Therefore, we need to update the in-memory path to the now moved Artifact storage path
+            if access_memory.__class__.__name__ == "SpatialData":
+                access_memory.path = self.path
         else:
             filepath, cache_key = filepath_cache_key_from_artifact(
                 self, using_key=settings._using_key
@@ -2395,6 +2400,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 access_memory = load_to_memory(cache_path, **kwargs)
         # only call if load is successfull
         _track_run_input(self, is_run_input)
+
         return access_memory
 
     @doc_args(DEBUG_KWARGS_DOC)

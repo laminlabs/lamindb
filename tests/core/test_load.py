@@ -135,6 +135,17 @@ def test_load_spatialdata(get_small_sdata):
     assert artifact._local_filepath.resolve() == artifact.cache() == artifact.path
 
 
+def load_blobs__repr__():
+    example_blobs_sdata = ln.core.datasets.spatialdata_blobs()
+    blobs_af = ln.Artifact.from_spatialdata(
+        example_blobs_sdata, key="example_blobs.zarr"
+    ).save()
+    example_blobs_sdata = ln.Artifact.get(key="example_blobs.zarr")
+    example_blobs_sdata = blobs_af.load()
+    # Must exist and not throw errors
+    assert example_blobs_sdata.__repr__
+
+
 def test_load_html(html_filepath):
     artifact = ln.Artifact(html_filepath, key=str(html_filepath))
     artifact.load()
