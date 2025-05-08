@@ -49,7 +49,7 @@ from ._label_manager import _get_labels, describe_labels
 from ._relations import (
     dict_related_model_to_related_name,
 )
-from .feature import Feature, FeatureValue
+from .feature import Feature, FeatureValue, parse_dtype
 from .record import Record
 from .run import Param, ParamManager, ParamManagerRun, ParamValue, Run
 from .ulabel import ULabel
@@ -676,10 +676,14 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
         elif isinstance(value, (str, Record, bool)):
             if comparator == "__isnull":
                 if cls == FeatureManager:
+                    result = parse_dtype(feature.dtype)[0]
+                    kwargs = {
+                        f"links_{result['registry'].__name__.lower()}__feature": feature
+                    }
                     if value:  # True
-                        return Artifact.objects.exclude(links_ulabel__feature=feature)
+                        return Artifact.objects.exclude(**kwargs)
                     else:
-                        return Artifact.objects.filter(links_ulabel__feature=feature)
+                        return Artifact.objects.filter(**kwargs)
             else:
                 # because SQL is sensitive to whether querying with __in or not
                 # and might return multiple equivalent records for the latter
