@@ -84,7 +84,41 @@ class HasParents:
         return view_parents(
             record=self,  # type: ignore
             field=field,
+            with_parents=True,
             with_children=with_children,
+            distance=distance,
+        )
+
+    def view_children(
+        self,
+        field: StrField | None = None,
+        distance: int = 5,
+    ):
+        """View children in an ontology.
+
+        Args:
+            field: Field to display on graph
+            distance: Maximum distance still shown.
+
+        Ontological hierarchies: :class:`~lamindb.ULabel` (project & sub-project), :class:`~bionty.CellType` (cell type & subtype).
+
+        Examples:
+            >>> import bionty as bt
+            >>> bt.Tissue.from_source(name="subsegmental bronchus").save()
+            >>> record = bt.Tissue.get(name="respiratory tube")
+            >>> record.view_parents()
+            >>> tissue.view_parents(with_children=True)
+        """
+        if field is None:
+            field = get_name_field(self)
+        if not isinstance(field, str):
+            field = field.field.name
+
+        return view_parents(
+            record=self,  # type: ignore
+            field=field,
+            with_parents=False,
+            with_children=True,
             distance=distance,
         )
 
@@ -210,6 +244,7 @@ def view_lineage(
 def view_parents(
     record: Record,
     field: str,
+    with_parents: bool = True,
     with_children: bool = False,
     distance: int = 100,
     attr_name: Literal["parents", "predecessors"] = "parents",
@@ -223,11 +258,12 @@ def view_parents(
     import pandas as pd
 
     df_edges = None
-    df_edges_parents = _df_edges_from_parents(
-        record=record, field=field, distance=distance, attr_name=attr_name
-    )
-    if df_edges_parents is not None:
-        df_edges = df_edges_parents
+    df_edges_parents = None
+    df_edges_children = None
+    if with_parents:
+        df_edges_parents = _df_edges_from_parents(
+            record=record, field=field, distance=distance, attr_name=attr_name
+        )
     if with_children:
         df_edges_children = _df_edges_from_parents(
             record=record,
@@ -236,13 +272,32 @@ def view_parents(
             children=True,
             attr_name=attr_name,
         )
-        if df_edges_children is not None:
-            if df_edges is not None:
-                df_edges = pd.concat(
-                    [df_edges_parents, df_edges_children]
-                ).drop_duplicates()
-            else:
-                df_edges = df_edges_children
+        # Rename the columns to swap source and target
+        df_edges_children = df_edges_children.rename(
+            columns={
+                "source": "temp_target",
+                "source_label": "temp_target_label",
+                "source_record": "temp_target_record",
+                "target": "source",
+                "target_label": "source_label",
+                "target_record": "source_record",
+            }
+        )
+        df_edges_children = df_edges_children.rename(
+            columns={
+                "temp_target": "target",
+                "temp_target_label": "target_label",
+                "temp_target_record": "target_record",
+            }
+        )
+    if df_edges_parents is not None and df_edges_children is not None:
+        df_edges = pd.concat([df_edges_parents, df_edges_children]).drop_duplicates()
+    elif df_edges_parents is not None:
+        df_edges = df_edges_parents
+    elif df_edges_children is not None:
+        df_edges = df_edges_children
+    else:
+        return None
 
     record_label = _record_label(record, field)
 

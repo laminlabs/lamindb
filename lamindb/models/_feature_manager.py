@@ -49,7 +49,7 @@ from ._label_manager import _get_labels, describe_labels
 from ._relations import (
     dict_related_model_to_related_name,
 )
-from .feature import Feature, FeatureValue
+from .feature import Feature, FeatureValue, parse_dtype
 from .record import Record
 from .run import Param, ParamManager, ParamManagerRun, ParamValue, Run
 from .ulabel import ULabel
@@ -649,13 +649,22 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
                 if cls == FeatureManager:
                     from .artifact import ArtifactFeatureValue
 
-                    return Artifact.objects.exclude(
-                        id__in=Subquery(
-                            ArtifactFeatureValue.objects.filter(
-                                featurevalue__feature=feature
-                            ).values("artifact_id")
+                    if value:  # True
+                        return Artifact.objects.exclude(
+                            id__in=Subquery(
+                                ArtifactFeatureValue.objects.filter(
+                                    featurevalue__feature=feature
+                                ).values("artifact_id")
+                            )
                         )
-                    )
+                    else:
+                        return Artifact.objects.exclude(
+                            id__in=Subquery(
+                                ArtifactFeatureValue.objects.filter(
+                                    featurevalue__feature=feature
+                                ).values("artifact_id")
+                            )
+                        )
             if comparator in {"__startswith", "__contains"}:
                 logger.important(
                     f"currently not supporting `{comparator}`, using `__icontains` instead"
@@ -667,7 +676,14 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
         elif isinstance(value, (str, Record, bool)):
             if comparator == "__isnull":
                 if cls == FeatureManager:
-                    return Artifact.objects.exclude(links_ulabel__feature=feature)
+                    result = parse_dtype(feature.dtype)[0]
+                    kwargs = {
+                        f"links_{result['registry'].__name__.lower()}__feature": feature
+                    }
+                    if value:  # True
+                        return Artifact.objects.exclude(**kwargs)
+                    else:
+                        return Artifact.objects.filter(**kwargs)
             else:
                 # because SQL is sensitive to whether querying with __in or not
                 # and might return multiple equivalent records for the latter
