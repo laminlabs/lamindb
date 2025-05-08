@@ -911,7 +911,7 @@ def add_labels(
         for registry_name, records in records_by_registry.items():
             if not from_curator and feature.name in internal_features:
                 raise ValidationError(
-                    "Cannot manually annotate internal feature with label. Please use ln.Curator"
+                    "Cannot manually annotate a feature measured *within* the dataset. Please use a Curator."
                 )
             if registry_name not in feature.dtype:
                 if not feature.dtype.startswith("cat"):
