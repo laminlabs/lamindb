@@ -1162,7 +1162,124 @@ def test_simple_backfill(backfill_table_a, backfill_table_b):
 
     assert len(history) == 3
 
-    # FIXME finish
+    # backfill_table_a should be backfilled before backfill_table_b,
+    # since b has a foreign key to a
+
+    # backfill_table_a's records can be backfilled in any order
+    for i in [0, 1]:
+        assert history[i].table.table_name == backfill_table_a
+        assert history[i].record_uid in (["badf00d1234"], ["deadbeef456"])
+        assert history[i].record_data == {
+            "data": "mydata"
+            if history[i].record_uid == ["badf00d1234"]
+            else "moredata",
+            FOREIGN_KEYS_LIST_COLUMN_NAME: [],
+        }
+        assert history[i].event_type == HistoryEventTypes.INSERT.value
+
+    assert history[2].table.table_name == backfill_table_b
+    assert history[2].record_uid == ["m00m00m00"]
+    assert history[2].record_data == {
+        "data": "yetmoredata",
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [history[0].table.id, ["table_a_id"], {"uid": "badf00d1234"}]
+        ],
+    }
+    assert history[2].event_type == HistoryEventTypes.INSERT.value
+
+
+@pytest.mark.pg_integration
+def test_self_referential_backfill(self_referential_pg_table):
+    cursor = django_connection.cursor()
+
+    # Populate the tables with some pre-existing data.
+    # Inter-record dependencies are as follows (id -> parent_id):
+    #   A -> B
+    #   B -> C
+    #   C -> E
+    #   D -> E
+
+    cursor.execute(
+        f"INSERT INTO {self_referential_pg_table} (uid, parent_id) VALUES ('E', NULL)"  # noqa: S608
+    )
+
+    table_e_id = fetch_row_id_by_uid(
+        self_referential_pg_table, ["id"], {"uid": "E"}, cursor
+    )[0]
+
+    cursor.execute(
+        f"INSERT INTO {self_referential_pg_table} (uid, parent_id) VALUES ('C', {table_e_id})"  # noqa: S608
+    )
+    cursor.execute(
+        f"INSERT INTO {self_referential_pg_table} (uid, parent_id) VALUES ('D', {table_e_id})"  # noqa: S608
+    )
+
+    table_c_id = fetch_row_id_by_uid(
+        self_referential_pg_table, ["id"], {"uid": "C"}, cursor
+    )[0]
+
+    cursor.execute(
+        f"INSERT INTO {self_referential_pg_table} (uid, parent_id) VALUES ('B', {table_c_id})"  # noqa: S608
+    )
+
+    table_b_id = fetch_row_id_by_uid(
+        self_referential_pg_table, ["id"], {"uid": "B"}, cursor
+    )[0]
+
+    cursor.execute(
+        f"INSERT INTO {self_referential_pg_table} (uid, parent_id) VALUES ('A', {table_b_id})"  # noqa: S608
+    )
+
+    _update_history_triggers(table_list={self_referential_pg_table})
+
+    history = History.objects.all().order_by("seqno")
+
+    assert len(history) == 5
+    assert all(h.table.table_name == self_referential_pg_table for h in history)
+
+    # Backfill order should be E, (D and C in some order), B, A
+
+    assert history[0].record_uid == ["E"]
+    assert history[0].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [history[0].table.id, ["parent_id"], {"uid": None}]
+        ],
+    }
+    assert history[0].event_type == HistoryEventTypes.INSERT.value
+
+    assert history[1].record_uid == ["D"] or history[1].record_uid == ["C"]
+    assert history[1].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [history[0].table.id, ["parent_id"], {"uid": "E"}]
+        ],
+    }
+    assert history[1].event_type == HistoryEventTypes.INSERT.value
+
+    assert (
+        history[2].record_uid == ["D"] or history[2].record_uid == ["C"]
+    ) and history[2].record_uid != history[1].record_uid
+    assert history[2].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [history[0].table.id, ["parent_id"], {"uid": "E"}]
+        ],
+    }
+    assert history[2].event_type == HistoryEventTypes.INSERT.value
+
+    assert history[3].record_uid == ["B"]
+    assert history[3].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [history[0].table.id, ["parent_id"], {"uid": "C"}]
+        ],
+    }
+    assert history[3].event_type == HistoryEventTypes.INSERT.value
+
+    assert history[4].record_uid == ["A"]
+    assert history[4].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [history[0].table.id, ["parent_id"], {"uid": "B"}]
+        ],
+    }
+    assert history[4].event_type == HistoryEventTypes.INSERT.value
 
 
 @pytest.mark.pg_integration

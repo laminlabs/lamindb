@@ -171,7 +171,8 @@ class WriteLogRecordingTriggerInstaller(ABC):
         table_dependencies: dict[str, set[str]] = {}
 
         for table in tables:
-            table_dependencies[table] = set()
+            if table not in table_dependencies:
+                table_dependencies[table] = set()
 
             primary_key, foreign_keys = self.db_metadata.get_table_key_constraints(
                 table=table, cursor=cursor
@@ -185,7 +186,12 @@ class WriteLogRecordingTriggerInstaller(ABC):
                 if foreign_key.target_table == table:
                     continue
 
-                table_dependencies[table].add(foreign_key.target_table)
+                # Target table of the foreign key must be populated before the table
+                # containing the constraint
+                if foreign_key.target_table not in table_dependencies:
+                    table_dependencies[foreign_key.target_table] = set()
+
+                table_dependencies[foreign_key.target_table].add(table)
 
         table_backfill_order = topological_sort(table_dependencies)
 
@@ -234,6 +240,9 @@ BEGIN
 END $$;
 """)  # noqa: S608
 
+    def _hash_pk(self, pk: dict[str, int]) -> tuple[tuple[str, int], ...]:
+        return tuple(sorted(pk.items()))
+
     def backfill_self_referential_table(
         self,
         table: str,
@@ -264,14 +273,18 @@ FROM {table}
 
         rows = cursor.fetchall()
 
-        row_relationships: dict[dict[str, int], set[dict[str, int]]] = {}
+        row_relationships: dict[
+            tuple[tuple[str, int], ...], set[tuple[tuple[str, int], ...]]
+        ] = {}
 
         for row in rows:
             row_dict = dict(zip(primary_key_columns + self_reference_columns, row))
 
             row_pk = {k: v for k, v in row_dict.items() if k in primary_key_columns}
+            hashed_row_pk = self._hash_pk(row_pk)
 
-            referenced_pks = set()
+            if hashed_row_pk not in row_relationships:
+                row_relationships[hashed_row_pk] = set()
 
             for foreign_key_constraint in self_referential_constraints:
                 # If all source columns are null, skip this constraint.
@@ -291,9 +304,12 @@ FROM {table}
                         source_column
                     ]
 
-                referenced_pks.add(referenced_pk)
+                hashed_referenced_pk = self._hash_pk(referenced_pk)
 
-            row_relationships[row_pk] = referenced_pks
+                if hashed_referenced_pk not in row_relationships:
+                    row_relationships[hashed_referenced_pk] = set()
+
+                row_relationships[hashed_referenced_pk].add(hashed_row_pk)
 
         sorted_pks = topological_sort(row_relationships)
 
@@ -304,7 +320,7 @@ FROM {table}
             )
 
         for pk in sorted_pks:
-            pk_column_lookup = " AND ".join(f'"{k}" = {v}' for k, v in pk.items())
+            pk_column_lookup = " AND ".join(f'"{k}" = {v}' for k, v in pk)
             cursor.execute(f"""
 DO $$
 DECLARE
