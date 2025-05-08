@@ -649,13 +649,22 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
                 if cls == FeatureManager:
                     from .artifact import ArtifactFeatureValue
 
-                    return Artifact.objects.exclude(
-                        id__in=Subquery(
-                            ArtifactFeatureValue.objects.filter(
-                                featurevalue__feature=feature
-                            ).values("artifact_id")
+                    if value:  # True
+                        return Artifact.objects.exclude(
+                            id__in=Subquery(
+                                ArtifactFeatureValue.objects.filter(
+                                    featurevalue__feature=feature
+                                ).values("artifact_id")
+                            )
                         )
-                    )
+                    else:
+                        return Artifact.objects.exclude(
+                            id__in=Subquery(
+                                ArtifactFeatureValue.objects.filter(
+                                    featurevalue__feature=feature
+                                ).values("artifact_id")
+                            )
+                        )
             if comparator in {"__startswith", "__contains"}:
                 logger.important(
                     f"currently not supporting `{comparator}`, using `__icontains` instead"
@@ -667,7 +676,10 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
         elif isinstance(value, (str, Record, bool)):
             if comparator == "__isnull":
                 if cls == FeatureManager:
-                    return Artifact.objects.exclude(links_ulabel__feature=feature)
+                    if value:  # True
+                        return Artifact.objects.exclude(links_ulabel__feature=feature)
+                    else:
+                        return Artifact.objects.filter(links_ulabel__feature=feature)
             else:
                 # because SQL is sensitive to whether querying with __in or not
                 # and might return multiple equivalent records for the latter

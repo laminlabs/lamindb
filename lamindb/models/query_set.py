@@ -430,8 +430,9 @@ def reshape_annotate_result(
     """
     cols_from_include = cols_from_include or {}
 
-    # initialize result with basic fields
-    result = df[field_names]
+    # initialize result with basic fields, need a copy as we're modifying it
+    # will give us warnings otherwise
+    result = df[field_names].copy()
     # process features if requested
     if feature_names:
         # handle feature_values
