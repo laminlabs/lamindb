@@ -129,18 +129,11 @@ def test_from_inconsistent_artifacts(df, adata):
 
 
 def test_from_consistent_artifacts(adata, adata2):
-    if (feature := ln.Feature.filter(name="feat1").one_or_none()) is not None:
-        feature.delete()
-    ln.Feature(name="feat1", dtype="num").save()
-    curator = ln.Curator.from_anndata(adata, var_index=bt.Gene.symbol, organism="human")
-    artifact1 = curator.save_artifact(description="My test")
-    curator = ln.Curator.from_anndata(
-        adata2, var_index=bt.Gene.symbol, organism="human"
-    )
-    artifact2 = curator.save_artifact(description="My test2").save()
+    artifact1 = ln.Artifact.from_anndata(adata, key="my_test.h5ad").save()
+    artifact2 = ln.Artifact.from_anndata(adata2, key="my_test.h5ad").save()
     transform = ln.Transform(key="My test transform").save()
     run = ln.Run(transform).save()
-    collection = ln.Collection([artifact1, artifact2], name="My test", run=run)
+    collection = ln.Collection([artifact1, artifact2], key="My test", run=run)
     assert collection._state.adding
     collection.save()
     assert set(collection.run.input_artifacts.all()) == {artifact1, artifact2}
@@ -153,7 +146,7 @@ def test_from_consistent_artifacts(adata, adata2):
     assert artifact1.uid in adata_joined.obs.artifact_uid.cat.categories
 
     # re-run with hash-based lookup
-    collection2 = ln.Collection([artifact1, artifact2], name="My test 1", run=run)
+    collection2 = ln.Collection([artifact1, artifact2], key="My test 1", run=run)
     assert not collection2._state.adding
     assert collection2.id == collection.id
     assert collection2.key == "My test 1"
@@ -161,8 +154,6 @@ def test_from_consistent_artifacts(adata, adata2):
     collection.delete(permanent=True)
     artifact1.delete(permanent=True)
     artifact2.delete(permanent=True)
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
 
 
 def test_mapped(adata, adata2):

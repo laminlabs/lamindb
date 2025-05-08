@@ -510,7 +510,7 @@ class DataFrameCurator(Curator):
             categoricals=categoricals,
             index=schema.index,
             slot=slot,
-            schema_maximal_set=schema.maximal_set,
+            maximal_set=schema.maximal_set,
         )
 
     @property
@@ -836,7 +836,7 @@ class SpatialDataCurator(SlotsCurator):
                     sub_slot = split_result[1]
                     data_object = self._dataset.attrs[split_result[1]]
                 data_object = pd.DataFrame([data_object])
-            self._slots[slot] = DataFrameCurator(data_object, slot_schema)
+            self._slots[slot] = DataFrameCurator(data_object, slot_schema, slot)
             _assign_var_fields_categoricals_multimodal(
                 modality=table_key,
                 slot_type=sub_slot,
@@ -850,27 +850,20 @@ class SpatialDataCurator(SlotsCurator):
 
 
 class CatVector:
-    """Categorical vector for `DataFrame`.
-
-    Args:
-        values_getter: A callable or iterable that returns the values to validate.
-        field: The field to validate against.
-        key: The name of the column to validate. Only used for logging.
-        values_setter: A callable that sets the values.
-        source: The source to validate against.
-    """
+    """Vector with categorical values."""
 
     def __init__(
         self,
-        values_getter: Callable | Iterable[str],
-        field: FieldAttr,
-        key: str,
-        values_setter: Callable | None = None,
-        source: Record | None = None,
+        values_getter: Callable
+        | Iterable[str],  # A callable or iterable that returns the values to validate.
+        field: FieldAttr,  # The field to validate against.
+        key: str,  # The name of the vector to validate. Only used for logging.
+        values_setter: Callable | None = None,  # A callable that sets the values.
+        source: Record | None = None,  # The ontology source to validate against.
         feature: Feature | None = None,
         cat_manager: DataFrameCatManager | None = None,
         subtype_str: str = "",
-        maximal_set: bool = False,  # Passed during validation. Whether unvalidated categoricals cause validation failure.
+        maximal_set: bool = True,  # whether unvalidated categoricals cause validation failure.
     ) -> None:
         self._values_getter = values_getter
         self._values_setter = values_setter
@@ -912,18 +905,20 @@ class CatVector:
     @property
     def is_validated(self) -> bool:
         """Whether the vector is validated."""
-        # ensembl gene IDs pass even if they were not validated
-        # this is a simple solution to the ensembl gene version problem
-        if self._field.field.attname == "ensembl_gene_id":
-            # if none of the ensembl gene ids were validated, we are probably not looking at ensembl gene IDs
-            if len(self.values) == len(self._non_validated):
-                return False
-            # if maximal set, we do not allow additional unvalidated genes
-            elif len(self._non_validated) != 0 and self._maximal_set:
-                return False
-            return True
-        else:
-            return len(self._non_validated) == 0
+        # if nothing was validated, something likely is fundamentally wrong
+        # should probably add a setting `at_least_one_validated`
+        result = True
+        if len(self.values) > 0 and len(self.values) == len(self._non_validated):
+            result = False
+        # len(self._non_validated) != 0
+        #     if maximal_set is True, return False
+        #     if maximal_set is False, return True
+        # len(self._non_validated) == 0
+        #     return True
+        if len(self._non_validated) != 0:
+            if self._maximal_set:
+                result = False
+        return result
 
     def _replace_synonyms(self) -> list[str]:
         """Replace synonyms in the vector with standardized values."""
@@ -1078,11 +1073,6 @@ class CatVector:
         field_name = self._field.field.name
         model_field = f"{registry.__name__}.{field_name}"
 
-        def _log_mapping_info():
-            logger.indent = ""
-            logger.info(f'mapping "{self._key}" on {colors.italic(model_field)}')
-            logger.indent = "  "
-
         kwargs_current = get_current_filter_kwargs(
             registry, {"organism": self._organism, "source": self._source}
         )
@@ -1121,7 +1111,6 @@ class CatVector:
         non_validated = [i for i in non_validated if i not in values_validated]
         n_non_validated = len(non_validated)
         if n_non_validated == 0:
-            logger.indent = ""
             logger.success(
                 f'"{self._key}" is validated against {colors.italic(model_field)}'
             )
@@ -1143,14 +1132,12 @@ class CatVector:
                 warning_message += f"    → fix typos, remove non-existent values, or save terms via: {colors.cyan(non_validated_hint_print)}"
                 if self._subtype_query_set is not None:
                     warning_message += f"\n    → a valid label for subtype '{self._subtype_str}' has to be one of {self._subtype_query_set.list('name')}"
-            if logger.indent == "":
-                _log_mapping_info()
+            logger.info(f'mapping "{self._key}" on {colors.italic(model_field)}')
             logger.warning(warning_message)
             if self._cat_manager is not None:
                 self._cat_manager._validate_category_error_messages = strip_ansi_codes(
                     warning_message
                 )
-            logger.indent = ""
             return non_validated, syn_mapper
 
     def validate(self) -> None:
@@ -1218,7 +1205,7 @@ class DataFrameCatManager:
         sources: dict[str, Record] | None = None,
         index: Feature | None = None,
         slot: str | None = None,
-        schema_maximal_set: bool = False,
+        maximal_set: bool = False,
     ) -> None:
         self._non_validated = None
         self._index = index
@@ -1235,7 +1222,7 @@ class DataFrameCatManager:
         self._validate_category_error_messages: str = ""
         self._cat_vectors: dict[str, CatVector] = {}
         self._slot = slot
-        self._maximal_set = schema_maximal_set
+        self._maximal_set = maximal_set
 
         if columns_names is None:
             columns_names = []
@@ -1280,7 +1267,6 @@ class DataFrameCatManager:
                 feature=feature,
                 cat_manager=self,
                 subtype_str=subtype_str,
-                maximal_set=self._maximal_set,
             )
         if index is not None and index.dtype.startswith("cat"):
             result = parse_dtype(index.dtype)[0]
@@ -1292,7 +1278,6 @@ class DataFrameCatManager:
                 key=key,
                 feature=index,
                 cat_manager=self,
-                maximal_set=self._maximal_set,
             )
 
     @property
@@ -1330,7 +1315,7 @@ class DataFrameCatManager:
 
         validated = True
         for key, cat_vector in self._cat_vectors.items():
-            logger.info(f"validating column {key}")
+            logger.info(f"validating vector {key}")
             cat_vector.validate()
             validated &= cat_vector.is_validated
         self._is_validated = validated
@@ -1493,6 +1478,9 @@ def annotate_artifact(
                 else "columns"
             )
             features = slot_curator.cat._cat_vectors[name].records
+            if features is None:
+                logger.warning(f"no features found for slot {slot}")
+                continue
             itype = parse_cat_dtype(artifact.schema.slots[slot].itype, is_itype=True)[
                 "field"
             ]

@@ -259,8 +259,8 @@ class Context:
         self,
         transform: str | Transform | None = None,
         *,
-        project: str | None = None,
-        space: str | None = None,
+        project: str | Project | None = None,
+        space: str | Space | None = None,
         params: dict | None = None,
         new_run: bool | None = None,
         path: str | None = None,
@@ -273,9 +273,10 @@ class Context:
 
         Args:
             transform: A transform (stem) `uid` (or record). If `None`, auto-creates a `transform` with its `uid`.
-            project: A project `name` or `uid` for labeling entities created during the run.
-            space: A space `name` or `uid` to identify where potentially sensitive entities are created during the run.
-                This doesn't affect `Storage`, `ULabel`, `Feature`, `Schema`, `Param` and bionty entities as these provide mere structure that should typically be commonly accessible.
+            project: A project, its `name` or `uid` for labeling entities created during the run.
+            space: A restricted space, its `name` or `uid` for creating sensitive entities are created during the run.
+                The default is the common `"All"` space that every LaminDB instance has.
+                The `space` argument doesn't affect `Storage`, `ULabel`, `Feature`, `Schema`, `Param` and bionty entities as these provide structure that should typically be commonly accessible.
                 If you want to manually move entities to a different space, set the `.space` field (:doc:`docs:access`).
             params: A dictionary of parameters to track for the run.
             new_run: If `False`, loads the latest run of transform
@@ -309,20 +310,32 @@ class Context:
         if project is None:
             project = os.environ.get("LAMIN_CURRENT_PROJECT")
         if project is not None:
-            project_record = Project.filter(
-                Q(name=project) | Q(uid=project)
-            ).one_or_none()
-            if project_record is None:
-                raise InvalidArgument(
-                    f"Project '{project}' not found, either create it with `ln.Project(name='...').save()` or fix typos."
+            if isinstance(project, Project):
+                assert project._state.adding is False, (  # noqa: S101
+                    "Project must be saved before passing it to track()"
                 )
+                project_record = project
+            else:
+                project_record = Project.filter(
+                    Q(name=project) | Q(uid=project)
+                ).one_or_none()
+                if project_record is None:
+                    raise InvalidArgument(
+                        f"Project '{project}' not found, either create it with `ln.Project(name='...').save()` or fix typos."
+                    )
             self._project = project_record
         if space is not None:
-            space_record = Space.filter(Q(name=space) | Q(uid=space)).one_or_none()
-            if space_record is None:
-                raise InvalidArgument(
-                    f"Space '{space}', please check on the hub UI whether you have the correct `uid` or `name`."
+            if isinstance(space, Space):
+                assert space._state.adding is False, (  # noqa: S101
+                    "Space must be saved before passing it to track()"
                 )
+                space_record = space
+            else:
+                space_record = Space.filter(Q(name=space) | Q(uid=space)).one_or_none()
+                if space_record is None:
+                    raise InvalidArgument(
+                        f"Space '{space}', please check on the hub UI whether you have the correct `uid` or `name`."
+                    )
             self._space = space_record
         self._logging_message_track = ""
         self._logging_message_imports = ""

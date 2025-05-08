@@ -28,6 +28,10 @@ def pytest_sessionstart():
     ln.setup.register()  # temporarily
     ln.setup.settings.auto_connect = True
     ln.settings.creation.artifact_silence_missing_run_warning = True
+    ln.settings.storage = (
+        "s3://lamindb-ci/test-data"  # register as valid storage location
+    )
+    ln.settings.storage = "./default_storage_unit_core"
 
     total_time_elapsed = perf_counter() - t_execute_start
     print(f"Time to setup the instance: {total_time_elapsed:.3f}s")

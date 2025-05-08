@@ -17,7 +17,6 @@ from django.db.models import CASCADE, PROTECT, Q
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage_in_instance
-from lamindb_setup.core import doc_args
 from lamindb_setup.core._settings_storage import init_storage
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dir, hash_file
 from lamindb_setup.core.types import UPathStr
@@ -98,8 +97,6 @@ from .ulabel import ULabel
 WARNING_RUN_TRANSFORM = "no run & transform got linked, call `ln.track()` & re-run"
 
 WARNING_NO_INPUT = "run input wasn't tracked, call `ln.track()` and re-run"
-
-DEBUG_KWARGS_DOC = "**kwargs: Internal arguments for debugging."
 
 try:
     from ..core.storage._zarr import identify_zarr_type
@@ -914,7 +911,7 @@ def add_labels(
         for registry_name, records in records_by_registry.items():
             if not from_curator and feature.name in internal_features:
                 raise ValidationError(
-                    "Cannot manually annotate internal feature with label. Please use ln.Curator"
+                    "Cannot manually annotate a feature measured *within* the dataset. Please use a Curator."
                 )
             if registry_name not in feature.dtype:
                 if not feature.dtype.startswith("cat"):
@@ -1236,7 +1233,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         default=None,
         related_name="validated_artifacts",
     )
-    """The schema that validated this artifact in a :class:`~lamindb.curators.Curator`."""
+    """The schema that validated this artifact in a :class:`~lamindb.curators.core.Curator`."""
     feature_sets: Schema = models.ManyToManyField(
         Schema, related_name="artifacts", through="ArtifactSchema"
     )
@@ -2403,7 +2400,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         return access_memory
 
-    @doc_args(DEBUG_KWARGS_DOC)
     def cache(
         self, *, is_run_input: bool | None = None, mute: bool = False, **kwargs
     ) -> Path:
@@ -2416,7 +2412,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         Args:
             mute: Silence logging of caching progress.
             is_run_input: Whether to track this artifact as run input.
-            {}
 
         Example::
 
@@ -2566,13 +2561,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 if delete_msg != "did-not-delete":
                     logger.success(f"deleted {colors.yellow(f'{path}')}")
 
-    @doc_args(DEBUG_KWARGS_DOC)
     def save(self, upload: bool | None = None, **kwargs) -> Artifact:
         """Save to database & storage.
 
         Args:
             upload: Trigger upload to cloud storage in instances with hybrid storage mode.
-            {}
 
         Example::
 
@@ -2769,8 +2762,8 @@ def _track_run_input(
                 # record is on another db
                 # we have to save the record into the current db with
                 # the run being attached to a transfer transform
-                logger.important(
-                    f"completing transfer to track {data.__class__.__name__}('{data.uid[:8]}') as input"
+                logger.info(
+                    f"completing transfer to track {data.__class__.__name__}('{data.uid[:8]}...') as input"
                 )
                 data.save()
                 is_valid = True

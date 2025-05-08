@@ -301,12 +301,13 @@ def test_schema_new_genes(ccaplog):
         )
     )
     feature = ln.Feature(name="ensembl", dtype=bt.Gene.ensembl_gene_id).save()
-    schema = ln.Schema(
-        index=feature,
-    ).save()
+    schema = ln.Schema(index=feature).save()
     curator = ln.curators.DataFrameCurator(df, schema)
-    curator.validate()
-    assert curator._is_validated
+    with pytest.raises(ln.errors.ValidationError) as error:
+        curator.validate()
+    assert error.exconly().startswith(
+        "lamindb.errors.ValidationError: 2 terms not validated in feature 'index': 'ENSG00999000001', 'ENSG00999000002'"
+    )
 
     assert (
         "2 terms not validated in feature 'index': 'ENSG00999000001', 'ENSG00999000002'"
@@ -365,7 +366,11 @@ def test_schema_mixed_ensembl_symbols(ccaplog):
         index=ln.Feature(name="ensembl", dtype=bt.Gene.ensembl_gene_id).save()
     ).save()
     curator = ln.curators.DataFrameCurator(df, schema)
-    curator.validate()
+    with pytest.raises(ln.errors.ValidationError) as error:
+        curator.validate()
+    assert error.exconly().startswith(
+        "lamindb.errors.ValidationError: 2 terms not validated in feature 'index': 'BRCA2', 'TP53'"
+    )
 
     assert "2 terms not validated in feature 'index': 'BRCA2', 'TP53'" in ccaplog.text
 
@@ -608,8 +613,7 @@ def test_mudata_curator(
         "rna:var",
     }
     ln.settings.verbosity = "hint"
-    with pytest.raises(ln.errors.ValidationError):
-        curator.validate()
+    curator.validate()
     curator.slots["rna:var"].cat.standardize("columns")
     curator.slots["rna:var"].cat.add_new_from("columns")
     artifact = curator.save_artifact(key="mudata_papalexi21_subset.h5mu")
