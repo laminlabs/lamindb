@@ -140,7 +140,6 @@ def load_blobs__repr__():
     blobs_af = ln.Artifact.from_spatialdata(
         example_blobs_sdata, key="example_blobs.zarr"
     ).save()
-    example_blobs_sdata = ln.Artifact.get(key="example_blobs.zarr")
     example_blobs_sdata = blobs_af.load()
     # Must exist and not throw errors
     assert example_blobs_sdata.__repr__
