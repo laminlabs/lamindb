@@ -243,7 +243,11 @@ def _get_non_categoricals(
                 and feature_dtype != "dict"
                 and not feature_dtype.startswith("list")
             ):
-                values = set(values)
+                try:
+                    values = set(values)
+                except TypeError:
+                    # TypeError: unhashable type: 'list' if values is list[list]
+                    pass
 
             # Handle special datetime types
             if feature_dtype == "datetime":
