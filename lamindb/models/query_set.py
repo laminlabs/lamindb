@@ -62,9 +62,12 @@ def get_keys_from_df(data: list, registry: Record) -> list[str]:
     return keys
 
 
-def one_helper(self):
+def one_helper(self, does_not_exist_msg: str | None = None):
     if len(self) == 0:
-        raise DoesNotExist
+        if does_not_exist_msg:
+            raise DoesNotExist(does_not_exist_msg)
+        else:
+            raise DoesNotExist
     elif len(self) > 1:
         raise MultipleResultsFound(self)
     else:
@@ -180,13 +183,15 @@ def get(
         return super(QuerySet, qs).get(id=idlike)  # type: ignore
     elif isinstance(idlike, str):
         qs = qs.filter(uid__startswith=idlike)
+        DOESNOTEXIST_MSG = f"no record found with uid '{idlike}'. Did you mean {registry.__name__}.get(name='{idlike}')?"
+
         if issubclass(registry, IsVersioned):
             if len(idlike) <= registry._len_stem_uid:
-                return qs.latest_version().one()
+                return qs.latest_version().one(DOESNOTEXIST_MSG)
             else:
-                return qs.one()
+                return qs.one(DOESNOTEXIST_MSG)
         else:
-            return qs.one()
+            return qs.one(DOESNOTEXIST_MSG)
     else:
         assert idlike is None  # noqa: S101
         expressions = process_expressions(qs, expressions)
@@ -689,9 +694,9 @@ class BasicQuerySet(models.QuerySet):
             return None
         return self[0]
 
-    def one(self) -> Record:
+    def one(self, does_not_exist_msg: str) -> Record:
         """Exactly one result. Raises error if there are more or none."""
-        return one_helper(self)
+        return one_helper(self, does_not_exist_msg)
 
     def one_or_none(self) -> Record | None:
         """At most one result. Returns it if there is one, otherwise returns ``None``.
