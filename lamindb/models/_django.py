@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 
 def patch_many_to_many_descriptor() -> None:
-    """Patches Django's ManyToManyDescriptor.__get__ method to prevent adding relationships to unsaved models.
+    """Patches Django's `ManyToManyDescriptor.__get__` method to suggest better errors when saving relationships of an unsaved model.
 
     Before this patch: Cryptic errors are raised when relationships of an unsaved
     record are attempted to be modified.
