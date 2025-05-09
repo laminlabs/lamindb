@@ -15,7 +15,7 @@ class DatabaseMetadataWrapper(ABC):
     Some information about the database can be retrieved from Django, but we
     also need to know things like key constraints and trigger information that
     are easier to retrieve from the database's information schema directly.
-    This class provides a unified means for other history functions to access
+    This class provides a unified means for other write log functions to access
     that metadata.
     """
 
@@ -34,7 +34,7 @@ class DatabaseMetadataWrapper(ABC):
         raise NotImplementedError()
 
     def get_db_tables(self) -> set[str]:
-        """Get the schema and table names for all tables in the database for which we might want to track history."""
+        """Get the schema and table names for all tables in the database for which we might want to track writes."""
         all_models = apps.get_models()
 
         tables: set[str] = set()
@@ -236,7 +236,7 @@ ORDER BY
 SELECT
     DISTINCT event_object_table
 FROM information_schema.triggers
-WHERE trigger_name like 'lamindb_history_%';
+WHERE trigger_name like 'lamindb_writelog_%';
 """)
         tables = set()
 

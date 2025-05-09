@@ -9,7 +9,11 @@ from django.db.backends.utils import CursorWrapper
 from lamin_utils import logger
 from typing_extensions import override
 
-from lamindb.models.history import HistoryLock, HistoryMigrationState, HistoryTableState
+from lamindb.models.writelog import (
+    WriteLogLock,
+    WriteLogMigrationState,
+    WriteLogTableState,
+)
 
 from ._db_metadata_wrapper import (
     DatabaseMetadataWrapper,
@@ -18,7 +22,7 @@ from ._db_metadata_wrapper import (
 from ._types import KeyConstraint, UIDColumns
 
 
-class HistoryEventTypes(enum.Enum):
+class WriteLogEventTypes(enum.Enum):
     INSERT = 0
     UPDATE = 1
     DELETE = 2
@@ -40,15 +44,15 @@ FOREIGN_KEYS_LIST_COLUMN_NAME = "_lamin_fks"
 
 RESERVED_COLUMNS: tuple[str] = (FOREIGN_KEYS_LIST_COLUMN_NAME,)
 
-# Certain tables must be excluded from history triggers to avoid
+# Certain tables must be excluded from write log triggers to avoid
 # creating infinite loops of triggering. Others we're excluding
 # because their state is managed by LaminDB's underlying Django
 # machinery.
 EXCLUDED_TABLES = [
-    "lamindb_history",
-    "lamindb_historylock",
-    "lamindb_historytablestate",
-    "lamindb_historymigrationstate",
+    "lamindb_writelog",
+    "lamindb_writeloglock",
+    "lamindb_writelogtablestate",
+    "lamindb_writelogmigrationstate",
     "django_content_type",
     "django_migrations",
     # FIXME what to do with these?
@@ -57,8 +61,8 @@ EXCLUDED_TABLES = [
 ]
 
 
-class HistoryRecordingTriggerInstaller(ABC):
-    """Installs triggers that record history into the database's tables."""
+class WriteLogRecordingTriggerInstaller(ABC):
+    """Installs triggers that record write logs into the database's tables."""
 
     def __init__(
         self,
@@ -72,20 +76,20 @@ class HistoryRecordingTriggerInstaller(ABC):
     def install_triggers(self, table: str, cursor: CursorWrapper):
         raise NotImplementedError()
 
-    def _update_history_table_state(self, tables: set[str]):
+    def _update_write_log_table_state(self, tables: set[str]):
         existing_tables = set(
-            HistoryTableState.objects.filter(table_name__in=tables).values_list(
+            WriteLogTableState.objects.filter(table_name__in=tables).values_list(
                 "table_name", flat=True
             )
         )
 
         table_states_to_add = [
-            HistoryTableState(table_name=t, backfilled=False)
+            WriteLogTableState(table_name=t, backfilled=False)
             for t in tables
             if t not in existing_tables
         ]
 
-        HistoryTableState.objects.bulk_create(table_states_to_add)
+        WriteLogTableState.objects.bulk_create(table_states_to_add)
 
     def _update_migration_state(self, cursor: CursorWrapper):
         app_migrations = {}
@@ -109,22 +113,22 @@ class HistoryRecordingTriggerInstaller(ABC):
         ]
 
         try:
-            latest_state = HistoryMigrationState.objects.order_by("-id").first()
+            latest_state = WriteLogMigrationState.objects.order_by("-id").first()
             latest_state_json = (
-                latest_state.migration_history_id if latest_state else None
+                latest_state.migration_state_id if latest_state else None
             )
-        except HistoryMigrationState.DoesNotExist:
+        except WriteLogMigrationState.DoesNotExist:
             latest_state_json = None
 
         if current_state and current_state != latest_state_json:
-            HistoryMigrationState.objects.create(migration_history_id=current_state)
+            WriteLogMigrationState.objects.create(migration_state_id=current_state)
 
-    def update_history_triggers(self, update_all: bool = False):
+    def update_write_log_triggers(self, update_all: bool = False):
         with transaction.atomic():
-            # Ensure that the history lock exists
-            HistoryLock.load()
+            # Ensure that the write log lock exists
+            WriteLogLock.load()
             tables = self.db_metadata.get_db_tables()
-            self._update_history_table_state(tables)
+            self._update_write_log_table_state(tables)
 
             cursor = self.connection.cursor()
 
@@ -143,7 +147,7 @@ class HistoryRecordingTriggerInstaller(ABC):
             for table in tables_to_update:
                 if table not in EXCLUDED_TABLES:
                     logger.important(
-                        f"Installing history recording triggers for {table}"
+                        f"Installing write log recording triggers for {table}"
                     )
                     self.install_triggers(table, cursor)
 
@@ -159,7 +163,7 @@ class PostgresTriggerBuilder:
         self, table: str, db_metadata: DatabaseMetadataWrapper, cursor: CursorWrapper
     ):
         self.table = table
-        self.function_name = f"lamindb_history_{table}_fn"
+        self.function_name = f"lamindb_writelog_{table}_fn"
         self.db_metadata = db_metadata
         self.cursor = cursor
 
@@ -294,7 +298,7 @@ class PostgresTriggerBuilder:
             if col in RESERVED_COLUMNS:
                 raise ValueError(
                     f"Column '{col}' in table {self.table} has a name that is "
-                    "reserved by LaminDB for history tracking"
+                    "reserved by LaminDB for write log tracking"
                 )
 
         # We don't need to store the table's primary key columns in its data object,
@@ -340,7 +344,7 @@ class PostgresTriggerBuilder:
 
         Will only add a variable for a given table name once.
         """
-        table_id = HistoryTableState.objects.get(table_name=table).id
+        table_id = WriteLogTableState.objects.get(table_name=table).id
 
         variable_name = f"_table_name_{table_id}"
 
@@ -350,7 +354,7 @@ class PostgresTriggerBuilder:
             self.declare_variable(
                 variable_name,
                 "smallint",
-                f"SELECT id FROM lamindb_historytablestate WHERE table_name = '{table}' LIMIT 1",  # noqa: S608
+                f"SELECT id FROM lamindb_writelogtablestate WHERE table_name = '{table}' LIMIT 1",  # noqa: S608
             )
 
         return variable_name
@@ -373,7 +377,7 @@ class PostgresTriggerBuilder:
         variable_name = self._create_unique_variable_name("_lamin_fkey_ref")
 
         # We'll be creating a JSONB array with three elements:
-        #  * the ID of the target table in HistoryTableState
+        #  * the ID of the target table in WriteLogTableState
         #  * the columns in the table that comprise the foreign-key constraint
         #  * the uniquely-identifiable columns in the target table that identify the target record
         source_columns_lookup_array = self._build_jsonb_array(
@@ -461,16 +465,16 @@ coalesce(
         self._validate_table_name(self.table)
 
         self.declare_variable(
-            name="history_triggers_locked",
+            name="write_log_triggers_locked",
             type="bool",
-            declaration="SELECT EXISTS(SELECT locked FROM lamindb_historylock LIMIT 1) AND "
-            "(SELECT locked FROM lamindb_historylock LIMIT 1)",
+            declaration="SELECT EXISTS(SELECT locked FROM lamindb_writeloglock LIMIT 1) AND "
+            "(SELECT locked FROM lamindb_writeloglock LIMIT 1)",
         )
 
         self.declare_variable(
             name="latest_migration_id",
             type="smallint",
-            declaration="SELECT MAX(id) FROM lamindb_historymigrationstate",
+            declaration="SELECT MAX(id) FROM lamindb_writelogmigrationstate",
         )
 
         table_id_var = self.add_table_id_variable(table=self.table)
@@ -482,24 +486,24 @@ coalesce(
         # record data get populated.
 
         function_body = f"""
-    IF NOT history_triggers_locked THEN
+    IF NOT write_log_triggers_locked THEN
         IF (TG_OP = 'DELETE') THEN
             record_data := NULL;
             record_uid := {self._build_record_uid(is_delete=True)};
-            event_type := {HistoryEventTypes.DELETE.value};
+            event_type := {WriteLogEventTypes.DELETE.value};
         ELSE
             record_data := {self._build_record_data()};
             record_uid := {self._build_record_uid(is_delete=False)};
 
             IF (TG_OP = 'INSERT') THEN
-                event_type := {HistoryEventTypes.INSERT.value};
+                event_type := {WriteLogEventTypes.INSERT.value};
             ELSIF (TG_OP = 'UPDATE') THEN
-                event_type := {HistoryEventTypes.UPDATE.value};
+                event_type := {WriteLogEventTypes.UPDATE.value};
             END IF;
         END IF;
 
-        INSERT INTO lamindb_history
-            (id, history_migration_state_id, table_id, record_uid, record_data, event_type, created_at)
+        INSERT INTO lamindb_writelog
+            (id, migration_state_id, table_id, record_uid, record_data, event_type, created_at)
         VALUES
             (gen_random_uuid(), latest_migration_id, {table_id_var}, record_uid, record_data, event_type, now());
     END IF;
@@ -520,7 +524,7 @@ $$
 """  # noqa: S608
 
 
-class PostgresHistoryRecordingTriggerInstaller(HistoryRecordingTriggerInstaller):
+class PostgresWriteLogRecordingTriggerInstaller(WriteLogRecordingTriggerInstaller):
     def __init__(
         self,
         connection,
@@ -539,26 +543,28 @@ class PostgresHistoryRecordingTriggerInstaller(HistoryRecordingTriggerInstaller)
         logger.debug(create_trigger_function_command)
         cursor.execute(create_trigger_function_command)
 
-        for history_event_type in HistoryEventTypes:
+        for write_log_event_type in WriteLogEventTypes:
             trigger_name = (
-                f"lamindb_history_{table}_{history_event_type.name.lower()}_tr"
+                f"lamindb_writelog_{table}_{write_log_event_type.name.lower()}_tr"
             )
 
             cursor.execute(f"""
             CREATE OR REPLACE TRIGGER {trigger_name}
-            AFTER {history_event_type.name}
+            AFTER {write_log_event_type.name}
             ON {table}
             FOR EACH ROW EXECUTE PROCEDURE {trigger_builder.function_name}();
             """)
 
 
-def create_history_recording_trigger_installer(
+def create_writelog_recording_trigger_installer(
     connection: BaseDatabaseWrapper,
-) -> HistoryRecordingTriggerInstaller:
+) -> WriteLogRecordingTriggerInstaller:
     if connection.vendor == "postgresql":
-        return PostgresHistoryRecordingTriggerInstaller(
+        return PostgresWriteLogRecordingTriggerInstaller(
             connection=connection, db_metadata=PostgresDatabaseMetadataWrapper()
         )
-    # TODO: add a history-recording trigger installer for SQLite
+    # TODO: add a write-log-recording trigger installer for SQLite
     else:
-        raise ValueError(f"History is not supported for vendor '{connection.vendor}'")
+        raise ValueError(
+            f"Write logging is not supported for vendor '{connection.vendor}'"
+        )

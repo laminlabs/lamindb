@@ -1,19 +1,21 @@
 import pytest
-from lamindb.models.history import HistoryLock
+from lamindb.models.writelog import WriteLogLock
 
 
 @pytest.fixture(scope="function", autouse=True)
 def history_table_state():
     # Reset the history lock table before we run each test.
-    HistoryLock.objects.all().delete()
+    WriteLogLock.objects.all().delete()
 
     yield
 
-    HistoryLock.objects.all().delete()
+    WriteLogLock.objects.all().delete()
 
 
 def test_history_lock_toggling():
-    history_lock = HistoryLock.load()
+    history_lock = WriteLogLock.load()
+
+    assert history_lock is not None
 
     assert not history_lock.locked
 
@@ -27,7 +29,8 @@ def test_history_lock_toggling():
 
 
 def test_history_lock_is_a_singleton():
-    history_lock = HistoryLock.load()
+    history_lock = WriteLogLock.load()
+    assert history_lock is not None
 
     assert not history_lock.locked
 
@@ -37,9 +40,11 @@ def test_history_lock_is_a_singleton():
     # state of the old one, but there should still be
     # only one lock.
 
-    HistoryLock(locked=True).save()
+    WriteLogLock(locked=True).save()
 
-    history_lock = HistoryLock.load()
+    history_lock = WriteLogLock.load()
+    assert history_lock is not None
+
     assert history_lock.locked
 
-    assert len(HistoryLock.objects.all()) == 1
+    assert len(WriteLogLock.objects.all()) == 1
