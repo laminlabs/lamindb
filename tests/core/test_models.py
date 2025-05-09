@@ -1,6 +1,11 @@
 import re
 import textwrap
 
+import bionty as bt
+import lamindb as ln
+import pandas as pd
+import pytest
+
 
 def _strip_ansi(text: str) -> str:
     """Remove ANSI escape sequences from a string."""
@@ -87,3 +92,17 @@ def test_registry__repr__artifact():
     actual_repr = _strip_ansi(repr(artifact))
     print(actual_repr)
     assert actual_repr.strip() == expected_repr.strip()
+
+
+def test_unsaved_relationship_modification_attempts():
+    af = ln.Artifact.from_df(
+        pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]}), description="testme"
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        af.genes.add(bt.Gene(symbol="MALAT1").save())
+
+    assert (
+        str(excinfo.value)
+        == "please save the Artifact before adding relationships using '.save()'."
+    )

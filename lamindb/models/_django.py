@@ -18,6 +18,30 @@ if TYPE_CHECKING:
     from .record import Record
 
 
+def patch_many_to_many_descriptor() -> None:
+    """Patches Django's ManyToManyDescriptor.__get__ method to prevent adding relationships to unsaved models.
+
+    Before this patch: Cryptic errors are raised when relationships of an unsaved
+    record are attempted to be modified.
+
+    After this patch: Attempts to access M2M relationships on unsaved objects
+    will raise ValueError, suggesting explicit .save() of the record to be modified
+    before relationship creation.
+    """
+    from django.db.models.fields.related_descriptors import ManyToManyDescriptor
+
+    original_add = ManyToManyDescriptor.__get__
+
+    def patched_get(self, instance, cls=None):
+        if instance is not None and instance.pk is None:
+            raise ValueError(
+                f"please save the {instance.__class__.__name__} before adding relationships using '.save()'."
+            )
+        return original_add(self, instance, cls)
+
+    ManyToManyDescriptor.__get__ = patched_get
+
+
 def get_related_model(model, field_name):
     try:
         field = model._meta.get_field(field_name)
