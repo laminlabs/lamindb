@@ -694,7 +694,7 @@ class BasicQuerySet(models.QuerySet):
             return None
         return self[0]
 
-    def one(self, does_not_exist_msg: str) -> Record:
+    def one(self, does_not_exist_msg: str | None = None) -> Record:
         """Exactly one result. Raises error if there are more or none."""
         return one_helper(self, does_not_exist_msg)
 
