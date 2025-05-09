@@ -87,3 +87,7 @@ from .schema import (
     SchemaOptionals,
 )
 from .ulabel import ArtifactULabel, TransformULabel, RunULabel, CollectionULabel
+
+from lamindb.models._django import patch_many_to_many_descriptor
+
+patch_many_to_many_descriptor()
