@@ -64,10 +64,7 @@ def get_keys_from_df(data: list, registry: Record) -> list[str]:
 
 def one_helper(self, does_not_exist_msg: str | None = None):
     if len(self) == 0:
-        if does_not_exist_msg:
-            raise DoesNotExist(does_not_exist_msg)
-        else:
-            raise DoesNotExist
+        raise DoesNotExist(does_not_exist_msg)
     elif len(self) > 1:
         raise MultipleResultsFound(self)
     else:
