@@ -960,19 +960,28 @@ class Record(BasicRecord, metaclass=Registry):
     """
 
     _branch_code: int = models.SmallIntegerField(db_index=True, default=1, db_default=1)
-    """Whether record is on a branch, in archive or in trash.
+    """Whether record is on a branch or in another "special state".
 
-    This dictates whether a record appears in queries & searches.
+    This dictates where a record appears in exploration, queries & searches,
+    whether a record can be edited, and whether a record acts as a template.
 
-    Coding is as follows:
+    Branch name coding is handled through LaminHub. "Special state" coding is as defined below.
+
+    One should note that there is no "main" branch as in git, but that all five special codes
+    (-1, 0, 1, 2, 3) act as sub-specfications for what git would call the main branch. This also
+    means that for records that live on a branch only the "default state" exists. E.g., one can only
+    turn a record into a template, lock it, archive it, or trash it once it's merged onto the main
+    branch.
 
     - 3: template (hidden in queries & searches)
-    - 2: draft (hidden in queries & searches)
+    - 2: locked (same as default, but locked for edits except for space admins)
     - 1: default (visible in queries & searches)
-    - 0: archive (hidden, meant to be kept)
+    - 0: archive (hidden, meant to be kept, locked for edits for everyone)
     - -1: trash (hidden, scheduled for deletion)
 
-    Any integer higher than >3 codes a branch that's involved in a pull request.
+    An integer higher than >3 codes a branch that can be used for collaborators to create drafts
+    that can be merged onto the main branch in an experience akin to a Pull Request. The mapping
+    onto a semantic branch name is handled through LaminHub.
     """
     space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1)
     """The space in which the record lives."""
