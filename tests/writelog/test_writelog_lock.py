@@ -3,8 +3,8 @@ from lamindb.models.writelog import WriteLogLock
 
 
 @pytest.fixture(scope="function", autouse=True)
-def history_table_state():
-    # Reset the history lock table before we run each test.
+def write_log_table_state():
+    # Reset the write log lock table before we run each test.
     WriteLogLock.objects.all().delete()
 
     yield
@@ -12,39 +12,39 @@ def history_table_state():
     WriteLogLock.objects.all().delete()
 
 
-def test_history_lock_toggling():
-    history_lock = WriteLogLock.load()
+def test_write_log_lock_toggling():
+    write_log_lock = WriteLogLock.load()
 
-    assert history_lock is not None
+    assert write_log_lock is not None
 
-    assert not history_lock.locked
+    assert not write_log_lock.locked
 
-    history_lock.lock()
+    write_log_lock.lock()
 
-    assert history_lock.locked
+    assert write_log_lock.locked
 
-    history_lock.unlock()
+    write_log_lock.unlock()
 
-    assert not history_lock.locked
+    assert not write_log_lock.locked
 
 
-def test_history_lock_is_a_singleton():
-    history_lock = WriteLogLock.load()
-    assert history_lock is not None
+def test_write_log_lock_is_a_singleton():
+    write_log_lock = WriteLogLock.load()
+    assert write_log_lock is not None
 
-    assert not history_lock.locked
+    assert not write_log_lock.locked
 
-    history_lock.save()
+    write_log_lock.save()
 
-    # Creating a new HistoryLock will override the
+    # Creating a new WriteLogLock will override the
     # state of the old one, but there should still be
     # only one lock.
 
     WriteLogLock(locked=True).save()
 
-    history_lock = WriteLogLock.load()
-    assert history_lock is not None
+    write_log_lock = WriteLogLock.load()
+    assert write_log_lock is not None
 
-    assert history_lock.locked
+    assert write_log_lock.locked
 
     assert len(WriteLogLock.objects.all()) == 1

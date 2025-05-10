@@ -7,7 +7,7 @@ from lamindb.core.writelog._trigger_installer import (
 )
 
 
-def test_create_history_recording_trigger_installer():
+def test_create_write_log_recording_trigger_installer():
     fake_connection = MagicMock()
 
     fake_connection.vendor = "postgresql"
