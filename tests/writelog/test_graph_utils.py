@@ -1,4 +1,4 @@
-from lamindb.history._graph_utils import find_cycle
+from lamindb.core.writelog._graph_utils import find_cycle
 
 
 def test_find_nontrivial_cycle():

@@ -65,12 +65,12 @@ EXCLUDED_TABLES = [
 ]
 
 
-def get_history_recording_function_name(table: str) -> str:
+def get_write_log_recording_function_name(table: str) -> str:
     return f"lamindb_writelog_{table}_fn"
 
 
 def get_trigger_function_name(table: str) -> str:
-    return f"{get_history_recording_function_name(table=table)}_trf"
+    return f"{get_write_log_recording_function_name(table=table)}_trf"
 
 
 class WriteLogRecordingTriggerInstaller(ABC):
@@ -211,11 +211,15 @@ class WriteLogRecordingTriggerInstaller(ABC):
             )
 
         for table in table_backfill_order:
-            # Don't backfill a table if we aren't installing history triggers on it.
+            # Don't backfill a table if we aren't installing write log triggers on it.
             if table in EXCLUDED_TABLES:
                 continue
 
-            table_state = HistoryTableState.objects.get(table_name=table)
+            # Only backfill tables in the current set
+            if table not in tables:
+                continue
+
+            table_state = WriteLogTableState.objects.get(table_name=table)
 
             if table_state.backfilled:
                 logger.info(
@@ -249,7 +253,7 @@ BEGIN
         FROM {table}
     LOOP
         -- Call the trigger function for each row
-    PERFORM {get_history_recording_function_name(table)}(NULL, r, 'INSERT');
+    PERFORM {get_write_log_recording_function_name(table)}(NULL, r, 'INSERT');
     END LOOP;
 END $$;
 """)  # noqa: S608
@@ -347,7 +351,7 @@ BEGIN
         RAISE EXCEPTION 'No matching record found';
     END IF;
 
-    PERFORM {get_history_recording_function_name(table)}(NULL, r, 'INSERT');
+    PERFORM {get_write_log_recording_function_name(table)}(NULL, r, 'INSERT');
 END $$;
 """)  # noqa: S608
 
@@ -363,7 +367,7 @@ class PostgresHistoryRecordingFunctionBuilder:
         self, table: str, db_metadata: DatabaseMetadataWrapper, cursor: CursorWrapper
     ):
         self.table = table
-        self.function_name = get_history_recording_function_name(table)
+        self.function_name = get_write_log_recording_function_name(table)
         self.db_metadata = db_metadata
         self.cursor = cursor
 
@@ -432,9 +436,9 @@ class PostgresHistoryRecordingFunctionBuilder:
         if "space_id" in columns:
             # All tables that are not many-to-many tables will have a space_id column
             if is_delete:
-                table_name_in_trigger = "OLD"
+                table_name_in_trigger = "old_record"
             else:
-                table_name_in_trigger = "NEW"
+                table_name_in_trigger = "new_record"
 
             return f"SELECT uid FROM lamindb_space WHERE id = {table_name_in_trigger}.space_id"  # noqa: S608
         else:
@@ -815,7 +819,7 @@ $$ LANGUAGE plpgsql;
         cursor.execute(create_function_command)
 
         # Create a trigger function that wraps the function we just created.
-        trigger_function_name = get_history_recording_function_name(table=table)
+        trigger_function_name = get_write_log_recording_function_name(table=table)
 
         create_cursor_function_command = f"""
 CREATE OR REPLACE FUNCTION {trigger_function_name}()
@@ -823,7 +827,7 @@ CREATE OR REPLACE FUNCTION {trigger_function_name}()
     LANGUAGE PLPGSQL
 AS $$
 BEGIN
-    RETURN {get_history_recording_function_name(table=table)}(OLD, NEW, TG_OP);
+    RETURN {get_write_log_recording_function_name(table=table)}(OLD, NEW, TG_OP);
 END;
 $$
 """
