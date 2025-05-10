@@ -819,7 +819,7 @@ $$ LANGUAGE plpgsql;
         cursor.execute(create_function_command)
 
         # Create a trigger function that wraps the function we just created.
-        trigger_function_name = get_write_log_recording_function_name(table=table)
+        trigger_function_name = get_trigger_function_name(table=table)
 
         create_cursor_function_command = f"""
 CREATE OR REPLACE FUNCTION {trigger_function_name}()
