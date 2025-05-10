@@ -10,6 +10,9 @@ from lamin_utils import logger
 from typing_extensions import override
 
 from lamindb.models.writelog import (
+    DEFAULT_BRANCH_CODE,
+    DEFAULT_CREATED_BY_UID,
+    DEFAULT_RUN_UID,
     WriteLogLock,
     WriteLogMigrationState,
     WriteLogTableState,
@@ -176,8 +179,11 @@ class PostgresTriggerBuilder:
         if not self.VALID_VARIABLE_NAME_REGEX.match(name):
             raise ValueError(f"'{name}' is not a valid Postgres variable name")
 
-        if type not in ("int", "int2", "smallint", "bool", "jsonb"):
-            raise ValueError(f"Unknown variable type '{type}'")
+        if type not in ("int", "int2", "smallint", "bool", "jsonb", "varchar"):
+            raise ValueError(
+                f"Unknown variable type '{type}'. declare_variable()'s known type list is not "
+                "comprehensive; if this is a valid type, add it to that function's type enum"
+            )
 
         if name not in self._variables:
             self._variables[name] = (type, declaration)
@@ -220,6 +226,23 @@ class PostgresTriggerBuilder:
             self._record_uid[is_delete] = self._build_record_uid_inner(is_delete)
 
         return self._record_uid[is_delete]
+
+    def _build_space_uid(self, is_delete: bool) -> str:
+        columns = self.db_metadata.get_column_names(
+            table=self.table, cursor=self.cursor
+        )
+
+        if "space_id" in columns:
+            # All tables that are not many-to-many tables will have a space_id column
+            if is_delete:
+                table_name_in_trigger = "OLD"
+            else:
+                table_name_in_trigger = "NEW"
+
+            return f"SELECT uid FROM lamindb_space WHERE id = {table_name_in_trigger}.space_id"  # noqa: S608
+        else:
+            # For the rest, we can set this to NULL.
+            return "NULL"
 
     def _build_record_uid_inner(self, is_delete: bool) -> str:
         uid_columns_list: UIDColumns = self.db_metadata.get_uid_columns(
@@ -477,6 +500,8 @@ coalesce(
             declaration="SELECT MAX(id) FROM lamindb_writelogmigrationstate",
         )
 
+        self.declare_variable(name="space_uid", type="varchar")
+
         table_id_var = self.add_table_id_variable(table=self.table)
         self.declare_variable(name="record_data", type="jsonb")
         self.declare_variable(name="event_type", type="int2")
@@ -491,9 +516,11 @@ coalesce(
             record_data := NULL;
             record_uid := {self._build_record_uid(is_delete=True)};
             event_type := {WriteLogEventTypes.DELETE.value};
+            space_uid := ({self._build_space_uid(is_delete=True)});
         ELSE
             record_data := {self._build_record_data()};
             record_uid := {self._build_record_uid(is_delete=False)};
+            space_uid := ({self._build_space_uid(is_delete=False)});
 
             IF (TG_OP = 'INSERT') THEN
                 event_type := {WriteLogEventTypes.INSERT.value};
@@ -503,9 +530,33 @@ coalesce(
         END IF;
 
         INSERT INTO lamindb_writelog
-            (id, migration_state_id, table_id, record_uid, record_data, event_type, created_at)
+            (
+                uid,
+                migration_state_id,
+                table_id,
+                record_uid,
+                space_uid,
+                created_by_uid,
+                branch_code,
+                run_uid,
+                record_data,
+                event_type,
+                created_at
+            )
         VALUES
-            (gen_random_uuid(), latest_migration_id, {table_id_var}, record_uid, record_data, event_type, now());
+            (
+                base62(18),
+                latest_migration_id,
+                {table_id_var},
+                record_uid,
+                space_uid,
+                '{DEFAULT_CREATED_BY_UID}',
+                {DEFAULT_BRANCH_CODE},
+                '{DEFAULT_RUN_UID}',
+                record_data,
+                event_type,
+                now()
+            );
     END IF;
     RETURN NEW;
 """  # noqa: S608
@@ -532,8 +583,26 @@ class PostgresWriteLogRecordingTriggerInstaller(WriteLogRecordingTriggerInstalle
     ):
         super().__init__(connection=connection, db_metadata=db_metadata)
 
+    def _install_base62_function(self, cursor: CursorWrapper):
+        cursor.execute("""
+CREATE OR REPLACE FUNCTION base62(n_char integer) RETURNS text AS $$
+DECLARE
+    alphabet text := '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    result text := '';
+    i integer;
+BEGIN
+    FOR i IN 1..n_char LOOP
+        result := result || substr(alphabet, 1 + floor(random() * 62)::integer, 1);
+    END LOOP;
+    RETURN result;
+END;
+$$ LANGUAGE plpgsql;
+""")
+
     @override
     def install_triggers(self, table: str, cursor: CursorWrapper):
+        self._install_base62_function(cursor)
+
         trigger_builder = PostgresTriggerBuilder(
             table=table, db_metadata=self.db_metadata, cursor=cursor
         )

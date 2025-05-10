@@ -1,5 +1,9 @@
 from django.db import models
 
+DEFAULT_CREATED_BY_UID = "0" * 8
+DEFAULT_BRANCH_CODE = 1
+DEFAULT_RUN_UID = "0" * 16
+
 
 class WriteLogTableState(models.Model):
     """A list of tables for which we're recording write logs.
@@ -42,7 +46,12 @@ class WriteLog(models.Model):
         WriteLogMigrationState, on_delete=models.PROTECT
     )
     table = models.ForeignKey(WriteLogTableState, on_delete=models.PROTECT)
-    id = models.UUIDField()
+    uid = models.CharField(max_length=18, editable=False, db_index=True, unique=True)
+    # While all normal tables will have a space ID, many-to-many tables won't.
+    space_uid = models.CharField(max_length=12, null=True)
+    created_by_uid = models.CharField(max_length=8, default=DEFAULT_CREATED_BY_UID)
+    branch_code = models.IntegerField(default=DEFAULT_BRANCH_CODE)
+    run_uid = models.CharField(max_length=16, default=DEFAULT_RUN_UID)
     # Many-to-many tables don't have row UIDs, so this needs to be nullable.
     record_uid = models.JSONField(null=True)
     record_data = models.JSONField(null=True)
