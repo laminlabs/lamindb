@@ -14,6 +14,7 @@ from lamindb.core.writelog._trigger_installer import (
     WriteLogEventTypes,
 )
 from lamindb.core.writelog._types import TableUID, UIDColumns
+from lamindb.models.record import Space
 from lamindb.models.writelog import WriteLog, WriteLogMigrationState, WriteLogTableState
 from typing_extensions import override
 
@@ -1059,6 +1060,75 @@ def test_triggers_many_to_many_to_compound_uid_with_self_links(
     ]
     assert write_log[6].record_data is None
     assert write_log[6].event_type == WriteLogEventTypes.DELETE.value
+
+
+@pytest.fixture(scope="function")
+def fake_space():
+    space = Space(name="my_fake_space", uid="fakespace").save()  # type: ignore
+
+    yield space
+
+    space.delete()
+
+
+@pytest.fixture(scope="function")
+def table_with_space_ref(fake_space):
+    cursor = django_connection.cursor()
+
+    cursor.execute("""
+CREATE TABLE IF NOT EXISTS write_log_space_ref_test
+(
+    id SERIAL PRIMARY KEY,
+    uid VARCHAR(8),
+    space_id INT,
+    CONSTRAINT fk FOREIGN KEY(space_id) REFERENCES lamindb_space (id)
+);
+""")
+
+    yield "write_log_space_ref_test"
+
+    cursor.execute("DROP TABLE IF EXISTS write_log_space_ref_test")
+
+
+@pytest.mark.pg_integration
+def test_write_log_records_space_uids_properly(table_with_space_ref, fake_space):
+    cursor = django_connection.cursor()
+
+    _update_write_log_triggers(
+        table_list={table_with_space_ref},
+    )
+
+    cursor = django_connection.cursor()
+
+    cursor.execute(
+        f"INSERT INTO {table_with_space_ref} (uid, space_id) "  # noqa: S608
+        f"VALUES ('A', {fake_space.id})"
+    )
+
+    cursor.execute(
+        f"INSERT INTO {table_with_space_ref} (uid, space_id) "  # noqa: S608
+        f"VALUES ('B', NULL)"
+    )
+
+    write_log = WriteLog.objects.all().order_by("seqno")
+
+    assert len(write_log) == 2
+
+    assert write_log[0].table.table_name == table_with_space_ref
+    assert write_log[0].record_uid == ["A"]
+    assert write_log[0].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [],
+    }
+    assert write_log[0].event_type == WriteLogEventTypes.INSERT.value
+    assert write_log[0].space_uid == "fakespace"
+
+    assert write_log[1].table.table_name == table_with_space_ref
+    assert write_log[1].record_uid == ["B"]
+    assert write_log[1].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [],
+    }
+    assert write_log[1].event_type == WriteLogEventTypes.INSERT.value
+    assert write_log[1].space_uid is None
 
 
 @pytest.mark.pg_integration

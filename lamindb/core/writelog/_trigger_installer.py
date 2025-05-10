@@ -354,6 +354,11 @@ class PostgresTriggerBuilder:
                 foreign_key_constraint=foreign_key_constraint, is_delete=False
             )
             for foreign_key_constraint in foreign_key_constraints
+            # Don't record foreign-keys to space, since we store space_uid separately
+            if not (
+                foreign_key_constraint.target_table == "lamindb_space"
+                and foreign_key_constraint.source_columns == ["space_id"]
+            )
         ]
 
         record_data[FOREIGN_KEYS_LIST_COLUMN_NAME] = self._build_jsonb_array(
