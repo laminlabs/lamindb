@@ -9,8 +9,8 @@ import lamindb.base.fields
 import lamindb.base.ids
 import lamindb.base.users
 import lamindb.models.can_curate
+import lamindb.models.dbrecord
 import lamindb.models.has_parents
-import lamindb.models.record
 import lamindb.models.run
 
 
@@ -215,7 +215,7 @@ class Migration(migrations.Migration):
             bases=(
                 lamindb.models.can_curate.CanCurate,
                 models.Model,
-                lamindb.models.record.ValidateFields,
+                lamindb.models.dbrecord.ValidateFields,
             ),
         ),
         migrations.CreateModel(
@@ -649,7 +649,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
-            bases=(lamindb.models.record.IsLink, models.Model),
+            bases=(lamindb.models.dbrecord.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="collection",
@@ -683,7 +683,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
-            bases=(lamindb.models.record.IsLink, models.Model),
+            bases=(lamindb.models.dbrecord.IsLink, models.Model),
         ),
         migrations.CreateModel(
             name="CollectionReference",
@@ -708,7 +708,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
-            bases=(lamindb.models.record.IsLink, models.Model),
+            bases=(lamindb.models.dbrecord.IsLink, models.Model),
         ),
         migrations.CreateModel(
             name="Feature",
@@ -886,7 +886,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
-            bases=(lamindb.models.record.IsLink, models.Model),
+            bases=(lamindb.models.dbrecord.IsLink, models.Model),
         ),
         migrations.CreateModel(
             name="ArtifactProject",
@@ -934,7 +934,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
-            bases=(lamindb.models.record.IsLink, models.Model),
+            bases=(lamindb.models.dbrecord.IsLink, models.Model),
         ),
         migrations.CreateModel(
             name="FeatureProject",
@@ -959,7 +959,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
-            bases=(lamindb.models.record.IsLink, models.Model),
+            bases=(lamindb.models.dbrecord.IsLink, models.Model),
         ),
         migrations.CreateModel(
             name="FeatureValue",
@@ -1051,7 +1051,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
-            bases=(lamindb.models.record.IsLink, models.Model),
+            bases=(lamindb.models.dbrecord.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="artifact",
@@ -1246,7 +1246,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
-            bases=(lamindb.models.record.IsLink, models.Model),
+            bases=(lamindb.models.dbrecord.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="artifact",
@@ -1286,7 +1286,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
-            bases=(lamindb.models.record.IsLink, models.Model),
+            bases=(lamindb.models.dbrecord.IsLink, models.Model),
         ),
         migrations.CreateModel(
             name="Project",
@@ -1429,7 +1429,7 @@ class Migration(migrations.Migration):
             bases=(
                 lamindb.models.can_curate.CanCurate,
                 models.Model,
-                lamindb.models.record.ValidateFields,
+                lamindb.models.dbrecord.ValidateFields,
             ),
         ),
         migrations.AddField(
@@ -1617,7 +1617,7 @@ class Migration(migrations.Migration):
             bases=(
                 lamindb.models.can_curate.CanCurate,
                 models.Model,
-                lamindb.models.record.ValidateFields,
+                lamindb.models.dbrecord.ValidateFields,
             ),
         ),
         migrations.AddField(
@@ -2060,7 +2060,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("run", "paramvalue")},
             },
-            bases=(models.Model, lamindb.models.record.IsLink),
+            bases=(models.Model, lamindb.models.dbrecord.IsLink),
         ),
         migrations.AddField(
             model_name="run",
@@ -2117,7 +2117,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("run", "project")},
             },
-            bases=(models.Model, lamindb.models.record.IsLink),
+            bases=(models.Model, lamindb.models.dbrecord.IsLink),
         ),
         migrations.AddField(
             model_name="project",
@@ -2378,7 +2378,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
-            bases=(lamindb.models.record.IsLink, models.Model),
+            bases=(lamindb.models.dbrecord.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="artifact",
@@ -2464,7 +2464,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("composite", "component"), ("composite", "slot")},
             },
-            bases=(lamindb.models.record.IsLink, models.Model),
+            bases=(lamindb.models.dbrecord.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="schema",
@@ -2501,7 +2501,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("schema", "feature")},
             },
-            bases=(models.Model, lamindb.models.record.IsLink),
+            bases=(models.Model, lamindb.models.dbrecord.IsLink),
         ),
         migrations.AddField(
             model_name="feature",
@@ -2538,7 +2538,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("schema", "param")},
             },
-            bases=(models.Model, lamindb.models.record.IsLink),
+            bases=(models.Model, lamindb.models.dbrecord.IsLink),
         ),
         migrations.AddField(
             model_name="param",
@@ -2606,7 +2606,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("schema", "project")},
             },
-            bases=(lamindb.models.record.IsLink, models.Model),
+            bases=(lamindb.models.dbrecord.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="project",
@@ -3083,7 +3083,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("transform", "project")},
             },
-            bases=(lamindb.models.record.IsLink, models.Model),
+            bases=(lamindb.models.dbrecord.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="project",
@@ -3151,7 +3151,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("transform", "reference")},
             },
-            bases=(lamindb.models.record.IsLink, models.Model),
+            bases=(lamindb.models.dbrecord.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="reference",
@@ -3362,7 +3362,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("transform", "ulabel")},
             },
-            bases=(lamindb.models.record.IsLink, models.Model),
+            bases=(lamindb.models.dbrecord.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="transform",
@@ -3418,7 +3418,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("run", "ulabel")},
             },
-            bases=(models.Model, lamindb.models.record.IsLink),
+            bases=(models.Model, lamindb.models.dbrecord.IsLink),
         ),
         migrations.AddField(
             model_name="run",
@@ -3504,7 +3504,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
-            bases=(lamindb.models.record.IsLink, models.Model),
+            bases=(lamindb.models.dbrecord.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="collection",
@@ -3592,7 +3592,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
-            bases=(lamindb.models.record.IsLink, models.Model),
+            bases=(lamindb.models.dbrecord.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="artifact",
@@ -3660,7 +3660,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("ulabel", "project")},
             },
-            bases=(lamindb.models.record.IsLink, models.Model),
+            bases=(lamindb.models.dbrecord.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="project",

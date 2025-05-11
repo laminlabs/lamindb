@@ -23,15 +23,15 @@ from rich.text import Text
 from lamindb.core.storage import LocalPathClasses
 from lamindb.errors import DoesNotExist, ValidationError
 from lamindb.models._from_values import _format_values
-from lamindb.models.feature import (
-    serialize_pandas_dtype,
-    suggest_categorical_for_str_iterable,
-)
-from lamindb.models.record import (
+from lamindb.models.dbrecord import (
     REGISTRY_UNIQUE_FIELD,
     get_name_field,
     transfer_fk_to_default_db_bulk,
     transfer_to_default_db,
+)
+from lamindb.models.feature import (
+    serialize_pandas_dtype,
+    suggest_categorical_for_str_iterable,
 )
 from lamindb.models.save import save
 from lamindb.models.schema import DICT_KEYS_TYPE, Schema

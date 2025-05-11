@@ -11,7 +11,7 @@ from rich.tree import Tree
 
 from lamindb.models import CanCurate, Feature
 from lamindb.models._from_values import _format_values
-from lamindb.models.record import (
+from lamindb.models.dbrecord import (
     REGISTRY_UNIQUE_FIELD,
     get_name_field,
     transfer_fk_to_default_db_bulk,

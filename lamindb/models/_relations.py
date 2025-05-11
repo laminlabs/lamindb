@@ -10,10 +10,10 @@ from lamindb_setup._connect_instance import (
 )
 from lamindb_setup.core._settings_store import instance_settings_file
 
-from lamindb.models.record import IsLink
+from lamindb.models.dbrecord import IsLink
 
 if TYPE_CHECKING:
-    from lamindb.models.record import DBRecord, Registry
+    from lamindb.models.dbrecord import DBRecord, Registry
 
 
 def get_schema_modules(instance: str | None) -> set[str]:

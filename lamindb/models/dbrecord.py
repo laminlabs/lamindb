@@ -1664,3 +1664,4 @@ class Migration(BaseDBRecord):
 LinkORM = IsLink  # backward compat
 Record = DBRecord  # backward compat
 BasicRecord = BaseDBRecord  # backward compat
+RecordInfo = DBRecordInfo  # backward compat

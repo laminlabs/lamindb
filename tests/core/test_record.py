@@ -6,7 +6,7 @@ import bionty as bt
 import lamindb as ln
 import pytest
 from lamindb.errors import FieldValidationError
-from lamindb.models.record import (
+from lamindb.models.dbrecord import (
     _get_record_kwargs,
     _search,
     get_name_field,

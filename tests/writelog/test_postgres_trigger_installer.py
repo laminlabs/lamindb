@@ -14,7 +14,7 @@ from lamindb.core.writelog._trigger_installer import (
     WriteLogEventTypes,
 )
 from lamindb.core.writelog._types import TableUID, UIDColumns
-from lamindb.models.record import Space
+from lamindb.models.dbrecord import Space
 from lamindb.models.writelog import WriteLog, WriteLogMigrationState, WriteLogTableState
 from typing_extensions import override
 
