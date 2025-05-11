@@ -19,10 +19,6 @@ class Migration(migrations.Migration):
         ),
         migrations.RemoveField(
             model_name="flextable",
-            name="run",
-        ),
-        migrations.RemoveField(
-            model_name="flextable",
             name="schema",
         ),
         migrations.RemoveField(
@@ -36,18 +32,6 @@ class Migration(migrations.Migration):
         migrations.RemoveField(
             model_name="flextable",
             name="ulabels",
-        ),
-        migrations.RemoveField(
-            model_name="flextabledata",
-            name="tidytable",
-        ),
-        migrations.RemoveField(
-            model_name="flextabledata",
-            name="feature",
-        ),
-        migrations.RemoveField(
-            model_name="flextabledata",
-            name="param",
         ),
         migrations.RemoveField(
             model_name="flextabledata",
@@ -72,18 +56,6 @@ class Migration(migrations.Migration):
         migrations.RemoveField(
             model_name="flextabledata",
             name="value_ulabel",
-        ),
-        migrations.RemoveField(
-            model_name="rundata",
-            name="param",
-        ),
-        migrations.RemoveField(
-            model_name="rundata",
-            name="feature",
-        ),
-        migrations.RemoveField(
-            model_name="rundata",
-            name="run",
         ),
         migrations.RemoveField(
             model_name="rundata",
