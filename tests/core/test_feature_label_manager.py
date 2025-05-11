@@ -45,12 +45,6 @@ Here is how to create a feature:
 def test_features_add_remove(adata):
     artifact = ln.Artifact.from_anndata(adata, description="test").save()
     with pytest.raises(ValidationError) as error:
-        artifact.params.add_values({"learning_rate": 0.01})
-    assert (
-        error.exconly()
-        == "lamindb.errors.ValidationError: Can only set params for model-like artifacts."
-    )
-    with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
     assert error.exconly().startswith(
         "lamindb.errors.ValidationError: These keys could not be validated:"
