@@ -89,4 +89,6 @@ from .schema import (
 from .ulabel import ArtifactULabel, TransformULabel, RunULabel, CollectionULabel
 from .writelog import WriteLog
 
+LinkORM = IsLink  # backward compat
 Record = DBRecord  # backward compat
+BasicRecord = BaseDBRecord  # backward compat

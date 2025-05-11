@@ -1659,3 +1659,8 @@ class Migration(BaseDBRecord):
     class Meta:
         db_table = "django_migrations"
         managed = False
+
+
+LinkORM = IsLink  # backward compat
+Record = DBRecord  # backward compat
+BasicRecord = BaseDBRecord  # backward compat
