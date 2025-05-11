@@ -89,3 +89,4 @@ BasicRecord = BaseDBRecord  # backward compat
 ParamValue = FeatureValue  # backward compat
 ArtifactParamValue = ArtifactFeatureValue  # backward compat
 RunParamValue = RunFeatureValue  # backward compat
+Param = Feature  # backward compat

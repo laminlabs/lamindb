@@ -149,3 +149,5 @@ if _check_instance_setup(from_module="lamindb"):
     settings.__doc__ = """Global live settings (:class:`~lamindb.core.Settings`)."""
     context.__doc__ = """Global run context (:class:`~lamindb.core.Context`)."""
     from django.db.models import Q
+
+    Param = Feature  # backward compat
