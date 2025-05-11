@@ -88,3 +88,5 @@ from .schema import (
 )
 from .ulabel import ArtifactULabel, TransformULabel, RunULabel, CollectionULabel
 from .writelog import WriteLog
+
+Record = DBRecord  # backward compat
