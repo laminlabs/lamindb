@@ -85,8 +85,8 @@ from .feature import Feature, FeatureValue
 from .has_parents import view_lineage
 from .record import (
     BasicRecord,
+    DBRecord,
     LinkORM,
-    Record,
     _get_record_kwargs,
     record_repr,
 )
@@ -772,7 +772,7 @@ def describe_artifact_collection(self, return_str: bool = False) -> str | None:
     return format_rich_tree(tree, return_str=return_str)
 
 
-def validate_feature(feature: Feature, records: list[Record]) -> None:
+def validate_feature(feature: Feature, records: list[DBRecord]) -> None:
     """Validate feature record, adjust feature.dtype based on labels records."""
     if not isinstance(feature, Feature):
         raise TypeError("feature has to be of type Feature")
@@ -830,7 +830,7 @@ def get_labels(
 
 def add_labels(
     self,
-    records: Record | list[Record] | QuerySet | Iterable,
+    records: DBRecord | list[DBRecord] | QuerySet | Iterable,
     feature: Feature | None = None,
     *,
     field: StrField | None = None,
@@ -844,7 +844,7 @@ def add_labels(
 
     if isinstance(records, (QuerySet, QuerySet.__base__)):  # need to have both
         records = records.list()
-    if isinstance(records, (str, Record)):
+    if isinstance(records, (str, DBRecord)):
         records = [records]
     if not isinstance(records, list):  # avoids warning for pd Series
         records = list(records)
@@ -869,7 +869,7 @@ def add_labels(
         # ask users to pass records
         if len(records_validated) == 0:
             raise ValueError(
-                "Please pass a record (a `Record` object), not a string, e.g., via:"
+                "Please pass a record (a `DBRecord` object), not a string, e.g., via:"
                 " label"
                 f" = ln.ULabel(name='{records[0]}')"  # type: ignore
             )
@@ -943,7 +943,7 @@ def add_labels(
             )
 
 
-class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
+class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
     # Note that this docstring has to be consistent with Curator.save_artifact()
     """Datasets & models stored as files, folders, or arrays.
 
@@ -1052,7 +1052,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     """
 
-    class Meta(Record.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(DBRecord.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _len_full_uid: int = 20
@@ -1524,7 +1524,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         See Also:
             - Guide: :doc:`docs:registries`
-            - Method in `Record` base class: :meth:`~lamindb.models.Record.get`
+            - Method in `DBRecord` base class: :meth:`~lamindb.models.DBRecord.get`
 
         Examples:
 

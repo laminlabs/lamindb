@@ -49,10 +49,10 @@ from ..base.fields import (
 )
 from ..base.types import FieldAttr, StrField
 from ..errors import (
+    DBRecordNameChangeIntegrityError,
     FieldValidationError,
     InvalidArgument,
     NoWriteAccess,
-    RecordNameChangeIntegrityError,
     ValidationError,
 )
 from ._is_versioned import IsVersioned
@@ -68,18 +68,18 @@ if TYPE_CHECKING:
     from .transform import Transform
 
 
-T = TypeVar("T", bound="Record")
+T = TypeVar("T", bound="DBRecord")
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
 
 
 # -------------------------------------------------------------------------------------
-# A note on required fields at the Record level
+# A note on required fields at the DBRecord level
 #
 # As Django does most of its validation on the Form-level, it doesn't offer functionality
-# for validating the integrity of an Record object upon instantation (similar to pydantic)
+# for validating the integrity of an DBRecord object upon instantation (similar to pydantic)
 #
 # For required fields, we define them as commonly done on the SQL level together
-# with a validator in Record (validate_required_fields)
+# with a validator in DBRecord (validate_required_fields)
 #
 # This goes against the Django convention, but goes with the SQLModel convention
 # (Optional fields can be null on the SQL level, non-optional fields cannot)
@@ -89,7 +89,7 @@ IPYTHON = getattr(builtins, "__IPYTHON__", False)
 # an error at the SQL-level, with it, it triggers it at instantiation
 
 # -------------------------------------------------------------------------------------
-# A note on class and instance methods of core Record
+# A note on class and instance methods of core DBRecord
 #
 # All of these are defined and tested within lamindb, in files starting with _{orm_name}.py
 
@@ -150,7 +150,7 @@ def is_approx_pascal_case(s):
     return True
 
 
-def init_self_from_db(self: Record, existing_record: Record):
+def init_self_from_db(self: DBRecord, existing_record: DBRecord):
     new_args = [
         getattr(existing_record, field.attname) for field in self._meta.concrete_fields
     ]
@@ -159,7 +159,7 @@ def init_self_from_db(self: Record, existing_record: Record):
     self._state.db = "default"
 
 
-def update_attributes(record: Record, attributes: dict[str, str]):
+def update_attributes(record: DBRecord, attributes: dict[str, str]):
     for key, value in attributes.items():
         if getattr(record, key) != value and value is not None:
             if key not in {"uid", "dtype", "otype", "hash"}:
@@ -176,7 +176,7 @@ def update_attributes(record: Record, attributes: dict[str, str]):
                 )
 
 
-def validate_literal_fields(record: Record, kwargs) -> None:
+def validate_literal_fields(record: DBRecord, kwargs) -> None:
     """Validate all Literal type fields in a record.
 
     Args:
@@ -222,7 +222,7 @@ def validate_literal_fields(record: Record, kwargs) -> None:
         raise FieldValidationError(message)
 
 
-def validate_fields(record: Record, kwargs):
+def validate_fields(record: DBRecord, kwargs):
     from lamindb.models import (
         Artifact,
         Collection,
@@ -279,8 +279,8 @@ def validate_fields(record: Record, kwargs):
 
 
 def suggest_records_with_similar_names(
-    record: Record, name_field: str, kwargs
-) -> Record | None:
+    record: DBRecord, name_field: str, kwargs
+) -> DBRecord | None:
     """Returns True if found exact match, otherwise False.
 
     Logs similar matches if found.
@@ -321,10 +321,10 @@ def suggest_records_with_similar_names(
 
 RECORD_REGISTRY_EXAMPLE = """Example::
 
-        from lamindb import Record, fields
+        from lamindb import DBRecord, fields
 
-        # sub-classing `Record` creates a new registry
-        class Experiment(Record):
+        # sub-classing `DBRecord` creates a new registry
+        class Experiment(DBRecord):
             name: str = fields.CharField()
 
         # instantiating `Experiment` creates a record `experiment`
@@ -338,18 +338,18 @@ RECORD_REGISTRY_EXAMPLE = """Example::
 """
 
 
-# this is the metaclass for Record
+# this is the metaclass for DBRecord
 @doc_args(RECORD_REGISTRY_EXAMPLE)
 class Registry(ModelBase):
-    """Metaclass for :class:`~lamindb.models.Record`.
+    """Metaclass for :class:`~lamindb.models.DBRecord`.
 
-    Each `Registry` *object* is a `Record` *class* and corresponds to a table in the metadata SQL database.
+    Each `Registry` *object* is a `DBRecord` *class* and corresponds to a table in the metadata SQL database.
 
-    You work with `Registry` objects whenever you use *class methods* of `Record`.
+    You work with `Registry` objects whenever you use *class methods* of `DBRecord`.
 
-    You call any subclass of `Record` a "registry" and their objects "records". A `Record` object corresponds to a row in the SQL table.
+    You call any subclass of `DBRecord` a "registry" and their objects "records". A `DBRecord` object corresponds to a row in the SQL table.
 
-    If you want to create a new registry, you sub-class `Record`.
+    If you want to create a new registry, you sub-class `DBRecord`.
 
     {}
 
@@ -639,7 +639,7 @@ class Registry(ModelBase):
 class BasicRecord(models.Model, metaclass=Registry):
     """Basic metadata record.
 
-    It has the same methods as Record, but doesn't have the additional fields.
+    It has the same methods as DBRecord, but doesn't have the additional fields.
 
     It's mainly used for LinkORMs and similar.
     """
@@ -654,7 +654,7 @@ class BasicRecord(models.Model, metaclass=Registry):
         skip_validation = kwargs.pop("_skip_validation", False)
         if not args:
             if (
-                issubclass(self.__class__, Record)
+                issubclass(self.__class__, DBRecord)
                 and self.__class__.__name__
                 not in {"Storage", "ULabel", "Feature", "Schema", "Param"}
                 # do not save bionty entities in restricted spaces by default
@@ -735,7 +735,7 @@ class BasicRecord(models.Model, metaclass=Registry):
             super().__init__(*args)
         track_current_key_and_name_values(self)
 
-    def save(self, *args, **kwargs) -> Record:
+    def save(self, *args, **kwargs) -> DBRecord:
         """Save.
 
         Always saves to the default database.
@@ -941,21 +941,21 @@ class Space(BasicRecord):
 
 
 @doc_args(RECORD_REGISTRY_EXAMPLE)
-class Record(BasicRecord, metaclass=Registry):
+class DBRecord(BasicRecord, metaclass=Registry):
     """Metadata record.
 
-    Every `Record` is a data model that comes with a registry in form of a SQL
+    Every `DBRecord` is a data model that comes with a registry in form of a SQL
     table in your database.
 
-    Sub-classing `Record` creates a new registry while instantiating a `Record`
+    Sub-classing `DBRecord` creates a new registry while instantiating a `DBRecord`
     creates a new record.
 
     {}
 
-    `Record`'s metaclass is :class:`~lamindb.models.Registry`.
+    `DBRecord`'s metaclass is :class:`~lamindb.models.Registry`.
 
-    `Record` inherits from Django's `Model` class. Why does LaminDB call it `Record`
-    and not `Model`? The term `Record` can't lead to confusion with statistical,
+    `DBRecord` inherits from Django's `Model` class. Why does LaminDB call it `DBRecord`
+    and not `Model`? The term `DBRecord` can't lead to confusion with statistical,
     machine learning or biological models.
     """
 
@@ -992,7 +992,7 @@ class Record(BasicRecord, metaclass=Registry):
         abstract = True
 
 
-def _format_django_validation_error(record: Record, e: DjangoValidationError):
+def _format_django_validation_error(record: DBRecord, e: DjangoValidationError):
     """Pretty print Django validation errors."""
     errors = {}
     if hasattr(e, "error_dict"):
@@ -1024,7 +1024,7 @@ def _format_django_validation_error(record: Record, e: DjangoValidationError):
 
 
 def _get_record_kwargs(record_class) -> list[tuple[str, str]]:
-    """Gets the parameters of a Record from the overloaded signature.
+    """Gets the parameters of a DBRecord from the overloaded signature.
 
     Example:
         >>> get_record_params(bt.Organism)
@@ -1078,7 +1078,7 @@ def _get_record_kwargs(record_class) -> list[tuple[str, str]]:
 
 
 def get_name_field(
-    registry: type[Record] | QuerySet | Manager,
+    registry: type[DBRecord] | QuerySet | Manager,
     *,
     field: StrField | None = None,
 ) -> str:
@@ -1105,7 +1105,7 @@ def get_name_field(
         # no default name field can be found
         if field is None:
             raise ValueError(
-                "please pass a Record string field, e.g., `CellType.name`!"
+                "please pass a DBRecord string field, e.g., `CellType.name`!"
             )
         else:
             field = field.name  # type:ignore
@@ -1114,7 +1114,7 @@ def get_name_field(
             field = field.field.name
         except AttributeError:
             raise TypeError(
-                "please pass a Record string field, e.g., `CellType.name`!"
+                "please pass a DBRecord string field, e.g., `CellType.name`!"
             ) from None
 
     return field
@@ -1139,7 +1139,7 @@ REGISTRY_UNIQUE_FIELD = {
 
 
 def update_fk_to_default_db(
-    records: Record | list[Record] | QuerySet,
+    records: DBRecord | list[DBRecord] | QuerySet,
     fk: str,
     using_key: str | None,
     transfer_logs: dict,
@@ -1223,13 +1223,13 @@ def get_transfer_run(record) -> Run:
 
 
 def transfer_to_default_db(
-    record: Record,
+    record: DBRecord,
     using_key: str | None,
     *,
     transfer_logs: dict,
     save: bool = False,
     transfer_fk: bool = True,
-) -> Record | None:
+) -> DBRecord | None:
     if record._state.db is None or record._state.db == "default":
         return None
     registry = record.__class__
@@ -1274,7 +1274,7 @@ def transfer_to_default_db(
     return None
 
 
-def track_current_key_and_name_values(record: Record):
+def track_current_key_and_name_values(record: DBRecord):
     from lamindb.models import Artifact
 
     # below, we're using __dict__ to avoid triggering the refresh from the database
@@ -1286,7 +1286,7 @@ def track_current_key_and_name_values(record: Record):
         record._old_name = record.__dict__.get(record._name_field)
 
 
-def check_name_change(record: Record):
+def check_name_change(record: DBRecord):
     """Warns if a record's name has changed."""
     from lamindb.models import Artifact, Collection, Feature, Schema, Transform
 
@@ -1332,7 +1332,7 @@ def check_name_change(record: Record):
                     f'   → in each dataset, manually modify label "{old_name}" to "{new_name}"\n'
                     f"   → run `ln.Curator`\n"
                 )
-                raise RecordNameChangeIntegrityError
+                raise DBRecordNameChangeIntegrityError
 
         # when a feature is renamed
         elif isinstance(record, Feature):
@@ -1352,7 +1352,7 @@ def check_name_change(record: Record):
                     f"   → in each dataset, manually modify feature '{old_name}' to '{new_name}'\n"
                     f"   → run `ln.Curator`\n"
                 )
-                raise RecordNameChangeIntegrityError
+                raise DBRecordNameChangeIntegrityError
 
 
 def check_key_change(record: Union[Artifact, Transform]):
@@ -1410,7 +1410,7 @@ def format_field_value(value: datetime | str | Any) -> Any:
         return value
 
 
-class RecordInfo:
+class DBRecordInfo:
     def __init__(self, registry: Registry):
         self.registry = registry
 
@@ -1588,7 +1588,7 @@ class RecordInfo:
 def registry_repr(cls):
     """Shows fields."""
     repr_str = f"{colors.green(cls.__name__)}\n"
-    info = RecordInfo(cls)
+    info = DBRecordInfo(cls)
     repr_str += info.get_simple_fields(return_str=True)
     repr_str += info.get_relational_fields(return_str=True)
     repr_str = repr_str.rstrip("\n")
@@ -1596,7 +1596,7 @@ def registry_repr(cls):
 
 
 def record_repr(
-    self: Record, include_foreign_keys: bool = True, exclude_field_names=None
+    self: DBRecord, include_foreign_keys: bool = True, exclude_field_names=None
 ) -> str:
     if exclude_field_names is None:
         exclude_field_names = ["id", "updated_at", "source_code"]
@@ -1635,7 +1635,7 @@ def record_repr(
 # below is code to further format the repr of a record
 #
 # def format_repr(
-#     record: Record, exclude_field_names: str | list[str] | None = None
+#     record: DBRecord, exclude_field_names: str | list[str] | None = None
 # ) -> str:
 #     if isinstance(exclude_field_names, str):
 #         exclude_field_names = [exclude_field_names]
@@ -1647,8 +1647,8 @@ def record_repr(
 #     )
 
 
-Record.__repr__ = record_repr  # type: ignore
-Record.__str__ = record_repr  # type: ignore
+DBRecord.__repr__ = record_repr  # type: ignore
+DBRecord.__str__ = record_repr  # type: ignore
 
 
 class Migration(BasicRecord):

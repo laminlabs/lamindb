@@ -24,7 +24,7 @@ from .artifact import Artifact
 from .can_curate import CanCurate
 from .collection import Collection
 from .feature import Feature
-from .record import BasicRecord, LinkORM, Record, ValidateFields
+from .record import BasicRecord, DBRecord, LinkORM, ValidateFields
 from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
 from .transform import Transform
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
 
-class Person(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
+class Person(DBRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """People such as authors of a study or collaborators in a project.
 
     This registry is distinct from `User` and exists for project management.
@@ -50,7 +50,7 @@ class Person(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         ... ).save()
     """
 
-    class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     id: int = models.AutoField(primary_key=True)
@@ -84,7 +84,7 @@ class Person(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         super().__init__(*args, **kwargs)
 
 
-class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
+class Reference(DBRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """References such as internal studies, papers, documents, or URLs.
 
     Example:
@@ -100,7 +100,7 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         ... ).save()
     """
 
-    class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     id: int = models.AutoField(primary_key=True)
@@ -119,7 +119,7 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     Allows to group reference by type, e.g., internal studies vs. all papers etc.
     """
     records: Reference
-    """Records of this type."""
+    """DBRecords of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     abbr: str | None = CharField(
@@ -189,7 +189,7 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         super().__init__(*args, **kwargs)
 
 
-class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
+class Project(DBRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Projects.
 
     Example:
@@ -200,7 +200,7 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         ... ).save()
     """
 
-    class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     id: int = models.AutoField(primary_key=True)
@@ -216,7 +216,7 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     )
     """Type of project (e.g., 'Program', 'Project', 'GithubIssue', 'Task')."""
     records: Project
-    """Records of this type."""
+    """DBRecords of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     abbr: str | None = CharField(max_length=32, db_index=True, null=True)

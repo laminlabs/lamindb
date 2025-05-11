@@ -4,13 +4,13 @@
    :toctree: .
 
    BasicRecord
-   Record
+   DBRecord
    Registry
    BasicQuerySet
    QuerySet
    ArtifactSet
    QueryManager
-   RecordList
+   DBRecordList
    FeatureManager
    ParamManager
    LabelManager
@@ -33,7 +33,7 @@ from ._is_versioned import IsVersioned
 from .can_curate import CanCurate
 from .record import (
     BasicRecord,
-    Record,
+    DBRecord,
     Registry,
     Space,
     ValidateFields,
@@ -57,7 +57,7 @@ from .collection import Collection, CollectionArtifact
 from .project import Person, Project, Reference
 from .flextable import FlexTable, RunData
 from .query_manager import QueryManager
-from .query_set import BasicQuerySet, QuerySet, RecordList
+from .query_set import BasicQuerySet, QuerySet, DBRecordList
 from .artifact_set import ArtifactSet
 from .has_parents import HasParents
 from datetime import datetime as _datetime

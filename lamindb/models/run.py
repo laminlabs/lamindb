@@ -24,7 +24,7 @@ from lamindb.errors import InvalidArgument, ValidationError
 
 from ..base.ids import base62_20
 from .can_curate import CanCurate
-from .record import BasicRecord, LinkORM, Record, Registry
+from .record import BasicRecord, DBRecord, LinkORM, Registry
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -201,10 +201,10 @@ class User(BasicRecord, CanCurate):
         super().__init__(*args, **kwargs)
 
 
-class Param(Record, CanCurate, TracksRun, TracksUpdates):
+class Param(DBRecord, CanCurate, TracksRun, TracksUpdates):
     """Parameters of runs & models."""
 
-    class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _name_field: str = "name"
@@ -218,7 +218,7 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
     Allows to group features by type, e.g., all read outs, all metrics, etc.
     """
     records: Param
-    """Records of this type."""
+    """DBRecords of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     _expect_many: bool = models.BooleanField(default=False, db_default=False)
@@ -277,7 +277,7 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
 # Also, we don't inherit from TracksRun because a ParamValue
 # is typically created before a run is created and we want to
 # avoid delete cycles (for Model params though it might be helpful)
-class ParamValue(Record):
+class ParamValue(DBRecord):
     """Parameter values.
 
     Is largely analogous to `FeatureValue`.
@@ -346,7 +346,7 @@ class ParamValue(Record):
                 return cls.objects.get(param=param, hash=hash), True
 
 
-class Run(Record):
+class Run(DBRecord):
     """Runs of transforms such as the execution of a script.
 
     A registry to store runs of transforms, such as an executation of a script.

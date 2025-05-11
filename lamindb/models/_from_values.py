@@ -8,8 +8,8 @@ from lamin_utils import colors, logger
 if TYPE_CHECKING:
     from lamindb.base.types import FieldAttr, ListLike
 
-    from .query_set import RecordList
-    from .record import Record
+    from .query_set import DBRecordList
+    from .record import DBRecord
 
 
 # The base function for `from_values`
@@ -18,12 +18,12 @@ def _from_values(
     field: FieldAttr,
     *,
     create: bool = False,
-    organism: Record | str | None = None,
-    source: Record | None = None,
+    organism: DBRecord | str | None = None,
+    source: DBRecord | None = None,
     mute: bool = False,
-) -> RecordList:
+) -> DBRecordList:
     """Get or create records from iterables."""
-    from .query_set import RecordList
+    from .query_set import DBRecordList
 
     registry = field.field.model  # type: ignore
     organism_record = get_organism_record_from_field(field, organism, values=iterable)
@@ -32,7 +32,7 @@ def _from_values(
         create_kwargs = {}
         if organism_record:
             create_kwargs["organism"] = organism_record
-        return RecordList(
+        return DBRecordList(
             [
                 registry(**{field.field.name: value}, **create_kwargs)
                 for value in iterable
@@ -89,13 +89,13 @@ def _from_values(
                     f"{colors.red('did not create')} {registry.__name__} record{s} for "
                     f"{n_nonval} {colors.italic(f'{field.field.name}{s}')}: {print_values}"  # type: ignore
                 )
-    return RecordList(records)
+    return DBRecordList(records)
 
 
 def get_existing_records(
     iterable_idx: pd.Index,
     field: FieldAttr,
-    organism: Record | None = None,
+    organism: DBRecord | None = None,
     mute: bool = False,
 ) -> tuple[list, pd.Index, str]:
     """Get existing records from the database."""
@@ -177,8 +177,8 @@ def get_existing_records(
 def create_records_from_source(
     iterable_idx: pd.Index,
     field: FieldAttr,
-    organism: Record | None = None,
-    source: Record | None = None,
+    organism: DBRecord | None = None,
+    source: DBRecord | None = None,
     msg: str = "",
     mute: bool = False,
 ) -> tuple[list, pd.Index]:
@@ -341,10 +341,10 @@ def _bulk_create_dicts_from_df(
 
 def get_organism_record_from_field(  # type: ignore
     field: FieldAttr,
-    organism: str | Record | None = None,
+    organism: str | DBRecord | None = None,
     values: ListLike = None,
     using_key: str | None = None,
-) -> Record | None:
+) -> DBRecord | None:
     """Get organism record.
 
     Args:

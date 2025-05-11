@@ -64,7 +64,7 @@ EXCLUDED_TABLES = [
 ]
 
 
-class WriteLogRecordingTriggerInstaller(ABC):
+class WriteLogDBRecordingTriggerInstaller(ABC):
     """Installs triggers that record write logs into the database's tables."""
 
     def __init__(
@@ -580,7 +580,7 @@ $$
 """  # noqa: S608
 
 
-class PostgresWriteLogRecordingTriggerInstaller(WriteLogRecordingTriggerInstaller):
+class PostgresWriteLogDBRecordingTriggerInstaller(WriteLogDBRecordingTriggerInstaller):
     def __init__(
         self,
         connection,
@@ -632,9 +632,9 @@ $$ LANGUAGE plpgsql;
 
 def create_writelog_recording_trigger_installer(
     connection: BaseDatabaseWrapper,
-) -> WriteLogRecordingTriggerInstaller:
+) -> WriteLogDBRecordingTriggerInstaller:
     if connection.vendor == "postgresql":
-        return PostgresWriteLogRecordingTriggerInstaller(
+        return PostgresWriteLogDBRecordingTriggerInstaller(
             connection=connection, db_metadata=PostgresDatabaseMetadataWrapper()
         )
     # TODO: add a write-log-recording trigger installer for SQLite

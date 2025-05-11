@@ -17,7 +17,7 @@ from ..base.ids import base62_8
 from .can_curate import CanCurate
 from .feature import Feature
 from .has_parents import HasParents
-from .record import BasicRecord, LinkORM, Record, _get_record_kwargs
+from .record import BasicRecord, DBRecord, LinkORM, _get_record_kwargs
 from .run import Run, TracksRun, TracksUpdates, User, current_user_id
 from .transform import Transform
 
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from .project import Project
 
 
-class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
+class ULabel(DBRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Universal labels.
 
     Args:
@@ -86,7 +86,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
         >>> ln.Artifact.filter(ulabels=train_split).df()
     """
 
-    class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _name_field: str = "name"
@@ -105,7 +105,7 @@ class ULabel(Record, HasParents, CanCurate, TracksRun, TracksUpdates):
     Allows to group ulabels by type, e.g., all donors, all split ulabels, etc.
     """
     records: ULabel
-    """Records of this type."""
+    """DBRecords of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type.
 

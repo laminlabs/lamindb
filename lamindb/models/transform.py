@@ -18,7 +18,7 @@ from lamindb.base.users import current_user_id
 
 from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned
-from .record import Record, init_self_from_db, update_attributes
+from .record import DBRecord, init_self_from_db, update_attributes
 from .run import Run, User, delete_run_artifacts
 
 if TYPE_CHECKING:
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
 # does not inherit from TracksRun because the Transform
 # is needed to define a run
-class Transform(Record, IsVersioned):
+class Transform(DBRecord, IsVersioned):
     """Data transformations such as scripts, notebooks, functions, or pipelines.
 
     A "transform" can refer to a Python function, a script, a notebook, or a
@@ -95,7 +95,7 @@ class Transform(Record, IsVersioned):
         >>> transform.view_lineage()
     """
 
-    class Meta(Record.Meta, IsVersioned.Meta):
+    class Meta(DBRecord.Meta, IsVersioned.Meta):
         abstract = False
 
     _len_stem_uid: int = 12

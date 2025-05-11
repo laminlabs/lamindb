@@ -16,7 +16,7 @@ from .artifact import Artifact
 from .feature import Feature
 from .record import (
     BasicRecord,
-    Record,
+    DBRecord,
 )
 from .run import Param, TracksRun, TracksUpdates
 
@@ -112,7 +112,7 @@ class RunData(BasicRecord, DataMixin):
         ]
 
 
-class FlexTable(Record, TracksRun, TracksUpdates):
+class FlexTable(DBRecord, TracksRun, TracksUpdates):
     uid: str = CharField(
         editable=False, unique=True, max_length=12, db_index=True, default=base62_12
     )
@@ -125,7 +125,7 @@ class FlexTable(Record, TracksRun, TracksUpdates):
     )
     """Type of tidy table, e.g., `Cell`, `SampleSheet`, etc."""
     records: ULabel
-    """Records of this type."""
+    """DBRecords of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     description: str = CharField(null=True, db_index=True)

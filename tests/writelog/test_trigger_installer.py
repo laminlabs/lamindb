@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from lamindb.core.writelog._trigger_installer import (
-    PostgresWriteLogRecordingTriggerInstaller,
+    PostgresWriteLogDBRecordingTriggerInstaller,
     create_writelog_recording_trigger_installer,
 )
 
@@ -13,7 +13,7 @@ def test_create_write_log_recording_trigger_installer():
     fake_connection.vendor = "postgresql"
     installer = create_writelog_recording_trigger_installer(connection=fake_connection)
 
-    assert isinstance(installer, PostgresWriteLogRecordingTriggerInstaller)
+    assert isinstance(installer, PostgresWriteLogDBRecordingTriggerInstaller)
 
     with pytest.raises(ValueError):
         fake_connection.vendor = "mysql"

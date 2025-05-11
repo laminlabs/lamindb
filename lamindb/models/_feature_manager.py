@@ -50,7 +50,7 @@ from ._relations import (
     dict_related_model_to_related_name,
 )
 from .feature import Feature, FeatureValue, parse_dtype
-from .record import Record
+from .record import DBRecord
 from .run import Param, ParamManager, ParamManagerRun, ParamValue, Run
 from .ulabel import ULabel
 
@@ -562,13 +562,13 @@ def infer_feature_type_convert_json(
                     return "list[float]", value, message
                 elif first_element_type is str:
                     return ("list[cat ? str]", value, message)
-                elif first_element_type == Record:
+                elif first_element_type == DBRecord:
                     return (
                         f"list[cat[{first_element_type.__get_name_with_module__()}]]",
                         value,
                         message,
                     )
-    elif isinstance(value, Record):
+    elif isinstance(value, DBRecord):
         return (f"cat[{value.__class__.__get_name_with_module__()}]", value, message)
     if not mute:
         logger.warning(f"cannot infer feature type of: {value}, returning '?")
@@ -677,7 +677,7 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
             expression = {feature_param: feature, f"value{comparator}": value}
             feature_values = value_model.filter(**expression)
             new_expression[f"_{feature_param}_values__id__in"] = feature_values
-        elif isinstance(value, (str, Record, bool)):
+        elif isinstance(value, (str, DBRecord, bool)):
             if comparator == "__isnull":
                 if cls == FeatureManager:
                     result = parse_dtype(feature.dtype)[0]
@@ -705,7 +705,7 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
                         )
                     elif len(labels) == 1:
                         label = labels[0]
-                elif isinstance(value, Record):
+                elif isinstance(value, DBRecord):
                     label = value
                 label_registry = (
                     label.__class__ if label is not None else labels[0].__class__
@@ -744,7 +744,7 @@ def filter(cls, **expression) -> QuerySet:
 
 @classmethod  # type: ignore
 @deprecated("the filter() registry classmethod")
-def get(cls, **expression) -> Record:
+def get(cls, **expression) -> DBRecord:
     """Query a single artifact by feature."""
     return filter_base(cls, _skip_validation=False, **expression).one()
 
@@ -896,7 +896,7 @@ def _add_values(
                 )
         elif feature.dtype.startswith("cat"):
             if inferred_type != "?":
-                if not (inferred_type.startswith("cat") or isinstance(value, Record)):
+                if not (inferred_type.startswith("cat") or isinstance(value, DBRecord)):
                     raise TypeError(
                         f"Value for feature '{feature.name}' with type '{feature.dtype}' must be a string or record."
                     )
@@ -911,10 +911,10 @@ def _add_values(
             feature_value, _ = value_model.get_or_create(**filter_kwargs)
             _feature_values.append(feature_value)
         else:
-            if isinstance(value, Record) or (
-                isinstance(value, Iterable) and isinstance(next(iter(value)), Record)
+            if isinstance(value, DBRecord) or (
+                isinstance(value, Iterable) and isinstance(next(iter(value)), DBRecord)
             ):
-                if isinstance(value, Record):
+                if isinstance(value, DBRecord):
                     label_records = [value]
                 else:
                     label_records = value  # type: ignore
@@ -1063,7 +1063,7 @@ def remove_values(
     if feature.dtype.startswith("cat["):  # type: ignore
         feature_registry = feature.dtype.replace("cat[", "").replace("]", "")  # type: ignore
         if value is not None:
-            assert isinstance(value, Record)  # noqa: S101
+            assert isinstance(value, DBRecord)  # noqa: S101
             # the below uses our convention for field names in link models
             link_name = (
                 feature_registry.split(".")[1]
@@ -1263,7 +1263,7 @@ def parse_staged_feature_sets_from_anndata(
     obs_field: FieldAttr = Feature.name,
     uns_field: FieldAttr | None = None,
     mute: bool = False,
-    organism: str | Record | None = None,
+    organism: str | DBRecord | None = None,
 ) -> dict:
     data_parse = adata
     if not isinstance(adata, AnnData):  # is a path
@@ -1337,7 +1337,7 @@ def _add_set_from_anndata(
     obs_field: FieldAttr | None = Feature.name,
     uns_field: FieldAttr | None = None,
     mute: bool = False,
-    organism: str | Record | None = None,
+    organism: str | DBRecord | None = None,
 ):
     """Add features from AnnData."""
     assert self._host.otype == "AnnData"  # noqa: S101
@@ -1363,7 +1363,7 @@ def _add_set_from_mudata(
     var_fields: dict[str, FieldAttr] | None = None,
     obs_fields: dict[str, FieldAttr] | None = None,
     mute: bool = False,
-    organism: str | Record | None = None,
+    organism: str | DBRecord | None = None,
 ):
     """Add features from MuData."""
     if obs_fields is None:
@@ -1400,7 +1400,7 @@ def _add_set_from_spatialdata(
     var_fields: dict[str, FieldAttr] | None = None,
     obs_fields: dict[str, FieldAttr] | None = None,
     mute: bool = False,
-    organism: str | Record | None = None,
+    organism: str | DBRecord | None = None,
 ):
     """Add features from SpatialData."""
     obs_fields, var_fields = obs_fields or {}, var_fields or {}

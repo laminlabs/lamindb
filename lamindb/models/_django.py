@@ -15,7 +15,7 @@ from .schema import Schema
 
 if TYPE_CHECKING:
     from .artifact import Artifact
-    from .record import Record
+    from .record import DBRecord
 
 
 def get_related_model(model, field_name):
@@ -35,7 +35,7 @@ def get_related_model(model, field_name):
 
 
 def get_artifact_with_related(
-    artifact: Record,
+    artifact: DBRecord,
     include_fk: bool = False,
     include_m2m: bool = False,
     include_feature_link: bool = False,
