@@ -29,7 +29,7 @@ from ..base.ids import base62_12
 from ._relations import dict_module_name_to_model_name
 from .can_curate import CanCurate
 from .query_set import DBRecordList
-from .record import BasicRecord, DBRecord, Registry, _get_record_kwargs
+from .record import BaseDBRecord, DBRecord, Registry, _get_record_kwargs
 from .run import (
     TracksRun,
     TracksUpdates,
@@ -634,7 +634,7 @@ class FeatureValue(DBRecord, TracksRun):
     hash: str = CharField(max_length=HASH_LENGTH, null=True, db_index=True)
     """Value hash."""
 
-    class Meta(BasicRecord.Meta, TracksRun.Meta):
+    class Meta(BaseDBRecord.Meta, TracksRun.Meta):
         constraints = [
             # For simple types, use direct value comparison
             models.UniqueConstraint(

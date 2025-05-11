@@ -636,7 +636,7 @@ class Registry(ModelBase):
         return cls._available_fields
 
 
-class BasicRecord(models.Model, metaclass=Registry):
+class BaseDBRecord(models.Model, metaclass=Registry):
     """Basic metadata record.
 
     It has the same methods as DBRecord, but doesn't have the additional fields.
@@ -886,7 +886,7 @@ class BasicRecord(models.Model, metaclass=Registry):
         super().delete()
 
 
-class Space(BasicRecord):
+class Space(BaseDBRecord):
     """Spaces to restrict access to records to specific users or teams.
 
     You can use spaces to restrict access to records within an instance.
@@ -941,7 +941,7 @@ class Space(BasicRecord):
 
 
 @doc_args(RECORD_REGISTRY_EXAMPLE)
-class DBRecord(BasicRecord, metaclass=Registry):
+class DBRecord(BaseDBRecord, metaclass=Registry):
     """Metadata record.
 
     Every `DBRecord` is a data model that comes with a registry in form of a SQL
@@ -1651,7 +1651,7 @@ DBRecord.__repr__ = record_repr  # type: ignore
 DBRecord.__str__ = record_repr  # type: ignore
 
 
-class Migration(BasicRecord):
+class Migration(BaseDBRecord):
     app = CharField(max_length=255)
     name = CharField(max_length=255)
     applied: datetime = DateTimeField()

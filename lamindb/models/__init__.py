@@ -3,7 +3,7 @@
 .. autosummary::
    :toctree: .
 
-   BasicRecord
+   BaseDBRecord
    DBRecord
    Registry
    BasicQuerySet
@@ -32,7 +32,7 @@ from lamin_utils._inspect import InspectResult
 from ._is_versioned import IsVersioned
 from .can_curate import CanCurate
 from .record import (
-    BasicRecord,
+    BaseDBRecord,
     DBRecord,
     Registry,
     Space,

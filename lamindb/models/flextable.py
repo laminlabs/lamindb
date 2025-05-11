@@ -15,7 +15,7 @@ from lamindb.base.fields import (
 from .artifact import Artifact
 from .feature import Feature
 from .record import (
-    BasicRecord,
+    BaseDBRecord,
     DBRecord,
 )
 from .run import Param, TracksRun, TracksUpdates
@@ -89,7 +89,7 @@ class DataMixin(models.Model):
             raise ValidationError("Exactly one value field must be set")
 
 
-class RunData(BasicRecord, DataMixin):
+class RunData(BaseDBRecord, DataMixin):
     run = models.ForeignKey("Run", on_delete=models.CASCADE, related_name="_rundata")
 
     class Meta:
@@ -137,7 +137,7 @@ class FlexTable(DBRecord, TracksRun, TracksUpdates):
         indexes = [models.Index(fields=["uid"]), models.Index(fields=["name"])]
 
 
-class FlexTableData(BasicRecord, DataMixin):
+class FlexTableData(BaseDBRecord, DataMixin):
     tidytable = models.ForeignKey(
         FlexTable, on_delete=models.CASCADE, related_name="data"
     )

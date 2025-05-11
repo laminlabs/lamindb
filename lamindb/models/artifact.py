@@ -84,7 +84,7 @@ from .core import Storage
 from .feature import Feature, FeatureValue
 from .has_parents import view_lineage
 from .record import (
-    BasicRecord,
+    BaseDBRecord,
     DBRecord,
     LinkORM,
     _get_record_kwargs,
@@ -2695,7 +2695,7 @@ def _save_skip_storage(artifact, **kwargs) -> None:
     save_schema_links(artifact)
 
 
-class ArtifactFeatureValue(BasicRecord, LinkORM, TracksRun):
+class ArtifactFeatureValue(BaseDBRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(
         Artifact, CASCADE, related_name="links_featurevalue"
@@ -2707,7 +2707,7 @@ class ArtifactFeatureValue(BasicRecord, LinkORM, TracksRun):
         unique_together = ("artifact", "featurevalue")
 
 
-class ArtifactParamValue(BasicRecord, LinkORM, TracksRun):
+class ArtifactParamValue(BaseDBRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_paramvalue")
     # we follow the lower() case convention rather than snake case for link models

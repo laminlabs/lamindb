@@ -36,7 +36,7 @@ from .feature import (
     serialize_pandas_dtype,
 )
 from .record import (
-    BasicRecord,
+    BaseDBRecord,
     DBRecord,
     LinkORM,
     Registry,
@@ -1149,7 +1149,7 @@ def _get_related_name(self: Schema) -> str:
     return related_name
 
 
-class SchemaFeature(BasicRecord, LinkORM):
+class SchemaFeature(BaseDBRecord, LinkORM):
     id: int = models.BigAutoField(primary_key=True)
     schema: Schema = ForeignKey(Schema, CASCADE, related_name="links_feature")
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_schema")
@@ -1158,7 +1158,7 @@ class SchemaFeature(BasicRecord, LinkORM):
         unique_together = ("schema", "feature")
 
 
-class SchemaParam(BasicRecord, LinkORM):
+class SchemaParam(BaseDBRecord, LinkORM):
     id: int = models.BigAutoField(primary_key=True)
     schema: Schema = ForeignKey(Schema, CASCADE, related_name="+")
     param: Param = ForeignKey(Param, PROTECT, related_name="+")
@@ -1167,7 +1167,7 @@ class SchemaParam(BasicRecord, LinkORM):
         unique_together = ("schema", "param")
 
 
-class ArtifactSchema(BasicRecord, LinkORM, TracksRun):
+class ArtifactSchema(BaseDBRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey("Artifact", CASCADE, related_name="_links_schema")
     schema: Schema = ForeignKey(Schema, PROTECT, related_name="_links_artifact")
@@ -1178,7 +1178,7 @@ class ArtifactSchema(BasicRecord, LinkORM, TracksRun):
         unique_together = (("artifact", "schema"), ("artifact", "slot"))
 
 
-class SchemaComponent(BasicRecord, LinkORM, TracksRun):
+class SchemaComponent(BaseDBRecord, LinkORM, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     composite: Schema = ForeignKey(Schema, CASCADE, related_name="links_composite")
     component: Schema = ForeignKey(Schema, PROTECT, related_name="links_component")

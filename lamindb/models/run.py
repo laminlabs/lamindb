@@ -24,7 +24,7 @@ from lamindb.errors import InvalidArgument, ValidationError
 
 from ..base.ids import base62_20
 from .can_curate import CanCurate
-from .record import BasicRecord, DBRecord, LinkORM, Registry
+from .record import BaseDBRecord, DBRecord, LinkORM, Registry
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -140,7 +140,7 @@ class TracksUpdates(models.Model):
         super().__init__(*args, **kwargs)
 
 
-class User(BasicRecord, CanCurate):
+class User(BaseDBRecord, CanCurate):
     """Users.
 
     All data in this registry is synced from `lamin.ai` to ensure a universal
@@ -612,7 +612,7 @@ def delete_run_artifacts(run: Run) -> None:
             report.delete(permanent=True)
 
 
-class RunParamValue(BasicRecord, LinkORM):
+class RunParamValue(BaseDBRecord, LinkORM):
     id: int = models.BigAutoField(primary_key=True)
     run: Run = ForeignKey(Run, CASCADE, related_name="links_paramvalue")
     # we follow the lower() case convention rather than snake case for link models
