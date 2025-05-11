@@ -10,7 +10,7 @@ from lamindb.core.writelog._db_metadata_wrapper import (
 )
 from lamindb.core.writelog._trigger_installer import (
     FOREIGN_KEYS_LIST_COLUMN_NAME,
-    PostgresWriteLogDBRecordingTriggerInstaller,
+    PostgresWriteLogRecordingTriggerInstaller,
     WriteLogEventTypes,
 )
 from lamindb.core.writelog._types import TableUID, UIDColumns
@@ -148,7 +148,7 @@ def test_updating_write_log_triggers_installs_table_state(table_a, table_b, tabl
     fake_db_metadata.set_db_tables({table_a, table_b, table_c})
     fake_db_metadata.set_tables_with_installed_triggers({table_a, table_c})
 
-    installer = PostgresWriteLogDBRecordingTriggerInstaller(
+    installer = PostgresWriteLogRecordingTriggerInstaller(
         connection=django_connection, db_metadata=fake_db_metadata
     )
     installer.install_triggers = MagicMock(return_value=None)
@@ -176,7 +176,7 @@ def test_update_write_log_triggers_only_install_table_state_once(
     fake_db_metadata.set_db_tables({table_a, table_b, table_c})
     fake_db_metadata.set_tables_with_installed_triggers({table_a, table_c})
 
-    installer = PostgresWriteLogDBRecordingTriggerInstaller(
+    installer = PostgresWriteLogRecordingTriggerInstaller(
         connection=django_connection, db_metadata=fake_db_metadata
     )
     installer.install_triggers = MagicMock(return_value=None)
@@ -205,7 +205,7 @@ def test_update_triggers_installs_migration_state(table_a, table_b, table_c):
     fake_db_metadata.set_db_tables({table_a, table_b, table_c})
     fake_db_metadata.set_tables_with_installed_triggers(set())
 
-    installer = PostgresWriteLogDBRecordingTriggerInstaller(
+    installer = PostgresWriteLogRecordingTriggerInstaller(
         connection=django_connection, db_metadata=fake_db_metadata
     )
 
@@ -233,7 +233,7 @@ def test_update_write_log_triggers_skips_existing_triggers(table_a, table_b, tab
     fake_db_metadata.set_db_tables({table_a, table_b, table_c})
     fake_db_metadata.set_tables_with_installed_triggers({table_a, table_c})
 
-    installer = PostgresWriteLogDBRecordingTriggerInstaller(
+    installer = PostgresWriteLogRecordingTriggerInstaller(
         connection=django_connection, db_metadata=fake_db_metadata
     )
 
@@ -288,7 +288,7 @@ def test_sql_injectable_table_names_fail(table_a, table_b):
     fake_db_metadata.set_db_tables({table_a, table_b})
     fake_db_metadata.set_tables_with_installed_triggers(set())
 
-    installer = PostgresWriteLogDBRecordingTriggerInstaller(
+    installer = PostgresWriteLogRecordingTriggerInstaller(
         connection=django_connection, db_metadata=fake_db_metadata
     )
 
@@ -328,7 +328,7 @@ def _update_write_log_triggers(
         for table, uid_columns_for_table in uid_columns.items():
             fake_db_metadata.set_uid_columns(table, uid_columns_for_table)
 
-    installer = PostgresWriteLogDBRecordingTriggerInstaller(
+    installer = PostgresWriteLogRecordingTriggerInstaller(
         connection=django_connection, db_metadata=fake_db_metadata
     )
 
@@ -1136,7 +1136,7 @@ def test_write_log_install_triggers_on_existing_lamindb_models():
     cursor = django_connection.cursor()
 
     try:
-        installer = PostgresWriteLogDBRecordingTriggerInstaller(
+        installer = PostgresWriteLogRecordingTriggerInstaller(
             connection=django_connection, db_metadata=PostgresDatabaseMetadataWrapper()
         )
         installer.update_write_log_triggers()
