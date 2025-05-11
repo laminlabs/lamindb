@@ -53,8 +53,8 @@ def _search(
         If `return_queryset` is `True`.  `QuerySet`.
 
     See Also:
-        :meth:`~lamindb.models.Record.filter`
-        :meth:`~lamindb.models.Record.lookup`
+        :meth:`~lamindb.models.DBRecord.filter`
+        :meth:`~lamindb.models.DBRecord.lookup`
 
     Examples:
         >>> ulabels = ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name")
@@ -87,7 +87,7 @@ def _search(
                     fields.append(field.field.name)
                 except AttributeError as error:
                     raise TypeError(
-                        "Please pass a Record string field, e.g., `CellType.name`!"
+                        "Please pass a DBRecord string field, e.g., `CellType.name`!"
                     ) from error
             else:
                 fields.append(field)
@@ -185,7 +185,7 @@ def _lookup(
         dictionary converter.
 
     See Also:
-        :meth:`~lamindb.models.Record.search`
+        :meth:`~lamindb.models.DBRecord.search`
 
     Examples:
         >>> import bionty as bt
@@ -199,7 +199,7 @@ def _lookup(
         >>> genes.ensg00000002745
         >>> lookup_return_symbols = bt.Gene.lookup(field="ensembl_gene_id", return_field="symbol")
     """
-    from .record import get_name_field
+    from .dbrecord import get_name_field
 
     queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.objects.all()
     field = get_name_field(registry=queryset.model, field=field)

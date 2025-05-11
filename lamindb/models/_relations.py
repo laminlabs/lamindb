@@ -10,10 +10,10 @@ from lamindb_setup._connect_instance import (
 )
 from lamindb_setup.core._settings_store import instance_settings_file
 
-from lamindb.models.record import LinkORM
+from lamindb.models.dbrecord import IsLink
 
 if TYPE_CHECKING:
-    from lamindb.models.record import Record, Registry
+    from lamindb.models.dbrecord import DBRecord, Registry
 
 
 def get_schema_modules(instance: str | None) -> set[str]:
@@ -64,10 +64,10 @@ def dict_module_name_to_model_name(
 
 
 def dict_related_model_to_related_name(
-    registry: type[Record], links: bool = False, instance: str | None = None
+    registry: type[DBRecord], links: bool = False, instance: str | None = None
 ) -> dict[str, str]:
-    def include(model: Record):
-        return not links != issubclass(model, LinkORM)
+    def include(model: DBRecord):
+        return not links != issubclass(model, IsLink)
 
     schema_modules = get_schema_modules(instance)
 
@@ -88,7 +88,7 @@ def dict_related_model_to_related_name(
     return d
 
 
-def get_related_name(features_type: type[Record]) -> str:
+def get_related_name(features_type: type[DBRecord]) -> str:
     from lamindb.models.schema import Schema
 
     candidates = [
@@ -100,7 +100,7 @@ def get_related_name(features_type: type[Record]) -> str:
         raise ValueError(
             f"Can't create feature sets from {features_type.__name__} because it's not"
             " related to it!\nYou need to create a link model between Schema and"
-            " your Record in your custom module.\nTo do so, add a"
+            " your DBRecord in your custom module.\nTo do so, add a"
             " line:\n_feature_sets = models.ManyToMany(Schema,"
             " related_name='mythings')\n"
         )

@@ -3,14 +3,14 @@
 .. autosummary::
    :toctree: .
 
-   BasicRecord
-   Record
+   BaseDBRecord
+   DBRecord
    Registry
    BasicQuerySet
    QuerySet
    ArtifactSet
    QueryManager
-   RecordList
+   DBRecordList
    FeatureManager
    ParamManager
    LabelManager
@@ -31,15 +31,15 @@
 from lamin_utils._inspect import InspectResult
 from ._is_versioned import IsVersioned
 from .can_curate import CanCurate
-from .record import (
-    BasicRecord,
-    Record,
+from .dbrecord import (
+    BaseDBRecord,
+    DBRecord,
     Registry,
     Space,
     ValidateFields,
     format_field_value,
     record_repr,
-    LinkORM,
+    IsLink,
 )
 from .core import Storage
 from .transform import Transform
@@ -57,7 +57,7 @@ from .collection import Collection, CollectionArtifact
 from .project import Person, Project, Reference
 from .flextable import FlexTable, RunData
 from .query_manager import QueryManager
-from .query_set import BasicQuerySet, QuerySet, RecordList
+from .query_set import BasicQuerySet, QuerySet, DBRecordList
 from .artifact_set import ArtifactSet
 from .has_parents import HasParents
 from datetime import datetime as _datetime
@@ -77,7 +77,7 @@ from .project import (
     ArtifactReference,
     CollectionReference,
 )
-from .record import Migration
+from .dbrecord import Migration
 from .run import RunParamValue
 from .schema import (
     SchemaFeature,
@@ -88,3 +88,7 @@ from .schema import (
 )
 from .ulabel import ArtifactULabel, TransformULabel, RunULabel, CollectionULabel
 from .writelog import WriteLog
+
+LinkORM = IsLink  # backward compat
+Record = DBRecord  # backward compat
+BasicRecord = BaseDBRecord  # backward compat

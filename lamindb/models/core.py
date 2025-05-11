@@ -12,7 +12,7 @@ from lamindb.base.fields import (
 )
 
 from ..base.ids import base62_12
-from .record import Record
+from .dbrecord import DBRecord
 from .run import TracksRun, TracksUpdates
 
 if TYPE_CHECKING:
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from .artifact import Artifact
 
 
-class Storage(Record, TracksRun, TracksUpdates):
+class Storage(DBRecord, TracksRun, TracksUpdates):
     """Storage locations of artifacts such as S3 buckets or local directories.
 
     A storage location is either a directory/folder (local or in the cloud) or
@@ -68,7 +68,7 @@ class Storage(Record, TracksRun, TracksUpdates):
         >>> ln.settings.storage = "./storage_2" # or a cloud bucket
     """
 
-    class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _name_field: str = "root"
