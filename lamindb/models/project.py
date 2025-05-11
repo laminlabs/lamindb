@@ -23,8 +23,8 @@ from ..base.ids import base62_8, base62_12
 from .artifact import Artifact
 from .can_curate import CanCurate
 from .collection import Collection
+from .dbrecord import BaseDBRecord, DBRecord, IsLink, ValidateFields
 from .feature import Feature
-from .record import BaseDBRecord, DBRecord, IsLink, ValidateFields
 from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
 from .transform import Transform

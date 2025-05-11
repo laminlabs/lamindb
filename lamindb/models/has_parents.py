@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Literal
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 
-from .record import format_field_value, get_name_field
+from .dbrecord import format_field_value, get_name_field
 from .run import Run
 
 if TYPE_CHECKING:
@@ -17,8 +17,8 @@ if TYPE_CHECKING:
 
     from .artifact import Artifact
     from .collection import Collection
+    from .dbrecord import DBRecord
     from .query_set import QuerySet
-    from .record import DBRecord
     from .transform import Transform
 
 LAMIN_GREEN_LIGHTER = "#10b981"

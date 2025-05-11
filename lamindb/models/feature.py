@@ -28,8 +28,8 @@ from lamindb.errors import FieldValidationError, ValidationError
 from ..base.ids import base62_12
 from ._relations import dict_module_name_to_model_name
 from .can_curate import CanCurate
+from .dbrecord import BaseDBRecord, DBRecord, Registry, _get_record_kwargs
 from .query_set import DBRecordList
-from .record import BaseDBRecord, DBRecord, Registry, _get_record_kwargs
 from .run import (
     TracksRun,
     TracksUpdates,

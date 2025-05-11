@@ -14,7 +14,7 @@ from ._from_values import (
     _from_values,
     get_organism_record_from_field,
 )
-from .record import DBRecord, get_name_field
+from .dbrecord import DBRecord, get_name_field
 
 if TYPE_CHECKING:
     from lamin_utils._inspect import InspectResult

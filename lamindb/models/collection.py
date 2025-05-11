@@ -36,8 +36,7 @@ from .artifact import (
     get_run,
     save_schema_links,
 )
-from .has_parents import view_lineage
-from .record import (
+from .dbrecord import (
     BaseDBRecord,
     DBRecord,
     IsLink,
@@ -45,6 +44,7 @@ from .record import (
     init_self_from_db,
     update_attributes,
 )
+from .has_parents import view_lineage
 from .run import Run, TracksRun, TracksUpdates
 
 if TYPE_CHECKING:

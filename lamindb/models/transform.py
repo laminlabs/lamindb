@@ -18,7 +18,7 @@ from lamindb.base.users import current_user_id
 
 from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned
-from .record import DBRecord, init_self_from_db, update_attributes
+from .dbrecord import DBRecord, init_self_from_db, update_attributes
 from .run import Run, User, delete_run_artifacts
 
 if TYPE_CHECKING:

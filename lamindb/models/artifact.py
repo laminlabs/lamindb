@@ -81,15 +81,15 @@ from ._relations import (
     dict_related_model_to_related_name,
 )
 from .core import Storage
-from .feature import Feature, FeatureValue
-from .has_parents import view_lineage
-from .record import (
+from .dbrecord import (
     BaseDBRecord,
     DBRecord,
     IsLink,
     _get_record_kwargs,
     record_repr,
 )
+from .feature import Feature, FeatureValue
+from .has_parents import view_lineage
 from .run import Param, ParamValue, Run, TracksRun, TracksUpdates, User
 from .schema import Schema
 from .ulabel import ULabel
@@ -816,7 +816,7 @@ def get_labels(
             ).all()
     if flat_names:
         # returns a flat list of names
-        from .record import get_name_field
+        from .dbrecord import get_name_field
 
         values = []
         for v in qs_by_registry.values():
@@ -1389,7 +1389,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
 
         # an object with the same hash already exists
         if isinstance(kwargs_or_artifact, Artifact):
-            from .record import init_self_from_db, update_attributes
+            from .dbrecord import init_self_from_db, update_attributes
 
             init_self_from_db(self, kwargs_or_artifact)
             # adding "key" here is dangerous because key might be auto-populated
@@ -2304,7 +2304,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
                         # this can be very slow
                         _, hash, _, _ = hash_dir(filepath)
                     if self.hash != hash:
-                        from .record import init_self_from_db
+                        from .dbrecord import init_self_from_db
 
                         new_version = Artifact(
                             filepath, revises=self, _is_internal_call=True

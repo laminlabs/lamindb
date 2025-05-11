@@ -18,8 +18,8 @@ from lamindb_setup.core._docs import doc_args
 from ..errors import DoesNotExist
 from ._is_versioned import IsVersioned
 from .can_curate import CanCurate, _inspect, _standardize, _validate
+from .dbrecord import DBRecord
 from .query_manager import _lookup, _search
-from .record import DBRecord
 
 if TYPE_CHECKING:
     from lamindb.base.types import ListLike, StrField

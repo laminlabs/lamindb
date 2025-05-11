@@ -8,8 +8,8 @@ from lamin_utils import colors, logger
 if TYPE_CHECKING:
     from lamindb.base.types import FieldAttr, ListLike
 
+    from .dbrecord import DBRecord
     from .query_set import DBRecordList
-    from .record import DBRecord
 
 
 # The base function for `from_values`

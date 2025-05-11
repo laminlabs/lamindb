@@ -30,12 +30,7 @@ from ._relations import (
     get_related_name,
 )
 from .can_curate import CanCurate
-from .feature import (
-    Feature,
-    serialize_dtype,
-    serialize_pandas_dtype,
-)
-from .record import (
+from .dbrecord import (
     BaseDBRecord,
     DBRecord,
     IsLink,
@@ -43,6 +38,11 @@ from .record import (
     _get_record_kwargs,
     init_self_from_db,
     update_attributes,
+)
+from .feature import (
+    Feature,
+    serialize_dtype,
+    serialize_pandas_dtype,
 )
 from .run import Param, TracksRun, TracksUpdates
 

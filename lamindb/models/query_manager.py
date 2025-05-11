@@ -199,7 +199,7 @@ def _lookup(
         >>> genes.ensg00000002745
         >>> lookup_return_symbols = bt.Gene.lookup(field="ensembl_gene_id", return_field="symbol")
     """
-    from .record import get_name_field
+    from .dbrecord import get_name_field
 
     queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.objects.all()
     field = get_name_field(registry=queryset.model, field=field)

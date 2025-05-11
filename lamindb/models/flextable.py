@@ -13,11 +13,11 @@ from lamindb.base.fields import (
 )
 
 from .artifact import Artifact
-from .feature import Feature
-from .record import (
+from .dbrecord import (
     BaseDBRecord,
     DBRecord,
 )
+from .feature import Feature
 from .run import Param, TracksRun, TracksUpdates
 
 if TYPE_CHECKING:
@@ -27,8 +27,8 @@ from django.core.exceptions import ValidationError
 
 from ..base.ids import base62_12
 from .collection import Collection
+from .dbrecord import Space
 from .project import Person, Project
-from .record import Space
 from .schema import Schema
 from .ulabel import ULabel
 

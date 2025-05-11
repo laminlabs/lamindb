@@ -31,7 +31,7 @@
 from lamin_utils._inspect import InspectResult
 from ._is_versioned import IsVersioned
 from .can_curate import CanCurate
-from .record import (
+from .dbrecord import (
     BaseDBRecord,
     DBRecord,
     Registry,
@@ -77,7 +77,7 @@ from .project import (
     ArtifactReference,
     CollectionReference,
 )
-from .record import Migration
+from .dbrecord import Migration
 from .run import RunParamValue
 from .schema import (
     SchemaFeature,

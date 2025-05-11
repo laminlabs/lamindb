@@ -12,7 +12,7 @@ from lamindb.base.fields import (
 )
 
 from ..base.ids import base62_12
-from .record import DBRecord
+from .dbrecord import DBRecord
 from .run import TracksRun, TracksUpdates
 
 if TYPE_CHECKING:

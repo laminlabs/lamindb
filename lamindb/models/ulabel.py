@@ -15,9 +15,9 @@ from lamindb.errors import FieldValidationError
 
 from ..base.ids import base62_8
 from .can_curate import CanCurate
+from .dbrecord import BaseDBRecord, DBRecord, IsLink, _get_record_kwargs
 from .feature import Feature
 from .has_parents import HasParents
-from .record import BaseDBRecord, DBRecord, IsLink, _get_record_kwargs
 from .run import Run, TracksRun, TracksUpdates, User, current_user_id
 from .transform import Transform
 

@@ -21,7 +21,7 @@ from ..core.storage.paths import (
     delete_storage_using_key,
     store_file_or_folder,
 )
-from .record import DBRecord
+from .dbrecord import DBRecord
 
 if TYPE_CHECKING:
     from collections.abc import Iterable

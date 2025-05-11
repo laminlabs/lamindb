@@ -24,7 +24,7 @@ from lamindb.errors import InvalidArgument, ValidationError
 
 from ..base.ids import base62_20
 from .can_curate import CanCurate
-from .record import BaseDBRecord, DBRecord, IsLink, Registry
+from .dbrecord import BaseDBRecord, DBRecord, IsLink, Registry
 
 if TYPE_CHECKING:
     from datetime import datetime

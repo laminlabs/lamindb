@@ -49,8 +49,8 @@ from ._label_manager import _get_labels, describe_labels
 from ._relations import (
     dict_related_model_to_related_name,
 )
+from .dbrecord import DBRecord
 from .feature import Feature, FeatureValue, parse_dtype
-from .record import DBRecord
 from .run import Param, ParamManager, ParamManagerRun, ParamValue, Run
 from .ulabel import ULabel
 
