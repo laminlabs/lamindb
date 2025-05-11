@@ -248,9 +248,9 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
 
 
 class Feature(DBRecord, CanCurate, TracksRun, TracksUpdates):
-    """Dataset dimensions.
+    """Variables, such as dataframe columns or run parameters.
 
-    A feature represents a dimension of a dataset, such as a column in a
+    A feature often represents a dimension of a dataset, such as a column in a
     `DataFrame`. The `Feature` registry organizes metadata of features.
 
     The `Feature` registry helps you organize and query datasets based on their

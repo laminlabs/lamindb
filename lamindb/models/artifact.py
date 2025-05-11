@@ -69,8 +69,6 @@ from ..models._is_versioned import (
 from ._django import get_artifact_with_related
 from ._feature_manager import (
     FeatureManager,
-    ParamManager,
-    ParamManagerArtifact,
     add_label_feature_links,
     filter_base,
     get_label_links,
@@ -90,7 +88,7 @@ from .dbrecord import (
 )
 from .feature import Feature, FeatureValue
 from .has_parents import view_lineage
-from .run import Param, ParamValue, Run, TracksRun, TracksUpdates, User
+from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
 from .ulabel import ULabel
 
@@ -706,7 +704,6 @@ def _describe_postgres(self):  # for Artifact & Collection
             tree=tree,
             related_data=related_data,
             with_labels=True,
-            print_params=hasattr(self, "kind") and self.kind == "model",
         )
     else:
         return tree
@@ -755,7 +752,6 @@ def _describe_sqlite(self, print_types: bool = False):  # for artifact & collect
             self,
             tree=tree,
             with_labels=True,
-            print_params=hasattr(self, "kind") and self.kind == "kind",
         )
     else:
         return tree
@@ -1058,23 +1054,22 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
 
-    params: ParamManager = ParamManagerArtifact  # type: ignore
-    """Param manager.
+    # """Param manager.
 
-    What features are for dataset-like artifacts, parameters are for model-like artifacts & runs.
+    # What features are for dataset-like artifacts, parameters are for model-like artifacts & runs.
 
-    Example::
+    # Example::
 
-        artifact.params.add_values({
-            "hidden_size": 32,
-            "bottleneck_size": 16,
-            "batch_size": 32,
-            "preprocess_params": {
-                "normalization_type": "cool",
-                "subset_highlyvariable": True,
-            },
-        })
-    """
+    #     artifact.params.add_values({
+    #         "hidden_size": 32,
+    #         "bottleneck_size": 16,
+    #         "batch_size": 32,
+    #         "preprocess_params": {
+    #             "normalization_type": "cool",
+    #             "subset_highlyvariable": True,
+    #         },
+    #     })
+    # """
 
     features: FeatureManager = FeatureManager  # type: ignore
     """Feature manager.
@@ -1242,10 +1237,6 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
         FeatureValue, through="ArtifactFeatureValue", related_name="artifacts"
     )
     """Non-categorical feature values for annotation."""
-    _param_values: ParamValue = models.ManyToManyField(
-        ParamValue, through="ArtifactParamValue", related_name="artifacts"
-    )
-    """Parameter values."""
     _key_is_virtual: bool = BooleanField()
     """Indicates whether `key` is virtual or part of an actual file path."""
     # be mindful that below, passing related_name="+" leads to errors
@@ -1301,7 +1292,6 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
         **kwargs,
     ):
         self.features = FeatureManager(self)  # type: ignore
-        self.params = ParamManager(self)  # type: ignore
         # Below checks for the Django-internal call in from_db()
         # it'd be better if we could avoid this, but not being able to create a Artifact
         # from data with the default constructor renders the central class of the API
@@ -1462,6 +1452,11 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
         return self.otype
 
     @property
+    @deprecated("features")
+    def params(self) -> str:
+        return self.features
+
+    @property
     def transform(self) -> Transform | None:
         """Transform whose run created the artifact."""
         return self.run.transform if self.run is not None else None
@@ -1547,7 +1542,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Args:
             *queries: `Q` expressions.
-            **expressions: Features, params, fields via the Django query syntax.
+            **expressions: Features & fields via the Django query syntax.
 
         See Also:
             - Guide: :doc:`docs:registries`
@@ -1562,9 +1557,6 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 ln.Arfifact.filter(cell_type_by_model__name="T cell")
 
-            Query by params::
-
-                ln.Arfifact.filter(hyperparam_x=100)
         """
         from .query_set import QuerySet
 
@@ -1579,23 +1571,11 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
                 )
             ):
                 return filter_base(FeatureManager, **expressions)
-            elif all(
-                params_validated := Param.validate(
-                    keys_normalized, field="name", mute=True
-                )
-            ):
-                return filter_base(ParamManagerArtifact, **expressions)
             else:
-                if sum(features_validated) < sum(params_validated):
-                    params = ", ".join(
-                        sorted(np.array(keys_normalized)[~params_validated])
-                    )
-                    message = f"param names: {params}"
-                else:
-                    features = ", ".join(
-                        sorted(np.array(keys_normalized)[~params_validated])
-                    )
-                    message = f"feature names: {features}"
+                features = ", ".join(
+                    sorted(np.array(keys_normalized)[~features_validated])
+                )
+                message = f"feature names: {features}"
                 fields = ", ".join(sorted(cls.__get_available_fields__()))
                 raise InvalidArgument(
                     f"You can query either by available fields: {fields}\n"
@@ -2705,18 +2685,6 @@ class ArtifactFeatureValue(BaseDBRecord, IsLink, TracksRun):
 
     class Meta:
         unique_together = ("artifact", "featurevalue")
-
-
-class ArtifactParamValue(BaseDBRecord, IsLink, TracksRun):
-    id: int = models.BigAutoField(primary_key=True)
-    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_paramvalue")
-    # we follow the lower() case convention rather than snake case for link models
-    paramvalue: ParamValue = ForeignKey(
-        ParamValue, PROTECT, related_name="links_artifact"
-    )
-
-    class Meta:
-        unique_together = ("artifact", "paramvalue")
 
 
 def _track_run_input(

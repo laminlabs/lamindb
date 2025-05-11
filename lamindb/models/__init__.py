@@ -12,14 +12,12 @@
    QueryManager
    DBRecordList
    FeatureManager
-   ParamManager
    LabelManager
    IsVersioned
    CanCurate
    HasParents
    TracksRun
    TracksUpdates
-   ParamValue
    FeatureValue
    InspectResult
    ValidateFields
@@ -43,7 +41,7 @@ from .dbrecord import (
 )
 from .core import Storage
 from .transform import Transform
-from .run import Run, TracksRun, TracksUpdates, current_run, Param, ParamValue, User
+from .run import Run, TracksRun, TracksUpdates, current_run, User
 from .feature import Feature, FeatureValue
 from .schema import Schema
 from .ulabel import ULabel
@@ -51,11 +49,9 @@ from .ulabel import ULabel
 # should come last as it needs everything else
 from .artifact import Artifact
 from ._feature_manager import FeatureManager
-from .run import ParamManager
 from ._label_manager import LabelManager
 from .collection import Collection, CollectionArtifact
 from .project import Person, Project, Reference
-from .flextable import FlexTable, RunData
 from .query_manager import QueryManager
 from .query_set import BasicQuerySet, QuerySet, DBRecordList
 from .artifact_set import ArtifactSet
@@ -65,8 +61,7 @@ from datetime import datetime as _datetime
 FeatureSet = Schema  # backward compat
 
 # link models
-from .artifact import ArtifactFeatureValue, ArtifactParamValue
-from .flextable import FlexTableData
+from .artifact import ArtifactFeatureValue
 from .project import (
     ArtifactProject,
     TransformProject,
@@ -78,10 +73,9 @@ from .project import (
     CollectionReference,
 )
 from .dbrecord import Migration
-from .run import RunParamValue
+from .run import RunFeatureValue
 from .schema import (
     SchemaFeature,
-    SchemaParam,
     ArtifactSchema,
     SchemaComponent,
     SchemaOptionals,
@@ -92,3 +86,6 @@ from .writelog import WriteLog
 LinkORM = IsLink  # backward compat
 Record = DBRecord  # backward compat
 BasicRecord = BaseDBRecord  # backward compat
+ParamValue = FeatureValue  # backward compat
+ArtifactParamValue = ArtifactFeatureValue  # backward compat
+RunParamValue = RunFeatureValue  # backward compat
