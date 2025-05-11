@@ -44,19 +44,19 @@ def test_track_basic_invocation():
         == """lamindb.errors.ValidationError: These keys could not be validated: ['param1', 'param2', 'param3']
 Here is how to create a param:
 
-  ln.Param(name='param1', dtype='int').save()
-  ln.Param(name='param2', dtype='cat ? str').save()
-  ln.Param(name='param3', dtype='float').save()"""
+  ln.Feature(name='param1', dtype='int').save()
+  ln.Feature(name='param2', dtype='cat ? str').save()
+  ln.Feature(name='param3', dtype='float').save()"""
     )
-    ln.Param(name="param1", dtype="int").save()
-    ln.Param(name="param2", dtype="str").save()
-    ln.Param(name="param3", dtype="float").save()
+    ln.Feature(name="param1", dtype="int").save()
+    ln.Feature(name="param2", dtype="str").save()
+    ln.Feature(name="param3", dtype="float").save()
     ln.context.track(transform=successor, params=params)
     print("outside", id(ln.context))
     assert ln.context.run.params.get_values() == params
     # second invocation
     params = {"param1": 1, "param2": "my-string", "param3": 3.14, "param4": [1, 2]}
-    param4 = ln.Param(name="param4", dtype="int").save()
+    param4 = ln.Feature(name="param4", dtype="int").save()
     with pytest.raises(ValidationError) as exc:
         ln.context.track(transform=successor, params=params)
     assert (
@@ -68,7 +68,7 @@ Here is how to create a param:
     param4.save()
     # re-run
     ln.context.track(transform=successor, params=params)
-    assert ln.context.run.params.get_values() == params
+    assert ln.context.run.features.get_values() == params
 
     # test that run populates things like ULabels etc.
     ulabel = ln.ULabel(name="my-label-in-track")
