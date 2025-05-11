@@ -569,7 +569,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
-            bases=(lamindb.models.LinkORM, models.Model),
+            bases=(lamindb.models.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="collection",
@@ -619,7 +619,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
-            bases=(lamindb.models.LinkORM, models.Model),
+            bases=(lamindb.models.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="artifact",
@@ -656,7 +656,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("featureset", "feature")},
             },
-            bases=(models.Model, lamindb.models.LinkORM),
+            bases=(models.Model, lamindb.models.IsLink),
         ),
         migrations.AddField(
             model_name="feature",
@@ -727,7 +727,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
-            bases=(lamindb.models.LinkORM, models.Model),
+            bases=(lamindb.models.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="artifact",
@@ -805,7 +805,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("artifact", "paramvalue")},
             },
-            bases=(models.Model, lamindb.models.LinkORM),
+            bases=(models.Model, lamindb.models.IsLink),
         ),
         migrations.AddField(
             model_name="artifact",
@@ -1082,7 +1082,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("run", "paramvalue")},
             },
-            bases=(models.Model, lamindb.models.LinkORM),
+            bases=(models.Model, lamindb.models.IsLink),
         ),
         migrations.AddField(
             model_name="run",
@@ -1539,7 +1539,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("collection", "ulabel")},
             },
-            bases=(lamindb.models.LinkORM, models.Model),
+            bases=(lamindb.models.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="collection",
@@ -1624,7 +1624,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("artifact", "ulabel", "feature")},
             },
-            bases=(lamindb.models.LinkORM, models.Model),
+            bases=(lamindb.models.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="artifact",

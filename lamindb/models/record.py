@@ -111,7 +111,7 @@ IPYTHON = getattr(builtins, "__IPYTHON__", False)
 # This is a good maximal length for a description field.
 
 
-class LinkORM:
+class IsLink:
     pass
 
 
@@ -185,7 +185,7 @@ def validate_literal_fields(record: DBRecord, kwargs) -> None:
     Raises:
         ValidationError: If any field value is not in its Literal's allowed values
     """
-    if isinstance(record, LinkORM):
+    if isinstance(record, IsLink):
         return None
     if record.__class__.__name__ in "Feature":
         return None
@@ -641,7 +641,7 @@ class BaseDBRecord(models.Model, metaclass=Registry):
 
     It has the same methods as DBRecord, but doesn't have the additional fields.
 
-    It's mainly used for LinkORMs and similar.
+    It's mainly used for IsLinks and similar.
     """
 
     objects = QueryManager()

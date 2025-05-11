@@ -24,7 +24,7 @@ from .artifact import Artifact
 from .can_curate import CanCurate
 from .collection import Collection
 from .feature import Feature
-from .record import BaseDBRecord, DBRecord, LinkORM, ValidateFields
+from .record import BaseDBRecord, DBRecord, IsLink, ValidateFields
 from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
 from .transform import Transform
@@ -304,7 +304,7 @@ class Project(DBRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         super().__init__(*args, **kwargs)
 
 
-class ArtifactProject(BaseDBRecord, LinkORM, TracksRun):
+class ArtifactProject(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_project")
     project: Project = ForeignKey(Project, PROTECT, related_name="links_artifact")
@@ -323,7 +323,7 @@ class ArtifactProject(BaseDBRecord, LinkORM, TracksRun):
         unique_together = ("artifact", "project", "feature")
 
 
-class RunProject(BaseDBRecord, LinkORM):
+class RunProject(BaseDBRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     run: Run = ForeignKey(Run, CASCADE, related_name="links_project")
     project: Project = ForeignKey(Project, PROTECT, related_name="links_run")
@@ -344,7 +344,7 @@ class RunProject(BaseDBRecord, LinkORM):
         unique_together = ("run", "project")
 
 
-class TransformProject(BaseDBRecord, LinkORM, TracksRun):
+class TransformProject(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     transform: Transform = ForeignKey(Transform, CASCADE, related_name="links_project")
     project: Project = ForeignKey(Project, PROTECT, related_name="links_transform")
@@ -353,7 +353,7 @@ class TransformProject(BaseDBRecord, LinkORM, TracksRun):
         unique_together = ("transform", "project")
 
 
-class CollectionProject(BaseDBRecord, LinkORM, TracksRun):
+class CollectionProject(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     collection: Collection = ForeignKey(
         Collection, CASCADE, related_name="links_project"
@@ -364,7 +364,7 @@ class CollectionProject(BaseDBRecord, LinkORM, TracksRun):
         unique_together = ("collection", "project")
 
 
-class ULabelProject(BaseDBRecord, LinkORM, TracksRun):
+class ULabelProject(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     ulabel: ULabel = ForeignKey(ULabel, CASCADE, related_name="links_project")
     project: Project = ForeignKey(Project, PROTECT, related_name="links_ulabel")
@@ -373,7 +373,7 @@ class ULabelProject(BaseDBRecord, LinkORM, TracksRun):
         unique_together = ("ulabel", "project")
 
 
-class PersonProject(BaseDBRecord, LinkORM, TracksRun):
+class PersonProject(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     person: Person = ForeignKey(Person, CASCADE, related_name="links_project")
     project: Project = ForeignKey(Project, PROTECT, related_name="links_person")
@@ -383,7 +383,7 @@ class PersonProject(BaseDBRecord, LinkORM, TracksRun):
         unique_together = ("person", "project")
 
 
-class FeatureProject(BaseDBRecord, LinkORM, TracksRun):
+class FeatureProject(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_project")
     project: Project = ForeignKey(Project, PROTECT, related_name="links_feature")
@@ -392,7 +392,7 @@ class FeatureProject(BaseDBRecord, LinkORM, TracksRun):
         unique_together = ("feature", "project")
 
 
-class SchemaProject(BaseDBRecord, LinkORM, TracksRun):
+class SchemaProject(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     schema: Schema = ForeignKey(Schema, CASCADE, related_name="links_project")
     project: Project = ForeignKey(Project, PROTECT, related_name="links_schema")
@@ -401,7 +401,7 @@ class SchemaProject(BaseDBRecord, LinkORM, TracksRun):
         unique_together = ("schema", "project")
 
 
-class ArtifactReference(BaseDBRecord, LinkORM, TracksRun):
+class ArtifactReference(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_reference")
     reference: Reference = ForeignKey(Reference, PROTECT, related_name="links_artifact")
@@ -420,7 +420,7 @@ class ArtifactReference(BaseDBRecord, LinkORM, TracksRun):
         unique_together = ("artifact", "reference", "feature")
 
 
-class TransformReference(BaseDBRecord, LinkORM, TracksRun):
+class TransformReference(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     transform: Transform = ForeignKey(
         Transform, CASCADE, related_name="links_reference"
@@ -433,7 +433,7 @@ class TransformReference(BaseDBRecord, LinkORM, TracksRun):
         unique_together = ("transform", "reference")
 
 
-class CollectionReference(BaseDBRecord, LinkORM, TracksRun):
+class CollectionReference(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     collection: Collection = ForeignKey(
         Collection, CASCADE, related_name="links_reference"

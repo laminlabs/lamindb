@@ -61,7 +61,7 @@ if TYPE_CHECKING:
     from lamindb.models import (
         Artifact,
         Collection,
-        LinkORM,
+        IsLink,
     )
     from lamindb.models.query_set import QuerySet
 
@@ -112,7 +112,7 @@ def get_schema_links(host: Artifact | Collection) -> QuerySet:
     return links_schema
 
 
-def get_link_attr(link: LinkORM | type[LinkORM], data: Artifact | Collection) -> str:
+def get_link_attr(link: IsLink | type[IsLink], data: Artifact | Collection) -> str:
     link_model_name = link.__class__.__name__
     if link_model_name in {"Registry", "ModelBase"}:  # we passed the type of the link
         link_model_name = link.__name__  # type: ignore
@@ -784,10 +784,10 @@ def add_label_feature_links(
         related_names = {"ULabel": "ulabels"}
     for class_name, registry_features_labels in features_labels.items():
         related_name = related_names[class_name]  # e.g., "ulabels"
-        LinkORM = getattr(self._host, related_name).through
-        field_name = f"{get_link_attr(LinkORM, self._host)}_id"  # e.g., ulabel_id
+        IsLink = getattr(self._host, related_name).through
+        field_name = f"{get_link_attr(IsLink, self._host)}_id"  # e.g., ulabel_id
         links = [
-            LinkORM(
+            IsLink(
                 **{
                     "artifact_id": self._host.id,
                     "feature_id": feature.id,
@@ -804,7 +804,7 @@ def add_label_feature_links(
         except Exception:
             save(links, ignore_conflicts=True)
         # now delete links that were previously saved without a feature
-        LinkORM.filter(
+        IsLink.filter(
             **{
                 "artifact_id": self._host.id,
                 "feature_id": None,
@@ -982,10 +982,10 @@ def _add_values(
             if getattr(record, model_name.lower()).dtype == "dict"
         ]
         if is_param:
-            LinkORM = self._host._param_values.through
+            IsLink = self._host._param_values.through
             valuefield_id = "paramvalue_id"
         else:
-            LinkORM = self._host._feature_values.through
+            IsLink = self._host._feature_values.through
             valuefield_id = "featurevalue_id"
         host_class_lower = self._host.__class__.__get_name_with_module__().lower()
         if dict_typed_features:
@@ -1000,7 +1000,7 @@ def _add_values(
                 pass
         # add new feature links
         links = [
-            LinkORM(
+            IsLink(
                 **{
                     f"{host_class_lower}_id": self._host.id,
                     valuefield_id: feature_value.id,

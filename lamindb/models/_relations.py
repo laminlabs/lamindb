@@ -10,7 +10,7 @@ from lamindb_setup._connect_instance import (
 )
 from lamindb_setup.core._settings_store import instance_settings_file
 
-from lamindb.models.record import LinkORM
+from lamindb.models.record import IsLink
 
 if TYPE_CHECKING:
     from lamindb.models.record import DBRecord, Registry
@@ -67,7 +67,7 @@ def dict_related_model_to_related_name(
     registry: type[DBRecord], links: bool = False, instance: str | None = None
 ) -> dict[str, str]:
     def include(model: DBRecord):
-        return not links != issubclass(model, LinkORM)
+        return not links != issubclass(model, IsLink)
 
     schema_modules = get_schema_modules(instance)
 

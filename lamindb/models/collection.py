@@ -40,7 +40,7 @@ from .has_parents import view_lineage
 from .record import (
     BaseDBRecord,
     DBRecord,
-    LinkORM,
+    IsLink,
     _get_record_kwargs,
     init_self_from_db,
     update_attributes,
@@ -691,7 +691,7 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
     return hash
 
 
-class CollectionArtifact(BaseDBRecord, LinkORM, TracksRun):
+class CollectionArtifact(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     collection: Collection = ForeignKey(
         Collection, CASCADE, related_name="links_artifact"

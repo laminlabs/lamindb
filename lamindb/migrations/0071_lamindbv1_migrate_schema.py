@@ -547,7 +547,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("transform", "ulabel")},
             },
-            bases=(lamindb.models.LinkORM, models.Model),
+            bases=(lamindb.models.IsLink, models.Model),
         ),
         migrations.RunSQL(
             sql="""

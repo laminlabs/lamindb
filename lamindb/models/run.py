@@ -24,7 +24,7 @@ from lamindb.errors import InvalidArgument, ValidationError
 
 from ..base.ids import base62_20
 from .can_curate import CanCurate
-from .record import BaseDBRecord, DBRecord, LinkORM, Registry
+from .record import BaseDBRecord, DBRecord, IsLink, Registry
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -272,7 +272,7 @@ class Param(DBRecord, CanCurate, TracksRun, TracksUpdates):
                 )
 
 
-# FeatureValue behaves in many ways like a link in a LinkORM
+# FeatureValue behaves in many ways like a link in a IsLink
 # in particular, we don't want a _public field on it
 # Also, we don't inherit from TracksRun because a ParamValue
 # is typically created before a run is created and we want to
@@ -612,7 +612,7 @@ def delete_run_artifacts(run: Run) -> None:
             report.delete(permanent=True)
 
 
-class RunParamValue(BaseDBRecord, LinkORM):
+class RunParamValue(BaseDBRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     run: Run = ForeignKey(Run, CASCADE, related_name="links_paramvalue")
     # we follow the lower() case convention rather than snake case for link models

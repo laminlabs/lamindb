@@ -86,7 +86,7 @@ from .has_parents import view_lineage
 from .record import (
     BaseDBRecord,
     DBRecord,
-    LinkORM,
+    IsLink,
     _get_record_kwargs,
     record_repr,
 )
@@ -2695,7 +2695,7 @@ def _save_skip_storage(artifact, **kwargs) -> None:
     save_schema_links(artifact)
 
 
-class ArtifactFeatureValue(BaseDBRecord, LinkORM, TracksRun):
+class ArtifactFeatureValue(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(
         Artifact, CASCADE, related_name="links_featurevalue"
@@ -2707,7 +2707,7 @@ class ArtifactFeatureValue(BaseDBRecord, LinkORM, TracksRun):
         unique_together = ("artifact", "featurevalue")
 
 
-class ArtifactParamValue(BaseDBRecord, LinkORM, TracksRun):
+class ArtifactParamValue(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_paramvalue")
     # we follow the lower() case convention rather than snake case for link models
@@ -2820,18 +2820,17 @@ def _track_run_input(
         # avoid adding the same run twice
         run.save()
         if data_class_name == "artifact":
-            LinkORM = run.input_artifacts.through
+            IsLink = run.input_artifacts.through
             links = [
-                LinkORM(run_id=run.id, artifact_id=data_id)
-                for data_id in input_data_ids
+                IsLink(run_id=run.id, artifact_id=data_id) for data_id in input_data_ids
             ]
         else:
-            LinkORM = run.input_collections.through
+            IsLink = run.input_collections.through
             links = [
-                LinkORM(run_id=run.id, collection_id=data_id)
+                IsLink(run_id=run.id, collection_id=data_id)
                 for data_id in input_data_ids
             ]
-        LinkORM.objects.bulk_create(links, ignore_conflicts=True)
+        IsLink.objects.bulk_create(links, ignore_conflicts=True)
         # generalize below for more than one data batch
         if len(input_data) == 1:
             if input_data[0].transform is not None:

@@ -39,7 +39,7 @@ from .record import (
     ValidateFields,
     format_field_value,
     record_repr,
-    LinkORM,
+    IsLink,
 )
 from .core import Storage
 from .transform import Transform

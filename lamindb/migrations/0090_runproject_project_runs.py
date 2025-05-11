@@ -61,7 +61,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("run", "project")},
             },
-            bases=(models.Model, lamindb.models.record.LinkORM),
+            bases=(models.Model, lamindb.models.record.IsLink),
         ),
         migrations.AddField(
             model_name="project",
