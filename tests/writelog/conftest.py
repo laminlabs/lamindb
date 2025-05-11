@@ -19,9 +19,9 @@ def pytest_sessionstart():
     ln_setup._TESTING = True
     pgurl = setup_local_test_postgres()
     ln.setup.init(
-        storage="./default_storage_unit_core",
+        storage="./default_storage_unit_writelog",
         modules="bionty",
-        name="lamindb-unit-tests-core",
+        name="lamindb-unit-tests-writelog",
         db=pgurl,
     )
     ln.setup.settings.auto_connect = True
@@ -34,9 +34,9 @@ def pytest_sessionstart():
 def pytest_sessionfinish(session: pytest.Session):
     try:
         logger.set_verbosity(1)
-        shutil.rmtree("./default_storage_unit_core")
+        shutil.rmtree("./default_storage_unit_writelog")
 
-        ln.setup.delete("lamindb-unit-tests-core", force=True)
+        ln.setup.delete("lamindb-unit-tests-writelog", force=True)
         ln.setup.settings.auto_connect = AUTO_CONNECT
     finally:
         run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)  # noqa: S602
