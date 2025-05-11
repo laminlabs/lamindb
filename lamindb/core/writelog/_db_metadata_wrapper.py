@@ -70,6 +70,22 @@ class DatabaseMetadataWrapper(ABC):
     def is_auxiliary_artifact(
         self, source_table: str, target_table: str, foreign_key_fields: list[str]
     ) -> bool:
+        """Is the given source table "auxiliary" with respect to the target table?
+
+        In certain circumstances, a source table foreign-keys to a target table, but
+        that foreign key is always NULL. We'll refer to these target tables as
+        "auxiliary artifacts". For the purposes of determining backfill order,
+        it's important for us to know what these false dependencies are so we can avoid
+        falsely detecting a cycle in the tables' dependency graph.
+
+        Args:
+            source_table: the table containing the foreign key constraint
+            target_table: the target of the foreign key constraint
+            foreign_key_fields: the fields used to define the foreign key constraint
+
+        Returns:
+            True if target_table is auxiliary with respect to source_table, False otherwise.
+        """
         if source_table == "lamindb_run" and target_table == "lamindb_artifact":
             return True
 

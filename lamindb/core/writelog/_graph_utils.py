@@ -44,6 +44,8 @@ def topological_sort(graph: dict[T, set[T]]) -> Optional[list[T]]:
 
 
 def find_cycle(graph: dict[T, set[T]]) -> Optional[list[T]]:
+    """Return the path through a cycle in the given graph if one exists."""
+
     def dfs(node: T, visited: dict[T, bool], path: list[T]):
         visited[node] = True
         path.append(node)
