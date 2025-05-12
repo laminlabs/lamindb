@@ -1292,7 +1292,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
         *args,
         **kwargs,
     ):
-        self.features = FeatureManagerArtifact(self)  # type: ignore
+        self.features = FeatureManager(self)  # type: ignore
         # Below checks for the Django-internal call in from_db()
         # it'd be better if we could avoid this, but not being able to create a Artifact
         # from data with the default constructor renders the central class of the API
@@ -1571,7 +1571,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
                     keys_normalized, field="name", mute=True
                 )
             ):
-                return filter_base(FeatureManager, **expressions)
+                return filter_base(FeatureManagerArtifact, **expressions)
             else:
                 features = ", ".join(
                     sorted(np.array(keys_normalized)[~features_validated])
