@@ -17,6 +17,7 @@ from django.db.models import CASCADE, PROTECT, Q
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage_in_instance
+from lamindb_setup.core._hub_core import select_storage_or_parent
 from lamindb_setup.core._settings_storage import init_storage
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dir, hash_file
 from lamindb_setup.core.types import UPathStr
@@ -155,10 +156,12 @@ def process_pathlike(
     else:
         # check whether the path is part of one of the existing
         # already-registered storage locations
-        result = False
+        result = None
         # within the hub, we don't want to perform check_path_in_existing_storage
         if using_key is None:
-            result = check_path_in_existing_storage(filepath, using_key)
+            result = check_path_in_existing_storage(
+                filepath, check_hub_register_storage=setup_settings.instance.is_on_hub
+            )
         if isinstance(result, Storage):
             use_existing_storage_key = True
             return result, use_existing_storage_key
@@ -339,13 +342,21 @@ def get_stat_or_artifact(
 
 
 def check_path_in_existing_storage(
-    path: Path | UPath, using_key: str | None = None
-) -> Storage | bool:
+    path: Path | UPath,
+    check_hub_register_storage: bool = False,
+    using_key: str | None = None,
+) -> Storage | None:
     for storage in Storage.objects.using(using_key).filter().all():
         # if path is part of storage, return it
         if check_path_is_child_of_root(path, root=storage.root):
             return storage
-    return False
+    # we don't see parents registered in the db, so checking the hub
+    # just check for 2 writable cloud protocols, maybe change in the future
+    if check_hub_register_storage and getattr(path, "protocol", None) in {"s3", "gs"}:
+        result = select_storage_or_parent(path.as_posix())
+        if result is not None:
+            return Storage(**result).save()
+    return None
 
 
 def get_relative_path_to_directory(
