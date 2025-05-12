@@ -227,7 +227,6 @@ def validate_fields(record: DBRecord, kwargs):
         Artifact,
         Collection,
         Feature,
-        Param,
         Run,
         Schema,
         Transform,
@@ -255,7 +254,6 @@ def validate_fields(record: DBRecord, kwargs):
         ULabel,
         Feature,
         Schema,
-        Param,
     }:
         uid_max_length = record.__class__._meta.get_field(
             "uid"
@@ -656,7 +654,7 @@ class BaseDBRecord(models.Model, metaclass=Registry):
             if (
                 issubclass(self.__class__, DBRecord)
                 and self.__class__.__name__
-                not in {"Storage", "ULabel", "Feature", "Schema", "Param"}
+                not in {"Storage", "ULabel", "Feature", "Schema"}
                 # do not save bionty entities in restricted spaces by default
                 and self.__class__.__module__ != "bionty.models"
             ):

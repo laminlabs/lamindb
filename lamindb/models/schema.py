@@ -44,7 +44,7 @@ from .feature import (
     serialize_dtype,
     serialize_pandas_dtype,
 )
-from .run import Param, TracksRun, TracksUpdates
+from .run import TracksRun, TracksUpdates
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -434,8 +434,6 @@ class Schema(DBRecord, CanCurate, TracksRun):
     """
     features: Feature
     """The features contained in the schema."""
-    params: Param
-    """The params contained in the schema."""
     artifacts: Artifact
     """The artifacts that measure a feature set that matches this schema."""
     validated_artifacts: Artifact
@@ -1156,15 +1154,6 @@ class SchemaFeature(BaseDBRecord, IsLink):
 
     class Meta:
         unique_together = ("schema", "feature")
-
-
-class SchemaParam(BaseDBRecord, IsLink):
-    id: int = models.BigAutoField(primary_key=True)
-    schema: Schema = ForeignKey(Schema, CASCADE, related_name="+")
-    param: Param = ForeignKey(Param, PROTECT, related_name="+")
-
-    class Meta:
-        unique_together = ("schema", "param")
 
 
 class ArtifactSchema(BaseDBRecord, IsLink, TracksRun):
