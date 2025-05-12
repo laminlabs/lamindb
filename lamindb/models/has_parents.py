@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Literal
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 
+from lamindb.core.constants import Colors
+
 from .dbrecord import format_field_value, get_name_field
 from .run import Run
 
@@ -21,9 +23,7 @@ if TYPE_CHECKING:
     from .query_set import QuerySet
     from .transform import Transform
 
-LAMIN_GREEN_LIGHTER = "#10b981"
-LAMIN_GREEN_DARKER = "#065f46"
-GREEN_FILL = "honeydew"
+
 TRANSFORM_EMOJIS = {
     "notebook": "📔",
     "upload": "🖥️",
@@ -200,7 +200,7 @@ def view_lineage(
         if isinstance(record, Run):
             fillcolor = "gainsboro"
         else:
-            fillcolor = GREEN_FILL
+            fillcolor = Colors.GREEN_FILL
         u.node(
             node_id,
             label=node_label,
@@ -212,8 +212,8 @@ def view_lineage(
     u = graphviz.Digraph(
         f"{data._meta.model_name}_{data.uid}",
         node_attr={
-            "fillcolor": GREEN_FILL,
-            "color": LAMIN_GREEN_DARKER,
+            "fillcolor": Colors.GREEN_FILL,
+            "color": Colors.GREEN_DARKER,
             "fontname": "Helvetica",
             "fontsize": "10",
         },
@@ -231,7 +231,7 @@ def view_lineage(
         f"{data._meta.model_name}_{data.uid}",
         label=data_label,
         style="rounded,filled",
-        fillcolor=LAMIN_GREEN_LIGHTER,
+        fillcolor=Colors.GREEN_LIGHTER,
         shape="box",
     )
 
@@ -304,8 +304,8 @@ def view_parents(
     u = graphviz.Digraph(
         record.uid,
         node_attr={
-            "color": LAMIN_GREEN_DARKER,
-            "fillcolor": GREEN_FILL,
+            "color": Colors.GREEN_DARKER,
+            "fillcolor": Colors.GREEN_FILL,
             "shape": "box",
             "style": "rounded,filled",
             "fontname": "Helvetica",
@@ -320,7 +320,7 @@ def view_parents(
             if record.__class__.__name__ == "Transform"
             else _add_emoji(record, record_label)
         ),
-        fillcolor=LAMIN_GREEN_LIGHTER,
+        fillcolor=Colors.GREEN_LIGHTER,
     )
     if df_edges is not None:
         for _, row in df_edges.iterrows():

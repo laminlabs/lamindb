@@ -20,6 +20,7 @@ from lamindb_setup.core.upath import create_path
 from rich.table import Column, Table
 from rich.text import Text
 
+from lamindb.core.constants import Colors
 from lamindb.core.storage import LocalPathClasses
 from lamindb.errors import DoesNotExist, ValidationError
 from lamindb.models._from_values import _format_values
@@ -275,7 +276,7 @@ def _create_feature_table(
     """Create a Rich table for a feature group."""
     table = Table(
         Column(name, style="", no_wrap=True, width=NAME_WIDTH),
-        Column(registry_str, style="dim", no_wrap=True, width=TYPE_WIDTH),
+        Column(registry_str, style="", no_wrap=True, width=TYPE_WIDTH),
         Column("", width=VALUES_WIDTH, no_wrap=True),
         show_header=show_header,
         box=None,
@@ -390,7 +391,7 @@ def describe_features(
             # Sort into internal/external
             feature_info = (
                 feature_name,
-                Text(feature_dtype, style="dim"),
+                Text(feature_dtype, style=""),
                 printed_values,
             )
             if feature_name in internal_feature_names:
@@ -421,9 +422,7 @@ def describe_features(
                 feature_rows += [
                     (
                         feature_name,
-                        Text(
-                            str(internal_feature_names.get(feature_name)), style="dim"
-                        ),
+                        Text(str(internal_feature_names.get(feature_name)), style=""),
                         "",
                     )
                     for feature_name in feature_names
@@ -440,7 +439,7 @@ def describe_features(
                                 if feature_name in internal_feature_names
                                 else schema.dtype
                             ),
-                            style="dim",
+                            style="",
                         ),
                         "",
                     )
@@ -450,11 +449,11 @@ def describe_features(
         int_features_tree_children.append(
             _create_feature_table(
                 Text.assemble(
-                    (slot, "violet"),
+                    (slot, f"{Colors.LAMIN_BLUE}"),
                     (" • ", "dim"),
-                    (str(schema.n), "pink1"),
+                    (str(schema.n), f"{Colors.LAMIN_BLUE}"),
                 ),
-                Text.assemble((f"[{schema.itype}]", "pink1")),
+                Text.assemble((f"[{schema.itype}]", f"{Colors.LAMIN_BLUE}")),
                 feature_rows,
                 show_header=True,
             )
@@ -463,7 +462,7 @@ def describe_features(
     if int_features_tree_children:
         dataset_tree = tree.add(
             Text.assemble(
-                ("Dataset features", "bold bright_magenta"),
+                ("Dataset features", f"bold {Colors.LAMIN_ORANGE}"),
             )
         )
         for child in int_features_tree_children:
@@ -480,7 +479,7 @@ def describe_features(
             )
         )
     # ext_features_tree = None
-    ext_features_header = Text("Linked features", style="bold dark_orange")
+    ext_features_header = Text("Linked features", style=f"bold {Colors.LAMIN_ORANGE}")
     if ext_features_tree_children:
         ext_features_tree = tree.add(ext_features_header)
         for child in ext_features_tree_children:

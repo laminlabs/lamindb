@@ -9,6 +9,7 @@ from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
 
+from lamindb.core.constants import Colors
 from lamindb.models import CanCurate, Feature
 from lamindb.models._from_values import _format_values
 from lamindb.models.dbrecord import (
@@ -90,7 +91,7 @@ def describe_labels(
 
     labels_table = Table(
         Column("", style="", no_wrap=True, width=NAME_WIDTH),
-        Column("", style="dim", no_wrap=True, width=TYPE_WIDTH),
+        Column("", style="", no_wrap=True, width=TYPE_WIDTH),
         Column("", width=VALUES_WIDTH, no_wrap=True),
         show_header=False,
         box=None,
@@ -110,10 +111,10 @@ def describe_labels(
             related_model = get_related_model(self, related_name)
             type_str = related_model.__get_name_with_module__()
             labels_table.add_row(
-                f".{related_name}", Text(type_str, style="dim"), print_values
+                f".{related_name}", Text(type_str, style=""), print_values
             )
 
-    labels_header = Text("Labels", style="bold green_yellow")
+    labels_header = Text("Labels", style=f"bold {Colors.LAMIN_ORANGE}")
     if as_subtree:
         if labels_table.rows:
             labels_tree = Tree(labels_header, guide_style="dim")

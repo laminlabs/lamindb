@@ -8,6 +8,8 @@ from lamin_utils import logger
 from rich.text import Text
 from rich.tree import Tree
 
+from lamindb.core.constants import Colors
+
 from ..core._context import is_run_from_ipython
 
 if TYPE_CHECKING:
@@ -27,7 +29,7 @@ def highlight_time(iso: str):
         # raises ValueError: Invalid isoformat string: '<django.db.models.expressions.DatabaseDefault object at 0x1128ac440>'
         # but can't be caught with `isinstance(iso, DatabaseDefault)` for unkown reasons
         return Text("timestamp of unsaved record not available", style="dim")
-    return Text(res, style="dim")
+    return Text(res)
 
 
 # Define consistent column widths
@@ -94,20 +96,26 @@ def describe_header(self: Artifact | Collection | Run) -> Tree:
             logger.warning("This artifact is archived.")
         elif self._branch_code == -1:  # type: ignore
             logger.warning("This artifact is in the trash.")
+
     # initialize tree
+    name = self.__class__.__name__
     suffix = self.suffix if hasattr(self, "suffix") and self.suffix else ""
     accessor = self.otype if hasattr(self, "otype") and self.otype else ""
     suffix_accessor = (
-        f"{suffix}/{accessor}" if suffix and accessor else suffix or accessor or ""
+        f"{accessor}/{suffix}" if suffix and accessor else suffix or accessor or ""
     )
+    kind = f"{self.kind}" if hasattr(self, "kind") and self.kind else ""
 
-    tree = Tree(
-        Text.assemble(
-            (self.__class__.__name__, "bold"), (f" {suffix_accessor}", "bold dim")
-        ),
-        guide_style="dim",  # dim the connecting lines
-    )
-    return tree
+    header_parts = []
+    header_parts.append((name, f"bold {Colors.LAMIN_GREEN}"))
+    if kind:
+        header_parts.append((" • ", "dim"))
+        header_parts.append((kind, "bold"))
+    if suffix_accessor:
+        header_parts.append((" • ", "dim"))
+        header_parts.append((suffix_accessor, "bold"))
+
+    return Tree(Text.assemble(*header_parts), guide_style="dim")
 
 
 def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> Tree:
@@ -115,14 +123,20 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
         tree = describe_header(self)
 
     # add general information (order is the same as in API docs)
-    general = tree.add(Text("General", style="bold bright_cyan"))
+    general = tree.add(Text("General", style=f"bold {Colors.LAMIN_ORANGE}"))
     general.add(f".uid = '{self.uid}'")
+    if hasattr(self, "transform") and self.transform:
+        general.add(
+            Text(
+                f".transform = '{self.transform.description}'",
+            )
+        )
     if hasattr(self, "key") and self.key:
         general.add(f".key = '{self.key}'")
+    if hasattr(self, "space") and self.space:
+        general.add(Text(f".space = '{self.space.name}'"))
     if hasattr(self, "size") and self.size:
         general.add(f".size = {self.size}")
-    if hasattr(self, "hash") and self.hash:
-        general.add(f".hash = '{self.hash}'")
     if hasattr(self, "n_files") and self.n_files:
         general.add(f".n_files = {self.n_files}")
     if hasattr(self, "n_observations") and self.n_observations:
@@ -136,7 +150,7 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
         general.add(
             Text.assemble(
                 ".path = ",
-                (storage_root, "dim"),
+                storage_root,
                 f"{str(self.path).removeprefix(storage_root)}",
             )
         )
@@ -154,13 +168,6 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
     if hasattr(self, "created_at") and self.created_at:
         general.add(
             Text.assemble(".created_at = ", highlight_time(str(self.created_at)))
-        )
-    if hasattr(self, "transform") and self.transform:
-        general.add(
-            Text(
-                f".transform = '{self.transform.description}'",
-                style="cyan3",
-            )
         )
 
     return tree
