@@ -9,6 +9,80 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # Copy from Param to Feature (only columns that exist in Param)
+        migrations.RunSQL("""
+            -- First create the Features from Params
+            INSERT INTO lamindb_feature (
+                uid, name, dtype, is_type, _expect_many,
+                created_at, updated_at, created_by_id, updated_by_id, run_id
+            )
+            SELECT
+                p.uid, p.name, p.dtype, p.is_type, p._expect_many,
+                p.created_at, p.updated_at, p.created_by_id, p.updated_by_id, p.run_id
+            FROM lamindb_param p;
+
+            -- Now update the type_id relationships using UIDs
+            UPDATE lamindb_feature f
+            SET type_id = (
+                SELECT f2.id
+                FROM lamindb_feature f2
+                JOIN lamindb_param p ON p.uid = f2.uid
+                JOIN lamindb_param p_source ON p_source.type_id = p.id
+                WHERE p_source.uid = f.uid
+            )
+            WHERE EXISTS (
+                SELECT 1
+                FROM lamindb_param p
+                WHERE p.uid = f.uid AND p.type_id IS NOT NULL
+            );
+        """),
+        # Copy from ParamValue to FeatureValue with proper feature_id mapping
+        migrations.RunSQL("""
+            INSERT INTO lamindb_featurevalue (
+                value, hash, created_at, created_by_id, run_id, feature_id
+            )
+            SELECT
+                pv.value, pv.hash, pv.created_at, pv.created_by_id, pv.run_id,
+                (SELECT f.id FROM lamindb_feature f JOIN lamindb_param p ON p.uid = f.uid WHERE p.id = pv.param_id)
+            FROM lamindb_paramvalue pv;
+
+            -- Create mapping table to help with future operations
+            CREATE TEMPORARY TABLE paramvalue_featurevalue_map AS
+            SELECT pv.id as paramvalue_id, fv.id as featurevalue_id
+            FROM lamindb_paramvalue pv
+            JOIN lamindb_param p ON pv.param_id = p.id
+            JOIN lamindb_feature f ON p.uid = f.uid
+            JOIN lamindb_featurevalue fv ON
+                fv.feature_id = f.id AND
+                fv.value = pv.value AND
+                (
+                    (fv.hash IS NULL AND pv.hash IS NULL) OR
+                    (fv.hash = pv.hash)
+                );
+        """),
+        # Copy from RunParamValue to RunFeatureValue using the mapping table
+        migrations.RunSQL("""
+            INSERT INTO lamindb_runfeaturevalue (
+                run_id, featurevalue_id, created_at, created_by_id
+            )
+            SELECT
+                rpv.run_id, m.featurevalue_id, rpv.created_at, rpv.created_by_id
+            FROM lamindb_runparamvalue rpv
+            JOIN paramvalue_featurevalue_map m ON rpv.paramvalue_id = m.paramvalue_id;
+        """),
+        # Copy from ArtifactParamValue to ArtifactFeatureValue using the mapping table
+        migrations.RunSQL("""
+            INSERT INTO lamindb_artifactfeaturevalue (
+                artifact_id, featurevalue_id, created_at, created_by_id, run_id
+            )
+            SELECT
+                apv.artifact_id, m.featurevalue_id, apv.created_at, apv.created_by_id, apv.run_id
+            FROM lamindb_artifactparamvalue apv
+            JOIN paramvalue_featurevalue_map m ON apv.paramvalue_id = m.paramvalue_id;
+
+            -- Drop the temporary mapping table
+            DROP TABLE paramvalue_featurevalue_map;
+        """),
         migrations.RemoveField(
             model_name="artifact",
             name="_param_values",
