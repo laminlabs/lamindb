@@ -78,7 +78,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("feature", "project")},
             },
-            bases=(lamindb.models.LinkORM, models.Model),
+            bases=(lamindb.models.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="project",
@@ -146,7 +146,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("schema", "project")},
             },
-            bases=(lamindb.models.LinkORM, models.Model),
+            bases=(lamindb.models.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="project",
@@ -214,7 +214,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("ulabel", "project")},
             },
-            bases=(lamindb.models.LinkORM, models.Model),
+            bases=(lamindb.models.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="project",

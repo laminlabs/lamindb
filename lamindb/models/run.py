@@ -24,7 +24,7 @@ from lamindb.errors import InvalidArgument, ValidationError
 
 from ..base.ids import base62_20
 from .can_curate import CanCurate
-from .record import BasicRecord, LinkORM, Record, Registry
+from .dbrecord import BaseDBRecord, DBRecord, IsLink, Registry
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -140,7 +140,7 @@ class TracksUpdates(models.Model):
         super().__init__(*args, **kwargs)
 
 
-class User(BasicRecord, CanCurate):
+class User(BaseDBRecord, CanCurate):
     """Users.
 
     All data in this registry is synced from `lamin.ai` to ensure a universal
@@ -201,10 +201,10 @@ class User(BasicRecord, CanCurate):
         super().__init__(*args, **kwargs)
 
 
-class Param(Record, CanCurate, TracksRun, TracksUpdates):
+class Param(DBRecord, CanCurate, TracksRun, TracksUpdates):
     """Parameters of runs & models."""
 
-    class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _name_field: str = "name"
@@ -218,7 +218,7 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
     Allows to group features by type, e.g., all read outs, all metrics, etc.
     """
     records: Param
-    """Records of this type."""
+    """DBRecords of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     _expect_many: bool = models.BooleanField(default=False, db_default=False)
@@ -272,12 +272,12 @@ class Param(Record, CanCurate, TracksRun, TracksUpdates):
                 )
 
 
-# FeatureValue behaves in many ways like a link in a LinkORM
+# FeatureValue behaves in many ways like a link in a IsLink
 # in particular, we don't want a _public field on it
 # Also, we don't inherit from TracksRun because a ParamValue
 # is typically created before a run is created and we want to
 # avoid delete cycles (for Model params though it might be helpful)
-class ParamValue(Record):
+class ParamValue(DBRecord):
     """Parameter values.
 
     Is largely analogous to `FeatureValue`.
@@ -346,7 +346,7 @@ class ParamValue(Record):
                 return cls.objects.get(param=param, hash=hash), True
 
 
-class Run(Record):
+class Run(DBRecord):
     """Runs of transforms such as the execution of a script.
 
     A registry to store runs of transforms, such as an executation of a script.
@@ -612,7 +612,7 @@ def delete_run_artifacts(run: Run) -> None:
             report.delete(permanent=True)
 
 
-class RunParamValue(BasicRecord, LinkORM):
+class RunParamValue(BaseDBRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     run: Run = ForeignKey(Run, CASCADE, related_name="links_paramvalue")
     # we follow the lower() case convention rather than snake case for link models

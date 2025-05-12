@@ -14,19 +14,19 @@ from ._from_values import (
     _from_values,
     get_organism_record_from_field,
 )
-from .record import Record, get_name_field
+from .dbrecord import DBRecord, get_name_field
 
 if TYPE_CHECKING:
     from lamin_utils._inspect import InspectResult
 
     from lamindb.base.types import ListLike, StrField
 
-    from .query_set import RecordList
+    from .query_set import DBRecordList
 
 
-def _check_if_record_in_db(record: str | Record | None, using_key: str | None):
+def _check_if_record_in_db(record: str | DBRecord | None, using_key: str | None):
     """Check if the record is from the using_key DB."""
-    if isinstance(record, Record):
+    if isinstance(record, DBRecord):
         if using_key is not None and using_key != "default":
             if record._state.db != using_key:
                 raise ValueError(
@@ -55,8 +55,8 @@ def _inspect(
     field: StrField | None = None,
     *,
     mute: bool = False,
-    organism: str | Record | None = None,
-    source: Record | None = None,
+    organism: str | DBRecord | None = None,
+    source: DBRecord | None = None,
     from_source: bool = True,
     strict_source: bool = False,
 ) -> pd.DataFrame | dict[str, list[str]]:
@@ -69,7 +69,7 @@ def _inspect(
     queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.objects.all()
     registry = queryset.model
     model_name = registry._meta.model.__name__
-    if isinstance(source, Record):
+    if isinstance(source, DBRecord):
         _check_if_record_in_db(source, queryset.db)
         # if strict_source mode, restrict the query to the passed ontology source
         # otherwise, inspect across records present in the DB from all ontology sources and no-source
@@ -158,8 +158,8 @@ def _validate(
     field: StrField | None = None,
     *,
     mute: bool = False,
-    organism: str | Record | None = None,
-    source: Record | None = None,
+    organism: str | DBRecord | None = None,
+    source: DBRecord | None = None,
     strict_source: bool = False,
 ) -> np.ndarray:
     """{}"""  # noqa: D415
@@ -172,7 +172,7 @@ def _validate(
 
     queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.objects.all()
     registry = queryset.model
-    if isinstance(source, Record):
+    if isinstance(source, DBRecord):
         _check_if_record_in_db(source, queryset.db)
         if strict_source:
             queryset = queryset.filter(source=source)
@@ -224,8 +224,8 @@ def _standardize(
     source_aware: bool = True,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
-    organism: str | Record | None = None,
-    source: Record | None = None,
+    organism: str | DBRecord | None = None,
+    source: DBRecord | None = None,
     strict_source: bool = False,
 ) -> list[str] | dict[str, str]:
     """{}"""  # noqa: D415
@@ -240,7 +240,7 @@ def _standardize(
     )
     queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.objects.all()
     registry = queryset.model
-    if isinstance(source, Record):
+    if isinstance(source, DBRecord):
         _check_if_record_in_db(source, queryset.db)
         if strict_source:
             queryset = queryset.filter(source=source)
@@ -431,7 +431,7 @@ def _check_synonyms_field_exist(record: CanCurate):
 
 def _filter_queryset_with_organism(
     queryset: QuerySet,
-    organism: Record | None = None,
+    organism: DBRecord | None = None,
     values_list_field: str | None = None,
     values_list_fields: list[str] | None = None,
 ):
@@ -453,7 +453,7 @@ def _filter_queryset_with_organism(
 
 
 class CanCurate:
-    """Base class providing :class:`~lamindb.models.Record`-based validation."""
+    """Base class providing :class:`~lamindb.models.DBRecord`-based validation."""
 
     @classmethod
     def inspect(
@@ -462,8 +462,8 @@ class CanCurate:
         field: StrField | None = None,
         *,
         mute: bool = False,
-        organism: Union[str, Record, None] = None,
-        source: Record | None = None,
+        organism: Union[str, DBRecord, None] = None,
+        source: DBRecord | None = None,
         from_source: bool = True,
         strict_source: bool = False,
     ) -> InspectResult:
@@ -518,8 +518,8 @@ class CanCurate:
         field: StrField | None = None,
         *,
         mute: bool = False,
-        organism: Union[str, Record, None] = None,
-        source: Record | None = None,
+        organism: Union[str, DBRecord, None] = None,
+        source: DBRecord | None = None,
         strict_source: bool = False,
     ) -> np.ndarray:
         """Validate values against existing values of a string field.
@@ -571,16 +571,16 @@ class CanCurate:
         values: ListLike,
         field: StrField | None = None,
         create: bool = False,
-        organism: Union[Record, str, None] = None,
-        source: Record | None = None,
+        organism: Union[DBRecord, str, None] = None,
+        source: DBRecord | None = None,
         mute: bool = False,
-    ) -> RecordList:
+    ) -> DBRecordList:
         """Bulk create validated records by parsing values for an identifier such as a name or an id).
 
         Args:
             values: A list of values for an identifier, e.g.
                 `["name1", "name2"]`.
-            field: A `Record` field to look up, e.g., `bt.CellMarker.name`.
+            field: A `DBRecord` field to look up, e.g., `bt.CellMarker.name`.
             create: Whether to create records if they don't exist.
             organism: A `bionty.Organism` name or record.
             source: A `bionty.Source` record to validate against to create records for.
@@ -629,8 +629,8 @@ class CanCurate:
         source_aware: bool = True,
         keep: Literal["first", "last", False] = "first",
         synonyms_field: str = "synonyms",
-        organism: Union[str, Record, None] = None,
-        source: Record | None = None,
+        organism: Union[str, DBRecord, None] = None,
+        source: DBRecord | None = None,
         strict_source: bool = False,
     ) -> list[str] | dict[str, str]:
         """Maps input synonyms to standardized names.

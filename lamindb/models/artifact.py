@@ -81,15 +81,15 @@ from ._relations import (
     dict_related_model_to_related_name,
 )
 from .core import Storage
-from .feature import Feature, FeatureValue
-from .has_parents import view_lineage
-from .record import (
-    BasicRecord,
-    LinkORM,
-    Record,
+from .dbrecord import (
+    BaseDBRecord,
+    DBRecord,
+    IsLink,
     _get_record_kwargs,
     record_repr,
 )
+from .feature import Feature, FeatureValue
+from .has_parents import view_lineage
 from .run import Param, ParamValue, Run, TracksRun, TracksUpdates, User
 from .schema import Schema
 from .ulabel import ULabel
@@ -772,7 +772,7 @@ def describe_artifact_collection(self, return_str: bool = False) -> str | None:
     return format_rich_tree(tree, return_str=return_str)
 
 
-def validate_feature(feature: Feature, records: list[Record]) -> None:
+def validate_feature(feature: Feature, records: list[DBRecord]) -> None:
     """Validate feature record, adjust feature.dtype based on labels records."""
     if not isinstance(feature, Feature):
         raise TypeError("feature has to be of type Feature")
@@ -816,7 +816,7 @@ def get_labels(
             ).all()
     if flat_names:
         # returns a flat list of names
-        from .record import get_name_field
+        from .dbrecord import get_name_field
 
         values = []
         for v in qs_by_registry.values():
@@ -830,7 +830,7 @@ def get_labels(
 
 def add_labels(
     self,
-    records: Record | list[Record] | QuerySet | Iterable,
+    records: DBRecord | list[DBRecord] | QuerySet | Iterable,
     feature: Feature | None = None,
     *,
     field: StrField | None = None,
@@ -844,7 +844,7 @@ def add_labels(
 
     if isinstance(records, (QuerySet, QuerySet.__base__)):  # need to have both
         records = records.list()
-    if isinstance(records, (str, Record)):
+    if isinstance(records, (str, DBRecord)):
         records = [records]
     if not isinstance(records, list):  # avoids warning for pd Series
         records = list(records)
@@ -869,7 +869,7 @@ def add_labels(
         # ask users to pass records
         if len(records_validated) == 0:
             raise ValueError(
-                "Please pass a record (a `Record` object), not a string, e.g., via:"
+                "Please pass a record (a `DBRecord` object), not a string, e.g., via:"
                 " label"
                 f" = ln.ULabel(name='{records[0]}')"  # type: ignore
             )
@@ -943,7 +943,7 @@ def add_labels(
             )
 
 
-class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
+class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
     # Note that this docstring has to be consistent with Curator.save_artifact()
     """Datasets & models stored as files, folders, or arrays.
 
@@ -1052,7 +1052,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     """
 
-    class Meta(Record.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(DBRecord.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _len_full_uid: int = 20
@@ -1389,7 +1389,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         # an object with the same hash already exists
         if isinstance(kwargs_or_artifact, Artifact):
-            from .record import init_self_from_db, update_attributes
+            from .dbrecord import init_self_from_db, update_attributes
 
             init_self_from_db(self, kwargs_or_artifact)
             # adding "key" here is dangerous because key might be auto-populated
@@ -1524,7 +1524,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         See Also:
             - Guide: :doc:`docs:registries`
-            - Method in `Record` base class: :meth:`~lamindb.models.Record.get`
+            - Method in `DBRecord` base class: :meth:`~lamindb.models.DBRecord.get`
 
         Examples:
 
@@ -2304,7 +2304,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                         # this can be very slow
                         _, hash, _, _ = hash_dir(filepath)
                     if self.hash != hash:
-                        from .record import init_self_from_db
+                        from .dbrecord import init_self_from_db
 
                         new_version = Artifact(
                             filepath, revises=self, _is_internal_call=True
@@ -2695,7 +2695,7 @@ def _save_skip_storage(artifact, **kwargs) -> None:
     save_schema_links(artifact)
 
 
-class ArtifactFeatureValue(BasicRecord, LinkORM, TracksRun):
+class ArtifactFeatureValue(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(
         Artifact, CASCADE, related_name="links_featurevalue"
@@ -2707,7 +2707,7 @@ class ArtifactFeatureValue(BasicRecord, LinkORM, TracksRun):
         unique_together = ("artifact", "featurevalue")
 
 
-class ArtifactParamValue(BasicRecord, LinkORM, TracksRun):
+class ArtifactParamValue(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_paramvalue")
     # we follow the lower() case convention rather than snake case for link models
@@ -2820,18 +2820,17 @@ def _track_run_input(
         # avoid adding the same run twice
         run.save()
         if data_class_name == "artifact":
-            LinkORM = run.input_artifacts.through
+            IsLink = run.input_artifacts.through
             links = [
-                LinkORM(run_id=run.id, artifact_id=data_id)
-                for data_id in input_data_ids
+                IsLink(run_id=run.id, artifact_id=data_id) for data_id in input_data_ids
             ]
         else:
-            LinkORM = run.input_collections.through
+            IsLink = run.input_collections.through
             links = [
-                LinkORM(run_id=run.id, collection_id=data_id)
+                IsLink(run_id=run.id, collection_id=data_id)
                 for data_id in input_data_ids
             ]
-        LinkORM.objects.bulk_create(links, ignore_conflicts=True)
+        IsLink.objects.bulk_create(links, ignore_conflicts=True)
         # generalize below for more than one data batch
         if len(input_data) == 1:
             if input_data[0].transform is not None:

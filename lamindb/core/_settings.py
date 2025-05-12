@@ -45,7 +45,7 @@ class Settings:
 
     @property
     def creation(self) -> CreationSettings:
-        """Record creation settings.
+        """DBRecord creation settings.
 
         For example, `ln.settings.creation.search_names = False` will disable
         searching for records with similar names during creation.

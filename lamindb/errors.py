@@ -10,7 +10,7 @@
    MissingContextUID
    UpdateContext
    IntegrityError
-   RecordNameChangeIntegrityError
+   DBRecordNameChangeIntegrityError
 
 """
 
@@ -57,7 +57,7 @@ class InconsistentKey(Exception):
     pass
 
 
-class RecordNameChangeIntegrityError(Exception):
+class DBRecordNameChangeIntegrityError(Exception):
     """Custom exception for name change errors."""
 
     pass

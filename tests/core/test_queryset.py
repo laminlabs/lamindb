@@ -203,6 +203,8 @@ def test_get_doesnotexist_error():
         ln.ULabel.get(non_existent_label)
 
     error_message = str(excinfo.value)
-    assert f"no record found with uid '{non_existent_label}'" in error_message
-    assert non_existent_label in error_message
-    assert f"Did you mean ULabel.get(name='{non_existent_label}')?" in error_message
+    assert f"No record found with uid '{non_existent_label}'" in error_message
+    assert (
+        f"Did you forget a keyword like ULabel.get(name='{non_existent_label}')?"
+        in error_message
+    )

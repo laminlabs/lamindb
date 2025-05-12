@@ -13,11 +13,11 @@ from lamindb.base.fields import (
 )
 
 from .artifact import Artifact
-from .feature import Feature
-from .record import (
-    BasicRecord,
-    Record,
+from .dbrecord import (
+    BaseDBRecord,
+    DBRecord,
 )
+from .feature import Feature
 from .run import Param, TracksRun, TracksUpdates
 
 if TYPE_CHECKING:
@@ -27,8 +27,8 @@ from django.core.exceptions import ValidationError
 
 from ..base.ids import base62_12
 from .collection import Collection
+from .dbrecord import Space
 from .project import Person, Project
-from .record import Space
 from .schema import Schema
 from .ulabel import ULabel
 
@@ -89,7 +89,7 @@ class DataMixin(models.Model):
             raise ValidationError("Exactly one value field must be set")
 
 
-class RunData(BasicRecord, DataMixin):
+class RunData(BaseDBRecord, DataMixin):
     run = models.ForeignKey("Run", on_delete=models.CASCADE, related_name="_rundata")
 
     class Meta:
@@ -112,7 +112,7 @@ class RunData(BasicRecord, DataMixin):
         ]
 
 
-class FlexTable(Record, TracksRun, TracksUpdates):
+class FlexTable(DBRecord, TracksRun, TracksUpdates):
     uid: str = CharField(
         editable=False, unique=True, max_length=12, db_index=True, default=base62_12
     )
@@ -125,7 +125,7 @@ class FlexTable(Record, TracksRun, TracksUpdates):
     )
     """Type of tidy table, e.g., `Cell`, `SampleSheet`, etc."""
     records: ULabel
-    """Records of this type."""
+    """DBRecords of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     description: str = CharField(null=True, db_index=True)
@@ -137,7 +137,7 @@ class FlexTable(Record, TracksRun, TracksUpdates):
         indexes = [models.Index(fields=["uid"]), models.Index(fields=["name"])]
 
 
-class FlexTableData(BasicRecord, DataMixin):
+class FlexTableData(BaseDBRecord, DataMixin):
     tidytable = models.ForeignKey(
         FlexTable, on_delete=models.CASCADE, related_name="data"
     )
