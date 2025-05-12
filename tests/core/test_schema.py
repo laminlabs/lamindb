@@ -57,7 +57,7 @@ def test_schema_from_values():
         schema = ln.Schema.from_values(
             ["weird_name"], field=ln.Feature.name, type="float"
         )
-    with pytest.raises(ValidationError):
+    with pytest.raises(TypeError):
         ln.Schema.from_values([1], field=ln.Feature.name, type="float")
 
     # return none if no validated features

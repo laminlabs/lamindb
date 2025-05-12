@@ -333,7 +333,7 @@ def test_params_add():
     # test describe params
     tree = describe_features(artifact)
     assert tree.label.plain == "Artifact .pt"
-    assert tree.children[0].label.plain == "Features"
+    assert tree.children[0].label.plain == "Linked features"
     assert len(tree.children[0].children[0].label.columns) == 3
     assert tree.children[0].children[0].label.columns[0]._cells == [
         "learning_rate",
