@@ -8,29 +8,38 @@ def _strip_ansi(text: str) -> str:
     return ansi_escape.sub("", text)
 
 
-def test_registry__repr__param():
+def test_registry__repr__feature():
     import lamindb.models as ln
 
-    param = ln.Param
+    feature = ln.Param
     expected_repr = textwrap.dedent("""\
-    Param
+    Feature
       Simple fields
+        .uid: CharField
         .name: CharField
         .dtype: CharField
         .is_type: BooleanField
+        .unit: CharField
+        .description: CharField
+        .array_rank: SmallIntegerField
+        .array_size: IntegerField
+        .array_shape: JSONField
+        .proxy_dtype: CharField
+        .synonyms: TextField
         .created_at: DateTimeField
         .updated_at: DateTimeField
       Relational fields
         .space: Space
         .created_by: User
         .run: Run
-        .type: Param
+        .type: Feature
         .schemas: Schema
-        .records: Param
-        .values: ParamValue
+        .records: Feature
+        .values: FeatureValue
+        .projects: Project
     """).strip()
 
-    actual_repr = _strip_ansi(repr(param))
+    actual_repr = _strip_ansi(repr(feature))
     print(actual_repr)
     assert actual_repr.strip() == expected_repr.strip()
 

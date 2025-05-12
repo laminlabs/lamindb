@@ -51,7 +51,7 @@ from ._relations import (
 )
 from .dbrecord import DBRecord
 from .feature import Feature, FeatureValue, parse_dtype
-from .run import Param, ParamManager, ParamManagerRun, ParamValue, Run
+from .run import FeatureManager, FeatureManagerRun, Run
 from .ulabel import ULabel
 
 if TYPE_CHECKING:
@@ -64,6 +64,12 @@ if TYPE_CHECKING:
         IsLink,
     )
     from lamindb.models.query_set import QuerySet
+
+
+class FeatureManagerArtifact(FeatureManager):
+    """Feature manager."""
+
+    pass
 
 
 def get_accessor_by_registry_(host: Artifact | Collection) -> dict:
@@ -135,12 +141,8 @@ def custom_aggregate(field, using: str):
 def _get_categoricals_postgres(
     self: Artifact | Collection,
     related_data: dict | None = None,
-    print_params: bool = False,
 ) -> dict[tuple[str, str], set[str]]:
     """Get categorical features and their values using PostgreSQL-specific optimizations."""
-    if print_params:
-        return {}
-
     if not related_data:
         artifact_meta = get_artifact_with_related(
             self, include_feature_link=True, include_m2m=True
@@ -189,12 +191,8 @@ def _get_categoricals_postgres(
 
 def _get_categoricals(
     self: Artifact | Collection,
-    print_params: bool = False,
 ) -> dict[tuple[str, str], set[str]]:
     """Get categorical features and their values using the default approach."""
-    if print_params:
-        return {}
-
     result = defaultdict(set)
     for _, links in _get_labels(self, links=True, instance=self._state.db).items():
         for link in links:
@@ -213,7 +211,6 @@ def _get_categoricals(
 
 def _get_non_categoricals(
     self,
-    print_params: bool = False,
 ) -> dict[tuple[str, str], set[Any]]:
     """Get non-categorical features and their values."""
     from .artifact import Artifact
@@ -222,7 +219,7 @@ def _get_non_categoricals(
     non_categoricals = {}
 
     if self.id is not None and isinstance(self, (Artifact, Run)):
-        attr_name = "param" if print_params else "feature"
+        attr_name = "feature"
         _feature_values = (
             getattr(self, f"_{attr_name}_values")
             .values(f"{attr_name}__name", f"{attr_name}__dtype")
@@ -293,7 +290,6 @@ def describe_features(
     self: Artifact,
     related_data: dict | None = None,
     to_dict: bool = False,
-    print_params: bool = False,
     tree: Tree | None = None,
     with_labels: bool = False,
 ):
@@ -312,7 +308,7 @@ def describe_features(
     # feature sets
     schema_data: dict[str, tuple[str, list[str]]] = {}
     feature_data: dict[str, tuple[str, list[str]]] = {}
-    if not print_params and not to_dict:
+    if not to_dict:
         if self.id is not None and connections[self._state.db].vendor == "postgresql":
             fs_data = _get_schemas_postgres(self, related_data=related_data)
             for fs_id, (slot, data) in fs_data.items():
@@ -362,18 +358,15 @@ def describe_features(
         categoricals = _get_categoricals_postgres(
             self,
             related_data=related_data,
-            print_params=print_params,
         )
     else:
         categoricals = _get_categoricals(
             self,
-            print_params=print_params,
         )
 
     # Get non-categorical features
     non_categoricals = _get_non_categoricals(
         self,
-        print_params=print_params,
     )
 
     # Process all Features containing labels and sort into internal/external
@@ -487,9 +480,7 @@ def describe_features(
             )
         )
     # ext_features_tree = None
-    ext_features_header = Text(
-        "Params" if print_params else "Linked features", style="bold dark_orange"
-    )
+    ext_features_header = Text("Linked features", style="bold dark_orange")
     if ext_features_tree_children:
         ext_features_tree = tree.add(ext_features_header)
         for child in ext_features_tree_children:
@@ -575,18 +566,6 @@ def infer_feature_type_convert_json(
     return "?", value, message
 
 
-class FeatureManager:
-    """Feature manager."""
-
-    pass
-
-
-class ParamManagerArtifact(ParamManager):
-    """Param manager."""
-
-    pass
-
-
 def __init__(self, host: Artifact | Collection | Run):
     self._host = host
     self._slots = None
@@ -598,15 +577,13 @@ def __repr__(self) -> str:
 
 
 def describe(self, return_str: bool = False) -> str | None:
-    tree = describe_features(self._host, print_params=(self.__class__ == ParamManager))  # type: ignore
+    tree = describe_features(self._host)  # type: ignore
     return format_rich_tree(tree, fallback="no linked features", return_str=return_str)
 
 
 def get_values(self) -> dict[str, Any]:
     """Get feature values as a dictionary."""
-    return describe_features(
-        self._host, to_dict=True, print_params=(self.__class__ == ParamManager)
-    )  # type: ignore
+    return describe_features(self._host, to_dict=True)  # type: ignore
 
 
 @deprecated("slots[slot].members")
@@ -625,12 +602,8 @@ def __getitem__(self, slot) -> QuerySet:
 def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
     from .artifact import Artifact
 
-    if cls is FeatureManager:
-        model = Feature
-        value_model = FeatureValue
-    else:
-        model = Param
-        value_model = ParamValue
+    model = Feature
+    value_model = FeatureValue
     keys_normalized = [key.split("__")[0] for key in expression]
     if not _skip_validation:
         validated = model.validate(keys_normalized, field="name", mute=True)
@@ -640,7 +613,7 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
             )
     new_expression = {}
     features = model.filter(name__in=keys_normalized).all().distinct()
-    feature_param = "param" if model is Param else "feature"
+    feature_param = "feature"
     for key, value in expression.items():
         split_key = key.split("__")
         normalized_key = split_key[0]
@@ -729,9 +702,9 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
             # https://laminlabs.slack.com/archives/C04FPE8V01W/p1688328084810609
     if not (new_expression):
         raise NotImplementedError
-    if cls == FeatureManager or cls == ParamManagerArtifact:
+    if cls == FeatureManagerArtifact:
         return Artifact.objects.filter(**new_expression)
-    elif cls == ParamManagerRun:
+    elif cls == FeatureManagerRun:
         return Run.objects.filter(**new_expression)
 
 
@@ -827,7 +800,6 @@ def _add_values(
             dictionary.
     """
     from .._tracked import get_current_tracked_run
-    from .artifact import Artifact
 
     # rename to distinguish from the values inside the dict
     dictionary = values
@@ -837,19 +809,8 @@ def _add_values(
     # deal with other cases later
     assert all(isinstance(key, str) for key in keys)  # noqa: S101
     registry = feature_param_field.field.model
-    is_param = registry == Param
-    value_model = ParamValue if is_param else FeatureValue
-    model_name = "Param" if is_param else "Feature"
-    if is_param:
-        if self._host.__class__ == Artifact:
-            if self._host.kind != "model":
-                raise ValidationError("Can only set params for model-like artifacts.")
-    else:
-        if self._host.__class__ == Artifact:
-            if self._host.kind != "dataset" and self._host.kind is not None:
-                raise ValidationError(
-                    "Can only set features for dataset-like artifacts."
-                )
+    value_model = FeatureValue
+    model_name = "Feature"
     records = registry.from_values(keys, field=feature_param_field, mute=True)
     if len(records) != len(keys):
         not_validated_keys = [key for key in keys if key not in records.list("name")]
@@ -981,12 +942,8 @@ def _add_values(
             for record in _feature_values
             if getattr(record, model_name.lower()).dtype == "dict"
         ]
-        if is_param:
-            IsLink = self._host._param_values.through
-            valuefield_id = "paramvalue_id"
-        else:
-            IsLink = self._host._feature_values.through
-            valuefield_id = "featurevalue_id"
+        IsLink = self._host._feature_values.through
+        valuefield_id = "featurevalue_id"
         host_class_lower = self._host.__class__.__get_name_with_module__().lower()
         if dict_typed_features:
             # delete all previously existing anotations with dictionaries
@@ -1028,18 +985,6 @@ def add_values_features(
         str_as_ulabel: Whether to interpret string values as ulabels.
     """
     _add_values(self, values, feature_field, str_as_ulabel=str_as_ulabel)
-
-
-def add_values_params(
-    self,
-    values: dict[str, str | int | float | bool],
-) -> None:
-    """Curate artifact with features & values.
-
-    Args:
-        values: A dictionary of keys (features) & values (labels, numbers, booleans).
-    """
-    _add_values(self, values, Param.name, str_as_ulabel=False)
 
 
 def remove_values(
@@ -1437,11 +1382,8 @@ def _add_set_from_spatialdata(
 
 # mypy: ignore-errors
 FeatureManager.__init__ = __init__
-ParamManager.__init__ = __init__
 FeatureManager.__repr__ = __repr__
-ParamManager.__repr__ = __repr__
 FeatureManager.describe = describe
-ParamManager.describe = describe
 FeatureManager.__getitem__ = __getitem__
 FeatureManager.get_values = get_values
 FeatureManager.slots = slots
@@ -1453,9 +1395,6 @@ FeatureManager.filter = filter
 FeatureManager.get = get
 FeatureManager.make_external = make_external
 FeatureManager.remove_values = remove_values
-ParamManager.add_values = add_values_params
-ParamManager.get_values = get_values
-ParamManager.filter = filter
 
 # deprecated
 FeatureManager._add_set_from_df = _add_set_from_df
