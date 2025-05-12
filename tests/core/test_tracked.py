@@ -19,8 +19,8 @@ def process_chunk(chunk_id: int) -> str:
 
 
 def test_tracked_parallel():
-    param_type = ln.Param(name="Script[test_tracked.py]", is_type=True).save()
-    ln.Param(name="chunk_id", dtype="int", type=param_type).save()
+    param_type = ln.Feature(name="Script[test_tracked.py]", is_type=True).save()
+    ln.Feature(name="chunk_id", dtype="int", type=param_type).save()
 
     with pytest.raises(RuntimeError) as err:
         process_chunk(4)

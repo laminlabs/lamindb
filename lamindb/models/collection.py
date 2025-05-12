@@ -36,15 +36,15 @@ from .artifact import (
     get_run,
     save_schema_links,
 )
-from .has_parents import view_lineage
-from .record import (
-    BasicRecord,
-    LinkORM,
-    Record,
+from .dbrecord import (
+    BaseDBRecord,
+    DBRecord,
+    IsLink,
     _get_record_kwargs,
     init_self_from_db,
     update_attributes,
 )
+from .has_parents import view_lineage
 from .run import Run, TracksRun, TracksUpdates
 
 if TYPE_CHECKING:
@@ -128,7 +128,7 @@ def _load_concat_artifacts(
     return concat_object
 
 
-class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
+class Collection(DBRecord, IsVersioned, TracksRun, TracksUpdates):
     """Collections of artifacts.
 
     Collections provide a simple way of versioning collections of artifacts.
@@ -158,7 +158,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
 
     """
 
-    class Meta(Record.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(DBRecord.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _len_full_uid: int = 20
@@ -691,7 +691,7 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
     return hash
 
 
-class CollectionArtifact(BasicRecord, LinkORM, TracksRun):
+class CollectionArtifact(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     collection: Collection = ForeignKey(
         Collection, CASCADE, related_name="links_artifact"

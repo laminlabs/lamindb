@@ -1,18 +1,16 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, overload
+from typing import TYPE_CHECKING, overload
 
 import numpy as np
 from django.db import models
 from django.db.models import (
     CASCADE,
     PROTECT,
-    Q,
 )
-from django.db.utils import IntegrityError
 from lamindb_setup import _check_instance_setup
-from lamindb_setup.core.hashing import HASH_LENGTH, hash_dict
 
+from lamindb.base import deprecated
 from lamindb.base.fields import (
     BooleanField,
     CharField,
@@ -20,22 +18,20 @@ from lamindb.base.fields import (
     ForeignKey,
 )
 from lamindb.base.users import current_user_id
-from lamindb.errors import InvalidArgument, ValidationError
+from lamindb.errors import InvalidArgument
 
 from ..base.ids import base62_20
 from .can_curate import CanCurate
-from .record import BasicRecord, LinkORM, Record, Registry
+from .dbrecord import BaseDBRecord, DBRecord, IsLink
 
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from lamindb.base.types import Dtype, FieldAttr
-
     from .artifact import Artifact
     from .collection import Collection
+    from .feature import FeatureValue
     from .project import Project
     from .query_set import QuerySet
-    from .schema import Schema
     from .transform import Transform
     from .ulabel import ULabel
 
@@ -43,14 +39,14 @@ if TYPE_CHECKING:
 _TRACKING_READY: bool | None = None
 
 
-class ParamManager:
-    """Param manager."""
+class FeatureManager:
+    """Feature manager."""
 
     pass
 
 
-class ParamManagerRun(ParamManager):
-    """Param manager."""
+class FeatureManagerRun(FeatureManager):
+    """Feature manager."""
 
     pass
 
@@ -140,7 +136,7 @@ class TracksUpdates(models.Model):
         super().__init__(*args, **kwargs)
 
 
-class User(BasicRecord, CanCurate):
+class User(BaseDBRecord, CanCurate):
     """Users.
 
     All data in this registry is synced from `lamin.ai` to ensure a universal
@@ -201,152 +197,7 @@ class User(BasicRecord, CanCurate):
         super().__init__(*args, **kwargs)
 
 
-class Param(Record, CanCurate, TracksRun, TracksUpdates):
-    """Parameters of runs & models."""
-
-    class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
-        abstract = False
-
-    _name_field: str = "name"
-
-    name: str = CharField(max_length=100, db_index=True)
-    dtype: Dtype | None = CharField(db_index=True, null=True)
-    """Data type (:class:`~lamindb.base.types.Dtype`)."""
-    type: Param | None = ForeignKey("self", PROTECT, null=True, related_name="records")
-    """Type of param (e.g., 'Pipeline', 'ModelTraining', 'PostProcessing').
-
-    Allows to group features by type, e.g., all read outs, all metrics, etc.
-    """
-    records: Param
-    """Records of this type."""
-    is_type: bool = BooleanField(default=False, db_index=True, null=True)
-    """Distinguish types from instances of the type."""
-    _expect_many: bool = models.BooleanField(default=False, db_default=False)
-    """Indicates whether values for this param are expected to occur a single or multiple times for an artifact/run (default `False`).
-
-    - if it's `False` (default), the values mean artifact/run-level values and a dtype of `datetime` means `datetime`
-    - if it's `True`, the values are from an aggregation, which this seems like an edge case but when characterizing a model ensemble trained with different parameters it could be relevant
-    """
-    schemas: Schema = models.ManyToManyField(
-        "Schema", through="SchemaParam", related_name="params"
-    )
-    """Feature sets linked to this feature."""
-    # backward fields
-    values: ParamValue
-    """Values for this parameter."""
-
-    @overload
-    def __init__(
-        self,
-        name: str,
-        dtype: Dtype | Registry | list[Registry] | FieldAttr,
-        type: Param | None = None,
-        is_type: bool = False,
-    ): ...
-
-    @overload
-    def __init__(
-        self,
-        *db_args,
-    ): ...
-
-    def __init__(self, *args, **kwargs):
-        from .feature import process_init_feature_param
-
-        if len(args) == len(self._meta.concrete_fields):
-            super().__init__(*args, **kwargs)
-            return None
-
-        dtype = kwargs.get("dtype", None)
-        kwargs = process_init_feature_param(args, kwargs, is_param=True)
-        super().__init__(*args, **kwargs)
-        dtype_str = kwargs.pop("dtype", None)
-        if not self._state.adding:
-            if not (
-                self.dtype.startswith("cat")
-                if dtype == "cat"
-                else self.dtype == dtype_str
-            ):
-                raise ValidationError(
-                    f"Feature {self.name} already exists with dtype {self.dtype}, you passed {dtype_str}"
-                )
-
-
-# FeatureValue behaves in many ways like a link in a LinkORM
-# in particular, we don't want a _public field on it
-# Also, we don't inherit from TracksRun because a ParamValue
-# is typically created before a run is created and we want to
-# avoid delete cycles (for Model params though it might be helpful)
-class ParamValue(Record):
-    """Parameter values.
-
-    Is largely analogous to `FeatureValue`.
-    """
-
-    # we do not have a unique constraint on param & value because it leads to hashing errors
-    # for large dictionaries: https://lamin.ai/laminlabs/lamindata/transform/jgTrkoeuxAfs0000
-    # we do not hash values because we have `get_or_create` logic all over the place
-    # and also for checking whether the (param, value) combination exists
-    # there does not seem an issue with querying for a dict-like value
-    # https://lamin.ai/laminlabs/lamindata/transform/jgTrkoeuxAfs0001
-    _name_field: str = "value"
-
-    param: Param = ForeignKey(Param, CASCADE, related_name="values")
-    """The dimension metadata."""
-    value: Any = (
-        models.JSONField()
-    )  # stores float, integer, boolean, datetime or dictionaries
-    """The JSON-like value."""
-    # it'd be confusing and hard to populate a run here because these
-    # values are typically created upon creating a run
-    # hence, ParamValue does _not_ inherit from TracksRun but manually
-    # adds created_at & created_by
-    # because ParamValue cannot be updated, we don't need updated_at
-    created_at: datetime = DateTimeField(
-        editable=False, db_default=models.functions.Now(), db_index=True
-    )
-    """Time of creation of record."""
-    created_by: User = ForeignKey(
-        User, PROTECT, default=current_user_id, related_name="+"
-    )
-    """Creator of record."""
-    hash: str = CharField(max_length=HASH_LENGTH, null=True, db_index=True)
-
-    class Meta:
-        constraints = [
-            # For simple types, use direct value comparison
-            models.UniqueConstraint(
-                fields=["param", "value"],
-                name="unique_simple_param_value",
-                condition=Q(hash__isnull=True),
-            ),
-            # For complex types (dictionaries), use hash
-            models.UniqueConstraint(
-                fields=["param", "hash"],
-                name="unique_complex_param_value",
-                condition=Q(hash__isnull=False),
-            ),
-        ]
-
-    @classmethod
-    def get_or_create(cls, param, value):
-        # Simple types: int, float, str, bool
-        if isinstance(value, (int, float, str, bool)):
-            try:
-                return cls.objects.create(param=param, value=value, hash=None), False
-            except IntegrityError:
-                return cls.objects.get(param=param, value=value), True
-
-        # Complex types: dict, list
-        else:
-            hash = hash_dict(value)
-            try:
-                return cls.objects.create(param=param, value=value, hash=hash), False
-            except IntegrityError:
-                return cls.objects.get(param=param, hash=hash), True
-
-
-class Run(Record):
+class Run(DBRecord):
     """Runs of transforms such as the execution of a script.
 
     A registry to store runs of transforms, such as an executation of a script.
@@ -381,14 +232,16 @@ class Run(Record):
 
     _name_field: str = "started_at"
 
-    params: ParamManager = ParamManagerRun  # type: ignore
-    """Param manager.
+    features: FeatureManager = FeatureManagerRun  # type: ignore
+    """Features manager.
+
+    Run parameters are tracked via the `Feature` registry, just like all other variables.
 
     Guide: :ref:`track-run-parameters`
 
     Example::
 
-        run.params.add_values({
+        run.features.add_values({
             "learning_rate": 0.01,
             "input_dir": "s3://my-bucket/mydataset",
             "downsample": True,
@@ -446,10 +299,11 @@ class Run(Record):
     """The collections serving as input for this run."""
     output_collections: Collection
     """The collections generated by this run."""
-    _param_values: ParamValue = models.ManyToManyField(
-        ParamValue, through="RunParamValue", related_name="runs"
-    )
     """Parameter values."""
+    _feature_values: FeatureValue = models.ManyToManyField(
+        "FeatureValue", through="RunFeatureValue", related_name="runs"
+    )
+    """Feature values."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
     """A reference like a URL or external ID (such as from a workflow manager)."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
@@ -510,7 +364,7 @@ class Run(Record):
         *args,
         **kwargs,
     ):
-        self.params = ParamManager(self)  # type: ignore
+        self.features = FeatureManager(self)  # type: ignore
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args, **kwargs)
             return None
@@ -540,6 +394,11 @@ class Run(Record):
         delete_run_artifacts(self)
         super().delete()
 
+    @property
+    @deprecated("features")
+    def params(self) -> FeatureManager:
+        return self.features
+
     @classmethod
     def filter(
         cls,
@@ -566,6 +425,7 @@ class Run(Record):
                 ln.Run.filter(hyperparam_x=100)
         """
         from ._feature_manager import filter_base
+        from .feature import Feature
         from .query_set import QuerySet
 
         if expressions:
@@ -574,14 +434,14 @@ class Run(Record):
             if field_or_feature_or_param in Run.__get_available_fields__():
                 return QuerySet(model=cls).filter(*queries, **expressions)
             elif all(
-                params_validated := Param.validate(
+                params_validated := Feature.validate(
                     keys_normalized, field="name", mute=True
                 )
             ):
-                return filter_base(ParamManagerRun, **expressions)
+                return filter_base(FeatureManagerRun, **expressions)
             else:
                 params = ", ".join(sorted(np.array(keys_normalized)[~params_validated]))
-                message = f"param names: {params}"
+                message = f"feature names: {params}"
                 fields = ", ".join(sorted(cls.__get_available_fields__()))
                 raise InvalidArgument(
                     f"You can query either by available fields: {fields}\n"
@@ -612,11 +472,13 @@ def delete_run_artifacts(run: Run) -> None:
             report.delete(permanent=True)
 
 
-class RunParamValue(BasicRecord, LinkORM):
+class RunFeatureValue(BaseDBRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
-    run: Run = ForeignKey(Run, CASCADE, related_name="links_paramvalue")
+    run: Run = ForeignKey(Run, CASCADE, related_name="links_featurevalue")
     # we follow the lower() case convention rather than snake case for link models
-    paramvalue: ParamValue = ForeignKey(ParamValue, PROTECT, related_name="links_run")
+    featurevalue: FeatureValue = ForeignKey(
+        "FeatureValue", PROTECT, related_name="links_run"
+    )
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
@@ -627,4 +489,4 @@ class RunParamValue(BasicRecord, LinkORM):
     """Creator of record."""
 
     class Meta:
-        unique_together = ("run", "paramvalue")
+        unique_together = ("run", "featurevalue")

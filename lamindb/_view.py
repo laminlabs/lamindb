@@ -9,7 +9,7 @@ from lamin_utils import colors, logger
 from lamindb_setup import settings
 from lamindb_setup._init_instance import get_schema_module_name
 
-from lamindb.models import Feature, FeatureValue, ParamValue, Record
+from lamindb.models import DBRecord, Feature, FeatureValue, ParamValue
 
 from .models.feature import serialize_pandas_dtype
 
@@ -106,7 +106,7 @@ def view(
         limit: Display the latest `n` records
         modules: schema module to view. Default's to
             `None` and displays all registry modules.
-        registries: List of Record names. Defaults to
+        registries: List of DBRecord names. Defaults to
             `None` and lists all registries.
 
     Examples:
@@ -142,8 +142,8 @@ def view(
             registry
             for registry in schema_module.__dict__.values()
             if inspect.isclass(registry)
-            and issubclass(registry, Record)
-            and registry is not Record
+            and issubclass(registry, DBRecord)
+            and registry is not DBRecord
         }
         if module_name == "core":
             all_registries.update({FeatureValue, ParamValue})

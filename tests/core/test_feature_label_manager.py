@@ -45,12 +45,6 @@ Here is how to create a feature:
 def test_features_add_remove(adata):
     artifact = ln.Artifact.from_anndata(adata, description="test").save()
     with pytest.raises(ValidationError) as error:
-        artifact.params.add_values({"learning_rate": 0.01})
-    assert (
-        error.exconly()
-        == "lamindb.errors.ValidationError: Can only set params for model-like artifacts."
-    )
-    with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
     assert error.exconly().startswith(
         "lamindb.errors.ValidationError: These keys could not be validated:"
@@ -318,16 +312,10 @@ def test_params_add():
     path = Path("mymodel.pt")
     path.touch()
     artifact = ln.Artifact("mymodel.pt", kind="model", description="hello").save()
-    with pytest.raises(ValidationError) as error:
-        artifact.features.add_values({"temperature": 27})
-    assert (
-        error.exconly()
-        == "lamindb.errors.ValidationError: Can only set features for dataset-like artifacts."
-    )
-    ln.Param(name="learning_rate", dtype="float").save()
-    ln.Param(name="quantification", dtype="dict").save()
-    artifact.params.add_values({"learning_rate": 0.01})
-    artifact.params.add_values(
+    ln.Feature(name="learning_rate", dtype="float").save()
+    ln.Feature(name="quantification", dtype="dict").save()
+    artifact.features.add_values({"learning_rate": 0.01})
+    artifact.features.add_values(
         {
             "quantification": {
                 "name": "mcquant",
@@ -335,7 +323,7 @@ def test_params_add():
             }
         }
     )
-    assert artifact.params.get_values() == {
+    assert artifact.features.get_values() == {
         "learning_rate": 0.01,
         "quantification": {
             "name": "mcquant",
@@ -343,9 +331,9 @@ def test_params_add():
         },
     }
     # test describe params
-    tree = describe_features(artifact, print_params=True)
+    tree = describe_features(artifact)
     assert tree.label.plain == "Artifact .pt"
-    assert tree.children[0].label.plain == "Params"
+    assert tree.children[0].label.plain == "Linked features"
     assert len(tree.children[0].children[0].label.columns) == 3
     assert tree.children[0].children[0].label.columns[0]._cells == [
         "learning_rate",
@@ -371,7 +359,7 @@ def test_labels_add(adata):
         artifact.labels.add("experiment_1", experiment)
     assert (
         error.exconly()
-        == "ValueError: Please pass a record (a `Record` object), not a string, e.g.,"
+        == "ValueError: Please pass a record (a `DBRecord` object), not a string, e.g.,"
         " via: label = ln.ULabel(name='experiment_1')"
     )
     with pytest.raises(ValidationError) as error:

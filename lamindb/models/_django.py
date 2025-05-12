@@ -15,7 +15,7 @@ from .schema import Schema
 
 if TYPE_CHECKING:
     from .artifact import Artifact
-    from .record import Record
+    from .dbrecord import DBRecord
 
 
 def patch_many_to_many_descriptor() -> None:
@@ -30,14 +30,14 @@ def patch_many_to_many_descriptor() -> None:
     """
     from django.db.models.fields.related_descriptors import ManyToManyDescriptor
 
-    original_add = ManyToManyDescriptor.__get__
+    original_get = ManyToManyDescriptor.__get__
 
     def patched_get(self, instance, cls=None):
         if instance is not None and instance.pk is None:
             raise ValueError(
-                f"please save the {instance.__class__.__name__} before adding relationships using '.save()'."
+                f"please save the {instance.__class__.__name__} before adding many-to-many relationships using '.save()'."
             )
-        return original_add(self, instance, cls)
+        return original_get(self, instance, cls)
 
     ManyToManyDescriptor.__get__ = patched_get
 
@@ -59,7 +59,7 @@ def get_related_model(model, field_name):
 
 
 def get_artifact_with_related(
-    artifact: Record,
+    artifact: DBRecord,
     include_fk: bool = False,
     include_m2m: bool = False,
     include_feature_link: bool = False,
