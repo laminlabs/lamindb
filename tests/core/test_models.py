@@ -15,6 +15,7 @@ def test_registry__repr__feature():
     expected_repr = textwrap.dedent("""\
     Feature
       Simple fields
+        .uid: CharField
         .name: CharField
         .dtype: CharField
         .is_type: BooleanField

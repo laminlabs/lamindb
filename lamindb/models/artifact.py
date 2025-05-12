@@ -69,6 +69,7 @@ from ..models._is_versioned import (
 from ._django import get_artifact_with_related
 from ._feature_manager import (
     FeatureManager,
+    FeatureManagerArtifact,
     add_label_feature_links,
     filter_base,
     get_label_links,
@@ -1071,7 +1072,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
     #     })
     # """
 
-    features: FeatureManager = FeatureManager  # type: ignore
+    features: FeatureManager = FeatureManagerArtifact  # type: ignore
     """Feature manager.
 
     Typically, you annotate a dataset with features by defining a `Schema` and passing it to the `Artifact` constructor.
@@ -1291,7 +1292,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
         *args,
         **kwargs,
     ):
-        self.features = FeatureManager(self)  # type: ignore
+        self.features = FeatureManagerArtifact(self)  # type: ignore
         # Below checks for the Django-internal call in from_db()
         # it'd be better if we could avoid this, but not being able to create a Artifact
         # from data with the default constructor renders the central class of the API
