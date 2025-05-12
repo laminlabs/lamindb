@@ -441,7 +441,7 @@ class Run(DBRecord):
                 return filter_base(FeatureManagerRun, **expressions)
             else:
                 params = ", ".join(sorted(np.array(keys_normalized)[~params_validated]))
-                message = f"param names: {params}"
+                message = f"feature names: {params}"
                 fields = ", ".join(sorted(cls.__get_available_fields__()))
                 raise InvalidArgument(
                     f"You can query either by available fields: {fields}\n"

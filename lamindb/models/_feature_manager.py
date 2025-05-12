@@ -702,7 +702,7 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
             # https://laminlabs.slack.com/archives/C04FPE8V01W/p1688328084810609
     if not (new_expression):
         raise NotImplementedError
-    if FeatureManagerArtifact:
+    if cls == FeatureManagerArtifact:
         return Artifact.objects.filter(**new_expression)
     elif cls == FeatureManagerRun:
         return Run.objects.filter(**new_expression)

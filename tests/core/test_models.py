@@ -13,11 +13,18 @@ def test_registry__repr__feature():
 
     feature = ln.Param
     expected_repr = textwrap.dedent("""\
-    Param
+    Feature
       Simple fields
         .name: CharField
         .dtype: CharField
         .is_type: BooleanField
+        .unit: CharField
+        .description: CharField
+        .array_rank: SmallIntegerField
+        .array_size: IntegerField
+        .array_shape: JSONField
+        .proxy_dtype: CharField
+        .synonyms: TextField
         .created_at: DateTimeField
         .updated_at: DateTimeField
       Relational fields
@@ -28,6 +35,7 @@ def test_registry__repr__feature():
         .schemas: Schema
         .records: Feature
         .values: FeatureValue
+        .projects: Project
     """).strip()
 
     actual_repr = _strip_ansi(repr(feature))

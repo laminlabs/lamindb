@@ -312,16 +312,10 @@ def test_params_add():
     path = Path("mymodel.pt")
     path.touch()
     artifact = ln.Artifact("mymodel.pt", kind="model", description="hello").save()
-    with pytest.raises(ValidationError) as error:
-        artifact.features.add_values({"temperature": 27})
-    assert (
-        error.exconly()
-        == "lamindb.errors.ValidationError: Can only set features for dataset-like artifacts."
-    )
-    ln.Param(name="learning_rate", dtype="float").save()
-    ln.Param(name="quantification", dtype="dict").save()
-    artifact.params.add_values({"learning_rate": 0.01})
-    artifact.params.add_values(
+    ln.Feature(name="learning_rate", dtype="float").save()
+    ln.Feature(name="quantification", dtype="dict").save()
+    artifact.features.add_values({"learning_rate": 0.01})
+    artifact.features.add_values(
         {
             "quantification": {
                 "name": "mcquant",
@@ -329,7 +323,7 @@ def test_params_add():
             }
         }
     )
-    assert artifact.params.get_values() == {
+    assert artifact.features.get_values() == {
         "learning_rate": 0.01,
         "quantification": {
             "name": "mcquant",
@@ -337,9 +331,9 @@ def test_params_add():
         },
     }
     # test describe params
-    tree = describe_features(artifact, print_params=True)
+    tree = describe_features(artifact)
     assert tree.label.plain == "Artifact .pt"
-    assert tree.children[0].label.plain == "Params"
+    assert tree.children[0].label.plain == "Features"
     assert len(tree.children[0].children[0].label.columns) == 3
     assert tree.children[0].children[0].label.columns[0]._cells == [
         "learning_rate",

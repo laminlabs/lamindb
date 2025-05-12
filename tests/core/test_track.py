@@ -42,7 +42,7 @@ def test_track_basic_invocation():
     assert (
         exc.exconly()
         == """lamindb.errors.ValidationError: These keys could not be validated: ['param1', 'param2', 'param3']
-Here is how to create a param:
+Here is how to create a feature:
 
   ln.Feature(name='param1', dtype='int').save()
   ln.Feature(name='param2', dtype='cat ? str').save()
