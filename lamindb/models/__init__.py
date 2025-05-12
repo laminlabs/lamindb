@@ -94,22 +94,4 @@ Param = Feature  # backward compat
 
 from lamindb.models._django import patch_many_to_many_descriptor
 
-# patch_many_to_many_descriptor()
-
-from django.db.models.fields.related_descriptors import (
-    ManyToManyDescriptor,
-    RelatedManager,
-)
-
-original_add = RelatedManager.add
-
-
-def patched_add(self, *objs):
-    if self.instance.pk is None:
-        raise ValueError(
-            f"Please save the {self.instance.__class__.__name__} before adding many-to-many relationships."
-        )
-    return original_add(self, *objs)
-
-
-RelatedManager.add = patched_add
+patch_many_to_many_descriptor()
