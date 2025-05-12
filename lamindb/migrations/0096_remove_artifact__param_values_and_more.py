@@ -14,11 +14,11 @@ class Migration(migrations.Migration):
             -- First create the Features from Params
             INSERT INTO lamindb_feature (
                 uid, name, dtype, is_type, _expect_many,
-                created_at, updated_at, created_by_id, updated_by_id, run_id
+                created_at, updated_at, created_by_id, run_id
             )
             SELECT
                 p.uid, p.name, p.dtype, p.is_type, p._expect_many,
-                p.created_at, p.updated_at, p.created_by_id, p.updated_by_id, p.run_id
+                p.created_at, p.updated_at, p.created_by_id, p.run_id
             FROM lamindb_param p;
 
             -- Now update the type_id relationships using UIDs
