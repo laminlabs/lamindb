@@ -89,6 +89,15 @@ Low-level functionality.
    core
    models
 
+Backwards compatibility.
+
+.. autosummary::
+   :toctree: .
+
+   Param
+   FeatureSet
+   Curator
+
 """
 
 # ruff: noqa: I001
