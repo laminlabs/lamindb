@@ -113,7 +113,7 @@ def test_unsaved_relationship_modification_attempts():
 
     assert (
         str(excinfo.value)
-        == "please save the Artifact before adding relationships using '.save()'."
+        == "please save the Artifact before adding many-to-many relationships using '.save()'."
     )
 
     new_label.delete()
