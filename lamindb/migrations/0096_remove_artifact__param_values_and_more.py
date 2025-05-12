@@ -78,7 +78,6 @@ def copy_param_values(apps, schema_editor):
                 hash=pv.hash,
                 created_at=pv.created_at,
                 created_by_id=pv.created_by_id,
-                run_id=pv.run_id,
             )
 
             # Remember the mapping
@@ -183,12 +182,45 @@ def copy_artifact_param_values(apps, schema_editor):
             )
 
 
+def get_features_count(apps, schema_editor):
+    Feature = apps.get_model("lamindb", "Feature")
+    FeatureValue = apps.get_model("lamindb", "FeatureValue")
+    RunFeatureValue = apps.get_model("lamindb", "RunFeatureValue")
+    ArtifactFeatureValue = apps.get_model("lamindb", "ArtifactFeatureValue")
+
+    print("Features are now")
+    print(f"Feature count: {Feature.objects.count()}")
+    print(f"FeatureValue count: {FeatureValue.objects.count()}")
+    print(f"RunFeatureValue count: {RunFeatureValue.objects.count()}")
+    print(f"ArtifactFeatureValue count: {ArtifactFeatureValue.objects.count()}")
+
+
+def get_params_count(apps, schema_editor):
+    Param = apps.get_model("lamindb", "Param")
+    ParamValue = apps.get_model("lamindb", "ParamValue")
+    RunParamValue = apps.get_model("lamindb", "RunParamValue")
+    ArtifactParamValue = apps.get_model("lamindb", "ArtifactParamValue")
+
+    print("Moving the following params into features and deleting the params table")
+    response = input("Do you want to continue? [y/n]")
+    if response != "y":
+        print("Aborting migration.")
+        quit()
+    print(f"Param count: {Param.objects.count()}")
+    print(f"ParamValue count: {ParamValue.objects.count()}")
+    print(f"RunParamValue count: {RunParamValue.objects.count()}")
+    print(f"ArtifactParamValue count: {ArtifactParamValue.objects.count()}")
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("lamindb", "0095_remove_rundata_flextable"),
     ]
 
     operations = [
+        # Step 0: Report the results
+        migrations.RunPython(get_params_count),
+        migrations.RunPython(get_features_count),
         # Step 1: Copy from Param to Feature
         migrations.RunPython(copy_params_to_features),
         # Step 2: Copy from ParamValue to FeatureValue
@@ -197,6 +229,8 @@ class Migration(migrations.Migration):
         migrations.RunPython(copy_run_param_values),
         # Step 4: Copy from ArtifactParamValue to ArtifactFeatureValue
         migrations.RunPython(copy_artifact_param_values),
+        # Step 5: Report the results
+        migrations.RunPython(get_features_count),
         migrations.RemoveField(
             model_name="artifact",
             name="_param_values",
