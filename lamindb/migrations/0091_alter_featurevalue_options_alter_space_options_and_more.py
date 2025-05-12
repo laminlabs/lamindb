@@ -5,7 +5,7 @@ from django.db import migrations
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lamindb", "0090_squashed"),
+        ("lamindb", "0091_alter_featurevalue_options_alter_space_options_and_more"),
     ]
 
     operations = [
