@@ -35,7 +35,7 @@ def patch_many_to_many_descriptor() -> None:
     def patched_get(self, instance, cls=None):
         if instance is not None and instance.pk is None:
             raise ValueError(
-                f"please save the {instance.__class__.__name__} before adding many-to-many relationships using '.save()'."
+                f"You are trying to access the many-to-many relationships of an unsaved {instance.__class__.__name__} object. Please save it first using '.save()'."
             )
         return original_get(self, instance, cls)
 
