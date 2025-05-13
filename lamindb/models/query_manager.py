@@ -308,3 +308,8 @@ class QueryManager(Manager):
         # QueryManager returns BasicQuerySet because it is problematic to redefine .filter and .get
         # for a query set used by the default manager
         return BasicQuerySet(model=self.model, using=self._db, hints=self._hints)
+
+
+from lamindb.models._django import patch_many_to_many_descriptor
+
+patch_many_to_many_descriptor()

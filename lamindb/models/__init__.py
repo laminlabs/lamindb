@@ -91,7 +91,3 @@ ParamValue = FeatureValue  # backward compat
 ArtifactParamValue = ArtifactFeatureValue  # backward compat
 RunParamValue = RunFeatureValue  # backward compat
 Param = Feature  # backward compat
-
-from lamindb.models._django import patch_many_to_many_descriptor
-
-patch_many_to_many_descriptor()
