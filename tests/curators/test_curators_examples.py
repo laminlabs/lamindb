@@ -427,7 +427,10 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
             assert isinstance(curator.slots["uns"], ln.curators.DataFrameCurator)
         artifact = ln.Artifact.from_anndata(
             adata, key="examples/dataset1.h5ad", schema=anndata_schema
-        ).save()
+        )
+        assert artifact._curator._is_validated  # important test, do not remove
+        artifact.save()
+        assert not hasattr(artifact, "_curator")  # test that curator is deleted
         assert artifact.schema == anndata_schema
         assert artifact.features.slots["var.T"].n == 3  # 3 genes get linked
         if add_comp == "obs":
