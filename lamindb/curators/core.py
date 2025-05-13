@@ -305,6 +305,8 @@ class SlotsCurator(Curator):
         for slot, curator in self._slots.items():
             logger.info(f"validating slot {slot} ...")
             curator.validate()
+        # set _is_validated to True as no slot raised an error
+        self._is_validated = True
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
