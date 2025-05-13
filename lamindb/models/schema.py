@@ -856,7 +856,7 @@ class Schema(DBRecord, CanCurate, TracksRun):
         """Save."""
         from .save import bulk_create
 
-        if not self._state.adding:
+        if self.pk is not None:
             features = (
                 self._features[1]
                 if hasattr(self, "_features")
