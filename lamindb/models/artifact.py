@@ -79,6 +79,7 @@ from ._relations import (
 from .feature import Feature, FeatureValue
 from .has_parents import view_lineage
 from .run import Run, TracksRun, TracksUpdates, User
+from .save import check_and_attempt_clearing, check_and_attempt_upload
 from .schema import Schema
 from .sqlrecord import (
     BaseSQLRecord,
@@ -2653,8 +2654,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             self._key_is_virtual = True
             # ensure that the artifact is uploaded
             self._to_store = True
-
-        from .save import check_and_attempt_clearing, check_and_attempt_upload
 
         using_key = None
         if "using" in kwargs:
