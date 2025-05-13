@@ -113,7 +113,7 @@ def test_unsaved_relationship_modification_attempts():
 
     assert (
         str(excinfo.value)
-        == "You are trying to access the many-to-many relationships of an unsaved Artifact object. Please save it first using '.save()'"
+        == "You are trying to access the many-to-many relationships of an unsaved Artifact object. Please save it first using '.save()'."
     )
 
     new_label.delete()
