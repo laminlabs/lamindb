@@ -262,3 +262,6 @@ def get_schema_m2m_relations(artifact: Artifact, slot_schema: dict, limit: int =
         )
 
     return result
+
+
+patch_many_to_many_descriptor()
