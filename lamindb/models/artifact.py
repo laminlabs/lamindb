@@ -2583,8 +2583,6 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
             # ensure that the artifact is uploaded
             self._to_store = True
 
-        self._save_skip_storage(**kwargs)
-
         from .save import check_and_attempt_clearing, check_and_attempt_upload
 
         using_key = None
@@ -2602,7 +2600,6 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
             # often it is ACID in the filesystem itself
             # for example, s3 won't have the failed file, so just skip the delete in this case
             raise_file_not_found_error = False
-            self._delete_skip_storage()
         else:
             # this is the case when it is cleaned on .replace
             raise_file_not_found_error = True
@@ -2616,6 +2613,10 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
             raise RuntimeError(exception_upload)
         if exception_clear is not None:
             raise RuntimeError(exception_clear)
+
+        # save the db record here if the upload was successfull
+        self._save_skip_storage(**kwargs)
+
         # this is only for keep_artifacts_local
         if local_path is not None and not state_was_adding:
             # only move the local artifact to cache if it was not newly created
