@@ -184,7 +184,7 @@ def get(
         NAME_FIELD = (
             registry._name_field if hasattr(registry, "_name_field") else "name"
         )
-        DOESNOTEXIST_MSG = f"No record found with uid '{idlike}'. Did you forget a keyword like {registry.__name__}.get({NAME_FIELD}='{idlike}')?"
+        DOESNOTEXIST_MSG = f"No record found with uid '{idlike}'. Did you forget a keyword as in {registry.__name__}.get({NAME_FIELD}='{idlike}')?"
 
         if issubclass(registry, IsVersioned):
             if len(idlike) <= registry._len_stem_uid:
