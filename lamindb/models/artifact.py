@@ -2630,6 +2630,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
         if hasattr(self, "_curator"):
             curator = self._curator
             delattr(self, "_curator")
+            # this just annotates the saved artifact
             curator.save_artifact()
         return self
 
