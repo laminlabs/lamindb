@@ -52,7 +52,8 @@ def test_store_artifacts_acid():
         "RuntimeError: The following entries have been successfully uploaded"
     )
 
-    artifact.delete(permanent=True)
+    assert artifact.pk is None
+    artifact.path.unlink()
 
 
 def test_save_parents():
