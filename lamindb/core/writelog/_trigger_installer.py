@@ -9,6 +9,7 @@ from django.db.backends.utils import CursorWrapper
 from lamin_utils import logger
 from typing_extensions import override
 
+from lamindb.core.writelog._constants import FOREIGN_KEYS_LIST_COLUMN_NAME
 from lamindb.core.writelog._graph_utils import find_cycle, topological_sort
 from lamindb.models.writelog import (
     DEFAULT_BRANCH_CODE,
@@ -43,8 +44,6 @@ class DjangoMigration(models.Model):
         managed = False  # Tell Django not to manage this table
         db_table = "django_migrations"  # Specify the actual table name
 
-
-FOREIGN_KEYS_LIST_COLUMN_NAME = "_lamin_fks"
 
 RESERVED_COLUMNS: tuple[str] = (FOREIGN_KEYS_LIST_COLUMN_NAME,)
 

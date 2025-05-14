@@ -7,11 +7,11 @@ import pytest
 from django.db import connection as django_connection_proxy
 from django.db import transaction
 from django.db.backends.utils import CursorWrapper
+from lamindb.core.writelog._constants import FOREIGN_KEYS_LIST_COLUMN_NAME
 from lamindb.core.writelog._db_metadata_wrapper import (
     PostgresDatabaseMetadataWrapper,
 )
 from lamindb.core.writelog._trigger_installer import (
-    FOREIGN_KEYS_LIST_COLUMN_NAME,
     PostgresWriteLogRecordingTriggerInstaller,
     WriteLogEventTypes,
 )
