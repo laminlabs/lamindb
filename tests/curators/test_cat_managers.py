@@ -6,8 +6,8 @@ import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
-from core._dataset_fixtures import clean_soma_files  # noqa
 from lamindb.curators.core import CatLookup, ValidationError
+from tests.core._dataset_fixtures import clean_soma_files  # noqa
 
 
 @pytest.fixture
