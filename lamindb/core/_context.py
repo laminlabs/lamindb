@@ -21,7 +21,6 @@ from lamindb.base import ids
 from lamindb.base.ids import base62_12
 from lamindb.models import Run, Transform, format_field_value
 
-from ..core._settings import settings
 from ..errors import (
     InvalidArgument,
     TrackNotCalled,
@@ -31,6 +30,8 @@ from ..models._is_versioned import bump_version as bump_version_function
 from ..models._is_versioned import (
     increment_base62,
 )
+from ._settings import settings
+from ._signals import chain_signal_handler
 from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_environment
 
@@ -174,8 +175,8 @@ class LogStreamTracker:
         # signal should be used only in the main thread, otherwise
         # ValueError: signal only works in main thread of the main interpreter
         if threading.current_thread() == threading.main_thread():
-            signal.signal(signal.SIGTERM, self.cleanup)
-            signal.signal(signal.SIGINT, self.cleanup)
+            chain_signal_handler(signal.SIGTERM, self.cleanup)
+            chain_signal_handler(signal.SIGINT, self.cleanup)
         # handle exceptions
         sys.excepthook = self.handle_exception
 

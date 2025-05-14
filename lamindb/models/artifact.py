@@ -76,6 +76,8 @@ from ._relations import (
     dict_module_name_to_model_name,
     dict_related_model_to_related_name,
 )
+from .artifact_cleanup import unregister_cleanup_path
+from .core import Storage
 from .feature import Feature, FeatureValue
 from .has_parents import view_lineage
 from .run import Run, TracksRun, TracksUpdates, User
@@ -2660,9 +2662,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             using_key = kwargs["using"]
         exception_upload = check_and_attempt_upload(
             self,
-            using_key,
+            using_key=using_key,
             access_token=access_token,
             print_progress=print_progress,
+            register_cleanup=True,
             **store_kwargs,
         )
         if exception_upload is not None:
@@ -2686,6 +2689,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         # save the db record here if the upload was successfull
         self._save_skip_storage(**kwargs)
+        # unregister the path for cleanup
+        unregister_cleanup_path(self.uid)
 
         # this is only for keep_artifacts_local
         if local_path is not None and not state_was_adding:
