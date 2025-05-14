@@ -20,7 +20,13 @@ import numpy as np
 import pandas as pd
 import pytest
 import yaml  # type: ignore
-from _dataset_fixtures import get_small_adata, get_small_mdata, get_small_sdata  # noqa
+from _dataset_fixtures import (  # noqa
+    clean_soma_files,
+    get_small_adata,
+    get_small_mdata,
+    get_small_sdata,
+    get_small_soma_experiment,
+)
 from lamindb.core._settings import settings
 from lamindb.core.loaders import load_fcs, load_to_memory, load_tsv
 from lamindb.core.storage._zarr import identify_zarr_type, write_adata_zarr
@@ -37,6 +43,9 @@ from lamindb.errors import (
 from lamindb.models.artifact import (
     check_path_is_child_of_root,
     data_is_anndata,
+    data_is_mudata,
+    data_is_soma_experiment,
+    data_is_spatialdata,
     get_relative_path_to_directory,
     process_data,
 )
@@ -129,11 +138,29 @@ def spatialdata_file(get_small_sdata):
     shutil.rmtree(filepath)
 
 
+@pytest.fixture(scope="module")
+def soma_experiment_file(get_small_soma_experiment, clean_soma_files):
+    yield "test.tiledbsoma"
+
+
 def test_data_is_anndata_paths():
     assert data_is_anndata("something.h5ad")
     assert data_is_anndata("something.anndata.zarr")
     assert data_is_anndata("s3://somewhere/something.anndata.zarr")
     assert not data_is_anndata("s3://somewhere/something.zarr")
+
+
+def test_data_is_mudata_paths():
+    assert data_is_mudata("something.h5mu")
+    assert data_is_mudata("something.mudata.zarr")
+
+
+def test_data_is_spatialdata_paths():
+    assert data_is_spatialdata("something.spatialdata.zarr")
+
+
+def test_data_is_soma_experiment_paths():
+    assert data_is_soma_experiment("something.tiledbsoma")
 
 
 def test_basic_validation():
@@ -354,7 +381,13 @@ def test_create_from_dataframe(df):
     artifact.delete(permanent=True)
 
 
-def test_create_from_anndata(get_small_adata, adata_file):
+def test_create_from_anndata(get_small_adata, adata_file, df):
+    with pytest.raises(ValueError) as error:
+        ln.Artifact.from_anndata(df, description="test1")
+    assert (
+        "data has to be a AnnData object or a path to AnnData-like" in error.exconly()
+    )
+
     for i, _a in enumerate([get_small_adata, adata_file]):
         artifact = ln.Artifact.from_anndata(_a, description="test1")
         assert artifact.description == "test1"
@@ -371,10 +404,10 @@ def test_create_from_anndata(get_small_adata, adata_file):
 
 
 def test_create_from_mudata(get_small_mdata, mudata_file, adata_file):
-    try:
+    with pytest.raises(ValueError) as error:
         ln.Artifact.from_mudata(adata_file, description="test1")
-    except ValueError as error:
-        assert str(error) == "data has to be a MuData object or a path to MuData-like"
+    assert "data has to be a MuData object or a path to MuData-like" in error.exconly()
+
     for m in [get_small_mdata, mudata_file]:
         af = ln.Artifact.from_mudata(m, description="test1")
         assert af.description == "test1"
@@ -388,13 +421,13 @@ def test_create_from_mudata(get_small_mdata, mudata_file, adata_file):
 def test_create_from_spatialdata(
     get_small_sdata, spatialdata_file, adata_file, ccaplog
 ):
-    try:
-        ln.Artifact(adata_file, description="test1")
-    except ValueError as error:
-        assert (
-            str(error)
-            == "data has to be a SpatialData object or a path to SpatialData-like"
-        )
+    with pytest.raises(ValueError) as error:
+        ln.Artifact.from_spatialdata(adata_file, description="test1")
+    assert (
+        "data has to be a SpatialData object or a path to SpatialData-like"
+        in error.exconly()
+    )
+
     for s in [get_small_sdata, spatialdata_file]:
         af = ln.Artifact(s, description="test1")
         assert af.description == "test1"
@@ -410,6 +443,23 @@ def test_create_from_spatialdata(
         assert af.otype == "SpatialData"
         assert af.kind == "dataset"
         # n_observations not defined
+
+
+def test_create_from_soma_experiment(
+    get_small_soma_experiment, clean_soma_files, adata_file
+):
+    with pytest.raises(ValueError) as error:
+        ln.Artifact.from_tiledbsoma(adata_file, description="test1")
+    assert (
+        "data has to be a SOMA Experiment object or a path to SOMA Experiment store."
+        in error.exconly()
+    )
+
+    af = ln.Artifact.from_tiledbsoma(get_small_soma_experiment, description="test1")
+    assert af.description == "test1"
+    assert af.key is None
+    assert af.otype == "tiledbsoma"
+    assert af.n_observations == 3
 
 
 @pytest.mark.parametrize(

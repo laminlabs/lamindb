@@ -1,10 +1,27 @@
+import shutil
+from pathlib import Path
+
 import anndata as ad
+import lamindb as ln
 import mudata as md
 import numpy as np
 import pandas as pd
 import pytest
 import spatialdata as sd
+import tiledbsoma
 from scipy.sparse import csr_matrix
+
+
+@pytest.fixture()
+def clean_soma_files(request):
+    path = request.param if hasattr(request, "param") else "curate.tiledbsoma"
+    if Path(path).exists():
+        shutil.rmtree(path)
+
+    yield path
+
+    if Path(path).exists():
+        shutil.rmtree(path)
 
 
 @pytest.fixture(scope="session")
@@ -54,3 +71,13 @@ def get_small_sdata():
     )
 
     return sdata_obj
+
+
+@pytest.fixture(scope="session")
+def get_small_soma_experiment():
+    adata = ln.core.datasets.mini_immuno.get_dataset1(otype="AnnData")
+    tiledbsoma.io.from_anndata("test.tiledbsoma", adata, measurement_name="RNA")
+
+    exp = tiledbsoma.Experiment.open("test.tiledbsoma")
+
+    return exp

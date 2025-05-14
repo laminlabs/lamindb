@@ -12,6 +12,7 @@ from lamin_utils import logger
 from lamindb_setup.core.upath import S3FSMap, create_mapper, infer_filesystem
 from packaging import version
 
+from lamindb import UPath
 from lamindb.core._compat import with_package
 
 from ._anndata_sizes import _size_elem, _size_raw, size_adata
@@ -64,15 +65,13 @@ def identify_zarr_type(
     storepath: UPathStr, *, check: bool = True
 ) -> Literal["anndata", "mudata", "spatialdata", "unknown"]:
     """Identify whether a zarr store is AnnData, SpatialData, or unknown type."""
-    # we can add these cheap suffix-based-checks later
-    # also need to check whether the .spatialdata.zarr suffix
-    # actually becomes a "standard"; currently we don't recognize it
-    # unlike ".anndata.zarr" in VALID_SUFFIXES
-    # suffixes = UPath(storepath).suffixes
-    # if ".spatialdata" in suffixes:
-    #     return "spatialdata"
-    # elif ".anndata" in suffixes:
-    #     return "anndata"
+    suffixes = UPath(storepath).suffixes
+    if ".anndata" in suffixes:
+        return "anndata"
+    elif ".mudata" in suffixes:
+        return "mudata"
+    elif ".spatialdata" in suffixes:
+        return "spatialdata"
 
     open_obj = create_zarr_open_obj(storepath, check=check)
     try:

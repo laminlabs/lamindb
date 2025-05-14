@@ -532,9 +532,6 @@ def data_is_anndata(data: AnnData | UPathStr) -> bool:
             return True
         elif data_path.suffix == ".zarr":
             # ".anndata.zarr" is a valid suffix (core.storage._valid_suffixes)
-            # TODO: the suffix based check should likely be moved to identify_zarr_type
-            if ".anndata" in data_path.suffixes:
-                return True
             # check only for local, expensive for cloud
             if fsspec.utils.get_protocol(data_path.as_posix()) == "file":
                 return identify_zarr_type(data_path) == "anndata"
@@ -562,6 +559,15 @@ def data_is_spatialdata(data: SpatialData | UPathStr) -> bool:
             # TODO: inconsistent with anndata, where we run the storage
             # check only for local, expensive for cloud
             return identify_zarr_type(data, check=False) == "spatialdata"
+    return False
+
+
+def data_is_soma_experiment(data: SOMAExperiment | UPathStr) -> bool:
+    # We are not importing tiledb here to keep loaded modules minimal
+    if hasattr(data, "__class__") and data.__class__.__name__ == "Experiment":
+        return True
+    if isinstance(data, (str, Path)):
+        return UPath(data).suffix == ".tiledbsoma"
     return False
 
 
@@ -1917,9 +1923,9 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
 
             artifact = ln.Artifact.from_tiledbsoma("s3://mybucket/store.tiledbsoma", description="a tiledbsoma store").save()
         """
-        if UPath(path).suffix != ".tiledbsoma":
+        if not data_is_soma_experiment(path):
             raise ValueError(
-                "A tiledbsoma store should have .tiledbsoma suffix to be registered."
+                "data has to be a SOMA Experiment object or a path to SOMA Experiment store."
             )
         artifact = Artifact(  # type: ignore
             data=path,

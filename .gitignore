@@ -62,6 +62,7 @@ test.ipynb
 test2.ipynb
 run-tests
 test-django-validation/
+curate.tiledbsoma
 
 # General
 .DS_Store
