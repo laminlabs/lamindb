@@ -21,6 +21,7 @@ from ..core.storage.paths import (
     delete_storage_using_key,
     store_file_or_folder,
 )
+from .artifact_cleanup import register_cleanup_path
 from .sqlrecord import SQLRecord
 
 if TYPE_CHECKING:
@@ -135,6 +136,7 @@ def check_and_attempt_upload(
     using_key: str | None = None,
     access_token: str | None = None,
     print_progress: bool = True,
+    register_cleanup: bool = False,
     **kwargs,
 ) -> Exception | None:
     # kwargs are propagated to .upload_from in the end
@@ -147,6 +149,7 @@ def check_and_attempt_upload(
                 using_key,
                 access_token=access_token,
                 print_progress=print_progress,
+                register_cleanup=register_cleanup,
                 **kwargs,
             )
         except Exception as exception:
@@ -266,7 +269,7 @@ def store_artifacts(
     for artifact in artifacts:
         # failure here sets ._clear_storagekey
         # for cleanup below
-        exception = check_and_attempt_upload(artifact, using_key)
+        exception = check_and_attempt_upload(artifact, using_key=using_key)
         if exception is not None:
             break
         stored_artifacts += [artifact]
@@ -325,6 +328,7 @@ def upload_artifact(
     using_key: str | None = None,
     access_token: str | None = None,
     print_progress: bool = True,
+    register_cleanup: bool = False,
     **kwargs,
 ) -> tuple[UPath, UPath | None]:
     """Store and add file and its linked entries."""
@@ -336,6 +340,9 @@ def upload_artifact(
     )
     if hasattr(artifact, "_to_store") and artifact._to_store:
         logger.save(f"storing artifact '{artifact.uid}' at '{storage_path}'")
+        # register the path for cleanup if the upload fails in the mid
+        if register_cleanup:
+            register_cleanup_path(artifact.uid, storage_path)
         store_file_or_folder(
             artifact._local_filepath,
             storage_path,
