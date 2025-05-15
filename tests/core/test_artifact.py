@@ -21,7 +21,6 @@ import pandas as pd
 import pytest
 import yaml  # type: ignore
 from _dataset_fixtures import (  # noqa
-    clean_soma_files,
     get_small_adata,
     get_small_mdata,
     get_small_sdata,
