@@ -2709,6 +2709,9 @@ def _track_run_input(
     is_run_input: bool | Run | None = None,
     run: Run | None = None,
 ):
+    if is_run_input is False:
+        return
+
     from lamindb import settings
 
     from .._tracked import get_current_tracked_run
