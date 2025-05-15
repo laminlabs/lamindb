@@ -1,6 +1,10 @@
 import re
 import textwrap
 
+import lamindb as ln
+import pandas as pd
+import pytest
+
 
 def _strip_ansi(text: str) -> str:
     """Remove ANSI escape sequences from a string."""
@@ -96,3 +100,21 @@ def test_registry__repr__artifact():
     actual_repr = _strip_ansi(repr(artifact))
     print(actual_repr)
     assert actual_repr.strip() == expected_repr.strip()
+
+
+def test_unsaved_relationship_modification_attempts():
+    af = ln.Artifact.from_df(
+        pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]}), description="testme"
+    )
+
+    new_label = ln.ULabel(name="testlabel").save()
+    with pytest.raises(ValueError) as excinfo:
+        af.ulabels.add(new_label)
+
+    assert (
+        str(excinfo.value)
+        == "You are trying to access the many-to-many relationships of an unsaved Artifact object. Please save it first using '.save()'."
+    )
+
+    new_label.delete()
+    af.delete()

@@ -18,6 +18,30 @@ if TYPE_CHECKING:
     from .dbrecord import DBRecord
 
 
+def patch_many_to_many_descriptor() -> None:
+    """Patches Django's `ManyToManyDescriptor.__get__` method to suggest better errors when saving relationships of an unsaved model.
+
+    Before this patch: Cryptic errors are raised when relationships of an unsaved
+    record are attempted to be modified.
+
+    After this patch: Attempts to access M2M relationships on unsaved objects
+    will raise ValueError, suggesting explicit .save() of the record to be modified
+    before relationship creation.
+    """
+    from django.db.models.fields.related_descriptors import ManyToManyDescriptor
+
+    original_get = ManyToManyDescriptor.__get__
+
+    def patched_get(self, instance, cls=None):
+        if instance is not None and instance.pk is None:
+            raise ValueError(
+                f"You are trying to access the many-to-many relationships of an unsaved {instance.__class__.__name__} object. Please save it first using '.save()'."
+            )
+        return original_get(self, instance, cls)
+
+    ManyToManyDescriptor.__get__ = patched_get
+
+
 def get_related_model(model, field_name):
     try:
         field = model._meta.get_field(field_name)
@@ -238,3 +262,6 @@ def get_schema_m2m_relations(artifact: Artifact, slot_schema: dict, limit: int =
         )
 
     return result
+
+
+patch_many_to_many_descriptor()

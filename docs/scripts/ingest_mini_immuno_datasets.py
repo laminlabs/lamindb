@@ -30,7 +30,7 @@ artifact = ln.Artifact.from_anndata(
 adhoc = {"study_metadata": {"detail1": "123", "detail2": 1}}
 dataset_metadata = adata.uns
 dataset_metadata.update(adhoc)
-artifact.features.add_values(dataset_metadata)
+artifact.features.add_values(dataset_metadata)  # type: ignore
 
 # Ingest dataset2
 adata2 = ln.core.datasets.mini_immuno.get_dataset2(otype="AnnData")
@@ -42,4 +42,4 @@ artifact2 = ln.Artifact.from_anndata(
 adhoc2 = {"study_metadata": {"detail1": "456", "detail2": 2}}
 dataset_metadata2 = adata2.uns
 dataset_metadata2.update(adhoc2)
-artifact2.features.add_values(dataset_metadata2)
+artifact2.features.add_values(dataset_metadata2)  # type: ignore
