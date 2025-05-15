@@ -155,7 +155,7 @@ def test_data_is_mudata_paths():
 
 
 def test_data_is_spatialdata_paths():
-    assert "AnnData"("something.spatialdata.zarr", "SpatialData")
+    assert data_is_scversedatastructure("something.spatialdata.zarr", "SpatialData")
 
 
 def test_data_is_soma_experiment_paths():
@@ -384,7 +384,7 @@ def test_create_from_anndata(get_small_adata, adata_file, df):
     with pytest.raises(ValueError) as error:
         ln.Artifact.from_anndata(df, description="test1")
     assert (
-        "data has to be a AnnData object or a path to AnnData-like" in error.exconly()
+        "data has to be an AnnData object or a path to AnnData-like" in error.exconly()
     )
 
     for i, _a in enumerate([get_small_adata, adata_file]):

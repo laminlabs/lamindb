@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 import spatialdata as sd
 import tiledbsoma
+import tiledbsoma.io
 from scipy.sparse import csr_matrix
 
 
