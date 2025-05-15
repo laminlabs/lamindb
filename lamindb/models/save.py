@@ -21,7 +21,7 @@ from ..core.storage.paths import (
     delete_storage_using_key,
     store_file_or_folder,
 )
-from .artifact_cleanup import register_cleanup_path
+from .artifact_cleanup import register_cleanup_path, unregister_cleanup_path
 from .sqlrecord import SQLRecord
 
 if TYPE_CHECKING:
@@ -306,6 +306,10 @@ def check_and_attempt_clearing(
                     using_key=using_key,
                 )
                 if delete_msg != "did-not-delete":
+                    # cleanup after failure to upload
+                    # unregister due to successfull deletion
+                    if not raise_file_not_found_error:
+                        unregister_cleanup_path(artifact.uid)
                     logger.success(
                         f"deleted stale object at storage key {artifact._clear_storagekey}"
                     )
