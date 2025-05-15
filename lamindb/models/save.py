@@ -104,9 +104,6 @@ def save(
             add_ontology(non_artifacts_with_parents)
 
     if artifacts:
-        with transaction.atomic():
-            for record in artifacts:
-                record._save_skip_storage()
         using_key = settings._using_key
         store_artifacts(artifacts, using_key=using_key)
 
@@ -199,7 +196,6 @@ def check_and_attempt_upload(
     using_key: str | None = None,
     access_token: str | None = None,
     print_progress: bool = True,
-    register_cleanup: bool = False,
     **kwargs,
 ) -> Exception | None:
     # kwargs are propagated to .upload_from in the end
@@ -212,7 +208,6 @@ def check_and_attempt_upload(
                 using_key,
                 access_token=access_token,
                 print_progress=print_progress,
-                register_cleanup=register_cleanup,
                 **kwargs,
             )
         except Exception as exception:
@@ -349,20 +344,29 @@ def store_artifacts(
             logger.warning(f"clean up of {artifact._clear_storagekey} failed")
             break
 
+    if stored_artifacts:
+        with transaction.atomic():
+            for artifact in stored_artifacts:
+                artifact._save_skip_storage()
+        # uploading and saving is successfull, futher cleanup for the paths not needed
+        # have to go over the stored artifacts again because
+        # it is possible that in the previous loop an exception occured
+        # and everything was rolled back
+        for artifact in stored_artifacts:
+            unregister_cleanup_path(artifact.uid)
+
     if exception is not None:
         # clean up metadata for artifacts not uploaded to storage
-        with transaction.atomic():
-            for artifact in artifacts:
-                if artifact not in stored_artifacts:
-                    artifact._delete_skip_storage()
-                    # clean up storage after failure in check_and_attempt_upload
-                    exception_clear = check_and_attempt_clearing(
-                        artifact, raise_file_not_found_error=False, using_key=using_key
+        for artifact in artifacts:
+            if artifact not in stored_artifacts:
+                # clean up storage after failure in check_and_attempt_upload
+                exception_clear = check_and_attempt_clearing(
+                    artifact, raise_file_not_found_error=False, using_key=using_key
+                )
+                if exception_clear is not None:
+                    logger.warning(
+                        f"clean up of {artifact._clear_storagekey} after the upload error failed"
                     )
-                    if exception_clear is not None:
-                        logger.warning(
-                            f"clean up of {artifact._clear_storagekey} after the upload error failed"
-                        )
         error_message = prepare_error_message(artifacts, stored_artifacts, exception)
         # this is bad because we're losing the original traceback
         # needs to be refactored - also, the orginal error should be raised
@@ -395,7 +399,6 @@ def upload_artifact(
     using_key: str | None = None,
     access_token: str | None = None,
     print_progress: bool = True,
-    register_cleanup: bool = False,
     **kwargs,
 ) -> tuple[UPath, UPath | None]:
     """Store and add file and its linked entries."""
@@ -408,8 +411,7 @@ def upload_artifact(
     if hasattr(artifact, "_to_store") and artifact._to_store:
         logger.save(f"storing artifact '{artifact.uid}' at '{storage_path}'")
         # register the path for cleanup if the upload fails in the mid
-        if register_cleanup:
-            register_cleanup_path(artifact.uid, storage_path)
+        register_cleanup_path(artifact.uid, storage_path)
         store_file_or_folder(
             artifact._local_filepath,
             storage_path,

@@ -2665,7 +2665,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             using_key=using_key,
             access_token=access_token,
             print_progress=print_progress,
-            register_cleanup=True,
             **store_kwargs,
         )
         if exception_upload is not None:
