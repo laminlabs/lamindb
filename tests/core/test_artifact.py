@@ -1098,3 +1098,17 @@ def test_no_unnecessary_imports(df, module_name: str) -> None:
     af.delete(permanent=True)
     import mudata  # noqa
     import spatialdata  # noqa
+
+
+def test_artifact_get_tracking():
+    artifact = ln.Artifact.from_df(df, key="df.parquet").save()
+
+    transform = ln.Transform(key="test track via get").save()
+    run = ln.Run(transform).save()
+
+    assert (
+        ln.Artifact.get(key="df.parquet", is_run_input=run) in run.input_artifacts.all()
+    )
+
+    artifact.delete(permanent=True)
+    transform.delete()
