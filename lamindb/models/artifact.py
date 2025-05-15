@@ -1518,12 +1518,15 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
     def get(
         cls,
         idlike: int | str | None = None,
+        *,
+        is_run_input: bool | None = False,
         **expressions,
     ) -> Artifact:
         """Get a single artifact.
 
         Args:
             idlike: Either a uid stub, uid or an integer id.
+            is_run_input: Whether to track this artifact as run input.
             expressions: Fields and values passed as Django query expressions.
 
         Raises:
@@ -1542,7 +1545,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         from .query_set import QuerySet
 
-        return QuerySet(model=cls).get(idlike, **expressions)
+        return QuerySet(model=cls).get(idlike, is_run_input=is_run_input, **expressions)
 
     @classmethod
     def filter(

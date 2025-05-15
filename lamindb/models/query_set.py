@@ -783,8 +783,10 @@ class QuerySet(BasicQuerySet):
 
     def get(self, idlike: int | str | None = None, **expressions) -> DBRecord:
         """Query a single record. Raises error if there are more or none."""
+        is_run_input = expressions.pop("is_run_input", False)
+
         try:
-            return get(self, idlike, **expressions)
+            record = get(self, idlike, **expressions)
         except ValueError as e:
             # Pass through original error for explicit id lookups
             if "Field 'id' expected a number" in str(e):
@@ -798,6 +800,14 @@ class QuerySet(BasicQuerySet):
         except FieldError as e:
             self._handle_unknown_field(e)
             raise  # pragma: no cover
+
+        if is_run_input is not False:  # might be None or True or Run
+            from lamindb.models.artifact import Artifact, _track_run_input
+
+            if isinstance(record, Artifact):
+                _track_run_input(record, is_run_input)
+
+        return record
 
     def filter(self, *queries, **expressions) -> QuerySet:
         """Query a set of records."""
