@@ -25,7 +25,7 @@ def test_inspect():
 # if a record was added to the DB via a different source
 # it will still be validated because it's in the DB
 def test_inspect_source():
-    source1 = bt.Source.get(entity="bionty.CellType", name="cl").first()
+    source1 = bt.Source.get(entity="bionty.CellType", name="cl")
     source2_ontology = bt.base.CellType(version="2022-08-16")
     bt.CellType.add_source(source2_ontology)
     source2 = bt.Source.get(entity="bionty.CellType", name="cl", version="2022-08-16")
