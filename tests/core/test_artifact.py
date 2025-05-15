@@ -162,6 +162,26 @@ def test_data_is_soma_experiment_paths():
     assert data_is_soma_experiment("something.tiledbsoma")
 
 
+@pytest.mark.parametrize(
+    "data,data_type,expected",
+    [
+        ("get_small_adata", "AnnData", True),
+        ("get_small_mdata", "MuData", True),
+        ("get_small_sdata", "SpatialData", True),
+        ("get_small_adata", "MuData", False),
+        ("get_small_mdata", "AnnData", False),
+        ("get_small_sdata", "AnnData", False),
+        (pd.DataFrame(), "AnnData", False),
+        (None, "AnnData", False),
+    ],
+)
+def test_data_is_scversedatastructure(request, data, data_type, expected):
+    if isinstance(data, str) and data.startswith("get_small_"):
+        data = request.getfixturevalue(data)
+
+    assert data_is_scversedatastructure(data, data_type) == expected
+
+
 def test_basic_validation():
     # extra kwargs
     with pytest.raises(FieldValidationError):
