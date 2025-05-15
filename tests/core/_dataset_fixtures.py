@@ -60,6 +60,15 @@ def get_small_sdata():
 
 
 @pytest.fixture(scope="session")
+def get_small_soma_path():
+    adata = ln.core.datasets.mini_immuno.get_dataset1(otype="AnnData")
+    soma_store_path = "test.tiledbsoma"
+    tiledbsoma.io.from_anndata("test.tiledbsoma", adata, measurement_name="RNA")
+
+    return soma_store_path
+
+
+@pytest.fixture(scope="session")
 def get_small_soma_experiment():
     adata = ln.core.datasets.mini_immuno.get_dataset1(otype="AnnData")
     tiledbsoma.io.from_anndata("test.tiledbsoma", adata, measurement_name="RNA")

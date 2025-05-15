@@ -444,9 +444,7 @@ def test_create_from_spatialdata(
         # n_observations not defined
 
 
-def test_create_from_soma_experiment(
-    get_small_soma_experiment, clean_soma_files, adata_file
-):
+def test_create_from_soma_experiment(get_small_soma_path, clean_soma_files, adata_file):
     with pytest.raises(ValueError) as error:
         ln.Artifact.from_tiledbsoma(adata_file, description="test1")
     assert (
@@ -454,7 +452,7 @@ def test_create_from_soma_experiment(
         in error.exconly()
     )
 
-    af = ln.Artifact.from_tiledbsoma(get_small_soma_experiment, description="test1")
+    af = ln.Artifact.from_tiledbsoma(get_small_soma_path, description="test1")
     assert af.description == "test1"
     assert af.key is None
     assert af.otype == "tiledbsoma"
