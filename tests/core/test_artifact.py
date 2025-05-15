@@ -1100,7 +1100,7 @@ def test_no_unnecessary_imports(df, module_name: str) -> None:
     import spatialdata  # noqa
 
 
-def test_artifact_get_tracking():
+def test_artifact_get_tracking(df):
     artifact = ln.Artifact.from_df(df, key="df.parquet").save()
 
     transform = ln.Transform(key="test track via get").save()
