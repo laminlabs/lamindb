@@ -34,10 +34,8 @@ from lamindb.models import (
 )
 from lamindb.models._from_values import _format_values
 from lamindb.models.artifact import (
-    data_is_anndata,
-    data_is_mudata,
+    data_is_scversedatastructure,
     data_is_soma_experiment,
-    data_is_spatialdata,
 )
 from lamindb.models.feature import parse_cat_dtype, parse_dtype
 
@@ -322,17 +320,27 @@ class SlotsCurator(Curator):
         """{}"""  # noqa: D415
         if not self._is_validated:
             self.validate()
-        if self._artifact is None:
-            type_to_factory = {
-                data_is_anndata: Artifact.from_anndata,
-                data_is_mudata: Artifact.from_mudata,
-                data_is_spatialdata: Artifact.from_spatialdata,
-                data_is_soma_experiment: Artifact.from_tiledbsoma,
-            }
 
-            for type_check, factory in type_to_factory.items():
+        if self._artifact is None:
+            type_mapping = [
+                (
+                    lambda data: data_is_scversedatastructure(data, "AnnData"),
+                    Artifact.from_anndata,
+                ),
+                (
+                    lambda data: data_is_scversedatastructure(data, "MuData"),
+                    Artifact.from_mudata,
+                ),
+                (
+                    lambda data: data_is_scversedatastructure(data, "SpatialData"),
+                    Artifact.from_spatialdata,
+                ),
+                (data_is_soma_experiment, Artifact.from_tiledbsoma),
+            ]
+
+            for type_check, factory in type_mapping:
                 if type_check(self._dataset):
-                    self._artifact = factory(  # type: ignore
+                    self._artifact = factory(
                         self._dataset,
                         key=key,
                         description=description,
@@ -340,6 +348,7 @@ class SlotsCurator(Curator):
                         run=run,
                     )
                     break
+
             self._artifact.schema = self._schema
             self._artifact.save()
         cat_vectors = {}
@@ -632,7 +641,7 @@ class AnnDataCurator(SlotsCurator):
         schema: Schema,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
-        if not data_is_anndata(self._dataset):
+        if not data_is_scversedatastructure(self._dataset, "AnnData"):
             raise InvalidArgument("dataset must be AnnData-like.")
         if schema.otype != "AnnData":
             raise InvalidArgument("Schema otype must be 'AnnData'.")
@@ -716,7 +725,7 @@ class MuDataCurator(SlotsCurator):
         schema: Schema,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
-        if not data_is_mudata(self._dataset):
+        if not data_is_scversedatastructure(self._dataset, "MuData"):
             raise InvalidArgument("dataset must be MuData-like.")
         if schema.otype != "MuData":
             raise InvalidArgument("Schema otype must be 'MuData'.")
@@ -778,7 +787,7 @@ class SpatialDataCurator(SlotsCurator):
         schema: Schema,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
-        if not data_is_spatialdata(self._dataset):
+        if not data_is_scversedatastructure(self._dataset, "SpatialData"):
             raise InvalidArgument("dataset must be SpatialData-like.")
         if schema.otype != "SpatialData":
             raise InvalidArgument("Schema otype must be 'SpatialData'.")

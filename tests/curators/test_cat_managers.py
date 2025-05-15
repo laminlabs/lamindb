@@ -1,6 +1,4 @@
 import re
-import sys
-from pathlib import Path
 from unittest.mock import Mock
 
 import anndata as ad
@@ -10,10 +8,7 @@ import pandas as pd
 import pytest
 from lamindb.curators.core import CatLookup, ValidationError
 
-tests_dir = Path(__file__).parent.parent
-sys.path.append(str(tests_dir))
-
-from core._dataset_fixtures import clean_soma_files  # noqa
+from ..core._dataset_fixtures import clean_soma_files  # noqa
 
 
 @pytest.fixture

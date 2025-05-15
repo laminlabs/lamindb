@@ -42,10 +42,8 @@ from lamindb.errors import (
 )
 from lamindb.models.artifact import (
     check_path_is_child_of_root,
-    data_is_anndata,
-    data_is_mudata,
+    data_is_scversedatastructure,
     data_is_soma_experiment,
-    data_is_spatialdata,
     get_relative_path_to_directory,
     process_data,
 )
@@ -144,19 +142,21 @@ def soma_experiment_file(get_small_soma_experiment, clean_soma_files):
 
 
 def test_data_is_anndata_paths():
-    assert data_is_anndata("something.h5ad")
-    assert data_is_anndata("something.anndata.zarr")
-    assert data_is_anndata("s3://somewhere/something.anndata.zarr")
-    assert not data_is_anndata("s3://somewhere/something.zarr")
+    assert data_is_scversedatastructure("something.h5ad", "AnnData")
+    assert data_is_scversedatastructure("something.anndata.zarr", "AnnData")
+    assert data_is_scversedatastructure(
+        "s3://somewhere/something.anndata.zarr", "AnnData"
+    )
+    assert not data_is_scversedatastructure("s3://somewhere/something.zarr", "AnnData")
 
 
 def test_data_is_mudata_paths():
-    assert data_is_mudata("something.h5mu")
-    assert data_is_mudata("something.mudata.zarr")
+    assert data_is_scversedatastructure("something.h5mu", "MuData")
+    assert data_is_scversedatastructure("something.mudata.zarr", "MuData")
 
 
 def test_data_is_spatialdata_paths():
-    assert data_is_spatialdata("something.spatialdata.zarr")
+    assert "AnnData"("something.spatialdata.zarr", "SpatialData")
 
 
 def test_data_is_soma_experiment_paths():
