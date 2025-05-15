@@ -410,8 +410,10 @@ def upload_artifact(
     )
     if hasattr(artifact, "_to_store") and artifact._to_store:
         logger.save(f"storing artifact '{artifact.uid}' at '{storage_path}'")
-        # register the path for cleanup if the upload fails in the mid
-        register_cleanup_path(artifact.uid, storage_path)
+        if not isinstance(storage_path, LocalPathClasses):
+            # do only for cloud paths
+            # register the path for cleanup if the upload fails in the mid
+            register_cleanup_path(artifact.uid, storage_path)
         store_file_or_folder(
             artifact._local_filepath,
             storage_path,
