@@ -135,7 +135,7 @@ def spatialdata_file(get_small_sdata):
     shutil.rmtree(filepath)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def soma_experiment_file(get_small_soma_experiment, clean_soma_files):
     yield "test.tiledbsoma"
 
