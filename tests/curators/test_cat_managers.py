@@ -8,8 +8,6 @@ import pandas as pd
 import pytest
 from lamindb.curators.core import CatLookup, ValidationError
 
-from ..core._dataset_fixtures import clean_soma_files  # noqa
-
 
 @pytest.fixture
 def df():

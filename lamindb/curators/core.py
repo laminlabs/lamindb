@@ -340,7 +340,7 @@ class SlotsCurator(Curator):
 
             for type_check, factory in type_mapping:
                 if type_check(self._dataset):
-                    self._artifact = factory(
+                    self._artifact = factory(  # type: ignore
                         self._dataset,
                         key=key,
                         description=description,

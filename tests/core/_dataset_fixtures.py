@@ -1,6 +1,3 @@
-import shutil
-from pathlib import Path
-
 import anndata as ad
 import lamindb as ln
 import mudata as md
@@ -10,18 +7,6 @@ import pytest
 import spatialdata as sd
 import tiledbsoma
 from scipy.sparse import csr_matrix
-
-
-@pytest.fixture()
-def clean_soma_files(request):
-    path = request.param if hasattr(request, "param") else "curate.tiledbsoma"
-    if Path(path).exists():
-        shutil.rmtree(path)
-
-    yield path
-
-    if Path(path).exists():
-        shutil.rmtree(path)
 
 
 @pytest.fixture(scope="session")
