@@ -17,14 +17,14 @@ NOTEBOOKS_DIR = Path(__file__).parent.resolve() / "notebooks"
 def test_track_basic_invocation():
     project = "non-existing project"
     with pytest.raises(ln.errors.InvalidArgument) as error:
-        ln.context.track(project=project)
+        ln.track(project=project)
     assert (
         error.exconly()
         == f"lamindb.errors.InvalidArgument: Project '{project}' not found, either create it with `ln.Project(name='...').save()` or fix typos."
     )
     space = "non-existing space"
     with pytest.raises(ln.errors.InvalidArgument) as error:
-        ln.context.track(space=space)
+        ln.track(space=space)
     assert (
         error.exconly()
         == f"lamindb.errors.InvalidArgument: Space '{space}', please check on the hub UI whether you have the correct `uid` or `name`."
@@ -38,7 +38,7 @@ def test_track_basic_invocation():
     # first invocation
     params = {"param1": 1, "param2": "my-string", "param3": 3.14}
     with pytest.raises(ValidationError) as exc:
-        ln.context.track(transform=successor, params=params)
+        ln.track(transform=successor, params=params)
     assert (
         exc.exconly()
         == """lamindb.errors.ValidationError: These keys could not be validated: ['param1', 'param2', 'param3']
@@ -51,14 +51,14 @@ Here is how to create a feature:
     ln.Feature(name="param1", dtype="int").save()
     ln.Feature(name="param2", dtype="str").save()
     ln.Feature(name="param3", dtype="float").save()
-    ln.context.track(transform=successor, params=params)
+    ln.track(transform=successor, params=params)
     print("outside", id(ln.context))
     assert ln.context.run.params.get_values() == params
     # second invocation
     params = {"param1": 1, "param2": "my-string", "param3": 3.14, "param4": [1, 2]}
     param4 = ln.Feature(name="param4", dtype="int").save()
     with pytest.raises(ValidationError) as exc:
-        ln.context.track(transform=successor, params=params)
+        ln.track(transform=successor, params=params)
     assert (
         exc.exconly()
         == """lamindb.errors.ValidationError: Expected dtype for 'param4' is 'int', got 'list[int]'"""
@@ -67,7 +67,7 @@ Here is how to create a feature:
     param4.dtype = "list[int]"
     param4.save()
     # re-run
-    ln.context.track(transform=successor, params=params)
+    ln.track(transform=successor, params=params)
     assert ln.context.run.features.get_values() == params
 
     # test that run populates things like ULabels etc.
@@ -97,7 +97,7 @@ def test_finish_before_track():
 
 def test_invalid_transform_type():
     transform = ln.Transform(key="test transform")
-    ln.context.track(transform=transform)
+    ln.track(transform=transform)
     ln.context._path = None
     ln.context.run.transform.type = "script"
     with pytest.raises(ValueError) as error:
@@ -284,7 +284,7 @@ def test_run_external_script():
 def test_track_notebook_or_script_manually(type):
     transform = ln.Transform(key="My notebook", type=type)
     with pytest.raises(ValueError) as error:
-        ln.context.track(transform=transform)
+        ln.track(transform=transform)
     assert (
         error.exconly()
         == "ValueError: Use `ln.track()` without passing transform in a notebook or script - metadata is automatically parsed"

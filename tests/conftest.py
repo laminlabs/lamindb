@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 
-@pytest.fixture()
+@pytest.fixture(scope="session")
 def clean_soma_files(request):
     path = request.param if hasattr(request, "param") else "curate.tiledbsoma"
     if Path(path).exists():
