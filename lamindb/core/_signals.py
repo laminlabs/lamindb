@@ -4,6 +4,8 @@ import signal
 from typing import Callable
 
 
+# chain signal handlers if they exist already
+# needed due to signal handlers usage in .context.py
 def chain_signal_handler(
     signum: int,
     handler: Callable,
