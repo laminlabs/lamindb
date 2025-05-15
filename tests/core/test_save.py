@@ -45,15 +45,16 @@ def test_store_artifacts_acid():
     # errors on check_and_attempt_clearing
     with pytest.raises(RuntimeError):
         artifact.save()
+    # the above didn't save the artifact
+    assert artifact.pk is None
 
     with pytest.raises(RuntimeError) as error:
         store_artifacts([artifact], using_key=None)
     assert str(error.exconly()).startswith(
         "RuntimeError: The following entries have been successfully uploaded"
     )
-
-    assert artifact.pk is None
-    artifact.path.unlink()
+    # the above saved the artifact
+    artifact.delete(permanent=True)
 
 
 def test_save_parents():
