@@ -26,9 +26,7 @@ def test_inspect():
 # it will still be validated because it's in the DB
 def test_inspect_source():
     source1 = bt.Source.get(entity="bionty.CellType", name="cl")
-    source2_ontology = bt.base.CellType(version="2022-08-16")
-    bt.CellType.add_source(source2_ontology)
-    source2 = bt.Source.get(entity="bionty.CellType", name="cl", version="2022-08-16")
+    source2 = bt.CellType.add_source(source="cl", version="2022-08-16")
     bt.CellType.from_source(name="T cell", source=source1).save()
     assert bt.CellType.inspect("T-cell", source=source2, mute=True).synonyms_mapper == {
         "T-cell": "T cell"
