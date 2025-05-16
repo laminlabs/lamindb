@@ -349,6 +349,38 @@ class Collection(DBRecord, IsVersioned, TracksRun, TracksUpdates):
             _track_run_input(revises, run=run)
         _track_run_input(artifacts, run=run)
 
+    @classmethod
+    def get(
+        cls,
+        idlike: int | str | None = None,
+        *,
+        is_run_input: bool | Run = False,
+        **expressions,
+    ) -> Artifact:
+        """Get a single collection.
+
+        Args:
+            idlike: Either a uid stub, uid or an integer id.
+            is_run_input: Whether to track this collection as run input.
+            expressions: Fields and values passed as Django query expressions.
+
+        Raises:
+            :exc:`docs:lamindb.errors.DoesNotExist`: In case no matching record is found.
+
+        See Also:
+            - Method in `DBRecord` base class: :meth:`~lamindb.models.DBRecord.get`
+
+        Examples:
+
+            ::
+
+                collection = ln.Collection.get("SNmxsMWk6gFX23t10000")
+                collection = ln.Collection.get(key="My versioned scRNA-seq collection")
+        """
+        from .query_set import QuerySet
+
+        return QuerySet(model=cls).get(idlike, is_run_input=is_run_input, **expressions)
+
     def append(self, artifact: Artifact, run: Run | None = None) -> Collection:
         """Append an artifact to the collection.
 

@@ -803,8 +803,9 @@ class QuerySet(BasicQuerySet):
 
         if is_run_input is not False:  # might be None or True or Run
             from lamindb.models.artifact import Artifact, _track_run_input
+            from lamindb.models.collection import Collection
 
-            if isinstance(record, Artifact):
+            if isinstance(record, (Artifact, Collection)):
                 _track_run_input(record, is_run_input)
 
         return record
