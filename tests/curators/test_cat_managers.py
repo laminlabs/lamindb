@@ -1,6 +1,4 @@
 import re
-import shutil
-from pathlib import Path
 from unittest.mock import Mock
 
 import anndata as ad
@@ -455,18 +453,7 @@ def test_mudata_curator(mdata):
         bt.Gene.filter().delete()
 
 
-@pytest.fixture()
-def clean_soma_files():
-    if Path("curate.tiledbsoma").exists():
-        shutil.rmtree("curate.tiledbsoma")
-
-    yield  # Let the test run
-
-    if Path("curate.tiledbsoma").exists():
-        shutil.rmtree("curate.tiledbsoma")
-
-
-def test_soma_curator(adata, categoricals, clean_soma_files):
+def test_soma_curator(adata, categoricals, clean_soma_files):  # noqa: F811
     import tiledbsoma
     import tiledbsoma.io
 
@@ -605,7 +592,7 @@ def test_soma_curator(adata, categoricals, clean_soma_files):
         bt.Gene.filter().delete()
 
 
-def test_soma_curator_genes_columns(adata, clean_soma_files):
+def test_soma_curator_genes_columns(adata, clean_soma_files):  # noqa: F811
     import tiledbsoma
     import tiledbsoma.io
 
