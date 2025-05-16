@@ -561,7 +561,6 @@ def test_soma_curator(
         **curator_params,
     )
     artifact = curator.save_artifact(key="examples/dataset1.tiledbsoma")
-    # artifact.features.add_values(adata.uns)
 
     assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
         "CD8-positive, alpha-beta T cell",
@@ -752,3 +751,97 @@ def test_spatialdata_curator(
     )
 
     artifact.delete(permanent=True)
+
+
+def test_tiledbsoma_curator(small_dataset1_schema: ln.Schema, clean_soma_files):
+    """Test TiledbSomaExperimentCurator with schema."""
+    # Create a SOMA schema with slots for obs data and RNA measurement
+    obs_schema = ln.Schema(
+        features=[
+            ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
+            ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
+        ],
+    ).save()
+
+    var_schema = ln.Schema(
+        features=[
+            ln.Feature(name="var_id", dtype=bt.Gene.ensembl_gene_id).save(),
+        ],
+        coerce_dtype=True,
+    ).save()
+
+    soma_schema = ln.Schema(
+        otype="tiledbsoma",
+        slots={
+            "obs": obs_schema,
+            "ms:RNA": var_schema,
+        },
+    ).save()
+
+    # Convert AnnData to SOMA format
+    adata = ln.core.datasets.small_dataset1(otype="AnnData")
+    tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
+    experiment = tiledbsoma.Experiment.open("curate.tiledbsoma")
+
+    # Test with invalid dataset
+    with pytest.raises(ln.errors.InvalidArgument):
+        ln.curators.TiledbSomaExperimentCurator(adata, soma_schema)
+
+    # Test with invalid schema
+    with pytest.raises(ln.errors.InvalidArgument):
+        ln.curators.TiledbSomaExperimentCurator(experiment, small_dataset1_schema)
+
+    # Create the curator with valid schema and data
+    curator = ln.curators.TiledbSomaExperimentCurator(experiment, soma_schema)
+
+    # Check slots initialization
+    assert "obs" in curator.slots
+    assert "ms:RNA:var" in curator.slots
+
+    # Validate
+    curator.validate()
+
+    # Check var_fields
+    assert "RNA" in curator._var_fields
+    assert curator._var_fields["RNA"] == bt.Gene.ensembl_gene_id
+
+    # Test saving artifact
+    artifact = curator.save_artifact(
+        key="examples/soma_experiment.tiledbsoma",
+        description="SOMA experiment with schema validation",
+    )
+
+    # Check schema and features
+    assert artifact.schema == soma_schema
+    assert "obs" in artifact.features.slots
+    assert "ms:RNA:var" in artifact.features.slots
+
+    # Check feature values are properly annotated
+    assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
+        "CD8-positive, alpha-beta T cell",
+        "B cell",
+    }
+    assert set(artifact.features.get_values()["cell_type_by_model"]) == {
+        "T cell",
+        "B cell",
+    }
+
+    # Test with altered data (gene typo)
+    adata_typo = ln.core.datasets.small_dataset1(otype="AnnData", with_gene_typo=True)
+    typo_soma_path = "./small_dataset1_typo.tiledbsoma"
+    tiledbsoma.io.from_anndata(typo_soma_path, adata_typo, measurement_name="RNA")
+
+    curator_typo = ln.curators.TiledbSomaExperimentCurator(typo_soma_path, soma_schema)
+
+    # Validation should fail due to typo
+    with pytest.raises(ln.errors.ValidationError) as error:
+        curator_typo.validate()
+
+    # Check error message contains the typo information
+    assert "GeneTypo" in str(error.value)
+
+    # Clean up
+    artifact.delete(permanent=True)
+    soma_schema.delete()
+    var_schema.delete()
+    obs_schema.delete()

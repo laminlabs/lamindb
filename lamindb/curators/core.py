@@ -872,9 +872,45 @@ class TiledbSomaExperimentCurator(SlotsCurator):
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
         if not data_is_soma_experiment(self._dataset):
-            raise InvalidArgument("dataset must be SpatialData-like.")
-        if schema.otype != "SpatialData":
-            raise InvalidArgument("Schema otype must be 'SpatialData'.")
+            raise InvalidArgument("dataset must be SOMAExperiment-like.")
+        if schema.otype != "tiledbsoma":
+            raise InvalidArgument("Schema otype must be 'tiledbsoma'.")
+
+        for slot, slot_schema in schema.slots.items():
+            if slot == "obs":
+                self._slots[slot] = DataFrameCurator(
+                    self._dataset.obs.read()
+                    .concat()
+                    .to_pandas()
+                    .drop(["soma_joinid", "obs_id"], axis=1, errors="ignore"),
+                    slot_schema,
+                    slot=slot,
+                )
+            elif slot.startswith("ms:"):
+                parts = slot.split(":")
+                if len(parts) == 2:
+                    ms_name = parts[1]
+                    if ms_name in self._dataset.ms:
+                        var_slot = f"{slot}:var"
+                        self._slots[var_slot] = DataFrameCurator(
+                            self._dataset.ms[ms_name]
+                            .var.read()
+                            .concat()
+                            .to_pandas()
+                            .drop("soma_joinid", axis=1, errors="ignore"),
+                            slot_schema,
+                            slot=var_slot,
+                        )
+
+                        _assign_var_fields_categoricals_multimodal(
+                            modality=ms_name,
+                            slot_type="var",
+                            slot=var_slot,
+                            slot_schema=slot_schema,
+                            var_fields=self._var_fields,
+                            cat_vectors=self._cat_vectors,
+                            slots=self._slots,
+                        )
 
 
 class CatVector:
