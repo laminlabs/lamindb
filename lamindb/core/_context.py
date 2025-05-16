@@ -677,13 +677,13 @@ class Context:
                 if aux_transform is not None and not aux_transform.key.endswith(
                     self._path.name
                 ):
-                    response = input(
-                        f"Found transform with same hash but different key: {aux_transform.key}. Did you rename your {transform_type} (1) or intentionally made a copy (2)?"
+                    prompt = f"Found transform with same hash but different key: {aux_transform.key}. Did you rename your {transform_type} to {self._path.name} (1) or intentionally made a copy (2)?"
+                    response = (
+                        "1" if os.getenv("LAMIN_TESTING") == "true" else input(prompt)
                     )
-                    if response not in {"1", "2"}:
-                        raise InvalidArgument(
-                            f"Please respond with either 1 or 2, not {response}"
-                        )
+                    assert response in {"1", "2"}, (  # noqa: S101
+                        f"Please respond with either 1 or 2, not {response}"
+                    )
                     if response == "2":
                         transform_hash = None  # make a new transform
             if aux_transform is not None:
