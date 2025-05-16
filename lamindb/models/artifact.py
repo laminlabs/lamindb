@@ -80,6 +80,7 @@ from ._relations import (
     dict_module_name_to_model_name,
     dict_related_model_to_related_name,
 )
+from .artifact_cleanup import unregister_cleanup_path
 from .core import Storage
 from .dbrecord import (
     BaseDBRecord,
@@ -91,6 +92,7 @@ from .dbrecord import (
 from .feature import Feature, FeatureValue
 from .has_parents import view_lineage
 from .run import Run, TracksRun, TracksUpdates, User
+from .save import check_and_attempt_clearing, check_and_attempt_upload
 from .schema import Schema
 from .ulabel import ULabel
 
@@ -2586,16 +2588,12 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
             # ensure that the artifact is uploaded
             self._to_store = True
 
-        self._save_skip_storage(**kwargs)
-
-        from .save import check_and_attempt_clearing, check_and_attempt_upload
-
         using_key = None
         if "using" in kwargs:
             using_key = kwargs["using"]
         exception_upload = check_and_attempt_upload(
             self,
-            using_key,
+            using_key=using_key,
             access_token=access_token,
             print_progress=print_progress,
             **store_kwargs,
@@ -2605,7 +2603,6 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
             # often it is ACID in the filesystem itself
             # for example, s3 won't have the failed file, so just skip the delete in this case
             raise_file_not_found_error = False
-            self._delete_skip_storage()
         else:
             # this is the case when it is cleaned on .replace
             raise_file_not_found_error = True
@@ -2619,6 +2616,12 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
             raise RuntimeError(exception_upload)
         if exception_clear is not None:
             raise RuntimeError(exception_clear)
+
+        # save the db record here if the upload was successfull
+        self._save_skip_storage(**kwargs)
+        # unregister the path for cleanup
+        unregister_cleanup_path(self.uid)
+
         # this is only for keep_artifacts_local
         if local_path is not None and not state_was_adding:
             # only move the local artifact to cache if it was not newly created
@@ -2633,6 +2636,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
         if hasattr(self, "_curator"):
             curator = self._curator
             delattr(self, "_curator")
+            # this just annotates the saved artifact
             curator.save_artifact()
         return self
 
