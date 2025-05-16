@@ -670,6 +670,22 @@ class Context:
                     .order_by("-created_at")
                     .first()
                 )
+            else:
+                # deal with a hash-based match
+                # the user might have a made a copy of the notebook or script
+                # and actually wants to create a new transform
+                if aux_transform is not None and not aux_transform.key.endswith(
+                    self._path.name
+                ):
+                    response = input(
+                        f"Found transform with same hash but different key: {aux_transform.key}. Did you rename your {transform_type} (1) or intentionally made a copy (2)?"
+                    )
+                    if response not in {"1", "2"}:
+                        raise InvalidArgument(
+                            f"Please respond with either 1 or 2, not {response}"
+                        )
+                    if response == "2":
+                        transform_hash = None  # make a new transform
             if aux_transform is not None:
                 if aux_transform.key.endswith(self._path.name):
                     key = aux_transform.key
