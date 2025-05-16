@@ -374,8 +374,8 @@ class Collection(DBRecord, IsVersioned, TracksRun, TracksUpdates):
 
             ::
 
-                collection = ln.Collection.get("SNmxsMWk6gFX23t10000")
-                collection = ln.Collection.get(key="My versioned scRNA-seq collection")
+                collection = ln.Collection.get("okxPW6GIKBfRBE3B0000")
+                collection = ln.Collection.get(key="scrna/collection1")
         """
         from .query_set import QuerySet
 
