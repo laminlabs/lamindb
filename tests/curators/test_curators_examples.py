@@ -803,7 +803,7 @@ def test_tiledbsoma_curator(small_dataset1_schema: ln.Schema, clean_soma_files):
 
     # Check var_fields
     assert "RNA" in curator._var_fields
-    assert curator._var_fields["RNA"] == bt.Gene.ensembl_gene_id
+    assert curator._var_fields["RNA"].field.name == "ensembl_gene_id"
 
     # Test saving artifact
     artifact = curator.save_artifact(
