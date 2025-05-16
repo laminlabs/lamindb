@@ -1519,7 +1519,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
         cls,
         idlike: int | str | None = None,
         *,
-        is_run_input: bool | None = False,
+        is_run_input: bool | Run = False,
         **expressions,
     ) -> Artifact:
         """Get a single artifact.
