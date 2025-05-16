@@ -830,8 +830,9 @@ def test_tiledbsoma_curator(small_dataset1_schema: ln.Schema, clean_soma_files):
     adata_typo = ln.core.datasets.small_dataset1(otype="AnnData", with_gene_typo=True)
     typo_soma_path = "./small_dataset1_typo.tiledbsoma"
     tiledbsoma.io.from_anndata(typo_soma_path, adata_typo, measurement_name="RNA")
+    experiment_typo = tiledbsoma.Experiment.open(typo_soma_path)
 
-    curator_typo = ln.curators.TiledbSomaExperimentCurator(typo_soma_path, soma_schema)
+    curator_typo = ln.curators.TiledbSomaExperimentCurator(experiment_typo, soma_schema)
 
     # Validation should fail due to typo
     with pytest.raises(ln.errors.ValidationError) as error:
