@@ -38,14 +38,18 @@ def test_run_after_rename_no_uid():
     new_path = notebook_path.with_name("no-uid-renamed.ipynb")
     os.system(f"cp {notebook_path} {new_path}")  # noqa: S605
 
+    env = os.environ
+    env["LAMIN_TESTING"] = "true"
     result = subprocess.run(  # noqa: S602
         f"jupyter nbconvert --to notebook --inplace --execute {new_path}",
         shell=True,
         capture_output=True,
+        env=env,
     )
     print(result.stdout.decode())
     print(result.stderr.decode())
     assert result.returncode == 0
+    del env["LAMIN_TESTING"]
 
     assert ln.Transform.get(key="no-uid-renamed.ipynb").uid == uid
 
