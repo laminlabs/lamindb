@@ -660,9 +660,11 @@ class Context:
                 key = self._path.name
         else:
             if self.uid is not None:
-                assert len(self.uid) == 12, (  # noqa: S101
-                    "uid must be 12 (stem) or 16 (full) characters long"
-                )
+                # the case with length 16 is covered above
+                if not len(self.uid) == 12:
+                    raise InvalidArgument(
+                        f'Please pass an auto-generated uid instead of "{self.uid}". Resolve by running: ln.track("{base62_12()}")'
+                    )
                 aux_transform = (
                     Transform.filter(uid__startswith=self.uid)
                     .order_by("-created_at")
