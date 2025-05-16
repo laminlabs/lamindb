@@ -466,3 +466,20 @@ def test_with_metadata(df, adata):
     collection.delete(permanent=True)
     data_artifact.delete(permanent=True)
     meta_artifact.delete(permanent=True)
+
+
+def test_collection_get_tracking(df):
+    artifact = ln.Artifact.from_df(df, key="df.parquet").save()
+    collection = ln.Collection(artifact, key="track-collection").save()
+
+    transform = ln.Transform(key="test track collection via get").save()
+    run = ln.Run(transform).save()
+
+    assert (
+        ln.Collection.get(key="track-collection", is_run_input=run)
+        in run.input_collections.all()
+    )
+
+    collection.delete(permanent=True)
+    artifact.delete(permanent=True)
+    transform.delete()

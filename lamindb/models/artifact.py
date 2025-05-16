@@ -1526,12 +1526,15 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
     def get(
         cls,
         idlike: int | str | None = None,
+        *,
+        is_run_input: bool | Run = False,
         **expressions,
     ) -> Artifact:
         """Get a single artifact.
 
         Args:
             idlike: Either a uid stub, uid or an integer id.
+            is_run_input: Whether to track this artifact as run input.
             expressions: Fields and values passed as Django query expressions.
 
         Raises:
@@ -1550,7 +1553,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         from .query_set import QuerySet
 
-        return QuerySet(model=cls).get(idlike, **expressions)
+        return QuerySet(model=cls).get(idlike, is_run_input=is_run_input, **expressions)
 
     @classmethod
     def filter(
@@ -2714,6 +2717,9 @@ def _track_run_input(
     is_run_input: bool | Run | None = None,
     run: Run | None = None,
 ):
+    if is_run_input is False:
+        return
+
     from lamindb import settings
 
     from .._tracked import get_current_tracked_run
