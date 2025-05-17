@@ -105,7 +105,7 @@ class WriteLogReplayer:
             )
 
             self.cursor.execute(f"""
-            SELECT {", ".join(primary_key.source_columns)}
+            SELECT {", ".join(c.name for c in primary_key.source_columns)}
             FROM {table_name}
             WHERE {lookup_where_clause}
             """)  # noqa: S608
@@ -191,7 +191,7 @@ class WriteLogReplayer:
         uid_constraints = {f"{k} = '{v}'" for (k, v) in foreign_key.foreign_uid.items()}
 
         self.cursor.execute(
-            f"SELECT {','.join(primary_key.source_columns)} "  # noqa: S608
+            f"SELECT {','.join(c.name for c in primary_key.source_columns)} "  # noqa: S608
             f"FROM {foreign_key.table_name} "
             f"WHERE {uid_constraints}"
         )
@@ -209,7 +209,7 @@ class WriteLogReplayer:
             )
 
         row = rows[0]
-        return dict(zip(primary_key.source_columns, row))
+        return dict(zip([c.name for c in primary_key.source_columns], row))
 
     def replay_standard(self, write_log_record: WriteLog):
         pass

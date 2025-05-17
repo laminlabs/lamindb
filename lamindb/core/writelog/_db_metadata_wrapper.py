@@ -1,31 +1,12 @@
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from dataclasses import dataclass
-from enum import Enum
 
 from django.apps import apps
 from django.db.backends.utils import CursorWrapper
 from django.db.models import ManyToManyField
 from typing_extensions import override
 
-from ._types import KeyConstraint, TableUID, UIDColumns
-
-
-class ColumnType(Enum):
-    INT = 0
-    BOOL = 1
-    STR = 2
-    DATE = 3
-    FLOAT = 4
-    JSON = 5
-    TIMESTAMPTZ = 6
-
-
-@dataclass
-class Column:
-    name: str
-    type: ColumnType
-    ordinal_position: int
+from ._types import Column, ColumnType, KeyConstraint, TableUID, UIDColumns
 
 
 class DatabaseMetadataWrapper(ABC):
@@ -168,7 +149,11 @@ SELECT
         WHEN 'f' THEN 'FOREIGN KEY'
     END AS constraint_type,
     a.attname AS source_column,
+    a.attnum AS source_column_position,
+    pg_catalog.format_type(a.atttypid, a.atttypmod) AS source_column_type,
     CASE WHEN tc.contype = 'f' THEN af.attname ELSE NULL END AS target_column,
+    CASE WHEN tc.contype = 'f' THEN af.attnum ELSE NULL END AS target_column_position,
+    CASE WHEN tc.contype = 'f' THEN pg_catalog.format_type(af.atttypid, af.atttypmod) ELSE NULL END AS target_column_type,
     CASE WHEN tc.contype = 'f' THEN tf.relname ELSE NULL END AS target_table
 FROM
     pg_constraint tc
@@ -198,12 +183,27 @@ ORDER BY
             (
                 constraint_name,
                 constraint_type,
-                source_column,
-                target_column,
+                source_column_name,
+                source_column_position,
+                source_column_type,
+                target_column_name,
+                target_column_position,
+                target_column_type,
                 target_table,
             ) = k
 
+            source_column = Column(
+                name=source_column_name,
+                type=self._get_column_type(source_column_type),
+                ordinal_position=source_column_position,
+            )
+
             if constraint_type == "PRIMARY KEY":
+                if target_table is not None or target_column_name is not None:
+                    raise Exception(
+                        "Expected foreign key's target table/column to be NULL"
+                    )
+
                 if primary_key_constraint is None:
                     primary_key_constraint = KeyConstraint(
                         constraint_name=constraint_name,
@@ -214,8 +214,14 @@ ORDER BY
                     )
 
                 primary_key_constraint.source_columns.append(source_column)
-                primary_key_constraint.target_columns.append(target_column)
+
             elif constraint_type == "FOREIGN KEY":
+                target_column = Column(
+                    name=target_column_name,
+                    type=self._get_column_type(target_column_type),
+                    ordinal_position=target_column_position,
+                )
+
                 if constraint_name not in foreign_key_constraints:
                     foreign_key_constraints[constraint_name] = KeyConstraint(
                         constraint_name=constraint_name,
@@ -241,6 +247,30 @@ ORDER BY
 
         return (primary_key_constraint, list(foreign_key_constraints.values()))
 
+    def _get_column_type(self, data_type: str) -> ColumnType:
+        column_type: ColumnType
+
+        if data_type in ("smallint", "integer", "bigint"):
+            column_type = ColumnType.INT
+        elif data_type in ("boolean",):
+            column_type = ColumnType.BOOL
+        elif data_type in ("character varying", "text"):
+            column_type = ColumnType.STR
+        elif data_type in ("jsonb",):
+            column_type = ColumnType.JSON
+        elif data_type in ("date",):
+            column_type = ColumnType.DATE
+        elif data_type in ("timestamp with time zone",):
+            column_type = ColumnType.TIMESTAMPTZ
+        elif data_type in ("double precision",):
+            column_type = ColumnType.FLOAT
+        else:
+            raise ValueError(
+                f"Don't know how to canonicalize column type '{data_type}'"
+            )
+
+        return column_type
+
     @override
     def get_columns(self, table: str, cursor: CursorWrapper) -> set[Column]:
         if self._columns is None:
@@ -250,7 +280,7 @@ SELECT
     column_name,
     data_type,
     ordinal_position
-FROM information_schena.columns
+FROM information_schema.columns
 WHERE
     table_schema not in ('pg_catalog', 'information_schema')
 ORDER BY table_name, ordinal_position
@@ -260,28 +290,8 @@ ORDER BY table_name, ordinal_position
             for row in cursor.fetchall():
                 table_name, column_name, data_type, ordinal_position = row
 
-                ordinal_position = int(ordinal_position)
-
-                column_type: ColumnType
-
-                if data_type in ("smallint", "integer", "bigint"):
-                    column_type = ColumnType.INT
-                elif data_type in ("boolean",):
-                    column_type = ColumnType.BOOL
-                elif data_type in ("character varying", "text"):
-                    column_type = ColumnType.STR
-                elif data_type in ("jsonb",):
-                    column_type = ColumnType.JSON
-                elif data_type in ("date",):
-                    column_type = ColumnType.DATE
-                elif data_type in ("timestamp with time zone",):
-                    column_type = ColumnType.TIMESTAMPTZ
-                elif data_type in ("double",):
-                    column_type = ColumnType.FLOAT
-                else:
-                    raise ValueError(
-                        f"Don't know how to canonicalize column {column_name} of table {table_name} (type {data_type})"
-                    )
+                column_type = self._get_column_type(data_type)
+                ordinal_position = ordinal_position
 
                 if table_name not in self._columns:
                     self._columns[table_name] = set()
@@ -294,7 +304,7 @@ ORDER BY table_name, ordinal_position
                     )
                 )
 
-        return self._columns[table_name]
+        return self._columns[table]
 
     @override
     def get_tables_with_installed_triggers(self, cursor: CursorWrapper) -> set[str]:
