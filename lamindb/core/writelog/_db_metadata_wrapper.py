@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 from copy import deepcopy
+from dataclasses import dataclass
+from enum import Enum
 
 from django.apps import apps
 from django.db.backends.utils import CursorWrapper
@@ -7,6 +9,23 @@ from django.db.models import ManyToManyField
 from typing_extensions import override
 
 from ._types import KeyConstraint, TableUID, UIDColumns
+
+
+class ColumnType(Enum):
+    INT = 0
+    BOOL = 1
+    STR = 2
+    DATE = 3
+    FLOAT = 4
+    JSON = 5
+    TIMESTAMPTZ = 6
+
+
+@dataclass
+class Column:
+    name: str
+    type: ColumnType
+    ordinal_position: int
 
 
 class DatabaseMetadataWrapper(ABC):
@@ -20,8 +39,11 @@ class DatabaseMetadataWrapper(ABC):
     """
 
     @abstractmethod
-    def get_column_names(self, table: str, cursor: CursorWrapper) -> set[str]:
+    def get_columns(self, table: str, cursor: CursorWrapper) -> set[Column]:
         raise NotImplementedError()
+
+    def get_column_names(self, table: str, cursor: CursorWrapper) -> set[str]:
+        return {c.name for c in self.get_columns(table, cursor)}
 
     @abstractmethod
     def get_tables_with_installed_triggers(self, cursor: CursorWrapper) -> set[str]:
@@ -128,6 +150,11 @@ class DatabaseMetadataWrapper(ABC):
 
 
 class PostgresDatabaseMetadataWrapper(DatabaseMetadataWrapper):
+    def __init__(self) -> None:
+        super().__init__()
+
+        self._columns: dict[str, set[Column]] | None = None
+
     @override
     def get_table_key_constraints(
         self, table: str, cursor: CursorWrapper
@@ -215,13 +242,59 @@ ORDER BY
         return (primary_key_constraint, list(foreign_key_constraints.values()))
 
     @override
-    def get_column_names(self, table: str, cursor: CursorWrapper) -> set[str]:
-        cursor.execute(
-            "SELECT column_name FROM information_schema.columns WHERE TABLE_NAME = %s ORDER BY ordinal_position",
-            (table,),
-        )
+    def get_columns(self, table: str, cursor: CursorWrapper) -> set[Column]:
+        if self._columns is None:
+            cursor.execute("""
+SELECT
+    table_name,
+    column_name,
+    data_type,
+    ordinal_position
+FROM information_schena.columns
+WHERE
+    table_schema not in ('pg_catalog', 'information_schema')
+ORDER BY table_name, ordinal_position
+""")
+            self._columns = {}
 
-        return {r[0] for r in cursor.fetchall()}
+            for row in cursor.fetchall():
+                table_name, column_name, data_type, ordinal_position = row
+
+                ordinal_position = int(ordinal_position)
+
+                column_type: ColumnType
+
+                if data_type in ("smallint", "integer", "bigint"):
+                    column_type = ColumnType.INT
+                elif data_type in ("boolean",):
+                    column_type = ColumnType.BOOL
+                elif data_type in ("character varying", "text"):
+                    column_type = ColumnType.STR
+                elif data_type in ("jsonb",):
+                    column_type = ColumnType.JSON
+                elif data_type in ("date",):
+                    column_type = ColumnType.DATE
+                elif data_type in ("timestamp with time zone",):
+                    column_type = ColumnType.TIMESTAMPTZ
+                elif data_type in ("double",):
+                    column_type = ColumnType.FLOAT
+                else:
+                    raise ValueError(
+                        f"Don't know how to canonicalize column {column_name} of table {table_name} (type {data_type})"
+                    )
+
+                if table_name not in self._columns:
+                    self._columns[table_name] = set()
+
+                self._columns[table_name].add(
+                    Column(
+                        name=column_name,
+                        type=column_type,
+                        ordinal_position=ordinal_position,
+                    )
+                )
+
+        return self._columns[table_name]
 
     @override
     def get_tables_with_installed_triggers(self, cursor: CursorWrapper) -> set[str]:
