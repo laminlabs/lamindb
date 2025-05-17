@@ -483,7 +483,7 @@ class PostgresHistoryRecordingFunctionBuilder:
 
             return self._build_jsonb_array(
                 [
-                    f"{table_name_in_trigger}.{column}"
+                    f"{table_name_in_trigger}.{column.name}"
                     for column in table_uid.uid_columns
                 ]
             )
@@ -559,7 +559,7 @@ class PostgresHistoryRecordingFunctionBuilder:
         # data object as well.
         if len(uid_columns_list) == 1:
             table_uid = uid_columns_list[0]
-            non_key_columns.difference_update(table_uid.uid_columns)
+            non_key_columns.difference_update(c.name for c in table_uid.uid_columns)
 
         record_data: dict[str | int, Any] = {}
 
@@ -692,11 +692,11 @@ class PostgresHistoryRecordingFunctionBuilder:
             f"""
 coalesce(
     (
-        SELECT {self._build_jsonb_object({c: c for c in table_uid.uid_columns})}
+        SELECT {self._build_jsonb_object({c.name: c.name for c in table_uid.uid_columns})}
         FROM {foreign_key_constraint.target_table}
         WHERE {where_clause}
     ),
-    {self._build_jsonb_object(dict.fromkeys(table_uid.uid_columns, "NULL"))}
+    {self._build_jsonb_object(dict.fromkeys([c.name for c in table_uid.uid_columns], "NULL"))}
 )
 """,  # noqa: S608
         )

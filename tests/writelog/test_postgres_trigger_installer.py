@@ -15,7 +15,7 @@ from lamindb.core.writelog._trigger_installer import (
     PostgresWriteLogRecordingTriggerInstaller,
     WriteLogEventTypes,
 )
-from lamindb.core.writelog._types import TableUID, UIDColumns
+from lamindb.core.writelog._types import Column, ColumnType, TableUID, UIDColumns
 from lamindb.models.artifact import Artifact
 from lamindb.models.run import Run
 from lamindb.models.sqlrecord import Space
@@ -864,7 +864,10 @@ def test_triggers_with_compound_table_uid(compound_uid_table, compound_uid_child
             compound_uid_table: [
                 TableUID(
                     source_table_name=compound_uid_table,
-                    uid_columns=["uid_1", "uid_2"],
+                    uid_columns=[
+                        Column(name="uid_1", type=ColumnType.STR, ordinal_position=1),
+                        Column(name="uid_2", type=ColumnType.STR, ordinal_position=3),
+                    ],
                     key_constraint=None,
                 )
             ]
@@ -974,7 +977,10 @@ def test_triggers_many_to_many_to_compound_uid_with_self_links(
             compound_uid_table: [
                 TableUID(
                     source_table_name=compound_uid_table,
-                    uid_columns=["uid_1", "uid_2"],
+                    uid_columns=[
+                        Column(name="uid_1", type=ColumnType.STR, ordinal_position=1),
+                        Column(name="uid_2", type=ColumnType.STR, ordinal_position=3),
+                    ],
                     key_constraint=None,
                 )
             ]
