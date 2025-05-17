@@ -37,7 +37,7 @@ class KeyConstraint:
 @dataclass
 class TableUID:
     source_table_name: str
-    uid_columns: list[str]
+    uid_columns: list[Column]
     key_constraint: Optional[KeyConstraint]
 
 
