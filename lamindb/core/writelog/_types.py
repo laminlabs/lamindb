@@ -1,13 +1,23 @@
 from dataclasses import dataclass
+from enum import Enum
 from typing import Literal, Optional
 
 
-@dataclass
-class ManyToManyRelationship:
-    first_column: str
-    first_table: str
-    second_column: str
-    second_table: str
+class ColumnType(Enum):
+    INT = 0
+    BOOL = 1
+    STR = 2
+    DATE = 3
+    FLOAT = 4
+    JSON = 5
+    TIMESTAMPTZ = 6
+
+
+@dataclass(frozen=True)
+class Column:
+    name: str
+    type: ColumnType
+    ordinal_position: int
 
 
 @dataclass
@@ -18,8 +28,8 @@ class KeyConstraint:
     constraint_type: Literal["PRIMARY KEY", "FOREIGN KEY"]
 
     # These need to be a list to account for composite primary keys
-    source_columns: list[str]
-    target_columns: list[str]
+    source_columns: list[Column]
+    target_columns: list[Column]
 
     target_table: str
 

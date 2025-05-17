@@ -295,7 +295,9 @@ END $$;
         primary_key_constraint: KeyConstraint,
         foreign_key_constraints: list[KeyConstraint],
     ):
-        primary_key_columns_set: set[str] = set(primary_key_constraint.source_columns)
+        primary_key_columns_set: set[str] = {
+            c.name for c in primary_key_constraint.source_columns
+        }
         self_referential_constraints = [
             fk for fk in foreign_key_constraints if fk.target_table == table
         ]
@@ -303,7 +305,9 @@ END $$;
         self_reference_columns_set: set[str] = set()
 
         for foreign_key_constraint in self_referential_constraints:
-            self_reference_columns_set.add(*(foreign_key_constraint.source_columns))
+            self_reference_columns_set.add(
+                *(c.name for c in foreign_key_constraint.source_columns)
+            )
 
         # We need to specify these columns in a fixed order so that we can figure out
         # which elements in the output row correspond to each column after the lookup query
@@ -334,20 +338,20 @@ FROM {table}
             for foreign_key_constraint in self_referential_constraints:
                 # If all source columns are null, skip this constraint.
                 if not any(
-                    row_dict[source_col] is not None
+                    row_dict[source_col.name] is not None
                     for source_col in foreign_key_constraint.source_columns
                 ):
                     continue
 
-                referenced_pk = {}
+                referenced_pk: dict[str, Any] = {}
 
                 # We need to map the source columns in the constraint to their corresponding target columns.
                 for i, source_column in enumerate(
                     foreign_key_constraint.source_columns
                 ):
-                    referenced_pk[foreign_key_constraint.target_columns[i]] = row_dict[
-                        source_column
-                    ]
+                    referenced_pk[foreign_key_constraint.target_columns[i].name] = (
+                        row_dict[source_column.name]
+                    )
 
                 hashed_referenced_pk = self._hash_pk(referenced_pk)
 
@@ -511,7 +515,7 @@ class PostgresHistoryRecordingFunctionBuilder:
                             table_id_var,
                             self._build_jsonb_array(
                                 [
-                                    f"'{c}'"
+                                    f"'{c.name}'"
                                     for c in foreign_key_constraint.source_columns
                                 ]
                             ),
@@ -539,14 +543,16 @@ class PostgresHistoryRecordingFunctionBuilder:
 
         # We don't need to store the table's primary key columns in its data object,
         # since the object will be identified by its UID columns.
-        non_key_columns = table_columns.difference(set(primary_key.source_columns))
+        non_key_columns = table_columns.difference(
+            {c.name for c in primary_key.source_columns}
+        )
 
         # We also don't need to store any foreign-key columns in its data object,
         # since the references those columns encode will be captured by reference to
         # their UID columns.
         for foreign_key_constraint in foreign_key_constraints:
             non_key_columns.difference_update(
-                set(foreign_key_constraint.source_columns)
+                {c.name for c in foreign_key_constraint.source_columns}
             )
 
         # Since we're recording the record's UID, we don't need to store the UID columns in the
@@ -570,7 +576,8 @@ class PostgresHistoryRecordingFunctionBuilder:
             # Don't record foreign-keys to space, since we store space_uid separately
             if not (
                 foreign_key_constraint.target_table == "lamindb_space"
-                and foreign_key_constraint.source_columns == ["space_id"]
+                and [c.name for c in foreign_key_constraint.source_columns]
+                == ["space_id"]
             )
         ]
 
@@ -625,7 +632,7 @@ class PostgresHistoryRecordingFunctionBuilder:
             [
                 table_id,
                 self._build_jsonb_array(
-                    [f"'{c}'" for c in foreign_key_constraint.source_columns]
+                    [f"'{c.name}'" for c in foreign_key_constraint.source_columns]
                 ),
                 uid_lookup_variable,
             ]
@@ -666,7 +673,7 @@ class PostgresHistoryRecordingFunctionBuilder:
         table_uid = uid_column_list[0]
 
         where_clause = " AND ".join(
-            f"{target_col} = {source_record}.{source_col}"
+            f"{target_col.name} = {source_record}.{source_col.name}"
             for source_col, target_col in zip(
                 foreign_key_constraint.source_columns,
                 foreign_key_constraint.target_columns,
