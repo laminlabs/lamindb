@@ -358,24 +358,56 @@ class SlotsCurator(Curator):
         )
 
 
+def _is_type_or_list_of_type(value, expected_type):
+    """Helper function to check if a value is either of expected_type or a list of that type, or a mix of both in a nested structure."""
+    if isinstance(value, (list, np.ndarray)):
+        # handle nested lists recursively
+        return all(_is_type_or_list_of_type(item, expected_type) for item in value)
+    return isinstance(value, expected_type)
+
+
 def check_dtype(expected_type) -> Callable:
     """Creates a check function for Pandera that validates a column's dtype.
 
+    Supports both standard dtype checking and mixed list/single values for
+    the same type. For example, a column with expected_type 'float' would
+    also accept a mix of float values and lists of floats.
+
     Args:
-        expected_type: String identifier for the expected type ('int', 'float', or 'num')
+        expected_type: String identifier for the expected type ('int', 'float', 'num', 'str')
 
     Returns:
-        A function that checks if a series has the expected dtype
+        A function that checks if a series has the expected dtype or contains mixed types
     """
 
     def check_function(series):
-        if expected_type == "int":
-            is_valid = pd.api.types.is_integer_dtype(series.dtype)
-        elif expected_type == "float":
-            is_valid = pd.api.types.is_float_dtype(series.dtype)
-        elif expected_type == "num":
-            is_valid = pd.api.types.is_numeric_dtype(series.dtype)
-        return is_valid
+        # first check if the series is entirely of the expected dtype (fast path)
+        if expected_type == "int" and pd.api.types.is_integer_dtype(series.dtype):
+            return True
+        elif expected_type == "float" and pd.api.types.is_float_dtype(series.dtype):
+            return True
+        elif expected_type == "num" and pd.api.types.is_numeric_dtype(series.dtype):
+            return True
+        elif expected_type == "str" and pd.api.types.is_string_dtype(series.dtype):
+            return True
+
+        # if we're here, it might be a mixed column with object dtype
+        # need to check each value individually
+        if series.dtype == "object":
+            if expected_type == "int":
+                return series.apply(lambda x: _is_type_or_list_of_type(x, int)).all()
+            elif expected_type == "float":
+                return series.apply(lambda x: _is_type_or_list_of_type(x, float)).all()
+            elif expected_type == "num":
+                # for numeric, accept either int or float
+                return series.apply(
+                    lambda x: _is_type_or_list_of_type(x, (int, float))
+                ).all()
+            elif expected_type == "str":
+                return series.apply(lambda x: _is_type_or_list_of_type(x, str)).all()
+
+        # if we get here, the validation failed
+        return False
 
     return check_function
 
@@ -452,7 +484,13 @@ class DataFrameCurator(Curator):
                     required = feature.uid not in optional_feature_uids
                 else:
                     required = False
-                if feature.dtype in {"int", "float", "num"}:
+                # series.dtype is "object" if the column has lists types, e.g. [["a", "b"], ["a"], ["b"]]
+                are_lists = (
+                    False
+                    if feature.name not in self._dataset.columns
+                    else isinstance(self._dataset[feature.name][0], (list, np.ndarray))
+                )
+                if feature.dtype in {"int", "float", "num"} or are_lists:
                     if isinstance(self._dataset, pd.DataFrame):
                         dtype = (
                             self._dataset[feature.name].dtype
@@ -464,7 +502,11 @@ class DataFrameCurator(Curator):
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
                         checks=pandera.Check(
-                            check_dtype(feature.dtype),
+                            check_dtype(
+                                "str"
+                                if feature.dtype.startswith("cat")
+                                else feature.dtype
+                            ),
                             element_wise=False,
                             error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}': got {dtype}",
                         ),
