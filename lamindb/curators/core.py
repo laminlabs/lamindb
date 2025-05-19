@@ -892,9 +892,8 @@ class SomaExperimentCurator(SlotsCurator):
         for slot, slot_schema in schema.slots.items():
             if slot.startswith("ms:"):
                 ms, modality_slot = slot.split(":")
-                modality_slot_accessor = modality_slot.removesuffix(".T")
                 schema_dataset = (
-                    self._dataset.ms[modality_slot_accessor]
+                    self._dataset.ms[modality_slot.removesuffix(".T")]
                     .var.read()
                     .concat()
                     .to_pandas()

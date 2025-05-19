@@ -182,6 +182,10 @@ def test_data_is_scversedatastructure(request, data, data_type, expected):
     assert data_is_scversedatastructure(data, data_type) == expected
 
 
+def test_data_is_soma_experiment(get_small_soma_experiment, clean_soma_files):
+    assert data_is_soma_experiment(get_small_soma_experiment)
+
+
 def test_basic_validation():
     # extra kwargs
     with pytest.raises(FieldValidationError):

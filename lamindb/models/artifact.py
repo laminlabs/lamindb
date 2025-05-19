@@ -527,8 +527,6 @@ def data_is_scversedatastructure(
     data: ScverseDataStructures | UPathStr,
     class_name: Literal["AnnData", "MuData", "SpatialData"],
 ) -> bool:
-    data_type = class_name.lower()
-
     file_suffix = None
     if class_name == "AnnData":
         file_suffix = ".h5ad"
@@ -539,6 +537,7 @@ def data_is_scversedatastructure(
     if hasattr(data, "__class__") and data.__class__.__name__ == class_name:
         return True
 
+    data_type = class_name.lower()
     if isinstance(data, (str, Path, UPath)):
         data_path = UPath(data)
 
@@ -554,7 +553,8 @@ def data_is_scversedatastructure(
             if fsspec.utils.get_protocol(data_path.as_posix()) == "file":
                 return (
                     identify_zarr_type(
-                        data_path if class_name == "AnnData" else data, check=False
+                        data_path if class_name == "AnnData" else data,
+                        check=True if class_name == "AnnData" else False,
                     )
                     == data_type
                 )
