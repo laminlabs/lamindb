@@ -25,8 +25,8 @@ from .core import (
     AnnDataCurator,
     DataFrameCurator,
     MuDataCurator,
+    SomaExperimentCurator,
     SpatialDataCurator,
-    TiledbSomaExperimentCurator,
 )
 
 __all__ = [
@@ -36,5 +36,5 @@ __all__ = [
     "DataFrameCurator",
     "MuDataCurator",
     "SpatialDataCurator",
-    "TiledbSomaExperimentCurator",
+    "SomaExperimentCurator",
 ]

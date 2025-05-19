@@ -785,14 +785,14 @@ def test_tiledbsoma_curator(small_dataset1_schema: ln.Schema, clean_soma_files):
 
     # Test with invalid dataset
     with pytest.raises(ln.errors.InvalidArgument):
-        ln.curators.TiledbSomaExperimentCurator(adata, soma_schema)
+        ln.curators.SomaExperimentCurator(adata, soma_schema)
 
     # Test with invalid schema
     with pytest.raises(ln.errors.InvalidArgument):
-        ln.curators.TiledbSomaExperimentCurator(experiment, small_dataset1_schema)
+        ln.curators.SomaExperimentCurator(experiment, small_dataset1_schema)
 
     # Create the curator with valid schema and data
-    curator = ln.curators.TiledbSomaExperimentCurator(experiment, soma_schema)
+    curator = ln.curators.SomaExperimentCurator(experiment, soma_schema)
 
     # Check slots initialization
     assert "obs" in curator.slots
@@ -828,7 +828,7 @@ def test_tiledbsoma_curator(small_dataset1_schema: ln.Schema, clean_soma_files):
     tiledbsoma.io.from_anndata(typo_soma_path, adata_typo, measurement_name="RNA")
     experiment_typo = tiledbsoma.Experiment.open(typo_soma_path)
 
-    curator_typo = ln.curators.TiledbSomaExperimentCurator(experiment_typo, soma_schema)
+    curator_typo = ln.curators.SomaExperimentCurator(experiment_typo, soma_schema)
 
     # Validation should fail due to typo
     with pytest.raises(ln.errors.ValidationError) as error:
