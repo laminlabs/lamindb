@@ -537,8 +537,8 @@ def data_is_scversedatastructure(
 
     if expected_ds is None:
         return any(
-            data_is_scversedatastructure(data, ds)
-            for ds in ["AnnData", "MuData", "SpatialData"]
+            hasattr(data, "__class__") and data.__class__.__name__ == cl_name
+            for cl_name in ["AnnData", "MuData", "SpatialData"]
         )
 
     data_type = expected_ds.lower()
