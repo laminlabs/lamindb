@@ -1128,12 +1128,7 @@ def add_db_connection(db: str, using: str):
     connections.settings[using] = db_config
 
 
-REGISTRY_UNIQUE_FIELD = {
-    "storage": "root",
-    "feature": "name",
-    "ulabel": "name",
-    "space": "name",  # TODO: this should be updated with the currently used space instead during transfer
-}
+REGISTRY_UNIQUE_FIELD = {"storage": "root", "feature": "name", "ulabel": "name"}
 
 
 def update_fk_to_default_db(
@@ -1143,19 +1138,26 @@ def update_fk_to_default_db(
     transfer_logs: dict,
 ):
     record = records[0] if isinstance(records, (list, QuerySet)) else records
-    if hasattr(record, f"{fk}_id") and getattr(record, f"{fk}_id") is not None:
-        fk_record = getattr(record, fk)
-        field = REGISTRY_UNIQUE_FIELD.get(fk, "uid")
-        fk_record_default = fk_record.__class__.filter(
-            **{field: getattr(fk_record, field)}
-        ).one_or_none()
-        if fk_record_default is None:
-            from copy import copy
+    if getattr(record, f"{fk}_id", None) is not None:
+        if fk == "space":
+            # for space we set the record's space to the current space
+            from lamindb import context
 
-            fk_record_default = copy(fk_record)
-            transfer_to_default_db(
-                fk_record_default, using_key, save=True, transfer_logs=transfer_logs
-            )
+            # the default space has id=1
+            fk_record_default = Space.get(1) if context.space is None else context.space
+        else:
+            fk_record = getattr(record, fk)
+            field = REGISTRY_UNIQUE_FIELD.get(fk, "uid")
+            fk_record_default = fk_record.__class__.filter(
+                **{field: getattr(fk_record, field)}
+            ).one_or_none()
+            if fk_record_default is None:
+                from copy import copy
+
+                fk_record_default = copy(fk_record)
+                transfer_to_default_db(
+                    fk_record_default, using_key, save=True, transfer_logs=transfer_logs
+                )
         if isinstance(records, (list, QuerySet)):
             for r in records:
                 setattr(r, f"{fk}", None)
