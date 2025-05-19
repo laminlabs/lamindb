@@ -755,7 +755,6 @@ def test_spatialdata_curator(
 
 def test_tiledbsoma_curator(small_dataset1_schema: ln.Schema, clean_soma_files):
     """Test TiledbSomaExperimentCurator with schema."""
-    # Create a SOMA schema with slots for obs data and RNA measurement
     obs_schema = ln.Schema(
         features=[
             ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
@@ -791,23 +790,18 @@ def test_tiledbsoma_curator(small_dataset1_schema: ln.Schema, clean_soma_files):
     with pytest.raises(ln.errors.InvalidArgument):
         ln.curators.SomaExperimentCurator(experiment, small_dataset1_schema)
 
-    # Create the curator with valid schema and data
     curator = ln.curators.SomaExperimentCurator(experiment, soma_schema)
 
-    # Check slots initialization
     assert "obs" in curator.slots
     assert "ms:RNA" in curator.slots
 
-    # Validate
     curator.validate()
 
-    # Test saving artifact
     artifact = curator.save_artifact(
         key="examples/soma_experiment.tiledbsoma",
         description="SOMA experiment with schema validation",
     )
 
-    # Check schema and features
     assert artifact.schema == soma_schema
     assert "obs" in artifact.features.slots
     assert "ms:RNA" in artifact.features.slots
@@ -833,8 +827,6 @@ def test_tiledbsoma_curator(small_dataset1_schema: ln.Schema, clean_soma_files):
     # Validation should fail due to typo
     with pytest.raises(ln.errors.ValidationError) as error:
         curator_typo.validate()
-
-    # Check error message contains the typo information
     assert "GeneTypo" in str(error.value)
 
     # Clean up
