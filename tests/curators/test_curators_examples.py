@@ -816,7 +816,7 @@ def test_tiledbsoma_curator(small_dataset1_schema: ln.Schema, clean_soma_files):
         "B cell",
     }
 
-    # Test with altered data (gene typo)
+    # Altered data (gene typo)
     adata_typo = ln.core.datasets.small_dataset1(otype="AnnData", with_gene_typo=True)
     typo_soma_path = "./small_dataset1_typo.tiledbsoma"
     tiledbsoma.io.from_anndata(typo_soma_path, adata_typo, measurement_name="RNA")

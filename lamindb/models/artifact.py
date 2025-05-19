@@ -569,7 +569,7 @@ def data_is_scversedatastructure(
 
 
 def data_is_soma_experiment(data: SOMAExperiment | UPathStr) -> bool:
-    # We are not importing tiledb here to keep loaded modules minimal
+    # We are not importing tiledbsoma here to keep loaded modules minimal
     if hasattr(data, "__class__") and data.__class__.__name__ == "Experiment":
         return True
     if isinstance(data, (str, Path)):
