@@ -540,6 +540,8 @@ def data_is_scversedatastructure(
             hasattr(data, "__class__") and data.__class__.__name__ == cl_name
             for cl_name in ["AnnData", "MuData", "SpatialData"]
         )
+    elif hasattr(data, "__class__") and data.__class__.__name__ == expected_ds:
+        return True
 
     data_type = expected_ds.lower()
     if isinstance(data, (str, Path, UPath)):
