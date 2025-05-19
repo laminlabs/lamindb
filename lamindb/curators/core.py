@@ -877,40 +877,62 @@ class TiledbSomaExperimentCurator(SlotsCurator):
             raise InvalidArgument("Schema otype must be 'tiledbsoma'.")
 
         for slot, slot_schema in schema.slots.items():
-            if slot == "obs":
+            if slot.startswith("ms:"):
+                ms, modality_slot = slot.split(":")
+                modality_slot_accessor = modality_slot.removesuffix(".T")
+                schema_dataset = (
+                    self._dataset.ms[modality_slot_accessor]
+                    .var.read()
+                    .concat()
+                    .to_pandas()
+                    .drop("soma_joinid", axis=1, errors="ignore")
+                )
+
                 self._slots[slot] = DataFrameCurator(
+                    (
+                        schema_dataset.T
+                        if modality_slot == "var.T"
+                        or (
+                            # backward compat
+                            modality_slot == "var"
+                            and schema.slots[slot].itype not in {None, "Feature"}
+                        )
+                        else schema_dataset
+                    ),
+                    slot_schema,
+                )
+            else:
+                # global Experiment obs slot
+                _ms, modality_slot = None, slot
+                schema_dataset = (
                     self._dataset.obs.read()
                     .concat()
                     .to_pandas()
-                    .drop(["soma_joinid", "obs_id"], axis=1, errors="ignore"),
-                    slot_schema,
-                    slot=slot,
+                    .drop(["soma_joinid", "obs_id"], axis=1, errors="ignore")
                 )
-            elif slot.startswith("ms:"):
-                parts = slot.split(":")
-                if len(parts) == 2:
-                    ms_name = parts[1]
-                    if ms_name in self._dataset.ms:
-                        var_slot = f"{slot}:var"
-                        self._slots[var_slot] = DataFrameCurator(
-                            self._dataset.ms[ms_name]
-                            .var.read()
-                            .concat()
-                            .to_pandas()
-                            .drop("soma_joinid", axis=1, errors="ignore"),
-                            slot_schema,
-                            slot=var_slot,
-                        )
+                self._slots[slot] = DataFrameCurator(
+                    schema_dataset,
+                    slot_schema,
+                )
 
-                        _assign_var_fields_categoricals_multimodal(
-                            modality=ms_name,
-                            slot_type="var",
-                            slot=var_slot,
-                            slot_schema=slot_schema,
-                            var_fields=self._var_fields,
-                            cat_vectors=self._cat_vectors,
-                            slots=self._slots,
-                        )
+            if modality_slot == "var" and schema.slots[slot].itype not in {
+                None,
+                "Feature",
+            }:
+                logger.warning(
+                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                )
+
+            _assign_var_fields_categoricals_multimodal(
+                modality=slot,  # not using "ms" here as it would always be the same for all modalities
+                slot_type=modality_slot,
+                slot=slot,
+                slot_schema=slot_schema,
+                var_fields=self._var_fields,
+                cat_vectors=self._cat_vectors,
+                slots=self._slots,
+            )
+        self._columns_field = self._var_fields
 
 
 class CatVector:

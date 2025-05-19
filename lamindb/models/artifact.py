@@ -1834,7 +1834,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_spatialdata(
         cls,
-        sdata: Union[SpatialData, UPathStr],
+        sdata: SpatialData | UPathStr,
         *,
         key: str | None = None,
         description: str | None = None,
@@ -1904,7 +1904,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_tiledbsoma(
         cls,
-        path: UPathStr,
+        exp: SOMAExperiment | UPathStr,
         *,
         key: str | None = None,
         description: str | None = None,
@@ -1928,12 +1928,13 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
 
             artifact = ln.Artifact.from_tiledbsoma("s3://mybucket/store.tiledbsoma", description="a tiledbsoma store").save()
         """
-        if not data_is_soma_experiment(path):
+        if not data_is_soma_experiment(exp):
             raise ValueError(
                 "data has to be a SOMA Experiment object or a path to SOMA Experiment store."
             )
+        exp = exp.uri.removeprefix("file://") if not isinstance(exp, UPathStr) else exp
         artifact = Artifact(  # type: ignore
-            data=path,
+            data=exp,
             key=key,
             run=run,
             description=description,

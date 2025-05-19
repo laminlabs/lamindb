@@ -796,14 +796,10 @@ def test_tiledbsoma_curator(small_dataset1_schema: ln.Schema, clean_soma_files):
 
     # Check slots initialization
     assert "obs" in curator.slots
-    assert "ms:RNA:var" in curator.slots
+    assert "ms:RNA" in curator.slots
 
     # Validate
     curator.validate()
-
-    # Check var_fields
-    assert "RNA" in curator._var_fields
-    assert curator._var_fields["RNA"].field.name == "ensembl_gene_id"
 
     # Test saving artifact
     artifact = curator.save_artifact(
@@ -814,7 +810,7 @@ def test_tiledbsoma_curator(small_dataset1_schema: ln.Schema, clean_soma_files):
     # Check schema and features
     assert artifact.schema == soma_schema
     assert "obs" in artifact.features.slots
-    assert "ms:RNA:var" in artifact.features.slots
+    assert "ms:RNA" in artifact.features.slots
 
     # Check feature values are properly annotated
     assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
