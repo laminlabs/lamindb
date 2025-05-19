@@ -525,19 +525,23 @@ def log_storage_hint(
 
 def data_is_scversedatastructure(
     data: ScverseDataStructures | UPathStr,
-    class_name: Literal["AnnData", "MuData", "SpatialData"],
+    expected_ds: Literal["AnnData", "MuData", "SpatialData"] | None = None,
 ) -> bool:
+    """Determine whether a specific in-memory object or a UPathstr is any or a specific scverse data structure."""
     file_suffix = None
-    if class_name == "AnnData":
+    if expected_ds == "AnnData":
         file_suffix = ".h5ad"
-    elif class_name == "MuData":
+    elif expected_ds == "MuData":
         file_suffix = ".h5mu"
     # SpatialData does not have a unique suffix but `.zarr`
 
-    if hasattr(data, "__class__") and data.__class__.__name__ == class_name:
-        return True
+    if expected_ds is None:
+        return any(
+            data_is_scversedatastructure(data, ds)
+            for ds in ["AnnData", "MuData", "SpatialData"]
+        )
 
-    data_type = class_name.lower()
+    data_type = expected_ds.lower()
     if isinstance(data, (str, Path, UPath)):
         data_path = UPath(data)
 
@@ -553,13 +557,13 @@ def data_is_scversedatastructure(
             if fsspec.utils.get_protocol(data_path.as_posix()) == "file":
                 return (
                     identify_zarr_type(
-                        data_path if class_name == "AnnData" else data,
-                        check=True if class_name == "AnnData" else False,
+                        data_path if expected_ds == "AnnData" else data,
+                        check=True if expected_ds == "AnnData" else False,
                     )
                     == data_type
                 )
             else:
-                logger.warning(f"We do not check if cloud zarr is {class_name} or not")
+                logger.warning(f"We do not check if cloud zarr is {expected_ds} or not")
                 return False
     return False
 

@@ -4,9 +4,7 @@ import tiledbsoma as soma
 import tiledbsoma.io
 
 adata = ln.core.datasets.small_dataset1(otype="AnnData")
-
 tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
-
 experiment = soma.Experiment.open("curate.tiledbsoma")
 
 obs_schema = ln.Schema(
