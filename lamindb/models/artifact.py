@@ -5,7 +5,7 @@ import os
 import shutil
 from collections import defaultdict
 from pathlib import Path, PurePath, PurePosixPath
-from typing import TYPE_CHECKING, Any, Union, overload
+from typing import TYPE_CHECKING, Any, Literal, Union, overload
 
 import fsspec
 import lamindb_setup as ln_setup
@@ -17,7 +17,7 @@ from django.db.models import CASCADE, PROTECT, Q
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage_in_instance
-from lamindb_setup.core import doc_args
+from lamindb_setup.core._hub_core import select_storage_or_parent
 from lamindb_setup.core._settings_storage import init_storage
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dir, hash_file
 from lamindb_setup.core.types import UPathStr
@@ -48,6 +48,11 @@ from ..core.storage import (
     write_to_disk,
 )
 from ..core.storage._anndata_accessor import _anndata_n_observations
+from ..core.storage._backed_access import (
+    _track_writes_factory,
+    backed_access,
+)
+from ..core.storage._polars_lazy_df import POLARS_SUFFIXES
 from ..core.storage._pyarrow_dataset import PYARROW_SUFFIXES
 from ..core.storage._tiledbsoma import _soma_n_observations
 from ..core.storage.paths import (
@@ -65,8 +70,7 @@ from ..models._is_versioned import (
 from ._django import get_artifact_with_related
 from ._feature_manager import (
     FeatureManager,
-    ParamManager,
-    ParamManagerArtifact,
+    FeatureManagerArtifact,
     add_label_feature_links,
     filter_base,
     get_label_links,
@@ -77,24 +81,22 @@ from ._relations import (
     dict_related_model_to_related_name,
 )
 from .core import Storage
-from .feature import Feature, FeatureValue
-from .has_parents import view_lineage
-from .record import (
-    BasicRecord,
-    LinkORM,
-    Record,
+from .dbrecord import (
+    BaseDBRecord,
+    DBRecord,
+    IsLink,
     _get_record_kwargs,
     record_repr,
 )
-from .run import Param, ParamValue, Run, TracksRun, TracksUpdates, User
+from .feature import Feature, FeatureValue
+from .has_parents import view_lineage
+from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
 from .ulabel import ULabel
 
 WARNING_RUN_TRANSFORM = "no run & transform got linked, call `ln.track()` & re-run"
 
 WARNING_NO_INPUT = "run input wasn't tracked, call `ln.track()` and re-run"
-
-DEBUG_KWARGS_DOC = "**kwargs: Internal arguments for debugging."
 
 try:
     from ..core.storage._zarr import identify_zarr_type
@@ -105,9 +107,10 @@ except ImportError:
 
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Iterator
 
     from mudata import MuData  # noqa: TC004
+    from polars import LazyFrame as PolarsLazyFrame
     from pyarrow.dataset import Dataset as PyArrowDataset
     from spatialdata import SpatialData  # noqa: TC004
     from tiledbsoma import Collection as SOMACollection
@@ -153,10 +156,12 @@ def process_pathlike(
     else:
         # check whether the path is part of one of the existing
         # already-registered storage locations
-        result = False
+        result = None
         # within the hub, we don't want to perform check_path_in_existing_storage
         if using_key is None:
-            result = check_path_in_existing_storage(filepath, using_key)
+            result = check_path_in_existing_storage(
+                filepath, check_hub_register_storage=setup_settings.instance.is_on_hub
+            )
         if isinstance(result, Storage):
             use_existing_storage_key = True
             return result, use_existing_storage_key
@@ -311,10 +316,9 @@ def get_stat_or_artifact(
         result = Artifact.objects.using(instance).filter(hash=hash).all()
         artifact_with_same_hash_exists = len(result) > 0
     else:
-        storage_id = settings.storage.id
         result = (
             Artifact.objects.using(instance)
-            .filter(Q(hash=hash) | Q(key=key, storage_id=storage_id))
+            .filter(Q(hash=hash) | Q(key=key, storage=settings.storage.record))
             .order_by("-created_at")
             .all()
         )
@@ -338,13 +342,21 @@ def get_stat_or_artifact(
 
 
 def check_path_in_existing_storage(
-    path: Path | UPath, using_key: str | None = None
-) -> Storage | bool:
+    path: Path | UPath,
+    check_hub_register_storage: bool = False,
+    using_key: str | None = None,
+) -> Storage | None:
     for storage in Storage.objects.using(using_key).filter().all():
         # if path is part of storage, return it
         if check_path_is_child_of_root(path, root=storage.root):
             return storage
-    return False
+    # we don't see parents registered in the db, so checking the hub
+    # just check for 2 writable cloud protocols, maybe change in the future
+    if check_hub_register_storage and getattr(path, "protocol", None) in {"s3", "gs"}:
+        result = select_storage_or_parent(path.as_posix())
+        if result is not None:
+            return Storage(**result).save()
+    return None
 
 
 def get_relative_path_to_directory(
@@ -704,7 +716,6 @@ def _describe_postgres(self):  # for Artifact & Collection
             tree=tree,
             related_data=related_data,
             with_labels=True,
-            print_params=hasattr(self, "kind") and self.kind == "model",
         )
     else:
         return tree
@@ -753,24 +764,23 @@ def _describe_sqlite(self, print_types: bool = False):  # for artifact & collect
             self,
             tree=tree,
             with_labels=True,
-            print_params=hasattr(self, "kind") and self.kind == "kind",
         )
     else:
         return tree
 
 
-def describe_artifact_collection(self):  # for artifact & collection
-    from ._describe import print_rich_tree
+def describe_artifact_collection(self, return_str: bool = False) -> str | None:
+    from ._describe import format_rich_tree
 
     if not self._state.adding and connections[self._state.db].vendor == "postgresql":
         tree = _describe_postgres(self)
     else:
         tree = _describe_sqlite(self)
 
-    print_rich_tree(tree)
+    return format_rich_tree(tree, return_str=return_str)
 
 
-def validate_feature(feature: Feature, records: list[Record]) -> None:
+def validate_feature(feature: Feature, records: list[DBRecord]) -> None:
     """Validate feature record, adjust feature.dtype based on labels records."""
     if not isinstance(feature, Feature):
         raise TypeError("feature has to be of type Feature")
@@ -814,7 +824,7 @@ def get_labels(
             ).all()
     if flat_names:
         # returns a flat list of names
-        from .record import get_name_field
+        from .dbrecord import get_name_field
 
         values = []
         for v in qs_by_registry.values():
@@ -828,7 +838,7 @@ def get_labels(
 
 def add_labels(
     self,
-    records: Record | list[Record] | QuerySet | Iterable,
+    records: DBRecord | list[DBRecord] | QuerySet | Iterable,
     feature: Feature | None = None,
     *,
     field: StrField | None = None,
@@ -842,7 +852,7 @@ def add_labels(
 
     if isinstance(records, (QuerySet, QuerySet.__base__)):  # need to have both
         records = records.list()
-    if isinstance(records, (str, Record)):
+    if isinstance(records, (str, DBRecord)):
         records = [records]
     if not isinstance(records, list):  # avoids warning for pd Series
         records = list(records)
@@ -867,7 +877,7 @@ def add_labels(
         # ask users to pass records
         if len(records_validated) == 0:
             raise ValueError(
-                "Please pass a record (a `Record` object), not a string, e.g., via:"
+                "Please pass a record (a `DBRecord` object), not a string, e.g., via:"
                 " label"
                 f" = ln.ULabel(name='{records[0]}')"  # type: ignore
             )
@@ -909,7 +919,7 @@ def add_labels(
         for registry_name, records in records_by_registry.items():
             if not from_curator and feature.name in internal_features:
                 raise ValidationError(
-                    "Cannot manually annotate internal feature with label. Please use ln.Curator"
+                    "Cannot manually annotate a feature measured *within* the dataset. Please use a Curator."
                 )
             if registry_name not in feature.dtype:
                 if not feature.dtype.startswith("cat"):
@@ -941,7 +951,7 @@ def add_labels(
             )
 
 
-class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
+class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
     # Note that this docstring has to be consistent with Curator.save_artifact()
     """Datasets & models stored as files, folders, or arrays.
 
@@ -962,7 +972,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         Create an artifact **from a local file or folder**::
 
-            artifact = ln.Artifact("./my_file.parquet", key="example_datasets/my_file.parquet").save()
+            artifact = ln.Artifact("./my_file.parquet", key="examples/my_file.parquet").save()
             artifact = ln.Artifact("./my_folder", key="project1/my_folder").save()
 
         Calling `.save()` copies or uploads the file to the default storage location of your lamindb instance.
@@ -977,29 +987,12 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         You can make a **new version** of an artifact by passing an existing `key`::
 
-            artifact_v2 = ln.Artifact("./my_file.parquet", key="example_datasets/my_file.parquet").save()
+            artifact_v2 = ln.Artifact("./my_file.parquet", key="examples/my_file.parquet").save()
             artifact_v2.versions.df()  # see all versions
 
-        .. dropdown:: Why does the API look this way?
+        You can write artifacts to other storage locations by switching the current default storage location (:attr:`~lamindb.core.Settings.storage`)::
 
-            It's inspired by APIs building on AWS S3.
-
-            Both boto3 and quilt select a bucket (a storage location in LaminDB) and define a target path through a `key` argument.
-
-            In `boto3 <https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/bucket/upload_file.html>`__::
-
-                # signature: S3.Bucket.upload_file(filepath, key)
-                import boto3
-                s3 = boto3.resource('s3')
-                bucket = s3.Bucket('mybucket')
-                bucket.upload_file('/tmp/hello.txt', 'hello.txt')
-
-            In `quilt3 <https://docs.quiltdata.com/api-reference/bucket>`__::
-
-                # signature: quilt3.Bucket.put_file(key, filepath)
-                import quilt3
-                bucket = quilt3.Bucket('mybucket')
-                bucket.put_file('hello.txt', '/tmp/hello.txt')
+            ln.settings.storage = "s3://some-bucket"
 
         Sometimes you want to **avoid mapping the artifact into a path hierarchy**, and you only pass `description`::
 
@@ -1034,6 +1027,27 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             In concurrent workloads where the same artifact is created repeatedly at the exact same time, `.save()`
             detects the duplication and will return the existing artifact.
 
+        .. dropdown:: Why does the constructor look the way it looks?
+
+            It's inspired by APIs building on AWS S3.
+
+            Both boto3 and quilt select a bucket (a storage location in LaminDB) and define a target path through a `key` argument.
+
+            In `boto3 <https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/bucket/upload_file.html>`__::
+
+                # signature: S3.Bucket.upload_file(filepath, key)
+                import boto3
+                s3 = boto3.resource('s3')
+                bucket = s3.Bucket('mybucket')
+                bucket.upload_file('/tmp/hello.txt', 'hello.txt')
+
+            In `quilt3 <https://docs.quiltdata.com/api-reference/bucket>`__::
+
+                # signature: quilt3.Bucket.put_file(key, filepath)
+                import quilt3
+                bucket = quilt3.Bucket('mybucket')
+                bucket.put_file('hello.txt', '/tmp/hello.txt')
+
     See Also:
         :class:`~lamindb.Storage`
             Storage locations for artifacts.
@@ -1046,31 +1060,30 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     """
 
-    class Meta(Record.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(DBRecord.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
 
-    params: ParamManager = ParamManagerArtifact  # type: ignore
-    """Param manager.
+    # """Param manager.
 
-    What features are for dataset-like artifacts, parameters are for model-like artifacts & runs.
+    # What features are for dataset-like artifacts, parameters are for model-like artifacts & runs.
 
-    Example::
+    # Example::
 
-        artifact.params.add_values({
-            "hidden_size": 32,
-            "bottleneck_size": 16,
-            "batch_size": 32,
-            "preprocess_params": {
-                "normalization_type": "cool",
-                "subset_highlyvariable": True,
-            },
-        })
-    """
+    #     artifact.params.add_values({
+    #         "hidden_size": 32,
+    #         "bottleneck_size": 16,
+    #         "batch_size": 32,
+    #         "preprocess_params": {
+    #             "normalization_type": "cool",
+    #             "subset_highlyvariable": True,
+    #         },
+    #     })
+    # """
 
-    features: FeatureManager = FeatureManager  # type: ignore
+    features: FeatureManager = FeatureManagerArtifact  # type: ignore
     """Feature manager.
 
     Typically, you annotate a dataset with features by defining a `Schema` and passing it to the `Artifact` constructor.
@@ -1089,7 +1102,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         ln.Artifact.filter(scientist="Barbara McClintock")
 
     Features may or may not be part of the artifact content in storage. For
-    instance, the :class:`~lamindb.Curator` flow validates the columns of a
+    instance, the :class:`~lamindb.curators.DataFrameCurator` flow validates the columns of a
     `DataFrame`-like artifact and annotates it with features corresponding to
     these columns. `artifact.features.add_values`, by contrast, does not
     validate the content of the artifact.
@@ -1227,7 +1240,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         default=None,
         related_name="validated_artifacts",
     )
-    """The schema that validated this artifact in a :class:`~lamindb.curators.Curator`."""
+    """The schema that validated this artifact in a :class:`~lamindb.curators.core.Curator`."""
     feature_sets: Schema = models.ManyToManyField(
         Schema, related_name="artifacts", through="ArtifactSchema"
     )
@@ -1236,10 +1249,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         FeatureValue, through="ArtifactFeatureValue", related_name="artifacts"
     )
     """Non-categorical feature values for annotation."""
-    _param_values: ParamValue = models.ManyToManyField(
-        ParamValue, through="ArtifactParamValue", related_name="artifacts"
-    )
-    """Parameter values."""
     _key_is_virtual: bool = BooleanField()
     """Indicates whether `key` is virtual or part of an actual file path."""
     # be mindful that below, passing related_name="+" leads to errors
@@ -1295,7 +1304,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         **kwargs,
     ):
         self.features = FeatureManager(self)  # type: ignore
-        self.params = ParamManager(self)  # type: ignore
         # Below checks for the Django-internal call in from_db()
         # it'd be better if we could avoid this, but not being able to create a Artifact
         # from data with the default constructor renders the central class of the API
@@ -1383,7 +1391,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         # an object with the same hash already exists
         if isinstance(kwargs_or_artifact, Artifact):
-            from .record import init_self_from_db, update_attributes
+            from .dbrecord import init_self_from_db, update_attributes
 
             init_self_from_db(self, kwargs_or_artifact)
             # adding "key" here is dangerous because key might be auto-populated
@@ -1456,6 +1464,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         return self.otype
 
     @property
+    @deprecated("features")
+    def params(self) -> str:
+        return self.features
+
+    @property
     def transform(self) -> Transform | None:
         """Transform whose run created the artifact."""
         return self.run.transform if self.run is not None else None
@@ -1505,12 +1518,15 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     def get(
         cls,
         idlike: int | str | None = None,
+        *,
+        is_run_input: bool | Run = False,
         **expressions,
     ) -> Artifact:
         """Get a single artifact.
 
         Args:
             idlike: Either a uid stub, uid or an integer id.
+            is_run_input: Whether to track this artifact as run input.
             expressions: Fields and values passed as Django query expressions.
 
         Raises:
@@ -1518,18 +1534,18 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         See Also:
             - Guide: :doc:`docs:registries`
-            - Method in `Record` base class: :meth:`~lamindb.models.Record.get`
+            - Method in `DBRecord` base class: :meth:`~lamindb.models.DBRecord.get`
 
         Examples:
 
             ::
 
                 artifact = ln.Artifact.get("tCUkRcaEjTjhtozp0000")
-                artifact = ln.Arfifact.get(key="my_datasets/my_file.parquet")
+                artifact = ln.Arfifact.get(key="examples/my_file.parquet")
         """
         from .query_set import QuerySet
 
-        return QuerySet(model=cls).get(idlike, **expressions)
+        return QuerySet(model=cls).get(idlike, is_run_input=is_run_input, **expressions)
 
     @classmethod
     def filter(
@@ -1541,7 +1557,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         Args:
             *queries: `Q` expressions.
-            **expressions: Features, params, fields via the Django query syntax.
+            **expressions: Features & fields via the Django query syntax.
 
         See Also:
             - Guide: :doc:`docs:registries`
@@ -1550,15 +1566,12 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
             Query by fields::
 
-                ln.Arfifact.filter(key="my_datasets/my_file.parquet")
+                ln.Arfifact.filter(key="examples/my_file.parquet")
 
             Query by features::
 
                 ln.Arfifact.filter(cell_type_by_model__name="T cell")
 
-            Query by params::
-
-                ln.Arfifact.filter(hyperparam_x=100)
         """
         from .query_set import QuerySet
 
@@ -1572,24 +1585,12 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                     keys_normalized, field="name", mute=True
                 )
             ):
-                return filter_base(FeatureManager, **expressions)
-            elif all(
-                params_validated := Param.validate(
-                    keys_normalized, field="name", mute=True
-                )
-            ):
-                return filter_base(ParamManagerArtifact, **expressions)
+                return filter_base(FeatureManagerArtifact, **expressions)
             else:
-                if sum(features_validated) < sum(params_validated):
-                    params = ", ".join(
-                        sorted(np.array(keys_normalized)[~params_validated])
-                    )
-                    message = f"param names: {params}"
-                else:
-                    features = ", ".join(
-                        sorted(np.array(keys_normalized)[~params_validated])
-                    )
-                    message = f"feature names: {features}"
+                features = ", ".join(
+                    sorted(np.array(keys_normalized)[~features_validated])
+                )
+                message = f"feature names: {features}"
                 fields = ", ".join(sorted(cls.__get_available_fields__()))
                 raise InvalidArgument(
                     f"You can query either by available fields: {fields}\n"
@@ -1610,7 +1611,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         schema: Schema | None = None,
         **kwargs,
     ) -> Artifact:
-        """Create from `DataFrame`, validate & link features.
+        """Create from `DataFrame`, optionally validate & annotate.
 
         Args:
             df: A `DataFrame` object.
@@ -1619,7 +1620,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
-            schema: A schema to validate & annotate.
+            schema: A schema that defines how to validate & annotate.
 
         See Also:
             :meth:`~lamindb.Collection`
@@ -1627,19 +1628,30 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             :class:`~lamindb.Feature`
                 Track features.
 
-        Example::
+        Example:
 
-            import lamindb as ln
+            No validation and annotation::
 
-            df = ln.core.datasets.df_iris_in_meter_batch1()
-            df.head()
-            #>   sepal_length sepal_width petal_length petal_width iris_organism_code
-            #> 0        0.051       0.035        0.014       0.002                 0
-            #> 1        0.049       0.030        0.014       0.002                 0
-            #> 2        0.047       0.032        0.013       0.002                 0
-            #> 3        0.046       0.031        0.015       0.002                 0
-            #> 4        0.050       0.036        0.014       0.002                 0
-            artifact = ln.Artifact.from_df(df, key="iris/result_batch1.parquet").save()
+                import lamindb as ln
+
+                df = ln.core.datasets.mini_immuno.get_dataset1()
+                artifact = ln.Artifact.from_df(df, key="examples/dataset1.parquet").save()
+
+            With validation and annotation.
+
+            .. literalinclude:: scripts/curate_dataframe_flexible.py
+               :language: python
+
+            Under-the-hood, this used the following schema.
+
+            .. literalinclude:: scripts/define_valid_features.py
+               :language: python
+
+            Valid features & labels were defined as:
+
+            .. literalinclude:: scripts/define_mini_immuno_features_labels.py
+               :language: python
+
         """
         artifact = Artifact(  # type: ignore
             data=df,
@@ -1673,7 +1685,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         schema: Schema | None = None,
         **kwargs,
     ) -> Artifact:
-        """Create from ``AnnData``, validate & link features.
+        """Create from `AnnData`, optionally validate & annotate.
 
         Args:
             adata: An `AnnData` object or a path of AnnData-like.
@@ -1682,7 +1694,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
-            schema: A schema to validate & annotate.
+            schema: A schema that defines how to validate & annotate.
 
         See Also:
 
@@ -1691,12 +1703,31 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             :class:`~lamindb.Feature`
                 Track features.
 
-        Example::
+        Example:
 
-            import lamindb as ln
+            No validation and annotation::
 
-            adata = ln.core.datasets.anndata_with_obs()
-            artifact = ln.Artifact.from_anndata(adata, key="mini_anndata_with_obs.h5ad").save()
+                import lamindb as ln
+
+                adata = ln.core.datasets.anndata_with_obs()
+                artifact = ln.Artifact.from_anndata(adata, key="mini_anndata_with_obs.h5ad").save()
+
+            With validation and annotation.
+
+            .. literalinclude:: scripts/curate_anndata_flexible.py
+               :language: python
+
+            Under-the-hood, this used the following schema.
+
+            .. literalinclude:: scripts/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py
+               :language: python
+
+            This schema tranposes the `var` DataFrame during curation, so that one validates and annotates the `var.T` schema, i.e., `[ENSG00000153563, ENSG00000010610, ENSG00000170458]`.
+            If one doesn't transpose, one would annotate with the schema of `var`, i.e., `[gene_symbol, gene_type]`.
+
+            .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/gLyfToATM7WUzkWW0001.png
+               :width: 800px
+
         """
         if not data_is_anndata(adata):
             raise ValueError(
@@ -1745,7 +1776,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         schema: Schema | None = None,
         **kwargs,
     ) -> Artifact:
-        """Create from ``MuData``, validate & link features.
+        """Create from `MuData`, optionally validate & annotate.
 
         Args:
             mdata: A `MuData` object.
@@ -1754,7 +1785,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
-            schema: A schema to validate & annotate.
+            schema: A schema that defines how to validate & annotate.
 
         See Also:
             :meth:`~lamindb.Collection`
@@ -1804,16 +1835,16 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         schema: Schema | None = None,
         **kwargs,
     ) -> Artifact:
-        """Create from ``SpatialData``, validate & link features.
+        """Create from `SpatialData`, optionally validate & annotate.
 
         Args:
-            mdata: A `SpatialData` object.
+            sdata: A `SpatialData` object.
             key: A relative path within default storage,
                 e.g., `"myfolder/myfile.zarr"`.
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
-             schema: A schema to validate & annotate.
+            schema: A schema that defines how to validate & annotate.
 
         See Also:
             :meth:`~lamindb.Collection`
@@ -1821,11 +1852,21 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             :class:`~lamindb.Feature`
                 Track features.
 
-        Example::
+        Example:
 
-            import lamindb as ln
+            No validation and annotation::
 
-            artifact = ln.Artifact.from_spatialdata(sdata, key="my_dataset.zarr").save()
+                import lamindb as ln
+
+                artifact = ln.Artifact.from_spatialdata(sdata, key="my_dataset.zarr").save()
+
+            With validation and annotation.
+
+            .. literalinclude:: scripts/define_schema_spatialdata.py
+                :language: python
+
+            .. literalinclude:: scripts/curate_spatialdata.py
+                :language: python
         """
         if not data_is_spatialdata(sdata):
             raise ValueError(
@@ -2117,29 +2158,39 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         self._old_suffix = self.suffix
 
     def open(
-        self, mode: str = "r", is_run_input: bool | None = None, **kwargs
-    ) -> Union[
-        AnnDataAccessor,
-        BackedAccessor,
-        SOMACollection,
-        SOMAExperiment,
-        SOMAMeasurement,
-        PyArrowDataset,
-    ]:
-        """Return a cloud-backed data object.
+        self,
+        mode: str = "r",
+        engine: Literal["pyarrow", "polars"] = "pyarrow",
+        is_run_input: bool | None = None,
+        **kwargs,
+    ) -> (
+        AnnDataAccessor
+        | BackedAccessor
+        | SOMACollection
+        | SOMAExperiment
+        | SOMAMeasurement
+        | PyArrowDataset
+        | Iterator[PolarsLazyFrame]
+    ):
+        """Open a dataset for streaming.
 
         Works for `AnnData` (`.h5ad` and `.zarr`), generic `hdf5` and `zarr`,
-        `tiledbsoma` objects (`.tiledbsoma`), `pyarrow` compatible formats.
+        `tiledbsoma` objects (`.tiledbsoma`), `pyarrow` or `polars` compatible formats
+        (`.parquet`, `.csv`, `.ipc` etc. files or directories with such files).
 
         Args:
             mode: can only be `"w"` (write mode) for `tiledbsoma` stores,
                 otherwise should be always `"r"` (read-only mode).
+            engine: Which module to use for lazy loading of a dataframe
+                from `pyarrow` or `polars` compatible formats.
+                This has no effect if the artifact is not a dataframe, i.e.
+                if it is an `AnnData,` `hdf5`, `zarr` or `tiledbsoma` object.
             is_run_input: Whether to track this artifact as run input.
             **kwargs: Keyword arguments for the accessor, i.e. `h5py` or `zarr` connection,
-                `pyarrow.dataset.dataset`.
+                `pyarrow.dataset.dataset`, `polars.scan_*` function.
 
         Notes:
-            For more info, see tutorial: :doc:`/arrays`.
+            For more info, see guide: :doc:`/arrays`.
 
         Example::
 
@@ -2152,6 +2203,10 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             #> AnnDataAccessor object with n_obs × n_vars = 70 × 765
             #>     constructed for the AnnData object pbmc68k.h5ad
             #>     ...
+            artifact = ln.Artifact.get(key="lndb-storage/df.parquet")
+            artifact.open()
+            #> pyarrow._dataset.FileSystemDataset
+
         """
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(INCONSISTENT_STATE_MSG)
@@ -2159,6 +2214,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         h5_suffixes = [".h5", ".hdf5", ".h5ad"]
         h5_suffixes += [s + ".gz" for s in h5_suffixes]
         # ignore empty suffix for now
+        df_suffixes = tuple(set(PYARROW_SUFFIXES).union(POLARS_SUFFIXES))
         suffixes = (
             (
                 "",
@@ -2167,7 +2223,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 ".tiledbsoma",
             )
             + tuple(h5_suffixes)
-            + PYARROW_SUFFIXES
+            + df_suffixes
             + tuple(
                 s + ".gz" for s in PYARROW_SUFFIXES
             )  # this doesn't work for externally gzipped files, REMOVE LATER
@@ -2175,10 +2231,10 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         if self.suffix not in suffixes:
             raise ValueError(
                 "Artifact should have a zarr, h5, tiledbsoma object"
-                " or a compatible `pyarrow.dataset.dataset` directory"
+                " or a compatible `pyarrow.dataset.dataset` or `polars.scan_*` directory"
                 " as the underlying data, please use one of the following suffixes"
                 f" for the object name: {', '.join(suffixes[1:])}."
-                f" Or no suffix for a folder with {', '.join(PYARROW_SUFFIXES)} files"
+                f" Or no suffix for a folder with {', '.join(df_suffixes)} files"
                 " (no mixing allowed)."
             )
         if self.suffix != ".tiledbsoma" and self.key != "soma" and mode != "r":
@@ -2187,10 +2243,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             )
 
         from lamindb import settings
-        from lamindb.core.storage._backed_access import (
-            _track_writes_factory,
-            backed_access,
-        )
 
         using_key = settings._using_key
         filepath, cache_key = filepath_cache_key_from_artifact(
@@ -2211,14 +2263,22 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             ) and not filepath.synchronize(localpath, just_check=True)
         if open_cache:
             try:
-                access = backed_access(localpath, mode, using_key, **kwargs)
+                access = backed_access(
+                    localpath, mode, engine, using_key=using_key, **kwargs
+                )
             except Exception as e:
-                if isinstance(filepath, LocalPathClasses):
+                # also ignore ValueError here because
+                # such errors most probably just imply an incorrect argument
+                if isinstance(filepath, LocalPathClasses) or isinstance(
+                    e, (ImportError, ValueError)
+                ):
                     raise e
                 logger.warning(
                     f"The cache might be corrupted: {e}. Trying to open directly."
                 )
-                access = backed_access(filepath, mode, using_key, **kwargs)
+                access = backed_access(
+                    filepath, mode, engine, using_key=using_key, **kwargs
+                )
                 # happens only if backed_access has been successful
                 # delete the corrupted cache
                 if localpath.is_dir():
@@ -2226,7 +2286,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 else:
                     localpath.unlink(missing_ok=True)
         else:
-            access = backed_access(filepath, mode, using_key, **kwargs)
+            access = backed_access(
+                filepath, mode, engine, using_key=using_key, **kwargs
+            )
             if is_tiledbsoma_w:
 
                 def finalize():
@@ -2237,7 +2299,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                         # this can be very slow
                         _, hash, _, _ = hash_dir(filepath)
                     if self.hash != hash:
-                        from .record import init_self_from_db
+                        from .dbrecord import init_self_from_db
 
                         new_version = Artifact(
                             filepath, revises=self, _is_internal_call=True
@@ -2293,6 +2355,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         if hasattr(self, "_memory_rep") and self._memory_rep is not None:
             access_memory = self._memory_rep
+            # SpatialData objects zarr stores are moved when saved
+            # SpatialData's __repr__ method attempts to access information from the old path
+            # Therefore, we need to update the in-memory path to the now moved Artifact storage path
+            if access_memory.__class__.__name__ == "SpatialData":
+                access_memory.path = self._cache_path
         else:
             filepath, cache_key = filepath_cache_key_from_artifact(
                 self, using_key=settings._using_key
@@ -2325,9 +2392,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 access_memory = load_to_memory(cache_path, **kwargs)
         # only call if load is successfull
         _track_run_input(self, is_run_input)
+
         return access_memory
 
-    @doc_args(DEBUG_KWARGS_DOC)
     def cache(
         self, *, is_run_input: bool | None = None, mute: bool = False, **kwargs
     ) -> Path:
@@ -2340,7 +2407,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         Args:
             mute: Silence logging of caching progress.
             is_run_input: Whether to track this artifact as run input.
-            {}
 
         Example::
 
@@ -2399,6 +2465,9 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             artifact = ln.Artifact.get(key="some.tiledbsoma". is_latest=True)
             artiact.delete() # delete all versions, the data will be deleted or prompted for deletion.
         """
+        # we're *not* running the line below because the case `storage is None` triggers user feedback in one case
+        # storage = True if storage is None else storage
+
         # this first check means an invalid delete fails fast rather than cascading through
         # database and storage permission errors
         if os.getenv("LAMINDB_MULTI_INSTANCE") is None:
@@ -2449,8 +2518,10 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
             # only delete in storage if DB delete is successful
             # DB delete might error because of a foreign key constraint violated etc.
             if self._overwrite_versions and self.is_latest:
-                # includes self
-                for version in self.versions.all():
+                logger.important(
+                    "deleting all versions of this artifact because they all share the same store"
+                )
+                for version in self.versions.all():  # includes self
                     _delete_skip_storage(version)
             else:
                 self._delete_skip_storage()
@@ -2460,7 +2531,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 delete_in_storage = False
                 if storage:
                     logger.warning(
-                        "Storage argument is ignored; can't delete storage on an previous version"
+                        "storage argument is ignored; can't delete store of a previous version if overwrite_versions is True"
                     )
             elif self.key is None or self._key_is_virtual:
                 # do not ask for confirmation also if storage is None
@@ -2485,13 +2556,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                 if delete_msg != "did-not-delete":
                     logger.success(f"deleted {colors.yellow(f'{path}')}")
 
-    @doc_args(DEBUG_KWARGS_DOC)
     def save(self, upload: bool | None = None, **kwargs) -> Artifact:
         """Save to database & storage.
 
         Args:
             upload: Trigger upload to cloud storage in instances with hybrid storage mode.
-            {}
 
         Example::
 
@@ -2577,14 +2646,13 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         self._branch_code = 1
         self.save()
 
-    def describe(self) -> None:
-        """Describe relations of record.
+    def describe(self, return_str: bool = False) -> None:
+        """Describe record including linked records.
 
-        Example::
-
-            artifact.describe()
+        Args:
+            return_str: Return a string instead of printing.
         """
-        return describe_artifact_collection(self)
+        return describe_artifact_collection(self, return_str=return_str)
 
     def _populate_subsequent_runs(self, run: Run) -> None:
         _populate_subsequent_runs_(self, run)
@@ -2622,24 +2690,16 @@ def _save_skip_storage(artifact, **kwargs) -> None:
     save_schema_links(artifact)
 
 
-class ArtifactFeatureValue(BasicRecord, LinkORM, TracksRun):
+class ArtifactFeatureValue(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
-    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="+")
+    artifact: Artifact = ForeignKey(
+        Artifact, CASCADE, related_name="links_featurevalue"
+    )
     # we follow the lower() case convention rather than snake case for link models
-    featurevalue = ForeignKey(FeatureValue, PROTECT, related_name="+")
+    featurevalue = ForeignKey(FeatureValue, PROTECT, related_name="links_artifact")
 
     class Meta:
         unique_together = ("artifact", "featurevalue")
-
-
-class ArtifactParamValue(BasicRecord, LinkORM, TracksRun):
-    id: int = models.BigAutoField(primary_key=True)
-    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="+")
-    # we follow the lower() case convention rather than snake case for link models
-    paramvalue: ParamValue = ForeignKey(ParamValue, PROTECT, related_name="+")
-
-    class Meta:
-        unique_together = ("artifact", "paramvalue")
 
 
 def _track_run_input(
@@ -2649,6 +2709,9 @@ def _track_run_input(
     is_run_input: bool | Run | None = None,
     run: Run | None = None,
 ):
+    if is_run_input is False:
+        return
+
     from lamindb import settings
 
     from .._tracked import get_current_tracked_run
@@ -2685,8 +2748,8 @@ def _track_run_input(
                 # record is on another db
                 # we have to save the record into the current db with
                 # the run being attached to a transfer transform
-                logger.important(
-                    f"completing transfer to track {data.__class__.__name__}('{data.uid[:8]}') as input"
+                logger.info(
+                    f"completing transfer to track {data.__class__.__name__}('{data.uid[:8]}...') as input"
                 )
                 data.save()
                 is_valid = True
@@ -2743,18 +2806,17 @@ def _track_run_input(
         # avoid adding the same run twice
         run.save()
         if data_class_name == "artifact":
-            LinkORM = run.input_artifacts.through
+            IsLink = run.input_artifacts.through
             links = [
-                LinkORM(run_id=run.id, artifact_id=data_id)
-                for data_id in input_data_ids
+                IsLink(run_id=run.id, artifact_id=data_id) for data_id in input_data_ids
             ]
         else:
-            LinkORM = run.input_collections.through
+            IsLink = run.input_collections.through
             links = [
-                LinkORM(run_id=run.id, collection_id=data_id)
+                IsLink(run_id=run.id, collection_id=data_id)
                 for data_id in input_data_ids
             ]
-        LinkORM.objects.bulk_create(links, ignore_conflicts=True)
+        IsLink.objects.bulk_create(links, ignore_conflicts=True)
         # generalize below for more than one data batch
         if len(input_data) == 1:
             if input_data[0].transform is not None:

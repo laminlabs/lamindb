@@ -32,7 +32,7 @@ def test_feature_init():
     # wrong type
     with pytest.raises(ValueError):
         ln.Feature(name="feat", dtype="x")
-    # type has to be a list of Record types
+    # type has to be a list of DBRecord types
     with pytest.raises(ValidationError):
         ln.Feature(name="feat", dtype="cat[1]")
     # ensure feat1 does not exist
@@ -90,7 +90,7 @@ def test_feature_from_df(df):
         artifact.labels.add(labels, feature=feature)
     assert (
         err.exconly()
-        == "lamindb.errors.ValidationError: Cannot manually annotate internal feature with label. Please use ln.Curator"
+        == "lamindb.errors.ValidationError: Cannot manually annotate a feature measured *within* the dataset. Please use a Curator."
     )
     extfeature = ln.Feature(name="extfeat", dtype="str").save()
     with pytest.raises(ValidationError) as err:

@@ -23,8 +23,8 @@ from ..base.ids import base62_8, base62_12
 from .artifact import Artifact
 from .can_curate import CanCurate
 from .collection import Collection
+from .dbrecord import BaseDBRecord, DBRecord, IsLink, ValidateFields
 from .feature import Feature
-from .record import BasicRecord, LinkORM, Record, ValidateFields
 from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
 from .transform import Transform
@@ -35,8 +35,8 @@ if TYPE_CHECKING:
     from datetime import datetime
 
 
-class Person(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
-    """People.
+class Person(DBRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
+    """People such as authors of a study or collaborators in a project.
 
     This registry is distinct from `User` and exists for project management.
 
@@ -50,7 +50,7 @@ class Person(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         ... ).save()
     """
 
-    class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     id: int = models.AutoField(primary_key=True)
@@ -84,7 +84,7 @@ class Person(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         super().__init__(*args, **kwargs)
 
 
-class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
+class Reference(DBRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """References such as internal studies, papers, documents, or URLs.
 
     Example:
@@ -100,7 +100,7 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         ... ).save()
     """
 
-    class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     id: int = models.AutoField(primary_key=True)
@@ -119,7 +119,7 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     Allows to group reference by type, e.g., internal studies vs. all papers etc.
     """
     records: Reference
-    """Records of this type."""
+    """DBRecords of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     abbr: str | None = CharField(
@@ -189,7 +189,7 @@ class Reference(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         super().__init__(*args, **kwargs)
 
 
-class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
+class Project(DBRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Projects.
 
     Example:
@@ -200,7 +200,7 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         ... ).save()
     """
 
-    class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     id: int = models.AutoField(primary_key=True)
@@ -216,7 +216,7 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     )
     """Type of project (e.g., 'Program', 'Project', 'GithubIssue', 'Task')."""
     records: Project
-    """Records of this type."""
+    """DBRecords of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     abbr: str | None = CharField(max_length=32, db_index=True, null=True)
@@ -304,7 +304,7 @@ class Project(Record, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         super().__init__(*args, **kwargs)
 
 
-class ArtifactProject(BasicRecord, LinkORM, TracksRun):
+class ArtifactProject(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_project")
     project: Project = ForeignKey(Project, PROTECT, related_name="links_artifact")
@@ -323,7 +323,7 @@ class ArtifactProject(BasicRecord, LinkORM, TracksRun):
         unique_together = ("artifact", "project", "feature")
 
 
-class RunProject(BasicRecord, LinkORM):
+class RunProject(BaseDBRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     run: Run = ForeignKey(Run, CASCADE, related_name="links_project")
     project: Project = ForeignKey(Project, PROTECT, related_name="links_run")
@@ -344,7 +344,7 @@ class RunProject(BasicRecord, LinkORM):
         unique_together = ("run", "project")
 
 
-class TransformProject(BasicRecord, LinkORM, TracksRun):
+class TransformProject(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     transform: Transform = ForeignKey(Transform, CASCADE, related_name="links_project")
     project: Project = ForeignKey(Project, PROTECT, related_name="links_transform")
@@ -353,7 +353,7 @@ class TransformProject(BasicRecord, LinkORM, TracksRun):
         unique_together = ("transform", "project")
 
 
-class CollectionProject(BasicRecord, LinkORM, TracksRun):
+class CollectionProject(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     collection: Collection = ForeignKey(
         Collection, CASCADE, related_name="links_project"
@@ -364,7 +364,7 @@ class CollectionProject(BasicRecord, LinkORM, TracksRun):
         unique_together = ("collection", "project")
 
 
-class ULabelProject(BasicRecord, LinkORM, TracksRun):
+class ULabelProject(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     ulabel: ULabel = ForeignKey(ULabel, CASCADE, related_name="links_project")
     project: Project = ForeignKey(Project, PROTECT, related_name="links_ulabel")
@@ -373,7 +373,7 @@ class ULabelProject(BasicRecord, LinkORM, TracksRun):
         unique_together = ("ulabel", "project")
 
 
-class PersonProject(BasicRecord, LinkORM, TracksRun):
+class PersonProject(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     person: Person = ForeignKey(Person, CASCADE, related_name="links_project")
     project: Project = ForeignKey(Project, PROTECT, related_name="links_person")
@@ -383,7 +383,7 @@ class PersonProject(BasicRecord, LinkORM, TracksRun):
         unique_together = ("person", "project")
 
 
-class FeatureProject(BasicRecord, LinkORM, TracksRun):
+class FeatureProject(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_project")
     project: Project = ForeignKey(Project, PROTECT, related_name="links_feature")
@@ -392,7 +392,7 @@ class FeatureProject(BasicRecord, LinkORM, TracksRun):
         unique_together = ("feature", "project")
 
 
-class SchemaProject(BasicRecord, LinkORM, TracksRun):
+class SchemaProject(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     schema: Schema = ForeignKey(Schema, CASCADE, related_name="links_project")
     project: Project = ForeignKey(Project, PROTECT, related_name="links_schema")
@@ -401,7 +401,7 @@ class SchemaProject(BasicRecord, LinkORM, TracksRun):
         unique_together = ("schema", "project")
 
 
-class ArtifactReference(BasicRecord, LinkORM, TracksRun):
+class ArtifactReference(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_reference")
     reference: Reference = ForeignKey(Reference, PROTECT, related_name="links_artifact")
@@ -420,7 +420,7 @@ class ArtifactReference(BasicRecord, LinkORM, TracksRun):
         unique_together = ("artifact", "reference", "feature")
 
 
-class TransformReference(BasicRecord, LinkORM, TracksRun):
+class TransformReference(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     transform: Transform = ForeignKey(
         Transform, CASCADE, related_name="links_reference"
@@ -433,7 +433,7 @@ class TransformReference(BasicRecord, LinkORM, TracksRun):
         unique_together = ("transform", "reference")
 
 
-class CollectionReference(BasicRecord, LinkORM, TracksRun):
+class CollectionReference(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     collection: Collection = ForeignKey(
         Collection, CASCADE, related_name="links_reference"

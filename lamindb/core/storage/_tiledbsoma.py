@@ -110,7 +110,7 @@ def save_tiledbsoma_experiment(
 ) -> Artifact:
     """Write `AnnData` to `tiledbsoma.Experiment`.
 
-    Reads `AnnData` objects, writes them to `tiledbsoma.Experiment`, creates & saves an {class}`~lamindb.Artifact`.
+    Reads `AnnData` objects, writes them to `tiledbsoma.Experiment`, creates & saves an :class:`~lamindb.Artifact`.
 
     Populates a column `lamin_run_uid` column in `obs` with the current `run.uid`.
 
@@ -202,28 +202,44 @@ def save_tiledbsoma_experiment(
             context=ctx,
         )
 
+    prepare_experiment = False
     resize_experiment = False
     if registration_mapping is not None:
-        if version.parse(soma.__version__) < version.parse("1.15.0rc4"):
+        soma_version_parsed = version.parse(soma.__version__)
+        if soma_version_parsed < version.parse("1.15.0rc4"):
             n_observations = len(registration_mapping.obs_axis.data)
         else:
             n_observations = registration_mapping.get_obs_shape()
-            resize_experiment = True
+            prepare_experiment = soma_version_parsed >= version.parse("1.16.2")
+            resize_experiment = not prepare_experiment
     else:  # happens only if not appending and only one adata passed
         assert len(adata_objects) == 1  # noqa: S101
         n_observations = adata_objects[0].n_obs
 
     logger.important(f"Writing the tiledbsoma store to {storepath_str}")
+    experiment_exists: bool | None = None
     for adata_obj in adata_objects:
-        if resize_experiment and soma.Experiment.exists(storepath_str, context=ctx):
-            # can only happen if registration_mapping is not None
-            soma_io.resize_experiment(
-                storepath_str,
-                nobs=n_observations,
-                nvars=registration_mapping.get_var_shapes(),
-                context=ctx,
-            )
-            resize_experiment = False
+        # do not recheck if True
+        if not experiment_exists and (resize_experiment or prepare_experiment):
+            experiment_exists = soma.Experiment.exists(storepath_str, context=ctx)
+        if experiment_exists:
+            # both can only happen if registration_mapping is not None
+            if resize_experiment:
+                soma_io.resize_experiment(
+                    storepath_str,
+                    nobs=n_observations,
+                    nvars=registration_mapping.get_var_shapes(),
+                    context=ctx,
+                )
+                resize_experiment = False
+            elif prepare_experiment:
+                registration_mapping.prepare_experiment(storepath_str, context=ctx)
+                prepare_experiment = False
+        registration_mapping_write = (
+            registration_mapping.subset_for_anndata(adata_obj)
+            if hasattr(registration_mapping, "subset_for_anndata")
+            else registration_mapping
+        )
         soma_io.from_anndata(
             storepath_str,
             adata_obj,
@@ -231,7 +247,7 @@ def save_tiledbsoma_experiment(
             context=ctx,
             obs_id_name=obs_id_name,
             var_id_name=var_id_name,
-            registration_mapping=registration_mapping,
+            registration_mapping=registration_mapping_write,
             **kwargs,
         )
 

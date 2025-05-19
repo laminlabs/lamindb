@@ -7,7 +7,7 @@ import pytest
 from lamindb.core.datasets import small_dataset1
 from lamindb.errors import DoesNotExist, ValidationError
 from lamindb.models._feature_manager import describe_features
-from lamindb.models._label_manager import print_rich_tree
+from lamindb.models._label_manager import format_rich_tree
 from lamindb.models.artifact import add_labels
 
 
@@ -44,12 +44,6 @@ Here is how to create a feature:
 # below the test for annotating with feature values
 def test_features_add_remove(adata):
     artifact = ln.Artifact.from_anndata(adata, description="test").save()
-    with pytest.raises(ValidationError) as error:
-        artifact.params.add_values({"learning_rate": 0.01})
-    assert (
-        error.exconly()
-        == "lamindb.errors.ValidationError: Can only set params for model-like artifacts."
-    )
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
     assert error.exconly().startswith(
@@ -153,7 +147,6 @@ Here is how to create a feature:
     }
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values(features)
-    print(error.exconly())
     assert (
         error.exconly()
         == """\
@@ -173,21 +166,18 @@ Here is how to create a feature:
 
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values(features)
-    print(error.exconly())
     assert (
         error.exconly()
         == """\
-lamindb.errors.ValidationError: These values could not be validated: ['Experiment 2', 'project_1', 'T Cell', 'U0123']
+lamindb.errors.ValidationError: These values could not be validated: ['Experiment 2', 'T Cell', 'U0123', 'project_1']
 Here is how to create ulabels for them:
 
-  ulabels = ln.ULabel.from_values(['Experiment 2', 'project_1', 'T Cell', 'U0123'], create=True)
-  ln.save(ulabels)"""
+  ulabels = ln.ULabel.from_values(['Experiment 2', 'T Cell', 'U0123', 'project_1'], create=True).save()"""
     )
 
-    ulabels = ln.ULabel.from_values(
+    ln.ULabel.from_values(
         ["Experiment 2", "project_1", "T Cell", "U0123"], create=True
-    )
-    ln.save(ulabels)
+    ).save()
 
     artifact.features.add_values(features)
     assert set(artifact._feature_values.all().values_list("value", flat=True)) == {
@@ -214,7 +204,7 @@ Here is how to create ulabels for them:
     }
     # hard to test because of italic formatting
     tree = describe_features(artifact)
-    print_rich_tree(tree)
+    format_rich_tree(tree)
     assert tree.label.plain == "Artifact .h5ad/AnnData"
     assert tree.children[0].label.plain == "Linked features"
     assert len(tree.children[0].children[0].label.columns) == 3
@@ -266,22 +256,18 @@ Here is how to create ulabels for them:
         "2024-12-01T00:00:00",
     }
 
-    with pytest.raises(ValidationError) as error:
-        ln.Artifact.features.filter(
-            temperature_with_typo=100.0, project="project_1"
-        ).one()
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        ln.Artifact.filter(temperature_with_typo=100.0, project="project_1").one()
     assert error.exconly().startswith(
-        "lamindb.errors.ValidationError: Some keys in the filter expression are not registered as features:"
+        "lamindb.errors.InvalidArgument: You can query either by available fields:"
     )
 
     ln.Artifact.features.get(temperature=100.0)
     ln.Artifact.features.get(project="project_1")
     ln.Artifact.features.get(is_validated=True)
-    ln.Artifact.features.filter(
-        temperature=100.0, project="project_1", donor="U0123"
-    ).one()
+    ln.Artifact.filter(temperature=100.0, project="project_1", donor="U0123").one()
     # for bionty
-    assert artifact == ln.Artifact.features.filter(disease=diseases[0]).one()
+    assert artifact == ln.Artifact.filter(disease=diseases[0]).one()
 
     # test not finding the ULabel
     with pytest.raises(DoesNotExist) as error:
@@ -291,11 +277,13 @@ Here is how to create ulabels for them:
     )
 
     # test comparator
-    assert artifact == ln.Artifact.features.filter(experiment__contains="ment 1").one()
+    assert artifact == ln.Artifact.filter(experiment__contains="ment 1").one()
     # due to the __in comparator, we get the same artifact twice below
-    assert len(ln.Artifact.features.filter(experiment__contains="Experi").all()) == 2
-    assert ln.Artifact.features.filter(temperature__lt=21).one_or_none() is None
-    assert len(ln.Artifact.features.filter(temperature__gt=21).all()) >= 1
+    # print(ln.Artifact.df(features=["experiment"]))
+    # print(ln.Artifact.filter(experiment__contains="Experi").df(features=["experiment"]))
+    assert len(ln.Artifact.filter(experiment__contains="Experi").all()) == 2
+    assert ln.Artifact.filter(temperature__lt=21).one_or_none() is None
+    assert len(ln.Artifact.filter(temperature__gt=21).all()) >= 1
 
     # test remove_values
     artifact.features.remove_values("date_of_experiment")
@@ -304,6 +292,10 @@ Here is how to create ulabels for them:
     values = artifact.features.get_values()
     assert "date_of_experiment" not in values
     assert "Alzheimer disease" not in values["disease"]
+
+    # test annotate with dictionaries multiple times
+    ln.Feature(name="study_metadata", dtype=dict).save()
+    artifact.features.add_values({"study_metadata": {"detail1": "123", "detail2": 1}})
 
     # delete everything we created
     artifact.delete(permanent=True)
@@ -320,16 +312,10 @@ def test_params_add():
     path = Path("mymodel.pt")
     path.touch()
     artifact = ln.Artifact("mymodel.pt", kind="model", description="hello").save()
-    with pytest.raises(ValidationError) as error:
-        artifact.features.add_values({"temperature": 27})
-    assert (
-        error.exconly()
-        == "lamindb.errors.ValidationError: Can only set features for dataset-like artifacts."
-    )
-    ln.Param(name="learning_rate", dtype="float").save()
-    ln.Param(name="quantification", dtype="dict").save()
-    artifact.params.add_values({"learning_rate": 0.01})
-    artifact.params.add_values(
+    ln.Feature(name="learning_rate", dtype="float").save()
+    ln.Feature(name="quantification", dtype="dict").save()
+    artifact.features.add_values({"learning_rate": 0.01})
+    artifact.features.add_values(
         {
             "quantification": {
                 "name": "mcquant",
@@ -337,7 +323,7 @@ def test_params_add():
             }
         }
     )
-    assert artifact.params.get_values() == {
+    assert artifact.features.get_values() == {
         "learning_rate": 0.01,
         "quantification": {
             "name": "mcquant",
@@ -345,9 +331,9 @@ def test_params_add():
         },
     }
     # test describe params
-    tree = describe_features(artifact, print_params=True)
+    tree = describe_features(artifact)
     assert tree.label.plain == "Artifact .pt"
-    assert tree.children[0].label.plain == "Params"
+    assert tree.children[0].label.plain == "Linked features"
     assert len(tree.children[0].children[0].label.columns) == 3
     assert tree.children[0].children[0].label.columns[0]._cells == [
         "learning_rate",
@@ -373,7 +359,7 @@ def test_labels_add(adata):
         artifact.labels.add("experiment_1", experiment)
     assert (
         error.exconly()
-        == "ValueError: Please pass a record (a `Record` object), not a string, e.g.,"
+        == "ValueError: Please pass a record (a `DBRecord` object), not a string, e.g.,"
         " via: label = ln.ULabel(name='experiment_1')"
     )
     with pytest.raises(ValidationError) as error:
@@ -526,8 +512,6 @@ def test_add_labels_using_anndata(adata):
         itype="Feature", _links_artifact__slot="obs"
     ).one()
     assert schema_obs.n == 4
-    # TODO, write a test that queries the organism feature
-    # assert "organism" in schema_ext.features.list("name")
 
     # now we add cell types & tissues and run checks
     ln.Feature(name="cell_type", dtype="cat").save()

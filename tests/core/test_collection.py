@@ -110,10 +110,16 @@ def test_from_inconsistent_artifacts(df, adata):
     collection.cache()
     assert set(ln.context.run.input_collections.all()) == {collection}
     # loading will throw an error here
-    with pytest.raises(RuntimeError) as error:
+    with pytest.raises(ValueError) as error:
         collection.load()
     assert str(error.exconly()).startswith(
-        "RuntimeError: Can only load collections where all artifacts have the same suffix"
+        "ValueError: Can only load collections where all artifacts have the same suffix"
+    )
+    # test through query set
+    with pytest.raises(ValueError) as error:
+        collection.artifacts.all().load()
+    assert str(error.exconly()).startswith(
+        "ValueError: Can only load collections where all artifacts have the same suffix"
     )
     collection.describe()
     collection.delete(permanent=True)
@@ -123,35 +129,24 @@ def test_from_inconsistent_artifacts(df, adata):
 
 
 def test_from_consistent_artifacts(adata, adata2):
-    if (feature := ln.Feature.filter(name="feat1").one_or_none()) is not None:
-        feature.delete()
-    ln.Feature(name="feat1", dtype="num").save()
-    curator = ln.Curator.from_anndata(adata, var_index=bt.Gene.symbol, organism="human")
-    artifact1 = curator.save_artifact(description="My test")
-    curator = ln.Curator.from_anndata(
-        adata2, var_index=bt.Gene.symbol, organism="human"
-    )
-    artifact2 = curator.save_artifact(description="My test2").save()
+    artifact1 = ln.Artifact.from_anndata(adata, key="my_test.h5ad").save()
+    artifact2 = ln.Artifact.from_anndata(adata2, key="my_test.h5ad").save()
     transform = ln.Transform(key="My test transform").save()
     run = ln.Run(transform).save()
-    collection = ln.Collection([artifact1, artifact2], name="My test", run=run)
+    collection = ln.Collection([artifact1, artifact2], key="My test", run=run)
     assert collection._state.adding
     collection.save()
     assert set(collection.run.input_artifacts.all()) == {artifact1, artifact2}
     adata_joined = collection.load()
     assert "artifact_uid" in adata_joined.obs.columns
     assert artifact1.uid in adata_joined.obs.artifact_uid.cat.categories
-
-    # feature_sets = collection.features._get_staged_feature_sets_union()
-    # assert set(feature_sets["var"].members.values_list("symbol", flat=True)) == {
-    #     "MYC",
-    #     "TCF7",
-    #     "GATA1",
-    # }
-    # assert set(feature_sets["obs"].members.values_list("name", flat=True)) == {"feat1"}
+    # test from query set through collection
+    adata_joined = collection.artifacts.order_by("-created_at").load()
+    assert "artifact_uid" in adata_joined.obs.columns
+    assert artifact1.uid in adata_joined.obs.artifact_uid.cat.categories
 
     # re-run with hash-based lookup
-    collection2 = ln.Collection([artifact1, artifact2], name="My test 1", run=run)
+    collection2 = ln.Collection([artifact1, artifact2], key="My test 1", run=run)
     assert not collection2._state.adding
     assert collection2.id == collection.id
     assert collection2.key == "My test 1"
@@ -159,11 +154,9 @@ def test_from_consistent_artifacts(adata, adata2):
     collection.delete(permanent=True)
     artifact1.delete(permanent=True)
     artifact2.delete(permanent=True)
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
 
 
-def test_collection_mapped(adata, adata2):
+def test_mapped(adata, adata2):
     # prepare test data
     adata.strings_to_categoricals()
     adata.obs["feat2"] = adata.obs["feat1"]
@@ -290,6 +283,12 @@ def test_collection_mapped(adata, adata2):
     assert ls_ds.shape == (4, 3)
     assert ls_ds.original_shapes[0] == (2, 3) and ls_ds.original_shapes[1] == (2, 3)
     ls_ds.close()
+    # test with QuerySet
+    query_set = ln.Artifact.filter(key__in=["part_one.h5ad", "part_two.zarr"])
+    with query_set.mapped() as ls_ds:
+        assert ls_ds.shape == (4, 3)
+    with query_set.order_by("created_at").mapped(stream=True) as ls_ds:
+        assert ls_ds.shape == (4, 3)
 
     with collection.mapped(obs_keys="feat1", stream=True) as ls_ds:
         assert len(ls_ds[0]) == 3 and len(ls_ds[2]) == 3
@@ -467,3 +466,20 @@ def test_with_metadata(df, adata):
     collection.delete(permanent=True)
     data_artifact.delete(permanent=True)
     meta_artifact.delete(permanent=True)
+
+
+def test_collection_get_tracking(df):
+    artifact = ln.Artifact.from_df(df, key="df.parquet").save()
+    collection = ln.Collection(artifact, key="track-collection").save()
+
+    transform = ln.Transform(key="test track collection via get").save()
+    run = ln.Run(transform).save()
+
+    assert (
+        ln.Collection.get(key="track-collection", is_run_input=run)
+        in run.input_collections.all()
+    )
+
+    collection.delete(permanent=True)
+    artifact.delete(permanent=True)
+    transform.delete()

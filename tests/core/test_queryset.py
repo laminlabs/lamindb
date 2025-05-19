@@ -19,10 +19,10 @@ def test_df():
     labels = ln.ULabel.from_values(project_names, create=True).save()
     project_label.children.add(*labels)
     df = ln.ULabel.df(include="parents__name")
-    assert df.columns[3] == "parents__name"
+    assert df.columns[2] == "parents__name"
     assert df["parents__name"].iloc[0] == {project_label.name}
     df = ln.ULabel.df(include=["parents__name", "parents__created_by_id"])
-    assert df.columns[4] == "parents__created_by_id"
+    assert df.columns[3] == "parents__created_by_id"
     assert df["parents__name"].iloc[0] == {project_label.name}
     assert set(df["parents__created_by_id"].iloc[0]) == {current_user_id()}
 
@@ -34,14 +34,14 @@ def test_df():
     schema.features.set(features)
 
     df = ln.Schema.filter(name="my schema").df(include="features__name")
-    assert df.columns[3] == "features__name"
+    assert df.columns[2] == "features__name"
     # order is not conserved
     assert set(df["features__name"].iloc[0]) == set(feature_names)
     # pass a list
     df = ln.Schema.filter(name="my schema").df(
         include=["features__name", "features__created_by_id"]
     )
-    assert df.columns[4] == "features__created_by_id"
+    assert df.columns[3] == "features__created_by_id"
     assert set(df["features__name"].iloc[0]) == set(feature_names)
     assert set(df["features__created_by_id"].iloc[0]) == {current_user_id()}
 
@@ -194,3 +194,17 @@ def test_validate():
 def test_map_synonyms():
     qs = ln.User.filter(handle="testuser1").all()
     assert qs.standardize(["user1", "user2"]) == ["user1", "user2"]
+
+
+def test_get_doesnotexist_error():
+    non_existent_label = "some-label-name"
+
+    with pytest.raises(DoesNotExist) as excinfo:
+        ln.ULabel.get(non_existent_label)
+
+    error_message = str(excinfo.value)
+    assert f"No record found with uid '{non_existent_label}'" in error_message
+    assert (
+        f"Did you forget a keyword as in ULabel.get(name='{non_existent_label}')?"
+        in error_message
+    )

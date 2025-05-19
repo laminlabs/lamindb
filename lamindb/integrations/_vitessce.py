@@ -19,7 +19,9 @@ if TYPE_CHECKING:
 # "unit test": https://github.com/laminlabs/lamindb/blob/main/docs/storage/vitessce.ipynb
 # integration test & context: https://github.com/laminlabs/lamin-spatial/blob/main/docs/vitessce.ipynb
 def save_vitessce_config(
-    vitessce_config: VitessceConfig, description: str | None = None
+    vitessce_config: VitessceConfig,
+    key: str | None = None,
+    description: str | None = None,
 ) -> Artifact:
     """Validates and saves a `VitessceConfig` object.
 
@@ -30,9 +32,10 @@ def save_vitessce_config(
 
     Args:
         vitessce_config: A `VitessceConfig` object.
-        description: A description for the `VitessceConfig` object. Is used as
-            `key` for a `Collection` in case the `VitessceConfig` object
-            references multiple artifacts.
+        key: A key for the `VitessceConfig` object. Is used as `key` for a
+            `Collection` in case the `VitessceConfig` object references
+            multiple artifacts.
+        description: A description for the `VitessceConfig` object.
 
     .. versionchanged:: 0.76.12
         Now assumes `vitessce-python >= 3.4.0`, which allows passing artifacts within `VitessceConfig`.
@@ -77,7 +80,7 @@ def save_vitessce_config(
     with open(config_file_local_path, "w") as file:
         json.dump(vc_dict, file)
     vitessce_config_artifact = Artifact(
-        config_file_local_path, description=description, run=run
+        config_file_local_path, key=key, description=description, run=run
     ).save()
     slug = ln_setup.settings.instance.slug
     logger.important(

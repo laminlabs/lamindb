@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import re
 from typing import TYPE_CHECKING
 
 from lamin_utils import logger
@@ -35,7 +36,9 @@ TYPE_WIDTH = 25
 VALUES_WIDTH = 40
 
 
-def print_rich_tree(tree: Tree, fallback=str):
+def format_rich_tree(
+    tree: Tree, fallback: str = "", return_str: bool = False, strip_ansi: bool = True
+) -> str | None:
     from rich.console import Console
 
     # If tree has no children, return fallback
@@ -44,6 +47,20 @@ def print_rich_tree(tree: Tree, fallback=str):
 
     console = Console(force_terminal=True)
     printed = False
+
+    if return_str:
+        from io import StringIO
+
+        string_io = StringIO()
+        str_console = Console(file=string_io, force_terminal=True)
+        str_console.print(tree)
+        result = string_io.getvalue()
+        if strip_ansi:
+            ansi_escape = re.compile(r"\x1b(?:\[[0-9;]*[a-zA-Z]|\(B)")
+            result = ansi_escape.sub("", result)
+        # rstrip trailing whitespace on every line
+        result = "\n".join(line.rstrip() for line in result.splitlines())
+        return result
 
     try:
         if not is_run_from_ipython:
@@ -55,16 +72,16 @@ def print_rich_tree(tree: Tree, fallback=str):
             if isinstance(shell, InteractiveShell):
                 display(tree)
                 printed = True
-                return ""
+                return None
     except (NameError, ImportError):
         pass
 
-    # If not printed through IPython
     if not printed:
         # be careful to test this on a terminal
         console = Console(force_terminal=True)
         console.print(tree)
-        return ""
+
+    return None
 
 
 def describe_header(self: Artifact | Collection | Run) -> Tree:
@@ -74,7 +91,7 @@ def describe_header(self: Artifact | Collection | Run) -> Tree:
         )
     if hasattr(self, "_branch_code"):
         if self._branch_code == 0:  # type: ignore
-            logger.warning("This artifact is hidden.")
+            logger.warning("This artifact is archived.")
         elif self._branch_code == -1:  # type: ignore
             logger.warning("This artifact is in the trash.")
     # initialize tree

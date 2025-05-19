@@ -28,8 +28,8 @@ from lamindb.errors import FieldValidationError, ValidationError
 from ..base.ids import base62_12
 from ._relations import dict_module_name_to_model_name
 from .can_curate import CanCurate
-from .query_set import RecordList
-from .record import BasicRecord, Record, Registry, _get_record_kwargs
+from .dbrecord import BaseDBRecord, DBRecord, Registry, _get_record_kwargs
+from .query_set import DBRecordList
 from .run import (
     TracksRun,
     TracksUpdates,
@@ -71,7 +71,7 @@ def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
 
 def parse_cat_dtype(
     dtype_str: str,
-    related_registries: dict[str, Record] | None = None,
+    related_registries: dict[str, DBRecord] | None = None,
     is_itype: bool = False,
 ) -> dict[str, Any]:
     """Parses a categorical dtype string into its components (registry, field, subtypes)."""
@@ -143,40 +143,50 @@ def parse_cat_dtype(
 
 
 def serialize_dtype(
-    dtype: Record | FieldAttr | list[Record], is_itype: bool = False
+    dtype: Registry | DBRecord | FieldAttr | list[DBRecord] | list[Registry] | str,
+    is_itype: bool = False,
 ) -> str:
     """Converts a data type object into its string representation."""
+    from .ulabel import ULabel
+
     if (
         not isinstance(dtype, list)
         and hasattr(dtype, "__name__")
         and dtype.__name__ in FEATURE_DTYPES
     ):
         dtype_str = dtype.__name__
+    elif dtype is dict:
+        dtype_str = "dict"
+    elif is_itype and isinstance(dtype, str):
+        if dtype not in "Feature":
+            parse_cat_dtype(
+                dtype_str=dtype, is_itype=True
+            )  # throws an error if invalid
+        dtype_str = dtype
     elif isinstance(dtype, (ExtensionDtype, np.dtype)):
         dtype_str = serialize_pandas_dtype(dtype)
     else:
-        error_message = (
-            "dtype has to be a record, a record field, or a list of records, not {}"
-        )
-        if isinstance(dtype, Registry):
-            dtype = [dtype]
-        elif isinstance(dtype, DeferredAttribute):
+        error_message = "dtype has to be a registry, a ulabel subtype, a registry field, or a list of registries or fields, not {}"
+        if isinstance(dtype, (Registry, DeferredAttribute, ULabel)):
             dtype = [dtype]
         elif not isinstance(dtype, list):
             raise ValueError(error_message.format(dtype))
         dtype_str = ""
-        for single_dtype in dtype:
-            if not isinstance(single_dtype, Registry) and not isinstance(
-                single_dtype, DeferredAttribute
-            ):
-                raise ValueError(error_message.format(single_dtype))
-            if isinstance(single_dtype, Registry):
-                dtype_str += single_dtype.__get_name_with_module__() + "|"
+        for one_dtype in dtype:
+            if not isinstance(one_dtype, (Registry, DeferredAttribute, ULabel)):
+                raise ValueError(error_message.format(one_dtype))
+            if isinstance(one_dtype, Registry):
+                dtype_str += one_dtype.__get_name_with_module__() + "|"
+            elif isinstance(one_dtype, ULabel):
+                assert one_dtype.is_type, (  # noqa: S101
+                    f"ulabel has to be a type if acting as dtype, {one_dtype} has `is_type` False"
+                )
+                dtype_str += f"ULabel[{one_dtype.name}]"
             else:
+                name = one_dtype.field.name
+                field_ext = f".{name}" if name != "name" else ""
                 dtype_str += (
-                    single_dtype.field.model.__get_name_with_module__()
-                    + f".{single_dtype.field.name}"
-                    + "|"
+                    one_dtype.field.model.__get_name_with_module__() + field_ext + "|"
                 )
         dtype_str = dtype_str.rstrip("|")
         if not is_itype:
@@ -237,10 +247,10 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
     return kwargs
 
 
-class Feature(Record, CanCurate, TracksRun, TracksUpdates):
-    """Dataset dimensions.
+class Feature(DBRecord, CanCurate, TracksRun, TracksUpdates):
+    """Variables, such as dataframe columns or run parameters.
 
-    A feature represents a dimension of a dataset, such as a column in a
+    A feature often represents a dimension of a dataset, such as a column in a
     `DataFrame`. The `Feature` registry organizes metadata of features.
 
     The `Feature` registry helps you organize and query datasets based on their
@@ -327,7 +337,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
 
     """
 
-    class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _name_field: str = "name"
@@ -355,7 +365,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     Allows to group features by type, e.g., all read outs, all metrics, etc.
     """
     records: Feature
-    """Records of this type."""
+    """DBRecords of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     unit: str | None = CharField(max_length=30, db_index=True, null=True)
@@ -474,7 +484,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
                 )
 
     @classmethod
-    def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordList:
+    def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> DBRecordList:
         """Create Feature records for columns."""
         field = Feature.name if field is None else field
         registry = field.field.model  # type: ignore
@@ -492,7 +502,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
                 Feature(name=name, dtype=dtype) for name, dtype in dtypes.items()
             ]  # type: ignore
         assert len(features) == len(df.columns)  # noqa: S101
-        return RecordList(features)
+        return DBRecordList(features)
 
     def save(self, *args, **kwargs) -> Feature:
         """Save."""
@@ -571,8 +581,32 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
         self._aux = self._aux or {}
         self._aux.setdefault("af", {})["2"] = value
 
+    # we'll enable this later
+    # @property
+    # def observational_unit(self) -> Literal["Artifact", "Observation"]:
+    #     """Default observational unit on which the feature is measured.
 
-class FeatureValue(Record, TracksRun):
+    #     Currently, we only make a distinction between artifact-level and observation-level features.
+
+    #     For example, a feature `"ml_split"` that stores `"test"` & `"train"` labels is typically defined on the artifact level.
+    #     When accessing `artifact.features.get_values(["ml_split"])`, you expect a single value, either `"test"` or `"train"`.
+
+    #     However, when accessing an artifact annotation with a feature that's defined on the observation-level, say `"cell_type"`, you expect a set of values. So,
+    #     `artifact.features.get_values(["cell_type_from_expert"])` should return a set: `{"T cell", "B cell"}`.
+
+    #     The value of `observational_unit` is currently auto-managed: if using `artifact.featueres.add_values()`,
+    #     it will be set to `Artifact`. In a curator, the value depends on whether it's an artifact- or observation-level slot
+    #     (e.g. `.uns` is artifact-level in `AnnData` whereas `.obs` is observation-level).
+
+    #     Note: This attribute might in the future be used to distinguish different types of observational units (e.g. single cells vs. physical samples vs. study subjects etc.).
+    #     """
+    #     if self._expect_many:
+    #         return "Observation"  # this here might be replaced with the specific observational unit
+    #     else:
+    #         return "Artifact"
+
+
+class FeatureValue(DBRecord, TracksRun):
     """Non-categorical features values.
 
     Categorical feature values are stored in their respective registries:
@@ -600,7 +634,7 @@ class FeatureValue(Record, TracksRun):
     hash: str = CharField(max_length=HASH_LENGTH, null=True, db_index=True)
     """Value hash."""
 
-    class Meta(BasicRecord.Meta, TracksRun.Meta):
+    class Meta(BaseDBRecord.Meta, TracksRun.Meta):
         constraints = [
             # For simple types, use direct value comparison
             models.UniqueConstraint(

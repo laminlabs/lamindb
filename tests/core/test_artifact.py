@@ -355,13 +355,19 @@ def test_create_from_dataframe(df):
 
 
 def test_create_from_anndata(get_small_adata, adata_file):
-    for _a in [get_small_adata, adata_file]:
-        af = ln.Artifact.from_anndata(get_small_adata, description="test1")
-        assert af.description == "test1"
-        assert af.key is None
-        assert af.otype == "AnnData"
-        assert af.kind == "dataset"
-        assert af.n_observations == 2
+    for i, _a in enumerate([get_small_adata, adata_file]):
+        artifact = ln.Artifact.from_anndata(_a, description="test1")
+        assert artifact.description == "test1"
+        assert artifact.key is None
+        assert artifact.otype == "AnnData"
+        assert artifact.kind == "dataset"
+        assert artifact.n_observations == 2
+        if i == 0:
+            assert hasattr(artifact, "_local_filepath")
+            artifact.save()
+            # check that the local filepath has been cleared
+            assert not hasattr(artifact, "_local_filepath")
+            artifact.delete(permanent=True)
 
 
 def test_create_from_mudata(get_small_mdata, mudata_file, adata_file):
@@ -404,65 +410,6 @@ def test_create_from_spatialdata(
         assert af.otype == "SpatialData"
         assert af.kind == "dataset"
         # n_observations not defined
-
-
-def test_create_from_dataframe_using_from_df_and_link_features(df):
-    description = "my description"
-    artifact = ln.Artifact.from_df(
-        df, key="folder/hello.parquet", description=description
-    )
-    with pytest.raises(ValueError):
-        artifact.features["columns"]
-    artifact = ln.Artifact.from_df(df, description=description)
-    # backward compatibility for ln.Artifact to take a DataFrame
-    artifact = ln.Artifact(df, key="folder/hello.parquet", description=description)
-    assert artifact.description == description
-    assert artifact.otype == "DataFrame"
-    assert artifact.key == "folder/hello.parquet"
-    assert artifact._key_is_virtual
-    assert artifact.uid in artifact.path.as_posix()
-    artifact.save()
-    # register features from df columns
-    features = ln.Feature.from_df(df)
-    ln.save(features)
-    # link features
-    artifact.features._add_set_from_df()
-    # mere access test right now
-    artifact.features["columns"]
-    schema_queried = artifact.feature_sets.get()  # exactly one
-    feature_list_queried = ln.Feature.filter(schemas=schema_queried).list()
-    feature_list_queried = [feature.name for feature in feature_list_queried]
-    assert set(feature_list_queried) == set(df.columns)
-    artifact.delete(permanent=True, storage=True)
-    schema_queried.delete()
-    ln.Feature.filter(name__in=["feat1", "feat2"]).delete()
-
-
-def test_create_from_anndata_in_memory_and_link_features(get_small_adata):
-    ln.save(
-        bt.Gene.from_values(
-            get_small_adata.var.index, field=bt.Gene.symbol, organism="human"
-        )
-    )
-    ln.save(ln.Feature.from_df(get_small_adata.obs))
-    artifact = ln.Artifact.from_anndata(get_small_adata, description="test")
-    assert artifact.otype == "AnnData"
-    assert hasattr(artifact, "_local_filepath")
-    assert artifact.n_observations == get_small_adata.n_obs
-    artifact.save()
-    # check that the local filepath has been cleared
-    assert not hasattr(artifact, "_local_filepath")
-    # link features
-    artifact.features._add_set_from_anndata(var_field=bt.Gene.symbol, organism="human")
-    feature_sets_queried = artifact.feature_sets.all()
-    features_queried = ln.Feature.filter(schemas__in=feature_sets_queried).all()
-    assert set(features_queried.list("name")) == set(get_small_adata.obs.columns)
-    genes_queried = bt.Gene.filter(schemas__in=feature_sets_queried).all()
-    assert set(genes_queried.list("symbol")) == set(get_small_adata.var.index)
-    artifact.delete(permanent=True, storage=True)
-    feature_sets_queried.delete()
-    features_queried.delete()
-    genes_queried.delete()
 
 
 @pytest.mark.parametrize(
@@ -1151,3 +1098,17 @@ def test_no_unnecessary_imports(df, module_name: str) -> None:
     af.delete(permanent=True)
     import mudata  # noqa
     import spatialdata  # noqa
+
+
+def test_artifact_get_tracking(df):
+    artifact = ln.Artifact.from_df(df, key="df.parquet").save()
+
+    transform = ln.Transform(key="test track artifact via get").save()
+    run = ln.Run(transform).save()
+
+    assert (
+        ln.Artifact.get(key="df.parquet", is_run_input=run) in run.input_artifacts.all()
+    )
+
+    artifact.delete(permanent=True)
+    transform.delete()

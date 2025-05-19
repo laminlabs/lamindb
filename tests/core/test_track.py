@@ -42,21 +42,21 @@ def test_track_basic_invocation():
     assert (
         exc.exconly()
         == """lamindb.errors.ValidationError: These keys could not be validated: ['param1', 'param2', 'param3']
-Here is how to create a param:
+Here is how to create a feature:
 
-  ln.Param(name='param1', dtype='int').save()
-  ln.Param(name='param2', dtype='cat ? str').save()
-  ln.Param(name='param3', dtype='float').save()"""
+  ln.Feature(name='param1', dtype='int').save()
+  ln.Feature(name='param2', dtype='cat ? str').save()
+  ln.Feature(name='param3', dtype='float').save()"""
     )
-    ln.Param(name="param1", dtype="int").save()
-    ln.Param(name="param2", dtype="str").save()
-    ln.Param(name="param3", dtype="float").save()
+    ln.Feature(name="param1", dtype="int").save()
+    ln.Feature(name="param2", dtype="str").save()
+    ln.Feature(name="param3", dtype="float").save()
     ln.context.track(transform=successor, params=params)
     print("outside", id(ln.context))
     assert ln.context.run.params.get_values() == params
     # second invocation
     params = {"param1": 1, "param2": "my-string", "param3": 3.14, "param4": [1, 2]}
-    param4 = ln.Param(name="param4", dtype="int").save()
+    param4 = ln.Feature(name="param4", dtype="int").save()
     with pytest.raises(ValidationError) as exc:
         ln.context.track(transform=successor, params=params)
     assert (
@@ -68,7 +68,7 @@ Here is how to create a param:
     param4.save()
     # re-run
     ln.context.track(transform=successor, params=params)
-    assert ln.context.run.params.get_values() == params
+    assert ln.context.run.features.get_values() == params
 
     # test that run populates things like ULabels etc.
     ulabel = ln.ULabel(name="my-label-in-track")
@@ -115,6 +115,7 @@ def test_create_or_load_transform():
     context.uid = uid
     context.version = version
     context._path = Path("my-test-transform-create-or-load.py")
+    context._path.touch(exist_ok=True)
     context._create_or_load_transform(
         description=title,
         transform_type="notebook",
@@ -141,6 +142,7 @@ def test_create_or_load_transform():
     ln.context._uid = None
     ln.context._run = None
     ln.context._transform = None
+    ln.context._path.unlink()
     ln.context._path = None
 
 
@@ -230,7 +232,7 @@ def test_run_scripts():
     print(result.stderr.decode())
     assert result.returncode == 0
     assert f"{transform.stem_uid}" in result.stdout.decode()
-    assert "creating new version" not in result.stdout.decode()
+    assert "making new version" not in result.stdout.decode()
 
     transform.source_code = "dummy"
     transform.save()
@@ -245,7 +247,7 @@ def test_run_scripts():
     print(result.stderr.decode())
     assert result.returncode == 0
     assert f"{transform.stem_uid}" in result.stdout.decode()
-    assert "creating new version" in result.stdout.decode()
+    assert "making new version" in result.stdout.decode()
 
 
 def test_run_external_script():

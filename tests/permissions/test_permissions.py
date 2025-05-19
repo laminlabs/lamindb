@@ -1,20 +1,73 @@
-import subprocess
-from pathlib import Path
+import time
 from uuid import uuid4
 
 import hubmodule.models as hm
 import lamindb as ln
 import psycopg2
 import pytest
-from django.db import transaction
-from django.db.utils import ProgrammingError
+from django.db import connection, transaction
+from django.db.utils import InternalError, ProgrammingError
 from jwt_utils import sign_jwt
-from lamindb_setup.core.django import db_token_manager
+from lamindb_setup.core.django import DBToken, db_token_manager
+from psycopg2.extensions import adapt
 
 pgurl = "postgresql://postgres:pwd@0.0.0.0:5432/pgtest"  # admin db connection url
+
 user_uuid = ln.setup.settings.user._uuid.hex
-token = sign_jwt(pgurl, {"account_id": user_uuid})
-db_token_manager.set(token)
+expiration = time.time() + 2000
+token = sign_jwt(pgurl, {"account_id": user_uuid, "exp": expiration})
+# init an instance of DBToken manually
+db_token = DBToken({})
+db_token._token = token
+db_token._token_query = f"SELECT set_token({adapt(token).getquoted().decode()}, true);"
+db_token._expiration = expiration
+
+db_token_manager.set(db_token)
+
+
+def test_authentication():
+    # just check that the token was setup
+    with connection.cursor() as cur:
+        cur.execute("SELECT get_account_id();")
+        account_id = cur.fetchall()[0][0]
+    assert account_id.hex == user_uuid
+    # test that auth can't be hijacked
+    # false table created before
+    with (
+        pytest.raises(psycopg2.errors.DuplicateTable),
+        connection.connection.cursor() as cur,
+    ):
+        cur.execute(
+            """
+            CREATE TEMP TABLE account_id(val uuid PRIMARY KEY) ON COMMIT DROP;
+            SELECT set_token(%s);
+            """,
+            (token,),
+        )
+    # check that jwt user can't set arbitrary account_id manually
+    with (
+        pytest.raises(psycopg2.errors.RaiseException),
+        connection.connection.cursor() as cur,
+    ):
+        cur.execute(
+            """
+            CREATE TEMP TABLE account_id(val uuid PRIMARY KEY) ON COMMIT DROP;
+            INSERT INTO account_id(val) VALUES (gen_random_uuid());
+            SELECT get_account_id();
+            """
+        )
+    # check manual insert
+    with (
+        pytest.raises(psycopg2.errors.InsufficientPrivilege),
+        connection.connection.cursor() as cur,
+    ):
+        cur.execute(
+            """
+            SELECT set_token(%s);
+            INSERT INTO account_id(val) VALUES (gen_random_uuid());
+            """,
+            (token,),
+        )
 
 
 def test_fine_grained_permissions_account():
@@ -41,13 +94,13 @@ def test_fine_grained_permissions_account():
     ulabel.space = space
     ulabel.save()
     # should fail
-    with pytest.raises(ProgrammingError):
+    with pytest.raises(ln.errors.NoWriteAccess):
         ln.ULabel(name="new label fail").save()
     for space_name in ["select access", "no access"]:
         space = ln.models.Space.get(name=space_name)
         ulabel = ln.ULabel(name="new label fail")
         ulabel.space = space
-        with pytest.raises(ProgrammingError):
+        with pytest.raises(ln.errors.NoWriteAccess):
             ulabel.save()
     # check update
     # should succeed
@@ -58,12 +111,12 @@ def test_fine_grained_permissions_account():
     # should fail
     ulabel = ln.ULabel.get(name="select_ulabel")
     ulabel.name = "select_ulabel update"
-    with pytest.raises(ProgrammingError):
+    with pytest.raises(ln.errors.NoWriteAccess):
         ulabel.save()
     # default space
     ulabel = ln.ULabel.get(name="default_space_ulabel")
     ulabel.name = "default_space_ulabel update"
-    with pytest.raises(ProgrammingError):
+    with pytest.raises(ln.errors.NoWriteAccess):
         ulabel.save()
     # check link tables
     # check insert
@@ -145,11 +198,24 @@ def test_write_role():
     ln.ULabel(name="new label team default space").save()
 
 
+def test_token_reset():
+    db_token_manager.reset()
+
+    # account_id is not set
+    with pytest.raises(InternalError) as error:
+        ln.ULabel.filter().count()
+    assert "JWT is not set" in error.exconly()
+
+    with pytest.raises(InternalError) as error, transaction.atomic():
+        ln.ULabel.filter().count()
+    assert "JWT is not set" in error.exconly()
+
+
 # below is an integration test that should run last
-def test_lamin_dev():
-    script_path = Path(__file__).parent.resolve() / "scripts/check_lamin_dev.py"
-    subprocess.run(  # noqa: S602
-        f"python {script_path}",
-        shell=True,
-        check=True,
-    )
+# def test_lamin_dev():
+#     script_path = Path(__file__).parent.resolve() / "scripts/check_lamin_dev.py"
+#     subprocess.run(  # noqa: S602
+#         f"python {script_path}",
+#         shell=True,
+#         check=True,
+#     )

@@ -11,7 +11,7 @@ from rich.tree import Tree
 
 from lamindb.models import CanCurate, Feature
 from lamindb.models._from_values import _format_values
-from lamindb.models.record import (
+from lamindb.models.dbrecord import (
     REGISTRY_UNIQUE_FIELD,
     get_name_field,
     transfer_fk_to_default_db_bulk,
@@ -24,13 +24,13 @@ from ._describe import (
     TYPE_WIDTH,
     VALUES_WIDTH,
     describe_header,
-    print_rich_tree,
+    format_rich_tree,
 )
 from ._django import get_artifact_with_related, get_related_model
 from ._relations import dict_related_model_to_related_name
 
 if TYPE_CHECKING:
-    from lamindb.models import Artifact, Collection, Record
+    from lamindb.models import Artifact, Collection, DBRecord
     from lamindb.models.query_set import QuerySet
 
 EXCLUDE_LABELS = {"feature_sets"}
@@ -182,12 +182,18 @@ class LabelManager:
         self._host = host
 
     def __repr__(self) -> str:
+        return self.describe(return_str=True)
+
+    def describe(self, return_str=True) -> str:
+        """Describe the labels."""
         tree = describe_labels(self._host)
-        return print_rich_tree(tree, fallback="no linked labels")
+        return format_rich_tree(
+            tree, fallback="no linked labels", return_str=return_str
+        )
 
     def add(
         self,
-        records: Record | list[Record] | QuerySet,
+        records: DBRecord | list[DBRecord] | QuerySet,
         feature: Feature | None = None,
     ) -> None:
         """Add one or several labels and associate them with a feature.
@@ -302,7 +308,7 @@ class LabelManager:
                         *feature_labels, through_defaults={"feature_id": feature_id}
                     )
 
-    def make_external(self, label: Record) -> None:
+    def make_external(self, label: DBRecord) -> None:
         """Make a label external, aka dissociate label from internal features.
 
         Args:

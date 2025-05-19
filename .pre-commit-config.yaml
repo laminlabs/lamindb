@@ -59,5 +59,7 @@ repos:
               script-to-test-versioning.py|
               tests/storage/conftest.py|
               tests/curators/conftest.py|
-              tests/permissions/conftest.py
+              tests/permissions/conftest.py|
+              tests/writelog/conftest.py|
+              tests/curators/test_curators_examples.py
           )

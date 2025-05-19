@@ -4,21 +4,22 @@ import re
 from collections import UserList
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, Union
 
 import pandas as pd
 from django.core.exceptions import FieldError
 from django.db import models
-from django.db.models import F, ForeignKey, ManyToManyField, Subquery
+from django.db.models import F, ForeignKey, ManyToManyField, Q, Subquery
 from django.db.models.fields.related import ForeignObjectRel
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 
-from lamindb.models._is_versioned import IsVersioned
-from lamindb.models.record import Record
-
 from ..errors import DoesNotExist
-from .can_curate import CanCurate
+from ._is_versioned import IsVersioned
+from .can_curate import CanCurate, _inspect, _standardize, _validate
+from .dbrecord import DBRecord
+from .query_manager import _lookup, _search
 
 if TYPE_CHECKING:
     from lamindb.base.types import ListLike, StrField
@@ -39,7 +40,7 @@ pd.set_option("display.max_columns", 200)
 #     return (series + timedelta).dt.strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
-def get_keys_from_df(data: list, registry: Record) -> list[str]:
+def get_keys_from_df(data: list, registry: DBRecord) -> list[str]:
     if len(data) > 0:
         if isinstance(data[0], dict):
             keys = list(data[0].keys())
@@ -61,9 +62,9 @@ def get_keys_from_df(data: list, registry: Record) -> list[str]:
     return keys
 
 
-def one_helper(self):
+def one_helper(self, does_not_exist_msg: str | None = None):
     if len(self) == 0:
-        raise DoesNotExist
+        raise DoesNotExist(does_not_exist_msg)
     elif len(self) > 1:
         raise MultipleResultsFound(self)
     else:
@@ -107,7 +108,7 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
 
 def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
     def _map_databases(value: Any, key: str, target_db: str) -> tuple[str, Any]:
-        if isinstance(value, Record):
+        if isinstance(value, DBRecord):
             if value._state.db != target_db:
                 logger.warning(
                     f"passing record from database {value._state.db} to query {target_db}, matching on uid '{value.uid}'"
@@ -120,12 +121,12 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
             and isinstance(value, IterableType)
             and not isinstance(value, str)
         ):
-            if any(isinstance(v, Record) and v._state.db != target_db for v in value):
+            if any(isinstance(v, DBRecord) and v._state.db != target_db for v in value):
                 logger.warning(
                     f"passing records from another database to query {target_db}, matching on uids"
                 )
                 return key.replace("__in", "__uid__in"), [
-                    v.uid if isinstance(v, Record) else v for v in value
+                    v.uid if isinstance(v, DBRecord) else v for v in value
                 ]
             return key, value
 
@@ -136,7 +137,7 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
         expressions,
     )
 
-    if issubclass(queryset.model, Record):
+    if issubclass(queryset.model, DBRecord):
         # _branch_code is set to 0 unless expressions contains id or uid
         if not (
             "id" in expressions
@@ -165,10 +166,10 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
 
 
 def get(
-    registry_or_queryset: Union[type[Record], QuerySet],
+    registry_or_queryset: Union[type[DBRecord], QuerySet],
     idlike: int | str | None = None,
     **expressions,
-) -> Record:
+) -> DBRecord:
     if isinstance(registry_or_queryset, QuerySet):
         qs = registry_or_queryset
         registry = qs.model
@@ -179,13 +180,19 @@ def get(
         return super(QuerySet, qs).get(id=idlike)  # type: ignore
     elif isinstance(idlike, str):
         qs = qs.filter(uid__startswith=idlike)
+
+        NAME_FIELD = (
+            registry._name_field if hasattr(registry, "_name_field") else "name"
+        )
+        DOESNOTEXIST_MSG = f"No record found with uid '{idlike}'. Did you forget a keyword as in {registry.__name__}.get({NAME_FIELD}='{idlike}')?"
+
         if issubclass(registry, IsVersioned):
             if len(idlike) <= registry._len_stem_uid:
-                return qs.latest_version().one()
+                return one_helper(qs.latest_version(), DOESNOTEXIST_MSG)
             else:
-                return qs.one()
+                return one_helper(qs, DOESNOTEXIST_MSG)
         else:
-            return qs.one()
+            return one_helper(qs, DOESNOTEXIST_MSG)
     else:
         assert idlike is None  # noqa: S101
         expressions = process_expressions(qs, expressions)
@@ -212,7 +219,7 @@ def get(
             raise registry.DoesNotExist from registry.DoesNotExist
 
 
-class RecordList(UserList, Generic[T]):
+class DBRecordList(UserList, Generic[T]):
     """Is ordered, can't be queried, but has `.df()`."""
 
     def __init__(self, records: Iterable[T]):
@@ -226,11 +233,16 @@ class RecordList(UserList, Generic[T]):
         values = [record.__dict__ for record in self.data]
         return pd.DataFrame(values, columns=keys)
 
+    def list(
+        self, field: str
+    ) -> list[str]:  # meaningful to be parallel with list() in QuerySet
+        return [getattr(record, field) for record in self.data]
+
     def one(self) -> T:
         """Exactly one result. Throws error if there are more or none."""
         return one_helper(self)
 
-    def save(self) -> RecordList[T]:
+    def save(self) -> DBRecordList[T]:
         """Save all records to the database."""
         from lamindb.models.save import save
 
@@ -239,7 +251,9 @@ class RecordList(UserList, Generic[T]):
 
 
 def get_basic_field_names(
-    qs: QuerySet, include: list[str], features: bool | list[str] = False
+    qs: QuerySet,
+    include: list[str],
+    features_input: bool | list[str],
 ) -> list[str]:
     exclude_field_names = ["updated_at"]
     field_names = [
@@ -271,27 +285,40 @@ def get_basic_field_names(
     if field_names[0] != "uid" and "uid" in field_names:
         field_names.remove("uid")
         field_names.insert(0, "uid")
-    if include or features:
-        subset_field_names = field_names[:4]
+    if (
+        include or features_input
+    ):  # if there is features_input, reduce fields to just the first 3
+        subset_field_names = field_names[:3]
         intersection = set(field_names) & set(include)
         subset_field_names += list(intersection)
         field_names = subset_field_names
     return field_names
 
 
-def get_feature_annotate_kwargs(show_features: bool | list[str]) -> dict[str, Any]:
+def get_feature_annotate_kwargs(
+    features: bool | list[str] | None,
+) -> tuple[dict[str, Any], list[str], QuerySet]:
     from lamindb.models import (
         Artifact,
         Feature,
     )
 
-    features = Feature.filter()
-    if isinstance(show_features, list):
-        features.filter(name__in=show_features)
+    feature_qs = Feature.filter()
+    if isinstance(features, list):
+        feature_qs = feature_qs.filter(name__in=features)
+        feature_names = features
+    else:  # features is True -- only consider categorical features from ULabel and non-categorical features
+        feature_qs = feature_qs.filter(
+            Q(~Q(dtype__startswith="cat[")) | Q(dtype__startswith="cat[ULabel")
+        )
+        feature_names = feature_qs.list("name")
+        logger.important(
+            f"queried for all categorical features with dtype 'cat[ULabel...'] and non-categorical features: ({len(feature_names)}) {feature_names}"
+        )
     # Get the categorical features
     cat_feature_types = {
         feature.dtype.replace("cat[", "").replace("]", "")
-        for feature in features
+        for feature in feature_qs
         if feature.dtype.startswith("cat[")
     }
     # Get relationships of labels and features
@@ -327,12 +354,12 @@ def get_feature_annotate_kwargs(show_features: bool | list[str]) -> dict[str, An
         "_feature_values__feature__name"
     )
     annotate_kwargs["_feature_values__value"] = F("_feature_values__value")
-    return annotate_kwargs
+    return annotate_kwargs, feature_names, feature_qs
 
 
 # https://claude.ai/share/16280046-6ae5-4f6a-99ac-dec01813dc3c
 def analyze_lookup_cardinality(
-    model_class: Record, lookup_paths: list[str] | None
+    model_class: DBRecord, lookup_paths: list[str] | None
 ) -> dict[str, str]:
     """Analyze lookup cardinality.
 
@@ -381,45 +408,68 @@ def analyze_lookup_cardinality(
     return result
 
 
+def reorder_subset_columns_in_df(df: pd.DataFrame, column_order: list[str], position=3):
+    valid_columns = [col for col in column_order if col in df.columns]
+    all_cols = df.columns.tolist()
+    remaining_cols = [col for col in all_cols if col not in valid_columns]
+    new_order = remaining_cols[:position] + valid_columns + remaining_cols[position:]
+    return df[new_order]
+
+
 # https://lamin.ai/laminlabs/lamindata/transform/BblTiuKxsb2g0003
 # https://claude.ai/chat/6ea2498c-944d-4e7a-af08-29e5ddf637d2
 def reshape_annotate_result(
-    field_names: list[str],
     df: pd.DataFrame,
-    extra_columns: dict[str, str] | None = None,
-    features: bool | list[str] = False,
+    field_names: list[str],
+    cols_from_include: dict[str, str] | None,
+    feature_names: list[str],
+    feature_qs: QuerySet | None,
 ) -> pd.DataFrame:
-    """Reshapes experimental data with optional feature handling.
+    """Reshapes tidy table to wide format.
 
-    Parameters:
-    field_names: List of basic fields to include in result
-    df: Input dataframe with experimental data
-    extra_columns: Dict specifying additional columns to process with types ('one' or 'many')
-                  e.g., {'ulabels__name': 'many', 'created_by__name': 'one'}
-    features: If False, skip feature processing. If True, process all features.
-             If list of strings, only process specified features.
-
-    Returns:
-    DataFrame with reshaped data
+    Args:
+        field_names: List of basic fields to include in result
+        df: Input dataframe with experimental data
+        extra_columns: Dict specifying additional columns to process with types ('one' or 'many')
+            e.g., {'ulabels__name': 'many', 'created_by__name': 'one'}
+        feature_names: Feature names.
     """
-    extra_columns = extra_columns or {}
+    cols_from_include = cols_from_include or {}
 
-    # Initialize result with basic fields
-    result = df[field_names].drop_duplicates(subset=["id"])
-
-    # Process features if requested
-    if features:
-        # Handle _feature_values if columns exist
+    # initialize result with basic fields, need a copy as we're modifying it
+    # will give us warnings otherwise
+    result = df[field_names].copy()
+    # process features if requested
+    if feature_names:
+        # handle feature_values
         feature_cols = ["_feature_values__feature__name", "_feature_values__value"]
         if all(col in df.columns for col in feature_cols):
-            feature_values = process_feature_values(df, features)
-            if not feature_values.empty:
-                for col in feature_values.columns:
-                    if col in result.columns:
-                        continue
-                    result.insert(4, col, feature_values[col])
+            # Create two separate dataframes - one for dict values and one for non-dict values
+            is_dict = df["_feature_values__value"].apply(lambda x: isinstance(x, dict))
+            dict_df, non_dict_df = df[is_dict], df[~is_dict]
 
-        # Handle links features if they exist
+            # Process non-dict values using set aggregation
+            non_dict_features = non_dict_df.groupby(
+                ["id", "_feature_values__feature__name"]
+            )["_feature_values__value"].agg(set)
+
+            # Process dict values using first aggregation
+            dict_features = dict_df.groupby(["id", "_feature_values__feature__name"])[
+                "_feature_values__value"
+            ].agg("first")
+
+            # Combine the results
+            combined_features = pd.concat([non_dict_features, dict_features])
+
+            # Unstack and reset index
+            feature_values = combined_features.unstack().reset_index()
+            if not feature_values.empty:
+                result = result.join(
+                    feature_values.set_index("id"),
+                    on="id",
+                )
+
+        # handle categorical features
         links_features = [
             col
             for col in df.columns
@@ -427,32 +477,34 @@ def reshape_annotate_result(
         ]
 
         if links_features:
-            result = process_links_features(df, result, links_features, features)
+            result = process_links_features(df, result, links_features, feature_names)
 
-    # Process extra columns
-    if extra_columns:
-        result = process_extra_columns(df, result, extra_columns)
+        def extract_single_element(s):
+            if not hasattr(s, "__len__"):  # is NaN or other scalar
+                return s
+            if len(s) != 1:
+                # TODO: below should depend on feature._expect_many
+                # logger.warning(
+                #     f"expected single value because `feature._expect_many is False` but got set {len(s)} elements: {s}"
+                # )
+                return s
+            return next(iter(s))
 
-    return result
+        for feature in feature_qs:
+            if feature.name in result.columns:
+                # TODO: make dependent on feature._expect_many through
+                # lambda x: extract_single_element(x, feature)
+                result[feature.name] = result[feature.name].apply(
+                    extract_single_element
+                )
 
+        # sort columns
+        result = reorder_subset_columns_in_df(result, feature_names)
 
-def process_feature_values(
-    df: pd.DataFrame, features: bool | list[str]
-) -> pd.DataFrame:
-    """Process _feature_values columns."""
-    feature_values = df.groupby(["id", "_feature_values__feature__name"])[
-        "_feature_values__value"
-    ].agg(set)
+    if cols_from_include:
+        result = process_cols_from_include(df, result, cols_from_include)
 
-    # Filter features if specific ones requested
-    if isinstance(features, list):
-        feature_values = feature_values[
-            feature_values.index.get_level_values(
-                "_feature_values__feature__name"
-            ).isin(features)
-        ]
-
-    return feature_values.unstack().reset_index()
+    return result.drop_duplicates(subset=["id"])
 
 
 def process_links_features(
@@ -488,12 +540,12 @@ def process_links_features(
         for feature_name in feature_names:
             mask = df[feature_col] == feature_name
             feature_values = df[mask].groupby("id")[value_col].agg(set)
-            result.insert(4, feature_name, result["id"].map(feature_values))
+            result.insert(3, feature_name, result["id"].map(feature_values))
 
     return result
 
 
-def process_extra_columns(
+def process_cols_from_include(
     df: pd.DataFrame, result: pd.DataFrame, extra_columns: dict[str, str]
 ) -> pd.DataFrame:
     """Process additional columns based on their specified types."""
@@ -504,58 +556,87 @@ def process_extra_columns(
             continue
 
         values = df.groupby("id")[col].agg(set if col_type == "many" else "first")
-        result.insert(4, col, result["id"].map(values))
+        result.insert(3, col, result["id"].map(values))
 
     return result
 
 
-class QuerySet(models.QuerySet):
+class BasicQuerySet(models.QuerySet):
     """Sets of records returned by queries.
 
     See Also:
 
-        `django QuerySet <https://docs.djangoproject.com/en/4.2/ref/models/querysets/>`__
+        `django QuerySet <https://docs.djangoproject.com/en/stable/ref/models/querysets/>`__
 
     Examples:
 
-        >>> ULabel(name="my label").save()
-        >>> queryset = ULabel.filter(name="my label")
-        >>> queryset
+        Any filter statement produces a query set::
+
+            queryset = Registry.filter(name__startswith="keyword")
     """
 
-    @doc_args(Record.df.__doc__)
+    def __new__(cls, model=None, query=None, using=None, hints=None):
+        from lamindb.models import Artifact, ArtifactSet
+
+        # If the model is Artifact, create a new class
+        # for BasicQuerySet or QuerySet that inherits from ArtifactSet.
+        # This allows to add artifact specific functionality to all classes
+        # inheriting from BasicQuerySet.
+        # Thus all query sets of artifacts (and only of artifacts)
+        # will have functions from ArtifactSet.
+        if model is Artifact and not issubclass(cls, ArtifactSet):
+            new_cls = type("Artifact" + cls.__name__, (cls, ArtifactSet), {})
+        else:
+            new_cls = cls
+        return object.__new__(new_cls)
+
+    @doc_args(DBRecord.df.__doc__)
     def df(
         self,
         include: str | list[str] | None = None,
-        features: bool | list[str] = False,
+        features: bool | list[str] | None = None,
     ) -> pd.DataFrame:
         """{}"""  # noqa: D415
+        time = datetime.now(timezone.utc)
         if include is None:
-            include = []
+            include_input = []
         elif isinstance(include, str):
-            include = [include]
-        include = get_backward_compat_filter_kwargs(self, include)
-        field_names = get_basic_field_names(self, include, features)  # type: ignore
+            include_input = [include]
+        else:
+            include_input = include
+        features_input = [] if features is None else features
+        include = get_backward_compat_filter_kwargs(self, include_input)
+        field_names = get_basic_field_names(self, include_input, features_input)
 
         annotate_kwargs = {}
+        feature_names: list[str] = []
+        feature_qs = None
         if features:
-            annotate_kwargs.update(get_feature_annotate_kwargs(features))
-        if include:
-            include = include.copy()[::-1]  # type: ignore
-            include_kwargs = {s: F(s) for s in include if s not in field_names}
+            feature_annotate_kwargs, feature_names, feature_qs = (
+                get_feature_annotate_kwargs(features)
+            )
+            time = logger.debug("finished feature_annotate_kwargs", time=time)
+            annotate_kwargs.update(feature_annotate_kwargs)
+        if include_input:
+            include_input = include_input.copy()[::-1]  # type: ignore
+            include_kwargs = {s: F(s) for s in include_input if s not in field_names}
             annotate_kwargs.update(include_kwargs)
         if annotate_kwargs:
             id_subquery = self.values("id")
+            time = logger.debug("finished get id values", time=time)
             # for annotate, we want the queryset without filters so that joins don't affect the annotations
             query_set_without_filters = self.model.objects.filter(
                 id__in=Subquery(id_subquery)
             )
+            time = logger.debug("finished get query_set_without_filters", time=time)
             if self.query.order_by:
                 # Apply the same ordering to the new queryset
                 query_set_without_filters = query_set_without_filters.order_by(
                     *self.query.order_by
                 )
+                time = logger.debug("finished order by", time=time)
             queryset = query_set_without_filters.annotate(**annotate_kwargs)
+            time = logger.debug("finished annotate", time=time)
         else:
             queryset = self
 
@@ -563,12 +644,18 @@ class QuerySet(models.QuerySet):
         if len(df) == 0:
             df = pd.DataFrame({}, columns=field_names)
             return df
-        extra_cols = analyze_lookup_cardinality(self.model, include)  # type: ignore
-        df_reshaped = reshape_annotate_result(field_names, df, extra_cols, features)
+        time = logger.debug("finished creating first dataframe", time=time)
+        cols_from_include = analyze_lookup_cardinality(self.model, include_input)  # type: ignore
+        time = logger.debug("finished analyze_lookup_cardinality", time=time)
+        df_reshaped = reshape_annotate_result(
+            df, field_names, cols_from_include, feature_names, feature_qs
+        )
+        time = logger.debug("finished reshape_annotate_result", time=time)
         pk_name = self.model._meta.pk.name
         pk_column_name = pk_name if pk_name in df.columns else f"{pk_name}_id"
         if pk_column_name in df_reshaped.columns:
             df_reshaped = df_reshaped.set_index(pk_column_name)
+        time = logger.debug("finished", time=time)
         return df_reshaped
 
     def delete(self, *args, **kwargs):
@@ -581,10 +668,12 @@ class QuerySet(models.QuerySet):
                 logger.important(f"deleting {record}")
                 record.delete(*args, **kwargs)
         else:
-            self._delete_base_class(*args, **kwargs)
+            super().delete(*args, **kwargs)
 
-    def list(self, field: str | None = None) -> list[Record]:
-        """Populate a list with the results.
+    def list(self, field: str | None = None) -> list[DBRecord] | list[str]:
+        """Populate an (unordered) list with the results.
+
+        Note that the order in this list is only meaningful if you ordered the underlying query set with `.order_by()`.
 
         Examples:
             >>> queryset.list()  # list of records
@@ -593,9 +682,10 @@ class QuerySet(models.QuerySet):
         if field is None:
             return list(self)
         else:
+            # list casting is necessary because values_list does not return a list
             return list(self.values_list(field, flat=True))
 
-    def first(self) -> Record | None:
+    def first(self) -> DBRecord | None:
         """If non-empty, the first result in the query set, otherwise ``None``.
 
         Examples:
@@ -604,6 +694,82 @@ class QuerySet(models.QuerySet):
         if len(self) == 0:
             return None
         return self[0]
+
+    def one(self) -> DBRecord:
+        """Exactly one result. Raises error if there are more or none."""
+        return one_helper(self)
+
+    def one_or_none(self) -> DBRecord | None:
+        """At most one result. Returns it if there is one, otherwise returns ``None``.
+
+        Examples:
+            >>> ULabel.filter(name="benchmark").one_or_none()
+            >>> ULabel.filter(name="non existing label").one_or_none()
+        """
+        if len(self) == 0:
+            return None
+        elif len(self) == 1:
+            return self[0]
+        else:
+            raise MultipleResultsFound(self.all())
+
+    def latest_version(self) -> QuerySet:
+        """Filter every version family by latest version."""
+        if issubclass(self.model, IsVersioned):
+            return self.filter(is_latest=True)
+        else:
+            raise ValueError("DBRecord isn't subclass of `lamindb.core.IsVersioned`")
+
+    @doc_args(_search.__doc__)
+    def search(self, string: str, **kwargs):
+        """{}"""  # noqa: D415
+        return _search(cls=self, string=string, **kwargs)
+
+    @doc_args(_lookup.__doc__)
+    def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
+        """{}"""  # noqa: D415
+        return _lookup(cls=self, field=field, **kwargs)
+
+    # -------------------------------------------------------------------------------------
+    # CanCurate
+    # -------------------------------------------------------------------------------------
+
+    @doc_args(CanCurate.validate.__doc__)
+    def validate(self, values: ListLike, field: str | StrField | None = None, **kwargs):
+        """{}"""  # noqa: D415
+        return _validate(cls=self, values=values, field=field, **kwargs)
+
+    @doc_args(CanCurate.inspect.__doc__)
+    def inspect(self, values: ListLike, field: str | StrField | None = None, **kwargs):
+        """{}"""  # noqa: D415
+        return _inspect(cls=self, values=values, field=field, **kwargs)
+
+    @doc_args(CanCurate.standardize.__doc__)
+    def standardize(
+        self, values: Iterable, field: str | StrField | None = None, **kwargs
+    ):
+        """{}"""  # noqa: D415
+        return _standardize(cls=self, values=values, field=field, **kwargs)
+
+
+# this differs from BasicQuerySet only in .filter and .get
+# QueryManager returns BasicQuerySet because it is problematic to redefine .filter and .get
+# for a query set used by the default manager
+class QuerySet(BasicQuerySet):
+    """Sets of records returned by queries.
+
+    Implements additional filtering capabilities.
+
+    See Also:
+
+        `django QuerySet <https://docs.djangoproject.com/en/4.2/ref/models/querysets/>`__
+
+    Examples:
+
+        >>> ULabel(name="my label").save()
+        >>> queryset = ULabel.filter(name="my label")
+        >>> queryset # an instance of QuerySet
+    """
 
     def _handle_unknown_field(self, error: FieldError) -> None:
         """Suggest available fields if an unknown field was passed."""
@@ -615,10 +781,12 @@ class QuerySet(models.QuerySet):
             ) from None
         raise error  # pragma: no cover
 
-    def get(self, idlike: int | str | None = None, **expressions) -> Record:
+    def get(self, idlike: int | str | None = None, **expressions) -> DBRecord:
         """Query a single record. Raises error if there are more or none."""
+        is_run_input = expressions.pop("is_run_input", False)
+
         try:
-            return get(self, idlike, **expressions)
+            record = get(self, idlike, **expressions)
         except ValueError as e:
             # Pass through original error for explicit id lookups
             if "Field 'id' expected a number" in str(e):
@@ -632,6 +800,15 @@ class QuerySet(models.QuerySet):
         except FieldError as e:
             self._handle_unknown_field(e)
             raise  # pragma: no cover
+
+        if is_run_input is not False:  # might be None or True or Run
+            from lamindb.models.artifact import Artifact, _track_run_input
+            from lamindb.models.collection import Collection
+
+            if isinstance(record, (Artifact, Collection)):
+                _track_run_input(record, is_run_input)
+
+        return record
 
     def filter(self, *queries, **expressions) -> QuerySet:
         """Query a set of records."""
@@ -657,88 +834,3 @@ class QuerySet(models.QuerySet):
             except FieldError as e:
                 self._handle_unknown_field(e)
         return self
-
-    def one(self) -> Record:
-        """Exactly one result. Raises error if there are more or none."""
-        return one_helper(self)
-
-    def one_or_none(self) -> Record | None:
-        """At most one result. Returns it if there is one, otherwise returns ``None``.
-
-        Examples:
-            >>> ULabel.filter(name="benchmark").one_or_none()
-            >>> ULabel.filter(name="non existing label").one_or_none()
-        """
-        if len(self) == 0:
-            return None
-        elif len(self) == 1:
-            return self[0]
-        else:
-            raise MultipleResultsFound(self.all())
-
-    def latest_version(self) -> QuerySet:
-        """Filter every version family by latest version."""
-        if issubclass(self.model, IsVersioned):
-            return self.filter(is_latest=True)
-        else:
-            raise ValueError("Record isn't subclass of `lamindb.core.IsVersioned`")
-
-
-# -------------------------------------------------------------------------------------
-# CanCurate
-# -------------------------------------------------------------------------------------
-
-
-@doc_args(Record.search.__doc__)
-def search(self, string: str, **kwargs):
-    """{}"""  # noqa: D415
-    from .record import _search
-
-    return _search(cls=self, string=string, **kwargs)
-
-
-@doc_args(Record.lookup.__doc__)
-def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
-    """{}"""  # noqa: D415
-    from .record import _lookup
-
-    return _lookup(cls=self, field=field, **kwargs)
-
-
-@doc_args(CanCurate.validate.__doc__)
-def validate(self, values: ListLike, field: str | StrField | None = None, **kwargs):
-    """{}"""  # noqa: D415
-    from .can_curate import _validate
-
-    return _validate(cls=self, values=values, field=field, **kwargs)
-
-
-@doc_args(CanCurate.inspect.__doc__)
-def inspect(self, values: ListLike, field: str | StrField | None = None, **kwargs):
-    """{}"""  # noqa: D415
-    from .can_curate import _inspect
-
-    return _inspect(cls=self, values=values, field=field, **kwargs)
-
-
-@doc_args(CanCurate.standardize.__doc__)
-def standardize(self, values: Iterable, field: str | StrField | None = None, **kwargs):
-    """{}"""  # noqa: D415
-    from .can_curate import _standardize
-
-    return _standardize(cls=self, values=values, field=field, **kwargs)
-
-
-models.QuerySet.df = QuerySet.df
-models.QuerySet.list = QuerySet.list
-models.QuerySet.first = QuerySet.first
-models.QuerySet.one = QuerySet.one
-models.QuerySet.one_or_none = QuerySet.one_or_none
-models.QuerySet.latest_version = QuerySet.latest_version
-models.QuerySet.search = search
-models.QuerySet.lookup = lookup
-models.QuerySet.validate = validate
-models.QuerySet.inspect = inspect
-models.QuerySet.standardize = standardize
-models.QuerySet._delete_base_class = models.QuerySet.delete
-models.QuerySet.delete = QuerySet.delete

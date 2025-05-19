@@ -10,7 +10,7 @@
    MissingContextUID
    UpdateContext
    IntegrityError
-   RecordNameChangeIntegrityError
+   DBRecordNameChangeIntegrityError
 
 """
 
@@ -57,7 +57,7 @@ class InconsistentKey(Exception):
     pass
 
 
-class RecordNameChangeIntegrityError(Exception):
+class DBRecordNameChangeIntegrityError(Exception):
     """Custom exception for name change errors."""
 
     pass
@@ -92,5 +92,16 @@ class MissingContextUID(SystemExit):
 
 class UpdateContext(SystemExit):
     """Transform settings require update."""
+
+    pass
+
+
+# -------------------------------------------------------------------------------------
+# record
+# -------------------------------------------------------------------------------------
+
+
+class NoWriteAccess(Exception):
+    """No write access to a space."""
 
     pass
