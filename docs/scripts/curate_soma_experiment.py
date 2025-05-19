@@ -1,11 +1,9 @@
 import lamindb as ln
 import bionty as bt
 import tiledbsoma as soma
+import tiledbsoma.io
 
 adata = ln.core.datasets.small_dataset1(otype="AnnData")
-
-import tiledbsoma
-import tiledbsoma.io
 
 tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
 
@@ -14,7 +12,6 @@ experiment = soma.Experiment.open("curate.tiledbsoma")
 obs_schema = ln.Schema(
     name="soma_obs_schema",
     features=[
-        # ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
         ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
         ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
     ],
@@ -33,7 +30,7 @@ soma_schema = ln.Schema(
     otype="tiledbsoma",
     slots={
         "obs": obs_schema,
-        "ms:RNA": var_schema,
+        "ms:RNA.T": var_schema,
     },
 ).save()
 

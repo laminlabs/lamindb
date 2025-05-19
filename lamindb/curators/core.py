@@ -631,8 +631,11 @@ class AnnDataCurator(SlotsCurator):
 
     Example:
 
-        See :meth:`~lamindb.Artifact.from_anndata`.
+        .. literalinclude:: scripts/curate_anndata_flexible.py
+            :language: python
+            :caption: curate_anndata_flexible.py
 
+    See :meth:`~lamindb.Artifact.from_anndata`.
     """
 
     def __init__(
@@ -714,9 +717,11 @@ class MuDataCurator(SlotsCurator):
 
     Example:
 
-        .. literalinclude:: scripts/curate-mudata.py
+        .. literalinclude:: scripts/curate_mudata.py
             :language: python
-            :caption: curate-mudata.py
+            :caption: curate_mudata.py
+
+    See :meth:`~lamindb.Artifact.from_mudata`.
     """
 
     def __init__(
@@ -778,7 +783,11 @@ class SpatialDataCurator(SlotsCurator):
 
     Example:
 
-        See :meth:`~lamindb.Artifact.from_spatialdata`.
+        .. literalinclude:: scripts/curate-mudata.py
+            :language: python
+            :caption: curate-mudata.py
+
+    See :meth:`~lamindb.Artifact.from_spatialdata`.
     """
 
     def __init__(
@@ -861,6 +870,10 @@ class SomaExperimentCurator(SlotsCurator):
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
 
     Example:
+
+        .. literalinclude:: scripts/curate_soma_experiment.py
+            :language: python
+            :caption: curate_soma_experiment.py
 
         See :meth:`~lamindb.Artifact.from_tiledbsoma`.
     """
