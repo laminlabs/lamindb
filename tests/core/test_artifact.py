@@ -171,7 +171,7 @@ def test_data_is_soma_experiment_paths():
         ("get_small_adata", "MuData", False),
         ("get_small_mdata", "AnnData", False),
         ("get_small_sdata", "AnnData", False),
-        ("get_small_adata", True),
+        ("get_small_adata", None, True),
         (pd.DataFrame(), "AnnData", False),
         (None, "AnnData", False),
         (None, None, False),
