@@ -170,7 +170,7 @@ class RecordULabel(BaseDBRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_ulabel")
     feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordulabel")
-    value: ULabel = ForeignKey(ULabel, CASCADE, related_name="links_record")
+    value: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_record")
 
     class Meta:
         unique_together = ("record", "feature")
@@ -180,7 +180,7 @@ class RecordRun(BaseDBRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_run")
     feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordrun")
-    value: Run = ForeignKey(Run, CASCADE, related_name="links_record")
+    value: Run = ForeignKey(Run, PROTECT, related_name="links_record")
 
     class Meta:
         unique_together = ("record", "feature")
@@ -190,7 +190,7 @@ class RecordArtifact(BaseDBRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_artifact")
     feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordartifact")
-    value: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_record")
+    value: Artifact = ForeignKey(Artifact, PROTECT, related_name="links_record")
 
     class Meta:
         unique_together = ("record", "feature")
@@ -200,7 +200,7 @@ class RecordProject(BaseDBRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_project")
     feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordproject")
-    value: Project = ForeignKey(Project, CASCADE, related_name="links_record")
+    value: Project = ForeignKey(Project, PROTECT, related_name="links_record")
 
     class Meta:
         unique_together = ("record", "feature")
