@@ -471,12 +471,11 @@ def test_create_from_local_filepath(
         )
         return None
     elif key is not None and suffix != key_suffix:
-        try:
+        with pytest.raises(InvalidArgument) as error:
             artifact = ln.Artifact(test_filepath, key=key, description=description)
-        except InvalidArgument as error:
-            assert str(error) == (
-                f"The suffix '{suffix}' of the provided path is inconsistent, it should be '{key_suffix}'"
-            )
+        assert error.exconly() == (
+            f"Mismatch between data path suffix '{suffix}' and key suffix '{key_suffix}'."
+        )
         return None
     elif key is not None and is_in_registered_storage:
         inferred_key = get_relative_path_to_directory(
