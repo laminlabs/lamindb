@@ -635,7 +635,8 @@ class AnnDataCurator(SlotsCurator):
             :language: python
             :caption: curate_anndata_flexible.py
 
-    See also: :meth:`~lamindb.Artifact.from_anndata`.
+    See Also:
+        :meth:`~lamindb.Artifact.from_anndata`.
     """
 
     def __init__(
@@ -721,7 +722,8 @@ class MuDataCurator(SlotsCurator):
             :language: python
             :caption: curate_mudata.py
 
-    See also: :meth:`~lamindb.Artifact.from_mudata`.
+    See Also:
+        :meth:`~lamindb.Artifact.from_mudata`.
     """
 
     def __init__(
@@ -787,7 +789,8 @@ class SpatialDataCurator(SlotsCurator):
             :language: python
             :caption: curate-mudata.py
 
-    See also: :meth:`~lamindb.Artifact.from_spatialdata`.
+    See Also:
+        :meth:`~lamindb.Artifact.from_spatialdata`.
     """
 
     def __init__(
@@ -875,7 +878,8 @@ class SomaExperimentCurator(SlotsCurator):
             :language: python
             :caption: curate_soma_experiment.py
 
-    See also: :meth:`~lamindb.Artifact.from_tiledbsoma`.
+    See Also:
+        :meth:`~lamindb.Artifact.from_tiledbsoma`.
     """
 
     def __init__(
