@@ -40,9 +40,9 @@ def test_curator_df_multivalue(df, lists_schema):
     curator = ln.curators.DataFrameCurator(df, lists_schema)
     with pytest.raises(ValidationError):
         curator.validate()
-    assert curator._cat_manager._cat_columns["tissue"]._validated == ["blood", "lung"]
-    assert curator._cat_manager._cat_columns["tissue"]._non_validated == ["pulmo"]
-    assert curator._cat_manager._cat_columns["tissue"]._synonyms == {"pulmo": "lung"}
+    assert curator._cat_manager._cat_vectors["tissue"]._validated == ["blood", "lung"]
+    assert curator._cat_manager._cat_vectors["tissue"]._non_validated == ["pulmo"]
+    assert curator._cat_manager._cat_vectors["tissue"]._synonyms == {"pulmo": "lung"}
 
     curator.cat.standardize("tissue")
-    assert curator._cat_manager._cat_columns["tissue"]._non_validated == []
+    assert curator._cat_manager._cat_vectors["tissue"]._non_validated == []

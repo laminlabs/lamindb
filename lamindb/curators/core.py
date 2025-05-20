@@ -360,7 +360,7 @@ class SlotsCurator(Curator):
 
 def _is_type_or_list_of_type(value, expected_type):
     """Helper function to check if a value is either of expected_type or a list of that type, or a mix of both in a nested structure."""
-    if isinstance(value, (list, np.ndarray)):
+    if isinstance(value, list | np.ndarray):
         # handle nested lists recursively
         return all(_is_type_or_list_of_type(item, expected_type) for item in value)
     return isinstance(value, expected_type)
@@ -487,7 +487,7 @@ class DataFrameCurator(Curator):
                 # series.dtype is "object" if the column has lists types, e.g. [["a", "b"], ["a"], ["b"]]
                 are_lists = (
                     False
-                    if feature.name not in self._dataset.columns
+                    if feature.name not in self._dataset.keys()
                     else isinstance(self._dataset[feature.name][0], (list, np.ndarray))
                 )
                 if feature.dtype in {"int", "float", "num"} or are_lists:
@@ -966,10 +966,20 @@ class CatVector:
 
     def _replace_synonyms(self) -> list[str]:
         """Replace synonyms in the vector with standardized values."""
+
+        def process_value(value, syn_mapper):
+            """Helper function to process values recursively."""
+            if isinstance(value, list):
+                # Handle list - recursively process each item
+                return [process_value(item, syn_mapper) for item in value]
+            else:
+                # Handle single value
+                return syn_mapper.get(value, value)
+
         syn_mapper = self._synonyms
         # replace the values in df
         std_values = self.values.map(
-            lambda unstd_val: syn_mapper.get(unstd_val, unstd_val)
+            lambda unstd_val: process_value(unstd_val, syn_mapper)
         )
         # remove the standardized values from self.non_validated
         non_validated = [i for i in self._non_validated if i not in syn_mapper]
@@ -1013,15 +1023,25 @@ class CatVector:
         filter_kwargs = get_current_filter_kwargs(
             registry, {"organism": self._organism, "source": self._source}
         )
-        values = [i for i in self.values if isinstance(i, str) and i]
+        values = [
+            i
+            for i in self.values
+            if (isinstance(i, str) and i)
+            or (isinstance(i, list) and i)
+            or (isinstance(i, np.ndarray) and i.size > 0)
+        ]
         if not values:
             return [], []
+
+        # if a value is a list, we need to flatten it
+        str_values = _flatten_unique(values)
+
         # inspect the default instance and save validated records from public
         if (
             self._subtype_str != "" and "__" not in self._subtype_str
         ):  # not for general filter expressions
             self._subtype_query_set = registry.get(name=self._subtype_str).records.all()
-            values_array = np.array(values)
+            values_array = np.array(str_values)
             validated_mask = self._subtype_query_set.validate(  # type: ignore
                 values_array, field=self._field, **filter_kwargs, mute=True
             )
@@ -1034,7 +1054,7 @@ class CatVector:
             )
         else:
             existing_and_public_records = registry.from_values(
-                list(values), field=self._field, **filter_kwargs, mute=True
+                str_values, field=self._field, **filter_kwargs, mute=True
             )
             existing_and_public_labels = [
                 getattr(r, field_name) for r in existing_and_public_records
@@ -1061,7 +1081,7 @@ class CatVector:
                     )
                     # non-validated records from the default instance
             non_validated_labels = [
-                i for i in values if i not in existing_and_public_labels
+                i for i in str_values if i not in existing_and_public_labels
             ]
             validated_labels = existing_and_public_labels
             records = existing_and_public_records
@@ -1547,13 +1567,12 @@ def annotate_artifact(
     return artifact
 
 
-# TODO: need this function to support mutli-value columns
 def _flatten_unique(series: pd.Series[list[Any] | Any]) -> list[Any]:
     """Flatten a Pandas series containing lists or single items into a unique list of elements."""
     result = set()
 
     for item in series:
-        if isinstance(item, list):
+        if isinstance(item, list | np.ndarray):
             result.update(item)
         else:
             result.add(item)
