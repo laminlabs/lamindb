@@ -147,6 +147,7 @@ def serialize_dtype(
     is_itype: bool = False,
 ) -> str:
     """Converts a data type object into its string representation."""
+    from .record import Record
     from .ulabel import ULabel
 
     if (
@@ -167,21 +168,24 @@ def serialize_dtype(
         dtype_str = serialize_pandas_dtype(dtype)
     else:
         error_message = "dtype has to be a registry, a ulabel subtype, a registry field, or a list of registries or fields, not {}"
-        if isinstance(dtype, (Registry, DeferredAttribute, ULabel)):
+        if isinstance(dtype, (Registry, DeferredAttribute, ULabel, Record)):
             dtype = [dtype]
         elif not isinstance(dtype, list):
             raise ValueError(error_message.format(dtype))
         dtype_str = ""
         for one_dtype in dtype:
-            if not isinstance(one_dtype, (Registry, DeferredAttribute, ULabel)):
+            if not isinstance(one_dtype, (Registry, DeferredAttribute, ULabel, Record)):
                 raise ValueError(error_message.format(one_dtype))
             if isinstance(one_dtype, Registry):
                 dtype_str += one_dtype.__get_name_with_module__() + "|"
-            elif isinstance(one_dtype, ULabel):
+            elif isinstance(one_dtype, (ULabel, Record)):
                 assert one_dtype.is_type, (  # noqa: S101
                     f"ulabel has to be a type if acting as dtype, {one_dtype} has `is_type` False"
                 )
-                dtype_str += f"ULabel[{one_dtype.name}]"
+                if isinstance(one_dtype, ULabel):
+                    dtype_str += f"ULabel[{one_dtype.name}]"
+                else:
+                    dtype_str += f"Record[{one_dtype.name}]"
             else:
                 name = one_dtype.field.name
                 field_ext = f".{name}" if name != "name" else ""

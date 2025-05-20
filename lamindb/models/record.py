@@ -1,1 +1,211 @@
-from .dbrecord import *  # noqa: F403
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, overload
+
+from django.db import models
+from django.db.models import CASCADE, PROTECT
+
+from lamindb.base.fields import (
+    BooleanField,
+    CharField,
+    ForeignKey,
+    JSONField,
+)
+from lamindb.errors import FieldValidationError
+
+from ..base.ids import base62_12, base62_16
+from .artifact import Artifact
+from .can_curate import CanCurate
+from .dbrecord import BaseDBRecord, DBRecord, IsLink, _get_record_kwargs
+from .feature import Feature
+from .project import Project
+from .run import Run, TracksRun, TracksUpdates
+from .ulabel import ULabel
+
+if TYPE_CHECKING:
+    from .schema import Schema
+
+
+class Record(DBRecord, CanCurate, TracksRun, TracksUpdates):
+    """Flexible records.
+
+    Args:
+        name: `str` A name.
+        description: `str` A description.
+
+    See Also:
+        :meth:`~lamindb.Sheet`
+            Sheets to group records.
+        :meth:`~lamindb.Feature`
+            Dimensions of measurement.
+        :attr:`~lamindb.Artifact.features`
+            Feature manager for an artifact.
+    """
+
+    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
+        abstract = False
+
+    _name_field: str = "name"
+
+    id: int = models.AutoField(primary_key=True)
+    """Internal id, valid only in one DB instance."""
+    uid: str = CharField(
+        editable=False, unique=True, db_index=True, max_length=16, default=base62_16
+    )
+    """A universal random id, valid across DB instances."""
+    name: str = CharField(max_length=150, db_index=True, null=True)
+    """Name or title of record (optional)."""
+    type: Record | None = ForeignKey("self", PROTECT, null=True, related_name="records")
+    """Type of record, e.g., `Sample`, `Donor`, `Cell`, `Compound`, `Sequence`.
+
+    Allows to group records by type, e.g., all samples, all donors, all cells, all compounds, all sequences.
+    """
+    records: Record
+    """Records of this type."""
+    is_type: bool = BooleanField(default=False, db_index=True, null=True)
+    """Distinguish types from instances of the type.
+
+    For example, if a record "Compound" is a `type`, the actual compounds "darerinib", "tramerinib", would be instances of that `type`.
+    """
+    sheet: Sheet | None = ForeignKey(
+        "Sheet", CASCADE, null=True, related_name="records"
+    )
+    """Group records by sheet."""
+    description: str | None = CharField(null=True)
+    """A description (optional)."""
+
+    @overload
+    def __init__(
+        self,
+        name: str,
+        type: Record | None = None,
+        is_type: bool = False,
+        description: str | None = None,
+    ): ...
+
+    @overload
+    def __init__(
+        self,
+        *db_args,
+    ): ...
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        if len(args) == len(self._meta.concrete_fields):
+            super().__init__(*args, **kwargs)
+            return None
+        if len(args) > 0:
+            raise ValueError("Only one non-keyword arg allowed")
+        name: str = kwargs.pop("name", None)
+        type: str | None = kwargs.pop("type", None)
+        is_type: bool = kwargs.pop("is_type", False)
+        sheet: Sheet = kwargs.pop("sheet", None)
+        description: str | None = kwargs.pop("description", None)
+        _skip_validation = kwargs.pop(
+            "_skip_validation", True
+        )  # should not validate records
+        _aux = kwargs.pop("_aux", None)
+        if len(kwargs) > 0:
+            valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Record)])
+            raise FieldValidationError(
+                f"Only {valid_keywords} are valid keyword arguments"
+            )
+        super().__init__(
+            name=name,
+            type=type,
+            is_type=is_type,
+            sheet=sheet,
+            description=description,
+            _skip_validation=_skip_validation,
+            _aux=_aux,
+        )
+
+
+class Sheet(DBRecord, TracksRun, TracksUpdates):
+    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
+        abstract = False
+
+    id: int = models.AutoField(primary_key=True)
+    uid: str = CharField(
+        editable=False, unique=True, db_index=True, max_length=12, default=base62_12
+    )
+    """A universal random id, valid across DB instances."""
+    name: str = CharField(db_index=True)
+    """Name or title of sheet."""
+    schema: Schema | None = ForeignKey(
+        "Schema", CASCADE, null=True, related_name="sheets"
+    )
+    description: str | None = CharField(null=True, db_index=True)
+    projects: Project
+
+
+class RecordJson(BaseDBRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    record: Record = ForeignKey(Record, CASCADE, related_name="values_json")
+    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordjson")
+    value: Any = JSONField(default=None, db_default=None)
+
+    class Meta:
+        unique_together = ("record", "feature")
+
+
+class RecordRecord(DBRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    record: Record = ForeignKey(Record, CASCADE, related_name="values_record")
+    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordrecord")
+    value: Record = ForeignKey(Record, PROTECT, related_name="links_record")
+
+    class Meta:
+        unique_together = ("record", "feature")
+
+
+class RecordULabel(BaseDBRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    record: Record = ForeignKey(Record, CASCADE, related_name="values_ulabel")
+    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordulabel")
+    value: ULabel = ForeignKey(ULabel, CASCADE, related_name="links_record")
+
+    class Meta:
+        unique_together = ("record", "feature")
+
+
+class RecordRun(BaseDBRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    record: Record = ForeignKey(Record, CASCADE, related_name="values_run")
+    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordrun")
+    value: Run = ForeignKey(Run, CASCADE, related_name="links_record")
+
+    class Meta:
+        unique_together = ("record", "feature")
+
+
+class RecordArtifact(BaseDBRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    record: Record = ForeignKey(Record, CASCADE, related_name="values_artifact")
+    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordartifact")
+    value: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_record")
+
+    class Meta:
+        unique_together = ("record", "feature")
+
+
+class RecordProject(BaseDBRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    record: Record = ForeignKey(Record, CASCADE, related_name="values_project")
+    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordproject")
+    value: Project = ForeignKey(Project, CASCADE, related_name="links_record")
+
+    class Meta:
+        unique_together = ("record", "feature")
+
+
+class SheetProject(BaseDBRecord, IsLink, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    sheet: Sheet = ForeignKey(Sheet, CASCADE, related_name="links_project")
+    project: Project = ForeignKey(Project, PROTECT, related_name="links_sheet")
+
+    class Meta:
+        unique_together = ("sheet", "project")
