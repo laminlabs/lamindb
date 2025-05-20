@@ -5,8 +5,9 @@
 
    DataFrameCurator
    AnnDataCurator
-   SpatialDataCurator
    MuDataCurator
+   SpatialDataCurator
+   SomaExperimentCurator
 
 Modules.
 

@@ -81,8 +81,6 @@ Low-level functionality.
    :toctree: .
 
    examples
-   curators
-   integrations
    errors
    setup
    base
