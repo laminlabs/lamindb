@@ -113,7 +113,10 @@ def get_artifact_with_related(
 
     for link in link_tables:
         link_model = getattr(model, link).rel.related_model
-        if not hasattr(link_model, "feature"):
+        if (
+            not hasattr(link_model, "feature")
+            or link_model.__name__ == "RecordArtifact"
+        ):
             continue
         label_field = link.removeprefix("links_").replace("_", "")
         annotations[f"linkfield_{link}"] = Subquery(
