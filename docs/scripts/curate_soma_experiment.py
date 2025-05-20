@@ -39,3 +39,4 @@ artifact = curator.save_artifact(
     description="SOMA experiment with schema validation",
 )
 assert artifact.schema == soma_schema
+artifact.describe()
