@@ -27,7 +27,9 @@ if TYPE_CHECKING:
 
 
 class Record(DBRecord, CanCurate, TracksRun, TracksUpdates):
-    """Flexible records.
+    """Flexible records to register, e.g., samples, donors, cells, compounds, sequences.
+
+    This is currently more convenient to use through the UI.
 
     Args:
         name: `str` A name.
@@ -125,6 +127,8 @@ class Record(DBRecord, CanCurate, TracksRun, TracksUpdates):
 
 
 class Sheet(DBRecord, TracksRun, TracksUpdates):
+    """Sheets to group records."""
+
     class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
