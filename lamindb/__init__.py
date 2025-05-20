@@ -40,7 +40,7 @@ Validate and annotate artifacts.
    ULabel
    Schema
 
-Manage flexible records such as sample sheets, donors.
+Manage flexible records to track, e.g., samples or donors.
 
 .. autosummary::
    :toctree: .
