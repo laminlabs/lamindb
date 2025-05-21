@@ -24,11 +24,9 @@ class WriteLogReplayer:
     def __init__(
         self,
         db_metadata: DatabaseMetadataWrapper,
-        table_id_mapping: dict[int, int],
         cursor: CursorWrapper,
     ):
         self.db_metadata = db_metadata
-        self.table_id_mapping = table_id_mapping
         self.cursor = cursor
 
     def replay(self, write_log_record: WriteLog):
@@ -247,8 +245,7 @@ class WriteLogReplayer:
 
     def _foreign_key_from_json(self, json_obj: list) -> "WriteLogForeignKey":
         try:
-            foreign_table_id_at_source, foreign_key_columns, foreign_uid = json_obj
-            table_id = self.table_id_mapping[foreign_table_id_at_source]
+            table_id, foreign_key_columns, foreign_uid = json_obj
 
             table_name = WriteLogTableState.objects.get(id=table_id).table_name
 
