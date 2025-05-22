@@ -66,6 +66,11 @@ class Record(DBRecord, CanCurate, TracksRun, TracksUpdates):
     """
     instances: Record
     """Instances of this type."""
+    is_type: bool = BooleanField(default=False, db_index=True, null=True)
+    """Distinguish types from instances of the type.
+
+    For example, if a record "Compound" is a `type`, the actual compounds "darerinib", "tramerinib", would be instances of that `type`.
+    """
     # naming convention in analogy with Schema
     components: Record = models.ManyToManyField(
         "Record", through="RecordRecord", symmetrical=False, related_name="composites"
@@ -73,11 +78,6 @@ class Record(DBRecord, CanCurate, TracksRun, TracksUpdates):
     """Record-like components of this record."""
     composites: Record
     """Record-like composites of this record."""
-    is_type: bool = BooleanField(default=False, db_index=True, null=True)
-    """Distinguish types from instances of the type.
-
-    For example, if a record "Compound" is a `type`, the actual compounds "darerinib", "tramerinib", would be instances of that `type`.
-    """
     sheet: Sheet | None = ForeignKey(
         "Sheet", CASCADE, null=True, related_name="records"
     )
