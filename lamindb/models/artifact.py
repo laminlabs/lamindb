@@ -547,7 +547,7 @@ def data_is_scversedatastructure(
     if isinstance(data, (str, Path, UPath)):
         data_path = UPath(data)
 
-        if file_suffix and f"{file_suffix}" in data_path.suffixes:
+        if file_suffix in data_path.suffixes:
             return True
 
         if data_path.suffix == ".zarr":
