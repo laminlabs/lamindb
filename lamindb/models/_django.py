@@ -225,6 +225,8 @@ def get_schema_m2m_relations(artifact: Artifact, slot_schema: dict, limit: int =
         name_field = get_name_field(related_model)
 
         # Get the correct field names for the through table
+        if not hasattr(getattr(Schema, name), "through"):
+            continue
         through_model = getattr(Schema, name).through
 
         # Subquery to get limited related records
