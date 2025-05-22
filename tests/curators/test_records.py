@@ -18,6 +18,8 @@ def test_record_example_compound_treatment():
     # populate treatment1
     treatment1 = ln.Record(name="drug1", type=treatment_type).save()
     ln.models.RecordRecord(record=treatment1, feature=compound, value=drug1).save()
+    assert drug1 in treatment1.components.all()
+    assert treatment1 in drug1.composites.all()
     ln.models.RecordJson(record=treatment1, feature=concentration, value="2nM").save()
     # populate treatment2
     treatment2 = ln.Record(name="drug2", type=treatment_type).save()

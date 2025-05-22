@@ -69,8 +69,8 @@ class DatabaseMetadataWrapper(ABC):
 
     def get_uid_columns(self, table: str, cursor: CursorWrapper) -> UIDColumns:
         """Get the UID columns for a given table."""
-        if table in ("lamindb_paramvalue", "lamindb_featurevalue"):
-            # Param and feature values should be uniquely identifiable by their value and hash
+        if table == "lamindb_featurevalue":
+            # TODO: update this to feature + hash instead of value + created_at
             return [
                 TableUID(
                     source_table_name=table,
@@ -78,16 +78,10 @@ class DatabaseMetadataWrapper(ABC):
                     key_constraint=None,
                 )
             ]
-        elif table == "lamindb_param":
-            return [
-                TableUID(
-                    source_table_name=table,
-                    uid_columns=["name", "dtype", "created_at"],
-                    key_constraint=None,
-                )
-            ]
         else:
             column_names = self.get_column_names(table, cursor)
+
+            print(column_names)
 
             # If the table has a 'uid' column, use that
             if "uid" in column_names:
@@ -103,6 +97,7 @@ class DatabaseMetadataWrapper(ABC):
             # foreign-key constraints.
 
             many_to_many_tables = self.get_many_to_many_db_tables()
+            many_to_many_tables.add("lamindb_recordjson")
 
             uid_columns: UIDColumns = []
 
@@ -223,6 +218,7 @@ ORDER BY
 
     @override
     def get_column_names(self, table: str, cursor: CursorWrapper) -> set[str]:
+        print(table)
         cursor.execute(
             "SELECT column_name FROM information_schema.columns WHERE TABLE_NAME = %s ORDER BY ordinal_position",
             (table,),

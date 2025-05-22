@@ -144,7 +144,7 @@ def _get_categoricals_postgres(
 ) -> dict[tuple[str, str], set[str]]:
     """Get categorical features and their values using PostgreSQL-specific optimizations."""
     if not related_data:
-        if isinstance(Artifact):
+        if self.__class__.__name__ == "Artifact":
             artifact_meta = get_artifact_with_related(
                 self, include_feature_link=True, include_m2m=True
             )

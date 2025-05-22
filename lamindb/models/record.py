@@ -18,11 +18,11 @@ from .artifact import Artifact
 from .can_curate import CanCurate
 from .dbrecord import BaseDBRecord, DBRecord, IsLink, _get_record_kwargs
 from .feature import Feature
-from .project import Project
 from .run import Run, TracksRun, TracksUpdates
 from .ulabel import ULabel
 
 if TYPE_CHECKING:
+    from .project import Project
     from .schema import Schema
 
 
@@ -57,13 +57,22 @@ class Record(DBRecord, CanCurate, TracksRun, TracksUpdates):
     """A universal random id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True, null=True)
     """Name or title of record (optional)."""
-    type: Record | None = ForeignKey("self", PROTECT, null=True, related_name="records")
+    type: Record | None = ForeignKey(
+        "self", PROTECT, null=True, related_name="instances"
+    )
     """Type of record, e.g., `Sample`, `Donor`, `Cell`, `Compound`, `Sequence`.
 
     Allows to group records by type, e.g., all samples, all donors, all cells, all compounds, all sequences.
     """
-    records: Record
-    """Records of this type."""
+    instances: Record
+    """Instances of this type."""
+    # naming convention in analogy with Schema
+    components: Record = models.ManyToManyField(
+        "Record", through="RecordRecord", symmetrical=False, related_name="composites"
+    )
+    """Record-like components of this record."""
+    composites: Record
+    """Record-like composites of this record."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type.
 
@@ -75,6 +84,18 @@ class Record(DBRecord, CanCurate, TracksRun, TracksUpdates):
     """Group records by sheet."""
     description: str | None = CharField(null=True)
     """A description (optional)."""
+    artifacts: Artifact = models.ManyToManyField(
+        Artifact, through="RecordArtifact", related_name="records"
+    )
+    """Linked artifacts."""
+    runs: Run = models.ManyToManyField(Run, through="RecordRun", related_name="records")
+    """Linked runs."""
+    ulabels: ULabel = models.ManyToManyField(
+        ULabel, through="RecordULabel", related_name="records"
+    )
+    """Linked runs."""
+    projects: Project
+    """Linked projects."""
 
     @overload
     def __init__(
@@ -142,8 +163,11 @@ class Sheet(DBRecord, TracksRun, TracksUpdates):
     schema: Schema | None = ForeignKey(
         "Schema", CASCADE, null=True, related_name="sheets"
     )
+    """A schema to enforce for the sheet (optional)."""
     description: str | None = CharField(null=True, db_index=True)
+    """A description (optional)."""
     projects: Project
+    """Linked projects."""
 
 
 class RecordJson(BaseDBRecord, IsLink):
@@ -158,9 +182,13 @@ class RecordJson(BaseDBRecord, IsLink):
 
 class RecordRecord(DBRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
-    record: Record = ForeignKey(Record, CASCADE, related_name="values_record")
+    record: Record = ForeignKey(
+        Record, CASCADE, related_name="values_record"
+    )  # composite
     feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordrecord")
-    value: Record = ForeignKey(Record, PROTECT, related_name="links_record")
+    value: Record = ForeignKey(
+        Record, PROTECT, related_name="links_record"
+    )  # component
 
     class Meta:
         unique_together = ("record", "feature")
@@ -173,6 +201,7 @@ class RecordULabel(BaseDBRecord, IsLink):
     value: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_record")
 
     class Meta:
+        # allows linking exactly one record to one ulabel per feature, because we likely don't want to have Many
         unique_together = ("record", "feature")
 
 
@@ -183,6 +212,7 @@ class RecordRun(BaseDBRecord, IsLink):
     value: Run = ForeignKey(Run, PROTECT, related_name="links_record")
 
     class Meta:
+        # allows linking several records to a single run for the same feature because we'll likely need this
         unique_together = ("record", "feature")
 
 
@@ -193,23 +223,5 @@ class RecordArtifact(BaseDBRecord, IsLink):
     value: Artifact = ForeignKey(Artifact, PROTECT, related_name="links_record")
 
     class Meta:
-        unique_together = ("record", "feature")
-
-
-class RecordProject(BaseDBRecord, IsLink):
-    id: int = models.BigAutoField(primary_key=True)
-    record: Record = ForeignKey(Record, CASCADE, related_name="values_project")
-    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordproject")
-    value: Project = ForeignKey(Project, PROTECT, related_name="links_record")
-
-    class Meta:
-        unique_together = ("record", "feature")
-
-
-class SheetProject(BaseDBRecord, IsLink, TracksRun):
-    id: int = models.BigAutoField(primary_key=True)
-    sheet: Sheet = ForeignKey(Sheet, CASCADE, related_name="links_project")
-    project: Project = ForeignKey(Project, PROTECT, related_name="links_sheet")
-
-    class Meta:
-        unique_together = ("sheet", "project")
+        # allows linking several records to a single artifact for the same feature because we'll likely need this
+        unique_together = ("record", "feature", "value")

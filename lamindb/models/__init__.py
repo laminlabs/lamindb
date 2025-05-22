@@ -71,6 +71,7 @@ from .project import (
     SchemaProject,
     ArtifactReference,
     CollectionReference,
+    SheetProject,
 )
 from .dbrecord import Migration
 from .run import RunFeatureValue
@@ -91,7 +92,6 @@ from .record import (
     RecordULabel,
     RecordRun,
     RecordArtifact,
-    SheetProject,
 )
 
 

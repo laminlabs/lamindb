@@ -362,14 +362,14 @@ class Feature(DBRecord, CanCurate, TracksRun, TracksUpdates):
     dtype: Dtype | None = CharField(db_index=True, null=True)
     """Data type (:class:`~lamindb.base.types.Dtype`)."""
     type: Feature | None = ForeignKey(
-        "self", PROTECT, null=True, related_name="records"
+        "self", PROTECT, null=True, related_name="instances"
     )
     """Type of feature (e.g., 'Readout', 'Metric', 'Metadata', 'ExpertAnnotation', 'ModelPrediction').
 
     Allows to group features by type, e.g., all read outs, all metrics, etc.
     """
-    records: Feature
-    """DBRecords of this type."""
+    instances: Feature
+    """Instances of features of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     unit: str | None = CharField(max_length=30, db_index=True, null=True)

@@ -99,13 +99,15 @@ class ULabel(DBRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
     """A universal random id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True)
     """Name or title of ulabel."""
-    type: ULabel | None = ForeignKey("self", PROTECT, null=True, related_name="records")
+    type: ULabel | None = ForeignKey(
+        "self", PROTECT, null=True, related_name="instances"
+    )
     """Type of ulabel, e.g., `"donor"`, `"split"`, etc.
 
     Allows to group ulabels by type, e.g., all donors, all split ulabels, etc.
     """
-    records: ULabel
-    """DBRecords of this type."""
+    instances: ULabel
+    """Instances of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type.
 
