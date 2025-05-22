@@ -1137,14 +1137,21 @@ def update_fk_to_default_db(
     using_key: str | None,
     transfer_logs: dict,
 ):
+    # here in case it is an iterable, we are checking only a single record
+    # and set the same fks for all other records because we do this only
+    # for certain fks where they have to the same for the whole bulk
+    # see transfer_fk_to_default_db_bulk
+    # todo: but this has to be changed i think, it is not safe as it is now - Sergei
     record = records[0] if isinstance(records, (list, QuerySet)) else records
     if getattr(record, f"{fk}_id", None) is not None:
+        # set the space of the transferred record to the current space
         if fk == "space":
             # for space we set the record's space to the current space
             from lamindb import context
 
             # the default space has id=1
             fk_record_default = Space.get(1) if context.space is None else context.space
+        # process non-space fks
         else:
             fk_record = getattr(record, fk)
             field = REGISTRY_UNIQUE_FIELD.get(fk, "uid")
@@ -1158,6 +1165,7 @@ def update_fk_to_default_db(
                 transfer_to_default_db(
                     fk_record_default, using_key, save=True, transfer_logs=transfer_logs
                 )
+        # re-set the fks to the newly saved ones in the default db
         if isinstance(records, (list, QuerySet)):
             for r in records:
                 setattr(r, f"{fk}", None)
