@@ -261,9 +261,9 @@ def process_data(
     if key_suffix is not None and key_suffix != suffix and not is_replace:
         # consciously omitting a trailing period
         if isinstance(data, (str, Path, UPath)):  # UPathStr, spelled out
-            message = f"Mismatch between data path suffix '{suffix}' and key suffix '{key_suffix}'."
+            message = f"The passed path's suffix '{suffix}' must match the passed key suffix '{key_suffix}'"
         else:
-            message = f"Mismatch between key suffix '{key_suffix}' and data suffix '{suffix}'."
+            message = f"The passed key suffix '{key_suffix}' must match the passed data suffix '{suffix}'."
         raise InvalidArgument(message)
 
     # in case we have an in-memory representation, we need to write it to disk

@@ -474,7 +474,7 @@ def test_create_from_local_filepath(
         with pytest.raises(InvalidArgument) as error:
             artifact = ln.Artifact(test_filepath, key=key, description=description)
         assert error.exconly() == (
-            f"lamindb.errors.InvalidArgument: Mismatch between data path suffix '{suffix}' and key suffix '{key_suffix}'."
+            f"lamindb.errors.InvalidArgument: The passed data suffix '{suffix}' must match the passed key suffix '{key_suffix}'."
         )
         return None
     elif key is not None and is_in_registered_storage:
@@ -934,7 +934,7 @@ def test_df_suffix(df):
         artifact = ln.Artifact.from_df(df, key="test_.def")
     assert (
         error.exconly().partition(",")[0]
-        == "lamindb.errors.InvalidArgument: Mismatch between key suffix '.def' and data suffix '.parquet'."
+        == "lamindb.errors.InvalidArgument: The passed key suffix '.def' must match the passed data suffix '.parquet'."
     )
 
 
@@ -959,7 +959,7 @@ def test_adata_suffix(get_small_adata):
         artifact = ln.Artifact.from_anndata(get_small_adata, key="test_")
     assert (
         error.exconly().partition(",")[0]
-        == "lamindb.errors.InvalidArgument: Mismatch between key suffix '' and data suffix '.h5ad'."
+        == "lamindb.errors.InvalidArgument: The passed key suffix '' must match the passed data suffix '.h5ad'."
     )
 
 
