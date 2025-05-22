@@ -119,8 +119,17 @@ def parse_cat_dtype(
         if "." in registry_str:
             registry_str_split = registry_str.split(".")
             assert len(registry_str_split) == 2, registry_str  # noqa: S101
-            module_name, class_name = registry_str_split
-            module_name = get_schema_module_name(module_name)
+            module_name_attempt, class_name = registry_str_split
+            module_name = get_schema_module_name(
+                module_name_attempt, raise_import_error=False
+            )
+            if module_name is None:
+                raise ImportError(
+                    f"Can not parse dtype {dtype_str} because {module_name_attempt} "
+                    f"was not found.\nInstall the module with `pip install {module_name_attempt}`\n"
+                    "and also add the module to this instance via instance settings page "
+                    "under 'schema modules'."
+                )
         else:
             module_name, class_name = "lamindb", registry_str
         module = importlib.import_module(module_name)
