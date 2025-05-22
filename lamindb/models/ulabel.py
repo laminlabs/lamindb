@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, overload
 from django.db import models
 from django.db.models import CASCADE, PROTECT
 
+from lamindb.base import deprecated
 from lamindb.base.fields import (
     BooleanField,
     CharField,
@@ -194,6 +195,12 @@ class ULabel(DBRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
             _skip_validation=_skip_validation,
             _aux=_aux,
         )
+
+    @property
+    @deprecated("instances")
+    def records(self) -> list[ULabel]:
+        """Return all instances of this type."""
+        return self.instances
 
 
 class ArtifactULabel(BaseDBRecord, IsLink, TracksRun):
