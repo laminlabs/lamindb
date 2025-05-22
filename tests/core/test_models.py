@@ -79,6 +79,7 @@ def test_registry__repr__artifact():
         .input_of_runs: Run
         .feature_sets: Schema
         .collections: Collection
+        .records: Record
         .references: Reference
         .projects: Project
       Bionty fields
