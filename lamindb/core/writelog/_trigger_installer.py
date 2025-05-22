@@ -65,6 +65,9 @@ EXCLUDED_TABLES = [
 ]
 
 
+AUX_ARTIFACT_TABLE = "_lamindb_artifact_aux"
+
+
 def get_write_log_recording_function_name(table: str) -> str:
     return f"lamindb_writelog_{table}_fn"
 
@@ -165,6 +168,23 @@ class WriteLogRecordingTriggerInstaller(ABC):
 
             self.backfill_tables(tables=tables_to_update, cursor=cursor)
 
+    @abstractmethod
+    def backfill_aux_artifacts(self, cursor: CursorWrapper):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def backfill_real_artifacts(self, cursor: CursorWrapper):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def backfill_record(
+        self,
+        table: str,
+        primary_key: tuple[tuple[str, int], ...],
+        cursor: CursorWrapper,
+    ):
+        raise NotImplementedError()
+
     def backfill_tables(self, tables: set[str], cursor: CursorWrapper):
         self_references: dict[str, tuple[KeyConstraint, list[KeyConstraint]]] = {}
 
@@ -191,17 +211,21 @@ class WriteLogRecordingTriggerInstaller(ABC):
                 if foreign_key.target_table not in table_dependencies:
                     table_dependencies[foreign_key.target_table] = set()
 
-                # If an auxilliary table foreign-keys to a non-auxilliary one,
-                # there's no real dependency because the foreign-keyed field will
-                # always be NULL, so we can skip it.
-                if self.db_metadata.is_auxiliary_artifact(
-                    source_table=table,
-                    target_table=foreign_key.target_table,
-                    foreign_key_fields=foreign_key.source_columns,
+                if (
+                    table == "lamindb_run"
+                    and foreign_key.target_table == "lamindb_artifact"
                 ):
+                    # We'll handle this dependency separately
                     continue
 
                 table_dependencies[foreign_key.target_table].add(table)
+
+        # Create a synthetic dependency between LaminDB's "auxiliary" artifacts and lamindb_run. This will allow
+        # us to backfill all records where kind == '__lamindb__' (and, hence, where run_id is guaranteed to be NULL)
+        # before backfilling lamindb_run, avoiding a circular dependency between artifacts and runs that would otherwise
+        # make the backfill impossible to perform correctly in the general case.
+        if "lamindb_artifact" in tables:
+            table_dependencies[AUX_ARTIFACT_TABLE] = {"lamindb_run"}
 
         table_backfill_order = topological_sort(table_dependencies)
 
@@ -215,31 +239,35 @@ class WriteLogRecordingTriggerInstaller(ABC):
             if table in EXCLUDED_TABLES:
                 continue
 
-            # Only backfill tables in the current set
-            if table not in tables:
-                continue
+            if table == AUX_ARTIFACT_TABLE:
+                self.backfill_aux_artifacts(cursor)
+            elif table in tables:
+                # Only backfill tables in the current set
+                table_state = WriteLogTableState.objects.get(table_name=table)
 
-            table_state = WriteLogTableState.objects.get(table_name=table)
+                if table_state.backfilled:
+                    logger.info(
+                        f"Skipping backfilling '{table}', since it's already marked as backfilled"
+                    )
+                    continue
 
-            if table_state.backfilled:
-                logger.info(
-                    f"Skipping backfilling '{table}', since it's already marked as backfilled"
-                )
-                continue
+                if table == "lamindb_artifact":
+                    self.backfill_real_artifacts(cursor)
+                elif table in self_references:
+                    primary_key_constraint, foreign_key_constraints = self_references[
+                        table
+                    ]
+                    self.backfill_self_referential_table(
+                        table=table,
+                        cursor=cursor,
+                        primary_key_constraint=primary_key_constraint,
+                        foreign_key_constraints=foreign_key_constraints,
+                    )
+                else:
+                    self.backfill_standard_table(table=table, cursor=cursor)
 
-            if table in self_references:
-                primary_key_constraint, foreign_key_constraints = self_references[table]
-                self.backfill_self_referential_table(
-                    table=table,
-                    cursor=cursor,
-                    primary_key_constraint=primary_key_constraint,
-                    foreign_key_constraints=foreign_key_constraints,
-                )
-            else:
-                self.backfill_standard_table(table=table, cursor=cursor)
-
-            table_state.backfilled = True
-            table_state.save()
+                table_state.backfilled = True
+                table_state.save()
 
     def backfill_standard_table(self, table: str, cursor: CursorWrapper):
         # Call the insert trigger on every row in the table.
@@ -253,7 +281,7 @@ BEGIN
         FROM {table}
     LOOP
         -- Call the trigger function for each row
-    PERFORM {get_write_log_recording_function_name(table)}(NULL, r, 'INSERT');
+        PERFORM {get_write_log_recording_function_name(table)}(NULL, r, 'INSERT');
     END LOOP;
 END $$;
 """)  # noqa: S608
@@ -338,22 +366,7 @@ FROM {table}
             )
 
         for pk in sorted_pks:
-            pk_column_lookup = " AND ".join(f'"{k}" = {v}' for k, v in pk)
-            cursor.execute(f"""
-DO $$
-DECLARE
-    r record;
-BEGIN
-    SELECT * INTO r FROM {table} WHERE {pk_column_lookup} LIMIT 1;
-
-    -- Make sure we found a record
-    IF r IS NULL THEN
-        RAISE EXCEPTION 'No matching record found';
-    END IF;
-
-    PERFORM {get_write_log_recording_function_name(table)}(NULL, r, 'INSERT');
-END $$;
-""")  # noqa: S608
+            self.backfill_record(table, pk, cursor)
 
 
 class PostgresHistoryRecordingFunctionBuilder:
@@ -845,6 +858,62 @@ $$
             ON {table}
             FOR EACH ROW EXECUTE PROCEDURE {trigger_function_name}();
             """)
+
+    @override
+    def backfill_aux_artifacts(self, cursor: CursorWrapper):
+        cursor.execute(f"""
+DO $$
+DECLARE
+    r record;
+BEGIN
+    FOR r IN
+        SELECT * FROM lamindb_artifact WHERE kind = '__lamindb__'
+    LOOP
+        -- Call the trigger function for each row where kind is '__lamindb__'
+        PERFORM {get_write_log_recording_function_name("lamindb_artifact")}(NULL, r, 'INSERT');
+    END LOOP;
+END $$;
+""")  # noqa: S608
+
+    @override
+    def backfill_real_artifacts(self, cursor: CursorWrapper):
+        cursor.execute(f"""
+DO $$
+DECLARE
+    r record;
+BEGIN
+    FOR r IN
+        SELECT * FROM lamindb_artifact WHERE kind != '__lamindb__'
+    LOOP
+        -- Call the trigger function for each row where kind is '__lamindb__'
+        PERFORM {get_write_log_recording_function_name("lamindb_artifact")}(NULL, r, 'INSERT');
+    END LOOP;
+END $$;
+""")  # noqa: S608
+
+    @override
+    def backfill_record(
+        self,
+        table: str,
+        primary_key: tuple[tuple[str, int], ...],
+        cursor: CursorWrapper,
+    ):
+        pk_column_lookup = " AND ".join(f'"{k}" = {v}' for k, v in primary_key)
+        cursor.execute(f"""
+DO $$
+DECLARE
+    r record;
+BEGIN
+    SELECT * INTO r FROM {table} WHERE {pk_column_lookup} LIMIT 1;
+
+    -- Make sure we found a record
+    IF r IS NULL THEN
+        RAISE EXCEPTION 'No matching record found';
+    END IF;
+
+    PERFORM {get_write_log_recording_function_name(table)}(NULL, r, 'INSERT');
+END $$;
+""")  # noqa: S608
 
 
 def create_writelog_recording_trigger_installer(

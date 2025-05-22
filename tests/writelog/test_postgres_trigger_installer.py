@@ -57,19 +57,6 @@ class FakeMetadataWrapper(PostgresDatabaseMetadataWrapper):
         self._many_to_many_tables = tables
 
     @override
-    def is_auxiliary_artifact(
-        self, source_table: str, target_table: str, foreign_key_fields: list[str]
-    ) -> bool:
-        return self._is_aux_artifact.get(
-            (source_table, target_table, *foreign_key_fields), False
-        )
-
-    def set_is_auxiliary_artifact(
-        self, source_table: str, target_table: str, foreign_key_fields: list[str]
-    ):
-        self._is_aux_artifact[(source_table, target_table, *foreign_key_fields)] = True
-
-    @override
     def get_uid_columns(self, table: str, cursor: CursorWrapper) -> UIDColumns:
         if table in self._uid_columns:
             return self._uid_columns[table]
