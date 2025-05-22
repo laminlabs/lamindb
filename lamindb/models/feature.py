@@ -28,8 +28,8 @@ from lamindb.errors import FieldValidationError, ValidationError
 from ..base.ids import base62_12
 from ._relations import dict_module_name_to_model_name
 from .can_curate import CanCurate
-from .query_set import RecordList
-from .record import BasicRecord, Record, Registry, _get_record_kwargs
+from .dbrecord import BaseDBRecord, DBRecord, Registry, _get_record_kwargs
+from .query_set import DBRecordList
 from .run import (
     TracksRun,
     TracksUpdates,
@@ -71,7 +71,7 @@ def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
 
 def parse_cat_dtype(
     dtype_str: str,
-    related_registries: dict[str, Record] | None = None,
+    related_registries: dict[str, DBRecord] | None = None,
     is_itype: bool = False,
 ) -> dict[str, Any]:
     """Parses a categorical dtype string into its components (registry, field, subtypes)."""
@@ -119,8 +119,17 @@ def parse_cat_dtype(
         if "." in registry_str:
             registry_str_split = registry_str.split(".")
             assert len(registry_str_split) == 2, registry_str  # noqa: S101
-            module_name, class_name = registry_str_split
-            module_name = get_schema_module_name(module_name)
+            module_name_attempt, class_name = registry_str_split
+            module_name = get_schema_module_name(
+                module_name_attempt, raise_import_error=False
+            )
+            if module_name is None:
+                raise ImportError(
+                    f"Can not parse dtype {dtype_str} because {module_name_attempt} "
+                    f"was not found.\nInstall the module with `pip install {module_name_attempt}`\n"
+                    "and also add the module to this instance via instance settings page "
+                    "under 'schema modules'."
+                )
         else:
             module_name, class_name = "lamindb", registry_str
         module = importlib.import_module(module_name)
@@ -143,7 +152,7 @@ def parse_cat_dtype(
 
 
 def serialize_dtype(
-    dtype: Registry | Record | FieldAttr | list[Record] | list[Registry] | str,
+    dtype: Registry | DBRecord | FieldAttr | list[DBRecord] | list[Registry] | str,
     is_itype: bool = False,
 ) -> str:
     """Converts a data type object into its string representation."""
@@ -247,10 +256,10 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
     return kwargs
 
 
-class Feature(Record, CanCurate, TracksRun, TracksUpdates):
-    """Dataset dimensions.
+class Feature(DBRecord, CanCurate, TracksRun, TracksUpdates):
+    """Variables, such as dataframe columns or run parameters.
 
-    A feature represents a dimension of a dataset, such as a column in a
+    A feature often represents a dimension of a dataset, such as a column in a
     `DataFrame`. The `Feature` registry organizes metadata of features.
 
     The `Feature` registry helps you organize and query datasets based on their
@@ -337,7 +346,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
 
     """
 
-    class Meta(Record.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _name_field: str = "name"
@@ -365,7 +374,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     Allows to group features by type, e.g., all read outs, all metrics, etc.
     """
     records: Feature
-    """Records of this type."""
+    """DBRecords of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     unit: str | None = CharField(max_length=30, db_index=True, null=True)
@@ -484,7 +493,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
                 )
 
     @classmethod
-    def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordList:
+    def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> DBRecordList:
         """Create Feature records for columns."""
         field = Feature.name if field is None else field
         registry = field.field.model  # type: ignore
@@ -502,7 +511,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
                 Feature(name=name, dtype=dtype) for name, dtype in dtypes.items()
             ]  # type: ignore
         assert len(features) == len(df.columns)  # noqa: S101
-        return RecordList(features)
+        return DBRecordList(features)
 
     def save(self, *args, **kwargs) -> Feature:
         """Save."""
@@ -606,7 +615,7 @@ class Feature(Record, CanCurate, TracksRun, TracksUpdates):
     #         return "Artifact"
 
 
-class FeatureValue(Record, TracksRun):
+class FeatureValue(DBRecord, TracksRun):
     """Non-categorical features values.
 
     Categorical feature values are stored in their respective registries:
@@ -634,7 +643,7 @@ class FeatureValue(Record, TracksRun):
     hash: str = CharField(max_length=HASH_LENGTH, null=True, db_index=True)
     """Value hash."""
 
-    class Meta(BasicRecord.Meta, TracksRun.Meta):
+    class Meta(BaseDBRecord.Meta, TracksRun.Meta):
         constraints = [
             # For simple types, use direct value comparison
             models.UniqueConstraint(

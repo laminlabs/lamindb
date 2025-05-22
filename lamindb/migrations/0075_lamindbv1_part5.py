@@ -243,7 +243,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("schema", "param")},
             },
-            bases=(models.Model, lamindb.models.LinkORM),
+            bases=(models.Model, lamindb.models.IsLink),
         ),
         migrations.AddField(
             model_name="param",

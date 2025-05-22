@@ -471,12 +471,11 @@ def test_create_from_local_filepath(
         )
         return None
     elif key is not None and suffix != key_suffix:
-        try:
+        with pytest.raises(InvalidArgument) as error:
             artifact = ln.Artifact(test_filepath, key=key, description=description)
-        except InvalidArgument as error:
-            assert str(error) == (
-                f"The suffix '{suffix}' of the provided path is inconsistent, it should be '{key_suffix}'"
-            )
+        assert error.exconly() == (
+            f"lamindb.errors.InvalidArgument: The passed path's suffix '{suffix}' must match the passed key's suffix '{key_suffix}'."
+        )
         return None
     elif key is not None and is_in_registered_storage:
         inferred_key = get_relative_path_to_directory(
@@ -935,7 +934,7 @@ def test_df_suffix(df):
         artifact = ln.Artifact.from_df(df, key="test_.def")
     assert (
         error.exconly().partition(",")[0]
-        == "lamindb.errors.InvalidArgument: The suffix '.def' of the provided key is inconsistent"
+        == "lamindb.errors.InvalidArgument: The passed key's suffix '.def' must match the passed path's suffix '.parquet'."
     )
 
 
@@ -960,7 +959,7 @@ def test_adata_suffix(get_small_adata):
         artifact = ln.Artifact.from_anndata(get_small_adata, key="test_")
     assert (
         error.exconly().partition(",")[0]
-        == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is inconsistent"
+        == "lamindb.errors.InvalidArgument: The passed key's suffix '' must match the passed path's suffix '.h5ad'."
     )
 
 
@@ -1098,3 +1097,17 @@ def test_no_unnecessary_imports(df, module_name: str) -> None:
     af.delete(permanent=True)
     import mudata  # noqa
     import spatialdata  # noqa
+
+
+def test_artifact_get_tracking(df):
+    artifact = ln.Artifact.from_df(df, key="df.parquet").save()
+
+    transform = ln.Transform(key="test track artifact via get").save()
+    run = ln.Run(transform).save()
+
+    assert (
+        ln.Artifact.get(key="df.parquet", is_run_input=run) in run.input_artifacts.all()
+    )
+
+    artifact.delete(permanent=True)
+    transform.delete()

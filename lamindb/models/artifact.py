@@ -17,6 +17,7 @@ from django.db.models import CASCADE, PROTECT, Q
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage_in_instance
+from lamindb_setup.core._hub_core import select_storage_or_parent
 from lamindb_setup.core._settings_storage import init_storage
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dir, hash_file
 from lamindb_setup.core.types import UPathStr
@@ -69,8 +70,7 @@ from ..models._is_versioned import (
 from ._django import get_artifact_with_related
 from ._feature_manager import (
     FeatureManager,
-    ParamManager,
-    ParamManagerArtifact,
+    FeatureManagerArtifact,
     add_label_feature_links,
     filter_base,
     get_label_links,
@@ -81,16 +81,16 @@ from ._relations import (
     dict_related_model_to_related_name,
 )
 from .core import Storage
-from .feature import Feature, FeatureValue
-from .has_parents import view_lineage
-from .record import (
-    BasicRecord,
-    LinkORM,
-    Record,
+from .dbrecord import (
+    BaseDBRecord,
+    DBRecord,
+    IsLink,
     _get_record_kwargs,
     record_repr,
 )
-from .run import Param, ParamValue, Run, TracksRun, TracksUpdates, User
+from .feature import Feature, FeatureValue
+from .has_parents import view_lineage
+from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
 from .ulabel import ULabel
 
@@ -156,10 +156,12 @@ def process_pathlike(
     else:
         # check whether the path is part of one of the existing
         # already-registered storage locations
-        result = False
+        result = None
         # within the hub, we don't want to perform check_path_in_existing_storage
         if using_key is None:
-            result = check_path_in_existing_storage(filepath, using_key)
+            result = check_path_in_existing_storage(
+                filepath, check_hub_register_storage=setup_settings.instance.is_on_hub
+            )
         if isinstance(result, Storage):
             use_existing_storage_key = True
             return result, use_existing_storage_key
@@ -259,9 +261,9 @@ def process_data(
     if key_suffix is not None and key_suffix != suffix and not is_replace:
         # consciously omitting a trailing period
         if isinstance(data, (str, Path, UPath)):  # UPathStr, spelled out
-            message = f"The suffix '{suffix}' of the provided path is inconsistent, it should be '{key_suffix}'"
+            message = f"The passed path's suffix '{suffix}' must match the passed key's suffix '{key_suffix}'."
         else:
-            message = f"The suffix '{key_suffix}' of the provided key is inconsistent, it should be '{suffix}'"
+            message = f"The passed key's suffix '{key_suffix}' must match the passed path's suffix '{suffix}'."
         raise InvalidArgument(message)
 
     # in case we have an in-memory representation, we need to write it to disk
@@ -340,13 +342,21 @@ def get_stat_or_artifact(
 
 
 def check_path_in_existing_storage(
-    path: Path | UPath, using_key: str | None = None
-) -> Storage | bool:
+    path: Path | UPath,
+    check_hub_register_storage: bool = False,
+    using_key: str | None = None,
+) -> Storage | None:
     for storage in Storage.objects.using(using_key).filter().all():
         # if path is part of storage, return it
         if check_path_is_child_of_root(path, root=storage.root):
             return storage
-    return False
+    # we don't see parents registered in the db, so checking the hub
+    # just check for 2 writable cloud protocols, maybe change in the future
+    if check_hub_register_storage and getattr(path, "protocol", None) in {"s3", "gs"}:
+        result = select_storage_or_parent(path.as_posix())
+        if result is not None:
+            return Storage(**result).save()
+    return None
 
 
 def get_relative_path_to_directory(
@@ -706,7 +716,6 @@ def _describe_postgres(self):  # for Artifact & Collection
             tree=tree,
             related_data=related_data,
             with_labels=True,
-            print_params=hasattr(self, "kind") and self.kind == "model",
         )
     else:
         return tree
@@ -755,7 +764,6 @@ def _describe_sqlite(self, print_types: bool = False):  # for artifact & collect
             self,
             tree=tree,
             with_labels=True,
-            print_params=hasattr(self, "kind") and self.kind == "kind",
         )
     else:
         return tree
@@ -772,7 +780,7 @@ def describe_artifact_collection(self, return_str: bool = False) -> str | None:
     return format_rich_tree(tree, return_str=return_str)
 
 
-def validate_feature(feature: Feature, records: list[Record]) -> None:
+def validate_feature(feature: Feature, records: list[DBRecord]) -> None:
     """Validate feature record, adjust feature.dtype based on labels records."""
     if not isinstance(feature, Feature):
         raise TypeError("feature has to be of type Feature")
@@ -816,7 +824,7 @@ def get_labels(
             ).all()
     if flat_names:
         # returns a flat list of names
-        from .record import get_name_field
+        from .dbrecord import get_name_field
 
         values = []
         for v in qs_by_registry.values():
@@ -830,7 +838,7 @@ def get_labels(
 
 def add_labels(
     self,
-    records: Record | list[Record] | QuerySet | Iterable,
+    records: DBRecord | list[DBRecord] | QuerySet | Iterable,
     feature: Feature | None = None,
     *,
     field: StrField | None = None,
@@ -844,7 +852,7 @@ def add_labels(
 
     if isinstance(records, (QuerySet, QuerySet.__base__)):  # need to have both
         records = records.list()
-    if isinstance(records, (str, Record)):
+    if isinstance(records, (str, DBRecord)):
         records = [records]
     if not isinstance(records, list):  # avoids warning for pd Series
         records = list(records)
@@ -869,7 +877,7 @@ def add_labels(
         # ask users to pass records
         if len(records_validated) == 0:
             raise ValueError(
-                "Please pass a record (a `Record` object), not a string, e.g., via:"
+                "Please pass a record (a `DBRecord` object), not a string, e.g., via:"
                 " label"
                 f" = ln.ULabel(name='{records[0]}')"  # type: ignore
             )
@@ -943,7 +951,7 @@ def add_labels(
             )
 
 
-class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
+class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
     # Note that this docstring has to be consistent with Curator.save_artifact()
     """Datasets & models stored as files, folders, or arrays.
 
@@ -1052,31 +1060,30 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
     """
 
-    class Meta(Record.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(DBRecord.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
 
-    params: ParamManager = ParamManagerArtifact  # type: ignore
-    """Param manager.
+    # """Param manager.
 
-    What features are for dataset-like artifacts, parameters are for model-like artifacts & runs.
+    # What features are for dataset-like artifacts, parameters are for model-like artifacts & runs.
 
-    Example::
+    # Example::
 
-        artifact.params.add_values({
-            "hidden_size": 32,
-            "bottleneck_size": 16,
-            "batch_size": 32,
-            "preprocess_params": {
-                "normalization_type": "cool",
-                "subset_highlyvariable": True,
-            },
-        })
-    """
+    #     artifact.params.add_values({
+    #         "hidden_size": 32,
+    #         "bottleneck_size": 16,
+    #         "batch_size": 32,
+    #         "preprocess_params": {
+    #             "normalization_type": "cool",
+    #             "subset_highlyvariable": True,
+    #         },
+    #     })
+    # """
 
-    features: FeatureManager = FeatureManager  # type: ignore
+    features: FeatureManager = FeatureManagerArtifact  # type: ignore
     """Feature manager.
 
     Typically, you annotate a dataset with features by defining a `Schema` and passing it to the `Artifact` constructor.
@@ -1242,10 +1249,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         FeatureValue, through="ArtifactFeatureValue", related_name="artifacts"
     )
     """Non-categorical feature values for annotation."""
-    _param_values: ParamValue = models.ManyToManyField(
-        ParamValue, through="ArtifactParamValue", related_name="artifacts"
-    )
-    """Parameter values."""
     _key_is_virtual: bool = BooleanField()
     """Indicates whether `key` is virtual or part of an actual file path."""
     # be mindful that below, passing related_name="+" leads to errors
@@ -1301,7 +1304,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         **kwargs,
     ):
         self.features = FeatureManager(self)  # type: ignore
-        self.params = ParamManager(self)  # type: ignore
         # Below checks for the Django-internal call in from_db()
         # it'd be better if we could avoid this, but not being able to create a Artifact
         # from data with the default constructor renders the central class of the API
@@ -1389,7 +1391,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         # an object with the same hash already exists
         if isinstance(kwargs_or_artifact, Artifact):
-            from .record import init_self_from_db, update_attributes
+            from .dbrecord import init_self_from_db, update_attributes
 
             init_self_from_db(self, kwargs_or_artifact)
             # adding "key" here is dangerous because key might be auto-populated
@@ -1462,6 +1464,11 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         return self.otype
 
     @property
+    @deprecated("features")
+    def params(self) -> str:
+        return self.features
+
+    @property
     def transform(self) -> Transform | None:
         """Transform whose run created the artifact."""
         return self.run.transform if self.run is not None else None
@@ -1511,12 +1518,15 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
     def get(
         cls,
         idlike: int | str | None = None,
+        *,
+        is_run_input: bool | Run = False,
         **expressions,
     ) -> Artifact:
         """Get a single artifact.
 
         Args:
             idlike: Either a uid stub, uid or an integer id.
+            is_run_input: Whether to track this artifact as run input.
             expressions: Fields and values passed as Django query expressions.
 
         Raises:
@@ -1524,7 +1534,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         See Also:
             - Guide: :doc:`docs:registries`
-            - Method in `Record` base class: :meth:`~lamindb.models.Record.get`
+            - Method in `DBRecord` base class: :meth:`~lamindb.models.DBRecord.get`
 
         Examples:
 
@@ -1535,7 +1545,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
         """
         from .query_set import QuerySet
 
-        return QuerySet(model=cls).get(idlike, **expressions)
+        return QuerySet(model=cls).get(idlike, is_run_input=is_run_input, **expressions)
 
     @classmethod
     def filter(
@@ -1547,7 +1557,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
         Args:
             *queries: `Q` expressions.
-            **expressions: Features, params, fields via the Django query syntax.
+            **expressions: Features & fields via the Django query syntax.
 
         See Also:
             - Guide: :doc:`docs:registries`
@@ -1562,9 +1572,6 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
 
                 ln.Arfifact.filter(cell_type_by_model__name="T cell")
 
-            Query by params::
-
-                ln.Arfifact.filter(hyperparam_x=100)
         """
         from .query_set import QuerySet
 
@@ -1578,24 +1585,12 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                     keys_normalized, field="name", mute=True
                 )
             ):
-                return filter_base(FeatureManager, **expressions)
-            elif all(
-                params_validated := Param.validate(
-                    keys_normalized, field="name", mute=True
-                )
-            ):
-                return filter_base(ParamManagerArtifact, **expressions)
+                return filter_base(FeatureManagerArtifact, **expressions)
             else:
-                if sum(features_validated) < sum(params_validated):
-                    params = ", ".join(
-                        sorted(np.array(keys_normalized)[~params_validated])
-                    )
-                    message = f"param names: {params}"
-                else:
-                    features = ", ".join(
-                        sorted(np.array(keys_normalized)[~params_validated])
-                    )
-                    message = f"feature names: {features}"
+                features = ", ".join(
+                    sorted(np.array(keys_normalized)[~features_validated])
+                )
+                message = f"feature names: {features}"
                 fields = ", ".join(sorted(cls.__get_available_fields__()))
                 raise InvalidArgument(
                     f"You can query either by available fields: {fields}\n"
@@ -2304,7 +2299,7 @@ class Artifact(Record, IsVersioned, TracksRun, TracksUpdates):
                         # this can be very slow
                         _, hash, _, _ = hash_dir(filepath)
                     if self.hash != hash:
-                        from .record import init_self_from_db
+                        from .dbrecord import init_self_from_db
 
                         new_version = Artifact(
                             filepath, revises=self, _is_internal_call=True
@@ -2695,7 +2690,7 @@ def _save_skip_storage(artifact, **kwargs) -> None:
     save_schema_links(artifact)
 
 
-class ArtifactFeatureValue(BasicRecord, LinkORM, TracksRun):
+class ArtifactFeatureValue(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(
         Artifact, CASCADE, related_name="links_featurevalue"
@@ -2707,18 +2702,6 @@ class ArtifactFeatureValue(BasicRecord, LinkORM, TracksRun):
         unique_together = ("artifact", "featurevalue")
 
 
-class ArtifactParamValue(BasicRecord, LinkORM, TracksRun):
-    id: int = models.BigAutoField(primary_key=True)
-    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_paramvalue")
-    # we follow the lower() case convention rather than snake case for link models
-    paramvalue: ParamValue = ForeignKey(
-        ParamValue, PROTECT, related_name="links_artifact"
-    )
-
-    class Meta:
-        unique_together = ("artifact", "paramvalue")
-
-
 def _track_run_input(
     data: (
         Artifact | Iterable[Artifact]
@@ -2726,6 +2709,9 @@ def _track_run_input(
     is_run_input: bool | Run | None = None,
     run: Run | None = None,
 ):
+    if is_run_input is False:
+        return
+
     from lamindb import settings
 
     from .._tracked import get_current_tracked_run
@@ -2820,18 +2806,17 @@ def _track_run_input(
         # avoid adding the same run twice
         run.save()
         if data_class_name == "artifact":
-            LinkORM = run.input_artifacts.through
+            IsLink = run.input_artifacts.through
             links = [
-                LinkORM(run_id=run.id, artifact_id=data_id)
-                for data_id in input_data_ids
+                IsLink(run_id=run.id, artifact_id=data_id) for data_id in input_data_ids
             ]
         else:
-            LinkORM = run.input_collections.through
+            IsLink = run.input_collections.through
             links = [
-                LinkORM(run_id=run.id, collection_id=data_id)
+                IsLink(run_id=run.id, collection_id=data_id)
                 for data_id in input_data_ids
             ]
-        LinkORM.objects.bulk_create(links, ignore_conflicts=True)
+        IsLink.objects.bulk_create(links, ignore_conflicts=True)
         # generalize below for more than one data batch
         if len(input_data) == 1:
             if input_data[0].transform is not None:

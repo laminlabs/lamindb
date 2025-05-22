@@ -194,3 +194,17 @@ def test_validate():
 def test_map_synonyms():
     qs = ln.User.filter(handle="testuser1").all()
     assert qs.standardize(["user1", "user2"]) == ["user1", "user2"]
+
+
+def test_get_doesnotexist_error():
+    non_existent_label = "some-label-name"
+
+    with pytest.raises(DoesNotExist) as excinfo:
+        ln.ULabel.get(non_existent_label)
+
+    error_message = str(excinfo.value)
+    assert f"No record found with uid '{non_existent_label}'" in error_message
+    assert (
+        f"Did you forget a keyword as in ULabel.get(name='{non_existent_label}')?"
+        in error_message
+    )

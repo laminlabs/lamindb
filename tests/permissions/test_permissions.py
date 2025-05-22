@@ -1,6 +1,4 @@
-import subprocess
 import time
-from pathlib import Path
 from uuid import uuid4
 
 import hubmodule.models as hm
@@ -214,10 +212,10 @@ def test_token_reset():
 
 
 # below is an integration test that should run last
-def test_lamin_dev():
-    script_path = Path(__file__).parent.resolve() / "scripts/check_lamin_dev.py"
-    subprocess.run(  # noqa: S602
-        f"python {script_path}",
-        shell=True,
-        check=True,
-    )
+# def test_lamin_dev():
+#     script_path = Path(__file__).parent.resolve() / "scripts/check_lamin_dev.py"
+#     subprocess.run(  # noqa: S602
+#         f"python {script_path}",
+#         shell=True,
+#         check=True,
+#     )

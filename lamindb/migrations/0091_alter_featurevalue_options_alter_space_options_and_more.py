@@ -5,7 +5,7 @@ from django.db import migrations
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lamindb", "0090_squashed"),
+        ("lamindb", "0090_runproject_project_runs"),
     ]
 
     operations = [

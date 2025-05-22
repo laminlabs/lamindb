@@ -173,7 +173,7 @@ def migrate_data(apps, schema_editor):
             )
         else:
             cursor.execute("ROLLBACK")
-            raise Exception("Migration failed: Record count mismatch")
+            raise Exception("Migration failed: DBRecord count mismatch")
 
     except Exception as e:
         cursor.execute("ROLLBACK")
@@ -248,7 +248,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
-            bases=(lamindb.models.LinkORM, models.Model),
+            bases=(lamindb.models.IsLink, models.Model),
         ),
         migrations.CreateModel(
             name="ArtifactReference",
@@ -312,7 +312,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
-            bases=(lamindb.models.LinkORM, models.Model),
+            bases=(lamindb.models.IsLink, models.Model),
         ),
         migrations.CreateModel(
             name="CollectionProject",
@@ -353,7 +353,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
-            bases=(lamindb.models.LinkORM, models.Model),
+            bases=(lamindb.models.IsLink, models.Model),
         ),
         migrations.CreateModel(
             name="CollectionReference",
@@ -394,7 +394,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
-            bases=(lamindb.models.LinkORM, models.Model),
+            bases=(lamindb.models.IsLink, models.Model),
         ),
         migrations.CreateModel(
             name="Person",
@@ -851,7 +851,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("transform", "project")},
             },
-            bases=(lamindb.models.LinkORM, models.Model),
+            bases=(lamindb.models.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="project",
@@ -913,7 +913,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("transform", "reference")},
             },
-            bases=(lamindb.models.LinkORM, models.Model),
+            bases=(lamindb.models.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="reference",

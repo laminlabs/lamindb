@@ -21,7 +21,7 @@ from ..core.storage.paths import (
     delete_storage_using_key,
     store_file_or_folder,
 )
-from .record import Record
+from .dbrecord import DBRecord
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from .artifact import Artifact
 
 
-def save(records: Iterable[Record], ignore_conflicts: bool | None = False) -> None:
+def save(records: Iterable[DBRecord], ignore_conflicts: bool | None = False) -> None:
     """Bulk save records.
 
     Note:
@@ -42,7 +42,7 @@ def save(records: Iterable[Record], ignore_conflicts: bool | None = False) -> No
         existing records! Use ``record.save()`` for these use cases.
 
     Args:
-        records: Multiple :class:`~lamindb.models.Record` objects.
+        records: Multiple :class:`~lamindb.models.DBRecord` objects.
         ignore_conflicts: If ``True``, do not error if some records violate a
            unique or another constraint. However, it won't inplace update the id
            fields of records. If you need records with ids, you need to query
@@ -69,7 +69,7 @@ def save(records: Iterable[Record], ignore_conflicts: bool | None = False) -> No
     """
     from .artifact import Artifact
 
-    if isinstance(records, Record):
+    if isinstance(records, DBRecord):
         raise ValueError("Please use record.save() if saving a single record.")
 
     # previously, this was all set based,
@@ -107,7 +107,7 @@ def save(records: Iterable[Record], ignore_conflicts: bool | None = False) -> No
     return None
 
 
-def bulk_create(records: Iterable[Record], ignore_conflicts: bool | None = False):
+def bulk_create(records: Iterable[DBRecord], ignore_conflicts: bool | None = False):
     records_by_orm = defaultdict(list)
     for record in records:
         records_by_orm[record.__class__].append(record)
@@ -116,7 +116,7 @@ def bulk_create(records: Iterable[Record], ignore_conflicts: bool | None = False
         # records[:] = created  # In-place list update; does not seem to be necessary
 
 
-def bulk_update(records: Iterable[Record], ignore_conflicts: bool | None = False):
+def bulk_update(records: Iterable[DBRecord], ignore_conflicts: bool | None = False):
     records_by_orm = defaultdict(list)
     for record in records:
         records_by_orm[record.__class__].append(record)

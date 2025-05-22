@@ -36,15 +36,15 @@ from .artifact import (
     get_run,
     save_schema_links,
 )
-from .has_parents import view_lineage
-from .record import (
-    BasicRecord,
-    LinkORM,
-    Record,
+from .dbrecord import (
+    BaseDBRecord,
+    DBRecord,
+    IsLink,
     _get_record_kwargs,
     init_self_from_db,
     update_attributes,
 )
+from .has_parents import view_lineage
 from .run import Run, TracksRun, TracksUpdates
 
 if TYPE_CHECKING:
@@ -128,7 +128,7 @@ def _load_concat_artifacts(
     return concat_object
 
 
-class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
+class Collection(DBRecord, IsVersioned, TracksRun, TracksUpdates):
     """Collections of artifacts.
 
     Collections provide a simple way of versioning collections of artifacts.
@@ -158,7 +158,7 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
 
     """
 
-    class Meta(Record.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(DBRecord.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _len_full_uid: int = 20
@@ -348,6 +348,38 @@ class Collection(Record, IsVersioned, TracksRun, TracksUpdates):
         if revises is not None:
             _track_run_input(revises, run=run)
         _track_run_input(artifacts, run=run)
+
+    @classmethod
+    def get(
+        cls,
+        idlike: int | str | None = None,
+        *,
+        is_run_input: bool | Run = False,
+        **expressions,
+    ) -> Artifact:
+        """Get a single collection.
+
+        Args:
+            idlike: Either a uid stub, uid or an integer id.
+            is_run_input: Whether to track this collection as run input.
+            expressions: Fields and values passed as Django query expressions.
+
+        Raises:
+            :exc:`docs:lamindb.errors.DoesNotExist`: In case no matching record is found.
+
+        See Also:
+            - Method in `DBRecord` base class: :meth:`~lamindb.models.DBRecord.get`
+
+        Examples:
+
+            ::
+
+                collection = ln.Collection.get("okxPW6GIKBfRBE3B0000")
+                collection = ln.Collection.get(key="scrna/collection1")
+        """
+        from .query_set import QuerySet
+
+        return QuerySet(model=cls).get(idlike, is_run_input=is_run_input, **expressions)
 
     def append(self, artifact: Artifact, run: Run | None = None) -> Collection:
         """Append an artifact to the collection.
@@ -691,7 +723,7 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
     return hash
 
 
-class CollectionArtifact(BasicRecord, LinkORM, TracksRun):
+class CollectionArtifact(BaseDBRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     collection: Collection = ForeignKey(
         Collection, CASCADE, related_name="links_artifact"

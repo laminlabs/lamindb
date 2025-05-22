@@ -23,15 +23,15 @@ from rich.text import Text
 from lamindb.core.storage import LocalPathClasses
 from lamindb.errors import DoesNotExist, ValidationError
 from lamindb.models._from_values import _format_values
-from lamindb.models.feature import (
-    serialize_pandas_dtype,
-    suggest_categorical_for_str_iterable,
-)
-from lamindb.models.record import (
+from lamindb.models.dbrecord import (
     REGISTRY_UNIQUE_FIELD,
     get_name_field,
     transfer_fk_to_default_db_bulk,
     transfer_to_default_db,
+)
+from lamindb.models.feature import (
+    serialize_pandas_dtype,
+    suggest_categorical_for_str_iterable,
 )
 from lamindb.models.save import save
 from lamindb.models.schema import DICT_KEYS_TYPE, Schema
@@ -49,9 +49,9 @@ from ._label_manager import _get_labels, describe_labels
 from ._relations import (
     dict_related_model_to_related_name,
 )
+from .dbrecord import DBRecord
 from .feature import Feature, FeatureValue, parse_dtype
-from .record import Record
-from .run import Param, ParamManager, ParamManagerRun, ParamValue, Run
+from .run import FeatureManager, FeatureManagerRun, Run
 from .ulabel import ULabel
 
 if TYPE_CHECKING:
@@ -61,9 +61,15 @@ if TYPE_CHECKING:
     from lamindb.models import (
         Artifact,
         Collection,
-        LinkORM,
+        IsLink,
     )
     from lamindb.models.query_set import QuerySet
+
+
+class FeatureManagerArtifact(FeatureManager):
+    """Feature manager."""
+
+    pass
 
 
 def get_accessor_by_registry_(host: Artifact | Collection) -> dict:
@@ -112,7 +118,7 @@ def get_schema_links(host: Artifact | Collection) -> QuerySet:
     return links_schema
 
 
-def get_link_attr(link: LinkORM | type[LinkORM], data: Artifact | Collection) -> str:
+def get_link_attr(link: IsLink | type[IsLink], data: Artifact | Collection) -> str:
     link_model_name = link.__class__.__name__
     if link_model_name in {"Registry", "ModelBase"}:  # we passed the type of the link
         link_model_name = link.__name__  # type: ignore
@@ -135,12 +141,8 @@ def custom_aggregate(field, using: str):
 def _get_categoricals_postgres(
     self: Artifact | Collection,
     related_data: dict | None = None,
-    print_params: bool = False,
 ) -> dict[tuple[str, str], set[str]]:
     """Get categorical features and their values using PostgreSQL-specific optimizations."""
-    if print_params:
-        return {}
-
     if not related_data:
         artifact_meta = get_artifact_with_related(
             self, include_feature_link=True, include_m2m=True
@@ -189,12 +191,8 @@ def _get_categoricals_postgres(
 
 def _get_categoricals(
     self: Artifact | Collection,
-    print_params: bool = False,
 ) -> dict[tuple[str, str], set[str]]:
     """Get categorical features and their values using the default approach."""
-    if print_params:
-        return {}
-
     result = defaultdict(set)
     for _, links in _get_labels(self, links=True, instance=self._state.db).items():
         for link in links:
@@ -213,7 +211,6 @@ def _get_categoricals(
 
 def _get_non_categoricals(
     self,
-    print_params: bool = False,
 ) -> dict[tuple[str, str], set[Any]]:
     """Get non-categorical features and their values."""
     from .artifact import Artifact
@@ -222,7 +219,7 @@ def _get_non_categoricals(
     non_categoricals = {}
 
     if self.id is not None and isinstance(self, (Artifact, Run)):
-        attr_name = "param" if print_params else "feature"
+        attr_name = "feature"
         _feature_values = (
             getattr(self, f"_{attr_name}_values")
             .values(f"{attr_name}__name", f"{attr_name}__dtype")
@@ -293,7 +290,6 @@ def describe_features(
     self: Artifact,
     related_data: dict | None = None,
     to_dict: bool = False,
-    print_params: bool = False,
     tree: Tree | None = None,
     with_labels: bool = False,
 ):
@@ -312,7 +308,7 @@ def describe_features(
     # feature sets
     schema_data: dict[str, tuple[str, list[str]]] = {}
     feature_data: dict[str, tuple[str, list[str]]] = {}
-    if not print_params and not to_dict:
+    if not to_dict:
         if self.id is not None and connections[self._state.db].vendor == "postgresql":
             fs_data = _get_schemas_postgres(self, related_data=related_data)
             for fs_id, (slot, data) in fs_data.items():
@@ -362,18 +358,15 @@ def describe_features(
         categoricals = _get_categoricals_postgres(
             self,
             related_data=related_data,
-            print_params=print_params,
         )
     else:
         categoricals = _get_categoricals(
             self,
-            print_params=print_params,
         )
 
     # Get non-categorical features
     non_categoricals = _get_non_categoricals(
         self,
-        print_params=print_params,
     )
 
     # Process all Features containing labels and sort into internal/external
@@ -487,9 +480,7 @@ def describe_features(
             )
         )
     # ext_features_tree = None
-    ext_features_header = Text(
-        "Params" if print_params else "Linked features", style="bold dark_orange"
-    )
+    ext_features_header = Text("Linked features", style="bold dark_orange")
     if ext_features_tree_children:
         ext_features_tree = tree.add(ext_features_header)
         for child in ext_features_tree_children:
@@ -562,29 +553,17 @@ def infer_feature_type_convert_json(
                     return "list[float]", value, message
                 elif first_element_type is str:
                     return ("list[cat ? str]", value, message)
-                elif first_element_type == Record:
+                elif first_element_type == DBRecord:
                     return (
                         f"list[cat[{first_element_type.__get_name_with_module__()}]]",
                         value,
                         message,
                     )
-    elif isinstance(value, Record):
+    elif isinstance(value, DBRecord):
         return (f"cat[{value.__class__.__get_name_with_module__()}]", value, message)
     if not mute:
         logger.warning(f"cannot infer feature type of: {value}, returning '?")
     return "?", value, message
-
-
-class FeatureManager:
-    """Feature manager."""
-
-    pass
-
-
-class ParamManagerArtifact(ParamManager):
-    """Param manager."""
-
-    pass
 
 
 def __init__(self, host: Artifact | Collection | Run):
@@ -598,15 +577,13 @@ def __repr__(self) -> str:
 
 
 def describe(self, return_str: bool = False) -> str | None:
-    tree = describe_features(self._host, print_params=(self.__class__ == ParamManager))  # type: ignore
+    tree = describe_features(self._host)  # type: ignore
     return format_rich_tree(tree, fallback="no linked features", return_str=return_str)
 
 
 def get_values(self) -> dict[str, Any]:
     """Get feature values as a dictionary."""
-    return describe_features(
-        self._host, to_dict=True, print_params=(self.__class__ == ParamManager)
-    )  # type: ignore
+    return describe_features(self._host, to_dict=True)  # type: ignore
 
 
 @deprecated("slots[slot].members")
@@ -625,12 +602,8 @@ def __getitem__(self, slot) -> QuerySet:
 def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
     from .artifact import Artifact
 
-    if cls is FeatureManager:
-        model = Feature
-        value_model = FeatureValue
-    else:
-        model = Param
-        value_model = ParamValue
+    model = Feature
+    value_model = FeatureValue
     keys_normalized = [key.split("__")[0] for key in expression]
     if not _skip_validation:
         validated = model.validate(keys_normalized, field="name", mute=True)
@@ -640,7 +613,7 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
             )
     new_expression = {}
     features = model.filter(name__in=keys_normalized).all().distinct()
-    feature_param = "param" if model is Param else "feature"
+    feature_param = "feature"
     for key, value in expression.items():
         split_key = key.split("__")
         normalized_key = split_key[0]
@@ -677,7 +650,7 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
             expression = {feature_param: feature, f"value{comparator}": value}
             feature_values = value_model.filter(**expression)
             new_expression[f"_{feature_param}_values__id__in"] = feature_values
-        elif isinstance(value, (str, Record, bool)):
+        elif isinstance(value, (str, DBRecord, bool)):
             if comparator == "__isnull":
                 if cls == FeatureManager:
                     result = parse_dtype(feature.dtype)[0]
@@ -705,7 +678,7 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
                         )
                     elif len(labels) == 1:
                         label = labels[0]
-                elif isinstance(value, Record):
+                elif isinstance(value, DBRecord):
                     label = value
                 label_registry = (
                     label.__class__ if label is not None else labels[0].__class__
@@ -729,9 +702,9 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
             # https://laminlabs.slack.com/archives/C04FPE8V01W/p1688328084810609
     if not (new_expression):
         raise NotImplementedError
-    if cls == FeatureManager or cls == ParamManagerArtifact:
+    if cls == FeatureManagerArtifact:
         return Artifact.objects.filter(**new_expression)
-    elif cls == ParamManagerRun:
+    elif cls == FeatureManagerRun:
         return Run.objects.filter(**new_expression)
 
 
@@ -744,7 +717,7 @@ def filter(cls, **expression) -> QuerySet:
 
 @classmethod  # type: ignore
 @deprecated("the filter() registry classmethod")
-def get(cls, **expression) -> Record:
+def get(cls, **expression) -> DBRecord:
     """Query a single artifact by feature."""
     return filter_base(cls, _skip_validation=False, **expression).one()
 
@@ -784,10 +757,10 @@ def add_label_feature_links(
         related_names = {"ULabel": "ulabels"}
     for class_name, registry_features_labels in features_labels.items():
         related_name = related_names[class_name]  # e.g., "ulabels"
-        LinkORM = getattr(self._host, related_name).through
-        field_name = f"{get_link_attr(LinkORM, self._host)}_id"  # e.g., ulabel_id
+        IsLink = getattr(self._host, related_name).through
+        field_name = f"{get_link_attr(IsLink, self._host)}_id"  # e.g., ulabel_id
         links = [
-            LinkORM(
+            IsLink(
                 **{
                     "artifact_id": self._host.id,
                     "feature_id": feature.id,
@@ -804,7 +777,7 @@ def add_label_feature_links(
         except Exception:
             save(links, ignore_conflicts=True)
         # now delete links that were previously saved without a feature
-        LinkORM.filter(
+        IsLink.filter(
             **{
                 "artifact_id": self._host.id,
                 "feature_id": None,
@@ -827,7 +800,6 @@ def _add_values(
             dictionary.
     """
     from .._tracked import get_current_tracked_run
-    from .artifact import Artifact
 
     # rename to distinguish from the values inside the dict
     dictionary = values
@@ -837,19 +809,8 @@ def _add_values(
     # deal with other cases later
     assert all(isinstance(key, str) for key in keys)  # noqa: S101
     registry = feature_param_field.field.model
-    is_param = registry == Param
-    value_model = ParamValue if is_param else FeatureValue
-    model_name = "Param" if is_param else "Feature"
-    if is_param:
-        if self._host.__class__ == Artifact:
-            if self._host.kind != "model":
-                raise ValidationError("Can only set params for model-like artifacts.")
-    else:
-        if self._host.__class__ == Artifact:
-            if self._host.kind != "dataset" and self._host.kind is not None:
-                raise ValidationError(
-                    "Can only set features for dataset-like artifacts."
-                )
+    value_model = FeatureValue
+    model_name = "Feature"
     records = registry.from_values(keys, field=feature_param_field, mute=True)
     if len(records) != len(keys):
         not_validated_keys = [key for key in keys if key not in records.list("name")]
@@ -896,7 +857,7 @@ def _add_values(
                 )
         elif feature.dtype.startswith("cat"):
             if inferred_type != "?":
-                if not (inferred_type.startswith("cat") or isinstance(value, Record)):
+                if not (inferred_type.startswith("cat") or isinstance(value, DBRecord)):
                     raise TypeError(
                         f"Value for feature '{feature.name}' with type '{feature.dtype}' must be a string or record."
                     )
@@ -911,10 +872,10 @@ def _add_values(
             feature_value, _ = value_model.get_or_create(**filter_kwargs)
             _feature_values.append(feature_value)
         else:
-            if isinstance(value, Record) or (
-                isinstance(value, Iterable) and isinstance(next(iter(value)), Record)
+            if isinstance(value, DBRecord) or (
+                isinstance(value, Iterable) and isinstance(next(iter(value)), DBRecord)
             ):
-                if isinstance(value, Record):
+                if isinstance(value, DBRecord):
                     label_records = [value]
                 else:
                     label_records = value  # type: ignore
@@ -981,12 +942,8 @@ def _add_values(
             for record in _feature_values
             if getattr(record, model_name.lower()).dtype == "dict"
         ]
-        if is_param:
-            LinkORM = self._host._param_values.through
-            valuefield_id = "paramvalue_id"
-        else:
-            LinkORM = self._host._feature_values.through
-            valuefield_id = "featurevalue_id"
+        IsLink = self._host._feature_values.through
+        valuefield_id = "featurevalue_id"
         host_class_lower = self._host.__class__.__get_name_with_module__().lower()
         if dict_typed_features:
             # delete all previously existing anotations with dictionaries
@@ -1000,7 +957,7 @@ def _add_values(
                 pass
         # add new feature links
         links = [
-            LinkORM(
+            IsLink(
                 **{
                     f"{host_class_lower}_id": self._host.id,
                     valuefield_id: feature_value.id,
@@ -1030,18 +987,6 @@ def add_values_features(
     _add_values(self, values, feature_field, str_as_ulabel=str_as_ulabel)
 
 
-def add_values_params(
-    self,
-    values: dict[str, str | int | float | bool],
-) -> None:
-    """Curate artifact with features & values.
-
-    Args:
-        values: A dictionary of keys (features) & values (labels, numbers, booleans).
-    """
-    _add_values(self, values, Param.name, str_as_ulabel=False)
-
-
 def remove_values(
     self,
     feature: str | Feature,
@@ -1063,7 +1008,7 @@ def remove_values(
     if feature.dtype.startswith("cat["):  # type: ignore
         feature_registry = feature.dtype.replace("cat[", "").replace("]", "")  # type: ignore
         if value is not None:
-            assert isinstance(value, Record)  # noqa: S101
+            assert isinstance(value, DBRecord)  # noqa: S101
             # the below uses our convention for field names in link models
             link_name = (
                 feature_registry.split(".")[1]
@@ -1263,7 +1208,7 @@ def parse_staged_feature_sets_from_anndata(
     obs_field: FieldAttr = Feature.name,
     uns_field: FieldAttr | None = None,
     mute: bool = False,
-    organism: str | Record | None = None,
+    organism: str | DBRecord | None = None,
 ) -> dict:
     data_parse = adata
     if not isinstance(adata, AnnData):  # is a path
@@ -1337,7 +1282,7 @@ def _add_set_from_anndata(
     obs_field: FieldAttr | None = Feature.name,
     uns_field: FieldAttr | None = None,
     mute: bool = False,
-    organism: str | Record | None = None,
+    organism: str | DBRecord | None = None,
 ):
     """Add features from AnnData."""
     assert self._host.otype == "AnnData"  # noqa: S101
@@ -1363,7 +1308,7 @@ def _add_set_from_mudata(
     var_fields: dict[str, FieldAttr] | None = None,
     obs_fields: dict[str, FieldAttr] | None = None,
     mute: bool = False,
-    organism: str | Record | None = None,
+    organism: str | DBRecord | None = None,
 ):
     """Add features from MuData."""
     if obs_fields is None:
@@ -1400,7 +1345,7 @@ def _add_set_from_spatialdata(
     var_fields: dict[str, FieldAttr] | None = None,
     obs_fields: dict[str, FieldAttr] | None = None,
     mute: bool = False,
-    organism: str | Record | None = None,
+    organism: str | DBRecord | None = None,
 ):
     """Add features from SpatialData."""
     obs_fields, var_fields = obs_fields or {}, var_fields or {}
@@ -1437,11 +1382,8 @@ def _add_set_from_spatialdata(
 
 # mypy: ignore-errors
 FeatureManager.__init__ = __init__
-ParamManager.__init__ = __init__
 FeatureManager.__repr__ = __repr__
-ParamManager.__repr__ = __repr__
 FeatureManager.describe = describe
-ParamManager.describe = describe
 FeatureManager.__getitem__ = __getitem__
 FeatureManager.get_values = get_values
 FeatureManager.slots = slots
@@ -1453,9 +1395,6 @@ FeatureManager.filter = filter
 FeatureManager.get = get
 FeatureManager.make_external = make_external
 FeatureManager.remove_values = remove_values
-ParamManager.add_values = add_values_params
-ParamManager.get_values = get_values
-ParamManager.filter = filter
 
 # deprecated
 FeatureManager._add_set_from_df = _add_set_from_df

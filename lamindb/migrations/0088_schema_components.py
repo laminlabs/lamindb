@@ -97,7 +97,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("composite", "component")},
             },
-            bases=(lamindb.models.LinkORM, models.Model),
+            bases=(lamindb.models.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="schema",

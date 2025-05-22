@@ -277,7 +277,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("person", "project")},
             },
-            bases=(lamindb.models.LinkORM, models.Model),
+            bases=(lamindb.models.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="project",
@@ -481,7 +481,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("run", "ulabel")},
             },
-            bases=(models.Model, lamindb.models.LinkORM),
+            bases=(models.Model, lamindb.models.IsLink),
         ),
         migrations.AddField(
             model_name="run",

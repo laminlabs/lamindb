@@ -326,7 +326,7 @@ class Migration(migrations.Migration):
                 WHERE dtype = 'number'
             """
         ),
-        # an aux field on Record
+        # an aux field on DBRecord
         migrations.AddField(
             model_name="artifact",
             name="aux",
@@ -547,7 +547,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("transform", "ulabel")},
             },
-            bases=(lamindb.models.LinkORM, models.Model),
+            bases=(lamindb.models.IsLink, models.Model),
         ),
         migrations.RunSQL(
             sql="""
@@ -670,7 +670,7 @@ class Migration(migrations.Migration):
             old_name="n_objects",
             new_name="n_files",
         ),
-        # let feature value and paramvalue inherit from Record
+        # let feature value and paramvalue inherit from DBRecord
         migrations.AddField(
             model_name="featurevalue",
             name="_branch_code",

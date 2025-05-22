@@ -660,14 +660,32 @@ class Context:
                 key = self._path.name
         else:
             if self.uid is not None:
-                assert len(self.uid) == 12, (  # noqa: S101
-                    "uid must be 12 (stem) or 16 (full) characters long"
-                )
+                # the case with length 16 is covered above
+                if not len(self.uid) == 12:
+                    raise InvalidArgument(
+                        f'Please pass an auto-generated uid instead of "{self.uid}". Resolve by running: ln.track("{base62_12()}")'
+                    )
                 aux_transform = (
                     Transform.filter(uid__startswith=self.uid)
                     .order_by("-created_at")
                     .first()
                 )
+            else:
+                # deal with a hash-based match
+                # the user might have a made a copy of the notebook or script
+                # and actually wants to create a new transform
+                if aux_transform is not None and not aux_transform.key.endswith(
+                    self._path.name
+                ):
+                    prompt = f"Found transform with same hash but different key: {aux_transform.key}. Did you rename your {transform_type} to {self._path.name} (1) or intentionally made a copy (2)?"
+                    response = (
+                        "1" if os.getenv("LAMIN_TESTING") == "true" else input(prompt)
+                    )
+                    assert response in {"1", "2"}, (  # noqa: S101
+                        f"Please respond with either 1 or 2, not {response}"
+                    )
+                    if response == "2":
+                        transform_hash = None  # make a new transform
             if aux_transform is not None:
                 if aux_transform.key.endswith(self._path.name):
                     key = aux_transform.key

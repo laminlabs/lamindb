@@ -6,7 +6,7 @@ from django.db import migrations, models
 
 import lamindb.base.fields
 import lamindb.base.users
-import lamindb.models.record
+import lamindb.models.dbrecord
 
 
 class Migration(migrations.Migration):
@@ -61,7 +61,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("run", "project")},
             },
-            bases=(models.Model, lamindb.models.record.LinkORM),
+            bases=(models.Model, lamindb.models.dbrecord.IsLink),
         ),
         migrations.AddField(
             model_name="project",

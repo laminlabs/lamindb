@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import bionty as bt
 import lamindb as ln
 import pytest
@@ -123,6 +125,19 @@ def test_transfer_from_remote_to_local():
     bt.DevelopmentalStage.filter().delete()
     bt.Tissue.filter().delete()
     ln.Feature.filter().delete()
+
+
+def test_transfer_into_space():
+    # grab any ulabel from the default space
+    ulabel = ln.ULabel.using("laminlabs/lamin-dev").filter(space__id=1).first()
+
+    space = ln.Space(name="space for transfer", uid="00000123").save()
+    with patch.object(ln.context, "_space", new=space):
+        ulabel.save()
+    assert ulabel.space_id == space.id
+
+    ulabel.delete()
+    space.delete()
 
 
 def test_using_record_organism():

@@ -38,7 +38,6 @@ Validate and annotate artifacts.
 
    ULabel
    Feature
-   Param
    Schema
 
 Manage projects.
@@ -90,11 +89,20 @@ Low-level functionality.
    core
    models
 
+Backwards compatibility.
+
+.. autosummary::
+   :toctree: .
+
+   Param
+   FeatureSet
+   Curator
+
 """
 
 # ruff: noqa: I001
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
-__version__ = "1.5.1"
+__version__ = "1.5.2"
 
 import warnings
 
@@ -128,7 +136,6 @@ if _check_instance_setup(from_module="lamindb"):
         Collection,
         Feature,
         FeatureSet,  # backward compat
-        Param,
         Person,
         Project,
         Reference,
@@ -151,3 +158,5 @@ if _check_instance_setup(from_module="lamindb"):
     settings.__doc__ = """Global live settings (:class:`~lamindb.core.Settings`)."""
     context.__doc__ = """Global run context (:class:`~lamindb.core.Context`)."""
     from django.db.models import Q
+
+    Param = Feature  # backward compat
