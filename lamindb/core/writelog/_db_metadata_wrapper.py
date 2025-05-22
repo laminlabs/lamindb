@@ -81,8 +81,6 @@ class DatabaseMetadataWrapper(ABC):
         else:
             column_names = self.get_column_names(table, cursor)
 
-            print(column_names)
-
             # If the table has a 'uid' column, use that
             if "uid" in column_names:
                 return [
