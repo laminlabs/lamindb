@@ -18,7 +18,6 @@ from lamindb.core.writelog._trigger_installer import (
 from lamindb.core.writelog._types import TableUID, UIDColumns
 from lamindb.models.artifact import Artifact
 from lamindb.models.dbrecord import Space
-from lamindb.models.record import Space
 from lamindb.models.run import Run
 from lamindb.models.transform import Transform
 from lamindb.models.writelog import WriteLog, WriteLogMigrationState, WriteLogTableState
@@ -39,7 +38,6 @@ class FakeMetadataWrapper(PostgresDatabaseMetadataWrapper):
         self._db_tables = set()
         self._many_to_many_tables = set()
         self._uid_columns: dict[str, UIDColumns] = {}
-        self._is_aux_artifact: dict[tuple[str, ...], bool] = {}
 
     @override
     def get_tables_with_installed_triggers(self, cursor: CursorWrapper) -> set[str]:
