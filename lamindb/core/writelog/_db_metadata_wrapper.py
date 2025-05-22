@@ -218,7 +218,6 @@ ORDER BY
 
     @override
     def get_column_names(self, table: str, cursor: CursorWrapper) -> set[str]:
-        print(table)
         cursor.execute(
             "SELECT column_name FROM information_schema.columns WHERE TABLE_NAME = %s ORDER BY ordinal_position",
             (table,),

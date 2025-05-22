@@ -91,7 +91,9 @@ class Record(DBRecord, CanCurate, TracksRun, TracksUpdates):
     runs: Run = models.ManyToManyField(Run, through="RecordRun", related_name="records")
     """Linked runs."""
     ulabels: ULabel = models.ManyToManyField(
-        ULabel, through="RecordULabel", related_name="records"
+        ULabel,
+        through="RecordULabel",
+        related_name="_records",  # in transition period
     )
     """Linked runs."""
     projects: Project
