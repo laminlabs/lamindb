@@ -139,15 +139,18 @@ def custom_aggregate(field, using: str):
 
 
 def _get_categoricals_postgres(
-    self: Artifact | Collection,
+    self: Artifact | Collection | Run,
     related_data: dict | None = None,
 ) -> dict[tuple[str, str], set[str]]:
     """Get categorical features and their values using PostgreSQL-specific optimizations."""
     if not related_data:
-        artifact_meta = get_artifact_with_related(
-            self, include_feature_link=True, include_m2m=True
-        )
-        related_data = artifact_meta.get("related_data", {})
+        if isinstance(Artifact):
+            artifact_meta = get_artifact_with_related(
+                self, include_feature_link=True, include_m2m=True
+            )
+            related_data = artifact_meta.get("related_data", {})
+        else:
+            related_data = {}
 
     # Process m2m data
     m2m_data = related_data.get("m2m", {}) if related_data else {}
