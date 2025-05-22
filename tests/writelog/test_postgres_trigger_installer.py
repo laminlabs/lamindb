@@ -1,3 +1,5 @@
+import tempfile
+from pathlib import Path
 from typing import TYPE_CHECKING, Generator, cast
 from unittest.mock import ANY, MagicMock
 
@@ -14,7 +16,10 @@ from lamindb.core.writelog._trigger_installer import (
     WriteLogEventTypes,
 )
 from lamindb.core.writelog._types import TableUID, UIDColumns
+from lamindb.models.artifact import Artifact
 from lamindb.models.record import Space
+from lamindb.models.run import Run
+from lamindb.models.transform import Transform
 from lamindb.models.writelog import WriteLog, WriteLogMigrationState, WriteLogTableState
 from typing_extensions import override
 
@@ -1330,18 +1335,14 @@ def test_write_log_records_space_uids_properly(table_with_space_ref, fake_space)
     assert write_log[1].space_uid is None
 
 
-@pytest.mark.pg_integration
-def test_write_log_install_triggers_on_existing_lamindb_models():
+@pytest.fixture(scope="function")
+def drop_all_write_log_triggers_after_test():
+    yield
+
     cursor = django_connection.cursor()
 
-    try:
-        installer = PostgresWriteLogRecordingTriggerInstaller(
-            connection=django_connection, db_metadata=PostgresDatabaseMetadataWrapper()
-        )
-        installer.update_write_log_triggers()
-    finally:
-        # Drop all write log triggers
-        cursor.execute("""
+    # Drop all write log triggers
+    cursor.execute("""
 DO $$
 DECLARE
     r RECORD;
@@ -1365,3 +1366,94 @@ BEGIN
 END;
 $$;
                        """)
+
+
+@pytest.mark.pg_integration
+def test_write_log_install_triggers_on_existing_lamindb_models(
+    drop_all_write_log_triggers_after_test,
+):
+    installer = PostgresWriteLogRecordingTriggerInstaller(
+        connection=django_connection, db_metadata=PostgresDatabaseMetadataWrapper()
+    )
+    installer.update_write_log_triggers()
+
+
+@pytest.fixture(scope="function")
+def fake_run():
+    transform = Transform("my test transform").save()
+    run = Run(transform).save()
+
+    yield run
+
+    run.delete()
+
+
+@pytest.fixture(scope="function")
+def aux_artifact():
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        test_file = Path(tmpdirname) / "foo.txt"
+
+        with test_file.open("w") as fp:
+            fp.write("hello world")
+
+        artifact = Artifact(
+            data=str(test_file),
+            description="a fake aux artifact",
+            kind="__lamindb__",  # type: ignore
+            run=None,
+        ).save()
+
+        yield artifact
+
+        artifact.delete(permanent=True)
+
+
+@pytest.fixture(scope="function")
+def normal_artifact(fake_run):
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        test_file = Path(tmpdirname) / "bar.txt"
+
+        with test_file.open("w") as fp:
+            fp.write("another test file")
+
+        artifact = Artifact(
+            data=str(test_file),
+            description="a fake normal artifact",
+            kind="dataset",
+            run=fake_run,
+        ).save()
+
+        yield artifact
+
+        artifact.delete(permanent=True)
+
+
+@pytest.mark.pg_integration
+def test_aux_artifacts_backfill_before_real_ones(
+    aux_artifact, normal_artifact, fake_run, drop_all_write_log_triggers_after_test
+):
+    installer = PostgresWriteLogRecordingTriggerInstaller(
+        connection=django_connection, db_metadata=PostgresDatabaseMetadataWrapper()
+    )
+    installer.update_write_log_triggers()
+
+    write_log = [
+        w
+        for w in WriteLog.objects.all().order_by("seqno")
+        if w.table.table_name
+        in ("lamindb_artifact", "lamindb_transform", "lamindb_run")
+    ]
+
+    assert len(write_log) == 4
+
+    assert write_log[0].table.table_name == "lamindb_artifact"
+    assert write_log[0].record_uid == [aux_artifact.uid]
+
+    assert write_log[1].table.table_name == "lamindb_transform"
+    assert write_log[1].record_uid == [normal_artifact.transform.uid]
+
+    assert write_log[2].table.table_name == "lamindb_run"
+    assert write_log[2].record_uid == [fake_run.uid]
+
+    assert write_log[3].table.table_name == "lamindb_artifact"
+    assert write_log[3].record_uid == [normal_artifact.uid]
