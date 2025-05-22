@@ -261,9 +261,9 @@ def process_data(
     if key_suffix is not None and key_suffix != suffix and not is_replace:
         # consciously omitting a trailing period
         if isinstance(data, (str, Path, UPath)):  # UPathStr, spelled out
-            message = f"The suffix '{suffix}' of the provided path is inconsistent, it should be '{key_suffix}'"
+            message = f"The passed path's suffix '{suffix}' must match the passed key's suffix '{key_suffix}'."
         else:
-            message = f"The suffix '{key_suffix}' of the provided key is inconsistent, it should be '{suffix}'"
+            message = f"The passed key's suffix '{key_suffix}' must match the passed path's suffix '{suffix}'."
         raise InvalidArgument(message)
 
     # in case we have an in-memory representation, we need to write it to disk
