@@ -122,6 +122,9 @@ def write_log_lock():
 
 
 def test_replayer_happy_path(simple_table, write_log_lock, write_log_state):
+    db_metadata = FakeMetadataWrapper()
+    db_metadata.set_db_tables({simple_table})
+
     cursor = django_connection.cursor()
 
     update_write_log_table_state({simple_table})
@@ -131,9 +134,7 @@ def test_replayer_happy_path(simple_table, write_log_lock, write_log_state):
 
     simple_table_state = WriteLogTableState.objects.get(table_name=simple_table)
 
-    replayer = WriteLogReplayer(
-        db_metadata=SQLiteDatabaseMetadataWrapper(), cursor=cursor
-    )
+    replayer = WriteLogReplayer(db_metadata=db_metadata, cursor=cursor)
 
     input_write_log = [
         WriteLog(
@@ -210,3 +211,182 @@ def test_replayer_happy_path(simple_table, write_log_lock, write_log_state):
     assert len(rows) == 1
     assert rows[0][0] == "SimpleRecord1"
     assert rows[0][1] is False
+
+
+@pytest.fixture(scope="function")
+def many_to_many_table(simple_table, write_log_state):
+    cursor = django_connection.cursor()
+
+    cursor.execute(f"""
+CREATE TABLE many_to_many_table (
+    id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+    simple_a_id integer,
+    simple_b_id integer,
+    FOREIGN KEY (simple_a_id) REFERENCES {simple_table}(id),
+    FOREIGN KEY (simple_b_id) REFERENCES {simple_table}(id)
+)
+""")
+
+    yield "many_to_many_table"
+
+    cursor.execute("DROP TABLE IF EXISTS many_to_many_table")
+
+
+def test_replayer_many_to_many(
+    simple_table, many_to_many_table, write_log_lock, write_log_state
+):
+    db_metadata = FakeMetadataWrapper()
+    db_metadata.set_db_tables({simple_table, many_to_many_table})
+    db_metadata.set_many_to_many_db_tables({many_to_many_table})
+
+    cursor = django_connection.cursor()
+
+    update_write_log_table_state({simple_table, many_to_many_table})
+    update_migration_state()
+
+    current_migration_state = WriteLogMigrationState.objects.order_by("-id").first()
+
+    simple_table_state = WriteLogTableState.objects.get(table_name=simple_table)
+    many_to_many_table_state = WriteLogTableState.objects.get(
+        table_name=many_to_many_table
+    )
+
+    replayer = WriteLogReplayer(db_metadata=db_metadata, cursor=cursor)
+
+    input_write_log = [
+        WriteLog(
+            migration_state=current_migration_state,
+            table=simple_table_state,
+            uid="Hist001",
+            record_uid=["SimpleRecord1"],
+            record_data={
+                "bool_col": True,
+                "text_col": "hello world",
+                "timestamp_col": "2025-05-23T02:03:16.913425+00:00",
+                "date_col": "2025-05-23",
+                "float_col": 8.675309,
+                FOREIGN_KEYS_LIST_COLUMN_NAME: [],
+            },
+            event_type=WriteLogEventTypes.INSERT.value,
+            created_at=datetime.datetime(
+                2025, 5, 23, 12, 34, 56, tzinfo=datetime.timezone.utc
+            ),
+        ),
+        WriteLog(
+            migration_state=current_migration_state,
+            table=simple_table_state,
+            uid="Hist002",
+            record_uid=["SimpleRecord2"],
+            record_data={
+                "bool_col": False,
+                "text_col": "Hallo, Welt!",
+                "timestamp_col": "2025-05-23T02:03:20.392310+00:00",
+                "date_col": "2025-05-23",
+                "float_col": 1.8007777777,
+                FOREIGN_KEYS_LIST_COLUMN_NAME: [],
+            },
+            event_type=WriteLogEventTypes.INSERT.value,
+            created_at=datetime.datetime(
+                2025, 5, 23, 12, 41, 00, tzinfo=datetime.timezone.utc
+            ),
+        ),
+        WriteLog(
+            migration_state=current_migration_state,
+            table=many_to_many_table_state,
+            uid="ManyToMany1",
+            record_uid=[
+                [simple_table_state.id, ["simple_a_id"], {"uid": "SimpleRecord1"}],
+                [simple_table_state.id, ["simple_b_id"], {"uid": "SimpleRecord2"}],
+            ],
+            record_data={
+                FOREIGN_KEYS_LIST_COLUMN_NAME: [
+                    [simple_table_state.id, ["simple_a_id"], {"uid": "SimpleRecord1"}],
+                    [simple_table_state.id, ["simple_b_id"], {"uid": "SimpleRecord2"}],
+                ],
+            },
+            event_type=WriteLogEventTypes.INSERT.value,
+            created_at=datetime.datetime(
+                2025, 5, 23, 12, 55, 00, tzinfo=datetime.timezone.utc
+            ),
+        ),
+        WriteLog(
+            migration_state=current_migration_state,
+            table=many_to_many_table_state,
+            uid="ManyToMany2",
+            record_uid=[
+                [simple_table_state.id, ["simple_a_id"], {"uid": "SimpleRecord2"}],
+                [simple_table_state.id, ["simple_b_id"], {"uid": "SimpleRecord2"}],
+            ],
+            record_data={
+                FOREIGN_KEYS_LIST_COLUMN_NAME: [
+                    [simple_table_state.id, ["simple_a_id"], {"uid": "SimpleRecord2"}],
+                    [simple_table_state.id, ["simple_b_id"], {"uid": "SimpleRecord2"}],
+                ],
+            },
+            event_type=WriteLogEventTypes.INSERT.value,
+            created_at=datetime.datetime(
+                2025, 5, 23, 12, 56, 00, tzinfo=datetime.timezone.utc
+            ),
+        ),
+        WriteLog(
+            migration_state=current_migration_state,
+            table=many_to_many_table_state,
+            uid="ManyToMany3",
+            record_uid=[
+                [simple_table_state.id, ["simple_a_id"], {"uid": "SimpleRecord2"}],
+                [simple_table_state.id, ["simple_b_id"], {"uid": "SimpleRecord2"}],
+            ],
+            record_data={
+                FOREIGN_KEYS_LIST_COLUMN_NAME: [
+                    [simple_table_state.id, ["simple_a_id"], {"uid": "SimpleRecord2"}],
+                    [simple_table_state.id, ["simple_b_id"], {"uid": "SimpleRecord1"}],
+                ],
+            },
+            event_type=WriteLogEventTypes.UPDATE.value,
+            created_at=datetime.datetime(
+                2025, 5, 23, 12, 56, 30, tzinfo=datetime.timezone.utc
+            ),
+        ),
+        WriteLog(
+            migration_state=current_migration_state,
+            table=many_to_many_table_state,
+            uid="ManyToMany4",
+            record_uid=[
+                [simple_table_state.id, ["simple_a_id"], {"uid": "SimpleRecord2"}],
+                [simple_table_state.id, ["simple_b_id"], {"uid": "SimpleRecord1"}],
+            ],
+            record_data=None,
+            event_type=WriteLogEventTypes.DELETE.value,
+            created_at=datetime.datetime(
+                2025, 5, 23, 12, 56, 45, tzinfo=datetime.timezone.utc
+            ),
+        ),
+    ]
+
+    for write_log_entry in input_write_log:
+        replayer.replay(write_log_entry)
+        write_log_entry.save()
+
+    write_log = WriteLog.objects.all().order_by("seqno")
+
+    assert len(write_log) == 6
+    assert list(write_log) == input_write_log
+
+    cursor.execute(f"SELECT id, uid FROM {simple_table}")  # noqa: S608
+
+    rows = cursor.fetchall()
+
+    assert [r[1] for r in rows] == ["SimpleRecord1", "SimpleRecord2"]
+
+    simple_uid_to_id = {r[1]: r[0] for r in rows}
+
+    cursor.execute(f"SELECT id, simple_a_id, simple_b_id FROM {many_to_many_table}")  # noqa: S608
+
+    rows = cursor.fetchall()
+
+    assert len(rows) == 1
+
+    assert rows[0][1:] == (
+        simple_uid_to_id["SimpleRecord1"],
+        simple_uid_to_id["SimpleRecord2"],
+    )
