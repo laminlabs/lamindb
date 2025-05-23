@@ -3,7 +3,7 @@ import re
 from abc import ABC, abstractmethod
 from typing import Any
 
-from django.db import models, transaction
+from django.db import transaction
 from django.db.backends.base.base import BaseDatabaseWrapper
 from django.db.backends.utils import CursorWrapper
 from lamin_utils import logger
@@ -11,12 +11,15 @@ from typing_extensions import override
 
 from lamindb.core.writelog._constants import FOREIGN_KEYS_LIST_COLUMN_NAME
 from lamindb.core.writelog._graph_utils import find_cycle, topological_sort
+from lamindb.core.writelog._utils import (
+    update_migration_state,
+    update_write_log_table_state,
+)
 from lamindb.models.writelog import (
     DEFAULT_BRANCH_CODE,
     DEFAULT_CREATED_BY_UID,
     DEFAULT_RUN_UID,
     WriteLogLock,
-    WriteLogMigrationState,
     WriteLogTableState,
 )
 
@@ -31,18 +34,6 @@ class WriteLogEventTypes(enum.Enum):
     INSERT = 0
     UPDATE = 1
     DELETE = 2
-
-
-class DjangoMigration(models.Model):
-    """This model class allows us to access the migrations table using normal Django syntax."""
-
-    app = models.CharField(max_length=255)
-    name = models.CharField(max_length=255)
-    applied = models.DateTimeField()
-
-    class Meta:
-        managed = False  # Tell Django not to manage this table
-        db_table = "django_migrations"  # Specify the actual table name
 
 
 RESERVED_COLUMNS: tuple[str] = (FOREIGN_KEYS_LIST_COLUMN_NAME,)
@@ -90,63 +81,16 @@ class WriteLogRecordingTriggerInstaller(ABC):
     def install_triggers(self, table: str, cursor: CursorWrapper):
         raise NotImplementedError()
 
-    def _update_write_log_table_state(self, tables: set[str]):
-        existing_tables = set(
-            WriteLogTableState.objects.filter(table_name__in=tables).values_list(
-                "table_name", flat=True
-            )
-        )
-
-        table_states_to_add = [
-            WriteLogTableState(table_name=t, backfilled=False)
-            for t in tables
-            if t not in existing_tables
-        ]
-
-        WriteLogTableState.objects.bulk_create(table_states_to_add)
-
-    def _update_migration_state(self, cursor: CursorWrapper):
-        app_migrations = {}
-
-        for app in DjangoMigration.objects.values_list("app", flat=True).distinct():
-            migrations = DjangoMigration.objects.filter(app=app)
-            max_migration_id = 0
-
-            for migration in migrations:
-                # Extract the number from the migration name
-                match = re.match(r"^([0-9]+)_", migration.name)  # type: ignore
-                if match:
-                    migration_id = int(match.group(1))
-                    max_migration_id = max(max_migration_id, migration_id)
-
-            app_migrations[app] = max_migration_id
-
-        current_state = [
-            {"migration_id": mig_id, "app": app}
-            for app, mig_id in sorted(app_migrations.items())
-        ]
-
-        try:
-            latest_state = WriteLogMigrationState.objects.order_by("-id").first()
-            latest_state_json = (
-                latest_state.migration_state_id if latest_state else None
-            )
-        except WriteLogMigrationState.DoesNotExist:
-            latest_state_json = None
-
-        if current_state and current_state != latest_state_json:
-            WriteLogMigrationState.objects.create(migration_state_id=current_state)
-
     def update_write_log_triggers(self, update_all: bool = False):
         with transaction.atomic():
             # Ensure that the write log lock exists
             WriteLogLock.load()
             tables = self.db_metadata.get_db_tables()
-            self._update_write_log_table_state(tables)
+            update_write_log_table_state(tables)
 
             cursor = self.connection.cursor()
 
-            self._update_migration_state(cursor)
+            update_migration_state()
 
             tables_with_installed_triggers = (
                 self.db_metadata.get_tables_with_installed_triggers(cursor)

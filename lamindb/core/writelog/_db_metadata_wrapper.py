@@ -360,15 +360,118 @@ class SQLiteDatabaseMetadataWrapper(DatabaseMetadataWrapper):
     """This is a placeholder until we implement the SQLite side of synchronization."""
 
     @override
-    def get_column_names(self, table: str, cursor: CursorWrapper) -> set[str]:
-        raise NotImplementedError()
+    def get_columns(self, table: str, cursor: CursorWrapper) -> set[Column]:
+        cursor.execute(
+            """
+SELECT
+	name,
+	"type",
+	cid AS ordinal_position
+FROM pragma_table_info(%s)
+""",
+            [table],
+        )
+
+        return {
+            Column(
+                name=r[0],
+                type=self._data_type_to_column_type(r[1]),
+                ordinal_position=r[2],
+            )
+            for r in cursor.fetchall()
+        }
 
     @override
     def get_tables_with_installed_triggers(self, cursor: CursorWrapper) -> set[str]:
-        raise NotImplementedError()
+        cursor.execute("SELECT tbl_name FROM sqlite_master WHERE type = 'trigger';")
+
+        return {r[0] for r in cursor.fetchall()}
 
     @override
     def get_table_key_constraints(
         self, table: str, cursor: CursorWrapper
     ) -> tuple[KeyConstraint, list[KeyConstraint]]:
-        raise NotImplementedError()
+        cursor.execute(
+            """
+SELECT
+    p.name AS column_name,
+    p.type AS data_type,
+    p.cid AS ordinal_position
+FROM sqlite_schema m
+JOIN pragma_table_info(m.name) p ON p.pk > 0
+WHERE m.type = 'table'
+    AND m.name = %s
+ORDER BY m.name, p.pk;
+""",
+            [table],
+        )
+
+        primary_key_columns = cursor.fetchall()
+
+        primary_key_constraint = KeyConstraint(
+            constraint_name="primary",
+            constraint_type="PRIMARY KEY",
+            source_columns=[
+                Column(
+                    name=row[0],
+                    type=self._data_type_to_column_type(row[1]),
+                    ordinal_position=row[2],
+                )
+                for row in primary_key_columns
+            ],
+            target_columns=[],
+            target_table=table,
+        )
+
+        foreign_key_constraints: dict[int, KeyConstraint] = {}
+
+        cursor.execute(
+            """
+SELECT
+    id AS fk_id,
+    "from" AS from_column,
+    "table" AS referenced_table,
+    "to" AS referenced_column
+FROM pragma_foreign_key_list(%s)
+ORDER BY id, seq;
+""",
+            [table],
+        )
+
+        rows = cursor.fetchall()
+
+        for row in rows:
+            fk_id, from_column, referenced_table, referenced_column = row
+
+            if fk_id not in foreign_key_constraints:
+                foreign_key_constraints[fk_id] = KeyConstraint(
+                    constraint_name=f"foreign_key_{fk_id}",
+                    constraint_type="FOREIGN KEY",
+                    source_columns=[],
+                    target_columns=[],
+                    target_table=referenced_table,
+                )
+
+            foreign_key_constraints[fk_id].source_columns.append(from_column)
+            foreign_key_constraints[fk_id].target_columns.append(referenced_column)
+
+        return (
+            primary_key_constraint,
+            sorted(foreign_key_constraints.values(), key=lambda c: c.constraint_name),
+        )
+
+    def _data_type_to_column_type(self, data_type: str) -> ColumnType:
+        if data_type.lower() in ("integer", "bigint", "smallint", "smallint unsigned"):
+            return ColumnType.INT
+        elif data_type.lower() in ("bool",):
+            return ColumnType.BOOL
+        elif data_type.lower().startswith("varchar") or data_type.lower() == "text":
+            return ColumnType.STR
+        elif data_type.lower() == "datetime":
+            return ColumnType.TIMESTAMPTZ
+        elif data_type.lower() == "date":
+            return ColumnType.DATE
+        elif data_type.lower() == "real":
+            return ColumnType.FLOAT
+        else:
+            raise ValueError(f"Unhandled data type '{data_type}'")
