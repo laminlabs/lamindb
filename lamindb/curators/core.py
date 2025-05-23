@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any, Callable
 import lamindb_setup as ln_setup
 import numpy as np
 import pandas as pd
-import pandera
+import pandera.pandas as pa
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 
@@ -34,9 +34,8 @@ from lamindb.models import (
 )
 from lamindb.models._from_values import _format_values
 from lamindb.models.artifact import (
-    data_is_anndata,
-    data_is_mudata,
-    data_is_spatialdata,
+    data_is_scversedatastructure,
+    data_is_soma_experiment,
 )
 from lamindb.models.feature import parse_cat_dtype, parse_dtype
 
@@ -49,7 +48,9 @@ if TYPE_CHECKING:
     from anndata import AnnData
     from mudata import MuData
     from spatialdata import SpatialData
+    from tiledbsoma._experiment import Experiment as SOMAExperiment
 
+    from lamindb.core.types import ScverseDataStructures
     from lamindb.models.query_set import DBRecordList
 
 
@@ -269,7 +270,6 @@ class Curator:
         )
 
 
-# default implementation for AnnDataCurator, MuDataCurator, and SpatialDataCurator
 class SlotsCurator(Curator):
     """Curator for a dataset with slots.
 
@@ -281,13 +281,13 @@ class SlotsCurator(Curator):
 
     def __init__(
         self,
-        dataset: Any,
+        dataset: Artifact | ScverseDataStructures | SOMAExperiment,
         schema: Schema,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
         self._slots: dict[str, DataFrameCurator] = {}
 
-        # used in MuDataCurator and SpatialDataCurator
+        # used for multimodal data structures (not AnnData)
         # in form of {table/modality_key: var_field}
         self._var_fields: dict[str, FieldAttr] = {}
         # in form of {table/modality_key: categoricals}
@@ -320,31 +320,35 @@ class SlotsCurator(Curator):
         """{}"""  # noqa: D415
         if not self._is_validated:
             self.validate()
+
         if self._artifact is None:
-            if data_is_anndata(self._dataset):
-                self._artifact = Artifact.from_anndata(
-                    self._dataset,
-                    key=key,
-                    description=description,
-                    revises=revises,
-                    run=run,
-                )
-            if data_is_mudata(self._dataset):
-                self._artifact = Artifact.from_mudata(
-                    self._dataset,
-                    key=key,
-                    description=description,
-                    revises=revises,
-                    run=run,
-                )
-            elif data_is_spatialdata(self._dataset):
-                self._artifact = Artifact.from_spatialdata(
-                    self._dataset,
-                    key=key,
-                    description=description,
-                    revises=revises,
-                    run=run,
-                )
+            type_mapping = [
+                (
+                    lambda data: data_is_scversedatastructure(data, "AnnData"),
+                    Artifact.from_anndata,
+                ),
+                (
+                    lambda data: data_is_scversedatastructure(data, "MuData"),
+                    Artifact.from_mudata,
+                ),
+                (
+                    lambda data: data_is_scversedatastructure(data, "SpatialData"),
+                    Artifact.from_spatialdata,
+                ),
+                (data_is_soma_experiment, Artifact.from_tiledbsoma),
+            ]
+
+            for type_check, factory in type_mapping:
+                if type_check(self._dataset):
+                    self._artifact = factory(  # type: ignore
+                        self._dataset,
+                        key=key,
+                        description=description,
+                        revises=revises,
+                        run=run,
+                    )
+                    break
+
             self._artifact.schema = self._schema
             self._artifact.save()
         cat_vectors = {}
@@ -461,9 +465,9 @@ class DataFrameCurator(Curator):
                         )
                     else:
                         dtype = None
-                    pandera_columns[feature.name] = pandera.Column(
+                    pandera_columns[feature.name] = pa.Column(
                         dtype=None,
-                        checks=pandera.Check(
+                        checks=pa.Check(
                             check_dtype(feature.dtype),
                             element_wise=False,
                             error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}': got {dtype}",
@@ -478,7 +482,7 @@ class DataFrameCurator(Curator):
                         if not feature.dtype.startswith("cat")
                         else "category"
                     )
-                    pandera_columns[feature.name] = pandera.Column(
+                    pandera_columns[feature.name] = pa.Column(
                         pandera_dtype,
                         nullable=feature.nullable,
                         coerce=feature.coerce_dtype,
@@ -491,14 +495,14 @@ class DataFrameCurator(Curator):
             if schema._index_feature_uid is not None:
                 # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
                 # so, we're typing it as `str` here
-                index = pandera.Index(
+                index = pa.Index(
                     schema.index.dtype
                     if not schema.index.dtype.startswith("cat")
                     else str
                 )
             else:
                 index = None
-            self._pandera_schema = pandera.DataFrameSchema(
+            self._pandera_schema = pa.DataFrameSchema(
                 pandera_columns,
                 coerce=schema.coerce_dtype,
                 strict=schema.maximal_set,
@@ -582,7 +586,7 @@ class DataFrameCurator(Curator):
                 self._pandera_schema.validate(self._dataset)
                 # then validate lamindb categoricals
                 self._cat_manager_validate()
-            except pandera.errors.SchemaError as err:
+            except pa.errors.SchemaError as err:
                 self._is_validated = False
                 # .exconly() doesn't exist on SchemaError
                 raise ValidationError(str(err)) from err
@@ -627,8 +631,12 @@ class AnnDataCurator(SlotsCurator):
 
     Example:
 
-        See :meth:`~lamindb.Artifact.from_anndata`.
+        .. literalinclude:: scripts/curate_anndata_flexible.py
+            :language: python
+            :caption: curate_anndata_flexible.py
 
+    See Also:
+        :meth:`~lamindb.Artifact.from_anndata`.
     """
 
     def __init__(
@@ -637,7 +645,7 @@ class AnnDataCurator(SlotsCurator):
         schema: Schema,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
-        if not data_is_anndata(self._dataset):
+        if not data_is_scversedatastructure(self._dataset, "AnnData"):
             raise InvalidArgument("dataset must be AnnData-like.")
         if schema.otype != "AnnData":
             raise InvalidArgument("Schema otype must be 'AnnData'.")
@@ -710,9 +718,12 @@ class MuDataCurator(SlotsCurator):
 
     Example:
 
-        .. literalinclude:: scripts/curate-mudata.py
+        .. literalinclude:: scripts/curate_mudata.py
             :language: python
-            :caption: curate-mudata.py
+            :caption: curate_mudata.py
+
+    See Also:
+        :meth:`~lamindb.Artifact.from_mudata`.
     """
 
     def __init__(
@@ -721,7 +732,7 @@ class MuDataCurator(SlotsCurator):
         schema: Schema,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
-        if not data_is_mudata(self._dataset):
+        if not data_is_scversedatastructure(self._dataset, "MuData"):
             raise InvalidArgument("dataset must be MuData-like.")
         if schema.otype != "MuData":
             raise InvalidArgument("Schema otype must be 'MuData'.")
@@ -774,18 +785,21 @@ class SpatialDataCurator(SlotsCurator):
 
     Example:
 
-        See :meth:`~lamindb.Artifact.from_spatialdata`.
+        .. literalinclude:: scripts/curate-mudata.py
+            :language: python
+            :caption: curate-mudata.py
+
+    See Also:
+        :meth:`~lamindb.Artifact.from_spatialdata`.
     """
 
     def __init__(
         self,
         dataset: SpatialData | Artifact,
         schema: Schema,
-        *,
-        sample_metadata_key: str | None = "sample",
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
-        if not data_is_spatialdata(self._dataset):
+        if not data_is_scversedatastructure(self._dataset, "SpatialData"):
             raise InvalidArgument("dataset must be SpatialData-like.")
         if schema.otype != "SpatialData":
             raise InvalidArgument("Schema otype must be 'SpatialData'.")
@@ -842,6 +856,92 @@ class SpatialDataCurator(SlotsCurator):
             _assign_var_fields_categoricals_multimodal(
                 modality=table_key,
                 slot_type=sub_slot,
+                slot=slot,
+                slot_schema=slot_schema,
+                var_fields=self._var_fields,
+                cat_vectors=self._cat_vectors,
+                slots=self._slots,
+            )
+        self._columns_field = self._var_fields
+
+
+class SomaExperimentCurator(SlotsCurator):
+    """Curator for `TileDB-SOMA`.
+
+    Args:
+        dataset: The `tiledbsoma.Experiment` object.
+        schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
+
+    Example:
+
+        .. literalinclude:: scripts/curate_soma_experiment.py
+            :language: python
+            :caption: curate_soma_experiment.py
+
+    See Also:
+        :meth:`~lamindb.Artifact.from_tiledbsoma`.
+    """
+
+    def __init__(
+        self,
+        dataset: SOMAExperiment | Artifact,
+        schema: Schema,
+    ) -> None:
+        super().__init__(dataset=dataset, schema=schema)
+        if not data_is_soma_experiment(self._dataset):
+            raise InvalidArgument("dataset must be SOMAExperiment-like.")
+        if schema.otype != "tiledbsoma":
+            raise InvalidArgument("Schema otype must be 'tiledbsoma'.")
+
+        for slot, slot_schema in schema.slots.items():
+            if slot.startswith("ms:"):
+                ms, modality_slot = slot.split(":")
+                schema_dataset = (
+                    self._dataset.ms[modality_slot.removesuffix(".T")]
+                    .var.read()
+                    .concat()
+                    .to_pandas()
+                    .drop("soma_joinid", axis=1, errors="ignore")
+                )
+
+                self._slots[slot] = DataFrameCurator(
+                    (
+                        schema_dataset.T
+                        if modality_slot == "var.T"
+                        or (
+                            # backward compat
+                            modality_slot == "var"
+                            and schema.slots[slot].itype not in {None, "Feature"}
+                        )
+                        else schema_dataset
+                    ),
+                    slot_schema,
+                )
+            else:
+                # global Experiment obs slot
+                _ms, modality_slot = None, slot
+                schema_dataset = (
+                    self._dataset.obs.read()
+                    .concat()
+                    .to_pandas()
+                    .drop(["soma_joinid", "obs_id"], axis=1, errors="ignore")
+                )
+                self._slots[slot] = DataFrameCurator(
+                    schema_dataset,
+                    slot_schema,
+                )
+
+            if modality_slot == "var" and schema.slots[slot].itype not in {
+                None,
+                "Feature",
+            }:
+                logger.warning(
+                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                )
+
+            _assign_var_fields_categoricals_multimodal(
+                modality=slot,  # not using "ms" here as it would always be the same for all modalities
+                slot_type=modality_slot,
                 slot=slot,
                 slot_schema=slot_schema,
                 var_fields=self._var_fields,

@@ -5,8 +5,9 @@
 
    DataFrameCurator
    AnnDataCurator
-   SpatialDataCurator
    MuDataCurator
+   SpatialDataCurator
+   SomaExperimentCurator
 
 Modules.
 
@@ -21,4 +22,20 @@ from ._legacy import (  # backward compat
     CellxGeneAnnDataCatManager,
     PertAnnDataCatManager,
 )
-from .core import AnnDataCurator, DataFrameCurator, MuDataCurator, SpatialDataCurator
+from .core import (
+    AnnDataCurator,
+    DataFrameCurator,
+    MuDataCurator,
+    SomaExperimentCurator,
+    SpatialDataCurator,
+)
+
+__all__ = [
+    "CellxGeneAnnDataCatManager",
+    "PertAnnDataCatManager",
+    "AnnDataCurator",
+    "DataFrameCurator",
+    "MuDataCurator",
+    "SpatialDataCurator",
+    "SomaExperimentCurator",
+]
