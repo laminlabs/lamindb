@@ -14,7 +14,7 @@ import lamindb.models.run
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lamindb", "0097_squashed"),
+        ("lamindb", "0097_remove_schemaparam_param_remove_paramvalue_param_and_more"),
     ]
 
     operations = [
