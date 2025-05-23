@@ -32,29 +32,65 @@ class WriteLogReplayer:
     def replay(self, write_log_record: WriteLog):
         table_name = write_log_record.table.table_name
 
-        resolved_record_uid = self._resolve_uid(table_name, write_log_record.record_uid)
-
         # If we're deleting the record, its (resolved) UID is the only thing we need
-        if write_log_record.event_type == WriteLogEventTypes.DELETE:
+        if write_log_record.event_type == WriteLogEventTypes.DELETE.value:
+            record_id = self._resolve_uid(table_name, write_log_record.record_uid)
+
             self.cursor.execute(f"""
                 DELETE FROM {table_name}
-                WHERE {" AND ".join("k = v" for k, v in resolved_record_uid.items())}
+                WHERE {" AND ".join(f"{k} = {v}" for k, v in record_id.items())}
                 LIMIT 1
             """)  # noqa: S608
         else:
             record_data = self._build_record_data(write_log_record)
 
-            if write_log_record.event_type == WriteLogEventTypes.INSERT:
-                record_columns = [d[0] for d in record_data]
+            if write_log_record.event_type == WriteLogEventTypes.INSERT.value:
+                record_column_names = [d[0].name for d in record_data]
                 record_values = [
                     self._cast_column(column=d[0], value=d[1]) for d in record_data
                 ]
 
+                if table_name in self.db_metadata.get_many_to_many_db_tables():
+                    record_id = self._resolve_foreign_keys_list(
+                        write_log_record.record_uid
+                    )
+
+                    for column_name, value in record_id.items():
+                        record_column_names.append(column_name)
+                        record_values.append(str(value))
+                else:
+                    uid_list = self.db_metadata.get_uid_columns(
+                        table=table_name, cursor=self.cursor
+                    )
+
+                    if len(uid_list) != 1:
+                        raise ValueError(
+                            f"Table {table_name} is not marked as many-to-many, but has "
+                            "more than one table reference in its UID"
+                        )
+
+                    record_uid = uid_list[0]
+
+                    if len(record_uid.uid_columns) != len(write_log_record.record_uid):
+                        raise ValueError(
+                            f"Write log record {write_log_record.uid} expected to "
+                            f"have {len(record_uid.uid_columns)} components to its "
+                            "UID, but only had {len(write_log_record.record_uid)}"
+                        )
+
+                    for uid_column, value in zip(
+                        record_uid.uid_columns, write_log_record.record_uid
+                    ):
+                        record_column_names.append(uid_column.name)
+                        record_values.append(self._cast_column(uid_column, value))
+
                 self.cursor.execute(f"""
                 INSERT INTO {table_name}
-                ({", ".join(c.name for c in record_columns)}) VALUES ({", ".join(record_values)})
+                ({", ".join(record_column_names)}) VALUES ({", ".join(record_values)})
                 """)  # noqa: S608
-            elif write_log_record.event_type == WriteLogEventTypes.UPDATE:
+            elif write_log_record.event_type == WriteLogEventTypes.UPDATE.value:
+                record_id = self._resolve_uid(table_name, write_log_record.record_uid)
+
                 set_statements = ", ".join(
                     f"{column.name} = {self._cast_column(column, value)}"
                     for (column, value) in record_data
@@ -63,7 +99,7 @@ class WriteLogReplayer:
                 self.cursor.execute(f"""
                 UPDATE {table_name}
                 SET {set_statements}
-                WHERE {" AND ".join(f"{k} = {v}" for (k, v) in resolved_record_uid.items())} LIMIT 1
+                WHERE {" AND ".join(f"{k} = {v}" for (k, v) in record_id.items())} LIMIT 1
                 """)  # noqa: S608
             else:
                 raise ValueError(
@@ -163,7 +199,22 @@ class WriteLogReplayer:
             SELECT {", ".join(c.name for c in primary_key.source_columns)}
             FROM {table_name}
             WHERE {lookup_where_clause}
+            LIMIT 1
             """)  # noqa: S608
+
+            table_primary_key_values = self.cursor.fetchone()
+
+            if table_primary_key_values is None:
+                raise ValueError(
+                    f"Unable to locate a record in {table_name} with UID {record_uid}"
+                )
+
+            return dict(
+                zip(
+                    [c.name for c in primary_key.source_columns],
+                    table_primary_key_values,
+                )
+            )
 
         return resolved_record_uid
 
