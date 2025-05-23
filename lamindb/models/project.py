@@ -25,6 +25,7 @@ from .can_curate import CanCurate
 from .collection import Collection
 from .dbrecord import BaseDBRecord, DBRecord, IsLink, ValidateFields
 from .feature import Feature
+from .record import Record, Sheet
 from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
 from .transform import Transform
@@ -112,14 +113,14 @@ class Reference(DBRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     name: str = CharField(db_index=True)
     """Title or name of the reference document."""
     type: Reference | None = ForeignKey(
-        "self", PROTECT, null=True, related_name="records"
+        "self", PROTECT, null=True, related_name="instances"
     )
     """Type of reference (e.g., 'Study', 'Paper', 'Preprint').
 
     Allows to group reference by type, e.g., internal studies vs. all papers etc.
     """
-    records: Reference
-    """DBRecords of this type."""
+    instances: Reference
+    """Instance of references of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     abbr: str | None = CharField(
@@ -212,11 +213,11 @@ class Project(DBRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     name: str = CharField(db_index=True)
     """Title or name of the Project."""
     type: Project | None = ForeignKey(
-        "self", PROTECT, null=True, related_name="records"
+        "self", PROTECT, null=True, related_name="instances"
     )
     """Type of project (e.g., 'Program', 'Project', 'GithubIssue', 'Task')."""
-    records: Project
-    """DBRecords of this type."""
+    instances: Project
+    """Instances of projects of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     abbr: str | None = CharField(max_length=32, db_index=True, null=True)
@@ -273,6 +274,14 @@ class Project(DBRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         Schema, through="SchemaProject", related_name="projects"
     )
     """Linked schemas."""
+    records: Record = models.ManyToManyField(
+        Record, through="RecordProject", related_name="projects"
+    )
+    """Linked records."""
+    sheets: Sheet = models.ManyToManyField(
+        Sheet, through="SheetProject", related_name="projects"
+    )
+    """Linked sheets."""
     collections: Collection = models.ManyToManyField(
         Collection, through="CollectionProject", related_name="projects"
     )
@@ -399,6 +408,25 @@ class SchemaProject(BaseDBRecord, IsLink, TracksRun):
 
     class Meta:
         unique_together = ("schema", "project")
+
+
+class RecordProject(BaseDBRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    record: Record = ForeignKey(Record, CASCADE, related_name="values_project")
+    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordproject")
+    value: Project = ForeignKey(Project, PROTECT, related_name="links_record")
+
+    class Meta:
+        unique_together = ("record", "feature")
+
+
+class SheetProject(BaseDBRecord, IsLink, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    sheet: Sheet = ForeignKey(Sheet, CASCADE, related_name="links_project")
+    project: Project = ForeignKey(Project, PROTECT, related_name="links_sheet")
+
+    class Meta:
+        unique_together = ("sheet", "project")
 
 
 class ArtifactReference(BaseDBRecord, IsLink, TracksRun):

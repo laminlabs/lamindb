@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, overload
 from django.db import models
 from django.db.models import CASCADE, PROTECT
 
+from lamindb.base import deprecated
 from lamindb.base.fields import (
     BooleanField,
     CharField,
@@ -99,13 +100,15 @@ class ULabel(DBRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
     """A universal random id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True)
     """Name or title of ulabel."""
-    type: ULabel | None = ForeignKey("self", PROTECT, null=True, related_name="records")
+    type: ULabel | None = ForeignKey(
+        "self", PROTECT, null=True, related_name="instances"
+    )
     """Type of ulabel, e.g., `"donor"`, `"split"`, etc.
 
     Allows to group ulabels by type, e.g., all donors, all split ulabels, etc.
     """
-    records: ULabel
-    """DBRecords of this type."""
+    instances: ULabel
+    """Instances of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type.
 
@@ -192,6 +195,12 @@ class ULabel(DBRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
             _skip_validation=_skip_validation,
             _aux=_aux,
         )
+
+    @property
+    @deprecated("instances")
+    def records(self) -> list[ULabel]:
+        """Return all instances of this type."""
+        return self.instances
 
 
 class ArtifactULabel(BaseDBRecord, IsLink, TracksRun):

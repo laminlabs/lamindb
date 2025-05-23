@@ -162,7 +162,7 @@ class WriteLogRecordingTriggerInstaller(ABC):
             for table in tables_to_update:
                 if table not in EXCLUDED_TABLES:
                     logger.important(
-                        f"Installing write log recording triggers for {table}"
+                        f"installing write log recording triggers for {table}"
                     )
                     self.install_triggers(table, cursor)
 
