@@ -2269,8 +2269,8 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
             except Exception as e:
                 # also ignore ValueError here because
                 # such errors most probably just imply an incorrect argument
-                if isinstance(filepath, LocalPathClasses) or isinstance(
-                    e, (ImportError, ValueError)
+                if isinstance(e, (ImportError, ValueError)) or isinstance(
+                    filepath, LocalPathClasses
                 ):
                     raise e
                 logger.warning(
@@ -2372,8 +2372,9 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
                 access_memory = load_to_memory(cache_path, **kwargs)
             except Exception as e:
                 # raise the exception if it comes from not having a correct loader
+                # import error is also most probbaly not a problem with the cache
                 # or if the original path is local
-                if isinstance(e, NotImplementedError) or isinstance(
+                if isinstance(e, (NotImplementedError, ImportError)) or isinstance(
                     filepath, LocalPathClasses
                 ):
                     raise e
