@@ -113,7 +113,10 @@ def get_artifact_with_related(
 
     for link in link_tables:
         link_model = getattr(model, link).rel.related_model
-        if not hasattr(link_model, "feature"):
+        if (
+            not hasattr(link_model, "feature")
+            or link_model.__name__ == "RecordArtifact"
+        ):
             continue
         label_field = link.removeprefix("links_").replace("_", "")
         annotations[f"linkfield_{link}"] = Subquery(
@@ -222,6 +225,8 @@ def get_schema_m2m_relations(artifact: Artifact, slot_schema: dict, limit: int =
         name_field = get_name_field(related_model)
 
         # Get the correct field names for the through table
+        if not hasattr(getattr(Schema, name), "through"):
+            continue
         through_model = getattr(Schema, name).through
 
         # Subquery to get limited related records

@@ -71,6 +71,7 @@ from .project import (
     SchemaProject,
     ArtifactReference,
     CollectionReference,
+    SheetProject,
 )
 from .dbrecord import Migration
 from .run import RunFeatureValue
@@ -83,11 +84,20 @@ from .schema import (
 from .ulabel import ArtifactULabel, TransformULabel, RunULabel, CollectionULabel
 
 from .writelog import WriteLog
+from .record import (
+    Record,
+    Sheet,
+    RecordJson,
+    RecordRecord,
+    RecordULabel,
+    RecordRun,
+    RecordArtifact,
+)
+
 
 LinkORM = IsLink  # backward compat
-Record = DBRecord  # backward compat
-BasicRecord = BaseDBRecord  # backward compat
 ParamValue = FeatureValue  # backward compat
 ArtifactParamValue = ArtifactFeatureValue  # backward compat
 RunParamValue = RunFeatureValue  # backward compat
 Param = Feature  # backward compat
+BasicRecord = BaseDBRecord  # backward compat
