@@ -256,6 +256,7 @@ def test(session, group):
         run(session, f"pytest {coverage_args} ./tests/storage --durations=50")
     elif group == "unit-writelog":
         run(session, f"pytest {coverage_args} ./tests/writelog --durations=50")
+        run(session, f"pytest {coverage_args} ./tests/writelog_sqlite --durations=50")
     elif group == "tutorial":
         run(session, "lamin logout")
         run(
