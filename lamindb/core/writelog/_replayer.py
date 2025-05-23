@@ -298,6 +298,21 @@ class WriteLogReplayer:
         try:
             table_id, foreign_key_columns, foreign_uid = json_obj
 
+            if not isinstance(table_id, int):
+                raise ValueError(
+                    f"Expected the first element of a foreign key's JSON representation to be a table state ID (JSON: {json_obj})"
+                )
+
+            if not isinstance(foreign_key_columns, list):
+                raise ValueError(
+                    f"Expected the second element of a foreign key's JSON representation to be a list of column names (JSON: {json_obj})"
+                )
+
+            if not isinstance(foreign_uid, dict):
+                raise ValueError(
+                    f"Expected the third element of a foreign key's JSON representation to be a dict mapping columns to values (JSON: {json_obj})"
+                )
+
             table_name = WriteLogTableState.objects.get(id=table_id).table_name
 
             return WriteLogForeignKey(
@@ -317,7 +332,16 @@ class WriteLogReplayer:
             foreign_key.table_name, cursor=self.cursor
         )
 
-        uid_constraints = {f"{k} = '{v}'" for (k, v) in foreign_key.foreign_uid.items()}
+        if len(foreign_key.foreign_key_columns) != len(primary_key.source_columns):
+            raise ValueError(
+                f"Expected number of primary key columns for {primary_key.target_table} "
+                f"({len(primary_key.source_columns)}) and number of foreign key columns "
+                f"for {foreign_key.table_name} ({len(foreign_key.foreign_key_columns)}) to match"
+            )
+
+        uid_constraints = " AND ".join(
+            f"{k} = '{v}'" for (k, v) in foreign_key.foreign_uid.items()
+        )
 
         self.cursor.execute(
             f"SELECT {','.join(c.name for c in primary_key.source_columns)} "  # noqa: S608
@@ -338,4 +362,5 @@ class WriteLogReplayer:
             )
 
         row = rows[0]
-        return dict(zip([c.name for c in primary_key.source_columns], row))
+
+        return dict(zip(foreign_key.foreign_key_columns, row))
