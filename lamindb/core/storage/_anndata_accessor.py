@@ -18,7 +18,7 @@ from anndata.compat import _read_attr
 from fsspec.implementations.local import LocalFileSystem
 from fsspec.utils import infer_compression
 from lamin_utils import logger
-from lamindb_setup.core.upath import create_mapper, infer_filesystem
+from lamindb_setup.core.upath import infer_filesystem
 from packaging import version
 from upath import UPath
 
@@ -288,6 +288,8 @@ except ImportError:
 if ZARR_INSTALLED:
     from anndata._io.zarr import read_dataframe_legacy as read_dataframe_legacy_zarr
 
+    from ._zarr import get_zarr_store
+
     ArrayTypes.append(zarr.Array)
     GroupTypes.append(zarr.Group)
     StorageTypes.append(zarr.Group)
@@ -296,14 +298,9 @@ if ZARR_INSTALLED:
     def open(filepath: UPathStr, mode: Literal["r", "r+", "a", "w", "w-"] = "r"):
         assert mode in {"r", "r+", "a", "w", "w-"}, f"Unknown mode {mode}!"  #  noqa: S101
 
-        fs, file_path_str = infer_filesystem(filepath)
+        store = get_zarr_store(filepath)
+        storage = zarr.open(store, mode=mode)
         conn = None
-        if isinstance(fs, LocalFileSystem):
-            # this is faster than through an fsspec mapper for local
-            open_obj = file_path_str
-        else:
-            open_obj = create_mapper(fs, file_path_str, check=True)
-        storage = zarr.open(open_obj, mode=mode)
         return conn, storage
 
     @registry.register("zarr")
@@ -348,7 +345,10 @@ if ZARR_INSTALLED:
     # this is needed because accessing zarr.Group.keys() directly is very slow
     @registry.register("zarr")
     def keys(storage: zarr.Group):
-        paths = storage._store.keys()
+        if hasattr(storage, "_sync_iter"):  # zarr v3
+            paths = storage._sync_iter(storage.store.list())
+        else:
+            paths = storage.store.keys()  # zarr v2
 
         attrs_keys: dict[str, list] = {}
         obs_var_arrays = []
