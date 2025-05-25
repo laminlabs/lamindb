@@ -14,4 +14,9 @@ class Migration(migrations.Migration):
             name="seqno",
             field=models.BigAutoField(primary_key=True, serialize=False),
         ),
+        migrations.RenameField(
+            model_name="writelog",
+            old_name="seqno",
+            new_name="id",
+        ),
     ]
