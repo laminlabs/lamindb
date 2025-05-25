@@ -33,6 +33,7 @@ def test_registry__repr__feature():
         .created_at: DateTimeField
         .updated_at: DateTimeField
       Relational fields
+        .branch: Branch
         .space: Space
         .created_by: User
         .run: Run
@@ -70,6 +71,7 @@ def test_registry__repr__artifact():
         .created_at: DateTimeField
         .updated_at: DateTimeField
       Relational fields
+        .branch: Branch
         .space: Space
         .storage: Storage
         .run: Run

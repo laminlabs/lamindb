@@ -34,6 +34,8 @@ from .sqlrecord import (
     SQLRecord,
     Registry,
     Space,
+    Branch,
+    Migration,
     ValidateFields,
     format_field_value,
     record_repr,
@@ -73,7 +75,6 @@ from .project import (
     CollectionReference,
     SheetProject,
 )
-from .sqlrecord import Migration
 from .run import RunFeatureValue
 from .schema import (
     SchemaFeature,

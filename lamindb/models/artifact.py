@@ -330,7 +330,7 @@ def get_stat_or_artifact(
             previous_artifact_version = result[0]
     if artifact_with_same_hash_exists:
         message = "returning existing artifact with same hash"
-        if result[0]._branch_code == -1:
+        if result[0].branch_id == -1:
             result[0].restore()
             message = "restored artifact with same hash from trash"
         logger.important(
@@ -1326,11 +1326,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         revises: Artifact | None = kwargs.pop("revises", None)
         version: str | None = kwargs.pop("version", None)
         if "visibility" in kwargs:  # backward compat
-            _branch_code = kwargs.pop("visibility")
-        elif "_branch_code" in kwargs:
-            _branch_code = kwargs.pop("_branch_code")
+            branch_id = kwargs.pop("visibility")
+        elif "branch_id" in kwargs:
+            branch_id = kwargs.pop("branch_id")
         else:
-            _branch_code = 1
+            branch_id = 1
         format = kwargs.pop("format", None)
         _is_internal_call = kwargs.pop("_is_internal_call", False)
         skip_check_exists = kwargs.pop("skip_check_exists", False)
@@ -1439,7 +1439,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         kwargs["kind"] = kind
         kwargs["version"] = version
         kwargs["description"] = description
-        kwargs["_branch_code"] = _branch_code
+        kwargs["branch_id"] = branch_id
         kwargs["otype"] = otype
         kwargs["revises"] = revises
         # this check needs to come down here because key might be populated from an
@@ -2440,7 +2440,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     ) -> None:
         """Trash or permanently delete.
 
-        A first call to `.delete()` puts an artifact into the trash (sets `_branch_code` to `-1`).
+        A first call to `.delete()` puts an artifact into the trash (sets `branch_id` to `-1`).
         A second call permanently deletes the artifact.
         If it is a folder artifact with multiple versions, deleting a non-latest version
         will not delete the underlying storage by default (if `storage=True` is not specified).
@@ -2482,17 +2482,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     f"\n(2) If you want to delete the artifact in storage, please load the managing lamindb instance (uid={self.storage.instance_uid})."
                     f"\nThese are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).df()}"
                 )
-        # by default, we only move artifacts into the trash (_branch_code = -1)
-        trash__branch_code = -1
-        if self._branch_code > trash__branch_code and not permanent:
+        # by default, we only move artifacts into the trash (branch_id = -1)
+        trash_branch_id = -1
+        if self.branch_id > trash_branch_id and not permanent:
             if storage is not None:
                 logger.warning("moving artifact to trash, storage arg is ignored")
             # move to trash
-            self._branch_code = trash__branch_code
+            self.branch_id = trash_branch_id
             self.save()
-            logger.important(
-                f"moved artifact to trash (_branch_code = {trash__branch_code})"
-            )
+            logger.important(f"moved artifact to trash (branch_id = {trash_branch_id})")
             return
 
         # if the artifact is already in the trash
@@ -2644,7 +2642,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             artifact.restore()
         """
-        self._branch_code = 1
+        self.branch_id = 1
         self.save()
 
     def describe(self, return_str: bool = False) -> None:

@@ -272,7 +272,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         run: Run | None = kwargs.pop("run", None)
         revises: Collection | None = kwargs.pop("revises", None)
         version: str | None = kwargs.pop("version", None)
-        _branch_code: int | None = kwargs.pop("_branch_code", 1)
+        branch_id: int | None = kwargs.pop("branch_id", 1)
         key: str
         if "name" in kwargs:
             key = kwargs.pop("name")
@@ -340,7 +340,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 hash=hash,
                 run=run,
                 version=version,
-                _branch_code=_branch_code,
+                branch_id=branch_id,
                 revises=revises,
                 _skip_validation=_skip_validation,
             )
@@ -589,14 +589,12 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             >>> collection.delete()
         """
-        # change _branch_code to trash
-        trash__branch_code = -1
-        if self._branch_code > trash__branch_code and permanent is not True:
-            self._branch_code = trash__branch_code
+        # change branch_id to trash
+        trash_branch_id = -1
+        if self.branch_id > trash_branch_id and permanent is not True:
+            self.branch_id = trash_branch_id
             self.save()
-            logger.warning(
-                f"moved collection to trash (_branch_code = {trash__branch_code})"
-            )
+            logger.warning(f"moved collection to trash (branch_id = {trash_branch_id})")
             return
 
         # permanent delete
@@ -651,7 +649,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             >>> collection.restore()
         """
-        self._branch_code = 1
+        self.branch_id = 1
         self.save()
 
     @property

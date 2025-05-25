@@ -75,7 +75,9 @@ def get_artifact_with_related(
     foreign_key_fields = [
         f.name
         for f in model._meta.fields
-        if f.is_relation and f.related_model.__get_module_name__() in schema_modules
+        if f.is_relation
+        and f.related_model.__get_module_name__() in schema_modules
+        and f.name != "branch"  # TODO: re-enable at some point
     ]
 
     m2m_relations = (

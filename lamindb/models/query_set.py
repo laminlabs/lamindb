@@ -80,11 +80,11 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
 
     if queryset.model in {Collection, Transform}:
         name_mappings = {
-            "visibility": "_branch_code",
+            "visibility": "branch_id",
         }
     elif queryset.model == Artifact:
         name_mappings = {
-            "visibility": "_branch_code",
+            "visibility": "branch_id",
             "transform": "run__transform",
         }
     else:
@@ -140,20 +140,20 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
     )
 
     if issubclass(queryset.model, SQLRecord):
-        # _branch_code is set to 0 unless expressions contains id or uid
+        # branch_id is set to 0 unless expressions contains id or uid
         if not (
             "id" in expressions
             or "uid" in expressions
             or "uid__startswith" in expressions
         ):
-            _branch_code = "_branch_code"
-            if not any(e.startswith(_branch_code) for e in expressions):
-                expressions[_branch_code] = 1  # default _branch_code
-            # if _branch_code is None, do not apply a filter
+            branch_id = "branch_id"
+            if not any(e.startswith(branch_id) for e in expressions):
+                expressions[branch_id] = 1  # default branch_id
+            # if branch_id is None, do not apply a filter
             # otherwise, it would mean filtering for NULL values, which doesn't make
             # sense for a non-NULLABLE column
-            elif _branch_code in expressions and expressions[_branch_code] is None:
-                expressions.pop(_branch_code)
+            elif branch_id in expressions and expressions[branch_id] is None:
+                expressions.pop(branch_id)
     if queryset._db is not None:
         # only check for database mismatch if there is a defined database on the
         # queryset
@@ -198,8 +198,8 @@ def get(
     else:
         assert idlike is None  # noqa: S101
         expressions = process_expressions(qs, expressions)
-        # don't want _branch_code here in .get(), only in .filter()
-        expressions.pop("_branch_code", None)
+        # don't want branch_id here in .get(), only in .filter()
+        expressions.pop("branch_id", None)
         # inject is_latest for consistency with idlike
         is_latest_was_not_in_expressions = "is_latest" not in expressions
         if issubclass(registry, IsVersioned) and is_latest_was_not_in_expressions:
@@ -279,7 +279,7 @@ def get_basic_field_names(
         "created_by_id",
         "updated_at",
         "_aux",
-        "_branch_code",
+        "branch_id",
     ]:
         if field_name in field_names:
             field_names.remove(field_name)
