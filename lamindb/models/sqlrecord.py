@@ -1324,7 +1324,7 @@ def transfer_to_default_db(
         i.name
         for i in record._meta.fields
         if i.get_internal_type() == "ForeignKey"
-        if i.name not in {"created_by", "run", "transform"}
+        if i.name not in {"created_by", "run", "transform", "branch"}
     ]
     if not transfer_fk:
         # don't transfer fk fields that are already bulk transferred
