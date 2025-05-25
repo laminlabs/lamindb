@@ -915,7 +915,61 @@ class Space(BaseSQLRecord):
     created_by: User = ForeignKey(
         "User", CASCADE, default=None, related_name="+", null=True
     )
-    """Creator of run."""
+    """Creator of space."""
+
+    @overload
+    def __init__(
+        self,
+        name: str,
+        description: str | None = None,
+    ): ...
+
+    @overload
+    def __init__(
+        self,
+        *db_args,
+    ): ...
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+
+
+class Branch(BaseSQLRecord):
+    """Branches allow to group changes similar to how git branches group changes."""
+
+    id: int = models.AutoField(primary_key=True)
+    """An integer id that's synchronized for a family of coupled database instances.
+
+    Among all LaminDB instances, this id is arbitrary and non-unique.
+    """
+    name: str = models.CharField(max_length=100, db_index=True)
+    """Name of branch."""
+    uid: str = CharField(
+        editable=False,
+        unique=True,
+        max_length=12,
+        default="1",
+        db_default="1",
+        db_index=True,
+    )
+    """Universal id.
+
+    This id is useful if one wants to apply the same patch to many database instances.
+    """
+    description: str | None = CharField(null=True)
+    """Description of branch."""
+    created_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
+    """Time of creation of record."""
+    created_by: User = ForeignKey(
+        "User", CASCADE, default=None, related_name="+", null=True
+    )
+    """Creator of branch."""
 
     @overload
     def __init__(
@@ -957,7 +1011,9 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
     machine learning or biological models.
     """
 
-    _branch_code: int = models.SmallIntegerField(db_index=True, default=1, db_default=1)
+    branch: int = ForeignKey(
+        Branch, PROTECT, default=1, db_default=1, db_column="_branch_code"
+    )
     """Whether record is on a branch or in another "special state".
 
     This dictates where a record appears in exploration, queries & searches,
