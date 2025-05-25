@@ -12,8 +12,8 @@ from lamindb.base.fields import (
 )
 
 from ..base.ids import base62_12
-from .dbrecord import DBRecord
 from .run import TracksRun, TracksUpdates
+from .sqlrecord import SQLRecord
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from .artifact import Artifact
 
 
-class Storage(DBRecord, TracksRun, TracksUpdates):
+class Storage(SQLRecord, TracksRun, TracksUpdates):
     """Storage locations of artifacts such as S3 buckets or local directories.
 
     A storage location is either a directory/folder (local or in the cloud) or
@@ -68,7 +68,7 @@ class Storage(DBRecord, TracksRun, TracksUpdates):
         >>> ln.settings.storage = "./storage_2" # or a cloud bucket
     """
 
-    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _name_field: str = "root"

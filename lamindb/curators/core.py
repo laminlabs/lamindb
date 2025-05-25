@@ -27,10 +27,10 @@ from lamindb_setup.core._docs import doc_args
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.models import (
     Artifact,
-    DBRecord,
     Feature,
     Run,
     Schema,
+    SQLRecord,
 )
 from lamindb.models._from_values import _format_values
 from lamindb.models.artifact import (
@@ -50,7 +50,7 @@ if TYPE_CHECKING:
     from mudata import MuData
     from spatialdata import SpatialData
 
-    from lamindb.models.query_set import DBRecordList
+    from lamindb.models.query_set import SQLRecordList
 
 
 def strip_ansi_codes(text):
@@ -79,7 +79,7 @@ class CatLookup:
         categoricals: list[Feature] | dict[str, FieldAttr],
         slots: dict[str, FieldAttr] = None,
         public: bool = False,
-        sources: dict[str, DBRecord] | None = None,
+        sources: dict[str, SQLRecord] | None = None,
     ) -> None:
         slots = slots or {}
         if isinstance(categoricals, list):
@@ -861,7 +861,7 @@ class CatVector:
         field: FieldAttr,  # The field to validate against.
         key: str,  # The name of the vector to validate. Only used for logging.
         values_setter: Callable | None = None,  # A callable that sets the values.
-        source: DBRecord | None = None,  # The ontology source to validate against.
+        source: SQLRecord | None = None,  # The ontology source to validate against.
         feature: Feature | None = None,
         cat_manager: DataFrameCatManager | None = None,
         subtype_str: str = "",
@@ -1042,7 +1042,7 @@ class CatVector:
 
         registry = self._field.field.model
         field_name = self._field.field.name
-        non_validated_records: DBRecordList[Any] = []  # type: ignore
+        non_validated_records: SQLRecordList[Any] = []  # type: ignore
         if df is not None and registry == Feature:
             nonval_columns = Feature.inspect(df.columns, mute=True).non_validated
             non_validated_records = Feature.from_df(df.loc[:, nonval_columns])
@@ -1206,7 +1206,7 @@ class DataFrameCatManager:
         columns_field: FieldAttr = Feature.name,
         columns_names: Iterable[str] | None = None,
         categoricals: list[Feature] | None = None,
-        sources: dict[str, DBRecord] | None = None,
+        sources: dict[str, SQLRecord] | None = None,
         index: Feature | None = None,
         slot: str | None = None,
         maximal_set: bool = False,
@@ -1374,20 +1374,20 @@ class DataFrameCatManager:
             self._cat_vectors[key].add_new(**kwargs)
 
 
-def get_current_filter_kwargs(registry: type[DBRecord], kwargs: dict) -> dict:
+def get_current_filter_kwargs(registry: type[SQLRecord], kwargs: dict) -> dict:
     """Make sure the source and organism are saved in the same database as the registry."""
     db = registry.filter().db
     source = kwargs.get("source")
     organism = kwargs.get("organism")
     filter_kwargs = kwargs.copy()
 
-    if isinstance(organism, DBRecord) and organism._state.db != "default":
+    if isinstance(organism, SQLRecord) and organism._state.db != "default":
         if db is None or db == "default":
             organism_default = copy.copy(organism)
             # save the organism record in the default database
             organism_default.save()
             filter_kwargs["organism"] = organism_default
-    if isinstance(source, DBRecord) and source._state.db != "default":
+    if isinstance(source, SQLRecord) and source._state.db != "default":
         if db is None or db == "default":
             source_default = copy.copy(source)
             # save the source record in the default database

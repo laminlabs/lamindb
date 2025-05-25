@@ -36,16 +36,16 @@ from .artifact import (
     get_run,
     save_schema_links,
 )
-from .dbrecord import (
-    BaseDBRecord,
-    DBRecord,
+from .has_parents import view_lineage
+from .run import Run, TracksRun, TracksUpdates
+from .sqlrecord import (
+    BaseSQLRecord,
     IsLink,
+    SQLRecord,
     _get_record_kwargs,
     init_self_from_db,
     update_attributes,
 )
-from .has_parents import view_lineage
-from .run import Run, TracksRun, TracksUpdates
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -128,7 +128,7 @@ def _load_concat_artifacts(
     return concat_object
 
 
-class Collection(DBRecord, IsVersioned, TracksRun, TracksUpdates):
+class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """Collections of artifacts.
 
     Collections provide a simple way of versioning collections of artifacts.
@@ -158,7 +158,7 @@ class Collection(DBRecord, IsVersioned, TracksRun, TracksUpdates):
 
     """
 
-    class Meta(DBRecord.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(SQLRecord.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _len_full_uid: int = 20
@@ -368,7 +368,7 @@ class Collection(DBRecord, IsVersioned, TracksRun, TracksUpdates):
             :exc:`docs:lamindb.errors.DoesNotExist`: In case no matching record is found.
 
         See Also:
-            - Method in `DBRecord` base class: :meth:`~lamindb.models.DBRecord.get`
+            - Method in `SQLRecord` base class: :meth:`~lamindb.models.SQLRecord.get`
 
         Examples:
 
@@ -723,7 +723,7 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
     return hash
 
 
-class CollectionArtifact(BaseDBRecord, IsLink, TracksRun):
+class CollectionArtifact(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     collection: Collection = ForeignKey(
         Collection, CASCADE, related_name="links_artifact"

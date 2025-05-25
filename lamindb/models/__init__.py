@@ -3,14 +3,14 @@
 .. autosummary::
    :toctree: .
 
-   BaseDBRecord
-   DBRecord
+   BaseSQLRecord
+   SQLRecord
    Registry
    BasicQuerySet
    QuerySet
    ArtifactSet
    QueryManager
-   DBRecordList
+   SQLRecordList
    FeatureManager
    LabelManager
    IsVersioned
@@ -29,9 +29,9 @@
 from lamin_utils._inspect import InspectResult
 from ._is_versioned import IsVersioned
 from .can_curate import CanCurate
-from .dbrecord import (
-    BaseDBRecord,
-    DBRecord,
+from .sqlrecord import (
+    BaseSQLRecord,
+    SQLRecord,
     Registry,
     Space,
     ValidateFields,
@@ -53,7 +53,7 @@ from ._label_manager import LabelManager
 from .collection import Collection, CollectionArtifact
 from .project import Person, Project, Reference
 from .query_manager import QueryManager
-from .query_set import BasicQuerySet, QuerySet, DBRecordList
+from .query_set import BasicQuerySet, QuerySet, SQLRecordList
 from .artifact_set import ArtifactSet
 from .has_parents import HasParents
 from datetime import datetime as _datetime
@@ -73,7 +73,7 @@ from .project import (
     CollectionReference,
     SheetProject,
 )
-from .dbrecord import Migration
+from .sqlrecord import Migration
 from .run import RunFeatureValue
 from .schema import (
     SchemaFeature,
@@ -100,4 +100,4 @@ ParamValue = FeatureValue  # backward compat
 ArtifactParamValue = ArtifactFeatureValue  # backward compat
 RunParamValue = RunFeatureValue  # backward compat
 Param = Feature  # backward compat
-BasicRecord = BaseDBRecord  # backward compat
+BasicRecord = BaseSQLRecord  # backward compat

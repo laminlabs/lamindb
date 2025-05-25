@@ -8,8 +8,8 @@ import lamindb.base.fields
 import lamindb.base.uids
 import lamindb.base.users
 import lamindb.models.can_curate
-import lamindb.models.dbrecord
 import lamindb.models.run
+import lamindb.models.sqlrecord
 
 
 class Migration(migrations.Migration):
@@ -221,7 +221,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("record", "feature", "value")},
             },
-            bases=(models.Model, lamindb.models.dbrecord.IsLink),
+            bases=(models.Model, lamindb.models.sqlrecord.IsLink),
         ),
         migrations.AddField(
             model_name="record",
@@ -267,7 +267,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("record", "feature")},
             },
-            bases=(models.Model, lamindb.models.dbrecord.IsLink),
+            bases=(models.Model, lamindb.models.sqlrecord.IsLink),
         ),
         migrations.AddField(
             model_name="project",
@@ -333,7 +333,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("record", "feature")},
             },
-            bases=(models.Model, lamindb.models.dbrecord.IsLink),
+            bases=(models.Model, lamindb.models.sqlrecord.IsLink),
         ),
         migrations.AddField(
             model_name="record",
@@ -379,7 +379,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("record", "feature")},
             },
-            bases=(models.Model, lamindb.models.dbrecord.IsLink),
+            bases=(models.Model, lamindb.models.sqlrecord.IsLink),
         ),
         migrations.AddField(
             model_name="record",
@@ -423,7 +423,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("record", "feature")},
             },
-            bases=(models.Model, lamindb.models.dbrecord.IsLink),
+            bases=(models.Model, lamindb.models.sqlrecord.IsLink),
         ),
         migrations.AddField(
             model_name="record",
@@ -608,7 +608,7 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("sheet", "project")},
             },
-            bases=(lamindb.models.dbrecord.IsLink, models.Model),
+            bases=(lamindb.models.sqlrecord.IsLink, models.Model),
         ),
         migrations.AddField(
             model_name="project",
@@ -651,6 +651,6 @@ class Migration(migrations.Migration):
             options={
                 "unique_together": {("record", "feature")},
             },
-            bases=(models.Model, lamindb.models.dbrecord.IsLink),
+            bases=(models.Model, lamindb.models.sqlrecord.IsLink),
         ),
     ]

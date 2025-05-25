@@ -173,7 +173,7 @@ def migrate_data(apps, schema_editor):
             )
         else:
             cursor.execute("ROLLBACK")
-            raise Exception("Migration failed: DBRecord count mismatch")
+            raise Exception("Migration failed: SQLRecord count mismatch")
 
     except Exception as e:
         cursor.execute("ROLLBACK")

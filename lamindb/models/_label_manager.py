@@ -11,13 +11,13 @@ from rich.tree import Tree
 
 from lamindb.models import CanCurate, Feature
 from lamindb.models._from_values import _format_values
-from lamindb.models.dbrecord import (
+from lamindb.models.save import save
+from lamindb.models.sqlrecord import (
     REGISTRY_UNIQUE_FIELD,
     get_name_field,
     transfer_fk_to_default_db_bulk,
     transfer_to_default_db,
 )
-from lamindb.models.save import save
 
 from ._describe import (
     NAME_WIDTH,
@@ -30,7 +30,7 @@ from ._django import get_artifact_with_related, get_related_model
 from ._relations import dict_related_model_to_related_name
 
 if TYPE_CHECKING:
-    from lamindb.models import Artifact, Collection, DBRecord
+    from lamindb.models import Artifact, Collection, SQLRecord
     from lamindb.models.query_set import QuerySet
 
 # we do not want to show records because this is a breaking change until all instances are migrated
@@ -195,7 +195,7 @@ class LabelManager:
 
     def add(
         self,
-        records: DBRecord | list[DBRecord] | QuerySet,
+        records: SQLRecord | list[SQLRecord] | QuerySet,
         feature: Feature | None = None,
     ) -> None:
         """Add one or several labels and associate them with a feature.
@@ -310,7 +310,7 @@ class LabelManager:
                         *feature_labels, through_defaults={"feature_id": feature_id}
                     )
 
-    def make_external(self, label: DBRecord) -> None:
+    def make_external(self, label: SQLRecord) -> None:
         """Make a label external, aka dissociate label from internal features.
 
         Args:

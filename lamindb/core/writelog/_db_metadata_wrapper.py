@@ -40,7 +40,7 @@ class DatabaseMetadataWrapper(ABC):
         tables: set[str] = set()
 
         for model in all_models:
-            # DBRecord the model's underlying table, as well as
+            # SQLRecord the model's underlying table, as well as
             # the underlying table for all of its many-to-many
             # relationships
             tables.add(model._meta.db_table)

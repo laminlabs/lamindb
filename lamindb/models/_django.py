@@ -15,7 +15,7 @@ from .schema import Schema
 
 if TYPE_CHECKING:
     from .artifact import Artifact
-    from .dbrecord import DBRecord
+    from .sqlrecord import SQLRecord
 
 
 def patch_many_to_many_descriptor() -> None:
@@ -59,7 +59,7 @@ def get_related_model(model, field_name):
 
 
 def get_artifact_with_related(
-    artifact: DBRecord,
+    artifact: SQLRecord,
     include_fk: bool = False,
     include_m2m: bool = False,
     include_feature_link: bool = False,
