@@ -851,7 +851,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 "Collection",
                 "Reference",
             }
-            and self._branch_code >= 1
+            and self.branch_id >= 1
         ):
             import lamindb as ln
 
