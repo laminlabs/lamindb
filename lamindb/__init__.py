@@ -57,6 +57,8 @@ Manage projects.
    Collection
    Project
    Space
+   Branch
+   WriteLog
    Reference
    Person
 
