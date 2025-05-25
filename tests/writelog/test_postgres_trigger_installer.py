@@ -20,7 +20,12 @@ from lamindb.models.artifact import Artifact
 from lamindb.models.dbrecord import Space
 from lamindb.models.run import Run
 from lamindb.models.transform import Transform
-from lamindb.models.writelog import WriteLog, WriteLogMigrationState, WriteLogTableState
+from lamindb.models.writelog import (
+    WriteLog,
+    WriteLogLock,
+    WriteLogMigrationState,
+    WriteLogTableState,
+)
 from typing_extensions import override
 
 if TYPE_CHECKING:
@@ -372,7 +377,7 @@ def test_simple_table_trigger(simple_pg_table: str):
     cursor.execute(f"UPDATE {simple_pg_table} SET int_col=22 WHERE uid = 'def456'")  # noqa: S608
     cursor.execute(f"DELETE FROM {simple_pg_table} WHERE uid = 'abc123'")  # noqa: S608
 
-    write_log = WriteLog.objects.all().order_by("seqno")
+    write_log = WriteLog.objects.all().order_by("id")
 
     assert len(write_log) == 4
 
@@ -408,6 +413,43 @@ def test_simple_table_trigger(simple_pg_table: str):
     assert write_log[3].record_uid == ["abc123"]
     assert write_log[3].record_data is None
     assert write_log[3].event_type == WriteLogEventTypes.DELETE.value
+
+
+@pytest.fixture(scope="function")
+def write_log_lock_locked():
+    write_log_lock = WriteLogLock.load()
+
+    assert write_log_lock is not None
+
+    write_log_lock.lock()
+
+    yield write_log_lock
+
+    write_log_lock.unlock()
+
+
+@pytest.mark.pg_integration
+def test_trigger_doesnt_fire_when_write_lock_is_locked(
+    simple_pg_table: str, write_log_lock_locked
+):
+    _update_write_log_triggers({simple_pg_table})
+
+    cursor = django_connection.cursor()
+
+    cursor.execute(
+        f"INSERT INTO {simple_pg_table} (uid, str_col, bool_col, int_col) "  # noqa: S608
+        "VALUES ('abc123', 'hello world', false, 42)"
+    )
+    cursor.execute(
+        f"INSERT INTO {simple_pg_table} (uid, str_col, bool_col, int_col) "  # noqa: S608
+        "VALUES ('def456', 'another row', true, 99)"
+    )
+    cursor.execute(f"UPDATE {simple_pg_table} SET int_col=22 WHERE uid = 'def456'")  # noqa: S608
+    cursor.execute(f"DELETE FROM {simple_pg_table} WHERE uid = 'abc123'")  # noqa: S608
+
+    write_log = WriteLog.objects.all().order_by("id")
+
+    assert len(write_log) == 0
 
 
 @pytest.fixture(scope="function")
@@ -455,7 +497,7 @@ def test_triggers_with_foreign_keys(simple_pg_table, foreignkey_pg_table):
     )
     cursor.execute(f"DELETE FROM {simple_pg_table} WHERE uid = 'abc123'")  # noqa: S608
 
-    write_log = WriteLog.objects.all().order_by("seqno")
+    write_log = WriteLog.objects.all().order_by("id")
 
     assert len(write_log) == 5
 
@@ -537,7 +579,7 @@ def test_triggers_with_self_references(self_referential_pg_table):
         f"INSERT INTO {self_referential_pg_table} (uid, parent_id) VALUES ('def345', {parent_row_id})"  # noqa: S608
     )
 
-    write_log = WriteLog.objects.all().order_by("seqno")
+    write_log = WriteLog.objects.all().order_by("id")
 
     assert len(write_log) == 2
 
@@ -620,7 +662,7 @@ def test_triggers_with_composite_primary_key(
         f"VALUES (42, 21, 'qrs234')"
     )
 
-    write_log = WriteLog.objects.all().order_by("seqno")
+    write_log = WriteLog.objects.all().order_by("id")
 
     assert len(write_log) == 2
 
@@ -718,7 +760,7 @@ def test_triggers_with_many_to_many_tables(
         f"DELETE FROM {self_referential_pg_table} WHERE id={self_ref_row_id}"  # noqa: S608
     )
 
-    write_log = WriteLog.objects.all().order_by("seqno")
+    write_log = WriteLog.objects.all().order_by("id")
 
     assert len(write_log) == 5
 
@@ -856,7 +898,7 @@ def test_triggers_with_compound_table_uid(compound_uid_table, compound_uid_child
         f"DELETE FROM {compound_uid_table} WHERE uid_1 = 'badf00d' AND uid_2 = 'dadb0d'"  # noqa: S608
     )
 
-    write_log = WriteLog.objects.all().order_by("seqno")
+    write_log = WriteLog.objects.all().order_by("id")
 
     assert len(write_log) == 5
 
@@ -981,7 +1023,7 @@ def test_triggers_many_to_many_to_compound_uid_with_self_links(
         f"DELETE FROM {compound_uid_many_to_many} WHERE table_a_id = {rec_1_id} AND table_b_id = {rec_2_id}"  # noqa: S608
     )
 
-    write_log = WriteLog.objects.all().order_by("seqno")
+    write_log = WriteLog.objects.all().order_by("id")
 
     assert len(write_log) == 7
 
@@ -1168,7 +1210,7 @@ def test_simple_backfill(backfill_table_a, backfill_table_b):
 
     _update_write_log_triggers(table_list={backfill_table_a, backfill_table_b})
 
-    write_log = WriteLog.objects.all().order_by("seqno")
+    write_log = WriteLog.objects.all().order_by("id")
 
     assert len(write_log) == 3
 
@@ -1242,7 +1284,7 @@ def test_self_referential_backfill(self_referential_pg_table):
 
     _update_write_log_triggers(table_list={self_referential_pg_table})
 
-    write_log = WriteLog.objects.all().order_by("seqno")
+    write_log = WriteLog.objects.all().order_by("id")
 
     assert len(write_log) == 5
     assert all(h.table.table_name == self_referential_pg_table for h in write_log)
@@ -1313,7 +1355,7 @@ def test_write_log_records_space_uids_properly(table_with_space_ref, fake_space)
         f"VALUES ('B', NULL)"
     )
 
-    write_log = WriteLog.objects.all().order_by("seqno")
+    write_log = WriteLog.objects.all().order_by("id")
 
     assert len(write_log) == 2
 
@@ -1438,7 +1480,7 @@ def test_aux_artifacts_backfill_before_real_ones(
 
     write_log = [
         w
-        for w in WriteLog.objects.all().order_by("seqno")
+        for w in WriteLog.objects.all().order_by("id")
         if w.table.table_name
         in ("lamindb_artifact", "lamindb_transform", "lamindb_run")
     ]

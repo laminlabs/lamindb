@@ -41,7 +41,7 @@ class WriteLogMigrationState(models.Model):
 class WriteLog(models.Model):
     """Stores the write log for LaminDB tables."""
 
-    seqno = models.AutoField(primary_key=True)
+    id = models.BigAutoField(primary_key=True)
     migration_state = models.ForeignKey(
         WriteLogMigrationState, on_delete=models.PROTECT
     )
