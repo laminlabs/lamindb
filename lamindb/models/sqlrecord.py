@@ -839,24 +839,23 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 if k != "run" and len(v) > 0:
                     logger.important(f"{k} records: {', '.join(v)}")
 
-        if (
-            self.__class__.__name__
-            in {
-                "Artifact",
-                "Transform",
-                "Run",
-                "ULabel",
-                "Feature",
-                "Schema",
-                "Collection",
-                "Reference",
-            }
-            and self._branch_code >= 1
-        ):
-            import lamindb as ln
+        if self.__class__.__name__ in {
+            "Artifact",
+            "Transform",
+            "Run",
+            "ULabel",
+            "Feature",
+            "Schema",
+            "Collection",
+            "Reference",
+        }:
+            if self.__class__.__name__ == "Artifact" and self.kind == "__lamindb__":
+                pass
+            else:
+                import lamindb as ln
 
-            if ln.context.project is not None:
-                self.projects.add(ln.context.project)
+                if ln.context.project is not None:
+                    self.projects.add(ln.context.project)
         return self
 
     def delete(self) -> None:
