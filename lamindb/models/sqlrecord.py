@@ -901,8 +901,8 @@ class Space(BaseSQLRecord):
         editable=False,
         unique=True,
         max_length=12,
-        default="00000000",
-        db_default="00000000",
+        default="A",
+        db_default="A",
         db_index=True,
     )
     """Universal id."""
@@ -952,8 +952,8 @@ class Branch(BaseSQLRecord):
         editable=False,
         unique=True,
         max_length=12,
-        default="1",
-        db_default="1",
+        default="M",
+        db_default="M",
         db_index=True,
     )
     """Universal id.
