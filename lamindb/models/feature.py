@@ -28,12 +28,12 @@ from lamindb.errors import FieldValidationError, ValidationError
 from ..base.ids import base62_12
 from ._relations import dict_module_name_to_model_name
 from .can_curate import CanCurate
-from .dbrecord import BaseDBRecord, DBRecord, Registry, _get_record_kwargs
-from .query_set import DBRecordList
+from .query_set import SQLRecordList
 from .run import (
     TracksRun,
     TracksUpdates,
 )
+from .sqlrecord import BaseSQLRecord, Registry, SQLRecord, _get_record_kwargs
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -71,7 +71,7 @@ def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
 
 def parse_cat_dtype(
     dtype_str: str,
-    related_registries: dict[str, DBRecord] | None = None,
+    related_registries: dict[str, SQLRecord] | None = None,
     is_itype: bool = False,
 ) -> dict[str, Any]:
     """Parses a categorical dtype string into its components (registry, field, subtypes)."""
@@ -152,7 +152,7 @@ def parse_cat_dtype(
 
 
 def serialize_dtype(
-    dtype: Registry | DBRecord | FieldAttr | list[DBRecord] | list[Registry] | str,
+    dtype: Registry | SQLRecord | FieldAttr | list[SQLRecord] | list[Registry] | str,
     is_itype: bool = False,
 ) -> str:
     """Converts a data type object into its string representation."""
@@ -260,7 +260,7 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
     return kwargs
 
 
-class Feature(DBRecord, CanCurate, TracksRun, TracksUpdates):
+class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Variables, such as dataframe columns or run parameters.
 
     A feature often represents a dimension of a dataset, such as a column in a
@@ -350,7 +350,7 @@ class Feature(DBRecord, CanCurate, TracksRun, TracksUpdates):
 
     """
 
-    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _name_field: str = "name"
@@ -497,7 +497,7 @@ class Feature(DBRecord, CanCurate, TracksRun, TracksUpdates):
                 )
 
     @classmethod
-    def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> DBRecordList:
+    def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> SQLRecordList:
         """Create Feature records for columns."""
         field = Feature.name if field is None else field
         registry = field.field.model  # type: ignore
@@ -515,7 +515,7 @@ class Feature(DBRecord, CanCurate, TracksRun, TracksUpdates):
                 Feature(name=name, dtype=dtype) for name, dtype in dtypes.items()
             ]  # type: ignore
         assert len(features) == len(df.columns)  # noqa: S101
-        return DBRecordList(features)
+        return SQLRecordList(features)
 
     def save(self, *args, **kwargs) -> Feature:
         """Save."""
@@ -619,7 +619,7 @@ class Feature(DBRecord, CanCurate, TracksRun, TracksUpdates):
     #         return "Artifact"
 
 
-class FeatureValue(DBRecord, TracksRun):
+class FeatureValue(SQLRecord, TracksRun):
     """Non-categorical features values.
 
     Categorical feature values are stored in their respective registries:
@@ -647,7 +647,7 @@ class FeatureValue(DBRecord, TracksRun):
     hash: str = CharField(max_length=HASH_LENGTH, null=True, db_index=True)
     """Value hash."""
 
-    class Meta(BaseDBRecord.Meta, TracksRun.Meta):
+    class Meta(BaseSQLRecord.Meta, TracksRun.Meta):
         constraints = [
             # For simple types, use direct value comparison
             models.UniqueConstraint(

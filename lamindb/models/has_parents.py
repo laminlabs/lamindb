@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Literal
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 
-from .dbrecord import format_field_value, get_name_field
 from .run import Run
+from .sqlrecord import format_field_value, get_name_field
 
 if TYPE_CHECKING:
     from graphviz import Digraph
@@ -17,8 +17,8 @@ if TYPE_CHECKING:
 
     from .artifact import Artifact
     from .collection import Collection
-    from .dbrecord import DBRecord
     from .query_set import QuerySet
+    from .sqlrecord import SQLRecord
     from .transform import Transform
 
 LAMIN_GREEN_LIGHTER = "#10b981"
@@ -38,7 +38,7 @@ is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 # this is optimized to have fewer recursive calls
 # also len of QuerySet can be costly at times
 def _query_relatives(
-    records: QuerySet | list[DBRecord],
+    records: QuerySet | list[SQLRecord],
     kind: Literal["parents", "children"],
     cls: type[HasParents],
 ) -> QuerySet:
@@ -242,7 +242,7 @@ def view_lineage(
 
 
 def view_parents(
-    record: DBRecord,
+    record: SQLRecord,
     field: str,
     with_parents: bool = True,
     with_children: bool = False,
@@ -332,7 +332,7 @@ def view_parents(
 
 
 def _get_parents(
-    record: DBRecord,
+    record: SQLRecord,
     field: str,
     distance: int,
     children: bool = False,
@@ -368,7 +368,7 @@ def _get_parents(
 
 
 def _df_edges_from_parents(
-    record: DBRecord,
+    record: SQLRecord,
     field: str,
     distance: int,
     children: bool = False,
@@ -418,7 +418,7 @@ def _df_edges_from_parents(
     return df_edges
 
 
-def _record_label(record: DBRecord, field: str | None = None):
+def _record_label(record: SQLRecord, field: str | None = None):
     from .artifact import Artifact
     from .collection import Collection
     from .transform import Transform
@@ -471,7 +471,7 @@ def _record_label(record: DBRecord, field: str | None = None):
         )
 
 
-def _add_emoji(record: DBRecord, label: str):
+def _add_emoji(record: SQLRecord, label: str):
     if record.__class__.__name__ == "Transform":
         emoji = TRANSFORM_EMOJIS.get(record.type, "💫")
     elif record.__class__.__name__ == "Run":

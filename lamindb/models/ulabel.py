@@ -16,10 +16,10 @@ from lamindb.errors import FieldValidationError
 
 from ..base.ids import base62_8
 from .can_curate import CanCurate
-from .dbrecord import BaseDBRecord, DBRecord, IsLink, _get_record_kwargs
 from .feature import Feature
 from .has_parents import HasParents
 from .run import Run, TracksRun, TracksUpdates, User, current_user_id
+from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, _get_record_kwargs
 from .transform import Transform
 
 if TYPE_CHECKING:
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from .project import Project
 
 
-class ULabel(DBRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
+class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Universal labels.
 
     Args:
@@ -87,7 +87,7 @@ class ULabel(DBRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
         >>> ln.Artifact.filter(ulabels=train_split).df()
     """
 
-    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _name_field: str = "name"
@@ -203,7 +203,7 @@ class ULabel(DBRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
         return self.instances
 
 
-class ArtifactULabel(BaseDBRecord, IsLink, TracksRun):
+class ArtifactULabel(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey("Artifact", CASCADE, related_name="links_ulabel")
     ulabel: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_artifact")
@@ -219,7 +219,7 @@ class ArtifactULabel(BaseDBRecord, IsLink, TracksRun):
         unique_together = ("artifact", "ulabel", "feature")
 
 
-class TransformULabel(BaseDBRecord, IsLink, TracksRun):
+class TransformULabel(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     transform: Transform = ForeignKey(Transform, CASCADE, related_name="links_ulabel")
     ulabel: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_transform")
@@ -228,7 +228,7 @@ class TransformULabel(BaseDBRecord, IsLink, TracksRun):
         unique_together = ("transform", "ulabel")
 
 
-class RunULabel(BaseDBRecord, IsLink):
+class RunULabel(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     run: Run = ForeignKey(Run, CASCADE, related_name="links_ulabel")
     ulabel: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_run")
@@ -245,7 +245,7 @@ class RunULabel(BaseDBRecord, IsLink):
         unique_together = ("run", "ulabel")
 
 
-class CollectionULabel(BaseDBRecord, IsLink, TracksRun):
+class CollectionULabel(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     collection: Collection = ForeignKey(
         "Collection", CASCADE, related_name="links_ulabel"

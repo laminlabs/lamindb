@@ -81,17 +81,17 @@ from ._relations import (
     dict_related_model_to_related_name,
 )
 from .core import Storage
-from .dbrecord import (
-    BaseDBRecord,
-    DBRecord,
-    IsLink,
-    _get_record_kwargs,
-    record_repr,
-)
 from .feature import Feature, FeatureValue
 from .has_parents import view_lineage
 from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
+from .sqlrecord import (
+    BaseSQLRecord,
+    IsLink,
+    SQLRecord,
+    _get_record_kwargs,
+    record_repr,
+)
 from .ulabel import ULabel
 
 WARNING_RUN_TRANSFORM = "no run & transform got linked, call `ln.track()` & re-run"
@@ -780,7 +780,7 @@ def describe_artifact_collection(self, return_str: bool = False) -> str | None:
     return format_rich_tree(tree, return_str=return_str)
 
 
-def validate_feature(feature: Feature, records: list[DBRecord]) -> None:
+def validate_feature(feature: Feature, records: list[SQLRecord]) -> None:
     """Validate feature record, adjust feature.dtype based on labels records."""
     if not isinstance(feature, Feature):
         raise TypeError("feature has to be of type Feature")
@@ -824,7 +824,7 @@ def get_labels(
             ).all()
     if flat_names:
         # returns a flat list of names
-        from .dbrecord import get_name_field
+        from .sqlrecord import get_name_field
 
         values = []
         for v in qs_by_registry.values():
@@ -838,7 +838,7 @@ def get_labels(
 
 def add_labels(
     self,
-    records: DBRecord | list[DBRecord] | QuerySet | Iterable,
+    records: SQLRecord | list[SQLRecord] | QuerySet | Iterable,
     feature: Feature | None = None,
     *,
     field: StrField | None = None,
@@ -852,7 +852,7 @@ def add_labels(
 
     if isinstance(records, (QuerySet, QuerySet.__base__)):  # need to have both
         records = records.list()
-    if isinstance(records, (str, DBRecord)):
+    if isinstance(records, (str, SQLRecord)):
         records = [records]
     if not isinstance(records, list):  # avoids warning for pd Series
         records = list(records)
@@ -877,7 +877,7 @@ def add_labels(
         # ask users to pass records
         if len(records_validated) == 0:
             raise ValueError(
-                "Please pass a record (a `DBRecord` object), not a string, e.g., via:"
+                "Please pass a record (a `SQLRecord` object), not a string, e.g., via:"
                 " label"
                 f" = ln.ULabel(name='{records[0]}')"  # type: ignore
             )
@@ -951,7 +951,7 @@ def add_labels(
             )
 
 
-class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
+class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     # Note that this docstring has to be consistent with Curator.save_artifact()
     """Datasets & models stored as files, folders, or arrays.
 
@@ -1060,7 +1060,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
 
     """
 
-    class Meta(DBRecord.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(SQLRecord.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _len_full_uid: int = 20
@@ -1391,7 +1391,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
 
         # an object with the same hash already exists
         if isinstance(kwargs_or_artifact, Artifact):
-            from .dbrecord import init_self_from_db, update_attributes
+            from .sqlrecord import init_self_from_db, update_attributes
 
             init_self_from_db(self, kwargs_or_artifact)
             # adding "key" here is dangerous because key might be auto-populated
@@ -1534,7 +1534,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
 
         See Also:
             - Guide: :doc:`docs:registries`
-            - Method in `DBRecord` base class: :meth:`~lamindb.models.DBRecord.get`
+            - Method in `SQLRecord` base class: :meth:`~lamindb.models.SQLRecord.get`
 
         Examples:
 
@@ -2299,7 +2299,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
                         # this can be very slow
                         _, hash, _, _ = hash_dir(filepath)
                     if self.hash != hash:
-                        from .dbrecord import init_self_from_db
+                        from .sqlrecord import init_self_from_db
 
                         new_version = Artifact(
                             filepath, revises=self, _is_internal_call=True
@@ -2691,7 +2691,7 @@ def _save_skip_storage(artifact, **kwargs) -> None:
     save_schema_links(artifact)
 
 
-class ArtifactFeatureValue(BaseDBRecord, IsLink, TracksRun):
+class ArtifactFeatureValue(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(
         Artifact, CASCADE, related_name="links_featurevalue"

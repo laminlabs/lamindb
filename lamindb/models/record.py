@@ -16,9 +16,9 @@ from lamindb.errors import FieldValidationError
 from ..base.ids import base62_12, base62_16
 from .artifact import Artifact
 from .can_curate import CanCurate
-from .dbrecord import BaseDBRecord, DBRecord, IsLink, _get_record_kwargs
 from .feature import Feature
 from .run import Run, TracksRun, TracksUpdates
+from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, _get_record_kwargs
 from .ulabel import ULabel
 
 if TYPE_CHECKING:
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from .schema import Schema
 
 
-class Record(DBRecord, CanCurate, TracksRun, TracksUpdates):
+class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Flexible records to register, e.g., samples, donors, cells, compounds, sequences.
 
     This is currently more convenient to use through the UI.
@@ -44,7 +44,7 @@ class Record(DBRecord, CanCurate, TracksRun, TracksUpdates):
             Feature manager for an artifact.
     """
 
-    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _name_field: str = "name"
@@ -149,10 +149,10 @@ class Record(DBRecord, CanCurate, TracksRun, TracksUpdates):
         )
 
 
-class Sheet(DBRecord, TracksRun, TracksUpdates):
+class Sheet(SQLRecord, TracksRun, TracksUpdates):
     """Sheets to group records."""
 
-    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     id: int = models.AutoField(primary_key=True)
@@ -172,7 +172,7 @@ class Sheet(DBRecord, TracksRun, TracksUpdates):
     """Linked projects."""
 
 
-class RecordJson(BaseDBRecord, IsLink):
+class RecordJson(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_json")
     feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordjson")
@@ -182,7 +182,7 @@ class RecordJson(BaseDBRecord, IsLink):
         unique_together = ("record", "feature")
 
 
-class RecordRecord(DBRecord, IsLink):
+class RecordRecord(SQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(
         Record, CASCADE, related_name="values_record"
@@ -196,7 +196,7 @@ class RecordRecord(DBRecord, IsLink):
         unique_together = ("record", "feature")
 
 
-class RecordULabel(BaseDBRecord, IsLink):
+class RecordULabel(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_ulabel")
     feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordulabel")
@@ -207,7 +207,7 @@ class RecordULabel(BaseDBRecord, IsLink):
         unique_together = ("record", "feature")
 
 
-class RecordRun(BaseDBRecord, IsLink):
+class RecordRun(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_run")
     feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordrun")
@@ -218,7 +218,7 @@ class RecordRun(BaseDBRecord, IsLink):
         unique_together = ("record", "feature")
 
 
-class RecordArtifact(BaseDBRecord, IsLink):
+class RecordArtifact(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_artifact")
     feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordartifact")
