@@ -779,7 +779,10 @@ class QuerySet(BasicQuerySet):
         """Suggest available fields if an unknown field was passed."""
         if "Cannot resolve keyword" in str(error):
             field = str(error).split("'")[1]
-            fields = ", ".join(sorted(self.model.__get_available_fields__()))
+            avail_fields = self.model.__get_available_fields__()
+            if "_branch_code" in avail_fields:
+                avail_fields.remove("_branch_code")  # backward compat
+            fields = ", ".join(sorted(avail_fields))
             raise FieldError(
                 f"Unknown field '{field}'. Available fields: {fields}"
             ) from None
