@@ -200,7 +200,7 @@ def test_replayer_happy_path(simple_table, write_log_lock, write_log_state):
         replayer.replay(write_log_entry)
         write_log_entry.save()
 
-    write_log = WriteLog.objects.all().order_by("seqno")
+    write_log = WriteLog.objects.all().order_by("id")
 
     assert len(write_log) == 4
     assert list(write_log) == input_write_log
@@ -367,7 +367,7 @@ def test_replayer_many_to_many(
         replayer.replay(write_log_entry)
         write_log_entry.save()
 
-    write_log = WriteLog.objects.all().order_by("seqno")
+    write_log = WriteLog.objects.all().order_by("id")
 
     assert len(write_log) == 6
     assert list(write_log) == input_write_log
