@@ -366,19 +366,19 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         editable=False, unique=True, db_index=True, max_length=12, default=base62_12
     )
     """Universal id, valid across DB instances."""
-    name: str = CharField(max_length=150, db_index=True, unique=True)
-    """Name of feature (hard unique constraint `unique=True`)."""
+    name: str = CharField(max_length=150, db_index=True)
+    """Name of feature."""
     dtype: Dtype | None = CharField(db_index=True, null=True)
     """Data type (:class:`~lamindb.base.types.Dtype`)."""
     type: Feature | None = ForeignKey(
-        "self", PROTECT, null=True, related_name="instances"
+        "self", PROTECT, null=True, related_name="features"
     )
     """Type of feature (e.g., 'Readout', 'Metric', 'Metadata', 'ExpertAnnotation', 'ModelPrediction').
 
     Allows to group features by type, e.g., all read outs, all metrics, etc.
     """
-    instances: Feature
-    """Instances of features of this type."""
+    features: Feature
+    """Features of this type (can only be non-empty if `is_type` is `True`)."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     unit: str | None = CharField(max_length=30, db_index=True, null=True)

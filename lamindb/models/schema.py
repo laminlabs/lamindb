@@ -374,9 +374,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
     """A description."""
     n: int = IntegerField()
     """Number of features in the schema."""
-    type: Schema | None = ForeignKey(
-        "self", PROTECT, null=True, related_name="instances"
-    )
+    type: Schema | None = ForeignKey("self", PROTECT, null=True, related_name="schemas")
     """Type of schema.
 
     Allows to group schemas by type, e.g., all meassurements evaluating gene expression vs. protein expression vs. multi modal.
@@ -386,7 +384,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
     Here are a few more examples for type names: `'ExpressionPanel'`, `'ProteinPanel'`, `'Multimodal'`, `'Metadata'`, `'Embedding'`.
     """
     instances: Schema
-    """Instances of this type."""
+    """Schemas of this type (can only be non-empty if `is_type` is `True`)."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     itype: str | None = CharField(
