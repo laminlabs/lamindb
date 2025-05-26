@@ -486,17 +486,10 @@ class DataFrameCurator(Curator):
                     required = False
                 # series.dtype is "object" if the column has lists types, e.g. [["a", "b"], ["a"], ["b"]]
                 are_lists = (
-                    False
-                    if feature.name not in self._dataset.keys()
-                    else (
-                        hasattr(self._dataset[feature.name], "__len__")
-                        and len(self._dataset[feature.name]) > 0
-                        and all(
-                            isinstance(item, (list, np.ndarray))
-                            for item in self._dataset[feature.name]
-                            if pd.notna(item)
-                        )
-                    )
+                    feature.name in self._dataset.keys()
+                    and hasattr(self._dataset[feature.name], "__len__")
+                    and len(self._dataset[feature.name]) > 0
+                    and _has_list_items(self._dataset[feature.name])
                 )
                 if feature.dtype in {"int", "float", "num"} or are_lists:
                     if isinstance(self._dataset, pd.DataFrame):
@@ -1610,3 +1603,14 @@ def _save_organism(name: str):
             )
         organism.save()
     return organism
+
+
+def _has_list_items(dataset_column):
+    """Check if dataset column contains any list-like items."""
+    try:
+        for item in dataset_column:
+            if isinstance(item, (list, np.ndarray)):
+                return True
+        return False
+    except (TypeError, AttributeError):
+        return False
