@@ -1062,26 +1062,22 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     class Meta(SQLRecord.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
+        constraints = [
+            # a simple hard unique constraint on `hash` clashes with the fact
+            # that pipelines sometimes aim to ingest the exact same file in different
+            # folders
+            # the conditional composite constraint allows duplicating files in different parts of the
+            # file hierarchy, but errors if the same file is to be registered with the same key
+            # or if the key is not populated
+            models.UniqueConstraint(
+                fields=["storage", "key", "hash"],
+                name="unique_artifact_storage_key_hash",
+                condition=Q(key__isnull=False),
+            ),
+        ]
 
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
-
-    # """Param manager.
-
-    # What features are for dataset-like artifacts, parameters are for model-like artifacts & runs.
-
-    # Example::
-
-    #     artifact.params.add_values({
-    #         "hidden_size": 32,
-    #         "bottleneck_size": 16,
-    #         "batch_size": 32,
-    #         "preprocess_params": {
-    #             "normalization_type": "cool",
-    #             "subset_highlyvariable": True,
-    #         },
-    #     })
-    # """
 
     features: FeatureManager = FeatureManagerArtifact  # type: ignore
     """Feature manager.
@@ -1101,11 +1097,25 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         ln.Artifact.filter(scientist="Barbara McClintock")
 
-    Features may or may not be part of the artifact content in storage. For
+    Features may or may not be part of the dataset, i.e., the artifact content in storage. For
     instance, the :class:`~lamindb.curators.DataFrameCurator` flow validates the columns of a
     `DataFrame`-like artifact and annotates it with features corresponding to
     these columns. `artifact.features.add_values`, by contrast, does not
     validate the content of the artifact.
+
+    .. dropdown:: An example for a model-like artifact
+
+        ::
+
+            artifact.features.add_values({
+                "hidden_size": 32,
+                "bottleneck_size": 16,
+                "batch_size": 32,
+                "preprocess_params": {
+                    "normalization_type": "cool",
+                    "subset_highlyvariable": True,
+                },
+            })
     """
 
     @property
@@ -1183,7 +1193,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     Examples: 1KB is 1e3 bytes, 1MB is 1e6, 1GB is 1e9, 1TB is 1e12 etc.
     """
     hash: str | None = CharField(
-        max_length=HASH_LENGTH, db_index=True, null=True, unique=True, editable=False
+        max_length=HASH_LENGTH, db_index=True, null=True, editable=False
     )
     """Hash or pseudo-hash of artifact content.
 
