@@ -81,10 +81,12 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
     if queryset.model in {Collection, Transform}:
         name_mappings = {
             "visibility": "branch_id",
+            "_branch_code": "branch_id",
         }
     elif queryset.model == Artifact:
         name_mappings = {
             "visibility": "branch_id",
+            "_branch_code": "branch_id",
             "transform": "run__transform",
         }
     else:

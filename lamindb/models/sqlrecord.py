@@ -41,6 +41,8 @@ from lamindb_setup.core._settings_store import instance_settings_file
 from lamindb_setup.core.django import DBToken, db_token_manager
 from lamindb_setup.core.upath import extract_suffix_from_path
 
+from lamindb.base import deprecated
+
 from ..base.fields import (
     CharField,
     DateTimeField,
@@ -1042,6 +1044,16 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
 
     class Meta:
         abstract = True
+
+    @property
+    @deprecated
+    def _branch_code(self) -> int:
+        """Deprecated alias for `branch`."""
+        return self.branch_id
+
+    @_branch_code.setter
+    def _branch_code(self, value: int):
+        self.branch_id = value
 
 
 def _format_django_validation_error(record: SQLRecord, e: DjangoValidationError):
