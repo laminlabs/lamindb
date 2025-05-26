@@ -95,6 +95,7 @@ class Transform(SQLRecord, IsVersioned):
 
     class Meta(SQLRecord.Meta, IsVersioned.Meta):
         abstract = False
+        unique_together = ("key", "hash")
 
     _len_stem_uid: int = 12
     _len_full_uid: int = 16
@@ -106,7 +107,7 @@ class Transform(SQLRecord, IsVersioned):
         editable=False, unique=True, db_index=True, max_length=_len_full_uid
     )
     """Universal id."""
-    key: str | None = CharField(db_index=True, null=True)
+    key: str = CharField(db_index=True)
     """A name or "/"-separated path-like string.
 
     All transforms with the same key are part of the same version family.
@@ -120,16 +121,8 @@ class Transform(SQLRecord, IsVersioned):
     )
     """:class:`~lamindb.base.types.TransformType` (default `"pipeline"`)."""
     source_code: str | None = TextField(null=True)
-    """Source code of the transform.
-
-    .. versionchanged:: 0.75
-       The `source_code` field is no longer an artifact, but a text field.
-    """
-    # we have a unique constraint here but not on artifact because on artifact, we haven't yet
-    # settled how we model the same artifact in different storage locations
-    hash: str | None = CharField(
-        max_length=HASH_LENGTH, db_index=True, null=True, unique=True
-    )
+    """Source code of the transform."""
+    hash: str | None = CharField(max_length=HASH_LENGTH, db_index=True, null=True)
     """Hash of the source code."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
     """Reference for the transform, e.g., a URL."""
@@ -146,13 +139,8 @@ class Transform(SQLRecord, IsVersioned):
     )
     """Preceding transforms.
 
-    These are auto-populated whenever an artifact or collection serves as a run
-    input, e.g., `artifact.run` and `artifact.transform` get populated & saved.
-
-    The table provides a more convenient method to query for the predecessors that
-    bypasses querying the :class:`~lamindb.Run`.
-
-    It also allows to manually add predecessors whose outputs are not tracked in a run.
+    Allows to _manually_ define predecessors. Is typically not necessary as data lineage is
+    automatically tracked via runs whenever an artifact or collection serves as an input for a run.
     """
     successors: Transform
     """Subsequent transforms.
