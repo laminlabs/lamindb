@@ -33,6 +33,10 @@ def update_write_log_table_state(tables: set[str]):
     WriteLogTableState.objects.bulk_create(table_states_to_add)
 
 
+def get_latest_migration_state() -> WriteLogMigrationState | None:
+    return WriteLogMigrationState.objects.order_by("-id").first()
+
+
 def update_migration_state():
     app_migrations = {}
 
@@ -54,11 +58,7 @@ def update_migration_state():
         for app, mig_id in sorted(app_migrations.items())
     ]
 
-    try:
-        latest_state = WriteLogMigrationState.objects.order_by("-id").first()
-        latest_state_json = latest_state.migration_state_id if latest_state else None
-    except WriteLogMigrationState.DoesNotExist:
-        latest_state_json = None
+    latest_state = get_latest_migration_state()
 
-    if current_state and current_state != latest_state_json:
+    if latest_state is None or (current_state != latest_state.migration_state_id):
         WriteLogMigrationState.objects.create(migration_state_id=current_state)

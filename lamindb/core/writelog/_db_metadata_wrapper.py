@@ -19,6 +19,10 @@ class DatabaseMetadataWrapper(ABC):
     that metadata.
     """
 
+    def __init__(self):
+        self._db_tables: set[str] | None = None
+        self._many_to_many_tables: set[str] | None = None
+
     @abstractmethod
     def get_columns(self, table: str, cursor: CursorWrapper) -> set[Column]:
         raise NotImplementedError()
@@ -38,37 +42,43 @@ class DatabaseMetadataWrapper(ABC):
 
     def get_db_tables(self) -> set[str]:
         """Get the schema and table names for all tables in the database for which we might want to track writes."""
-        all_models = apps.get_models()
+        if self._db_tables is None:
+            all_models = apps.get_models()
 
-        tables: set[str] = set()
+            tables: set[str] = set()
 
-        for model in all_models:
-            # SQLRecord the model's underlying table, as well as
-            # the underlying table for all of its many-to-many
-            # relationships
-            tables.add(model._meta.db_table)
+            for model in all_models:
+                # SQLRecord the model's underlying table, as well as
+                # the underlying table for all of its many-to-many
+                # relationships
+                tables.add(model._meta.db_table)
 
-            for field in model._meta.many_to_many:
-                m2m_field = field
-                through_model = m2m_field.remote_field.through  # type: ignore
+                for field in model._meta.many_to_many:
+                    m2m_field = field
+                    through_model = m2m_field.remote_field.through  # type: ignore
 
-                tables.add(through_model._meta.db_table)
+                    tables.add(through_model._meta.db_table)
 
-        return {t for t in tables if not t.startswith("django_")}
+            self._db_tables = {t for t in tables if not t.startswith("django_")}
+
+        return self._db_tables
 
     def get_many_to_many_db_tables(self) -> set[str]:
         """Get the table names for all many-to-many tables in the database."""
-        many_to_many_tables: set[str] = set()
+        if self._many_to_many_tables is None:
+            many_to_many_tables: set[str] = set()
 
-        for model in apps.get_models():
-            for field in model._meta.get_fields():
-                if isinstance(field, ManyToManyField):
-                    through_model = field.remote_field.through  # type: ignore
-                    through_table = through_model._meta.db_table
+            for model in apps.get_models():
+                for field in model._meta.get_fields():
+                    if isinstance(field, ManyToManyField):
+                        through_model = field.remote_field.through  # type: ignore
+                        through_table = through_model._meta.db_table
 
-                    many_to_many_tables.add(through_table)
+                        many_to_many_tables.add(through_table)
 
-        return many_to_many_tables
+            self._many_to_many_tables = many_to_many_tables
+
+        return self._many_to_many_tables
 
     def _get_columns_by_name(
         self, table: str, column_names: list[str], cursor: CursorWrapper
