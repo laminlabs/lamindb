@@ -585,27 +585,25 @@ def test_from_dir_many_artifacts(get_test_filepaths, key):
 
 def test_delete_and_restore_artifact(df):
     artifact = ln.Artifact.from_df(df, description="My test file to delete").save()
-    assert artifact._branch_code == 1
+    assert artifact.branch_id == 1
     assert artifact.key is None or artifact._key_is_virtual
     storage_path = artifact.path
     # trash behavior
     artifact.delete()
     assert storage_path.exists()
-    assert artifact._branch_code == -1
+    assert artifact.branch_id == -1
     assert ln.Artifact.filter(description="My test file to delete").first() is None
     assert ln.Artifact.filter(
-        description="My test file to delete", _branch_code=-1
+        description="My test file to delete", branch_id=-1
     ).first()
     # implicit restore from trash
     artifact_restored = ln.Artifact.from_df(df, description="My test file to delete")
-    assert artifact_restored._branch_code == 1
+    assert artifact_restored.branch_id == 1
     assert artifact_restored == artifact
     # permanent delete
     artifact.delete(permanent=True)
     assert (
-        ln.Artifact.filter(
-            description="My test file to delete", _branch_code=None
-        ).first()
+        ln.Artifact.filter(description="My test file to delete", branch_id=None).first()
         is None
     )
     assert not storage_path.exists()  # deletes from storage is key_is_virtual
@@ -627,7 +625,7 @@ def test_delete_and_restore_artifact(df):
     assert (
         ln.Artifact.filter(
             description="My test file to delete from non-default storage",
-            _branch_code=None,
+            branch_id=None,
         ).first()
         is None
     )
@@ -981,7 +979,7 @@ def test_bulk_delete():
         len(
             ln.Artifact.filter(
                 id__in=[environment.id, report.id],
-                _branch_code=-1,
+                branch_id=-1,
             )
             .distinct()
             .all()
@@ -989,7 +987,7 @@ def test_bulk_delete():
         == 2
     )
 
-    ln.Artifact.filter(id__in=[environment.id, report.id], _branch_code=-1).delete(
+    ln.Artifact.filter(id__in=[environment.id, report.id], branch_id=-1).delete(
         permanent=True
     )
     # now they're gone
@@ -997,7 +995,7 @@ def test_bulk_delete():
         len(
             ln.Artifact.filter(
                 id__in=[environment.id, report.id],
-                _branch_code=None,
+                branch_id=None,
             )
             .distinct()
             .all()

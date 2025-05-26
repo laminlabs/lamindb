@@ -6,7 +6,7 @@ import bionty as bt
 import lamindb as ln
 import pytest
 from lamindb.errors import FieldValidationError
-from lamindb.models.dbrecord import (
+from lamindb.models.sqlrecord import (
     _get_record_kwargs,
     _search,
     get_name_field,
@@ -228,13 +228,13 @@ def test_get_record_kwargs():
 
 
 def test_get_record_kwargs_empty():
-    class EmptyDBRecord:
+    class EmptySQLRecord:
         pass
 
-    assert _get_record_kwargs(EmptyDBRecord) == []
+    assert _get_record_kwargs(EmptySQLRecord) == []
 
-    class NoInitDBRecord:
+    class NoInitSQLRecord:
         def method(self):
             pass
 
-    assert _get_record_kwargs(NoInitDBRecord) == []
+    assert _get_record_kwargs(NoInitSQLRecord) == []

@@ -4,7 +4,7 @@ import pytest
 
 def test_rename():
     import pandas as pd
-    from lamindb.errors import DBRecordNameChangeIntegrityError
+    from lamindb.errors import SQLRecordNameChangeIntegrityError
 
     df = pd.DataFrame(
         {
@@ -38,7 +38,7 @@ def test_rename():
 
     # rename label
     ulabel = ln.ULabel.get(name="label-to-rename")
-    with pytest.raises(DBRecordNameChangeIntegrityError):
+    with pytest.raises(SQLRecordNameChangeIntegrityError):
         ulabel.name = "label-renamed"
         ulabel.save()
 
@@ -51,7 +51,7 @@ def test_rename():
 
     # rename feature
     feature = ln.Feature.get(name="feature_to_rename")
-    with pytest.raises(DBRecordNameChangeIntegrityError):
+    with pytest.raises(SQLRecordNameChangeIntegrityError):
         feature.name = "feature_renamed"
         feature.save()
 

@@ -81,17 +81,17 @@ from ._relations import (
     dict_related_model_to_related_name,
 )
 from .core import Storage
-from .dbrecord import (
-    BaseDBRecord,
-    DBRecord,
-    IsLink,
-    _get_record_kwargs,
-    record_repr,
-)
 from .feature import Feature, FeatureValue
 from .has_parents import view_lineage
 from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
+from .sqlrecord import (
+    BaseSQLRecord,
+    IsLink,
+    SQLRecord,
+    _get_record_kwargs,
+    record_repr,
+)
 from .ulabel import ULabel
 
 WARNING_RUN_TRANSFORM = "no run & transform got linked, call `ln.track()` & re-run"
@@ -330,7 +330,7 @@ def get_stat_or_artifact(
             previous_artifact_version = result[0]
     if artifact_with_same_hash_exists:
         message = "returning existing artifact with same hash"
-        if result[0]._branch_code == -1:
+        if result[0].branch_id == -1:
             result[0].restore()
             message = "restored artifact with same hash from trash"
         logger.important(
@@ -780,7 +780,7 @@ def describe_artifact_collection(self, return_str: bool = False) -> str | None:
     return format_rich_tree(tree, return_str=return_str)
 
 
-def validate_feature(feature: Feature, records: list[DBRecord]) -> None:
+def validate_feature(feature: Feature, records: list[SQLRecord]) -> None:
     """Validate feature record, adjust feature.dtype based on labels records."""
     if not isinstance(feature, Feature):
         raise TypeError("feature has to be of type Feature")
@@ -824,7 +824,7 @@ def get_labels(
             ).all()
     if flat_names:
         # returns a flat list of names
-        from .dbrecord import get_name_field
+        from .sqlrecord import get_name_field
 
         values = []
         for v in qs_by_registry.values():
@@ -838,7 +838,7 @@ def get_labels(
 
 def add_labels(
     self,
-    records: DBRecord | list[DBRecord] | QuerySet | Iterable,
+    records: SQLRecord | list[SQLRecord] | QuerySet | Iterable,
     feature: Feature | None = None,
     *,
     field: StrField | None = None,
@@ -852,7 +852,7 @@ def add_labels(
 
     if isinstance(records, (QuerySet, QuerySet.__base__)):  # need to have both
         records = records.list()
-    if isinstance(records, (str, DBRecord)):
+    if isinstance(records, (str, SQLRecord)):
         records = [records]
     if not isinstance(records, list):  # avoids warning for pd Series
         records = list(records)
@@ -877,7 +877,7 @@ def add_labels(
         # ask users to pass records
         if len(records_validated) == 0:
             raise ValueError(
-                "Please pass a record (a `DBRecord` object), not a string, e.g., via:"
+                "Please pass a record (a `SQLRecord` object), not a string, e.g., via:"
                 " label"
                 f" = ln.ULabel(name='{records[0]}')"  # type: ignore
             )
@@ -951,7 +951,7 @@ def add_labels(
             )
 
 
-class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
+class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     # Note that this docstring has to be consistent with Curator.save_artifact()
     """Datasets & models stored as files, folders, or arrays.
 
@@ -1060,7 +1060,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
 
     """
 
-    class Meta(DBRecord.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(SQLRecord.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _len_full_uid: int = 20
@@ -1326,11 +1326,11 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
         revises: Artifact | None = kwargs.pop("revises", None)
         version: str | None = kwargs.pop("version", None)
         if "visibility" in kwargs:  # backward compat
-            _branch_code = kwargs.pop("visibility")
-        elif "_branch_code" in kwargs:
-            _branch_code = kwargs.pop("_branch_code")
+            branch_id = kwargs.pop("visibility")
+        elif "branch_id" in kwargs:
+            branch_id = kwargs.pop("branch_id")
         else:
-            _branch_code = 1
+            branch_id = 1
         format = kwargs.pop("format", None)
         _is_internal_call = kwargs.pop("_is_internal_call", False)
         skip_check_exists = kwargs.pop("skip_check_exists", False)
@@ -1391,7 +1391,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
 
         # an object with the same hash already exists
         if isinstance(kwargs_or_artifact, Artifact):
-            from .dbrecord import init_self_from_db, update_attributes
+            from .sqlrecord import init_self_from_db, update_attributes
 
             init_self_from_db(self, kwargs_or_artifact)
             # adding "key" here is dangerous because key might be auto-populated
@@ -1439,7 +1439,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
         kwargs["kind"] = kind
         kwargs["version"] = version
         kwargs["description"] = description
-        kwargs["_branch_code"] = _branch_code
+        kwargs["branch_id"] = branch_id
         kwargs["otype"] = otype
         kwargs["revises"] = revises
         # this check needs to come down here because key might be populated from an
@@ -1534,7 +1534,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
 
         See Also:
             - Guide: :doc:`docs:registries`
-            - Method in `DBRecord` base class: :meth:`~lamindb.models.DBRecord.get`
+            - Method in `SQLRecord` base class: :meth:`~lamindb.models.SQLRecord.get`
 
         Examples:
 
@@ -1591,7 +1591,10 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
                     sorted(np.array(keys_normalized)[~features_validated])
                 )
                 message = f"feature names: {features}"
-                fields = ", ".join(sorted(cls.__get_available_fields__()))
+                avail_fields = cls.__get_available_fields__()
+                if "_branch_code" in avail_fields:
+                    avail_fields.remove("_branch_code")  # backward compat
+                fields = ", ".join(sorted(avail_fields))
                 raise InvalidArgument(
                     f"You can query either by available fields: {fields}\n"
                     f"Or fix invalid {message}"
@@ -2299,7 +2302,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
                         # this can be very slow
                         _, hash, _, _ = hash_dir(filepath)
                     if self.hash != hash:
-                        from .dbrecord import init_self_from_db
+                        from .sqlrecord import init_self_from_db
 
                         new_version = Artifact(
                             filepath, revises=self, _is_internal_call=True
@@ -2440,7 +2443,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
     ) -> None:
         """Trash or permanently delete.
 
-        A first call to `.delete()` puts an artifact into the trash (sets `_branch_code` to `-1`).
+        A first call to `.delete()` puts an artifact into the trash (sets `branch_id` to `-1`).
         A second call permanently deletes the artifact.
         If it is a folder artifact with multiple versions, deleting a non-latest version
         will not delete the underlying storage by default (if `storage=True` is not specified).
@@ -2482,17 +2485,15 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
                     f"\n(2) If you want to delete the artifact in storage, please load the managing lamindb instance (uid={self.storage.instance_uid})."
                     f"\nThese are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).df()}"
                 )
-        # by default, we only move artifacts into the trash (_branch_code = -1)
-        trash__branch_code = -1
-        if self._branch_code > trash__branch_code and not permanent:
+        # by default, we only move artifacts into the trash (branch_id = -1)
+        trash_branch_id = -1
+        if self.branch_id > trash_branch_id and not permanent:
             if storage is not None:
                 logger.warning("moving artifact to trash, storage arg is ignored")
             # move to trash
-            self._branch_code = trash__branch_code
+            self.branch_id = trash_branch_id
             self.save()
-            logger.important(
-                f"moved artifact to trash (_branch_code = {trash__branch_code})"
-            )
+            logger.important(f"moved artifact to trash (branch_id = {trash_branch_id})")
             return
 
         # if the artifact is already in the trash
@@ -2644,7 +2645,7 @@ class Artifact(DBRecord, IsVersioned, TracksRun, TracksUpdates):
 
             artifact.restore()
         """
-        self._branch_code = 1
+        self.branch_id = 1
         self.save()
 
     def describe(self, return_str: bool = False) -> None:
@@ -2691,7 +2692,7 @@ def _save_skip_storage(artifact, **kwargs) -> None:
     save_schema_links(artifact)
 
 
-class ArtifactFeatureValue(BaseDBRecord, IsLink, TracksRun):
+class ArtifactFeatureValue(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(
         Artifact, CASCADE, related_name="links_featurevalue"

@@ -1,3 +1,5 @@
+import tempfile
+from pathlib import Path
 from typing import TYPE_CHECKING, Generator, cast
 from unittest.mock import ANY, MagicMock
 
@@ -14,8 +16,16 @@ from lamindb.core.writelog._trigger_installer import (
     WriteLogEventTypes,
 )
 from lamindb.core.writelog._types import TableUID, UIDColumns
-from lamindb.models.dbrecord import Space
-from lamindb.models.writelog import WriteLog, WriteLogMigrationState, WriteLogTableState
+from lamindb.models.artifact import Artifact
+from lamindb.models.run import Run
+from lamindb.models.sqlrecord import Space
+from lamindb.models.transform import Transform
+from lamindb.models.writelog import (
+    WriteLog,
+    WriteLogLock,
+    WriteLogMigrationState,
+    WriteLogTableState,
+)
 from typing_extensions import override
 
 if TYPE_CHECKING:
@@ -163,7 +173,10 @@ def test_updating_write_log_triggers_installs_table_state(table_a, table_b, tabl
         table_b,
         table_c,
     }
-    assert all(ts.backfilled is False for ts in new_table_states)
+
+    assert not WriteLogTableState.objects.get(table_name=table_a).backfilled
+    assert WriteLogTableState.objects.get(table_name=table_b).backfilled
+    assert not WriteLogTableState.objects.get(table_name=table_c).backfilled
 
 
 @pytest.mark.pg_integration
@@ -194,7 +207,8 @@ def test_update_write_log_triggers_only_install_table_state_once(
         table_b,
         table_c,
     }
-    assert all(ts.backfilled is False for ts in new_table_states)
+
+    assert all(t.backfilled for t in new_table_states)
 
 
 @pytest.mark.pg_integration
@@ -316,10 +330,15 @@ def _update_write_log_triggers(
     table_list: set[str],
     many_to_many_tables: set[str] | None = None,
     uid_columns: dict[str, UIDColumns] | None = None,
+    tables_with_installed_triggers: set[str] | None = None,
 ):
     fake_db_metadata = FakeMetadataWrapper()
     fake_db_metadata.set_db_tables(table_list)
-    fake_db_metadata.set_tables_with_installed_triggers(set())
+
+    if tables_with_installed_triggers is not None:
+        fake_db_metadata.set_tables_with_installed_triggers(
+            tables_with_installed_triggers
+        )
 
     if many_to_many_tables is not None:
         fake_db_metadata.set_many_to_many_db_tables(many_to_many_tables)
@@ -358,7 +377,7 @@ def test_simple_table_trigger(simple_pg_table: str):
     cursor.execute(f"UPDATE {simple_pg_table} SET int_col=22 WHERE uid = 'def456'")  # noqa: S608
     cursor.execute(f"DELETE FROM {simple_pg_table} WHERE uid = 'abc123'")  # noqa: S608
 
-    write_log = WriteLog.objects.all().order_by("seqno")
+    write_log = WriteLog.objects.all().order_by("id")
 
     assert len(write_log) == 4
 
@@ -394,6 +413,43 @@ def test_simple_table_trigger(simple_pg_table: str):
     assert write_log[3].record_uid == ["abc123"]
     assert write_log[3].record_data is None
     assert write_log[3].event_type == WriteLogEventTypes.DELETE.value
+
+
+@pytest.fixture(scope="function")
+def write_log_lock_locked():
+    write_log_lock = WriteLogLock.load()
+
+    assert write_log_lock is not None
+
+    write_log_lock.lock()
+
+    yield write_log_lock
+
+    write_log_lock.unlock()
+
+
+@pytest.mark.pg_integration
+def test_trigger_doesnt_fire_when_write_lock_is_locked(
+    simple_pg_table: str, write_log_lock_locked
+):
+    _update_write_log_triggers({simple_pg_table})
+
+    cursor = django_connection.cursor()
+
+    cursor.execute(
+        f"INSERT INTO {simple_pg_table} (uid, str_col, bool_col, int_col) "  # noqa: S608
+        "VALUES ('abc123', 'hello world', false, 42)"
+    )
+    cursor.execute(
+        f"INSERT INTO {simple_pg_table} (uid, str_col, bool_col, int_col) "  # noqa: S608
+        "VALUES ('def456', 'another row', true, 99)"
+    )
+    cursor.execute(f"UPDATE {simple_pg_table} SET int_col=22 WHERE uid = 'def456'")  # noqa: S608
+    cursor.execute(f"DELETE FROM {simple_pg_table} WHERE uid = 'abc123'")  # noqa: S608
+
+    write_log = WriteLog.objects.all().order_by("id")
+
+    assert len(write_log) == 0
 
 
 @pytest.fixture(scope="function")
@@ -441,7 +497,7 @@ def test_triggers_with_foreign_keys(simple_pg_table, foreignkey_pg_table):
     )
     cursor.execute(f"DELETE FROM {simple_pg_table} WHERE uid = 'abc123'")  # noqa: S608
 
-    write_log = WriteLog.objects.all().order_by("seqno")
+    write_log = WriteLog.objects.all().order_by("id")
 
     assert len(write_log) == 5
 
@@ -523,7 +579,7 @@ def test_triggers_with_self_references(self_referential_pg_table):
         f"INSERT INTO {self_referential_pg_table} (uid, parent_id) VALUES ('def345', {parent_row_id})"  # noqa: S608
     )
 
-    write_log = WriteLog.objects.all().order_by("seqno")
+    write_log = WriteLog.objects.all().order_by("id")
 
     assert len(write_log) == 2
 
@@ -606,7 +662,7 @@ def test_triggers_with_composite_primary_key(
         f"VALUES (42, 21, 'qrs234')"
     )
 
-    write_log = WriteLog.objects.all().order_by("seqno")
+    write_log = WriteLog.objects.all().order_by("id")
 
     assert len(write_log) == 2
 
@@ -704,7 +760,7 @@ def test_triggers_with_many_to_many_tables(
         f"DELETE FROM {self_referential_pg_table} WHERE id={self_ref_row_id}"  # noqa: S608
     )
 
-    write_log = WriteLog.objects.all().order_by("seqno")
+    write_log = WriteLog.objects.all().order_by("id")
 
     assert len(write_log) == 5
 
@@ -842,7 +898,7 @@ def test_triggers_with_compound_table_uid(compound_uid_table, compound_uid_child
         f"DELETE FROM {compound_uid_table} WHERE uid_1 = 'badf00d' AND uid_2 = 'dadb0d'"  # noqa: S608
     )
 
-    write_log = WriteLog.objects.all().order_by("seqno")
+    write_log = WriteLog.objects.all().order_by("id")
 
     assert len(write_log) == 5
 
@@ -967,7 +1023,7 @@ def test_triggers_many_to_many_to_compound_uid_with_self_links(
         f"DELETE FROM {compound_uid_many_to_many} WHERE table_a_id = {rec_1_id} AND table_b_id = {rec_2_id}"  # noqa: S608
     )
 
-    write_log = WriteLog.objects.all().order_by("seqno")
+    write_log = WriteLog.objects.all().order_by("id")
 
     assert len(write_log) == 7
 
@@ -1090,12 +1146,201 @@ CREATE TABLE IF NOT EXISTS write_log_space_ref_test
     cursor.execute("DROP TABLE IF EXISTS write_log_space_ref_test")
 
 
+@pytest.fixture(scope="function")
+def backfill_table_a(write_log_state):
+    table_name = "backfill_table_a"
+
+    cursor = django_connection.cursor()
+
+    cursor.execute(f"""
+CREATE TABLE IF NOT EXISTS {table_name}
+(
+    id SERIAL PRIMARY KEY,
+    uid VARCHAR(20),
+    data VARCHAR(100)
+);
+""")
+
+    yield table_name
+
+    cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
+
+
+@pytest.fixture(scope="function")
+def backfill_table_b(write_log_state, backfill_table_a):
+    table_name = "backfill_table_b"
+
+    cursor = django_connection.cursor()
+
+    cursor.execute(f"""
+CREATE TABLE IF NOT EXISTS {table_name}
+(
+    id SERIAL PRIMARY KEY,
+    uid VARCHAR(20),
+    table_a_id INT,
+    data VARCHAR(100),
+    CONSTRAINT fk FOREIGN KEY (table_a_id) REFERENCES {backfill_table_a}(id)
+);
+""")
+
+    yield table_name
+
+    cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
+
+
+@pytest.mark.pg_integration
+def test_simple_backfill(backfill_table_a, backfill_table_b):
+    cursor = django_connection.cursor()
+
+    # Populate the tables with some pre-existing data.
+    cursor.execute(
+        f"INSERT INTO {backfill_table_a} (uid, data) VALUES ('badf00d1234', 'mydata')"  # noqa: S608
+    )
+    cursor.execute(
+        f"INSERT INTO {backfill_table_a} (uid, data) VALUES ('deadbeef456', 'moredata')"  # noqa: S608
+    )
+
+    table_a_id = fetch_row_id_by_uid(
+        backfill_table_a, ["id"], {"uid": "badf00d1234"}, cursor
+    )
+
+    cursor.execute(
+        f"INSERT INTO {backfill_table_b} (uid, table_a_id, data) VALUES ('m00m00m00', {table_a_id[0]}, 'yetmoredata')"  # noqa: S608
+    )
+
+    _update_write_log_triggers(table_list={backfill_table_a, backfill_table_b})
+
+    write_log = WriteLog.objects.all().order_by("id")
+
+    assert len(write_log) == 3
+
+    # backfill_table_a should be backfilled before backfill_table_b,
+    # since b has a foreign key to a
+
+    # backfill_table_a's records can be backfilled in any order
+    for i in [0, 1]:
+        assert write_log[i].table.table_name == backfill_table_a
+        assert write_log[i].record_uid in (["badf00d1234"], ["deadbeef456"])
+        assert write_log[i].record_data == {
+            "data": "mydata"
+            if write_log[i].record_uid == ["badf00d1234"]
+            else "moredata",
+            FOREIGN_KEYS_LIST_COLUMN_NAME: [],
+        }
+        assert write_log[i].event_type == WriteLogEventTypes.INSERT.value
+
+    assert write_log[2].table.table_name == backfill_table_b
+    assert write_log[2].record_uid == ["m00m00m00"]
+    assert write_log[2].record_data == {
+        "data": "yetmoredata",
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [write_log[0].table.id, ["table_a_id"], {"uid": "badf00d1234"}]
+        ],
+    }
+    assert write_log[2].event_type == WriteLogEventTypes.INSERT.value
+
+
+@pytest.mark.pg_integration
+def test_self_referential_backfill(self_referential_pg_table):
+    cursor = django_connection.cursor()
+
+    # Populate the tables with some pre-existing data.
+    # Inter-record dependencies are as follows (id -> parent_id):
+    #   A -> B
+    #   B -> C
+    #   C -> E
+    #   D -> E
+
+    cursor.execute(
+        f"INSERT INTO {self_referential_pg_table} (uid, parent_id) VALUES ('E', NULL)"  # noqa: S608
+    )
+
+    table_e_id = fetch_row_id_by_uid(
+        self_referential_pg_table, ["id"], {"uid": "E"}, cursor
+    )[0]
+
+    cursor.execute(
+        f"INSERT INTO {self_referential_pg_table} (uid, parent_id) VALUES ('C', {table_e_id})"  # noqa: S608
+    )
+    cursor.execute(
+        f"INSERT INTO {self_referential_pg_table} (uid, parent_id) VALUES ('D', {table_e_id})"  # noqa: S608
+    )
+
+    table_c_id = fetch_row_id_by_uid(
+        self_referential_pg_table, ["id"], {"uid": "C"}, cursor
+    )[0]
+
+    cursor.execute(
+        f"INSERT INTO {self_referential_pg_table} (uid, parent_id) VALUES ('B', {table_c_id})"  # noqa: S608
+    )
+
+    table_b_id = fetch_row_id_by_uid(
+        self_referential_pg_table, ["id"], {"uid": "B"}, cursor
+    )[0]
+
+    cursor.execute(
+        f"INSERT INTO {self_referential_pg_table} (uid, parent_id) VALUES ('A', {table_b_id})"  # noqa: S608
+    )
+
+    _update_write_log_triggers(table_list={self_referential_pg_table})
+
+    write_log = WriteLog.objects.all().order_by("id")
+
+    assert len(write_log) == 5
+    assert all(h.table.table_name == self_referential_pg_table for h in write_log)
+
+    # Backfill order should be E, (D and C in some order), B, A
+
+    assert write_log[0].record_uid == ["E"]
+    assert write_log[0].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [write_log[0].table.id, ["parent_id"], {"uid": None}]
+        ],
+    }
+    assert write_log[0].event_type == WriteLogEventTypes.INSERT.value
+
+    assert write_log[1].record_uid == ["D"] or write_log[1].record_uid == ["C"]
+    assert write_log[1].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [write_log[0].table.id, ["parent_id"], {"uid": "E"}]
+        ],
+    }
+    assert write_log[1].event_type == WriteLogEventTypes.INSERT.value
+
+    assert (
+        write_log[2].record_uid == ["D"] or write_log[2].record_uid == ["C"]
+    ) and write_log[2].record_uid != write_log[1].record_uid
+    assert write_log[2].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [write_log[0].table.id, ["parent_id"], {"uid": "E"}]
+        ],
+    }
+    assert write_log[2].event_type == WriteLogEventTypes.INSERT.value
+
+    assert write_log[3].record_uid == ["B"]
+    assert write_log[3].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [write_log[0].table.id, ["parent_id"], {"uid": "C"}]
+        ],
+    }
+    assert write_log[3].event_type == WriteLogEventTypes.INSERT.value
+
+    assert write_log[4].record_uid == ["A"]
+    assert write_log[4].record_data == {
+        FOREIGN_KEYS_LIST_COLUMN_NAME: [
+            [write_log[0].table.id, ["parent_id"], {"uid": "B"}]
+        ],
+    }
+    assert write_log[4].event_type == WriteLogEventTypes.INSERT.value
+
+
 @pytest.mark.pg_integration
 def test_write_log_records_space_uids_properly(table_with_space_ref, fake_space):
     cursor = django_connection.cursor()
 
     _update_write_log_triggers(
-        table_list={table_with_space_ref},
+        table_list={table_with_space_ref, "lamindb_space"},
+        tables_with_installed_triggers={"lamindb_space"},
     )
 
     cursor = django_connection.cursor()
@@ -1110,7 +1355,7 @@ def test_write_log_records_space_uids_properly(table_with_space_ref, fake_space)
         f"VALUES ('B', NULL)"
     )
 
-    write_log = WriteLog.objects.all().order_by("seqno")
+    write_log = WriteLog.objects.all().order_by("id")
 
     assert len(write_log) == 2
 
@@ -1131,18 +1376,14 @@ def test_write_log_records_space_uids_properly(table_with_space_ref, fake_space)
     assert write_log[1].space_uid is None
 
 
-@pytest.mark.pg_integration
-def test_write_log_install_triggers_on_existing_lamindb_models():
+@pytest.fixture(scope="function")
+def drop_all_write_log_triggers_after_test():
+    yield
+
     cursor = django_connection.cursor()
 
-    try:
-        installer = PostgresWriteLogRecordingTriggerInstaller(
-            connection=django_connection, db_metadata=PostgresDatabaseMetadataWrapper()
-        )
-        installer.update_write_log_triggers()
-    finally:
-        # Drop all write log triggers
-        cursor.execute("""
+    # Drop all write log triggers
+    cursor.execute("""
 DO $$
 DECLARE
     r RECORD;
@@ -1166,3 +1407,94 @@ BEGIN
 END;
 $$;
                        """)
+
+
+@pytest.mark.pg_integration
+def test_write_log_install_triggers_on_existing_lamindb_models(
+    drop_all_write_log_triggers_after_test,
+):
+    installer = PostgresWriteLogRecordingTriggerInstaller(
+        connection=django_connection, db_metadata=PostgresDatabaseMetadataWrapper()
+    )
+    installer.update_write_log_triggers()
+
+
+@pytest.fixture(scope="function")
+def fake_run():
+    transform = Transform("my test transform").save()
+    run = Run(transform).save()
+
+    yield run
+
+    run.delete()
+
+
+@pytest.fixture(scope="function")
+def aux_artifact():
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        test_file = Path(tmpdirname) / "foo.txt"
+
+        with test_file.open("w") as fp:
+            fp.write("hello world")
+
+        artifact = Artifact(
+            data=str(test_file),
+            description="a fake aux artifact",
+            kind="__lamindb__",  # type: ignore
+            run=None,
+        ).save()
+
+        yield artifact
+
+        artifact.delete(permanent=True)
+
+
+@pytest.fixture(scope="function")
+def normal_artifact(fake_run):
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        test_file = Path(tmpdirname) / "bar.txt"
+
+        with test_file.open("w") as fp:
+            fp.write("another test file")
+
+        artifact = Artifact(
+            data=str(test_file),
+            description="a fake normal artifact",
+            kind="dataset",
+            run=fake_run,
+        ).save()
+
+        yield artifact
+
+        artifact.delete(permanent=True)
+
+
+@pytest.mark.pg_integration
+def test_aux_artifacts_backfill_before_real_ones(
+    aux_artifact, normal_artifact, fake_run, drop_all_write_log_triggers_after_test
+):
+    installer = PostgresWriteLogRecordingTriggerInstaller(
+        connection=django_connection, db_metadata=PostgresDatabaseMetadataWrapper()
+    )
+    installer.update_write_log_triggers()
+
+    write_log = [
+        w
+        for w in WriteLog.objects.all().order_by("id")
+        if w.table.table_name
+        in ("lamindb_artifact", "lamindb_transform", "lamindb_run")
+    ]
+
+    assert len(write_log) == 4
+
+    assert write_log[0].table.table_name == "lamindb_artifact"
+    assert write_log[0].record_uid == [aux_artifact.uid]
+
+    assert write_log[1].table.table_name == "lamindb_transform"
+    assert write_log[1].record_uid == [normal_artifact.transform.uid]
+
+    assert write_log[2].table.table_name == "lamindb_run"
+    assert write_log[2].record_uid == [fake_run.uid]
+
+    assert write_log[3].table.table_name == "lamindb_artifact"
+    assert write_log[3].record_uid == [normal_artifact.uid]

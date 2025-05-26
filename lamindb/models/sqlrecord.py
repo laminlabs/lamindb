@@ -41,6 +41,8 @@ from lamindb_setup.core._settings_store import instance_settings_file
 from lamindb_setup.core.django import DBToken, db_token_manager
 from lamindb_setup.core.upath import extract_suffix_from_path
 
+from lamindb.base import deprecated
+
 from ..base.fields import (
     CharField,
     DateTimeField,
@@ -49,10 +51,10 @@ from ..base.fields import (
 )
 from ..base.types import FieldAttr, StrField
 from ..errors import (
-    DBRecordNameChangeIntegrityError,
     FieldValidationError,
     InvalidArgument,
     NoWriteAccess,
+    SQLRecordNameChangeIntegrityError,
     ValidationError,
 )
 from ._is_versioned import IsVersioned
@@ -68,18 +70,18 @@ if TYPE_CHECKING:
     from .transform import Transform
 
 
-T = TypeVar("T", bound="DBRecord")
+T = TypeVar("T", bound="SQLRecord")
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
 
 
 # -------------------------------------------------------------------------------------
-# A note on required fields at the DBRecord level
+# A note on required fields at the SQLRecord level
 #
 # As Django does most of its validation on the Form-level, it doesn't offer functionality
-# for validating the integrity of an DBRecord object upon instantation (similar to pydantic)
+# for validating the integrity of an SQLRecord object upon instantation (similar to pydantic)
 #
 # For required fields, we define them as commonly done on the SQL level together
-# with a validator in DBRecord (validate_required_fields)
+# with a validator in SQLRecord (validate_required_fields)
 #
 # This goes against the Django convention, but goes with the SQLModel convention
 # (Optional fields can be null on the SQL level, non-optional fields cannot)
@@ -89,7 +91,7 @@ IPYTHON = getattr(builtins, "__IPYTHON__", False)
 # an error at the SQL-level, with it, it triggers it at instantiation
 
 # -------------------------------------------------------------------------------------
-# A note on class and instance methods of core DBRecord
+# A note on class and instance methods of core SQLRecord
 #
 # All of these are defined and tested within lamindb, in files starting with _{orm_name}.py
 
@@ -150,7 +152,7 @@ def is_approx_pascal_case(s):
     return True
 
 
-def init_self_from_db(self: DBRecord, existing_record: DBRecord):
+def init_self_from_db(self: SQLRecord, existing_record: SQLRecord):
     new_args = [
         getattr(existing_record, field.attname) for field in self._meta.concrete_fields
     ]
@@ -159,7 +161,7 @@ def init_self_from_db(self: DBRecord, existing_record: DBRecord):
     self._state.db = "default"
 
 
-def update_attributes(record: DBRecord, attributes: dict[str, str]):
+def update_attributes(record: SQLRecord, attributes: dict[str, str]):
     for key, value in attributes.items():
         if getattr(record, key) != value and value is not None:
             if key not in {"uid", "dtype", "otype", "hash"}:
@@ -176,7 +178,7 @@ def update_attributes(record: DBRecord, attributes: dict[str, str]):
                 )
 
 
-def validate_literal_fields(record: DBRecord, kwargs) -> None:
+def validate_literal_fields(record: SQLRecord, kwargs) -> None:
     """Validate all Literal type fields in a record.
 
     Args:
@@ -222,7 +224,7 @@ def validate_literal_fields(record: DBRecord, kwargs) -> None:
         raise FieldValidationError(message)
 
 
-def validate_fields(record: DBRecord, kwargs):
+def validate_fields(record: SQLRecord, kwargs):
     from lamindb.models import (
         Artifact,
         Collection,
@@ -277,8 +279,8 @@ def validate_fields(record: DBRecord, kwargs):
 
 
 def suggest_records_with_similar_names(
-    record: DBRecord, name_field: str, kwargs
-) -> DBRecord | None:
+    record: SQLRecord, name_field: str, kwargs
+) -> SQLRecord | None:
     """Returns True if found exact match, otherwise False.
 
     Logs similar matches if found.
@@ -319,10 +321,10 @@ def suggest_records_with_similar_names(
 
 RECORD_REGISTRY_EXAMPLE = """Example::
 
-        from lamindb import DBRecord, fields
+        from lamindb import SQLRecord, fields
 
-        # sub-classing `DBRecord` creates a new registry
-        class Experiment(DBRecord):
+        # sub-classing `SQLRecord` creates a new registry
+        class Experiment(SQLRecord):
             name: str = fields.CharField()
 
         # instantiating `Experiment` creates a record `experiment`
@@ -336,18 +338,18 @@ RECORD_REGISTRY_EXAMPLE = """Example::
 """
 
 
-# this is the metaclass for DBRecord
+# this is the metaclass for SQLRecord
 @doc_args(RECORD_REGISTRY_EXAMPLE)
 class Registry(ModelBase):
-    """Metaclass for :class:`~lamindb.models.DBRecord`.
+    """Metaclass for :class:`~lamindb.models.SQLRecord`.
 
-    Each `Registry` *object* is a `DBRecord` *class* and corresponds to a table in the metadata SQL database.
+    Each `Registry` *object* is a `SQLRecord` *class* and corresponds to a table in the metadata SQL database.
 
-    You work with `Registry` objects whenever you use *class methods* of `DBRecord`.
+    You work with `Registry` objects whenever you use *class methods* of `SQLRecord`.
 
-    You call any subclass of `DBRecord` a "registry" and their objects "records". A `DBRecord` object corresponds to a row in the SQL table.
+    You call any subclass of `SQLRecord` a "registry" and their objects "records". A `SQLRecord` object corresponds to a row in the SQL table.
 
-    If you want to create a new registry, you sub-class `DBRecord`.
+    If you want to create a new registry, you sub-class `SQLRecord`.
 
     {}
 
@@ -629,15 +631,16 @@ class Registry(ModelBase):
                 and not f.name.endswith("_id")
             }
             if cls.__name__ == "Artifact":
-                cls._available_fields.add("visibility")
+                cls._available_fields.add("visibility")  # backward compat
+                cls._available_fields.add("_branch_code")  # backward compat
                 cls._available_fields.add("transform")
         return cls._available_fields
 
 
-class BaseDBRecord(models.Model, metaclass=Registry):
+class BaseSQLRecord(models.Model, metaclass=Registry):
     """Basic metadata record.
 
-    It has the same methods as DBRecord, but doesn't have the additional fields.
+    It has the same methods as SQLRecord, but doesn't have the additional fields.
 
     It's mainly used for IsLinks and similar.
     """
@@ -652,7 +655,7 @@ class BaseDBRecord(models.Model, metaclass=Registry):
         skip_validation = kwargs.pop("_skip_validation", False)
         if not args:
             if (
-                issubclass(self.__class__, DBRecord)
+                issubclass(self.__class__, SQLRecord)
                 and self.__class__.__name__
                 not in {"Storage", "ULabel", "Feature", "Schema"}
                 # do not save bionty entities in restricted spaces by default
@@ -733,7 +736,7 @@ class BaseDBRecord(models.Model, metaclass=Registry):
             super().__init__(*args)
         track_current_key_and_name_values(self)
 
-    def save(self, *args, **kwargs) -> DBRecord:
+    def save(self, *args, **kwargs) -> SQLRecord:
         """Save.
 
         Always saves to the default database.
@@ -839,19 +842,17 @@ class BaseDBRecord(models.Model, metaclass=Registry):
                 if k != "run" and len(v) > 0:
                     logger.important(f"{k} records: {', '.join(v)}")
 
-        if (
-            self.__class__.__name__
-            in {
-                "Artifact",
-                "Transform",
-                "Run",
-                "ULabel",
-                "Feature",
-                "Schema",
-                "Collection",
-                "Reference",
-            }
-            and self._branch_code >= 1
+        if self.__class__.__name__ in {
+            "Artifact",
+            "Transform",
+            "Run",
+            "ULabel",
+            "Feature",
+            "Schema",
+            "Collection",
+            "Reference",
+        } and not (
+            self.__class__.__name__ == "Artifact" and self.kind == "__lamindb__"
         ):
             import lamindb as ln
 
@@ -884,7 +885,7 @@ class BaseDBRecord(models.Model, metaclass=Registry):
         super().delete()
 
 
-class Space(BaseDBRecord):
+class Space(BaseSQLRecord):
     """Spaces to restrict access to records to specific users or teams.
 
     You can use spaces to restrict access to records within an instance.
@@ -901,8 +902,8 @@ class Space(BaseDBRecord):
         editable=False,
         unique=True,
         max_length=12,
-        default="00000000",
-        db_default="00000000",
+        default="A",
+        db_default="A",
         db_index=True,
     )
     """Universal id."""
@@ -915,7 +916,61 @@ class Space(BaseDBRecord):
     created_by: User = ForeignKey(
         "User", CASCADE, default=None, related_name="+", null=True
     )
-    """Creator of run."""
+    """Creator of space."""
+
+    @overload
+    def __init__(
+        self,
+        name: str,
+        description: str | None = None,
+    ): ...
+
+    @overload
+    def __init__(
+        self,
+        *db_args,
+    ): ...
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+
+
+class Branch(BaseSQLRecord):
+    """Branches allow to group changes similar to how git branches group changes."""
+
+    id: int = models.AutoField(primary_key=True)
+    """An integer id that's synchronized for a family of coupled database instances.
+
+    Among all LaminDB instances, this id is arbitrary and non-unique.
+    """
+    name: str = models.CharField(max_length=100, db_index=True)
+    """Name of branch."""
+    uid: str = CharField(
+        editable=False,
+        unique=True,
+        max_length=12,
+        default="M",
+        db_default="M",
+        db_index=True,
+    )
+    """Universal id.
+
+    This id is useful if one wants to apply the same patch to many database instances.
+    """
+    description: str | None = CharField(null=True)
+    """Description of branch."""
+    created_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
+    """Time of creation of record."""
+    created_by: User = ForeignKey(
+        "User", CASCADE, default=None, related_name="+", null=True
+    )
+    """Creator of branch."""
 
     @overload
     def __init__(
@@ -939,25 +994,27 @@ class Space(BaseDBRecord):
 
 
 @doc_args(RECORD_REGISTRY_EXAMPLE)
-class DBRecord(BaseDBRecord, metaclass=Registry):
+class SQLRecord(BaseSQLRecord, metaclass=Registry):
     """Metadata record.
 
-    Every `DBRecord` is a data model that comes with a registry in form of a SQL
+    Every `SQLRecord` is a data model that comes with a registry in form of a SQL
     table in your database.
 
-    Sub-classing `DBRecord` creates a new registry while instantiating a `DBRecord`
+    Sub-classing `SQLRecord` creates a new registry while instantiating a `SQLRecord`
     creates a new record.
 
     {}
 
-    `DBRecord`'s metaclass is :class:`~lamindb.models.Registry`.
+    `SQLRecord`'s metaclass is :class:`~lamindb.models.Registry`.
 
-    `DBRecord` inherits from Django's `Model` class. Why does LaminDB call it `DBRecord`
-    and not `Model`? The term `DBRecord` can't lead to confusion with statistical,
+    `SQLRecord` inherits from Django's `Model` class. Why does LaminDB call it `SQLRecord`
+    and not `Model`? The term `SQLRecord` can't lead to confusion with statistical,
     machine learning or biological models.
     """
 
-    _branch_code: int = models.SmallIntegerField(db_index=True, default=1, db_default=1)
+    branch: int = ForeignKey(
+        Branch, PROTECT, default=1, db_default=1, db_column="_branch_code"
+    )
     """Whether record is on a branch or in another "special state".
 
     This dictates where a record appears in exploration, queries & searches,
@@ -989,8 +1046,18 @@ class DBRecord(BaseDBRecord, metaclass=Registry):
     class Meta:
         abstract = True
 
+    @property
+    @deprecated("branch_id")
+    def _branch_code(self) -> int:
+        """Deprecated alias for `branch`."""
+        return self.branch_id
 
-def _format_django_validation_error(record: DBRecord, e: DjangoValidationError):
+    @_branch_code.setter
+    def _branch_code(self, value: int):
+        self.branch_id = value
+
+
+def _format_django_validation_error(record: SQLRecord, e: DjangoValidationError):
     """Pretty print Django validation errors."""
     errors = {}
     if hasattr(e, "error_dict"):
@@ -1022,7 +1089,7 @@ def _format_django_validation_error(record: DBRecord, e: DjangoValidationError):
 
 
 def _get_record_kwargs(record_class) -> list[tuple[str, str]]:
-    """Gets the parameters of a DBRecord from the overloaded signature.
+    """Gets the parameters of a SQLRecord from the overloaded signature.
 
     Example:
         >>> get_record_params(bt.Organism)
@@ -1076,7 +1143,7 @@ def _get_record_kwargs(record_class) -> list[tuple[str, str]]:
 
 
 def get_name_field(
-    registry: type[DBRecord] | QuerySet | Manager,
+    registry: type[SQLRecord] | QuerySet | Manager,
     *,
     field: StrField | None = None,
 ) -> str:
@@ -1103,7 +1170,7 @@ def get_name_field(
         # no default name field can be found
         if field is None:
             raise ValueError(
-                "please pass a DBRecord string field, e.g., `CellType.name`!"
+                "please pass a SQLRecord string field, e.g., `CellType.name`!"
             )
         else:
             field = field.name  # type:ignore
@@ -1112,7 +1179,7 @@ def get_name_field(
             field = field.field.name
         except AttributeError:
             raise TypeError(
-                "please pass a DBRecord string field, e.g., `CellType.name`!"
+                "please pass a SQLRecord string field, e.g., `CellType.name`!"
             ) from None
 
     return field
@@ -1132,7 +1199,7 @@ REGISTRY_UNIQUE_FIELD = {"storage": "root", "feature": "name", "ulabel": "name"}
 
 
 def update_fk_to_default_db(
-    records: DBRecord | list[DBRecord] | QuerySet,
+    records: SQLRecord | list[SQLRecord] | QuerySet,
     fk: str,
     using_key: str | None,
     transfer_logs: dict,
@@ -1231,13 +1298,13 @@ def get_transfer_run(record) -> Run:
 
 
 def transfer_to_default_db(
-    record: DBRecord,
+    record: SQLRecord,
     using_key: str | None,
     *,
     transfer_logs: dict,
     save: bool = False,
     transfer_fk: bool = True,
-) -> DBRecord | None:
+) -> SQLRecord | None:
     if record._state.db is None or record._state.db == "default":
         return None
     registry = record.__class__
@@ -1268,7 +1335,7 @@ def transfer_to_default_db(
         i.name
         for i in record._meta.fields
         if i.get_internal_type() == "ForeignKey"
-        if i.name not in {"created_by", "run", "transform"}
+        if i.name not in {"created_by", "run", "transform", "branch"}
     ]
     if not transfer_fk:
         # don't transfer fk fields that are already bulk transferred
@@ -1282,7 +1349,7 @@ def transfer_to_default_db(
     return None
 
 
-def track_current_key_and_name_values(record: DBRecord):
+def track_current_key_and_name_values(record: SQLRecord):
     from lamindb.models import Artifact
 
     # below, we're using __dict__ to avoid triggering the refresh from the database
@@ -1294,7 +1361,7 @@ def track_current_key_and_name_values(record: DBRecord):
         record._old_name = record.__dict__.get(record._name_field)
 
 
-def check_name_change(record: DBRecord):
+def check_name_change(record: SQLRecord):
     """Warns if a record's name has changed."""
     from lamindb.models import Artifact, Collection, Feature, Schema, Transform
 
@@ -1340,7 +1407,7 @@ def check_name_change(record: DBRecord):
                     f'   → in each dataset, manually modify label "{old_name}" to "{new_name}"\n'
                     f"   → run `ln.Curator`\n"
                 )
-                raise DBRecordNameChangeIntegrityError
+                raise SQLRecordNameChangeIntegrityError
 
         # when a feature is renamed
         elif isinstance(record, Feature):
@@ -1360,7 +1427,7 @@ def check_name_change(record: DBRecord):
                     f"   → in each dataset, manually modify feature '{old_name}' to '{new_name}'\n"
                     f"   → run `ln.Curator`\n"
                 )
-                raise DBRecordNameChangeIntegrityError
+                raise SQLRecordNameChangeIntegrityError
 
 
 def check_key_change(record: Union[Artifact, Transform]):
@@ -1418,7 +1485,7 @@ def format_field_value(value: datetime | str | Any) -> Any:
         return value
 
 
-class DBRecordInfo:
+class SQLRecordInfo:
     def __init__(self, registry: Registry):
         self.registry = registry
 
@@ -1596,7 +1663,7 @@ class DBRecordInfo:
 def registry_repr(cls):
     """Shows fields."""
     repr_str = f"{colors.green(cls.__name__)}\n"
-    info = DBRecordInfo(cls)
+    info = SQLRecordInfo(cls)
     repr_str += info.get_simple_fields(return_str=True)
     repr_str += info.get_relational_fields(return_str=True)
     repr_str = repr_str.rstrip("\n")
@@ -1604,7 +1671,7 @@ def registry_repr(cls):
 
 
 def record_repr(
-    self: DBRecord, include_foreign_keys: bool = True, exclude_field_names=None
+    self: SQLRecord, include_foreign_keys: bool = True, exclude_field_names=None
 ) -> str:
     if exclude_field_names is None:
         exclude_field_names = ["id", "updated_at", "source_code"]
@@ -1643,7 +1710,7 @@ def record_repr(
 # below is code to further format the repr of a record
 #
 # def format_repr(
-#     record: DBRecord, exclude_field_names: str | list[str] | None = None
+#     record: SQLRecord, exclude_field_names: str | list[str] | None = None
 # ) -> str:
 #     if isinstance(exclude_field_names, str):
 #         exclude_field_names = [exclude_field_names]
@@ -1655,11 +1722,11 @@ def record_repr(
 #     )
 
 
-DBRecord.__repr__ = record_repr  # type: ignore
-DBRecord.__str__ = record_repr  # type: ignore
+SQLRecord.__repr__ = record_repr  # type: ignore
+SQLRecord.__str__ = record_repr  # type: ignore
 
 
-class Migration(BaseDBRecord):
+class Migration(BaseSQLRecord):
     app = CharField(max_length=255)
     name = CharField(max_length=255)
     applied: datetime = DateTimeField()
@@ -1670,6 +1737,6 @@ class Migration(BaseDBRecord):
 
 
 LinkORM = IsLink  # backward compat
-Record = DBRecord  # backward compat
-BasicRecord = BaseDBRecord  # backward compat
-RecordInfo = DBRecordInfo  # backward compat
+Record = SQLRecord  # backward compat
+BasicRecord = BaseSQLRecord  # backward compat
+RecordInfo = SQLRecordInfo  # backward compat

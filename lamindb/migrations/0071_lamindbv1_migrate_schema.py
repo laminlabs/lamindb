@@ -326,7 +326,7 @@ class Migration(migrations.Migration):
                 WHERE dtype = 'number'
             """
         ),
-        # an aux field on DBRecord
+        # an aux field on SQLRecord
         migrations.AddField(
             model_name="artifact",
             name="aux",
@@ -670,7 +670,7 @@ class Migration(migrations.Migration):
             old_name="n_objects",
             new_name="n_files",
         ),
-        # let feature value and paramvalue inherit from DBRecord
+        # let feature value and paramvalue inherit from SQLRecord
         migrations.AddField(
             model_name="featurevalue",
             name="_branch_code",
