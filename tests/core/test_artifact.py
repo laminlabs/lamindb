@@ -23,7 +23,7 @@ import yaml  # type: ignore
 from _dataset_fixtures import get_small_adata, get_small_mdata, get_small_sdata  # noqa
 from lamindb.core._settings import settings
 from lamindb.core.loaders import load_fcs, load_to_memory, load_tsv
-from lamindb.core.storage._zarr import identify_zarr_type, write_adata_zarr
+from lamindb.core.storage._zarr import identify_zarr_type
 from lamindb.core.storage.paths import (
     AUTO_KEY_PREFIX,
     auto_storage_key_from_artifact_uid,
@@ -471,12 +471,11 @@ def test_create_from_local_filepath(
         )
         return None
     elif key is not None and suffix != key_suffix:
-        try:
+        with pytest.raises(InvalidArgument) as error:
             artifact = ln.Artifact(test_filepath, key=key, description=description)
-        except InvalidArgument as error:
-            assert str(error) == (
-                f"The suffix '{suffix}' of the provided path is inconsistent, it should be '{key_suffix}'"
-            )
+        assert error.exconly() == (
+            f"lamindb.errors.InvalidArgument: The passed path's suffix '{suffix}' must match the passed key's suffix '{key_suffix}'."
+        )
         return None
     elif key is not None and is_in_registered_storage:
         inferred_key = get_relative_path_to_directory(
@@ -586,27 +585,25 @@ def test_from_dir_many_artifacts(get_test_filepaths, key):
 
 def test_delete_and_restore_artifact(df):
     artifact = ln.Artifact.from_df(df, description="My test file to delete").save()
-    assert artifact._branch_code == 1
+    assert artifact.branch_id == 1
     assert artifact.key is None or artifact._key_is_virtual
     storage_path = artifact.path
     # trash behavior
     artifact.delete()
     assert storage_path.exists()
-    assert artifact._branch_code == -1
+    assert artifact.branch_id == -1
     assert ln.Artifact.filter(description="My test file to delete").first() is None
     assert ln.Artifact.filter(
-        description="My test file to delete", _branch_code=-1
+        description="My test file to delete", branch_id=-1
     ).first()
     # implicit restore from trash
     artifact_restored = ln.Artifact.from_df(df, description="My test file to delete")
-    assert artifact_restored._branch_code == 1
+    assert artifact_restored.branch_id == 1
     assert artifact_restored == artifact
     # permanent delete
     artifact.delete(permanent=True)
     assert (
-        ln.Artifact.filter(
-            description="My test file to delete", _branch_code=None
-        ).first()
+        ln.Artifact.filter(description="My test file to delete", branch_id=None).first()
         is None
     )
     assert not storage_path.exists()  # deletes from storage is key_is_virtual
@@ -628,7 +625,7 @@ def test_delete_and_restore_artifact(df):
     assert (
         ln.Artifact.filter(
             description="My test file to delete from non-default storage",
-            _branch_code=None,
+            branch_id=None,
         ).first()
         is None
     )
@@ -872,11 +869,8 @@ def test_zarr_upload_cache(get_small_adata):
     previous_storage = ln.setup.settings.storage.root_as_str
     ln.settings.storage = "s3://lamindb-test/core"
 
-    def callback(*args, **kwargs):
-        pass
-
     zarr_path = Path("./test_adata.zarr")
-    write_adata_zarr(get_small_adata, zarr_path, callback)
+    get_small_adata.write_zarr(zarr_path)
 
     artifact = ln.Artifact(zarr_path, key="test_adata.zarr")
     assert artifact.otype == "AnnData"
@@ -935,7 +929,7 @@ def test_df_suffix(df):
         artifact = ln.Artifact.from_df(df, key="test_.def")
     assert (
         error.exconly().partition(",")[0]
-        == "lamindb.errors.InvalidArgument: The suffix '.def' of the provided key is inconsistent"
+        == "lamindb.errors.InvalidArgument: The passed key's suffix '.def' must match the passed path's suffix '.parquet'."
     )
 
 
@@ -960,7 +954,7 @@ def test_adata_suffix(get_small_adata):
         artifact = ln.Artifact.from_anndata(get_small_adata, key="test_")
     assert (
         error.exconly().partition(",")[0]
-        == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is inconsistent"
+        == "lamindb.errors.InvalidArgument: The passed key's suffix '' must match the passed path's suffix '.h5ad'."
     )
 
 
@@ -985,7 +979,7 @@ def test_bulk_delete():
         len(
             ln.Artifact.filter(
                 id__in=[environment.id, report.id],
-                _branch_code=-1,
+                branch_id=-1,
             )
             .distinct()
             .all()
@@ -993,7 +987,7 @@ def test_bulk_delete():
         == 2
     )
 
-    ln.Artifact.filter(id__in=[environment.id, report.id], _branch_code=-1).delete(
+    ln.Artifact.filter(id__in=[environment.id, report.id], branch_id=-1).delete(
         permanent=True
     )
     # now they're gone
@@ -1001,7 +995,7 @@ def test_bulk_delete():
         len(
             ln.Artifact.filter(
                 id__in=[environment.id, report.id],
-                _branch_code=None,
+                branch_id=None,
             )
             .distinct()
             .all()

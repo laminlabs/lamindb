@@ -28,12 +28,12 @@ from lamindb.errors import FieldValidationError, ValidationError
 from ..base.ids import base62_12
 from ._relations import dict_module_name_to_model_name
 from .can_curate import CanCurate
-from .dbrecord import BaseDBRecord, DBRecord, Registry, _get_record_kwargs
-from .query_set import DBRecordList
+from .query_set import SQLRecordList
 from .run import (
     TracksRun,
     TracksUpdates,
 )
+from .sqlrecord import BaseSQLRecord, Registry, SQLRecord, _get_record_kwargs
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -71,7 +71,7 @@ def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
 
 def parse_cat_dtype(
     dtype_str: str,
-    related_registries: dict[str, DBRecord] | None = None,
+    related_registries: dict[str, SQLRecord] | None = None,
     is_itype: bool = False,
 ) -> dict[str, Any]:
     """Parses a categorical dtype string into its components (registry, field, subtypes)."""
@@ -119,8 +119,17 @@ def parse_cat_dtype(
         if "." in registry_str:
             registry_str_split = registry_str.split(".")
             assert len(registry_str_split) == 2, registry_str  # noqa: S101
-            module_name, class_name = registry_str_split
-            module_name = get_schema_module_name(module_name)
+            module_name_attempt, class_name = registry_str_split
+            module_name = get_schema_module_name(
+                module_name_attempt, raise_import_error=False
+            )
+            if module_name is None:
+                raise ImportError(
+                    f"Can not parse dtype {dtype_str} because {module_name_attempt} "
+                    f"was not found.\nInstall the module with `pip install {module_name_attempt}`\n"
+                    "and also add the module to this instance via instance settings page "
+                    "under 'schema modules'."
+                )
         else:
             module_name, class_name = "lamindb", registry_str
         module = importlib.import_module(module_name)
@@ -143,10 +152,11 @@ def parse_cat_dtype(
 
 
 def serialize_dtype(
-    dtype: Registry | DBRecord | FieldAttr | list[DBRecord] | list[Registry] | str,
+    dtype: Registry | SQLRecord | FieldAttr | list[SQLRecord] | list[Registry] | str,
     is_itype: bool = False,
 ) -> str:
     """Converts a data type object into its string representation."""
+    from .record import Record
     from .ulabel import ULabel
 
     if (
@@ -167,21 +177,24 @@ def serialize_dtype(
         dtype_str = serialize_pandas_dtype(dtype)
     else:
         error_message = "dtype has to be a registry, a ulabel subtype, a registry field, or a list of registries or fields, not {}"
-        if isinstance(dtype, (Registry, DeferredAttribute, ULabel)):
+        if isinstance(dtype, (Registry, DeferredAttribute, ULabel, Record)):
             dtype = [dtype]
         elif not isinstance(dtype, list):
             raise ValueError(error_message.format(dtype))
         dtype_str = ""
         for one_dtype in dtype:
-            if not isinstance(one_dtype, (Registry, DeferredAttribute, ULabel)):
+            if not isinstance(one_dtype, (Registry, DeferredAttribute, ULabel, Record)):
                 raise ValueError(error_message.format(one_dtype))
             if isinstance(one_dtype, Registry):
                 dtype_str += one_dtype.__get_name_with_module__() + "|"
-            elif isinstance(one_dtype, ULabel):
+            elif isinstance(one_dtype, (ULabel, Record)):
                 assert one_dtype.is_type, (  # noqa: S101
                     f"ulabel has to be a type if acting as dtype, {one_dtype} has `is_type` False"
                 )
-                dtype_str += f"ULabel[{one_dtype.name}]"
+                if isinstance(one_dtype, ULabel):
+                    dtype_str += f"ULabel[{one_dtype.name}]"
+                else:
+                    dtype_str += f"Record[{one_dtype.name}]"
             else:
                 name = one_dtype.field.name
                 field_ext = f".{name}" if name != "name" else ""
@@ -247,7 +260,7 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
     return kwargs
 
 
-class Feature(DBRecord, CanCurate, TracksRun, TracksUpdates):
+class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Variables, such as dataframe columns or run parameters.
 
     A feature often represents a dimension of a dataset, such as a column in a
@@ -337,7 +350,7 @@ class Feature(DBRecord, CanCurate, TracksRun, TracksUpdates):
 
     """
 
-    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _name_field: str = "name"
@@ -358,14 +371,14 @@ class Feature(DBRecord, CanCurate, TracksRun, TracksUpdates):
     dtype: Dtype | None = CharField(db_index=True, null=True)
     """Data type (:class:`~lamindb.base.types.Dtype`)."""
     type: Feature | None = ForeignKey(
-        "self", PROTECT, null=True, related_name="records"
+        "self", PROTECT, null=True, related_name="instances"
     )
     """Type of feature (e.g., 'Readout', 'Metric', 'Metadata', 'ExpertAnnotation', 'ModelPrediction').
 
     Allows to group features by type, e.g., all read outs, all metrics, etc.
     """
-    records: Feature
-    """DBRecords of this type."""
+    instances: Feature
+    """Instances of features of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     unit: str | None = CharField(max_length=30, db_index=True, null=True)
@@ -484,7 +497,7 @@ class Feature(DBRecord, CanCurate, TracksRun, TracksUpdates):
                 )
 
     @classmethod
-    def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> DBRecordList:
+    def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> SQLRecordList:
         """Create Feature records for columns."""
         field = Feature.name if field is None else field
         registry = field.field.model  # type: ignore
@@ -502,7 +515,7 @@ class Feature(DBRecord, CanCurate, TracksRun, TracksUpdates):
                 Feature(name=name, dtype=dtype) for name, dtype in dtypes.items()
             ]  # type: ignore
         assert len(features) == len(df.columns)  # noqa: S101
-        return DBRecordList(features)
+        return SQLRecordList(features)
 
     def save(self, *args, **kwargs) -> Feature:
         """Save."""
@@ -606,7 +619,7 @@ class Feature(DBRecord, CanCurate, TracksRun, TracksUpdates):
     #         return "Artifact"
 
 
-class FeatureValue(DBRecord, TracksRun):
+class FeatureValue(SQLRecord, TracksRun):
     """Non-categorical features values.
 
     Categorical feature values are stored in their respective registries:
@@ -634,7 +647,7 @@ class FeatureValue(DBRecord, TracksRun):
     hash: str = CharField(max_length=HASH_LENGTH, null=True, db_index=True)
     """Value hash."""
 
-    class Meta(BaseDBRecord.Meta, TracksRun.Meta):
+    class Meta(BaseSQLRecord.Meta, TracksRun.Meta):
         constraints = [
             # For simple types, use direct value comparison
             models.UniqueConstraint(

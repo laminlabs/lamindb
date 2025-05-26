@@ -53,7 +53,7 @@ Here is how to create a feature:
     ln.Feature(name="param3", dtype="float").save()
     ln.context.track(transform=successor, params=params)
     print("outside", id(ln.context))
-    assert ln.context.run.params.get_values() == params
+    assert ln.context.run.features.get_values() == params
     # second invocation
     params = {"param1": 1, "param2": "my-string", "param3": 3.14, "param4": [1, 2]}
     param4 = ln.Feature(name="param4", dtype="int").save()

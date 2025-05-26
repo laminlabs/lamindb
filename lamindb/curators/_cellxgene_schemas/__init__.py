@@ -3,7 +3,7 @@ from lamin_utils import logger
 from lamindb_setup.core.upath import UPath
 
 from lamindb.base.types import FieldAttr
-from lamindb.models import DBRecord, ULabel
+from lamindb.models import SQLRecord, ULabel
 from lamindb.models._from_values import _format_values
 
 RESERVED_NAMES = {
@@ -92,11 +92,11 @@ def _add_defaults_to_obs(obs: pd.DataFrame, defaults: dict[str, str]) -> None:
 
 def _create_sources(
     categoricals: dict[str, FieldAttr], schema_version: str, organism: str
-) -> dict[str, DBRecord]:
+) -> dict[str, SQLRecord]:
     """Creates a sources dictionary that can be passed to AnnDataCatManager."""
     import bionty as bt
 
-    def _fetch_bionty_source(entity: str, organism: str) -> DBRecord | None:  # type: ignore
+    def _fetch_bionty_source(entity: str, organism: str) -> SQLRecord | None:  # type: ignore
         """Fetch the Bionty source of the pinned ontology."""
         entity_sources = sources_df.loc[(sources_df.entity == entity)].copy()
         if not entity_sources.empty:

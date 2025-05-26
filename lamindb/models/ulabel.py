@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, overload
 from django.db import models
 from django.db.models import CASCADE, PROTECT
 
+from lamindb.base import deprecated
 from lamindb.base.fields import (
     BooleanField,
     CharField,
@@ -15,10 +16,10 @@ from lamindb.errors import FieldValidationError
 
 from ..base.ids import base62_8
 from .can_curate import CanCurate
-from .dbrecord import BaseDBRecord, DBRecord, IsLink, _get_record_kwargs
 from .feature import Feature
 from .has_parents import HasParents
 from .run import Run, TracksRun, TracksUpdates, User, current_user_id
+from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, _get_record_kwargs
 from .transform import Transform
 
 if TYPE_CHECKING:
@@ -29,7 +30,7 @@ if TYPE_CHECKING:
     from .project import Project
 
 
-class ULabel(DBRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
+class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Universal labels.
 
     Args:
@@ -86,7 +87,7 @@ class ULabel(DBRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
         >>> ln.Artifact.filter(ulabels=train_split).df()
     """
 
-    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _name_field: str = "name"
@@ -99,13 +100,15 @@ class ULabel(DBRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
     """A universal random id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True)
     """Name or title of ulabel."""
-    type: ULabel | None = ForeignKey("self", PROTECT, null=True, related_name="records")
+    type: ULabel | None = ForeignKey(
+        "self", PROTECT, null=True, related_name="instances"
+    )
     """Type of ulabel, e.g., `"donor"`, `"split"`, etc.
 
     Allows to group ulabels by type, e.g., all donors, all split ulabels, etc.
     """
-    records: ULabel
-    """DBRecords of this type."""
+    instances: ULabel
+    """Instances of this type."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type.
 
@@ -193,8 +196,14 @@ class ULabel(DBRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
             _aux=_aux,
         )
 
+    @property
+    @deprecated("instances")
+    def records(self) -> list[ULabel]:
+        """Return all instances of this type."""
+        return self.instances
 
-class ArtifactULabel(BaseDBRecord, IsLink, TracksRun):
+
+class ArtifactULabel(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey("Artifact", CASCADE, related_name="links_ulabel")
     ulabel: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_artifact")
@@ -210,7 +219,7 @@ class ArtifactULabel(BaseDBRecord, IsLink, TracksRun):
         unique_together = ("artifact", "ulabel", "feature")
 
 
-class TransformULabel(BaseDBRecord, IsLink, TracksRun):
+class TransformULabel(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     transform: Transform = ForeignKey(Transform, CASCADE, related_name="links_ulabel")
     ulabel: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_transform")
@@ -219,7 +228,7 @@ class TransformULabel(BaseDBRecord, IsLink, TracksRun):
         unique_together = ("transform", "ulabel")
 
 
-class RunULabel(BaseDBRecord, IsLink):
+class RunULabel(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     run: Run = ForeignKey(Run, CASCADE, related_name="links_ulabel")
     ulabel: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_run")
@@ -236,7 +245,7 @@ class RunULabel(BaseDBRecord, IsLink):
         unique_together = ("run", "ulabel")
 
 
-class CollectionULabel(BaseDBRecord, IsLink, TracksRun):
+class CollectionULabel(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     collection: Collection = ForeignKey(
         "Collection", CASCADE, related_name="links_ulabel"

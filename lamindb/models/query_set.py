@@ -18,8 +18,8 @@ from lamindb_setup.core._docs import doc_args
 from ..errors import DoesNotExist
 from ._is_versioned import IsVersioned
 from .can_curate import CanCurate, _inspect, _standardize, _validate
-from .dbrecord import DBRecord
 from .query_manager import _lookup, _search
+from .sqlrecord import SQLRecord
 
 if TYPE_CHECKING:
     from lamindb.base.types import ListLike, StrField
@@ -40,7 +40,7 @@ pd.set_option("display.max_columns", 200)
 #     return (series + timedelta).dt.strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
-def get_keys_from_df(data: list, registry: DBRecord) -> list[str]:
+def get_keys_from_df(data: list, registry: SQLRecord) -> list[str]:
     if len(data) > 0:
         if isinstance(data[0], dict):
             keys = list(data[0].keys())
@@ -80,11 +80,13 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
 
     if queryset.model in {Collection, Transform}:
         name_mappings = {
-            "visibility": "_branch_code",
+            "visibility": "branch_id",
+            "_branch_code": "branch_id",
         }
     elif queryset.model == Artifact:
         name_mappings = {
-            "visibility": "_branch_code",
+            "visibility": "branch_id",
+            "_branch_code": "branch_id",
             "transform": "run__transform",
         }
     else:
@@ -108,7 +110,7 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
 
 def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
     def _map_databases(value: Any, key: str, target_db: str) -> tuple[str, Any]:
-        if isinstance(value, DBRecord):
+        if isinstance(value, SQLRecord):
             if value._state.db != target_db:
                 logger.warning(
                     f"passing record from database {value._state.db} to query {target_db}, matching on uid '{value.uid}'"
@@ -121,12 +123,14 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
             and isinstance(value, IterableType)
             and not isinstance(value, str)
         ):
-            if any(isinstance(v, DBRecord) and v._state.db != target_db for v in value):
+            if any(
+                isinstance(v, SQLRecord) and v._state.db != target_db for v in value
+            ):
                 logger.warning(
                     f"passing records from another database to query {target_db}, matching on uids"
                 )
                 return key.replace("__in", "__uid__in"), [
-                    v.uid if isinstance(v, DBRecord) else v for v in value
+                    v.uid if isinstance(v, SQLRecord) else v for v in value
                 ]
             return key, value
 
@@ -137,21 +141,21 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
         expressions,
     )
 
-    if issubclass(queryset.model, DBRecord):
-        # _branch_code is set to 0 unless expressions contains id or uid
+    if issubclass(queryset.model, SQLRecord):
+        # branch_id is set to 0 unless expressions contains id or uid
         if not (
             "id" in expressions
             or "uid" in expressions
             or "uid__startswith" in expressions
         ):
-            _branch_code = "_branch_code"
-            if not any(e.startswith(_branch_code) for e in expressions):
-                expressions[_branch_code] = 1  # default _branch_code
-            # if _branch_code is None, do not apply a filter
+            branch_id = "branch_id"
+            if not any(e.startswith(branch_id) for e in expressions):
+                expressions[branch_id] = 1  # default branch_id
+            # if branch_id is None, do not apply a filter
             # otherwise, it would mean filtering for NULL values, which doesn't make
             # sense for a non-NULLABLE column
-            elif _branch_code in expressions and expressions[_branch_code] is None:
-                expressions.pop(_branch_code)
+            elif branch_id in expressions and expressions[branch_id] is None:
+                expressions.pop(branch_id)
     if queryset._db is not None:
         # only check for database mismatch if there is a defined database on the
         # queryset
@@ -166,10 +170,10 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
 
 
 def get(
-    registry_or_queryset: Union[type[DBRecord], QuerySet],
+    registry_or_queryset: Union[type[SQLRecord], QuerySet],
     idlike: int | str | None = None,
     **expressions,
-) -> DBRecord:
+) -> SQLRecord:
     if isinstance(registry_or_queryset, QuerySet):
         qs = registry_or_queryset
         registry = qs.model
@@ -196,8 +200,8 @@ def get(
     else:
         assert idlike is None  # noqa: S101
         expressions = process_expressions(qs, expressions)
-        # don't want _branch_code here in .get(), only in .filter()
-        expressions.pop("_branch_code", None)
+        # don't want branch_id here in .get(), only in .filter()
+        expressions.pop("branch_id", None)
         # inject is_latest for consistency with idlike
         is_latest_was_not_in_expressions = "is_latest" not in expressions
         if issubclass(registry, IsVersioned) and is_latest_was_not_in_expressions:
@@ -219,7 +223,7 @@ def get(
             raise registry.DoesNotExist from registry.DoesNotExist
 
 
-class DBRecordList(UserList, Generic[T]):
+class SQLRecordList(UserList, Generic[T]):
     """Is ordered, can't be queried, but has `.df()`."""
 
     def __init__(self, records: Iterable[T]):
@@ -242,7 +246,7 @@ class DBRecordList(UserList, Generic[T]):
         """Exactly one result. Throws error if there are more or none."""
         return one_helper(self)
 
-    def save(self) -> DBRecordList[T]:
+    def save(self) -> SQLRecordList[T]:
         """Save all records to the database."""
         from lamindb.models.save import save
 
@@ -277,7 +281,7 @@ def get_basic_field_names(
         "created_by_id",
         "updated_at",
         "_aux",
-        "_branch_code",
+        "branch_id",
     ]:
         if field_name in field_names:
             field_names.remove(field_name)
@@ -359,7 +363,7 @@ def get_feature_annotate_kwargs(
 
 # https://claude.ai/share/16280046-6ae5-4f6a-99ac-dec01813dc3c
 def analyze_lookup_cardinality(
-    model_class: DBRecord, lookup_paths: list[str] | None
+    model_class: SQLRecord, lookup_paths: list[str] | None
 ) -> dict[str, str]:
     """Analyze lookup cardinality.
 
@@ -590,7 +594,7 @@ class BasicQuerySet(models.QuerySet):
             new_cls = cls
         return object.__new__(new_cls)
 
-    @doc_args(DBRecord.df.__doc__)
+    @doc_args(SQLRecord.df.__doc__)
     def df(
         self,
         include: str | list[str] | None = None,
@@ -670,7 +674,7 @@ class BasicQuerySet(models.QuerySet):
         else:
             super().delete(*args, **kwargs)
 
-    def list(self, field: str | None = None) -> list[DBRecord] | list[str]:
+    def list(self, field: str | None = None) -> list[SQLRecord] | list[str]:
         """Populate an (unordered) list with the results.
 
         Note that the order in this list is only meaningful if you ordered the underlying query set with `.order_by()`.
@@ -685,7 +689,7 @@ class BasicQuerySet(models.QuerySet):
             # list casting is necessary because values_list does not return a list
             return list(self.values_list(field, flat=True))
 
-    def first(self) -> DBRecord | None:
+    def first(self) -> SQLRecord | None:
         """If non-empty, the first result in the query set, otherwise ``None``.
 
         Examples:
@@ -695,11 +699,11 @@ class BasicQuerySet(models.QuerySet):
             return None
         return self[0]
 
-    def one(self) -> DBRecord:
+    def one(self) -> SQLRecord:
         """Exactly one result. Raises error if there are more or none."""
         return one_helper(self)
 
-    def one_or_none(self) -> DBRecord | None:
+    def one_or_none(self) -> SQLRecord | None:
         """At most one result. Returns it if there is one, otherwise returns ``None``.
 
         Examples:
@@ -718,7 +722,7 @@ class BasicQuerySet(models.QuerySet):
         if issubclass(self.model, IsVersioned):
             return self.filter(is_latest=True)
         else:
-            raise ValueError("DBRecord isn't subclass of `lamindb.core.IsVersioned`")
+            raise ValueError("SQLRecord isn't subclass of `lamindb.core.IsVersioned`")
 
     @doc_args(_search.__doc__)
     def search(self, string: str, **kwargs):
@@ -775,13 +779,16 @@ class QuerySet(BasicQuerySet):
         """Suggest available fields if an unknown field was passed."""
         if "Cannot resolve keyword" in str(error):
             field = str(error).split("'")[1]
-            fields = ", ".join(sorted(self.model.__get_available_fields__()))
+            avail_fields = self.model.__get_available_fields__()
+            if "_branch_code" in avail_fields:
+                avail_fields.remove("_branch_code")  # backward compat
+            fields = ", ".join(sorted(avail_fields))
             raise FieldError(
                 f"Unknown field '{field}'. Available fields: {fields}"
             ) from None
         raise error  # pragma: no cover
 
-    def get(self, idlike: int | str | None = None, **expressions) -> DBRecord:
+    def get(self, idlike: int | str | None = None, **expressions) -> SQLRecord:
         """Query a single record. Raises error if there are more or none."""
         is_run_input = expressions.pop("is_run_input", False)
 

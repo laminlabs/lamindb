@@ -36,16 +36,16 @@ from .artifact import (
     get_run,
     save_schema_links,
 )
-from .dbrecord import (
-    BaseDBRecord,
-    DBRecord,
+from .has_parents import view_lineage
+from .run import Run, TracksRun, TracksUpdates
+from .sqlrecord import (
+    BaseSQLRecord,
     IsLink,
+    SQLRecord,
     _get_record_kwargs,
     init_self_from_db,
     update_attributes,
 )
-from .has_parents import view_lineage
-from .run import Run, TracksRun, TracksUpdates
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -128,7 +128,7 @@ def _load_concat_artifacts(
     return concat_object
 
 
-class Collection(DBRecord, IsVersioned, TracksRun, TracksUpdates):
+class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """Collections of artifacts.
 
     Collections provide a simple way of versioning collections of artifacts.
@@ -158,7 +158,7 @@ class Collection(DBRecord, IsVersioned, TracksRun, TracksUpdates):
 
     """
 
-    class Meta(DBRecord.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(SQLRecord.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _len_full_uid: int = 20
@@ -272,7 +272,7 @@ class Collection(DBRecord, IsVersioned, TracksRun, TracksUpdates):
         run: Run | None = kwargs.pop("run", None)
         revises: Collection | None = kwargs.pop("revises", None)
         version: str | None = kwargs.pop("version", None)
-        _branch_code: int | None = kwargs.pop("_branch_code", 1)
+        branch_id: int | None = kwargs.pop("branch_id", 1)
         key: str
         if "name" in kwargs:
             key = kwargs.pop("name")
@@ -340,7 +340,7 @@ class Collection(DBRecord, IsVersioned, TracksRun, TracksUpdates):
                 hash=hash,
                 run=run,
                 version=version,
-                _branch_code=_branch_code,
+                branch_id=branch_id,
                 revises=revises,
                 _skip_validation=_skip_validation,
             )
@@ -368,7 +368,7 @@ class Collection(DBRecord, IsVersioned, TracksRun, TracksUpdates):
             :exc:`docs:lamindb.errors.DoesNotExist`: In case no matching record is found.
 
         See Also:
-            - Method in `DBRecord` base class: :meth:`~lamindb.models.DBRecord.get`
+            - Method in `SQLRecord` base class: :meth:`~lamindb.models.SQLRecord.get`
 
         Examples:
 
@@ -589,14 +589,12 @@ class Collection(DBRecord, IsVersioned, TracksRun, TracksUpdates):
 
             >>> collection.delete()
         """
-        # change _branch_code to trash
-        trash__branch_code = -1
-        if self._branch_code > trash__branch_code and permanent is not True:
-            self._branch_code = trash__branch_code
+        # change branch_id to trash
+        trash_branch_id = -1
+        if self.branch_id > trash_branch_id and permanent is not True:
+            self.branch_id = trash_branch_id
             self.save()
-            logger.warning(
-                f"moved collection to trash (_branch_code = {trash__branch_code})"
-            )
+            logger.warning(f"moved collection to trash (branch_id = {trash_branch_id})")
             return
 
         # permanent delete
@@ -651,7 +649,7 @@ class Collection(DBRecord, IsVersioned, TracksRun, TracksUpdates):
 
             >>> collection.restore()
         """
-        self._branch_code = 1
+        self.branch_id = 1
         self.save()
 
     @property
@@ -723,7 +721,7 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
     return hash
 
 
-class CollectionArtifact(BaseDBRecord, IsLink, TracksRun):
+class CollectionArtifact(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     collection: Collection = ForeignKey(
         Collection, CASCADE, related_name="links_artifact"

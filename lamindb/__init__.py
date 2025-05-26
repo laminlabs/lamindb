@@ -36,9 +36,17 @@ Validate and annotate artifacts.
 .. autosummary::
    :toctree: .
 
-   ULabel
    Feature
+   ULabel
    Schema
+
+Manage flexible records to track, e.g., samples or donors.
+
+.. autosummary::
+   :toctree: .
+
+   Record
+   Sheet
 
 Manage projects.
 
@@ -49,6 +57,8 @@ Manage projects.
    Collection
    Project
    Space
+   Branch
+   WriteLog
    Reference
    Person
 
@@ -146,6 +156,8 @@ if _check_instance_setup(from_module="lamindb"):
         ULabel,
         User,
         Space,
+        Record,
+        Sheet,
     )
     from .models.save import save
     from . import core
