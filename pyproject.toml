@@ -26,6 +26,9 @@ dependencies = [
     "typing_extensions!=4.6.0",
     "python-dateutil",
     "pandas>=2.0.0", # for .infer_objects(copy=False) in lamin-utils
+    # backed sparse is incompatible with 1.15.0 for anndata 1.11.1
+    # vitessce requires anndata<=1.11.0 now
+    "scipy<1.15.0",
     "anndata>=0.8.0,<=0.11.4",  # will upgrade to new anndata releases
     "fsspec",
     "graphviz",
