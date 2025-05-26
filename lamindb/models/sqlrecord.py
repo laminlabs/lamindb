@@ -848,14 +848,13 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             "Schema",
             "Collection",
             "Reference",
-        }:
-            if self.__class__.__name__ == "Artifact" and self.kind == "__lamindb__":
-                pass
-            else:
-                import lamindb as ln
+        } and not (
+            self.__class__.__name__ == "Artifact" and self.kind == "__lamindb__"
+        ):
+            import lamindb as ln
 
-                if ln.context.project is not None:
-                    self.projects.add(ln.context.project)
+            if ln.context.project is not None:
+                self.projects.add(ln.context.project)
         return self
 
     def delete(self) -> None:
