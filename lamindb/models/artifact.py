@@ -1591,7 +1591,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     sorted(np.array(keys_normalized)[~features_validated])
                 )
                 message = f"feature names: {features}"
-                fields = ", ".join(sorted(cls.__get_available_fields__()))
+                avail_fields = cls.__get_available_fields__()
+                if "_branch_code" in avail_fields:
+                    avail_fields.remove("_branch_code")  # backward compat
+                fields = ", ".join(sorted(avail_fields))
                 raise InvalidArgument(
                     f"You can query either by available fields: {fields}\n"
                     f"Or fix invalid {message}"

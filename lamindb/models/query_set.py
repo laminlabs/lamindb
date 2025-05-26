@@ -81,10 +81,12 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
     if queryset.model in {Collection, Transform}:
         name_mappings = {
             "visibility": "branch_id",
+            "_branch_code": "branch_id",
         }
     elif queryset.model == Artifact:
         name_mappings = {
             "visibility": "branch_id",
+            "_branch_code": "branch_id",
             "transform": "run__transform",
         }
     else:
@@ -777,7 +779,10 @@ class QuerySet(BasicQuerySet):
         """Suggest available fields if an unknown field was passed."""
         if "Cannot resolve keyword" in str(error):
             field = str(error).split("'")[1]
-            fields = ", ".join(sorted(self.model.__get_available_fields__()))
+            avail_fields = self.model.__get_available_fields__()
+            if "_branch_code" in avail_fields:
+                avail_fields.remove("_branch_code")  # backward compat
+            fields = ", ".join(sorted(avail_fields))
             raise FieldError(
                 f"Unknown field '{field}'. Available fields: {fields}"
             ) from None
