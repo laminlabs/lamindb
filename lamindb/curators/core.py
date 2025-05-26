@@ -488,7 +488,15 @@ class DataFrameCurator(Curator):
                 are_lists = (
                     False
                     if feature.name not in self._dataset.keys()
-                    else isinstance(self._dataset[feature.name][0], (list, np.ndarray))
+                    else (
+                        hasattr(self._dataset[feature.name], "__len__")
+                        and len(self._dataset[feature.name]) > 0
+                        and all(
+                            isinstance(item, (list, np.ndarray))
+                            for item in self._dataset[feature.name]
+                            if pd.notna(item)
+                        )
+                    )
                 )
                 if feature.dtype in {"int", "float", "num"} or are_lists:
                     if isinstance(self._dataset, pd.DataFrame):
@@ -1568,16 +1576,23 @@ def annotate_artifact(
 
 
 def _flatten_unique(series: pd.Series[list[Any] | Any]) -> list[Any]:
-    """Flatten a Pandas series containing lists or single items into a unique list of elements."""
-    result = set()
+    """Flatten a Pandas series containing lists or single items into a unique list of elements.
+
+    The order of elements in the result list preserves the order they first appear in the input series.
+    """
+    # Use dict.fromkeys to preserve order while ensuring uniqueness
+    result: dict = {}
 
     for item in series:
         if isinstance(item, list | np.ndarray):
-            result.update(item)
+            # Add each element to the dict (only first occurrence is kept)
+            for element in item:
+                result[element] = None
         else:
-            result.add(item)
+            result[item] = None
 
-    return list(result)
+    # Return the keys as a list, preserving order
+    return list(result.keys())
 
 
 def _save_organism(name: str):
