@@ -631,7 +631,8 @@ class Registry(ModelBase):
                 and not f.name.endswith("_id")
             }
             if cls.__name__ == "Artifact":
-                cls._available_fields.add("visibility")
+                cls._available_fields.add("visibility")  # backward compat
+                cls._available_fields.add("_branch_code")  # backward compat
                 cls._available_fields.add("transform")
         return cls._available_fields
 
@@ -1046,7 +1047,7 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         abstract = True
 
     @property
-    @deprecated
+    @deprecated("branch_id")
     def _branch_code(self) -> int:
         """Deprecated alias for `branch`."""
         return self.branch_id
