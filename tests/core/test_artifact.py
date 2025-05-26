@@ -23,7 +23,7 @@ import yaml  # type: ignore
 from _dataset_fixtures import get_small_adata, get_small_mdata, get_small_sdata  # noqa
 from lamindb.core._settings import settings
 from lamindb.core.loaders import load_fcs, load_to_memory, load_tsv
-from lamindb.core.storage._zarr import identify_zarr_type, write_adata_zarr
+from lamindb.core.storage._zarr import identify_zarr_type
 from lamindb.core.storage.paths import (
     AUTO_KEY_PREFIX,
     auto_storage_key_from_artifact_uid,
@@ -869,11 +869,8 @@ def test_zarr_upload_cache(get_small_adata):
     previous_storage = ln.setup.settings.storage.root_as_str
     ln.settings.storage = "s3://lamindb-test/core"
 
-    def callback(*args, **kwargs):
-        pass
-
     zarr_path = Path("./test_adata.zarr")
-    write_adata_zarr(get_small_adata, zarr_path, callback)
+    get_small_adata.write_zarr(zarr_path)
 
     artifact = ln.Artifact(zarr_path, key="test_adata.zarr")
     assert artifact.otype == "AnnData"
