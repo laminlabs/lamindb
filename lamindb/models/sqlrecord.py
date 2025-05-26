@@ -839,19 +839,17 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 if k != "run" and len(v) > 0:
                     logger.important(f"{k} records: {', '.join(v)}")
 
-        if (
-            self.__class__.__name__
-            in {
-                "Artifact",
-                "Transform",
-                "Run",
-                "ULabel",
-                "Feature",
-                "Schema",
-                "Collection",
-                "Reference",
-            }
-            and self.branch_id >= 1
+        if self.__class__.__name__ in {
+            "Artifact",
+            "Transform",
+            "Run",
+            "ULabel",
+            "Feature",
+            "Schema",
+            "Collection",
+            "Reference",
+        } and not (
+            self.__class__.__name__ == "Artifact" and self.kind == "__lamindb__"
         ):
             import lamindb as ln
 
