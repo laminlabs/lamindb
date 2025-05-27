@@ -107,7 +107,10 @@ class Transform(SQLRecord, IsVersioned):
         editable=False, unique=True, db_index=True, max_length=_len_full_uid
     )
     """Universal id."""
-    key: str = CharField(db_index=True)
+    # the fact that key is nullable is consistent with Artifact
+    # it might turn out that there will never really be a use case for this
+    # but there likely also isn't much harm in it except for the mixed type
+    key: str | None = CharField(db_index=True, null=True)
     """A name or "/"-separated path-like string.
 
     All transforms with the same key are part of the same version family.

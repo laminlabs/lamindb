@@ -94,13 +94,6 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.AlterField(
-            model_name="transform",
-            name="key",
-            field=lamindb.base.fields.CharField(
-                blank=True, db_index=True, default=None, max_length=255
-            ),
-        ),
-        migrations.AlterField(
             model_name="ulabel",
             name="type",
             field=lamindb.base.fields.ForeignKey(

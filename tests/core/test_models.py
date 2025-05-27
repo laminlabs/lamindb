@@ -39,7 +39,7 @@ def test_registry__repr__feature():
         .run: Run
         .type: Feature
         .schemas: Schema
-        .instances: Feature
+        .features: Feature
         .values: FeatureValue
         .projects: Project
     """).strip()

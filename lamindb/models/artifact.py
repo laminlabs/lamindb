@@ -1337,6 +1337,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         version: str | None = kwargs.pop("version", None)
         if "visibility" in kwargs:  # backward compat
             branch_id = kwargs.pop("visibility")
+        if "_branch_code" in kwargs:  # backward compat
+            branch_id = kwargs.pop("_branch_code")
         elif "branch_id" in kwargs:
             branch_id = kwargs.pop("branch_id")
         else:
