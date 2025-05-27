@@ -19,6 +19,7 @@ from lamindb.models.writelog import (
     DEFAULT_BRANCH,
     DEFAULT_CREATED_BY_UID,
     DEFAULT_RUN_UID,
+    DEFAULT_SPACE,
     WriteLogLock,
     WriteLogTableState,
 )
@@ -400,10 +401,11 @@ class PostgresHistoryRecordingFunctionBuilder:
             else:
                 table_name_in_trigger = "new_record"
 
-            return f"SELECT uid FROM lamindb_space WHERE id = {table_name_in_trigger}.space_id"  # noqa: S608
+            # TODO: The select statement below likely is superfluous, since space_id is known
+            return f"SELECT id FROM lamindb_space WHERE id = {table_name_in_trigger}.space_id"  # noqa: S608
         else:
-            # For the rest, we can set this to NULL.
-            return "NULL"
+            # For the rest, we can use DEFAULT_SPACE
+            return f"{DEFAULT_SPACE}"
 
     def _build_record_uid_inner(self, is_delete: bool) -> str:
         uid_columns_list: UIDColumns = self.db_metadata.get_uid_columns(
