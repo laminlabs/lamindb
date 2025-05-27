@@ -852,7 +852,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             "Collection",
             "Reference",
         } and not (
-            self.__class__.__name__ == "Artifact" and self.kind == "__lamindb__"
+            self.__class__.__name__ == "Artifact" and self.kind == "__lamindb_run__"
         ):
             import lamindb as ln
 

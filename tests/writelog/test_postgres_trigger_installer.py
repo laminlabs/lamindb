@@ -1440,7 +1440,7 @@ def aux_artifact():
         artifact = Artifact(
             data=str(test_file),
             description="a fake aux artifact",
-            kind="__lamindb__",  # type: ignore
+            kind="__lamindb_run__",  # type: ignore
             run=None,
         ).save()
 
