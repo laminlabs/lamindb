@@ -241,7 +241,7 @@ def test_revise_artifact(df):
     assert artifact_new.description == "test1 updated"
 
     with pytest.raises(TypeError) as error:
-        ln.Artifact.from_df(df, description="test1a", revises=ln.Transform())
+        ln.Artifact.from_df(df, description="test1a", revises=ln.ULabel(name="test"))
     assert error.exconly() == "TypeError: `revises` has to be of type `Artifact`"
 
     artifact_r3.delete(permanent=True)

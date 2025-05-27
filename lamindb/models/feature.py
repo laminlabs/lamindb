@@ -6,12 +6,12 @@ from typing import TYPE_CHECKING, Any, get_args, overload
 import numpy as np
 import pandas as pd
 from django.db import models
-from django.db.models import CASCADE, PROTECT, Q
+from django.db.models import CASCADE, PROTECT
 from django.db.models.query_utils import DeferredAttribute
 from django.db.utils import IntegrityError
 from lamin_utils import logger
 from lamindb_setup._init_instance import get_schema_module_name
-from lamindb_setup.core.hashing import HASH_LENGTH, hash_dict
+from lamindb_setup.core.hashing import HASH_LENGTH, hash_dict, hash_string
 from pandas.api.types import CategoricalDtype, is_string_dtype
 from pandas.core.dtypes.base import ExtensionDtype
 
@@ -366,19 +366,19 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         editable=False, unique=True, db_index=True, max_length=12, default=base62_12
     )
     """Universal id, valid across DB instances."""
-    name: str = CharField(max_length=150, db_index=True, unique=True)
-    """Name of feature (hard unique constraint `unique=True`)."""
+    name: str = CharField(max_length=150, db_index=True)
+    """Name of feature."""
     dtype: Dtype | None = CharField(db_index=True, null=True)
     """Data type (:class:`~lamindb.base.types.Dtype`)."""
     type: Feature | None = ForeignKey(
-        "self", PROTECT, null=True, related_name="instances"
+        "self", PROTECT, null=True, related_name="features"
     )
     """Type of feature (e.g., 'Readout', 'Metric', 'Metadata', 'ExpertAnnotation', 'ModelPrediction').
 
     Allows to group features by type, e.g., all read outs, all metrics, etc.
     """
-    instances: Feature
-    """Instances of features of this type."""
+    features: Feature
+    """Features of this type (can only be non-empty if `is_type` is `True`)."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     unit: str | None = CharField(max_length=30, db_index=True, null=True)
@@ -426,10 +426,10 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         "Schema", through="SchemaFeature", related_name="features"
     )
     """Feature sets linked to this feature."""
-    _expect_many: bool = models.BooleanField(default=True, db_default=True)
-    """Indicates whether values for this feature are expected to occur a single or multiple times for an artifact (default `True`).
+    _expect_many: bool = models.BooleanField(default=None, db_default=None, null=True)
+    """Indicates whether values for this feature are expected to occur a single or multiple times for an artifact (default `None`).
 
-    - if it's `True` (default), the values come from an observation-level aggregation and a dtype of `datetime` on the observation-level mean `set[datetime]` on the artifact-level
+    - if it's `True` (default), the values come from an observation-level aggregation and a dtype of `datetime` on the observation-level means `set[datetime]` on the artifact-level
     - if it's `False` it's an artifact-level value and datetime means datetime; this is an edge case because an arbitrary artifact would always be a set of arbitrary measurements that would need to be aggregated ("one just happens to measure a single cell line in that artifact")
     """
     _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
@@ -648,43 +648,22 @@ class FeatureValue(SQLRecord, TracksRun):
     """Value hash."""
 
     class Meta(BaseSQLRecord.Meta, TracksRun.Meta):
-        constraints = [
-            # For simple types, use direct value comparison
-            models.UniqueConstraint(
-                fields=["feature", "value"],
-                name="unique_simple_feature_value",
-                condition=Q(hash__isnull=True),
-            ),
-            # For complex types (dictionaries), use hash
-            models.UniqueConstraint(
-                fields=["feature", "hash"],
-                name="unique_complex_feature_value",
-                condition=Q(hash__isnull=False),
-            ),
-        ]
+        unique_together = ("feature", "hash")
 
     @classmethod
     def get_or_create(cls, feature, value):
-        # Simple types: int, float, str, bool
-        if isinstance(value, (int, float, str, bool)):
-            try:
-                return (
-                    cls.objects.create(feature=feature, value=value, hash=None),
-                    False,
-                )
-            except IntegrityError:
-                return cls.objects.get(feature=feature, value=value), True
-
-        # Complex types: dict, list
+        # simple values: (int, float, str, bool, datetime)
+        if not isinstance(value, dict):
+            hash = hash_string(str(value))
         else:
             hash = hash_dict(value)
-            try:
-                return (
-                    cls.objects.create(feature=feature, value=value, hash=hash),
-                    False,
-                )
-            except IntegrityError:
-                return cls.objects.get(feature=feature, hash=hash), True
+        try:
+            return (
+                cls.objects.create(feature=feature, value=value, hash=hash),
+                False,
+            )
+        except IntegrityError:
+            return cls.objects.get(feature=feature, hash=hash), True
 
 
 def suggest_categorical_for_str_iterable(

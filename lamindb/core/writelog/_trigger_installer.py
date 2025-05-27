@@ -164,7 +164,7 @@ class WriteLogRecordingTriggerInstaller(ABC):
                 table_dependencies[foreign_key.target_table].add(table)
 
         # Create a synthetic dependency between LaminDB's "auxiliary" artifacts and lamindb_run. This will allow
-        # us to backfill all records where kind == '__lamindb__' (and, hence, where run_id is guaranteed to be NULL)
+        # us to backfill all records where kind == '__lamindb_run__' (and, hence, where run_id is guaranteed to be NULL)
         # before backfilling lamindb_run, avoiding a circular dependency between artifacts and runs that would otherwise
         # make the backfill impossible to perform correctly in the general case.
         if "lamindb_artifact" in tables:
@@ -817,9 +817,9 @@ DECLARE
     r record;
 BEGIN
     FOR r IN
-        SELECT * FROM lamindb_artifact WHERE kind = '__lamindb__'
+        SELECT * FROM lamindb_artifact WHERE kind = '__lamindb_run__'
     LOOP
-        -- Call the trigger function for each row where kind is '__lamindb__'
+        -- Call the trigger function for each row where kind is '__lamindb_run__'
         PERFORM {get_write_log_recording_function_name("lamindb_artifact")}(NULL, r, 'INSERT');
     END LOOP;
 END $$;
@@ -833,9 +833,9 @@ DECLARE
     r record;
 BEGIN
     FOR r IN
-        SELECT * FROM lamindb_artifact WHERE kind != '__lamindb__'
+        SELECT * FROM lamindb_artifact WHERE kind != '__lamindb_run__'
     LOOP
-        -- Call the trigger function for each row where kind is '__lamindb__'
+        -- Call the trigger function for each row where kind is '__lamindb_run__'
         PERFORM {get_write_log_recording_function_name("lamindb_artifact")}(NULL, r, 'INSERT');
     END LOOP;
 END $$;
