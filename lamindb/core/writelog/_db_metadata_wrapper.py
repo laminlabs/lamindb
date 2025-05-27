@@ -102,22 +102,13 @@ class DatabaseMetadataWrapper(ABC):
     def get_uid_columns(self, table: str, cursor: CursorWrapper) -> UIDColumns:
         """Get the UID columns for a given table."""
         if table == "lamindb_featurevalue":
-            # TODO: update this to feature + hash instead of value + created_at
+            # TODO: update this to feature uid + hash instead of value + created_at
+            # feature_id is a foreign key on the featurevalue table, so this should be easy
             return [
                 TableUID(
                     source_table_name=table,
                     uid_columns=self._get_columns_by_name(
                         table, ["value", "created_at"], cursor
-                    ),
-                    key_constraint=None,
-                )
-            ]
-        elif table == "lamindb_param":
-            return [
-                TableUID(
-                    source_table_name=table,
-                    uid_columns=self._get_columns_by_name(
-                        table, ["name", "dtype", "created_at"], cursor
                     ),
                     key_constraint=None,
                 )
