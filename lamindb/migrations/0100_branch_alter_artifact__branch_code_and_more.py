@@ -7,12 +7,18 @@ from django.db import migrations, models
 import lamindb.base.fields
 
 
+def update_space_uids(apps, schema_editor):
+    Space = apps.get_model("lamindb", "Space")
+    Space.objects.filter(uid="00000000").update(uid="A")
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("lamindb", "0099_alter_writelog_seqno"),
     ]
 
     operations = [
+        migrations.RunPython(update_space_uids),
         migrations.CreateModel(
             name="Branch",
             fields=[
