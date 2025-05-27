@@ -46,8 +46,8 @@ RESERVED_COLUMNS: tuple[str] = (FOREIGN_KEYS_LIST_COLUMN_NAME,)
 EXCLUDED_TABLES = [
     "lamindb_writelog",
     "lamindb_writeloglock",
-    "lamindb_writelogtablestate",
-    "lamindb_writelogmigrationstate",
+    "lamindb_tablestate",
+    "lamindb_migrationstate",
     "django_content_type",
     "django_migrations",
     # FIXME what to do with these?
@@ -668,7 +668,7 @@ coalesce(
         self.declare_variable(
             name="latest_migration_id",
             type="smallint",
-            declaration="SELECT MAX(id) FROM lamindb_writelogmigrationstate",
+            declaration="SELECT MAX(id) FROM lamindb_migrationstate",
         )
 
         self.declare_variable(name="space_id", type="smallint")

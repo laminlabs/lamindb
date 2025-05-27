@@ -3698,14 +3698,14 @@ class Migration(migrations.Migration):
                     "migration_state",
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.PROTECT,
-                        to="lamindb.writelogmigrationstate",
+                        to="lamindb.migrationstate",
                     ),
                 ),
                 (
                     "table",
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.PROTECT,
-                        to="lamindb.writelogtablestate",
+                        to="lamindb.tablestate",
                     ),
                 ),
             ],
