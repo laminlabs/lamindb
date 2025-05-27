@@ -548,7 +548,7 @@ class PostgresHistoryRecordingFunctionBuilder:
             self.declare_variable(
                 variable_name,
                 "smallint",
-                f"SELECT id FROM lamindb_writelogtablestate WHERE table_name = '{table}' LIMIT 1",  # noqa: S608
+                f"SELECT id FROM lamindb_tablestate WHERE table_name = '{table}' LIMIT 1",  # noqa: S608
             )
 
         return variable_name
