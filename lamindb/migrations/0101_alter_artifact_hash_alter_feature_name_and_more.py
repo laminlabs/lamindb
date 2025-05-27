@@ -371,4 +371,21 @@ class Migration(migrations.Migration):
                 name="unique_artifact_storage_key_hash",
             ),
         ),
+        migrations.AlterField(
+            model_name="feature",
+            name="_expect_many",
+            field=models.BooleanField(db_default=None, default=None, null=True),
+        ),
+        migrations.AlterField(
+            model_name="run",
+            name="uid",
+            field=lamindb.base.fields.CharField(
+                blank=True,
+                db_index=True,
+                default=lamindb.base.uids.base62_16,
+                editable=False,
+                max_length=20,
+                unique=True,
+            ),
+        ),
     ]
