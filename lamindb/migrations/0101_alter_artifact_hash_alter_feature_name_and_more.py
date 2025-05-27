@@ -2,8 +2,48 @@
 
 import django.db.models.deletion
 from django.db import migrations, models
+from lamindb_setup.core.hashing import hash_dict, hash_string
 
 import lamindb.base.fields
+
+
+def populate_hash_values(apps, schema_editor):
+    FeatureValue = apps.get_model("lamindb", "FeatureValue")
+
+    # Get records that need updating
+    records_to_update = FeatureValue.objects.filter(hash__isnull=True)
+
+    print(
+        f"\nFound {records_to_update.count()} FeatureValue records with hash=None. Populating..."
+    )
+
+    updated_count = 0
+    skipped_count = 0
+
+    # Iterate efficiently through records
+    for record in records_to_update.iterator():
+        value = record.value
+        new_hash = None
+
+        if not isinstance(value, dict):
+            new_hash = hash_string(str(value))
+        else:
+            new_hash = hash_dict(value)
+
+        try:
+            record.hash = new_hash
+            record.save(update_fields=["hash"])
+            updated_count += 1
+        except Exception as e:
+            # This will likely catch IntegrityError if a duplicate hash exists
+            # for the same feature. You might want to log these or handle them
+            # based on your data cleanup strategy.
+            print(
+                f"  - Could not update record {record.id} (value: {str(value)[:50]}...): {e}"
+            )
+            skipped_count += 1
+
+    print(f"Finished. Updated: {updated_count}, Skipped/Errors: {skipped_count}.")
 
 
 class Migration(migrations.Migration):
@@ -388,4 +428,17 @@ class Migration(migrations.Migration):
                 unique=True,
             ),
         ),
+        migrations.RemoveConstraint(
+            model_name="featurevalue",
+            name="unique_simple_feature_value",
+        ),
+        migrations.RemoveConstraint(
+            model_name="featurevalue",
+            name="unique_complex_feature_value",
+        ),
+        migrations.AlterUniqueTogether(
+            name="featurevalue",
+            unique_together={("feature", "hash")},
+        ),
+        migrations.RunPython(populate_hash_values),
     ]

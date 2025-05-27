@@ -6,12 +6,12 @@ from typing import TYPE_CHECKING, Any, get_args, overload
 import numpy as np
 import pandas as pd
 from django.db import models
-from django.db.models import CASCADE, PROTECT, Q
+from django.db.models import CASCADE, PROTECT
 from django.db.models.query_utils import DeferredAttribute
 from django.db.utils import IntegrityError
 from lamin_utils import logger
 from lamindb_setup._init_instance import get_schema_module_name
-from lamindb_setup.core.hashing import HASH_LENGTH, hash_dict
+from lamindb_setup.core.hashing import HASH_LENGTH, hash_dict, hash_string
 from pandas.api.types import CategoricalDtype, is_string_dtype
 from pandas.core.dtypes.base import ExtensionDtype
 
@@ -648,43 +648,22 @@ class FeatureValue(SQLRecord, TracksRun):
     """Value hash."""
 
     class Meta(BaseSQLRecord.Meta, TracksRun.Meta):
-        constraints = [
-            # For simple types, use direct value comparison
-            models.UniqueConstraint(
-                fields=["feature", "value"],
-                name="unique_simple_feature_value",
-                condition=Q(hash__isnull=True),
-            ),
-            # For complex types (dictionaries), use hash
-            models.UniqueConstraint(
-                fields=["feature", "hash"],
-                name="unique_complex_feature_value",
-                condition=Q(hash__isnull=False),
-            ),
-        ]
+        unique_together = ("feature", "hash")
 
     @classmethod
     def get_or_create(cls, feature, value):
-        # Simple types: int, float, str, bool
-        if isinstance(value, (int, float, str, bool)):
-            try:
-                return (
-                    cls.objects.create(feature=feature, value=value, hash=None),
-                    False,
-                )
-            except IntegrityError:
-                return cls.objects.get(feature=feature, value=value), True
-
-        # Complex types: dict, list
+        # simple values: (int, float, str, bool, datetime)
+        if not isinstance(value, dict):
+            hash = hash_string(str(value))
         else:
             hash = hash_dict(value)
-            try:
-                return (
-                    cls.objects.create(feature=feature, value=value, hash=hash),
-                    False,
-                )
-            except IntegrityError:
-                return cls.objects.get(feature=feature, hash=hash), True
+        try:
+            return (
+                cls.objects.create(feature=feature, value=value, hash=hash),
+                False,
+            )
+        except IntegrityError:
+            return cls.objects.get(feature=feature, hash=hash), True
 
 
 def suggest_categorical_for_str_iterable(
