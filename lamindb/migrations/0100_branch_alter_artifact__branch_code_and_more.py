@@ -7,9 +7,27 @@ from django.db import migrations, models
 import lamindb.base.fields
 
 
-def update_space_uids(apps, schema_editor):
+def update_space_uids_and_create_branches(apps, schema_editor):
     Space = apps.get_model("lamindb", "Space")
     Space.objects.filter(uid="00000000").update(uid="A")
+    Branch = apps.get_model("lamindb", "Branch")
+    Branch.objects.get_or_create(
+        id=-1,
+        uid="T",
+        name="Trash",
+        description="The trash.",
+    )
+    Branch.objects.get_or_create(
+        id=0,
+        uid="A",
+        name="Archive",
+        description="The archive.",
+    )
+    Branch.objects.get_or_create(
+        uid="M",
+        name="Main",
+        description="The main & default branch of the instance.",
+    )
 
 
 class Migration(migrations.Migration):
@@ -18,7 +36,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(update_space_uids),
         migrations.CreateModel(
             name="Branch",
             fields=[
@@ -30,7 +47,7 @@ class Migration(migrations.Migration):
                         blank=True,
                         db_default="1",
                         db_index=True,
-                        default="1",
+                        default="M",
                         editable=False,
                         max_length=12,
                         unique=True,
@@ -69,274 +86,6 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.AlterField(
-            model_name="artifact",
-            name="_branch_code",
-            field=lamindb.base.fields.ForeignKey(
-                blank=True,
-                db_column="_branch_code",
-                db_default=1,
-                default=1,
-                on_delete=django.db.models.deletion.PROTECT,
-                to="lamindb.branch",
-            ),
-        ),
-        migrations.AlterField(
-            model_name="collection",
-            name="_branch_code",
-            field=lamindb.base.fields.ForeignKey(
-                blank=True,
-                db_column="_branch_code",
-                db_default=1,
-                default=1,
-                on_delete=django.db.models.deletion.PROTECT,
-                to="lamindb.branch",
-            ),
-        ),
-        migrations.AlterField(
-            model_name="feature",
-            name="_branch_code",
-            field=lamindb.base.fields.ForeignKey(
-                blank=True,
-                db_column="_branch_code",
-                db_default=1,
-                default=1,
-                on_delete=django.db.models.deletion.PROTECT,
-                to="lamindb.branch",
-            ),
-        ),
-        migrations.AlterField(
-            model_name="featurevalue",
-            name="_branch_code",
-            field=lamindb.base.fields.ForeignKey(
-                blank=True,
-                db_column="_branch_code",
-                db_default=1,
-                default=1,
-                on_delete=django.db.models.deletion.PROTECT,
-                to="lamindb.branch",
-            ),
-        ),
-        migrations.AlterField(
-            model_name="person",
-            name="_branch_code",
-            field=lamindb.base.fields.ForeignKey(
-                blank=True,
-                db_column="_branch_code",
-                db_default=1,
-                default=1,
-                on_delete=django.db.models.deletion.PROTECT,
-                to="lamindb.branch",
-            ),
-        ),
-        migrations.AlterField(
-            model_name="project",
-            name="_branch_code",
-            field=lamindb.base.fields.ForeignKey(
-                blank=True,
-                db_column="_branch_code",
-                db_default=1,
-                default=1,
-                on_delete=django.db.models.deletion.PROTECT,
-                to="lamindb.branch",
-            ),
-        ),
-        migrations.AlterField(
-            model_name="record",
-            name="_branch_code",
-            field=lamindb.base.fields.ForeignKey(
-                blank=True,
-                db_column="_branch_code",
-                db_default=1,
-                default=1,
-                on_delete=django.db.models.deletion.PROTECT,
-                to="lamindb.branch",
-            ),
-        ),
-        migrations.AlterField(
-            model_name="recordrecord",
-            name="_branch_code",
-            field=lamindb.base.fields.ForeignKey(
-                blank=True,
-                db_column="_branch_code",
-                db_default=1,
-                default=1,
-                on_delete=django.db.models.deletion.PROTECT,
-                to="lamindb.branch",
-            ),
-        ),
-        migrations.AlterField(
-            model_name="reference",
-            name="_branch_code",
-            field=lamindb.base.fields.ForeignKey(
-                blank=True,
-                db_column="_branch_code",
-                db_default=1,
-                default=1,
-                on_delete=django.db.models.deletion.PROTECT,
-                to="lamindb.branch",
-            ),
-        ),
-        migrations.AlterField(
-            model_name="run",
-            name="_branch_code",
-            field=lamindb.base.fields.ForeignKey(
-                blank=True,
-                db_column="_branch_code",
-                db_default=1,
-                default=1,
-                on_delete=django.db.models.deletion.PROTECT,
-                to="lamindb.branch",
-            ),
-        ),
-        migrations.AlterField(
-            model_name="schema",
-            name="_branch_code",
-            field=lamindb.base.fields.ForeignKey(
-                blank=True,
-                db_column="_branch_code",
-                db_default=1,
-                default=1,
-                on_delete=django.db.models.deletion.PROTECT,
-                to="lamindb.branch",
-            ),
-        ),
-        migrations.AlterField(
-            model_name="sheet",
-            name="_branch_code",
-            field=lamindb.base.fields.ForeignKey(
-                blank=True,
-                db_column="_branch_code",
-                db_default=1,
-                default=1,
-                on_delete=django.db.models.deletion.PROTECT,
-                to="lamindb.branch",
-            ),
-        ),
-        migrations.AlterField(
-            model_name="storage",
-            name="_branch_code",
-            field=lamindb.base.fields.ForeignKey(
-                blank=True,
-                db_column="_branch_code",
-                db_default=1,
-                default=1,
-                on_delete=django.db.models.deletion.PROTECT,
-                to="lamindb.branch",
-            ),
-        ),
-        migrations.AlterField(
-            model_name="transform",
-            name="_branch_code",
-            field=lamindb.base.fields.ForeignKey(
-                blank=True,
-                db_column="_branch_code",
-                db_default=1,
-                default=1,
-                on_delete=django.db.models.deletion.PROTECT,
-                to="lamindb.branch",
-            ),
-        ),
-        migrations.AlterField(
-            model_name="ulabel",
-            name="_branch_code",
-            field=lamindb.base.fields.ForeignKey(
-                blank=True,
-                db_column="_branch_code",
-                db_default=1,
-                default=1,
-                on_delete=django.db.models.deletion.PROTECT,
-                to="lamindb.branch",
-            ),
-        ),
-        migrations.RenameField(
-            model_name="artifact",
-            old_name="_branch_code",
-            new_name="branch",
-        ),
-        migrations.RenameField(
-            model_name="collection",
-            old_name="_branch_code",
-            new_name="branch",
-        ),
-        migrations.RenameField(
-            model_name="feature",
-            old_name="_branch_code",
-            new_name="branch",
-        ),
-        migrations.RenameField(
-            model_name="featurevalue",
-            old_name="_branch_code",
-            new_name="branch",
-        ),
-        migrations.RenameField(
-            model_name="person",
-            old_name="_branch_code",
-            new_name="branch",
-        ),
-        migrations.RenameField(
-            model_name="project",
-            old_name="_branch_code",
-            new_name="branch",
-        ),
-        migrations.RenameField(
-            model_name="record",
-            old_name="_branch_code",
-            new_name="branch",
-        ),
-        migrations.RenameField(
-            model_name="recordrecord",
-            old_name="_branch_code",
-            new_name="branch",
-        ),
-        migrations.RenameField(
-            model_name="reference",
-            old_name="_branch_code",
-            new_name="branch",
-        ),
-        migrations.RenameField(
-            model_name="run",
-            old_name="_branch_code",
-            new_name="branch",
-        ),
-        migrations.RenameField(
-            model_name="schema",
-            old_name="_branch_code",
-            new_name="branch",
-        ),
-        migrations.RenameField(
-            model_name="sheet",
-            old_name="_branch_code",
-            new_name="branch",
-        ),
-        migrations.RenameField(
-            model_name="storage",
-            old_name="_branch_code",
-            new_name="branch",
-        ),
-        migrations.RenameField(
-            model_name="transform",
-            old_name="_branch_code",
-            new_name="branch",
-        ),
-        migrations.RenameField(
-            model_name="ulabel",
-            old_name="_branch_code",
-            new_name="branch",
-        ),
-        migrations.AlterField(
-            model_name="branch",
-            name="uid",
-            field=lamindb.base.fields.CharField(
-                blank=True,
-                db_default="M",
-                db_index=True,
-                default="M",
-                editable=False,
-                max_length=12,
-                unique=True,
-            ),
-        ),
-        migrations.AlterField(
             model_name="space",
             name="uid",
             field=lamindb.base.fields.CharField(
@@ -349,4 +98,5 @@ class Migration(migrations.Migration):
                 unique=True,
             ),
         ),
+        migrations.RunPython(update_space_uids_and_create_branches),
     ]
