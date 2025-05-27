@@ -1089,8 +1089,6 @@ def fake_space():
 
     yield space
 
-    space.delete()
-
 
 @pytest.fixture(scope="function")
 def table_with_space_ref(fake_space):
@@ -1300,7 +1298,7 @@ def test_self_referential_backfill(self_referential_pg_table):
 
 
 @pytest.mark.pg_integration
-def test_write_log_records_space_uids_properly(table_with_space_ref, fake_space):
+def test_write_log_records_space_ids_properly(table_with_space_ref, fake_space):
     cursor = django_connection.cursor()
 
     _update_write_log_triggers(
@@ -1317,7 +1315,7 @@ def test_write_log_records_space_uids_properly(table_with_space_ref, fake_space)
 
     cursor.execute(
         f"INSERT INTO {table_with_space_ref} (uid, space_id) "  # noqa: S608
-        f"VALUES ('B', NULL)"
+        f"VALUES ('B', 1)"
     )
 
     write_log = WriteLog.objects.all().order_by("id")
@@ -1330,7 +1328,7 @@ def test_write_log_records_space_uids_properly(table_with_space_ref, fake_space)
         FOREIGN_KEYS_LIST_COLUMN_NAME: [],
     }
     assert write_log[0].event_type == WriteLogEventTypes.INSERT.value
-    assert write_log[0].space_uid == "fakespace"
+    assert write_log[0].space_id == fake_space.id
 
     assert write_log[1].table.table_name == table_with_space_ref
     assert write_log[1].record_uid == ["B"]
@@ -1338,7 +1336,7 @@ def test_write_log_records_space_uids_properly(table_with_space_ref, fake_space)
         FOREIGN_KEYS_LIST_COLUMN_NAME: [],
     }
     assert write_log[1].event_type == WriteLogEventTypes.INSERT.value
-    assert write_log[1].space_uid is None
+    assert write_log[1].space_id == 1
 
 
 @pytest.fixture(scope="function")

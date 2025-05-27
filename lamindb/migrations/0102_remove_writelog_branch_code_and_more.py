@@ -38,13 +38,13 @@ class Migration(migrations.Migration):
         ),
         migrations.AlterField(
             model_name="writelog",
-            name="record_uid",
-            field=models.CharField(db_index=True, default="0000", max_length=20),
-            preserve_default=False,
+            name="run_uid",
+            field=models.CharField(default="0000000000000000", max_length=20),
         ),
         migrations.AlterField(
             model_name="writelog",
-            name="run_uid",
-            field=models.CharField(default="0000000000000000", max_length=20),
+            name="record_uid",
+            field=models.JSONField(db_index=True, default=0),
+            preserve_default=False,
         ),
     ]

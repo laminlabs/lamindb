@@ -6,9 +6,10 @@ from lamindb.core.writelog._constants import FOREIGN_KEYS_LIST_COLUMN_NAME
 from lamindb.core.writelog._serde import WriteLogSerDe
 from lamindb.core.writelog._trigger_installer import WriteLogEventTypes
 from lamindb.models.writelog import (
-    DEFAULT_BRANCH_CODE,
+    DEFAULT_BRANCH,
     DEFAULT_CREATED_BY_UID,
     DEFAULT_RUN_UID,
+    DEFAULT_SPACE,
     WriteLog,
     WriteLogMigrationState,
     WriteLogTableState,
@@ -55,9 +56,9 @@ def assert_write_logs_equal(a: WriteLog, b: WriteLog):
         a.migration_state.id == b.migration_state.id
         and a.table.id == b.table.id
         and a.uid == b.uid
-        and a.space_uid == b.space_uid
+        and a.space_id == b.space_id
         and a.created_by_uid == b.created_by_uid
-        and a.branch_code == b.branch_code
+        and a.branch_id == b.branch_id
         and a.run_uid == b.run_uid
         and a.record_uid == b.record_uid
         and a.record_data == b.record_data
@@ -171,9 +172,9 @@ def test_table_remapping(simple_table, many_to_many_table, migration_state):
             ]
         },
         "event_type": WriteLogEventTypes.INSERT.value,
-        "space_uid": None,
+        "space_id": DEFAULT_SPACE,
         "created_by_uid": DEFAULT_CREATED_BY_UID,
-        "branch_code": DEFAULT_BRANCH_CODE,
+        "branch_id": DEFAULT_BRANCH,
         "run_uid": DEFAULT_RUN_UID,
         "created_at": "2025-05-26T12:34:56.000000+00:00",
     }

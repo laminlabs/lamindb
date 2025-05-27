@@ -1,6 +1,6 @@
 from django.db import models
 
-from .sqlrecord import Branch, Space
+from .sqlrecord import BaseSQLRecord, Branch, Space
 
 DEFAULT_BRANCH = 1
 DEFAULT_SPACE = 1
@@ -41,7 +41,7 @@ class WriteLogMigrationState(models.Model):
     migration_state_id = models.JSONField()
 
 
-class WriteLog(models.Model):
+class WriteLog(BaseSQLRecord):
     """Stores the write log for LaminDB tables."""
 
     id = models.BigAutoField(primary_key=True)
@@ -59,7 +59,7 @@ class WriteLog(models.Model):
     created_by_uid = models.CharField(max_length=8, default=DEFAULT_CREATED_BY_UID)
     run_uid = models.CharField(max_length=20, default=DEFAULT_RUN_UID)
     # querying for the history of one record is common, so we index it
-    record_uid = models.CharField(max_length=20, db_index=True)
+    record_uid = models.JSONField(db_index=True)
     record_data = models.JSONField(null=True)
     event_type = models.PositiveSmallIntegerField()
     created_at = models.DateTimeField()
