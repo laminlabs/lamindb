@@ -792,7 +792,8 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 # "duplicate key value violates unique constraint"
                 # "UNIQUE constraint failed"
                 if (
-                    isinstance(e, IntegrityError)
+                    self.__class__.__name__ in {"Transform", "Artifact"}
+                    and isinstance(e, IntegrityError)
                     and "hash" in error_msg
                     and (
                         "UNIQUE constraint failed" in error_msg
