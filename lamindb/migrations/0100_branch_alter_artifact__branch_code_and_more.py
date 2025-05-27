@@ -45,7 +45,7 @@ class Migration(migrations.Migration):
                     "uid",
                     lamindb.base.fields.CharField(
                         blank=True,
-                        db_default="1",
+                        db_default="M",
                         db_index=True,
                         default="M",
                         editable=False,
