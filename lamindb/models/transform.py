@@ -318,7 +318,12 @@ class Transform(SQLRecord, IsVersioned):
         super().delete()
 
     def view_lineage(self, with_successors: bool = False, distance: int = 5):
-        """View lineage of transforms."""
+        """View lineage of transforms.
+
+        Note that this only accounts for manually defined predecessors and successors.
+
+        Auto-generate lineage through inputs and outputs of runs is not included.
+        """
         from .has_parents import view_parents
 
         return view_parents(

@@ -2831,10 +2831,6 @@ def _track_run_input(
                 for data_id in input_data_ids
             ]
         IsLink.objects.bulk_create(links, ignore_conflicts=True)
-        # generalize below for more than one data batch
-        if len(input_data) == 1:
-            if input_data[0].transform is not None:
-                run.transform.predecessors.add(input_data[0].transform)
 
 
 # privates currently dealt with separately
