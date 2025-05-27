@@ -11,6 +11,7 @@ from lamindb.core.writelog._replayer import WriteLogReplayer
 from lamindb.core.writelog._trigger_installer import WriteLogEventTypes
 from lamindb.core.writelog._types import UIDColumns
 from lamindb.core.writelog._utils import (
+    get_latest_migration_state,
     update_migration_state,
     update_write_log_table_state,
 )
@@ -34,8 +35,8 @@ class FakeMetadataWrapper(SQLiteDatabaseMetadataWrapper):
     def __init__(self):
         super().__init__()
         self._tables_with_triggers = set()
-        self._db_tables = set()
-        self._many_to_many_tables = set()
+        self._db_tables: set[str] = set()
+        self._many_to_many_tables: set[str] = set()
         self._uid_columns: dict[str, UIDColumns] = {}
 
     @override
@@ -130,7 +131,7 @@ def test_replayer_happy_path(simple_table, write_log_lock, write_log_state):
     update_write_log_table_state({simple_table})
     update_migration_state()
 
-    current_migration_state = WriteLogMigrationState.objects.order_by("-id").first()
+    current_migration_state = get_latest_migration_state()
 
     simple_table_state = WriteLogTableState.objects.get(table_name=simple_table)
 
@@ -244,7 +245,7 @@ def test_replayer_many_to_many(
     update_write_log_table_state({simple_table, many_to_many_table})
     update_migration_state()
 
-    current_migration_state = WriteLogMigrationState.objects.order_by("-id").first()
+    current_migration_state = get_latest_migration_state()
 
     simple_table_state = WriteLogTableState.objects.get(table_name=simple_table)
     many_to_many_table_state = WriteLogTableState.objects.get(
