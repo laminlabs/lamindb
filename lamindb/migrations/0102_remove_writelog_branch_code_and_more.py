@@ -47,4 +47,26 @@ class Migration(migrations.Migration):
             field=models.JSONField(db_index=True, default=0),
             preserve_default=False,
         ),
+        migrations.AlterModelOptions(
+            name="migrationstate",
+            options={"base_manager_name": "objects"},
+        ),
+        migrations.AlterModelOptions(
+            name="tablestate",
+            options={"base_manager_name": "objects"},
+        ),
+        migrations.AlterField(
+            model_name="writelog",
+            name="migration_state",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.PROTECT, to="lamindb.migrationstate"
+            ),
+        ),
+        migrations.AlterField(
+            model_name="writelog",
+            name="table",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.PROTECT, to="lamindb.tablestate"
+            ),
+        ),
     ]
