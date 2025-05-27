@@ -1,7 +1,10 @@
 from django.db import models
 
+from .sqlrecord import Branch, Space
+
+DEFAULT_BRANCH = 1
+DEFAULT_SPACE = 1
 DEFAULT_CREATED_BY_UID = "0" * 8
-DEFAULT_BRANCH_CODE = 1
 DEFAULT_RUN_UID = "0" * 16
 
 
@@ -47,12 +50,16 @@ class WriteLog(models.Model):
     )
     table = models.ForeignKey(WriteLogTableState, on_delete=models.PROTECT)
     uid = models.CharField(max_length=18, editable=False, db_index=True, unique=True)
-    # While all normal tables will have a space ID, many-to-many tables won't.
-    space_uid = models.CharField(max_length=12, null=True)
+    # because the space foreign key manages the access a user has within the database
+    # instance, we need a forein key to the Space model, not just a uid
+    space = models.ForeignKey(Space, models.PROTECT, default=DEFAULT_SPACE)
+    # also for branches, an integer foreign key is manageable, often times, users
+    # will want to query those changes that came from a specific branch / PR
+    branch = models.ForeignKey(Branch, models.PROTECT, default=DEFAULT_BRANCH)
     created_by_uid = models.CharField(max_length=8, default=DEFAULT_CREATED_BY_UID)
-    branch_code = models.IntegerField(default=DEFAULT_BRANCH_CODE)
-    run_uid = models.CharField(max_length=16, default=DEFAULT_RUN_UID)
-    record_uid = models.JSONField()
+    run_uid = models.CharField(max_length=20, default=DEFAULT_RUN_UID)
+    # querying for the history of one record is common, so we index it
+    record_uid = models.CharField(max_length=20, db_index=True)
     record_data = models.JSONField(null=True)
     event_type = models.PositiveSmallIntegerField()
     created_at = models.DateTimeField()

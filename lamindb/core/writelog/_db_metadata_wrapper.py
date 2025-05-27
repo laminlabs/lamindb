@@ -99,25 +99,6 @@ class DatabaseMetadataWrapper(ABC):
 
         return column_list
 
-    def _get_columns_by_name(
-        self, table: str, column_names: list[str], cursor: CursorWrapper
-    ) -> list[Column]:
-        columns = self.get_columns(table=table, cursor=cursor)
-
-        column_list: list[Column] = []
-
-        for column_name in column_names:
-            column = next((c for c in columns if c.name == column_name), None)
-
-            if column is None:
-                raise ValueError(
-                    f"Table '{table}' doesn't have a column named '{column_name}'"
-                )
-
-            column_list.append(column)
-
-        return column_list
-
     def get_uid_columns(self, table: str, cursor: CursorWrapper) -> UIDColumns:
         """Get the UID columns for a given table."""
         if table == "lamindb_featurevalue":

@@ -16,7 +16,7 @@ from lamindb.core.writelog._utils import (
     update_write_log_table_state,
 )
 from lamindb.models.writelog import (
-    DEFAULT_BRANCH_CODE,
+    DEFAULT_BRANCH,
     DEFAULT_CREATED_BY_UID,
     DEFAULT_RUN_UID,
     WriteLogLock,
@@ -388,7 +388,7 @@ class PostgresHistoryRecordingFunctionBuilder:
 
         return self._record_uid[is_delete]
 
-    def _build_space_uid(self, is_delete: bool) -> str:
+    def _build_space_id(self, is_delete: bool) -> str:
         columns = self.db_metadata.get_column_names(
             table=self.table, cursor=self.cursor
         )
@@ -517,7 +517,7 @@ class PostgresHistoryRecordingFunctionBuilder:
                 foreign_key_constraint=foreign_key_constraint, is_delete=False
             )
             for foreign_key_constraint in foreign_key_constraints
-            # Don't record foreign-keys to space, since we store space_uid separately
+            # Don't record foreign-keys to space, since we store space_id separately
             if not (
                 foreign_key_constraint.target_table == "lamindb_space"
                 and [c.name for c in foreign_key_constraint.source_columns]
@@ -669,7 +669,7 @@ coalesce(
             declaration="SELECT MAX(id) FROM lamindb_writelogmigrationstate",
         )
 
-        self.declare_variable(name="space_uid", type="varchar")
+        self.declare_variable(name="space_id", type="varchar")
 
         table_id_var = self.add_table_id_variable(table=self.table)
         self.declare_variable(name="record_data", type="jsonb")
@@ -685,11 +685,11 @@ coalesce(
             record_data := NULL;
             record_uid := {self._build_record_uid(is_delete=True)};
             event_type := {WriteLogEventTypes.DELETE.value};
-            space_uid := ({self._build_space_uid(is_delete=True)});
+            space_id := ({self._build_space_id(is_delete=True)});
         ELSE
             record_data := {self._build_record_data()};
             record_uid := {self._build_record_uid(is_delete=False)};
-            space_uid := ({self._build_space_uid(is_delete=False)});
+            space_id := ({self._build_space_id(is_delete=False)});
 
             IF (trigger_op = 'INSERT') THEN
                 event_type := {WriteLogEventTypes.INSERT.value};
@@ -704,9 +704,9 @@ coalesce(
                 migration_state_id,
                 table_id,
                 record_uid,
-                space_uid,
+                space_id,
                 created_by_uid,
-                branch_code,
+                branch_id,
                 run_uid,
                 record_data,
                 event_type,
@@ -718,9 +718,9 @@ coalesce(
                 latest_migration_id,
                 {table_id_var},
                 record_uid,
-                space_uid,
+                space_id,
                 '{DEFAULT_CREATED_BY_UID}',
-                {DEFAULT_BRANCH_CODE},
+                {DEFAULT_BRANCH},
                 '{DEFAULT_RUN_UID}',
                 record_data,
                 event_type,
