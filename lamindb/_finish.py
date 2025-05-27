@@ -99,7 +99,7 @@ def save_run_logs(run: Run, save_run: bool = False) -> None:
         artifact = Artifact(  # type: ignore
             logs_path,
             description=f"log streams of run {run.uid}",
-            kind="__lamindb__",
+            kind="__lamindb_run__",
             run=False,
         )
         artifact.save(upload=True, print_progress=False)
@@ -377,7 +377,7 @@ def save_context_core(
                     artifact = ln.Artifact(  # type: ignore
                         env_path,
                         description="requirements.txt",
-                        kind="__lamindb__",
+                        kind="__lamindb_run__",
                         run=False,
                     )
                     artifact.save(upload=True, print_progress=False)
@@ -424,7 +424,7 @@ def save_context_core(
                     report_file = ln.Artifact(  # type: ignore
                         report_path,
                         description=f"Report of run {run.uid}",
-                        kind="__lamindb__",  # hidden file
+                        kind="__lamindb_run__",  # hidden file
                         run=False,
                     )
                     report_file.save(upload=True, print_progress=False)

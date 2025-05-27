@@ -42,8 +42,7 @@ class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
     A `ULabel` record provides the easiest way to annotate a dataset
     with a label: `"My project"`, `"curated"`, or `"Batch X"`:
 
-        >>> my_project = ULabel(name="My project")
-        >>> my_project.save()
+        >>> my_project = ULabel(name="My project").save()
         >>> artifact.ulabels.add(my_project)
 
     Often, a ulabel is measured *within* a dataset. For instance, an artifact
@@ -69,11 +68,11 @@ class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
 
     Examples:
 
-        Create a new label:
+        Create a ulabel:
 
         >>> train_split = ln.ULabel(name="train").save()
 
-        Organize labels in a hierarchy:
+        Organize ulabels in a hierarchy:
 
         >>> split_type = ln.ULabel(name="Split", is_type=True).save()
         >>> train_split = ln.ULabel(name="train", type="split_type").save()
@@ -82,7 +81,7 @@ class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
 
         >>> artifact.ulabels.add(ulabel)
 
-        Query an artifact by label:
+        Query an artifact by ulabel:
 
         >>> ln.Artifact.filter(ulabels=train_split).df()
     """
@@ -100,15 +99,13 @@ class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
     """A universal random id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True)
     """Name or title of ulabel."""
-    type: ULabel | None = ForeignKey(
-        "self", PROTECT, null=True, related_name="instances"
-    )
+    type: ULabel | None = ForeignKey("self", PROTECT, null=True, related_name="ulabels")
     """Type of ulabel, e.g., `"donor"`, `"split"`, etc.
 
     Allows to group ulabels by type, e.g., all donors, all split ulabels, etc.
     """
-    instances: ULabel
-    """Instances of this type."""
+    ulabels: ULabel
+    """ULabels of this type (can only be non-empty if `is_type` is `True`)."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type.
 
@@ -197,10 +194,10 @@ class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
         )
 
     @property
-    @deprecated("instances")
+    @deprecated("ulabels")
     def records(self) -> list[ULabel]:
         """Return all instances of this type."""
-        return self.instances
+        return self.ulabels
 
 
 class ArtifactULabel(BaseSQLRecord, IsLink, TracksRun):

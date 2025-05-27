@@ -20,7 +20,7 @@ from lamindb.base.fields import (
 from lamindb.base.users import current_user_id
 from lamindb.errors import InvalidArgument
 
-from ..base.ids import base62_20
+from ..base.ids import base62_16
 from .can_curate import CanCurate
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord
 
@@ -254,8 +254,9 @@ class Run(SQLRecord):
 
     id: int = models.BigAutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
+    # default uid was changed from base62_20 to base62_16 in 1.6.0
     uid: str = CharField(
-        editable=False, unique=True, db_index=True, max_length=20, default=base62_20
+        editable=False, unique=True, db_index=True, max_length=20, default=base62_16
     )
     """Universal id, valid across DB instances."""
     name: str | None = CharField(max_length=150, null=True)
