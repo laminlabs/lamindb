@@ -8,7 +8,7 @@ DEFAULT_CREATED_BY_UID = "0" * 8
 DEFAULT_RUN_UID = "0" * 16
 
 
-class WriteLogTableState(models.Model):
+class TableState(BaseSQLRecord):
     """A list of tables for which we're recording write logs.
 
     This table serves two purposes: it allows us to store the
@@ -27,7 +27,7 @@ class WriteLogTableState(models.Model):
     backfilled = models.BooleanField()
 
 
-class WriteLogMigrationState(models.Model):
+class MigrationState(BaseSQLRecord):
     """A summary of the state of Django's migrations when a write log record was recorded.
 
     When a write log record is recorded, we need to record the state of the data migrations
@@ -45,10 +45,8 @@ class WriteLog(BaseSQLRecord):
     """Stores the write log for LaminDB tables."""
 
     id = models.BigAutoField(primary_key=True)
-    migration_state = models.ForeignKey(
-        WriteLogMigrationState, on_delete=models.PROTECT
-    )
-    table = models.ForeignKey(WriteLogTableState, on_delete=models.PROTECT)
+    migration_state = models.ForeignKey(MigrationState, on_delete=models.PROTECT)
+    table = models.ForeignKey(TableState, on_delete=models.PROTECT)
     uid = models.CharField(max_length=18, editable=False, db_index=True, unique=True)
     # because the space foreign key manages the access a user has within the database
     # instance, we need a forein key to the Space model, not just a uid

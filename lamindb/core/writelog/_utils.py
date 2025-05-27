@@ -2,7 +2,7 @@ import re
 
 from django.db import models
 
-from lamindb.models.writelog import WriteLogMigrationState, WriteLogTableState
+from lamindb.models.writelog import MigrationState, TableState
 
 
 class DjangoMigration(models.Model):
@@ -19,22 +19,22 @@ class DjangoMigration(models.Model):
 
 def update_write_log_table_state(tables: set[str]):
     existing_tables = set(
-        WriteLogTableState.objects.filter(table_name__in=tables).values_list(
+        TableState.objects.filter(table_name__in=tables).values_list(
             "table_name", flat=True
         )
     )
 
     table_states_to_add = [
-        WriteLogTableState(table_name=t, backfilled=False)
+        TableState(table_name=t, backfilled=False)
         for t in tables
         if t not in existing_tables
     ]
 
-    WriteLogTableState.objects.bulk_create(table_states_to_add)
+    TableState.objects.bulk_create(table_states_to_add)
 
 
-def get_latest_migration_state() -> WriteLogMigrationState | None:
-    return WriteLogMigrationState.objects.order_by("-id").first()
+def get_latest_migration_state() -> MigrationState | None:
+    return MigrationState.objects.order_by("-id").first()
 
 
 def update_migration_state():
@@ -61,4 +61,4 @@ def update_migration_state():
     latest_state = get_latest_migration_state()
 
     if latest_state is None or (current_state != latest_state.migration_state_id):
-        WriteLogMigrationState.objects.create(migration_state_id=current_state)
+        MigrationState.objects.create(migration_state_id=current_state)

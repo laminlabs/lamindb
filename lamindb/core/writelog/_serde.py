@@ -4,7 +4,7 @@ from typing import Any
 from lamindb.core.writelog._constants import FOREIGN_KEYS_LIST_COLUMN_NAME
 from lamindb.core.writelog._db_metadata_wrapper import DatabaseMetadataWrapper
 from lamindb.core.writelog._utils import get_latest_migration_state
-from lamindb.models.writelog import WriteLog, WriteLogMigrationState, WriteLogTableState
+from lamindb.models.writelog import MigrationState, TableState, WriteLog
 
 
 class WriteLogDeserializationError(Exception):
@@ -16,7 +16,7 @@ class WriteLogSerDe:
         self,
         db_metadata: DatabaseMetadataWrapper,
         table_id_mapping: dict[int, str] | None = None,
-        latest_migration_state: WriteLogMigrationState | None = None,
+        latest_migration_state: MigrationState | None = None,
     ):
         self._table_id_mapping = table_id_mapping
         self.db_metadata = db_metadata
@@ -24,7 +24,7 @@ class WriteLogSerDe:
         self._latest_migration_state = latest_migration_state
 
     @property
-    def migration_state(self) -> WriteLogMigrationState:
+    def migration_state(self) -> MigrationState:
         if self._latest_migration_state is None:
             self._latest_migration_state = get_latest_migration_state()
 
@@ -39,12 +39,12 @@ class WriteLogSerDe:
     def table_id_mapping(self) -> dict[int, str]:
         if self._table_id_mapping is None:
             self._table_id_mapping = {
-                t.id: t.table_name for t in WriteLogTableState.objects.all()
+                t.id: t.table_name for t in TableState.objects.all()
             }
 
         return self._table_id_mapping
 
-    def _remap_table(self, table_id: int) -> WriteLogTableState:
+    def _remap_table(self, table_id: int) -> TableState:
         try:
             table_name = self.table_id_mapping[table_id]
         except KeyError as e:
@@ -54,8 +54,8 @@ class WriteLogSerDe:
             ) from e
 
         try:
-            table = WriteLogTableState.objects.get(table_name=table_name)
-        except WriteLogTableState.DoesNotExist as e:
+            table = TableState.objects.get(table_name=table_name)
+        except TableState.DoesNotExist as e:
             raise WriteLogDeserializationError(
                 f"Unable to locate table '{table_name}', which is "
                 "present in the source, in this instance. Perhaps your "

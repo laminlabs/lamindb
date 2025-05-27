@@ -20,8 +20,8 @@ from lamindb.models.writelog import (
     DEFAULT_CREATED_BY_UID,
     DEFAULT_RUN_UID,
     DEFAULT_SPACE,
+    TableState,
     WriteLogLock,
-    WriteLogTableState,
 )
 
 from ._db_metadata_wrapper import (
@@ -187,7 +187,7 @@ class WriteLogRecordingTriggerInstaller(ABC):
                 self.backfill_aux_artifacts(cursor)
             elif table in tables:
                 # Only backfill tables in the current set
-                table_state = WriteLogTableState.objects.get(table_name=table)
+                table_state = TableState.objects.get(table_name=table)
 
                 if table_state.backfilled:
                     logger.info(
@@ -538,7 +538,7 @@ class PostgresHistoryRecordingFunctionBuilder:
 
         Will only add a variable for a given table name once.
         """
-        table_id = WriteLogTableState.objects.get(table_name=table).id
+        table_id = TableState.objects.get(table_name=table).id
 
         variable_name = f"_table_name_{table_id}"
 
@@ -571,7 +571,7 @@ class PostgresHistoryRecordingFunctionBuilder:
         variable_name = self._create_unique_variable_name("_lamin_fkey_ref")
 
         # We'll be creating a JSONB array with three elements:
-        #  * the ID of the target table in WriteLogTableState
+        #  * the ID of the target table in TableState
         #  * the columns in the table that comprise the foreign-key constraint
         #  * the uniquely-identifiable columns in the target table that identify the target record
         source_columns_lookup_array = self._build_jsonb_array(

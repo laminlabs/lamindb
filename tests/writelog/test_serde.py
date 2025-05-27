@@ -10,19 +10,17 @@ from lamindb.models.writelog import (
     DEFAULT_CREATED_BY_UID,
     DEFAULT_RUN_UID,
     DEFAULT_SPACE,
+    MigrationState,
+    TableState,
     WriteLog,
-    WriteLogMigrationState,
-    WriteLogTableState,
 )
 
 from .writelog_test_utils import FakeMetadataWrapper
 
 
 @pytest.fixture(scope="function")
-def migration_state() -> Generator[WriteLogMigrationState, None, None]:
-    migration_state = WriteLogMigrationState.objects.create(
-        migration_state_id={"test_app": 42}
-    )
+def migration_state() -> Generator[MigrationState, None, None]:
+    migration_state = MigrationState.objects.create(migration_state_id={"test_app": 42})
 
     yield migration_state
 
@@ -30,10 +28,8 @@ def migration_state() -> Generator[WriteLogMigrationState, None, None]:
 
 
 @pytest.fixture(scope="function")
-def simple_table() -> Generator[WriteLogTableState, None, None]:
-    table = WriteLogTableState.objects.create(
-        table_name="simple_table", backfilled=True
-    )
+def simple_table() -> Generator[TableState, None, None]:
+    table = TableState.objects.create(table_name="simple_table", backfilled=True)
 
     yield table
 
@@ -41,10 +37,8 @@ def simple_table() -> Generator[WriteLogTableState, None, None]:
 
 
 @pytest.fixture(scope="function")
-def many_to_many_table() -> Generator[WriteLogTableState, None, None]:
-    table = WriteLogTableState.objects.create(
-        table_name="many_to_many_table", backfilled=True
-    )
+def many_to_many_table() -> Generator[TableState, None, None]:
+    table = TableState.objects.create(table_name="many_to_many_table", backfilled=True)
 
     yield table
 

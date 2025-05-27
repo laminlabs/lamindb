@@ -339,14 +339,14 @@ class Migration(migrations.Migration):
             ],
         ),
         migrations.CreateModel(
-            name="WriteLogMigrationState",
+            name="MigrationState",
             fields=[
                 ("id", models.SmallAutoField(primary_key=True, serialize=False)),
                 ("migration_state_id", models.JSONField()),
             ],
         ),
         migrations.CreateModel(
-            name="WriteLogTableState",
+            name="TableState",
             fields=[
                 ("id", models.SmallAutoField(primary_key=True, serialize=False)),
                 ("table_name", models.CharField(max_length=255)),

@@ -16,10 +16,10 @@ from lamindb.core.writelog._utils import (
     update_write_log_table_state,
 )
 from lamindb.models.writelog import (
+    MigrationState,
+    TableState,
     WriteLog,
     WriteLogLock,
-    WriteLogMigrationState,
-    WriteLogTableState,
 )
 from typing_extensions import override
 
@@ -74,14 +74,14 @@ class FakeMetadataWrapper(SQLiteDatabaseMetadataWrapper):
 @pytest.fixture(scope="function")
 def write_log_state():
     WriteLog.objects.all().delete()
-    WriteLogTableState.objects.all().delete()
-    WriteLogMigrationState.objects.all().delete()
+    TableState.objects.all().delete()
+    MigrationState.objects.all().delete()
 
     yield
 
     WriteLog.objects.all().delete()
-    WriteLogTableState.objects.all().delete()
-    WriteLogMigrationState.objects.all().delete()
+    TableState.objects.all().delete()
+    MigrationState.objects.all().delete()
 
 
 def test_connection_is_sqlite():
@@ -133,7 +133,7 @@ def test_replayer_happy_path(simple_table, write_log_lock, write_log_state):
 
     current_migration_state = get_latest_migration_state()
 
-    simple_table_state = WriteLogTableState.objects.get(table_name=simple_table)
+    simple_table_state = TableState.objects.get(table_name=simple_table)
 
     replayer = WriteLogReplayer(db_metadata=db_metadata, cursor=cursor)
 
@@ -247,10 +247,8 @@ def test_replayer_many_to_many(
 
     current_migration_state = get_latest_migration_state()
 
-    simple_table_state = WriteLogTableState.objects.get(table_name=simple_table)
-    many_to_many_table_state = WriteLogTableState.objects.get(
-        table_name=many_to_many_table
-    )
+    simple_table_state = TableState.objects.get(table_name=simple_table)
+    many_to_many_table_state = TableState.objects.get(table_name=many_to_many_table)
 
     replayer = WriteLogReplayer(db_metadata=db_metadata, cursor=cursor)
 
