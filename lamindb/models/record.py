@@ -57,15 +57,13 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """A universal random id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True, null=True)
     """Name or title of record (optional)."""
-    type: Record | None = ForeignKey(
-        "self", PROTECT, null=True, related_name="instances"
-    )
+    type: Record | None = ForeignKey("self", PROTECT, null=True, related_name="records")
     """Type of record, e.g., `Sample`, `Donor`, `Cell`, `Compound`, `Sequence`.
 
     Allows to group records by type, e.g., all samples, all donors, all cells, all compounds, all sequences.
     """
-    instances: Record
-    """Instances of this type."""
+    records: Record
+    """Records of this type (can only be non-empty if `is_type` is `True`)."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type.
 

@@ -113,14 +113,14 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     name: str = CharField(db_index=True)
     """Title or name of the reference document."""
     type: Reference | None = ForeignKey(
-        "self", PROTECT, null=True, related_name="instances"
+        "self", PROTECT, null=True, related_name="references"
     )
     """Type of reference (e.g., 'Study', 'Paper', 'Preprint').
 
     Allows to group reference by type, e.g., internal studies vs. all papers etc.
     """
-    instances: Reference
-    """Instance of references of this type."""
+    references: Reference
+    """References of this type (can only be non-empty if `is_type` is `True`)."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     abbr: str | None = CharField(
@@ -213,11 +213,11 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     name: str = CharField(db_index=True)
     """Title or name of the Project."""
     type: Project | None = ForeignKey(
-        "self", PROTECT, null=True, related_name="instances"
+        "self", PROTECT, null=True, related_name="projects"
     )
     """Type of project (e.g., 'Program', 'Project', 'GithubIssue', 'Task')."""
-    instances: Project
-    """Instances of projects of this type."""
+    projects: Project
+    """Projects of this type (can only be non-empty if `is_type` is `True`)."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     abbr: str | None = CharField(max_length=32, db_index=True, null=True)

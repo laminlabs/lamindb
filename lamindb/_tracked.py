@@ -112,7 +112,7 @@ def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]
                 filtered_params[key] = value
 
             # Add parameters to the run
-            run.params.add_values(filtered_params)
+            run.features.add_values(filtered_params)
 
             # Set the run in context and execute function
             token = current_tracked_run.set(run)
