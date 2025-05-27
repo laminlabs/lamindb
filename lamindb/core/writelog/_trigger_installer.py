@@ -669,7 +669,7 @@ coalesce(
             declaration="SELECT MAX(id) FROM lamindb_writelogmigrationstate",
         )
 
-        self.declare_variable(name="space_id", type="varchar")
+        self.declare_variable(name="space_id", type="smallint")
 
         table_id_var = self.add_table_id_variable(table=self.table)
         self.declare_variable(name="record_data", type="jsonb")
