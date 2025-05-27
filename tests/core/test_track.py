@@ -221,7 +221,9 @@ def test_run_scripts():
 
     # multiple folders, match
     transform = ln.Transform(
-        name="Dummy title", key="duplicate4/script-to-test-versioning.py", type="script"
+        description="Dummy title",
+        key="duplicate4/script-to-test-versioning.py",
+        type="script",
     ).save()
     result = subprocess.run(  # noqa: S602
         f"python {SCRIPTS_DIR / 'duplicate4/script-to-test-versioning.py'}",

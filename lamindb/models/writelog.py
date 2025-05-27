@@ -52,8 +52,7 @@ class WriteLog(models.Model):
     created_by_uid = models.CharField(max_length=8, default=DEFAULT_CREATED_BY_UID)
     branch_code = models.IntegerField(default=DEFAULT_BRANCH_CODE)
     run_uid = models.CharField(max_length=16, default=DEFAULT_RUN_UID)
-    # Many-to-many tables don't have row UIDs, so this needs to be nullable.
-    record_uid = models.JSONField(null=True)
+    record_uid = models.JSONField()
     record_data = models.JSONField(null=True)
     event_type = models.PositiveSmallIntegerField()
     created_at = models.DateTimeField()

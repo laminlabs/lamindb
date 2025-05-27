@@ -363,20 +363,16 @@ class Schema(SQLRecord, CanCurate, TracksRun):
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
+    # Before lamindb 1.5, it was 20 char long. Since lamindb 1.5, it is 16 char long.
     uid: str = CharField(editable=False, unique=True, db_index=True, max_length=20)
-    """A universal id.
-
-    Before lamindb 1.5, it was 20 char long. Since lamindb 1.5, it is 16 char long.
-    """
+    """A universal id."""
     name: str | None = CharField(max_length=150, null=True, db_index=True)
     """A name."""
     description: str | None = CharField(null=True, db_index=True)
     """A description."""
     n: int = IntegerField()
     """Number of features in the schema."""
-    type: Schema | None = ForeignKey(
-        "self", PROTECT, null=True, related_name="instances"
-    )
+    type: Schema | None = ForeignKey("self", PROTECT, null=True, related_name="schemas")
     """Type of schema.
 
     Allows to group schemas by type, e.g., all meassurements evaluating gene expression vs. protein expression vs. multi modal.
@@ -386,7 +382,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
     Here are a few more examples for type names: `'ExpressionPanel'`, `'ProteinPanel'`, `'Multimodal'`, `'Metadata'`, `'Embedding'`.
     """
     instances: Schema
-    """Instances of this type."""
+    """Schemas of this type (can only be non-empty if `is_type` is `True`)."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     itype: str | None = CharField(

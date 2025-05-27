@@ -3,19 +3,23 @@ import re
 from abc import ABC, abstractmethod
 from typing import Any
 
-from django.db import models, transaction
+from django.db import transaction
 from django.db.backends.base.base import BaseDatabaseWrapper
 from django.db.backends.utils import CursorWrapper
 from lamin_utils import logger
 from typing_extensions import override
 
+from lamindb.core.writelog._constants import FOREIGN_KEYS_LIST_COLUMN_NAME
 from lamindb.core.writelog._graph_utils import find_cycle, topological_sort
+from lamindb.core.writelog._utils import (
+    update_migration_state,
+    update_write_log_table_state,
+)
 from lamindb.models.writelog import (
     DEFAULT_BRANCH_CODE,
     DEFAULT_CREATED_BY_UID,
     DEFAULT_RUN_UID,
     WriteLogLock,
-    WriteLogMigrationState,
     WriteLogTableState,
 )
 
@@ -31,20 +35,6 @@ class WriteLogEventTypes(enum.Enum):
     UPDATE = 1
     DELETE = 2
 
-
-class DjangoMigration(models.Model):
-    """This model class allows us to access the migrations table using normal Django syntax."""
-
-    app = models.CharField(max_length=255)
-    name = models.CharField(max_length=255)
-    applied = models.DateTimeField()
-
-    class Meta:
-        managed = False  # Tell Django not to manage this table
-        db_table = "django_migrations"  # Specify the actual table name
-
-
-FOREIGN_KEYS_LIST_COLUMN_NAME = "_lamin_fks"
 
 RESERVED_COLUMNS: tuple[str] = (FOREIGN_KEYS_LIST_COLUMN_NAME,)
 
@@ -91,63 +81,16 @@ class WriteLogRecordingTriggerInstaller(ABC):
     def install_triggers(self, table: str, cursor: CursorWrapper):
         raise NotImplementedError()
 
-    def _update_write_log_table_state(self, tables: set[str]):
-        existing_tables = set(
-            WriteLogTableState.objects.filter(table_name__in=tables).values_list(
-                "table_name", flat=True
-            )
-        )
-
-        table_states_to_add = [
-            WriteLogTableState(table_name=t, backfilled=False)
-            for t in tables
-            if t not in existing_tables
-        ]
-
-        WriteLogTableState.objects.bulk_create(table_states_to_add)
-
-    def _update_migration_state(self, cursor: CursorWrapper):
-        app_migrations = {}
-
-        for app in DjangoMigration.objects.values_list("app", flat=True).distinct():
-            migrations = DjangoMigration.objects.filter(app=app)
-            max_migration_id = 0
-
-            for migration in migrations:
-                # Extract the number from the migration name
-                match = re.match(r"^([0-9]+)_", migration.name)  # type: ignore
-                if match:
-                    migration_id = int(match.group(1))
-                    max_migration_id = max(max_migration_id, migration_id)
-
-            app_migrations[app] = max_migration_id
-
-        current_state = [
-            {"migration_id": mig_id, "app": app}
-            for app, mig_id in sorted(app_migrations.items())
-        ]
-
-        try:
-            latest_state = WriteLogMigrationState.objects.order_by("-id").first()
-            latest_state_json = (
-                latest_state.migration_state_id if latest_state else None
-            )
-        except WriteLogMigrationState.DoesNotExist:
-            latest_state_json = None
-
-        if current_state and current_state != latest_state_json:
-            WriteLogMigrationState.objects.create(migration_state_id=current_state)
-
     def update_write_log_triggers(self, update_all: bool = False):
         with transaction.atomic():
             # Ensure that the write log lock exists
             WriteLogLock.load()
             tables = self.db_metadata.get_db_tables()
-            self._update_write_log_table_state(tables)
+            update_write_log_table_state(tables)
 
             cursor = self.connection.cursor()
 
-            self._update_migration_state(cursor)
+            update_migration_state()
 
             tables_with_installed_triggers = (
                 self.db_metadata.get_tables_with_installed_triggers(cursor)
@@ -221,7 +164,7 @@ class WriteLogRecordingTriggerInstaller(ABC):
                 table_dependencies[foreign_key.target_table].add(table)
 
         # Create a synthetic dependency between LaminDB's "auxiliary" artifacts and lamindb_run. This will allow
-        # us to backfill all records where kind == '__lamindb__' (and, hence, where run_id is guaranteed to be NULL)
+        # us to backfill all records where kind == '__lamindb_run__' (and, hence, where run_id is guaranteed to be NULL)
         # before backfilling lamindb_run, avoiding a circular dependency between artifacts and runs that would otherwise
         # make the backfill impossible to perform correctly in the general case.
         if "lamindb_artifact" in tables:
@@ -296,7 +239,9 @@ END $$;
         primary_key_constraint: KeyConstraint,
         foreign_key_constraints: list[KeyConstraint],
     ):
-        primary_key_columns_set: set[str] = set(primary_key_constraint.source_columns)
+        primary_key_columns_set: set[str] = {
+            c.name for c in primary_key_constraint.source_columns
+        }
         self_referential_constraints = [
             fk for fk in foreign_key_constraints if fk.target_table == table
         ]
@@ -304,7 +249,9 @@ END $$;
         self_reference_columns_set: set[str] = set()
 
         for foreign_key_constraint in self_referential_constraints:
-            self_reference_columns_set.add(*(foreign_key_constraint.source_columns))
+            self_reference_columns_set.add(
+                *(c.name for c in foreign_key_constraint.source_columns)
+            )
 
         # We need to specify these columns in a fixed order so that we can figure out
         # which elements in the output row correspond to each column after the lookup query
@@ -335,20 +282,20 @@ FROM {table}
             for foreign_key_constraint in self_referential_constraints:
                 # If all source columns are null, skip this constraint.
                 if not any(
-                    row_dict[source_col] is not None
+                    row_dict[source_col.name] is not None
                     for source_col in foreign_key_constraint.source_columns
                 ):
                     continue
 
-                referenced_pk = {}
+                referenced_pk: dict[str, Any] = {}
 
                 # We need to map the source columns in the constraint to their corresponding target columns.
                 for i, source_column in enumerate(
                     foreign_key_constraint.source_columns
                 ):
-                    referenced_pk[foreign_key_constraint.target_columns[i]] = row_dict[
-                        source_column
-                    ]
+                    referenced_pk[foreign_key_constraint.target_columns[i].name] = (
+                        row_dict[source_column.name]
+                    )
 
                 hashed_referenced_pk = self._hash_pk(referenced_pk)
 
@@ -480,7 +427,7 @@ class PostgresHistoryRecordingFunctionBuilder:
 
             return self._build_jsonb_array(
                 [
-                    f"{table_name_in_trigger}.{column}"
+                    f"{table_name_in_trigger}.{column.name}"
                     for column in table_uid.uid_columns
                 ]
             )
@@ -512,7 +459,7 @@ class PostgresHistoryRecordingFunctionBuilder:
                             table_id_var,
                             self._build_jsonb_array(
                                 [
-                                    f"'{c}'"
+                                    f"'{c.name}'"
                                     for c in foreign_key_constraint.source_columns
                                 ]
                             ),
@@ -540,21 +487,23 @@ class PostgresHistoryRecordingFunctionBuilder:
 
         # We don't need to store the table's primary key columns in its data object,
         # since the object will be identified by its UID columns.
-        non_key_columns = table_columns.difference(set(primary_key.source_columns))
+        non_key_columns = table_columns.difference(
+            {c.name for c in primary_key.source_columns}
+        )
 
         # We also don't need to store any foreign-key columns in its data object,
         # since the references those columns encode will be captured by reference to
         # their UID columns.
         for foreign_key_constraint in foreign_key_constraints:
             non_key_columns.difference_update(
-                set(foreign_key_constraint.source_columns)
+                {c.name for c in foreign_key_constraint.source_columns}
             )
 
         # Since we're recording the record's UID, we don't need to store the UID columns in the
         # data object as well.
         if len(uid_columns_list) == 1:
             table_uid = uid_columns_list[0]
-            non_key_columns.difference_update(table_uid.uid_columns)
+            non_key_columns.difference_update(c.name for c in table_uid.uid_columns)
 
         record_data: dict[str | int, Any] = {}
 
@@ -571,7 +520,8 @@ class PostgresHistoryRecordingFunctionBuilder:
             # Don't record foreign-keys to space, since we store space_uid separately
             if not (
                 foreign_key_constraint.target_table == "lamindb_space"
-                and foreign_key_constraint.source_columns == ["space_id"]
+                and [c.name for c in foreign_key_constraint.source_columns]
+                == ["space_id"]
             )
         ]
 
@@ -626,7 +576,7 @@ class PostgresHistoryRecordingFunctionBuilder:
             [
                 table_id,
                 self._build_jsonb_array(
-                    [f"'{c}'" for c in foreign_key_constraint.source_columns]
+                    [f"'{c.name}'" for c in foreign_key_constraint.source_columns]
                 ),
                 uid_lookup_variable,
             ]
@@ -667,7 +617,7 @@ class PostgresHistoryRecordingFunctionBuilder:
         table_uid = uid_column_list[0]
 
         where_clause = " AND ".join(
-            f"{target_col} = {source_record}.{source_col}"
+            f"{target_col.name} = {source_record}.{source_col.name}"
             for source_col, target_col in zip(
                 foreign_key_constraint.source_columns,
                 foreign_key_constraint.target_columns,
@@ -686,11 +636,11 @@ class PostgresHistoryRecordingFunctionBuilder:
             f"""
 coalesce(
     (
-        SELECT {self._build_jsonb_object({c: c for c in table_uid.uid_columns})}
+        SELECT {self._build_jsonb_object({c.name: c.name for c in table_uid.uid_columns})}
         FROM {foreign_key_constraint.target_table}
         WHERE {where_clause}
     ),
-    {self._build_jsonb_object(dict.fromkeys(table_uid.uid_columns, "NULL"))}
+    {self._build_jsonb_object(dict.fromkeys([c.name for c in table_uid.uid_columns], "NULL"))}
 )
 """,  # noqa: S608
         )
@@ -867,9 +817,9 @@ DECLARE
     r record;
 BEGIN
     FOR r IN
-        SELECT * FROM lamindb_artifact WHERE kind = '__lamindb__'
+        SELECT * FROM lamindb_artifact WHERE kind = '__lamindb_run__'
     LOOP
-        -- Call the trigger function for each row where kind is '__lamindb__'
+        -- Call the trigger function for each row where kind is '__lamindb_run__'
         PERFORM {get_write_log_recording_function_name("lamindb_artifact")}(NULL, r, 'INSERT');
     END LOOP;
 END $$;
@@ -883,9 +833,9 @@ DECLARE
     r record;
 BEGIN
     FOR r IN
-        SELECT * FROM lamindb_artifact WHERE kind != '__lamindb__'
+        SELECT * FROM lamindb_artifact WHERE kind != '__lamindb_run__'
     LOOP
-        -- Call the trigger function for each row where kind is '__lamindb__'
+        -- Call the trigger function for each row where kind is '__lamindb_run__'
         PERFORM {get_write_log_recording_function_name("lamindb_artifact")}(NULL, r, 'INSERT');
     END LOOP;
 END $$;

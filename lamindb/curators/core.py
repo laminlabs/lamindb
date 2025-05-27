@@ -1041,7 +1041,10 @@ class CatVector:
         if (
             self._subtype_str != "" and "__" not in self._subtype_str
         ):  # not for general filter expressions
-            self._subtype_query_set = registry.get(name=self._subtype_str).instances.all()
+            related_name = registry._meta.get_field("type").remote_field.related_name
+            self._subtype_query_set = getattr(
+                registry.get(name=self._subtype_str), related_name
+            ).all()
             values_array = np.array(str_values)
             validated_mask = self._subtype_query_set.validate(  # type: ignore
                 values_array, field=self._field, **filter_kwargs, mute=True
