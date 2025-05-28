@@ -15,7 +15,11 @@ from lamindb.core.writelog._utils import (
     update_migration_state,
     update_write_log_table_state,
 )
+from lamindb.models.feature import Feature, FeatureValue
+from lamindb.models.run import User
+from lamindb.models.sqlrecord import Branch
 from lamindb.models.writelog import (
+    DEFAULT_BRANCH,
     MigrationState,
     TableState,
     WriteLog,
@@ -389,3 +393,97 @@ def test_replayer_many_to_many(
         simple_uid_to_id["SimpleRecord1"],
         simple_uid_to_id["SimpleRecord2"],
     )
+
+
+@pytest.fixture(scope="function")
+def test_feature():
+    feature = Feature(name="perturbation", dtype="int").save()
+
+    yield feature
+
+    feature.delete()
+
+
+def test_replayer_lamindb_featurevalue(test_feature, write_log_lock, write_log_state):
+    update_write_log_table_state(
+        {
+            "lamindb_featurevalue",
+            "lamindb_branch",
+            "lamindb_user",
+            "lamindb_feature",
+            "lamindb_run",
+        }
+    )
+    update_migration_state()
+
+    featurevalue_table = TableState.objects.get(table_name="lamindb_featurevalue")
+
+    input_write_log = [
+        WriteLog(
+            migration_state=get_latest_migration_state(),
+            table=featurevalue_table,
+            uid="WriteLog1",
+            record_uid=["valhash", Feature.objects.get(name="perturbation").uid],
+            record_data={
+                "value": 50,
+                "hash": "valhash",
+                "created_at": "2025-05-27T16:00:04.234512+00:00",
+                "_aux": None,
+                FOREIGN_KEYS_LIST_COLUMN_NAME: [
+                    [
+                        TableState.objects.get(table_name="lamindb_branch").id,
+                        ["_branch_code"],
+                        {"uid": Branch.objects.get(id=DEFAULT_BRANCH).uid},
+                    ],
+                    [
+                        TableState.objects.get(table_name="lamindb_user").id,
+                        ["created_by_id"],
+                        {"uid": User.objects.get(id=1).uid},
+                    ],
+                    [
+                        TableState.objects.get(table_name="lamindb_feature").id,
+                        ["feature_id"],
+                        {"uid": Feature.objects.get(name="perturbation").uid},
+                    ],
+                    [
+                        TableState.objects.get(table_name="lamindb_run").id,
+                        ["run_id"],
+                        {"uid": None},
+                    ],
+                ],
+            },
+            event_type=WriteLogEventTypes.INSERT.value,
+            created_at=datetime.datetime(2025, 5, 27, 16, 2),
+        )
+    ]
+
+    replayer = WriteLogReplayer(
+        db_metadata=SQLiteDatabaseMetadataWrapper(), cursor=django_connection.cursor()
+    )
+
+    for write_log_entry in input_write_log:
+        replayer.replay(write_log_entry)
+        write_log_entry.save()
+
+    write_log = WriteLog.objects.all().order_by("id")
+
+    assert len(write_log) == 1
+    assert list(write_log) == input_write_log
+
+    feature_values = FeatureValue.objects.all()
+
+    assert len(feature_values) == 1
+
+    feature_value = list(feature_values)[0]
+
+    assert feature_value.branch_id == DEFAULT_BRANCH
+    assert feature_value.value == 50
+    assert feature_value.hash == "valhash"
+    assert feature_value._aux is None
+    assert feature_value.run is None
+    assert feature_value.created_at == datetime.datetime(
+        2025, 5, 27, 16, 0, 4, 234512, tzinfo=datetime.timezone.utc
+    )
+    assert feature_value.created_by.id == 1
+    assert feature_value.feature is not None
+    assert feature_value.feature.uid == Feature.objects.get(name="perturbation").uid
