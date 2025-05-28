@@ -779,8 +779,10 @@ def test_tiledbsoma_curator(small_dataset1_schema: ln.Schema, clean_soma_files):
 
     # Convert AnnData to SOMA format
     adata = ln.core.datasets.small_dataset1(otype="AnnData")
-    tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
-    experiment = tiledbsoma.Experiment.open("curate.tiledbsoma")
+    tiledbsoma.io.from_anndata(
+        "small_dataset.tiledbsoma", adata, measurement_name="RNA"
+    )
+    experiment = tiledbsoma.Experiment.open("small_dataset.tiledbsoma")
 
     # Test with invalid dataset
     with pytest.raises(ln.errors.InvalidArgument):

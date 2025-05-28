@@ -457,27 +457,29 @@ def test_soma_curator(adata, categoricals, clean_soma_files):  # noqa: F811
     import tiledbsoma
     import tiledbsoma.io
 
-    tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
+    tiledbsoma.io.from_anndata(
+        "small_dataset.tiledbsoma", adata, measurement_name="RNA"
+    )
 
     with pytest.raises(
         ValidationError, match="key passed to categoricals is not present"
     ):
         ln.Curator.from_tiledbsoma(
-            "curate.tiledbsoma",
+            "small_dataset.tiledbsoma",
             {"RNA": ("var_id", bt.Gene.symbol)},
             categoricals={"invalid_key": bt.CellType.name},
         )
 
     with pytest.raises(ValidationError, match="key passed to var_index is not present"):
         ln.Curator.from_tiledbsoma(
-            "curate.tiledbsoma",
+            "small_dataset.tiledbsoma",
             {"RNA": ("invalid_key", bt.Gene.symbol)},
             categoricals={"cell_type": bt.CellType.name},
         )
 
     with pytest.raises(ValidationError, match="key passed to sources is not present"):
         ln.Curator.from_tiledbsoma(
-            "curate.tiledbsoma",
+            "small_dataset.tiledbsoma",
             {"RNA": ("var_id", bt.Gene.symbol)},
             categoricals={"cell_type": bt.CellType.name},
             sources={"invalid_key": None},
@@ -486,7 +488,7 @@ def test_soma_curator(adata, categoricals, clean_soma_files):  # noqa: F811
     try:
         artifact = None
         curator = ln.Curator.from_tiledbsoma(
-            "curate.tiledbsoma",
+            "small_dataset.tiledbsoma",
             {"RNA": ("var_id", bt.Gene.symbol)},
             categoricals=categoricals,
             organism="human",
@@ -511,7 +513,7 @@ def test_soma_curator(adata, categoricals, clean_soma_files):  # noqa: F811
         }
 
         curator.standardize("RNA__var_id")
-        with tiledbsoma.open("curate.tiledbsoma", mode="r") as experiment:
+        with tiledbsoma.open("small_dataset.tiledbsoma", mode="r") as experiment:
             var_idx = (
                 experiment.ms["RNA"]
                 .var.read(column_names=["var_id"])
@@ -597,11 +599,13 @@ def test_soma_curator_genes_columns(adata, clean_soma_files):  # noqa: F811
     import tiledbsoma.io
 
     adata.obs = pd.DataFrame(adata.X[:, :3], columns=adata.var_names[:3])
-    tiledbsoma.io.from_anndata("curate.tiledbsoma", adata, measurement_name="RNA")
+    tiledbsoma.io.from_anndata(
+        "small_dataset.tiledbsoma", adata, measurement_name="RNA"
+    )
 
     try:
         curator = ln.Curator.from_tiledbsoma(
-            "curate.tiledbsoma",
+            "small_dataset.tiledbsoma",
             {"RNA": ("var_id", bt.Gene.symbol)},
             obs_columns=bt.Gene.symbol,
             organism="human",
