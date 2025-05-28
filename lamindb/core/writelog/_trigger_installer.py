@@ -798,7 +798,6 @@ coalesce(
             record_uid := {self._build_record_uid(is_delete=True)};
             event_type := {WriteLogEventTypes.DELETE.value};
             space_id := ({self._build_space_id(is_delete=True)});
-            {self._assign_delete_only_variables()}
         ELSE
             record_data := {self._build_record_data()};
             record_uid := {self._build_record_uid(is_delete=False)};
@@ -850,6 +849,9 @@ CREATE OR REPLACE FUNCTION {self.function_name}(old_record RECORD, new_record RE
 AS $$
 {self._build_variable_declarations()}
 BEGIN
+    IF (trigger_op = 'DELETE') THEN
+        {self._assign_delete_only_variables()}
+    END IF;
 {function_body}
 END;
 $$ LANGUAGE PLPGSQL;
