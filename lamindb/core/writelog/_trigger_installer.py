@@ -16,11 +16,12 @@ from lamindb.core.writelog._utils import (
     update_write_log_table_state,
 )
 from lamindb.models.writelog import (
-    DEFAULT_BRANCH_CODE,
+    DEFAULT_BRANCH,
     DEFAULT_CREATED_BY_UID,
     DEFAULT_RUN_UID,
+    DEFAULT_SPACE,
+    TableState,
     WriteLogLock,
-    WriteLogTableState,
 )
 
 from ._db_metadata_wrapper import (
@@ -45,8 +46,8 @@ RESERVED_COLUMNS: tuple[str] = (FOREIGN_KEYS_LIST_COLUMN_NAME,)
 EXCLUDED_TABLES = [
     "lamindb_writelog",
     "lamindb_writeloglock",
-    "lamindb_writelogtablestate",
-    "lamindb_writelogmigrationstate",
+    "lamindb_tablestate",
+    "lamindb_migrationstate",
     "django_content_type",
     "django_migrations",
     # FIXME what to do with these?
@@ -186,7 +187,7 @@ class WriteLogRecordingTriggerInstaller(ABC):
                 self.backfill_aux_artifacts(cursor)
             elif table in tables:
                 # Only backfill tables in the current set
-                table_state = WriteLogTableState.objects.get(table_name=table)
+                table_state = TableState.objects.get(table_name=table)
 
                 if table_state.backfilled:
                     logger.info(
@@ -388,7 +389,7 @@ class PostgresHistoryRecordingFunctionBuilder:
 
         return self._record_uid[is_delete]
 
-    def _build_space_uid(self, is_delete: bool) -> str:
+    def _build_space_id(self, is_delete: bool) -> str:
         columns = self.db_metadata.get_column_names(
             table=self.table, cursor=self.cursor
         )
@@ -400,10 +401,11 @@ class PostgresHistoryRecordingFunctionBuilder:
             else:
                 table_name_in_trigger = "new_record"
 
-            return f"SELECT uid FROM lamindb_space WHERE id = {table_name_in_trigger}.space_id"  # noqa: S608
+            # TODO: The select statement below likely is superfluous, since space_id is known
+            return f"SELECT id FROM lamindb_space WHERE id = {table_name_in_trigger}.space_id"  # noqa: S608
         else:
-            # For the rest, we can set this to NULL.
-            return "NULL"
+            # For the rest, we can use DEFAULT_SPACE
+            return f"{DEFAULT_SPACE}"
 
     def _build_record_uid_inner(self, is_delete: bool) -> str:
         uid_columns_list: UIDColumns = self.db_metadata.get_uid_columns(
@@ -517,7 +519,7 @@ class PostgresHistoryRecordingFunctionBuilder:
                 foreign_key_constraint=foreign_key_constraint, is_delete=False
             )
             for foreign_key_constraint in foreign_key_constraints
-            # Don't record foreign-keys to space, since we store space_uid separately
+            # Don't record foreign-keys to space, since we store space_id separately
             if not (
                 foreign_key_constraint.target_table == "lamindb_space"
                 and [c.name for c in foreign_key_constraint.source_columns]
@@ -536,7 +538,7 @@ class PostgresHistoryRecordingFunctionBuilder:
 
         Will only add a variable for a given table name once.
         """
-        table_id = WriteLogTableState.objects.get(table_name=table).id
+        table_id = TableState.objects.get(table_name=table).id
 
         variable_name = f"_table_name_{table_id}"
 
@@ -546,7 +548,7 @@ class PostgresHistoryRecordingFunctionBuilder:
             self.declare_variable(
                 variable_name,
                 "smallint",
-                f"SELECT id FROM lamindb_writelogtablestate WHERE table_name = '{table}' LIMIT 1",  # noqa: S608
+                f"SELECT id FROM lamindb_tablestate WHERE table_name = '{table}' LIMIT 1",  # noqa: S608
             )
 
         return variable_name
@@ -569,7 +571,7 @@ class PostgresHistoryRecordingFunctionBuilder:
         variable_name = self._create_unique_variable_name("_lamin_fkey_ref")
 
         # We'll be creating a JSONB array with three elements:
-        #  * the ID of the target table in WriteLogTableState
+        #  * the ID of the target table in TableState
         #  * the columns in the table that comprise the foreign-key constraint
         #  * the uniquely-identifiable columns in the target table that identify the target record
         source_columns_lookup_array = self._build_jsonb_array(
@@ -666,10 +668,10 @@ coalesce(
         self.declare_variable(
             name="latest_migration_id",
             type="smallint",
-            declaration="SELECT MAX(id) FROM lamindb_writelogmigrationstate",
+            declaration="SELECT MAX(id) FROM lamindb_migrationstate",
         )
 
-        self.declare_variable(name="space_uid", type="varchar")
+        self.declare_variable(name="space_id", type="smallint")
 
         table_id_var = self.add_table_id_variable(table=self.table)
         self.declare_variable(name="record_data", type="jsonb")
@@ -685,11 +687,11 @@ coalesce(
             record_data := NULL;
             record_uid := {self._build_record_uid(is_delete=True)};
             event_type := {WriteLogEventTypes.DELETE.value};
-            space_uid := ({self._build_space_uid(is_delete=True)});
+            space_id := ({self._build_space_id(is_delete=True)});
         ELSE
             record_data := {self._build_record_data()};
             record_uid := {self._build_record_uid(is_delete=False)};
-            space_uid := ({self._build_space_uid(is_delete=False)});
+            space_id := ({self._build_space_id(is_delete=False)});
 
             IF (trigger_op = 'INSERT') THEN
                 event_type := {WriteLogEventTypes.INSERT.value};
@@ -704,9 +706,9 @@ coalesce(
                 migration_state_id,
                 table_id,
                 record_uid,
-                space_uid,
+                space_id,
                 created_by_uid,
-                branch_code,
+                branch_id,
                 run_uid,
                 record_data,
                 event_type,
@@ -718,9 +720,9 @@ coalesce(
                 latest_migration_id,
                 {table_id_var},
                 record_uid,
-                space_uid,
+                space_id,
                 '{DEFAULT_CREATED_BY_UID}',
-                {DEFAULT_BRANCH_CODE},
+                {DEFAULT_BRANCH},
                 '{DEFAULT_RUN_UID}',
                 record_data,
                 event_type,

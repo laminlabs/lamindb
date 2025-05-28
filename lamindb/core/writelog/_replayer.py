@@ -8,7 +8,7 @@ from django.db.backends.utils import CursorWrapper
 from lamindb.core.writelog._constants import FOREIGN_KEYS_LIST_COLUMN_NAME
 from lamindb.core.writelog._trigger_installer import WriteLogEventTypes
 from lamindb.core.writelog._types import Column, ColumnType
-from lamindb.models.writelog import WriteLog, WriteLogTableState
+from lamindb.models.writelog import TableState, WriteLog
 
 from ._db_metadata_wrapper import DatabaseMetadataWrapper
 
@@ -268,7 +268,7 @@ class WriteLogReplayer:
         where each 3-tuple is:
 
             [
-                ID of the destination table in WriteLogTableState,
+                ID of the destination table in TableState,
                 list of table fields containing the foreign key,
                 record/value pairs defining the foreign record's UID
             ]
@@ -313,7 +313,7 @@ class WriteLogReplayer:
                     f"Expected the third element of a foreign key's JSON representation to be a dict mapping columns to values (JSON: {json_obj})"
                 )
 
-            table_name = WriteLogTableState.objects.get(id=table_id).table_name
+            table_name = TableState.objects.get(id=table_id).table_name
 
             return WriteLogForeignKey(
                 table_name=table_name,

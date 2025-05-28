@@ -21,10 +21,10 @@ from lamindb.models.run import Run
 from lamindb.models.sqlrecord import Space
 from lamindb.models.transform import Transform
 from lamindb.models.writelog import (
+    MigrationState,
+    TableState,
     WriteLog,
     WriteLogLock,
-    WriteLogMigrationState,
-    WriteLogTableState,
 )
 
 from .writelog_test_utils import FakeMetadataWrapper
@@ -54,14 +54,14 @@ def fetch_row_id_by_uid(
 def write_log_state():
     # Clean up after any tests that modify write logs
     WriteLog.objects.all().delete()
-    WriteLogTableState.objects.all().delete()
-    WriteLogMigrationState.objects.all().delete()
+    TableState.objects.all().delete()
+    MigrationState.objects.all().delete()
 
     yield
 
     WriteLog.objects.all().delete()
-    WriteLogTableState.objects.all().delete()
-    WriteLogMigrationState.objects.all().delete()
+    TableState.objects.all().delete()
+    MigrationState.objects.all().delete()
 
 
 @pytest.fixture(scope="function")
@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS {table_name}
 
 @pytest.mark.pg_integration
 def test_updating_write_log_triggers_installs_table_state(table_a, table_b, table_c):
-    assert len(set(WriteLogTableState.objects.all())) == 0
+    assert len(set(TableState.objects.all())) == 0
 
     fake_db_metadata = FakeMetadataWrapper()
     fake_db_metadata.set_db_tables({table_a, table_b, table_c})
@@ -124,7 +124,7 @@ def test_updating_write_log_triggers_installs_table_state(table_a, table_b, tabl
 
     installer.update_write_log_triggers()
 
-    new_table_states = set(WriteLogTableState.objects.all())
+    new_table_states = set(TableState.objects.all())
 
     assert len(new_table_states) == 3
     assert {ts.table_name for ts in new_table_states} == {
@@ -133,16 +133,16 @@ def test_updating_write_log_triggers_installs_table_state(table_a, table_b, tabl
         table_c,
     }
 
-    assert not WriteLogTableState.objects.get(table_name=table_a).backfilled
-    assert WriteLogTableState.objects.get(table_name=table_b).backfilled
-    assert not WriteLogTableState.objects.get(table_name=table_c).backfilled
+    assert not TableState.objects.get(table_name=table_a).backfilled
+    assert TableState.objects.get(table_name=table_b).backfilled
+    assert not TableState.objects.get(table_name=table_c).backfilled
 
 
 @pytest.mark.pg_integration
 def test_update_write_log_triggers_only_install_table_state_once(
     table_a, table_b, table_c
 ):
-    assert len(set(WriteLogTableState.objects.all())) == 0
+    assert len(set(TableState.objects.all())) == 0
 
     fake_db_metadata = FakeMetadataWrapper()
     fake_db_metadata.set_db_tables({table_a, table_b, table_c})
@@ -157,7 +157,7 @@ def test_update_write_log_triggers_only_install_table_state_once(
     installer.update_write_log_triggers(update_all=True)
     installer.update_write_log_triggers(update_all=True)
 
-    new_table_states = set(WriteLogTableState.objects.all())
+    new_table_states = set(TableState.objects.all())
 
     # There should only be one table state per table, even though we've run more than once.
     assert len(new_table_states) == 3
@@ -172,7 +172,7 @@ def test_update_write_log_triggers_only_install_table_state_once(
 
 @pytest.mark.pg_integration
 def test_update_triggers_installs_migration_state(table_a, table_b, table_c):
-    assert len(set(WriteLogMigrationState.objects.all())) == 0
+    assert len(set(MigrationState.objects.all())) == 0
 
     fake_db_metadata = FakeMetadataWrapper()
     fake_db_metadata.set_db_tables({table_a, table_b, table_c})
@@ -186,7 +186,7 @@ def test_update_triggers_installs_migration_state(table_a, table_b, table_c):
 
     installer.update_write_log_triggers()
 
-    new_migration_states = set(WriteLogMigrationState.objects.all())
+    new_migration_states = set(MigrationState.objects.all())
 
     assert len(new_migration_states) == 1
 
@@ -195,7 +195,7 @@ def test_update_triggers_installs_migration_state(table_a, table_b, table_c):
 
     installer.update_write_log_triggers()
 
-    new_migration_states = set(WriteLogMigrationState.objects.all())
+    new_migration_states = set(MigrationState.objects.all())
 
     assert len(new_migration_states) == 1
 
@@ -1089,8 +1089,6 @@ def fake_space():
 
     yield space
 
-    space.delete()
-
 
 @pytest.fixture(scope="function")
 def table_with_space_ref(fake_space):
@@ -1300,7 +1298,7 @@ def test_self_referential_backfill(self_referential_pg_table):
 
 
 @pytest.mark.pg_integration
-def test_write_log_records_space_uids_properly(table_with_space_ref, fake_space):
+def test_write_log_records_space_ids_properly(table_with_space_ref, fake_space):
     cursor = django_connection.cursor()
 
     _update_write_log_triggers(
@@ -1317,7 +1315,7 @@ def test_write_log_records_space_uids_properly(table_with_space_ref, fake_space)
 
     cursor.execute(
         f"INSERT INTO {table_with_space_ref} (uid, space_id) "  # noqa: S608
-        f"VALUES ('B', NULL)"
+        f"VALUES ('B', 1)"
     )
 
     write_log = WriteLog.objects.all().order_by("id")
@@ -1330,7 +1328,7 @@ def test_write_log_records_space_uids_properly(table_with_space_ref, fake_space)
         FOREIGN_KEYS_LIST_COLUMN_NAME: [],
     }
     assert write_log[0].event_type == WriteLogEventTypes.INSERT.value
-    assert write_log[0].space_uid == "fakespace"
+    assert write_log[0].space_id == fake_space.id
 
     assert write_log[1].table.table_name == table_with_space_ref
     assert write_log[1].record_uid == ["B"]
@@ -1338,7 +1336,7 @@ def test_write_log_records_space_uids_properly(table_with_space_ref, fake_space)
         FOREIGN_KEYS_LIST_COLUMN_NAME: [],
     }
     assert write_log[1].event_type == WriteLogEventTypes.INSERT.value
-    assert write_log[1].space_uid is None
+    assert write_log[1].space_id == 1
 
 
 @pytest.fixture(scope="function")
