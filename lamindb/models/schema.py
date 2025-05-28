@@ -30,21 +30,21 @@ from ._relations import (
     get_related_name,
 )
 from .can_curate import CanCurate
-from .dbrecord import (
-    BaseDBRecord,
-    DBRecord,
-    IsLink,
-    Registry,
-    _get_record_kwargs,
-    init_self_from_db,
-    update_attributes,
-)
 from .feature import (
     Feature,
     serialize_dtype,
     serialize_pandas_dtype,
 )
 from .run import TracksRun, TracksUpdates
+from .sqlrecord import (
+    BaseSQLRecord,
+    IsLink,
+    Registry,
+    SQLRecord,
+    _get_record_kwargs,
+    init_self_from_db,
+    update_attributes,
+)
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -59,7 +59,7 @@ NUMBER_TYPE = "num"
 DICT_KEYS_TYPE = type({}.keys())  # type: ignore
 
 
-def validate_features(features: list[DBRecord]) -> DBRecord:
+def validate_features(features: list[SQLRecord]) -> SQLRecord:
     """Validate and return feature type."""
     try:
         if len(features) == 0:
@@ -70,7 +70,7 @@ def validate_features(features: list[DBRecord]) -> DBRecord:
         ) from None
     if not hasattr(features, "__getitem__"):
         raise TypeError("features has to be list-like")
-    if not isinstance(features[0], DBRecord):
+    if not isinstance(features[0], SQLRecord):
         raise TypeError(
             "features has to store feature records! use .from_values() otherwise"
         )
@@ -84,8 +84,8 @@ def validate_features(features: list[DBRecord]) -> DBRecord:
 
 
 def get_features_config(
-    features: list[DBRecord] | tuple[DBRecord, dict],
-) -> tuple[list[DBRecord], list[tuple[DBRecord, dict]]]:
+    features: list[SQLRecord] | tuple[SQLRecord, dict],
+) -> tuple[list[SQLRecord], list[tuple[SQLRecord, dict]]]:
     """Get features and their config from the return of feature.with_config()."""
     features_list = []
     configs = []
@@ -251,13 +251,13 @@ KNOWN_SCHEMAS = {
 }
 
 
-class Schema(DBRecord, CanCurate, TracksRun):
+class Schema(SQLRecord, CanCurate, TracksRun):
     """Schemas of a dataset such as the set of columns of a `DataFrame`.
 
     Composite schemas can have multiple slots, e.g., for an `AnnData`, one schema for slot `obs` and another one for `var`.
 
     Args:
-        features: `list[DBRecord] | list[tuple[Feature, dict]] | None = None` Feature
+        features: `list[SQLRecord] | list[tuple[Feature, dict]] | None = None` Feature
             records, e.g., `[Feature(...), Feature(...)]` or Features with their config, e.g., `[Feature(...).with_config(optional=True)]`.
         index: `Feature | None = None` A :class:`~lamindb.Feature` record to validate an index of a `DataFrame` and therefore also, e.g., `AnnData` obs and var indices.
         slots: `dict[str, Schema] | None = None` A dictionary mapping slot names to :class:`~lamindb.Schema` objects.
@@ -350,7 +350,7 @@ class Schema(DBRecord, CanCurate, TracksRun):
             schema = ln.Schema.from_df(df)
     """
 
-    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _name_field: str = "name"
@@ -363,18 +363,16 @@ class Schema(DBRecord, CanCurate, TracksRun):
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
+    # Before lamindb 1.5, it was 20 char long. Since lamindb 1.5, it is 16 char long.
     uid: str = CharField(editable=False, unique=True, db_index=True, max_length=20)
-    """A universal id.
-
-    Before lamindb 1.5, it was 20 char long. Since lamindb 1.5, it is 16 char long.
-    """
+    """A universal id."""
     name: str | None = CharField(max_length=150, null=True, db_index=True)
     """A name."""
     description: str | None = CharField(null=True, db_index=True)
     """A description."""
     n: int = IntegerField()
     """Number of features in the schema."""
-    type: Schema | None = ForeignKey("self", PROTECT, null=True, related_name="records")
+    type: Schema | None = ForeignKey("self", PROTECT, null=True, related_name="schemas")
     """Type of schema.
 
     Allows to group schemas by type, e.g., all meassurements evaluating gene expression vs. protein expression vs. multi modal.
@@ -383,8 +381,8 @@ class Schema(DBRecord, CanCurate, TracksRun):
 
     Here are a few more examples for type names: `'ExpressionPanel'`, `'ProteinPanel'`, `'Multimodal'`, `'Metadata'`, `'Embedding'`.
     """
-    records: Schema
-    """DBRecords of this type."""
+    instances: Schema
+    """Schemas of this type (can only be non-empty if `is_type` is `True`)."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     itype: str | None = CharField(
@@ -466,7 +464,7 @@ class Schema(DBRecord, CanCurate, TracksRun):
     @overload
     def __init__(
         self,
-        features: list[DBRecord] | list[tuple[Feature, dict]] | None = None,
+        features: list[SQLRecord] | list[tuple[Feature, dict]] | None = None,
         index: Feature | None = None,
         slots: dict[str, Schema] | None = None,
         name: str | None = None,
@@ -501,14 +499,14 @@ class Schema(DBRecord, CanCurate, TracksRun):
         if len(args) > 1:
             raise ValueError("Only one non-keyword arg allowed: features")
 
-        features: list[DBRecord] | None = (
+        features: list[SQLRecord] | None = (
             args[0] if args else kwargs.pop("features", [])
         )
         index: Feature | None = kwargs.pop("index", None)
         slots: dict[str, Schema] = kwargs.pop("slots", {})
         name: str | None = kwargs.pop("name", None)
         description: str | None = kwargs.pop("description", None)
-        itype: str | DBRecord | DeferredAttribute | None = kwargs.pop("itype", None)
+        itype: str | SQLRecord | DeferredAttribute | None = kwargs.pop("itype", None)
         flexible: bool | None = kwargs.pop("flexible", None)
         type: Feature | None = kwargs.pop("type", None)
         is_type: bool = kwargs.pop("is_type", False)
@@ -590,12 +588,12 @@ class Schema(DBRecord, CanCurate, TracksRun):
 
     def _validate_kwargs_calculate_hash(
         self,
-        features: list[DBRecord],
+        features: list[SQLRecord],
         index: Feature | None,
         slots: dict[str, Schema],
         name: str | None,
         description: str | None,
-        itype: str | DBRecord | DeferredAttribute | None,
+        itype: str | SQLRecord | DeferredAttribute | None,
         flexible: bool | None,
         type: Feature | None,
         is_type: bool,
@@ -737,8 +735,8 @@ class Schema(DBRecord, CanCurate, TracksRun):
         type: str | None = None,
         name: str | None = None,
         mute: bool = False,
-        organism: DBRecord | str | None = None,
-        source: DBRecord | None = None,
+        organism: SQLRecord | str | None = None,
+        source: SQLRecord | None = None,
         raise_validation_error: bool = True,
     ) -> Schema:
         """Create feature set for validated features.
@@ -772,7 +770,7 @@ class Schema(DBRecord, CanCurate, TracksRun):
         """
         if not isinstance(field, FieldAttr):
             raise TypeError(
-                "Argument `field` must be a DBRecord field, e.g., `Feature.name`"
+                "Argument `field` must be a SQLRecord field, e.g., `Feature.name`"
             )
         if len(values) == 0:
             raise ValueError("Provide a list of at least one value")
@@ -815,8 +813,8 @@ class Schema(DBRecord, CanCurate, TracksRun):
         field: FieldAttr = Feature.name,
         name: str | None = None,
         mute: bool = False,
-        organism: DBRecord | str | None = None,
-        source: DBRecord | None = None,
+        organism: SQLRecord | str | None = None,
+        source: SQLRecord | None = None,
     ) -> Schema | None:
         """Create schema for valid columns."""
         registry = field.field.model
@@ -1147,7 +1145,7 @@ def _get_related_name(self: Schema) -> str:
     return related_name
 
 
-class SchemaFeature(BaseDBRecord, IsLink):
+class SchemaFeature(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     schema: Schema = ForeignKey(Schema, CASCADE, related_name="links_feature")
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_schema")
@@ -1156,7 +1154,7 @@ class SchemaFeature(BaseDBRecord, IsLink):
         unique_together = ("schema", "feature")
 
 
-class ArtifactSchema(BaseDBRecord, IsLink, TracksRun):
+class ArtifactSchema(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey("Artifact", CASCADE, related_name="_links_schema")
     schema: Schema = ForeignKey(Schema, PROTECT, related_name="_links_artifact")
@@ -1167,7 +1165,7 @@ class ArtifactSchema(BaseDBRecord, IsLink, TracksRun):
         unique_together = (("artifact", "schema"), ("artifact", "slot"))
 
 
-class SchemaComponent(BaseDBRecord, IsLink, TracksRun):
+class SchemaComponent(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     composite: Schema = ForeignKey(Schema, CASCADE, related_name="links_composite")
     component: Schema = ForeignKey(Schema, PROTECT, related_name="links_component")

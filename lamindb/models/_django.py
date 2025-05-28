@@ -15,7 +15,7 @@ from .schema import Schema
 
 if TYPE_CHECKING:
     from .artifact import Artifact
-    from .dbrecord import DBRecord
+    from .sqlrecord import SQLRecord
 
 
 def patch_many_to_many_descriptor() -> None:
@@ -59,7 +59,7 @@ def get_related_model(model, field_name):
 
 
 def get_artifact_with_related(
-    artifact: DBRecord,
+    artifact: SQLRecord,
     include_fk: bool = False,
     include_m2m: bool = False,
     include_feature_link: bool = False,
@@ -75,7 +75,9 @@ def get_artifact_with_related(
     foreign_key_fields = [
         f.name
         for f in model._meta.fields
-        if f.is_relation and f.related_model.__get_module_name__() in schema_modules
+        if f.is_relation
+        and f.related_model.__get_module_name__() in schema_modules
+        and f.name != "branch"  # TODO: re-enable at some point
     ]
 
     m2m_relations = (
@@ -113,7 +115,10 @@ def get_artifact_with_related(
 
     for link in link_tables:
         link_model = getattr(model, link).rel.related_model
-        if not hasattr(link_model, "feature"):
+        if (
+            not hasattr(link_model, "feature")
+            or link_model.__name__ == "RecordArtifact"
+        ):
             continue
         label_field = link.removeprefix("links_").replace("_", "")
         annotations[f"linkfield_{link}"] = Subquery(
@@ -222,6 +227,8 @@ def get_schema_m2m_relations(artifact: Artifact, slot_schema: dict, limit: int =
         name_field = get_name_field(related_model)
 
         # Get the correct field names for the through table
+        if not hasattr(getattr(Schema, name), "through"):
+            continue
         through_model = getattr(Schema, name).through
 
         # Subquery to get limited related records

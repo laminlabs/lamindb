@@ -3,14 +3,14 @@
 .. autosummary::
    :toctree: .
 
-   BaseDBRecord
-   DBRecord
+   BaseSQLRecord
+   SQLRecord
    Registry
    BasicQuerySet
    QuerySet
    ArtifactSet
    QueryManager
-   DBRecordList
+   SQLRecordList
    FeatureManager
    LabelManager
    IsVersioned
@@ -29,11 +29,13 @@
 from lamin_utils._inspect import InspectResult
 from ._is_versioned import IsVersioned
 from .can_curate import CanCurate
-from .dbrecord import (
-    BaseDBRecord,
-    DBRecord,
+from .sqlrecord import (
+    BaseSQLRecord,
+    SQLRecord,
     Registry,
     Space,
+    Branch,
+    Migration,
     ValidateFields,
     format_field_value,
     record_repr,
@@ -53,7 +55,7 @@ from ._label_manager import LabelManager
 from .collection import Collection, CollectionArtifact
 from .project import Person, Project, Reference
 from .query_manager import QueryManager
-from .query_set import BasicQuerySet, QuerySet, DBRecordList
+from .query_set import BasicQuerySet, QuerySet, SQLRecordList
 from .artifact_set import ArtifactSet
 from .has_parents import HasParents
 from datetime import datetime as _datetime
@@ -71,8 +73,8 @@ from .project import (
     SchemaProject,
     ArtifactReference,
     CollectionReference,
+    SheetProject,
 )
-from .dbrecord import Migration
 from .run import RunFeatureValue
 from .schema import (
     SchemaFeature,
@@ -83,11 +85,20 @@ from .schema import (
 from .ulabel import ArtifactULabel, TransformULabel, RunULabel, CollectionULabel
 
 from .writelog import WriteLog
+from .record import (
+    Record,
+    Sheet,
+    RecordJson,
+    RecordRecord,
+    RecordULabel,
+    RecordRun,
+    RecordArtifact,
+)
+
 
 LinkORM = IsLink  # backward compat
-Record = DBRecord  # backward compat
-BasicRecord = BaseDBRecord  # backward compat
 ParamValue = FeatureValue  # backward compat
 ArtifactParamValue = ArtifactFeatureValue  # backward compat
 RunParamValue = RunFeatureValue  # backward compat
 Param = Feature  # backward compat
+BasicRecord = BaseSQLRecord  # backward compat

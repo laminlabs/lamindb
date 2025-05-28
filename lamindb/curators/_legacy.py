@@ -20,12 +20,12 @@ if TYPE_CHECKING:
     from mudata import MuData
     from spatialdata import SpatialData
 
-    from lamindb.models import DBRecord
+    from lamindb.models import SQLRecord
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.models import (
     Artifact,
     Feature,
-    DBRecord,
+    SQLRecord,
     Run,
     Schema,
 )
@@ -188,7 +188,7 @@ class DataFrameCatManager(CatManager):
         columns_field: FieldAttr = Feature.name,
         columns_names: Iterable[str] | None = None,
         categoricals: dict[str, FieldAttr] | None = None,
-        sources: dict[str, DBRecord] | None = None,
+        sources: dict[str, SQLRecord] | None = None,
         index: Feature | None = None,
     ) -> None:
         self._non_validated = None
@@ -327,7 +327,7 @@ class AnnDataCatManager(CatManager):
         var_index: FieldAttr | None = None,
         categoricals: dict[str, FieldAttr] | None = None,
         obs_columns: FieldAttr = Feature.name,
-        sources: dict[str, DBRecord] | None = None,
+        sources: dict[str, SQLRecord] | None = None,
     ) -> None:
         if isinstance(var_index, str):
             raise TypeError(
@@ -469,7 +469,7 @@ class MuDataCatManager(CatManager):
         mdata: MuData | Artifact,
         var_index: dict[str, FieldAttr] | None = None,
         categoricals: dict[str, FieldAttr] | None = None,
-        sources: dict[str, DBRecord] | None = None,
+        sources: dict[str, SQLRecord] | None = None,
     ) -> None:
         super().__init__(
             dataset=mdata,
@@ -661,7 +661,7 @@ class SpatialDataCatManager(CatManager):
         sdata: Any,
         var_index: dict[str, FieldAttr],
         categoricals: dict[str, dict[str, FieldAttr]] | None = None,
-        sources: dict[str, dict[str, DBRecord]] | None = None,
+        sources: dict[str, dict[str, SQLRecord]] | None = None,
         *,
         sample_metadata_key: str | None = "sample",
     ) -> None:
@@ -933,7 +933,7 @@ class TiledbsomaCatManager(CatManager):
         var_index: dict[str, tuple[str, FieldAttr]],
         categoricals: dict[str, FieldAttr] | None = None,
         obs_columns: FieldAttr = Feature.name,
-        sources: dict[str, DBRecord] | None = None,
+        sources: dict[str, SQLRecord] | None = None,
     ):
         self._obs_fields = categoricals or {}
         self._var_fields = var_index
@@ -1338,7 +1338,7 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         *,
         schema_version: Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0"] = "5.2.0",
         defaults: dict[str, str] = None,
-        extra_sources: dict[str, DBRecord] = None,
+        extra_sources: dict[str, SQLRecord] = None,
     ) -> None:
         """CELLxGENE schema curator.
 
@@ -1968,7 +1968,7 @@ def from_anndata(
     categoricals: dict[str, FieldAttr] | None = None,
     obs_columns: FieldAttr = Feature.name,
     organism: str | None = None,
-    sources: dict[str, DBRecord] | None = None,
+    sources: dict[str, SQLRecord] | None = None,
 ) -> AnnDataCatManager:
     if organism is not None:
         logger.warning("organism is ignored, define it on the dtype level")
@@ -2008,7 +2008,7 @@ def from_tiledbsoma(
     categoricals: dict[str, FieldAttr] | None = None,
     obs_columns: FieldAttr = Feature.name,
     organism: str | None = None,
-    sources: dict[str, DBRecord] | None = None,
+    sources: dict[str, SQLRecord] | None = None,
 ) -> TiledbsomaCatManager:
     if organism is not None:
         logger.warning("organism is ignored, define it on the dtype level")
@@ -2028,7 +2028,7 @@ def from_spatialdata(
     var_index: dict[str, FieldAttr],
     categoricals: dict[str, dict[str, FieldAttr]] | None = None,
     organism: str | None = None,
-    sources: dict[str, dict[str, DBRecord]] | None = None,
+    sources: dict[str, dict[str, SQLRecord]] | None = None,
     *,
     sample_metadata_key: str = "sample",
 ):

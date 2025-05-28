@@ -44,7 +44,7 @@ try:
 except ImportError:
 
     def load_zarr(storepath):  # type: ignore
-        raise ImportError("Please install zarr: pip install 'zarr<=2.18.4'")
+        raise ImportError("Please install zarr: pip install 'lamindb[zarr]'")
 
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)

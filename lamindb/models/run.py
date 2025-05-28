@@ -20,9 +20,9 @@ from lamindb.base.fields import (
 from lamindb.base.users import current_user_id
 from lamindb.errors import InvalidArgument
 
-from ..base.ids import base62_20
+from ..base.ids import base62_16
 from .can_curate import CanCurate
-from .dbrecord import BaseDBRecord, DBRecord, IsLink
+from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -136,7 +136,7 @@ class TracksUpdates(models.Model):
         super().__init__(*args, **kwargs)
 
 
-class User(BaseDBRecord, CanCurate):
+class User(BaseSQLRecord, CanCurate):
     """Users.
 
     All data in this registry is synced from `lamin.ai` to ensure a universal
@@ -197,7 +197,7 @@ class User(BaseDBRecord, CanCurate):
         super().__init__(*args, **kwargs)
 
 
-class Run(DBRecord):
+class Run(SQLRecord):
     """Runs of transforms such as the execution of a script.
 
     A registry to store runs of transforms, such as an executation of a script.
@@ -254,8 +254,9 @@ class Run(DBRecord):
 
     id: int = models.BigAutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
+    # default uid was changed from base62_20 to base62_16 in 1.6.0
     uid: str = CharField(
-        editable=False, unique=True, db_index=True, max_length=20, default=base62_20
+        editable=False, unique=True, db_index=True, max_length=20, default=base62_16
     )
     """Universal id, valid across DB instances."""
     name: str | None = CharField(max_length=150, null=True)
@@ -472,7 +473,7 @@ def delete_run_artifacts(run: Run) -> None:
             report.delete(permanent=True)
 
 
-class RunFeatureValue(BaseDBRecord, IsLink):
+class RunFeatureValue(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     run: Run = ForeignKey(Run, CASCADE, related_name="links_featurevalue")
     # we follow the lower() case convention rather than snake case for link models

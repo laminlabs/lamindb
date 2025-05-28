@@ -26,14 +26,14 @@ class Migration(migrations.Migration):
             ],
         ),
         migrations.CreateModel(
-            name="WriteLogMigrationState",
+            name="MigrationState",
             fields=[
                 ("id", models.SmallAutoField(primary_key=True, serialize=False)),
                 ("migration_state_id", models.JSONField()),
             ],
         ),
         migrations.CreateModel(
-            name="WriteLogTableState",
+            name="TableState",
             fields=[
                 ("id", models.SmallAutoField(primary_key=True, serialize=False)),
                 ("table_name", models.CharField(max_length=255)),
@@ -65,14 +65,14 @@ class Migration(migrations.Migration):
                     "migration_state",
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.PROTECT,
-                        to="lamindb.writelogmigrationstate",
+                        to="lamindb.migrationstate",
                     ),
                 ),
                 (
                     "table",
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.PROTECT,
-                        to="lamindb.writelogtablestate",
+                        to="lamindb.tablestate",
                     ),
                 ),
             ],

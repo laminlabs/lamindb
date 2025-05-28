@@ -6,12 +6,12 @@ from typing import TYPE_CHECKING, Any, get_args, overload
 import numpy as np
 import pandas as pd
 from django.db import models
-from django.db.models import CASCADE, PROTECT, Q
+from django.db.models import CASCADE, PROTECT
 from django.db.models.query_utils import DeferredAttribute
 from django.db.utils import IntegrityError
 from lamin_utils import logger
 from lamindb_setup._init_instance import get_schema_module_name
-from lamindb_setup.core.hashing import HASH_LENGTH, hash_dict
+from lamindb_setup.core.hashing import HASH_LENGTH, hash_dict, hash_string
 from pandas.api.types import CategoricalDtype, is_string_dtype
 from pandas.core.dtypes.base import ExtensionDtype
 
@@ -28,12 +28,12 @@ from lamindb.errors import FieldValidationError, ValidationError
 from ..base.ids import base62_12
 from ._relations import dict_module_name_to_model_name
 from .can_curate import CanCurate
-from .dbrecord import BaseDBRecord, DBRecord, Registry, _get_record_kwargs
-from .query_set import DBRecordList
+from .query_set import SQLRecordList
 from .run import (
     TracksRun,
     TracksUpdates,
 )
+from .sqlrecord import BaseSQLRecord, Registry, SQLRecord, _get_record_kwargs
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -71,7 +71,7 @@ def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
 
 def parse_cat_dtype(
     dtype_str: str,
-    related_registries: dict[str, DBRecord] | None = None,
+    related_registries: dict[str, SQLRecord] | None = None,
     is_itype: bool = False,
 ) -> dict[str, Any]:
     """Parses a categorical dtype string into its components (registry, field, subtypes)."""
@@ -152,10 +152,11 @@ def parse_cat_dtype(
 
 
 def serialize_dtype(
-    dtype: Registry | DBRecord | FieldAttr | list[DBRecord] | list[Registry] | str,
+    dtype: Registry | SQLRecord | FieldAttr | list[SQLRecord] | list[Registry] | str,
     is_itype: bool = False,
 ) -> str:
     """Converts a data type object into its string representation."""
+    from .record import Record
     from .ulabel import ULabel
 
     if (
@@ -176,21 +177,24 @@ def serialize_dtype(
         dtype_str = serialize_pandas_dtype(dtype)
     else:
         error_message = "dtype has to be a registry, a ulabel subtype, a registry field, or a list of registries or fields, not {}"
-        if isinstance(dtype, (Registry, DeferredAttribute, ULabel)):
+        if isinstance(dtype, (Registry, DeferredAttribute, ULabel, Record)):
             dtype = [dtype]
         elif not isinstance(dtype, list):
             raise ValueError(error_message.format(dtype))
         dtype_str = ""
         for one_dtype in dtype:
-            if not isinstance(one_dtype, (Registry, DeferredAttribute, ULabel)):
+            if not isinstance(one_dtype, (Registry, DeferredAttribute, ULabel, Record)):
                 raise ValueError(error_message.format(one_dtype))
             if isinstance(one_dtype, Registry):
                 dtype_str += one_dtype.__get_name_with_module__() + "|"
-            elif isinstance(one_dtype, ULabel):
+            elif isinstance(one_dtype, (ULabel, Record)):
                 assert one_dtype.is_type, (  # noqa: S101
                     f"ulabel has to be a type if acting as dtype, {one_dtype} has `is_type` False"
                 )
-                dtype_str += f"ULabel[{one_dtype.name}]"
+                if isinstance(one_dtype, ULabel):
+                    dtype_str += f"ULabel[{one_dtype.name}]"
+                else:
+                    dtype_str += f"Record[{one_dtype.name}]"
             else:
                 name = one_dtype.field.name
                 field_ext = f".{name}" if name != "name" else ""
@@ -256,7 +260,7 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
     return kwargs
 
 
-class Feature(DBRecord, CanCurate, TracksRun, TracksUpdates):
+class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Variables, such as dataframe columns or run parameters.
 
     A feature often represents a dimension of a dataset, such as a column in a
@@ -346,7 +350,7 @@ class Feature(DBRecord, CanCurate, TracksRun, TracksUpdates):
 
     """
 
-    class Meta(DBRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
+    class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
 
     _name_field: str = "name"
@@ -362,19 +366,19 @@ class Feature(DBRecord, CanCurate, TracksRun, TracksUpdates):
         editable=False, unique=True, db_index=True, max_length=12, default=base62_12
     )
     """Universal id, valid across DB instances."""
-    name: str = CharField(max_length=150, db_index=True, unique=True)
-    """Name of feature (hard unique constraint `unique=True`)."""
+    name: str = CharField(max_length=150, db_index=True)
+    """Name of feature."""
     dtype: Dtype | None = CharField(db_index=True, null=True)
     """Data type (:class:`~lamindb.base.types.Dtype`)."""
     type: Feature | None = ForeignKey(
-        "self", PROTECT, null=True, related_name="records"
+        "self", PROTECT, null=True, related_name="features"
     )
     """Type of feature (e.g., 'Readout', 'Metric', 'Metadata', 'ExpertAnnotation', 'ModelPrediction').
 
     Allows to group features by type, e.g., all read outs, all metrics, etc.
     """
-    records: Feature
-    """DBRecords of this type."""
+    features: Feature
+    """Features of this type (can only be non-empty if `is_type` is `True`)."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
     unit: str | None = CharField(max_length=30, db_index=True, null=True)
@@ -422,10 +426,10 @@ class Feature(DBRecord, CanCurate, TracksRun, TracksUpdates):
         "Schema", through="SchemaFeature", related_name="features"
     )
     """Feature sets linked to this feature."""
-    _expect_many: bool = models.BooleanField(default=True, db_default=True)
-    """Indicates whether values for this feature are expected to occur a single or multiple times for an artifact (default `True`).
+    _expect_many: bool = models.BooleanField(default=None, db_default=None, null=True)
+    """Indicates whether values for this feature are expected to occur a single or multiple times for an artifact (default `None`).
 
-    - if it's `True` (default), the values come from an observation-level aggregation and a dtype of `datetime` on the observation-level mean `set[datetime]` on the artifact-level
+    - if it's `True` (default), the values come from an observation-level aggregation and a dtype of `datetime` on the observation-level means `set[datetime]` on the artifact-level
     - if it's `False` it's an artifact-level value and datetime means datetime; this is an edge case because an arbitrary artifact would always be a set of arbitrary measurements that would need to be aggregated ("one just happens to measure a single cell line in that artifact")
     """
     _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
@@ -493,7 +497,7 @@ class Feature(DBRecord, CanCurate, TracksRun, TracksUpdates):
                 )
 
     @classmethod
-    def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> DBRecordList:
+    def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> SQLRecordList:
         """Create Feature records for columns."""
         field = Feature.name if field is None else field
         registry = field.field.model  # type: ignore
@@ -511,7 +515,7 @@ class Feature(DBRecord, CanCurate, TracksRun, TracksUpdates):
                 Feature(name=name, dtype=dtype) for name, dtype in dtypes.items()
             ]  # type: ignore
         assert len(features) == len(df.columns)  # noqa: S101
-        return DBRecordList(features)
+        return SQLRecordList(features)
 
     def save(self, *args, **kwargs) -> Feature:
         """Save."""
@@ -615,7 +619,7 @@ class Feature(DBRecord, CanCurate, TracksRun, TracksUpdates):
     #         return "Artifact"
 
 
-class FeatureValue(DBRecord, TracksRun):
+class FeatureValue(SQLRecord, TracksRun):
     """Non-categorical features values.
 
     Categorical feature values are stored in their respective registries:
@@ -643,44 +647,23 @@ class FeatureValue(DBRecord, TracksRun):
     hash: str = CharField(max_length=HASH_LENGTH, null=True, db_index=True)
     """Value hash."""
 
-    class Meta(BaseDBRecord.Meta, TracksRun.Meta):
-        constraints = [
-            # For simple types, use direct value comparison
-            models.UniqueConstraint(
-                fields=["feature", "value"],
-                name="unique_simple_feature_value",
-                condition=Q(hash__isnull=True),
-            ),
-            # For complex types (dictionaries), use hash
-            models.UniqueConstraint(
-                fields=["feature", "hash"],
-                name="unique_complex_feature_value",
-                condition=Q(hash__isnull=False),
-            ),
-        ]
+    class Meta(BaseSQLRecord.Meta, TracksRun.Meta):
+        unique_together = ("feature", "hash")
 
     @classmethod
     def get_or_create(cls, feature, value):
-        # Simple types: int, float, str, bool
-        if isinstance(value, (int, float, str, bool)):
-            try:
-                return (
-                    cls.objects.create(feature=feature, value=value, hash=None),
-                    False,
-                )
-            except IntegrityError:
-                return cls.objects.get(feature=feature, value=value), True
-
-        # Complex types: dict, list
+        # simple values: (int, float, str, bool, datetime)
+        if not isinstance(value, dict):
+            hash = hash_string(str(value))
         else:
             hash = hash_dict(value)
-            try:
-                return (
-                    cls.objects.create(feature=feature, value=value, hash=hash),
-                    False,
-                )
-            except IntegrityError:
-                return cls.objects.get(feature=feature, hash=hash), True
+        try:
+            return (
+                cls.objects.create(feature=feature, value=value, hash=hash),
+                False,
+            )
+        except IntegrityError:
+            return cls.objects.get(feature=feature, hash=hash), True
 
 
 def suggest_categorical_for_str_iterable(

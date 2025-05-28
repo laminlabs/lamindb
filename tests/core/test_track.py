@@ -53,7 +53,7 @@ Here is how to create a feature:
     ln.Feature(name="param3", dtype="float").save()
     ln.track(transform=successor, params=params)
     print("outside", id(ln.context))
-    assert ln.context.run.params.get_values() == params
+    assert ln.context.run.features.get_values() == params
     # second invocation
     params = {"param1": 1, "param2": "my-string", "param3": 3.14, "param4": [1, 2]}
     param4 = ln.Feature(name="param4", dtype="int").save()
@@ -221,7 +221,9 @@ def test_run_scripts():
 
     # multiple folders, match
     transform = ln.Transform(
-        name="Dummy title", key="duplicate4/script-to-test-versioning.py", type="script"
+        description="Dummy title",
+        key="duplicate4/script-to-test-versioning.py",
+        type="script",
     ).save()
     result = subprocess.run(  # noqa: S602
         f"python {SCRIPTS_DIR / 'duplicate4/script-to-test-versioning.py'}",

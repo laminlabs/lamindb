@@ -426,7 +426,7 @@ class Context:
         # need to save in all cases
         run.save()
         if params is not None:
-            run.params.add_values(params)
+            run.features.add_values(params)
             self._logging_message_track += "\n→ params: " + ", ".join(
                 f"{key}={value}" for key, value in params.items()
             )

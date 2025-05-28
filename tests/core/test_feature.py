@@ -32,7 +32,7 @@ def test_feature_init():
     # wrong type
     with pytest.raises(ValueError):
         ln.Feature(name="feat", dtype="x")
-    # type has to be a list of DBRecord types
+    # type has to be a list of SQLRecord types
     with pytest.raises(ValidationError):
         ln.Feature(name="feat", dtype="cat[1]")
     # ensure feat1 does not exist

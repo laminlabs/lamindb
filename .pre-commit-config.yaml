@@ -61,5 +61,6 @@ repos:
               tests/curators/conftest.py|
               tests/permissions/conftest.py|
               tests/writelog/conftest.py|
+              tests/writelog_sqlite/conftest.py|
               tests/curators/test_curators_examples.py
           )

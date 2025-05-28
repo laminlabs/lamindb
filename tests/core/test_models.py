@@ -33,12 +33,13 @@ def test_registry__repr__feature():
         .created_at: DateTimeField
         .updated_at: DateTimeField
       Relational fields
+        .branch: Branch
         .space: Space
         .created_by: User
         .run: Run
         .type: Feature
         .schemas: Schema
-        .records: Feature
+        .features: Feature
         .values: FeatureValue
         .projects: Project
     """).strip()
@@ -70,6 +71,7 @@ def test_registry__repr__artifact():
         .created_at: DateTimeField
         .updated_at: DateTimeField
       Relational fields
+        .branch: Branch
         .space: Space
         .storage: Storage
         .run: Run
@@ -79,6 +81,7 @@ def test_registry__repr__artifact():
         .input_of_runs: Run
         .feature_sets: Schema
         .collections: Collection
+        .records: Record
         .references: Reference
         .projects: Project
       Bionty fields

@@ -3,19 +3,25 @@ import re
 from abc import ABC, abstractmethod
 from typing import Any
 
-from django.db import models, transaction
+from django.db import transaction
 from django.db.backends.base.base import BaseDatabaseWrapper
 from django.db.backends.utils import CursorWrapper
 from lamin_utils import logger
 from typing_extensions import override
 
+from lamindb.core.writelog._constants import FOREIGN_KEYS_LIST_COLUMN_NAME
+from lamindb.core.writelog._graph_utils import find_cycle, topological_sort
+from lamindb.core.writelog._utils import (
+    update_migration_state,
+    update_write_log_table_state,
+)
 from lamindb.models.writelog import (
-    DEFAULT_BRANCH_CODE,
+    DEFAULT_BRANCH,
     DEFAULT_CREATED_BY_UID,
     DEFAULT_RUN_UID,
+    DEFAULT_SPACE,
+    TableState,
     WriteLogLock,
-    WriteLogMigrationState,
-    WriteLogTableState,
 )
 
 from ._db_metadata_wrapper import (
@@ -31,20 +37,6 @@ class WriteLogEventTypes(enum.Enum):
     DELETE = 2
 
 
-class DjangoMigration(models.Model):
-    """This model class allows us to access the migrations table using normal Django syntax."""
-
-    app = models.CharField(max_length=255)
-    name = models.CharField(max_length=255)
-    applied = models.DateTimeField()
-
-    class Meta:
-        managed = False  # Tell Django not to manage this table
-        db_table = "django_migrations"  # Specify the actual table name
-
-
-FOREIGN_KEYS_LIST_COLUMN_NAME = "_lamin_fks"
-
 RESERVED_COLUMNS: tuple[str] = (FOREIGN_KEYS_LIST_COLUMN_NAME,)
 
 # Certain tables must be excluded from write log triggers to avoid
@@ -54,14 +46,25 @@ RESERVED_COLUMNS: tuple[str] = (FOREIGN_KEYS_LIST_COLUMN_NAME,)
 EXCLUDED_TABLES = [
     "lamindb_writelog",
     "lamindb_writeloglock",
-    "lamindb_writelogtablestate",
-    "lamindb_writelogmigrationstate",
+    "lamindb_tablestate",
+    "lamindb_migrationstate",
     "django_content_type",
     "django_migrations",
     # FIXME what to do with these?
     "lamindb_flextabledata",
     "lamindb_rundata",
 ]
+
+
+AUX_ARTIFACT_TABLE = "_lamindb_artifact_aux"
+
+
+def get_write_log_recording_function_name(table: str) -> str:
+    return f"lamindb_writelog_{table}_fn"
+
+
+def get_trigger_function_name(table: str) -> str:
+    return f"{get_write_log_recording_function_name(table=table)}_trf"
 
 
 class WriteLogRecordingTriggerInstaller(ABC):
@@ -79,63 +82,16 @@ class WriteLogRecordingTriggerInstaller(ABC):
     def install_triggers(self, table: str, cursor: CursorWrapper):
         raise NotImplementedError()
 
-    def _update_write_log_table_state(self, tables: set[str]):
-        existing_tables = set(
-            WriteLogTableState.objects.filter(table_name__in=tables).values_list(
-                "table_name", flat=True
-            )
-        )
-
-        table_states_to_add = [
-            WriteLogTableState(table_name=t, backfilled=False)
-            for t in tables
-            if t not in existing_tables
-        ]
-
-        WriteLogTableState.objects.bulk_create(table_states_to_add)
-
-    def _update_migration_state(self, cursor: CursorWrapper):
-        app_migrations = {}
-
-        for app in DjangoMigration.objects.values_list("app", flat=True).distinct():
-            migrations = DjangoMigration.objects.filter(app=app)
-            max_migration_id = 0
-
-            for migration in migrations:
-                # Extract the number from the migration name
-                match = re.match(r"^([0-9]+)_", migration.name)  # type: ignore
-                if match:
-                    migration_id = int(match.group(1))
-                    max_migration_id = max(max_migration_id, migration_id)
-
-            app_migrations[app] = max_migration_id
-
-        current_state = [
-            {"migration_id": mig_id, "app": app}
-            for app, mig_id in sorted(app_migrations.items())
-        ]
-
-        try:
-            latest_state = WriteLogMigrationState.objects.order_by("-id").first()
-            latest_state_json = (
-                latest_state.migration_state_id if latest_state else None
-            )
-        except WriteLogMigrationState.DoesNotExist:
-            latest_state_json = None
-
-        if current_state and current_state != latest_state_json:
-            WriteLogMigrationState.objects.create(migration_state_id=current_state)
-
     def update_write_log_triggers(self, update_all: bool = False):
         with transaction.atomic():
             # Ensure that the write log lock exists
             WriteLogLock.load()
             tables = self.db_metadata.get_db_tables()
-            self._update_write_log_table_state(tables)
+            update_write_log_table_state(tables)
 
             cursor = self.connection.cursor()
 
-            self._update_migration_state(cursor)
+            update_migration_state()
 
             tables_with_installed_triggers = (
                 self.db_metadata.get_tables_with_installed_triggers(cursor)
@@ -150,12 +106,218 @@ class WriteLogRecordingTriggerInstaller(ABC):
             for table in tables_to_update:
                 if table not in EXCLUDED_TABLES:
                     logger.important(
-                        f"Installing write log recording triggers for {table}"
+                        f"installing write log recording triggers for {table}"
                     )
                     self.install_triggers(table, cursor)
 
+            self.backfill_tables(tables=tables_to_update, cursor=cursor)
 
-class PostgresTriggerBuilder:
+    @abstractmethod
+    def backfill_aux_artifacts(self, cursor: CursorWrapper):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def backfill_real_artifacts(self, cursor: CursorWrapper):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def backfill_record(
+        self,
+        table: str,
+        primary_key: tuple[tuple[str, int], ...],
+        cursor: CursorWrapper,
+    ):
+        raise NotImplementedError()
+
+    def backfill_tables(self, tables: set[str], cursor: CursorWrapper):
+        self_references: dict[str, tuple[KeyConstraint, list[KeyConstraint]]] = {}
+
+        table_dependencies: dict[str, set[str]] = {}
+
+        for table in tables:
+            if table not in table_dependencies:
+                table_dependencies[table] = set()
+
+            primary_key, foreign_keys = self.db_metadata.get_table_key_constraints(
+                table=table, cursor=cursor
+            )
+
+            if any(foreign_key.target_table == table for foreign_key in foreign_keys):
+                self_references[table] = (primary_key, foreign_keys)
+
+            for foreign_key in foreign_keys:
+                # Skip self-references to avoid introducing trivial cycles into the graph.
+                if foreign_key.target_table == table:
+                    continue
+
+                # Target table of the foreign key must be populated before the table
+                # containing the constraint
+                if foreign_key.target_table not in table_dependencies:
+                    table_dependencies[foreign_key.target_table] = set()
+
+                if (
+                    table == "lamindb_run"
+                    and foreign_key.target_table == "lamindb_artifact"
+                ):
+                    # We'll handle this dependency separately
+                    continue
+
+                table_dependencies[foreign_key.target_table].add(table)
+
+        # Create a synthetic dependency between LaminDB's "auxiliary" artifacts and lamindb_run. This will allow
+        # us to backfill all records where kind == '__lamindb_run__' (and, hence, where run_id is guaranteed to be NULL)
+        # before backfilling lamindb_run, avoiding a circular dependency between artifacts and runs that would otherwise
+        # make the backfill impossible to perform correctly in the general case.
+        if "lamindb_artifact" in tables:
+            table_dependencies[AUX_ARTIFACT_TABLE] = {"lamindb_run"}
+
+        table_backfill_order = topological_sort(table_dependencies)
+
+        if table_backfill_order is None:
+            raise ValueError(
+                f"Unable to backfill tables {tables}: detected a nontrivial cycle in the table dependency graph: {find_cycle(table_dependencies)}"
+            )
+
+        for table in table_backfill_order:
+            # Don't backfill a table if we aren't installing write log triggers on it.
+            if table in EXCLUDED_TABLES:
+                continue
+
+            if table == AUX_ARTIFACT_TABLE:
+                self.backfill_aux_artifacts(cursor)
+            elif table in tables:
+                # Only backfill tables in the current set
+                table_state = TableState.objects.get(table_name=table)
+
+                if table_state.backfilled:
+                    logger.info(
+                        f"Skipping backfilling '{table}', since it's already marked as backfilled"
+                    )
+                    continue
+
+                if table == "lamindb_artifact":
+                    self.backfill_real_artifacts(cursor)
+                elif table in self_references:
+                    primary_key_constraint, foreign_key_constraints = self_references[
+                        table
+                    ]
+                    self.backfill_self_referential_table(
+                        table=table,
+                        cursor=cursor,
+                        primary_key_constraint=primary_key_constraint,
+                        foreign_key_constraints=foreign_key_constraints,
+                    )
+                else:
+                    self.backfill_standard_table(table=table, cursor=cursor)
+
+                table_state.backfilled = True
+                table_state.save()
+
+    def backfill_standard_table(self, table: str, cursor: CursorWrapper):
+        # Call the insert trigger on every row in the table.
+        cursor.execute(f"""
+DO $$
+DECLARE
+    r record;
+BEGIN
+    FOR r IN
+        SELECT *
+        FROM {table}
+    LOOP
+        -- Call the trigger function for each row
+        PERFORM {get_write_log_recording_function_name(table)}(NULL, r, 'INSERT');
+    END LOOP;
+END $$;
+""")  # noqa: S608
+
+    def _hash_pk(self, pk: dict[str, int]) -> tuple[tuple[str, int], ...]:
+        return tuple(sorted(pk.items()))
+
+    def backfill_self_referential_table(
+        self,
+        table: str,
+        cursor: CursorWrapper,
+        primary_key_constraint: KeyConstraint,
+        foreign_key_constraints: list[KeyConstraint],
+    ):
+        primary_key_columns_set: set[str] = {
+            c.name for c in primary_key_constraint.source_columns
+        }
+        self_referential_constraints = [
+            fk for fk in foreign_key_constraints if fk.target_table == table
+        ]
+
+        self_reference_columns_set: set[str] = set()
+
+        for foreign_key_constraint in self_referential_constraints:
+            self_reference_columns_set.add(
+                *(c.name for c in foreign_key_constraint.source_columns)
+            )
+
+        # We need to specify these columns in a fixed order so that we can figure out
+        # which elements in the output row correspond to each column after the lookup query
+        # completes.
+        primary_key_columns = sorted(primary_key_columns_set)
+        self_reference_columns = sorted(self_reference_columns_set)
+
+        cursor.execute(f"""
+SELECT {", ".join(primary_key_columns + self_reference_columns)}
+FROM {table}
+""")  # noqa: S608
+
+        rows = cursor.fetchall()
+
+        row_relationships: dict[
+            tuple[tuple[str, int], ...], set[tuple[tuple[str, int], ...]]
+        ] = {}
+
+        for row in rows:
+            row_dict = dict(zip(primary_key_columns + self_reference_columns, row))
+
+            row_pk = {k: v for k, v in row_dict.items() if k in primary_key_columns}
+            hashed_row_pk = self._hash_pk(row_pk)
+
+            if hashed_row_pk not in row_relationships:
+                row_relationships[hashed_row_pk] = set()
+
+            for foreign_key_constraint in self_referential_constraints:
+                # If all source columns are null, skip this constraint.
+                if not any(
+                    row_dict[source_col.name] is not None
+                    for source_col in foreign_key_constraint.source_columns
+                ):
+                    continue
+
+                referenced_pk: dict[str, Any] = {}
+
+                # We need to map the source columns in the constraint to their corresponding target columns.
+                for i, source_column in enumerate(
+                    foreign_key_constraint.source_columns
+                ):
+                    referenced_pk[foreign_key_constraint.target_columns[i].name] = (
+                        row_dict[source_column.name]
+                    )
+
+                hashed_referenced_pk = self._hash_pk(referenced_pk)
+
+                if hashed_referenced_pk not in row_relationships:
+                    row_relationships[hashed_referenced_pk] = set()
+
+                row_relationships[hashed_referenced_pk].add(hashed_row_pk)
+
+        sorted_pks = topological_sort(row_relationships)
+
+        if sorted_pks is None:
+            raise ValueError(
+                f"Unable to backfill table {table}: detected a cycle in the dependency graph "
+                f"between the table's rows: {find_cycle(row_relationships)}"
+            )
+
+        for pk in sorted_pks:
+            self.backfill_record(table, pk, cursor)
+
+
+class PostgresHistoryRecordingFunctionBuilder:
     # Since we're creating triggers and functions based on table names,
     # it's probably a good idea to check that those names are valid
     # to mitigate the potential for SQL injection.
@@ -166,7 +328,7 @@ class PostgresTriggerBuilder:
         self, table: str, db_metadata: DatabaseMetadataWrapper, cursor: CursorWrapper
     ):
         self.table = table
-        self.function_name = f"lamindb_writelog_{table}_fn"
+        self.function_name = get_write_log_recording_function_name(table)
         self.db_metadata = db_metadata
         self.cursor = cursor
 
@@ -227,7 +389,7 @@ class PostgresTriggerBuilder:
 
         return self._record_uid[is_delete]
 
-    def _build_space_uid(self, is_delete: bool) -> str:
+    def _build_space_id(self, is_delete: bool) -> str:
         columns = self.db_metadata.get_column_names(
             table=self.table, cursor=self.cursor
         )
@@ -235,14 +397,15 @@ class PostgresTriggerBuilder:
         if "space_id" in columns:
             # All tables that are not many-to-many tables will have a space_id column
             if is_delete:
-                table_name_in_trigger = "OLD"
+                table_name_in_trigger = "old_record"
             else:
-                table_name_in_trigger = "NEW"
+                table_name_in_trigger = "new_record"
 
-            return f"SELECT uid FROM lamindb_space WHERE id = {table_name_in_trigger}.space_id"  # noqa: S608
+            # TODO: The select statement below likely is superfluous, since space_id is known
+            return f"SELECT id FROM lamindb_space WHERE id = {table_name_in_trigger}.space_id"  # noqa: S608
         else:
-            # For the rest, we can set this to NULL.
-            return "NULL"
+            # For the rest, we can use DEFAULT_SPACE
+            return f"{DEFAULT_SPACE}"
 
     def _build_record_uid_inner(self, is_delete: bool) -> str:
         uid_columns_list: UIDColumns = self.db_metadata.get_uid_columns(
@@ -260,13 +423,13 @@ class PostgresTriggerBuilder:
 
             # This table's UID is determined solely by its own columns
             if is_delete:
-                table_name_in_trigger = "OLD"
+                table_name_in_trigger = "old_record"
             else:
-                table_name_in_trigger = "NEW"
+                table_name_in_trigger = "new_record"
 
             return self._build_jsonb_array(
                 [
-                    f"{table_name_in_trigger}.{column}"
+                    f"{table_name_in_trigger}.{column.name}"
                     for column in table_uid.uid_columns
                 ]
             )
@@ -298,7 +461,7 @@ class PostgresTriggerBuilder:
                             table_id_var,
                             self._build_jsonb_array(
                                 [
-                                    f"'{c}'"
+                                    f"'{c.name}'"
                                     for c in foreign_key_constraint.source_columns
                                 ]
                             ),
@@ -326,27 +489,29 @@ class PostgresTriggerBuilder:
 
         # We don't need to store the table's primary key columns in its data object,
         # since the object will be identified by its UID columns.
-        non_key_columns = table_columns.difference(set(primary_key.source_columns))
+        non_key_columns = table_columns.difference(
+            {c.name for c in primary_key.source_columns}
+        )
 
         # We also don't need to store any foreign-key columns in its data object,
         # since the references those columns encode will be captured by reference to
         # their UID columns.
         for foreign_key_constraint in foreign_key_constraints:
             non_key_columns.difference_update(
-                set(foreign_key_constraint.source_columns)
+                {c.name for c in foreign_key_constraint.source_columns}
             )
 
         # Since we're recording the record's UID, we don't need to store the UID columns in the
         # data object as well.
         if len(uid_columns_list) == 1:
             table_uid = uid_columns_list[0]
-            non_key_columns.difference_update(table_uid.uid_columns)
+            non_key_columns.difference_update(c.name for c in table_uid.uid_columns)
 
         record_data: dict[str | int, Any] = {}
 
         # Any columns that are not part of a key can be added to the record's data directly.
         for column in non_key_columns:
-            record_data[column] = f"NEW.{column}"
+            record_data[column] = f"new_record.{column}"
 
         # Place a list of foreign key constraints at the "end" of the object under a reserved name
         fkey_source_columns_variables = [
@@ -354,10 +519,11 @@ class PostgresTriggerBuilder:
                 foreign_key_constraint=foreign_key_constraint, is_delete=False
             )
             for foreign_key_constraint in foreign_key_constraints
-            # Don't record foreign-keys to space, since we store space_uid separately
+            # Don't record foreign-keys to space, since we store space_id separately
             if not (
                 foreign_key_constraint.target_table == "lamindb_space"
-                and foreign_key_constraint.source_columns == ["space_id"]
+                and [c.name for c in foreign_key_constraint.source_columns]
+                == ["space_id"]
             )
         ]
 
@@ -372,7 +538,7 @@ class PostgresTriggerBuilder:
 
         Will only add a variable for a given table name once.
         """
-        table_id = WriteLogTableState.objects.get(table_name=table).id
+        table_id = TableState.objects.get(table_name=table).id
 
         variable_name = f"_table_name_{table_id}"
 
@@ -382,7 +548,7 @@ class PostgresTriggerBuilder:
             self.declare_variable(
                 variable_name,
                 "smallint",
-                f"SELECT id FROM lamindb_writelogtablestate WHERE table_name = '{table}' LIMIT 1",  # noqa: S608
+                f"SELECT id FROM lamindb_tablestate WHERE table_name = '{table}' LIMIT 1",  # noqa: S608
             )
 
         return variable_name
@@ -405,14 +571,14 @@ class PostgresTriggerBuilder:
         variable_name = self._create_unique_variable_name("_lamin_fkey_ref")
 
         # We'll be creating a JSONB array with three elements:
-        #  * the ID of the target table in WriteLogTableState
+        #  * the ID of the target table in TableState
         #  * the columns in the table that comprise the foreign-key constraint
         #  * the uniquely-identifiable columns in the target table that identify the target record
         source_columns_lookup_array = self._build_jsonb_array(
             [
                 table_id,
                 self._build_jsonb_array(
-                    [f"'{c}'" for c in foreign_key_constraint.source_columns]
+                    [f"'{c.name}'" for c in foreign_key_constraint.source_columns]
                 ),
                 uid_lookup_variable,
             ]
@@ -437,7 +603,7 @@ class PostgresTriggerBuilder:
     def add_foreign_key_uid_lookup_variable(
         self, foreign_key_constraint: KeyConstraint, is_delete: bool
     ) -> str:
-        source_record = "OLD" if is_delete else "NEW"
+        source_record = "old_record" if is_delete else "new_record"
 
         uid_column_list = self.db_metadata.get_uid_columns(
             table=foreign_key_constraint.target_table, cursor=self.cursor
@@ -453,7 +619,7 @@ class PostgresTriggerBuilder:
         table_uid = uid_column_list[0]
 
         where_clause = " AND ".join(
-            f"{target_col} = {source_record}.{source_col}"
+            f"{target_col.name} = {source_record}.{source_col.name}"
             for source_col, target_col in zip(
                 foreign_key_constraint.source_columns,
                 foreign_key_constraint.target_columns,
@@ -472,11 +638,11 @@ class PostgresTriggerBuilder:
             f"""
 coalesce(
     (
-        SELECT {self._build_jsonb_object({c: c for c in table_uid.uid_columns})}
+        SELECT {self._build_jsonb_object({c.name: c.name for c in table_uid.uid_columns})}
         FROM {foreign_key_constraint.target_table}
         WHERE {where_clause}
     ),
-    {self._build_jsonb_object(dict.fromkeys(table_uid.uid_columns, "NULL"))}
+    {self._build_jsonb_object(dict.fromkeys([c.name for c in table_uid.uid_columns], "NULL"))}
 )
 """,  # noqa: S608
         )
@@ -489,7 +655,7 @@ coalesce(
                 f"Table name '{table_name}' doesn't look like a valid PostgreSQL table name"
             )
 
-    def build(self) -> str:
+    def build_function(self) -> str:
         self._validate_table_name(self.table)
 
         self.declare_variable(
@@ -502,10 +668,10 @@ coalesce(
         self.declare_variable(
             name="latest_migration_id",
             type="smallint",
-            declaration="SELECT MAX(id) FROM lamindb_writelogmigrationstate",
+            declaration="SELECT MAX(id) FROM lamindb_migrationstate",
         )
 
-        self.declare_variable(name="space_uid", type="varchar")
+        self.declare_variable(name="space_id", type="smallint")
 
         table_id_var = self.add_table_id_variable(table=self.table)
         self.declare_variable(name="record_data", type="jsonb")
@@ -517,19 +683,19 @@ coalesce(
 
         function_body = f"""
     IF NOT write_log_triggers_locked THEN
-        IF (TG_OP = 'DELETE') THEN
+        IF (trigger_op = 'DELETE') THEN
             record_data := NULL;
             record_uid := {self._build_record_uid(is_delete=True)};
             event_type := {WriteLogEventTypes.DELETE.value};
-            space_uid := ({self._build_space_uid(is_delete=True)});
+            space_id := ({self._build_space_id(is_delete=True)});
         ELSE
             record_data := {self._build_record_data()};
             record_uid := {self._build_record_uid(is_delete=False)};
-            space_uid := ({self._build_space_uid(is_delete=False)});
+            space_id := ({self._build_space_id(is_delete=False)});
 
-            IF (TG_OP = 'INSERT') THEN
+            IF (trigger_op = 'INSERT') THEN
                 event_type := {WriteLogEventTypes.INSERT.value};
-            ELSIF (TG_OP = 'UPDATE') THEN
+            ELSIF (trigger_op = 'UPDATE') THEN
                 event_type := {WriteLogEventTypes.UPDATE.value};
             END IF;
         END IF;
@@ -540,9 +706,9 @@ coalesce(
                 migration_state_id,
                 table_id,
                 record_uid,
-                space_uid,
+                space_id,
                 created_by_uid,
-                branch_code,
+                branch_id,
                 run_uid,
                 record_data,
                 event_type,
@@ -554,29 +720,28 @@ coalesce(
                 latest_migration_id,
                 {table_id_var},
                 record_uid,
-                space_uid,
+                space_id,
                 '{DEFAULT_CREATED_BY_UID}',
-                {DEFAULT_BRANCH_CODE},
+                {DEFAULT_BRANCH},
                 '{DEFAULT_RUN_UID}',
                 record_data,
                 event_type,
                 now()
             );
     END IF;
-    RETURN NEW;
+    RETURN new_record;
 """  # noqa: S608
 
         # Build the actual function declaration
         return f"""
-CREATE OR REPLACE FUNCTION {self.function_name}()
-    RETURNS TRIGGER
-    LANGUAGE PLPGSQL
+CREATE OR REPLACE FUNCTION {self.function_name}(old_record RECORD, new_record RECORD, trigger_op TEXT)
+    RETURNS RECORD
 AS $$
 {self._build_variable_declarations()}
 BEGIN
 {function_body}
 END;
-$$
+$$ LANGUAGE PLPGSQL;
 """  # noqa: S608
 
 
@@ -608,14 +773,31 @@ $$ LANGUAGE plpgsql;
     def install_triggers(self, table: str, cursor: CursorWrapper):
         self._install_base62_function(cursor)
 
-        trigger_builder = PostgresTriggerBuilder(
+        trigger_builder = PostgresHistoryRecordingFunctionBuilder(
             table=table, db_metadata=self.db_metadata, cursor=cursor
         )
 
-        create_trigger_function_command = trigger_builder.build()
+        # Create the function that powers the trigger.
+        create_function_command = trigger_builder.build_function()
 
-        logger.debug(create_trigger_function_command)
-        cursor.execute(create_trigger_function_command)
+        logger.debug(create_function_command)
+        cursor.execute(create_function_command)
+
+        # Create a trigger function that wraps the function we just created.
+        trigger_function_name = get_trigger_function_name(table=table)
+
+        create_cursor_function_command = f"""
+CREATE OR REPLACE FUNCTION {trigger_function_name}()
+    RETURNS TRIGGER
+    LANGUAGE PLPGSQL
+AS $$
+BEGIN
+    RETURN {get_write_log_recording_function_name(table=table)}(OLD, NEW, TG_OP);
+END;
+$$
+"""
+        logger.debug(create_cursor_function_command)
+        cursor.execute(create_cursor_function_command)
 
         for write_log_event_type in WriteLogEventTypes:
             trigger_name = (
@@ -626,8 +808,64 @@ $$ LANGUAGE plpgsql;
             CREATE OR REPLACE TRIGGER {trigger_name}
             AFTER {write_log_event_type.name}
             ON {table}
-            FOR EACH ROW EXECUTE PROCEDURE {trigger_builder.function_name}();
+            FOR EACH ROW EXECUTE PROCEDURE {trigger_function_name}();
             """)
+
+    @override
+    def backfill_aux_artifacts(self, cursor: CursorWrapper):
+        cursor.execute(f"""
+DO $$
+DECLARE
+    r record;
+BEGIN
+    FOR r IN
+        SELECT * FROM lamindb_artifact WHERE kind = '__lamindb_run__'
+    LOOP
+        -- Call the trigger function for each row where kind is '__lamindb_run__'
+        PERFORM {get_write_log_recording_function_name("lamindb_artifact")}(NULL, r, 'INSERT');
+    END LOOP;
+END $$;
+""")  # noqa: S608
+
+    @override
+    def backfill_real_artifacts(self, cursor: CursorWrapper):
+        cursor.execute(f"""
+DO $$
+DECLARE
+    r record;
+BEGIN
+    FOR r IN
+        SELECT * FROM lamindb_artifact WHERE kind != '__lamindb_run__'
+    LOOP
+        -- Call the trigger function for each row where kind is '__lamindb_run__'
+        PERFORM {get_write_log_recording_function_name("lamindb_artifact")}(NULL, r, 'INSERT');
+    END LOOP;
+END $$;
+""")  # noqa: S608
+
+    @override
+    def backfill_record(
+        self,
+        table: str,
+        primary_key: tuple[tuple[str, int], ...],
+        cursor: CursorWrapper,
+    ):
+        pk_column_lookup = " AND ".join(f'"{k}" = {v}' for k, v in primary_key)
+        cursor.execute(f"""
+DO $$
+DECLARE
+    r record;
+BEGIN
+    SELECT * INTO r FROM {table} WHERE {pk_column_lookup} LIMIT 1;
+
+    -- Make sure we found a record
+    IF r IS NULL THEN
+        RAISE EXCEPTION 'No matching record found';
+    END IF;
+
+    PERFORM {get_write_log_recording_function_name(table)}(NULL, r, 'INSERT');
+END $$;
+""")  # noqa: S608
 
 
 def create_writelog_recording_trigger_installer(
