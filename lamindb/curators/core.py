@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any, Callable
 import lamindb_setup as ln_setup
 import numpy as np
 import pandas as pd
-import pandera
+import pandera.pandas as pa
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 
@@ -461,9 +461,9 @@ class DataFrameCurator(Curator):
                         )
                     else:
                         dtype = None
-                    pandera_columns[feature.name] = pandera.Column(
+                    pandera_columns[feature.name] = pa.Column(
                         dtype=None,
-                        checks=pandera.Check(
+                        checks=pa.Check(
                             check_dtype(feature.dtype),
                             element_wise=False,
                             error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}': got {dtype}",
@@ -478,7 +478,7 @@ class DataFrameCurator(Curator):
                         if not feature.dtype.startswith("cat")
                         else "category"
                     )
-                    pandera_columns[feature.name] = pandera.Column(
+                    pandera_columns[feature.name] = pa.Column(
                         pandera_dtype,
                         nullable=feature.nullable,
                         coerce=feature.coerce_dtype,
@@ -491,14 +491,14 @@ class DataFrameCurator(Curator):
             if schema._index_feature_uid is not None:
                 # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
                 # so, we're typing it as `str` here
-                index = pandera.Index(
+                index = pa.Index(
                     schema.index.dtype
                     if not schema.index.dtype.startswith("cat")
                     else str
                 )
             else:
                 index = None
-            self._pandera_schema = pandera.DataFrameSchema(
+            self._pandera_schema = pa.DataFrameSchema(
                 pandera_columns,
                 coerce=schema.coerce_dtype,
                 strict=schema.maximal_set,
@@ -582,7 +582,7 @@ class DataFrameCurator(Curator):
                 self._pandera_schema.validate(self._dataset)
                 # then validate lamindb categoricals
                 self._cat_manager_validate()
-            except pandera.errors.SchemaError as err:
+            except pa.errors.SchemaError as err:
                 self._is_validated = False
                 # .exconly() doesn't exist on SchemaError
                 raise ValidationError(str(err)) from err
