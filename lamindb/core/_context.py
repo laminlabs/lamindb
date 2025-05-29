@@ -457,7 +457,11 @@ class Context:
                 if project is not None
                 else ""
             )
-            space_str = f', space="{space}"' if space is not None else ""
+            space_str = (
+                f', space="{space if isinstance(space, str) else space.name}"'
+                if space is not None
+                else ""
+            )
             params_str = (
                 ", params={...}" if params is not None else ""
             )  # do not put the values because typically parameterized by user
