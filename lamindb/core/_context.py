@@ -452,7 +452,11 @@ class Context:
             r_or_python = "."
             if self._path is not None:
                 r_or_python = "." if self._path.suffix in {".py", ".ipynb"} else "$"
-            project_str = f', project="{project}"' if project is not None else ""
+            project_str = (
+                f', project="{project if isinstance(project, str) else project.name}"'
+                if project is not None
+                else ""
+            )
             space_str = f', space="{space}"' if space is not None else ""
             params_str = (
                 ", params={...}" if params is not None else ""
