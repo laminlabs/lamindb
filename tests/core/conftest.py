@@ -25,14 +25,8 @@ def pytest_sessionstart():
         name="lamindb-unit-tests-core",
         db=pgurl,
     )
-    ln.setup.register()  # temporarily
     ln.setup.settings.auto_connect = True
     ln.settings.creation.artifact_silence_missing_run_warning = True
-    ln.settings.storage = (
-        "s3://lamindb-ci/test-data"  # register as valid storage location
-    )
-    ln.settings.storage = "./default_storage_unit_core"
-
     total_time_elapsed = perf_counter() - t_execute_start
     print(f"Time to setup the instance: {total_time_elapsed:.3f}s")
 
@@ -40,15 +34,6 @@ def pytest_sessionstart():
 def pytest_sessionfinish(session: pytest.Session):
     logger.set_verbosity(1)
     shutil.rmtree("./default_storage_unit_core")
-
-    # handle below better in the future
-    core_storage = ln.UPath("s3://lamindb-test/core/.lamindb")
-    if core_storage.exists():
-        core_storage.rmdir()
-    another_storage = ln.UPath("s3://lamindb-ci/lamindb-unit-tests-cloud/.lamindb")
-    if another_storage.exists():
-        another_storage.rmdir()
-
     ln.setup.delete("lamindb-unit-tests-core", force=True)
     run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)  # noqa: S602
     ln.setup.settings.auto_connect = AUTO_CONNECT
