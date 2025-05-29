@@ -4,6 +4,7 @@ import lamindb as ln
 
 
 def test_settings_switch_storage():
+    ln.settings.storage = "./default_storage_unit_storage"
     assert (
         ln.settings.storage.root.resolve()
         == Path("./default_storage_unit_storage").resolve()
