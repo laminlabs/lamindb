@@ -8,15 +8,12 @@ from lamindb.errors import (
 )
 
 
-@pytest.mark.parametrize(
-    "data",
-    ["s3://lamindb-test/core/scrnaseq_pbmc68k_tiny.h5ad"],
-    indirect=True,
-)
-def test_create_from_anndata_in_storage(data):
+def test_create_from_anndata_in_existing_cloud_storage():
     previous_storage = ln.setup.settings.storage.root_as_str
-    ln.settings.storage = "s3://lamindb-test/core"
-    filepath = data
+    ln.settings.storage = (
+        "s3://lamindb-test/core"  # need to register as storage location
+    )
+    filepath = "s3://lamindb-test/core/scrnaseq_pbmc68k_tiny.h5ad"
     artifact = ln.Artifact.from_anndata(
         filepath, description="test_create_from_anndata_cloudpath"
     )
