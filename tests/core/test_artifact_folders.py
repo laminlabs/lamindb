@@ -62,13 +62,3 @@ def test_folder_like_artifact(get_test_filepaths, key):
     # delete the artifact
     artifact2.delete(permanent=True, storage=False)
     artifact3.delete(permanent=True, storage=False)
-
-
-# also see test in lamindb-setup/tests/storage/test_storage_stats.py
-# there is also a test for GCP there
-def test_folder_like_artifact_s3():
-    study0_data = ln.Artifact("s3://lamindata/iris_studies/study0_raw_images")
-    assert study0_data.hash == "IVKGMfNwi8zKvnpaD_gG7w"
-    assert study0_data._hash_type == "md5-d"
-    assert study0_data.n_files == 51
-    assert study0_data.size == 658465

@@ -50,6 +50,18 @@ def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
     allowed_dtypes = FEATURE_DTYPES
     if is_param:
         allowed_dtypes.add("dict")
+
+    # Handle list[...] types
+    if dtype_str.startswith("list[") and dtype_str.endswith("]"):
+        inner_dtype_str = dtype_str[5:-1]  # Remove "list[" and "]"
+        # Recursively parse the inner type
+        inner_result = parse_dtype(inner_dtype_str, is_param)
+        # Add "list": True to each component
+        for component in inner_result:
+            if isinstance(component, dict):
+                component["list"] = True  # type: ignore
+        return inner_result
+
     is_composed_cat = dtype_str.startswith("cat[") and dtype_str.endswith("]")
     result = []
     if is_composed_cat:
@@ -152,12 +164,31 @@ def parse_cat_dtype(
 
 
 def serialize_dtype(
-    dtype: Registry | SQLRecord | FieldAttr | list[SQLRecord] | list[Registry] | str,
+    dtype: Registry
+    | SQLRecord
+    | FieldAttr
+    | list[SQLRecord]
+    | list[Registry]
+    | list[str]
+    | list[float]
+    | str
+    | type,
     is_itype: bool = False,
 ) -> str:
     """Converts a data type object into its string representation."""
     from .record import Record
     from .ulabel import ULabel
+
+    # Handle generic types like list[str], list[Registry], etc.
+    if hasattr(dtype, "__origin__") and dtype.__origin__ is list:
+        # Get the inner type from list[T]
+        inner_type = dtype.__args__[0] if dtype.__args__ else None  # type: ignore
+        if inner_type is not None:
+            # Recursively serialize the inner type
+            inner_dtype_str = serialize_dtype(inner_type, is_itype=is_itype)
+            return f"list[{inner_dtype_str}]"
+        else:
+            return "list"
 
     if (
         not isinstance(dtype, list)
