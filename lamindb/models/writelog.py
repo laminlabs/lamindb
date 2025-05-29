@@ -1,11 +1,14 @@
 from django.db import models
 
+from .sqlrecord import BaseSQLRecord, Branch, Space
+
+DEFAULT_BRANCH = 1
+DEFAULT_SPACE = 1
 DEFAULT_CREATED_BY_UID = "0" * 8
-DEFAULT_BRANCH_CODE = 1
 DEFAULT_RUN_UID = "0" * 16
 
 
-class WriteLogTableState(models.Model):
+class TableState(BaseSQLRecord):
     """A list of tables for which we're recording write logs.
 
     This table serves two purposes: it allows us to store the
@@ -24,7 +27,7 @@ class WriteLogTableState(models.Model):
     backfilled = models.BooleanField()
 
 
-class WriteLogMigrationState(models.Model):
+class MigrationState(BaseSQLRecord):
     """A summary of the state of Django's migrations when a write log record was recorded.
 
     When a write log record is recorded, we need to record the state of the data migrations
@@ -38,21 +41,23 @@ class WriteLogMigrationState(models.Model):
     migration_state_id = models.JSONField()
 
 
-class WriteLog(models.Model):
+class WriteLog(BaseSQLRecord):
     """Stores the write log for LaminDB tables."""
 
     id = models.BigAutoField(primary_key=True)
-    migration_state = models.ForeignKey(
-        WriteLogMigrationState, on_delete=models.PROTECT
-    )
-    table = models.ForeignKey(WriteLogTableState, on_delete=models.PROTECT)
+    migration_state = models.ForeignKey(MigrationState, on_delete=models.PROTECT)
+    table = models.ForeignKey(TableState, on_delete=models.PROTECT)
     uid = models.CharField(max_length=18, editable=False, db_index=True, unique=True)
-    # While all normal tables will have a space ID, many-to-many tables won't.
-    space_uid = models.CharField(max_length=12, null=True)
+    # because the space foreign key manages the access a user has within the database
+    # instance, we need a forein key to the Space model, not just a uid
+    space = models.ForeignKey(Space, models.PROTECT, default=DEFAULT_SPACE)
+    # also for branches, an integer foreign key is manageable, often times, users
+    # will want to query those changes that came from a specific branch / PR
+    branch = models.ForeignKey(Branch, models.PROTECT, default=DEFAULT_BRANCH)
     created_by_uid = models.CharField(max_length=8, default=DEFAULT_CREATED_BY_UID)
-    branch_code = models.IntegerField(default=DEFAULT_BRANCH_CODE)
-    run_uid = models.CharField(max_length=16, default=DEFAULT_RUN_UID)
-    record_uid = models.JSONField()
+    run_uid = models.CharField(max_length=20, default=DEFAULT_RUN_UID)
+    # querying for the history of one record is common, so we index it
+    record_uid = models.JSONField(db_index=True)
     record_data = models.JSONField(null=True)
     event_type = models.PositiveSmallIntegerField()
     created_at = models.DateTimeField()

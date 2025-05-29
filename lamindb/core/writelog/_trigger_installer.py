@@ -1,6 +1,7 @@
 import enum
 import re
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any
 
 from django.db import transaction
@@ -16,11 +17,12 @@ from lamindb.core.writelog._utils import (
     update_write_log_table_state,
 )
 from lamindb.models.writelog import (
-    DEFAULT_BRANCH_CODE,
+    DEFAULT_BRANCH,
     DEFAULT_CREATED_BY_UID,
     DEFAULT_RUN_UID,
+    DEFAULT_SPACE,
+    TableState,
     WriteLogLock,
-    WriteLogTableState,
 )
 
 from ._db_metadata_wrapper import (
@@ -45,8 +47,8 @@ RESERVED_COLUMNS: tuple[str] = (FOREIGN_KEYS_LIST_COLUMN_NAME,)
 EXCLUDED_TABLES = [
     "lamindb_writelog",
     "lamindb_writeloglock",
-    "lamindb_writelogtablestate",
-    "lamindb_writelogmigrationstate",
+    "lamindb_tablestate",
+    "lamindb_migrationstate",
     "django_content_type",
     "django_migrations",
     # FIXME what to do with these?
@@ -186,7 +188,7 @@ class WriteLogRecordingTriggerInstaller(ABC):
                 self.backfill_aux_artifacts(cursor)
             elif table in tables:
                 # Only backfill tables in the current set
-                table_state = WriteLogTableState.objects.get(table_name=table)
+                table_state = TableState.objects.get(table_name=table)
 
                 if table_state.backfilled:
                     logger.info(
@@ -316,6 +318,20 @@ FROM {table}
             self.backfill_record(table, pk, cursor)
 
 
+@dataclass
+class PostgresFunctionVariable:
+    name: str
+    variable_type: str
+    declaration: str | None
+    defer_assignment_to_delete: bool
+
+    def get_declare_statement(self) -> str:
+        if self.declaration is None or self.defer_assignment_to_delete:
+            return f"DECLARE {self.name} {self.variable_type};"
+        else:
+            return f"DECLARE {self.name} {self.variable_type} := ({self.declaration});"
+
+
 class PostgresHistoryRecordingFunctionBuilder:
     # Since we're creating triggers and functions based on table names,
     # it's probably a good idea to check that those names are valid
@@ -331,12 +347,18 @@ class PostgresHistoryRecordingFunctionBuilder:
         self.db_metadata = db_metadata
         self.cursor = cursor
 
-        self._variables: dict[str, tuple[str, str | None]] = {}
+        self._variables: dict[str, PostgresFunctionVariable] = {}
         self._variable_order: list[str] = []
 
         self._record_uid: dict[bool, str] = {}
 
-    def declare_variable(self, name: str, type: str, declaration: str | None = None):
+    def declare_variable(
+        self,
+        name: str,
+        type: str,
+        declaration: str | None = None,
+        defer_assignment_to_delete: bool = False,
+    ):
         if not self.VALID_VARIABLE_NAME_REGEX.match(name):
             raise ValueError(f"'{name}' is not a valid Postgres variable name")
 
@@ -347,21 +369,27 @@ class PostgresHistoryRecordingFunctionBuilder:
             )
 
         if name not in self._variables:
-            self._variables[name] = (type, declaration)
+            self._variables[name] = PostgresFunctionVariable(
+                name=name,
+                variable_type=type,
+                declaration=declaration,
+                defer_assignment_to_delete=defer_assignment_to_delete,
+            )
             self._variable_order.append(name)
-
-    def _build_variable_declaration(self, name: str) -> str:
-        variable_type, declaration = self._variables[name]
-
-        if declaration is None:
-            return f"DECLARE {name} {variable_type};"
-        else:
-            return f"DECLARE {name} {variable_type} := ({declaration});"
 
     def _build_variable_declarations(self) -> str:
         """Build variable declarations in the order in which they were declared."""
         return "\n".join(
-            self._build_variable_declaration(name) for name in self._variable_order
+            var.get_declare_statement()
+            for var in [self._variables[name] for name in self._variable_order]
+        )
+
+    def _assign_delete_only_variables(self) -> str:
+        """Define variables that have been defined, but whose assignment must be deferred until a DELETE operation."""
+        return "\n".join(
+            f"{var.name} := ({var.declaration});"
+            for var in [self._variables[name] for name in self._variable_order]
+            if var.defer_assignment_to_delete
         )
 
     def _build_jsonb_array(self, items: list[str]) -> str:
@@ -388,7 +416,7 @@ class PostgresHistoryRecordingFunctionBuilder:
 
         return self._record_uid[is_delete]
 
-    def _build_space_uid(self, is_delete: bool) -> str:
+    def _build_space_id(self, is_delete: bool) -> str:
         columns = self.db_metadata.get_column_names(
             table=self.table, cursor=self.cursor
         )
@@ -400,15 +428,21 @@ class PostgresHistoryRecordingFunctionBuilder:
             else:
                 table_name_in_trigger = "new_record"
 
-            return f"SELECT uid FROM lamindb_space WHERE id = {table_name_in_trigger}.space_id"  # noqa: S608
+            # TODO: The select statement below likely is superfluous, since space_id is known
+            return f"SELECT id FROM lamindb_space WHERE id = {table_name_in_trigger}.space_id"  # noqa: S608
         else:
-            # For the rest, we can set this to NULL.
-            return "NULL"
+            # For the rest, we can use DEFAULT_SPACE
+            return f"{DEFAULT_SPACE}"
 
     def _build_record_uid_inner(self, is_delete: bool) -> str:
         uid_columns_list: UIDColumns = self.db_metadata.get_uid_columns(
             table=self.table, cursor=self.cursor
         )
+
+        if is_delete:
+            table_name_in_trigger = "old_record"
+        else:
+            table_name_in_trigger = "new_record"
 
         if len(uid_columns_list) == 1:
             table_uid = uid_columns_list[0]
@@ -420,15 +454,17 @@ class PostgresHistoryRecordingFunctionBuilder:
                 )
 
             # This table's UID is determined solely by its own columns
-            if is_delete:
-                table_name_in_trigger = "old_record"
-            else:
-                table_name_in_trigger = "new_record"
-
             return self._build_jsonb_array(
                 [
                     f"{table_name_in_trigger}.{column.name}"
                     for column in table_uid.uid_columns
+                ]
+            )
+        elif self.table == "lamindb_featurevalue":
+            return self._build_jsonb_array(
+                [
+                    f"{table_name_in_trigger}.hash",
+                    f"(SELECT F.uid FROM lamindb_featurevalue V LEFT OUTER JOIN lamindb_feature F ON (V.feature_id = F.id) WHERE V.id = {table_name_in_trigger}.id)",  # noqa: S608
                 ]
             )
         else:
@@ -517,7 +553,7 @@ class PostgresHistoryRecordingFunctionBuilder:
                 foreign_key_constraint=foreign_key_constraint, is_delete=False
             )
             for foreign_key_constraint in foreign_key_constraints
-            # Don't record foreign-keys to space, since we store space_uid separately
+            # Don't record foreign-keys to space, since we store space_id separately
             if not (
                 foreign_key_constraint.target_table == "lamindb_space"
                 and [c.name for c in foreign_key_constraint.source_columns]
@@ -536,7 +572,7 @@ class PostgresHistoryRecordingFunctionBuilder:
 
         Will only add a variable for a given table name once.
         """
-        table_id = WriteLogTableState.objects.get(table_name=table).id
+        table_id = TableState.objects.get(table_name=table).id
 
         variable_name = f"_table_name_{table_id}"
 
@@ -546,7 +582,7 @@ class PostgresHistoryRecordingFunctionBuilder:
             self.declare_variable(
                 variable_name,
                 "smallint",
-                f"SELECT id FROM lamindb_writelogtablestate WHERE table_name = '{table}' LIMIT 1",  # noqa: S608
+                f"SELECT id FROM lamindb_tablestate WHERE table_name = '{table}' LIMIT 1",  # noqa: S608
             )
 
         return variable_name
@@ -569,7 +605,7 @@ class PostgresHistoryRecordingFunctionBuilder:
         variable_name = self._create_unique_variable_name("_lamin_fkey_ref")
 
         # We'll be creating a JSONB array with three elements:
-        #  * the ID of the target table in WriteLogTableState
+        #  * the ID of the target table in TableState
         #  * the columns in the table that comprise the foreign-key constraint
         #  * the uniquely-identifiable columns in the target table that identify the target record
         source_columns_lookup_array = self._build_jsonb_array(
@@ -598,6 +634,76 @@ class PostgresHistoryRecordingFunctionBuilder:
 
         return variable_name
 
+    def add_featurevalue_uid_lookup_variable(
+        self, foreign_key_constraint: KeyConstraint, is_delete: bool
+    ) -> str:
+        source_record = "old_record" if is_delete else "new_record"
+
+        # Find the foreign-key between lamindb_featurevalue and lamindb_feature
+        _, foreign_key_constraints = self.db_metadata.get_table_key_constraints(
+            table="lamindb_feature", cursor=self.cursor
+        )
+
+        feature_table_constraint: KeyConstraint | None = None
+
+        for constraint in foreign_key_constraints:
+            if constraint.target_table == "lamindb_feature":
+                feature_table_constraint = constraint
+                break
+
+        if feature_table_constraint is None:
+            raise ValueError(
+                "Expected 'lamindb_featurevalue' to have a foreign-key relationship with 'lamindb_feature'"
+            )
+
+        feature_table_uid_columns = self.db_metadata.get_uid_columns(
+            table=feature_table_constraint.target_table, cursor=self.cursor
+        )
+
+        if len(feature_table_uid_columns) > 1:
+            raise ValueError(
+                "Expected 'lamindb_feature' to have a simple UID, but got a complex one"
+            )
+
+        feature_table_uid = feature_table_uid_columns[0]
+
+        if len(feature_table_uid.uid_columns) > 1:
+            raise ValueError(
+                "Currently expecting 'lamindb_feature' to only have one UID column"
+            )
+
+        feature_table_uid_column = feature_table_uid.uid_columns[0]
+
+        where_clause = " AND ".join(
+            f"V.{target_col.name} = {source_record}.{source_col.name}"
+            for source_col, target_col in zip(
+                foreign_key_constraint.source_columns,
+                foreign_key_constraint.target_columns,
+            )
+        )
+
+        variable_name = self._create_unique_variable_name(
+            prefix="_fkey_uid_featureval_d" if is_delete else "_fkey_uid_featureval"
+        )
+
+        self.declare_variable(
+            variable_name,
+            "jsonb",
+            f"""
+coalesce(
+    (
+        SELECT {self._build_jsonb_object({"hash": "V.hash", "feature.uid": "F." + feature_table_uid_column.name})}
+        FROM lamindb_featurevalue V LEFT OUTER JOIN lamindb_feature F ON (V.feature_id = F.id)
+        WHERE {where_clause}
+    ),
+    (SELECT {self._build_jsonb_object(dict.fromkeys(["hash", "feature.uid"], "NULL"))})
+)
+""",  # noqa: S608
+            defer_assignment_to_delete=is_delete,
+        )
+
+        return variable_name
+
     def add_foreign_key_uid_lookup_variable(
         self, foreign_key_constraint: KeyConstraint, is_delete: bool
     ) -> str:
@@ -606,6 +712,11 @@ class PostgresHistoryRecordingFunctionBuilder:
         uid_column_list = self.db_metadata.get_uid_columns(
             table=foreign_key_constraint.target_table, cursor=self.cursor
         )
+
+        if foreign_key_constraint.target_table == "lamindb_featurevalue":
+            return self.add_featurevalue_uid_lookup_variable(
+                foreign_key_constraint, is_delete
+            )
 
         if len(uid_column_list) > 1:
             raise ValueError(
@@ -643,6 +754,7 @@ coalesce(
     {self._build_jsonb_object(dict.fromkeys([c.name for c in table_uid.uid_columns], "NULL"))}
 )
 """,  # noqa: S608
+            defer_assignment_to_delete=is_delete,
         )
 
         return variable_name
@@ -666,10 +778,10 @@ coalesce(
         self.declare_variable(
             name="latest_migration_id",
             type="smallint",
-            declaration="SELECT MAX(id) FROM lamindb_writelogmigrationstate",
+            declaration="SELECT MAX(id) FROM lamindb_migrationstate",
         )
 
-        self.declare_variable(name="space_uid", type="varchar")
+        self.declare_variable(name="space_id", type="smallint")
 
         table_id_var = self.add_table_id_variable(table=self.table)
         self.declare_variable(name="record_data", type="jsonb")
@@ -685,11 +797,11 @@ coalesce(
             record_data := NULL;
             record_uid := {self._build_record_uid(is_delete=True)};
             event_type := {WriteLogEventTypes.DELETE.value};
-            space_uid := ({self._build_space_uid(is_delete=True)});
+            space_id := ({self._build_space_id(is_delete=True)});
         ELSE
             record_data := {self._build_record_data()};
             record_uid := {self._build_record_uid(is_delete=False)};
-            space_uid := ({self._build_space_uid(is_delete=False)});
+            space_id := ({self._build_space_id(is_delete=False)});
 
             IF (trigger_op = 'INSERT') THEN
                 event_type := {WriteLogEventTypes.INSERT.value};
@@ -704,9 +816,9 @@ coalesce(
                 migration_state_id,
                 table_id,
                 record_uid,
-                space_uid,
+                space_id,
                 created_by_uid,
-                branch_code,
+                branch_id,
                 run_uid,
                 record_data,
                 event_type,
@@ -718,9 +830,9 @@ coalesce(
                 latest_migration_id,
                 {table_id_var},
                 record_uid,
-                space_uid,
+                space_id,
                 '{DEFAULT_CREATED_BY_UID}',
-                {DEFAULT_BRANCH_CODE},
+                {DEFAULT_BRANCH},
                 '{DEFAULT_RUN_UID}',
                 record_data,
                 event_type,
@@ -737,6 +849,9 @@ CREATE OR REPLACE FUNCTION {self.function_name}(old_record RECORD, new_record RE
 AS $$
 {self._build_variable_declarations()}
 BEGIN
+    IF (trigger_op = 'DELETE') THEN
+        {self._assign_delete_only_variables()}
+    END IF;
 {function_body}
 END;
 $$ LANGUAGE PLPGSQL;

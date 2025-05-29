@@ -8,7 +8,7 @@ from django.db.backends.utils import CursorWrapper
 from lamindb.core.writelog._constants import FOREIGN_KEYS_LIST_COLUMN_NAME
 from lamindb.core.writelog._trigger_installer import WriteLogEventTypes
 from lamindb.core.writelog._types import Column, ColumnType
-from lamindb.models.writelog import WriteLog, WriteLogTableState
+from lamindb.models.writelog import TableState, WriteLog
 
 from ._db_metadata_wrapper import DatabaseMetadataWrapper
 
@@ -17,7 +17,7 @@ from ._db_metadata_wrapper import DatabaseMetadataWrapper
 class WriteLogForeignKey:
     table_name: str
     foreign_key_columns: list[str]
-    foreign_uid: dict[str, str]
+    foreign_uid: dict[str, str | None]
 
 
 class WriteLogReplayer:
@@ -30,7 +30,7 @@ class WriteLogReplayer:
         self.cursor = cursor
 
     def replay(self, write_log_record: WriteLog):
-        table_name = write_log_record.table.table_name
+        table_name: str = write_log_record.table.table_name
 
         # If we're deleting the record, its (resolved) UID is the only thing we need
         if write_log_record.event_type == WriteLogEventTypes.DELETE.value:
@@ -59,30 +59,33 @@ class WriteLogReplayer:
                         record_column_names.append(column_name)
                         record_values.append(str(value))
                 else:
-                    uid_list = self.db_metadata.get_uid_columns(
-                        table=table_name, cursor=self.cursor
-                    )
-
-                    if len(uid_list) != 1:
-                        raise ValueError(
-                            f"Table {table_name} is not marked as many-to-many, but has "
-                            "more than one table reference in its UID"
+                    if table_name != "lamindb_featurevalue":
+                        uid_list = self.db_metadata.get_uid_columns(
+                            table=table_name, cursor=self.cursor
                         )
 
-                    record_uid = uid_list[0]
+                        if len(uid_list) != 1:
+                            raise ValueError(
+                                f"Table {table_name} is not marked as many-to-many, but has "
+                                "more than one table reference in its UID"
+                            )
 
-                    if len(record_uid.uid_columns) != len(write_log_record.record_uid):
-                        raise ValueError(
-                            f"Write log record {write_log_record.uid} expected to "
-                            f"have {len(record_uid.uid_columns)} components to its "
-                            "UID, but only had {len(write_log_record.record_uid)}"
-                        )
+                        record_uid = uid_list[0]
 
-                    for uid_column, value in zip(
-                        record_uid.uid_columns, write_log_record.record_uid
-                    ):
-                        record_column_names.append(uid_column.name)
-                        record_values.append(self._cast_column(uid_column, value))
+                        if len(record_uid.uid_columns) != len(
+                            write_log_record.record_uid
+                        ):
+                            raise ValueError(
+                                f"Write log record {write_log_record.uid} expected to "
+                                f"have {len(record_uid.uid_columns)} components to its "
+                                "UID, but only had {len(write_log_record.record_uid)}"
+                            )
+
+                        for uid_column, value in zip(
+                            record_uid.uid_columns, write_log_record.record_uid
+                        ):
+                            record_column_names.append(uid_column.name)
+                            record_values.append(self._cast_column(uid_column, value))
 
                 self.cursor.execute(f"""
                 INSERT INTO {table_name}
@@ -161,9 +164,29 @@ class WriteLogReplayer:
         else:
             raise ValueError(f"Unhandled type {column.type}")
 
-    def _resolve_uid(self, table_name: str, record_uid) -> dict[str, int]:
+    def _resolve_uid(self, table_name: str, record_uid) -> dict[str, int | None]:
         if table_name in self.db_metadata.get_many_to_many_db_tables():
             resolved_record_uid = self._resolve_foreign_keys_list(record_uid)
+        elif table_name == "lamindb_featurevalue":
+            self.cursor.execute(
+                """
+            SELECT V.id AS id
+            FROM lamindb_featurevalue V
+            LEFT OUTER JOIN lamindb_feature F ON (V.feature_id = F.id)
+            WHERE V.hash = %s AND F.uid = %s
+            LIMIT 1
+            """,
+                [record_uid[0], record_uid[1]],
+            )
+
+            record_id = self.cursor.fetchone()
+
+            if record_id is None:
+                raise ValueError(
+                    f"Could not find 'lamindb_featurevalue' record with uid {record_uid}"
+                )
+
+            return {"id": record_id[0]}
         else:
             table_uid_list = self.db_metadata.get_uid_columns(
                 table=table_name, cursor=self.cursor
@@ -249,7 +272,10 @@ class WriteLogReplayer:
                         )
 
                     record_data_tuples.append(
-                        (columns_by_name[foreign_key_column], str(foreign_key_value))
+                        (
+                            columns_by_name[foreign_key_column],
+                            str(foreign_key_value or "NULL"),
+                        )
                     )
             else:
                 if key not in columns_by_name:
@@ -261,14 +287,14 @@ class WriteLogReplayer:
 
         return record_data_tuples
 
-    def _resolve_foreign_keys_list(self, foreign_keys_list) -> dict[str, int]:
+    def _resolve_foreign_keys_list(self, foreign_keys_list) -> dict[str, int | None]:
         """Resolves a reference to a foreign record by UID into the foreign-keys needed by the source table.
 
         Write logs refer to records in other tables by their UID. These references are stored as a list of 3-tuples,
         where each 3-tuple is:
 
             [
-                ID of the destination table in WriteLogTableState,
+                ID of the destination table in TableState,
                 list of table fields containing the foreign key,
                 record/value pairs defining the foreign record's UID
             ]
@@ -282,7 +308,7 @@ class WriteLogReplayer:
         ):
             raise ValueError("Expected a foreign keys list to be a list of 3-tuples")
 
-        resolved_foreign_keys: dict[str, int] = {}
+        resolved_foreign_keys: dict[str, int | None] = {}
 
         for foreign_table_uid in foreign_keys_list:
             resolved_foreign_key = self._foreign_key_from_json(
@@ -313,7 +339,7 @@ class WriteLogReplayer:
                     f"Expected the third element of a foreign key's JSON representation to be a dict mapping columns to values (JSON: {json_obj})"
                 )
 
-            table_name = WriteLogTableState.objects.get(id=table_id).table_name
+            table_name = TableState.objects.get(id=table_id).table_name
 
             return WriteLogForeignKey(
                 table_name=table_name,
@@ -327,40 +353,75 @@ class WriteLogReplayer:
 
     def _get_foreign_key_values(
         self, foreign_key: WriteLogForeignKey
-    ) -> dict[str, int]:
-        primary_key, _ = self.db_metadata.get_table_key_constraints(
-            foreign_key.table_name, cursor=self.cursor
-        )
+    ) -> dict[str, int | None]:
+        if all(v is None for v in foreign_key.foreign_uid.values()):
+            return dict.fromkeys(foreign_key.foreign_key_columns, None)
 
-        if len(foreign_key.foreign_key_columns) != len(primary_key.source_columns):
-            raise ValueError(
-                f"Expected number of primary key columns for {primary_key.target_table} "
-                f"({len(primary_key.source_columns)}) and number of foreign key columns "
-                f"for {foreign_key.table_name} ({len(foreign_key.foreign_key_columns)}) to match"
+        if foreign_key.table_name == "lamindb_featurevalue":
+            if len(foreign_key.foreign_key_columns) != 1:
+                raise ValueError(
+                    "Unexpected number of foreign-key columns for 'lamindb_featurevalue'"
+                )
+
+            if all(v is None for v in foreign_key.foreign_uid.values()):
+                return dict.fromkeys(foreign_key.foreign_key_columns, None)
+
+            self.cursor.execute(
+                """
+            SELECT V.id AS id
+            FROM lamindb_featurevalue V
+            LEFT OUTER JOIN lamindb_feature F ON (V.feature_id = F.id)
+            WHERE V.hash = %s AND F.uid = %s
+            LIMIT 1
+            """,
+                [
+                    foreign_key.foreign_uid["hash"],
+                    foreign_key.foreign_uid["feature.uid"],
+                ],
             )
 
-        uid_constraints = " AND ".join(
-            f"{k} = '{v}'" for (k, v) in foreign_key.foreign_uid.items()
-        )
+            record_id = self.cursor.fetchone()
 
-        self.cursor.execute(
-            f"SELECT {','.join(c.name for c in primary_key.source_columns)} "  # noqa: S608
-            f"FROM {foreign_key.table_name} "
-            f"WHERE {uid_constraints}"
-        )
+            if record_id is None:
+                raise ValueError(
+                    f"Unable to find record in 'lamindb_featurevalue' with UID {foreign_key.foreign_uid}"
+                )
 
-        rows = self.cursor.fetchall()
-
-        if len(rows) == 0:
-            raise ValueError(
-                f"Record matching foreign key constraint {foreign_key} not found"
+            return {foreign_key.foreign_key_columns[0]: record_id[0]}
+        else:
+            primary_key, _ = self.db_metadata.get_table_key_constraints(
+                foreign_key.table_name, cursor=self.cursor
             )
 
-        if len(rows) > 1:
-            raise ValueError(
-                f"Found more than one record matching foreign key constraint {foreign_key}"
+            if len(foreign_key.foreign_key_columns) != len(primary_key.source_columns):
+                raise ValueError(
+                    f"Expected number of primary key columns for {primary_key.target_table} "
+                    f"({len(primary_key.source_columns)}) and number of foreign key columns "
+                    f"for {foreign_key.table_name} ({len(foreign_key.foreign_key_columns)}) to match"
+                )
+
+            uid_constraints = " AND ".join(
+                f"{k} = '{v}'" for (k, v) in foreign_key.foreign_uid.items()
             )
 
-        row = rows[0]
+            self.cursor.execute(
+                f"SELECT {','.join(c.name for c in primary_key.source_columns)} "  # noqa: S608
+                f"FROM {foreign_key.table_name} "
+                f"WHERE {uid_constraints}"
+            )
 
-        return dict(zip(foreign_key.foreign_key_columns, row))
+            rows = self.cursor.fetchall()
+
+            if len(rows) == 0:
+                raise ValueError(
+                    f"Record matching foreign key constraint {foreign_key} not found"
+                )
+
+            if len(rows) > 1:
+                raise ValueError(
+                    f"Found more than one record matching foreign key constraint {foreign_key}"
+                )
+
+            row = rows[0]
+
+            return dict(zip(foreign_key.foreign_key_columns, row))
