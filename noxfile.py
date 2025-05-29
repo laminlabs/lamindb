@@ -67,7 +67,6 @@ def install(session):
     [
         "unit-core",
         "unit-storage",
-        "unit-writelog",
         "tutorial",
         "guide",
         "biology",
@@ -100,8 +99,6 @@ def install_ci(session, group):
         run(session, "uv pip install --system scanpy")
         run(session, "uv pip install --system tiledbsoma")
         run(session, "uv pip install --system polars")
-    elif group == "unit-writelog":
-        extras += "bionty"
     elif group == "tutorial":
         extras += "jupyter,bionty"
         run(session, "uv pip install --system huggingface_hub")
@@ -229,7 +226,6 @@ def configure_coverage(session) -> None:
     [
         "unit-core",
         "unit-storage",
-        "unit-writelog",
         "curator",
         "tutorial",
         "guide",
@@ -254,9 +250,6 @@ def test(session, group):
         )
     elif group == "unit-storage":
         run(session, f"pytest {coverage_args} ./tests/storage --durations=50")
-    elif group == "unit-writelog":
-        run(session, f"pytest {coverage_args} ./tests/writelog --durations=50")
-        run(session, f"pytest {coverage_args} ./tests/writelog_sqlite --durations=50")
     elif group == "tutorial":
         run(session, "lamin logout")
         run(
