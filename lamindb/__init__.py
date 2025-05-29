@@ -58,7 +58,6 @@ Manage projects.
    Project
    Space
    Branch
-   WriteLog
    Reference
    Person
 
