@@ -102,17 +102,39 @@ class DatabaseMetadataWrapper(ABC):
     def get_uid_columns(self, table: str, cursor: CursorWrapper) -> UIDColumns:
         """Get the UID columns for a given table."""
         if table == "lamindb_featurevalue":
-            # TODO: update this to feature uid + hash instead of value + created_at
-            # feature_id is a foreign key on the featurevalue table, so this should be easy
-            return [
-                TableUID(
-                    source_table_name=table,
-                    uid_columns=self._get_columns_by_name(
-                        table, ["value", "created_at"], cursor
-                    ),
-                    key_constraint=None,
-                )
-            ]
+            _, foreign_key_constraints = self.get_table_key_constraints(
+                table=table, cursor=cursor
+            )
+
+            for constraint in foreign_key_constraints:
+                if constraint.target_table == "lamindb_feature":
+                    feature_table_uid_columns = self.get_uid_columns(
+                        table=constraint.target_table, cursor=cursor
+                    )
+
+                    if len(feature_table_uid_columns) > 1:
+                        raise ValueError(
+                            "Expected 'lamindb_feature' to have a simple UID, but got a complex one"
+                        )
+
+                    feature_table_uid = deepcopy(feature_table_uid_columns[0])
+                    feature_table_uid.key_constraint = constraint
+
+                    return [
+                        feature_table_uid,
+                        TableUID(
+                            source_table_name=table,
+                            uid_columns=self._get_columns_by_name(
+                                table, ["hash"], cursor
+                            ),
+                            key_constraint=None,
+                        ),
+                    ]
+
+            raise ValueError(
+                "Expected lamindb_featurevalue to foreign-key to lamindb_feature, "
+                "but found no such foreign key constraint"
+            )
         else:
             column_names = self.get_column_names(table, cursor)
 
@@ -140,20 +162,20 @@ class DatabaseMetadataWrapper(ABC):
                 )
 
                 for constraint in foreign_key_constraints:
-                    constraint_uid_columns = self.get_uid_columns(
-                        table=constraint.target_table, cursor=cursor
-                    )
-
-                    if len(constraint_uid_columns) > 1:
+                    if constraint.target_table in self.get_many_to_many_db_tables():
                         raise ValueError(
                             "Many-to-many tables that reference other many-to-many tables aren't supported. "
                             f"'{table}' references '{constraint.target_table}', and both are many-to-many"
                         )
 
-                    table_uid_for_constraint = deepcopy(constraint_uid_columns[0])
-                    table_uid_for_constraint.key_constraint = constraint
+                    constraint_uid_columns = self.get_uid_columns(
+                        table=constraint.target_table, cursor=cursor
+                    )
 
-                    uid_columns.append(table_uid_for_constraint)
+                    for uid_column in constraint_uid_columns:
+                        table_uid_for_constraint = deepcopy(uid_column)
+                        table_uid_for_constraint.key_constraint = constraint
+                        uid_columns.append(table_uid_for_constraint)
 
                 return uid_columns
 

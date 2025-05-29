@@ -7,6 +7,7 @@ import pytest
 from django.db import connection as django_connection_proxy
 from django.db import transaction
 from django.db.backends.utils import CursorWrapper
+from lamindb.core.datasets import small_dataset1
 from lamindb.core.writelog._constants import FOREIGN_KEYS_LIST_COLUMN_NAME
 from lamindb.core.writelog._db_metadata_wrapper import (
     PostgresDatabaseMetadataWrapper,
@@ -17,9 +18,11 @@ from lamindb.core.writelog._trigger_installer import (
 )
 from lamindb.core.writelog._types import Column, ColumnType, TableUID, UIDColumns
 from lamindb.models.artifact import Artifact
+from lamindb.models.feature import Feature, FeatureValue
 from lamindb.models.run import Run
 from lamindb.models.sqlrecord import Space
 from lamindb.models.transform import Transform
+from lamindb.models.ulabel import ULabel
 from lamindb.models.writelog import (
     MigrationState,
     TableState,
@@ -1328,7 +1331,7 @@ def test_write_log_records_space_ids_properly(table_with_space_ref, fake_space):
         FOREIGN_KEYS_LIST_COLUMN_NAME: [],
     }
     assert write_log[0].event_type == WriteLogEventTypes.INSERT.value
-    assert write_log[0].space_id == fake_space.id
+    assert write_log[0].space.id == fake_space.id
 
     assert write_log[1].table.table_name == table_with_space_ref
     assert write_log[1].record_uid == ["B"]
@@ -1336,7 +1339,7 @@ def test_write_log_records_space_ids_properly(table_with_space_ref, fake_space):
         FOREIGN_KEYS_LIST_COLUMN_NAME: [],
     }
     assert write_log[1].event_type == WriteLogEventTypes.INSERT.value
-    assert write_log[1].space_id == 1
+    assert write_log[1].space.id == 1
 
 
 @pytest.fixture(scope="function")
@@ -1461,3 +1464,45 @@ def test_aux_artifacts_backfill_before_real_ones(
 
     assert write_log[3].table.table_name == "lamindb_artifact"
     assert write_log[3].record_uid == [normal_artifact.uid]
+
+
+@pytest.fixture(scope="function")
+def artifact_with_feature_values(fake_run):
+    df = small_dataset1(otype="DataFrame")
+    artifact = Artifact.from_df(df, description="test dataset").save()  # type: ignore
+
+    Feature(name="perturbation", dtype="int").save()
+    artifact.features.add_values({"perturbation": 50})  # type: ignore
+
+    yield artifact
+
+    artifact.delete(permanent=True)
+    ULabel.filter().all().delete()
+    Feature.filter().all().delete()
+
+
+@pytest.mark.pg_integration
+def test_featurevalue_trigger(
+    artifact_with_feature_values, drop_all_write_log_triggers_after_test
+):
+    installer = PostgresWriteLogRecordingTriggerInstaller(
+        connection=django_connection, db_metadata=PostgresDatabaseMetadataWrapper()
+    )
+    installer.update_write_log_triggers()
+
+    write_log = [
+        w
+        for w in WriteLog.objects.all().order_by("id")
+        if w.table.table_name in {"lamindb_featurevalue"}
+    ]
+
+    assert len(write_log) == 1
+
+    write_log_entry = write_log[0]
+
+    assert len(write_log_entry.record_uid) == 2
+
+    feature_value = FeatureValue.objects.get(hash=write_log_entry.record_uid[0])
+    assert feature_value.feature is not None
+
+    assert write_log_entry.record_uid[1] == feature_value.feature.uid
