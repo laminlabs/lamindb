@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import copy
 import re
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, Callable
 
 import lamindb_setup as ln_setup
@@ -43,7 +44,6 @@ from lamindb.models.feature import parse_cat_dtype, parse_dtype
 from ..errors import InvalidArgument, ValidationError
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
     from typing import Any
 
     from anndata import AnnData
@@ -358,11 +358,11 @@ class SlotsCurator(Curator):
         )
 
 
-def _is_type_or_list_of_type(value, expected_type):
+def is_list_of_type(value, expected_type):
     """Helper function to check if a value is either of expected_type or a list of that type, or a mix of both in a nested structure."""
-    if isinstance(value, list | np.ndarray):
+    if isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
         # handle nested lists recursively
-        return all(_is_type_or_list_of_type(item, expected_type) for item in value)
+        return all(is_list_of_type(item, expected_type) for item in value)
     return isinstance(value, expected_type)
 
 
@@ -393,18 +393,19 @@ def check_dtype(expected_type) -> Callable:
 
         # if we're here, it might be a mixed column with object dtype
         # need to check each value individually
-        if series.dtype == "object":
-            if expected_type == "int":
-                return series.apply(lambda x: _is_type_or_list_of_type(x, int)).all()
-            elif expected_type == "float":
-                return series.apply(lambda x: _is_type_or_list_of_type(x, float)).all()
-            elif expected_type == "num":
+        if series.dtype == "object" and expected_type.startswith("list"):
+            expected_type_member = expected_type.replace("list[", "").removesuffix("]")
+            if expected_type_member == "int":
+                return series.apply(lambda x: is_list_of_type(x, int)).all()
+            elif expected_type_member == "float":
+                return series.apply(lambda x: is_list_of_type(x, float)).all()
+            elif expected_type_member == "num":
                 # for numeric, accept either int or float
-                return series.apply(
-                    lambda x: _is_type_or_list_of_type(x, (int, float))
-                ).all()
-            elif expected_type == "str":
-                return series.apply(lambda x: _is_type_or_list_of_type(x, str)).all()
+                return series.apply(lambda x: is_list_of_type(x, (int, float))).all()
+            elif expected_type_member == "str" or expected_type_member.startswith(
+                "cat["
+            ):
+                return series.apply(lambda x: is_list_of_type(x, str)).all()
 
         # if we get here, the validation failed
         return False
@@ -485,13 +486,9 @@ class DataFrameCurator(Curator):
                 else:
                     required = False
                 # series.dtype is "object" if the column has lists types, e.g. [["a", "b"], ["a"], ["b"]]
-                are_lists = (
-                    feature.name in self._dataset.keys()
-                    and hasattr(self._dataset[feature.name], "__len__")
-                    and len(self._dataset[feature.name]) > 0
-                    and _has_list_items(self._dataset[feature.name])
-                )
-                if feature.dtype in {"int", "float", "num"} or are_lists:
+                if feature.dtype in {"int", "float", "num"} or feature.dtype.startswith(
+                    "list"
+                ):
                     if isinstance(self._dataset, pd.DataFrame):
                         dtype = (
                             self._dataset[feature.name].dtype
@@ -503,11 +500,7 @@ class DataFrameCurator(Curator):
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
                         checks=pandera.Check(
-                            check_dtype(
-                                "str"
-                                if feature.dtype.startswith("cat")
-                                else feature.dtype
-                            ),
+                            check_dtype(feature.dtype),
                             element_wise=False,
                             error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}': got {dtype}",
                         ),
@@ -527,7 +520,9 @@ class DataFrameCurator(Curator):
                         coerce=feature.coerce_dtype,
                         required=required,
                     )
-                if feature.dtype.startswith("cat"):
+                if feature.dtype.startswith("cat") or feature.dtype.startswith(
+                    "list[cat["
+                ):
                     # validate categoricals if the column is required or if the column is present
                     if required or feature.name in self._dataset.keys():
                         categoricals.append(feature)
@@ -1606,14 +1601,3 @@ def _save_organism(name: str):
             )
         organism.save()
     return organism
-
-
-def _has_list_items(dataset_column):
-    """Check if dataset column contains any list-like items."""
-    try:
-        for item in dataset_column:
-            if isinstance(item, (list, np.ndarray)):
-                return True
-        return False
-    except (TypeError, AttributeError):
-        return False
