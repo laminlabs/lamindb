@@ -626,7 +626,7 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
         feature = features.get(name=normalized_key)
         if not feature.dtype.startswith("cat"):
             if comparator == "__isnull":
-                if cls == FeatureManager:
+                if cls == FeatureManagerArtifact:
                     from .artifact import ArtifactFeatureValue
 
                     if value:  # True
@@ -655,7 +655,7 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
             new_expression[f"_{feature_param}_values__id__in"] = feature_values
         elif isinstance(value, (str, SQLRecord, bool)):
             if comparator == "__isnull":
-                if cls == FeatureManager:
+                if cls == FeatureManagerArtifact:
                     result = parse_dtype(feature.dtype)[0]
                     kwargs = {
                         f"links_{result['registry'].__name__.lower()}__feature": feature

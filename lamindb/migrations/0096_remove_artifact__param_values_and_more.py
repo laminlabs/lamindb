@@ -201,11 +201,7 @@ def get_params_count(apps, schema_editor):
     RunParamValue = apps.get_model("lamindb", "RunParamValue")
     ArtifactParamValue = apps.get_model("lamindb", "ArtifactParamValue")
 
-    print("Moving the following params into features and deleting the params table")
-    response = input("Do you want to continue? [y/n]")
-    if response != "y":
-        print("Aborting migration.")
-        quit()
+    print("Moving params into features and deleting the params table")
     print(f"Param count: {Param.objects.count()}")
     print(f"ParamValue count: {ParamValue.objects.count()}")
     print(f"RunParamValue count: {RunParamValue.objects.count()}")

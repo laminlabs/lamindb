@@ -22,7 +22,7 @@ dependencies = [
     # others
     "pyyaml",
     "pyarrow",
-    "pandera",
+    "pandera>=0.24.0",
     "typing_extensions!=4.6.0",
     "python-dateutil",
     "pandas>=2.0.0", # for .infer_objects(copy=False) in lamin-utils
@@ -229,3 +229,8 @@ exclude_lines = [
 
 [tool.coverage.run]
 omit = ["**/core/datasets/*", "**/migrations/*", "**/core/_compat.py", "**/core/types.py"]
+
+[tool.flit.sdist]
+exclude = [
+    "sub/"
+]

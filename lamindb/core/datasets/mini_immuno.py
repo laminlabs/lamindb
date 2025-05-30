@@ -104,6 +104,11 @@ def get_dataset1(
         "concentration": ["0.1%", "200 nM", "0.1%"],
         "treatment_time_h": [24, 24, 6],
         "donor": ["D0001", "D0002", None],
+        "donor_ethnicity": [
+            ["African", "African American"],
+            ["African", "West African"],
+            ["Asian"],
+        ],
     }
     # define the dataset-level metadata
     metadata = {
@@ -124,6 +129,9 @@ def get_dataset1(
             dataset_df.attrs[key] = value
         return dataset_df
     else:
+        del dataset_df[
+            "donor_ethnicity"
+        ]  # remove the donor_ethnicity because AnnData save will error
         dataset_ad = ad.AnnData(
             dataset_df.iloc[:, :3], obs=dataset_df.iloc[:, 3:], uns=metadata
         )

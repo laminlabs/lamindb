@@ -143,3 +143,18 @@ def test_registry_with_subtype_no_field():
         "registry": ULabel,
         "field": ULabel.name,
     }
+
+
+def test_list_of_dtypes():
+    dtype_str = "list[cat[ULabel[Customer]]]"
+    result = parse_dtype(dtype_str)
+    assert len(result) == 1
+    assert result[0] == {
+        "registry_str": "ULabel",
+        "subtype_str": "Customer",
+        "field_str": "name",
+        "registry": ULabel,
+        "field": ULabel.name,
+        "list": True,
+    }
+    assert serialize_dtype(list[bionty.CellLine]) == "list[cat[bionty.CellLine]]"
