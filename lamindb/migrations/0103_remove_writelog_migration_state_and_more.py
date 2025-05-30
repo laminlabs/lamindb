@@ -10,7 +10,7 @@ def fix_artifact_kind(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lamindb", "0103_remove_writelog_migration_state_and_more"),
+        ("lamindb", "0102_remove_writelog_branch_code_and_more"),
     ]
 
     operations = [
