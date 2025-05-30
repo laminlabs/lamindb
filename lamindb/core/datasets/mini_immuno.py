@@ -129,6 +129,9 @@ def get_dataset1(
             dataset_df.attrs[key] = value
         return dataset_df
     else:
+        del dataset_df[
+            "donor_ethnicity"
+        ]  # remove the donor_ethnicity because AnnData save will error
         dataset_ad = ad.AnnData(
             dataset_df.iloc[:, :3], obs=dataset_df.iloc[:, 3:], uns=metadata
         )
