@@ -3,12 +3,18 @@
 from django.db import migrations
 
 
+def fix_artifact_kind(apps, schema_editor):
+    Artifact = apps.get_model("lamindb", "Artifact")
+    Artifact.objects.filter(kind="__lamindb__").update(kind="__lamindb__run__")
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("lamindb", "0103_remove_writelog_migration_state_and_more"),
     ]
 
     operations = [
+        migrations.RunPython(fix_artifact_kind),
         migrations.RemoveField(
             model_name="writelog",
             name="migration_state",
