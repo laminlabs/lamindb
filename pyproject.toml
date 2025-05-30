@@ -229,3 +229,10 @@ exclude_lines = [
 
 [tool.coverage.run]
 omit = ["**/core/datasets/*", "**/migrations/*", "**/core/_compat.py", "**/core/types.py"]
+
+[tool.flit.sdist]
+exclude = [
+    "sub/",
+    "tests/",
+    "docs/",
+]
