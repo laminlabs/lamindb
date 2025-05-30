@@ -104,6 +104,11 @@ def get_dataset1(
         "concentration": ["0.1%", "200 nM", "0.1%"],
         "treatment_time_h": [24, 24, 6],
         "donor": ["D0001", "D0002", None],
+        "donor_ethnicity": [
+            ["African", "African American"],
+            ["African", "West African"],
+            ["Asian"],
+        ],
     }
     # define the dataset-level metadata
     metadata = {

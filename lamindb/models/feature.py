@@ -361,6 +361,13 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         ...     dtype=[ln.ULabel, bt.CellType],
         ... ).save()
 
+        A multivalue feature with a list of cell types.
+
+        >>> ln.Feature(
+        ...     name="cell_types",
+        ...     dtype=list[bt.CellType],  # or list[str] for a list of strings
+        ... ).save()
+
     Hint:
 
         *Features* and *labels* denote two ways of using entities to organize data:
