@@ -187,8 +187,6 @@ def serialize_dtype(
             # Recursively serialize the inner type
             inner_dtype_str = serialize_dtype(inner_type, is_itype=is_itype)
             return f"list[{inner_dtype_str}]"
-        else:
-            return "list"
 
     if (
         not isinstance(dtype, list)
@@ -359,6 +357,13 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         >>> ln.Feature(
         ...     name="cell_type",
         ...     dtype=[ln.ULabel, bt.CellType],
+        ... ).save()
+
+        A multivalue feature with a list of cell types.
+
+        >>> ln.Feature(
+        ...     name="cell_types",
+        ...     dtype=list[bt.CellType],  # or list[str] for a list of strings
         ... ).save()
 
     Hint:
