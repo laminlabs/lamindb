@@ -1,1 +1,0 @@
-FOREIGN_KEYS_LIST_COLUMN_NAME = "_lamin_fks"

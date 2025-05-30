@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import copy
 import re
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, Callable
 
 import lamindb_setup as ln_setup
@@ -42,7 +43,6 @@ from lamindb.models.feature import parse_cat_dtype, parse_dtype
 from ..errors import InvalidArgument, ValidationError
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
     from typing import Any
 
     from anndata import AnnData
@@ -362,24 +362,57 @@ class SlotsCurator(Curator):
         )
 
 
+def is_list_of_type(value, expected_type):
+    """Helper function to check if a value is either of expected_type or a list of that type, or a mix of both in a nested structure."""
+    if isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
+        # handle nested lists recursively
+        return all(is_list_of_type(item, expected_type) for item in value)
+    return isinstance(value, expected_type)
+
+
 def check_dtype(expected_type) -> Callable:
     """Creates a check function for Pandera that validates a column's dtype.
 
+    Supports both standard dtype checking and mixed list/single values for
+    the same type. For example, a column with expected_type 'float' would
+    also accept a mix of float values and lists of floats.
+
     Args:
-        expected_type: String identifier for the expected type ('int', 'float', or 'num')
+        expected_type: String identifier for the expected type ('int', 'float', 'num', 'str')
 
     Returns:
-        A function that checks if a series has the expected dtype
+        A function that checks if a series has the expected dtype or contains mixed types
     """
 
     def check_function(series):
-        if expected_type == "int":
-            is_valid = pd.api.types.is_integer_dtype(series.dtype)
-        elif expected_type == "float":
-            is_valid = pd.api.types.is_float_dtype(series.dtype)
-        elif expected_type == "num":
-            is_valid = pd.api.types.is_numeric_dtype(series.dtype)
-        return is_valid
+        # first check if the series is entirely of the expected dtype (fast path)
+        if expected_type == "int" and pd.api.types.is_integer_dtype(series.dtype):
+            return True
+        elif expected_type == "float" and pd.api.types.is_float_dtype(series.dtype):
+            return True
+        elif expected_type == "num" and pd.api.types.is_numeric_dtype(series.dtype):
+            return True
+        elif expected_type == "str" and pd.api.types.is_string_dtype(series.dtype):
+            return True
+
+        # if we're here, it might be a mixed column with object dtype
+        # need to check each value individually
+        if series.dtype == "object" and expected_type.startswith("list"):
+            expected_type_member = expected_type.replace("list[", "").removesuffix("]")
+            if expected_type_member == "int":
+                return series.apply(lambda x: is_list_of_type(x, int)).all()
+            elif expected_type_member == "float":
+                return series.apply(lambda x: is_list_of_type(x, float)).all()
+            elif expected_type_member == "num":
+                # for numeric, accept either int or float
+                return series.apply(lambda x: is_list_of_type(x, (int, float))).all()
+            elif expected_type_member == "str" or expected_type_member.startswith(
+                "cat["
+            ):
+                return series.apply(lambda x: is_list_of_type(x, str)).all()
+
+        # if we get here, the validation failed
+        return False
 
     return check_function
 
@@ -456,7 +489,10 @@ class DataFrameCurator(Curator):
                     required = feature.uid not in optional_feature_uids
                 else:
                     required = False
-                if feature.dtype in {"int", "float", "num"}:
+                # series.dtype is "object" if the column has lists types, e.g. [["a", "b"], ["a"], ["b"]]
+                if feature.dtype in {"int", "float", "num"} or feature.dtype.startswith(
+                    "list"
+                ):
                     if isinstance(self._dataset, pd.DataFrame):
                         dtype = (
                             self._dataset[feature.name].dtype
@@ -488,7 +524,9 @@ class DataFrameCurator(Curator):
                         coerce=feature.coerce_dtype,
                         required=required,
                     )
-                if feature.dtype.startswith("cat"):
+                if feature.dtype.startswith("cat") or feature.dtype.startswith(
+                    "list[cat["
+                ):
                     # validate categoricals if the column is required or if the column is present
                     if required or feature.name in self._dataset.keys():
                         categoricals.append(feature)
@@ -1024,10 +1062,20 @@ class CatVector:
 
     def _replace_synonyms(self) -> list[str]:
         """Replace synonyms in the vector with standardized values."""
+
+        def process_value(value, syn_mapper):
+            """Helper function to process values recursively."""
+            if isinstance(value, list):
+                # Handle list - recursively process each item
+                return [process_value(item, syn_mapper) for item in value]
+            else:
+                # Handle single value
+                return syn_mapper.get(value, value)
+
         syn_mapper = self._synonyms
         # replace the values in df
         std_values = self.values.map(
-            lambda unstd_val: syn_mapper.get(unstd_val, unstd_val)
+            lambda unstd_val: process_value(unstd_val, syn_mapper)
         )
         # remove the standardized values from self.non_validated
         non_validated = [i for i in self._non_validated if i not in syn_mapper]
@@ -1071,9 +1119,19 @@ class CatVector:
         filter_kwargs = get_current_filter_kwargs(
             registry, {"organism": self._organism, "source": self._source}
         )
-        values = [i for i in self.values if isinstance(i, str) and i]
+        values = [
+            i
+            for i in self.values
+            if (isinstance(i, str) and i)
+            or (isinstance(i, list) and i)
+            or (isinstance(i, np.ndarray) and i.size > 0)
+        ]
         if not values:
             return [], []
+
+        # if a value is a list, we need to flatten it
+        str_values = _flatten_unique(values)
+
         # inspect the default instance and save validated records from public
         if (
             self._subtype_str != "" and "__" not in self._subtype_str
@@ -1082,7 +1140,7 @@ class CatVector:
             self._subtype_query_set = getattr(
                 registry.get(name=self._subtype_str), related_name
             ).all()
-            values_array = np.array(values)
+            values_array = np.array(str_values)
             validated_mask = self._subtype_query_set.validate(  # type: ignore
                 values_array, field=self._field, **filter_kwargs, mute=True
             )
@@ -1095,7 +1153,7 @@ class CatVector:
             )
         else:
             existing_and_public_records = registry.from_values(
-                list(values), field=self._field, **filter_kwargs, mute=True
+                str_values, field=self._field, **filter_kwargs, mute=True
             )
             existing_and_public_labels = [
                 getattr(r, field_name) for r in existing_and_public_records
@@ -1122,7 +1180,7 @@ class CatVector:
                     )
                     # non-validated records from the default instance
             non_validated_labels = [
-                i for i in values if i not in existing_and_public_labels
+                i for i in str_values if i not in existing_and_public_labels
             ]
             validated_labels = existing_and_public_labels
             records = existing_and_public_records
@@ -1606,6 +1664,26 @@ def annotate_artifact(
     if ln_setup.settings.instance.is_remote:  # pdagma: no cover
         logger.important(f"go to https://lamin.ai/{slug}/artifact/{artifact.uid}")
     return artifact
+
+
+def _flatten_unique(series: pd.Series[list[Any] | Any]) -> list[Any]:
+    """Flatten a Pandas series containing lists or single items into a unique list of elements.
+
+    The order of elements in the result list preserves the order they first appear in the input series.
+    """
+    # Use dict.fromkeys to preserve order while ensuring uniqueness
+    result: dict = {}
+
+    for item in series:
+        if isinstance(item, list | np.ndarray):
+            # Add each element to the dict (only first occurrence is kept)
+            for element in item:
+                result[element] = None
+        else:
+            result[item] = None
+
+    # Return the keys as a list, preserving order
+    return list(result.keys())
 
 
 def _save_organism(name: str):

@@ -1109,15 +1109,8 @@ def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
         registry = members[0].__class__
         # note here the features are transferred based on an unique field
         field = REGISTRY_UNIQUE_FIELD.get(registry.__name__.lower(), "uid")
-        if hasattr(registry, "_ontology_id_field"):
-            field = registry._ontology_id_field
         # this will be e.g. be a list of ontology_ids or uids
         member_uids = list(members.values_list(field, flat=True))
-        # create records from ontology_id
-        if hasattr(registry, "_ontology_id_field") and len(member_uids) > 0:
-            # create from bionty
-            members_records = registry.from_values(member_uids, field=field, mute=True)
-            save([r for r in members_records if r._state.adding])
         validated = registry.validate(member_uids, field=field, mute=True)
         new_members_uids = list(compress(member_uids, ~validated))
         new_members = members.filter(**{f"{field}__in": new_members_uids}).all()
@@ -1136,7 +1129,9 @@ def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
                     feature, using_key, transfer_fk=False, transfer_logs=transfer_logs
                 )
             logger.info(f"saving {n_new_members} new {registry.__name__} records")
-            save(new_members)
+            save(
+                new_members, ignore_conflicts=True
+            )  # conflicts arising from existing records are ignored
 
         # create a new feature set from feature values using the same uid
         schema_self = Schema.from_values(member_uids, field=getattr(registry, field))

@@ -4,9 +4,10 @@ import lamindb as ln
 
 
 def test_settings_switch_storage():
+    ln.settings.storage = "./default_storage_unit_storage"
     assert (
         ln.settings.storage.root.resolve()
-        == Path("./default_storage_unit_core").resolve()
+        == Path("./default_storage_unit_storage").resolve()
     )
     new_storage_location = "s3://lamindb-ci/test-settings-switch-storage"
     ln.settings.storage = new_storage_location
@@ -19,4 +20,4 @@ def test_settings_switch_storage():
     assert not ln.setup.settings.storage.root.fs.cache_regions
     assert ln.Storage.filter(root=new_storage_location).one_or_none() is not None
     # switch back to default storage
-    ln.settings.storage = "./default_storage_unit_core"
+    ln.settings.storage = "./default_storage_unit_storage"
