@@ -232,7 +232,5 @@ omit = ["**/core/datasets/*", "**/migrations/*", "**/core/_compat.py", "**/core/
 
 [tool.flit.sdist]
 exclude = [
-    "sub/",
-    "tests/",
-    "docs/",
+    "sub/"
 ]
