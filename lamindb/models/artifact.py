@@ -246,8 +246,8 @@ def process_data(
     elif (
         isinstance(data, pd.DataFrame)
         or isinstance(data, AnnData)
-        or data_is_mudata(data)
-        or data_is_spatialdata(data)
+        or data_is_scversedatastructure(data, "MuData")
+        or data_is_scversedatastructure(data, "SpatialData")
     ):
         storage = default_storage
         memory_rep = data
@@ -523,45 +523,59 @@ def log_storage_hint(
     logger.hint(hint)
 
 
-def data_is_anndata(data: AnnData | UPathStr) -> bool:
-    if isinstance(data, AnnData):
+def data_is_scversedatastructure(
+    data: ScverseDataStructures | UPathStr,
+    expected_ds: Literal["AnnData", "MuData", "SpatialData"] | None = None,
+) -> bool:
+    """Determine whether a specific in-memory object or a UPathstr is any or a specific scverse data structure."""
+    file_suffix = None
+    if expected_ds == "AnnData":
+        file_suffix = ".h5ad"
+    elif expected_ds == "MuData":
+        file_suffix = ".h5mu"
+    # SpatialData does not have a unique suffix but `.zarr`
+
+    if expected_ds is None:
+        return any(
+            hasattr(data, "__class__") and data.__class__.__name__ == cl_name
+            for cl_name in ["AnnData", "MuData", "SpatialData"]
+        )
+    elif hasattr(data, "__class__") and data.__class__.__name__ == expected_ds:
         return True
+
+    data_type = expected_ds.lower()
     if isinstance(data, (str, Path, UPath)):
         data_path = UPath(data)
-        if ".h5ad" in data_path.suffixes:  # ".h5ad.gz" is a valid suffix
+
+        if file_suffix in data_path.suffixes:
             return True
-        elif data_path.suffix == ".zarr":
-            # ".anndata.zarr" is a valid suffix (core.storage._valid_suffixes)
-            # TODO: the suffix based check should likely be moved to identify_zarr_type
-            if ".anndata" in data_path.suffixes:
+
+        if data_path.suffix == ".zarr":
+            type_suffix = f".{data_type}"
+            if type_suffix in data_path.suffixes:
                 return True
+
             # check only for local, expensive for cloud
             if fsspec.utils.get_protocol(data_path.as_posix()) == "file":
-                return identify_zarr_type(data_path) == "anndata"
+                return (
+                    identify_zarr_type(
+                        data_path if expected_ds == "AnnData" else data,
+                        check=True if expected_ds == "AnnData" else False,
+                    )
+                    == data_type
+                )
             else:
-                logger.warning("We do not check if cloud zarr is AnnData or not")
+                logger.warning(f"We do not check if cloud zarr is {expected_ds} or not")
                 return False
     return False
 
 
-def data_is_mudata(data: MuData | UPathStr) -> bool:
-    # We are not importing MuData here to keep loaded modules minimal
-    if hasattr(data, "__class__") and data.__class__.__name__ == "MuData":
+def data_is_soma_experiment(data: SOMAExperiment | UPathStr) -> bool:
+    # We are not importing tiledbsoma here to keep loaded modules minimal
+    if hasattr(data, "__class__") and data.__class__.__name__ == "Experiment":
         return True
     if isinstance(data, (str, Path)):
-        return UPath(data).suffix == ".h5mu"
-    return False
-
-
-def data_is_spatialdata(data: SpatialData | UPathStr) -> bool:
-    # We are not importing SpatialData here to keep loaded modules minimal
-    if hasattr(data, "__class__") and data.__class__.__name__ == "SpatialData":
-        return True
-    if isinstance(data, (str, Path)):
-        if UPath(data).suffix == ".zarr":
-            # TODO: inconsistent with anndata, where we run the storage
-            # check only for local, expensive for cloud
-            return identify_zarr_type(data, check=False) == "spatialdata"
+        return UPath(data).suffix == ".tiledbsoma"
     return False
 
 
@@ -576,15 +590,15 @@ def _check_otype_artifact(
             return otype
 
         data_is_path = isinstance(data, (str, Path))
-        if data_is_anndata(data):
+        if data_is_scversedatastructure(data, "AnnData"):
             if not data_is_path:
                 logger.warning("data is an AnnData, please use .from_anndata()")
             otype = "AnnData"
-        elif data_is_mudata(data):
+        elif data_is_scversedatastructure(data, "MuData"):
             if not data_is_path:
                 logger.warning("data is a MuData, please use .from_mudata()")
             otype = "MuData"
-        elif data_is_spatialdata(data):
+        elif data_is_scversedatastructure(data, "SpatialData"):
             if not data_is_path:
                 logger.warning("data is a SpatialData, please use .from_spatialdata()")
             otype = "SpatialData"
@@ -1744,7 +1758,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                :width: 800px
 
         """
-        if not data_is_anndata(adata):
+        if not data_is_scversedatastructure(adata, "AnnData"):
             raise ValueError(
                 "data has to be an AnnData object or a path to AnnData-like"
             )
@@ -1815,7 +1829,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             mdata = ln.core.datasets.mudata_papalexi21_subset()
             artifact = ln.Artifact.from_mudata(mdata, key="mudata_papalexi21_subset.h5mu").save()
         """
-        if not data_is_mudata(mdata):
+        if not data_is_scversedatastructure(mdata, "MuData"):
             raise ValueError("data has to be a MuData object or a path to MuData-like")
         artifact = Artifact(  # type: ignore
             data=mdata,
@@ -1841,7 +1855,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_spatialdata(
         cls,
-        sdata: Union[SpatialData, UPathStr],
+        sdata: SpatialData | UPathStr,
         *,
         key: str | None = None,
         description: str | None = None,
@@ -1883,7 +1897,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             .. literalinclude:: scripts/curate_spatialdata.py
                 :language: python
         """
-        if not data_is_spatialdata(sdata):
+        if not data_is_scversedatastructure(sdata, "SpatialData"):
             raise ValueError(
                 "data has to be a SpatialData object or a path to SpatialData-like"
             )
@@ -1911,7 +1925,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_tiledbsoma(
         cls,
-        path: UPathStr,
+        exp: SOMAExperiment | UPathStr,
         *,
         key: str | None = None,
         description: str | None = None,
@@ -1935,12 +1949,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             artifact = ln.Artifact.from_tiledbsoma("s3://mybucket/store.tiledbsoma", description="a tiledbsoma store").save()
         """
-        if UPath(path).suffix != ".tiledbsoma":
+        if not data_is_soma_experiment(exp):
             raise ValueError(
-                "A tiledbsoma store should have .tiledbsoma suffix to be registered."
+                "data has to be a SOMA Experiment object or a path to SOMA Experiment store."
             )
+        exp = exp.uri.removeprefix("file://") if not isinstance(exp, UPathStr) else exp
         artifact = Artifact(  # type: ignore
-            data=path,
+            data=exp,
             key=key,
             run=run,
             description=description,
