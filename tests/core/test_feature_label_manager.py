@@ -36,6 +36,8 @@ Here is how to create a feature:
     ln.Feature(name="perturbation", dtype="cat").save()
     ln.ULabel.from_values(["DMSO", "IFNG"], create=True).save()
     artifact.features.add_values({"perturbation": df.perturbation.unique()})
+    assert artifact in ln.Artifact.filter(perturbation__isnull=False)
+    assert artifact not in ln.Artifact.filter(perturbation__isnull=True)
     artifact.delete(permanent=True)
     ln.ULabel.filter().all().delete()
     ln.Feature.filter().all().delete()
