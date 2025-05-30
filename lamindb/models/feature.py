@@ -187,8 +187,6 @@ def serialize_dtype(
             # Recursively serialize the inner type
             inner_dtype_str = serialize_dtype(inner_type, is_itype=is_itype)
             return f"list[{inner_dtype_str}]"
-        else:
-            return "list"
 
     if (
         not isinstance(dtype, list)
