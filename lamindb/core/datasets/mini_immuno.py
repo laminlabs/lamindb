@@ -105,9 +105,9 @@ def get_dataset1(
         "treatment_time_h": [24, 24, 6],
         "donor": ["D0001", "D0002", None],
         "donor_ethnicity": [
-            ["African", "African American"],
-            ["African", "West African"],
-            ["Asian"],
+            ["Chinese", "Singaporean Chinese"],
+            ["Chinese", "Han Chinese"],
+            ["Chinese"],
         ],
     }
     # define the dataset-level metadata
