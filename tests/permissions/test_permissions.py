@@ -69,7 +69,10 @@ def test_authentication():
             (token,),
         )
     # test access to the security schema
-    with connection.connection.cursor() as cur:
+    with (
+        pytest.raises(psycopg2.errors.InsufficientPrivilege),
+        connection.connection.cursor() as cur,
+    ):
         cur.execute("SELECT security.get_secret('jwt_secret');")
 
 
