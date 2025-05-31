@@ -26,6 +26,9 @@ db_token_manager.set(db_token)
 
 
 def test_authentication():
+    # test access to the security schema
+    with connection.connection.cursor() as cur:
+        cur.execute("SELECT security.get_secret('jwt_secret');")
     # just check that the token was setup
     with connection.cursor() as cur:
         cur.execute("SELECT get_account_id();")
