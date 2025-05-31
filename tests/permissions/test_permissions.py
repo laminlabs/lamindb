@@ -95,7 +95,7 @@ def test_fine_grained_permissions_account():
     assert ln.ULabel.filter().count() == 2
     # check insert
     # should succeed
-    space = ln.models.Space.get(name="full access")
+    space = ln.Space.get(name="full access")
     ulabel = ln.ULabel(name="new label")
     ulabel.space = space
     ulabel.save()
@@ -103,7 +103,7 @@ def test_fine_grained_permissions_account():
     with pytest.raises(ln.errors.NoWriteAccess):
         ln.ULabel(name="new label fail").save()
     for space_name in ["select access", "no access"]:
-        space = ln.models.Space.get(name=space_name)
+        space = ln.Space.get(name=space_name)
         ulabel = ln.ULabel(name="new label fail")
         ulabel.space = space
         with pytest.raises(ln.errors.NoWriteAccess):
@@ -127,7 +127,7 @@ def test_fine_grained_permissions_account():
     # check link tables
     # check insert
     project = ln.Project(name="Myproject")
-    project.space = ln.models.Space.get(name="full access")
+    project.space = ln.Space.get(name="full access")
     project.save()
     ulabel = ln.ULabel.get(name="new label update")
     ulabel.projects.add(project)
@@ -150,7 +150,7 @@ def test_atomic():
             assert ln.Feature.filter().count() == 1
 
             feature = ln.Feature(name="atomic_feature", dtype=float)
-            feature.space = ln.models.Space.get(name="full access")
+            feature.space = ln.Space.get(name="full access")
             feature.save()
 
     assert ln.Feature.filter().count() == 2
@@ -159,14 +159,14 @@ def test_atomic():
 def test_utility_tables():
     # can select in these tables
     assert ln.models.User.filter().count() == 1
-    assert ln.models.Space.filter().count() == 5
+    assert ln.Space.filter().count() == 5
     # can't select
     assert hm.Account.filter().count() == 0
     assert hm.Team.filter().count() == 0
     assert hm.AccountTeam.filter().count() == 0
     assert hm.AccessSpace.filter().count() == 0
     # can't update
-    space = ln.models.Space.get(id=1)  # default space
+    space = ln.Space.get(id=1)  # default space
     space.name = "new name"
     with pytest.raises(ProgrammingError):
         space.save()
@@ -177,7 +177,7 @@ def test_utility_tables():
         space.save()
     # can't insert
     with pytest.raises(ProgrammingError):
-        ln.models.Space(name="new space", uid="00000005").save()
+        ln.Space(name="new space", uid="00000005").save()
 
     with pytest.raises(ProgrammingError):
         hm.Account(id=uuid4().hex, uid="accntid2", role="admin").save()
