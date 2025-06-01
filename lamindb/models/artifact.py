@@ -565,7 +565,7 @@ def data_is_scversedatastructure(
                     == data_type
                 )
             else:
-                logger.warning(f"We do not check if cloud zarr is {expected_ds} or not")
+                logger.warning(f"we do not check if cloud zarr is {expected_ds} or not")
                 return False
     return False
 

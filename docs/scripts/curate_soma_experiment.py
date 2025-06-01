@@ -28,7 +28,7 @@ soma_schema = ln.Schema(
     otype="tiledbsoma",
     slots={
         "obs": obs_schema,
-        "ms:RNA.T": var_schema,
+        "measurement:RNA.T": var_schema,
     },
 ).save()
 
