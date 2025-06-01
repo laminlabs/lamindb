@@ -140,6 +140,7 @@ if _check_instance_setup(from_module="lamindb"):
     from .curators._legacy import CatManager as Curator
     from .models import (
         Artifact,
+        Branch,
         Collection,
         Feature,
         FeatureSet,  # backward compat
