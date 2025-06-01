@@ -903,7 +903,7 @@ class SpatialDataCurator(SlotsCurator):
         self._columns_field = self._var_fields
 
 
-class SomaExperimentCurator(SlotsCurator):
+class TiledbsomaExperimentCurator(SlotsCurator):
     """Curator for `TileDB-SOMA`.
 
     Args:

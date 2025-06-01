@@ -32,7 +32,7 @@ soma_schema = ln.Schema(
     },
 ).save()
 
-curator = ln.curators.SomaExperimentCurator(experiment, soma_schema)
+curator = ln.curators.TiledbsomaExperimentCurator(experiment, soma_schema)
 curator.validate()
 artifact = curator.save_artifact(
     key="examples/soma_experiment.tiledbsoma",

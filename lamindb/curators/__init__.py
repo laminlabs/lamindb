@@ -7,7 +7,7 @@
    AnnDataCurator
    MuDataCurator
    SpatialDataCurator
-   SomaExperimentCurator
+   TiledbsomaExperimentCurator
 
 Modules.
 
@@ -26,8 +26,8 @@ from .core import (
     AnnDataCurator,
     DataFrameCurator,
     MuDataCurator,
-    SomaExperimentCurator,
     SpatialDataCurator,
+    TiledbsomaExperimentCurator,
 )
 
 __all__ = [
@@ -37,5 +37,5 @@ __all__ = [
     "DataFrameCurator",
     "MuDataCurator",
     "SpatialDataCurator",
-    "SomaExperimentCurator",
+    "TiledbsomaExperimentCurator",
 ]
