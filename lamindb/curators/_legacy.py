@@ -11,11 +11,7 @@ from lamindb_setup.core import deprecated
 from lamindb_setup.core.upath import UPath
 
 from lamindb.core._compat import is_package_installed
-from lamindb.models.artifact import (
-    data_is_anndata,
-    data_is_mudata,
-    data_is_spatialdata,
-)
+from lamindb.models.artifact import data_is_scversedatastructure
 
 from ..errors import InvalidArgument
 
@@ -153,7 +149,7 @@ class CatManager:
                     revises=revises,
                     run=run,
                 )
-            elif data_is_mudata(self._dataset):
+            elif data_is_scversedatastructure(self._dataset, "MuData"):
                 artifact = Artifact.from_mudata(
                     self._dataset,
                     key=key,
@@ -161,7 +157,7 @@ class CatManager:
                     revises=revises,
                     run=run,
                 )
-            elif data_is_spatialdata(self._dataset):
+            elif data_is_scversedatastructure(self._dataset, "SpatialData"):
                 artifact = Artifact.from_spatialdata(
                     self._dataset,
                     key=key,
@@ -338,7 +334,7 @@ class AnnDataCatManager(CatManager):
                 "var_index parameter has to be a field, e.g. Gene.ensembl_gene_id"
             )
 
-        if not data_is_anndata(data):
+        if not data_is_scversedatastructure(data, "AnnData"):
             raise TypeError("data has to be an AnnData object")
 
         if "symbol" in str(var_index):
