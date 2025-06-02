@@ -193,6 +193,7 @@ class Context:
         """A local path to the script or notebook that's running."""
         self._project: Project | None = None
         self._space: Space | None = None
+        self._branch: Branch | None = None
         self._logging_message_track: str = ""
         self._logging_message_imports: str = ""
         self._stream_tracker: LogStreamTracker = LogStreamTracker()
@@ -251,7 +252,7 @@ class Context:
         return self._space
 
     @property
-    def branch(self) -> Space | None:
+    def branch(self) -> Branch | None:
         """The branch on which entities are created during the run."""
         return self._branch
 
