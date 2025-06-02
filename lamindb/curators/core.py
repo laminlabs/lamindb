@@ -934,7 +934,7 @@ class TiledbsomaExperimentCurator(SlotsCurator):
             raise InvalidArgument("Schema otype must be 'tiledbsoma'.")
 
         for slot, slot_schema in schema.slots.items():
-            if slot.startswith("measurement:"):
+            if slot.startswith("ms:"):
                 _, modality_slot = slot.split(":")
                 schema_dataset = (
                     self._dataset.ms[modality_slot.removesuffix(".T")]
@@ -945,16 +945,7 @@ class TiledbsomaExperimentCurator(SlotsCurator):
                 )
 
                 self._slots[slot] = DataFrameCurator(
-                    (
-                        schema_dataset.T
-                        if modality_slot == "var.T"
-                        or (
-                            # backward compat
-                            modality_slot == "var"
-                            and schema.slots[slot].itype not in {None, "Feature"}
-                        )
-                        else schema_dataset
-                    ),
+                    (schema_dataset.T if modality_slot == "var.T" else schema_dataset),
                     slot_schema,
                 )
             else:
