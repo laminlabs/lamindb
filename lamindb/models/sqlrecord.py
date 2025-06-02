@@ -665,7 +665,10 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
 
                 if run_context.space is not None:
                     kwargs["space"] = run_context.space
-            if issubclass(self.__class__, SQLRecord):
+            if (
+                issubclass(self.__class__, SQLRecord)
+                and self.__class__.__name__ != "Storage"
+            ):
                 from lamindb import context as run_context
 
                 if run_context.branch is not None:
