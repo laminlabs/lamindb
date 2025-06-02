@@ -58,17 +58,11 @@ zarr = [
 fcs = [
     "readfcs>=2.0.1",
 ]
-erdiagram = [
-    "django-schema-graph",
-]
 wetlab = [
     "wetlab>=1.3a1"  # do not pin, is bounded in wetlab
 ]
 clinicore = [
     "clinicore"   # do not pin, is bounded in clinicore
-]
-cellregistry = [
-    "cellregistry"
 ]
 omop = [
     "omop"

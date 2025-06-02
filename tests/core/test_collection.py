@@ -105,7 +105,7 @@ def test_from_inconsistent_artifacts(df, adata):
     # test idempotency of .save()
     collection.save()
     # create a run context
-    ln.context.track(transform=ln.Transform(key="My test transform"))
+    ln.track(transform=ln.Transform(key="My test transform"))
     # can iterate over them
     collection.cache()
     assert set(ln.context.run.input_collections.all()) == {collection}

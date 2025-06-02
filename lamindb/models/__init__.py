@@ -74,6 +74,9 @@ from .project import (
     ArtifactReference,
     CollectionReference,
     SheetProject,
+    RunProject,
+    RecordProject,
+    PersonProject,
 )
 from .run import RunFeatureValue
 from .schema import (

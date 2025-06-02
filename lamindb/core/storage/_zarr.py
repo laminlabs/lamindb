@@ -64,15 +64,14 @@ def identify_zarr_type(
     storepath: UPathStr, *, check: bool = True
 ) -> Literal["anndata", "mudata", "spatialdata", "unknown"]:
     """Identify whether a zarr store is AnnData, SpatialData, or unknown type."""
-    # we can add these cheap suffix-based-checks later
-    # also need to check whether the .spatialdata.zarr suffix
-    # actually becomes a "standard"; currently we don't recognize it
-    # unlike ".anndata.zarr" in VALID_SUFFIXES
-    # suffixes = UPath(storepath).suffixes
-    # if ".spatialdata" in suffixes:
-    #     return "spatialdata"
-    # elif ".anndata" in suffixes:
-    #     return "anndata"
+    suffixes = UPath(storepath).suffixes
+    if ".anndata" in suffixes:
+        return "anndata"
+    elif ".mudata" in suffixes:
+        return "mudata"
+    elif ".spatialdata" in suffixes:
+        return "spatialdata"
+
     store = get_zarr_store(storepath, check=check)
     try:
         storage = zarr.open(store, mode="r")
