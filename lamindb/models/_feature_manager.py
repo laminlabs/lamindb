@@ -13,7 +13,7 @@ import pandas as pd
 from anndata import AnnData
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connections
-from django.db.models import Aggregate, ProtectedError, Subquery
+from django.db.models import Aggregate, CharField, ProtectedError, Subquery, TextField
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_set
 from lamindb_setup.core.upath import create_path
@@ -624,7 +624,10 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
         if len(split_key) == 2:
             comparator = f"__{split_key[1]}"
         feature = features.get(name=normalized_key)
-        if not feature.dtype.startswith("cat"):
+        # non-categorical features
+        if not feature.dtype.startswith("cat") and not feature.dtype.startswith(
+            "list[cat"
+        ):
             if comparator == "__isnull":
                 if cls == FeatureManagerArtifact:
                     from .artifact import ArtifactFeatureValue
@@ -653,6 +656,7 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
             expression = {feature_param: feature, f"value{comparator}": value}
             feature_values = value_model.filter(**expression)
             new_expression[f"_{feature_param}_values__id__in"] = feature_values
+        # categorical features
         elif isinstance(value, (str, SQLRecord, bool)):
             if comparator == "__isnull":
                 if cls == FeatureManagerArtifact:
@@ -671,13 +675,28 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
                 label = None
                 labels = None
                 if isinstance(value, str):
+                    result = parse_dtype(feature.dtype)[0]
                     # we need the comparator here because users might query like so
                     # ln.Artifact.filter(experiment__contains="Experi")
-                    expression = {f"name{comparator}": value}
-                    labels = ULabel.filter(**expression).all()
+                    registry_fields = [
+                        i.name
+                        for i in result["registry"]._meta.fields
+                        if i.related_model is None
+                        and isinstance(i, CharField | TextField)
+                    ]
+                    if (
+                        comparator.startswith("__")
+                        and comparator.split("__")[1] in registry_fields
+                    ):
+                        name = comparator.split("__")[1]
+                        comparator = comparator.removeprefix(f"__{name}")
+                    else:
+                        name = ""
+                    expression = {f"{name}{comparator}": value}
+                    labels = result["registry"].filter(**expression).all()
                     if len(labels) == 0:
                         raise DoesNotExist(
-                            f"Did not find a ULabel matching `name{comparator}={value}`"
+                            f"Did not find a {result['registry'].__name__} matching `{name}{comparator}={value}`"
                         )
                     elif len(labels) == 1:
                         label = labels[0]
