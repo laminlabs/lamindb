@@ -674,8 +674,9 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
                 # we distinguish cases in which we have multiple label matches vs. one
                 label = None
                 labels = None
+                result = parse_dtype(feature.dtype)[0]
+                label_registry = result["registry"]
                 if isinstance(value, str):
-                    result = parse_dtype(feature.dtype)[0]
                     field_name = result["field"].field.name
                     # we need the comparator here because users might query like so
                     # ln.Artifact.filter(experiment__contains="Experi")
@@ -683,15 +684,12 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
                     labels = result["registry"].filter(**expression).all()
                     if len(labels) == 0:
                         raise DoesNotExist(
-                            f"Did not find a {result['registry'].__name__} matching `{field_name}{comparator}={value}`"
+                            f"Did not find a {label_registry.__name__} matching `{field_name}{comparator}={value}`"
                         )
                     elif len(labels) == 1:
                         label = labels[0]
                 elif isinstance(value, SQLRecord):
                     label = value
-                label_registry = (
-                    label.__class__ if label is not None else labels[0].__class__
-                )
                 accessor_name = (
                     label_registry.artifacts.through.artifact.field._related_name
                 )
