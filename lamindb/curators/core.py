@@ -340,9 +340,9 @@ class SlotsCurator(Curator):
                 (data_is_soma_experiment, Artifact.from_tiledbsoma),
             ]
 
-            for type_check, factory in type_mapping:
+            for type_check, af_constructor in type_mapping:
                 if type_check(self._dataset):
-                    self._artifact = factory(  # type: ignore
+                    self._artifact = af_constructor(  # type: ignore
                         self._dataset,
                         key=key,
                         description=description,

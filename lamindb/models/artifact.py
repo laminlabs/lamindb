@@ -525,25 +525,25 @@ def log_storage_hint(
 
 def data_is_scversedatastructure(
     data: ScverseDataStructures | UPathStr,
-    expected_ds: Literal["AnnData", "MuData", "SpatialData"] | None = None,
+    structure_type: Literal["AnnData", "MuData", "SpatialData"] | None = None,
 ) -> bool:
     """Determine whether a specific in-memory object or a UPathstr is any or a specific scverse data structure."""
     file_suffix = None
-    if expected_ds == "AnnData":
+    if structure_type == "AnnData":
         file_suffix = ".h5ad"
-    elif expected_ds == "MuData":
+    elif structure_type == "MuData":
         file_suffix = ".h5mu"
     # SpatialData does not have a unique suffix but `.zarr`
 
-    if expected_ds is None:
+    if structure_type is None:
         return any(
             hasattr(data, "__class__") and data.__class__.__name__ == cl_name
             for cl_name in ["AnnData", "MuData", "SpatialData"]
         )
-    elif hasattr(data, "__class__") and data.__class__.__name__ == expected_ds:
+    elif hasattr(data, "__class__") and data.__class__.__name__ == structure_type:
         return True
 
-    data_type = expected_ds.lower()
+    data_type = structure_type.lower()
     if isinstance(data, (str, Path, UPath)):
         data_path = UPath(data)
 
@@ -559,13 +559,15 @@ def data_is_scversedatastructure(
             if fsspec.utils.get_protocol(data_path.as_posix()) == "file":
                 return (
                     identify_zarr_type(
-                        data_path if expected_ds == "AnnData" else data,
-                        check=True if expected_ds == "AnnData" else False,
+                        data_path if structure_type == "AnnData" else data,
+                        check=True if structure_type == "AnnData" else False,
                     )
                     == data_type
                 )
             else:
-                logger.warning(f"we do not check if cloud zarr is {expected_ds} or not")
+                logger.warning(
+                    f"we do not check if cloud zarr is {structure_type} or not"
+                )
                 return False
     return False
 
