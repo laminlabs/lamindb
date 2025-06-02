@@ -13,7 +13,7 @@ import pandas as pd
 from anndata import AnnData
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connections
-from django.db.models import Aggregate, CharField, ProtectedError, Subquery, TextField
+from django.db.models import Aggregate, ProtectedError, Subquery
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_set
 from lamindb_setup.core.upath import create_path
@@ -676,27 +676,14 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
                 labels = None
                 if isinstance(value, str):
                     result = parse_dtype(feature.dtype)[0]
+                    field_name = result["field"].field.name
                     # we need the comparator here because users might query like so
                     # ln.Artifact.filter(experiment__contains="Experi")
-                    registry_fields = [
-                        i.name
-                        for i in result["registry"]._meta.fields
-                        if i.related_model is None
-                        and isinstance(i, CharField | TextField)
-                    ]
-                    if (
-                        comparator.startswith("__")
-                        and comparator.split("__")[1] in registry_fields
-                    ):
-                        name = comparator.split("__")[1]
-                        comparator = comparator.removeprefix(f"__{name}")
-                    else:
-                        name = ""
-                    expression = {f"{name}{comparator}": value}
+                    expression = {f"{field_name}{comparator}": value}
                     labels = result["registry"].filter(**expression).all()
                     if len(labels) == 0:
                         raise DoesNotExist(
-                            f"Did not find a {result['registry'].__name__} matching `{name}{comparator}={value}`"
+                            f"Did not find a {result['registry'].__name__} matching `{field_name}{comparator}={value}`"
                         )
                     elif len(labels) == 1:
                         label = labels[0]

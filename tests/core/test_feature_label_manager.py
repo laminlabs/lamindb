@@ -270,7 +270,7 @@ Here is how to create ulabels for them:
     ln.Artifact.filter(temperature=100.0, project="project_1", donor="U0123").one()
     # for bionty
     assert artifact == ln.Artifact.filter(disease=diseases[0]).one()
-    assert artifact == ln.Artifact.filter(disease__name="Alzheimer disease").one()
+    assert artifact == ln.Artifact.filter(disease="Alzheimer disease").one()
 
     # test not finding the ULabel
     with pytest.raises(DoesNotExist) as error:
