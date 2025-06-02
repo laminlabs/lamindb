@@ -1,4 +1,6 @@
+import subprocess
 import time
+from pathlib import Path
 from uuid import uuid4
 
 import hubmodule.models as hm
@@ -211,11 +213,27 @@ def test_token_reset():
     assert "JWT is not set" in error.exconly()
 
 
-# below is an integration test that should run last
-# def test_lamin_dev():
-#     script_path = Path(__file__).parent.resolve() / "scripts/check_lamin_dev.py"
-#     subprocess.run(  # noqa: S602
-#         f"python {script_path}",
-#         shell=True,
-#         check=True,
-#     )
+def test_lamin_dev():
+    script_path = Path(__file__).parent.resolve() / "scripts/check_lamin_dev.py"
+    subprocess.run(  # noqa: S602
+        f"python {script_path}",
+        shell=True,
+        check=True,
+    )
+    result = subprocess.run(  # noqa: S602
+        "lamin save .gitignore --key mytest --space 'Our test space for CI'",
+        shell=True,
+        capture_output=True,
+    )
+    print(result.stdout.decode())
+    print(result.stderr.decode())
+    assert "key='mytest'" in result.stdout.decode()
+    assert "storage path:" in result.stdout.decode()
+    assert result.returncode == 0
+
+    print(ln.setup.settings.instance.slug)
+    print(ln.Artifact.using("laminlabs/lamin-dev").filter().df())
+
+    artifact = ln.Artifact.using("laminlabs/lamin-dev").get(key="mytest")
+    assert artifact.space.name == "Our test space for CI"
+    artifact.delete()

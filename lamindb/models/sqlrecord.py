@@ -49,6 +49,7 @@ from ..base.fields import (
     ForeignKey,
     JSONField,
 )
+from ..base.ids import base62_12
 from ..base.types import FieldAttr, StrField
 from ..errors import (
     FieldValidationError,
@@ -654,17 +655,16 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
         if not args:
-            if (
-                issubclass(self.__class__, SQLRecord)
-                and self.__class__.__name__
-                not in {"Storage", "ULabel", "Feature", "Schema"}
-                # do not save bionty entities in restricted spaces by default
-                and self.__class__.__module__ != "bionty.models"
-            ):
-                from lamindb import context as run_context
+            from lamindb import context as run_context
 
-                if run_context.space is not None:
-                    kwargs["space"] = run_context.space
+            if (
+                self.__class__.__name__
+                in {"Artifact", "Collection", "Transform", "Run"}
+                and run_context.space is not None
+            ):
+                kwargs["space"] = run_context.space
+            if issubclass(self.__class__, SQLRecord) and run_context.branch is not None:
+                kwargs["branch"] = run_context.branch
             if skip_validation:
                 super().__init__(**kwargs)
             else:
@@ -889,10 +889,11 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
 class Space(BaseSQLRecord):
     """Spaces to restrict access to records to specific users or teams.
 
-    You can use spaces to restrict access to records within an instance.
+    You can use spaces to restrict access to records within an instance: :doc:`docs:spaces`.
 
-    All data in this registry is synced from `lamin.ai` to enable re-using spaces across instances.
-    There is no need to manually create records.
+    All data in this registry is synced from `lamin.ai` to enable re-using spaces across database instances.
+    There is no need to manually create records, and in instances that are connected to LaminHub, you can only add
+    spaces through the LaminHub UI & REST API.
     """
 
     id: int = models.SmallAutoField(primary_key=True)
@@ -941,7 +942,21 @@ class Space(BaseSQLRecord):
 
 
 class Branch(BaseSQLRecord):
-    """Branches allow to group changes similar to how git branches group changes."""
+    """Branches provide an `Archive` and a `Trash` state and allow grouping records similar to branches in git.
+
+    Every `SQLRecord` has a `branch` field, which dictates where a record appears in queries & searches.
+    """
+
+    # below isn't fully implemented but a roadmap
+    # - 3: template (hidden in queries & searches)
+    # - 2: locked (same as default, but locked for edits except for space admins)
+    # - 1: default (visible in queries & searches)
+    # - 0: archive (hidden, meant to be kept, locked for edits for everyone)
+    # - -1: trash (hidden, scheduled for deletion)
+
+    # An integer higher than >3 codes a branch that can be used for collaborators to create drafts
+    # that can be merged onto the main branch in an experience akin to a Pull Request. The mapping
+    # onto a semantic branch name is handled through LaminHub.
 
     id: int = models.AutoField(primary_key=True)
     """An integer id that's synchronized for a family of coupled database instances.
@@ -954,8 +969,7 @@ class Branch(BaseSQLRecord):
         editable=False,
         unique=True,
         max_length=12,
-        default="M",
-        db_default="M",
+        default=base62_12,
         db_index=True,
     )
     """Universal id.
@@ -1013,32 +1027,10 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
     machine learning or biological models.
     """
 
-    branch: int = ForeignKey(
+    branch: Branch = ForeignKey(
         Branch, PROTECT, default=1, db_default=1, db_column="_branch_code"
     )
-    """Whether record is on a branch or in another "special state".
-
-    This dictates where a record appears in exploration, queries & searches,
-    whether a record can be edited, and whether a record acts as a template.
-
-    Branch name coding is handled through LaminHub. "Special state" coding is as defined below.
-
-    One should note that there is no "main" branch as in git, but that all five special codes
-    (-1, 0, 1, 2, 3) act as sub-specfications for what git would call the main branch. This also
-    means that for records that live on a branch only the "default state" exists. E.g., one can only
-    turn a record into a template, lock it, archive it, or trash it once it's merged onto the main
-    branch.
-
-    - 3: template (hidden in queries & searches)
-    - 2: locked (same as default, but locked for edits except for space admins)
-    - 1: default (visible in queries & searches)
-    - 0: archive (hidden, meant to be kept, locked for edits for everyone)
-    - -1: trash (hidden, scheduled for deletion)
-
-    An integer higher than >3 codes a branch that can be used for collaborators to create drafts
-    that can be merged onto the main branch in an experience akin to a Pull Request. The mapping
-    onto a semantic branch name is handled through LaminHub.
-    """
+    """Whether record is on a branch or in another "special state"."""
     space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1)
     """The space in which the record lives."""
     _aux: dict[str, Any] | None = JSONField(default=None, db_default=None, null=True)
