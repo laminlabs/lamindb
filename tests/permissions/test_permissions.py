@@ -1,4 +1,6 @@
+import subprocess
 import time
+from pathlib import Path
 from uuid import uuid4
 
 import hubmodule.models as hm
@@ -217,11 +219,31 @@ def test_token_reset():
     assert "JWT is not set" in error.exconly()
 
 
-# below is an integration test that should run last
-# def test_lamin_dev():
-#     script_path = Path(__file__).parent.resolve() / "scripts/check_lamin_dev.py"
-#     subprocess.run(  # noqa: S602
-#         f"python {script_path}",
-#         shell=True,
-#         check=True,
-#     )
+def test_lamin_dev():
+    script1_path = Path(__file__).parent.resolve() / "scripts/check_lamin_dev.py"
+    script2_path = Path(__file__).parent.resolve() / "scripts/clean_lamin_dev.py"
+    # TODO: if we don't access the instance here, it will be changed
+    subprocess.run(  # noqa: S602
+        f"python {script1_path}",
+        shell=True,
+        check=True,
+    )
+    result = subprocess.run(  # noqa: S602
+        "lamin save .gitignore --key mytest --space 'Our test space for CI'",
+        shell=True,
+        capture_output=True,
+    )
+    print(result.stdout.decode())
+    print(result.stderr.decode())
+    assert "key='mytest'" in result.stdout.decode()
+    assert "storage path:" in result.stdout.decode()
+    assert result.returncode == 0
+
+    result = subprocess.run(  # noqa: S602
+        f"python {script2_path}",
+        shell=True,
+        capture_output=True,
+    )
+    print(result.stdout.decode())
+    print(result.stderr.decode())
+    assert result.returncode == 0
