@@ -214,9 +214,11 @@ def test_token_reset():
 
 
 def test_lamin_dev():
-    script_path = Path(__file__).parent.resolve() / "scripts/check_lamin_dev.py"
+    script1_path = Path(__file__).parent.resolve() / "scripts/check_lamin_dev.py"
+    script2_path = Path(__file__).parent.resolve() / "scripts/clean_lamin_dev.py"
+    # TODO: if we don't access the instance here, it will be changed
     subprocess.run(  # noqa: S602
-        f"python {script_path}",
+        f"python {script1_path}",
         shell=True,
         check=True,
     )
@@ -231,10 +233,11 @@ def test_lamin_dev():
     assert "storage path:" in result.stdout.decode()
     assert result.returncode == 0
 
-    # below currently doesn't work as expected, need to investigate
-    # print(ln.setup.settings.instance.slug)
-    # print(ln.Artifact.using("laminlabs/lamin-dev").filter().df())
-
-    # artifact = ln.Artifact.using("laminlabs/lamin-dev").get(key="mytest")
-    # assert artifact.space.name == "Our test space for CI"
-    # artifact.delete()
+    result = subprocess.run(  # noqa: S602
+        f"python {script2_path}",
+        shell=True,
+        capture_output=True,
+    )
+    print(result.stdout.decode())
+    print(result.stderr.decode())
+    assert result.returncode == 0
