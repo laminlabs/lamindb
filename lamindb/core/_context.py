@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
 
     from lamindb.base.types import TransformType
-    from lamindb.models import Project, Space
+    from lamindb.models import Branch, Project, Space
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
@@ -193,6 +193,7 @@ class Context:
         """A local path to the script or notebook that's running."""
         self._project: Project | None = None
         self._space: Space | None = None
+        self._branch: Branch | None = None
         self._logging_message_track: str = ""
         self._logging_message_imports: str = ""
         self._stream_tracker: LogStreamTracker = LogStreamTracker()
@@ -247,8 +248,13 @@ class Context:
 
     @property
     def space(self) -> Space | None:
-        """The space in which entities are created during the run."""
+        """The space in which artifacts, collections, transforms, and runs are saved during the run."""
         return self._space
+
+    @property
+    def branch(self) -> Branch | None:
+        """The branch on which entities are created during the run."""
+        return self._branch
 
     @property
     def run(self) -> Run | None:
@@ -261,6 +267,7 @@ class Context:
         *,
         project: str | Project | None = None,
         space: str | Space | None = None,
+        branch: str | Branch | None = None,
         params: dict | None = None,
         new_run: bool | None = None,
         path: str | None = None,
@@ -273,11 +280,11 @@ class Context:
 
         Args:
             transform: A transform (stem) `uid` (or record). If `None`, auto-creates a `transform` with its `uid`.
-            project: A project, its `name` or `uid` for labeling entities created during the run.
-            space: A restricted space, its `name` or `uid` for creating sensitive entities are created during the run.
-                The default is the common `"All"` space that every LaminDB instance has.
-                The `space` argument doesn't affect `Storage`, `ULabel`, `Feature`, `Schema`, `Param` and bionty entities as these provide structure that should typically be commonly accessible.
+            project: A project (or its `name` or `uid`) for labeling entities.
+            space: A restricted space (or its `name` or `uid`) in which to store artifacts, collections, transforms, and runs.
+                Default: the `"All"` space.
                 If you want to manually move entities to a different space, set the `.space` field (:doc:`docs:access`).
+            branch: A branch (or its `name` or `uid`) on which to store records.
             params: A dictionary of parameters to track for the run.
             new_run: If `False`, loads the latest run of transform
                 (default notebook), if `True`, creates new run (default non-notebook).
@@ -299,7 +306,7 @@ class Context:
 
             More examples: :doc:`/track`
         """
-        from lamindb.models import Project, Space
+        from lamindb.models import Branch, Project, Space
 
         instance_settings = ln_setup.settings.instance
         # similar logic here: https://github.com/laminlabs/lamindb/pull/2527
@@ -337,6 +344,21 @@ class Context:
                         f"Space '{space}', please check on the hub UI whether you have the correct `uid` or `name`."
                     )
             self._space = space_record
+        if branch is not None:
+            if isinstance(branch, Branch):
+                assert branch._state.adding is False, (  # noqa: S101
+                    "Branch must be saved before passing it to track()"
+                )
+                branch_record = branch
+            else:
+                branch_record = Branch.filter(
+                    Q(name=branch) | Q(uid=branch)
+                ).one_or_none()
+                if branch_record is None:
+                    raise InvalidArgument(
+                        f"Space '{branch}', please check on the hub UI whether you have the correct `uid` or `name`."
+                    )
+            self._branch = branch_record
         self._logging_message_track = ""
         self._logging_message_imports = ""
         if transform is not None and isinstance(transform, str):

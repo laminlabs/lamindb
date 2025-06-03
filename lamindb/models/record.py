@@ -31,6 +31,9 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
     This is currently more convenient to use through the UI.
 
+    A `Record` has a flexible schema: it can store data for arbitrary features.
+    Changing the fields of a :class:`~lamindb.models.SQLRecord`, you need to modify the columns of the underlying table in the database.
+
     Args:
         name: `str` A name.
         description: `str` A description.
@@ -168,6 +171,48 @@ class Sheet(SQLRecord, TracksRun, TracksUpdates):
     """A description (optional)."""
     projects: Project
     """Linked projects."""
+
+    @overload
+    def __init__(
+        self,
+        name: str,
+        schema: Schema | None = None,
+        description: str | None = None,
+    ): ...
+
+    @overload
+    def __init__(
+        self,
+        *db_args,
+    ): ...
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        if len(args) == len(self._meta.concrete_fields):
+            super().__init__(*args, **kwargs)
+            return None
+        if len(args) > 0:
+            raise ValueError("Only one non-keyword arg allowed")
+        name: str = kwargs.pop("name", None)
+        schema: Schema | None = kwargs.pop("schema", None)
+        description: str | None = kwargs.pop("description", None)
+        _skip_validation = kwargs.pop("_skip_validation", True)
+        _aux = kwargs.pop("_aux", None)
+        if len(kwargs) > 0:
+            valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Record)])
+            raise FieldValidationError(
+                f"Only {valid_keywords} are valid keyword arguments"
+            )
+        super().__init__(
+            name=name,
+            schema=schema,
+            description=description,
+            _skip_validation=_skip_validation,
+            _aux=_aux,
+        )
 
 
 class RecordJson(BaseSQLRecord, IsLink):

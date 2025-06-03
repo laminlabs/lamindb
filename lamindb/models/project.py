@@ -191,14 +191,18 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
 
 
 class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
-    """Projects.
+    """Projects to label artifacts, transforms, and runs.
 
-    Example:
-        >>> project = Project(
-        ...     name="My Project Name",
-        ...     abbr="MPN",
-        ...     url="https://example.com/my_project",
-        ... ).save()
+    Example::
+
+        project = Project(
+           name="My Project Name",
+           abbr="MPN",
+           url="https://example.com/my_project",
+        ).save()
+        artifact.projects.add(project)  # <-- labels the artifact with the project
+        ln.track(project=project)       # <-- automtically labels entities during the run
+
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
