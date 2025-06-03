@@ -139,8 +139,10 @@ class TracksUpdates(models.Model):
 class User(BaseSQLRecord, CanCurate):
     """Users.
 
-    All data in this registry is synced from `lamin.ai` to ensure a universal
-    user identity. There is no need to manually create records.
+    Every :class:`~lamindb.models.SQLRecord` has a `created_by` field that links to the creating user.
+
+    All data in this registry is synchronized from LaminHub to ensure a universal
+    user identity.
 
     Examples:
 

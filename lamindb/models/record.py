@@ -31,6 +31,9 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
     This is currently more convenient to use through the UI.
 
+    A `Record` has a flexible schema: it can store data for arbitrary features.
+    Changing the fields of a :class:`~lamindb.models.SQLRecord`, you need to modify the columns of the underlying table in the database.
+
     Args:
         name: `str` A name.
         description: `str` A description.

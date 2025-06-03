@@ -894,7 +894,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
 
 
 class Space(BaseSQLRecord):
-    """Spaces to restrict access to specific users or teams.
+    """Workspaces with managed access for specific users or teams.
 
     Guide: :doc:`docs:access`.
 
@@ -947,7 +947,7 @@ class Space(BaseSQLRecord):
 
 
 class Branch(BaseSQLRecord):
-    """Branches provide an `Archive` and a `Trash` state and allow grouping records similar to branches in git.
+    """Branches for change management with archive and trash states.
 
     Every `SQLRecord` has a `branch` field, which dictates where a record appears in queries & searches.
     """

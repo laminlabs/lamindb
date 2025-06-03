@@ -129,9 +129,7 @@ def _load_concat_artifacts(
 
 
 class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
-    """Collections of artifacts.
-
-    Collections provide a simple way of versioning collections of artifacts.
+    """Versioned collections of artifacts.
 
     Args:
         artifacts: `list[Artifact]` A list of artifacts.
