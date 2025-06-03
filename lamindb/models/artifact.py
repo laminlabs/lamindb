@@ -1954,7 +1954,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise ValueError(
                 "data has to be a SOMA Experiment object or a path to SOMA Experiment store."
             )
+
+        # SOMAExperiment.uri may have file:// prefix for local paths which needs stripping for filesystem access.
+        # Other URI schemes (s3://, etc.) are preserved and supported.
         exp = exp.uri.removeprefix("file://") if not isinstance(exp, UPathStr) else exp
+
         artifact = Artifact(  # type: ignore
             data=exp,
             key=key,
