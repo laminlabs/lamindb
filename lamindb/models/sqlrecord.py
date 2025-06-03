@@ -894,13 +894,11 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
 
 
 class Space(BaseSQLRecord):
-    """Spaces to restrict access to records to specific users or teams.
+    """Spaces to restrict access to specific users or teams.
 
     Guide: :doc:`docs:access`.
 
-    All data in this registry is synced from `lamin.ai` to enable re-using spaces across LaminDB instances.
-    There is no need to manually create records, and in instances that are connected to LaminHub, you can only add
-    spaces through the LaminHub UI & REST API.
+    All data in this registry is synced from LaminHub to enable re-using spaces across LaminDB instances.
     """
 
     id: int = models.SmallAutoField(primary_key=True)
