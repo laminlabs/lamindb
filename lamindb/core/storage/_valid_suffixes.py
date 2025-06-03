@@ -6,7 +6,6 @@ from lamindb_setup.core.upath import VALID_COMPOSITE_SUFFIXES, VALID_SIMPLE_SUFF
 VALID_COMPOSITE_SUFFIXES.update(
     {
         ".vitessce.json",
-        "spatialdata.zarr",
         ".ome.zarr",
     }
 )
