@@ -1935,12 +1935,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         revises: Artifact | None = None,
         **kwargs,
     ) -> Artifact:
-        """Create from a tiledbsoma store.
+        """Create from a `tiledbsoma.Experiment` store.
 
         Args:
-            path: A tiledbsoma store with .tiledbsoma suffix.
-            key: A relative path within default storage,
-                e.g., `"myfolder/mystore.tiledbsoma"`.
+            exp: TileDB-SOMA Experiment object or path to Experiment store.
+            key: A relative path within default storage, e.g., `"myfolder/mystore.tiledbsoma"`.
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
@@ -1977,7 +1976,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         key: str | None = None,
         run: Run | None = None,
     ) -> list[Artifact]:
-        """Create a list of artifact objects from a directory.
+        """Create a list of :class:`~lamindb.Artifact` objects from a directory.
 
         Hint:
             If you have a high number of files (several 100k) and don't want to
