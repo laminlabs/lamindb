@@ -503,7 +503,6 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args, **kwargs)
             return None
-        dtype = kwargs.get("dtype", None)
         default_value = kwargs.pop("default_value", None)
         nullable = kwargs.pop("nullable", True)  # default value of nullable
         cat_filters = kwargs.pop("cat_filters", None)
@@ -525,7 +524,9 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         if not self._state.adding:
             if not (
                 self.dtype.startswith("cat")
-                if dtype == "cat"
+                if dtype_str == "cat"
+                else dtype_str.startswith("cat")
+                if self.dtype == "cat"
                 else self.dtype == dtype_str
             ):
                 raise ValidationError(
