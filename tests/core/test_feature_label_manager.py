@@ -269,7 +269,13 @@ Here is how to create ulabels for them:
     ln.Artifact.features.get(is_validated=True)
     ln.Artifact.filter(temperature=100.0, project="project_1", donor="U0123").one()
     # for bionty
-    assert artifact == ln.Artifact.filter(disease=diseases[0]).one()
+    assert (
+        artifact == ln.Artifact.filter(disease=diseases[0]).one()
+    )  # value is a record
+    assert (
+        artifact == ln.Artifact.filter(disease="Alzheimer disease").one()
+    )  # value is a string
+    assert artifact == ln.Artifact.filter(disease__contains="Alzheimer").one()
 
     # test not finding the ULabel
     with pytest.raises(DoesNotExist) as error:

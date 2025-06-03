@@ -154,6 +154,7 @@ if _check_instance_setup(from_module="lamindb"):
         ULabel,
         User,
         Space,
+        Branch,
         Record,
         Sheet,
     )
