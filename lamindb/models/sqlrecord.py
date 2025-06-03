@@ -898,7 +898,7 @@ class Space(BaseSQLRecord):
 
     Guide: :doc:`docs:access`.
 
-    All data in this registry is synced from LaminHub to enable re-using spaces across LaminDB instances.
+    All data in this registry is synchronized from LaminHub so that spaces can be shared and reused across multiple LaminDB instances.
     """
 
     id: int = models.SmallAutoField(primary_key=True)
