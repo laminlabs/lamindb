@@ -896,9 +896,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
 class Space(BaseSQLRecord):
     """Spaces to restrict access to records to specific users or teams.
 
-    You can use spaces to restrict access to records within an instance: :doc:`docs:spaces`.
+    Guide: :doc:`docs:access`.
 
-    All data in this registry is synced from `lamin.ai` to enable re-using spaces across database instances.
+    All data in this registry is synced from `lamin.ai` to enable re-using spaces across LaminDB instances.
     There is no need to manually create records, and in instances that are connected to LaminHub, you can only add
     spaces through the LaminHub UI & REST API.
     """
@@ -1035,10 +1035,15 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
     """
 
     branch: Branch = ForeignKey(
-        Branch, PROTECT, default=1, db_default=1, db_column="_branch_code"
+        Branch,
+        PROTECT,
+        default=1,
+        db_default=1,
+        db_column="_branch_code",
+        related_name="+",
     )
     """Whether record is on a branch or in another "special state"."""
-    space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1)
+    space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1, related_name="+")
     """The space in which the record lives."""
     _aux: dict[str, Any] | None = JSONField(default=None, db_default=None, null=True)
     """Auxiliary field for dictionary-like metadata."""
