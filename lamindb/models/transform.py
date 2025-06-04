@@ -201,6 +201,10 @@ class Transform(SQLRecord, IsVersioned):
         type: TransformType | None = kwargs.pop("type", "pipeline")
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
+        branch = kwargs.pop("branch", None)
+        branch_id = kwargs.pop("branch_id", 1)
+        space = kwargs.pop("space", None)
+        space_id = kwargs.pop("space_id", 1)
         using_key = kwargs.pop("using_key", None)
         if "name" in kwargs:
             if key is None:
@@ -292,6 +296,10 @@ class Transform(SQLRecord, IsVersioned):
             hash=hash,
             _has_consciously_provided_uid=has_consciously_provided_uid,
             revises=revises,
+            branch=branch,
+            branch_id=branch_id,
+            space=space,
+            space_id=space_id,
         )
 
     @property

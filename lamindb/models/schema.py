@@ -518,6 +518,10 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         coerce_dtype: bool | None = kwargs.pop("coerce_dtype", False)
         using: bool | None = kwargs.pop("using", None)
         n_features: int | None = kwargs.pop("n", None)
+        kwargs.pop("branch", None)
+        kwargs.pop("branch_id", 1)
+        kwargs.pop("space", None)
+        kwargs.pop("space_id", 1)
         # backward compat
         if not slots:
             if "components" in kwargs:

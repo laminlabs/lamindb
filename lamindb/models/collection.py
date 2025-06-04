@@ -270,7 +270,10 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         run: Run | None = kwargs.pop("run", None)
         revises: Collection | None = kwargs.pop("revises", None)
         version: str | None = kwargs.pop("version", None)
-        branch_id: int | None = kwargs.pop("branch_id", 1)
+        branch = kwargs.pop("branch", None)
+        branch_id = kwargs.pop("branch_id", 1)
+        space = kwargs.pop("space", None)
+        space_id = kwargs.pop("space_id", 1)
         key: str
         if "name" in kwargs:
             key = kwargs.pop("name")
@@ -338,7 +341,10 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 hash=hash,
                 run=run,
                 version=version,
+                branch=branch,
                 branch_id=branch_id,
+                space=space,
+                space_id=space_id,
                 revises=revises,
                 _skip_validation=_skip_validation,
             )
