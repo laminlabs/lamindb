@@ -1349,6 +1349,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         description: str | None = kwargs.pop("description", None)
         revises: Artifact | None = kwargs.pop("revises", None)
         version: str | None = kwargs.pop("version", None)
+        branch_id: int | None = None
         if "visibility" in kwargs:  # backward compat
             branch_id = kwargs.pop("visibility")
         if "_branch_code" in kwargs:  # backward compat
@@ -1357,6 +1358,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             branch_id = kwargs.pop("branch_id")
         else:
             branch_id = 1
+        branch = kwargs.pop("branch", None)
+        space = kwargs.pop("space", None)
+        space_id = kwargs.pop("space_id", 1)
         format = kwargs.pop("format", None)
         _is_internal_call = kwargs.pop("_is_internal_call", False)
         skip_check_exists = kwargs.pop("skip_check_exists", False)
@@ -1465,7 +1469,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         kwargs["kind"] = kind
         kwargs["version"] = version
         kwargs["description"] = description
+        kwargs["branch"] = branch
         kwargs["branch_id"] = branch_id
+        kwargs["space"] = space
+        kwargs["space_id"] = space_id
         kwargs["otype"] = otype
         kwargs["revises"] = revises
         # this check needs to come down here because key might be populated from an
