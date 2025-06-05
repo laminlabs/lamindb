@@ -171,7 +171,9 @@ def test_record_nextflow_samples():
     for _, row in df.iterrows():
         sample = ln.Record(sheet=nextflow_sheet, type=nextflowsample_type).save()
         ln.models.RecordRecord(
-            record=sample, feature=features.sample, value=ln.Record.get(name="Sample_X")
+            record=sample,
+            feature=features.sample,
+            value=ln.Record.get(name=row["sample"]),
         ).save()
         ln.models.RecordJson(
             record=sample, feature=features.fastq_1, value=row["fastq_1"]
