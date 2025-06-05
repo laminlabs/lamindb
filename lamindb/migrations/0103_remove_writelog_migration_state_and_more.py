@@ -5,7 +5,7 @@ from django.db import migrations
 
 def fix_artifact_kind(apps, schema_editor):
     Artifact = apps.get_model("lamindb", "Artifact")
-    Artifact.objects.filter(kind="__lamindb__").update(kind="__lamindb__run__")
+    Artifact.objects.filter(kind="__lamindb__").update(kind="__lamindb_run__")
 
 
 class Migration(migrations.Migration):
