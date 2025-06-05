@@ -137,7 +137,13 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         is_type: bool = kwargs.pop("is_type", False)
         sheet: Sheet = kwargs.pop("sheet", None)
         description: str | None = kwargs.pop("description", None)
-        _skip_validation = kwargs.pop("_skip_validation", False)
+        branch = kwargs.pop("branch", None)
+        branch_id = kwargs.pop("branch_id", 1)
+        space = kwargs.pop("space", None)
+        space_id = kwargs.pop("space_id", 1)
+        _skip_validation = kwargs.pop(
+            "_skip_validation", False
+        )  # should not validate records
         _aux = kwargs.pop("_aux", None)
         if len(kwargs) > 0:
             valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Record)])
@@ -150,6 +156,10 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
             is_type=is_type,
             sheet=sheet,
             description=description,
+            branch=branch,
+            branch_id=branch_id,
+            space=space,
+            space_id=space_id,
             _skip_validation=_skip_validation,
             _aux=_aux,
         )
@@ -204,6 +214,10 @@ class Sheet(SQLRecord, TracksRun, TracksUpdates):
         name: str = kwargs.pop("name", None)
         schema: Schema | None = kwargs.pop("schema", None)
         description: str | None = kwargs.pop("description", None)
+        branch = kwargs.pop("branch", None)
+        branch_id = kwargs.pop("branch_id", 1)
+        space = kwargs.pop("space", None)
+        space_id = kwargs.pop("space_id", 1)
         _skip_validation = kwargs.pop("_skip_validation", True)
         _aux = kwargs.pop("_aux", None)
         if len(kwargs) > 0:
@@ -215,6 +229,10 @@ class Sheet(SQLRecord, TracksRun, TracksUpdates):
             name=name,
             schema=schema,
             description=description,
+            branch=branch,
+            branch_id=branch_id,
+            space=space,
+            space_id=space_id,
             _skip_validation=_skip_validation,
             _aux=_aux,
         )
