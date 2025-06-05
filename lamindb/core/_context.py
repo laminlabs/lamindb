@@ -715,7 +715,10 @@ class Context:
                         f"Please respond with either 1 or 2, not {response}"
                     )
                     if response == "2":
-                        transform_hash = None  # make a new transform
+                        aux_transform, transform_hash = (
+                            None,
+                            None,
+                        )  # make a new transform
             if aux_transform is not None:
                 if aux_transform.key.endswith(self._path.name):
                     key = aux_transform.key
