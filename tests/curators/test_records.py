@@ -143,7 +143,7 @@ def test_record_nextflow_samples():
             ln.Feature(name="expected_cells", dtype=int).save(),
             ln.Feature(name="seq_center", dtype=str).save(),
         ],
-    )
+    ).save()
 
     nextflowsample_type = ln.Record(name="NextflowSample", is_type=True).save()
     nextflow_sheet = ln.Sheet(
