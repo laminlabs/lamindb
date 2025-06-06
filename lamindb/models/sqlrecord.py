@@ -763,7 +763,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             super().__init__(*args)
         track_current_key_and_name_values(self)
 
-    def save(self, *args, **kwargs) -> SQLRecord:
+    def save(self: T, *args, **kwargs) -> T:
         """Save.
 
         Always saves to the default database.
