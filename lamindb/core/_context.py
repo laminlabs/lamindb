@@ -101,8 +101,7 @@ def pretty_pypackages(dependencies: dict) -> str:
 
 
 def last_non_empty_r_block(line: str):
-    blocks = line.split("\r")
-    for block in reversed(blocks):
+    for block in reversed(line.split("\r")):
         if block:
             return block
     return ""
@@ -132,7 +131,7 @@ class LogStreamHandler:
         if self.file.closed:
             return
         if self._buffer:
-            self.file.write(last_non_empty_r_block)
+            self.file.write(last_non_empty_r_block(self._buffer))
             self._buffer = ""
         self.file.flush()
 
