@@ -100,6 +100,14 @@ def pretty_pypackages(dependencies: dict) -> str:
     return " ".join(deps_list)
 
 
+def last_non_empty_r_block(line: str):
+    blocks = line.split("\r")
+    for block in reversed(blocks):
+        if block:
+            return block
+    return ""
+
+
 class LogStreamHandler:
     def __init__(self, log_stream, file):
         self.log_stream = log_stream
@@ -113,7 +121,7 @@ class LogStreamHandler:
         # write only the last part of a line with carriage returns
         while "\n" in self._buffer:
             line, self._buffer = self._buffer.split("\n", 1)
-            self.file.write(line.split("\r")[-1] + "\n")
+            self.file.write(last_non_empty_r_block(line) + "\n")
             self.file.flush()
 
         return len(data)
@@ -124,7 +132,7 @@ class LogStreamHandler:
         if self.file.closed:
             return
         if self._buffer:
-            self.file.write(self._buffer.split("\r")[-1])
+            self.file.write(last_non_empty_r_block)
             self._buffer = ""
         self.file.flush()
 
