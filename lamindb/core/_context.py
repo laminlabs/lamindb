@@ -104,14 +104,28 @@ class LogStreamHandler:
     def __init__(self, log_stream, file):
         self.log_stream = log_stream
         self.file = file
+        self._buffer = ""
 
-    def write(self, data):
+    def write(self, data) -> int:
         self.log_stream.write(data)
-        self.file.write(data)
-        self.file.flush()
+
+        self._buffer += data
+        # write only the last part of a line with carriage returns
+        while "\n" in self._buffer:
+            line, self._buffer = self._buffer.split("\n", 1)
+            self.file.write(line.split("\r")[-1] + "\n")
+            self.file.flush()
+
+        return len(data)
 
     def flush(self):
         self.log_stream.flush()
+
+        if self.file.closed:
+            return
+        if self._buffer:
+            self.file.write(self._buffer.split("\r")[-1])
+            self._buffer = ""
         self.file.flush()
 
 
@@ -144,6 +158,8 @@ class LogStreamTracker:
 
     def finish(self):
         if self.original_stdout:
+            sys.stdout.flush()
+            sys.stderr.flush()
             sys.stdout = self.original_stdout
             sys.stderr = self.original_stderr
             self.log_file.close()
@@ -153,6 +169,8 @@ class LogStreamTracker:
 
         if self.original_stdout and not self.is_cleaning_up:
             self.is_cleaning_up = True
+            sys.stdout.flush()
+            sys.stderr.flush()
             if signo is not None:
                 signal_msg = f"\nProcess terminated by signal {signo} ({signal.Signals(signo).name})\n"
                 if frame:
@@ -160,9 +178,9 @@ class LogStreamTracker:
                         f"Frame info:\n{''.join(traceback.format_stack(frame))}"
                     )
                 self.log_file.write(signal_msg)
+                self.log_file.flush()
             sys.stdout = self.original_stdout
             sys.stderr = self.original_stderr
-            self.log_file.flush()
             self.log_file.close()
             save_run_logs(self.run, save_run=True)
 
@@ -171,6 +189,9 @@ class LogStreamTracker:
             error_msg = f"{''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))}"
             if self.log_file.closed:
                 self.log_file = open(self.log_file_path, "a")
+            else:
+                sys.stdout.flush()
+                sys.stderr.flush()
             self.log_file.write(error_msg)
             self.log_file.flush()
             self.cleanup()
