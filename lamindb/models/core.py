@@ -24,9 +24,9 @@ if TYPE_CHECKING:
 
 
 class Storage(SQLRecord, TracksRun, TracksUpdates):
-    """Storage locations of artifacts such as S3 buckets or local directories.
+    """Storage locations of artifacts such as folders and S3 buckets.
 
-    A storage location is either a directory/folder (local or in the cloud) or
+    A storage location is either a folder (local or in the cloud) or
     an entire S3/GCP bucket.
 
     A LaminDB instance can manage and link multiple storage locations. But any
@@ -37,10 +37,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         The LaminDB instance can update & delete artifacts in managed storage
         locations but merely read artifacts in linked storage locations.
 
-        When you transfer artifacts from another instance, the default is to
-        only copy metadata into the target instance, but merely link the data.
-
-        The `instance_uid` field indicates the managing LaminDB instance of a
+        The `instance_uid` field defines the managing LaminDB instance of a
         storage location.
 
         When you delete a LaminDB instance, you'll be warned about data in managed
@@ -54,18 +51,23 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
     Examples:
 
-        Configure the default storage location upon initiation of a LaminDB instance::
+        Configure the default storage location on the command line::
 
-            lamin init --storage ./mydata # or "s3://my-bucket" or "gs://my-bucket"
+            lamin init --storage ./myfolder  # or "s3://my-bucket" or "gs://my-bucket"
 
-        View the default storage location:
+        View the current storage location for writing artifacts::
 
-        >>> ln.settings.storage
-        PosixPath('/home/runner/work/lamindb/lamindb/docs/guide/mydata')
+            import lamindb as ln
 
-        Dynamically change the default storage:
+            print(ln.settings.storage)
 
-        >>> ln.settings.storage = "./storage_2" # or a cloud bucket
+        Change the current storage location for writing artifacts::
+
+            ln.settings.storage = "./myfolder2"  # or "s3://my-bucket2" or "gs://my-bucket2"
+
+        View all storage locations used by the current instance::
+
+            ln.Storage.df()
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
@@ -115,19 +117,9 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
     @property
     def path(self) -> Path | UPath:
-        """Bucket or folder path.
+        """Path.
 
-        Cloud storage bucket:
-
-        >>> ln.Storage("s3://my-bucket").save()
-
-        Directory/folder in cloud storage:
-
-        >>> ln.Storage("s3://my-bucket/my-directory").save()
-
-        Local directory/folder:
-
-        >>> ln.Storage("./my-directory").save()
+        Uses the `.root` field and converts it into a `Path` or `UPath`.
         """
         from lamindb_setup.core.upath import create_path
 

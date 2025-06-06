@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, overload
 
 from django.db import models
-from django.db.models import CASCADE, PROTECT
+from django.db.models import CASCADE, PROTECT, Q
 
 from lamindb.base.fields import (
     BooleanField,
@@ -49,6 +49,13 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
+        constraints = [
+            models.UniqueConstraint(
+                fields=["name"],
+                name="unique_name",
+                condition=Q(is_type=True),
+            ),
+        ]
 
     _name_field: str = "name"
 
@@ -135,7 +142,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         space = kwargs.pop("space", None)
         space_id = kwargs.pop("space_id", 1)
         _skip_validation = kwargs.pop(
-            "_skip_validation", True
+            "_skip_validation", False
         )  # should not validate records
         _aux = kwargs.pop("_aux", None)
         if len(kwargs) > 0:
