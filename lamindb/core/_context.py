@@ -100,7 +100,7 @@ def pretty_pypackages(dependencies: dict) -> str:
     return " ".join(deps_list)
 
 
-def last_non_empty_r_block(line: str):
+def last_non_empty_r_block(line: str) -> str:
     for block in reversed(line.split("\r")):
         if block:
             return block
