@@ -1386,7 +1386,15 @@ def track_current_key_and_name_values(record: SQLRecord):
 
 def check_name_change(record: SQLRecord):
     """Warns if a record's name has changed."""
-    from lamindb.models import Artifact, Collection, Feature, Record, Schema, Transform
+    from lamindb.models import (
+        Artifact,
+        Collection,
+        Feature,
+        Record,
+        Schema,
+        Storage,
+        Transform,
+    )
 
     if (
         not record.pk
@@ -1409,7 +1417,7 @@ def check_name_change(record: SQLRecord):
 
     if old_name != new_name:
         # when a label is renamed, only raise a warning if it has a feature
-        if hasattr(record, "artifacts") and not isinstance(record, Record):
+        if hasattr(record, "artifacts") and not isinstance(record, (Record, Storage)):
             linked_records = (
                 record.artifacts.through.filter(
                     label_ref_is_name=True, **{f"{registry.lower()}_id": record.pk}
