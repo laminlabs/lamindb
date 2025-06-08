@@ -199,7 +199,12 @@ def __getattr__(name):
 
 
 if _check_instance_setup(from_module="lamindb") or TYPE_CHECKING:
-    from . import base, core, curators, examples, integrations
+    import lamindb.base as base
+    import lamindb.core as core
+    import lamindb.curators as curators
+    import lamindb.examples as examples
+    import lamindb.integrations as integrations
+
     from ._tracked import tracked
     from ._view import view
     from .core._context import context
