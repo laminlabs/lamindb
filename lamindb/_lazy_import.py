@@ -1,4 +1,4 @@
-"""helpers for providing lazy import of lamindb classes and funtions in lamindb.__init__."""
+"""helpers for providing lazy import of lamindb classes and functions in lamindb.__init__."""
 
 import sys
 from types import new_class
