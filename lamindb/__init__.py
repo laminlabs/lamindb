@@ -114,6 +114,7 @@ import warnings
 from typing import TYPE_CHECKING
 
 from lamindb_setup import connect
+from lamindb_setup._check_setup import InstanceNotSetupError as _InstanceNotSetupError
 from lamindb_setup._check_setup import _check_instance_setup
 from lamindb_setup.core.upath import UPath
 
@@ -171,6 +172,8 @@ __all__ = [
     # extras
     *_loaded_submodules_pre_connect,
     *_loaded_submodules_post_connect,
+    # private
+    "_InstanceNotSetupError",
 ]
 
 
