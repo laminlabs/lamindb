@@ -68,7 +68,7 @@ integer       `"int"`       `int64 | int32 | int16 | int8 | uint | ...`
 float         `"float"`     `float64 | float32 | float16 | float8 | ...`
 string        `"str"`       `object`
 datetime      `"datetime"`  `datetime`
-date          `"date"`      `date`
+date          `"date"`      `object` (pandera requires an ISO-format string, convert with `df["date"] = df["date"].dt.date`)
 dictionary    `"dict"`      `object`
 ============  ============  =================================================
 
