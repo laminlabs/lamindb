@@ -621,7 +621,7 @@ class DataFrameCurator(Curator):
         if self._schema.n > 0:
             try:
                 # first validate through pandera
-                self._pandera_schema.validate(self._dataset)
+                self._pandera_schema.validate(self._dataset, lazy=True)
                 # then validate lamindb categoricals
                 self._cat_manager_validate()
             except pa.errors.SchemaError as err:
