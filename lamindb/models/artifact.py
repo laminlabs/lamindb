@@ -525,25 +525,25 @@ def log_storage_hint(
 
 def data_is_scversedatastructure(
     data: ScverseDataStructures | UPathStr,
-    expected_ds: Literal["AnnData", "MuData", "SpatialData"] | None = None,
+    structure_type: Literal["AnnData", "MuData", "SpatialData"] | None = None,
 ) -> bool:
     """Determine whether a specific in-memory object or a UPathstr is any or a specific scverse data structure."""
     file_suffix = None
-    if expected_ds == "AnnData":
+    if structure_type == "AnnData":
         file_suffix = ".h5ad"
-    elif expected_ds == "MuData":
+    elif structure_type == "MuData":
         file_suffix = ".h5mu"
     # SpatialData does not have a unique suffix but `.zarr`
 
-    if expected_ds is None:
+    if structure_type is None:
         return any(
             hasattr(data, "__class__") and data.__class__.__name__ == cl_name
             for cl_name in ["AnnData", "MuData", "SpatialData"]
         )
-    elif hasattr(data, "__class__") and data.__class__.__name__ == expected_ds:
+    elif hasattr(data, "__class__") and data.__class__.__name__ == structure_type:
         return True
 
-    data_type = expected_ds.lower()
+    data_type = structure_type.lower()
     if isinstance(data, (str, Path, UPath)):
         data_path = UPath(data)
 
@@ -559,13 +559,15 @@ def data_is_scversedatastructure(
             if fsspec.utils.get_protocol(data_path.as_posix()) == "file":
                 return (
                     identify_zarr_type(
-                        data_path if expected_ds == "AnnData" else data,
-                        check=True if expected_ds == "AnnData" else False,
+                        data_path if structure_type == "AnnData" else data,
+                        check=True if structure_type == "AnnData" else False,
                     )
                     == data_type
                 )
             else:
-                logger.warning(f"We do not check if cloud zarr is {expected_ds} or not")
+                logger.warning(
+                    f"we do not check whether cloud zarr is {structure_type}"
+                )
                 return False
     return False
 
@@ -1940,12 +1942,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         revises: Artifact | None = None,
         **kwargs,
     ) -> Artifact:
-        """Create from a tiledbsoma store.
+        """Create from a `tiledbsoma.Experiment` store.
 
         Args:
-            path: A tiledbsoma store with .tiledbsoma suffix.
-            key: A relative path within default storage,
-                e.g., `"myfolder/mystore.tiledbsoma"`.
+            exp: TileDB-SOMA Experiment object or path to Experiment store.
+            key: A relative path within default storage, e.g., `"myfolder/mystore.tiledbsoma"`.
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
@@ -1960,7 +1961,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise ValueError(
                 "data has to be a SOMA Experiment object or a path to SOMA Experiment store."
             )
+
+        # SOMAExperiment.uri may have file:// prefix for local paths which needs stripping for filesystem access.
+        # Other URI schemes (s3://, etc.) are preserved and supported.
         exp = exp.uri.removeprefix("file://") if not isinstance(exp, UPathStr) else exp
+
         artifact = Artifact(  # type: ignore
             data=exp,
             key=key,
@@ -1982,7 +1987,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         key: str | None = None,
         run: Run | None = None,
     ) -> list[Artifact]:
-        """Create a list of artifact objects from a directory.
+        """Create a list of :class:`~lamindb.Artifact` objects from a directory.
 
         Hint:
             If you have a high number of files (several 100k) and don't want to

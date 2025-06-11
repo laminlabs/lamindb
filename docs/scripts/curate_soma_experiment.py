@@ -3,9 +3,8 @@ import bionty as bt
 import tiledbsoma as soma
 import tiledbsoma.io
 
-adata = ln.core.datasets.small_dataset1(otype="AnnData")
+adata = ln.core.datasets.mini_immuno.get_dataset1(otype="AnnData")
 tiledbsoma.io.from_anndata("small_dataset.tiledbsoma", adata, measurement_name="RNA")
-experiment = soma.Experiment.open("small_dataset.tiledbsoma")
 
 obs_schema = ln.Schema(
     name="soma_obs_schema",
@@ -32,11 +31,12 @@ soma_schema = ln.Schema(
     },
 ).save()
 
-curator = ln.curators.TiledbsomaExperimentCurator(experiment, soma_schema)
-curator.validate()
-artifact = curator.save_artifact(
-    key="examples/soma_experiment.tiledbsoma",
-    description="SOMA experiment with schema validation",
-)
+with soma.Experiment.open("small_dataset.tiledbsoma") as experiment:
+    curator = ln.curators.TiledbsomaExperimentCurator(experiment, soma_schema)
+    curator.validate()
+    artifact = curator.save_artifact(
+        key="examples/soma_experiment.tiledbsoma",
+        description="SOMA experiment with schema validation",
+    )
 assert artifact.schema == soma_schema
 artifact.describe()
