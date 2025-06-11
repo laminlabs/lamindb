@@ -390,6 +390,7 @@ def get_artifact_kwargs_from_data(
     using_key: str | None = None,
     is_replace: bool = False,
     skip_check_exists: bool = False,
+    overwrite_versions: bool | None = None,
 ):
     from lamindb import settings
 
@@ -458,7 +459,8 @@ def get_artifact_kwargs_from_data(
     # we use an actual storage key
     if check_path_in_storage:
         key_is_virtual = False
-
+    if overwrite_versions is None:
+        overwrite_versions = n_files is not None
     kwargs = {
         "uid": provisional_uid,
         "suffix": suffix,
@@ -471,7 +473,7 @@ def get_artifact_kwargs_from_data(
         # to make them both available immediately
         # after object creation
         "n_files": n_files,
-        "_overwrite_versions": n_files is not None,  # True for folder, False for file
+        "_overwrite_versions": overwrite_versions,  # True for folder, False for file
         "n_observations": None,  # to implement
         "run_id": run.id if run is not None else None,
         "run": run,
@@ -525,25 +527,25 @@ def log_storage_hint(
 
 def data_is_scversedatastructure(
     data: ScverseDataStructures | UPathStr,
-    expected_ds: Literal["AnnData", "MuData", "SpatialData"] | None = None,
+    structure_type: Literal["AnnData", "MuData", "SpatialData"] | None = None,
 ) -> bool:
     """Determine whether a specific in-memory object or a UPathstr is any or a specific scverse data structure."""
     file_suffix = None
-    if expected_ds == "AnnData":
+    if structure_type == "AnnData":
         file_suffix = ".h5ad"
-    elif expected_ds == "MuData":
+    elif structure_type == "MuData":
         file_suffix = ".h5mu"
     # SpatialData does not have a unique suffix but `.zarr`
 
-    if expected_ds is None:
+    if structure_type is None:
         return any(
             hasattr(data, "__class__") and data.__class__.__name__ == cl_name
             for cl_name in ["AnnData", "MuData", "SpatialData"]
         )
-    elif hasattr(data, "__class__") and data.__class__.__name__ == expected_ds:
+    elif hasattr(data, "__class__") and data.__class__.__name__ == structure_type:
         return True
 
-    data_type = expected_ds.lower()
+    data_type = structure_type.lower()
     if isinstance(data, (str, Path, UPath)):
         data_path = UPath(data)
 
@@ -559,13 +561,15 @@ def data_is_scversedatastructure(
             if fsspec.utils.get_protocol(data_path.as_posix()) == "file":
                 return (
                     identify_zarr_type(
-                        data_path if expected_ds == "AnnData" else data,
-                        check=True if expected_ds == "AnnData" else False,
+                        data_path if structure_type == "AnnData" else data,
+                        check=True if structure_type == "AnnData" else False,
                     )
                     == data_type
                 )
             else:
-                logger.warning(f"We do not check if cloud zarr is {expected_ds} or not")
+                logger.warning(
+                    f"we do not check whether cloud zarr is {structure_type}"
+                )
                 return False
     return False
 
@@ -980,6 +984,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
         description: `str | None = None` A description.
         revises: `Artifact | None = None` Previous version of the artifact. Is an alternative way to passing `key` to trigger a new version.
+        overwrite_versions: `bool | None = None` Whether to overwrite versions. Defaults to `True` for folders and `False` for files.
         run: `Run | None = None` The run that creates the artifact.
 
     Examples:
@@ -1289,10 +1294,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     )
     """Creator of record."""
     _overwrite_versions: bool = BooleanField(default=None)
-    """Indicates whether to store or overwrite versions.
-
-    It defaults to False for file-like artifacts and to True for folder-like artifacts.
-    """
+    # see corresponding property `overwrite_versions`
     projects: Project
     """Linked projects."""
     references: Reference
@@ -1313,6 +1315,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         key: str | None = None,
         description: str | None = None,
         revises: Artifact | None = None,
+        overwrite_versions: bool | None = None,
         run: Run | None = None,
     ): ...
 
@@ -1345,9 +1348,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         data: str | Path = kwargs.pop("data") if len(args) == 0 else args[0]
         kind: str = kwargs.pop("kind", None)
         key: str | None = kwargs.pop("key", None)
+        run_id: int | None = kwargs.pop("run_id", None)  # for REST API
         run: Run | None = kwargs.pop("run", None)
         description: str | None = kwargs.pop("description", None)
         revises: Artifact | None = kwargs.pop("revises", None)
+        overwrite_versions: bool | None = kwargs.pop("overwrite_versions", None)
         version: str | None = kwargs.pop("version", None)
         branch_id: int | None = None
         if "visibility" in kwargs:  # backward compat
@@ -1417,6 +1422,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             default_storage=default_storage,
             using_key=using_key,
             skip_check_exists=skip_check_exists,
+            overwrite_versions=overwrite_versions,
         )
 
         # an object with the same hash already exists
@@ -1466,6 +1472,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if revises is not None and revises.key is not None and kwargs["key"] is None:
             kwargs["key"] = revises.key
 
+        if run_id is not None:
+            kwargs["run_id"] = run_id
         kwargs["kind"] = kind
         kwargs["version"] = version
         kwargs["description"] = description
@@ -1510,6 +1518,18 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @deprecated("n_files")
     def n_objects(self) -> int:
         return self.n_files
+
+    @property
+    def overwrite_versions(self) -> bool:
+        """Indicates whether to keep or overwrite versions.
+
+        It defaults to `False` for file-like artifacts and to `True` for folder-like artifacts.
+
+        Note that this requires significant storage space for large folders with
+        many duplicated files. Currently, `lamindb` does *not* de-duplicate files across
+        versions as in git, but keeps all files for all versions of the folder in storage.
+        """
+        return self._overwrite_versions
 
     @property
     def path(self) -> Path:
@@ -1612,7 +1632,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             keys_normalized = [key.split("__")[0] for key in expressions]
             field_or_feature_or_param = keys_normalized[0].split("__")[0]
             if field_or_feature_or_param in Artifact.__get_available_fields__():
-                return QuerySet(model=cls).filter(*queries, **expressions)
+                qs = QuerySet(model=cls).filter(*queries, **expressions)
+                if not any(e.startswith("kind") for e in expressions):
+                    return qs.exclude(kind="__lamindb_run__")
+                else:
+                    return qs
             elif all(
                 features_validated := Feature.validate(
                     keys_normalized, field="name", mute=True
@@ -1940,12 +1964,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         revises: Artifact | None = None,
         **kwargs,
     ) -> Artifact:
-        """Create from a tiledbsoma store.
+        """Create from a `tiledbsoma.Experiment` store.
 
         Args:
-            path: A tiledbsoma store with .tiledbsoma suffix.
-            key: A relative path within default storage,
-                e.g., `"myfolder/mystore.tiledbsoma"`.
+            exp: TileDB-SOMA Experiment object or path to Experiment store.
+            key: A relative path within default storage, e.g., `"myfolder/mystore.tiledbsoma"`.
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
@@ -1960,7 +1983,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise ValueError(
                 "data has to be a SOMA Experiment object or a path to SOMA Experiment store."
             )
+
+        # SOMAExperiment.uri may have file:// prefix for local paths which needs stripping for filesystem access.
+        # Other URI schemes (s3://, etc.) are preserved and supported.
         exp = exp.uri.removeprefix("file://") if not isinstance(exp, UPathStr) else exp
+
         artifact = Artifact(  # type: ignore
             data=exp,
             key=key,
@@ -1982,7 +2009,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         key: str | None = None,
         run: Run | None = None,
     ) -> list[Artifact]:
-        """Create a list of artifact objects from a directory.
+        """Create a list of :class:`~lamindb.Artifact` objects from a directory.
 
         Hint:
             If you have a high number of files (several 100k) and don't want to

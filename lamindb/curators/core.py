@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any, Callable
 import lamindb_setup as ln_setup
 import numpy as np
 import pandas as pd
-import pandera.pandas as pa
+import pandera.pandas as pandera
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 
@@ -324,23 +324,25 @@ class SlotsCurator(Curator):
         if self._artifact is None:
             type_mapping = [
                 (
-                    lambda data: data_is_scversedatastructure(data, "AnnData"),
+                    lambda dataset: data_is_scversedatastructure(dataset, "AnnData"),
                     Artifact.from_anndata,
                 ),
                 (
-                    lambda data: data_is_scversedatastructure(data, "MuData"),
+                    lambda dataset: data_is_scversedatastructure(dataset, "MuData"),
                     Artifact.from_mudata,
                 ),
                 (
-                    lambda data: data_is_scversedatastructure(data, "SpatialData"),
+                    lambda dataset: data_is_scversedatastructure(
+                        dataset, "SpatialData"
+                    ),
                     Artifact.from_spatialdata,
                 ),
                 (data_is_soma_experiment, Artifact.from_tiledbsoma),
             ]
 
-            for type_check, factory in type_mapping:
+            for type_check, af_constructor in type_mapping:
                 if type_check(self._dataset):
-                    self._artifact = factory(  # type: ignore
+                    self._artifact = af_constructor(  # type: ignore
                         self._dataset,
                         key=key,
                         description=description,
@@ -501,9 +503,9 @@ class DataFrameCurator(Curator):
                         )
                     else:
                         dtype = None
-                    pandera_columns[feature.name] = pa.Column(
+                    pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
-                        checks=pa.Check(
+                        checks=pandera.Check(
                             check_dtype(feature.dtype),
                             element_wise=False,
                             error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}': got {dtype}",
@@ -518,7 +520,7 @@ class DataFrameCurator(Curator):
                         if not feature.dtype.startswith("cat")
                         else "category"
                     )
-                    pandera_columns[feature.name] = pa.Column(
+                    pandera_columns[feature.name] = pandera.Column(
                         pandera_dtype,
                         nullable=feature.nullable,
                         coerce=feature.coerce_dtype,
@@ -533,14 +535,14 @@ class DataFrameCurator(Curator):
             if schema._index_feature_uid is not None:
                 # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
                 # so, we're typing it as `str` here
-                index = pa.Index(
+                index = pandera.Index(
                     schema.index.dtype
                     if not schema.index.dtype.startswith("cat")
                     else str
                 )
             else:
                 index = None
-            self._pandera_schema = pa.DataFrameSchema(
+            self._pandera_schema = pandera.DataFrameSchema(
                 pandera_columns,
                 coerce=schema.coerce_dtype,
                 strict=schema.maximal_set,
@@ -624,7 +626,7 @@ class DataFrameCurator(Curator):
                 self._pandera_schema.validate(self._dataset, lazy=True)
                 # then validate lamindb categoricals
                 self._cat_manager_validate()
-            except pa.errors.SchemaError as err:
+            except pandera.errors.SchemaError as err:
                 self._is_validated = False
                 # .exconly() doesn't exist on SchemaError
                 raise ValidationError(str(err)) from err
@@ -904,7 +906,7 @@ class SpatialDataCurator(SlotsCurator):
 
 
 class TiledbsomaExperimentCurator(SlotsCurator):
-    """Curator for `TileDB-SOMA`.
+    """Curator for `tiledbsoma.Experiment`.
 
     Args:
         dataset: The `tiledbsoma.Experiment` object.
@@ -933,7 +935,7 @@ class TiledbsomaExperimentCurator(SlotsCurator):
 
         for slot, slot_schema in schema.slots.items():
             if slot.startswith("ms:"):
-                ms, modality_slot = slot.split(":")
+                _, modality_slot = slot.split(":")
                 schema_dataset = (
                     self._dataset.ms[modality_slot.removesuffix(".T")]
                     .var.read()
@@ -943,21 +945,12 @@ class TiledbsomaExperimentCurator(SlotsCurator):
                 )
 
                 self._slots[slot] = DataFrameCurator(
-                    (
-                        schema_dataset.T
-                        if modality_slot == "var.T"
-                        or (
-                            # backward compat
-                            modality_slot == "var"
-                            and schema.slots[slot].itype not in {None, "Feature"}
-                        )
-                        else schema_dataset
-                    ),
+                    (schema_dataset.T if modality_slot == "var.T" else schema_dataset),
                     slot_schema,
                 )
             else:
                 # global Experiment obs slot
-                _ms, modality_slot = None, slot
+                modality_slot = slot
                 schema_dataset = (
                     self._dataset.obs.read()
                     .concat()
@@ -969,16 +962,8 @@ class TiledbsomaExperimentCurator(SlotsCurator):
                     slot_schema,
                 )
 
-            if modality_slot == "var" and schema.slots[slot].itype not in {
-                None,
-                "Feature",
-            }:
-                logger.warning(
-                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
-                )
-
             _assign_var_fields_categoricals_multimodal(
-                modality=slot,  # not using "ms" here as it would always be the same for all modalities
+                modality=slot,  # not passing `measurement` here because it's a constant. The slot has the actual modality
                 slot_type=modality_slot,
                 slot=slot,
                 slot_schema=slot_schema,

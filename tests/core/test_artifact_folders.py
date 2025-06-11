@@ -56,9 +56,38 @@ def test_folder_like_artifact(get_test_filepaths, key):
     artifact3.save()
 
     # the state of artifact1 is lost, because artifact3 is stored at the same path
+    assert artifact3.overwrite_versions
+    assert artifact1.overwrite_versions
     assert artifact3.path == artifact1.path
     test_filepath_added.unlink()
 
     # delete the artifact
     artifact2.delete(permanent=True, storage=False)
+    artifact3.delete(permanent=True, storage=False)
+
+
+def test_overwrite_versions_false(get_test_filepaths):
+    # get variables from fixture
+    is_in_registered_storage = get_test_filepaths[0]
+    test_dirpath = get_test_filepaths[2]
+    hash_test_dir = get_test_filepaths[5]
+    if is_in_registered_storage:
+        return
+    artifact1 = ln.Artifact(
+        test_dirpath, key="my_folder", overwrite_versions=False
+    ).save()
+    assert artifact1.hash == hash_test_dir
+    # skip artifact2 because we already test this above
+    # create a first file
+    test_filepath_added = test_dirpath / "my_file_added.txt"
+    test_filepath_added.write_text("2")
+    artifact3 = ln.Artifact(test_dirpath, key="my_folder", overwrite_versions=False)
+    assert artifact3.hash != hash_test_dir
+    artifact3.save()
+    # the state of artifact1 is lost, because artifact3 is stored at the same path
+    assert not artifact3.overwrite_versions
+    assert not artifact1.overwrite_versions
+    assert artifact3.path != artifact1.path
+    test_filepath_added.unlink()
+    artifact1.delete(permanent=True, storage=False)
     artifact3.delete(permanent=True, storage=False)
