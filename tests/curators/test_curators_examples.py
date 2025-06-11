@@ -154,8 +154,8 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
     assert (
-        error.exconly()
-        == "lamindb.errors.ValidationError: Column 'treatment_time_h' failed series or dataframe validator 0: <Check check_function: Column 'treatment_time_h' failed dtype check for 'float': got int64>"
+        "Column 'treatment_time_h' failed series or dataframe validator 0: <Check check_function: Column 'treatment_time_h' failed dtype check for 'float': got int64>"
+        in error.exconly()
     )
 
     schema.delete()
@@ -212,7 +212,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
     try:
         curator.validate()
     except ln.errors.ValidationError as error:
-        assert str(error).startswith("column 'sample_note' not in dataframe")
+        assert "column 'sample_note' not in dataframe" in str(error)
     curator.standardize()
     curator.validate()
 
@@ -227,9 +227,7 @@ def test_dataframe_curator_index():
     curator = ln.curators.DataFrameCurator(df, schema)
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
-    assert error.exconly().startswith(
-        "lamindb.errors.ValidationError: expected series 'None' to have type str"
-    )
+    assert "expected series 'None' to have type str" in error.exconly()
 
     schema.delete()
     feature.delete()
