@@ -1347,6 +1347,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         data: str | Path = kwargs.pop("data") if len(args) == 0 else args[0]
         kind: str = kwargs.pop("kind", None)
         key: str | None = kwargs.pop("key", None)
+        run_id: int | None = kwargs.pop("run_id", None)  # for REST API
         run: Run | None = kwargs.pop("run", None)
         description: str | None = kwargs.pop("description", None)
         revises: Artifact | None = kwargs.pop("revises", None)
@@ -1468,6 +1469,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if revises is not None and revises.key is not None and kwargs["key"] is None:
             kwargs["key"] = revises.key
 
+        if run_id is not None:
+            kwargs["run_id"] = run_id
         kwargs["kind"] = kind
         kwargs["version"] = version
         kwargs["description"] = description
