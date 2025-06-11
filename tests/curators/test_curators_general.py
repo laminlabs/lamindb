@@ -323,7 +323,7 @@ def test_feature_dtype_path():
         features=[
             ln.Feature(
                 name="sample",
-                dtype="cat[Record[BioSample]]",
+                dtype="str",
                 nullable=False,
                 description="Custom sample name. This entry will be identical for multiple sequencing libraries/runs from the same sample. Spaces in sample names are automatically converted to underscores (_).",
             ).save(),
