@@ -1523,7 +1523,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     def overwrite_versions(self) -> bool:
         """Indicates whether to keep or overwrite versions.
 
-        It defaults to False for file-like artifacts and to True for folder-like artifacts.
+        It defaults to `False` for file-like artifacts and to `True` for folder-like artifacts.
+
+        Note that this requires significant storage space for large folders with
+        many duplicated files. Currently, `lamindb` does *not* de-duplicate files across
+        versions as in git, but keeps all files for all versions of the folder in storage.
         """
         return self._overwrite_versions
 
