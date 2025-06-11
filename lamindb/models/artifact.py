@@ -1657,7 +1657,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     f"Or fix invalid {message}"
                 )
         else:
-            return QuerySet(model=cls).filter(*queries, **expressions)
+            return (
+                QuerySet(model=cls)
+                .filter(*queries, **expressions)
+                .exclude(kind="__lamindb_run__")
+            )
 
     @classmethod
     def from_df(
