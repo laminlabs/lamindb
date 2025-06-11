@@ -390,6 +390,7 @@ def get_artifact_kwargs_from_data(
     using_key: str | None = None,
     is_replace: bool = False,
     skip_check_exists: bool = False,
+    overwrite_versions: bool | None = None,
 ):
     from lamindb import settings
 
@@ -458,7 +459,8 @@ def get_artifact_kwargs_from_data(
     # we use an actual storage key
     if check_path_in_storage:
         key_is_virtual = False
-
+    if overwrite_versions is None:
+        overwrite_versions = n_files is not None
     kwargs = {
         "uid": provisional_uid,
         "suffix": suffix,
@@ -471,7 +473,7 @@ def get_artifact_kwargs_from_data(
         # to make them both available immediately
         # after object creation
         "n_files": n_files,
-        "_overwrite_versions": n_files is not None,  # True for folder, False for file
+        "_overwrite_versions": overwrite_versions,  # True for folder, False for file
         "n_observations": None,  # to implement
         "run_id": run.id if run is not None else None,
         "run": run,
@@ -982,6 +984,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
         description: `str | None = None` A description.
         revises: `Artifact | None = None` Previous version of the artifact. Is an alternative way to passing `key` to trigger a new version.
+        overwrite_versions: `bool | None = None` Whether to overwrite versions. Defaults to `True` for folders and `False` for files.
         run: `Run | None = None` The run that creates the artifact.
 
     Examples:
@@ -1291,10 +1294,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     )
     """Creator of record."""
     _overwrite_versions: bool = BooleanField(default=None)
-    """Indicates whether to store or overwrite versions.
-
-    It defaults to False for file-like artifacts and to True for folder-like artifacts.
-    """
+    # see corresponding property `overwrite_versions`
     projects: Project
     """Linked projects."""
     references: Reference
@@ -1315,6 +1315,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         key: str | None = None,
         description: str | None = None,
         revises: Artifact | None = None,
+        overwrite_versions: bool | None = None,
         run: Run | None = None,
     ): ...
 
@@ -1351,6 +1352,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         run: Run | None = kwargs.pop("run", None)
         description: str | None = kwargs.pop("description", None)
         revises: Artifact | None = kwargs.pop("revises", None)
+        overwrite_versions: bool | None = kwargs.pop("overwrite_versions", None)
         version: str | None = kwargs.pop("version", None)
         branch_id: int | None = None
         if "visibility" in kwargs:  # backward compat
@@ -1420,6 +1422,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             default_storage=default_storage,
             using_key=using_key,
             skip_check_exists=skip_check_exists,
+            overwrite_versions=overwrite_versions,
         )
 
         # an object with the same hash already exists
@@ -1515,6 +1518,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @deprecated("n_files")
     def n_objects(self) -> int:
         return self.n_files
+
+    @property
+    def overwrite_versions(self) -> bool:
+        """Indicates whether to keep or overwrite versions.
+
+        It defaults to False for file-like artifacts and to True for folder-like artifacts.
+        """
+        return self._overwrite_versions
 
     @property
     def path(self) -> Path:
