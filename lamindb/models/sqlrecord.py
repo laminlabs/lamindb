@@ -664,14 +664,34 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 from lamindb import context as run_context
 
                 if run_context.space is not None:
-                    kwargs["space"] = run_context.space
+                    if "space_id" in kwargs:
+                        # space_id takes precedence over space
+                        # https://claude.ai/share/f045e5dc-0143-4bc5-b8a4-38309229f75e
+                        if kwargs["space_id"] == 1:  # ignore default space
+                            kwargs.pop("space_id")
+                            kwargs["space"] = run_context.space
+                    elif "space" in kwargs:
+                        if kwargs["space"] is None:
+                            kwargs["space"] = run_context.space
+                    else:
+                        kwargs["space"] = run_context.space
             if issubclass(
                 self.__class__, SQLRecord
             ) and self.__class__.__name__ not in {"Storage", "Source"}:
                 from lamindb import context as run_context
 
                 if run_context.branch is not None:
-                    kwargs["branch"] = run_context.branch
+                    # branch_id takes precedence over branch
+                    # https://claude.ai/share/f045e5dc-0143-4bc5-b8a4-38309229f75e
+                    if "branch_id" in kwargs:
+                        if kwargs["branch_id"] == 1:  # ignore default branch
+                            kwargs.pop("branch_id")
+                            kwargs["branch"] = run_context.branch
+                    elif "branch" in kwargs:
+                        if kwargs["branch"] is None:
+                            kwargs["branch"] = run_context.branch
+                    else:
+                        kwargs["branch"] = run_context.branch
             if skip_validation:
                 super().__init__(**kwargs)
             else:
@@ -743,7 +763,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             super().__init__(*args)
         track_current_key_and_name_values(self)
 
-    def save(self, *args, **kwargs) -> SQLRecord:
+    def save(self: T, *args, **kwargs) -> T:
         """Save.
 
         Always saves to the default database.
@@ -1366,7 +1386,15 @@ def track_current_key_and_name_values(record: SQLRecord):
 
 def check_name_change(record: SQLRecord):
     """Warns if a record's name has changed."""
-    from lamindb.models import Artifact, Collection, Feature, Schema, Transform
+    from lamindb.models import (
+        Artifact,
+        Collection,
+        Feature,
+        Record,
+        Schema,
+        Storage,
+        Transform,
+    )
 
     if (
         not record.pk
@@ -1389,7 +1417,7 @@ def check_name_change(record: SQLRecord):
 
     if old_name != new_name:
         # when a label is renamed, only raise a warning if it has a feature
-        if hasattr(record, "artifacts"):
+        if hasattr(record, "artifacts") and not isinstance(record, (Record, Storage)):
             linked_records = (
                 record.artifacts.through.filter(
                     label_ref_is_name=True, **{f"{registry.lower()}_id": record.pk}

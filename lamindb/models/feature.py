@@ -265,12 +265,20 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
     is_type: bool = kwargs.pop("is_type", None)
     type_: Feature | str | None = kwargs.pop("type", None)
     description: str | None = kwargs.pop("description", None)
+    branch = kwargs.pop("branch", None)
+    branch_id = kwargs.pop("branch_id", 1)
+    space = kwargs.pop("space", None)
+    space_id = kwargs.pop("space_id", 1)
     if kwargs:
         valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Feature)])
         raise FieldValidationError(f"Only {valid_keywords} are valid keyword arguments")
     kwargs["name"] = name
     kwargs["type"] = type_
     kwargs["is_type"] = is_type
+    kwargs["branch"] = branch
+    kwargs["branch_id"] = branch_id
+    kwargs["space"] = space
+    kwargs["space_id"] = space_id
     if not is_param:
         kwargs["description"] = description
     # cast dtype
@@ -503,7 +511,6 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args, **kwargs)
             return None
-        dtype = kwargs.get("dtype", None)
         default_value = kwargs.pop("default_value", None)
         nullable = kwargs.pop("nullable", True)  # default value of nullable
         cat_filters = kwargs.pop("cat_filters", None)
@@ -525,7 +532,9 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         if not self._state.adding:
             if not (
                 self.dtype.startswith("cat")
-                if dtype == "cat"
+                if dtype_str == "cat"
+                else dtype_str.startswith("cat")
+                if self.dtype == "cat"
                 else self.dtype == dtype_str
             ):
                 raise ValidationError(
