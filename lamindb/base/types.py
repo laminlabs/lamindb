@@ -51,6 +51,7 @@ Dtype = Literal[
     "datetime",  # datetime
     "dict",  # dictionary
     "object",  # this is a pandas input dtype, we're only using it for complicated types, not for strings
+    "path",  # path
 ]
 """Data type.
 
