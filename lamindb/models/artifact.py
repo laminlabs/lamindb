@@ -1617,7 +1617,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             keys_normalized = [key.split("__")[0] for key in expressions]
             field_or_feature_or_param = keys_normalized[0].split("__")[0]
             if field_or_feature_or_param in Artifact.__get_available_fields__():
-                return QuerySet(model=cls).filter(*queries, **expressions)
+                qs = QuerySet(model=cls).filter(*queries, **expressions)
+                if not any(e.startswith("kind") for e in expressions):
+                    return qs.exclude(kind="__lamindb_run__")
+                else:
+                    return qs
             elif all(
                 features_validated := Feature.validate(
                     keys_normalized, field="name", mute=True
