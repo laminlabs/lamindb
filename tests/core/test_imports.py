@@ -40,7 +40,9 @@ def test_ensure_exported_models():
     from django.db.models import Model
 
     all_exported_django_models = {
-        cls.__name__ for key, cls in vars(ln).items() if issubclass(cls, Model)
+        cls.__name__
+        for key, cls in vars(ln).items()
+        if isinstance(cls, type) and issubclass(cls, Model)
     }
     assert set(TOPLEVEL_MODEL_CLASSES) == all_exported_django_models
 
