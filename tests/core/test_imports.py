@@ -78,7 +78,7 @@ def test_ensure_preconnect_model_import(clsname):
             PRE_CONNECT_MODEL_TEMPLATE.format(
                 model_class=clsname,
                 instance_slug=settings.instance.slug,
-            )
+            ).encode()
         )
 
         proc = subprocess.run([sys.executable, f.name])
