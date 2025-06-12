@@ -40,7 +40,7 @@ def test_ensure_exported_models():
     from django.db.models import Model
 
     all_exported_django_models = {
-        cls.__name__
+        key
         for key, cls in vars(ln).items()
         if isinstance(cls, type) and issubclass(cls, Model)
     }
@@ -71,7 +71,7 @@ def disable_auto_connect():
 @pytest.mark.parametrize("clsname", TOPLEVEL_MODEL_CLASSES)
 @pytest.mark.usefixtures("disable_auto_connect")
 def test_ensure_preconnect_model_import(clsname):
-    from lamindb import settings
+    from lamindb_setup import settings
 
     with tempfile.NamedTemporaryFile(suffix=".py") as f:
         f.write(
