@@ -55,7 +55,7 @@ Dtype = Literal[
 ]
 """Data type.
 
-Data types in lamindb are a string-serialized abstraction of common data types.
+String-serialized representations of common data types.
 
 Overview
 ========
