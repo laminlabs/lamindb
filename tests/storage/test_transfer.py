@@ -16,11 +16,7 @@ def test_transfer_from_remote_to_local():
 
     # test transfer form an instance with extra registry modules (laminlabs/lamin-dev)
     # transfer 1st artifact
-    artifact = (
-        ln.Artifact.using("laminlabs/lamin-dev")
-        .filter(uid="livFRRpMaOgb3y8U2mK2")
-        .one()
-    )
+    artifact = ln.Artifact.using("laminlabs/lamin-dev").get("livFRRpMaOgb3y8U2mK2")
 
     # test describe postgres
     result = get_artifact_with_related(
