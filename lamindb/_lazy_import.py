@@ -54,13 +54,13 @@ class _Proxy:
 
     def __repr__(self) -> str:
         obj = getattr(sys.modules["lamindb"], self.__name)
-        if obj is None:
+        if obj is self:
             return f"<lamindb lazy_import proxy for {self.__name} (not connected)>"
         return repr(obj)
 
     def __getattr__(self, item):
         obj = getattr(sys.modules["lamindb"], self.__name)
-        if obj is None:
+        if obj is self:
             _raise_not_connected(self.__name)
         return getattr(obj, item)
 
@@ -69,7 +69,7 @@ class _Proxy:
             super().__setattr__(key, value)
         else:
             obj = getattr(sys.modules["lamindb"], self.__name)
-            if obj is None:
+            if obj is self:
                 _raise_not_connected(self.__name)
             setattr(obj, key, value)
 
