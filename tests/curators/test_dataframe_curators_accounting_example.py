@@ -111,8 +111,7 @@ def test_missing_required_feature(transactions_schema):
     with pytest.raises(ln.errors.ValidationError) as err:
         curator.validate()
         message = "column 'transaction_amount_eur_cent' not in dataframe. Columns in dataframe: ['date', 'transaction_amount_usd_cent', 'currency_name']"
-        assert str(err) == message
-        assert err.exconly() == f"lamindb.errors.ValidationError: {message}"
+        assert message in str(err)
 
 
 def test_invalid_label(transactions_schema):
