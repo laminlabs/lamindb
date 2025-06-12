@@ -56,7 +56,7 @@ connect("{instance_slug}")
 @pytest.fixture(scope="function")
 def disable_auto_connect():
     """Disable auto-connect for the duration of the test."""
-    from lamindb import settings
+    from lamindb_setup import settings
 
     original_auto_connect = settings.auto_connect
     settings.auto_connect = False
