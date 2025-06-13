@@ -70,7 +70,6 @@ from ..models._is_versioned import (
 from ._django import get_artifact_with_related
 from ._feature_manager import (
     FeatureManager,
-    add_label_feature_links,
     filter_base,
     get_label_links,
 )
@@ -960,8 +959,7 @@ def add_labels(
             features_labels = {
                 registry_name: [(feature, label_record) for label_record in records]
             }
-            add_label_feature_links(
-                self.features,
+            self.features._add_label_feature_links(
                 features_labels,
                 feature_ref_is_name=feature_ref_is_name,
                 label_ref_is_name=label_ref_is_name,
