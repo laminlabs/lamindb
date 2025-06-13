@@ -1180,15 +1180,9 @@ def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
             logger.warning(
                 f"updating annotation of artifact {self._host.uid} with feature set for slot: {slot}"
             )
-            print(
-                self._host.feature_sets.through.objects.get(
-                    artifact_id=self._host.id, slot=slot
-                )
-            )
             self._host.feature_sets.through.objects.get(
                 artifact_id=self._host.id, slot=slot
             ).delete()
-            print("re-add")
             self._host.features._add_schema(schema_self, slot)
 
 
