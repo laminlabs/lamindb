@@ -319,7 +319,8 @@ def test_feature_dtype_path():
     )
 
     nextflow_schema = ln.Schema(
-        name="nf-core/scrnaseq standard",
+        name="nf-core/scrnaseq pipeline - params.input schema",
+        description="https://github.com/nf-core/scrnaseq/blob/4.0.0/assets/schema_input.json",
         features=[
             ln.Feature(
                 name="sample",
@@ -347,6 +348,16 @@ def test_feature_dtype_path():
                 name="seq_center",
                 dtype=str,
                 description="Sequencing center for the sample. If multiple rows are provided for the same sample, this must be the same string for all rows. Samples sequenced at different centers are considered different samples and must have different identifiers.",
+            ).save(),
+            ln.Feature(
+                name="sample_type",
+                dtype=str,
+                description='"atac", "gex"',
+            ).save(),
+            ln.Feature(
+                name="feature_type",
+                dtype=str,
+                description='"gex", "vdj", "ab", "crispr", "cmo"',
             ).save(),
         ],
     ).save()
