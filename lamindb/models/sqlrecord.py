@@ -858,13 +858,10 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             if hasattr(self, "labels"):
                 from copy import copy
 
-                from lamindb.models._feature_manager import FeatureManager
-
                 # here we go back to original record on the source database
                 self_on_db = copy(self)
                 self_on_db._state.db = db
                 self_on_db.pk = pk_on_db  # manually set the primary key
-                self_on_db.features = FeatureManager(self_on_db)  # type: ignore
                 self.features._add_from(self_on_db, transfer_logs=transfer_logs)
                 self.labels.add_from(self_on_db, transfer_logs=transfer_logs)
             for k, v in transfer_logs.items():
