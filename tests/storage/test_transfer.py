@@ -14,7 +14,9 @@ def test_transfer_from_remote_to_local():
     ln.ULabel.filter().delete()
     bt.CellType.filter().delete()
 
-    # test transfer form an instance with extra registry modules (laminlabs/lamin-dev)
+    # test transfer from an instance with an extra schema module: wetlab
+    # we also made sure that the artifact here has a wetlab label attached
+
     # transfer 1st artifact
     artifact = ln.Artifact.using("laminlabs/lamin-dev").get("livFRRpMaOgb3y8U2mK2")
 
@@ -74,10 +76,8 @@ def test_transfer_from_remote_to_local():
     assert organism.created_at != organism_remote.created_at
 
     # now check that this is idempotent and we can run it again
-    artifact_repeat = (
-        ln.Artifact.using("laminlabs/lamin-dev")
-        .filter(uid="livFRRpMaOgb3y8U2mK2")
-        .one()
+    artifact_repeat = ln.Artifact.using("laminlabs/lamin-dev").get(
+        "livFRRpMaOgb3y8U2mK2"
     )
     artifact_repeat.save()
 
@@ -88,11 +88,7 @@ def test_transfer_from_remote_to_local():
     feature.save()
 
     # transfer 2nd artifact
-    artifact2 = (
-        ln.Artifact.using("laminlabs/lamin-dev")
-        .filter(uid="qz35YaRk09XtYAyLvjyZ")
-        .one()
-    )
+    artifact2 = ln.Artifact.using("laminlabs/lamin-dev").get("qz35YaRk09XtYAyLvjyZ")
     artifact2.save()
 
     # check the feature name
