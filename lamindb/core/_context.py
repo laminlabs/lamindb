@@ -108,7 +108,7 @@ def last_non_empty_r_block(line: str) -> str:
 
 
 class LogStreamHandler:
-    def __init__(self, log_stream: TextIO, file: TextIO, use_buffer: bool = True):
+    def __init__(self, log_stream: TextIO, file: TextIO, use_buffer: bool):
         self.log_stream = log_stream
         self.file = file
 
@@ -162,6 +162,7 @@ class LogStreamTracker:
             ln_setup.settings.cache_dir / f"run_logs_{self.run.uid}.txt"
         )
         self.log_file = open(self.log_file_path, "w")
+        # use buffering for correct handling of carriage returns
         sys.stdout = LogStreamHandler(
             self.original_stdout, self.log_file, use_buffer=True
         )
