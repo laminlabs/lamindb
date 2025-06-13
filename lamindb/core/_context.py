@@ -9,7 +9,7 @@ import threading
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TextIO
 
 import lamindb_setup as ln_setup
 from django.db.models import Func, IntegerField, Q
@@ -108,13 +108,20 @@ def last_non_empty_r_block(line: str) -> str:
 
 
 class LogStreamHandler:
-    def __init__(self, log_stream, file):
+    def __init__(self, log_stream: TextIO, file: TextIO, use_buffer: bool = True):
         self.log_stream = log_stream
         self.file = file
+
         self._buffer = ""
+        self._use_buffer = use_buffer
 
     def write(self, data: str) -> int:
         self.log_stream.write(data)
+
+        if not self._use_buffer:
+            self.file.write(data)
+            self.file.flush()
+            return len(data)
 
         self._buffer += data
         # write only the last part of a line with carriage returns
@@ -125,7 +132,7 @@ class LogStreamHandler:
 
         return len(data)
 
-    def flush(self, flush_buffer: bool = False):
+    def flush(self):
         self.log_stream.flush()
         if not self.file.closed:
             self.file.flush()
@@ -155,8 +162,13 @@ class LogStreamTracker:
             ln_setup.settings.cache_dir / f"run_logs_{self.run.uid}.txt"
         )
         self.log_file = open(self.log_file_path, "w")
-        sys.stdout = LogStreamHandler(self.original_stdout, self.log_file)
-        sys.stderr = LogStreamHandler(self.original_stderr, self.log_file)
+        sys.stdout = LogStreamHandler(
+            self.original_stdout, self.log_file, use_buffer=True
+        )
+        # write evrything immediately in stderr
+        sys.stderr = LogStreamHandler(
+            self.original_stderr, self.log_file, use_buffer=False
+        )
         # handle signals
         # signal should be used only in the main thread, otherwise
         # ValueError: signal only works in main thread of the main interpreter
@@ -169,7 +181,7 @@ class LogStreamTracker:
     def finish(self):
         if self.original_stdout:
             getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
-            getattr(sys.stderr, "flush_buffer", sys.stderr.flush)()
+            sys.stderr.flush()
             sys.stdout = self.original_stdout
             sys.stderr = self.original_stderr
             self.log_file.close()
@@ -180,7 +192,7 @@ class LogStreamTracker:
         if self.original_stdout and not self.is_cleaning_up:
             self.is_cleaning_up = True
             getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
-            getattr(sys.stderr, "flush_buffer", sys.stderr.flush)()
+            sys.stderr.flush()
             if signo is not None:
                 signal_msg = f"\nProcess terminated by signal {signo} ({signal.Signals(signo).name})\n"
                 if frame:
@@ -201,7 +213,7 @@ class LogStreamTracker:
                 self.log_file = open(self.log_file_path, "a")
             else:
                 getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
-                getattr(sys.stderr, "flush_buffer", sys.stderr.flush)()
+                sys.stderr.flush()
             self.log_file.write(error_msg)
             self.log_file.flush()
             self.cleanup()
