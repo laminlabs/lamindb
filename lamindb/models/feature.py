@@ -12,6 +12,10 @@ from django.db.utils import IntegrityError
 from lamin_utils import logger
 from lamindb_setup._init_instance import get_schema_module_name
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dict, hash_string
+from lamindb_setup.errors import (
+    MODULE_WASNT_CONFIGURED_MESSAGE_TEMPLATE,
+    ModuleWasntConfigured,
+)
 from pandas.api.types import CategoricalDtype, is_string_dtype
 from pandas.core.dtypes.base import ExtensionDtype
 
@@ -136,11 +140,8 @@ def parse_cat_dtype(
                 module_name_attempt, raise_import_error=False
             )
             if module_name is None:
-                raise ImportError(
-                    f"Can not parse dtype {dtype_str} because {module_name_attempt} "
-                    f"was not found.\nInstall the module with `pip install {module_name_attempt}`\n"
-                    "and also add the module to this instance via instance settings page "
-                    "under 'schema modules'."
+                raise ModuleWasntConfigured(
+                    MODULE_WASNT_CONFIGURED_MESSAGE_TEMPLATE.format(module_name_attempt)
                 )
         else:
             module_name, class_name = "lamindb", registry_str

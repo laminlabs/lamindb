@@ -17,6 +17,7 @@ from django.db.models import Aggregate, ProtectedError, Subquery
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_set
 from lamindb_setup.core.upath import create_path
+from lamindb_setup.errors import ModuleWasntConfigured
 from rich.table import Column, Table
 from rich.text import Text
 
@@ -1107,7 +1108,11 @@ def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
 
     using_key = settings._using_key
     for slot, schema in data.features.slots.items():  # type: ignore
-        members = schema.members
+        try:
+            members = schema.members
+        except ModuleWasntConfigured as err:
+            logger.warning(f"skipping transfer of {slot} schema because {err}")
+            continue
         if len(members) == 0:
             continue
         registry = members[0].__class__
