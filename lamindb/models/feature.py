@@ -47,7 +47,7 @@ if TYPE_CHECKING:
 FEATURE_DTYPES = set(get_args(Dtype))
 
 
-def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, str]]:
+def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, Any]]:
     """Parses feature data type string into a structured list of components."""
     from .artifact import Artifact
 
