@@ -1,4 +1,4 @@
-from ... import Schema
+from lamindb.models import Schema
 
 
 def valid_features() -> Schema:
