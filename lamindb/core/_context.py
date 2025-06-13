@@ -113,7 +113,7 @@ class LogStreamHandler:
         self.file = file
         self._buffer = ""
 
-    def write(self, data) -> int:
+    def write(self, data: str) -> int:
         self.log_stream.write(data)
 
         self._buffer += data
@@ -125,15 +125,18 @@ class LogStreamHandler:
 
         return len(data)
 
-    def flush(self):
+    def flush(self, flush_buffer: bool = False):
         self.log_stream.flush()
+        if not self.file.closed:
+            self.file.flush()
 
-        if self.file.closed:
-            return
-        if self._buffer:
+    # .flush is sometimes (in jupyter etc.) called after every .write
+    # this needs to be called only at the end
+    def flush_buffer(self):
+        if not self.file.closed and self._buffer:
             self.file.write(last_non_empty_r_block(self._buffer))
             self._buffer = ""
-        self.file.flush()
+        self.flush()
 
 
 class LogStreamTracker:
@@ -165,8 +168,8 @@ class LogStreamTracker:
 
     def finish(self):
         if self.original_stdout:
-            sys.stdout.flush()
-            sys.stderr.flush()
+            getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
+            getattr(sys.stderr, "flush_buffer", sys.stderr.flush)()
             sys.stdout = self.original_stdout
             sys.stderr = self.original_stderr
             self.log_file.close()
@@ -176,8 +179,8 @@ class LogStreamTracker:
 
         if self.original_stdout and not self.is_cleaning_up:
             self.is_cleaning_up = True
-            sys.stdout.flush()
-            sys.stderr.flush()
+            getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
+            getattr(sys.stderr, "flush_buffer", sys.stderr.flush)()
             if signo is not None:
                 signal_msg = f"\nProcess terminated by signal {signo} ({signal.Signals(signo).name})\n"
                 if frame:
@@ -197,8 +200,8 @@ class LogStreamTracker:
             if self.log_file.closed:
                 self.log_file = open(self.log_file_path, "a")
             else:
-                sys.stdout.flush()
-                sys.stderr.flush()
+                getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
+                getattr(sys.stderr, "flush_buffer", sys.stderr.flush)()
             self.log_file.write(error_msg)
             self.log_file.flush()
             self.cleanup()
