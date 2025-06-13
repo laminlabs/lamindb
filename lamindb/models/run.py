@@ -441,7 +441,7 @@ class Run(SQLRecord):
                     keys_normalized, field="name", mute=True
                 )
             ):
-                return filter_base(FeatureManagerRun, **expressions)
+                return filter_base(Run, **expressions)
             else:
                 params = ", ".join(sorted(np.array(keys_normalized)[~params_validated]))
                 message = f"feature names: {params}"

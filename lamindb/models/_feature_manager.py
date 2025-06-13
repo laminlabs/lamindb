@@ -33,6 +33,7 @@ from lamindb.models.save import save
 from lamindb.models.schema import DICT_KEYS_TYPE, Schema
 from lamindb.models.sqlrecord import (
     REGISTRY_UNIQUE_FIELD,
+    Registry,
     get_name_field,
     transfer_fk_to_default_db_bulk,
     transfer_to_default_db,
@@ -52,7 +53,7 @@ from ._relations import (
     dict_related_model_to_related_name,
 )
 from .feature import Feature, FeatureValue, parse_dtype
-from .run import FeatureManager, FeatureManagerRun, Run
+from .run import FeatureManager, Run
 from .sqlrecord import SQLRecord
 from .ulabel import ULabel
 
@@ -604,7 +605,9 @@ def __getitem__(self, slot) -> QuerySet:
     return getattr(schema, self._accessor_by_registry[orm_name]).all()
 
 
-def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
+def filter_base(
+    registry: Registry, _skip_validation: bool = True, **expression
+) -> QuerySet:
     from .artifact import Artifact
 
     model = Feature
@@ -631,7 +634,7 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
             "list[cat"
         ):
             if comparator == "__isnull":
-                if cls == FeatureManagerArtifact:
+                if registry is Artifact:
                     from .artifact import ArtifactFeatureValue
 
                     if value:  # True
@@ -661,7 +664,7 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
         # categorical features
         elif isinstance(value, (str, SQLRecord, bool)):
             if comparator == "__isnull":
-                if cls == FeatureManagerArtifact:
+                if registry is Artifact:
                     result = parse_dtype(feature.dtype)[0]
                     kwargs = {
                         f"links_{result['registry'].__name__.lower()}__feature": feature
@@ -711,10 +714,7 @@ def filter_base(cls, _skip_validation: bool = True, **expression) -> QuerySet:
             # https://laminlabs.slack.com/archives/C04FPE8V01W/p1688328084810609
     if not (new_expression):
         raise NotImplementedError
-    if cls == FeatureManagerArtifact:
-        return Artifact.objects.filter(**new_expression)
-    elif cls == FeatureManagerRun:
-        return Run.objects.filter(**new_expression)
+    return registry.objects.filter(**new_expression)
 
 
 @classmethod  # type: ignore

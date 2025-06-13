@@ -1642,7 +1642,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     keys_normalized, field="name", mute=True
                 )
             ):
-                return filter_base(FeatureManagerArtifact, **expressions)
+                return filter_base(Artifact, **expressions)
             else:
                 features = ", ".join(
                     sorted(np.array(keys_normalized)[~features_validated])
