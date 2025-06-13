@@ -4,9 +4,10 @@ import bionty as bt
 import lamindb as ln
 import pytest
 from lamindb.models._django import get_artifact_with_related
+from lamindb_setup.errors import MODULE_WASNT_CONFIGURED_MESSAGE_TEMPLATE
 
 
-def test_transfer_from_remote_to_local():
+def test_transfer_from_remote_to_local(ccaplog):
     """Test transfer from remote to local instance."""
 
     bt.Gene.filter().delete()
@@ -64,6 +65,7 @@ def test_transfer_from_remote_to_local():
     organism_remote = artifact.organisms.get(name="human")
 
     artifact.save()
+    assert MODULE_WASNT_CONFIGURED_MESSAGE_TEMPLATE.format("wetlab") in ccaplog.text
 
     # check all ids are adjusted
     assert id_remote != artifact.id

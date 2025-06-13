@@ -47,3 +47,17 @@ def pytest_sessionfinish(session: pytest.Session):
     ln.setup.delete("lamindb-unit-tests-storage", force=True)
     run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)  # noqa: S602
     ln.setup.settings.auto_connect = AUTO_CONNECT
+
+
+@pytest.fixture
+def ccaplog(caplog):
+    """Add caplog handler to our custom logger at session start."""
+    from lamin_utils._logger import logger
+
+    # Add caplog's handler to our custom logger
+    logger.addHandler(caplog.handler)
+
+    yield caplog
+
+    # Clean up at the end of the session
+    logger.removeHandler(caplog.handler)
