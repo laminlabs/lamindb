@@ -405,9 +405,10 @@ class Registry(ModelBase):
         cls,
         field: StrField | None = None,
         return_field: StrField | None = None,
+        keep: Literal["first", "last", False] = "first",
     ) -> NamedTuple:
         """{}"""  # noqa: D415
-        return _lookup(cls=cls, field=field, return_field=return_field)
+        return _lookup(cls=cls, field=field, return_field=return_field, keep=keep)
 
     def filter(cls, *queries, **expressions) -> QuerySet:
         """Query records.
