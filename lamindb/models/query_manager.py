@@ -180,6 +180,10 @@ def _lookup(
     Args:
         field: The field to look up the values for. Defaults to first string field.
         return_field: The field to return. If `None`, returns the whole record.
+        keep: When multiple records are found for a lookup, how to return the records.
+            - `"first"`: return the first record.
+            - `"last"`: return the last record.
+            - `False`: return all records.
 
     Returns:
         A `NamedTuple` of lookup information of the field values with a
