@@ -141,7 +141,7 @@ def parse_cat_dtype(
             )
             if module_name is None:
                 raise ModuleWasntConfigured(
-                    MODULE_WASNT_CONFIGURED_MESSAGE_TEMPLATE.format(module_name)
+                    MODULE_WASNT_CONFIGURED_MESSAGE_TEMPLATE.format(module_name_attempt)
                 )
         else:
             module_name, class_name = "lamindb", registry_str
