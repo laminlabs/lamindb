@@ -14,6 +14,7 @@ from anndata import AnnData
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connections
 from django.db.models import Aggregate, ProtectedError, Subquery
+from django.db.utils import IntegrityError
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_set
 from lamindb_setup.core.upath import create_path
@@ -1115,46 +1116,74 @@ def _add_from(self, data: Artifact | Collection, transfer_logs: dict = None):
             continue
         if len(members) == 0:
             continue
-        registry = members[0].__class__
-        # note here the features are transferred based on an unique field
-        field = REGISTRY_UNIQUE_FIELD.get(registry.__name__.lower(), "uid")
-        # this will be e.g. be a list of ontology_ids or uids
-        member_uids = list(members.values_list(field, flat=True))
-        validated = registry.validate(member_uids, field=field, mute=True)
-        new_members_uids = list(compress(member_uids, ~validated))
-        new_members = members.filter(**{f"{field}__in": new_members_uids}).all()
-        n_new_members = len(new_members)
-        if n_new_members > 0:
-            # transfer foreign keys needs to be run before transfer to default db
-            transfer_fk_to_default_db_bulk(
-                new_members, using_key, transfer_logs=transfer_logs
+        if len(members) > settings.annotation.n_max_records:
+            logger.warning(
+                f"skipping creating {len(members)} > {settings.annotation.n_max_records} new {members[0].__class__.__name__} records"
             )
-            for feature in new_members:
-                # not calling save=True here as in labels, because want to
-                # bulk save below
-                # transfer_fk is set to False because they are already transferred
-                # in the previous step transfer_fk_to_default_db_bulk
-                transfer_to_default_db(
-                    feature, using_key, transfer_fk=False, transfer_logs=transfer_logs
-                )
-            logger.info(f"saving {n_new_members} new {registry.__name__} records")
-            save(
-                new_members, ignore_conflicts=True
-            )  # conflicts arising from existing records are ignored
-
-        # create a new feature set from feature values using the same uid
-        schema_self = Schema.from_values(member_uids, field=getattr(registry, field))
-        if schema_self is None:
-            if hasattr(registry, "organism_id"):
+            schema_self = schema
+            schema_exists = Schema.filter(hash=schema_self.hash).one_or_none()
+            if schema_exists is not None:
+                schema_self = schema_exists
+            else:
+                schema_self.save()
+        else:
+            registry = members[0].__class__
+            # note here the features are transferred based on an unique field
+            field = REGISTRY_UNIQUE_FIELD.get(registry.__name__.lower(), "uid")
+            # this will be e.g. be a list of ontology_ids or uids
+            member_uids = list(members.values_list(field, flat=True))
+            validated = registry.validate(member_uids, field=field, mute=True)
+            new_members_uids = list(compress(member_uids, ~validated))
+            new_members = members.filter(**{f"{field}__in": new_members_uids}).all()
+            n_new_members = len(new_members)
+            if len(members) > settings.annotation.n_max_records:
                 logger.warning(
-                    f"Schema is not transferred, check if organism is set correctly: {schema}"
+                    f"skipping creating {n_new_members} > {settings.annotation.n_max_records} new {registry.__name__} records"
                 )
-            continue
-        # make sure the uid matches if schema is composed of same features
-        if schema_self.hash == schema.hash:
-            schema_self.uid = schema.uid
-        logger.info(f"saving {slot} schema: {schema_self}")
-        self._host.features._add_schema(schema_self, slot)
+            if n_new_members > 0:
+                # transfer foreign keys needs to be run before transfer to default db
+                transfer_fk_to_default_db_bulk(
+                    new_members, using_key, transfer_logs=transfer_logs
+                )
+                for feature in new_members:
+                    # not calling save=True here as in labels, because want to
+                    # bulk save below
+                    # transfer_fk is set to False because they are already transferred
+                    # in the previous step transfer_fk_to_default_db_bulk
+                    transfer_to_default_db(
+                        feature,
+                        using_key,
+                        transfer_fk=False,
+                        transfer_logs=transfer_logs,
+                    )
+                save(
+                    new_members, ignore_conflicts=True
+                )  # conflicts arising from existing records are ignored
+
+            # create a new feature set from feature values using the same uid
+            schema_self = Schema.from_values(
+                member_uids, field=getattr(registry, field)
+            )
+            if schema_self is None:
+                if hasattr(registry, "organism_id"):
+                    logger.warning(
+                        f"Schema is not transferred, check if organism is set correctly: {schema}"
+                    )
+                continue
+            # make sure the uid matches if schema is composed of same features
+            if schema_self.hash == schema.hash:
+                schema_self.uid = schema.uid
+            logger.info(f"saving {slot} schema: {schema_self}")
+        try:
+            self._host.features._add_schema(schema_self, slot)
+        except IntegrityError:
+            logger.warning(
+                f"updating annotation of artifact {self._host.uid} with feature set for slot: {slot}"
+            )
+            self._host.feature_sets.through.objects.get(
+                artifact_id=self._host.id, slot=slot
+            ).delete()
+            self._host.features._add_schema(schema_self, slot)
 
 
 def make_external(self, feature: Feature) -> None:

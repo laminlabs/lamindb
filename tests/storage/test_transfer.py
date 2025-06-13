@@ -138,18 +138,17 @@ def test_using_record_organism():
     """Test passing record and organism to the using_key instance."""
     import bionty as bt
 
-    release_110 = bt.Source.filter(
+    release_110_cxg = bt.Source.using("laminlabs/lamin-dev").get(
         organism="mouse", entity="bionty.Gene", version="release-110"
-    ).one()
-    release_110_cxg = (
-        bt.Source.using("laminlabs/lamin-dev")
-        .filter(organism="mouse", entity="bionty.Gene", version="release-110")
-        .one()
     )
-    release_112_cxg = (
-        bt.Source.using("laminlabs/lamin-dev")
-        .filter(organism="mouse", entity="bionty.Gene", version="release-112")
-        .one()
+    release_112_cxg = bt.Source.using("laminlabs/lamin-dev").get(
+        organism="mouse", entity="bionty.Gene", version="release-112"
+    )
+    release_110 = release_110_cxg.save()  # transfer source record
+    release_110_cxg = (  # re-fetch
+        bt.Source.using("laminlabs/lamin-dev").get(
+            organism="mouse", entity="bionty.Gene", version="release-110"
+        )
     )
 
     # passing the wrong source
