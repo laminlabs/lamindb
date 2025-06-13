@@ -1311,9 +1311,7 @@ def get_transfer_run(record) -> Run:
             logger.warning(WARNING_RUN_TRANSFORM)
         initiated_by_run = None
     # it doesn't seem to make sense to create new runs for every transfer
-    run = Run.filter(
-        transform=transform, initiated_by_run=initiated_by_run
-    ).one_or_none()
+    run = Run.filter(transform=transform, initiated_by_run=initiated_by_run).first()
     if run is None:
         run = Run(transform=transform, initiated_by_run=initiated_by_run).save()  # type: ignore
         run.initiated_by_run = initiated_by_run  # so that it's available in memory
@@ -1331,6 +1329,7 @@ def transfer_to_default_db(
     if record._state.db is None or record._state.db == "default":
         return None
     registry = record.__class__
+    logger.debug(f"transferring {registry.__name__} record {record.uid} to default db")
     record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
     record_str = f"{record.__class__.__name__}(uid='{record.uid}')"
     if transfer_logs["run"] is None:
