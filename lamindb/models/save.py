@@ -29,7 +29,11 @@ if TYPE_CHECKING:
     from .artifact import Artifact
 
 
-def save(records: Iterable[SQLRecord], ignore_conflicts: bool | None = False) -> None:
+def save(
+    records: Iterable[SQLRecord],
+    ignore_conflicts: bool | None = False,
+    batch_size: int = 10000,
+) -> None:
     """Bulk save records.
 
     Note:
@@ -44,9 +48,11 @@ def save(records: Iterable[SQLRecord], ignore_conflicts: bool | None = False) ->
     Args:
         records: Multiple :class:`~lamindb.models.SQLRecord` objects.
         ignore_conflicts: If ``True``, do not error if some records violate a
-           unique or another constraint. However, it won't inplace update the id
-           fields of records. If you need records with ids, you need to query
-           them from the database.
+            unique or another constraint. However, it won't inplace update the id
+            fields of records. If you need records with ids, you need to query
+            them from the database.
+        batch_size: Number of records to process in each batch. Defaults to 10000.
+            Large batch sizes can improve performance but may lead to memory issues.
 
     Examples:
 
@@ -81,9 +87,11 @@ def save(records: Iterable[SQLRecord], ignore_conflicts: bool | None = False) ->
         non_artifacts_old, non_artifacts_new = partition(
             lambda r: r._state.adding or r.pk is None, non_artifacts
         )
-        bulk_create(non_artifacts_new, ignore_conflicts=ignore_conflicts)
+        bulk_create(
+            non_artifacts_new, ignore_conflicts=ignore_conflicts, batch_size=batch_size
+        )
         if non_artifacts_old:
-            bulk_update(non_artifacts_old)
+            bulk_update(non_artifacts_old, batch_size=batch_size)
         non_artifacts_with_parents = [
             r for r in non_artifacts_new if hasattr(r, "_parents")
         ]
@@ -107,26 +115,81 @@ def save(records: Iterable[SQLRecord], ignore_conflicts: bool | None = False) ->
     return None
 
 
-def bulk_create(records: Iterable[SQLRecord], ignore_conflicts: bool | None = False):
+def bulk_create(
+    records: Iterable[SQLRecord],
+    ignore_conflicts: bool | None = False,
+    batch_size: int = 10000,
+):
+    """Create records in batches for safety and performance.
+
+    Args:
+        records: Iterable of SQLRecord objects to create
+        ignore_conflicts: Whether to ignore conflicts during creation
+        batch_size: Number of records to process in each batch. Defaults to 10000.
+    """
     records_by_orm = defaultdict(list)
     for record in records:
         records_by_orm[record.__class__].append(record)
-    for registry, records in records_by_orm.items():
-        registry.objects.bulk_create(records, ignore_conflicts=ignore_conflicts)
-        # records[:] = created  # In-place list update; does not seem to be necessary
+
+    for registry, records_list in records_by_orm.items():
+        total_records = len(records_list)
+        model_name = registry.__name__
+        logger.warning(
+            f"Starting bulk_create for {total_records} {model_name} records in batches of {batch_size}"
+        )
+
+        # Process records in batches
+        for i in range(0, len(records_list), batch_size):
+            batch = records_list[i : i + batch_size]
+            batch_num = (i // batch_size) + 1
+            total_batches = (total_records + batch_size - 1) // batch_size
+
+            logger.info(
+                f"Processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
+            )
+            registry.objects.bulk_create(batch, ignore_conflicts=ignore_conflicts)
+            # records[:] = created  # In-place list update; does not seem to be necessary
 
 
-def bulk_update(records: Iterable[SQLRecord], ignore_conflicts: bool | None = False):
+def bulk_update(
+    records: Iterable[SQLRecord],
+    ignore_conflicts: bool | None = False,
+    batch_size: int = 10000,
+):
+    """Update records in batches for safety and performance.
+
+    Args:
+        records: Iterable of SQLRecord objects to update
+        ignore_conflicts: Whether to ignore conflicts during update (currently unused but kept for consistency)
+        batch_size: Number of records to process in each batch. If None, processes all at once.
+    """
     records_by_orm = defaultdict(list)
     for record in records:
         records_by_orm[record.__class__].append(record)
-    for registry, records in records_by_orm.items():
+
+    for registry, records_list in records_by_orm.items():
+        total_records = len(records_list)
+        model_name = registry.__name__
+        logger.warning(
+            f"Starting bulk_update for {total_records} {model_name} records in batches of {batch_size}"
+        )
+
         field_names = [
             field.name
             for field in registry._meta.fields
             if (field.name != "created_at" and field.name != "id")
         ]
-        registry.objects.bulk_update(records, field_names)
+
+        # Process records in batches
+        for i in range(0, len(records_list), batch_size):
+            batch = records_list[i : i + batch_size]
+            batch_num = (i // batch_size) + 1
+            total_batches = (total_records + batch_size - 1) // batch_size
+
+            logger.info(
+                f"Processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
+            )
+            registry.objects.bulk_update(batch, field_names)
 
 
 # This is also used within Artifact.save()
