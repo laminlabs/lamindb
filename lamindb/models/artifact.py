@@ -70,7 +70,6 @@ from ..models._is_versioned import (
 from ._django import get_artifact_with_related
 from ._feature_manager import (
     FeatureManager,
-    FeatureManagerArtifact,
     add_label_feature_links,
     filter_base,
     get_label_links,
@@ -1098,44 +1097,48 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
 
-    features: FeatureManager = FeatureManagerArtifact  # type: ignore
-    """Feature manager.
+    @property
+    def features(self) -> FeatureManager:
+        """Feature manager.
 
-    Typically, you annotate a dataset with features by defining a `Schema` and passing it to the `Artifact` constructor.
+        Typically, you annotate a dataset with features by defining a `Schema` and passing it to the `Artifact` constructor.
 
-    Here is how to do annotate an artifact ad hoc::
-
-       artifact.features.add_values({
-            "species": organism,  # here, organism is an Organism record
-            "scientist": ['Barbara McClintock', 'Edgar Anderson'],
-            "temperature": 27.6,
-            "experiment": "Experiment 1"
-       })
-
-    Query artifacts by features::
-
-        ln.Artifact.filter(scientist="Barbara McClintock")
-
-    Features may or may not be part of the dataset, i.e., the artifact content in storage. For
-    instance, the :class:`~lamindb.curators.DataFrameCurator` flow validates the columns of a
-    `DataFrame`-like artifact and annotates it with features corresponding to
-    these columns. `artifact.features.add_values`, by contrast, does not
-    validate the content of the artifact.
-
-    .. dropdown:: An example for a model-like artifact
-
-        ::
+        Here is how to do annotate an artifact ad hoc::
 
             artifact.features.add_values({
-                "hidden_size": 32,
-                "bottleneck_size": 16,
-                "batch_size": 32,
-                "preprocess_params": {
-                    "normalization_type": "cool",
-                    "subset_highlyvariable": True,
-                },
+                "species": organism,  # here, organism is an Organism record
+                "scientist": ['Barbara McClintock', 'Edgar Anderson'],
+                "temperature": 27.6,
+                "experiment": "Experiment 1"
             })
-    """
+
+        Query artifacts by features::
+
+            ln.Artifact.filter(scientist="Barbara McClintock")
+
+        Features may or may not be part of the dataset, i.e., the artifact content in storage. For
+        instance, the :class:`~lamindb.curators.DataFrameCurator` flow validates the columns of a
+        `DataFrame`-like artifact and annotates it with features corresponding to
+        these columns. `artifact.features.add_values`, by contrast, does not
+        validate the content of the artifact.
+
+        .. dropdown:: An example for a model-like artifact
+
+            ::
+
+                artifact.features.add_values({
+                    "hidden_size": 32,
+                    "bottleneck_size": 16,
+                    "batch_size": 32,
+                    "preprocess_params": {
+                        "normalization_type": "cool",
+                        "subset_highlyvariable": True,
+                    },
+                })
+        """
+        from ._feature_manager import FeatureManager
+
+        return FeatureManager(self)
 
     @property
     def labels(self) -> LabelManager:
@@ -1224,9 +1227,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """Number of files for folder-like artifacts, `None` for file-like artifacts.
 
     Note that some arrays are also stored as folders, e.g., `.zarr` or `.tiledbsoma`.
-
-    .. versionchanged:: 1.0
-        Renamed from `n_objects` to `n_files`.
     """
     n_observations: int | None = BigIntegerField(
         null=True, db_index=True, default=None, editable=False
@@ -1330,19 +1330,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         *args,
         **kwargs,
     ):
-        self.features = FeatureManager(self)  # type: ignore
-        # Below checks for the Django-internal call in from_db()
-        # it'd be better if we could avoid this, but not being able to create a Artifact
-        # from data with the default constructor renders the central class of the API
-        # essentially useless
-        # The danger below is not that a user might pass as many args (12 of it), but rather
-        # that at some point the Django API might change; on the other hand, this
-        # condition of for calling the constructor based on kwargs should always
-        # stay robust
+        # check whether we are called with db args
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args, **kwargs)
             return None
-        # now we proceed with the user-facing constructor
+        # now proceed with the user-facing constructor
         if len(args) > 1:
             raise ValueError("Only one non-keyword arg allowed: data")
         data: str | Path = kwargs.pop("data") if len(args) == 0 else args[0]

@@ -53,7 +53,6 @@ from ._relations import (
     dict_related_model_to_related_name,
 )
 from .feature import Feature, FeatureValue, parse_dtype
-from .run import FeatureManager, Run
 from .sqlrecord import SQLRecord
 from .ulabel import ULabel
 
@@ -68,11 +67,16 @@ if TYPE_CHECKING:
     )
     from lamindb.models.query_set import QuerySet
 
+    from .run import Run
 
-class FeatureManagerArtifact(FeatureManager):
+
+class FeatureManager:
     """Feature manager."""
 
-    pass
+    def __init__(self, host: Artifact | Run):
+        self._host = host
+        self._slots = None
+        self._accessor_by_registry_ = None
 
 
 def get_accessor_by_registry_(host: Artifact | Collection) -> dict:
@@ -570,12 +574,6 @@ def infer_feature_type_convert_json(
     if not mute:
         logger.warning(f"cannot infer feature type of: {value}, returning '?")
     return "?", value, message
-
-
-def __init__(self, host: Artifact | Collection | Run):
-    self._host = host
-    self._slots = None
-    self._accessor_by_registry_ = None
 
 
 def __repr__(self) -> str:
@@ -1419,7 +1417,6 @@ def _add_set_from_spatialdata(
 
 
 # mypy: ignore-errors
-FeatureManager.__init__ = __init__
 FeatureManager.__repr__ = __repr__
 FeatureManager.describe = describe
 FeatureManager.__getitem__ = __getitem__
