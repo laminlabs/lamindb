@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from functools import reduce
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, Literal, NamedTuple
 
 from django.db.models import (
     IntegerField,
@@ -173,6 +173,7 @@ def _lookup(
     field: StrField | None = None,
     return_field: StrField | None = None,
     using_key: str | None = None,
+    keep: Literal["first", "last", False] = "first",
 ) -> NamedTuple:
     """Return an auto-complete object for a field.
 
@@ -209,6 +210,7 @@ def _lookup(
         values=[i.get(field) for i in queryset.values()],
         tuple_name=cls.__class__.__name__,
         prefix="ln",
+        keep=keep,
     ).lookup(
         return_field=(
             get_name_field(registry=queryset.model, field=return_field)
