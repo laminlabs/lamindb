@@ -6,6 +6,7 @@ from typing import (
 )
 
 from django.db import models
+from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core._hub_core import (
     delete_storage_record,
@@ -155,6 +156,15 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         else:
             kwargs["region"] = ssettings.region
 
+        if ssettings.instance_uid is not None:
+            hub_message = ""
+            if setup_settings.instance.is_on_hub:
+                instance_owner = setup_settings.instance.owner
+                hub_message = f", see: https://lamin.ai/{instance_owner}/infrastructure"
+            managed_message = (
+                "managed" if ssettings.instance_uid else "referenced (read-only)"
+            )
+            logger.important(f"created {managed_message} storage location{hub_message}")
         super().__init__(**kwargs)
 
     @property
