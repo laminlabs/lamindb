@@ -210,6 +210,7 @@ testpaths = [
     "tests",
 ]
 filterwarnings = [
+    "ignore::DeprecationWarning:botocore.*",
     "ignore:Jupyter is migrating its paths to use standard platformdirs:DeprecationWarning"
 ]
 markers = [

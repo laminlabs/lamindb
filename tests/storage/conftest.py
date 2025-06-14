@@ -32,7 +32,7 @@ def pytest_sessionstart():
     )
     ln.settings.storage = "./default_storage_unit_storage"
     total_time_elapsed = perf_counter() - t_execute_start
-    print(f"Time to setup the instance: {total_time_elapsed:.3f}s")
+    print(f"time to setup the instance: {total_time_elapsed:.1f}s")
 
 
 def pytest_sessionfinish(session: pytest.Session):

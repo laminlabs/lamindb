@@ -28,7 +28,7 @@ def pytest_sessionstart():
     ln.setup.settings.auto_connect = True
     ln.settings.creation.artifact_silence_missing_run_warning = True
     total_time_elapsed = perf_counter() - t_execute_start
-    print(f"Time to setup the instance: {total_time_elapsed:.3f}s")
+    print(f"time to setup the instance: {total_time_elapsed:.1f}s")
 
 
 def pytest_sessionfinish(session: pytest.Session):

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import lamindb as ln
+import pytest
 
 
 def test_settings_switch_storage():
@@ -18,6 +19,17 @@ def test_settings_switch_storage():
     assert ln.setup.settings.storage.root.fs.cache_regions
     ln.settings.storage = new_storage_location, {"cache_regions": False}
     assert not ln.setup.settings.storage.root.fs.cache_regions
-    assert ln.Storage.filter(root=new_storage_location).one_or_none() is not None
+
+    # now work with the new storage location
+    new_storage = ln.Storage.get(root=new_storage_location)
+    artifact = ln.Artifact(".gitignore", key="test_artifact").save()
+    assert new_storage.root in artifact.path.as_posix()
+    with pytest.raises(ln.setup.errors.StorageNotEmpty) as err:
+        new_storage.delete()
+    assert (
+        "'s3://lamindb-ci/test-settings-switch-storage/.lamindb' contains 1 objects"
+        in err.exconly()
+    )
+    artifact.delete(permanent=True)
     # switch back to default storage
     ln.settings.storage = "./default_storage_unit_storage"

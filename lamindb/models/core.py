@@ -6,6 +6,7 @@ from typing import (
 )
 
 from django.db import models
+from lamindb_setup.core.upath import check_storage_is_empty
 
 from lamindb.base.fields import (
     CharField,
@@ -125,3 +126,10 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
         access_token = self._access_token if hasattr(self, "_access_token") else None
         return create_path(self.root, access_token=access_token)
+
+    def delete(self) -> None:
+        """Delete the storage location.
+
+        This errors in case the storage location is not empty.
+        """
+        check_storage_is_empty(self.path)
