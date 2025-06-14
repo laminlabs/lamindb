@@ -78,7 +78,6 @@ from ._relations import (
     dict_module_name_to_model_name,
     dict_related_model_to_related_name,
 )
-from .core import Storage
 from .feature import Feature, FeatureValue
 from .has_parents import view_lineage
 from .run import Run, TracksRun, TracksUpdates, User
@@ -90,6 +89,7 @@ from .sqlrecord import (
     _get_record_kwargs,
     record_repr,
 )
+from .storage import Storage
 from .ulabel import ULabel
 
 WARNING_RUN_TRANSFORM = "no run & transform got linked, call `ln.track()` & re-run"
