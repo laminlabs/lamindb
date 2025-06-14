@@ -19,7 +19,6 @@ from lamindb.base.fields import (
 )
 
 from ..base.ids import base62_12
-from .core.hashing import hash_and_encode_as_b62
 from .run import TracksRun, TracksUpdates
 from .sqlrecord import SQLRecord
 
@@ -141,15 +140,11 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             kwargs["root"], prevent_register_hub=not setup_settings.instance.is_on_hub
         )
         assert kwargs["root"] == ssettings.root_as_str  # noqa: S101
-        if ssettings._instance_id is not None:
-            instance_uid = hash_and_encode_as_b62(ssettings._instance_id.hex)[
-                :12
-            ]  # managed by that instance
-        else:
-            instance_uid = None  # not a managed storage location (no write access)
         if "instance_uid" in kwargs:
-            assert kwargs["instance_uid"] == instance_uid  # noqa: S101
-        if ssettings._uid is not None:
+            assert kwargs["instance_uid"] == ssettings.instance_uid  # noqa: S101
+        else:
+            kwargs["instance_uid"] = ssettings.instance_uid
+        if ssettings._uid is not None:  # need private attribute here
             kwargs["uid"] = ssettings._uid
         if "type" not in kwargs:
             kwargs["type"] = ssettings.type
