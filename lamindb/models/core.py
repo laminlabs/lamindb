@@ -6,6 +6,8 @@ from typing import (
 )
 
 from django.db import models
+from lamindb_setup import settings as setup_settings
+from lamindb_setup.core._hub_core import get_storage_records_for_instance
 from lamindb_setup.core.upath import check_storage_is_empty
 
 from lamindb.base.fields import (
@@ -132,4 +134,22 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
         This errors in case the storage location is not empty.
         """
+        from lamindb_setup.core._hub_core import delete_storage_record
+
+        from .. import settings
+
         check_storage_is_empty(self.path)
+        assert settings.storage.root_as_str != self.root, (  # noqa: S101
+            "Cannot delete the current storage location, switch to another."
+        )
+        if setup_settings.user.handle != "anonymous":  # only attempt if authenticated
+            storage_records = get_storage_records_for_instance(
+                setup_settings.instance._id
+            )
+            for storage_record in storage_records:
+                if storage_record["lnid"] == self.uid:
+                    assert storage_record["is_default"] in {False, None}, (  # noqa: S101
+                        "Cannot delete default storage of instance."
+                    )
+                    delete_storage_record(storage_record)
+        super().delete()
