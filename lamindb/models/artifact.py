@@ -16,9 +16,7 @@ from django.db import connections, models
 from django.db.models import CASCADE, PROTECT, Q
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
-from lamindb_setup._init_instance import register_storage_in_instance
 from lamindb_setup.core._hub_core import select_storage_or_parent
-from lamindb_setup.core._settings_storage import init_storage
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dir, hash_file
 from lamindb_setup.core.types import UPathStr
 from lamindb_setup.core.upath import (
@@ -180,10 +178,18 @@ def process_pathlike(
                     new_root = list(filepath.parents)[-1]
                 # do not register remote storage locations on hub if the current instance
                 # is not managed on the hub
-                storage_settings, _ = init_storage(
-                    new_root, prevent_register_hub=not setup_settings.instance.is_on_hub
-                )
-                storage_record = register_storage_in_instance(storage_settings)
+                if not os.getenv("LAMIN_TESTING") == "true":
+                    response = input(
+                        "Path is not contained in known storage location. "
+                        f"Do you want to create a new storage location here: {new_root}? (y/n)"
+                    )
+                else:
+                    response = "y"
+                if response != "y":
+                    raise SystemExit(
+                        "Aborted. Please create a storage location manually: ln.Storage(root='your_root')"
+                    )
+                storage_record = Storage(root=new_root).save()
                 use_existing_storage_key = True
                 return storage_record, use_existing_storage_key
             # if the filepath is local
