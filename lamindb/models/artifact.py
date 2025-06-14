@@ -169,18 +169,24 @@ def process_pathlike(
                 if filepath.protocol == "hf":
                     hf_path = filepath.fs.resolve_path(filepath.as_posix())
                     hf_path.path_in_repo = ""
-                    new_root = "hf://" + hf_path.unresolve()
+                    new_root = "hf://" + hf_path.unresolve().rstrip("/")
                 else:
                     if filepath.protocol == "s3":
                         # check that endpoint_url didn't propagate here
                         # as a part of the path string
                         assert "?" not in filepath.path  # noqa: S101
-                    new_root = list(filepath.parents)[-1]
-                new_root_str = new_root.as_posix().rstrip("/")
-                raise UnknownStorageLocation(
-                    f"Path {filepath} is not contained in any known storage location:\n{Storage.df()[['uid', 'root', 'type']]}\n\n"
-                    f"Create a storage location that contains the path, e.g., by calling: ln.Storage(root='{new_root_str}').save()"
-                )
+                    new_root = list(filepath.parents)[-1].as_posix().rstrip("/")
+                storage_record = Storage(root=new_root).save()
+                if storage_record.instance_uid == setup_settings.instance.uid:
+                    # we don't want to inadvertently create managed storage locations
+                    # hence, we revert the creation and throw an error
+                    storage_record.delete()
+                    raise UnknownStorageLocation(
+                        f"Path {filepath} is not contained in any known storage location:\n{Storage.df()[['uid', 'root', 'type']]}\n\n"
+                        f"Create a managed storage location that contains the path, e.g., by calling: ln.Storage(root='{new_root}').save()"
+                    )
+                use_existing_storage_key = True
+                return storage_record, use_existing_storage_key
             # if the filepath is local
             else:
                 use_existing_storage_key = False
