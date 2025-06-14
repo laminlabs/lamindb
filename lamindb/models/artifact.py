@@ -16,9 +16,7 @@ from django.db import connections, models
 from django.db.models import CASCADE, PROTECT, Q
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
-from lamindb_setup._init_instance import register_storage_in_instance
 from lamindb_setup.core._hub_core import select_storage_or_parent
-from lamindb_setup.core._settings_storage import init_storage
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dir, hash_file
 from lamindb_setup.core.types import UPathStr
 from lamindb_setup.core.upath import (
@@ -35,7 +33,7 @@ from lamindb.base.fields import (
     CharField,
     ForeignKey,
 )
-from lamindb.errors import FieldValidationError
+from lamindb.errors import FieldValidationError, UnknownStorageLocation
 from lamindb.models.query_set import QuerySet
 
 from ..base.users import current_user_id
@@ -78,7 +76,6 @@ from ._relations import (
     dict_module_name_to_model_name,
     dict_related_model_to_related_name,
 )
-from .core import Storage
 from .feature import Feature, FeatureValue
 from .has_parents import view_lineage
 from .run import Run, TracksRun, TracksUpdates, User
@@ -90,6 +87,7 @@ from .sqlrecord import (
     _get_record_kwargs,
     record_repr,
 )
+from .storage import Storage
 from .ulabel import ULabel
 
 WARNING_RUN_TRANSFORM = "no run & transform got linked, call `ln.track()` & re-run"
@@ -171,19 +169,22 @@ def process_pathlike(
                 if filepath.protocol == "hf":
                     hf_path = filepath.fs.resolve_path(filepath.as_posix())
                     hf_path.path_in_repo = ""
-                    new_root = "hf://" + hf_path.unresolve()
+                    new_root = "hf://" + hf_path.unresolve().rstrip("/")
                 else:
                     if filepath.protocol == "s3":
                         # check that endpoint_url didn't propagate here
                         # as a part of the path string
                         assert "?" not in filepath.path  # noqa: S101
-                    new_root = list(filepath.parents)[-1]
-                # do not register remote storage locations on hub if the current instance
-                # is not managed on the hub
-                storage_settings, _ = init_storage(
-                    new_root, prevent_register_hub=not setup_settings.instance.is_on_hub
-                )
-                storage_record = register_storage_in_instance(storage_settings)
+                    new_root = list(filepath.parents)[-1].as_posix().rstrip("/")
+                storage_record = Storage(root=new_root).save()
+                if storage_record.instance_uid == setup_settings.instance.uid:
+                    # we don't want to inadvertently create managed storage locations
+                    # hence, we revert the creation and throw an error
+                    storage_record.delete()
+                    raise UnknownStorageLocation(
+                        f"Path {filepath} is not contained in any known storage location:\n{Storage.df()[['uid', 'root', 'type']]}\n\n"
+                        f"Create a managed storage location that contains the path, e.g., by calling: ln.Storage(root='{new_root}').save()"
+                    )
                 use_existing_storage_key = True
                 return storage_record, use_existing_storage_key
             # if the filepath is local

@@ -41,7 +41,7 @@ from .sqlrecord import (
     record_repr,
     IsLink,
 )
-from .core import Storage
+from .storage import Storage
 from .transform import Transform
 from .run import Run, TracksRun, TracksUpdates, current_run, User
 from .feature import Feature, FeatureValue

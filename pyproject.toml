@@ -211,6 +211,14 @@ testpaths = [
 ]
 filterwarnings = [
     "ignore::DeprecationWarning:botocore.*",
+    "ignore::UserWarning:xarray_schema",
+    "ignore::DeprecationWarning:xarray_schema",
+    "ignore::DeprecationWarning:geopandas",
+    "ignore::DeprecationWarning:tiledbsoma",
+    "ignore::DeprecationWarning:pkg_resources",
+    "ignore::FutureWarning:spatialdata",
+    "ignore::FutureWarning:mudata",
+    "ignore::UserWarning:anndata",
     "ignore:Jupyter is migrating its paths to use standard platformdirs:DeprecationWarning"
 ]
 markers = [

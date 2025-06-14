@@ -51,6 +51,7 @@ def pytest_sessionstart():
         quit()
     total_time_elapsed = perf_counter() - t_execute_start
     print(f"time to setup the instance: {total_time_elapsed:.1f}s")
+    assert ln.Storage.filter(root="s3://lamindb-ci/test-data").one_or_none() is not None
 
 
 def delete_test_instance():

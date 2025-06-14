@@ -23,7 +23,7 @@ def test_revise_transforms():
     transform.save()
 
     # try to reload the same transform with the same uid
-    transform_reload = ln.Transform(uid=transform.uid, name="My transform updated name")
+    transform_reload = ln.Transform(uid=transform.uid, key="My transform updated name")
     assert transform_reload.id == transform.id
     assert transform_reload.key == "My transform"  # unchanged, prints logging
     transform_reload = ln.Transform(

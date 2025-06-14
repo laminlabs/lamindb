@@ -66,8 +66,8 @@ def test_feature_from_df(df):
     features = ln.Feature.from_df(df.iloc[:, :4]).save()
     artifact = ln.Artifact.from_df(df, description="test").save()
     # test for deprecated add_feature_set
-    artifact.features.add_feature_set(ln.Schema(features), slot="columns")
-    features = artifact.features["columns"]
+    artifact.features._add_schema(ln.Schema(features), slot="columns")
+    features = artifact.features.slots["columns"].features.all()
     assert len(features) == len(df.columns[:4])
     [col for col in df.columns if is_string_dtype(df[col])]
     categoricals = {

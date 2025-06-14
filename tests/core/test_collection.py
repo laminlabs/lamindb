@@ -101,7 +101,7 @@ def test_edge_cases(df):
 def test_from_inconsistent_artifacts(df, adata):
     artifact1 = ln.Artifact.from_df(df, description="My test").save()
     artifact2 = ln.Artifact.from_anndata(adata, description="My test2").save()
-    collection = ln.Collection([artifact1, artifact2], name="Inconsistent").save()
+    collection = ln.Collection([artifact1, artifact2], key="Inconsistent").save()
     # test idempotency of .save()
     collection.save()
     # create a run context
@@ -457,7 +457,7 @@ def test_with_metadata(df, adata):
     data_artifact = ln.Artifact.from_anndata(adata, description="test adata")
     data_artifact.save()
     collection = ln.Collection(
-        data_artifact, name="test collection", meta_artifact=meta_artifact
+        data_artifact, key="test collection", meta_artifact=meta_artifact
     )
     collection.save()
 

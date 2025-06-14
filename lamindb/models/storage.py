@@ -6,9 +6,14 @@ from typing import (
 )
 
 from django.db import models
+from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
-from lamindb_setup.core._hub_core import get_storage_records_for_instance
-from lamindb_setup.core.upath import check_storage_is_empty
+from lamindb_setup.core._hub_core import (
+    delete_storage_record,
+    get_storage_records_for_instance,
+)
+from lamindb_setup.core._settings_storage import init_storage
+from lamindb_setup.core.upath import check_storage_is_empty, create_path
 
 from lamindb.base.fields import (
     CharField,
@@ -116,7 +121,56 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         *args,
         **kwargs,
     ):
-        super().__init__(*args, **kwargs)
+        if len(args) == len(self._meta.concrete_fields):
+            super().__init__(*args)
+            return None
+        storage_record = Storage.filter(root=kwargs["root"]).one_or_none()
+        if storage_record is not None:
+            from .sqlrecord import init_self_from_db
+
+            init_self_from_db(self, storage_record)
+            return None
+        if "_skip_preparation" in kwargs:
+            skip_preparation = kwargs.pop("_skip_preparation")
+            if skip_preparation is True:
+                super().__init__(*args, **kwargs)
+                return None
+            kwargs.pop("_skip_preparation")
+
+        # instance_id won't take effect if
+        # - there is no write access
+        # - the storage location is already managed by another instance
+        ssettings, _ = init_storage(
+            kwargs["root"],
+            instance_id=setup_settings.instance._id,
+            prevent_register_hub=not setup_settings.instance.is_on_hub,
+        )
+        assert kwargs["root"] == ssettings.root_as_str  # noqa: S101
+        if "instance_uid" in kwargs:
+            assert kwargs["instance_uid"] == ssettings.instance_uid  # noqa: S101
+        else:
+            kwargs["instance_uid"] = ssettings.instance_uid
+        if ssettings._uid is not None:  # need private attribute here
+            kwargs["uid"] = ssettings._uid
+        if "type" not in kwargs:
+            kwargs["type"] = ssettings.type
+        else:
+            assert kwargs["type"] == ssettings.type  # noqa: S101
+        if "region" in kwargs:
+            assert kwargs["region"] == ssettings.region  # noqa: S101
+        else:
+            kwargs["region"] = ssettings.region
+
+        if ssettings.instance_uid is not None:
+            hub_message = ""
+            if setup_settings.instance.is_on_hub:
+                instance_owner = setup_settings.instance.owner
+                hub_message = f", see: https://lamin.ai/{instance_owner}/infrastructure"
+            managed_message = (
+                "managed" if ssettings.instance_uid else "referenced (read-only)"
+            )
+            logger.important(f"created {managed_message} storage location{hub_message}")
+        super().__init__(**kwargs)
 
     @property
     def path(self) -> Path | UPath:
@@ -124,8 +178,6 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
         Uses the `.root` field and converts it into a `Path` or `UPath`.
         """
-        from lamindb_setup.core.upath import create_path
-
         access_token = self._access_token if hasattr(self, "_access_token") else None
         return create_path(self.root, access_token=access_token)
 
@@ -134,8 +186,6 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
         This errors in case the storage location is not empty.
         """
-        from lamindb_setup.core._hub_core import delete_storage_record
-
         from .. import settings
 
         assert not self.artifacts.exists(), "Cannot delete storage holding artifacts."  # noqa: S101
