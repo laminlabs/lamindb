@@ -5,6 +5,18 @@ import pytest
 from lamindb_setup.core._hub_core import get_storage_records_for_instance
 
 
+def check_storage_location_on_hub_exists(uid: str):
+    all_storage_records = get_storage_records_for_instance(
+        ln.setup.settings.instance._id
+    )
+    length = len([r for r in all_storage_records if r["lnid"] == uid])
+    if length not in {0, 1}:
+        raise AssertionError(
+            f"Expected 0 or 1 storage records for uid {uid}, found {length}."
+        )
+    return length == 1
+
+
 def test_switch_delete_storage_location():
     ln.settings.storage = "./default_storage_unit_storage"
     assert (
@@ -24,41 +36,26 @@ def test_switch_delete_storage_location():
 
     # now work with the new storage location
     new_storage = ln.Storage.get(root=new_storage_location)
-    assert (
-        len(
-            [
-                r
-                for r in get_storage_records_for_instance(
-                    ln.setup.settings.instance._id
-                )
-                if r["lnid"] == new_storage.uid
-            ]
-        )
-        == 1
-    )
+    assert check_storage_location_on_hub_exists(new_storage.uid)
     artifact = ln.Artifact(".gitignore", key="test_artifact").save()
     assert new_storage.root in artifact.path.as_posix()
+
+    # artifacts exist
+    with pytest.raises(AssertionError) as err:
+        new_storage.delete()
+    assert "Cannot delete storage holding artifacts." in err.exconly()
+
+    artifact.delete(permanent=True, storage=False)
+    # still some files in there
     with pytest.raises(ln.setup.errors.StorageNotEmpty) as err:
         new_storage.delete()
     assert (
         "'s3://lamindb-ci/test-settings-switch-storage/.lamindb' contains 1 objects"
         in err.exconly()
     )
-    assert (
-        len(
-            [
-                r
-                for r in get_storage_records_for_instance(
-                    ln.setup.settings.instance._id
-                )
-                if r["lnid"] == new_storage.uid
-            ]
-        )
-        == 1
-    )
 
     # now delete the artifact so that the storage location is empty
-    artifact.delete(permanent=True)
+    artifact.path.unlink()
     with pytest.raises(AssertionError) as err:
         new_storage.delete()
     assert (
@@ -66,18 +63,10 @@ def test_switch_delete_storage_location():
         in err.exconly()
     )
 
+    # check all attempts unsuccessful so far
+    assert check_storage_location_on_hub_exists(new_storage.uid)
+
     # switch back to default storage
     ln.settings.storage = "./default_storage_unit_storage"
     new_storage.delete()
-    assert (
-        len(
-            [
-                r
-                for r in get_storage_records_for_instance(
-                    ln.setup.settings.instance._id
-                )
-                if r["lnid"] == new_storage.uid
-            ]
-        )
-        == 0
-    )
+    assert not check_storage_location_on_hub_exists(new_storage.uid)

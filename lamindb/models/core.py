@@ -138,6 +138,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
         from .. import settings
 
+        assert not self.artifacts.exists(), "Cannot delete storage holding artifacts."  # noqa: S101
         check_storage_is_empty(self.path)
         assert settings.storage.root_as_str != self.root, (  # noqa: S101
             "Cannot delete the current storage location, switch to another."
