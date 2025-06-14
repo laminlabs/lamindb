@@ -33,7 +33,7 @@ from lamindb.base.fields import (
     CharField,
     ForeignKey,
 )
-from lamindb.errors import FieldValidationError
+from lamindb.errors import FieldValidationError, UnknownStorageLocation
 from lamindb.models.query_set import QuerySet
 
 from ..base.users import current_user_id
@@ -176,22 +176,10 @@ def process_pathlike(
                         # as a part of the path string
                         assert "?" not in filepath.path  # noqa: S101
                     new_root = list(filepath.parents)[-1]
-                # do not register remote storage locations on hub if the current instance
-                # is not managed on the hub
-                if not os.getenv("LAMIN_TESTING") == "true":
-                    response = input(
-                        "Path is not contained in known storage location. "
-                        f"Do you want to create a new storage location here: {new_root}? (y/n)"
-                    )
-                else:
-                    response = "y"
-                if response != "y":
-                    raise SystemExit(
-                        "Aborted. Please create a storage location manually: ln.Storage(root='your_root')"
-                    )
-                storage_record = Storage(root=new_root).save()
-                use_existing_storage_key = True
-                return storage_record, use_existing_storage_key
+                raise UnknownStorageLocation(
+                    "Path is not contained in any known storage location.\n"
+                    f"Create a storage location that contains the path, e.g.: ln.Storage(root='{new_root}').save()"
+                )
             # if the filepath is local
             else:
                 use_existing_storage_key = False
