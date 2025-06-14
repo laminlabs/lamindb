@@ -551,7 +551,7 @@ def test_add_labels_using_anndata(adata):
     diseases = [ln.ULabel(name=name) for name in adata.obs["disease"].unique()]
     ln.save(diseases)
     add_labels(artifact, diseases, feature=features.disease, from_curator=True)
-    df = artifact.features["obs"].df()
+    df = artifact.features.slots["obs"].features.df()
     assert set(df["name"]) == {
         "cell_type",
         "disease",
