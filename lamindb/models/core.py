@@ -7,8 +7,11 @@ from typing import (
 
 from django.db import models
 from lamindb_setup import settings as setup_settings
-from lamindb_setup.core._hub_core import get_storage_records_for_instance
-from lamindb_setup.core.upath import check_storage_is_empty
+from lamindb_setup.core._hub_core import (
+    delete_storage_record,
+    get_storage_records_for_instance,
+)
+from lamindb_setup.core.upath import check_storage_is_empty, create_path
 
 from lamindb.base.fields import (
     CharField,
@@ -124,8 +127,6 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
         Uses the `.root` field and converts it into a `Path` or `UPath`.
         """
-        from lamindb_setup.core.upath import create_path
-
         access_token = self._access_token if hasattr(self, "_access_token") else None
         return create_path(self.root, access_token=access_token)
 
@@ -134,8 +135,6 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
         This errors in case the storage location is not empty.
         """
-        from lamindb_setup.core._hub_core import delete_storage_record
-
         from .. import settings
 
         assert not self.artifacts.exists(), "Cannot delete storage holding artifacts."  # noqa: S101
