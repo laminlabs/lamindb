@@ -176,9 +176,10 @@ def process_pathlike(
                         # as a part of the path string
                         assert "?" not in filepath.path  # noqa: S101
                     new_root = list(filepath.parents)[-1]
+                new_root_str = new_root.as_posix().rstrip("/")
                 raise UnknownStorageLocation(
-                    "Path is not contained in any known storage location.\n"
-                    f"Create a storage location that contains the path, e.g.: ln.Storage(root='{new_root}').save()"
+                    f"Path {filepath} is not contained in any known storage location:\n{Storage.df()[['uid', 'root', 'type']]}\n\n"
+                    f"Create a storage location that contains the path, e.g., by calling: ln.Storage(root='{new_root_str}').save()"
                 )
             # if the filepath is local
             else:
