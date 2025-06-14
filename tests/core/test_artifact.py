@@ -792,7 +792,7 @@ def test_serialize_paths():
     fp_str = ln.core.datasets.anndata_file_pbmc68k_test().as_posix()
     fp_path = Path(fp_str)
 
-    up_str = "s3://lamindb-ci/test-data/test.csv"
+    up_str = "s3://lamindb-ci/test-unknown-storage-in-core-tests/test.csv"
     up_upath = UPath(up_str)
 
     default_storage = settings._storage_settings.record
@@ -817,11 +817,10 @@ def test_serialize_paths():
             using_key,
             skip_existence_check=True,
         )
-    assert (
-        "Path s3://lamindb-ci/test-data/test.csv is not contained in any known storage"
-        in err.exconly()
-    )
-    storage = ln.Storage(root="s3://lamindb-ci/test-data").save()
+    assert f"Path {up_str} is not contained in any known storage" in err.exconly()
+    storage = ln.Storage(
+        root="s3://lamindb-ci/test-unknown-storage-in-core-tests"
+    ).save()
     _, filepath, _, _, _ = process_data(
         "id", up_str, None, None, default_storage, using_key, skip_existence_check=True
     )

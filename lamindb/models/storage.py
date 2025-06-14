@@ -137,8 +137,13 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
                 return None
             kwargs.pop("_skip_preparation")
 
+        # instance_id won't take effect if
+        # - there is no write access
+        # - the storage location is already managed by another instance
         ssettings, _ = init_storage(
-            kwargs["root"], prevent_register_hub=not setup_settings.instance.is_on_hub
+            kwargs["root"],
+            instance_id=setup_settings.instance._id,
+            prevent_register_hub=not setup_settings.instance.is_on_hub,
         )
         assert kwargs["root"] == ssettings.root_as_str  # noqa: S101
         if "instance_uid" in kwargs:
