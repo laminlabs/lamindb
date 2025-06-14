@@ -243,13 +243,14 @@ def test(session, group):
     login_testuser1(session)
     run(session, "lamin settings set private-django-api true")
     coverage_args = "--cov=lamindb --cov-config=pyproject.toml --cov-append --cov-report=term-missing"
+    duration_args = "--durations=20"
     if group == "unit-core":
         run(
             session,
-            f"pytest {coverage_args} ./tests/core --durations=50",
+            f"pytest {coverage_args} ./tests/core {duration_args}",
         )
     elif group == "unit-storage":
-        run(session, f"pytest {coverage_args} ./tests/storage --durations=50")
+        run(session, f"pytest {coverage_args} ./tests/storage {duration_args}")
     elif group == "tutorial":
         run(session, "lamin logout")
         run(
@@ -274,11 +275,12 @@ def test(session, group):
     elif group == "curator":
         run(
             session,
-            f"pytest {coverage_args} tests/curators --durations=50",
+            f"pytest {coverage_args} tests/curators {duration_args}",
         )
     elif group == "cli":
         run(
-            session, f"pytest {coverage_args} ./sub/lamin-cli/tests/core --durations=50"
+            session,
+            f"pytest {coverage_args} ./sub/lamin-cli/tests/core {duration_args}",
         )
     elif group == "permissions":
         run(session, f"pytest {coverage_args} ./tests/permissions")
