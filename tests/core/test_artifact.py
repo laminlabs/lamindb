@@ -789,9 +789,6 @@ def test_check_path_is_child_of_root():
 
 
 def test_serialize_paths():
-    print(ln.Storage.df())
-    assert ln.Storage.filter(root="s3://lamindb-ci/test-data").one_or_none() is not None
-
     fp_str = ln.core.datasets.anndata_file_pbmc68k_test().as_posix()
     fp_path = Path(fp_str)
 
@@ -810,12 +807,24 @@ def test_serialize_paths():
     )
     assert isinstance(filepath, LocalPathClasses)
 
-    # with pytest.raises(ln.errors.UnknownStorageLocation) as err:
+    with pytest.raises(ln.errors.UnknownStorageLocation) as err:
+        _, filepath, _, _, _ = process_data(
+            "id",
+            up_str,
+            None,
+            None,
+            default_storage,
+            using_key,
+            skip_existence_check=True,
+        )
+    assert (
+        "Path s3://lamindb-ci/test-data/test.csv is not contained in any known storage"
+        in err.exconly()
+    )
+    storage = ln.Storage(root="s3://lamindb-ci/test-data").save()
     _, filepath, _, _, _ = process_data(
         "id", up_str, None, None, default_storage, using_key, skip_existence_check=True
     )
-    # assert "Path is not contained in any known storage location." in err.exconly()
-    # ln.Storage(root="s3://lamindb-ci/test-data")
     assert isinstance(filepath, CloudPath)
     _, filepath, _, _, _ = process_data(
         "id",
@@ -827,6 +836,7 @@ def test_serialize_paths():
         skip_existence_check=True,
     )
     assert isinstance(filepath, CloudPath)
+    storage.delete()
 
 
 def test_load_to_memory(tsv_file, zip_file, fcs_file, yaml_file):

@@ -139,14 +139,17 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         ssettings, _ = init_storage(
             kwargs["root"], prevent_register_hub=not setup_settings.instance.is_on_hub
         )
+        assert kwargs["root"] == ssettings.root_as_str  # noqa: S101
         if "instance_uid" in kwargs:
             assert kwargs["instance_uid"] == setup_settings.instance.uid  # noqa: S101
         else:
             kwargs["instance_uid"] = setup_settings.instance.uid
         if ssettings._uid is not None:
             kwargs["uid"] = ssettings._uid
-        assert kwargs["root"] == ssettings.root_as_str  # noqa: S101
-        assert kwargs["type"] == ssettings.type  # noqa: S101
+        if "type" not in kwargs:
+            kwargs["type"] = ssettings.type
+        else:
+            assert kwargs["type"] == ssettings.type  # noqa: S101
         if "region" in kwargs:
             assert kwargs["region"] == ssettings.region  # noqa: S101
         else:
