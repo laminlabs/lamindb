@@ -18,7 +18,11 @@ def pytest_sessionstart():
     t_execute_start = perf_counter()
 
     ln_setup._TESTING = True
-    pgurl = setup_local_test_postgres()
+    try:
+        pgurl = setup_local_test_postgres()
+    except RuntimeError:
+        run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)  # noqa: S602
+        pgurl = setup_local_test_postgres()
     ln.setup.init(
         storage="./default_storage_unit_core",
         modules="bionty",
