@@ -243,7 +243,7 @@ def test(session, group):
     login_testuser1(session)
     run(session, "lamin settings set private-django-api true")
     coverage_args = "--cov=lamindb --cov-config=pyproject.toml --cov-append --cov-report=term-missing"
-    duration_args = "--durations=20"
+    duration_args = "--durations=10"
     if group == "unit-core":
         run(
             session,
