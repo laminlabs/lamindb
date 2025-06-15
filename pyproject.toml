@@ -18,7 +18,7 @@ dependencies = [
     # Lamin PINNED packages
     "lamin_utils==0.15.0",
     "lamin_cli==1.4.2",
-    "lamindb_setup[aws]==1.7a1",
+    "lamindb_setup[aws]==1.6.1",
     # others
     "pyyaml",
     "pyarrow",
