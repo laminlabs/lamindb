@@ -78,7 +78,7 @@ def attempt_accessing_path(
 
     if (
         artifact._state.db in ("default", None)
-        and artifact.storage_id == settings._storage_settings.id
+        and artifact.storage_id == settings._storage_settings._id
     ):
         if access_token is None:
             storage_settings = settings._storage_settings

@@ -12,7 +12,7 @@ from lamindb_setup.core._hub_core import (
     delete_storage_record,
     get_storage_records_for_instance,
 )
-from lamindb_setup.core._settings_storage import init_storage
+from lamindb_setup.core._settings_storage import StorageSettings, init_storage
 from lamindb_setup.core.upath import check_storage_is_empty, create_path
 
 from lamindb.base.fields import (
@@ -238,4 +238,9 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
                         "Cannot delete default storage of instance."
                     )
                     delete_storage_record(storage_record)
+        ssettings = StorageSettings(storage_record["root"])
+        if ssettings._mark_storage_root.exists():
+            ssettings._mark_storage_root.unlink(
+                missing_ok=True  # this is totally weird, but needed on Py3.11
+            )
         super().delete()

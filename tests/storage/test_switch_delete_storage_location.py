@@ -68,5 +68,8 @@ def test_switch_delete_storage_location():
 
     # switch back to default storage
     ln.settings.storage = "./default_storage_unit_storage"
+    storage_marker = ln.UPath(new_storage_location) / ".lamindb/storage_uid.txt"
+    assert storage_marker.exists()
     new_storage.delete()
     assert not check_storage_location_on_hub_exists(new_storage.uid)
+    assert not storage_marker.exists()
