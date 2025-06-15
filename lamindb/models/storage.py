@@ -212,15 +212,27 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         else:
             kwargs["region"] = ssettings.region
 
-        is_managed_by_current = ssettings.instance_uid == setup_settings.instance.uid
+        is_managed_by_current_instance = (
+            ssettings.instance_uid == setup_settings.instance.uid
+        )
+        if ssettings.instance_uid is not None and not is_managed_by_current_instance:
+            is_managed_by_instance = (
+                f", is managed by instance with uid {ssettings.instance_uid}"
+            )
+        else:
+            is_managed_by_instance = ""
         hub_message = ""
-        if setup_settings.instance.is_on_hub and is_managed_by_current:
+        if setup_settings.instance.is_on_hub and is_managed_by_current_instance:
             instance_owner = setup_settings.instance.owner
             hub_message = f", see: https://lamin.ai/{instance_owner}/infrastructure"
         managed_message = (
-            "managed" if is_managed_by_current else "referenced (read-only)"
+            "created managed"
+            if is_managed_by_current_instance
+            else "referenced read-only"
         )
-        logger.important(f"created {managed_message} storage location{hub_message}")
+        logger.important(
+            f"{managed_message} storage location at {kwargs['root']}{is_managed_by_instance}{hub_message}"
+        )
         super().__init__(**kwargs)
 
     @property
