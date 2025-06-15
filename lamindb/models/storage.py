@@ -62,7 +62,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
     Args:
         root: `str` The root path of the storage location, e.g., `"./myfolder"`, `"s3://my-bucket/myfolder"`, or `"gs://my-bucket/myfolder"`.
-        type: :class:`~lamindb.setup.core.types.StorageType` The type of storage.
+        type: :class:`~lamindb.setup.types.StorageType` The type of storage.
         description: `str | None = None` A description.
         region: `str | None = None` Cloud storage region, if applicable. Auto-populated for AWS S3.
 
