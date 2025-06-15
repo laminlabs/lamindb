@@ -26,6 +26,7 @@ from .sqlrecord import SQLRecord
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from lamindb_setup.core.types import StorageType
     from upath import UPath
 
     from .artifact import Artifact
@@ -51,6 +52,12 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
         When you delete a LaminDB instance, you'll be warned about data in managed
         storage locations while data in referenced storage locations is ignored.
+
+    Args:
+        root: `str` The root path of the storage location, e.g., `"./myfolder"`, `"s3://my-bucket/myfolder"`, or `"gs://my-bucket/myfolder"`.
+        type: :class:`~lamindb.setup.core.types.StorageType` The type of storage.
+        description: `str | None = None` A description.
+        region: `str | None = None` Cloud storage region, if applicable. Auto-populated for AWS S3.
 
     See Also:
         :attr:`lamindb.core.Settings.storage`
@@ -128,7 +135,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     """Root path of storage (cloud or local path)."""
     description: str | None = CharField(db_index=True, null=True)
     """A description of what the storage location is used for (optional)."""
-    type: str = CharField(max_length=30, db_index=True)
+    type: StorageType = CharField(max_length=30, db_index=True)
     """Can be "local" vs. "s3" vs. "gs"."""
     region: str | None = CharField(max_length=64, db_index=True, null=True)
     """Cloud storage region, if applicable."""
@@ -142,7 +149,8 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         self,
         root: str,
         type: str,
-        region: str | None,
+        description: str | None = None,
+        region: str | None = None,
     ): ...
 
     @overload
@@ -230,6 +238,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         )
         if setup_settings.user.handle != "anonymous":  # only attempt if authenticated
             storage_records = get_storage_records_for_instance(
+                # only query those storage records on the hub that are managed by the current instance
                 setup_settings.instance._id
             )
             for storage_record in storage_records:

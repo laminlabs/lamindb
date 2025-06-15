@@ -35,7 +35,7 @@ class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
 
     Args:
         name: `str` A name.
-        description: `str` A description.
+        description: `str | None = None` A description.
         reference: `str | None = None` For instance, an external ID or a URL.
         reference_type: `str | None = None` For instance, `"url"`.
 
