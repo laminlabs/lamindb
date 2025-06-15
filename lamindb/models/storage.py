@@ -40,16 +40,17 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     A LaminDB instance can manage and link multiple storage locations. But any
     storage location is managed by *at most one* LaminDB instance.
 
-    .. dropdown:: Managed vs. linked storage locations
+    .. dropdown:: Managed vs. referenced storage locations
 
-        The LaminDB instance can update & delete artifacts in managed storage
-        locations but merely read artifacts in linked storage locations.
+        The LaminDB instance can write artifacts in managed storage
+        locations but only read artifacts in referenced storage locations.
 
-        The `instance_uid` field defines the managing LaminDB instance of a
-        storage location.
+        The :attr:`~lamindb.Storage.instance_uid` field defines the managing LaminDB instance of a
+        storage location. Some storage locations may not be managed by any LaminDB
+        instance, in which case the `instance_uid` is `None`.
 
         When you delete a LaminDB instance, you'll be warned about data in managed
-        storage locations while data in linked storage locations is ignored.
+        storage locations while data in referenced storage locations is ignored.
 
     See Also:
         :attr:`lamindb.core.Settings.storage`
