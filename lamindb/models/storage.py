@@ -52,30 +52,64 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         storage locations while data in linked storage locations is ignored.
 
     See Also:
-        :attr:`~lamindb.core.Settings.storage`
-            Default storage.
+        :attr:`lamindb.core.Settings.storage`
+            Current default storage location of your compute session for writing artifacts.
         :attr:`~lamindb.setup.core.StorageSettings`
             Storage settings.
 
     Examples:
 
-        Configure the default storage location on the command line::
+        When you create a LaminDB instance, you configure its default storage location via `--storage`::
 
-            lamin init --storage ./myfolder  # or "s3://my-bucket" or "gs://my-bucket"
+            lamin init --storage ./myfolder  # or "s3://my-bucket/myfolder" or "gs://my-bucket/myfolder"
 
-        View the current storage location for writing artifacts::
+        View the current default storage location in your compute session for writing artifacts::
 
             import lamindb as ln
 
-            print(ln.settings.storage)
+            ln.settings.storage
 
-        Change the current storage location for writing artifacts::
+        Switch to another default storage location for writing artifacts::
 
-            ln.settings.storage = "./myfolder2"  # or "s3://my-bucket2" or "gs://my-bucket2"
+            ln.settings.storage = "./myfolder2"  # or "s3://my-bucket/my-folder2" or "gs://my-bucket/my-folder2"
 
-        View all storage locations used by the current instance::
+        View all storage locations used in your LaminDB instance::
 
             ln.Storage.df()
+
+        Create a new storage location::
+
+            ln.Storage(root="./myfolder3").save()
+
+    Notes:
+
+        .. dropdown:: How do I manage access to a storage location?
+
+            You can low-level manage access through AWS policies that you attach to your S3 bucket
+            or leverage LaminHub's fine-grained access management.
+
+            :doc:`docs:access` explains both approaches.
+
+        .. dropdown:: What is the `.lamindb/` directory inside a storage location?
+
+            It stores all artifacts that are ingested through `lamindb`, indexed by the artifact `uid`.
+            This means you don't have to worry about renaming or moving files, as this all happens on the database level.
+
+            Existing artifacts are typically stored in hierarchical structures with semantic folder names.
+            Instead of copying such artifacts into `.lamindb/` upon calls of `Artifact("legacy_path").save()`,
+            LaminDB registers them with the semantic `key` representing the relative path within the storage location.
+            These artifacts are marked with `artifact._key_is_virtual = False` and treated correspondingly.
+
+            There is only a single `.lamindb/` directory per storage location.
+
+        .. dropdown:: What should I do if I want to bulk migrate all artifacts to another storage?
+
+            Currently, you can only achieve this manually and you should be careful with it.
+
+            1. Copy or move artifacts into the desired new storage location
+            2. Adapt the corresponding record in the {class}`~lamindb.Storage` registry by setting the `root` field to the new location
+            3. If your LaminDB storage location is managed through the hub, you also need to update the storage record on the hub -- contact support
+
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
