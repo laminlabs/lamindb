@@ -18,13 +18,13 @@ from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core._hub_core import select_storage_or_parent
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dir, hash_file
-from lamindb_setup.core.types import UPathStr
 from lamindb_setup.core.upath import (
     create_path,
     extract_suffix_from_path,
     get_stat_dir_cloud,
     get_stat_file_cloud,
 )
+from lamindb_setup.types import UPathStr
 
 from lamindb.base import deprecated
 from lamindb.base.fields import (

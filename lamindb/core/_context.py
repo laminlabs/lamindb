@@ -35,7 +35,7 @@ from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_environment
 
 if TYPE_CHECKING:
-    from lamindb_setup.core.types import UPathStr
+    from lamindb_setup.types import UPathStr
 
     from lamindb.base.types import TransformType
     from lamindb.models import Branch, Project, Space

@@ -12,7 +12,7 @@ from lamindb_setup.core._hub_core import (
     delete_storage_record,
     get_storage_records_for_instance,
 )
-from lamindb_setup.core._settings_storage import init_storage
+from lamindb_setup.core._settings_storage import StorageSettings, init_storage
 from lamindb_setup.core.upath import check_storage_is_empty, create_path
 
 from lamindb.base.fields import (
@@ -26,6 +26,7 @@ from .sqlrecord import SQLRecord
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from lamindb_setup.types import StorageType
     from upath import UPath
 
     from .artifact import Artifact
@@ -42,15 +43,32 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
     .. dropdown:: Managed vs. referenced storage locations
 
-        The LaminDB instance can write artifacts in managed storage
-        locations but only read artifacts in referenced storage locations.
+        A LaminDB instance can only write artifacts to its managed storage
+        locations and merely reads artifacts from its referenced storage locations.
 
         The :attr:`~lamindb.Storage.instance_uid` field defines the managing LaminDB instance of a
         storage location. Some storage locations may not be managed by any LaminDB
-        instance, in which case the `instance_uid` is `None`.
+        instance, in which case the `instance_uid` is `None`. If it matches the
+        :attr:`~lamindb.core.Settings.instance_uid` of the current instance, the storage location
+        is managed by the current instance.
 
-        When you delete a LaminDB instance, you'll be warned about data in managed
-        storage locations while data in referenced storage locations is ignored.
+        Here is an example based (`source <https://lamin.ai/laminlabs/lamindata/transform/dPco79GYgzag0000>`__):
+
+        .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/eHDmIOAxLEoqZ2oK0000.png
+           :width: 400px
+
+    .. dropdown:: Keeping track of storage locations across instances
+
+        Head over to `https://lamin.ai/{account}/infrastructure` and you'll see something like this:
+
+        .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/ze8hkgVxVptSSZEU0000.png
+           :width: 800px
+
+    Args:
+        root: `str` The root path of the storage location, e.g., `"./myfolder"`, `"s3://my-bucket/myfolder"`, or `"gs://my-bucket/myfolder"`.
+        type: :class:`~lamindb.setup.types.StorageType` The type of storage.
+        description: `str | None = None` A description.
+        region: `str | None = None` Cloud storage region, if applicable. Auto-populated for AWS S3.
 
     See Also:
         :attr:`lamindb.core.Settings.storage`
@@ -128,7 +146,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     """Root path of storage (cloud or local path)."""
     description: str | None = CharField(db_index=True, null=True)
     """A description of what the storage location is used for (optional)."""
-    type: str = CharField(max_length=30, db_index=True)
+    type: StorageType = CharField(max_length=30, db_index=True)
     """Can be "local" vs. "s3" vs. "gs"."""
     region: str | None = CharField(max_length=64, db_index=True, null=True)
     """Cloud storage region, if applicable."""
@@ -142,7 +160,8 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         self,
         root: str,
         type: str,
-        region: str | None,
+        description: str | None = None,
+        region: str | None = None,
     ): ...
 
     @overload
@@ -178,9 +197,11 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         ssettings, _ = init_storage(
             kwargs["root"],
             instance_id=setup_settings.instance._id,
+            instance_slug=setup_settings.instance.slug,
             prevent_register_hub=not setup_settings.instance.is_on_hub,
         )
-        assert kwargs["root"] == ssettings.root_as_str  # noqa: S101
+        # ssettings performed validation and normalization of the root path
+        kwargs["root"] = ssettings.root_as_str  # noqa: S101
         if "instance_uid" in kwargs:
             assert kwargs["instance_uid"] == ssettings.instance_uid  # noqa: S101
         else:
@@ -196,15 +217,27 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         else:
             kwargs["region"] = ssettings.region
 
-        if ssettings.instance_uid is not None:
-            hub_message = ""
-            if setup_settings.instance.is_on_hub:
-                instance_owner = setup_settings.instance.owner
-                hub_message = f", see: https://lamin.ai/{instance_owner}/infrastructure"
-            managed_message = (
-                "managed" if ssettings.instance_uid else "referenced (read-only)"
+        is_managed_by_current_instance = (
+            ssettings.instance_uid == setup_settings.instance.uid
+        )
+        if ssettings.instance_uid is not None and not is_managed_by_current_instance:
+            is_managed_by_instance = (
+                f", is managed by instance with uid {ssettings.instance_uid}"
             )
-            logger.important(f"created {managed_message} storage location{hub_message}")
+        else:
+            is_managed_by_instance = ""
+        hub_message = ""
+        if setup_settings.instance.is_on_hub and is_managed_by_current_instance:
+            instance_owner = setup_settings.instance.owner
+            hub_message = f", see: https://lamin.ai/{instance_owner}/infrastructure"
+        managed_message = (
+            "created managed"
+            if is_managed_by_current_instance
+            else "referenced read-only"
+        )
+        logger.important(
+            f"{managed_message} storage location at {kwargs['root']}{is_managed_by_instance}{hub_message}"
+        )
         super().__init__(**kwargs)
 
     @property
@@ -230,6 +263,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         )
         if setup_settings.user.handle != "anonymous":  # only attempt if authenticated
             storage_records = get_storage_records_for_instance(
+                # only query those storage records on the hub that are managed by the current instance
                 setup_settings.instance._id
             )
             for storage_record in storage_records:
@@ -238,4 +272,9 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
                         "Cannot delete default storage of instance."
                     )
                     delete_storage_record(storage_record)
+        ssettings = StorageSettings(self.root)
+        if ssettings._mark_storage_root.exists():
+            ssettings._mark_storage_root.unlink(
+                missing_ok=True  # this is totally weird, but needed on Py3.11
+            )
         super().delete()

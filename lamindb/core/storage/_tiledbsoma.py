@@ -13,7 +13,7 @@ from lamindb_setup.core.upath import LocalPathClasses, create_path
 from packaging import version
 
 if TYPE_CHECKING:
-    from lamindb_setup.core.types import UPathStr
+    from lamindb_setup.types import UPathStr
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
     from tiledbsoma import Measurement as SOMAMeasurement

@@ -17,6 +17,15 @@ def check_storage_location_on_hub_exists(uid: str):
     return length == 1
 
 
+def test_reference_storage_location(ccaplog):
+    ln.Artifact("s3://lamindata/iris_studies/study0_raw_images")
+    assert ln.Storage.get(root="s3://lamindata").instance_uid == "4XIuR0tvaiXM"
+    # assert (
+    #     "referenced read-only storage location at s3://lamindata, is managed by instance with uid 4XIuR0tvaiXM"
+    #     in ccaplog.text
+    # )
+
+
 def test_switch_delete_storage_location():
     ln.settings.storage = "./default_storage_unit_storage"
     assert (
@@ -68,5 +77,8 @@ def test_switch_delete_storage_location():
 
     # switch back to default storage
     ln.settings.storage = "./default_storage_unit_storage"
+    storage_marker = ln.UPath(new_storage_location) / ".lamindb/storage_uid.txt"
+    assert storage_marker.exists()
     new_storage.delete()
     assert not check_storage_location_on_hub_exists(new_storage.uid)
+    assert not storage_marker.exists()
