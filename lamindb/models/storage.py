@@ -238,7 +238,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
                         "Cannot delete default storage of instance."
                     )
                     delete_storage_record(storage_record)
-        ssettings = StorageSettings(storage_record["root"])
+        ssettings = StorageSettings(self.root)
         if ssettings._mark_storage_root.exists():
             ssettings._mark_storage_root.unlink(
                 missing_ok=True  # this is totally weird, but needed on Py3.11
