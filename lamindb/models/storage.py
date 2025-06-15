@@ -196,7 +196,8 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             instance_slug=setup_settings.instance.slug,
             prevent_register_hub=not setup_settings.instance.is_on_hub,
         )
-        assert kwargs["root"] == ssettings.root_as_str  # noqa: S101
+        # ssettings performed validation and normalization of the root path
+        kwargs["root"] = ssettings.root_as_str  # noqa: S101
         if "instance_uid" in kwargs:
             assert kwargs["instance_uid"] == ssettings.instance_uid  # noqa: S101
         else:
