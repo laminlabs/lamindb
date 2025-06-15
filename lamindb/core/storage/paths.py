@@ -15,7 +15,7 @@ from lamindb.core._settings import settings
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from lamindb_setup.core.types import UPathStr
+    from lamindb_setup.types import UPathStr
 
     from lamindb.models.artifact import Artifact
 

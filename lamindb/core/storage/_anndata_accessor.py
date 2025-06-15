@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from fsspec.core import OpenFile
-    from lamindb_setup.core.types import UPathStr
+    from lamindb_setup.types import UPathStr
 
 
 anndata_version_parse = version.parse(anndata_version)

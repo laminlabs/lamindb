@@ -26,7 +26,7 @@ from .sqlrecord import SQLRecord
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from lamindb_setup.core.types import StorageType
+    from lamindb_setup.types import StorageType
     from upath import UPath
 
     from .artifact import Artifact
@@ -50,8 +50,15 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         storage location. Some storage locations may not be managed by any LaminDB
         instance, in which case the `instance_uid` is `None`.
 
-        When you delete a LaminDB instance, you'll be warned about data in managed
-        storage locations while data in referenced storage locations is ignored.
+        Here is an example based on this `instance state <https://lamin.ai/laminlabs/lamindata/transform/dPco79GYgzag0000>`__:
+
+        .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/eHDmIOAxLEoqZ2oK0000.png
+           :width: 400px
+
+        If you want to obtain an overview of all storage locations and how they are managed by LaminDB instances, head over to `https://lamin.ai/{account}/{infrastructure}`
+
+        .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/ze8hkgVxVptSSZEU0000.png
+           :width: 800px
 
     Args:
         root: `str` The root path of the storage location, e.g., `"./myfolder"`, `"s3://my-bucket/myfolder"`, or `"gs://my-bucket/myfolder"`.

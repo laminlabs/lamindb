@@ -12,7 +12,7 @@ from lamindb.core._compat import (
 from lamindb.core.types import ScverseDataStructures
 
 if TYPE_CHECKING:
-    from lamindb_setup.core.types import UPathStr
+    from lamindb_setup.types import UPathStr
 
 SupportedDataTypes: TypeAlias = DataFrame | ScverseDataStructures
 
