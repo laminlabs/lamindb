@@ -38,7 +38,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     A storage location is either a folder (local or in the cloud) or
     an entire S3/GCP bucket.
 
-    A LaminDB instance can manage and link multiple storage locations. But any
+    A LaminDB instance can manage and reference multiple storage locations. But any
     storage location is managed by *at most one* LaminDB instance.
 
     .. dropdown:: Managed vs. referenced storage locations
