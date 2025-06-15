@@ -17,6 +17,14 @@ def check_storage_location_on_hub_exists(uid: str):
     return length == 1
 
 
+def test_reference_storage_location(ccaplog):
+    ln.Artifact("s3://lamindata/iris_studies/study0_raw_images")
+    assert (
+        "referenced read-only storage location at s3://lamindata, is managed by instance with uid 4XIuR0tvaiXM"
+        in ccaplog.text
+    )
+
+
 def test_switch_delete_storage_location():
     ln.settings.storage = "./default_storage_unit_storage"
     assert (
