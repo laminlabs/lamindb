@@ -43,19 +43,23 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
     .. dropdown:: Managed vs. referenced storage locations
 
-        The LaminDB instance can write artifacts in managed storage
-        locations but only read artifacts in referenced storage locations.
+        A LaminDB instance can only write artifacts to its managed storage
+        locations and merely reads artifacts from its referenced storage locations.
 
         The :attr:`~lamindb.Storage.instance_uid` field defines the managing LaminDB instance of a
         storage location. Some storage locations may not be managed by any LaminDB
-        instance, in which case the `instance_uid` is `None`.
+        instance, in which case the `instance_uid` is `None`. If it matches the
+        :attr:`~lamindb.settings.instance_uid` of the current instance, the storage location
+        is managed by the current instance.
 
-        Here is an example based on this `instance state <https://lamin.ai/laminlabs/lamindata/transform/dPco79GYgzag0000>`__:
+        Here is an example based (`source <https://lamin.ai/laminlabs/lamindata/transform/dPco79GYgzag0000>`__):
 
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/eHDmIOAxLEoqZ2oK0000.png
            :width: 400px
 
-        If you want to obtain an overview of all storage locations and how they are managed by LaminDB instances, head over to `https://lamin.ai/{account}/{infrastructure}`
+    .. dropdown:: Keeping track of storage locations across instances
+
+        Head over to `https://lamin.ai/{account}/infrastructure` and you'll see something like this:
 
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/ze8hkgVxVptSSZEU0000.png
            :width: 800px

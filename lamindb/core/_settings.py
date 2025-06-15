@@ -156,6 +156,11 @@ class Settings:
         set_managed_storage(path, **kwargs)
 
     @property
+    def instance_uid(self) -> str:
+        """The `uid` of the current instance."""
+        return ln_setup.settings.instance.uid
+
+    @property
     def cache_dir(self) -> UPath:
         """Cache root, a local directory to cache cloud files."""
         return ln_setup.settings.cache_dir
