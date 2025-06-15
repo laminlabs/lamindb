@@ -193,6 +193,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         ssettings, _ = init_storage(
             kwargs["root"],
             instance_id=setup_settings.instance._id,
+            instance_slug=setup_settings.instance.slug,
             prevent_register_hub=not setup_settings.instance.is_on_hub,
         )
         assert kwargs["root"] == ssettings.root_as_str  # noqa: S101
