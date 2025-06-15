@@ -49,7 +49,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         The :attr:`~lamindb.Storage.instance_uid` field defines the managing LaminDB instance of a
         storage location. Some storage locations may not be managed by any LaminDB
         instance, in which case the `instance_uid` is `None`. If it matches the
-        :attr:`~lamindb.settings.instance_uid` of the current instance, the storage location
+        :attr:`~lamindb.core.Settings.instance_uid` of the current instance, the storage location
         is managed by the current instance.
 
         Here is an example based (`source <https://lamin.ai/laminlabs/lamindata/transform/dPco79GYgzag0000>`__):
