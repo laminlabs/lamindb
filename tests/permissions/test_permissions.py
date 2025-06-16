@@ -234,13 +234,17 @@ def test_lamin_dev():
         shell=True,
         check=True,
     )
+    # connect to the instance before saving
+    subprocess.run(  # noqa: S602
+        "lamin connect laminlabs/lamin-dev",
+        shell=True,
+        check=True,
+    )
     result = subprocess.run(  # noqa: S602
         "lamin save .gitignore --key mytest --space 'Our test space for CI'",
         shell=True,
         capture_output=True,
     )
-    print(result.stdout.decode())
-    print(result.stderr.decode())
     assert "key='mytest'" in result.stdout.decode()
     assert "storage path:" in result.stdout.decode()
     assert result.returncode == 0
@@ -248,8 +252,6 @@ def test_lamin_dev():
     result = subprocess.run(  # noqa: S602
         f"python {script2_path}",
         shell=True,
-        capture_output=True,
+        capture_output=False,
     )
-    print(result.stdout.decode())
-    print(result.stderr.decode())
     assert result.returncode == 0
