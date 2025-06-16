@@ -270,6 +270,7 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
     branch_id = kwargs.pop("branch_id", 1)
     space = kwargs.pop("space", None)
     space_id = kwargs.pop("space_id", 1)
+    _skip_validation = kwargs.pop("_skip_validation", False)
     if kwargs:
         valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Feature)])
         raise FieldValidationError(f"Only {valid_keywords} are valid keyword arguments")
@@ -280,6 +281,7 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
     kwargs["branch_id"] = branch_id
     kwargs["space"] = space
     kwargs["space_id"] = space_id
+    kwargs["_skip_validation"] = _skip_validation
     if not is_param:
         kwargs["description"] = description
     # cast dtype
