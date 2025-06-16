@@ -1727,7 +1727,8 @@ class DataFrameCatManager:
     def __init__(
         self,
         df: pd.DataFrame | Artifact,
-        columns_field: FieldAttr = Feature.name,
+        columns_field: FieldAttr = ...,
+        columns_names: Iterable[str] | None = None,
         categoricals: list[Feature] | None = None,
         sources: dict[str, SQLRecord] | None = None,
         index: Feature | None = None,
@@ -1735,6 +1736,8 @@ class DataFrameCatManager:
         maximal_set: bool = False,
         schema: Schema | None = None,
     ) -> None:
+        if columns_names is Ellipsis:
+            columns_names = Feature.name
         self._non_validated = None
         self._index = index
         self._artifact: Artifact = None  # pass the dataset as an artifact
