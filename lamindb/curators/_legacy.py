@@ -185,12 +185,14 @@ class DataFrameCatManager(CatManager):
     def __init__(
         self,
         df: pd.DataFrame | Artifact,
-        columns_field: FieldAttr = Feature.name,
+        columns_field: FieldAttr = ...,
         columns_names: Iterable[str] | None = None,
         categoricals: dict[str, FieldAttr] | None = None,
         sources: dict[str, SQLRecord] | None = None,
         index: Feature | None = None,
     ) -> None:
+        if columns_names is Ellipsis:
+            columns_names = Feature.name
         self._non_validated = None
         self._index = index
         super().__init__(
@@ -326,9 +328,11 @@ class AnnDataCatManager(CatManager):
         data: ad.AnnData | Artifact,
         var_index: FieldAttr | None = None,
         categoricals: dict[str, FieldAttr] | None = None,
-        obs_columns: FieldAttr = Feature.name,
+        obs_columns: FieldAttr = ...,
         sources: dict[str, SQLRecord] | None = None,
     ) -> None:
+        if obs_columns is Ellipsis:
+            obs_columns = Feature.name
         if isinstance(var_index, str):
             raise TypeError(
                 "var_index parameter has to be a field, e.g. Gene.ensembl_gene_id"
@@ -932,9 +936,11 @@ class TiledbsomaCatManager(CatManager):
         experiment_uri: UPathStr | Artifact,
         var_index: dict[str, tuple[str, FieldAttr]],
         categoricals: dict[str, FieldAttr] | None = None,
-        obs_columns: FieldAttr = Feature.name,
+        obs_columns: FieldAttr = ...,
         sources: dict[str, SQLRecord] | None = None,
     ):
+        if obs_columns is Ellipsis:
+            obs_columns = Feature.name
         self._obs_fields = categoricals or {}
         self._var_fields = var_index
         self._columns_field = obs_columns
@@ -1948,9 +1954,11 @@ def from_df(
     cls,
     df: pd.DataFrame,
     categoricals: dict[str, FieldAttr] | None = None,
-    columns: FieldAttr = Feature.name,
+    columns: FieldAttr = ...,
     organism: str | None = None,
 ) -> DataFrameCatManager:
+    if columns is Ellipsis:
+        columns = Feature.name
     if organism is not None:
         logger.warning("organism is ignored, define it on the dtype level")
     return DataFrameCatManager(
@@ -1966,10 +1974,12 @@ def from_anndata(
     data: ad.AnnData | UPathStr,
     var_index: FieldAttr,
     categoricals: dict[str, FieldAttr] | None = None,
-    obs_columns: FieldAttr = Feature.name,
+    obs_columns: FieldAttr = ...,
     organism: str | None = None,
     sources: dict[str, SQLRecord] | None = None,
 ) -> AnnDataCatManager:
+    if obs_columns is Ellipsis:
+        obs_columns = Feature.name
     if organism is not None:
         logger.warning("organism is ignored, define it on the dtype level")
     return AnnDataCatManager(
@@ -2006,10 +2016,12 @@ def from_tiledbsoma(
     experiment_uri: UPathStr,
     var_index: dict[str, tuple[str, FieldAttr]],
     categoricals: dict[str, FieldAttr] | None = None,
-    obs_columns: FieldAttr = Feature.name,
+    obs_columns: FieldAttr = ...,
     organism: str | None = None,
     sources: dict[str, SQLRecord] | None = None,
 ) -> TiledbsomaCatManager:
+    if obs_columns is Ellipsis:
+        obs_columns = Feature.name
     if organism is not None:
         logger.warning("organism is ignored, define it on the dtype level")
     return TiledbsomaCatManager(
