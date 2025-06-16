@@ -107,6 +107,14 @@ Backwards compatibility.
 
 """
 
+from lamindb_setup.lazy_import import enable_lazy_imports
+from lamindb_setup._check_setup import _check_instance_setup
+
+enable_lazy_imports(
+    "lamindb.models",
+    on_load=lambda mod, attr: _check_instance_setup(from_module="lamindb"),
+)
+
 # ruff: noqa: I001
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
 __version__ = "1.6.2"
@@ -118,55 +126,47 @@ warnings.filterwarnings(
     "ignore", message="The legacy Dask DataFrame implementation is deprecated"
 )
 
-from lamindb_setup._check_setup import InstanceNotSetupError as _InstanceNotSetupError
-from lamindb_setup._check_setup import _check_instance_setup
 from lamindb_setup._connect_instance import connect
 from lamindb_setup.core.upath import UPath
-
 from . import base, errors, setup
 
+# this is just used for auto connect on import now
+_check_instance_setup(from_module="lamindb")
 
-def __getattr__(name):
-    raise _InstanceNotSetupError()
+from ._tracked import tracked
+from ._view import view
+from .core._context import context
+from .core._settings import settings
+from .curators._legacy import CatManager as Curator
+from .models import (
+    Artifact,
+    Collection,
+    Feature,
+    FeatureSet,  # backward compat
+    Person,
+    Project,
+    Reference,
+    Run,
+    Schema,
+    Storage,
+    Transform,
+    ULabel,
+    User,
+    Space,
+    Branch,
+    Record,
+    Sheet,
+)
+from .models.save import save
+from . import core
+from . import integrations
+from . import curators
+from . import examples
 
+track = context._track
+finish = context._finish
+settings.__doc__ = """Global live settings (:class:`~lamindb.core.Settings`)."""
+context.__doc__ = """Global run context (:class:`~lamindb.core.Context`)."""
+from django.db.models import Q
 
-if _check_instance_setup(from_module="lamindb"):
-    del __getattr__  # so that imports work out
-    from . import base
-    from ._tracked import tracked
-    from ._view import view
-    from .core._context import context
-    from .core._settings import settings
-    from .curators._legacy import CatManager as Curator
-    from .models import (
-        Artifact,
-        Collection,
-        Feature,
-        FeatureSet,  # backward compat
-        Person,
-        Project,
-        Reference,
-        Run,
-        Schema,
-        Storage,
-        Transform,
-        ULabel,
-        User,
-        Space,
-        Branch,
-        Record,
-        Sheet,
-    )
-    from .models.save import save
-    from . import core
-    from . import integrations
-    from . import curators
-    from . import examples
-
-    track = context._track
-    finish = context._finish
-    settings.__doc__ = """Global live settings (:class:`~lamindb.core.Settings`)."""
-    context.__doc__ = """Global run context (:class:`~lamindb.core.Context`)."""
-    from django.db.models import Q
-
-    Param = Feature  # backward compat
+Param = Feature  # backward compat
