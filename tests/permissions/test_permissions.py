@@ -173,10 +173,10 @@ def test_utility_tables():
     with pytest.raises(ProgrammingError):
         space.save()
 
-    user = ln.models.User.filter().one()
+    user = ln.User.filter().one()
     user.name = "new name"
     with pytest.raises(ProgrammingError):
-        space.save()
+        user.save()
     # can't insert
     with pytest.raises(ProgrammingError):
         ln.Space(name="new space", uid="00000005").save()
