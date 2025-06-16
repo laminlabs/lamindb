@@ -9,7 +9,7 @@ import threading
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TextIO
 
 import lamindb_setup as ln_setup
 from django.db.models import Func, IntegerField, Q
@@ -100,19 +100,50 @@ def pretty_pypackages(dependencies: dict) -> str:
     return " ".join(deps_list)
 
 
+def last_non_empty_r_block(line: str) -> str:
+    for block in reversed(line.split("\r")):
+        if block:
+            return block
+    return ""
+
+
 class LogStreamHandler:
-    def __init__(self, log_stream, file):
+    def __init__(self, log_stream: TextIO, file: TextIO, use_buffer: bool):
         self.log_stream = log_stream
         self.file = file
 
-    def write(self, data):
+        self._buffer = ""
+        self._use_buffer = use_buffer
+
+    def write(self, data: str) -> int:
         self.log_stream.write(data)
-        self.file.write(data)
-        self.file.flush()
+
+        if not self._use_buffer:
+            self.file.write(data)
+            self.file.flush()
+            return len(data)
+
+        self._buffer += data
+        # write only the last part of a line with carriage returns
+        while "\n" in self._buffer:
+            line, self._buffer = self._buffer.split("\n", 1)
+            self.file.write(last_non_empty_r_block(line) + "\n")
+            self.file.flush()
+
+        return len(data)
 
     def flush(self):
         self.log_stream.flush()
-        self.file.flush()
+        if not self.file.closed:
+            self.file.flush()
+
+    # .flush is sometimes (in jupyter etc.) called after every .write
+    # this needs to be called only at the end
+    def flush_buffer(self):
+        if not self.file.closed and self._buffer:
+            self.file.write(last_non_empty_r_block(self._buffer))
+            self._buffer = ""
+        self.flush()
 
 
 class LogStreamTracker:
@@ -131,8 +162,14 @@ class LogStreamTracker:
             ln_setup.settings.cache_dir / f"run_logs_{self.run.uid}.txt"
         )
         self.log_file = open(self.log_file_path, "w")
-        sys.stdout = LogStreamHandler(self.original_stdout, self.log_file)
-        sys.stderr = LogStreamHandler(self.original_stderr, self.log_file)
+        # use buffering for correct handling of carriage returns
+        sys.stdout = LogStreamHandler(
+            self.original_stdout, self.log_file, use_buffer=True
+        )
+        # write evrything immediately in stderr
+        sys.stderr = LogStreamHandler(
+            self.original_stderr, self.log_file, use_buffer=False
+        )
         # handle signals
         # signal should be used only in the main thread, otherwise
         # ValueError: signal only works in main thread of the main interpreter
@@ -144,6 +181,8 @@ class LogStreamTracker:
 
     def finish(self):
         if self.original_stdout:
+            getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
+            sys.stderr.flush()
             sys.stdout = self.original_stdout
             sys.stderr = self.original_stderr
             self.log_file.close()
@@ -153,6 +192,8 @@ class LogStreamTracker:
 
         if self.original_stdout and not self.is_cleaning_up:
             self.is_cleaning_up = True
+            getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
+            sys.stderr.flush()
             if signo is not None:
                 signal_msg = f"\nProcess terminated by signal {signo} ({signal.Signals(signo).name})\n"
                 if frame:
@@ -160,9 +201,9 @@ class LogStreamTracker:
                         f"Frame info:\n{''.join(traceback.format_stack(frame))}"
                     )
                 self.log_file.write(signal_msg)
+                self.log_file.flush()
             sys.stdout = self.original_stdout
             sys.stderr = self.original_stderr
-            self.log_file.flush()
             self.log_file.close()
             save_run_logs(self.run, save_run=True)
 
@@ -171,6 +212,9 @@ class LogStreamTracker:
             error_msg = f"{''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))}"
             if self.log_file.closed:
                 self.log_file = open(self.log_file_path, "a")
+            else:
+                getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
+                sys.stderr.flush()
             self.log_file.write(error_msg)
             self.log_file.flush()
             self.cleanup()
