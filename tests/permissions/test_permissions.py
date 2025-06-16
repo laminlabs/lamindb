@@ -234,6 +234,12 @@ def test_lamin_dev():
         shell=True,
         check=True,
     )
+    # connect to the instance before saving
+    subprocess.run(  # noqa: S602
+        "lamin connect laminlabs/lamin-dev",
+        shell=True,
+        check=True,
+    )
     result = subprocess.run(  # noqa: S602
         "lamin save .gitignore --key mytest --space 'Our test space for CI'",
         shell=True,
