@@ -184,12 +184,11 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
             init_self_from_db(self, storage_record)
             return None
-        if "_skip_preparation" in kwargs:
-            skip_preparation = kwargs.pop("_skip_preparation")
-            if skip_preparation is True:
-                super().__init__(*args, **kwargs)
-                return None
-            kwargs.pop("_skip_preparation")
+
+        skip_preparation = kwargs.pop("_skip_preparation", False)
+        if skip_preparation:
+            super().__init__(*args, **kwargs)
+            return None
 
         # instance_id won't take effect if
         # - there is no write access
