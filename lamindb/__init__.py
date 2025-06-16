@@ -124,49 +124,40 @@ from lamindb_setup._connect_instance import connect
 from lamindb_setup.core.upath import UPath
 
 from . import base, errors, setup
+from ._tracked import tracked
+from ._view import view
+from .core._context import context
+from .core._settings import settings
+from .curators._legacy import CatManager as Curator
+from .models import (
+    Artifact,
+    Collection,
+    Feature,
+    FeatureSet,  # backward compat
+    Person,
+    Project,
+    Reference,
+    Run,
+    Schema,
+    Storage,
+    Transform,
+    ULabel,
+    User,
+    Space,
+    Branch,
+    Record,
+    Sheet,
+)
+from .models.save import save
+from . import core
+from . import integrations
+from . import curators
+from . import examples
 
+track = context._track
+finish = context._finish
+settings.__doc__ = """Global live settings (:class:`~lamindb.core.Settings`)."""
+context.__doc__ = """Global run context (:class:`~lamindb.core.Context`)."""
+from django.db.models import Q
 
-def __getattr__(name):
-    raise _InstanceNotSetupError()
-
-
-if _check_instance_setup(from_module="lamindb"):
-    del __getattr__  # so that imports work out
-    from . import base
-    from ._tracked import tracked
-    from ._view import view
-    from .core._context import context
-    from .core._settings import settings
-    from .curators._legacy import CatManager as Curator
-    from .models import (
-        Artifact,
-        Collection,
-        Feature,
-        FeatureSet,  # backward compat
-        Person,
-        Project,
-        Reference,
-        Run,
-        Schema,
-        Storage,
-        Transform,
-        ULabel,
-        User,
-        Space,
-        Branch,
-        Record,
-        Sheet,
-    )
-    from .models.save import save
-    from . import core
-    from . import integrations
-    from . import curators
-    from . import examples
-
-    track = context._track
-    finish = context._finish
-    settings.__doc__ = """Global live settings (:class:`~lamindb.core.Settings`)."""
-    context.__doc__ = """Global run context (:class:`~lamindb.core.Context`)."""
-    from django.db.models import Q
-
-    Param = Feature  # backward compat
+Param = Feature  # backward compat
