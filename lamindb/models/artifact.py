@@ -354,7 +354,7 @@ def check_path_in_existing_storage(
     if check_hub_register_storage and getattr(path, "protocol", None) in {"s3", "gs"}:
         result = select_storage_or_parent(path.as_posix())
         if result is not None:
-            return Storage(**result).save()
+            return Storage(**result, _skip_preparation=True).save()
     return None
 
 
