@@ -32,7 +32,7 @@ def test_authentication():
     with connection.cursor() as cur:
         cur.execute("SELECT 1 in (SELECT id FROM check_access() WHERE role = 'read');")
         result = cur.fetchall()[0][0]
-    raise Exception(result)
+    assert result
     # test that auth can't be hijacked
     # false table created before
     with (
