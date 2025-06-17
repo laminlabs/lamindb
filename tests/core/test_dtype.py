@@ -158,3 +158,17 @@ def test_list_of_dtypes():
         "list": True,
     }
     assert serialize_dtype(list[bionty.CellLine]) == "list[cat[bionty.CellLine]]"
+
+
+def test_nested_cat_dtypes():
+    dtype_str = "cat[ULabel[Customer[UScustomer]].name]"
+    result = parse_dtype(dtype_str)
+    assert len(result) == 1
+    assert result[0] == {
+        "registry_str": "ULabel",
+        "subtype_str": "Customer[UScustomer]",
+        "field_str": "name",
+        "registry": ULabel,
+        "field": ULabel.name,
+        "nested_subtypes": ["Customer", "UScustomer"],
+    }
