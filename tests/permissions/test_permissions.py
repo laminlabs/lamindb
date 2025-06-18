@@ -33,6 +33,9 @@ def test_authentication():
         cur.execute("SELECT 1 in (SELECT id FROM check_access() WHERE role = 'read');")
         result = cur.fetchall()[0][0]
     assert result
+    # check querying without setting jwt
+    with connection.connection.cursor() as cur:
+        cur.execute("SELECT * FROM lamindb_ulabel;")
     # test that auth can't be hijacked
     # false table created before
     with (
