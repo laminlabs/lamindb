@@ -405,9 +405,10 @@ class Registry(ModelBase):
         cls,
         field: StrField | None = None,
         return_field: StrField | None = None,
+        keep: Literal["first", "last", False] = "first",
     ) -> NamedTuple:
         """{}"""  # noqa: D415
-        return _lookup(cls=cls, field=field, return_field=return_field)
+        return _lookup(cls=cls, field=field, return_field=return_field, keep=keep)
 
     def filter(cls, *queries, **expressions) -> QuerySet:
         """Query records.
@@ -857,13 +858,10 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             if hasattr(self, "labels"):
                 from copy import copy
 
-                from lamindb.models._feature_manager import FeatureManager
-
                 # here we go back to original record on the source database
                 self_on_db = copy(self)
                 self_on_db._state.db = db
                 self_on_db.pk = pk_on_db  # manually set the primary key
-                self_on_db.features = FeatureManager(self_on_db)  # type: ignore
                 self.features._add_from(self_on_db, transfer_logs=transfer_logs)
                 self.labels.add_from(self_on_db, transfer_logs=transfer_logs)
             for k, v in transfer_logs.items():
@@ -1311,9 +1309,7 @@ def get_transfer_run(record) -> Run:
             logger.warning(WARNING_RUN_TRANSFORM)
         initiated_by_run = None
     # it doesn't seem to make sense to create new runs for every transfer
-    run = Run.filter(
-        transform=transform, initiated_by_run=initiated_by_run
-    ).one_or_none()
+    run = Run.filter(transform=transform, initiated_by_run=initiated_by_run).first()
     if run is None:
         run = Run(transform=transform, initiated_by_run=initiated_by_run).save()  # type: ignore
         run.initiated_by_run = initiated_by_run  # so that it's available in memory
@@ -1331,6 +1327,7 @@ def transfer_to_default_db(
     if record._state.db is None or record._state.db == "default":
         return None
     registry = record.__class__
+    logger.debug(f"transferring {registry.__name__} record {record.uid} to default db")
     record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
     record_str = f"{record.__class__.__name__}(uid='{record.uid}')"
     if transfer_logs["run"] is None:

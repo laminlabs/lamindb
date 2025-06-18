@@ -52,7 +52,7 @@ if TYPE_CHECKING:
 
     from .artifact import Artifact
     from .project import Project
-    from .query_set import QuerySet
+    from .query_set import QuerySet, SQLRecordList
 
 
 NUMBER_TYPE = "num"
@@ -464,7 +464,10 @@ class Schema(SQLRecord, CanCurate, TracksRun):
     @overload
     def __init__(
         self,
-        features: list[SQLRecord] | list[tuple[Feature, dict]] | None = None,
+        features: list[SQLRecord]
+        | SQLRecordList
+        | list[tuple[Feature, dict]]
+        | None = None,
         index: Feature | None = None,
         slots: dict[str, Schema] | None = None,
         name: str | None = None,

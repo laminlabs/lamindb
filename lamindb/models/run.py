@@ -27,6 +27,7 @@ from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from ._feature_manager import FeatureManager
     from .artifact import Artifact
     from .collection import Collection
     from .feature import FeatureValue
@@ -37,18 +38,6 @@ if TYPE_CHECKING:
 
 
 _TRACKING_READY: bool | None = None
-
-
-class FeatureManager:
-    """Feature manager."""
-
-    pass
-
-
-class FeatureManagerRun(FeatureManager):
-    """Feature manager."""
-
-    pass
 
 
 def current_run() -> Run | None:
@@ -234,26 +223,6 @@ class Run(SQLRecord):
 
     _name_field: str = "started_at"
 
-    features: FeatureManager = FeatureManagerRun  # type: ignore
-    """Features manager.
-
-    Run parameters are tracked via the `Feature` registry, just like all other variables.
-
-    Guide: :ref:`track-run-parameters`
-
-    Example::
-
-        run.features.add_values({
-            "learning_rate": 0.01,
-            "input_dir": "s3://my-bucket/mydataset",
-            "downsample": True,
-            "preprocess_params": {
-                "normalization_type": "cool",
-                "subset_highlyvariable": True,
-            },
-        })
-    """
-
     id: int = models.BigAutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
     # default uid was changed from base62_20 to base62_16 in 1.6.0
@@ -367,7 +336,6 @@ class Run(SQLRecord):
         *args,
         **kwargs,
     ):
-        self.features = FeatureManager(self)  # type: ignore
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args, **kwargs)
             return None
@@ -401,6 +369,30 @@ class Run(SQLRecord):
     @deprecated("features")
     def params(self) -> FeatureManager:
         return self.features
+
+    @property
+    def features(self) -> FeatureManager:
+        """Features manager.
+
+        Run parameters are tracked via the `Feature` registry, just like all other variables.
+
+        Guide: :ref:`track-run-parameters`
+
+        Example::
+
+            run.features.add_values({
+                "learning_rate": 0.01,
+                "input_dir": "s3://my-bucket/mydataset",
+                "downsample": True,
+                "preprocess_params": {
+                    "normalization_type": "cool",
+                    "subset_highlyvariable": True,
+                },
+            })
+        """
+        from ._feature_manager import FeatureManager
+
+        return FeatureManager(self)
 
     @classmethod
     def filter(
@@ -441,7 +433,7 @@ class Run(SQLRecord):
                     keys_normalized, field="name", mute=True
                 )
             ):
-                return filter_base(FeatureManagerRun, **expressions)
+                return filter_base(Run, **expressions)
             else:
                 params = ", ".join(sorted(np.array(keys_normalized)[~params_validated]))
                 message = f"feature names: {params}"

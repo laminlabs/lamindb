@@ -8,7 +8,7 @@ import lamindb as ln
 import psycopg2
 import pytest
 from django.db import connection, transaction
-from django.db.utils import InternalError, ProgrammingError
+from django.db.utils import IntegrityError, InternalError, ProgrammingError
 from jwt_utils import sign_jwt
 from lamindb_setup.core.django import DBToken, db_token_manager
 from psycopg2.extensions import adapt
@@ -167,16 +167,22 @@ def test_utility_tables():
     assert hm.Team.filter().count() == 0
     assert hm.AccountTeam.filter().count() == 0
     assert hm.AccessSpace.filter().count() == 0
-    # can't update
+    # can't update a space
     space = ln.Space.get(id=1)  # default space
     space.name = "new name"
     with pytest.raises(ProgrammingError):
         space.save()
-
-    user = ln.models.User.filter().one()
+    # can't update a user
+    user = ln.User.filter().one()
     user.name = "new name"
-    with pytest.raises(ProgrammingError):
-        space.save()
+    # as we allow insert but not update on the user table
+    # it looks like the db raises IntegrityError insead of the rls error
+    # because just tries to insert with the same id and fails
+    with pytest.raises(IntegrityError):
+        user.save()
+    # can insert a user
+    ln.User(handle="insert_new_user", uid="someuidd").save()
+    assert ln.User.filter().count() == 2
     # can't insert
     with pytest.raises(ProgrammingError):
         ln.Space(name="new space", uid="00000005").save()
@@ -228,13 +234,17 @@ def test_lamin_dev():
         shell=True,
         check=True,
     )
+    # connect to the instance before saving
+    subprocess.run(  # noqa: S602
+        "lamin connect laminlabs/lamin-dev",
+        shell=True,
+        check=True,
+    )
     result = subprocess.run(  # noqa: S602
         "lamin save .gitignore --key mytest --space 'Our test space for CI'",
         shell=True,
         capture_output=True,
     )
-    print(result.stdout.decode())
-    print(result.stderr.decode())
     assert "key='mytest'" in result.stdout.decode()
     assert "storage path:" in result.stdout.decode()
     assert result.returncode == 0
@@ -242,8 +252,6 @@ def test_lamin_dev():
     result = subprocess.run(  # noqa: S602
         f"python {script2_path}",
         shell=True,
-        capture_output=True,
+        capture_output=False,
     )
-    print(result.stdout.decode())
-    print(result.stderr.decode())
     assert result.returncode == 0

@@ -21,7 +21,7 @@ from .storage._anndata_accessor import (
 )
 
 if TYPE_CHECKING:
-    from lamindb_setup.core.types import UPathStr
+    from lamindb_setup.types import UPathStr
 
 
 class _Connect:

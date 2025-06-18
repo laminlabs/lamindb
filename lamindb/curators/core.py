@@ -630,10 +630,10 @@ class DataFrameCurator(Curator):
         if self._schema.n > 0:
             try:
                 # first validate through pandera
-                self._pandera_schema.validate(self._dataset)
+                self._pandera_schema.validate(self._dataset, lazy=True)
                 # then validate lamindb categoricals
                 self._cat_manager_validate()
-            except pandera.errors.SchemaError as err:
+            except (pandera.errors.SchemaError, pandera.errors.SchemaErrors) as err:
                 self._is_validated = False
                 # .exconly() doesn't exist on SchemaError
                 raise ValidationError(str(err)) from err

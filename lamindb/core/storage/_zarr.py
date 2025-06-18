@@ -24,7 +24,7 @@ else:
 
 if TYPE_CHECKING:
     from fsspec import FSMap
-    from lamindb_setup.core.types import UPathStr
+    from lamindb_setup.types import UPathStr
 
     from lamindb.core.types import ScverseDataStructures
 

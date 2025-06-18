@@ -16,7 +16,7 @@ from lamindb.models.artifact import data_is_scversedatastructure
 from ..errors import InvalidArgument
 
 if TYPE_CHECKING:
-    from lamindb_setup.core.types import UPathStr
+    from lamindb_setup.types import UPathStr
     from mudata import MuData
     from spatialdata import SpatialData
 

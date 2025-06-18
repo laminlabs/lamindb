@@ -4,9 +4,10 @@ import bionty as bt
 import lamindb as ln
 import pytest
 from lamindb.models._django import get_artifact_with_related
+from lamindb_setup.errors import MODULE_WASNT_CONFIGURED_MESSAGE_TEMPLATE
 
 
-def test_transfer_from_remote_to_local():
+def test_transfer_from_remote_to_local(ccaplog):
     """Test transfer from remote to local instance."""
 
     bt.Gene.filter().delete()
@@ -14,13 +15,11 @@ def test_transfer_from_remote_to_local():
     ln.ULabel.filter().delete()
     bt.CellType.filter().delete()
 
-    # test transfer form an instance with extra registry modules (laminlabs/lamin-dev)
+    # test transfer from an instance with an extra schema module: wetlab
+    # we also made sure that the artifact here has a wetlab label attached
+
     # transfer 1st artifact
-    artifact = (
-        ln.Artifact.using("laminlabs/lamin-dev")
-        .filter(uid="livFRRpMaOgb3y8U2mK2")
-        .one()
-    )
+    artifact = ln.Artifact.using("laminlabs/lamin-dev").get("livFRRpMaOgb3y8U2mK2")
 
     # test describe postgres
     result = get_artifact_with_related(
@@ -66,6 +65,7 @@ def test_transfer_from_remote_to_local():
     organism_remote = artifact.organisms.get(name="human")
 
     artifact.save()
+    assert MODULE_WASNT_CONFIGURED_MESSAGE_TEMPLATE.format("wetlab") in ccaplog.text
 
     # check all ids are adjusted
     assert id_remote != artifact.id
@@ -78,10 +78,8 @@ def test_transfer_from_remote_to_local():
     assert organism.created_at != organism_remote.created_at
 
     # now check that this is idempotent and we can run it again
-    artifact_repeat = (
-        ln.Artifact.using("laminlabs/lamin-dev")
-        .filter(uid="livFRRpMaOgb3y8U2mK2")
-        .one()
+    artifact_repeat = ln.Artifact.using("laminlabs/lamin-dev").get(
+        "livFRRpMaOgb3y8U2mK2"
     )
     artifact_repeat.save()
 
@@ -92,11 +90,7 @@ def test_transfer_from_remote_to_local():
     feature.save()
 
     # transfer 2nd artifact
-    artifact2 = (
-        ln.Artifact.using("laminlabs/lamin-dev")
-        .filter(uid="qz35YaRk09XtYAyLvjyZ")
-        .one()
-    )
+    artifact2 = ln.Artifact.using("laminlabs/lamin-dev").get("qz35YaRk09XtYAyLvjyZ")
     artifact2.save()
 
     # check the feature name
@@ -144,18 +138,17 @@ def test_using_record_organism():
     """Test passing record and organism to the using_key instance."""
     import bionty as bt
 
-    release_110 = bt.Source.filter(
+    release_110_cxg = bt.Source.using("laminlabs/lamin-dev").get(
         organism="mouse", entity="bionty.Gene", version="release-110"
-    ).one()
-    release_110_cxg = (
-        bt.Source.using("laminlabs/lamin-dev")
-        .filter(organism="mouse", entity="bionty.Gene", version="release-110")
-        .one()
     )
-    release_112_cxg = (
-        bt.Source.using("laminlabs/lamin-dev")
-        .filter(organism="mouse", entity="bionty.Gene", version="release-112")
-        .one()
+    release_112_cxg = bt.Source.using("laminlabs/lamin-dev").get(
+        organism="mouse", entity="bionty.Gene", version="release-112"
+    )
+    release_110 = release_110_cxg.save()  # transfer source record
+    release_110_cxg = (  # re-fetch
+        bt.Source.using("laminlabs/lamin-dev").get(
+            organism="mouse", entity="bionty.Gene", version="release-110"
+        )
     )
 
     # passing the wrong source

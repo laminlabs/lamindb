@@ -13,7 +13,7 @@ from lamindb_setup.core.upath import LocalPathClasses, create_path
 from packaging import version
 
 if TYPE_CHECKING:
-    from lamindb_setup.core.types import UPathStr
+    from lamindb_setup.types import UPathStr
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
     from tiledbsoma import Measurement as SOMAMeasurement
@@ -148,7 +148,7 @@ def save_tiledbsoma_experiment(
     else:
         uid, _ = create_uid(n_full_id=20)
         storage_key = auto_storage_key_from_artifact_uid(
-            uid, ".tiledbsoma", is_dir=True
+            uid, ".tiledbsoma", overwrite_versions=True
         )
         storepath = setup_settings.storage.root / storage_key
 

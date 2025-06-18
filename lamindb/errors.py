@@ -7,10 +7,13 @@
    InvalidArgument
    DoesNotExist
    NotebookNotSaved
+   UnknownStorageLocation
    MissingContextUID
    UpdateContext
    IntegrityError
+   FieldValidationError
    SQLRecordNameChangeIntegrityError
+   NoWriteAccess
 
 """
 
@@ -39,6 +42,12 @@ class TrackNotCalled(Exception):
 
 class NotebookNotSaved(Exception):
     """Notebook wasn't saved."""
+
+    pass
+
+
+class UnknownStorageLocation(Exception):
+    """Path is not contained in any known storage location."""
 
     pass
 

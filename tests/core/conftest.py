@@ -18,7 +18,11 @@ def pytest_sessionstart():
     t_execute_start = perf_counter()
 
     ln_setup._TESTING = True
-    pgurl = setup_local_test_postgres()
+    try:
+        pgurl = setup_local_test_postgres()
+    except RuntimeError:
+        run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)  # noqa: S602
+        pgurl = setup_local_test_postgres()
     ln.setup.init(
         storage="./default_storage_unit_core",
         modules="bionty",
@@ -28,7 +32,7 @@ def pytest_sessionstart():
     ln.setup.settings.auto_connect = True
     ln.settings.creation.artifact_silence_missing_run_warning = True
     total_time_elapsed = perf_counter() - t_execute_start
-    print(f"Time to setup the instance: {total_time_elapsed:.3f}s")
+    print(f"time to setup the instance: {total_time_elapsed:.1f}s")
 
 
 def pytest_sessionfinish(session: pytest.Session):

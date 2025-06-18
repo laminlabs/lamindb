@@ -27,7 +27,7 @@ from typing import Literal, Union
 import numpy as np
 import pandas as pd
 from django.db.models.query_utils import DeferredAttribute as FieldAttr
-from lamindb_setup.core.types import UPathStr  # noqa: F401
+from lamindb_setup.types import UPathStr  # noqa: F401
 
 # need to use Union because __future__.annotations doesn't do the job here <3.10
 # typing.TypeAlias, >3.10 on but already deprecated
