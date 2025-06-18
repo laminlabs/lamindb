@@ -14,6 +14,7 @@ import pandas as pd
 from anndata import AnnData
 from django.db import connections, models
 from django.db.models import CASCADE, PROTECT, Q
+from django.db.utils import IntegrityError as DjangoIntegrityError
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core._hub_core import select_storage_or_parent
@@ -354,7 +355,17 @@ def check_path_in_existing_storage(
     if check_hub_register_storage and getattr(path, "protocol", None) in {"s3", "gs"}:
         result = select_storage_or_parent(path.as_posix())
         if result is not None:
-            return Storage(**result, _skip_preparation=True).save()
+            try:
+                return Storage(**result, _skip_preparation=True).save()
+            except DjangoIntegrityError as e:
+                # this most certanly means that the storage was inserted by another user or process
+                # between the check and save
+                # just query it here
+                storage = Storage.filter(uid=result["uid"]).one_or_none()
+                if storage is None:
+                    raise e
+                assert storage.root == result["root"]  # noqa: S101
+                return storage
     return None
 
 
