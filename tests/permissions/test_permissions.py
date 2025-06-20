@@ -30,9 +30,15 @@ db_token_manager.set(db_token)
 def test_authentication():
     # just check that the token was setup
     with connection.cursor() as cur:
-        cur.execute("SELECT get_account_id();")
-        account_id = cur.fetchall()[0][0]
-    assert account_id.hex == user_uuid
+        cur.execute("SELECT 1 in (SELECT id FROM check_access() WHERE role = 'read');")
+        result = cur.fetchall()[0][0]
+    assert result
+    # check querying without setting jwt
+    with (
+        pytest.raises(psycopg2.errors.RaiseException),
+        connection.connection.cursor() as cur,
+    ):
+        cur.execute("SELECT * FROM lamindb_ulabel;")
     # test that auth can't be hijacked
     # false table created before
     with (
@@ -41,7 +47,11 @@ def test_authentication():
     ):
         cur.execute(
             """
-            CREATE TEMP TABLE account_id(val uuid PRIMARY KEY) ON COMMIT DROP;
+            CREATE TEMP TABLE access(
+                id int,
+                role varchar(20),
+                type text
+            ) ON COMMIT DROP;
             SELECT set_token(%s);
             """,
             (token,),
@@ -53,9 +63,14 @@ def test_authentication():
     ):
         cur.execute(
             """
-            CREATE TEMP TABLE account_id(val uuid PRIMARY KEY) ON COMMIT DROP;
-            INSERT INTO account_id(val) VALUES (gen_random_uuid());
-            SELECT get_account_id();
+            CREATE TEMP TABLE access(
+                id int,
+                role varchar(20),
+                type text
+            ) ON COMMIT DROP;
+            INSERT INTO access (id, role, type)
+            VALUES (1, 'admin', 'space');
+            SELECT * FROM check_access();
             """
         )
     # check manual insert
@@ -66,7 +81,8 @@ def test_authentication():
         cur.execute(
             """
             SELECT set_token(%s);
-            INSERT INTO account_id(val) VALUES (gen_random_uuid());
+            INSERT INTO access (id, role, type)
+            VALUES (1, 'admin', 'space');
             """,
             (token,),
         )
@@ -180,7 +196,7 @@ def test_utility_tables():
     # because just tries to insert with the same id and fails
     with pytest.raises(IntegrityError):
         user.save()
-    # can insert a user
+    # can insert a user because has write access to a space
     ln.User(handle="insert_new_user", uid="someuidd").save()
     assert ln.User.filter().count() == 2
     # can't insert
