@@ -207,7 +207,7 @@ def test_utility_tables():
         hm.Account(id=uuid4().hex, uid="accntid2", role="admin").save()
     # can insert a new storage because has write access to a space
     root = "s3://some-bucket-not-exists-4673/some-folder"
-    ln.Storage(root=root, _skip_preparation=True).save()
+    ln.Storage(root=root, type="s3", _skip_preparation=True).save()
     storage = ln.Storage.get(root=root)
     # can't update the storage
     storage.root = root + "/another-folder"
