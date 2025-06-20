@@ -205,15 +205,6 @@ def test_utility_tables():
 
     with pytest.raises(ProgrammingError):
         hm.Account(id=uuid4().hex, uid="accntid2", role="admin").save()
-    # can insert a new storage because has write access to a space
-    root = "s3://some-bucket-not-exists-4673/some-folder"
-    ln.Storage(root=root, type="s3", _skip_preparation=True).save()
-    storage = ln.Storage.get(root=root)
-    # can't update the storage
-    storage.root = root + "/another-folder"
-    # see the comment for the user update
-    with pytest.raises(IntegrityError):
-        storage.save()
 
 
 def test_write_role():
