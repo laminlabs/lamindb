@@ -196,7 +196,7 @@ def test_utility_tables():
     # because just tries to insert with the same id and fails
     with pytest.raises(IntegrityError):
         user.save()
-    # can insert a user
+    # can insert a user because has write access to a space
     ln.User(handle="insert_new_user", uid="someuidd").save()
     assert ln.User.filter().count() == 2
     # can't insert
@@ -205,6 +205,15 @@ def test_utility_tables():
 
     with pytest.raises(ProgrammingError):
         hm.Account(id=uuid4().hex, uid="accntid2", role="admin").save()
+    # can insert a new storage because has write access to a space
+    root = "s3://some-bucket-not-exists-4673/some-folder"
+    ln.Storage(root=root, _skip_preparation=True).save()
+    storage = ln.Storage.get(root=root)
+    # can't update the storage
+    storage.root = root + "/another-folder"
+    # see the comment for the user update
+    with pytest.raises(IntegrityError):
+        storage.save()
 
 
 def test_write_role():
