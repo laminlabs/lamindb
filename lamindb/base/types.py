@@ -51,10 +51,11 @@ Dtype = Literal[
     "datetime",  # datetime
     "dict",  # dictionary
     "object",  # this is a pandas input dtype, we're only using it for complicated types, not for strings
+    "path",  # path
 ]
 """Data type.
 
-Data types in lamindb are a string-serialized abstraction of common data types.
+String-serialized representations of common data types.
 
 Overview
 ========
