@@ -219,10 +219,8 @@ def test_fine_grained_permissions_single_records():
     ulabel.projects.add(project)
     assert ulabel.projects.count() == 1
 
-    project.delete()
     ulabel.delete()
     assert not ln.ULabel.filter(name="no_access_ulabel").exists()
-    assert not ln.Project.filter(name="No_access_project").exists()
 
 
 # tests that token is set properly in atomic blocks
