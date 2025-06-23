@@ -203,7 +203,26 @@ def test_fine_grained_permissions_single_records():
         )
 
     project = ln.Project.get(name="No_access_project")
+    # can't insert into lamindb_ulabelproject because the project is still read-only
+    with pytest.raises(ProgrammingError):
+        ulabel.projects.add(project)
+
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE hubmodule_accessrecord SET role = 'write'
+            WHERE account_id = %s AND record_type = 'lamindb_project'
+            """,
+            (user_uuid,),
+        )
+
     ulabel.projects.add(project)
+    assert ulabel.projects.count() == 1
+
+    project.delete()
+    ulabel.delete()
+    assert not ln.ULabel.filter(name="no_access_ulabel").exists()
+    assert not ln.Project.filter(name="No_access_project").exists()
 
 
 # tests that token is set properly in atomic blocks
