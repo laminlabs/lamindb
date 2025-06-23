@@ -37,6 +37,11 @@ account = hm.Account(
 ulabel = ln.ULabel(name="no_access_ulabel")
 ulabel.space = no_access
 ulabel.save()
+# set up access to this individual record with a dummy role,
+# will work only after the role is changed to read, write or admin
+hm.AccessRecord(
+    account=account, record_type="lamindb_ulabel", record_id=ulabel.id, role="dummy"
+).save()
 
 project = ln.Project(name="No_access_project")  # type: ignore
 project.space = no_access

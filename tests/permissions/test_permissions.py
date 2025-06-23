@@ -159,6 +159,19 @@ def test_fine_grained_permissions_team():
     ln.Feature.get(name="team_access_feature")
 
 
+def test_fine_grained_permissions_single_records():
+    assert not ln.ULabel.filter(name="no_access_ulabel").exists()
+
+    # switch user role to write
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE hubmodule_accessrecord SET role = 'read' WHERE account_id = %s",
+            (user_uuid,),
+        )
+
+    assert ln.ULabel.filter(name="no_access_ulabel").exists()
+
+
 # tests that token is set properly in atomic blocks
 def test_atomic():
     with transaction.atomic():
