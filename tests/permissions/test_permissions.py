@@ -162,10 +162,13 @@ def test_fine_grained_permissions_team():
 def test_fine_grained_permissions_single_records():
     assert not ln.ULabel.filter(name="no_access_ulabel").exists()
 
-    # switch user role to write
+    # switch access to this ulabel to read
     with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(
-            "UPDATE hubmodule_accessrecord SET role = 'read' WHERE account_id = %s",
+            """
+            UPDATE hubmodule_accessrecord SET role = 'read'
+            WHERE account_id = %s AND record_type = 'lamindb_ulabel'
+            """,
             (user_uuid,),
         )
 
@@ -173,6 +176,19 @@ def test_fine_grained_permissions_single_records():
 
     new_name = "new_name_single_rls_access_ulabel"
     ulabel.name = new_name
+    with pytest.raises(ln.errors.NoWriteAccess):
+        ulabel.save()
+
+    # switch access to this ulabel to write
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE hubmodule_accessrecord SET role = 'write'
+            WHERE account_id = %s AND record_type = 'lamindb_ulabel'
+            """,
+            (user_uuid,),
+        )
+
     ulabel.save()
 
 
