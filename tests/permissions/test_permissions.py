@@ -169,7 +169,11 @@ def test_fine_grained_permissions_single_records():
             (user_uuid,),
         )
 
-    assert ln.ULabel.filter(name="no_access_ulabel").exists()
+    ulabel = ln.ULabel.get(name="no_access_ulabel")
+
+    new_name = "new_name_single_rls_access_ulabel"
+    ulabel.name = new_name
+    ulabel.save()
 
 
 # tests that token is set properly in atomic blocks
