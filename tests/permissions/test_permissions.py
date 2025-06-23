@@ -161,6 +161,7 @@ def test_fine_grained_permissions_team():
 
 def test_fine_grained_permissions_single_records():
     assert not ln.ULabel.filter(name="no_access_ulabel").exists()
+    assert not ln.Project.filter(name="No_access_project").exists()
 
     # switch access to this ulabel to read
     with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
@@ -190,6 +191,19 @@ def test_fine_grained_permissions_single_records():
         )
 
     ulabel.save()
+
+    # switch access to this ulabel to write
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE hubmodule_accessrecord SET role = 'read'
+            WHERE account_id = %s AND record_type = 'lamindb_project'
+            """,
+            (user_uuid,),
+        )
+
+    project = ln.Project.get(name="No_access_project")
+    ulabel.projects.add(project)
 
 
 # tests that token is set properly in atomic blocks

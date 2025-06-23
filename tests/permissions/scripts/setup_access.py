@@ -47,6 +47,10 @@ project = ln.Project(name="No_access_project")  # type: ignore
 project.space = no_access
 project.save()
 
+hm.AccessRecord(
+    account=account, record_type="lamindb_project", record_id=project.id, role="dummy"
+).save()
+
 # setup write access space
 hm.AccessSpace(account=account, space=full_access, role="write").save()
 
