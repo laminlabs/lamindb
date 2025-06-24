@@ -59,20 +59,16 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
     .. dropdown:: Managing access to storage locations across instances
 
-        You can low-level manage access through AWS policies that you attach to your S3 bucket (see the UI below)
+        You can low-level manage access through AWS policies that you attach to your S3 bucket
         or leverage LaminHub's fine-grained access management.
 
-        Head over to `https://lamin.ai/{account}/infrastructure` and you'll see something like this:
+        Head over to `https://lamin.ai/{account}/infrastructure` and you'll see a UI as in the screenshot below.
+        By clicking the green button that says "Connect S3 bucket", you enable LaminHub to issue federated S3 tokens
+        for a new S3 bucket so that your collaborators can access data in this bucket based on their permissions in LaminHub.
+        :doc:`docs:access` has more details.
 
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/ze8hkgVxVptSSZEU0000.png
            :width: 800px
-
-        By clicking the green button that says "Connect S3 bucket", you enable LaminHub to issue federated S3 credentials
-        for the S3 bucket so that collaborators can access data in this bucket.
-
-        The screenshot also exemplifies how to keep track of storage locations across instances.
-
-        :doc:`docs:access` has more details.
 
     Args:
         root: `str` The root path of the storage location, e.g., `"./myfolder"`, `"s3://my-bucket/myfolder"`, or `"gs://my-bucket/myfolder"`.
