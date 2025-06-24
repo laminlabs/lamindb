@@ -176,6 +176,16 @@ def process_pathlike(
                         # as a part of the path string
                         assert "?" not in filepath.path  # noqa: S101
                     new_root = list(filepath.parents)[-1].as_posix().rstrip("/")
+                # Re the Parallel execution of the logic below:
+                # One of the threads (or processes) would start to write the hub record and then the test file.
+                # The other ones would retrieve the hub record and the test file.
+                # All of them would come out of the exercise with storage_record.instance_uid == setup_settings.instance.uid
+                # and all of them would raise UnkownStorageLocation.
+                # Then one of these threads will trigger storage_record.delete() but also this is idempotent;
+                # this means they all throw the same error and deletion of the inexistent stuff (hub record, marker file)
+                # would just silently fail.
+                # Edge case: A user legitimately creates a storage location and another user runs this here at the exact same time.
+                # There is no way to decide then which is the legitimate creation.
                 storage_record = Storage(root=new_root).save()
                 if storage_record.instance_uid == setup_settings.instance.uid:
                     # we don't want to inadvertently create managed storage locations
