@@ -159,6 +159,70 @@ def test_fine_grained_permissions_team():
     ln.Feature.get(name="team_access_feature")
 
 
+def test_fine_grained_permissions_single_records():
+    assert not ln.ULabel.filter(name="no_access_ulabel").exists()
+    assert not ln.Project.filter(name="No_access_project").exists()
+
+    # switch access to this ulabel to read
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE hubmodule_accessrecord SET role = 'read'
+            WHERE account_id = %s AND record_type = 'lamindb_ulabel'
+            """,
+            (user_uuid,),
+        )
+
+    ulabel = ln.ULabel.get(name="no_access_ulabel")
+
+    new_name = "new_name_single_rls_access_ulabel"
+    ulabel.name = new_name
+    with pytest.raises(ln.errors.NoWriteAccess):
+        ulabel.save()
+
+    # switch access to this ulabel to write
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE hubmodule_accessrecord SET role = 'write'
+            WHERE account_id = %s AND record_type = 'lamindb_ulabel'
+            """,
+            (user_uuid,),
+        )
+
+    ulabel.save()
+
+    # switch access to this ulabel to write
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE hubmodule_accessrecord SET role = 'read'
+            WHERE account_id = %s AND record_type = 'lamindb_project'
+            """,
+            (user_uuid,),
+        )
+
+    project = ln.Project.get(name="No_access_project")
+    # can't insert into lamindb_ulabelproject because the project is still read-only
+    with pytest.raises(ProgrammingError):
+        ulabel.projects.add(project)
+
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE hubmodule_accessrecord SET role = 'write'
+            WHERE account_id = %s AND record_type = 'lamindb_project'
+            """,
+            (user_uuid,),
+        )
+
+    ulabel.projects.add(project)
+    assert ulabel.projects.count() == 1
+
+    ulabel.delete()
+    assert not ln.ULabel.filter(name="no_access_ulabel").exists()
+
+
 # tests that token is set properly in atomic blocks
 def test_atomic():
     with transaction.atomic():
