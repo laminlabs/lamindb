@@ -240,13 +240,14 @@ def test_atomic():
 
 def test_utility_tables():
     # can select in these tables
-    assert ln.models.User.filter().count() == 1
+    assert ln.User.filter().count() == 1
     assert ln.Space.filter().count() == 5
     # can't select
     assert hm.Account.filter().count() == 0
     assert hm.Team.filter().count() == 0
     assert hm.AccountTeam.filter().count() == 0
     assert hm.AccessSpace.filter().count() == 0
+    assert hm.AccessRecord.filter().count() == 0
     # can't update a space
     space = ln.Space.get(id=1)  # default space
     space.name = "new name"
