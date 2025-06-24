@@ -62,8 +62,12 @@ def get_keys_from_df(data: list, registry: SQLRecord) -> list[str]:
     return keys
 
 
-def one_helper(self, does_not_exist_msg: str | None = None):
-    if len(self) == 0:
+def one_helper(self: QuerySet | SQLRecordList, does_not_exist_msg: str | None = None):
+    if isinstance(self, SQLRecord):
+        not_exists = len(self) == 0
+    else:
+        not_exists = not self.exists()  # type: ignore
+    if not_exists:
         raise DoesNotExist(does_not_exist_msg)
     elif len(self) > 1:
         raise MultipleResultsFound(self)
@@ -709,7 +713,7 @@ class BasicQuerySet(models.QuerySet):
             >>> ULabel.filter(name="benchmark").one_or_none()
             >>> ULabel.filter(name="non existing label").one_or_none()
         """
-        if len(self) == 0:
+        if not self.exists():
             return None
         elif len(self) == 1:
             return self[0]

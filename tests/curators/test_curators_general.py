@@ -92,10 +92,9 @@ def test_nullable():
     dataset = {"disease": pd.Categorical([pd.NA, "asthma"])}
     df = pd.DataFrame(dataset)
     curator = ln.curators.DataFrameCurator(df, schema)
-    try:
+    with pytest.raises(ln.errors.ValidationError) as err:
         curator.validate()
-    except ln.errors.ValidationError as e:
-        assert str(e).startswith("non-nullable series 'disease' contains null values")
+    assert "non-nullable series 'disease' contains null values" in err.exconly()
     # make feature nullable
     # (needs to throw an error if already datasets were validated with it)
     disease.nullable = True

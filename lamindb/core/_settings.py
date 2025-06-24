@@ -35,7 +35,7 @@ VERBOSITY_TO_STR: dict[int, str] = dict(
 class Settings:
     """Settings.
 
-    Use `lamindb.settings` instead of instantiating this class yourself.
+    Please use the global `ln.settings` object instead of instantiating this class yourself.
     """
 
     def __init__(self):
@@ -61,10 +61,15 @@ class Settings:
         """
         return annotation_settings
 
+    # note: this setting should probably be deprecated soon
+    # warnings could then be filtered with a regular warning mechanism
     track_run_inputs: bool = True
-    """Track files as input upon `.load()`, `.cache()` and `.open()`.
+    """Track run inputs (default `True`).
 
-    Requires a global run context with :func:`~lamindb.core.Context.track` was created!
+    If this setting is true, an artifact is recorded as run input upon `.load()`, `.cache()` & `.open()` provided :func:`~lamindb.track` was called in the current compute (Python, R) session.
+    If :func:`~lamindb.track` was not called, you receive a warning message upon `.load()`, `.cache()` & `.open()`.
+
+    If you switch this setting to `False`, you won't see the warning message anymore and no run inputs will be recorded.
 
     FAQ: :doc:`/faq/track-run-inputs`
     """
@@ -149,6 +154,11 @@ class Settings:
         else:
             path, kwargs = path_kwargs, {}
         set_managed_storage(path, **kwargs)
+
+    @property
+    def instance_uid(self) -> str:
+        """The `uid` of the current instance."""
+        return ln_setup.settings.instance.uid
 
     @property
     def cache_dir(self) -> UPath:

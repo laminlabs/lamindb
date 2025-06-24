@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from functools import reduce
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, Literal, NamedTuple
 
 from django.db.models import (
     IntegerField,
@@ -173,12 +173,17 @@ def _lookup(
     field: StrField | None = None,
     return_field: StrField | None = None,
     using_key: str | None = None,
+    keep: Literal["first", "last", False] = "first",
 ) -> NamedTuple:
     """Return an auto-complete object for a field.
 
     Args:
         field: The field to look up the values for. Defaults to first string field.
         return_field: The field to return. If `None`, returns the whole record.
+        keep: When multiple records are found for a lookup, how to return the records.
+            - `"first"`: return the first record.
+            - `"last"`: return the last record.
+            - `False`: return all records.
 
     Returns:
         A `NamedTuple` of lookup information of the field values with a
@@ -209,6 +214,7 @@ def _lookup(
         values=[i.get(field) for i in queryset.values()],
         tuple_name=cls.__class__.__name__,
         prefix="ln",
+        keep=keep,
     ).lookup(
         return_field=(
             get_name_field(registry=queryset.model, field=return_field)

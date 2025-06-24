@@ -8,7 +8,7 @@ import lamindb as ln
 import psycopg2
 import pytest
 from django.db import connection, transaction
-from django.db.utils import InternalError, ProgrammingError
+from django.db.utils import IntegrityError, InternalError, ProgrammingError
 from jwt_utils import sign_jwt
 from lamindb_setup.core.django import DBToken, db_token_manager
 from psycopg2.extensions import adapt
@@ -30,9 +30,15 @@ db_token_manager.set(db_token)
 def test_authentication():
     # just check that the token was setup
     with connection.cursor() as cur:
-        cur.execute("SELECT get_account_id();")
-        account_id = cur.fetchall()[0][0]
-    assert account_id.hex == user_uuid
+        cur.execute("SELECT 1 in (SELECT id FROM check_access() WHERE role = 'read');")
+        result = cur.fetchall()[0][0]
+    assert result
+    # check querying without setting jwt
+    with (
+        pytest.raises(psycopg2.errors.RaiseException),
+        connection.connection.cursor() as cur,
+    ):
+        cur.execute("SELECT * FROM lamindb_ulabel;")
     # test that auth can't be hijacked
     # false table created before
     with (
@@ -41,7 +47,11 @@ def test_authentication():
     ):
         cur.execute(
             """
-            CREATE TEMP TABLE account_id(val uuid PRIMARY KEY) ON COMMIT DROP;
+            CREATE TEMP TABLE access(
+                id int,
+                role varchar(20),
+                type text
+            ) ON COMMIT DROP;
             SELECT set_token(%s);
             """,
             (token,),
@@ -53,9 +63,14 @@ def test_authentication():
     ):
         cur.execute(
             """
-            CREATE TEMP TABLE account_id(val uuid PRIMARY KEY) ON COMMIT DROP;
-            INSERT INTO account_id(val) VALUES (gen_random_uuid());
-            SELECT get_account_id();
+            CREATE TEMP TABLE access(
+                id int,
+                role varchar(20),
+                type text
+            ) ON COMMIT DROP;
+            INSERT INTO access (id, role, type)
+            VALUES (1, 'admin', 'space');
+            SELECT * FROM check_access();
             """
         )
     # check manual insert
@@ -66,7 +81,8 @@ def test_authentication():
         cur.execute(
             """
             SELECT set_token(%s);
-            INSERT INTO account_id(val) VALUES (gen_random_uuid());
+            INSERT INTO access (id, role, type)
+            VALUES (1, 'admin', 'space');
             """,
             (token,),
         )
@@ -143,6 +159,70 @@ def test_fine_grained_permissions_team():
     ln.Feature.get(name="team_access_feature")
 
 
+def test_fine_grained_permissions_single_records():
+    assert not ln.ULabel.filter(name="no_access_ulabel").exists()
+    assert not ln.Project.filter(name="No_access_project").exists()
+
+    # switch access to this ulabel to read
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE hubmodule_accessrecord SET role = 'read'
+            WHERE account_id = %s AND record_type = 'lamindb_ulabel'
+            """,
+            (user_uuid,),
+        )
+
+    ulabel = ln.ULabel.get(name="no_access_ulabel")
+
+    new_name = "new_name_single_rls_access_ulabel"
+    ulabel.name = new_name
+    with pytest.raises(ln.errors.NoWriteAccess):
+        ulabel.save()
+
+    # switch access to this ulabel to write
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE hubmodule_accessrecord SET role = 'write'
+            WHERE account_id = %s AND record_type = 'lamindb_ulabel'
+            """,
+            (user_uuid,),
+        )
+
+    ulabel.save()
+
+    # switch access to this ulabel to write
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE hubmodule_accessrecord SET role = 'read'
+            WHERE account_id = %s AND record_type = 'lamindb_project'
+            """,
+            (user_uuid,),
+        )
+
+    project = ln.Project.get(name="No_access_project")
+    # can't insert into lamindb_ulabelproject because the project is still read-only
+    with pytest.raises(ProgrammingError):
+        ulabel.projects.add(project)
+
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE hubmodule_accessrecord SET role = 'write'
+            WHERE account_id = %s AND record_type = 'lamindb_project'
+            """,
+            (user_uuid,),
+        )
+
+    ulabel.projects.add(project)
+    assert ulabel.projects.count() == 1
+
+    ulabel.delete()
+    assert not ln.ULabel.filter(name="no_access_ulabel").exists()
+
+
 # tests that token is set properly in atomic blocks
 def test_atomic():
     with transaction.atomic():
@@ -167,16 +247,22 @@ def test_utility_tables():
     assert hm.Team.filter().count() == 0
     assert hm.AccountTeam.filter().count() == 0
     assert hm.AccessSpace.filter().count() == 0
-    # can't update
+    # can't update a space
     space = ln.Space.get(id=1)  # default space
     space.name = "new name"
     with pytest.raises(ProgrammingError):
         space.save()
-
-    user = ln.models.User.filter().one()
+    # can't update a user
+    user = ln.User.filter().one()
     user.name = "new name"
-    with pytest.raises(ProgrammingError):
-        space.save()
+    # as we allow insert but not update on the user table
+    # it looks like the db raises IntegrityError insead of the rls error
+    # because just tries to insert with the same id and fails
+    with pytest.raises(IntegrityError):
+        user.save()
+    # can insert a user because has write access to a space
+    ln.User(handle="insert_new_user", uid="someuidd").save()
+    assert ln.User.filter().count() == 2
     # can't insert
     with pytest.raises(ProgrammingError):
         ln.Space(name="new space", uid="00000005").save()
@@ -228,13 +314,17 @@ def test_lamin_dev():
         shell=True,
         check=True,
     )
+    # connect to the instance before saving
+    subprocess.run(  # noqa: S602
+        "lamin connect laminlabs/lamin-dev",
+        shell=True,
+        check=True,
+    )
     result = subprocess.run(  # noqa: S602
         "lamin save .gitignore --key mytest --space 'Our test space for CI'",
         shell=True,
         capture_output=True,
     )
-    print(result.stdout.decode())
-    print(result.stderr.decode())
     assert "key='mytest'" in result.stdout.decode()
     assert "storage path:" in result.stdout.decode()
     assert result.returncode == 0
@@ -242,8 +332,6 @@ def test_lamin_dev():
     result = subprocess.run(  # noqa: S602
         f"python {script2_path}",
         shell=True,
-        capture_output=True,
+        capture_output=False,
     )
-    print(result.stdout.decode())
-    print(result.stderr.decode())
     assert result.returncode == 0

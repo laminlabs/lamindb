@@ -14,19 +14,18 @@ import pandas as pd
 from anndata import AnnData
 from django.db import connections, models
 from django.db.models import CASCADE, PROTECT, Q
+from django.db.utils import IntegrityError as DjangoIntegrityError
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
-from lamindb_setup._init_instance import register_storage_in_instance
 from lamindb_setup.core._hub_core import select_storage_or_parent
-from lamindb_setup.core._settings_storage import init_storage
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dir, hash_file
-from lamindb_setup.core.types import UPathStr
 from lamindb_setup.core.upath import (
     create_path,
     extract_suffix_from_path,
     get_stat_dir_cloud,
     get_stat_file_cloud,
 )
+from lamindb_setup.types import UPathStr
 
 from lamindb.base import deprecated
 from lamindb.base.fields import (
@@ -35,7 +34,7 @@ from lamindb.base.fields import (
     CharField,
     ForeignKey,
 )
-from lamindb.errors import FieldValidationError
+from lamindb.errors import FieldValidationError, UnknownStorageLocation
 from lamindb.models.query_set import QuerySet
 
 from ..base.users import current_user_id
@@ -70,8 +69,6 @@ from ..models._is_versioned import (
 from ._django import get_artifact_with_related
 from ._feature_manager import (
     FeatureManager,
-    FeatureManagerArtifact,
-    add_label_feature_links,
     filter_base,
     get_label_links,
 )
@@ -80,7 +77,6 @@ from ._relations import (
     dict_module_name_to_model_name,
     dict_related_model_to_related_name,
 )
-from .core import Storage
 from .feature import Feature, FeatureValue
 from .has_parents import view_lineage
 from .run import Run, TracksRun, TracksUpdates, User
@@ -92,6 +88,7 @@ from .sqlrecord import (
     _get_record_kwargs,
     record_repr,
 )
+from .storage import Storage
 from .ulabel import ULabel
 
 WARNING_RUN_TRANSFORM = "no run & transform got linked, call `ln.track()` & re-run"
@@ -173,19 +170,22 @@ def process_pathlike(
                 if filepath.protocol == "hf":
                     hf_path = filepath.fs.resolve_path(filepath.as_posix())
                     hf_path.path_in_repo = ""
-                    new_root = "hf://" + hf_path.unresolve()
+                    new_root = "hf://" + hf_path.unresolve().rstrip("/")
                 else:
                     if filepath.protocol == "s3":
                         # check that endpoint_url didn't propagate here
                         # as a part of the path string
                         assert "?" not in filepath.path  # noqa: S101
-                    new_root = list(filepath.parents)[-1]
-                # do not register remote storage locations on hub if the current instance
-                # is not managed on the hub
-                storage_settings, _ = init_storage(
-                    new_root, prevent_register_hub=not setup_settings.instance.is_on_hub
-                )
-                storage_record = register_storage_in_instance(storage_settings)
+                    new_root = list(filepath.parents)[-1].as_posix().rstrip("/")
+                storage_record = Storage(root=new_root).save()
+                if storage_record.instance_uid == setup_settings.instance.uid:
+                    # we don't want to inadvertently create managed storage locations
+                    # hence, we revert the creation and throw an error
+                    storage_record.delete()
+                    raise UnknownStorageLocation(
+                        f"Path {filepath} is not contained in any known storage location:\n{Storage.df()[['uid', 'root', 'type']]}\n\n"
+                        f"Create a managed storage location that contains the path, e.g., by calling: ln.Storage(root='{new_root}').save()"
+                    )
                 use_existing_storage_key = True
                 return storage_record, use_existing_storage_key
             # if the filepath is local
@@ -355,7 +355,17 @@ def check_path_in_existing_storage(
     if check_hub_register_storage and getattr(path, "protocol", None) in {"s3", "gs"}:
         result = select_storage_or_parent(path.as_posix())
         if result is not None:
-            return Storage(**result).save()
+            try:
+                return Storage(**result, _skip_preparation=True).save()
+            except DjangoIntegrityError as e:
+                # this most certanly means that the storage was inserted by another user or process
+                # between the check and save
+                # just query it here
+                storage = Storage.filter(uid=result["uid"]).one_or_none()
+                if storage is None:
+                    raise e
+                assert storage.root == result["root"]  # noqa: S101
+                return storage
     return None
 
 
@@ -961,8 +971,7 @@ def add_labels(
             features_labels = {
                 registry_name: [(feature, label_record) for label_record in records]
             }
-            add_label_feature_links(
-                self.features,
+            self.features._add_label_feature_links(
                 features_labels,
                 feature_ref_is_name=feature_ref_is_name,
                 label_ref_is_name=label_ref_is_name,
@@ -1098,44 +1107,48 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
 
-    features: FeatureManager = FeatureManagerArtifact  # type: ignore
-    """Feature manager.
+    @property
+    def features(self) -> FeatureManager:
+        """Feature manager.
 
-    Typically, you annotate a dataset with features by defining a `Schema` and passing it to the `Artifact` constructor.
+        Typically, you annotate a dataset with features by defining a `Schema` and passing it to the `Artifact` constructor.
 
-    Here is how to do annotate an artifact ad hoc::
-
-       artifact.features.add_values({
-            "species": organism,  # here, organism is an Organism record
-            "scientist": ['Barbara McClintock', 'Edgar Anderson'],
-            "temperature": 27.6,
-            "experiment": "Experiment 1"
-       })
-
-    Query artifacts by features::
-
-        ln.Artifact.filter(scientist="Barbara McClintock")
-
-    Features may or may not be part of the dataset, i.e., the artifact content in storage. For
-    instance, the :class:`~lamindb.curators.DataFrameCurator` flow validates the columns of a
-    `DataFrame`-like artifact and annotates it with features corresponding to
-    these columns. `artifact.features.add_values`, by contrast, does not
-    validate the content of the artifact.
-
-    .. dropdown:: An example for a model-like artifact
-
-        ::
+        Here is how to do annotate an artifact ad hoc::
 
             artifact.features.add_values({
-                "hidden_size": 32,
-                "bottleneck_size": 16,
-                "batch_size": 32,
-                "preprocess_params": {
-                    "normalization_type": "cool",
-                    "subset_highlyvariable": True,
-                },
+                "species": organism,  # here, organism is an Organism record
+                "scientist": ['Barbara McClintock', 'Edgar Anderson'],
+                "temperature": 27.6,
+                "experiment": "Experiment 1"
             })
-    """
+
+        Query artifacts by features::
+
+            ln.Artifact.filter(scientist="Barbara McClintock")
+
+        Features may or may not be part of the dataset, i.e., the artifact content in storage. For
+        instance, the :class:`~lamindb.curators.DataFrameCurator` flow validates the columns of a
+        `DataFrame`-like artifact and annotates it with features corresponding to
+        these columns. `artifact.features.add_values`, by contrast, does not
+        validate the content of the artifact.
+
+        .. dropdown:: An example for a model-like artifact
+
+            ::
+
+                artifact.features.add_values({
+                    "hidden_size": 32,
+                    "bottleneck_size": 16,
+                    "batch_size": 32,
+                    "preprocess_params": {
+                        "normalization_type": "cool",
+                        "subset_highlyvariable": True,
+                    },
+                })
+        """
+        from ._feature_manager import FeatureManager
+
+        return FeatureManager(self)
 
     @property
     def labels(self) -> LabelManager:
@@ -1224,9 +1237,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """Number of files for folder-like artifacts, `None` for file-like artifacts.
 
     Note that some arrays are also stored as folders, e.g., `.zarr` or `.tiledbsoma`.
-
-    .. versionchanged:: 1.0
-        Renamed from `n_objects` to `n_files`.
     """
     n_observations: int | None = BigIntegerField(
         null=True, db_index=True, default=None, editable=False
@@ -1330,19 +1340,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         *args,
         **kwargs,
     ):
-        self.features = FeatureManager(self)  # type: ignore
-        # Below checks for the Django-internal call in from_db()
-        # it'd be better if we could avoid this, but not being able to create a Artifact
-        # from data with the default constructor renders the central class of the API
-        # essentially useless
-        # The danger below is not that a user might pass as many args (12 of it), but rather
-        # that at some point the Django API might change; on the other hand, this
-        # condition of for calling the constructor based on kwargs should always
-        # stay robust
+        # check whether we are called with db args
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args, **kwargs)
             return None
-        # now we proceed with the user-facing constructor
+        # now proceed with the user-facing constructor
         if len(args) > 1:
             raise ValueError("Only one non-keyword arg allowed: data")
         data: str | Path = kwargs.pop("data") if len(args) == 0 else args[0]
@@ -1642,7 +1644,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     keys_normalized, field="name", mute=True
                 )
             ):
-                return filter_base(FeatureManagerArtifact, **expressions)
+                return filter_base(Artifact, **expressions)
             else:
                 features = ", ".join(
                     sorted(np.array(keys_normalized)[~features_validated])
@@ -1657,7 +1659,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     f"Or fix invalid {message}"
                 )
         else:
-            return QuerySet(model=cls).filter(*queries, **expressions)
+            return (
+                QuerySet(model=cls)
+                .filter(*queries, **expressions)
+                .exclude(kind="__lamindb_run__")
+            )
 
     @classmethod
     def from_df(

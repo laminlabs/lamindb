@@ -15,7 +15,7 @@ from lamindb.core._settings import settings
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from lamindb_setup.core.types import UPathStr
+    from lamindb_setup.types import UPathStr
 
     from lamindb.models.artifact import Artifact
 
@@ -78,7 +78,7 @@ def attempt_accessing_path(
 
     if (
         artifact._state.db in ("default", None)
-        and artifact.storage_id == settings._storage_settings.id
+        and artifact.storage_id == settings._storage_settings._id
     ):
         if access_token is None:
             storage_settings = settings._storage_settings

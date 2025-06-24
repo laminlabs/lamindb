@@ -16,7 +16,7 @@ classifiers = [
 ]
 dependencies = [
     # Lamin PINNED packages
-    "lamin_utils==0.14.0",
+    "lamin_utils==0.15.0",
     "lamin_cli==1.4.2",
     "lamindb_setup[aws]==1.6.1",
     # others
@@ -210,6 +210,15 @@ testpaths = [
     "tests",
 ]
 filterwarnings = [
+    "ignore::DeprecationWarning:botocore.*",
+    "ignore::UserWarning:xarray_schema",
+    "ignore::DeprecationWarning:xarray_schema",
+    "ignore::DeprecationWarning:geopandas",
+    "ignore::DeprecationWarning:tiledbsoma",
+    "ignore::DeprecationWarning:pkg_resources",
+    "ignore::FutureWarning:spatialdata",
+    "ignore::FutureWarning:mudata",
+    "ignore::UserWarning:anndata",
     "ignore:Jupyter is migrating its paths to use standard platformdirs:DeprecationWarning"
 ]
 markers = [

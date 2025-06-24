@@ -27,7 +27,7 @@ def pytest_sessionstart():
     )
 
     total_time_elapsed = perf_counter() - t_execute_start
-    print(f"Time to setup the instance: {total_time_elapsed:.3f}s")
+    print(f"time to setup the instance: {total_time_elapsed:.1f}s")
 
 
 def pytest_sessionfinish(session: pytest.Session):

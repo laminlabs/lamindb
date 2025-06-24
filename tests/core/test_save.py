@@ -62,3 +62,11 @@ def test_save_parents():
     ln.save(records)
     assert bt.CellLine.get("4ea731nb").parents.df().shape[0] == 1
     bt.CellLine.filter().delete()
+
+
+def test_save_batch_size():
+    label_names = [f"ULabel {i} batch_size" for i in range(3)]
+    labels = [ln.ULabel(name=name) for name in label_names]
+    # test bulk creation of new records with batch size
+    ln.save(labels, batch_size=2)
+    assert ln.ULabel.filter(name__in=label_names).distinct().count() == 3
