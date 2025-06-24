@@ -14,7 +14,6 @@ import pandas as pd
 from anndata import AnnData
 from django.db import connections, models
 from django.db.models import CASCADE, PROTECT, Q
-from django.db.utils import IntegrityError as DjangoIntegrityError
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core._hub_core import select_storage_or_parent
@@ -177,6 +176,16 @@ def process_pathlike(
                         # as a part of the path string
                         assert "?" not in filepath.path  # noqa: S101
                     new_root = list(filepath.parents)[-1].as_posix().rstrip("/")
+                # Re the Parallel execution of the logic below:
+                # One of the threads (or processes) would start to write the hub record and then the test file.
+                # The other ones would retrieve the hub record and the test file.
+                # All of them would come out of the exercise with storage_record.instance_uid == setup_settings.instance.uid
+                # and all of them would raise UnkownStorageLocation.
+                # Then one of these threads will trigger storage_record.delete() but also this is idempotent;
+                # this means they all throw the same error and deletion of the inexistent stuff (hub record, marker file)
+                # would just silently fail.
+                # Edge case: A user legitimately creates a storage location and another user runs this here at the exact same time.
+                # There is no way to decide then which is the legitimate creation.
                 storage_record = Storage(root=new_root).save()
                 if storage_record.instance_uid == setup_settings.instance.uid:
                     # we don't want to inadvertently create managed storage locations
@@ -355,17 +364,7 @@ def check_path_in_existing_storage(
     if check_hub_register_storage and getattr(path, "protocol", None) in {"s3", "gs"}:
         result = select_storage_or_parent(path.as_posix())
         if result is not None:
-            try:
-                return Storage(**result, _skip_preparation=True).save()
-            except DjangoIntegrityError as e:
-                # this most certanly means that the storage was inserted by another user or process
-                # between the check and save
-                # just query it here
-                storage = Storage.filter(uid=result["uid"]).one_or_none()
-                if storage is None:
-                    raise e
-                assert storage.root == result["root"]  # noqa: S101
-                return storage
+            return Storage(**result, _skip_preparation=True).save()
     return None
 
 
