@@ -831,6 +831,17 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     )
                     init_self_from_db(self, pre_existing_record)
                 elif (
+                    self.__class__.__name__ == "Storage"
+                    and isinstance(e, IntegrityError)
+                    and "uid" in error_msg
+                    and (
+                        "UNIQUE constraint failed" in error_msg
+                        or "duplicate key value violates unique constraint" in error_msg
+                    )
+                ):
+                    pre_existing_record = self.__class__.get(uid=self.uid)
+                    init_self_from_db(self, pre_existing_record)
+                elif (
                     isinstance(e, ProgrammingError)
                     and hasattr(self, "space")
                     and "new row violates row-level security policy" in error_msg
