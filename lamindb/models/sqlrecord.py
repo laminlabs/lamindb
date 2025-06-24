@@ -282,7 +282,7 @@ def validate_fields(record: SQLRecord, kwargs):
 def suggest_records_with_similar_names(
     record: SQLRecord, name_field: str, kwargs
 ) -> SQLRecord | None:
-    """Returns True if found exact match, otherwise False.
+    """Returns a record if found exact match, otherwise None.
 
     Logs similar matches if found.
     """
@@ -305,18 +305,15 @@ def suggest_records_with_similar_names(
     )
     if not queryset.exists():  # empty queryset
         return None
-    s, it, nots = ("", "it", "s") if len(queryset) == 1 else ("s", "one of them", "")
-    msg = f"record{s} with similar {name_field}{s} exist{nots}! did you mean to load {it}?"
-    if IPYTHON:
-        from IPython.display import display
+    s, it, nots, record_text = (
+        ("", "it", "s", "a record")
+        if len(queryset) == 1
+        else ("s", "one of them", "", "records")
+    )
+    similar_names = ", ".join(f"'{getattr(record, name_field)}'" for record in queryset)
+    msg = f"you are trying to create a record with name='{kwargs[name_field]}' but {record_text} with similar {name_field}{s} exist{nots}: {similar_names}. Did you mean to load {it}?"
+    logger.warning(f"{msg}")
 
-        from lamindb import settings
-
-        logger.warning(f"{msg}")
-        if settings._verbosity_int >= 1:
-            display(queryset.df())
-    else:
-        logger.warning(f"{msg}\n{queryset}")
     return None
 
 
