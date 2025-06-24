@@ -305,9 +305,13 @@ def suggest_records_with_similar_names(
     )
     if not queryset.exists():  # empty queryset
         return None
-    s, it, nots = ("", "it", "s") if len(queryset) == 1 else ("s", "one of them", "")
+    s, it, nots, record_text = (
+        ("", "it", "s", "a record")
+        if len(queryset) == 1
+        else ("s", "one of them", "", "records")
+    )
     similar_names = ", ".join(f"'{getattr(record, name_field)}'" for record in queryset)
-    msg = f"you are trying to create a record with name='{kwargs[name_field]}' but record{s} with similar {name_field}{s} exist{nots}: {similar_names}. Did you mean to load {it}?"
+    msg = f"you are trying to create a record with name='{kwargs[name_field]}' but {record_text} with similar {name_field}{s} exist{nots}: {similar_names}. Did you mean to load {it}?"
     logger.warning(f"{msg}")
 
     return None
