@@ -833,13 +833,16 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 elif (
                     self.__class__.__name__ == "Storage"
                     and isinstance(e, IntegrityError)
-                    and "uid" in error_msg
+                    and "root" in error_msg
+                    or "uid" in error_msg
                     and (
                         "UNIQUE constraint failed" in error_msg
                         or "duplicate key value violates unique constraint" in error_msg
                     )
                 ):
-                    pre_existing_record = self.__class__.get(uid=self.uid)
+                    # even if uid was in the error message, we can retrieve based on
+                    # the root because it's going to be the same root
+                    pre_existing_record = self.__class__.get(root=self.root)
                     init_self_from_db(self, pre_existing_record)
                 elif (
                     isinstance(e, ProgrammingError)
