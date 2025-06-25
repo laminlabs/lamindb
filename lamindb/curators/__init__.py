@@ -24,11 +24,11 @@ from ._legacy import (  # backward compat
 )
 from .core import (
     AnnDataCurator,
+    CxGCurator,
     DataFrameCurator,
     MuDataCurator,
     SpatialDataCurator,
     TiledbsomaExperimentCurator,
-    CxGCurator
 )
 
 __all__ = [
@@ -38,5 +38,5 @@ __all__ = [
     "MuDataCurator",
     "SpatialDataCurator",
     "TiledbsomaExperimentCurator",
-    "CxGCurator"
+    "CxGCurator",
 ]

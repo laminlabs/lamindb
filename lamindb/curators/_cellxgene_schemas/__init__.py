@@ -1,13 +1,12 @@
+from typing import Literal
+
 import pandas as pd
 from lamin_utils import logger
 from lamindb_setup.core.upath import UPath
 
 from lamindb.base.types import FieldAttr
-from lamindb.models import SQLRecord, ULabel
+from lamindb.models import Schema, SQLRecord, ULabel
 from lamindb.models._from_values import _format_values
-from lamindb.models import Schema
-
-from typing import Literal
 
 CELLxGENESchemaVersions = Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0"]
 
@@ -118,7 +117,15 @@ def _create_sources(
             ).one_or_none()
             # if the source was not found, we register it from bionty-assets
             if source is None:
-                getattr(bt, entity).add_source(bt.Source.using("laminlabs/bionty-assets").get(entity=f"bionty.{entity}", version=row.version, organism=row.organism).save())
+                getattr(bt, entity).add_source(
+                    bt.Source.using("laminlabs/bionty-assets")
+                    .get(
+                        entity=f"bionty.{entity}",
+                        version=row.version,
+                        organism=row.organism,
+                    )
+                    .save()
+                )
             return source
 
     sources_df = pd.read_csv(UPath(__file__).parent / "schema_versions.csv")
@@ -201,17 +208,20 @@ def _init_categoricals_additional_values() -> None:
                 name=name, type=suspension_type, description="From CellxGene schema."
             ).save()
 
+
 def _get_cxg_schema(schema_version: CELLxGENESchemaVersions) -> Schema:
     """Generates a `~lamindb.Schema` for a specific CELLxGENE schema version."""
     import bionty as bt
 
-    entity_to_source = _create_sources(categoricals=_get_cxg_categoricals(),
-                              schema_version=schema_version,
-                              organism="human")
+    entity_to_source = _create_sources(
+        categoricals=_get_cxg_categoricals(),
+        schema_version=schema_version,
+        organism="human",
+    )
 
     schema = Schema(
         itype=bt.Gene(source=entity_to_source["var_index"]).ensembl_gene_id,
-        otype="AnnData"
+        otype="AnnData",
     )
 
     return schema

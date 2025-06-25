@@ -26,6 +26,7 @@ from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 
 from lamindb.base.types import FieldAttr  # noqa
+from lamindb.curators._cellxgene_schemas import CELLxGENESchemaVersions, _get_cxg_schema
 from lamindb.models import (
     Artifact,
     Feature,
@@ -39,7 +40,6 @@ from lamindb.models.artifact import (
     data_is_soma_experiment,
 )
 from lamindb.models.feature import parse_cat_dtype, parse_dtype
-from lamindb.curators._cellxgene_schemas import CELLxGENESchemaVersions, _get_cxg_schema
 
 from ..errors import InvalidArgument, ValidationError
 
@@ -974,6 +974,7 @@ class TiledbsomaExperimentCurator(SlotsCurator):
             )
         self._columns_field = self._var_fields
 
+
 class CxGCurator(SlotsCurator):
     """Curator for `AnnData` objects that should adhere to a specific CELLxGENE Schema version.
 
@@ -1002,7 +1003,7 @@ class CxGCurator(SlotsCurator):
             raise InvalidArgument("dataset must be AnnData-like.")
         if schema.otype != "AnnData":
             raise InvalidArgument("Schema otype must be 'AnnData'.")
-        
+
         from ._cellxgene_schemas import (
             _add_defaults_to_obs,
             _create_sources,
@@ -1020,7 +1021,7 @@ class CxGCurator(SlotsCurator):
         categoricals = _restrict_obs_fields(dataset.obs, categoricals)
 
         # Configure sources
-        organism: Literal["human", "mouse"] = "human"
+        organism: Literal[human, mouse] = "human"
         sources = _create_sources(categoricals, schema_version, organism)
         self.schema_version = schema_version
         self.schema_reference = f"https://github.com/chanzuckerberg/single-cell-curation/blob/main/schema/{schema_version}/schema.md"
