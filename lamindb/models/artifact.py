@@ -1105,7 +1105,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         ]
 
     _aux_fields: dict[str, tuple[str, type]] = {
-        "0": ("_save_complete", bool),
+        "0": ("_is_saved_to_storage_location", bool),
     }
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
@@ -2629,14 +2629,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     logger.success(f"deleted {colors.yellow(f'{path}')}")
 
     @property
-    def _save_complete(self) -> bool | None:
+    def _is_saved_to_storage_location(self) -> bool | None:
         if self._aux is not None:
             return self._aux.get("af", {}).get("0", None)
         else:
             return None
 
-    @_save_complete.setter
-    def _save_complete(self, value: bool) -> None:
+    @_is_saved_to_storage_location.setter
+    def _is_saved_to_storage_location(self, value: bool) -> None:
         self._aux = self._aux or {}
         self._aux.setdefault("af", {})["0"] = value
 
@@ -2670,10 +2670,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # ensure that the artifact is uploaded
             self._to_store = True
 
-        # _save_complete indicates whether the saving / upload process is successfull
-        flag_complete = hasattr(self, "_local_filepath")
+        # _is_saved_to_storage_location indicates whether the saving / upload process is successful
+        flag_complete = hasattr(self, "_local_filepath") and getattr(
+            self, "_to_store", False
+        )
         if flag_complete:
-            self._save_complete = False  # will be updated to True at the end
+            self._is_saved_to_storage_location = (
+                False  # will be updated to True at the end
+            )
 
         self._save_skip_storage(**kwargs)
 
@@ -2708,7 +2712,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise RuntimeError(exception_clear)
         # the saving / upload process has been successfull, just mark it as such
         if flag_complete:
-            self._save_complete = True
+            self._is_saved_to_storage_location = True
             super().save()  # do we need to pass kwargs here?
 
         # this is only for keep_artifacts_local

@@ -106,8 +106,10 @@ def save(
         with transaction.atomic():
             for record in artifacts:
                 # will swtich to True after the successful upload / saving
-                if hasattr(record, "_local_filepath"):
-                    record._save_complete = False
+                if hasattr(record, "_local_filepath") and getattr(
+                    record, "_to_store", False
+                ):
+                    record._is_saved_to_storage_location = False
                 record._save_skip_storage()
         using_key = settings._using_key
         store_artifacts(artifacts, using_key=using_key)
@@ -218,7 +220,7 @@ def check_and_attempt_upload(
         except Exception as exception:
             logger.warning(f"could not upload artifact: {artifact}")
             # clear dangling storages if we were actually uploading or saving
-            if hasattr(artifact, "_to_store") and artifact._to_store:
+            if getattr(artifact, "_to_store", False):
                 artifact._clear_storagekey = auto_storage_key_from_artifact(artifact)
             return exception
         # copies (if on-disk) or moves the temporary file (if in-memory) to the cache
@@ -337,12 +339,21 @@ def store_artifacts(
         exception = check_and_attempt_upload(artifact, using_key)
         if exception is not None:
             break
-        stored_artifacts += [artifact]
         # update to show successful saving
-        # only update if _save_complete was set to False before
-        if artifact._save_complete is False:
-            artifact._save_complete = True
-            super(Artifact, artifact).save()
+        # only update if _is_saved_to_storage_location was set to False before
+        # this should be a single transaction for the updates of all the artifacts
+        # but then it would just abort all artifacts, even successfully saved before
+        try:
+            if artifact._is_saved_to_storage_location is False:
+                artifact._is_saved_to_storage_location = True
+                super(Artifact, artifact).save()
+        except Exception as e:
+            if getattr(artifact, "_to_store", False):
+                artifact._clear_storagekey = auto_storage_key_from_artifact(artifact)
+            exception = e
+            break
+
+        stored_artifacts += [artifact]
         # if check_and_attempt_upload was successful
         # then this can have only ._clear_storagekey from .replace
         exception = check_and_attempt_clearing(
@@ -407,7 +418,7 @@ def upload_artifact(
     storage_path, storage_settings = attempt_accessing_path(
         artifact, storage_key, using_key=using_key, access_token=access_token
     )
-    if hasattr(artifact, "_to_store") and artifact._to_store:
+    if getattr(artifact, "_to_store", False):
         logger.save(f"storing artifact '{artifact.uid}' at '{storage_path}'")
         store_file_or_folder(
             artifact._local_filepath,
