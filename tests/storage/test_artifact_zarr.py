@@ -63,7 +63,7 @@ def test_zarr_upload_cache(get_small_adata):
     assert artifact.suffix == ".anndata.zarr"
     assert artifact.n_files >= 1
 
-    artifact.save()
+    ln.save([artifact])  # use bulk save here for testing
     assert artifact._save_complete
     assert isinstance(artifact.path, CloudPath)
     assert artifact.path.exists()
