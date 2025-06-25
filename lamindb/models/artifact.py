@@ -2630,6 +2630,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     @property
     def _is_saved_to_storage_location(self) -> bool | None:
+        """Indicates whether this artifact was correctly written to its storage.
+
+        `None` means no writing was necessary, `True` - that it was written correctly.
+        `False` shows that there was a problem with writing.
+        """
         if self._aux is not None:
             return self._aux.get("af", {}).get("0", None)
         else:
