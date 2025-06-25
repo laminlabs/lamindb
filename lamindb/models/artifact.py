@@ -2631,7 +2631,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @property
     def _save_complete(self) -> bool | None:
         if self._aux is not None:
-            return self._aux.get("auf", {}).get("0", None)
+            return self._aux.get("af", {}).get("0", None)
         else:
             return None
 
