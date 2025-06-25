@@ -2711,6 +2711,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if exception_clear is not None:
             raise RuntimeError(exception_clear)
         # the saving / upload process has been successfull, just mark it as such
+        # maybe some error handling here?
         if flag_complete:
             self._is_saved_to_storage_location = True
             super().save()  # do we need to pass kwargs here?

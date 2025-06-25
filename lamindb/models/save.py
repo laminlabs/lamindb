@@ -339,21 +339,17 @@ def store_artifacts(
         exception = check_and_attempt_upload(artifact, using_key)
         if exception is not None:
             break
+
+        stored_artifacts += [artifact]
         # update to show successful saving
         # only update if _is_saved_to_storage_location was set to False before
         # this should be a single transaction for the updates of all the artifacts
         # but then it would just abort all artifacts, even successfully saved before
-        try:
-            if artifact._is_saved_to_storage_location is False:
-                artifact._is_saved_to_storage_location = True
-                super(Artifact, artifact).save()
-        except Exception as e:
-            if getattr(artifact, "_to_store", False):
-                artifact._clear_storagekey = auto_storage_key_from_artifact(artifact)
-            exception = e
-            break
-
-        stored_artifacts += [artifact]
+        # TODO: there should also be some kind of exception handling here
+        # but this requires proper refactoring
+        if artifact._is_saved_to_storage_location is False:
+            artifact._is_saved_to_storage_location = True
+            super(Artifact, artifact).save()
         # if check_and_attempt_upload was successful
         # then this can have only ._clear_storagekey from .replace
         exception = check_and_attempt_clearing(
