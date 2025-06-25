@@ -1103,6 +1103,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             ),
         ]
 
+    _aux_fields: dict[str, tuple[str, type]] = {
+        "0": ("_save_complete", bool),
+    }
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
 
@@ -2624,6 +2627,18 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 if delete_msg != "did-not-delete":
                     logger.success(f"deleted {colors.yellow(f'{path}')}")
 
+    @property
+    def _save_complete(self) -> bool | None:
+        if self._aux is not None:
+            return self._aux.get("auf", {}).get("0", None)
+        else:
+            return None
+
+    @_save_complete.setter
+    def _save_complete(self, value: bool) -> None:
+        self._aux = self._aux or {}
+        self._aux.setdefault("af", {})["0"] = value
+
     def save(self, upload: bool | None = None, **kwargs) -> Artifact:
         """Save to database & storage.
 
@@ -2653,6 +2668,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             self._key_is_virtual = True
             # ensure that the artifact is uploaded
             self._to_store = True
+
+        # _save_complete indicates whether the saving / upload process is successfull
+        flag_complete = hasattr(self, "_local_filepath")
+        if flag_complete:
+            self._save_complete = False  # will be updated to True at the end
 
         self._save_skip_storage(**kwargs)
 
@@ -2687,6 +2707,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise RuntimeError(exception_upload)
         if exception_clear is not None:
             raise RuntimeError(exception_clear)
+        # the saving / upload process has been successfull, just mark it as such
+        if flag_complete:
+            self._save_complete = True
+            super().save(**kwargs)  # do we need to pass kwargs here?
+
         # this is only for keep_artifacts_local
         if local_path is not None and not state_was_adding:
             # only move the local artifact to cache if it was not newly created
@@ -2701,6 +2726,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if hasattr(self, "_curator"):
             curator = self._curator
             delattr(self, "_curator")
+            # just annotates this artifact
             curator.save_artifact()
         return self
 
