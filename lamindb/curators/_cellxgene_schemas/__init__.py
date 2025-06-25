@@ -5,7 +5,13 @@ from lamindb_setup.core.upath import UPath
 from lamindb.base.types import FieldAttr
 from lamindb.models import SQLRecord, ULabel
 from lamindb.models._from_values import _format_values
+from lamindb.models import Schema
 
+from typing import Literal
+
+CELLxGENESchemaVersions = Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0"]
+
+# These names are reserved by the CELLxGENE Schema and are not allowed to be used as obs columns
 RESERVED_NAMES = {
     "ethnicity",
     "ethnicity_ontology_term_id",
@@ -110,11 +116,9 @@ def _create_sources(
                 name=row.source,
                 version=row.version,
             ).one_or_none()
+            # if the source was not found, we register it from bionty-assets
             if source is None:
-                logger.error(
-                    f"Could not find source: {entity}\n"
-                    "    → consider running `bionty.core.sync_public_sources()`"
-                )
+                getattr(bt, entity).add_source(bt.Source.using("laminlabs/bionty-assets").get(entity=f"bionty.{entity}", version=row.version, organism=row.organism).save())
             return source
 
     sources_df = pd.read_csv(UPath(__file__).parent / "schema_versions.csv")
@@ -196,3 +200,18 @@ def _init_categoricals_additional_values() -> None:
             ULabel(
                 name=name, type=suspension_type, description="From CellxGene schema."
             ).save()
+
+def _get_cxg_schema(schema_version: CELLxGENESchemaVersions) -> Schema:
+    """Generates a `~lamindb.Schema` for a specific CELLxGENE schema version."""
+    import bionty as bt
+
+    entity_to_source = _create_sources(categoricals=_get_cxg_categoricals(),
+                              schema_version=schema_version,
+                              organism="human")
+
+    schema = Schema(
+        itype=bt.Gene(source=entity_to_source["var_index"]).ensembl_gene_id,
+        otype="AnnData"
+    )
+
+    return schema

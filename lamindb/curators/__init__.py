@@ -8,6 +8,7 @@
    MuDataCurator
    SpatialDataCurator
    TiledbsomaExperimentCurator
+   CxGCurator
 
 Modules.
 
@@ -19,7 +20,6 @@ Modules.
 """
 
 from ._legacy import (  # backward compat
-    CellxGeneAnnDataCatManager,
     PertAnnDataCatManager,
 )
 from .core import (
@@ -28,14 +28,15 @@ from .core import (
     MuDataCurator,
     SpatialDataCurator,
     TiledbsomaExperimentCurator,
+    CxGCurator
 )
 
 __all__ = [
-    "CellxGeneAnnDataCatManager",
     "PertAnnDataCatManager",
     "AnnDataCurator",
     "DataFrameCurator",
     "MuDataCurator",
     "SpatialDataCurator",
     "TiledbsomaExperimentCurator",
+    "CxGCurator"
 ]

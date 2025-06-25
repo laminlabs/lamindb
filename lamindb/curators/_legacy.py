@@ -1317,7 +1317,7 @@ class TiledbsomaCatManager(CatManager):
 class CellxGeneAnnDataCatManager(AnnDataCatManager):
     """Categorical manager for `AnnData` respecting the CELLxGENE schema.
 
-    This will be superceded by a schema-based curation flow.
+    This will be superseded by a schema-based curation flow.
     """
 
     cxg_categoricals_defaults = {
