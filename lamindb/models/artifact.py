@@ -79,6 +79,7 @@ from ._relations import (
 from .feature import Feature, FeatureValue
 from .has_parents import view_lineage
 from .run import Run, TracksRun, TracksUpdates, User
+from .save import check_and_attempt_clearing, check_and_attempt_upload
 from .schema import Schema
 from .sqlrecord import (
     BaseSQLRecord,
@@ -1103,6 +1104,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             ),
         ]
 
+    _aux_fields: dict[str, tuple[str, type]] = {
+        "0": ("_is_saved_to_storage_location", bool),
+    }
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
 
@@ -2624,6 +2628,25 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 if delete_msg != "did-not-delete":
                     logger.success(f"deleted {colors.yellow(f'{path}')}")
 
+    @property
+    def _is_saved_to_storage_location(self) -> bool | None:
+        """Indicates whether this artifact was correctly written to its storage.
+
+        This is meaningful only after calling `.save()`.
+
+        `None` means no writing was necessary, `True` - that it was written correctly.
+        `False` shows that there was a problem with writing.
+        """
+        if self._aux is not None:
+            return self._aux.get("af", {}).get("0", None)
+        else:
+            return None
+
+    @_is_saved_to_storage_location.setter
+    def _is_saved_to_storage_location(self, value: bool) -> None:
+        self._aux = self._aux or {}
+        self._aux.setdefault("af", {})["0"] = value
+
     def save(self, upload: bool | None = None, **kwargs) -> Artifact:
         """Save to database & storage.
 
@@ -2654,9 +2677,16 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # ensure that the artifact is uploaded
             self._to_store = True
 
-        self._save_skip_storage(**kwargs)
+        # _is_saved_to_storage_location indicates whether the saving / upload process is successful
+        flag_complete = hasattr(self, "_local_filepath") and getattr(
+            self, "_to_store", False
+        )
+        if flag_complete:
+            self._is_saved_to_storage_location = (
+                False  # will be updated to True at the end
+            )
 
-        from .save import check_and_attempt_clearing, check_and_attempt_upload
+        self._save_skip_storage(**kwargs)
 
         using_key = None
         if "using" in kwargs:
@@ -2687,6 +2717,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise RuntimeError(exception_upload)
         if exception_clear is not None:
             raise RuntimeError(exception_clear)
+        # the saving / upload process has been successfull, just mark it as such
+        # maybe some error handling here?
+        if flag_complete:
+            self._is_saved_to_storage_location = True
+            super().save()  # do we need to pass kwargs here?
+
         # this is only for keep_artifacts_local
         if local_path is not None and not state_was_adding:
             # only move the local artifact to cache if it was not newly created
@@ -2701,6 +2737,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if hasattr(self, "_curator"):
             curator = self._curator
             delattr(self, "_curator")
+            # just annotates this artifact
             curator.save_artifact()
         return self
 
