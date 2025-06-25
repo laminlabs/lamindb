@@ -322,6 +322,8 @@ def store_artifacts(
 
     If any upload fails, subsequent artifacts are cleaned up from the DB.
     """
+    from .artifact import Artifact
+
     exception: Exception | None = None
     # because uploads might fail, we need to maintain a new list
     # of the succeeded uploads
