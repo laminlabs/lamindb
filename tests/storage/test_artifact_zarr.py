@@ -30,9 +30,12 @@ def test_zarr_upload_cache(get_small_adata):
     get_small_adata.write_zarr(zarr_path)
 
     artifact = ln.Artifact(zarr_path, key="test_adata.zarr")
+    assert artifact._save_complete is None
     assert artifact.otype == "AnnData"
     assert artifact.n_files >= 1
     artifact.save()
+
+    assert artifact._save_complete
 
     assert isinstance(artifact.path, CloudPath)
     assert artifact.path.exists()
@@ -54,12 +57,14 @@ def test_zarr_upload_cache(get_small_adata):
 
     # test zarr from memory
     artifact = ln.Artifact(get_small_adata, key="test_adata.anndata.zarr")
+    assert artifact._save_complete is None
     assert artifact._local_filepath.is_dir()
     assert artifact.otype == "AnnData"
     assert artifact.suffix == ".anndata.zarr"
     assert artifact.n_files >= 1
 
     artifact.save()
+    assert artifact._save_complete
     assert isinstance(artifact.path, CloudPath)
     assert artifact.path.exists()
     cache_path = artifact._cache_path
