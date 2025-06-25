@@ -349,7 +349,9 @@ def store_artifacts(
         # but this requires proper refactoring
         if artifact._is_saved_to_storage_location is False:
             artifact._is_saved_to_storage_location = True
-            super(Artifact, artifact).save()
+            super(
+                Artifact, artifact
+            ).save()  # each .save is a separate transaction here
         # if check_and_attempt_upload was successful
         # then this can have only ._clear_storagekey from .replace
         exception = check_and_attempt_clearing(
