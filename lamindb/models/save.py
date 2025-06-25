@@ -106,7 +106,8 @@ def save(
         with transaction.atomic():
             for record in artifacts:
                 # will swtich to True after the successful upload / saving
-                record._save_complete = False
+                if hasattr(record, "_local_filepath"):
+                    record._save_complete = False
                 record._save_skip_storage()
         using_key = settings._using_key
         store_artifacts(artifacts, using_key=using_key)
@@ -338,8 +339,10 @@ def store_artifacts(
             break
         stored_artifacts += [artifact]
         # update to show successful saving
-        artifact._save_complete = True
-        super(Artifact, artifact).save()
+        # only update if _save_complete was set to False before
+        if artifact._save_complete is False:
+            artifact._save_complete = True
+            super(Artifact, artifact).save()
         # if check_and_attempt_upload was successful
         # then this can have only ._clear_storagekey from .replace
         exception = check_and_attempt_clearing(
