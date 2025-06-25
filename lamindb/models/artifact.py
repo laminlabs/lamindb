@@ -2709,7 +2709,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # the saving / upload process has been successfull, just mark it as such
         if flag_complete:
             self._save_complete = True
-            super().save(**kwargs)  # do we need to pass kwargs here?
+            super().save()  # do we need to pass kwargs here?
 
         # this is only for keep_artifacts_local
         if local_path is not None and not state_was_adding:

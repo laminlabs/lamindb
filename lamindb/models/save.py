@@ -105,6 +105,8 @@ def save(
     if artifacts:
         with transaction.atomic():
             for record in artifacts:
+                # will swtich to True after the successful upload / saving
+                record._save_complete = False
                 record._save_skip_storage()
         using_key = settings._using_key
         store_artifacts(artifacts, using_key=using_key)
@@ -333,7 +335,10 @@ def store_artifacts(
         if exception is not None:
             break
         stored_artifacts += [artifact]
-        # if check_and_attempt_upload was successfull
+        # update to show successful saving
+        artifact._save_complete = True
+        super(Artifact, artifact).save()
+        # if check_and_attempt_upload was successful
         # then this can have only ._clear_storagekey from .replace
         exception = check_and_attempt_clearing(
             artifact, raise_file_not_found_error=True, using_key=using_key
@@ -372,7 +377,7 @@ def prepare_error_message(records, stored_artifacts, exception) -> str:
     else:
         error_message = (
             "The following entries have been"
-            " successfully uploaded and committed to the database:\n"
+            " successfuly uploaded and committed to the database:\n"
         )
         for record in stored_artifacts:
             error_message += (
