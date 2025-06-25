@@ -379,7 +379,7 @@ def prepare_error_message(records, stored_artifacts, exception) -> str:
     else:
         error_message = (
             "The following entries have been"
-            " successfuly uploaded and committed to the database:\n"
+            " successfully uploaded and committed to the database:\n"
         )
         for record in stored_artifacts:
             error_message += (
