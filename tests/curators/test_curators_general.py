@@ -348,11 +348,10 @@ def test_cat_filters_specific_source_uid(df_disease, disease_ontology_old):
             in str(error)
         )
 
-    disease_ontology_old.delete()
     schema.delete()
 
 
-def test_cat_filters_specific_source(df_disease):
+def test_cat_filters_specific_source(df_disease, disease_ontology_old):
     """Specific Source record passed to the `cat_filters`"""
     schema = ln.Schema(
         features=[
@@ -373,7 +372,6 @@ def test_cat_filters_specific_source(df_disease):
             in str(error)
         )
 
-    disease_ontology_old.delete()
     schema.delete()
 
 
