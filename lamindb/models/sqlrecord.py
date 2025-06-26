@@ -1302,7 +1302,7 @@ def get_transfer_run(record) -> Run:
     if not cache_using_filepath.exists():
         raise SystemExit("Need to call .using() before")
     instance_uid = cache_using_filepath.read_text().split("\n")[0]
-    key = f"transfers/{instance_uid}"
+    key = f"__lamindb_transfer__/{instance_uid}"
     uid = instance_uid + "0000"
     transform = Transform.filter(uid=uid).one_or_none()
     if transform is None:
