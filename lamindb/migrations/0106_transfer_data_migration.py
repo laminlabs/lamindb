@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
         migrations.RunSQL(
             sql="""
                 UPDATE lamindb_transform
-                SET otype = CONCAT('__lamindb_transfer__/', SUBSTRING(key FROM 11))
+                SET key = CONCAT('__lamindb_transfer__/', SUBSTRING(key FROM 11))
                 WHERE key LIKE 'transfers/%';
             """
         ),
