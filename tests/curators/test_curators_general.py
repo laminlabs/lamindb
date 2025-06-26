@@ -68,6 +68,25 @@ def df_extra_column():
     )
 
 
+@pytest.fixture
+def df_disease():
+    return pd.DataFrame(
+        {
+            "disease": pd.Categorical(
+                [
+                    # Only after 2025 mondo
+                    "HDAC4-related haploinsufficiency syndrome",
+                    "SAMD9L-related spectrum and myeloid neoplasm risk",
+                    # Already before 2025 mondo
+                    "essential hypertension",
+                    "essential hypertension",
+                    "asthma",
+                ]
+            ),
+        }
+    )
+
+
 def test_curator__repr__(df):
     schema = ln.Schema(
         name="sample schema",
@@ -296,4 +315,35 @@ def test_schema_maximal_set_var():
     )
 
     # clean up
+    schema.delete()
+
+
+def test_cat_filters_specific_source():
+    """If a specific source is passed to the `cat_filters`"""
+    disease_ontology_old = bt.Disease.add_source(
+        bt.Source.using("laminlabs/bionty-assets")
+        .get(entity="bionty.Disease", version="2024-08-06", organism="all")
+        .save()
+    )
+
+    schema = ln.Schema(
+        features=[
+            ln.Feature(
+                name="disease",
+                dtype=bt.Disease,
+                cat_filters={"source__uid": disease_ontology_old.uid},
+            ).save(),
+        ],
+    ).save()
+
+    curator = ln.curators.DataFrameCurator(df, schema)
+    try:
+        curator.validate()
+    except ln.errors.ValidationError as error:
+        assert (
+            "2 terms not validated in feature 'disease': 'HDAC4-related haploinsufficiency syndrome', 'SAMD9L-related spectrum and myeloid neoplasm risk'"
+            in error.exconly()
+        )
+
+    disease_ontology_old.delete()
     schema.delete()
