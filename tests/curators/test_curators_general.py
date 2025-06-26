@@ -318,7 +318,7 @@ def test_schema_maximal_set_var():
     schema.delete()
 
 
-def test_cat_filters_specific_source():
+def test_cat_filters_specific_source(df_disease):
     """If a specific source is passed to the `cat_filters`"""
     disease_ontology_old = bt.Disease.add_source(
         bt.Source.using("laminlabs/bionty-assets")
@@ -336,7 +336,7 @@ def test_cat_filters_specific_source():
         ],
     ).save()
 
-    curator = ln.curators.DataFrameCurator(df, schema)
+    curator = ln.curators.DataFrameCurator(df_disease, schema)
     try:
         curator.validate()
     except ln.errors.ValidationError as error:
