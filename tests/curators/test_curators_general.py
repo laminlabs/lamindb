@@ -15,7 +15,7 @@ def _strip_ansi(text: str) -> str:
 
 
 @pytest.fixture
-def df():
+def df() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "sample_id": ["sample1", "sample2"],
@@ -26,7 +26,7 @@ def df():
 
 
 @pytest.fixture
-def df_missing_sample_type_column():
+def df_missing_sample_type_column() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "sample_id": ["sample1", "sample2"],
@@ -36,7 +36,7 @@ def df_missing_sample_type_column():
 
 
 @pytest.fixture
-def df_missing_sample_name_column():
+def df_missing_sample_name_column() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "sample_id": ["sample1", "sample2"],
@@ -46,7 +46,7 @@ def df_missing_sample_name_column():
 
 
 @pytest.fixture
-def df_changed_col_order():
+def df_changed_col_order() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "sample_name": ["Sample 1", "Sample 2"],
@@ -57,7 +57,7 @@ def df_changed_col_order():
 
 
 @pytest.fixture
-def df_extra_column():
+def df_extra_column() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "sample_id": ["sample1", "sample2"],
@@ -69,7 +69,7 @@ def df_extra_column():
 
 
 @pytest.fixture
-def df_disease():
+def df_disease() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "disease": pd.Categorical(
@@ -84,6 +84,15 @@ def df_disease():
                 ]
             ),
         }
+    )
+
+
+@pytest.fixture
+def disease_ontology_old() -> bt.Source:
+    return bt.Disease.add_source(
+        bt.Source.using("laminlabs/bionty-assets")
+        .get(entity="bionty.Disease", version="2024-08-06", organism="all")
+        .save()
     )
 
 
@@ -318,20 +327,39 @@ def test_schema_maximal_set_var():
     schema.delete()
 
 
-def test_cat_filters_specific_source(df_disease):
-    """If a specific source is passed to the `cat_filters`"""
-    disease_ontology_old = bt.Disease.add_source(
-        bt.Source.using("laminlabs/bionty-assets")
-        .get(entity="bionty.Disease", version="2024-08-06", organism="all")
-        .save()
-    )
-
+def test_cat_filters_specific_source_uid(df_disease, disease_ontology_old):
+    """Specific source_uid passed to the `cat_filters`"""
     schema = ln.Schema(
         features=[
             ln.Feature(
                 name="disease",
                 dtype=bt.Disease,
                 cat_filters={"source__uid": disease_ontology_old.uid},
+            ).save(),
+        ],
+    ).save()
+
+    curator = ln.curators.DataFrameCurator(df_disease, schema)
+    try:
+        curator.validate()
+    except ln.errors.ValidationError as error:
+        assert (
+            "2 terms not validated in feature 'disease': 'HDAC4-related haploinsufficiency syndrome', 'SAMD9L-related spectrum and myeloid neoplasm risk'"
+            in error.exconly()
+        )
+
+    disease_ontology_old.delete()
+    schema.delete()
+
+
+def test_cat_filters_specific_source(df_disease):
+    """Specific Source record passed to the `cat_filters`"""
+    schema = ln.Schema(
+        features=[
+            ln.Feature(
+                name="disease",
+                dtype=bt.Disease,
+                cat_filters={"source": disease_ontology_old},
             ).save(),
         ],
     ).save()
