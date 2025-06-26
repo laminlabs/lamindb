@@ -1008,7 +1008,16 @@ class CatVector:
         self._maximal_set = maximal_set
 
         self._all_filters = {"source": self._source, "organism": self._organism}
+
         if self._subtype_str and "=" in self._subtype_str:
+            # The current architecture does not allow for simple passing of SQLRecords as they get deconstructed into strings
+            # Check if subtype_str contains a corrupted SQLRecord representation and error
+            if self._subtype_str.count("(") == 1 and self._subtype_str.endswith(")"):
+                raise ValueError(
+                    f"Feature '{self.feature.name if self.feature else 'unknown'}' has corrupted cat_filters from passing SQLRecord objects directly. "
+                    f"Please recreate the Feature using filter expressions instead of SQLRecord objects. "
+                    f"For example, use cat_filters={{'source__uid': 'your_uid'}} instead of cat_filters={{'source': source_obj}}."
+                )
             self._all_filters.update(self._parse_filter_expressions(self._subtype_str))  # type: ignore
 
         if hasattr(field.field.model, "_name_field"):
@@ -1154,6 +1163,7 @@ class CatVector:
         field_name = self._field.field.name
         model_field = registry.__get_name_with_module__()
         filter_kwargs = get_current_filter_kwargs(registry, {**self._all_filters})
+
         values = [
             i
             for i in self.values
@@ -1569,22 +1579,14 @@ def get_current_filter_kwargs(
 ) -> dict:
     """Make sure the source and organism are saved in the same database as the registry."""
     db = registry.filter().db
-    source = kwargs.get("source")
-    organism = kwargs.get("organism")
     filter_kwargs = kwargs.copy()
 
-    if isinstance(organism, SQLRecord) and organism._state.db != "default":
-        if db is None or db == "default":
-            organism_default = copy.copy(organism)
-            # save the organism record in the default database
-            organism_default.save()
-            filter_kwargs["organism"] = organism_default
-    if isinstance(source, SQLRecord) and source._state.db != "default":
-        if db is None or db == "default":
-            source_default = copy.copy(source)
-            # save the source record in the default database
-            source_default.save()
-            filter_kwargs["source"] = source_default
+    for key, value in kwargs.items():
+        if isinstance(value, SQLRecord) and value._state.db != "default":
+            if db is None or db == "default":
+                value_default = copy.copy(value)
+                value_default.save()
+                filter_kwargs[key] = value_default
 
     return filter_kwargs
 

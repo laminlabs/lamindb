@@ -368,34 +368,8 @@ def test_cat_filters_specific_source(df_disease, disease_ontology_old):
         curator.validate()
     except ln.errors.ValidationError as error:
         assert (
-            "2 terms not validated in feature 'disease': 'HDAC4-related haploinsufficiency syndrome', 'SAMD9L-related spectrum and myeloid neoplasm risk'"
+            "Feature 'disease' has corrupted cat_filters from passing SQLRecord objects directly. Please recreate the Feature using filter expressions instead of SQLRecord objects. For example, use cat_filters={'source__uid': 'your_uid'} instead of cat_filters={'source': source_obj}."
             in str(error)
         )
 
     schema.delete()
-
-
-"""
-def test_cat_filters_complex(df_disease):
-    schema = ln.Schema(
-        features=[
-            ln.Feature(
-                name="disease",
-                dtype=bt.Disease,
-                cat_filters={"source__name__in": ["mondo"]},
-            ).save(),
-        ],
-    ).save()
-
-    curator = ln.curators.DataFrameCurator(df_disease, schema)
-    try:
-        curator.validate()
-    except ln.errors.ValidationError as error:
-        assert (
-            "2 terms not validated in feature 'disease': 'HDAC4-related haploinsufficiency syndrome', 'SAMD9L-related spectrum and myeloid neoplasm risk'"
-            in error.exconly()
-        )
-
-    disease_ontology_old.delete()
-    schema.delete()
-"""
