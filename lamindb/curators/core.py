@@ -26,6 +26,7 @@ from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 
 from lamindb.base.types import FieldAttr  # noqa
+from lamindb.errors import DoesNotExist
 from lamindb.models import (
     Artifact,
     Feature,
@@ -1005,6 +1006,11 @@ class CatVector:
         self.feature = feature
         self.records = None
         self._maximal_set = maximal_set
+
+        self._all_filters = {"source": self._source, "organism": self._organism}
+        if self._subtype_str and "=" in self._subtype_str:
+            self._all_filters.update(self._parse_filter_expressions(self._subtype_str))  # type: ignore
+
         if hasattr(field.field.model, "_name_field"):
             label_ref_is_name = field.field.name == field.field.model._name_field
         else:
@@ -1044,6 +1050,52 @@ class CatVector:
             if self._maximal_set:
                 result = False
         return result
+
+    def _parse_filter_expressions(self, filter_str: str) -> dict[str, str]:
+        """Parse filter expressions like 'source__uid=value, organism__name=human'."""
+        filters = {}
+        filter_parts = [part.strip() for part in filter_str.split(",")]
+
+        for part in filter_parts:
+            if "=" in part:
+                key, value = part.split("=", 1)
+                key = key.strip()
+                value = value.strip().strip("'\"")
+                filters[key] = value
+
+        # Resolve relation filters to actual objects
+        registry = self._field.field.model
+        resolved_filters = {}
+
+        for filter_key, filter_value in filters.items():
+            if "__" in filter_key:
+                relation_name, field_name = filter_key.split("__", 1)
+
+                # Check if this relation exists on the registry
+                if hasattr(registry, relation_name):
+                    relation_field = getattr(registry, relation_name)
+                    if (
+                        hasattr(relation_field, "field")
+                        and relation_field.field.is_relation
+                    ):
+                        # Get the related model
+                        related_model = relation_field.field.related_model
+
+                        # Resolve the object using the field lookup
+                        try:
+                            filter_kwargs = {field_name: filter_value}
+                            related_obj = related_model.get(**filter_kwargs)
+                            resolved_filters[relation_name] = related_obj
+                            # Don't include the original relation__field filter
+                            continue
+                        except (DoesNotExist, AttributeError):
+                            # If resolution fails, keep the original filter
+                            pass
+
+            # Keep non-relation filters or failed resolutions
+            resolved_filters[filter_key] = filter_value
+
+        return resolved_filters
 
     def _replace_synonyms(self) -> list[str]:
         """Replace synonyms in the vector with standardized values."""
@@ -1101,9 +1153,7 @@ class CatVector:
         registry = self._field.field.model
         field_name = self._field.field.name
         model_field = registry.__get_name_with_module__()
-        filter_kwargs = get_current_filter_kwargs(
-            registry, {"organism": self._organism, "source": self._source}
-        )
+        filter_kwargs = get_current_filter_kwargs(registry, {**self._all_filters})
         values = [
             i
             for i in self.values
@@ -1118,9 +1168,7 @@ class CatVector:
         str_values = _flatten_unique(values)
 
         # inspect the default instance and save validated records from public
-        if (
-            self._subtype_str != "" and "__" not in self._subtype_str
-        ):  # not for general filter expressions
+        if self._subtype_str != "" and "=" not in self._subtype_str:
             related_name = registry._meta.get_field("type").remote_field.related_name
             self._subtype_query_set = getattr(
                 registry.get(name=self._subtype_str), related_name
@@ -1221,9 +1269,7 @@ class CatVector:
         field_name = self._field.field.name
         model_field = f"{registry.__name__}.{field_name}"
 
-        kwargs_current = get_current_filter_kwargs(
-            registry, {"organism": self._organism, "source": self._source}
-        )
+        kwargs_current = get_current_filter_kwargs(registry, {**self._all_filters})
 
         # inspect values from the default instance, excluding public
         registry_or_queryset = registry
@@ -1518,7 +1564,9 @@ class DataFrameCatManager:
             self._cat_vectors[key].add_new(**kwargs)
 
 
-def get_current_filter_kwargs(registry: type[SQLRecord], kwargs: dict) -> dict:
+def get_current_filter_kwargs(
+    registry: type[SQLRecord], kwargs: dict[str, SQLRecord]
+) -> dict:
     """Make sure the source and organism are saved in the same database as the registry."""
     db = registry.filter().db
     source = kwargs.get("source")
