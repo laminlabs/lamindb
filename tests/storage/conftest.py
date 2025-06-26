@@ -59,11 +59,14 @@ def delete_test_instance():
     if Path("./default_storage_unit_storage").exists():
         shutil.rmtree("./default_storage_unit_storage")
     # handle below better in the future
-    if ln.UPath("s3://lamindb-test/storage/.lamindb").exists():
-        ln.UPath("s3://lamindb-test/storage/.lamindb").rmdir()
-    another_storage = ln.UPath("s3://lamindb-ci/lamindb-unit-tests-cloud/.lamindb")
-    if another_storage.exists():
-        another_storage.rmdir()
+    for path in (
+        "s3://lamindb-test/storage/.lamindb",
+        "s3://lamindb-ci/lamindb-unit-tests-cloud/.lamindb",
+        "s3://lamindb-test/core/.lamindb",
+    ):
+        upath = ln.UPath(path)
+        if upath.exists():
+            upath.rmdir()
     ln.setup.delete("lamindb-unit-tests-storage", force=True)
 
 
