@@ -368,7 +368,7 @@ def test_cat_filters_specific_source(df_disease, disease_ontology_old):
         curator.validate()
     except ln.errors.ValidationError as error:
         assert (
-            "Feature 'disease' has corrupted cat_filters from passing SQLRecord objects directly. Please recreate the Feature using filter expressions instead of SQLRecord objects. For example, use cat_filters={'source__uid': 'your_uid'} instead of cat_filters={'source': source_obj}."
+            "2 terms not validated in feature 'disease': 'HDAC4-related haploinsufficiency syndrome', 'SAMD9L-related spectrum and myeloid neoplasm risk'"
             in str(error)
         )
 

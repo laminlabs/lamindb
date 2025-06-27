@@ -1010,15 +1010,6 @@ class CatVector:
         self._all_filters = {"source": self._source, "organism": self._organism}
 
         if self._subtype_str and "=" in self._subtype_str:
-            # The current architecture does not allow for simple passing of SQLRecords as they get deconstructed into strings
-            # Check if subtype_str contains a corrupted SQLRecord representation and error
-            print(self._subtype_str)
-            if self._subtype_str.endswith(")'"):
-                raise ValueError(
-                    f"Feature '{self.feature.name if self.feature else 'unknown'}' has corrupted cat_filters from passing SQLRecord objects directly. "
-                    f"Please recreate the Feature using filter expressions instead of SQLRecord objects. "
-                    f"For example, use cat_filters={{'source__uid': 'your_uid'}} instead of cat_filters={{'source': source_obj}}."
-                )
             self._all_filters.update(self._parse_filter_expressions(self._subtype_str))  # type: ignore
 
         if hasattr(field.field.model, "_name_field"):

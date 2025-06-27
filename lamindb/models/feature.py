@@ -639,6 +639,21 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         if cat_filters:
             assert "|" not in dtype_str  # noqa: S101
             assert "]]" not in dtype_str  # noqa: S101
+
+            # If a SQLRecord was passed, we access the uid to have a normal filter
+            cat_filters = {
+                (
+                    f"{key}__uid"
+                    if isinstance(filter, SQLRecord) and hasattr(filter, "uid")
+                    else key
+                ): (
+                    filter.uid
+                    if isinstance(filter, SQLRecord) and hasattr(filter, "uid")
+                    else filter
+                )
+                for key, filter in cat_filters.items()
+            }
+
             fill_in = ", ".join(
                 f"{key}='{value}'" for (key, value) in cat_filters.items()
             )
