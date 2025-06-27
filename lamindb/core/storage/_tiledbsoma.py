@@ -54,12 +54,18 @@ def _tiledb_config_s3(storepath: UPath) -> dict:
     else:
         tiledb_config["vfs.s3.region"] = get_storage_region(storepath)
 
-    if "key" in storage_options:
-        tiledb_config["vfs.s3.aws_access_key_id"] = storage_options["key"]
-    if "secret" in storage_options:
-        tiledb_config["vfs.s3.aws_secret_access_key"] = storage_options["secret"]
-    if "token" in storage_options:
-        tiledb_config["vfs.s3.aws_session_token"] = storage_options["token"]
+    if storage_options.get("anon", False):
+        tiledb_config["vfs.s3.no_sign_request"] = "true"
+        tiledb_config["vfs.s3.aws_access_key_id"] = ""
+        tiledb_config["vfs.s3.aws_secret_access_key"] = ""
+        tiledb_config["vfs.s3.aws_session_token"] = ""
+    else:
+        if "key" in storage_options:
+            tiledb_config["vfs.s3.aws_access_key_id"] = storage_options["key"]
+        if "secret" in storage_options:
+            tiledb_config["vfs.s3.aws_secret_access_key"] = storage_options["secret"]
+        if "token" in storage_options:
+            tiledb_config["vfs.s3.aws_session_token"] = storage_options["token"]
 
     return tiledb_config
 
