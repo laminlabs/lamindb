@@ -1,3 +1,5 @@
+import concurrent.futures
+
 import lamindb as ln
 
 
@@ -11,3 +13,19 @@ def test_reference_storage_location(ccaplog):
         "referenced read-only storage location at s3://lamindata, is managed by instance with uid 4XIuR0tvaiXM"
         in ccaplog.text
     )
+
+
+def test_create_storage_locations_parallel():
+    root: str = "nonregistered_storage"
+
+    def create_storage() -> str:
+        ln.Storage(root=root).save()  # type: ignore
+        return root
+
+    n_parallel = 3
+    with concurrent.futures.ThreadPoolExecutor(max_workers=n_parallel) as executor:
+        futures = [executor.submit(create_storage) for i in range(n_parallel)]
+        _ = [future.result() for future in concurrent.futures.as_completed(futures)]
+
+    storage = ln.Storage.get(root__endswith=root)
+    storage.delete()

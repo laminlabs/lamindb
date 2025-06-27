@@ -30,9 +30,15 @@ db_token_manager.set(db_token)
 def test_authentication():
     # just check that the token was setup
     with connection.cursor() as cur:
-        cur.execute("SELECT get_account_id();")
-        account_id = cur.fetchall()[0][0]
-    assert account_id.hex == user_uuid
+        cur.execute("SELECT 1 in (SELECT id FROM check_access() WHERE role = 'read');")
+        result = cur.fetchall()[0][0]
+    assert result
+    # check querying without setting jwt
+    with (
+        pytest.raises(psycopg2.errors.RaiseException),
+        connection.connection.cursor() as cur,
+    ):
+        cur.execute("SELECT * FROM lamindb_ulabel;")
     # test that auth can't be hijacked
     # false table created before
     with (
@@ -41,7 +47,11 @@ def test_authentication():
     ):
         cur.execute(
             """
-            CREATE TEMP TABLE account_id(val uuid PRIMARY KEY) ON COMMIT DROP;
+            CREATE TEMP TABLE access(
+                id int,
+                role varchar(20),
+                type text
+            ) ON COMMIT DROP;
             SELECT set_token(%s);
             """,
             (token,),
@@ -53,9 +63,14 @@ def test_authentication():
     ):
         cur.execute(
             """
-            CREATE TEMP TABLE account_id(val uuid PRIMARY KEY) ON COMMIT DROP;
-            INSERT INTO account_id(val) VALUES (gen_random_uuid());
-            SELECT get_account_id();
+            CREATE TEMP TABLE access(
+                id int,
+                role varchar(20),
+                type text
+            ) ON COMMIT DROP;
+            INSERT INTO access (id, role, type)
+            VALUES (1, 'admin', 'space');
+            SELECT * FROM check_access();
             """
         )
     # check manual insert
@@ -66,7 +81,8 @@ def test_authentication():
         cur.execute(
             """
             SELECT set_token(%s);
-            INSERT INTO account_id(val) VALUES (gen_random_uuid());
+            INSERT INTO access (id, role, type)
+            VALUES (1, 'admin', 'space');
             """,
             (token,),
         )
@@ -143,6 +159,70 @@ def test_fine_grained_permissions_team():
     ln.Feature.get(name="team_access_feature")
 
 
+def test_fine_grained_permissions_single_records():
+    assert not ln.ULabel.filter(name="no_access_ulabel").exists()
+    assert not ln.Project.filter(name="No_access_project").exists()
+
+    # switch access to this ulabel to read
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE hubmodule_accessrecord SET role = 'read'
+            WHERE account_id = %s AND record_type = 'lamindb_ulabel'
+            """,
+            (user_uuid,),
+        )
+
+    ulabel = ln.ULabel.get(name="no_access_ulabel")
+
+    new_name = "new_name_single_rls_access_ulabel"
+    ulabel.name = new_name
+    with pytest.raises(ln.errors.NoWriteAccess):
+        ulabel.save()
+
+    # switch access to this ulabel to write
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE hubmodule_accessrecord SET role = 'write'
+            WHERE account_id = %s AND record_type = 'lamindb_ulabel'
+            """,
+            (user_uuid,),
+        )
+
+    ulabel.save()
+
+    # switch access to this ulabel to write
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE hubmodule_accessrecord SET role = 'read'
+            WHERE account_id = %s AND record_type = 'lamindb_project'
+            """,
+            (user_uuid,),
+        )
+
+    project = ln.Project.get(name="No_access_project")
+    # can't insert into lamindb_ulabelproject because the project is still read-only
+    with pytest.raises(ProgrammingError):
+        ulabel.projects.add(project)
+
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE hubmodule_accessrecord SET role = 'write'
+            WHERE account_id = %s AND record_type = 'lamindb_project'
+            """,
+            (user_uuid,),
+        )
+
+    ulabel.projects.add(project)
+    assert ulabel.projects.count() == 1
+
+    ulabel.delete()
+    assert not ln.ULabel.filter(name="no_access_ulabel").exists()
+
+
 # tests that token is set properly in atomic blocks
 def test_atomic():
     with transaction.atomic():
@@ -160,13 +240,14 @@ def test_atomic():
 
 def test_utility_tables():
     # can select in these tables
-    assert ln.models.User.filter().count() == 1
+    assert ln.User.filter().count() == 1
     assert ln.Space.filter().count() == 5
     # can't select
     assert hm.Account.filter().count() == 0
     assert hm.Team.filter().count() == 0
     assert hm.AccountTeam.filter().count() == 0
     assert hm.AccessSpace.filter().count() == 0
+    assert hm.AccessRecord.filter().count() == 0
     # can't update a space
     space = ln.Space.get(id=1)  # default space
     space.name = "new name"
@@ -180,7 +261,7 @@ def test_utility_tables():
     # because just tries to insert with the same id and fails
     with pytest.raises(IntegrityError):
         user.save()
-    # can insert a user
+    # can insert a user because has write access to a space
     ln.User(handle="insert_new_user", uid="someuidd").save()
     assert ln.User.filter().count() == 2
     # can't insert

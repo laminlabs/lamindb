@@ -57,9 +57,15 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/eHDmIOAxLEoqZ2oK0000.png
            :width: 400px
 
-    .. dropdown:: Keeping track of storage locations across instances
+    .. dropdown:: Managing access to storage locations across instances
 
-        Head over to `https://lamin.ai/{account}/infrastructure` and you'll see something like this:
+        You can low-level manage access through AWS policies that you attach to your S3 bucket
+        or leverage LaminHub's fine-grained access management.
+
+        Head over to `https://lamin.ai/{account}/infrastructure` and you'll see a UI as in the screenshot below.
+        By clicking the green button that says "Connect S3 bucket", you enable LaminHub to issue federated S3 tokens
+        for a new S3 bucket so that your collaborators can access data in this bucket based on their permissions in LaminHub.
+        :doc:`docs:access` has more details.
 
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/ze8hkgVxVptSSZEU0000.png
            :width: 800px
@@ -101,13 +107,6 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             ln.Storage(root="./myfolder3").save()
 
     Notes:
-
-        .. dropdown:: How do I manage access to a storage location?
-
-            You can low-level manage access through AWS policies that you attach to your S3 bucket
-            or leverage LaminHub's fine-grained access management.
-
-            :doc:`docs:access` explains both approaches.
 
         .. dropdown:: What is the `.lamindb/` directory inside a storage location?
 
