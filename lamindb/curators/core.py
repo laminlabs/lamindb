@@ -1012,7 +1012,8 @@ class CatVector:
         if self._subtype_str and "=" in self._subtype_str:
             # The current architecture does not allow for simple passing of SQLRecords as they get deconstructed into strings
             # Check if subtype_str contains a corrupted SQLRecord representation and error
-            if self._subtype_str.count("(") == 1 and self._subtype_str.endswith(")"):
+            print(self._subtype_str)
+            if self._subtype_str.endswith(")'"):
                 raise ValueError(
                     f"Feature '{self.feature.name if self.feature else 'unknown'}' has corrupted cat_filters from passing SQLRecord objects directly. "
                     f"Please recreate the Feature using filter expressions instead of SQLRecord objects. "
