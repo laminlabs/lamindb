@@ -642,7 +642,6 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
             # Validate filter values and SQLRecord attributes
             for filter_key, filter_value in cat_filters.items():
-                # Check for empty values
                 if not filter_value or (
                     isinstance(filter_value, str) and not filter_value.strip()
                 ):

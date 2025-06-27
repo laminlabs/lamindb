@@ -1183,11 +1183,9 @@ class CatVector:
 
         valid_from_values_kwargs = {}
         for key, value in filter_kwargs.items():
-            # Only include known from_values() parameters and simple relation fields
             if key in {"field", "organism", "source", "mute"}:
                 valid_from_values_kwargs[key] = value
             elif hasattr(registry, key) and "__" not in key:
-                # Only include simple relation fields, not complex lookups like organism__name
                 valid_from_values_kwargs[key] = value
 
         values = [
