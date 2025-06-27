@@ -362,7 +362,12 @@ def test_feature_dtype_path():
     ).save()
 
     nextflow_schema.optionals.set(
-        [ln.Feature.get(name="expected_cells"), ln.Feature.get(name="seq_center")]
+        [
+            ln.Feature.get(name="expected_cells"),
+            ln.Feature.get(name="seq_center"),
+            ln.Feature.get(name="sample_type"),
+            ln.Feature.get(name="feature_type"),
+        ]
     )
 
     curator = ln.curators.DataFrameCurator(df, schema=nextflow_schema)
