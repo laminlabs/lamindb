@@ -85,7 +85,7 @@ def test_feature_init():
             cat_filters={"source__invalid_field": source},
         )
     assert (
-        "ValidationError: SQLRecord Source has no attribute 'nonexistent_field' in filter source__nonexistent_field"
+        "ValidationError: SQLRecord Source has no attribute 'invalid_field' in filter source__invalid_field"
         in error.exconly()
     )
     source.delete()
