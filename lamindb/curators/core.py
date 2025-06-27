@@ -1008,7 +1008,6 @@ class CatVector:
         self._maximal_set = maximal_set
 
         self._all_filters = {"source": self._source, "organism": self._organism}
-
         if self._subtype_str and "=" in self._subtype_str:
             self._all_filters.update(self._parse_filter_expressions(self._subtype_str))  # type: ignore
 
@@ -1180,7 +1179,7 @@ class CatVector:
         registry = self._field.field.model
         field_name = self._field.field.name
         model_field = registry.__get_name_with_module__()
-        filter_kwargs = get_current_filter_kwargs(registry, {**self._all_filters})
+        filter_kwargs = get_current_filter_kwargs(registry, self._all_filters)
 
         values = [
             i
@@ -1297,7 +1296,7 @@ class CatVector:
         field_name = self._field.field.name
         model_field = f"{registry.__name__}.{field_name}"
 
-        kwargs_current = get_current_filter_kwargs(registry, {**self._all_filters})
+        kwargs_current = get_current_filter_kwargs(registry, self._all_filters)
 
         # inspect values from the default instance, excluding public
         registry_or_queryset = registry
