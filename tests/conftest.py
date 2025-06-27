@@ -6,7 +6,7 @@ import pytest
 
 @pytest.fixture(scope="function")
 def clean_soma_files(request):
-    path = request.param if hasattr(request, "param") else "small_dataset.tiledbsoma"
+    path = request.param if hasattr(request, "param") else "small_dataset1.tiledbsoma"
     if Path(path).exists():
         shutil.rmtree(path)
 

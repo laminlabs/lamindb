@@ -1181,6 +1181,15 @@ class CatVector:
         model_field = registry.__get_name_with_module__()
         filter_kwargs = get_current_filter_kwargs(registry, self._all_filters)
 
+        valid_from_values_kwargs = {}
+        for key, value in filter_kwargs.items():
+            # Only include known from_values() parameters and simple relation fields
+            if key in {"field", "organism", "source", "mute"}:
+                valid_from_values_kwargs[key] = value
+            elif hasattr(registry, key) and "__" not in key:
+                # Only include simple relation fields, not complex lookups like organism__name
+                valid_from_values_kwargs[key] = value
+
         values = [
             i
             for i in self.values
@@ -1209,11 +1218,14 @@ class CatVector:
                 values_array[~validated_mask],
             )
             records = registry.from_values(
-                validated_labels, field=self._field, **filter_kwargs, mute=True
+                validated_labels,
+                field=self._field,
+                **valid_from_values_kwargs,
+                mute=True,
             )
         else:
             existing_and_public_records = registry.from_values(
-                str_values, field=self._field, **filter_kwargs, mute=True
+                str_values, field=self._field, **valid_from_values_kwargs, mute=True
             )
             existing_and_public_labels = [
                 getattr(r, field_name) for r in existing_and_public_records
@@ -1298,12 +1310,23 @@ class CatVector:
 
         kwargs_current = get_current_filter_kwargs(registry, self._all_filters)
 
+        valid_inspect_kwargs = {}
+        for key, value in kwargs_current.items():
+            if key in {"field", "organism", "source", "mute", "from_source"}:
+                valid_inspect_kwargs[key] = value
+            elif hasattr(registry, key) and "__" not in key:
+                valid_inspect_kwargs[key] = value
+
         # inspect values from the default instance, excluding public
         registry_or_queryset = registry
         if self._subtype_query_set is not None:
             registry_or_queryset = self._subtype_query_set
         inspect_result = registry_or_queryset.inspect(
-            values, field=self._field, mute=True, from_source=False, **kwargs_current
+            values,
+            field=self._field,
+            mute=True,
+            from_source=False,
+            **valid_inspect_kwargs,
         )
         non_validated = inspect_result.non_validated
         syn_mapper = inspect_result.synonyms_mapper
@@ -1315,7 +1338,7 @@ class CatVector:
                 non_validated,
                 field=self._field,
                 mute=True,
-                **kwargs_current,
+                **valid_inspect_kwargs,
             )
             values_validated += [getattr(r, field_name) for r in public_records]
 
