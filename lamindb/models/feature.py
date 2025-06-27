@@ -640,17 +640,29 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
             assert "|" not in dtype_str  # noqa: S101
             assert "]]" not in dtype_str  # noqa: S101
 
-            # If a SQLRecord was passed, we access the uid to have a normal filter
+            # Validate filter values and SQLRecord attributes
+            for filter_key, filter_value in cat_filters.items():
+                # Check for empty values
+                if not filter_value or (
+                    isinstance(filter_value, str) and not filter_value.strip()
+                ):
+                    raise ValidationError(f"Empty value in filter {filter_key}")
+                # Check SQLRecord attributes for relation lookups
+                if isinstance(filter_value, SQLRecord) and "__" in filter_key:
+                    field_name = filter_key.split("__", 1)[1]
+                    if not hasattr(filter_value, field_name):
+                        raise ValidationError(
+                            f"SQLRecord {filter_value.__class__.__name__} has no attribute '{field_name}' in filter {filter_key}"
+                        )
+
+            # If a SQLRecord is passed, we access its uid to apply a standard filter
             cat_filters = {
-                (
-                    f"{key}__uid"
-                    if isinstance(filter, SQLRecord) and hasattr(filter, "uid")
-                    else key
-                ): (
-                    filter.uid
-                    if isinstance(filter, SQLRecord) and hasattr(filter, "uid")
-                    else filter
+                f"{key}__uid"
+                if (
+                    is_sqlrecord := isinstance(filter, SQLRecord)
+                    and hasattr(filter, "uid")
                 )
+                else key: filter.uid if is_sqlrecord else filter
                 for key, filter in cat_filters.items()
             }
 

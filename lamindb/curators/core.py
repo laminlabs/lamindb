@@ -1053,7 +1053,34 @@ class CatVector:
         return result
 
     def _parse_filter_expressions(self, filter_str: str) -> dict[str, str]:
-        """Parse filter expressions like 'source__uid=value, organism__name=human'."""
+        """Parse filter expressions like 'source__uid=value, organism__name=human' into Django-compatible filters with resolved objects.
+
+        Parses comma-separated filter expressions that support Django-style field lookups across model relationships.
+        Attempts to resolve related objects when possible.
+
+        Format:
+            - Simple filters: 'field=value'
+            - Relation filters: 'relation__field=value'
+            - Multiple filters: 'filter1=value1, filter2=value2'
+            - Multiple relation filters: 'source__uid=abc123, organism__name=human'
+            - Mixed filters: 'name=sample1, source__uid=abc123'
+
+        Examples:
+            'name=sample1' -> {'name': 'sample1'}
+            'source__uid=abc123' -> {'source': <SourceObject>} (if resolved)
+            'organism__name=human, tissue__name=lung' -> {'organism': <OrganismObject>, 'tissue': <TissueObject>}
+
+        Args:
+            filter_str: Comma-separated filter expressions using Django lookup syntax
+
+        Returns:
+            Dict mapping filter keys to resolved objects (for relations) or string values (for direct fields).
+            Failed relation resolutions fall back to original 'relation__field': 'value' format.
+
+        Note:
+            Relation filters are resolved by querying the related model.
+            If resolution fails (object not found), the original filter format is preserved in the output.
+        """
         filters = {}
         filter_parts = [part.strip() for part in filter_str.split(",")]
 
@@ -1079,7 +1106,6 @@ class CatVector:
                         hasattr(relation_field, "field")
                         and relation_field.field.is_relation
                     ):
-                        # Get the related model
                         related_model = relation_field.field.related_model
 
                         # Resolve the object using the field lookup

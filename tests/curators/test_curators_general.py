@@ -373,3 +373,28 @@ def test_cat_filters_specific_source(df_disease, disease_ontology_old):
         )
 
     schema.delete()
+
+
+def test_cat_filters_multiple_relation_filters(df_disease, disease_ontology_old):
+    """Multiple relation filters in cat_filters"""
+    schema = ln.Schema(
+        features=[
+            ln.Feature(
+                name="disease",
+                dtype=bt.Disease,
+                cat_filters={
+                    "source__uid": disease_ontology_old.uid,
+                    "organism__name": "all",
+                },
+            ).save(),
+        ],
+    ).save()
+    curator = ln.curators.DataFrameCurator(df_disease, schema)
+    try:
+        curator.validate()
+    except ln.errors.ValidationError as error:
+        assert (
+            "2 terms not validated in feature 'disease': 'HDAC4-related haploinsufficiency syndrome', 'SAMD9L-related spectrum and myeloid neoplasm risk'"
+            in str(error)
+        )
+    schema.delete()

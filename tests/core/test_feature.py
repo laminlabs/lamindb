@@ -59,6 +59,28 @@ def test_feature_init():
     feature = ln.Feature(name="feat1", dtype=[ln.ULabel, bt.Gene])
     assert feature.dtype == "cat[ULabel|bionty.Gene]"
 
+    # Test empty cat_filters value validation
+    with pytest.raises(ValidationError) as error:
+        ln.Feature(name="feat_empty", dtype=bt.Disease, cat_filters={"source__uid": ""})
+    assert (
+        "lamindb.errors.ValidationError: Empty value in filter source__uid"
+        in error.exconly()
+    )
+
+    # Test SQLRecord attribute validation
+    source = bt.Source(name="test_source").save()
+    with pytest.raises(ValidationError) as error:
+        ln.Feature(
+            name="feat_invalid_attr",
+            dtype=bt.Disease,
+            cat_filters={"source__invalid_field": source},
+        )
+    assert (
+        "ValidationError: SQLRecord Source has no attribute 'nonexistent_field' in filter source__nonexistent_field"
+        in error.exconly()
+    )
+    source.delete()
+
 
 def test_feature_from_df(df):
     if feat1 := ln.Feature.filter(name="feat1").one_or_none() is not None:
