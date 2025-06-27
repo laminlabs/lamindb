@@ -68,7 +68,9 @@ def test_feature_init():
     )
 
     # Test SQLRecord attribute validation
-    source = bt.Source(name="test_source").save()
+    source = bt.Source(
+        name="", description="", organism="", entity="", version=""
+    ).save()
     with pytest.raises(ValidationError) as error:
         ln.Feature(
             name="feat_invalid_attr",
