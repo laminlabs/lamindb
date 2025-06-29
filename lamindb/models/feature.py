@@ -490,6 +490,12 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         ...     dtype=list[bt.CellType],  # or list[str] for a list of strings
         ... ).save()
 
+        A path feature.
+        >>> ln.Feature(
+        ...     name="image_path",
+        ...     dtype="path",   # will be validated as `str`
+        ... ).save()
+
     Hint:
 
         *Features* and *labels* denote two ways of using entities to organize data:

@@ -51,10 +51,11 @@ Dtype = Literal[
     "datetime",  # datetime
     "dict",  # dictionary
     "object",  # this is a pandas input dtype, we're only using it for complicated types, not for strings
+    "path",  # path, validated as str, but specially treated in the UI
 ]
 """Data type.
 
-Data types in lamindb are a string-serialized abstraction of common data types.
+String-serialized representations of common data types.
 
 Overview
 ========
@@ -70,6 +71,7 @@ string        `"str"`       `object`
 datetime      `"datetime"`  `datetime`
 date          `"date"`      `object` (pandera requires an ISO-format string, convert with `df["date"] = df["date"].dt.date`)
 dictionary    `"dict"`      `object`
+path          `"path"`      `str` (pandas does not have a dedicated path type, validated as `str`)
 ============  ============  =================================================
 
 Categoricals

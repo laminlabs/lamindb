@@ -297,3 +297,82 @@ def test_schema_maximal_set_var():
 
     # clean up
     schema.delete()
+
+
+def test_feature_dtype_path():
+    df = pd.DataFrame(
+        {
+            "sample": ["Sample_X", "Sample_Y", "Sample_Y"],
+            "fastq_1": [
+                "https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R1_001.fastq.gz",
+                "https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_Y_S1_L001_R1_001.fastq.gz",
+                "https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_Y_S1_L002_R1_001.fastq.gz",
+            ],
+            "fastq_2": [
+                "https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R2_001.fastq.gz",
+                "https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_Y_S1_L001_R2_001.fastq.gz",
+                "https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_Y_S1_L002_R2_001.fastq.gz",
+            ],
+            "expected_cells": [5000, 5000, 5000],
+        }
+    )
+
+    nextflow_schema = ln.Schema(
+        name="nf-core/scrnaseq pipeline - params.input schema",
+        description="https://github.com/nf-core/scrnaseq/blob/4.0.0/assets/schema_input.json",
+        features=[
+            ln.Feature(
+                name="sample",
+                dtype="str",
+                nullable=False,
+                description="Custom sample name. This entry will be identical for multiple sequencing libraries/runs from the same sample. Spaces in sample names are automatically converted to underscores (_).",
+            ).save(),
+            ln.Feature(
+                name="fastq_1",
+                dtype="path",
+                nullable=False,
+                description="Full path to FastQ file for Illumina short reads 1. File has to be gzipped and have the extension “.fastq.gz” or “.fq.gz”.",
+            ).save(),
+            ln.Feature(
+                name="fastq_2",
+                dtype="path",
+                description="Full path to FastQ file for Illumina short reads 2. File has to be gzipped and have the extension “.fastq.gz” or “.fq.gz”.",
+            ).save(),
+            ln.Feature(
+                name="expected_cells",
+                dtype=int,
+                description="Number of cells expected for a sample. Must be an integer. If multiple rows are provided for the same sample, this must be the same number for all rows, i.e. the total number of expected cells for the sample.",
+            ).save(),
+            ln.Feature(
+                name="seq_center",
+                dtype=str,
+                description="Sequencing center for the sample. If multiple rows are provided for the same sample, this must be the same string for all rows. Samples sequenced at different centers are considered different samples and must have different identifiers.",
+            ).save(),
+            ln.Feature(
+                name="sample_type",
+                dtype=str,
+                description='"atac", "gex"',
+            ).save(),
+            ln.Feature(
+                name="feature_type",
+                dtype=str,
+                description='"gex", "vdj", "ab", "crispr", "cmo"',
+            ).save(),
+        ],
+    ).save()
+
+    nextflow_schema.optionals.set(
+        [
+            ln.Feature.get(name="expected_cells"),
+            ln.Feature.get(name="seq_center"),
+            ln.Feature.get(name="sample_type"),
+            ln.Feature.get(name="feature_type"),
+        ]
+    )
+
+    curator = ln.curators.DataFrameCurator(df, schema=nextflow_schema)
+    assert curator.validate() is None
+
+    # clean up
+    nextflow_schema.delete()
+    ln.Feature.filter().delete()
