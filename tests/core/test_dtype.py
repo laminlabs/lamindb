@@ -235,6 +235,12 @@ def test_multiple_relation_filters(organism, source):
     organism.delete()
 
 
+def test_nested_filter(organism):
+    result = parse_filter_expressions("organism__name__contains=test_orga", bt.Gene)
+    assert result == {"organism": organism}
+    organism.delete()
+
+
 def test_relation_filter_failed_resolution():
     with pytest.raises(bt.Organism.DoesNotExist):
         parse_filter_expressions("organism__name=nonexistent", bt.Gene)
