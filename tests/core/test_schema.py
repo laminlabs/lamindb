@@ -489,6 +489,4 @@ def test_schema_not_saved_describe():
     schema = ln.Schema(itype=bt.Gene.ensembl_gene_id)
     with pytest.raises(ValueError) as e:
         schema.describe()
-        assert "Schema must be saved before describing" in str(e)
-
-    schema.delete()
+    assert "Schema must be saved before describing" in str(e.value)
