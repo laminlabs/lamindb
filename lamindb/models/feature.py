@@ -96,35 +96,14 @@ def parse_cat_dtype(
     assert isinstance(dtype_str, str)  # noqa: S101
     if related_registries is None:
         related_registries = dict_module_name_to_model_name(Artifact)
-    split_result = dtype_str.split("[")
-    # has sub type
-    sub_type_str = ""
-    if len(split_result) == 2:
-        registry_str = split_result[0]
-        assert "]" in split_result[1]  # noqa: S101
-        sub_type_field_split = split_result[1].split("].")
-        if len(sub_type_field_split) == 1:
-            sub_type_str = sub_type_field_split[0].strip("]")
-            field_str = ""
-        else:
-            sub_type_str = sub_type_field_split[0]
-            field_str = sub_type_field_split[1]
-    elif len(split_result) == 1:
-        registry_field_split = split_result[0].split(".")
-        if (
-            len(registry_field_split) == 2 and registry_field_split[1][0].isupper()
-        ) or len(registry_field_split) == 3:
-            # bionty.CellType or bionty.CellType.name
-            registry_str = f"{registry_field_split[0]}.{registry_field_split[1]}"
-            field_str = (
-                "" if len(registry_field_split) == 2 else registry_field_split[2]
-            )
-        else:
-            # ULabel or ULabel.name
-            registry_str = registry_field_split[0]
-            field_str = (
-                "" if len(registry_field_split) == 1 else registry_field_split[1]
-            )
+
+    # Parse the string considering nested brackets
+    parsed = parse_nested_brackets(dtype_str)
+
+    registry_str = parsed["registry"]
+    sub_type_str = parsed["subtype"]
+    field_str = parsed["field"]
+
     if not is_itype:
         if registry_str not in related_registries:
             raise ValidationError(
@@ -147,6 +126,7 @@ def parse_cat_dtype(
             module_name, class_name = "lamindb", registry_str
         module = importlib.import_module(module_name)
         registry = getattr(module, class_name)
+
     if sub_type_str != "":
         pass
         # validate that the subtype is a record in the registry with is_type = True
@@ -155,13 +135,146 @@ def parse_cat_dtype(
         # validate that field_str is an actual field of the module
     else:
         field_str = registry._name_field if hasattr(registry, "_name_field") else "name"
-    return {
+
+    result = {
         "registry": registry,  # should be typed as CanCurate
         "registry_str": registry_str,
         "subtype_str": sub_type_str,
         "field_str": field_str,
         "field": getattr(registry, field_str),
     }
+
+    # Add nested subtype information if present
+    if parsed.get("nested_subtypes"):
+        result["nested_subtypes"] = parsed["nested_subtypes"]
+
+    return result
+
+
+def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
+    """Parse dtype string with potentially nested brackets.
+
+    Examples:
+        "A" -> {"registry": "A", "subtype": "", "field": ""}
+        "A.field" -> {"registry": "A", "subtype": "", "field": "field"}
+        "A[B]" -> {"registry": "A", "subtype": "B", "field": ""}
+        "A[B].field" -> {"registry": "A", "subtype": "B", "field": "field"}
+        "A[B[C]]" -> {"registry": "A", "subtype": "B[C]", "field": "", "nested_subtypes": ["B", "C"]}
+        "A[B[C]].field" -> {"registry": "A", "subtype": "B[C]", "field": "field", "nested_subtypes": ["B", "C"]}
+
+    Args:
+        dtype_str: The dtype string to parse
+
+    Returns:
+        Dictionary with parsed components
+    """
+    if "[" not in dtype_str:
+        # No brackets - handle simple cases like "A" or "A.field"
+        if "." in dtype_str:
+            parts = dtype_str.split(".")
+            if len(parts) == 2 and parts[1][0].isupper():
+                # bionty.CellType
+                return {"registry": dtype_str, "subtype": "", "field": ""}
+            elif len(parts) == 3:
+                # bionty.CellType.name
+                return {
+                    "registry": f"{parts[0]}.{parts[1]}",
+                    "subtype": "",
+                    "field": parts[2],
+                }
+            else:
+                # ULabel.name
+                return {"registry": parts[0], "subtype": "", "field": parts[1]}
+        else:
+            # Simple registry name
+            return {"registry": dtype_str, "subtype": "", "field": ""}
+
+    # Find the first opening bracket
+    first_bracket = dtype_str.index("[")
+    registry_part = dtype_str[:first_bracket]
+
+    # Find the matching closing bracket for the first opening bracket
+    bracket_count = 0
+    closing_bracket_pos = -1
+
+    for i in range(first_bracket, len(dtype_str)):
+        if dtype_str[i] == "[":
+            bracket_count += 1
+        elif dtype_str[i] == "]":
+            bracket_count -= 1
+            if bracket_count == 0:
+                closing_bracket_pos = i
+                break
+
+    if closing_bracket_pos == -1:
+        raise ValueError(f"Unmatched brackets in dtype string: {dtype_str}")
+
+    # Extract subtype (everything between first [ and matching ])
+    subtype_part = dtype_str[first_bracket + 1 : closing_bracket_pos]
+
+    # Check for field after the closing bracket
+    field_part = ""
+    remainder = dtype_str[closing_bracket_pos + 1 :]
+    if remainder.startswith("."):
+        field_part = remainder[1:]  # Remove the dot
+
+    result = {"registry": registry_part, "subtype": subtype_part, "field": field_part}
+
+    # If subtype contains brackets, extract nested subtypes for reference
+    if "[" in subtype_part:
+        nested_subtypes = extract_nested_subtypes(subtype_part)
+        if nested_subtypes:
+            result["nested_subtypes"] = nested_subtypes  # type: ignore
+
+    return result
+
+
+def extract_nested_subtypes(subtype_str: str) -> list[str]:
+    """Extract all nested subtype levels from a nested subtype string.
+
+    Examples:
+        "B[C]" -> ["B", "C"]
+        "B[C[D]]" -> ["B", "C", "D"]
+        "B[C[D[E]]]" -> ["B", "C", "D", "E"]
+
+    Args:
+        subtype_str: The subtype string with potential nesting
+
+    Returns:
+        List of subtype levels from outermost to innermost
+    """
+    subtypes = []
+    current = subtype_str
+
+    while "[" in current:
+        # Find the first part before the bracket
+        bracket_pos = current.index("[")
+        subtypes.append(current[:bracket_pos])
+
+        # Find the matching closing bracket
+        bracket_count = 0
+        closing_pos = -1
+
+        for i in range(bracket_pos, len(current)):
+            if current[i] == "[":
+                bracket_count += 1
+            elif current[i] == "]":
+                bracket_count -= 1
+                if bracket_count == 0:
+                    closing_pos = i
+                    break
+
+        if closing_pos == -1:
+            break
+
+        # Move to the content inside the brackets
+        current = current[bracket_pos + 1 : closing_pos]
+
+    # Add the final innermost subtype
+    if current:
+        subtypes.append(current)
+
+    return subtypes
 
 
 def serialize_dtype(
@@ -375,6 +488,12 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         >>> ln.Feature(
         ...     name="cell_types",
         ...     dtype=list[bt.CellType],  # or list[str] for a list of strings
+        ... ).save()
+
+        A path feature.
+        >>> ln.Feature(
+        ...     name="image_path",
+        ...     dtype="path",   # will be validated as `str`
         ... ).save()
 
     Hint:
