@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, overload
 
 from django.db import models
 from django.db.models import CASCADE, PROTECT, Q
+from lamin_utils import logger
 
 from lamindb.base.fields import (
     BooleanField,
@@ -156,7 +157,8 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
                 f"Only {valid_keywords} are valid keyword arguments"
             )
         if schema and not is_type:
-            raise FieldValidationError("Schema can only be set for types: is_type=True")
+            logger.important("passing schema, treating as type")
+            is_type = True
         super().__init__(
             name=name,
             type=type,
