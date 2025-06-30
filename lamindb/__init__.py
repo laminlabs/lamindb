@@ -46,7 +46,6 @@ Manage flexible records to track, e.g., samples or donors.
    :toctree: .
 
    Record
-   Sheet
 
 Manage projects.
 
@@ -155,7 +154,6 @@ if _check_instance_setup(from_module="lamindb"):
         Space,
         Branch,
         Record,
-        Sheet,
     )
     from .models.save import save
     from . import core
