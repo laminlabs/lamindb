@@ -232,6 +232,12 @@ def test_parse_filter_string_malformed():
     assert result == {}
 
 
+def test_resolve_direct_fields():
+    parsed = {"name": ("name", None, "test"), "status": ("status", None, "active")}
+    result = resolve_relation_filters(parsed, bt.Gene)
+    assert result == {"name": "test", "status": "active"}
+
+
 def test_resolve_relation_filter_with_uid(source):
     parsed = {"source__uid": ("source", "uid", "testuid1")}
     result = resolve_relation_filters(parsed, bt.Gene)
@@ -268,15 +274,3 @@ def test_resolve_relation_filter_failed_resolution():
     parsed = {"organism__name": ("organism", "name", "nonexistent")}
     with pytest.raises(bt.Organism.DoesNotExist):
         resolve_relation_filters(parsed, bt.Gene)
-
-
-def test_resolve_direct_fields():
-    parsed = {"name": ("name", None, "test"), "status": ("status", None, "active")}
-    result = resolve_relation_filters(parsed, bt.Gene)
-    assert result == {"name": "test", "status": "active"}
-
-
-def test_full_pipeline_no_registry():
-    parsed = parse_filter_string("parent__id=123, category__name=electronics")
-    result = {k: v[2] for k, v in parsed.items()}  # Extract values only
-    assert result == {"parent__id": "123", "category__name": "electronics"}

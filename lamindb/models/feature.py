@@ -403,10 +403,10 @@ def parse_filter_string(filter_str: str) -> dict[str, tuple[str, str | None, str
 def resolve_relation_filters(
     parsed_filters: dict[str, tuple[str, str | None, str]], registry: SQLRecord
 ) -> dict[str, str | SQLRecord]:
-    """Resolve relation filters to actual model objects.
+    """Resolve relation filters actual model objects.
 
     Args:
-        parsed_filters: Output from :func:`lamindb.models.feature.parse_filter_string`
+        parsed_filters: Django filters like output from :func:`lamindb.models.feature.parse_filter_string`
         registry: Model class to resolve relationships against
 
     Returns:
