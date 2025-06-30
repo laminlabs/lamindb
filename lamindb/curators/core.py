@@ -26,7 +26,6 @@ from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 
 from lamindb.base.types import FieldAttr  # noqa
-from lamindb.errors import DoesNotExist
 from lamindb.models import (
     Artifact,
     Feature,
@@ -39,7 +38,11 @@ from lamindb.models.artifact import (
     data_is_scversedatastructure,
     data_is_soma_experiment,
 )
-from lamindb.models.feature import parse_cat_dtype, parse_dtype
+from lamindb.models.feature import (
+    parse_cat_dtype,
+    parse_dtype,
+    parse_filter_expressions,
+)
 
 from ..errors import InvalidArgument, ValidationError
 
@@ -1009,7 +1012,7 @@ class CatVector:
 
         self._all_filters = {"source": self._source, "organism": self._organism}
         if self._subtype_str and "=" in self._subtype_str:
-            self._all_filters.update(self._parse_filter_expressions(self._subtype_str))  # type: ignore
+            self._all_filters.update(parse_filter_expressions(self._subtype_str, self))  # type: ignore
 
         if hasattr(field.field.model, "_name_field"):
             label_ref_is_name = field.field.name == field.field.model._name_field
@@ -1050,78 +1053,6 @@ class CatVector:
             if self._maximal_set:
                 result = False
         return result
-
-    def _parse_filter_expressions(self, filter_str: str) -> dict[str, str]:
-        """Parse filter expressions like 'source__uid=value, organism__name=human' into Django-compatible filters with resolved objects.
-
-        Parses comma-separated filter expressions that support Django-style field lookups across model relationships.
-        Attempts to resolve related objects when possible.
-
-        Format:
-            - Simple filters: 'field=value'
-            - Relation filters: 'relation__field=value'
-            - Multiple filters: 'filter1=value1, filter2=value2'
-            - Multiple relation filters: 'source__uid=abc123, organism__name=human'
-            - Mixed filters: 'name=sample1, source__uid=abc123'
-
-        Examples:
-            'name=sample1' -> {'name': 'sample1'}
-            'source__uid=abc123' -> {'source': <SourceObject>} (if resolved)
-            'organism__name=human, tissue__name=lung' -> {'organism': <OrganismObject>, 'tissue': <TissueObject>}
-
-        Args:
-            filter_str: Comma-separated filter expressions using Django lookup syntax
-
-        Returns:
-            Dict mapping filter keys to resolved objects (for relations) or string values (for direct fields).
-            Failed relation resolutions fall back to original 'relation__field': 'value' format.
-
-        Note:
-            Relation filters are resolved by querying the related model.
-            If resolution fails (object not found), the original filter format is preserved in the output.
-        """
-        filters = {}
-        filter_parts = [part.strip() for part in filter_str.split(",")]
-
-        for part in filter_parts:
-            if "=" in part:
-                key, value = part.split("=", 1)
-                key = key.strip()
-                value = value.strip().strip("'\"")
-                filters[key] = value
-
-        # Resolve relation filters to actual objects
-        registry = self._field.field.model
-        resolved_filters = {}
-
-        for filter_key, filter_value in filters.items():
-            if "__" in filter_key:
-                relation_name, field_name = filter_key.split("__", 1)
-
-                # Check if this relation exists on the registry
-                if hasattr(registry, relation_name):
-                    relation_field = getattr(registry, relation_name)
-                    if (
-                        hasattr(relation_field, "field")
-                        and relation_field.field.is_relation
-                    ):
-                        related_model = relation_field.field.related_model
-
-                        # Resolve the object using the field lookup
-                        try:
-                            filter_kwargs = {field_name: filter_value}
-                            related_obj = related_model.get(**filter_kwargs)
-                            resolved_filters[relation_name] = related_obj
-                            # Don't include the original relation__field filter
-                            continue
-                        except (DoesNotExist, AttributeError):
-                            # If resolution fails, keep the original filter
-                            pass
-
-            # Keep non-relation filters or failed resolutions
-            resolved_filters[filter_key] = filter_value
-
-        return resolved_filters
 
     def _replace_synonyms(self) -> list[str]:
         """Replace synonyms in the vector with standardized values."""
