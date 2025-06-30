@@ -295,6 +295,5 @@ def test_resolve_relation_filter_duplicate():
         "source__uid": ("source", "uid", "testuid1"),
         "source__name": ("source", "name", "test_name"),
     }
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(bt.Source.DoesNotExist):
         resolve_relation_filters(parsed, bt.Gene)
-    assert "Multiple filters for relation 'source' found" in str(e.value)

@@ -420,15 +420,9 @@ def resolve_relation_filters(
         Dict with resolved objects for successful relations, original values for direct fields and failed resolutions.
     """
     resolved = {}
-    relation_keys_seen = set()
 
     for filter_key, (relation_name, field_name, value) in parsed_filters.items():
         if field_name is not None:  # relation filter
-            if relation_name in relation_keys_seen:
-                raise ValueError(
-                    f"Multiple filters for relation '{relation_name}' found"
-                )
-
             if hasattr(registry, relation_name):
                 relation_field = getattr(registry, relation_name)
                 if (
@@ -439,7 +433,6 @@ def resolve_relation_filters(
                         related_model = relation_field.field.related_model
                         related_obj = related_model.get(**{field_name: value})
                         resolved[relation_name] = related_obj
-                        relation_keys_seen.add(relation_name)
                         continue
                     except (DoesNotExist, AttributeError):
                         pass  # Fall back to original filter
