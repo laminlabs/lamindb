@@ -351,6 +351,7 @@ def serialize_dtype(
 
 
 def serialize_pandas_dtype(pandas_dtype: ExtensionDtype) -> str:
+    """Convert pandas ExtensionDtype to simplified string representation."""
     if is_string_dtype(pandas_dtype):
         if not isinstance(pandas_dtype, CategoricalDtype):
             dtype = "str"
@@ -412,6 +413,7 @@ def resolve_relation_filters(
         Dict with resolved objects for successful relations, original values for direct fields and failed resolutions.
     """
     resolved = {}
+
     for filter_key, (relation_name, field_name, value) in parsed_filters.items():
         if field_name is not None:  # relation filter
             if hasattr(registry, relation_name):
@@ -428,85 +430,8 @@ def resolve_relation_filters(
                     except (DoesNotExist, AttributeError):
                         pass  # Fall back to original filter
         resolved[filter_key] = value
+
     return resolved
-
-
-def parse_filter_expressions(
-    filter_str: str, registry: SQLRecord | None = None
-) -> dict[str, str | SQLRecord]:
-    """Parse filter expressions like 'source__uid=value, organism__name=human' into Django-compatible filters with resolved objects.
-
-    Parses comma-separated filter expressions that support Django-style field lookups across model relationships.
-    Attempts to resolve related objects when possible.
-
-    Format:
-        - Simple filters: 'field=value'
-        - Relation filters: 'relation__field=value'
-        - Multiple filters: 'filter1=value1, filter2=value2'
-        - Multiple relation filters: 'source__uid=abc123, organism__name=human'
-        - Mixed filters: 'name=sample1, source__uid=abc123'
-
-    Examples:
-        'name=sample1' -> {'name': 'sample1'}
-        'source__uid=abc123' -> {'source': <SourceObject>} (if resolved)
-        'organism__name=human, tissue__name=lung' -> {'organism': <OrganismObject>, 'tissue': <TissueObject>}
-
-    Args:
-        filter_str: Comma-separated filter expressions using Django lookup syntax
-        registry: Class to look up relationships for
-
-    Returns:
-        Dict mapping filter keys to resolved objects (for relations) or string values (for direct fields).
-        Failed relation resolutions fall back to original 'relation__field': 'value' format.
-
-    Note:
-        Relation filters are resolved by querying the related model.
-        If resolution fails (object not found), the original filter format is preserved in the output.
-    """
-    filters = {}
-    filter_parts = [part.strip() for part in filter_str.split(",")]
-
-    for part in filter_parts:
-        if "=" in part:
-            key, value = part.split("=", 1)
-            key = key.strip()
-            value = value.strip().strip("'\"")
-            filters[key] = value
-
-    if registry is None:
-        return filters
-
-    # Resolve relation filters to actual objects
-    resolved_filters = {}
-
-    for filter_key, filter_value in filters.items():
-        if "__" in filter_key:
-            relation_name, field_name = filter_key.split("__", 1)
-
-            # Check if this relation exists on the registry
-            if hasattr(registry, relation_name):
-                relation_field = getattr(registry, relation_name)
-                if (
-                    hasattr(relation_field, "field")
-                    and relation_field.field.is_relation
-                ):
-                    related_model = relation_field.field.related_model
-
-                    # Resolve the object using the field lookup
-                    try:
-                        filter_kwargs = {field_name: filter_value}
-                        related_obj = related_model.get(**filter_kwargs)
-                        resolved_filters[relation_name] = related_obj
-                        # Don't include the original relation__field filter
-                        continue
-                    except (DoesNotExist, AttributeError):
-                        # If resolution fails, keep the original filter
-                        pass
-
-        # Keep non-relation filters or failed resolutions
-        resolved_filters[filter_key] = filter_value
-
-    return resolved_filters
 
 
 def process_init_feature_param(args, kwargs, is_param: bool = False):
