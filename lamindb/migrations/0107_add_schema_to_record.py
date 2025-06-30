@@ -11,8 +11,8 @@ def migrate_sheets_to_records(apps, schema_editor):
     with schema_editor.connection.cursor() as cursor:
         # Insert sheets as records with is_type=True
         cursor.execute("""
-            INSERT INTO lamindb_record (uid, name, description, schema_id, is_type)
-            SELECT uid, name, description, schema_id, TRUE
+            INSERT INTO lamindb_record (uid, name, description, schema_id, is_type, created_by_id, created_at, updated_at, run_id)
+            SELECT uid, name, description, schema_id, TRUE, created_by_id, created_at, updated_at, run_id
             FROM lamindb_sheet;
         """)
 
