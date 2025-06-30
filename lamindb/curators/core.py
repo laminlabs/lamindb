@@ -41,7 +41,8 @@ from lamindb.models.artifact import (
 from lamindb.models.feature import (
     parse_cat_dtype,
     parse_dtype,
-    parse_filter_expressions,
+    parse_filter_string,
+    resolve_relation_filters,
 )
 
 from ..errors import InvalidArgument, ValidationError
@@ -280,7 +281,6 @@ class SlotsCurator(Curator):
     Args:
         dataset: The dataset to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
-
     """
 
     def __init__(
@@ -379,9 +379,8 @@ def is_list_of_type(value, expected_type):
 def check_dtype(expected_type) -> Callable:
     """Creates a check function for Pandera that validates a column's dtype.
 
-    Supports both standard dtype checking and mixed list/single values for
-    the same type. For example, a column with expected_type 'float' would
-    also accept a mix of float values and lists of floats.
+    Supports both standard dtype checking and mixed list/single values for the same type.
+    For example, a column with expected_type 'float' would also accept a mix of float values and lists of floats.
 
     Args:
         expected_type: String identifier for the expected type ('int', 'float', 'num', 'str')
@@ -1019,7 +1018,9 @@ class CatVector:
 
         self._all_filters = {"source": self._source, "organism": self._organism}
         if self._subtype_str and "=" in self._subtype_str:
-            self._all_filters.update(parse_filter_expressions(self._subtype_str, self))  # type: ignore
+            self._all_filters.update(
+                resolve_relation_filters(parse_filter_string(self._subtype_str), self)  # type: ignore
+            )
 
         if hasattr(field.field.model, "_name_field"):
             label_ref_is_name = field.field.name == field.field.model._name_field

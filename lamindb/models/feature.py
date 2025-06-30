@@ -370,6 +370,67 @@ def serialize_pandas_dtype(pandas_dtype: ExtensionDtype) -> str:
     return dtype
 
 
+def parse_filter_string(filter_str: str) -> dict[str, tuple[str, str | None, str]]:
+    """Parse comma-separated Django filter expressions into structured components.
+
+    Args:
+        filter_str: Comma-separated filters like 'name=value, relation__field=value'
+
+    Returns:
+        Dict mapping original filter key to (relation_name, field_name, value) tuple.
+        For direct fields: field_name is None.
+        For relations: field_name contains the lookup field.
+    """
+    filters = {}
+
+    filter_parts = [part.strip() for part in filter_str.split(",")]
+    for part in filter_parts:
+        if "=" in part:
+            key, value = part.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip("'\"")
+
+            if "__" in key:
+                relation_name, field_name = key.split("__", 1)
+                filters[key] = (relation_name, field_name, value)
+            else:
+                filters[key] = (key, None, value)
+
+    return filters
+
+
+def resolve_relation_filters(
+    parsed_filters: dict[str, tuple[str, str | None, str]], registry: SQLRecord
+) -> dict[str, str | SQLRecord]:
+    """Resolve relation filters to actual model objects.
+
+    Args:
+        parsed_filters: Output from :func:`lamindb.models.feature.parse_filter_string`
+        registry: Model class to resolve relationships against
+
+    Returns:
+        Dict with resolved objects for successful relations, original values for direct fields and failed resolutions.
+    """
+    resolved = {}
+    for filter_key, (relation_name, field_name, value) in parsed_filters.items():
+        if field_name is not None:  # relation filter
+            if hasattr(registry, relation_name):
+                relation_field = getattr(registry, relation_name)
+                if (
+                    hasattr(relation_field, "field")
+                    and relation_field.field.is_relation
+                ):
+                    try:
+                        related_model = relation_field.field.related_model
+                        related_obj = related_model.get(**{field_name: value})
+                        resolved[relation_name] = related_obj
+                        continue
+                    except (DoesNotExist, AttributeError):
+                        pass  # Fall back to original filter
+        resolved[filter_key] = value
+    return resolved
+
+
 def parse_filter_expressions(
     filter_str: str, registry: SQLRecord | None = None
 ) -> dict[str, str | SQLRecord]:

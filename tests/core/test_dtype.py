@@ -5,7 +5,8 @@ from lamindb import ULabel
 from lamindb.errors import ValidationError
 from lamindb.models.feature import (
     parse_dtype,
-    parse_filter_expressions,
+    parse_filter_string,
+    resolve_relation_filters,
     serialize_dtype,
 )
 
@@ -19,7 +20,7 @@ def source():
         entity="bionty.Gene",
         version="2026-01-01",
     )
-    source.uid = "sourcetestuid"
+    source.uid = "testuid1"
     source.save()
     return source
 
@@ -27,7 +28,7 @@ def source():
 @pytest.fixture
 def organism():
     organism = bt.Organism(name="test_organism")
-    organism.uid = "organismtestuid"
+    organism.uid = "testuid2"
     organism.save()
     return organism
 
@@ -206,51 +207,76 @@ def test_nested_cat_dtypes():
 # -----------------------------------------------------------------------------
 
 
-def test_no_registry():
-    result = parse_filter_expressions("parent__id=123, category__name=electronics")
-    assert result == {"parent__id": "123", "category__name": "electronics"}
+def test_parse_filter_string_basic():
+    result = parse_filter_string("parent__id=123, category__name=electronics")
+    expected = {
+        "parent__id": ("parent", "id", "123"),
+        "category__name": ("category", "name", "electronics"),
+    }
+    assert result == expected
 
 
-def test_relation_filter_with_uid(source):
-    result = parse_filter_expressions("source__uid=testuid", bt.Gene)
+def test_parse_filter_string_direct_fields():
+    result = parse_filter_string("name=test, status=active")
+    expected = {"name": ("name", None, "test"), "status": ("status", None, "active")}
+    assert result == expected
+
+
+def test_parse_filter_string_empty():
+    result = parse_filter_string("")
+    assert result == {}
+
+
+def test_parse_filter_string_malformed():
+    result = parse_filter_string("malformed_filter")
+    assert result == {}
+
+
+def test_resolve_relation_filter_with_uid(source):
+    parsed = {"source__uid": ("source", "uid", "testuid1")}
+    result = resolve_relation_filters(parsed, bt.Gene)
     assert result == {"source": source}
-
     source.delete()
 
 
-def test_relation_filter_with_name(organism):
-    result = parse_filter_expressions("organism__name=test_organism", bt.Gene)
+def test_resolve_relation_filter_with_name(organism):
+    parsed = {"organism__name": ("organism", "name", "test_organism")}
+    result = resolve_relation_filters(parsed, bt.Gene)
     assert result == {"organism": organism}
-
     organism.delete()
 
 
-def test_multiple_relation_filters(organism, source):
-    result = parse_filter_expressions(
-        "organism__name=test_organism, source__uid=sourcetestuid", bt.Gene
-    )
+def test_resolve_multiple_relation_filters(organism, source):
+    parsed = {
+        "organism__name": ("organism", "name", "test_organism"),
+        "source__uid": ("source", "uid", "testuid1"),
+    }
+    result = resolve_relation_filters(parsed, bt.Gene)
     assert result == {"organism": organism, "source": source}
-
     source.delete()
     organism.delete()
 
 
-def test_nested_filter(organism):
-    result = parse_filter_expressions("organism__name__contains=test_orga", bt.Gene)
+def test_resolve_nested_filter(organism):
+    parsed = {"organism__name__contains": ("organism", "name__contains", "test_orga")}
+    result = resolve_relation_filters(parsed, bt.Gene)
     assert result == {"organism": organism}
     organism.delete()
 
 
-def test_relation_filter_failed_resolution():
+def test_resolve_relation_filter_failed_resolution():
+    parsed = {"organism__name": ("organism", "name", "nonexistent")}
     with pytest.raises(bt.Organism.DoesNotExist):
-        parse_filter_expressions("organism__name=nonexistent", bt.Gene)
+        resolve_relation_filters(parsed, bt.Gene)
 
 
-def test_empty_filter():
-    result = parse_filter_expressions("", bt.Gene)
-    assert result == {}
+def test_resolve_direct_fields():
+    parsed = {"name": ("name", None, "test"), "status": ("status", None, "active")}
+    result = resolve_relation_filters(parsed, bt.Gene)
+    assert result == {"name": "test", "status": "active"}
 
 
-def test_malformed_filter_no_equals():
-    result = parse_filter_expressions("malformed_filter", bt.Gene)
-    assert result == {}
+def test_full_pipeline_no_registry():
+    parsed = parse_filter_string("parent__id=123, category__name=electronics")
+    result = {k: v[2] for k, v in parsed.items()}  # Extract values only
+    assert result == {"parent__id": "123", "category__name": "electronics"}
