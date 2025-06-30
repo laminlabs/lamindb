@@ -59,6 +59,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="record",
             name="_sort_order",
-            field=django.db.models.FloatField(null=True),
+            field=django.db.models.FloatField(null=True, default=None),
         ),
     ]

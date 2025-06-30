@@ -89,7 +89,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
     If `is_type` is `True`, the schema is used to enforce certain features for each records of this type.
     """
-    _sort_order: float | None = models.FloatField(null=True)
+    _sort_order: float | None = models.FloatField(null=True, default=None)
     """Sort order of the record, used for ordering in the UI."""
     # naming convention in analogy with Schema
     components: Record = models.ManyToManyField(
