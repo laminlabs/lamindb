@@ -35,6 +35,10 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RemoveConstraint(
+            model_name="record",
+            name="unique_name",
+        ),
         migrations.AddField(
             model_name="record",
             name="schema",

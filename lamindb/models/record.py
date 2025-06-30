@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, overload
 
 from django.db import models
-from django.db.models import CASCADE, PROTECT, Q
+from django.db.models import CASCADE, PROTECT
 from lamin_utils import logger
 
 from lamindb.base.fields import (
@@ -50,13 +50,6 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
-        constraints = [
-            models.UniqueConstraint(
-                fields=["name"],
-                name="unique_name",
-                condition=Q(is_type=True),
-            ),
-        ]
 
     _name_field: str = "name"
 
