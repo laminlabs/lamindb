@@ -400,6 +400,8 @@ def check_dtype(expected_type) -> Callable:
             return True
         elif expected_type == "str" and pd.api.types.is_string_dtype(series.dtype):
             return True
+        elif expected_type == "path" and pd.api.types.is_string_dtype(series.dtype):
+            return True
 
         # if we're here, it might be a mixed column with object dtype
         # need to check each value individually
@@ -412,8 +414,10 @@ def check_dtype(expected_type) -> Callable:
             elif expected_type_member == "num":
                 # for numeric, accept either int or float
                 return series.apply(lambda x: is_list_of_type(x, (int, float))).all()
-            elif expected_type_member == "str" or expected_type_member.startswith(
-                "cat["
+            elif (
+                expected_type_member == "str"
+                or expected_type_member == "path"
+                or expected_type_member.startswith("cat[")
             ):
                 return series.apply(lambda x: is_list_of_type(x, str)).all()
 
@@ -496,9 +500,12 @@ class DataFrameCurator(Curator):
                 else:
                     required = False
                 # series.dtype is "object" if the column has lists types, e.g. [["a", "b"], ["a"], ["b"]]
-                if feature.dtype in {"int", "float", "num"} or feature.dtype.startswith(
-                    "list"
-                ):
+                if feature.dtype in {
+                    "int",
+                    "float",
+                    "num",
+                    "path",
+                } or feature.dtype.startswith("list"):
                     if isinstance(self._dataset, pd.DataFrame):
                         dtype = (
                             self._dataset[feature.name].dtype

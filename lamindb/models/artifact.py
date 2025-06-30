@@ -2721,7 +2721,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # maybe some error handling here?
         if flag_complete:
             self._is_saved_to_storage_location = True
-            super().save()  # do we need to pass kwargs here?
+            # pass kwargs here because it can contain `using` or other things
+            # affecting the connection
+            super().save(**kwargs)
 
         # this is only for keep_artifacts_local
         if local_path is not None and not state_was_adding:
