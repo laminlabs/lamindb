@@ -223,13 +223,27 @@ def test_parse_filter_string_direct_fields():
 
 
 def test_parse_filter_string_empty():
-    result = parse_filter_string("")
-    assert result == {}
+    with pytest.raises(ValueError) as e:
+        parse_filter_string("")
+        assert "missing '=' sign" in str(e)
 
 
 def test_parse_filter_string_malformed():
-    result = parse_filter_string("malformed_filter")
-    assert result == {}
+    with pytest.raises(ValueError) as e:
+        parse_filter_string("malformed_filter")
+        assert "missing '=' sign" in str(e)
+
+
+def test_parse_filter_string_missing_key():
+    with pytest.raises(ValueError) as e:
+        parse_filter_string("=someval")
+        assert "empty key" in str(e)
+
+
+def test_parse_filter_string_missing_value():
+    with pytest.raises(ValueError) as e:
+        parse_filter_string("somekey=")
+        assert "empty val" in str(e)
 
 
 def test_resolve_direct_fields():
@@ -274,3 +288,13 @@ def test_resolve_relation_filter_failed_resolution():
     parsed = {"organism__name": ("organism", "name", "nonexistent")}
     with pytest.raises(bt.Organism.DoesNotExist):
         resolve_relation_filters(parsed, bt.Gene)
+
+
+def test_resolve_relation_filter_duplicate():
+    parsed = {
+        "source__uid": ("source", "uid", "testuid1"),
+        "source__name": ("source", "name", "test_name"),
+    }
+    with pytest.raises(ValueError) as e:
+        resolve_relation_filters(parsed, bt.Gene)
+    assert "Multiple filters for relation 'source' found" in str(e.value)
