@@ -26,22 +26,18 @@ def test_record_example_compound_treatment():
     compound = ln.Feature(name="compound", dtype=compound_type).save()
     concentration = ln.Feature(name="concentration", dtype="num").save()
     # a sheet for treatments
-    my_treatments = ln.Sheet(
-        name="My treatments 2025-05"
+    my_treatments = ln.Record(
+        name="My treatments 2025-05", type=treatment_type
     ).save()  # sheet without schema
 
     # populate treatment1
-    treatment1 = ln.Record(
-        name="drug1", type=treatment_type, sheet=my_treatments
-    ).save()
+    treatment1 = ln.Record(name="drug1", type=my_treatments).save()
     ln.models.RecordRecord(record=treatment1, feature=compound, value=drug1).save()
     assert drug1 in treatment1.components.all()
     assert treatment1 in drug1.composites.all()
     ln.models.RecordJson(record=treatment1, feature=concentration, value="2nM").save()
     # populate treatment2
-    treatment2 = ln.Record(
-        name="drug2", type=treatment_type, sheet=my_treatments
-    ).save()
+    treatment2 = ln.Record(name="drug2", type=my_treatments).save()
     ln.models.RecordRecord(record=treatment2, feature=compound, value=drug2).save()
     ln.models.RecordJson(record=treatment2, feature=concentration, value="4nM").save()
 
@@ -56,18 +52,20 @@ def test_record_example_compound_treatment():
         name="My samples schema 2025-05", features=[treatment, cell_line]
     ).save()
     # a sheet for samples
-    sheet1 = ln.Sheet(name="My samples 2025-05", schema=schema).save()
+    sheet1 = ln.Record(
+        name="My samples 2025-05", schema=schema, type=sample_type
+    ).save()
     # values for cell lines
     hek293t = bt.CellLine.from_source(name="HEK293T").save()
 
     # populate sample1
-    sample1 = ln.Record(name="sample1", type=sample_type, sheet=sheet1).save()
+    sample1 = ln.Record(name="sample1", type=sheet1).save()
     ln.models.RecordRecord(record=sample1, feature=treatment, value=treatment1).save()
     bt.models.RecordCellLine(
         record=sample1, feature=cell_line, cellline=hek293t
     ).save()  # parallel to ArtifactCellLine
     # populate sample2
-    sample2 = ln.Record(name="sample2", type=sample_type, sheet=sheet1).save()
+    sample2 = ln.Record(name="sample2", type=sheet1).save()
     ln.models.RecordRecord(record=sample2, feature=treatment, value=treatment2).save()
     bt.models.RecordCellLine(
         record=sample2, feature=cell_line, cellline=hek293t
@@ -80,15 +78,17 @@ def test_record_example_compound_treatment():
         features=[treatment, cell_line, sample_note],
     ).save()
     # the sheet
-    sheet2 = ln.Sheet(name="My samples 2025-06", schema=schema2).save()
+    sheet2 = ln.Record(
+        name="My samples 2025-06", schema=schema2, type=sample_type
+    ).save()
     # populate sample3
-    sample3 = ln.Record(type=sample_type, sheet=sheet2).save()  # no name
+    sample3 = ln.Record(type=sheet2).save()  # no name
     ln.models.RecordRecord(record=sample3, feature=treatment, value=treatment1).save()
     bt.models.RecordCellLine(
         record=sample3, feature=cell_line, cellline=hek293t
     ).save()  # parallel to ArtifactCellLine
     # populate sample4
-    sample4 = ln.Record(type=sample_type, sheet=sheet2).save()
+    sample4 = ln.Record(type=sheet2).save()
     ln.models.RecordRecord(record=sample4, feature=treatment, value=treatment2).save()
     bt.models.RecordCellLine(
         record=sample4, feature=cell_line, cellline=hek293t
@@ -109,13 +109,11 @@ def test_record_nextflow_samples():
     biosample_type = ln.Record(name="BioSample", is_type=True).save()
 
     # Biosamples sheet
-    samples_sheet = ln.Sheet(name="My samples 2025-04", schema=samples_schema).save()
-    sample_x = ln.Record(
-        name="Sample_X", type=biosample_type, sheet=samples_sheet
+    samples_sheet = ln.Record(
+        name="My samples 2025-04", schema=samples_schema, type=biosample_type
     ).save()
-    sample_y = ln.Record(
-        name="Sample_Y", type=biosample_type, sheet=samples_sheet
-    ).save()
+    sample_x = ln.Record(name="Sample_X", type=samples_sheet).save()
+    sample_y = ln.Record(name="Sample_Y", type=samples_sheet).save()
 
     organism_human = bt.Organism.from_source(name="human").save()
     celltype_tcell = bt.CellType.from_source(name="T cell").save()
@@ -146,8 +144,11 @@ def test_record_nextflow_samples():
     ).save()
 
     nextflowsample_type = ln.Record(name="NextflowSample", is_type=True).save()
-    nextflow_sheet = ln.Sheet(
-        schema=nextflow_schema, name="RNA-seq nextflow samplesheet 001"
+    nextflow_sheet = ln.Record(
+        schema=nextflow_schema,
+        name="RNA-seq nextflow samplesheet 001",
+        type=nextflowsample_type,
+        is_type=True,
     ).save()
 
     df = pd.DataFrame(
@@ -169,7 +170,7 @@ def test_record_nextflow_samples():
 
     features = ln.Feature.lookup()
     for _, row in df.iterrows():
-        sample = ln.Record(sheet=nextflow_sheet, type=nextflowsample_type).save()
+        sample = ln.Record(type=nextflow_sheet).save()
         ln.models.RecordRecord(
             record=sample,
             feature=features.sample,

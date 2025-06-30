@@ -73,7 +73,6 @@ from .project import (
     SchemaProject,
     ArtifactReference,
     CollectionReference,
-    SheetProject,
     RunProject,
     RecordProject,
     PersonProject,
@@ -89,7 +88,6 @@ from .ulabel import ArtifactULabel, TransformULabel, RunULabel, CollectionULabel
 
 from .record import (
     Record,
-    Sheet,
     RecordJson,
     RecordRecord,
     RecordULabel,
