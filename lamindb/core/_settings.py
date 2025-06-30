@@ -4,7 +4,7 @@ import os
 from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
-from lamin_utils import logger
+from lamin_utils import colors, logger
 from lamindb_setup._set_managed_storage import set_managed_storage
 from lamindb_setup.core._settings import settings as setup_settings
 from lamindb_setup.core._settings_instance import sanitize_git_repo_url
@@ -44,17 +44,12 @@ class Settings:
         self._sync_git_repo: str | None = None
 
     def __repr__(self) -> str:
-        from lamin_utils import colors
-
         cls_name = colors.green(self.__class__.__name__)
         verbosity_color = colors.yellow if self.verbosity == "warning" else colors.green
         verbosity_str = verbosity_color(self.verbosity)
 
-        try:
-            storage_root = str(self._storage_settings.root)
-            storage_str = colors.italic(storage_root)
-        except Exception:
-            storage_str = colors.warning("unavailable")
+        storage_root = str(self._storage_settings.root)
+        storage_str = colors.italic(storage_root)
 
         instance_str = colors.italic(self.instance_uid)
         track_color = colors.green if self.track_run_inputs else colors.yellow
