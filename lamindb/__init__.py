@@ -46,7 +46,6 @@ Manage flexible records to track, e.g., samples or donors.
    :toctree: .
 
    Record
-   Sheet
 
 Manage projects.
 
@@ -109,7 +108,7 @@ Backwards compatibility.
 
 # ruff: noqa: I001
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
-__version__ = "1.6.2"
+__version__ = "1.7a1"
 
 import warnings
 
@@ -155,7 +154,6 @@ if _check_instance_setup(from_module="lamindb"):
         Space,
         Branch,
         Record,
-        Sheet,
     )
     from .models.save import save
     from . import core
