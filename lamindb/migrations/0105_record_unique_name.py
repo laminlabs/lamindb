@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lamindb", "0104_squashed"),
+        ("lamindb", "0104_alter_branch_uid"),
     ]
 
     operations = [

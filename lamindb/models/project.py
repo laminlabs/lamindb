@@ -24,7 +24,7 @@ from .artifact import Artifact
 from .can_curate import CanCurate
 from .collection import Collection
 from .feature import Feature
-from .record import Record, Sheet
+from .record import Record
 from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, ValidateFields
@@ -282,10 +282,6 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         Record, through="RecordProject", related_name="projects"
     )
     """Linked records."""
-    sheets: Sheet = models.ManyToManyField(
-        Sheet, through="SheetProject", related_name="projects"
-    )
-    """Linked sheets."""
     collections: Collection = models.ManyToManyField(
         Collection, through="CollectionProject", related_name="projects"
     )
@@ -422,15 +418,6 @@ class RecordProject(BaseSQLRecord, IsLink):
 
     class Meta:
         unique_together = ("record", "feature")
-
-
-class SheetProject(BaseSQLRecord, IsLink, TracksRun):
-    id: int = models.BigAutoField(primary_key=True)
-    sheet: Sheet = ForeignKey(Sheet, CASCADE, related_name="links_project")
-    project: Project = ForeignKey(Project, PROTECT, related_name="links_sheet")
-
-    class Meta:
-        unique_together = ("sheet", "project")
 
 
 class ArtifactReference(BaseSQLRecord, IsLink, TracksRun):
