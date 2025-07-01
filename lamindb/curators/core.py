@@ -38,7 +38,12 @@ from lamindb.models.artifact import (
     data_is_scversedatastructure,
     data_is_soma_experiment,
 )
-from lamindb.models.feature import parse_cat_dtype, parse_dtype
+from lamindb.models.feature import (
+    parse_cat_dtype,
+    parse_dtype,
+    parse_filter_string,
+    resolve_relation_filters,
+)
 
 from ..errors import InvalidArgument, ValidationError
 
@@ -276,7 +281,6 @@ class SlotsCurator(Curator):
     Args:
         dataset: The dataset to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
-
     """
 
     def __init__(
@@ -375,9 +379,8 @@ def is_list_of_type(value, expected_type):
 def check_dtype(expected_type) -> Callable:
     """Creates a check function for Pandera that validates a column's dtype.
 
-    Supports both standard dtype checking and mixed list/single values for
-    the same type. For example, a column with expected_type 'float' would
-    also accept a mix of float values and lists of floats.
+    Supports both standard dtype checking and mixed list/single values for the same type.
+    For example, a column with expected_type 'float' would also accept a mix of float values and lists of floats.
 
     Args:
         expected_type: String identifier for the expected type ('int', 'float', 'num', 'str')
@@ -1012,6 +1015,13 @@ class CatVector:
         self.feature = feature
         self.records = None
         self._maximal_set = maximal_set
+
+        self._all_filters = {"source": self._source, "organism": self._organism}
+        if self._subtype_str and "=" in self._subtype_str:
+            self._all_filters.update(
+                resolve_relation_filters(parse_filter_string(self._subtype_str), self)  # type: ignore
+            )
+
         if hasattr(field.field.model, "_name_field"):
             label_ref_is_name = field.field.name == field.field.model._name_field
         else:
@@ -1108,9 +1118,15 @@ class CatVector:
         registry = self._field.field.model
         field_name = self._field.field.name
         model_field = registry.__get_name_with_module__()
-        filter_kwargs = get_current_filter_kwargs(
-            registry, {"organism": self._organism, "source": self._source}
-        )
+        filter_kwargs = get_current_filter_kwargs(registry, self._all_filters)
+
+        valid_from_values_kwargs = {}
+        for key, value in filter_kwargs.items():
+            if key in {"field", "organism", "source", "mute"}:
+                valid_from_values_kwargs[key] = value
+            elif hasattr(registry, key) and "__" not in key:
+                valid_from_values_kwargs[key] = value
+
         values = [
             i
             for i in self.values
@@ -1125,9 +1141,7 @@ class CatVector:
         str_values = _flatten_unique(values)
 
         # inspect the default instance and save validated records from public
-        if (
-            self._subtype_str != "" and "__" not in self._subtype_str
-        ):  # not for general filter expressions
+        if self._subtype_str != "" and "=" not in self._subtype_str:
             related_name = registry._meta.get_field("type").remote_field.related_name
             self._subtype_query_set = getattr(
                 registry.get(name=self._subtype_str), related_name
@@ -1141,11 +1155,14 @@ class CatVector:
                 values_array[~validated_mask],
             )
             records = registry.from_values(
-                validated_labels, field=self._field, **filter_kwargs, mute=True
+                validated_labels,
+                field=self._field,
+                **valid_from_values_kwargs,
+                mute=True,
             )
         else:
             existing_and_public_records = registry.from_values(
-                str_values, field=self._field, **filter_kwargs, mute=True
+                str_values, field=self._field, **valid_from_values_kwargs, mute=True
             )
             existing_and_public_labels = [
                 getattr(r, field_name) for r in existing_and_public_records
@@ -1228,16 +1245,25 @@ class CatVector:
         field_name = self._field.field.name
         model_field = f"{registry.__name__}.{field_name}"
 
-        kwargs_current = get_current_filter_kwargs(
-            registry, {"organism": self._organism, "source": self._source}
-        )
+        kwargs_current = get_current_filter_kwargs(registry, self._all_filters)
+
+        valid_inspect_kwargs = {}
+        for key, value in kwargs_current.items():
+            if key in {"field", "organism", "source", "mute", "from_source"}:
+                valid_inspect_kwargs[key] = value
+            elif hasattr(registry, key) and "__" not in key:
+                valid_inspect_kwargs[key] = value
 
         # inspect values from the default instance, excluding public
         registry_or_queryset = registry
         if self._subtype_query_set is not None:
             registry_or_queryset = self._subtype_query_set
         inspect_result = registry_or_queryset.inspect(
-            values, field=self._field, mute=True, from_source=False, **kwargs_current
+            values,
+            field=self._field,
+            mute=True,
+            from_source=False,
+            **valid_inspect_kwargs,
         )
         non_validated = inspect_result.non_validated
         syn_mapper = inspect_result.synonyms_mapper
@@ -1249,7 +1275,7 @@ class CatVector:
                 non_validated,
                 field=self._field,
                 mute=True,
-                **kwargs_current,
+                **valid_inspect_kwargs,
             )
             values_validated += [getattr(r, field_name) for r in public_records]
 
@@ -1525,25 +1551,19 @@ class DataFrameCatManager:
             self._cat_vectors[key].add_new(**kwargs)
 
 
-def get_current_filter_kwargs(registry: type[SQLRecord], kwargs: dict) -> dict:
+def get_current_filter_kwargs(
+    registry: type[SQLRecord], kwargs: dict[str, SQLRecord]
+) -> dict:
     """Make sure the source and organism are saved in the same database as the registry."""
     db = registry.filter().db
-    source = kwargs.get("source")
-    organism = kwargs.get("organism")
     filter_kwargs = kwargs.copy()
 
-    if isinstance(organism, SQLRecord) and organism._state.db != "default":
-        if db is None or db == "default":
-            organism_default = copy.copy(organism)
-            # save the organism record in the default database
-            organism_default.save()
-            filter_kwargs["organism"] = organism_default
-    if isinstance(source, SQLRecord) and source._state.db != "default":
-        if db is None or db == "default":
-            source_default = copy.copy(source)
-            # save the source record in the default database
-            source_default.save()
-            filter_kwargs["source"] = source_default
+    for key, value in kwargs.items():
+        if isinstance(value, SQLRecord) and value._state.db != "default":
+            if db is None or db == "default":
+                value_default = copy.copy(value)
+                value_default.save()
+                filter_kwargs[key] = value_default
 
     return filter_kwargs
 

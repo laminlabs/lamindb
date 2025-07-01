@@ -27,7 +27,7 @@ from lamindb.base.fields import (
     TextField,
 )
 from lamindb.base.types import Dtype, FieldAttr
-from lamindb.errors import FieldValidationError, ValidationError
+from lamindb.errors import DoesNotExist, FieldValidationError, ValidationError
 
 from ..base.ids import base62_12
 from ._relations import dict_module_name_to_model_name
@@ -351,6 +351,7 @@ def serialize_dtype(
 
 
 def serialize_pandas_dtype(pandas_dtype: ExtensionDtype) -> str:
+    """Convert pandas ExtensionDtype to simplified string representation."""
     if is_string_dtype(pandas_dtype):
         if not isinstance(pandas_dtype, CategoricalDtype):
             dtype = "str"
@@ -368,6 +369,76 @@ def serialize_pandas_dtype(pandas_dtype: ExtensionDtype) -> str:
         dtype = dtype.split("[")[0]
     assert dtype in FEATURE_DTYPES  # noqa: S101
     return dtype
+
+
+def parse_filter_string(filter_str: str) -> dict[str, tuple[str, str | None, str]]:
+    """Parse comma-separated Django filter expressions into structured components.
+
+    Args:
+        filter_str: Comma-separated filters like 'name=value, relation__field=value'
+
+    Returns:
+        Dict mapping original filter key to (relation_name, field_name, value) tuple.
+        For direct fields: field_name is None.
+        For relations: field_name contains the lookup field.
+    """
+    filters = {}
+
+    filter_parts = [part.strip() for part in filter_str.split(",")]
+    for part in filter_parts:
+        if "=" not in part:
+            raise ValueError(f"Invalid filter expression: '{part}' (missing '=' sign)")
+
+        key, value = part.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("'\"")
+
+        if not key:
+            raise ValueError(f"Invalid filter expression: '{part}' (empty key)")
+        if not value:
+            raise ValueError(f"Invalid filter expression: '{part}' (empty value)")
+
+        if "__" in key:
+            relation_name, field_name = key.split("__", 1)
+            filters[key] = (relation_name, field_name, value)
+        else:
+            filters[key] = (key, None, value)
+
+    return filters
+
+
+def resolve_relation_filters(
+    parsed_filters: dict[str, tuple[str, str | None, str]], registry: SQLRecord
+) -> dict[str, str | SQLRecord]:
+    """Resolve relation filters actual model objects.
+
+    Args:
+        parsed_filters: Django filters like output from :func:`lamindb.models.feature.parse_filter_string`
+        registry: Model class to resolve relationships against
+
+    Returns:
+        Dict with resolved objects for successful relations, original values for direct fields and failed resolutions.
+    """
+    resolved = {}
+
+    for filter_key, (relation_name, field_name, value) in parsed_filters.items():
+        if field_name is not None:  # relation filter
+            if hasattr(registry, relation_name):
+                relation_field = getattr(registry, relation_name)
+                if (
+                    hasattr(relation_field, "field")
+                    and relation_field.field.is_relation
+                ):
+                    try:
+                        related_model = relation_field.field.related_model
+                        related_obj = related_model.get(**{field_name: value})
+                        resolved[relation_name] = related_obj
+                        continue
+                    except (DoesNotExist, AttributeError):
+                        pass  # Fall back to original filter
+        resolved[filter_key] = value
+
+    return resolved
 
 
 def process_init_feature_param(args, kwargs, is_param: bool = False):
@@ -462,39 +533,40 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
     Example:
 
-        A simple `"str"` feature.
+        A simple `"str"` feature.::
 
-        >>> ln.Feature(
-        ...     name="sample_note",
-        ...     dtype="str",
-        ... ).save()
+        ln.Feature(
+            name="sample_note",
+            dtype="str",
+        ).save()
 
-        A dtype `"cat[ULabel]"` can be more easily passed as below.
+        A dtype `"cat[ULabel]"` can be more easily passed as below.::
 
-        >>> ln.Feature(
-        ...     name="project",
-        ...     dtype=ln.ULabel,
-        ... ).save()
+        ln.Feature(
+            name="project",
+            dtype=ln.ULabel,
+        ).save()
 
-        A dtype `"cat[ULabel|bionty.CellType]"` can be more easily passed as below.
+        A dtype `"cat[ULabel|bionty.CellType]"` can be more easily passed as below.::
 
-        >>> ln.Feature(
-        ...     name="cell_type",
-        ...     dtype=[ln.ULabel, bt.CellType],
-        ... ).save()
+        ln.Feature(
+            name="cell_type",
+            dtype=[ln.ULabel, bt.CellType],
+        ).save()
 
-        A multivalue feature with a list of cell types.
+        A multivalue feature with a list of cell types.::
 
-        >>> ln.Feature(
-        ...     name="cell_types",
-        ...     dtype=list[bt.CellType],  # or list[str] for a list of strings
-        ... ).save()
+        ln.Feature(
+            name="cell_types",
+            dtype=list[bt.CellType],  # or list[str] for a list of strings
+        ).save()
 
-        A path feature.
-        >>> ln.Feature(
-        ...     name="image_path",
-        ...     dtype="path",   # will be validated as `str`
-        ... ).save()
+        A path feature.::
+
+        ln.Feature(
+            name="image_path",
+            dtype="path",   # will be validated as `str`
+        ).save()
 
     Hint:
 
@@ -513,7 +585,6 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         happened, ask yourself what the joint measurement was: a feature
         qualifies variables in a joint measurement. The canonical data matrix
         lists jointly measured variables in the columns.
-
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
@@ -647,6 +718,32 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         if cat_filters:
             assert "|" not in dtype_str  # noqa: S101
             assert "]]" not in dtype_str  # noqa: S101
+
+            # Validate filter values and SQLRecord attributes
+            for filter_key, filter_value in cat_filters.items():
+                if not filter_value or (
+                    isinstance(filter_value, str) and not filter_value.strip()
+                ):
+                    raise ValidationError(f"Empty value in filter {filter_key}")
+                # Check SQLRecord attributes for relation lookups
+                if isinstance(filter_value, SQLRecord) and "__" in filter_key:
+                    field_name = filter_key.split("__", 1)[1]
+                    if not hasattr(filter_value, field_name):
+                        raise ValidationError(
+                            f"SQLRecord {filter_value.__class__.__name__} has no attribute '{field_name}' in filter {filter_key}"
+                        )
+
+            # If a SQLRecord is passed, we access its uid to apply a standard filter
+            cat_filters = {
+                f"{key}__uid"
+                if (
+                    is_sqlrecord := isinstance(filter, SQLRecord)
+                    and hasattr(filter, "uid")
+                )
+                else key: filter.uid if is_sqlrecord else filter
+                for key, filter in cat_filters.items()
+            }
+
             fill_in = ", ".join(
                 f"{key}='{value}'" for (key, value) in cat_filters.items()
             )

@@ -547,8 +547,10 @@ class Registry(ModelBase):
         # we're in the default instance
         if instance is None or instance == "default":
             return QuerySet(model=cls, using=None)
+
         owner, name = get_owner_name_from_identifier(instance)
-        if [owner, name] == setup_settings.instance.slug.split("/"):
+        current_instance_owner_name: list[str] = setup_settings.instance.slug.split("/")
+        if [owner, name] == current_instance_owner_name:
             return QuerySet(model=cls, using=None)
 
         # move on to different instances
@@ -563,6 +565,9 @@ class Registry(ModelBase):
                     f"Failed to load instance {instance}, please check your permissions!"
                 )
             iresult, _ = result
+            # this can happen if querying via an old instance name
+            if [iresult.get("owner"), iresult["name"]] == current_instance_owner_name:
+                return QuerySet(model=cls, using=None)
             # do not use {} syntax below, it gives rise to a dict if the schema modules
             # are empty and then triggers a TypeError in missing_members = source_modules - target_modules
             source_modules = set(  # noqa
