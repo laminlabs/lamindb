@@ -68,7 +68,6 @@ def test_feature_init():
 
 
 def test_cat_filters_dtype():
-    # the here tested dtype is reused for the test_dtype.py 'test_feature_dtype' test
     disease_ontology_old = bt.Disease.add_source(
         bt.Source.using("laminlabs/bionty-assets")
         .get(entity="bionty.Disease", version="2024-08-06", organism="all")
@@ -83,6 +82,7 @@ def test_cat_filters_dtype():
     assert feature.dtype == "cat[bionty.Disease[source__uid='4a3ejKuf']]"
 
     feature.delete()
+    disease_ontology_old.delete()
 
 
 def test_cat_filters_empty_filter():

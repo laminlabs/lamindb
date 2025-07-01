@@ -1,4 +1,5 @@
 import bionty as bt
+import lamindb as ln
 import pandas as pd
 import pytest
 from lamindb import ULabel
@@ -208,10 +209,18 @@ def test_nested_cat_dtypes():
 
 
 def test_feature_dtype():
-    # Generated via:
-    # dtype_str = ln.Feature(name="disease", dtype=bt.Disease, cat_filters={"source": disease_ontology_old}).save().dtype
-    # which is found in test_feature.py 'test_cat_filters_dtype'
-    dtype_str = "cat[bionty.Disease[source__uid='4a3ejKuf']]"
+    disease_ontology_old = bt.Disease.add_source(
+        bt.Source.using("laminlabs/bionty-assets")
+        .get(entity="bionty.Disease", version="2024-08-06", organism="all")
+        .save()
+    )
+    feature = ln.Feature(
+        name="disease",
+        dtype=bt.Disease,
+        cat_filters={"source__uid": disease_ontology_old.uid},
+    ).save()
+
+    dtype_str = feature.dtype
     result = parse_dtype(dtype_str)
     assert len(result) == 1
     assert result[0] == {
@@ -221,6 +230,9 @@ def test_feature_dtype():
         "registry": bt.Disease,
         "field": bt.Disease.name,
     }
+
+    feature.delete()
+    disease_ontology_old.delete()
 
 
 def test_parse_filter_string_basic():
