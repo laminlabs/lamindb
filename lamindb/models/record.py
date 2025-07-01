@@ -93,8 +93,6 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Record-like composites of this record."""
     description: str | None = CharField(null=True)
     """A description (optional)."""
-    _sort_order: float = models.FloatField(null=True)
-    """For sorting rows in a sheet."""
     artifacts: Artifact = models.ManyToManyField(
         Artifact, through="RecordArtifact", related_name="records"
     )
