@@ -207,6 +207,22 @@ def test_nested_cat_dtypes():
 # -----------------------------------------------------------------------------
 
 
+def test_feature_dtype():
+    # Generated via:
+    # dtype_str = ln.Feature(name="disease", dtype=bt.Disease, cat_filters={"source": disease_ontology_old}).save().dtype
+    # which is found in test_feature.py 'test_cat_filters_dtype'
+    dtype_str = "cat[bionty.Disease[source__uid='4a3ejKuf']]"
+    result = parse_dtype(dtype_str)
+    assert len(result) == 1
+    assert result[0] == {
+        "registry_str": "bionty.Disease",
+        "subtype_str": "source__uid='4a3ejKuf'",
+        "field_str": "name",
+        "registry": bt.Disease,
+        "field": bt.Disease.name,
+    }
+
+
 def test_parse_filter_string_basic():
     result = parse_filter_string("parent__id=123, category__name=electronics")
     expected = {

@@ -66,6 +66,26 @@ def test_feature_init():
     feature = ln.Feature(name="feat1", dtype=[ln.ULabel, bt.Gene])
     assert feature.dtype == "cat[ULabel|bionty.Gene]"
 
+
+def test_cat_filters_dtype():
+    # the here tested dtype is reused for the test_dtype.py 'test_feature_dtype' test
+    disease_ontology_old = bt.Disease.add_source(
+        bt.Source.using("laminlabs/bionty-assets")
+        .get(entity="bionty.Disease", version="2024-08-06", organism="all")
+        .save()
+    )
+    feature = ln.Feature(
+        name="disease",
+        dtype=bt.Disease,
+        cat_filters={"source__uid": disease_ontology_old.uid},
+    ).save()
+
+    assert feature.dtype == "cat[bionty.Disease[source__uid='4a3ejKuf']]"
+
+    feature.delete()
+
+
+def test_cat_filters_empty_filter():
     # empty filter values should be rejected
     with pytest.raises(ValidationError) as error:
         ln.Feature(name="feat_empty", dtype=bt.Disease, cat_filters={"source__uid": ""})
@@ -74,6 +94,8 @@ def test_feature_init():
         in error.exconly()
     )
 
+
+def test_cat_filters_invalid_field_name():
     # invalid filter field names should be rejected
     source = bt.Source(
         name="", description="", organism="", entity="", version=""
