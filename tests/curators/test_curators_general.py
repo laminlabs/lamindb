@@ -15,7 +15,7 @@ def _strip_ansi(text: str) -> str:
 
 
 @pytest.fixture
-def df():
+def df() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "sample_id": ["sample1", "sample2"],
@@ -26,7 +26,7 @@ def df():
 
 
 @pytest.fixture
-def df_missing_sample_type_column():
+def df_missing_sample_type_column() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "sample_id": ["sample1", "sample2"],
@@ -36,7 +36,7 @@ def df_missing_sample_type_column():
 
 
 @pytest.fixture
-def df_missing_sample_name_column():
+def df_missing_sample_name_column() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "sample_id": ["sample1", "sample2"],
@@ -46,7 +46,7 @@ def df_missing_sample_name_column():
 
 
 @pytest.fixture
-def df_changed_col_order():
+def df_changed_col_order() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "sample_name": ["Sample 1", "Sample 2"],
@@ -57,7 +57,7 @@ def df_changed_col_order():
 
 
 @pytest.fixture
-def df_extra_column():
+def df_extra_column() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "sample_id": ["sample1", "sample2"],
@@ -65,6 +65,34 @@ def df_extra_column():
             "sample_type": ["Type A", "Type B"],
             "extra_column": ["Extra 1", "Extra 2"],
         }
+    )
+
+
+@pytest.fixture
+def df_disease() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "disease": pd.Categorical(
+                [
+                    # Only after 2025 mondo
+                    "HDAC4-related haploinsufficiency syndrome",
+                    "SAMD9L-related spectrum and myeloid neoplasm risk",
+                    # Already before 2025 mondo
+                    "essential hypertension",
+                    "essential hypertension",
+                    "asthma",
+                ]
+            ),
+        }
+    )
+
+
+@pytest.fixture
+def disease_ontology_old() -> bt.Source:
+    return bt.Disease.add_source(
+        bt.Source.using("laminlabs/bionty-assets")
+        .get(entity="bionty.Disease", version="2024-08-06", organism="all")
+        .save()
     )
 
 
@@ -376,3 +404,76 @@ def test_feature_dtype_path():
     # clean up
     nextflow_schema.delete()
     ln.Feature.filter().delete()
+
+
+def test_cat_filters_specific_source_uid(df_disease, disease_ontology_old):
+    """Specific source_uid passed to the `cat_filters`"""
+    schema = ln.Schema(
+        features=[
+            ln.Feature(
+                name="disease",
+                dtype=bt.Disease,
+                cat_filters={"source__uid": disease_ontology_old.uid},
+            ).save(),
+        ],
+    ).save()
+
+    curator = ln.curators.DataFrameCurator(df_disease, schema)
+    try:
+        curator.validate()
+    except ln.errors.ValidationError as error:
+        assert (
+            "2 terms not validated in feature 'disease': 'HDAC4-related haploinsufficiency syndrome', 'SAMD9L-related spectrum and myeloid neoplasm risk'"
+            in str(error)
+        )
+
+    schema.delete()
+
+
+def test_cat_filters_specific_source(df_disease, disease_ontology_old):
+    """Specific Source record passed to the `cat_filters`"""
+    schema = ln.Schema(
+        features=[
+            ln.Feature(
+                name="disease",
+                dtype=bt.Disease,
+                cat_filters={"source": disease_ontology_old},
+            ).save(),
+        ],
+    ).save()
+
+    curator = ln.curators.DataFrameCurator(df_disease, schema)
+    try:
+        curator.validate()
+    except ln.errors.ValidationError as error:
+        assert (
+            "2 terms not validated in feature 'disease': 'HDAC4-related haploinsufficiency syndrome', 'SAMD9L-related spectrum and myeloid neoplasm risk'"
+            in str(error)
+        )
+
+    schema.delete()
+
+
+def test_cat_filters_multiple_relation_filters(df_disease, disease_ontology_old):
+    """Multiple relation filters in cat_filters"""
+    schema = ln.Schema(
+        features=[
+            ln.Feature(
+                name="disease",
+                dtype=bt.Disease,
+                cat_filters={
+                    "source__uid": disease_ontology_old.uid,
+                    "organism__name": "all",
+                },
+            ).save(),
+        ],
+    ).save()
+    curator = ln.curators.DataFrameCurator(df_disease, schema)
+    try:
+        curator.validate()
+    except ln.errors.ValidationError as error:
+        assert (
+            "2 terms not validated in feature 'disease': 'HDAC4-related haploinsufficiency syndrome', 'SAMD9L-related spectrum and myeloid neoplasm risk'"
+            in str(error)
+        )
+    schema.delete()

@@ -51,7 +51,12 @@ repos:
     rev: v1.14.1
     hooks:
       - id: mypy
-        args: [--no-strict-optional, --ignore-missing-imports]
+        args:
+          [
+            --no-strict-optional,
+            --ignore-missing-imports,
+            --disable-error-code=annotation-unchecked,
+          ]
         additional_dependencies: ["types-requests", "types-attrs"]
         exclude: |
           (?x)(

@@ -1,9 +1,38 @@
-import bionty
+import bionty as bt
+import lamindb as ln
 import pandas as pd
 import pytest
 from lamindb import ULabel
 from lamindb.errors import ValidationError
-from lamindb.models.feature import parse_dtype, serialize_dtype
+from lamindb.models.feature import (
+    parse_dtype,
+    parse_filter_string,
+    resolve_relation_filters,
+    serialize_dtype,
+)
+
+
+@pytest.fixture
+def source():
+    source = bt.Source(
+        name="test_name",
+        description="test_description",
+        organism="human",
+        entity="bionty.Gene",
+        version="2026-01-01",
+    )
+    source.uid = "testuid1"
+    source.save()
+    return source
+
+
+@pytest.fixture
+def organism():
+    organism = bt.Organism(name="test_organism")
+    organism.uid = "testuid2"
+    organism.save()
+    return organism
+
 
 # -----------------------------------------------------------------------------
 # serializing dtypes
@@ -66,8 +95,8 @@ def test_bionty_celltype_with_field():
         "registry_str": "bionty.CellType",
         "subtype_str": "",
         "field_str": "ontology_id",
-        "registry": bionty.CellType,
-        "field": bionty.CellType.ontology_id,
+        "registry": bt.CellType,
+        "field": bt.CellType.ontology_id,
     }
 
 
@@ -79,15 +108,15 @@ def test_bionty_perturbations_with_field():
         "registry_str": "bionty.CellType",
         "subtype_str": "",
         "field_str": "uid",
-        "registry": bionty.CellType,
-        "field": bionty.CellType.uid,
+        "registry": bt.CellType,
+        "field": bt.CellType.uid,
     }
     assert result[1] == {
         "registry_str": "bionty.CellLine",
         "subtype_str": "",
         "field_str": "uid",
-        "registry": bionty.CellLine,
-        "field": bionty.CellLine.uid,
+        "registry": bt.CellLine,
+        "field": bt.CellLine.uid,
     }
 
 
@@ -157,7 +186,7 @@ def test_list_of_dtypes():
         "field": ULabel.name,
         "list": True,
     }
-    assert serialize_dtype(list[bionty.CellLine]) == "list[cat[bionty.CellLine]]"
+    assert serialize_dtype(list[bt.CellLine]) == "list[cat[bionty.CellLine]]"
 
 
 def test_nested_cat_dtypes():
@@ -172,3 +201,122 @@ def test_nested_cat_dtypes():
         "field": ULabel.name,
         "nested_subtypes": ["Customer", "UScustomer"],
     }
+
+
+# -----------------------------------------------------------------------------
+# parsing django filter expressions
+# -----------------------------------------------------------------------------
+
+
+def test_feature_dtype():
+    feature = ln.Feature(
+        name="disease",
+        dtype=bt.Disease,
+        cat_filters={
+            "source__uid": "4a3ejKuf"
+        },  # uid corresponds to disease_ontology_old.uid
+    ).save()
+
+    result = parse_dtype(feature.dtype)
+    assert len(result) == 1
+    assert result[0] == {
+        "registry_str": "bionty.Disease",
+        "subtype_str": "source__uid='4a3ejKuf'",
+        "field_str": "name",
+        "registry": bt.Disease,
+        "field": bt.Disease.name,
+    }
+
+    feature.delete()
+
+
+def test_parse_filter_string_basic():
+    result = parse_filter_string("parent__id=123, category__name=electronics")
+    expected = {
+        "parent__id": ("parent", "id", "123"),
+        "category__name": ("category", "name", "electronics"),
+    }
+    assert result == expected
+
+
+def test_parse_filter_string_direct_fields():
+    result = parse_filter_string("name=test, status=active")
+    expected = {"name": ("name", None, "test"), "status": ("status", None, "active")}
+    assert result == expected
+
+
+def test_parse_filter_string_empty():
+    with pytest.raises(ValueError) as e:
+        parse_filter_string("")
+        assert "missing '=' sign" in str(e)
+
+
+def test_parse_filter_string_malformed():
+    with pytest.raises(ValueError) as e:
+        parse_filter_string("malformed_filter")
+        assert "missing '=' sign" in str(e)
+
+
+def test_parse_filter_string_missing_key():
+    with pytest.raises(ValueError) as e:
+        parse_filter_string("=someval")
+        assert "empty key" in str(e)
+
+
+def test_parse_filter_string_missing_value():
+    with pytest.raises(ValueError) as e:
+        parse_filter_string("somekey=")
+        assert "empty val" in str(e)
+
+
+def test_resolve_direct_fields():
+    parsed = {"name": ("name", None, "test"), "status": ("status", None, "active")}
+    result = resolve_relation_filters(parsed, bt.Gene)
+    assert result == {"name": "test", "status": "active"}
+
+
+def test_resolve_relation_filter_with_uid(source):
+    parsed = {"source__uid": ("source", "uid", "testuid1")}
+    result = resolve_relation_filters(parsed, bt.Gene)
+    assert result == {"source": source}
+    source.delete()
+
+
+def test_resolve_relation_filter_with_name(organism):
+    parsed = {"organism__name": ("organism", "name", "test_organism")}
+    result = resolve_relation_filters(parsed, bt.Gene)
+    assert result == {"organism": organism}
+    organism.delete()
+
+
+def test_resolve_multiple_relation_filters(organism, source):
+    parsed = {
+        "organism__name": ("organism", "name", "test_organism"),
+        "source__uid": ("source", "uid", "testuid1"),
+    }
+    result = resolve_relation_filters(parsed, bt.Gene)
+    assert result == {"organism": organism, "source": source}
+    source.delete()
+    organism.delete()
+
+
+def test_resolve_nested_filter(organism):
+    parsed = {"organism__name__contains": ("organism", "name__contains", "test_orga")}
+    result = resolve_relation_filters(parsed, bt.Gene)
+    assert result == {"organism": organism}
+    organism.delete()
+
+
+def test_resolve_relation_filter_failed_resolution():
+    parsed = {"organism__name": ("organism", "name", "nonexistent")}
+    with pytest.raises(bt.Organism.DoesNotExist):
+        resolve_relation_filters(parsed, bt.Gene)
+
+
+def test_resolve_relation_filter_duplicate():
+    parsed = {
+        "source__uid": ("source", "uid", "testuid1"),
+        "source__name": ("source", "name", "test_name"),
+    }
+    with pytest.raises(bt.Source.DoesNotExist):
+        resolve_relation_filters(parsed, bt.Gene)
