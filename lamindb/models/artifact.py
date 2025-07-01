@@ -1383,6 +1383,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 default_storage = setup_settings.instance.storage.record
         using_key = kwargs.pop("using_key", None)
         otype = kwargs.pop("otype") if "otype" in kwargs else None
+        if isinstance(data, str) and data.startswith("s3:///"):
+            # issue in Groovy / nf-lamin producing malformed S3 paths
+            # https://laminlabs.slack.com/archives/C08J590666Q/p1751315027830849?thread_ts=1751039961.479259&cid=C08J590666Q
+            data = data.replace("s3:///", "s3://")
         otype = _check_otype_artifact(data=data, otype=otype)
         if "type" in kwargs:
             logger.warning("`type` will be removed soon, please use `kind`")

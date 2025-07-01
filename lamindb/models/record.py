@@ -3,7 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, overload
 
 from django.db import models
-from django.db.models import CASCADE, PROTECT, Q
+from django.db.models import CASCADE, PROTECT
+from lamin_utils import logger
 
 from lamindb.base.fields import (
     BooleanField,
@@ -13,7 +14,7 @@ from lamindb.base.fields import (
 )
 from lamindb.errors import FieldValidationError
 
-from ..base.ids import base62_12, base62_16
+from ..base.ids import base62_16
 from .artifact import Artifact
 from .can_curate import CanCurate
 from .feature import Feature
@@ -49,13 +50,6 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
-        constraints = [
-            models.UniqueConstraint(
-                fields=["name"],
-                name="unique_name",
-                condition=Q(is_type=True),
-            ),
-        ]
 
     _name_field: str = "name"
 
@@ -74,11 +68,22 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """
     records: Record
     """Records of this type (can only be non-empty if `is_type` is `True`)."""
-    is_type: bool = BooleanField(default=False, db_index=True, null=True)
-    """Distinguish types from instances of the type.
+    is_type: bool = BooleanField(default=False, db_index=True)
+    """Indicates if record is a `type`.
 
     For example, if a record "Compound" is a `type`, the actual compounds "darerinib", "tramerinib", would be instances of that `type`.
     """
+    schema: Schema | None = ForeignKey(
+        "Schema", CASCADE, null=True, related_name="records"
+    )
+    """A schema to enforce for a type (optional).
+
+    This is mostly parallel to the `schema` attribute of `Artifact`.
+
+    If `is_type` is `True`, the schema is used to enforce certain features for each records of this type.
+    """
+    _sort_order: float | None = models.FloatField(null=True, default=None)
+    """Sort order of the record, used for ordering in the UI."""
     # naming convention in analogy with Schema
     components: Record = models.ManyToManyField(
         "Record", through="RecordRecord", symmetrical=False, related_name="composites"
@@ -86,10 +91,6 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Record-like components of this record."""
     composites: Record
     """Record-like composites of this record."""
-    sheet: Sheet | None = ForeignKey(
-        "Sheet", CASCADE, null=True, related_name="records"
-    )
-    """Group records by sheet."""
     description: str | None = CharField(null=True)
     """A description (optional)."""
     _sort_order: float = models.FloatField(null=True)
@@ -137,8 +138,8 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         name: str = kwargs.pop("name", None)
         type: str | None = kwargs.pop("type", None)
         is_type: bool = kwargs.pop("is_type", False)
-        sheet: Sheet = kwargs.pop("sheet", None)
         description: str | None = kwargs.pop("description", None)
+        schema = kwargs.pop("schema", None)
         branch = kwargs.pop("branch", None)
         branch_id = kwargs.pop("branch_id", 1)
         space = kwargs.pop("space", None)
@@ -152,85 +153,15 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
             raise FieldValidationError(
                 f"Only {valid_keywords} are valid keyword arguments"
             )
+        if schema and not is_type:
+            logger.important("passing schema, treating as type")
+            is_type = True
         super().__init__(
             name=name,
             type=type,
             is_type=is_type,
-            sheet=sheet,
             description=description,
-            branch=branch,
-            branch_id=branch_id,
-            space=space,
-            space_id=space_id,
-            _skip_validation=_skip_validation,
-            _aux=_aux,
-        )
-
-
-class Sheet(SQLRecord, TracksRun, TracksUpdates):
-    """Sheets to group records."""
-
-    class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
-        abstract = False
-
-    id: int = models.AutoField(primary_key=True)
-    uid: str = CharField(
-        editable=False, unique=True, db_index=True, max_length=12, default=base62_12
-    )
-    """A universal random id, valid across DB instances."""
-    name: str = CharField(db_index=True)
-    """Name or title of sheet."""
-    schema: Schema | None = ForeignKey(
-        "Schema", CASCADE, null=True, related_name="sheets"
-    )
-    """A schema to enforce for the sheet (optional)."""
-    description: str | None = CharField(null=True, db_index=True)
-    """A description (optional)."""
-    projects: Project
-    """Linked projects."""
-
-    @overload
-    def __init__(
-        self,
-        name: str,
-        schema: Schema | None = None,
-        description: str | None = None,
-    ): ...
-
-    @overload
-    def __init__(
-        self,
-        *db_args,
-    ): ...
-
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
-        if len(args) == len(self._meta.concrete_fields):
-            super().__init__(*args, **kwargs)
-            return None
-        if len(args) > 0:
-            raise ValueError("Only one non-keyword arg allowed")
-        name: str = kwargs.pop("name", None)
-        schema: Schema | None = kwargs.pop("schema", None)
-        description: str | None = kwargs.pop("description", None)
-        branch = kwargs.pop("branch", None)
-        branch_id = kwargs.pop("branch_id", 1)
-        space = kwargs.pop("space", None)
-        space_id = kwargs.pop("space_id", 1)
-        _skip_validation = kwargs.pop("_skip_validation", True)
-        _aux = kwargs.pop("_aux", None)
-        if len(kwargs) > 0:
-            valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Record)])
-            raise FieldValidationError(
-                f"Only {valid_keywords} are valid keyword arguments"
-            )
-        super().__init__(
-            name=name,
             schema=schema,
-            description=description,
             branch=branch,
             branch_id=branch_id,
             space=space,
@@ -238,6 +169,11 @@ class Sheet(SQLRecord, TracksRun, TracksUpdates):
             _skip_validation=_skip_validation,
             _aux=_aux,
         )
+
+    @property
+    def is_sheet(self) -> bool:
+        """Check if record is a sheet."""
+        return self.schema is not None and self.is_type
 
 
 class RecordJson(BaseSQLRecord, IsLink):
