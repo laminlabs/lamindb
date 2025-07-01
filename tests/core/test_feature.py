@@ -68,21 +68,17 @@ def test_feature_init():
 
 
 def test_cat_filters_dtype():
-    disease_ontology_old = bt.Disease.add_source(
-        bt.Source.using("laminlabs/bionty-assets")
-        .get(entity="bionty.Disease", version="2024-08-06", organism="all")
-        .save()
-    )
     feature = ln.Feature(
         name="disease",
         dtype=bt.Disease,
-        cat_filters={"source__uid": disease_ontology_old.uid},
+        cat_filters={
+            "source__uid": "4a3ejKuf"
+        },  # uid corresponds to disease_ontology_old.uid
     ).save()
 
     assert feature.dtype == "cat[bionty.Disease[source__uid='4a3ejKuf']]"
 
     feature.delete()
-    disease_ontology_old.delete()
 
 
 def test_cat_filters_empty_filter():

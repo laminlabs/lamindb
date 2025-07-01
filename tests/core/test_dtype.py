@@ -209,19 +209,15 @@ def test_nested_cat_dtypes():
 
 
 def test_feature_dtype():
-    disease_ontology_old = bt.Disease.add_source(
-        bt.Source.using("laminlabs/bionty-assets")
-        .get(entity="bionty.Disease", version="2024-08-06", organism="all")
-        .save()
-    )
     feature = ln.Feature(
         name="disease",
         dtype=bt.Disease,
-        cat_filters={"source__uid": disease_ontology_old.uid},
+        cat_filters={
+            "source__uid": "4a3ejKuf"
+        },  # uid corresponds to disease_ontology_old.uid
     ).save()
 
-    dtype_str = feature.dtype
-    result = parse_dtype(dtype_str)
+    result = parse_dtype(feature.dtype)
     assert len(result) == 1
     assert result[0] == {
         "registry_str": "bionty.Disease",
@@ -232,7 +228,6 @@ def test_feature_dtype():
     }
 
     feature.delete()
-    disease_ontology_old.delete()
 
 
 def test_parse_filter_string_basic():
