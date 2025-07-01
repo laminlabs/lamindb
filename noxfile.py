@@ -237,8 +237,6 @@ def configure_coverage(session) -> None:
     ],
 )
 def test(session, group):
-    import lamindb as ln
-
     login_testuser2(session)
     login_testuser1(session)
     run(session, "lamin settings set private-django-api true")
@@ -257,7 +255,6 @@ def test(session, group):
             session, f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}"
         )
     elif group == "guide":
-        ln.setup.settings.auto_connect = True
         run(
             session,
             f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}",
@@ -268,7 +265,6 @@ def test(session, group):
             f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}",
         )
     elif group == "faq":
-        ln.setup.settings.auto_connect = True
         run(session, f"pytest -s {coverage_args} ./docs/faq")
     elif group == "storage":
         run(session, f"pytest -s {coverage_args} ./docs/storage")
