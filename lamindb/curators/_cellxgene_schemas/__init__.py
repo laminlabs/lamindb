@@ -4,8 +4,9 @@ import pandas as pd
 from lamin_utils import logger
 from lamindb_setup.core.upath import UPath
 
+import lamindb as ln
 from lamindb.base.types import FieldAttr
-from lamindb.models import Schema, SQLRecord, ULabel
+from lamindb.models import SQLRecord
 from lamindb.models._from_values import _format_values
 
 CELLxGENESchemaVersions = Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0"]
@@ -45,10 +46,10 @@ def _get_cxg_categoricals() -> dict[str, FieldAttr]:
         "self_reported_ethnicity_ontology_term_id": bt.Ethnicity.ontology_id,
         "sex": bt.Phenotype.name,
         "sex_ontology_term_id": bt.Phenotype.ontology_id,
-        "suspension_type": ULabel.name,
+        "suspension_type": ln.ULabel.name,
         "tissue": bt.Tissue.name,
         "tissue_ontology_term_id": bt.Tissue.ontology_id,
-        "tissue_type": ULabel.name,
+        "tissue_type": ln.ULabel.name,
         "organism": bt.Organism.name,
         "organism_ontology_term_id": bt.Organism.ontology_id,
     }
@@ -153,7 +154,7 @@ def _init_categoricals_additional_values() -> None:
     # Note: if you add another control below, be mindful to change the if condition that
     # triggers whether creating these records is re-considered
     controls_were_created = (
-        ULabel.filter(name="SuspensionType", is_type=True).one_or_none() is not None
+        ln.ULabel.filter(name="SuspensionType", is_type=True).one_or_none() is not None
     )
     if not controls_were_created:
         logger.important("Creating control labels in the CellxGene schema.")
@@ -187,40 +188,44 @@ def _init_categoricals_additional_values() -> None:
             ).save()
 
         # tissue_type
-        tissue_type = ULabel(
+        tissue_type = ln.ULabel(
             name="TissueType",
             is_type=True,
             description='From CellxGene schema. Is "tissue", "organoid", or "cell culture".',
         ).save()
         for name in ["tissue", "organoid", "cell culture"]:
-            ULabel(
+            ln.ULabel(
                 name=name, type=tissue_type, description="From CellxGene schema."
             ).save()
 
         # suspension_type
-        suspension_type = ULabel(
+        suspension_type = ln.ULabel(
             name="SuspensionType",
             is_type=True,
             description='From CellxGene schema. This MUST be "cell", "nucleus", or "na".',
         ).save()
         for name in ["cell", "nucleus", "na"]:
-            ULabel(
+            ln.ULabel(
                 name=name, type=suspension_type, description="From CellxGene schema."
             ).save()
 
 
-def _get_cxg_schema(schema_version: CELLxGENESchemaVersions) -> Schema:
+def _get_cxg_schema(schema_version: CELLxGENESchemaVersions) -> ln.Schema:
     """Generates a `~lamindb.Schema` for a specific CELLxGENE schema version."""
     import bionty as bt
 
-    entity_to_source = _create_sources(
+    _create_sources(
         categoricals=_get_cxg_categoricals(),
         schema_version=schema_version,
         organism="human",
     )
 
-    schema = Schema(
-        itype=bt.Gene(source=entity_to_source["var_index"]).ensembl_gene_id,
+    schema = ln.Schema(
+        itype=ln.Feature(
+            name="var_index",
+            dtype=bt.Gene.ensembl_gene_id,
+            cat_filters="",
+        ),
         otype="AnnData",
     )
 
