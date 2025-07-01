@@ -930,6 +930,9 @@ class Space(BaseSQLRecord):
     All data in this registry is synchronized from LaminHub so that spaces can be shared and reused across multiple LaminDB instances.
     """
 
+    class Meta:
+        app_label = "lamindb"
+
     id: int = models.SmallAutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
     name: str = models.CharField(max_length=100, db_index=True)
@@ -980,6 +983,9 @@ class Branch(BaseSQLRecord):
 
     Every `SQLRecord` has a `branch` field, which dictates where a record appears in queries & searches.
     """
+
+    class Meta:
+        app_label = "lamindb"
 
     # below isn't fully implemented but a roadmap
     # - 3: template (hidden in queries & searches)
@@ -1772,6 +1778,7 @@ class Migration(BaseSQLRecord):
 
     class Meta:
         db_table = "django_migrations"
+        app_label = "lamindb"
         managed = False
 
 

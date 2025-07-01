@@ -95,6 +95,7 @@ class Transform(SQLRecord, IsVersioned):
 
     class Meta(SQLRecord.Meta, IsVersioned.Meta):
         abstract = False
+        app_label = "lamindb"
         unique_together = ("key", "hash")
 
     _len_stem_uid: int = 12
