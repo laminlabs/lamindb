@@ -191,7 +191,19 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
 
     # Find the first opening bracket
     first_bracket = dtype_str.index("[")
-    registry_part = dtype_str[:first_bracket]
+    # Handle case where registry_part contains a field (e.g., "bionty.Gene.ensembl_gene_id[filters]")
+    registry_and_field = dtype_str[:first_bracket]
+    if "." in registry_and_field:
+        parts = registry_and_field.split(".")
+        if len(parts) == 3:  # bionty.Gene.ensembl_gene_id
+            registry_part = f"{parts[0]}.{parts[1]}"
+            pre_bracket_field = parts[2]
+        else:
+            registry_part = registry_and_field
+            pre_bracket_field = ""
+    else:
+        registry_part = registry_and_field
+        pre_bracket_field = ""
 
     # Find the matching closing bracket for the first opening bracket
     bracket_count = 0
@@ -218,13 +230,11 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
     if remainder.startswith("."):
         field_part = remainder[1:]  # Remove the dot
 
-    result = {"registry": registry_part, "subtype": subtype_part, "field": field_part}
+    # Use pre_bracket_field if no post_bracket field
+    if not field_part and pre_bracket_field:
+        field_part = pre_bracket_field
 
-    # If subtype contains brackets, extract nested subtypes for reference
-    if "[" in subtype_part:
-        nested_subtypes = extract_nested_subtypes(subtype_part)
-        if nested_subtypes:
-            result["nested_subtypes"] = nested_subtypes  # type: ignore
+    result = {"registry": registry_part, "subtype": subtype_part, "field": field_part}
 
     return result
 
@@ -502,7 +512,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     concisely denote the union of all numerical types.
 
     Args:
-        name: `str` Name of the feature, typically.  column name.
+        name: `str` Name of the feature, typically a column name.
         dtype: `Dtype | Registry | list[Registry] | FieldAttr` See :class:`~lamindb.base.types.Dtype`.
             For categorical types, you can define to which registry values are
             restricted, e.g., `ULabel` or `[ULabel, bionty.CellType]`.
@@ -715,8 +725,14 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         self.coerce_dtype = coerce_dtype
         dtype_str = kwargs.pop("dtype", None)
         if cat_filters:
-            assert "|" not in dtype_str  # noqa: S101
-            assert "]]" not in dtype_str  # noqa: S101
+            if "|" in dtype_str:
+                raise ValidationError(
+                    f"cat_filters are incompatible with union dtypes: '{dtype_str}'"
+                )
+            if "]]" in dtype_str:
+                raise ValidationError(
+                    f"cat_filters are incompatible with nested dtypes: '{dtype_str}'"
+                )
 
             # Validate filter values and SQLRecord attributes
             for filter_key, filter_value in cat_filters.items():

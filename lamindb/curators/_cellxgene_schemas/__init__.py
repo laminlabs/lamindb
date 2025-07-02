@@ -224,8 +224,8 @@ def _get_cxg_schema(
 
     categoricals = _get_cxg_categoricals()
 
-    varT_schema = Schema(
-        name=f"CELLxGENE varT of version {schema_version}",
+    var_schema = Schema(
+        name=f"CELLxGENE var of version {schema_version}",
         index=Feature(
             name="var_index",
             dtype=bt.Gene.ensembl_gene_id,
@@ -258,7 +258,7 @@ def _get_cxg_schema(
         otype="AnnData",
         minimal_set=True,
         coerce_dtype=True,
-        slots={"var.T": varT_schema, "obs": obs_schema},
+        slots={"var": var_schema, "obs": obs_schema},
     ).save()
 
     return full_cxg_schema
