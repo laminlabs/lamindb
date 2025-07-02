@@ -124,6 +124,7 @@ if TYPE_CHECKING:
     from ._label_manager import LabelManager
     from .collection import Collection
     from .project import Project, Reference
+    from .record import Record
     from .transform import Transform
 
 
@@ -1312,6 +1313,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """Linked projects."""
     references: Reference
     """Linked references."""
+    records: Record
+    """Linked records."""
 
     @overload
     def __init__(
