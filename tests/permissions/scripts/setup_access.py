@@ -5,7 +5,7 @@ from hubmodule._setup import _install_db_module
 from laminhub_rest.core.postgres import DbRoleHandler
 
 # create a db connection url that works with RLS
-JWT_ROLE_NAME = "permissions_jwt"
+instance_id = ln.setup.settings.instance._id
 
 
 def create_jwt_user(dsn_admin: str, jwt_role_name: str):
@@ -18,8 +18,8 @@ def create_jwt_user(dsn_admin: str, jwt_role_name: str):
 
 
 pgurl = "postgresql://postgres:pwd@0.0.0.0:5432/pgtest"  # admin db connection url
-jwt_db_url = create_jwt_user(pgurl, jwt_role_name=JWT_ROLE_NAME)
-_install_db_module(pgurl, jwt_role_name=JWT_ROLE_NAME)
+jwt_db_url = create_jwt_user(pgurl, jwt_role_name=f"{instance_id.hex}_jwt")
+_install_db_module(pgurl, instance_id=instance_id)
 
 print("Created jwt db connection")
 
