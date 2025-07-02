@@ -46,6 +46,8 @@ def test_record_example_compound_treatment():
     sample_type = ln.Record(name="BioSample", is_type=True).save()
     treatment = ln.Feature(name="treatment", dtype=compound_type).save()
     cell_line = ln.Feature(name="cell_line", dtype=bt.CellLine).save()
+    cell_line.dtype = "cat[bionty.CellLine]"  # might have previously been set to "cat"
+    cell_line.save()
     schema = ln.Schema(
         name="My samples schema 2025-05", features=[treatment, cell_line]
     ).save()
