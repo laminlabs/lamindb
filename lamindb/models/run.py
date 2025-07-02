@@ -141,6 +141,9 @@ class User(BaseSQLRecord, CanCurate):
         >>> user
     """
 
+    class Meta:
+        app_label = "lamindb"
+
     _name_field: str = "handle"
 
     id: int = models.AutoField(primary_key=True)
@@ -220,6 +223,9 @@ class Run(SQLRecord):
         >>> ln.track()  # Jupyter notebook metadata is automatically parsed
         >>> ln.context.run
     """
+
+    class Meta:
+        app_label = "lamindb"
 
     _name_field: str = "started_at"
 
@@ -484,4 +490,5 @@ class RunFeatureValue(BaseSQLRecord, IsLink):
     """Creator of record."""
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("run", "featurevalue")

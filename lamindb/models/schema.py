@@ -352,6 +352,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
+        app_label = "lamindb"
 
     _name_field: str = "name"
     _aux_fields: dict[str, tuple[str, type]] = {
@@ -1158,6 +1159,7 @@ class SchemaFeature(BaseSQLRecord, IsLink):
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_schema")
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("schema", "feature")
 
 
@@ -1169,6 +1171,7 @@ class ArtifactSchema(BaseSQLRecord, IsLink, TracksRun):
     feature_ref_is_semantic: bool | None = BooleanField(null=True)
 
     class Meta:
+        app_label = "lamindb"
         unique_together = (("artifact", "schema"), ("artifact", "slot"))
 
 
@@ -1179,6 +1182,7 @@ class SchemaComponent(BaseSQLRecord, IsLink, TracksRun):
     slot: str | None = CharField(null=True)
 
     class Meta:
+        app_label = "lamindb"
         unique_together = (("composite", "slot", "component"), ("composite", "slot"))
 
 

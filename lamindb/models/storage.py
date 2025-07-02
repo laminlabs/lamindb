@@ -132,6 +132,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
+        app_label = "lamindb"
 
     _name_field: str = "root"
 
