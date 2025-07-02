@@ -28,16 +28,16 @@ def test_record_example_compound_treatment():
     # a sheet for treatments
     my_treatments = ln.Record(
         name="My treatments 2025-05", type=treatment_type
-    ).save()  # sheet without schema
+    ).save()  # sheet without validating schema
 
     # populate treatment1
-    treatment1 = ln.Record(name="drug1", type=my_treatments).save()
+    treatment1 = ln.Record(name="treatment1", type=my_treatments).save()
     ln.models.RecordRecord(record=treatment1, feature=compound, value=drug1).save()
     assert drug1 in treatment1.components.all()
     assert treatment1 in drug1.composites.all()
     ln.models.RecordJson(record=treatment1, feature=concentration, value="2nM").save()
     # populate treatment2
-    treatment2 = ln.Record(name="drug2", type=my_treatments).save()
+    treatment2 = ln.Record(name="treatment2", type=my_treatments).save()
     ln.models.RecordRecord(record=treatment2, feature=compound, value=drug2).save()
     ln.models.RecordJson(record=treatment2, feature=concentration, value="4nM").save()
 
@@ -93,6 +93,22 @@ def test_record_example_compound_treatment():
     bt.models.RecordCellLine(
         record=sample4, feature=cell_line, cellline=hek293t
     ).save()  # parallel to ArtifactCellLine
+
+    dictionary = (
+        ln.Record.filter(type=my_treatments).df()[["is_type", "name"]].to_dict()
+    )
+    assert dictionary == {
+        "is_type": {
+            2: False,
+            3: False,
+        },
+        "name": {
+            2: "treatment1",
+            3: "treatment2",
+        },
+    }
+
+    print(ln.Record.filter(type=my_treatments).df(features=True))
 
 
 def test_record_nextflow_samples():
