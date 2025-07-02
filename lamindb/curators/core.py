@@ -1110,7 +1110,7 @@ class CatVector:
                 resolve_relation_filters(parse_filter_string(self._subtype_str), self)  # type: ignore
             )
 
-        if hasattr(field.field.model, "_name_field"):
+        if hasattr(field, "field") and hasattr(field.field.model, "_name_field"):
             label_ref_is_name = field.field.name == field.field.model._name_field
         else:
             label_ref_is_name = field.field.name == "name"
