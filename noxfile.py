@@ -248,6 +248,7 @@ def test(session, group):
             f"pytest {coverage_args} ./tests/core {duration_args}",
         )
     elif group == "unit-storage":
+        login_testuser2(session)  # shouldn't be necessary but is for now
         run(session, f"pytest {coverage_args} ./tests/storage {duration_args}")
     elif group == "tutorial":
         run(session, "lamin logout")
