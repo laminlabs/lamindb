@@ -150,7 +150,11 @@ def _create_sources(
 
 
 def _init_categoricals_additional_values() -> None:
-    """Add additional values from CellxGene schema to the DB."""
+    """Add additional values from CellxGene schema to the instance.
+
+    CELLxGENE schemas use specific (control) values that are not available
+    in the ontologies. Therefore, we save them to the instance.
+    """
     import bionty as bt
 
     # Note: if you add another control below, be mindful to change the if condition that
@@ -233,16 +237,13 @@ def _get_cxg_schema(
         coerce_dtype=True,
     ).save()
 
-    obs_features = []
-    for field, source in sources.items():
-        if field == "var_index":
-            continue
-        obs_features.append(
-            Feature(
-                name=field, dtype=categoricals[field], cat_filters={"source": source}
-            ).save()
-        )
-    print(obs_features)
+    obs_features = [
+        Feature(
+            name=field, dtype=categoricals[field], cat_filters={"source": source}
+        ).save()
+        for field, source in sources.items()
+        if field != "var_index"
+    ]
 
     obs_schema = Schema(
         name=f"CELLxGENE obs of version {schema_version}",

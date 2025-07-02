@@ -119,6 +119,7 @@ def describe_schema(self: Schema) -> Tree:
         tree.add(f".type = '{self.type}'")
     tree.add(f".ordered_set = {self.ordered_set}")
     tree.add(f".maximal_set = {self.maximal_set}")
+    tree.add(f".minimal_set = {self.minimal_set}")
     if hasattr(self, "created_by") and self.created_by:
         tree.add(
             Text.assemble(
