@@ -16,7 +16,7 @@ from __future__ import annotations
 import copy
 import re
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Literal
 
 import lamindb_setup as ln_setup
 import numpy as np
@@ -26,7 +26,11 @@ from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 
 from lamindb.base.types import FieldAttr  # noqa
-from lamindb.curators._cellxgene_schemas import CELLxGENESchemaVersions, _get_cxg_schema
+from lamindb.curators._cellxgene_schemas import (
+    CELLxGENESchemaVersions,
+    _get_cxg_categoricals,
+    _get_cxg_schema,
+)
 from lamindb.models import (
     Artifact,
     Feature,
@@ -1026,12 +1030,11 @@ class CxGCurator(SlotsCurator):
             _add_defaults_to_obs(dataset.obs, defaults)
 
         # Filter categoricals based on what's present in adata
-        if categoricals is None:
-            categoricals = self._get_cxg_categoricals()
+        categoricals = _get_cxg_categoricals()
         categoricals = _restrict_obs_fields(dataset.obs, categoricals)
 
         # Configure sources
-        organism: Literal[human, mouse] = "human"
+        organism: Literal["human", "mouse"] = "human"
         sources = _create_sources(categoricals, schema_version, organism)
         self.schema_version = schema_version
         self.schema_reference = f"https://github.com/chanzuckerberg/single-cell-curation/blob/main/schema/{schema_version}/schema.md"

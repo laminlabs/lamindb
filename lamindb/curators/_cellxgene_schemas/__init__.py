@@ -4,9 +4,8 @@ import pandas as pd
 from lamin_utils import logger
 from lamindb_setup.core.upath import UPath
 
-import lamindb as ln
 from lamindb.base.types import FieldAttr
-from lamindb.models import SQLRecord
+from lamindb.models import Feature, Schema, SQLRecord, ULabel
 from lamindb.models._from_values import _format_values
 
 CELLxGENESchemaVersions = Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0"]
@@ -46,10 +45,10 @@ def _get_cxg_categoricals() -> dict[str, FieldAttr]:
         "self_reported_ethnicity_ontology_term_id": bt.Ethnicity.ontology_id,
         "sex": bt.Phenotype.name,
         "sex_ontology_term_id": bt.Phenotype.ontology_id,
-        "suspension_type": ln.ULabel.name,
+        "suspension_type": ULabel.name,
         "tissue": bt.Tissue.name,
         "tissue_ontology_term_id": bt.Tissue.ontology_id,
-        "tissue_type": ln.ULabel.name,
+        "tissue_type": ULabel.name,
         "organism": bt.Organism.name,
         "organism_ontology_term_id": bt.Organism.ontology_id,
     }
@@ -118,7 +117,7 @@ def _create_sources(
             ).one_or_none()
             # if the source was not found, we register it from bionty-assets
             if source is None:
-                getattr(bt, entity).add_source(
+                source = getattr(bt, entity).add_source(
                     bt.Source.using("laminlabs/bionty-assets")
                     .get(
                         entity=f"bionty.{entity}",
@@ -154,7 +153,7 @@ def _init_categoricals_additional_values() -> None:
     # Note: if you add another control below, be mindful to change the if condition that
     # triggers whether creating these records is re-considered
     controls_were_created = (
-        ln.ULabel.filter(name="SuspensionType", is_type=True).one_or_none() is not None
+        ULabel.filter(name="SuspensionType", is_type=True).one_or_none() is not None
     )
     if not controls_were_created:
         logger.important("Creating control labels in the CellxGene schema.")
@@ -188,45 +187,115 @@ def _init_categoricals_additional_values() -> None:
             ).save()
 
         # tissue_type
-        tissue_type = ln.ULabel(
+        tissue_type = ULabel(
             name="TissueType",
             is_type=True,
             description='From CellxGene schema. Is "tissue", "organoid", or "cell culture".',
         ).save()
         for name in ["tissue", "organoid", "cell culture"]:
-            ln.ULabel(
+            ULabel(
                 name=name, type=tissue_type, description="From CellxGene schema."
             ).save()
 
         # suspension_type
-        suspension_type = ln.ULabel(
+        suspension_type = ULabel(
             name="SuspensionType",
             is_type=True,
             description='From CellxGene schema. This MUST be "cell", "nucleus", or "na".',
         ).save()
         for name in ["cell", "nucleus", "na"]:
-            ln.ULabel(
+            ULabel(
                 name=name, type=suspension_type, description="From CellxGene schema."
             ).save()
 
 
-def _get_cxg_schema(schema_version: CELLxGENESchemaVersions) -> ln.Schema:
+def _get_cxg_schema(schema_version: CELLxGENESchemaVersions) -> Schema:
     """Generates a `~lamindb.Schema` for a specific CELLxGENE schema version."""
     import bionty as bt
 
-    _create_sources(
+    feature_to_source = _create_sources(
         categoricals=_get_cxg_categoricals(),
         schema_version=schema_version,
         organism="human",
     )
 
-    schema = ln.Schema(
-        itype=ln.Feature(
+    varT_schema = Schema(
+        name=f"CELLxGENE varT of version {schema_version}",
+        index=Feature(
             name="var_index",
             dtype=bt.Gene.ensembl_gene_id,
-            cat_filters="",
-        ),
-        otype="AnnData",
-    )
+            cat_filters={"source": feature_to_source["var_index"]},
+        ).save(),
+        itype=Feature,
+        dtype="DataFrame",
+        minimal_set=True,
+        coerce_dtype=True,
+    ).save()
 
-    return schema
+    obs_schema = Schema(
+        name=f"CELLxGENE obs of version {schema_version}",
+        features=[
+            Feature(
+                name="organism_ontology_term_id",
+                dtype=bt.ExperimentalFactor.ontology_id,
+                cat_filters={"source": feature_to_source["organism_ontology_term_id"]},
+            ).save(),
+            Feature(
+                name="assay_ontology_term_id",
+                dtype=bt.ExperimentalFactor.ontology_id,
+                cat_filters={"source": feature_to_source["assay_ontology_term_id"]},
+            ).save(),
+            Feature(
+                name="cell_type_ontology_term_id",
+                dtype=bt.ExperimentalFactor.ontology_id,
+                cat_filters={"source": feature_to_source["cell_type_ontology_term_id"]},
+            ).save(),
+            Feature(
+                name="development_stage_ontology_term_id",
+                dtype=bt.ExperimentalFactor.ontology_id,
+                cat_filters={
+                    "source": feature_to_source["development_stage_ontology_term_id"]
+                },
+            ).save(),
+            Feature(
+                name="disease_ontology_term_id",
+                dtype=bt.ExperimentalFactor.ontology_id,
+                cat_filters={"source": feature_to_source["disease_ontology_term_id"]},
+            ).save(),
+            Feature(
+                name="self_reported_ethnicity_ontology_term_id",
+                dtype=bt.ExperimentalFactor.ontology_id,
+                cat_filters={
+                    "source": feature_to_source[
+                        "self_reported_ethnicity_ontology_term_id"
+                    ]
+                },
+            ).save(),
+            Feature(
+                name="sex_ontology_term_id",
+                dtype=bt.ExperimentalFactor.ontology_id,
+                cat_filters={"source": feature_to_source["sex_ontology_term_id"]},
+            ).save(),
+            Feature(
+                name="tissue_ontology_term_id",
+                dtype=bt.ExperimentalFactor.ontology_id,
+                cat_filters={"source": feature_to_source["tissue_ontology_term_id"]},
+            ).save(),
+            Feature(name="tissue_type", dtype=ULabel.name).save(),
+            Feature(name="suspension_type", dtype=ULabel.name).save(),
+            Feature(name="donor_id", dtype="str").save(),
+        ],
+        otype="DataFrame",
+        minimal_set=True,
+        coerce_dtype=True,
+    ).save()
+
+    full_cxg_schema = Schema(
+        name=f"CELLxGENE AnnData schema of version {schema_version}",
+        otype="AnnData",
+        minimal_set=True,
+        coerce_dtype=True,
+        slots={"var.T": varT_schema, "obs": obs_schema},
+    ).save()
+
+    return full_cxg_schema

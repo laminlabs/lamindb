@@ -269,7 +269,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         type: `Schema | None = None` Type of Schema to group measurements by.
             Define types like `ln.Schema(name="ProteinPanel", is_type=True)`.
         is_type: `bool = False` Whether the Schema is a Type.
-        itype: `str | None = None` The feature identifier type (e.g. :class:`~lamindb.Feature`, :class:`~bionty.Gene`, ...).
+        itype: `str | None = None` Feature identifier type to validate against. Must match registry type of provided features.
         otype: `str | None = None` An object type to define the structure of a composite schema (e.g., DataFrame, AnnData).
         dtype: `str | None = None` The simple type (e.g., "num", "float", "int").
             Defaults to `None` for sets of :class:`~lamindb.Feature` records and to `"num"` (e.g., for sets of :class:`~bionty.Gene`) otherwise.
