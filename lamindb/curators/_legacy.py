@@ -1368,6 +1368,9 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         # Filter categoricals based on what's present in adata
         if categoricals is None:
             categoricals = self._get_cxg_categoricals()
+
+            # backwards compatibility
+            categoricals.pop("donor_id", None)
         categoricals = _restrict_obs_fields(adata.obs, categoricals)
 
         # Configure sources
