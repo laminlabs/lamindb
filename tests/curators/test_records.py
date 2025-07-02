@@ -44,14 +44,11 @@ def test_record_example_compound_treatment():
     # Samples ---------------------------
 
     sample_type = ln.Record(name="BioSample", is_type=True).save()
-
-    # features for samples
     treatment = ln.Feature(name="treatment", dtype=compound_type).save()
     cell_line = ln.Feature(name="cell_line", dtype=bt.CellLine).save()
     schema = ln.Schema(
         name="My samples schema 2025-05", features=[treatment, cell_line]
     ).save()
-    # a sheet for samples
     sheet1 = ln.Record(
         name="My samples 2025-05", schema=schema, type=sample_type
     ).save()
@@ -61,15 +58,11 @@ def test_record_example_compound_treatment():
     # populate sample1
     sample1 = ln.Record(name="sample1", type=sheet1).save()
     ln.models.RecordRecord(record=sample1, feature=treatment, value=treatment1).save()
-    bt.models.RecordCellLine(
-        record=sample1, feature=cell_line, cellline=hek293t
-    ).save()  # parallel to ArtifactCellLine
+    bt.models.RecordCellLine(record=sample1, feature=cell_line, cellline=hek293t).save()
     # populate sample2
     sample2 = ln.Record(name="sample2", type=sheet1).save()
     ln.models.RecordRecord(record=sample2, feature=treatment, value=treatment2).save()
-    bt.models.RecordCellLine(
-        record=sample2, feature=cell_line, cellline=hek293t
-    ).save()  # parallel to ArtifactCellLine
+    bt.models.RecordCellLine(record=sample2, feature=cell_line, cellline=hek293t).save()
 
     # another sheet for samples
     sample_note = ln.Feature(name="sample_note", dtype="str").save()
@@ -95,20 +88,60 @@ def test_record_example_compound_treatment():
     ).save()  # parallel to ArtifactCellLine
 
     dictionary = (
-        ln.Record.filter(type=my_treatments).df()[["is_type", "name"]].to_dict()
+        ln.Record.filter(type=my_treatments)
+        .df()[["is_type", "name"]]
+        .to_dict(orient="list")
     )
     assert dictionary == {
-        "is_type": {
-            2: False,
-            3: False,
-        },
-        "name": {
-            2: "treatment1",
-            3: "treatment2",
-        },
+        "is_type": [
+            False,
+            False,
+        ],
+        "name": [
+            "treatment1",
+            "treatment2",
+        ],
     }
 
-    print(ln.Record.filter(type=my_treatments).df(features=True))
+    dictionary = (
+        ln.Record.filter(type=my_treatments)
+        .df(features=True)[["compound", "concentration", "name"]]
+        .to_dict(orient="list")
+    )
+    assert dictionary == {
+        "compound": [
+            "drug1",
+            "drug2",
+        ],
+        "concentration": [
+            "2nM",
+            "4nM",
+        ],
+        "name": [
+            "treatment1",
+            "treatment2",
+        ],
+    }
+
+    dictionary = (
+        ln.Record.filter(type=sheet1)
+        .df(features=["cell_line", "treatment"])[["cell_line", "name", "treatment"]]
+        .to_dict(orient="list")
+    )
+    assert dictionary == {
+        "cell_line": [
+            "HEK293T cell",
+            "HEK293T cell",
+        ],
+        "name": [
+            "sample1",
+            "sample2",
+        ],
+        "treatment": [
+            "treatment1",
+            "treatment2",
+        ],
+    }
 
 
 def test_record_nextflow_samples():
