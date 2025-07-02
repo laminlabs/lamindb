@@ -1705,6 +1705,9 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
             "pert_target": "unknown",
         }
 
+        # backwards compatibility
+        categoricals.pop("donor_id", None)
+
         return categoricals, categoricals_defaults
 
     def _configure_sources(self, adata: ad.AnnData):
