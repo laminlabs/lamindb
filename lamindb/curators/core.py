@@ -994,7 +994,12 @@ class CxGCurator(SlotsCurator):
 
     Args:
         dataset: The AnnData-like object to validate & annotate.
-        schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
+        schema_version: A CELLxGENE Schema version that defines the validation constraints.
+        organism: The organism of the Schema.
+        defaults: Default values that are set if columns or column values are missing.
+        extra_sources: A dictionary mapping ``.obs.columns`` to Source records.
+            These extra sources are joined with the CELLxGENE fixed sources.
+            Use this parameter when subclassing.
 
     Example:
 
@@ -1008,16 +1013,10 @@ class CxGCurator(SlotsCurator):
         dataset: AnnData | Artifact,
         schema_version: CELLxGENESchemaVersions,
         *,
+        organism: Literal["human", "mouse"] = "human",
         defaults: dict[str, str] = None,
         extra_sources: dict[str, SQLRecord] = None,
     ) -> None:
-        schema = _get_cxg_schema(schema_version).save()
-        super().__init__(dataset=dataset, schema=schema)
-        if not data_is_scversedatastructure(self._dataset, "AnnData"):
-            raise InvalidArgument("dataset must be AnnData-like.")
-        if schema.otype != "AnnData":
-            raise InvalidArgument("Schema otype must be 'AnnData'.")
-
         from ._cellxgene_schemas import (
             _add_defaults_to_obs,
             _create_sources,
@@ -1029,13 +1028,21 @@ class CxGCurator(SlotsCurator):
         if defaults:
             _add_defaults_to_obs(dataset.obs, defaults)
 
-        # Filter categoricals based on what's present in adata
-        categoricals = _get_cxg_categoricals()
-        categoricals = _restrict_obs_fields(dataset.obs, categoricals)
+        # Filter categoricals based on what's present in the dataset
+        present_categoricals = _restrict_obs_fields(
+            dataset.obs, _get_cxg_categoricals()
+        )
 
         # Configure sources
-        organism: Literal["human", "mouse"] = "human"
-        sources = _create_sources(categoricals, schema_version, organism)
+        sources = _create_sources(present_categoricals, schema_version, organism)
+
+        schema = _get_cxg_schema(schema_version, sources=sources).save()
+        super().__init__(dataset=dataset, schema=schema)
+        if not data_is_scversedatastructure(self._dataset, "AnnData"):
+            raise InvalidArgument("dataset must be AnnData-like.")
+        if schema.otype != "AnnData":
+            raise InvalidArgument("Schema otype must be 'AnnData'.")
+
         self.schema_version = schema_version
         self.schema_reference = f"https://github.com/chanzuckerberg/single-cell-curation/blob/main/schema/{schema_version}/schema.md"
         # These sources are not a part of the cellxgene schema but rather passed through.

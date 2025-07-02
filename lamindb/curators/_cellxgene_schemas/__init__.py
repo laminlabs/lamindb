@@ -40,7 +40,6 @@ def _get_cxg_categoricals() -> dict[str, FieldAttr]:
         "development_stage_ontology_term_id": bt.DevelopmentalStage.ontology_id,
         "disease": bt.Disease.name,
         "disease_ontology_term_id": bt.Disease.ontology_id,
-        # "donor_id": "str",  via pandera
         "self_reported_ethnicity": bt.Ethnicity.name,
         "self_reported_ethnicity_ontology_term_id": bt.Ethnicity.ontology_id,
         "sex": bt.Phenotype.name,
@@ -51,6 +50,7 @@ def _get_cxg_categoricals() -> dict[str, FieldAttr]:
         "tissue_type": ULabel.name,
         "organism": bt.Organism.name,
         "organism_ontology_term_id": bt.Organism.ontology_id,
+        "donor_id": str,
     }
 
 
@@ -138,9 +138,12 @@ def _create_sources(
 
     key_to_source: dict[str, bt.Source] = {}
     for key, field in categoricals.items():
-        if field.field.model.__get_module_name__() == "bionty":
-            entity = field.field.model.__name__
-            key_to_source[key] = _fetch_bionty_source(entity, organism)
+        if hasattr(field, "field"):
+            if field.field.model.__get_module_name__() == "bionty":
+                entity = field.field.model.__name__
+                key_to_source[key] = _fetch_bionty_source(entity, organism)
+        else:
+            key_to_source[key] = field
     key_to_source["var_index"] = _fetch_bionty_source("Gene", organism)
 
     return key_to_source
@@ -209,22 +212,20 @@ def _init_categoricals_additional_values() -> None:
             ).save()
 
 
-def _get_cxg_schema(schema_version: CELLxGENESchemaVersions) -> Schema:
+def _get_cxg_schema(
+    schema_version: CELLxGENESchemaVersions, sources: dict[str, SQLRecord]
+) -> Schema:
     """Generates a `~lamindb.Schema` for a specific CELLxGENE schema version."""
     import bionty as bt
 
-    feature_to_source = _create_sources(
-        categoricals=_get_cxg_categoricals(),
-        schema_version=schema_version,
-        organism="human",
-    )
+    categoricals = _get_cxg_categoricals()
 
     varT_schema = Schema(
         name=f"CELLxGENE varT of version {schema_version}",
         index=Feature(
             name="var_index",
             dtype=bt.Gene.ensembl_gene_id,
-            cat_filters={"source": feature_to_source["var_index"]},
+            cat_filters={"source": sources["var_index"]},
         ).save(),
         itype=Feature,
         dtype="DataFrame",
@@ -232,59 +233,20 @@ def _get_cxg_schema(schema_version: CELLxGENESchemaVersions) -> Schema:
         coerce_dtype=True,
     ).save()
 
+    obs_features = []
+    for field, source in sources.items():
+        if field == "var_index":
+            continue
+        obs_features.append(
+            Feature(
+                name=field, dtype=categoricals[field], cat_filters={"source": source}
+            ).save()
+        )
+    print(obs_features)
+
     obs_schema = Schema(
         name=f"CELLxGENE obs of version {schema_version}",
-        features=[
-            Feature(
-                name="organism_ontology_term_id",
-                dtype=bt.ExperimentalFactor.ontology_id,
-                cat_filters={"source": feature_to_source["organism_ontology_term_id"]},
-            ).save(),
-            Feature(
-                name="assay_ontology_term_id",
-                dtype=bt.ExperimentalFactor.ontology_id,
-                cat_filters={"source": feature_to_source["assay_ontology_term_id"]},
-            ).save(),
-            Feature(
-                name="cell_type_ontology_term_id",
-                dtype=bt.ExperimentalFactor.ontology_id,
-                cat_filters={"source": feature_to_source["cell_type_ontology_term_id"]},
-            ).save(),
-            Feature(
-                name="development_stage_ontology_term_id",
-                dtype=bt.ExperimentalFactor.ontology_id,
-                cat_filters={
-                    "source": feature_to_source["development_stage_ontology_term_id"]
-                },
-            ).save(),
-            Feature(
-                name="disease_ontology_term_id",
-                dtype=bt.ExperimentalFactor.ontology_id,
-                cat_filters={"source": feature_to_source["disease_ontology_term_id"]},
-            ).save(),
-            Feature(
-                name="self_reported_ethnicity_ontology_term_id",
-                dtype=bt.ExperimentalFactor.ontology_id,
-                cat_filters={
-                    "source": feature_to_source[
-                        "self_reported_ethnicity_ontology_term_id"
-                    ]
-                },
-            ).save(),
-            Feature(
-                name="sex_ontology_term_id",
-                dtype=bt.ExperimentalFactor.ontology_id,
-                cat_filters={"source": feature_to_source["sex_ontology_term_id"]},
-            ).save(),
-            Feature(
-                name="tissue_ontology_term_id",
-                dtype=bt.ExperimentalFactor.ontology_id,
-                cat_filters={"source": feature_to_source["tissue_ontology_term_id"]},
-            ).save(),
-            Feature(name="tissue_type", dtype=ULabel.name).save(),
-            Feature(name="suspension_type", dtype=ULabel.name).save(),
-            Feature(name="donor_id", dtype="str").save(),
-        ],
+        features=obs_features,
         otype="DataFrame",
         minimal_set=True,
         coerce_dtype=True,
