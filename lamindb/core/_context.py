@@ -207,7 +207,7 @@ class LogStreamTracker:
                 sys.stderr = self.original_stderr
                 self.log_file.close()
                 save_run_logs(self.run, save_run=True)
-        except:  # noqa E722
+        except:  # noqa: E722, S110
             pass
 
     def handle_exception(self, exc_type, exc_value, exc_traceback):
@@ -222,7 +222,7 @@ class LogStreamTracker:
                 self.log_file.write(error_msg)
                 self.log_file.flush()
                 self.cleanup()
-        except:  # noqa E722
+        except:  # noqa: E722, S110
             pass
         self.original_excepthook(exc_type, exc_value, exc_traceback)
 
