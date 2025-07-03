@@ -186,3 +186,5 @@ def test_record_nextflow_samples():
         ln.models.RecordJson(
             record=sample, feature=features.expected_cells, value=row["expected_cells"]
         ).save()
+
+    biosample_type.delete()
