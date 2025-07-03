@@ -554,14 +554,14 @@ class DataFrameCurator(Curator):
                         or feature.uid != schema._index_feature_uid
                     ):
                         categoricals.append(feature)
-                # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
-                # so, we're typing it as `str` here
-                if schema.index is not None:
-                    index = pandera.Index(
-                        schema.index.dtype
-                        if not schema.index.dtype.startswith("cat")
-                        else str
-                    )
+            # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
+            # so, we're typing it as `str` here
+            if schema.index is not None:
+                index = pandera.Index(
+                    schema.index.dtype
+                    if not schema.index.dtype.startswith("cat")
+                    else str
+                )
             else:
                 index = None
 
