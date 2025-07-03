@@ -617,6 +617,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
     ) -> tuple[list[Feature], dict[str, Any], list[Feature], Registry, bool]:
         optional_features = []
         features_registry: Registry = None
+
         if itype is not None:
             if itype != "Composite":
                 itype = serialize_dtype(itype, is_itype=True)
@@ -728,6 +729,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         self._list_for_hashing = sorted(list_for_hashing)
         schema_hash = hash_string(":".join(self._list_for_hashing))
         validated_kwargs["hash"] = schema_hash
+
         return (
             features,
             validated_kwargs,

@@ -468,9 +468,11 @@ class DataFrameCurator(Curator):
         slot: str | None = None,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
+
         categoricals = []
         features = []
         feature_ids: set[int] = set()
+
         if schema.flexible:
             features += Feature.filter(name__in=self._dataset.keys()).list()
             feature_ids = {feature.id for feature in features}
@@ -493,12 +495,18 @@ class DataFrameCurator(Curator):
                 features.extend(schema_features)
         else:
             assert schema.itype is not None  # noqa: S101
+
         pandera_columns = {}
         if features or schema._index_feature_uid is not None:
             # populate features
             if schema.minimal_set:
                 optional_feature_uids = set(schema.optionals.get_uids())
             for feature in features:
+                if (
+                    schema._index_feature_uid is not None
+                    and feature.uid == schema._index_feature_uid
+                ):
+                    continue
                 if schema.minimal_set:
                     required = feature.uid not in optional_feature_uids
                 else:
@@ -545,18 +553,23 @@ class DataFrameCurator(Curator):
                     "list[cat["
                 ):
                     # validate categoricals if the column is required or if the column is present
-                    if required or feature.name in self._dataset.keys():
+                    # but exclude the index feature from column categoricals
+                    if (required or feature.name in self._dataset.keys()) and (
+                        schema._index_feature_uid is None
+                        or feature.uid != schema._index_feature_uid
+                    ):
                         categoricals.append(feature)
-            if schema._index_feature_uid is not None:
                 # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
                 # so, we're typing it as `str` here
-                index = pandera.Index(
-                    schema.index.dtype
-                    if not schema.index.dtype.startswith("cat")
-                    else str
-                )
+                if schema.index is not None:
+                    index = pandera.Index(
+                        schema.index.dtype
+                        if not schema.index.dtype.startswith("cat")
+                        else str
+                    )
             else:
                 index = None
+
             self._pandera_schema = pandera.DataFrameSchema(
                 pandera_columns,
                 coerce=schema.coerce_dtype,
@@ -1060,14 +1073,15 @@ class CxGCurator(SlotsCurator):
             for slot, slot_schema in cxg_schema.slots.items()
             if slot in {"obs", "var", "var.T", "uns"}
         }
-        if "var" in self._slots and cxg_schema.slots["var"].itype not in {
-            None,
-            "Feature",
-        }:
-            self._slots["var"].cat._cat_vectors["var_index"] = self._slots[
-                "var"
-            ].cat._cat_vectors.pop("columns")
-            self._slots["var"].cat._cat_vectors["var_index"]._key = "var_index"
+
+        # if "var" in self._slots and cxg_schema.slots["var"].itype not in {
+        #     None,
+        #     "Feature",
+        # }:
+        #     self._slots["var"].cat._cat_vectors["var_index"] = self._slots[
+        #         "var"
+        #     ].cat._cat_vectors.pop("columns")
+        #     self._slots["var"].cat._cat_vectors["var_index"]._key = "var_index"
 
         _init_categoricals_additional_values()
 

@@ -168,7 +168,7 @@ def _init_categoricals_additional_values() -> None:
         # "normal" in Disease
         normal = bt.Phenotype.from_source(
             ontology_id="PATO:0000461",
-            source=bt.Source.get(name="pato", version="2024-03-28"),
+            source=bt.Source.get(name="pato", currently_used=True),
         )
         bt.Disease(
             uid=normal.uid,
