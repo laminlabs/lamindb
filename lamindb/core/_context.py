@@ -224,7 +224,7 @@ class LogStreamTracker:
 class Context:
     """Run context.
 
-    Is the book keeper for :meth:`~lamindb.core.Context.track`.
+    Is the book keeper for :func:`~lamindb.track` and :func:`~lamindb.finish`.
     """
 
     def __init__(self):

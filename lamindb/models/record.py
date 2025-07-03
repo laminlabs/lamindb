@@ -40,12 +40,8 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         description: `str` A description.
 
     See Also:
-        :meth:`~lamindb.Sheet`
-            Sheets to group records.
         :meth:`~lamindb.Feature`
-            Dimensions of measurement.
-        :attr:`~lamindb.Artifact.features`
-            Feature manager for an artifact.
+            Dimensions of measurement (e.g. column of a sheet).
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):

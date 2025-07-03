@@ -2526,8 +2526,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         will not delete the underlying storage by default (if `storage=True` is not specified).
         Deleting the latest version will delete all the versions for folder artifacts.
 
-        FAQ: :doc:`docs:faq/storage`
-
         Args:
             permanent: Permanently delete the artifact (skip trash).
             storage: Indicate whether you want to delete the artifact in storage.

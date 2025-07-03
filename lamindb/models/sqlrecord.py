@@ -465,7 +465,7 @@ class Registry(ModelBase):
     def df(
         cls,
         include: str | list[str] | None = None,
-        features: bool | list[str] = False,
+        features: bool | list[str] | str = False,
         limit: int = 100,
     ) -> pd.DataFrame:
         """Convert to `pd.DataFrame`.
@@ -478,9 +478,11 @@ class Registry(ModelBase):
             include: Related fields to include as columns. Takes strings of
                 form `"ulabels__name"`, `"cell_types__name"`, etc. or a list
                 of such strings.
-            features: If `True`, map all features of the
-                :class:`~lamindb.Feature` registry onto the resulting
-                `DataFrame`. Only available for `Artifact`.
+            features: If a list of feature names, filters
+                :class:`~lamindb.Feature` down to these features.
+                If `True`, prints all features with dtypes in the core schema module.
+                If `"queryset"`, infers the features used within the set of artifacts or records.
+                Only available for `Artifact` and `Record`.
             limit: Maximum number of rows to display from a Pandas DataFrame.
                 Defaults to 100 to reduce database load.
 

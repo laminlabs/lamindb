@@ -66,8 +66,8 @@ class Transform(SQLRecord, IsVersioned):
         revises: `Transform | None = None` An old version of the transform.
 
     See Also:
-        :meth:`~lamindb.core.Context.track`
-            Globally track a script, notebook or pipeline run.
+        :func:`~lamindb.track`
+            Track global runs & transforms for a notebook or script.
         :class:`~lamindb.Run`
             Executions of transforms.
 
