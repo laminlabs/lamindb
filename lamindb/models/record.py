@@ -95,6 +95,17 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Linked artifacts."""
     runs: Run = models.ManyToManyField(Run, through="RecordRun", related_name="records")
     """Linked runs."""
+    run: Run | None = ForeignKey(
+        Run,
+        PROTECT,
+        related_name="output_records",
+        null=True,
+        default=None,
+        editable=False,
+    )
+    """Run that created the record."""
+    input_of_runs: Run = models.ManyToManyField(Run, related_name="input_records")
+    """Runs that use this record as an input."""
     ulabels: ULabel = models.ManyToManyField(
         ULabel,
         through="RecordULabel",
@@ -177,7 +188,7 @@ class RecordJson(BaseSQLRecord, IsLink):
     value: Any = JSONField(default=None, db_default=None)
 
     class Meta:
-        unique_together = ("record", "feature")
+        unique_together = ("record", "feature")  # a list is modeled as a list in json
 
 
 class RecordRecord(SQLRecord, IsLink):
@@ -191,7 +202,7 @@ class RecordRecord(SQLRecord, IsLink):
     )  # component
 
     class Meta:
-        unique_together = ("record", "feature")
+        unique_together = ("record", "feature", "value")
 
 
 class RecordULabel(BaseSQLRecord, IsLink):
@@ -202,7 +213,7 @@ class RecordULabel(BaseSQLRecord, IsLink):
 
     class Meta:
         # allows linking exactly one record to one ulabel per feature, because we likely don't want to have Many
-        unique_together = ("record", "feature")
+        unique_together = ("record", "feature", "value")
 
 
 class RecordRun(BaseSQLRecord, IsLink):
@@ -213,7 +224,7 @@ class RecordRun(BaseSQLRecord, IsLink):
 
     class Meta:
         # allows linking several records to a single run for the same feature because we'll likely need this
-        unique_together = ("record", "feature")
+        unique_together = ("record", "feature", "value")
 
 
 class RecordArtifact(BaseSQLRecord, IsLink):
