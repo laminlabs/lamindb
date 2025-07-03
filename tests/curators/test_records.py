@@ -28,30 +28,29 @@ def test_record_example_compound_treatment():
     # a sheet for treatments
     my_treatments = ln.Record(
         name="My treatments 2025-05", type=treatment_type
-    ).save()  # sheet without schema
+    ).save()  # sheet without validating schema
 
     # populate treatment1
-    treatment1 = ln.Record(name="drug1", type=my_treatments).save()
+    treatment1 = ln.Record(name="treatment1", type=my_treatments).save()
     ln.models.RecordRecord(record=treatment1, feature=compound, value=drug1).save()
     assert drug1 in treatment1.components.all()
     assert treatment1 in drug1.composites.all()
     ln.models.RecordJson(record=treatment1, feature=concentration, value="2nM").save()
     # populate treatment2
-    treatment2 = ln.Record(name="drug2", type=my_treatments).save()
+    treatment2 = ln.Record(name="treatment2", type=my_treatments).save()
     ln.models.RecordRecord(record=treatment2, feature=compound, value=drug2).save()
     ln.models.RecordJson(record=treatment2, feature=concentration, value="4nM").save()
 
     # Samples ---------------------------
 
     sample_type = ln.Record(name="BioSample", is_type=True).save()
-
-    # features for samples
     treatment = ln.Feature(name="treatment", dtype=compound_type).save()
     cell_line = ln.Feature(name="cell_line", dtype=bt.CellLine).save()
+    cell_line.dtype = "cat[bionty.CellLine]"  # might have previously been set to "cat"
+    cell_line.save()
     schema = ln.Schema(
         name="My samples schema 2025-05", features=[treatment, cell_line]
     ).save()
-    # a sheet for samples
     sheet1 = ln.Record(
         name="My samples 2025-05", schema=schema, type=sample_type
     ).save()
@@ -61,15 +60,11 @@ def test_record_example_compound_treatment():
     # populate sample1
     sample1 = ln.Record(name="sample1", type=sheet1).save()
     ln.models.RecordRecord(record=sample1, feature=treatment, value=treatment1).save()
-    bt.models.RecordCellLine(
-        record=sample1, feature=cell_line, cellline=hek293t
-    ).save()  # parallel to ArtifactCellLine
+    bt.models.RecordCellLine(record=sample1, feature=cell_line, cellline=hek293t).save()
     # populate sample2
     sample2 = ln.Record(name="sample2", type=sheet1).save()
     ln.models.RecordRecord(record=sample2, feature=treatment, value=treatment2).save()
-    bt.models.RecordCellLine(
-        record=sample2, feature=cell_line, cellline=hek293t
-    ).save()  # parallel to ArtifactCellLine
+    bt.models.RecordCellLine(record=sample2, feature=cell_line, cellline=hek293t).save()
 
     # another sheet for samples
     sample_note = ln.Feature(name="sample_note", dtype="str").save()
@@ -93,6 +88,62 @@ def test_record_example_compound_treatment():
     bt.models.RecordCellLine(
         record=sample4, feature=cell_line, cellline=hek293t
     ).save()  # parallel to ArtifactCellLine
+
+    dictionary = (
+        ln.Record.filter(type=my_treatments)
+        .df()[["is_type", "name"]]
+        .to_dict(orient="list")
+    )
+    assert dictionary == {
+        "is_type": [
+            False,
+            False,
+        ],
+        "name": [
+            "treatment1",
+            "treatment2",
+        ],
+    }
+
+    dictionary = (
+        ln.Record.filter(type=my_treatments)
+        .df(features=True)[["compound", "concentration", "name"]]
+        .to_dict(orient="list")
+    )
+    assert dictionary == {
+        "compound": [
+            "drug1",
+            "drug2",
+        ],
+        "concentration": [
+            "2nM",
+            "4nM",
+        ],
+        "name": [
+            "treatment1",
+            "treatment2",
+        ],
+    }
+
+    dictionary = (
+        ln.Record.filter(type=sheet1)
+        .df(features=["cell_line", "treatment"])[["cell_line", "name", "treatment"]]
+        .to_dict(orient="list")
+    )
+    assert dictionary == {
+        "cell_line": [
+            "HEK293T cell",
+            "HEK293T cell",
+        ],
+        "name": [
+            "sample1",
+            "sample2",
+        ],
+        "treatment": [
+            "treatment1",
+            "treatment2",
+        ],
+    }
 
 
 def test_record_nextflow_samples():
