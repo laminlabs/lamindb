@@ -236,6 +236,12 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
 
     result = {"registry": registry_part, "subtype": subtype_part, "field": field_part}
 
+    # If subtype contains brackets, extract nested subtypes for reference
+    if "[" in subtype_part:
+        nested_subtypes = extract_nested_subtypes(subtype_part)
+        if nested_subtypes:
+            result["nested_subtypes"] = nested_subtypes  # type: ignore
+
     return result
 
 
