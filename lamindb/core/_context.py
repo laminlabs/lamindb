@@ -188,43 +188,49 @@ class LogStreamTracker:
             self.log_file.close()
 
     def cleanup(self, signo=None, frame=None):
-        from lamindb._finish import save_run_logs
+        try:
+            from lamindb._finish import save_run_logs
 
-        if self.original_stdout and not self.is_cleaning_up:
-            self.is_cleaning_up = True
-            getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
-            sys.stderr.flush()
-            if signo is not None:
-                signal_msg = f"\nProcess terminated by signal {signo} ({signal.Signals(signo).name})\n"
-                if frame:
-                    signal_msg += (
-                        f"Frame info:\n{''.join(traceback.format_stack(frame))}"
-                    )
-                self.log_file.write(signal_msg)
-                self.log_file.flush()
-            sys.stdout = self.original_stdout
-            sys.stderr = self.original_stderr
-            self.log_file.close()
-            save_run_logs(self.run, save_run=True)
-
-    def handle_exception(self, exc_type, exc_value, exc_traceback):
-        if not self.is_cleaning_up:
-            error_msg = f"{''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))}"
-            if self.log_file.closed:
-                self.log_file = open(self.log_file_path, "a")
-            else:
+            if self.original_stdout and not self.is_cleaning_up:
+                self.is_cleaning_up = True
                 getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
                 sys.stderr.flush()
-            self.log_file.write(error_msg)
-            self.log_file.flush()
-            self.cleanup()
+                if signo is not None:
+                    signal_msg = f"\nProcess terminated by signal {signo} ({signal.Signals(signo).name})\n"
+                    if frame:
+                        signal_msg += (
+                            f"Frame info:\n{''.join(traceback.format_stack(frame))}"
+                        )
+                    self.log_file.write(signal_msg)
+                    self.log_file.flush()
+                sys.stdout = self.original_stdout
+                sys.stderr = self.original_stderr
+                self.log_file.close()
+                save_run_logs(self.run, save_run=True)
+        except:  # noqa: E722, S110
+            pass
+
+    def handle_exception(self, exc_type, exc_value, exc_traceback):
+        try:
+            if not self.is_cleaning_up:
+                error_msg = f"{''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))}"
+                if self.log_file.closed:
+                    self.log_file = open(self.log_file_path, "a")
+                else:
+                    getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
+                    sys.stderr.flush()
+                self.log_file.write(error_msg)
+                self.log_file.flush()
+                self.cleanup()
+        except:  # noqa: E722, S110
+            pass
         self.original_excepthook(exc_type, exc_value, exc_traceback)
 
 
 class Context:
     """Run context.
 
-    Is the book keeper for :meth:`~lamindb.core.Context.track`.
+    Is the book keeper for :func:`~lamindb.track` and :func:`~lamindb.finish`.
     """
 
     def __init__(self):
