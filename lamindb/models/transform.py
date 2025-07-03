@@ -67,7 +67,7 @@ class Transform(SQLRecord, IsVersioned):
 
     See Also:
         :func:`~lamindb.track`
-            Track global runs & transforms for a notebook or script.
+            Globally track a script or notebook run.
         :class:`~lamindb.Run`
             Executions of transforms.
 
