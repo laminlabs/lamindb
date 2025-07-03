@@ -260,7 +260,7 @@ class SQLRecordList(UserList, Generic[T]):
 def get_basic_field_names(
     qs: QuerySet,
     include: list[str],
-    features_input: bool | list[str],
+    features_input: bool | list[str] | str,
 ) -> list[str]:
     exclude_field_names = ["updated_at"]
     field_names = [
@@ -304,7 +304,8 @@ def get_basic_field_names(
 
 def get_feature_annotate_kwargs(
     registry: Registry,
-    features: bool | list[str] | None,
+    features: bool | list[str] | str | None,
+    qs: QuerySet | None = None,
 ) -> tuple[dict[str, Any], list[str], QuerySet]:
     from lamindb.models import (
         Artifact,
@@ -316,6 +317,19 @@ def get_feature_annotate_kwargs(
         raise ValueError(
             f"features=True is only applicable for Artifact and Record, not {registry.__name__}"
         )
+
+    if features == "queryset":
+        ids_list = qs.values_list("id", flat=True)
+        feature_names = []
+        for obj in registry._meta.related_objects:
+            if not hasattr(getattr(registry, obj.related_name), "through"):
+                continue
+            links = getattr(registry, obj.related_name).through.filter(
+                **{registry.__name__.lower() + "_id__in": ids_list}
+            )
+            feature_names_for_link_model = links.values_list("feature__name", flat=True)
+            feature_names += feature_names_for_link_model
+        features = list(set(feature_names))  # remove duplicates
 
     feature_qs = Feature.filter()
     if isinstance(features, list):
@@ -638,7 +652,7 @@ class BasicQuerySet(models.QuerySet):
     def df(
         self,
         include: str | list[str] | None = None,
-        features: bool | list[str] | None = None,
+        features: bool | list[str] | str | None = None,
     ) -> pd.DataFrame:
         """{}"""  # noqa: D415
         time = datetime.now(timezone.utc)
@@ -657,7 +671,7 @@ class BasicQuerySet(models.QuerySet):
         feature_qs = None
         if features:
             feature_annotate_kwargs, feature_names, feature_qs = (
-                get_feature_annotate_kwargs(self.model, features)
+                get_feature_annotate_kwargs(self.model, features, self)
             )
             time = logger.debug("finished feature_annotate_kwargs", time=time)
             annotate_kwargs.update(feature_annotate_kwargs)
