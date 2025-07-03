@@ -1,9 +1,14 @@
 import bionty as bt
 import lamindb as ln
 import pandas as pd
+from lamindb.examples.fixtures.sheets import (
+    populate_sheets_compound_treatment,  # noqa: F401
+)
 
 
-def test_record_example_compound_treatment(populate_sheets_compound_treatment):
+def test_record_example_compound_treatment(
+    populate_sheets_compound_treatment: tuple[ln.Record, ln.Record],  # noqa: F811
+):
     treatments_sheet, sample_sheet1 = populate_sheets_compound_treatment
 
     dictionary = (
