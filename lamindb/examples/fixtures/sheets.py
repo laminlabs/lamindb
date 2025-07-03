@@ -115,7 +115,7 @@ def populate_sheets_compound_treatment():
     schema1.delete()
     preparation_date.delete()
     cell_line.delete()
-    sample_type.delete()
+    # sample_type.delete()   # not for now
     treatment2.delete()
     treatment1.delete()
     treatments_sheet.delete()
