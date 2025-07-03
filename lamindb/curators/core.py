@@ -502,11 +502,6 @@ class DataFrameCurator(Curator):
             if schema.minimal_set:
                 optional_feature_uids = set(schema.optionals.get_uids())
             for feature in features:
-                if (
-                    schema._index_feature_uid is not None
-                    and feature.uid == schema._index_feature_uid
-                ):
-                    continue
                 if schema.minimal_set:
                     required = feature.uid not in optional_feature_uids
                 else:
@@ -1073,15 +1068,6 @@ class CxGCurator(SlotsCurator):
             for slot, slot_schema in cxg_schema.slots.items()
             if slot in {"obs", "var", "var.T", "uns"}
         }
-
-        # if "var" in self._slots and cxg_schema.slots["var"].itype not in {
-        #     None,
-        #     "Feature",
-        # }:
-        #     self._slots["var"].cat._cat_vectors["var_index"] = self._slots[
-        #         "var"
-        #     ].cat._cat_vectors.pop("columns")
-        #     self._slots["var"].cat._cat_vectors["var_index"]._key = "var_index"
 
         _init_categoricals_additional_values()
 
