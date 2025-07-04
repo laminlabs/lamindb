@@ -7,6 +7,7 @@ from collections.abc import Iterable as IterableType
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, Union
 
+import numpy as np
 import pandas as pd
 from django.core.exceptions import FieldError
 from django.db import models
@@ -562,7 +563,10 @@ def reshape_annotate_result(
                 result[feature.name] = result[feature.name].apply(
                     extract_single_element
                 )
-                if feature.dtype.startswith("cat"):
+                # if the column dtype is "object" then we still have a set with a few elements
+                if feature.dtype.startswith("cat") and result[
+                    feature.name
+                ].dtype != np.dtype("O"):
                     result[feature.name] = result[feature.name].astype("category")
 
         # sort columns
