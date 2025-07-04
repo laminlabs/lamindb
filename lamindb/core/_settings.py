@@ -43,7 +43,7 @@ class Settings:
         logger.set_verbosity(self._verbosity_int)
         self._sync_git_repo: str | None = None
 
-    def __repr__(self) -> str:
+    def __repr__(self) -> str:  # pragma: no cover
         cls_name = colors.green(self.__class__.__name__)
         verbosity_color = colors.yellow if self.verbosity == "warning" else colors.green
         verbosity_str = verbosity_color(self.verbosity)
