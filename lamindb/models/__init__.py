@@ -93,6 +93,7 @@ from .record import (
     RecordULabel,
     RecordRun,
     RecordArtifact,
+    ArtifactRecord,
 )
 
 

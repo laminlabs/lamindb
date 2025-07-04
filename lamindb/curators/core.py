@@ -1143,9 +1143,11 @@ class CatVector:
         # inspect the default instance and save validated records from public
         if self._subtype_str != "" and "=" not in self._subtype_str:
             related_name = registry._meta.get_field("type").remote_field.related_name
-            self._subtype_query_set = getattr(
-                registry.get(name=self._subtype_str), related_name
-            ).all()
+            type_record = registry.get(name=self._subtype_str)
+            if registry.__name__ == "Record":
+                self._subtype_query_set = type_record.query_children()
+            else:
+                self._subtype_query_set = getattr(type_record, related_name).all()
             values_array = np.array(str_values)
             validated_mask = self._subtype_query_set.validate(  # type: ignore
                 values_array, field=self._field, **filter_kwargs, mute=True

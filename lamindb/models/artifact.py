@@ -1310,11 +1310,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     _overwrite_versions: bool = BooleanField(default=None)
     # see corresponding property `overwrite_versions`
     projects: Project
-    """Linked projects."""
+    """Annotating projects."""
     references: Reference
-    """Linked references."""
+    """Annotating references."""
     records: Record
-    """Linked records."""
+    """Annotating records."""
+    linked_in_records: Record
+    """Linked in records."""
 
     @overload
     def __init__(
