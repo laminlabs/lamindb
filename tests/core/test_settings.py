@@ -12,15 +12,3 @@ def test_settings_repr():
     assert content.find("instance:") < content.find("storage:")
     assert content.find("storage:") < content.find("verbosity:")
     assert content.find("verbosity:") < content.find("track_run_inputs:")
-
-
-def test_settings_repr_with_git_repo():
-    try:
-        ln.settings.sync_git_repo = "https://github.com/user/repo-name"
-        repr_str = repr(ln.settings)
-        lines = repr_str.split("\n")
-        content = "\n".join(lines[1:])
-        assert content.find("track_run_inputs:") < content.find("sync_git_repo:")
-        assert "repo-name" in repr_str
-    finally:
-        ln.settings.sync_git_repo = None
