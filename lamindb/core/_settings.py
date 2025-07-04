@@ -48,7 +48,7 @@ class Settings:
         verbosity_color = colors.yellow if self.verbosity == "warning" else colors.green
         verbosity_str = verbosity_color(self.verbosity)
 
-        storage_root = str(self._storage_settings.root)
+        storage_root = self._storage_settings.root_as_str
         storage_str = colors.italic(storage_root)
 
         instance_str = colors.italic(self.instance_uid)
