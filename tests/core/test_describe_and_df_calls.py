@@ -94,7 +94,7 @@ def test_curate_df():
         "key": ["examples/dataset2.h5ad", "examples/dataset1.h5ad"],
         "cell_type_by_expert": [np.nan, {"CD8-positive, alpha-beta T cell", "B cell"}],
         "cell_type_by_model": [{"T cell", "B cell"}, {"T cell", "B cell"}],
-        "experiment": ["Experiment 2", "Experiment 1"],
+        "experiment": pd.Categorical(["Experiment 2", "Experiment 1"]),
         "perturbation": [{"IFNG", "DMSO"}, {"IFNG", "DMSO"}],
         "temperature": [22.6, 21.6],
         "study_note": [
