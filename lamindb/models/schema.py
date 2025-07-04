@@ -1118,9 +1118,6 @@ class Schema(SQLRecord, CanCurate, TracksRun):
 
     def describe(self, return_str=False) -> None | str:
         """Describe schema."""
-        if self.pk is None:
-            raise ValueError("Schema must be saved before describing")
-
         message = str(self)
         # display slots for composite schemas
         if self.itype == "Composite":
