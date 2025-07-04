@@ -195,7 +195,7 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
     registry_and_field = dtype_str[:first_bracket]
     if "." in registry_and_field:
         parts = registry_and_field.split(".")
-        if len(parts) == 3:  # bionty.Gene.ensembl_gene_id
+        if len(parts) == 3:
             registry_part = f"{parts[0]}.{parts[1]}"
             pre_bracket_field = parts[2]
         else:

@@ -203,6 +203,19 @@ def test_nested_cat_dtypes():
     }
 
 
+def test_registry_with_filter():
+    dtype_str = "cat[bionty.Gene.ensembl_gene_id[source__id='abcd']]"
+    result = parse_dtype(dtype_str)
+    assert len(result) == 1
+    assert result[0] == {
+        "registry_str": "bionty.Gene",
+        "subtype_str": "source__id='abcd'",
+        "field_str": "ensembl_gene_id",
+        "registry": bt.Gene,
+        "field": bt.Gene.ensembl_gene_id,
+    }
+
+
 # -----------------------------------------------------------------------------
 # parsing django filter expressions
 # -----------------------------------------------------------------------------
