@@ -817,33 +817,18 @@ class FeatureManager:
             related_name = related_names[class_name]  # e.g., "ulabels"
             IsLink = getattr(self._host, related_name).through
             field_name = f"{get_link_attr(IsLink, self._host)}_id"  # e.g., ulabel_id
-            artifact_field_id_name = (
-                "artifact_id" if class_name != "Record" else "value_id"
-            )
-            if class_name == "Record":
-                links = [
-                    IsLink(
-                        **{
-                            artifact_field_id_name: self._host.id,
-                            "feature_id": feature.id,
-                            field_name: label.id,
-                        }
-                    )
-                    for (feature, label) in registry_features_labels
-                ]
-            else:  # TODO: once feature_ref_is_name is removed, remove this condition
-                links = [
-                    IsLink(
-                        **{
-                            artifact_field_id_name: self._host.id,
-                            "feature_id": feature.id,
-                            field_name: label.id,
-                            "feature_ref_is_name": feature_ref_is_name,
-                            "label_ref_is_name": label_ref_is_name,
-                        }
-                    )
-                    for (feature, label) in registry_features_labels
-                ]
+            links = [
+                IsLink(
+                    **{
+                        "artifact_id": self._host.id,
+                        "feature_id": feature.id,
+                        field_name: label.id,
+                        "feature_ref_is_name": feature_ref_is_name,
+                        "label_ref_is_name": label_ref_is_name,
+                    }
+                )
+                for (feature, label) in registry_features_labels
+            ]
             # a link might already exist
             try:
                 save(links, ignore_conflicts=False)
@@ -852,7 +837,7 @@ class FeatureManager:
             # now delete links that were previously saved without a feature
             IsLink.filter(
                 **{
-                    artifact_field_id_name: self._host.id,
+                    "artifact_id": self._host.id,
                     "feature_id": None,
                     f"{field_name}__in": [l.id for _, l in registry_features_labels],
                 }

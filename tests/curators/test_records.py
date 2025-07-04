@@ -92,6 +92,7 @@ def test_record_example_compound_treatment(
 
     artifact = sample_sheet1.to_artifact()
     assert artifact._state.adding is False
+    assert ln.models.ArtifactRecord.filter(artifact=artifact).count() == 2
     artifact.delete(permanent=True)
 
 

@@ -96,12 +96,27 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Record-like composites of this record."""
     description: str | None = CharField(null=True)
     """A description (optional)."""
-    artifacts: Artifact = models.ManyToManyField(
-        Artifact, through="RecordArtifact", related_name="records"
+    values_artifacts: Artifact = models.ManyToManyField(
+        Artifact, through="RecordArtifact", related_name="linked_in_records"
     )
     """Linked artifacts."""
+    artifacts: Artifact = models.ManyToManyField(
+        Artifact, through="ArtifactRecord", related_name="records"
+    )
+    """Annotated artifacts."""
     runs: Run = models.ManyToManyField(Run, through="RecordRun", related_name="records")
     """Linked runs."""
+    run: Run | None = ForeignKey(
+        Run,
+        PROTECT,
+        related_name="output_records",
+        null=True,
+        default=None,
+        editable=False,
+    )
+    """Run that created the record."""
+    input_of_runs: Run = models.ManyToManyField(Run, related_name="input_records")
+    """Runs that use this record as an input."""
     ulabels: ULabel = models.ManyToManyField(
         ULabel,
         through="RecordULabel",
@@ -216,7 +231,7 @@ class RecordJson(BaseSQLRecord, IsLink):
     value: Any = JSONField(default=None, db_default=None)
 
     class Meta:
-        unique_together = ("record", "feature")
+        unique_together = ("record", "feature")  # a list is modeled as a list in json
 
 
 class RecordRecord(SQLRecord, IsLink):
@@ -230,7 +245,7 @@ class RecordRecord(SQLRecord, IsLink):
     )  # component
 
     class Meta:
-        unique_together = ("record", "feature")
+        unique_together = ("record", "feature", "value")
 
 
 class RecordULabel(BaseSQLRecord, IsLink):
@@ -241,7 +256,7 @@ class RecordULabel(BaseSQLRecord, IsLink):
 
     class Meta:
         # allows linking exactly one record to one ulabel per feature, because we likely don't want to have Many
-        unique_together = ("record", "feature")
+        unique_together = ("record", "feature", "value")
 
 
 class RecordRun(BaseSQLRecord, IsLink):
@@ -252,15 +267,33 @@ class RecordRun(BaseSQLRecord, IsLink):
 
     class Meta:
         # allows linking several records to a single run for the same feature because we'll likely need this
-        unique_together = ("record", "feature")
+        unique_together = ("record", "feature", "value")
 
 
 class RecordArtifact(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_artifact")
     feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordartifact")
-    value: Artifact = ForeignKey(Artifact, PROTECT, related_name="links_record")
+    value: Artifact = ForeignKey(
+        Artifact, PROTECT, related_name="links_linked_in_record"
+    )
 
     class Meta:
         # allows linking several records to a single artifact for the same feature because we'll likely need this
         unique_together = ("record", "feature", "value")
+
+
+# like ArtifactULabel, for annotation
+class ArtifactRecord(BaseSQLRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_record")
+    record: Record = ForeignKey(Record, PROTECT, related_name="links_artifact")
+    feature: Feature = ForeignKey(
+        Feature, PROTECT, null=True, related_name="links_artifactrecord"
+    )
+    label_ref_is_name: bool | None = BooleanField(null=True)
+    feature_ref_is_name: bool | None = BooleanField(null=True)
+
+    class Meta:
+        # allows linking several records to a single artifact for the same feature because we'll likely need this
+        unique_together = ("artifact", "record", "feature")
