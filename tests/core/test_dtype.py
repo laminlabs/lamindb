@@ -243,6 +243,32 @@ def test_feature_dtype():
     feature.delete()
 
 
+def test_cat_filters_incompatible_with_union_dtypes():
+    with pytest.raises(ValidationError) as exc_info:
+        ln.Feature(
+            name="test_feature",
+            dtype="cat[ULabel|bionty.CellType]",
+            cat_filters={"source": "test"},
+        )
+    assert (
+        "cat_filters are incompatible with union dtypes: 'cat[ULabel|bionty.CellType]'"
+        in str(exc_info.value)
+    )
+
+
+def test_cat_filters_incompatible_with_nested_dtypes():
+    with pytest.raises(ValidationError) as exc_info:
+        ln.Feature(
+            name="test_feature",
+            dtype="cat[ULabel[Customer[SubCustomer]]]",
+            cat_filters={"source": "test"},
+        )
+    assert (
+        "cat_filters are incompatible with nested dtypes: 'cat[ULabel[Customer[SubCustomer]]]'"
+        in str(exc_info.value)
+    )
+
+
 def test_parse_filter_string_basic():
     result = parse_filter_string("parent__id=123, category__name=electronics")
     expected = {
