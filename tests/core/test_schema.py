@@ -496,7 +496,11 @@ def test_schema_already_saved_aux():
         index=ln.Feature(
             name="var_index",
             dtype=bt.Gene.ensembl_gene_id,
-            cat_filters={"source": bt.Source.get("4UGNz3fr")},
+            cat_filters={
+                "source": bt.Source.get(
+                    entity="bionty.Gene", currently_used=True, organism="human"
+                )
+            },
         ).save(),
         itype=ln.Feature,
         dtype="DataFrame",
@@ -516,11 +520,15 @@ def test_schema_already_saved_aux():
 
     # Attempting to save the same schema again should return the Schema with the same `.aux` fields
     var_schema_2 = ln.Schema(
-        name="CELLxGENE var",
+        name="test var",
         index=ln.Feature(
             name="var_index",
             dtype=bt.Gene.ensembl_gene_id,
-            cat_filters={"source": bt.Source.get("4UGNz3fr")},
+            cat_filters={
+                "source": bt.Source.get(
+                    entity="bionty.Gene", currently_used=True, organism="human"
+                )
+            },
         ).save(),
         itype=ln.Feature,
         dtype="DataFrame",
@@ -529,7 +537,7 @@ def test_schema_already_saved_aux():
     ).save()
 
     schema_2 = ln.Schema(
-        name="CELLxGENE AnnData schema",
+        name="AnnData schema",
         otype="AnnData",
         minimal_set=True,
         coerce_dtype=True,
