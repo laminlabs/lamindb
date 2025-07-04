@@ -139,10 +139,11 @@ def test_nextflow_sheet_with_samples(
     file_suffix = ".csv"
     sheet = ln.Record.get(type_uid)
     key = f"sheet_exports/{type_uid}{file_suffix}"
+    description = f": {sheet.description}" if sheet.description is not None else ""
     ln.Artifact.from_df(
         df,
         key=key,
-        description=f"{sheet.name}: {sheet.description}",
+        description=f"{sheet.name}{description}",
         schema=sheet.schema,
         format=".csv" if key.endswith(".csv") else None,
     ).save()

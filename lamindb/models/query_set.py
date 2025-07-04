@@ -562,6 +562,8 @@ def reshape_annotate_result(
                 result[feature.name] = result[feature.name].apply(
                     extract_single_element
                 )
+                if feature.dtype.startswith("cat"):
+                    result[feature.name] = result[feature.name].astype("category")
 
         # sort columns
         result = reorder_subset_columns_in_df(result, feature_names)
