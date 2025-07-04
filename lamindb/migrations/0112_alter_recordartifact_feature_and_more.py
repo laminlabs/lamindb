@@ -92,4 +92,14 @@ class Migration(migrations.Migration):
                 to="lamindb.feature",
             ),
         ),
+        migrations.AlterField(
+            model_name="recordartifact",
+            name="value",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="links_in_record",
+                to="lamindb.artifact",
+            ),
+        ),
     ]

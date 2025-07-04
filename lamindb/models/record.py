@@ -278,9 +278,7 @@ class RecordArtifact(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_artifact")
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordartifact")
-    value: Artifact = ForeignKey(
-        Artifact, PROTECT, related_name="links_linked_in_record"
-    )
+    value: Artifact = ForeignKey(Artifact, PROTECT, related_name="links_in_record")
 
     class Meta:
         # allows linking several records to a single artifact for the same feature because we'll likely need this
