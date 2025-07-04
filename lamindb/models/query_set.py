@@ -569,6 +569,13 @@ def reshape_annotate_result(
                     except (TypeError, ValueError):
                         # If conversion fails, the column still contains complex objects
                         pass
+                if feature.dtype.startswith("datetime"):
+                    try:
+                        # Try to convert to category - this will fail if complex objects remain
+                        result[feature.name] = pd.to_datetime(result[feature.name])
+                    except (TypeError, ValueError):
+                        # If conversion fails, the column still contains complex objects
+                        pass
 
         # sort columns
         result = reorder_subset_columns_in_df(result, feature_names)

@@ -1,4 +1,5 @@
 import lamindb as ln
+import pandas as pd
 from lamindb.examples.fixtures.sheets import (
     populate_nextflow_sheet_with_samples,  # noqa: F401
     populate_sheets_compound_treatment,  # noqa: F401
@@ -66,10 +67,9 @@ def test_record_example_compound_treatment(
         ],
     }
 
-    dictionary = (
-        ln.Record.filter(type=sample_sheet1)
-        .df(features="queryset")[["cell_line", "name", "treatment", "preparation_date"]]
-        .to_dict(orient="list")
+    df = sample_sheet1.to_pandas()
+    dictionary = df[["cell_line", "name", "treatment", "preparation_date"]].to_dict(
+        orient="list"
     )
     assert dictionary == {
         "cell_line": [
@@ -81,14 +81,18 @@ def test_record_example_compound_treatment(
             "sample2",
         ],
         "preparation_date": [
-            "2025-06-01T05:00:00Z",
-            "2025-06-01T06:00:00Z",
+            pd.to_datetime("2025-06-01T05:00:00"),
+            pd.to_datetime("2025-06-01T06:00:00"),
         ],
         "treatment": [
             "treatment1",
             "treatment2",
         ],
     }
+
+    artifact = sample_sheet1.to_artifact()
+    assert artifact._state.adding is False
+    artifact.delete(permanent=True)
 
 
 def test_nextflow_sheet_with_samples(
@@ -133,3 +137,4 @@ def test_nextflow_sheet_with_samples(
 
     artifact = nextflow_sheet.to_artifact()
     assert artifact._state.adding is False
+    artifact.delete(permanent=True)

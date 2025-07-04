@@ -47,7 +47,7 @@ def populate_sheets_compound_treatment():
     # Samples ---------------------------
 
     sample_type = ln.Record(name="BioSample", is_type=True).save()
-    treatment = ln.Feature(name="treatment", dtype=compound_type).save()
+    treatment = ln.Feature(name="treatment", dtype=treatment_type).save()
     cell_line = ln.Feature(name="cell_line", dtype=bt.CellLine).save()
     preparation_date = ln.Feature(name="preparation_date", dtype="datetime").save()
     cell_line.dtype = "cat[bionty.CellLine]"  # might have previously been set to "cat"
@@ -67,14 +67,14 @@ def populate_sheets_compound_treatment():
     ln.models.RecordRecord(record=sample1, feature=treatment, value=treatment1).save()
     bt.models.RecordCellLine(record=sample1, feature=cell_line, cellline=hek293t).save()
     ln.models.RecordJson(
-        record=sample1, feature=preparation_date, value="2025-06-01T05:00:00Z"
+        record=sample1, feature=preparation_date, value="2025-06-01T05:00:00"
     ).save()
     # populate sample2
     sample2 = ln.Record(name="sample2", type=sample_sheet1).save()
     ln.models.RecordRecord(record=sample2, feature=treatment, value=treatment2).save()
     bt.models.RecordCellLine(record=sample2, feature=cell_line, cellline=hek293t).save()
     ln.models.RecordJson(
-        record=sample2, feature=preparation_date, value="2025-06-01T06:00:00Z"
+        record=sample2, feature=preparation_date, value="2025-06-01T06:00:00"
     ).save()
 
     # another sheet for samples
@@ -111,7 +111,7 @@ def populate_sheets_compound_treatment():
     sample_note.delete()
     sample2.delete()
     sample1.delete()
-    hek293t.delete()
+    # hek293t.delete()  # not for now
     sample_sheet1.delete()
     schema1.delete()
     preparation_date.delete()
