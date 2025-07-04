@@ -174,8 +174,9 @@ def populate_nextflow_sheet_with_samples():
             ln.Feature(name="fastq_1", dtype=str).save(),
             ln.Feature(name="fastq_2", dtype=str).save(),
             ln.Feature(name="expected_cells", dtype=int).save(),
-            ln.Feature(name="seq_center", dtype=str).save(),
+            ln.Feature(name="seq_center", dtype=str).save().with_config(optional=True),
         ],
+        ordered_set=True,
     ).save()
 
     nextflowsample_type = ln.Record(name="NextflowSample", is_type=True).save()

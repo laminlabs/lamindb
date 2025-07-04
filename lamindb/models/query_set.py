@@ -460,7 +460,9 @@ def analyze_lookup_cardinality(
     return result
 
 
-def reorder_subset_columns_in_df(df: pd.DataFrame, column_order: list[str], position=3):
+def reorder_subset_columns_in_df(
+    df: pd.DataFrame, column_order: list[str], position=3
+) -> pd.DataFrame:
     valid_columns = [col for col in column_order if col in df.columns]
     all_cols = df.columns.tolist()
     remaining_cols = [col for col in all_cols if col not in valid_columns]
