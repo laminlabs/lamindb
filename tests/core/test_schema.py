@@ -549,3 +549,10 @@ def test_schema_already_saved_aux():
 
     schema_2.delete()
     schema.delete()
+
+
+def test_schema_not_saved_describe():
+    schema = ln.Schema()
+    with pytest.raises(ValueError) as e:
+        schema.describe()
+    assert "Schema must be saved before describing" in str(e.value)
