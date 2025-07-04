@@ -311,6 +311,7 @@ def get_feature_annotate_kwargs(
         Artifact,
         Feature,
         Record,
+        RecordJson,
     )
 
     if registry not in {Artifact, Record}:
@@ -329,6 +330,12 @@ def get_feature_annotate_kwargs(
             )
             feature_names_for_link_model = links.values_list("feature__name", flat=True)
             feature_names += feature_names_for_link_model
+        if registry is Record:
+            # this request is not strictly necessary, but it makes the resulting reshaped
+            # dataframe consistent
+            feature_names += RecordJson.filter(record_id__in=ids_list).values_list(
+                "feature__name", flat=True
+            )
         features = list(set(feature_names))  # remove duplicates
 
     feature_qs = Feature.filter()
