@@ -96,7 +96,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Record-like composites of this record."""
     description: str | None = CharField(null=True)
     """A description (optional)."""
-    values_artifacts: Artifact = models.ManyToManyField(
+    linked_artifacts: Artifact = models.ManyToManyField(
         Artifact, through="RecordArtifact", related_name="linked_in_records"
     )
     """Linked artifacts."""
