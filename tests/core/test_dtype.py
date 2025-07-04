@@ -203,6 +203,19 @@ def test_nested_cat_dtypes():
     }
 
 
+def test_registry_with_filter():
+    dtype_str = "cat[bionty.Gene.ensembl_gene_id[source__id='abcd']]"
+    result = parse_dtype(dtype_str)
+    assert len(result) == 1
+    assert result[0] == {
+        "registry_str": "bionty.Gene",
+        "subtype_str": "source__id='abcd'",
+        "field_str": "ensembl_gene_id",
+        "registry": bt.Gene,
+        "field": bt.Gene.ensembl_gene_id,
+    }
+
+
 # -----------------------------------------------------------------------------
 # parsing django filter expressions
 # -----------------------------------------------------------------------------
@@ -228,6 +241,32 @@ def test_feature_dtype():
     }
 
     feature.delete()
+
+
+def test_cat_filters_incompatible_with_union_dtypes():
+    with pytest.raises(ValidationError) as exc_info:
+        ln.Feature(
+            name="test_feature",
+            dtype="cat[ULabel|bionty.CellType]",
+            cat_filters={"source": "test"},
+        )
+    assert (
+        "cat_filters are incompatible with union dtypes: 'cat[ULabel|bionty.CellType]'"
+        in str(exc_info.value)
+    )
+
+
+def test_cat_filters_incompatible_with_nested_dtypes():
+    with pytest.raises(ValidationError) as exc_info:
+        ln.Feature(
+            name="test_feature",
+            dtype="cat[ULabel[Customer[SubCustomer]]]",
+            cat_filters={"source": "test"},
+        )
+    assert (
+        "cat_filters are incompatible with nested dtypes: 'cat[ULabel[Customer[SubCustomer]]]'"
+        in str(exc_info.value)
+    )
 
 
 def test_parse_filter_string_basic():

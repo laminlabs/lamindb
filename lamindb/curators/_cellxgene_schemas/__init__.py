@@ -1,11 +1,16 @@
+from typing import Literal
+
 import pandas as pd
 from lamin_utils import logger
 from lamindb_setup.core.upath import UPath
 
 from lamindb.base.types import FieldAttr
-from lamindb.models import SQLRecord, ULabel
+from lamindb.models import Feature, Schema, SQLRecord, ULabel
 from lamindb.models._from_values import _format_values
 
+CELLxGENESchemaVersions = Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0"]
+
+# These names are reserved by the CELLxGENE Schema and are not allowed to be used as obs columns
 RESERVED_NAMES = {
     "ethnicity",
     "ethnicity_ontology_term_id",
@@ -35,7 +40,6 @@ def _get_cxg_categoricals() -> dict[str, FieldAttr]:
         "development_stage_ontology_term_id": bt.DevelopmentalStage.ontology_id,
         "disease": bt.Disease.name,
         "disease_ontology_term_id": bt.Disease.ontology_id,
-        # "donor_id": "str",  via pandera
         "self_reported_ethnicity": bt.Ethnicity.name,
         "self_reported_ethnicity_ontology_term_id": bt.Ethnicity.ontology_id,
         "sex": bt.Phenotype.name,
@@ -46,6 +50,7 @@ def _get_cxg_categoricals() -> dict[str, FieldAttr]:
         "tissue_type": ULabel.name,
         "organism": bt.Organism.name,
         "organism_ontology_term_id": bt.Organism.ontology_id,
+        "donor_id": str,
     }
 
 
@@ -110,10 +115,16 @@ def _create_sources(
                 name=row.source,
                 version=row.version,
             ).one_or_none()
+            # if the source was not found, we register it from bionty-assets
             if source is None:
-                logger.error(
-                    f"Could not find source: {entity}\n"
-                    "    → consider running `bionty.core.sync_public_sources()`"
+                source = getattr(bt, entity).add_source(
+                    bt.Source.using("laminlabs/bionty-assets")
+                    .get(
+                        entity=f"bionty.{entity}",
+                        version=row.version,
+                        organism=row.organism,
+                    )
+                    .save()
                 )
             return source
 
@@ -127,16 +138,23 @@ def _create_sources(
 
     key_to_source: dict[str, bt.Source] = {}
     for key, field in categoricals.items():
-        if field.field.model.__get_module_name__() == "bionty":
-            entity = field.field.model.__name__
-            key_to_source[key] = _fetch_bionty_source(entity, organism)
+        if hasattr(field, "field"):
+            if field.field.model.__get_module_name__() == "bionty":
+                entity = field.field.model.__name__
+                key_to_source[key] = _fetch_bionty_source(entity, organism)
+        else:
+            key_to_source[key] = field
     key_to_source["var_index"] = _fetch_bionty_source("Gene", organism)
 
     return key_to_source
 
 
 def _init_categoricals_additional_values() -> None:
-    """Add additional values from CellxGene schema to the DB."""
+    """Add additional values from CellxGene schema to the instance.
+
+    CELLxGENE schemas use specific (control) values that are not available
+    in the ontologies. Therefore, we save them to the instance.
+    """
     import bionty as bt
 
     # Note: if you add another control below, be mindful to change the if condition that
@@ -150,7 +168,7 @@ def _init_categoricals_additional_values() -> None:
         # "normal" in Disease
         normal = bt.Phenotype.from_source(
             ontology_id="PATO:0000461",
-            source=bt.Source.get(name="pato", version="2024-03-28"),
+            source=bt.Source.get(name="pato", currently_used=True),
         )
         bt.Disease(
             uid=normal.uid,
@@ -196,3 +214,51 @@ def _init_categoricals_additional_values() -> None:
             ULabel(
                 name=name, type=suspension_type, description="From CellxGene schema."
             ).save()
+
+
+def _get_cxg_schema(
+    schema_version: CELLxGENESchemaVersions, sources: dict[str, SQLRecord]
+) -> Schema:
+    """Generates a `~lamindb.Schema` for a specific CELLxGENE schema version."""
+    import bionty as bt
+
+    categoricals = _get_cxg_categoricals()
+
+    var_schema = Schema(
+        name=f"CELLxGENE var of version {schema_version}",
+        index=Feature(
+            name="var_index",
+            dtype=bt.Gene.ensembl_gene_id,
+            cat_filters={"source": sources["var_index"]},
+        ).save(),
+        itype=Feature,
+        dtype="DataFrame",
+        minimal_set=True,
+        coerce_dtype=True,
+    ).save()
+
+    obs_features = [
+        Feature(
+            name=field, dtype=categoricals[field], cat_filters={"source": source}
+        ).save()
+        for field, source in sources.items()
+        if field != "var_index"
+    ]
+
+    obs_schema = Schema(
+        name=f"CELLxGENE obs of version {schema_version}",
+        features=obs_features,
+        otype="DataFrame",
+        minimal_set=True,
+        coerce_dtype=True,
+    ).save()
+
+    full_cxg_schema = Schema(
+        name=f"CELLxGENE AnnData schema of version {schema_version}",
+        otype="AnnData",
+        minimal_set=True,
+        coerce_dtype=True,
+        slots={"var": var_schema, "obs": obs_schema},
+    ).save()
+
+    return full_cxg_schema

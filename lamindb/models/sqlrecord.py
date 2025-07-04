@@ -166,8 +166,31 @@ def update_attributes(record: SQLRecord, attributes: dict[str, str]):
     for key, value in attributes.items():
         if getattr(record, key) != value and value is not None:
             if key not in {"uid", "dtype", "otype", "hash"}:
-                logger.warning(f"updated {key} from {getattr(record, key)} to {value}")
-                setattr(record, key, value)
+                if key == "_aux":
+                    # Merge _aux fields instead of overwriting
+                    existing_aux = getattr(record, key) or {}
+                    if isinstance(value, dict) and isinstance(existing_aux, dict):
+                        # Deep merge af fields
+                        merged_aux = existing_aux.copy()
+                        if "af" in value and "af" in existing_aux:
+                            merged_aux["af"] = existing_aux["af"].copy()
+                            merged_aux["af"].update(value["af"])
+                        elif "af" in value:
+                            merged_aux["af"] = value["af"]
+                        logger.warning(
+                            f"updated {key} from {existing_aux} to {merged_aux}"
+                        )
+                        setattr(record, key, merged_aux)
+                    else:
+                        logger.warning(
+                            f"updated {key} from {getattr(record, key)} to {value}"
+                        )
+                        setattr(record, key, value)
+                else:
+                    logger.warning(
+                        f"updated {key} from {getattr(record, key)} to {value}"
+                    )
+                    setattr(record, key, value)
             else:
                 hash_message = (
                     "recomputing on .save()"

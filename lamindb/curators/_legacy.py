@@ -1317,7 +1317,7 @@ class TiledbsomaCatManager(CatManager):
 class CellxGeneAnnDataCatManager(AnnDataCatManager):
     """Categorical manager for `AnnData` respecting the CELLxGENE schema.
 
-    This will be superceded by a schema-based curation flow.
+    This will be superseded by a schema-based curation flow.
     """
 
     cxg_categoricals_defaults = {
@@ -1368,6 +1368,9 @@ class CellxGeneAnnDataCatManager(AnnDataCatManager):
         # Filter categoricals based on what's present in adata
         if categoricals is None:
             categoricals = self._get_cxg_categoricals()
+
+            # backwards compatibility
+            categoricals.pop("donor_id", None)
         categoricals = _restrict_obs_fields(adata.obs, categoricals)
 
         # Configure sources
@@ -1701,6 +1704,9 @@ class PertAnnDataCatManager(CellxGeneAnnDataCatManager):
             "cell_line": "unknown",
             "pert_target": "unknown",
         }
+
+        # backwards compatibility
+        categoricals.pop("donor_id", None)
 
         return categoricals, categoricals_defaults
 

@@ -16,7 +16,7 @@ from __future__ import annotations
 import copy
 import re
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Literal
 
 import lamindb_setup as ln_setup
 import numpy as np
@@ -26,6 +26,11 @@ from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 
 from lamindb.base.types import FieldAttr  # noqa
+from lamindb.curators._cellxgene_schemas import (
+    CELLxGENESchemaVersions,
+    _get_cxg_categoricals,
+    _get_cxg_schema,
+)
 from lamindb.models import (
     Artifact,
     Feature,
@@ -463,9 +468,11 @@ class DataFrameCurator(Curator):
         slot: str | None = None,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
+
         categoricals = []
         features = []
         feature_ids: set[int] = set()
+
         if schema.flexible:
             features += Feature.filter(name__in=self._dataset.keys()).list()
             feature_ids = {feature.id for feature in features}
@@ -488,6 +495,7 @@ class DataFrameCurator(Curator):
                 features.extend(schema_features)
         else:
             assert schema.itype is not None  # noqa: S101
+
         pandera_columns = {}
         if features or schema._index_feature_uid is not None:
             # populate features
@@ -540,11 +548,15 @@ class DataFrameCurator(Curator):
                     "list[cat["
                 ):
                     # validate categoricals if the column is required or if the column is present
-                    if required or feature.name in self._dataset.keys():
+                    # but exclude the index feature from column categoricals
+                    if (required or feature.name in self._dataset.keys()) and (
+                        schema._index_feature_uid is None
+                        or feature.uid != schema._index_feature_uid
+                    ):
                         categoricals.append(feature)
-            if schema._index_feature_uid is not None:
-                # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
-                # so, we're typing it as `str` here
+            # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
+            # so, we're typing it as `str` here
+            if schema.index is not None:
                 index = pandera.Index(
                     schema.index.dtype
                     if not schema.index.dtype.startswith("cat")
@@ -552,6 +564,7 @@ class DataFrameCurator(Curator):
                 )
             else:
                 index = None
+
             self._pandera_schema = pandera.DataFrameSchema(
                 pandera_columns,
                 coerce=schema.coerce_dtype,
@@ -982,6 +995,81 @@ class TiledbsomaExperimentCurator(SlotsCurator):
                 slots=self._slots,
             )
         self._columns_field = self._var_fields
+
+
+class CxGCurator(SlotsCurator):
+    """Curator for `AnnData` objects that should adhere to a specific CELLxGENE Schema version.
+
+    Args:
+        dataset: The AnnData-like object to validate & annotate.
+        schema_version: A CELLxGENE Schema version that defines the validation constraints.
+        organism: The organism of the Schema.
+        defaults: Default values that are set if columns or column values are missing.
+        extra_sources: A dictionary mapping ``.obs.columns`` to Source records.
+            These extra sources are joined with the CELLxGENE fixed sources.
+            Use this parameter when subclassing.
+
+    Example:
+
+        .. literalinclude:: scripts/curate_cxg.py
+            :language: python
+            :caption: curate_cxg.py
+    """
+
+    def __init__(
+        self,
+        dataset: AnnData | Artifact,
+        schema_version: CELLxGENESchemaVersions,
+        *,
+        organism: Literal["human", "mouse"] = "human",
+        defaults: dict[str, str] = None,
+        extra_sources: dict[str, SQLRecord] = None,
+    ) -> None:
+        from ._cellxgene_schemas import (
+            _add_defaults_to_obs,
+            _create_sources,
+            _init_categoricals_additional_values,
+            _restrict_obs_fields,
+        )
+
+        # Add defaults first to ensure that we fetch valid sources
+        if defaults:
+            _add_defaults_to_obs(dataset.obs, defaults)
+
+        # Filter categoricals based on what's present in the dataset
+        present_categoricals = _restrict_obs_fields(
+            dataset.obs, _get_cxg_categoricals()
+        )
+
+        sources = _create_sources(present_categoricals, schema_version, organism)
+        # These sources are not a part of the cellxgene schema but rather passed through.
+        # This is useful when other Curators extend the CELLxGENE curator
+        if extra_sources:
+            sources = sources | extra_sources
+        cxg_schema = _get_cxg_schema(schema_version, sources=sources).save()
+        super().__init__(dataset=dataset, schema=cxg_schema)
+
+        if not data_is_scversedatastructure(self._dataset, "AnnData"):
+            raise InvalidArgument("dataset must be AnnData-like.")
+
+        self.schema_version = schema_version
+        self.schema_reference = f"https://github.com/chanzuckerberg/single-cell-curation/blob/main/schema/{schema_version}/schema.md"
+
+        self._slots = {
+            slot: DataFrameCurator(
+                (
+                    getattr(self._dataset, slot.strip(".T")).T
+                    if slot == "var.T"
+                    else getattr(self._dataset, slot)
+                ),
+                slot_schema,
+                slot=slot,
+            )
+            for slot, slot_schema in cxg_schema.slots.items()
+            if slot in {"obs", "var", "var.T", "uns"}
+        }
+
+        _init_categoricals_additional_values()
 
 
 class CatVector:
