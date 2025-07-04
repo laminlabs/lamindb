@@ -421,7 +421,7 @@ class SchemaProject(BaseSQLRecord, IsLink, TracksRun):
 class RecordPerson(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_person")
-    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordperson")
+    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordperson")
     value: Person = ForeignKey(Person, PROTECT, related_name="links_record")
 
     class Meta:
@@ -432,7 +432,7 @@ class RecordReference(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_reference")
     feature: Feature = ForeignKey(
-        Feature, CASCADE, related_name="links_recordreference"
+        Feature, PROTECT, related_name="links_recordreference"
     )
     value: Reference = ForeignKey(Reference, PROTECT, related_name="links_record")
 
@@ -443,7 +443,7 @@ class RecordReference(BaseSQLRecord, IsLink):
 class RecordProject(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_project")
-    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordproject")
+    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordproject")
     value: Project = ForeignKey(Project, PROTECT, related_name="links_record")
 
     class Meta:
