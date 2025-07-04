@@ -27,7 +27,7 @@ from .ulabel import ULabel
 if TYPE_CHECKING:
     import pandas as pd
 
-    from .project import Project
+    from .project import Person, Project, Reference
     from .query_set import QuerySet
     from .schema import Schema
 
@@ -102,7 +102,9 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         Artifact, through="ArtifactRecord", related_name="records"
     )
     """Annotated artifacts."""
-    runs: Run = models.ManyToManyField(Run, through="RecordRun", related_name="records")
+    linked_runs: Run = models.ManyToManyField(
+        Run, through="RecordRun", related_name="records"
+    )
     """Linked runs."""
     run: Run | None = ForeignKey(
         Run,
@@ -121,8 +123,12 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         related_name="_records",  # in transition period
     )
     """Linked runs."""
-    projects: Project
+    linked_projects: Project
     """Linked projects."""
+    linked_references: Reference
+    """Linked references."""
+    linked_people: Person
+    """Linked people."""
 
     @overload
     def __init__(
