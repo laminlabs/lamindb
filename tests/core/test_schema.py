@@ -514,7 +514,7 @@ def test_schema_already_saved_aux():
 
     assert len(schema.slots["var"]._aux["af"].keys()) == 3
 
-    # Attempting to save the same schema again should return the Schema with the same
+    # Attempting to save the same schema again should return the Schema with the same `.aux` fields
     var_schema_2 = ln.Schema(
         name="CELLxGENE var",
         index=ln.Feature(
