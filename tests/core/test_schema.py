@@ -538,3 +538,6 @@ def test_schema_already_saved_aux():
 
     assert len(schema.slots["var"]._aux["af"].keys()) == 3
     assert schema.slots["var"]._aux == schema_2.slots["var"]._aux
+
+    schema_2.delete()
+    schema.delete()
