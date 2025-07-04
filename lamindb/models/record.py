@@ -167,8 +167,8 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         )
 
     @property
-    def is_sheet(self) -> bool:
-        """Check if record is a sheet."""
+    def is_form(self) -> bool:
+        """Check if record is a form."""
         return self.schema is not None and self.is_type
 
     def query_records(self) -> QuerySet:
