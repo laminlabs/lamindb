@@ -465,7 +465,7 @@ class Registry(ModelBase):
     def df(
         cls,
         include: str | list[str] | None = None,
-        features: bool | list[str] = False,
+        features: bool | list[str] | str = False,
         limit: int = 100,
     ) -> pd.DataFrame:
         """Convert to `pd.DataFrame`.
@@ -478,9 +478,11 @@ class Registry(ModelBase):
             include: Related fields to include as columns. Takes strings of
                 form `"ulabels__name"`, `"cell_types__name"`, etc. or a list
                 of such strings.
-            features: If `True`, map all features of the
-                :class:`~lamindb.Feature` registry onto the resulting
-                `DataFrame`. Only available for `Artifact`.
+            features: If a list of feature names, filters
+                :class:`~lamindb.Feature` down to these features.
+                If `True`, prints all features with dtypes in the core schema module.
+                If `"queryset"`, infers the features used within the set of artifacts or records.
+                Only available for `Artifact` and `Record`.
             limit: Maximum number of rows to display from a Pandas DataFrame.
                 Defaults to 100 to reduce database load.
 
@@ -547,8 +549,10 @@ class Registry(ModelBase):
         # we're in the default instance
         if instance is None or instance == "default":
             return QuerySet(model=cls, using=None)
+
         owner, name = get_owner_name_from_identifier(instance)
-        if [owner, name] == setup_settings.instance.slug.split("/"):
+        current_instance_owner_name: list[str] = setup_settings.instance.slug.split("/")
+        if [owner, name] == current_instance_owner_name:
             return QuerySet(model=cls, using=None)
 
         # move on to different instances
@@ -563,6 +567,9 @@ class Registry(ModelBase):
                     f"Failed to load instance {instance}, please check your permissions!"
                 )
             iresult, _ = result
+            # this can happen if querying via an old instance name
+            if [iresult.get("owner"), iresult["name"]] == current_instance_owner_name:
+                return QuerySet(model=cls, using=None)
             # do not use {} syntax below, it gives rise to a dict if the schema modules
             # are empty and then triggers a TypeError in missing_members = source_modules - target_modules
             source_modules = set(  # noqa

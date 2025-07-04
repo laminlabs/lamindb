@@ -10,6 +10,9 @@ ln.connect("laminlabs/lamin-dev")
 
 assert ln.setup.settings.instance.slug == "laminlabs/lamin-dev"
 
+# check that the rename resolves corretly
+assert ln.Artifact.using("laminlabs/lamin-dev1072025").db == "default"
+
 space_name = "Our test space for CI"
 ln.track(space=space_name)
 

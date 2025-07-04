@@ -199,8 +199,8 @@ class Run(SQLRecord):
         reference_type: `str | None = None` For instance, `redun_id`, `nextflow_id` or `url`.
 
     See Also:
-        :meth:`~lamindb.core.Context.track`
-            Track global runs & transforms for a notebook or script.
+        :func:`~lamindb.track`
+            Globally track a script or notebook run.
 
     Examples:
 

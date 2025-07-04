@@ -1,98 +1,99 @@
 import bionty as bt
 import lamindb as ln
 import pandas as pd
+from lamindb.examples.fixtures.sheets import (
+    populate_sheets_compound_treatment,  # noqa: F401
+)
 
 
-def test_record_example_compound_treatment():
-    # Compounds ---------------------------
+def test_record_example_compound_treatment(
+    populate_sheets_compound_treatment: tuple[ln.Record, ln.Record],  # noqa: F811
+):
+    treatments_sheet, sample_sheet1 = populate_sheets_compound_treatment
 
-    compound_type = ln.Record(name="Compound", is_type=True).save()
+    dictionary = (
+        ln.Record.filter(type=treatments_sheet)
+        .df()[["is_type", "name"]]
+        .to_dict(orient="list")
+    )
+    assert dictionary == {
+        "is_type": [
+            False,
+            False,
+        ],
+        "name": [
+            "treatment1",
+            "treatment2",
+        ],
+    }
 
-    # features for compounds
-    structure = ln.Feature(name="structure", dtype="str").save()
+    dictionary = (
+        ln.Record.filter(type=treatments_sheet)
+        .df(features=True)[["compound", "concentration", "name"]]
+        .to_dict(orient="list")
+    )
+    assert dictionary == {
+        "compound": [
+            "drug1",
+            "drug2",
+        ],
+        "concentration": [
+            "2nM",
+            "4nM",
+        ],
+        "name": [
+            "treatment1",
+            "treatment2",
+        ],
+    }
 
-    # drug1
-    drug1 = ln.Record(name="drug1", type=compound_type).save()
-    ln.models.RecordJson(record=drug1, feature=structure, value="12345").save()
-    # drug2
-    drug2 = ln.Record(name="drug2", type=compound_type).save()
-    ln.models.RecordJson(record=drug2, feature=structure, value="45678").save()
+    dictionary = (
+        ln.Record.filter(type=sample_sheet1)
+        .df(features=["cell_line", "treatment"])[["cell_line", "name", "treatment"]]
+        .to_dict(orient="list")
+    )
+    assert dictionary == {
+        "cell_line": [
+            "HEK293T cell",
+            "HEK293T cell",
+        ],
+        "name": [
+            "sample1",
+            "sample2",
+        ],
+        "treatment": [
+            "treatment1",
+            "treatment2",
+        ],
+    }
 
-    # Treatments ---------------------------
-
-    treatment_type = ln.Record(name="Treatment", is_type=True).save()
-
-    # features for treatments
-    compound = ln.Feature(name="compound", dtype=compound_type).save()
-    concentration = ln.Feature(name="concentration", dtype="num").save()
-    # a sheet for treatments
-    my_treatments = ln.Record(
-        name="My treatments 2025-05", type=treatment_type
-    ).save()  # sheet without schema
-
-    # populate treatment1
-    treatment1 = ln.Record(name="drug1", type=my_treatments).save()
-    ln.models.RecordRecord(record=treatment1, feature=compound, value=drug1).save()
-    assert drug1 in treatment1.components.all()
-    assert treatment1 in drug1.composites.all()
-    ln.models.RecordJson(record=treatment1, feature=concentration, value="2nM").save()
-    # populate treatment2
-    treatment2 = ln.Record(name="drug2", type=my_treatments).save()
-    ln.models.RecordRecord(record=treatment2, feature=compound, value=drug2).save()
-    ln.models.RecordJson(record=treatment2, feature=concentration, value="4nM").save()
-
-    # Samples ---------------------------
-
-    sample_type = ln.Record(name="BioSample", is_type=True).save()
-
-    # features for samples
-    treatment = ln.Feature(name="treatment", dtype=compound_type).save()
-    cell_line = ln.Feature(name="cell_line", dtype=bt.CellLine).save()
-    schema = ln.Schema(
-        name="My samples schema 2025-05", features=[treatment, cell_line]
-    ).save()
-    # a sheet for samples
-    sheet1 = ln.Record(
-        name="My samples 2025-05", schema=schema, type=sample_type
-    ).save()
-    # values for cell lines
-    hek293t = bt.CellLine.from_source(name="HEK293T").save()
-
-    # populate sample1
-    sample1 = ln.Record(name="sample1", type=sheet1).save()
-    ln.models.RecordRecord(record=sample1, feature=treatment, value=treatment1).save()
-    bt.models.RecordCellLine(
-        record=sample1, feature=cell_line, cellline=hek293t
-    ).save()  # parallel to ArtifactCellLine
-    # populate sample2
-    sample2 = ln.Record(name="sample2", type=sheet1).save()
-    ln.models.RecordRecord(record=sample2, feature=treatment, value=treatment2).save()
-    bt.models.RecordCellLine(
-        record=sample2, feature=cell_line, cellline=hek293t
-    ).save()  # parallel to ArtifactCellLine
-
-    # another sheet for samples
-    sample_note = ln.Feature(name="sample_note", dtype="str").save()
-    schema2 = ln.Schema(
-        name="My samples schema 2025-06",
-        features=[treatment, cell_line, sample_note],
-    ).save()
-    # the sheet
-    sheet2 = ln.Record(
-        name="My samples 2025-06", schema=schema2, type=sample_type
-    ).save()
-    # populate sample3
-    sample3 = ln.Record(type=sheet2).save()  # no name
-    ln.models.RecordRecord(record=sample3, feature=treatment, value=treatment1).save()
-    bt.models.RecordCellLine(
-        record=sample3, feature=cell_line, cellline=hek293t
-    ).save()  # parallel to ArtifactCellLine
-    # populate sample4
-    sample4 = ln.Record(type=sheet2).save()
-    ln.models.RecordRecord(record=sample4, feature=treatment, value=treatment2).save()
-    bt.models.RecordCellLine(
-        record=sample4, feature=cell_line, cellline=hek293t
-    ).save()  # parallel to ArtifactCellLine
+    dictionary = (
+        ln.Record.filter(type=sample_sheet1)
+        .df(features="queryset")[["cell_line", "name", "treatment", "preparation_date"]]
+        .to_dict(orient="list")
+    )
+    assert dictionary == {
+        "cell_line": [
+            "HEK293T cell",
+            "HEK293T cell",
+        ],
+        "name": [
+            "sample1",
+            "sample2",
+        ],
+        "preparation_date": [
+            {
+                "2025-06-01T05:00:00Z",
+            },
+            {
+                "2025-06-01T06:00:00Z",
+            },
+        ],
+        "treatment": [
+            "treatment1",
+            "treatment2",
+        ],
+    }
 
 
 def test_record_nextflow_samples():
@@ -185,7 +186,3 @@ def test_record_nextflow_samples():
         ln.models.RecordJson(
             record=sample, feature=features.expected_cells, value=row["expected_cells"]
         ).save()
-
-
-if __name__ == "__main__":
-    test_record_example_compound_treatment()

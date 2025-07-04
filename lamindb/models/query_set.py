@@ -19,7 +19,7 @@ from ..errors import DoesNotExist
 from ._is_versioned import IsVersioned
 from .can_curate import CanCurate, _inspect, _standardize, _validate
 from .query_manager import _lookup, _search
-from .sqlrecord import SQLRecord
+from .sqlrecord import Registry, SQLRecord
 
 if TYPE_CHECKING:
     from lamindb.base.types import ListLike, StrField
@@ -260,7 +260,7 @@ class SQLRecordList(UserList, Generic[T]):
 def get_basic_field_names(
     qs: QuerySet,
     include: list[str],
-    features_input: bool | list[str],
+    features_input: bool | list[str] | str,
 ) -> list[str]:
     exclude_field_names = ["updated_at"]
     field_names = [
@@ -303,12 +303,33 @@ def get_basic_field_names(
 
 
 def get_feature_annotate_kwargs(
-    features: bool | list[str] | None,
+    registry: Registry,
+    features: bool | list[str] | str | None,
+    qs: QuerySet | None = None,
 ) -> tuple[dict[str, Any], list[str], QuerySet]:
     from lamindb.models import (
         Artifact,
         Feature,
+        Record,
     )
+
+    if registry not in {Artifact, Record}:
+        raise ValueError(
+            f"features=True is only applicable for Artifact and Record, not {registry.__name__}"
+        )
+
+    if features == "queryset":
+        ids_list = qs.values_list("id", flat=True)
+        feature_names = []
+        for obj in registry._meta.related_objects:
+            if not hasattr(getattr(registry, obj.related_name), "through"):
+                continue
+            links = getattr(registry, obj.related_name).through.filter(
+                **{registry.__name__.lower() + "_id__in": ids_list}
+            )
+            feature_names_for_link_model = links.values_list("feature__name", flat=True)
+            feature_names += feature_names_for_link_model
+        features = list(set(feature_names))  # remove duplicates
 
     feature_qs = Feature.filter()
     if isinstance(features, list):
@@ -316,11 +337,13 @@ def get_feature_annotate_kwargs(
         feature_names = features
     else:  # features is True -- only consider categorical features from ULabel and non-categorical features
         feature_qs = feature_qs.filter(
-            Q(~Q(dtype__startswith="cat[")) | Q(dtype__startswith="cat[ULabel")
+            Q(~Q(dtype__startswith="cat["))
+            | Q(dtype__startswith="cat[ULabel")
+            | Q(dtype__startswith="cat[Record")
         )
         feature_names = feature_qs.list("name")
         logger.important(
-            f"queried for all categorical features with dtype 'cat[ULabel...'] and non-categorical features: ({len(feature_names)}) {feature_names}"
+            f"queried for all categorical features with dtype ULabel or Record and non-categorical features: ({len(feature_names)}) {feature_names}"
         )
     # Get the categorical features
     cat_feature_types = {
@@ -331,18 +354,28 @@ def get_feature_annotate_kwargs(
     # Get relationships of labels and features
     link_models_on_models = {
         getattr(
-            Artifact, obj.related_name
+            registry, obj.related_name
         ).through.__get_name_with_module__(): obj.related_model.__get_name_with_module__()
-        for obj in Artifact._meta.related_objects
+        for obj in registry._meta.related_objects
         if obj.related_model.__get_name_with_module__() in cat_feature_types
     }
-    link_models_on_models["ArtifactULabel"] = "ULabel"
+    if registry is Artifact:
+        link_models_on_models["ArtifactULabel"] = "ULabel"
+    else:
+        link_models_on_models["RecordRecord"] = "Record"
     link_attributes_on_models = {
         obj.related_name: link_models_on_models[
             obj.related_model.__get_name_with_module__()
         ]
-        for obj in Artifact._meta.related_objects
-        if obj.related_model.__get_name_with_module__() in link_models_on_models
+        for obj in registry._meta.related_objects
+        if (
+            obj.related_model.__get_name_with_module__() in link_models_on_models
+            and (
+                not obj.related_name.startswith("links_record")
+                if registry is Record
+                else True
+            )
+        )
     }
     # Prepare Django's annotate for features
     annotate_kwargs = {}
@@ -350,17 +383,22 @@ def get_feature_annotate_kwargs(
         annotate_kwargs[f"{link_attr}__feature__name"] = F(
             f"{link_attr}__feature__name"
         )
-        field_name = (
-            feature_type.split(".")[1] if "." in feature_type else feature_type
-        ).lower()
+        if registry is Artifact or feature_type.startswith("bionty."):
+            field_name = (
+                feature_type.split(".")[1] if "." in feature_type else feature_type
+            ).lower()
+        else:
+            field_name = "value"
         annotate_kwargs[f"{link_attr}__{field_name}__name"] = F(
             f"{link_attr}__{field_name}__name"
         )
-
-    annotate_kwargs["_feature_values__feature__name"] = F(
-        "_feature_values__feature__name"
+    json_values_attribute = "_feature_values" if registry is Artifact else "values_json"
+    annotate_kwargs[f"{json_values_attribute}__feature__name"] = F(
+        f"{json_values_attribute}__feature__name"
     )
-    annotate_kwargs["_feature_values__value"] = F("_feature_values__value")
+    annotate_kwargs[f"{json_values_attribute}__value"] = F(
+        f"{json_values_attribute}__value"
+    )
     return annotate_kwargs, feature_names, feature_qs
 
 
@@ -426,6 +464,7 @@ def reorder_subset_columns_in_df(df: pd.DataFrame, column_order: list[str], posi
 # https://lamin.ai/laminlabs/lamindata/transform/BblTiuKxsb2g0003
 # https://claude.ai/chat/6ea2498c-944d-4e7a-af08-29e5ddf637d2
 def reshape_annotate_result(
+    registry: Registry,
     df: pd.DataFrame,
     field_names: list[str],
     cols_from_include: dict[str, str] | None,
@@ -441,29 +480,38 @@ def reshape_annotate_result(
             e.g., {'ulabels__name': 'many', 'created_by__name': 'one'}
         feature_names: Feature names.
     """
+    from lamindb.models import Artifact
+
     cols_from_include = cols_from_include or {}
+
+    json_values_attribute = "_feature_values" if registry is Artifact else "values_json"
 
     # initialize result with basic fields, need a copy as we're modifying it
     # will give us warnings otherwise
     result = df[field_names].copy()
     # process features if requested
     if feature_names:
-        # handle feature_values
-        feature_cols = ["_feature_values__feature__name", "_feature_values__value"]
+        # handle json values
+        feature_cols = [
+            f"{json_values_attribute}__feature__name",
+            f"{json_values_attribute}__value",
+        ]
         if all(col in df.columns for col in feature_cols):
             # Create two separate dataframes - one for dict values and one for non-dict values
-            is_dict = df["_feature_values__value"].apply(lambda x: isinstance(x, dict))
+            is_dict = df[f"{json_values_attribute}__value"].apply(
+                lambda x: isinstance(x, dict)
+            )
             dict_df, non_dict_df = df[is_dict], df[~is_dict]
 
             # Process non-dict values using set aggregation
             non_dict_features = non_dict_df.groupby(
-                ["id", "_feature_values__feature__name"]
-            )["_feature_values__value"].agg(set)
+                ["id", f"{json_values_attribute}__feature__name"]
+            )[f"{json_values_attribute}__value"].agg(set)
 
             # Process dict values using first aggregation
-            dict_features = dict_df.groupby(["id", "_feature_values__feature__name"])[
-                "_feature_values__value"
-            ].agg("first")
+            dict_features = dict_df.groupby(
+                ["id", f"{json_values_attribute}__feature__name"]
+            )[f"{json_values_attribute}__value"].agg("first")
 
             # Combine the results
             combined_features = pd.concat([non_dict_features, dict_features])
@@ -477,10 +525,11 @@ def reshape_annotate_result(
                 )
 
         # handle categorical features
+        links_prefix = "links_" if registry is Artifact else ("links_", "values_")
         links_features = [
             col
             for col in df.columns
-            if "feature__name" in col and col.startswith("links_")
+            if "feature__name" in col and col.startswith(links_prefix)
         ]
 
         if links_features:
@@ -523,12 +572,14 @@ def process_links_features(
     """Process links_XXX feature columns."""
     # this loops over different entities that might be linked under a feature
     for feature_col in feature_cols:
-        prefix = re.match(r"links_(.+?)__feature__name", feature_col).group(1)
+        links_attribute = "links_" if feature_col.startswith("links_") else "values_"
+        regex = f"{links_attribute}(.+?)__feature__name"
+        prefix = re.match(regex, feature_col).group(1)
 
         value_cols = [
             col
             for col in df.columns
-            if col.startswith(f"links_{prefix}__")
+            if col.startswith(f"{links_attribute}{prefix}__")
             and col.endswith("__name")
             and "feature__name" not in col
         ]
@@ -601,7 +652,7 @@ class BasicQuerySet(models.QuerySet):
     def df(
         self,
         include: str | list[str] | None = None,
-        features: bool | list[str] | None = None,
+        features: bool | list[str] | str | None = None,
     ) -> pd.DataFrame:
         """{}"""  # noqa: D415
         time = datetime.now(timezone.utc)
@@ -620,7 +671,7 @@ class BasicQuerySet(models.QuerySet):
         feature_qs = None
         if features:
             feature_annotate_kwargs, feature_names, feature_qs = (
-                get_feature_annotate_kwargs(features)
+                get_feature_annotate_kwargs(self.model, features, self)
             )
             time = logger.debug("finished feature_annotate_kwargs", time=time)
             annotate_kwargs.update(feature_annotate_kwargs)
@@ -655,7 +706,7 @@ class BasicQuerySet(models.QuerySet):
         cols_from_include = analyze_lookup_cardinality(self.model, include_input)  # type: ignore
         time = logger.debug("finished analyze_lookup_cardinality", time=time)
         df_reshaped = reshape_annotate_result(
-            df, field_names, cols_from_include, feature_names, feature_qs
+            self.model, df, field_names, cols_from_include, feature_names, feature_qs
         )
         time = logger.debug("finished reshape_annotate_result", time=time)
         pk_name = self.model._meta.pk.name
