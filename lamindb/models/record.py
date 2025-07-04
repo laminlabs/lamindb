@@ -18,12 +18,14 @@ from ..base.ids import base62_16
 from .artifact import Artifact
 from .can_curate import CanCurate
 from .feature import Feature
+from .has_parents import _query_relatives
 from .run import Run, TracksRun, TracksUpdates
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, _get_record_kwargs
 from .ulabel import ULabel
 
 if TYPE_CHECKING:
     from .project import Project
+    from .query_set import QuerySet
     from .schema import Schema
 
 
@@ -168,6 +170,10 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     def is_sheet(self) -> bool:
         """Check if record is a sheet."""
         return self.schema is not None and self.is_type
+
+    def query_records(self) -> QuerySet:
+        """Query children in an ontology."""
+        return _query_relatives([self], "records", self.__class__)  # type: ignore
 
 
 class RecordJson(BaseSQLRecord, IsLink):
