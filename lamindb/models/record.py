@@ -171,8 +171,12 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         """Check if record is a form (a sheet with a validating schema)."""
         return self.schema is not None and self.is_type
 
-    def query_records(self) -> QuerySet:
-        """Query children in an ontology."""
+    def query_children(self) -> QuerySet:
+        """Query all children of a record type recursively.
+
+        While `.records` retrieves the direct children, this method
+        retrieves all descendants of a record type.
+        """
         return _query_relatives([self], "records", self.__class__)  # type: ignore
 
 
