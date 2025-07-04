@@ -231,7 +231,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 class RecordJson(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_json")
-    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordjson")
+    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordjson")
     value: Any = JSONField(default=None, db_default=None)
 
     class Meta:
@@ -243,7 +243,7 @@ class RecordRecord(SQLRecord, IsLink):
     record: Record = ForeignKey(
         Record, CASCADE, related_name="values_record"
     )  # composite
-    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordrecord")
+    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordrecord")
     value: Record = ForeignKey(
         Record, PROTECT, related_name="links_record"
     )  # component
@@ -255,7 +255,7 @@ class RecordRecord(SQLRecord, IsLink):
 class RecordULabel(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_ulabel")
-    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordulabel")
+    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordulabel")
     value: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_record")
 
     class Meta:
@@ -266,7 +266,7 @@ class RecordULabel(BaseSQLRecord, IsLink):
 class RecordRun(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_run")
-    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordrun")
+    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordrun")
     value: Run = ForeignKey(Run, PROTECT, related_name="links_record")
 
     class Meta:
@@ -277,7 +277,7 @@ class RecordRun(BaseSQLRecord, IsLink):
 class RecordArtifact(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_artifact")
-    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordartifact")
+    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordartifact")
     value: Artifact = ForeignKey(
         Artifact, PROTECT, related_name="links_linked_in_record"
     )
