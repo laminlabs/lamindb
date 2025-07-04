@@ -3,7 +3,6 @@ from lamindb.examples.fixtures.sheets import (
     populate_nextflow_sheet_with_samples,  # noqa: F401
     populate_sheets_compound_treatment,  # noqa: F401
 )
-from lamindb.models.query_set import reorder_subset_columns_in_df
 
 
 def test_record_example_compound_treatment(
@@ -100,7 +99,7 @@ def test_nextflow_sheet_with_samples(
     # and that the data is correctly populated in the database.
     nextflow_sheet = populate_nextflow_sheet_with_samples
 
-    df = ln.Record.filter(type=nextflow_sheet).df(features="queryset")
+    df = nextflow_sheet.to_pandas()
 
     assert df[["expected_cells", "fastq_1", "fastq_2", "sample", "name"]].to_dict(
         orient="list"
@@ -131,19 +130,6 @@ def test_nextflow_sheet_with_samples(
             "Sample_Y",
         ],
     }
-    if nextflow_sheet.schema.ordered_set:
-        desired_order = nextflow_sheet.schema.features.list("name")
-        df = reorder_subset_columns_in_df(df, desired_order, position=0)
 
-    type_uid = nextflow_sheet.uid
-    file_suffix = ".csv"
-    sheet = ln.Record.get(type_uid)
-    key = f"sheet_exports/{type_uid}{file_suffix}"
-    description = f": {sheet.description}" if sheet.description is not None else ""
-    ln.Artifact.from_df(
-        df,
-        key=key,
-        description=f"{sheet.name}{description}",
-        schema=sheet.schema,
-        format=".csv" if key.endswith(".csv") else None,
-    ).save()
+    artifact = nextflow_sheet.to_artifact()
+    assert artifact._state.adding is False

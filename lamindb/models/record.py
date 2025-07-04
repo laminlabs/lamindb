@@ -19,18 +19,23 @@ from .artifact import Artifact
 from .can_curate import CanCurate
 from .feature import Feature
 from .has_parents import _query_relatives
+from .query_set import reorder_subset_columns_in_df
 from .run import Run, TracksRun, TracksUpdates
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, _get_record_kwargs
 from .ulabel import ULabel
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from .project import Project
     from .query_set import QuerySet
     from .schema import Schema
 
 
 class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
-    """Flexible records to register, e.g., samples, donors, cells, compounds, sequences.
+    """Flexible records as you find them in Excel-like sheets.
+
+    Useful register, e.g., samples, donors, cells, compounds, sequences.
 
     This is currently more convenient to use through the UI.
 
@@ -178,6 +183,30 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         retrieves all descendants of a record type.
         """
         return _query_relatives([self], "records", self.__class__)  # type: ignore
+
+    def to_pandas(self) -> pd.DataFrame:
+        """Export all children of a record type recursively to a pandas DataFrame."""
+        assert self.is_type, "Only types can be exported as dataframes"  # noqa: S101
+        df = self.query_children().df(features="queryset")
+        if self.schema is not None:
+            desired_order = self.schema.features.list("name")
+            df = reorder_subset_columns_in_df(df, desired_order, position=0)
+        return df
+
+    def to_artifact(self, key: str = None) -> Artifact:
+        """Export all children of a record type as a `.csv` artifact."""
+        assert self.is_type, "Only types can be exported as artifacts"  # noqa: S101
+        if key is None:
+            file_suffix = ".csv"
+            key = f"sheet_exports/{self.uid}{file_suffix}"
+        description = f": {self.description}" if self.description is not None else ""
+        return Artifact.from_df(
+            self.to_pandas(),
+            key=key,
+            description=f"{self.name}{description}",
+            schema=self.schema,
+            format=".csv" if key.endswith(".csv") else None,
+        ).save()
 
 
 class RecordJson(BaseSQLRecord, IsLink):
