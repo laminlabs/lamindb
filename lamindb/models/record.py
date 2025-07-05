@@ -22,6 +22,7 @@ from .has_parents import _query_relatives
 from .query_set import reorder_subset_columns_in_df
 from .run import Run, TracksRun, TracksUpdates
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, _get_record_kwargs
+from .transform import Transform
 from .ulabel import ULabel
 
 if TYPE_CHECKING:
@@ -216,6 +217,8 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
     def to_artifact(self, key: str = None) -> Artifact:
         """Export all children of a record type as a `.csv` artifact."""
+        from lamindb.core._context import context
+
         assert self.is_type, "Only types can be exported as artifacts"  # noqa: S101
         if key is None:
             file_suffix = ".csv"
@@ -223,12 +226,16 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         description = f": {self.description}" if self.description is not None else ""
         format: dict[str, Any] = {"suffix": ".csv"} if key.endswith(".csv") else {}
         format["index"] = False
+        transform, _ = Transform.objects.get_or_create(key="__lamindb_record_export__")
+        run = Run(transform, initiated_by_run=context.run).save()
+        run.input_records.add(self)
         return Artifact.from_df(
             self.to_pandas(),
             key=key,
             description=f"{self.name}{description}",
             schema=self.schema,
             format=format,
+            run=run,
         ).save()
 
 
