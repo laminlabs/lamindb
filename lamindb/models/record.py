@@ -230,7 +230,9 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         description = f": {self.description}" if self.description is not None else ""
         format: dict[str, Any] = {"suffix": ".csv"} if key.endswith(".csv") else {}
         format["index"] = False
-        transform, _ = Transform.objects.get_or_create(key="__lamindb_record_export__")
+        transform, _ = Transform.objects.get_or_create(
+            key="__lamindb_record_export__", type="function"
+        )
         run = Run(transform, initiated_by_run=context.run).save()
         run.input_records.add(self)
         return Artifact.from_df(
