@@ -102,7 +102,7 @@ treatment1,HEK293T cell,2025-06-01 05:00:00""")
     assert artifact._state.adding is False
     assert ln.models.ArtifactRecord.filter(artifact=artifact).count() == 2
     assert (
-        str(artifact.features)
+        artifact.features.describe(return_str=True)
         == """\
 Artifact .csv/DataFrame
 └── Dataset features

@@ -734,16 +734,16 @@ def test_spatialdata_curator(
         == """Artifact .zarr/SpatialData
 └── Dataset features
     ├── attrs:bio • 2       [Feature]
-    │   developmental_sta…  cat[bionty.Devel…  adult stage
-    │   disease             cat[bionty.Disea…  Alzheimer disease
+    │   developmental_sta…  cat[bionty.Developmen…  adult stage
+    │   disease             cat[bionty.Disease]     Alzheimer disease
     ├── attrs:tech • 1      [Feature]
-    │   assay               cat[bionty.Exper…  Visium Spatial Gene Expression
+    │   assay               cat[bionty.Experiment…  Visium Spatial Gene Express…
     ├── attrs • 2           [Feature]
     │   bio                 dict
     │   tech                dict
     ├── tables:table:obs …  [Feature]
     │   sample_region       str
-    └── tables:table:var.…  [bionty.Gene.ens…
+    └── tables:table:var.…  [bionty.Gene.ensembl_…
         BRCA2               num
         BRAF                num"""
     )
