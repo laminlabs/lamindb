@@ -116,50 +116,76 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
 
     # add general information (order is the same as in API docs)
     general = tree.add(Text("General", style="bold bright_cyan"))
-    general.add(f".uid = '{self.uid}'")
-    if hasattr(self, "key") and self.key:
-        general.add(f".key = '{self.key}'")
-    if hasattr(self, "size") and self.size:
-        general.add(f".size = {self.size}")
-    if hasattr(self, "hash") and self.hash:
-        general.add(f".hash = '{self.hash}'")
-    if hasattr(self, "n_files") and self.n_files:
-        general.add(f".n_files = {self.n_files}")
-    if hasattr(self, "n_observations") and self.n_observations:
-        general.add(Text(f".n_observations = {self.n_observations}"))
-    if hasattr(self, "version") and self.version:
-        general.add(Text(f".version = '{self.version}'"))
 
+    # Two column items (short content)
+    two_column_items = []
+
+    two_column_items.append(f"uid: '{self.uid}'")
+    if hasattr(self, "hash") and self.hash:
+        two_column_items.append(f"hash: '{self.hash}'")
+    if hasattr(self, "size") and self.size:
+        two_column_items.append(f"size: {self.size}")
+    if hasattr(self, "n_files") and self.n_files:
+        two_column_items.append(f"n_files: {self.n_files}")
+    if hasattr(self, "n_observations") and self.n_observations:
+        two_column_items.append(f"n_observations: {self.n_observations}")
+    if hasattr(self, "version") and self.version:
+        two_column_items.append(f"version: '{self.version}'")
+    if hasattr(self, "space") and self.space.name != "All":
+        two_column_items.append(f"space: '{self.space.name}'")
+    if hasattr(self, "branch") and self.branch.name != "Main":
+        two_column_items.append(f"branch: '{self.branch.name}'")
+    if hasattr(self, "created_at") and self.created_at:
+        two_column_items.append(
+            Text.assemble("created_at: ", highlight_time(str(self.created_at)))
+        )
+
+    # Add two-column items in pairs
+    for i in range(0, len(two_column_items), 2):
+        if i + 1 < len(two_column_items):
+            # Two items side by side
+            left_item = two_column_items[i]
+            right_item = two_column_items[i + 1]
+
+            # Handle both string and Text objects
+            if isinstance(left_item, str):
+                left_padded = left_item.ljust(35)
+            else:
+                left_padded = left_item
+
+            general.add(Text.assemble(left_padded, right_item))
+        else:
+            # Single item (odd number)
+            general.add(two_column_items[i])
+
+    # Single column items (long content)
+    if hasattr(self, "key") and self.key:
+        general.add(f"key: '{self.key}'")
     if hasattr(self, "storage"):
         storage_root = self.storage.root
-        # general.add(f".storage = {storage_root}")
         general.add(
             Text.assemble(
-                ".path = ",
+                "storage path: ",
                 (storage_root, "dim"),
                 f"{str(self.path).removeprefix(storage_root)}",
+            )
+        )
+    if hasattr(self, "transform") and self.transform is not None:
+        general.add(
+            Text(
+                f"transform: '{self.transform.key}'",
+                style="cyan3",
             )
         )
     if hasattr(self, "created_by") and self.created_by:
         general.add(
             Text.assemble(
-                ".created_by = ",
+                "created_by: ",
                 (
                     self.created_by.handle
                     if self.created_by.name is None
                     else f"{self.created_by.handle} ({self.created_by.name})"
                 ),
-            )
-        )
-    if hasattr(self, "created_at") and self.created_at:
-        general.add(
-            Text.assemble(".created_at = ", highlight_time(str(self.created_at)))
-        )
-    if hasattr(self, "transform") and self.transform:
-        general.add(
-            Text(
-                f".transform = '{self.transform.description}'",
-                style="cyan3",
             )
         )
 
