@@ -92,7 +92,7 @@ def test_record_example_compound_treatment(
 
     # this sheet does not have a schema!
     artifact = sample_sheet1.to_artifact()
-    assert sample_sheet1.schema.featurs.list("name") == [
+    assert sample_sheet1.schema.features.list("name") == [
         "treatment",
         "cell_line",
         "preparation_date",

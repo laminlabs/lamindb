@@ -56,6 +56,11 @@ def populate_sheets_compound_treatment():
         name="My samples schema 2025-06",
         features=[treatment, cell_line, preparation_date],
     ).save()
+    assert schema1.features.list("name") == [  # noqa: S101
+        "treatment",
+        "cell_line",
+        "preparation_date",
+    ]
     sample_sheet1 = ln.Record(
         name="My samples 2025-06", schema=schema1, type=sample_type
     ).save()
