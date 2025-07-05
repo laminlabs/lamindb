@@ -65,14 +65,14 @@ def populate_sheets_compound_treatment():
     # populate sample1
     sample1 = ln.Record(name="sample1", type=sample_sheet1).save()
     ln.models.RecordRecord(record=sample1, feature=treatment, value=treatment1).save()
-    bt.models.RecordCellLine(record=sample1, feature=cell_line, cellline=hek293t).save()
+    bt.models.RecordCellLine(record=sample1, feature=cell_line, value=hek293t).save()
     ln.models.RecordJson(
         record=sample1, feature=preparation_date, value="2025-06-01T05:00:00"
     ).save()
     # populate sample2
     sample2 = ln.Record(name="sample2", type=sample_sheet1).save()
     ln.models.RecordRecord(record=sample2, feature=treatment, value=treatment2).save()
-    bt.models.RecordCellLine(record=sample2, feature=cell_line, cellline=hek293t).save()
+    bt.models.RecordCellLine(record=sample2, feature=cell_line, value=hek293t).save()
     ln.models.RecordJson(
         record=sample2, feature=preparation_date, value="2025-06-01T06:00:00"
     ).save()
@@ -90,14 +90,14 @@ def populate_sheets_compound_treatment():
     # populate sample3
     sample3 = ln.Record(type=sample_sheet2).save()  # no name
     ln.models.RecordRecord(record=sample3, feature=treatment, value=treatment1).save()
-    bt.models.RecordCellLine(record=sample3, feature=cell_line, cellline=hek293t).save()
+    bt.models.RecordCellLine(record=sample3, feature=cell_line, value=hek293t).save()
     ln.models.RecordJson(
         record=sample3, feature=preparation_date, value="2025-06-02T05:00:00Z"
     ).save()
     # populate sample4
     sample4 = ln.Record(type=sample_sheet2).save()
     ln.models.RecordRecord(record=sample4, feature=treatment, value=treatment2).save()
-    bt.models.RecordCellLine(record=sample4, feature=cell_line, cellline=hek293t).save()
+    bt.models.RecordCellLine(record=sample4, feature=cell_line, value=hek293t).save()
     ln.models.RecordJson(
         record=sample4, feature=preparation_date, value="2025-06-02T06:00:00Z"
     ).save()

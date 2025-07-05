@@ -68,15 +68,15 @@ def test_record_example_compound_treatment(
     }
 
     df = sample_sheet1.to_pandas()
-    dictionary = df[["cell_line", "name", "treatment", "preparation_date"]].to_dict(
-        orient="list"
-    )
+    dictionary = df[
+        ["cell_line", "__lamindb_record_name__", "treatment", "preparation_date"]
+    ].to_dict(orient="list")
     assert dictionary == {
         "cell_line": [
             "HEK293T cell",
             "HEK293T cell",
         ],
-        "name": [
+        "__lamindb_record_name__": [
             "sample1",
             "sample2",
         ],
@@ -91,8 +91,26 @@ def test_record_example_compound_treatment(
     }
 
     artifact = sample_sheet1.to_artifact()
+    print(artifact.path.read_text())
+    # looks something like this:
+    # treatment,cell_line,preparation_date,__lamindb_record_uid__,__lamindb_record_name__
+    # treatment1,HEK293T cell,2025-06-01 05:00:00,iCwgKgZELoLtIoGy,sample1
+    # treatment2,HEK293T cell,2025-06-01 06:00:00,qvU9m7VF6fSdsqJs,sample2
+    assert artifact.path.read_text().startswith("""\
+treatment,cell_line,preparation_date,__lamindb_record_uid__,__lamindb_record_name__
+treatment1,HEK293T cell,2025-06-01 05:00:00""")
     assert artifact._state.adding is False
     assert ln.models.ArtifactRecord.filter(artifact=artifact).count() == 2
+    assert (
+        str(artifact.features)
+        == """\
+Artifact .csv/DataFrame
+└── Dataset features
+    └── columns • 3         [Feature]
+        cell_line           cat[bionty.CellLine]    HEK293T cell
+        treatment           cat[Record[Treatment]]  treatment1, treatment2
+        preparation_date    datetime"""
+    )
     artifact.delete(permanent=True)
 
 

@@ -282,7 +282,11 @@ def process_data(
         from lamindb import settings
 
         path = settings.cache_dir / f"{provisional_uid}{suffix}"
-        write_to_disk(data, path)
+        if isinstance(format, dict):
+            format.pop("suffix", None)
+        else:
+            format = {}
+        write_to_disk(data, path, **format)
         use_existing_storage_key = False
 
     return memory_rep, path, suffix, storage, use_existing_storage_key
