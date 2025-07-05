@@ -154,11 +154,11 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
         two_column_items.append(
             Text.assemble(("version: ", "dim"), f"'{self.version}'")
         )
-    if hasattr(self, "space") and self.space.name != "All":
+    if hasattr(self, "space"):
         two_column_items.append(
             Text.assemble(("space: ", "dim"), f"'{self.space.name}'")
         )
-    if hasattr(self, "branch") and self.branch.name != "Main":
+    if hasattr(self, "branch"):
         two_column_items.append(
             Text.assemble(("branch: ", "dim"), f"'{self.branch.name}'")
         )
