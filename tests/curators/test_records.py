@@ -92,7 +92,7 @@ def test_record_example_compound_treatment(
 
     # this sheet does not have a schema!
     artifact = sample_sheet1.to_artifact()
-    assert sample_sheet1.schema.features.list("name") == [
+    assert sample_sheet1.schema.members.list("name") == [
         "treatment",
         "cell_line",
         "preparation_date",
@@ -102,7 +102,6 @@ def test_record_example_compound_treatment(
     # treatment,cell_line,preparation_date,__lamindb_record_uid__,__lamindb_record_name__
     # treatment1,HEK293T cell,2025-06-01 05:00:00,iCwgKgZELoLtIoGy,sample1
     # treatment2,HEK293T cell,2025-06-01 06:00:00,qvU9m7VF6fSdsqJs,sample2
-    print(artifact.path.read_text())
     assert artifact.path.read_text().startswith("""\
 treatment,cell_line,preparation_date,__lamindb_record_uid__,__lamindb_record_name__
 treatment1,HEK293T cell,2025-06-01 05:00:00""")

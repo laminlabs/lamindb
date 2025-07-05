@@ -211,12 +211,12 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         df.columns.values[0] = "__lamindb_record_uid__"
         df.columns.values[1] = "__lamindb_record_name__"
         if self.schema is not None:
-            desired_order = self.schema.features.list("name")
+            desired_order = self.schema.members.list("name")  # only members is ordered!
         else:
             # sort alphabetically for now
             desired_order = df.columns[2:].tolist()
             desired_order.sort()
-        df = reorder_subset_columns_in_df(df, desired_order, position=0)
+        df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
         return df
 
     def to_artifact(self, key: str = None) -> Artifact:

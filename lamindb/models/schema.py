@@ -930,22 +930,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 through_model(**{"schema_id": self.id, related_field_id: record.id})
                 for record in records
             ]
-            print("prior to save")
-            print([record.name for record in records])
-            print([link.feature.name for link in links])
-            print(
-                "prior",
-                through_model.objects.filter(schema_id=self.id).df(
-                    include="feature__name"
-                ),
-            )
             through_model.objects.using(using).bulk_create(links, ignore_conflicts=True)
-            print(
-                "after",
-                through_model.objects.filter(schema_id=self.id).df(
-                    include="feature__name"
-                ),
-            )
             delattr(self, "_features")
         return self
 
