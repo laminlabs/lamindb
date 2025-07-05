@@ -126,7 +126,7 @@ def test_curate_df():
 
     # Check that uid appears in the first two-column row
     first_row = general_node.children[0].label.plain
-    assert f"uid: '{artifact.uid}'" in first_row
+    assert f"uid: {artifact.uid}" in first_row
 
     # Check that hash appears somewhere in the two-column section
     found_hash = False
@@ -157,7 +157,7 @@ def test_curate_df():
 
     for child in general_node.children:
         child_text = child.label.plain
-        if "key: 'examples/dataset1.h5ad'" in child_text:
+        if "key: examples/dataset1.h5ad" in child_text:
             found_key = True
         if "storage location / path: " in child_text:
             found_path = True
