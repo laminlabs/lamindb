@@ -275,7 +275,7 @@ def test(session, group):
     elif group == "curator":
         run(
             session,
-            f"pytest -vv {coverage_args} tests/curators {duration_args}",
+            f"pytest {coverage_args} tests/curators {duration_args}",
         )
     elif group == "cli":
         run(
