@@ -207,7 +207,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     def to_pandas(self) -> pd.DataFrame:
         """Export all children of a record type recursively to a pandas DataFrame."""
         assert self.is_type, "Only types can be exported as dataframes"  # noqa: S101
-        df = self.query_children().order_by("id").df(features="queryset")
+        df = self.query_children().df(features="queryset")
         df.columns.values[0] = "__lamindb_record_uid__"
         df.columns.values[1] = "__lamindb_record_name__"
         if self.schema is not None:
@@ -217,7 +217,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
             desired_order = df.columns[2:].tolist()
             desired_order.sort()
         df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
-        return df
+        return df.sort_index()  # order by id for now
 
     def to_artifact(self, key: str = None) -> Artifact:
         """Export all children of a record type as a `.csv` artifact."""
