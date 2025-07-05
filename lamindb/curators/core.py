@@ -1631,7 +1631,6 @@ def annotate_artifact(
     # annotate with inferred schemas aka feature sets
     if artifact.otype == "DataFrame":
         features = cat_vectors["columns"].records
-        print(features)
         if features is not None:
             feature_set = Schema(
                 features=features, coerce_dtype=artifact.schema.coerce_dtype
